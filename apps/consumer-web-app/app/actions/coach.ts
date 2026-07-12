@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { fetchBaselineAssessment, type BaselineAssessment } from '@/lib/onboarding/baseline';
 import type { Profile, DailyCheckin, Habit, CoachNote } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
 
@@ -129,4 +130,18 @@ export async function addCoachNote(clientId: string, note: string): Promise<Acti
 
   if (error) return { error: error.message };
   return {};
+}
+
+/**
+ * A client's Baseline Assessment, from the coach's side. Uses the exact
+ * same fetchBaselineAssessment() as the member's own view — coach_read_
+ * assigned_submissions/answers RLS (migration 16) is what actually decides
+ * whether this coach may see it; an unassigned clientId simply comes back
+ * as null, the same shape as "hasn't onboarded yet."
+ */
+export async function getClientBaselineAssessment(
+  clientId: string
+): Promise<BaselineAssessment | null> {
+  const supabase = createClient();
+  return fetchBaselineAssessment(supabase, clientId);
 }

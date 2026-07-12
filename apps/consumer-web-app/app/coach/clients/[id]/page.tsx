@@ -15,13 +15,20 @@ import {
   Lightbulb,
   ListChecks,
   History,
+  ClipboardList,
 } from 'lucide-react';
 import type { Profile } from '@mef/shared-types-contracts';
-import { getClientHabits, getClientHabitLogs, getCoachNotes } from '@/app/actions/coach';
+import {
+  getClientHabits,
+  getClientHabitLogs,
+  getCoachNotes,
+  getClientBaselineAssessment,
+} from '@/app/actions/coach';
 import { buildClientSummary } from '../../lib';
 import { BottomNav } from '@/components/BottomNav';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from '@/app/dashboard/WellnessIndexCard';
+import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
 import { CoachNotesPanel } from './CoachNotesPanel';
 import {
   stressStatus,
@@ -108,10 +115,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const firstName = profile.display_name?.split(' ')[0] ?? 'This client';
 
   const summary = await buildClientSummary(profile);
-  const [habits, habitLogs, notes] = await Promise.all([
+  const [habits, habitLogs, notes, baseline] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
     getCoachNotes(profile.id),
+    getClientBaselineAssessment(profile.id),
   ]);
 
   const checkin = summary.todaysCheckin;
@@ -340,6 +348,28 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               </ul>
             ) : (
               <p className="mt-3 text-sm text-[#6B7A72]">No active habits assigned.</p>
+            )}
+          </section>
+
+          {/* Baseline Assessment — the client's original onboarding
+              submission, permanently preserved. Same data/formatting the
+              client sees on their own Baseline Assessment page. */}
+          <section>
+            <div className="mb-3 flex items-center gap-2 text-[#854D0E]">
+              <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-wider">Baseline Assessment</p>
+            </div>
+            {baseline ? (
+              <BaselineAssessmentView
+                baseline={baseline}
+                description={`${firstName}'s Baseline Assessment reflects what they shared when they first joined — a starting point for measuring progress over time.`}
+              />
+            ) : (
+              <div className={`${CARD} p-6`}>
+                <p className="text-sm text-[#6B7A72]">
+                  {firstName} hasn&apos;t completed their onboarding assessment yet.
+                </p>
+              </div>
             )}
           </section>
 

@@ -1,57 +1,42 @@
 import { createClient } from '@/lib/supabase/server';
 import { hasCompletedConsent } from './actions/consent';
-import { signOut } from './actions/auth';
 import { hasActiveRole } from '@/lib/auth/guards';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+/**
+ * Pure routing hub, never rendered UI — every path below ends in a
+ * redirect. This used to be an "internal dev build" placeholder page that
+ * required a manual click through to reach a dashboard; every sign-in,
+ * email-verify callback, and password-reset flow still converges here
+ * first, so it stays the single place role-based post-login routing lives,
+ * it just no longer shows anything itself.
+ */
 export default async function HomePage() {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) redirect('/login');
 
-  // Every sign-in, email-verify callback, and password-reset flow converges
-  // here before landing anywhere else. Coaches never have consent/onboarding
-  // rows (they're not a member), so without this check every coach login
-  // fell straight into the member-only branches below and saw nothing but
-  // "Complete consent and onboarding" — there was no coach path at all.
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
   if (isCoach) redirect('/coach');
 
+  const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
+  if (isAdmin) redirect('/admin');
+
+  // Member: preserve the existing consent -> onboarding -> dashboard
+  // progression, just without ever rendering a landing page in between.
   const consented = await hasCompletedConsent(user.id);
-  const { data: submission } = await supabase
+  if (!consented) redirect('/onboarding');
+
+  // Existence check, not .maybeSingle() — see app/onboarding/page.tsx for
+  // why this can't assume at most one row once reassessments exist.
+  const { data: submissions } = await supabase
     .from('onboarding_submissions')
     .select('id')
     .eq('user_id', user.id)
-    .maybeSingle();
+    .limit(1);
+  if (!submissions || submissions.length === 0) redirect('/onboarding');
 
-  return (
-    <main>
-      <h1>MEF Wellness — internal dev build</h1>
-      <p>Signed in as {user.email}</p>
-
-      {!consented && (
-        <p>
-          <Link href="/onboarding">Complete consent and onboarding →</Link>
-        </p>
-      )}
-      {consented && !submission && (
-        <p>
-          <Link href="/onboarding">Complete your onboarding assessment →</Link>
-        </p>
-      )}
-      {consented && submission && (
-        <p>
-          <Link href="/dashboard">Go to your dashboard →</Link>
-        </p>
-      )}
-
-      <form action={signOut}>
-        <button type="submit">Sign out</button>
-      </form>
-    </main>
-  );
+  redirect('/dashboard');
 }

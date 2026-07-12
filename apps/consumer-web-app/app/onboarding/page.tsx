@@ -38,13 +38,17 @@ export default async function OnboardingPage() {
     );
   }
 
+  // Existence check, not .maybeSingle() — onboarding_submissions has no
+  // unique constraint on user_id by design (lib/onboarding/baseline.ts),
+  // so a future reassessment adding a second row here must never turn this
+  // into a hard error. This only asks "has the member ever submitted."
   const { data: existing } = await supabase
     .from('onboarding_submissions')
     .select('id')
     .eq('user_id', user.id)
-    .maybeSingle();
+    .limit(1);
 
-  if (existing) {
+  if (existing && existing.length > 0) {
     return (
       <div className={SHELL}>
         <main className={CONTAINER}>
@@ -56,6 +60,13 @@ export default async function OnboardingPage() {
               className="font-medium text-[#854D0E] underline underline-offset-2"
             >
               today&apos;s check-in
+            </Link>{' '}
+            or review your{' '}
+            <Link
+              href="/profile/baseline"
+              className="font-medium text-[#854D0E] underline underline-offset-2"
+            >
+              Baseline Assessment
             </Link>
             .
           </p>

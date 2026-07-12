@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { hasCompletedConsent } from './consent';
+import { fetchBaselineAssessment, type BaselineAssessment } from '@/lib/onboarding/baseline';
 import type { OnboardingAnswerInput, OnboardingQuestion } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
 
@@ -64,4 +65,20 @@ export async function submitOnboarding(
 
   if (error) return { error: error.message };
   return {};
+}
+
+/**
+ * The signed-in member's own Baseline Assessment — their first-ever
+ * onboarding submission, permanently preserved. Returns null if they
+ * haven't completed onboarding yet; there is no separate "not found"
+ * error, since that's just the normal state before their first submission.
+ */
+export async function getMyBaselineAssessment(): Promise<BaselineAssessment | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  return fetchBaselineAssessment(supabase, user.id);
 }

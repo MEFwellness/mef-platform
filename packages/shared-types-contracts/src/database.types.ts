@@ -85,6 +85,32 @@ export interface OnboardingAnswerInput {
   value?: string | number | boolean | string[];
 }
 
+export interface OnboardingSubmission {
+  id: string;
+  user_id: string;
+  assessment_version_id: string;
+  submitted_at: string;
+  timezone: string;
+  local_date: string;
+  raw_payload: unknown;
+  // Reserved for future reassessments: a later submission would supersede
+  // an earlier "current" one by setting this, without ever deleting the
+  // row. Unused by submit_onboarding() today — every submission is kept.
+  superseded_at: string | null;
+}
+
+export interface OnboardingAnswerRecord {
+  id: string;
+  submission_id: string;
+  question_id: string;
+  answer_status: AnswerStatus;
+  value_numeric: number | null;
+  value_enum: string | null;
+  value_multi_select: string[] | null;
+  value_boolean: boolean | null;
+  value_free_text: string | null;
+}
+
 export interface DailyCheckinInput {
   timezone: string;
   local_date: string; // YYYY-MM-DD

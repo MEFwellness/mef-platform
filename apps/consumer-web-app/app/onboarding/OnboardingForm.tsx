@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitOnboarding } from '../actions/onboarding';
+import { SLIDER_ENDPOINT_LABELS, numericRange } from '@/lib/onboarding/scale';
 import type {
   AnswerStatus,
   OnboardingAnswerInput,
@@ -24,23 +25,6 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
 const INPUT =
   'mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
 const INPUT_INVALID = 'border-red-400 focus:border-red-400';
-
-// Natural-language endpoints for known 1-10-style rating questions — a bare
-// "1" and "10" on a slider doesn't tell anyone what direction is good.
-// Falls back to a generic Low/High pairing (using the question's own
-// min/max) for any numeric question not listed here.
-const SLIDER_ENDPOINT_LABELS: Record<string, { min: string; max: string }> = {
-  baseline_sleep_quality: { min: 'Very poor', max: 'Excellent' },
-  baseline_stress_level: { min: 'Very low', max: 'Very high' },
-  baseline_energy_level: { min: 'Very low', max: 'Very high' },
-  baseline_digestion: { min: 'Very poor', max: 'Excellent' },
-  readiness_importance: { min: 'Not important', max: 'Extremely important' },
-  readiness_confidence: { min: 'Not confident', max: 'Extremely confident' },
-};
-
-function numericRange(questionKey: string): { min: number; max: number } {
-  return questionKey.startsWith('readiness_') ? { min: 0, max: 10 } : { min: 1, max: 5 };
-}
 
 /**
  * A required question is satisfied either by a real, non-empty answer, or
