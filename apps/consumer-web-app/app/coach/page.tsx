@@ -219,7 +219,9 @@ export default async function CoachPage() {
         </section>
       </main>
 
-      <BottomNav />
+      {/* middleware.ts already redirected anyone without the coach role
+          before this page rendered, so isCoach is always true here. */}
+      <BottomNav isCoach />
     </div>
   );
 }

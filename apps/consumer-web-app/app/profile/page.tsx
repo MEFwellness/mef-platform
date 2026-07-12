@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { signOut } from '@/app/actions/auth';
+import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { ProfileForm } from './ProfileForm';
 
@@ -18,6 +19,7 @@ export default async function ProfilePage() {
     .select('display_name, timezone')
     .eq('id', user.id)
     .single();
+  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
 
@@ -59,7 +61,7 @@ export default async function ProfilePage() {
         </div>
       </main>
 
-      <BottomNav />
+      <BottomNav isCoach={isCoach} />
     </div>
   );
 }

@@ -54,6 +54,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getTodaysCheckin, getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
+import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from './WellnessIndexCard';
@@ -134,6 +135,7 @@ export default async function DashboardPage() {
     .select('display_name, timezone')
     .eq('id', user.id)
     .single();
+  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 
   const timezone = profile?.timezone ?? 'America/New_York';
   const localDate = await resolveLocalDate(
@@ -487,7 +489,7 @@ export default async function DashboardPage() {
       {/* Same classes as before, now real Link navigation with a    */}
       {/* real active state — see components/BottomNav.tsx.          */}
       {/* -------------------------------------------------------- */}
-      <BottomNav />
+      <BottomNav isCoach={isCoach} />
     </div>
   );
 }

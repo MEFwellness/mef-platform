@@ -371,7 +371,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         </div>
       </main>
 
-      <BottomNav />
+      {/* middleware.ts already redirected anyone without the coach role
+          before this page rendered, so isCoach is always true here. */}
+      <BottomNav isCoach />
     </div>
   );
 }

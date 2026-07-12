@@ -7,6 +7,7 @@ import {
   getHabitLogsForDate,
   resolveLocalDate,
 } from '@/app/actions/checkin';
+import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { CheckinForm } from './CheckinForm';
 
@@ -24,6 +25,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
     .select('timezone')
     .eq('id', user.id)
     .single();
+  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
@@ -77,7 +79,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
         />
       </main>
 
-      <BottomNav />
+      <BottomNav isCoach={isCoach} />
     </div>
   );
 }

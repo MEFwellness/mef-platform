@@ -17,15 +17,19 @@ export async function middleware(request: NextRequest) {
   }
 
   // Role-gated routes — redirect-only (UX). RLS is what actually protects
-  // the data these pages read/write; see lib/auth/guards.ts.
+  // the data these pages read/write; see lib/auth/guards.ts. A signed-in
+  // user who lacks the role sent here goes to their own dashboard, not the
+  // unstyled internal "/" dev-build page — a member clicking the (now
+  // role-hidden, see BottomNav) Coach link or hitting /coach directly
+  // should land back in their normal member experience, not a dead end.
   if (user && path.startsWith('/admin')) {
     const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
-    if (!isAdmin) return NextResponse.redirect(new URL('/', request.url));
+    if (!isAdmin) return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   if (user && path.startsWith('/coach')) {
     const isCoach = await hasActiveRole(supabase, user.id, 'coach');
-    if (!isCoach) return NextResponse.redirect(new URL('/', request.url));
+    if (!isCoach) return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return response;

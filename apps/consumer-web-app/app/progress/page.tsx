@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { TrendingUp, Flame } from 'lucide-react';
 import { getRecentCheckins } from '@/app/actions/checkin';
+import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import type { DailyCheckin } from '@mef/shared-types-contracts';
 
@@ -39,6 +40,7 @@ export default async function ProgressPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 
   const recentCheckins = await getRecentCheckins(30);
   const streak = calculateStreak(recentCheckins);
@@ -156,7 +158,7 @@ export default async function ProgressPage() {
         </section>
       </main>
 
-      <BottomNav />
+      <BottomNav isCoach={isCoach} />
     </div>
   );
 }
