@@ -1,6 +1,7 @@
-import { Gauge, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Gauge, TrendingUp, TrendingDown, Minus, Sparkles, Target } from 'lucide-react';
 import { STATUS_STYLES } from './status';
-import { WELLNESS_PRIORITY_ACTION, type WellnessIndexResult } from './wellness-index';
+import type { WellnessIndexResult } from './wellness-index';
+import { WELLNESS_COACHING } from './coaching';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -53,42 +54,54 @@ export function WellnessIndexCard({ result, previousScore }: Props) {
               {result.label}
             </span>
           </div>
+          <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
+            A coaching metric calculated from today&apos;s check-in and your recent wellness trends
+            — not a medical score.
+          </p>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {result.strongest && (
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
-                  Strongest area
-                </p>
-                <p
-                  className={`mt-1 text-base font-semibold ${STATUS_STYLES[result.strongest.status].text}`}
-                >
-                  {result.strongest.label}
-                </p>
+          {result.strongest && (
+            <div className={`mt-6 rounded-2xl p-5 ${STATUS_STYLES[result.strongest.status].bg}`}>
+              <div
+                className={`flex items-center gap-2 ${STATUS_STYLES[result.strongest.status].text}`}
+              >
+                <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-xs font-semibold uppercase tracking-wider">Strongest Area</p>
               </div>
-            )}
-            {result.priority && (
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
-                  Priority area
-                </p>
-                <p
-                  className={`mt-1 text-base font-semibold ${STATUS_STYLES[result.priority.status].text}`}
-                >
-                  {result.priority.label}
-                </p>
-              </div>
-            )}
-          </div>
+              <p
+                className={`mt-1.5 text-lg font-semibold ${STATUS_STYLES[result.strongest.status].text}`}
+              >
+                {result.strongest.label}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]/75">
+                {WELLNESS_COACHING[result.strongest.key].strongestNote}
+              </p>
+            </div>
+          )}
 
           {result.priority && (
-            <div className="mt-5 rounded-2xl bg-[#F3F6F4] p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
-                Today&apos;s Priority
+            <div className="mt-4 rounded-2xl bg-[#F3F6F4] p-6">
+              <div className="flex items-center gap-2 text-[#854D0E]">
+                <Target className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-xs font-semibold uppercase tracking-wider">
+                  Today&apos;s Priority
+                </p>
+              </div>
+              <h2
+                className={`mt-2 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-snug ${STATUS_STYLES[result.priority.status].text}`}
+              >
+                {WELLNESS_COACHING[result.priority.key].priorityTitle}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]/75">
+                {WELLNESS_COACHING[result.priority.key].priorityWhy}
               </p>
-              <p className="mt-1.5 text-lg font-semibold text-[#1B3A2D]">
-                {WELLNESS_PRIORITY_ACTION[result.priority.key]}
-              </p>
+              <div className="mt-4 rounded-xl bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
+                  Today&apos;s Action
+                </p>
+                <p className="mt-1 text-sm font-medium leading-relaxed text-[#1B3A2D]">
+                  {WELLNESS_COACHING[result.priority.key].priorityAction}
+                </p>
+              </div>
             </div>
           )}
         </>

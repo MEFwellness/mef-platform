@@ -49,7 +49,7 @@ export function EnergyTrendChart({ checkins }: Props) {
   if (checkins.length === 0) {
     return (
       <div className="mt-4 flex h-40 items-center justify-center rounded-2xl bg-[#F3F6F4] p-4">
-        <p className="text-sm text-[#6B7A72]">Trends will show up here after a few check-ins.</p>
+        <p className="text-sm text-[#1B3A2D]/70">Trends will show up here after a few check-ins.</p>
       </div>
     );
   }

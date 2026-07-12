@@ -63,18 +63,6 @@ export const WELLNESS_METRIC_LABEL: Record<WellnessMetricKey, string> = {
   pain: 'Pain',
 };
 
-/** "Today's Priority" title shown when this metric is the day's biggest limiting factor. */
-export const WELLNESS_PRIORITY_ACTION: Record<WellnessMetricKey, string> = {
-  sleep: 'Improve Sleep Recovery',
-  stress: 'Reduce Stress Load',
-  energy: 'Boost Your Energy',
-  mood: 'Support Your Mood',
-  hydration: 'Increase Hydration',
-  digestion: 'Support Digestion',
-  movement: 'Increase Movement',
-  pain: 'Address Pain & Discomfort',
-};
-
 export type WellnessIndexInputs = {
   sleepQuality: number | null;
   sleepDuration: '<5h' | '5-6h' | '6-7h' | '7-8h' | '8h+' | null;
@@ -150,10 +138,11 @@ export function scoreToStatus(score: number): MetricStatus {
   return 'poor';
 }
 
+/** Wording matches the app-wide status vocabulary: green=Healthy/On Track, gold=Needs Attention, red=Priority. */
 export function scoreLabel(score: number): string {
   if (score >= 85) return 'Excellent';
-  if (score >= 70) return 'Good';
-  if (score >= 55) return 'Needs Improvement';
+  if (score >= 70) return 'On Track';
+  if (score >= 55) return 'Needs Attention';
   return 'Priority Focus';
 }
 

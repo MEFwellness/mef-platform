@@ -31,8 +31,15 @@ export const STATUS_STYLES: Record<
     bar: 'bg-amber-500',
   },
   poor: { text: 'text-red-700', bg: 'bg-red-50', dot: 'bg-red-500', bar: 'bg-red-500' },
+  // Not a 4th status color — absence, not a judgment. text-[#6B7A72] (the
+  // app's usual muted-caption gray) fails WCAG AA (4.14:1) specifically
+  // against bg-[#F3F6F4] wherever both are used together (e.g. a no-data
+  // badge, or the chart's empty state) — found by actually auditing a
+  // zero-checkin account, not assumed. text-[#1B3A2D]/70 passes on both
+  // this background and white, and doesn't collide with "good" — that's
+  // green-700 now, not #1B3A2D.
   'no-data': {
-    text: 'text-[#6B7A72]',
+    text: 'text-[#1B3A2D]/70',
     bg: 'bg-[#F3F6F4]',
     dot: 'bg-[#EFE9DB]',
     bar: 'bg-[#EFE9DB]',
