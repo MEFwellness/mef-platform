@@ -23,7 +23,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <div className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <div className="flex items-center gap-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[#F5B700] bg-white text-lg font-medium text-[#1B3A2D]">
             {firstName.charAt(0).toUpperCase()}
@@ -57,7 +57,7 @@ export default async function ProfilePage() {
             </button>
           </form>
         </div>
-      </div>
+      </main>
 
       <BottomNav />
     </div>

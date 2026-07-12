@@ -23,7 +23,7 @@ export default async function OnboardingPage() {
   if (!consented) {
     return (
       <div className={SHELL}>
-        <div className={CONTAINER}>
+        <main className={CONTAINER}>
           <h1 className={HEADING}>Before we start</h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
             Please review and accept the following before completing your assessment.
@@ -31,7 +31,7 @@ export default async function OnboardingPage() {
           <div className={`${CARD} mt-6 p-6`}>
             <ConsentForm />
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -45,7 +45,7 @@ export default async function OnboardingPage() {
   if (existing) {
     return (
       <div className={SHELL}>
-        <div className={CONTAINER}>
+        <main className={CONTAINER}>
           <h1 className={HEADING}>Onboarding already complete</h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
             Thanks — your onboarding assessment is on file. Head to{' '}
@@ -54,7 +54,7 @@ export default async function OnboardingPage() {
             </Link>
             .
           </p>
-        </div>
+        </main>
       </div>
     );
   }
@@ -63,7 +63,7 @@ export default async function OnboardingPage() {
 
   return (
     <div className={SHELL}>
-      <div className={CONTAINER}>
+      <main className={CONTAINER}>
         <h1 className={HEADING}>Onboarding assessment</h1>
         <p className="mt-2 text-[15px] text-[#6B7A72]">
           A few questions so your coach can understand where you&apos;re starting from.
@@ -71,7 +71,7 @@ export default async function OnboardingPage() {
         <div className="mt-6">
           <OnboardingForm questions={questions} />
         </div>
-      </div>
+      </main>
     </div>
   );
 }

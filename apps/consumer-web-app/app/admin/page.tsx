@@ -19,7 +19,7 @@ export default async function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <div className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
           Admin
         </h1>
@@ -28,7 +28,7 @@ export default async function AdminPage() {
         </p>
 
         <AdminPanel users={users} coachIds={coachIds} assignments={assignments} />
-      </div>
+      </main>
 
       <BottomNav />
     </div>

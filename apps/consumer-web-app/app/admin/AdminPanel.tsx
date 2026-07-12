@@ -174,7 +174,7 @@ export function AdminPanel({ users, coachIds, assignments }: Props) {
                   className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                     a.status === 'active'
                       ? 'bg-[#EFF6F1] text-[#1B3A2D]'
-                      : 'bg-[#F3F6F4] text-[#6B7A72]'
+                      : 'bg-[#F3F6F4] text-[#1B3A2D]'
                   }`}
                 >
                   {a.status}

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] px-5 py-12 font-[family-name:var(--font-dm-sans)]">
-      <div className="w-full max-w-sm">
+      <main className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center gap-3">
           <img
             src="/images/rooted-reset-logo.png"
@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <div className="rounded-[28px] bg-white p-7 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
           {children}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

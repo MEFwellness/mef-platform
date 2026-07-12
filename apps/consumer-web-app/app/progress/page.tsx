@@ -46,7 +46,7 @@ export default async function ProgressPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <div className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
           Progress
         </h1>
@@ -139,7 +139,7 @@ export default async function ProgressPage() {
             <p className="mt-3 text-sm text-[#6B7A72]">No check-ins logged yet.</p>
           )}
         </section>
-      </div>
+      </main>
 
       <BottomNav />
     </div>

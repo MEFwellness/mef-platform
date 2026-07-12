@@ -44,7 +44,7 @@ export default async function CheckinPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <div className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
           {requestedYesterday ? "Yesterday's check-in" : "Today's check-in"}
         </h1>
@@ -79,7 +79,7 @@ export default async function CheckinPage({
           initialHabitLogs={habitLogs}
           cardClassName={CARD}
         />
-      </div>
+      </main>
 
       <BottomNav />
     </div>
