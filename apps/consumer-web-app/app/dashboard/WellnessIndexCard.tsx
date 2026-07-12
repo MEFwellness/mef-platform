@@ -1,13 +1,15 @@
 import { Gauge, TrendingUp, TrendingDown, Minus, Sparkles, Target } from 'lucide-react';
-import { STATUS_STYLES } from './status';
-import type { WellnessIndexResult } from './wellness-index';
-import { WELLNESS_COACHING } from './coaching';
+import { STATUS_STYLES } from '@/lib/wellness/status';
+import type { WellnessIndexResult } from '@/lib/wellness/wellness-index';
+import { WELLNESS_COACHING } from '@/lib/wellness/coaching';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 type Props = {
   result: WellnessIndexResult | null;
   previousScore: number | null;
+  /** When set, copy switches from member ("your") to coach voice, describing this client instead. Omit for the member dashboard's own usage. */
+  clientFirstName?: string;
 };
 
 function DeltaBadge({ current, previous }: { current: number; previous: number }) {
@@ -26,7 +28,7 @@ function DeltaBadge({ current, previous }: { current: number; previous: number }
   );
 }
 
-export function WellnessIndexCard({ result, previousScore }: Props) {
+export function WellnessIndexCard({ result, previousScore, clientFirstName }: Props) {
   return (
     <section className={`${CARD} p-7`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -55,8 +57,9 @@ export function WellnessIndexCard({ result, previousScore }: Props) {
             </span>
           </div>
           <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-            A coaching metric calculated from today&apos;s check-in and your recent wellness trends
-            — not a medical score.
+            {clientFirstName
+              ? `A coaching metric calculated from ${clientFirstName}’s check-in today and recent wellness trends — not a medical score.`
+              : "A coaching metric calculated from today's check-in and your recent wellness trends — not a medical score."}
           </p>
 
           {result.strongest && (
@@ -108,17 +111,20 @@ export function WellnessIndexCard({ result, previousScore }: Props) {
       ) : (
         <>
           <h2 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
-            Building your Daily Wellness Index
+            {clientFirstName ? 'No score yet' : 'Building your Daily Wellness Index'}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-            Complete today&apos;s check-in to see your first score.
+            {clientFirstName
+              ? `${clientFirstName} hasn’t completed a check-in yet.`
+              : "Complete today's check-in to see your first score."}
           </p>
         </>
       )}
 
       <p className="mt-6 text-xs leading-relaxed text-[#6B7A72]">
-        Your Daily Wellness Index summarizes today&apos;s wellness check-in and recent patterns. It
-        is intended as a wellness coaching guide and is not a medical diagnosis.
+        {clientFirstName
+          ? `The Daily Wellness Index summarizes ${clientFirstName}’s wellness check-in and recent patterns. It is intended as a wellness coaching guide and is not a medical diagnosis.`
+          : "Your Daily Wellness Index summarizes today's wellness check-in and recent patterns. It is intended as a wellness coaching guide and is not a medical diagnosis."}
       </p>
     </section>
   );

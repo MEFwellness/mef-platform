@@ -1,10 +1,16 @@
 /**
- * Status-color classification for dashboard metrics. Every function here
- * takes the same raw value already fetched via getTodaysCheckin/
- * getRecentCheckins (no new data source) and returns one of four bands:
- * good / attention / poor / no-data. Thresholds encode the direction each
- * metric actually runs in — stress and pain are inverse (low is good),
- * everything else here is direct (high is good).
+ * Status-color classification for wellness metrics. Every function here
+ * takes a raw value already fetched from a DailyCheckin row (no new data
+ * source) and returns one of four bands: good / attention / poor /
+ * no-data. Thresholds encode the direction each metric actually runs
+ * in — stress and pain are inverse (low is good), everything else here
+ * is direct (high is good).
+ *
+ * Shared between the member dashboard (app/dashboard/) and the coach
+ * dashboard (app/coach/) — this is the single source of truth for what
+ * "good/attention/poor" means for a given raw value, so a client's
+ * stress reading is never shown as one color on their own dashboard and
+ * a different color on their coach's view of the same data.
  *
  * Color choice is deliberate, not arbitrary: "good" and "attention" used
  * to reuse #1B3A2D and #854D0E — the same colors already used everywhere

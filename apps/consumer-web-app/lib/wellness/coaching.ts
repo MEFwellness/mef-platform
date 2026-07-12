@@ -1,11 +1,15 @@
 /**
  * Coaching copy for the Daily Wellness Index's priority/strongest-area
- * sections. Pure content, no calculation — WellnessIndexCard picks which
- * entry to show using result.priority.key / result.strongest.key, which
+ * sections. Pure content, no calculation — callers pick which entry to
+ * show using result.priority.key / result.strongest.key, which
  * wellness-index.ts already derives from real check-in data (the lowest-
- * and highest-scoring metric that was actually logged today). Nothing
- * here decides WHICH category is the priority; it only supplies what to
- * say once that's already been determined from real data.
+ * and highest-scoring metric that was actually logged). Nothing here
+ * decides WHICH category is the priority; it only supplies what to say
+ * once that's already been determined from real data.
+ *
+ * Shared between the member dashboard and the coach dashboard — the
+ * same "why sleep matters" explanation is correct whether it's a member
+ * reading it about themselves or a coach reading it about a client.
  *
  * Coaching language only — no diagnostic or medical claims. Pain's
  * copy explicitly defers to a healthcare provider rather than suggesting

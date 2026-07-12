@@ -133,3 +133,11 @@ export interface HabitLog {
   local_date: string;
   completed: boolean;
 }
+
+export interface CoachNote {
+  id: string;
+  coach_id: string;
+  client_id: string;
+  note: string;
+  created_at: string;
+}

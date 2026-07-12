@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { DailyCheckin } from '@mef/shared-types-contracts';
-import { energyStatus, STATUS_STYLES } from './status';
+import { energyStatus, STATUS_STYLES } from '@/lib/wellness/status';
 
 type Props = {
   checkins: DailyCheckin[]; // oldest first

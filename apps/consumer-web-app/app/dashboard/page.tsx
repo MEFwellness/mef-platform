@@ -55,9 +55,9 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getTodaysCheckin, getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
 import { BottomNav } from '@/components/BottomNav';
-import { EnergyTrendChart } from './EnergyTrendChart';
+import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from './WellnessIndexCard';
-import { calculateWellnessIndex, inputsFromCheckin } from './wellness-index';
+import { calculateWellnessIndex, inputsFromCheckin } from '@/lib/wellness/wellness-index';
 import {
   stressStatus,
   painStatus,
@@ -68,7 +68,7 @@ import {
   digestionStatus,
   movementStatus,
   STATUS_STYLES,
-} from './status';
+} from '@/lib/wellness/status';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const TRACKER_CARD = `${CARD} flex min-h-[172px] flex-col p-5`;
@@ -202,7 +202,7 @@ export default async function DashboardPage() {
           {/* ---------------------------------------------------- */}
           {/* Daily Wellness Index — first thing shown after login,  */}
           {/* per the current milestone. Real weighted score from    */}
-          {/* today's check-in (app/dashboard/wellness-index.ts);    */}
+          {/* today's check-in (lib/wellness/wellness-index.ts);     */}
           {/* never a placeholder number.                            */}
           {/* ---------------------------------------------------- */}
           <WellnessIndexCard
@@ -278,7 +278,7 @@ export default async function DashboardPage() {
           {/* Trackers — real data, indicator color reflects status  */}
           {/* (green = good, gold = needs attention, red = poor,     */}
           {/* gray = no data). Stress/Pain are inverse scales — low   */}
-          {/* is good — see app/dashboard/status.ts.                 */}
+          {/* is good — see lib/wellness/status.ts.                  */}
           {/* ---------------------------------------------------- */}
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
             <div className={TRACKER_CARD}>

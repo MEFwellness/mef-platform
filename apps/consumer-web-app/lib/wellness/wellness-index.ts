@@ -5,6 +5,11 @@
  * wasn't logged is excluded from the average entirely (its weight is
  * redistributed across whatever was logged) rather than guessed at.
  *
+ * Shared between the member dashboard and the coach dashboard — a
+ * client's index shown to their coach is computed by the exact same
+ * function as the index shown on the client's own dashboard, from the
+ * same underlying check-in row.
+ *
  * Status color for each sub-metric reuses status.ts's classifiers
  * directly, applied to the same raw value the tracker cards use — so a
  * given stress/pain/etc. reading is never shown as one color on the
@@ -162,12 +167,20 @@ export type WellnessIndexResult = {
   strongest: WellnessMetricScore | null;
 };
 
+export type MetricScoreCandidate = {
+  key: WellnessMetricKey;
+  score: number | null; // 0-100, null when that metric wasn't logged
+  status: MetricStatus;
+};
+
 /**
- * Returns null when there's not enough real data to compute a meaningful
- * index (no check-in logged) — callers must show "Building your Daily
- * Wellness Index" in that case, never a fabricated number.
+ * Per-metric normalized score + status for a single day's inputs — the
+ * same building block calculateWellnessIndex() weights and averages, and
+ * the same one insights.ts compares across days for trend detection.
+ * Extracted so both consumers agree by construction on what "sleep's
+ * score today" means, instead of each computing it separately.
  */
-export function calculateWellnessIndex(inputs: WellnessIndexInputs): WellnessIndexResult | null {
+export function computeMetricCandidates(inputs: WellnessIndexInputs): MetricScoreCandidate[] {
   const sleepScoreParts = [
     fivePointDirect(inputs.sleepQuality),
     inputs.sleepDuration ? SLEEP_DURATION_SCORE[inputs.sleepDuration] : null,
@@ -181,11 +194,7 @@ export function calculateWellnessIndex(inputs: WellnessIndexInputs): WellnessInd
           ? sleepDurationStatus(inputs.sleepDuration)
           : 'no-data';
 
-  const candidates: {
-    key: WellnessMetricKey;
-    score: number | null;
-    status: MetricStatus;
-  }[] = [
+  return [
     {
       key: 'sleep',
       score:
@@ -222,6 +231,15 @@ export function calculateWellnessIndex(inputs: WellnessIndexInputs): WellnessInd
     },
     { key: 'pain', score: painScoreOf(inputs.painLevel), status: painStatus(inputs.painLevel) },
   ];
+}
+
+/**
+ * Returns null when there's not enough real data to compute a meaningful
+ * index (no check-in logged) — callers must show "Building your Daily
+ * Wellness Index" in that case, never a fabricated number.
+ */
+export function calculateWellnessIndex(inputs: WellnessIndexInputs): WellnessIndexResult | null {
+  const candidates = computeMetricCandidates(inputs);
 
   const available = candidates.filter(
     (m): m is { key: WellnessMetricKey; score: number; status: MetricStatus } => m.score !== null
