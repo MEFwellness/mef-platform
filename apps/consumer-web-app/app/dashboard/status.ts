@@ -5,6 +5,16 @@
  * good / attention / poor / no-data. Thresholds encode the direction each
  * metric actually runs in — stress and pain are inverse (low is good),
  * everything else here is direct (high is good).
+ *
+ * Color choice is deliberate, not arbitrary: "good" and "attention" used
+ * to reuse #1B3A2D and #854D0E — the same colors already used everywhere
+ * on the dashboard for ordinary heading text and section-label accents
+ * (WATER, SLEEP, DAILY WELLNESS INDEX, etc.), unrelated to status. A
+ * status color that's visually identical to the surrounding chrome isn't
+ * a status color — it reads as plain text. green-700/amber-700/red-700
+ * (a matched Tailwind trio, same -700-on-50 pattern already proven
+ * accessible for "poor") don't collide with anything else already on the
+ * page, so each status is actually recognizable on sight.
  */
 
 export type MetricStatus = 'good' | 'attention' | 'poor' | 'no-data';
@@ -13,12 +23,12 @@ export const STATUS_STYLES: Record<
   MetricStatus,
   { text: string; bg: string; dot: string; bar: string }
 > = {
-  good: { text: 'text-[#1B3A2D]', bg: 'bg-[#EFF6F1]', dot: 'bg-[#1B3A2D]', bar: 'bg-[#1B3A2D]' },
+  good: { text: 'text-green-700', bg: 'bg-green-50', dot: 'bg-green-600', bar: 'bg-green-600' },
   attention: {
-    text: 'text-[#854D0E]',
-    bg: 'bg-[#FDF0D2]',
-    dot: 'bg-[#F5B700]',
-    bar: 'bg-[#F5B700]',
+    text: 'text-amber-700',
+    bg: 'bg-amber-50',
+    dot: 'bg-amber-500',
+    bar: 'bg-amber-500',
   },
   poor: { text: 'text-red-700', bg: 'bg-red-50', dot: 'bg-red-500', bar: 'bg-red-500' },
   'no-data': {

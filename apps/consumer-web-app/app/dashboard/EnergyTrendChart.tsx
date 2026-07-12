@@ -12,9 +12,12 @@ const PAD_X = 5; // percent inset on each side — keeps marker circles fully in
 const PAD_TOP = 14;
 const PAD_BOTTOM = 14;
 
+// Matches STATUS_STYLES' .dot classes in status.ts (green-600/amber-500/
+// red-500) — SVG fill needs a raw hex, so these have to be kept in sync
+// by hand rather than reusing the Tailwind class string directly.
 const DOT_FILL: Record<string, string> = {
-  good: '#1B3A2D',
-  attention: '#F5B700',
+  good: '#16A34A',
+  attention: '#F59E0B',
   poor: '#EF4444',
   'no-data': '#EFE9DB',
 };
