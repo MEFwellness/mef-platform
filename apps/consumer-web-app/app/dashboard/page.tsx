@@ -40,11 +40,33 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Route } from 'next';
-import { Droplet, Moon, Activity, Bone, TrendingUp, Calendar } from 'lucide-react';
+import {
+  Droplet,
+  Moon,
+  Activity,
+  Bone,
+  TrendingUp,
+  Calendar,
+  Smile,
+  Utensils,
+  Footprints,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getTodaysCheckin, getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
 import { BottomNav } from '@/components/BottomNav';
+import { EnergyTrendChart } from './EnergyTrendChart';
+import {
+  stressStatus,
+  painStatus,
+  sleepQualityStatus,
+  sleepDurationStatus,
+  waterStatus,
+  moodStatus,
+  digestionStatus,
+  movementStatus,
+  STATUS_STYLES,
+} from './status';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const TRACKER_CARD = `${CARD} flex min-h-[172px] flex-col p-5`;
@@ -62,6 +84,28 @@ function painLabel(level: number | null): string {
   if (level === 1) return 'Mild';
   if (level <= 3) return 'Moderate';
   return 'Severe';
+}
+
+function moodLabel(level: number | null): string {
+  if (level === null) return 'Not logged yet';
+  if (level <= 2) return 'Low';
+  if (level === 3) return 'Neutral';
+  return 'Good';
+}
+
+function digestionLabel(level: number | null): string {
+  if (level === null) return 'Not logged yet';
+  if (level <= 2) return 'Poor';
+  if (level === 3) return 'Fair';
+  return 'Good';
+}
+
+function movementLabel(level: 'none' | 'light' | 'moderate' | 'full_session' | null): string {
+  if (level === null) return 'Not logged yet';
+  if (level === 'none') return 'None';
+  if (level === 'light') return 'Light';
+  if (level === 'moderate') return 'Moderate';
+  return 'Full session';
 }
 
 export default async function DashboardPage() {
@@ -202,7 +246,10 @@ export default async function DashboardPage() {
           </div>
 
           {/* ---------------------------------------------------- */}
-          {/* Trackers — Water, Sleep, Stress, Pain, real data       */}
+          {/* Trackers — real data, indicator color reflects status  */}
+          {/* (green = good, gold = needs attention, red = poor,     */}
+          {/* gray = no data). Stress/Pain are inverse scales — low   */}
+          {/* is good — see app/dashboard/status.ts.                 */}
           {/* ---------------------------------------------------- */}
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
             <div className={TRACKER_CARD}>
@@ -212,14 +259,16 @@ export default async function DashboardPage() {
               </div>
               {todaysCheckin?.water_cups != null ? (
                 <>
-                  <p className="mt-3 text-2xl font-semibold text-[#1B3A2D]">
+                  <p
+                    className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[waterStatus(todaysCheckin.water_cups)].text}`}
+                  >
                     {todaysCheckin.water_cups}
                     <span className="text-sm font-normal text-[#6B7A72]"> of 8 cups</span>
                   </p>
                   <div className="mt-auto pt-3">
                     <div className="h-2 w-full overflow-hidden rounded-full bg-[#EFE9DB]">
                       <div
-                        className="h-full rounded-full bg-[#F5B700]"
+                        className={`h-full rounded-full ${STATUS_STYLES[waterStatus(todaysCheckin.water_cups)].bar}`}
                         style={{ width: `${Math.min(100, (todaysCheckin.water_cups / 8) * 100)}%` }}
                       />
                     </div>
@@ -237,12 +286,23 @@ export default async function DashboardPage() {
               </div>
               {todaysCheckin?.sleep_duration ? (
                 <>
-                  <p className="mt-3 text-2xl font-semibold text-[#1B3A2D]">
+                  <p
+                    className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[sleepDurationStatus(todaysCheckin.sleep_duration)].text}`}
+                  >
                     {todaysCheckin.sleep_duration}
                   </p>
-                  <p className="mt-auto pt-3 text-xs text-[#6B7A72]">
-                    Quality: {todaysCheckin.sleep_quality ?? '—'}/5
-                  </p>
+                  <div className="mt-auto flex gap-1 pt-3">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <div
+                        key={n}
+                        className={`h-2 flex-1 rounded-full ${
+                          todaysCheckin?.sleep_quality && n <= todaysCheckin.sleep_quality
+                            ? STATUS_STYLES[sleepQualityStatus(todaysCheckin.sleep_quality)].dot
+                            : 'bg-[#EFE9DB]'
+                        }`}
+                      />
+                    ))}
+                  </div>
                 </>
               ) : (
                 <p className="mt-auto text-sm text-[#6B7A72]">Not logged yet</p>
@@ -254,7 +314,9 @@ export default async function DashboardPage() {
                 <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Stress</p>
               </div>
-              <p className="mt-3 text-2xl font-semibold text-[#1B3A2D]">
+              <p
+                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[stressStatus(todaysCheckin?.stress_level ?? null)].text}`}
+              >
                 {stressLabel(todaysCheckin?.stress_level ?? null)}
               </p>
               <div className="mt-auto flex gap-1 pt-3">
@@ -263,7 +325,7 @@ export default async function DashboardPage() {
                     key={n}
                     className={`h-2 flex-1 rounded-full ${
                       todaysCheckin?.stress_level && n <= todaysCheckin.stress_level
-                        ? 'bg-[#F5B700]'
+                        ? STATUS_STYLES[stressStatus(todaysCheckin.stress_level)].dot
                         : 'bg-[#EFE9DB]'
                     }`}
                   />
@@ -276,7 +338,9 @@ export default async function DashboardPage() {
                 <Bone className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Pain</p>
               </div>
-              <p className="mt-3 text-2xl font-semibold text-[#1B3A2D]">
+              <p
+                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[painStatus(todaysCheckin?.pain_discomfort_level ?? null)].text}`}
+              >
                 {painLabel(todaysCheckin?.pain_discomfort_level ?? null)}
               </p>
               <div className="mt-auto flex gap-1 pt-3">
@@ -286,17 +350,93 @@ export default async function DashboardPage() {
                     className={`h-2 flex-1 rounded-full ${
                       todaysCheckin?.pain_discomfort_level != null &&
                       n <= todaysCheckin.pain_discomfort_level
-                        ? 'bg-[#1B3A2D]'
+                        ? STATUS_STYLES[painStatus(todaysCheckin.pain_discomfort_level)].dot
                         : 'bg-[#EFE9DB]'
                     }`}
                   />
                 ))}
               </div>
             </div>
+
+            <div className={TRACKER_CARD}>
+              <div className="flex items-center gap-2 text-[#854D0E]">
+                <Smile className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">Mood</p>
+              </div>
+              <p
+                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[moodStatus(todaysCheckin?.mood_level ?? null)].text}`}
+              >
+                {moodLabel(todaysCheckin?.mood_level ?? null)}
+              </p>
+              <div className="mt-auto flex gap-1 pt-3">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <div
+                    key={n}
+                    className={`h-2 flex-1 rounded-full ${
+                      todaysCheckin?.mood_level && n <= todaysCheckin.mood_level
+                        ? STATUS_STYLES[moodStatus(todaysCheckin.mood_level)].dot
+                        : 'bg-[#EFE9DB]'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className={TRACKER_CARD}>
+              <div className="flex items-center gap-2 text-[#854D0E]">
+                <Utensils className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">Digestion</p>
+              </div>
+              <p
+                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[digestionStatus(todaysCheckin?.digestion_rating ?? null)].text}`}
+              >
+                {digestionLabel(todaysCheckin?.digestion_rating ?? null)}
+              </p>
+              <div className="mt-auto flex gap-1 pt-3">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <div
+                    key={n}
+                    className={`h-2 flex-1 rounded-full ${
+                      todaysCheckin?.digestion_rating && n <= todaysCheckin.digestion_rating
+                        ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].dot
+                        : 'bg-[#EFE9DB]'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className={TRACKER_CARD}>
+              <div className="flex items-center gap-2 text-[#854D0E]">
+                <Footprints className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">Movement</p>
+              </div>
+              <p
+                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
+              >
+                {movementLabel(todaysCheckin?.movement_today ?? null)}
+              </p>
+              <div className="mt-auto pt-3">
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].bg} ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
+                >
+                  {todaysCheckin?.movement_today
+                    ? movementStatus(todaysCheckin.movement_today) === 'good'
+                      ? 'On track'
+                      : movementStatus(todaysCheckin.movement_today) === 'attention'
+                        ? 'Could be more'
+                        : 'Sedentary'
+                    : 'No data'}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* ---------------------------------------------------- */}
-          {/* Trend chart — real recent check-ins                    */}
+          {/* Trend chart — real recent check-ins, premium SVG        */}
+          {/* chart in EnergyTrendChart.tsx, colored per-point by     */}
+          {/* status. viewBox-based so it's always fully visible on   */}
+          {/* any screen size, never clipped.                         */}
           {/* ---------------------------------------------------- */}
           <section className={`${CARD} p-6`}>
             <div className="flex items-center justify-between">
@@ -308,24 +448,7 @@ export default async function DashboardPage() {
                 {recentCheckins.length > 0 ? `Last ${recentCheckins.length} check-ins` : ''}
               </span>
             </div>
-            {recentCheckins.length > 0 ? (
-              <div className="mt-4 flex h-32 items-end gap-1.5 rounded-2xl bg-[#F3F6F4] p-4">
-                {recentCheckins.map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex-1 rounded-t-full bg-[#1B3A2D]/15"
-                    style={{ height: `${((c.energy_level ?? 0) / 5) * 100}%` }}
-                    title={`${c.local_date}: energy ${c.energy_level ?? '—'}/5`}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 flex h-32 items-center justify-center rounded-2xl bg-[#F3F6F4] p-4">
-                <p className="text-sm text-[#6B7A72]">
-                  Trends will show up here after a few check-ins.
-                </p>
-              </div>
-            )}
+            <EnergyTrendChart checkins={recentCheckins} />
           </section>
         </div>
       </main>
