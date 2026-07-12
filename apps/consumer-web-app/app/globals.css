@@ -1,1 +1,90 @@
 @import 'tailwindcss';
+
+/*
+ * Premium range slider (used by the onboarding/reassessment questionnaire's
+ * numeric questions). Tailwind's accent-color utility can't size or shadow
+ * a slider thumb and there's no utility-class equivalent for the
+ * cross-browser thumb/track pseudo-elements, so this lives here instead of
+ * arbitrary Tailwind values. The filled portion of the track (0 up to the
+ * selected value) is computed per-render as an inline background-image
+ * gradient by NumericSlider in app/onboarding/OnboardingForm.tsx — only the
+ * thumb shape and the empty-track color are styled globally.
+ */
+.mef-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #efe9db;
+  /* The thumb pseudo-elements below draw their own focus ring (a box-
+     shadow halo), so the browser's default rectangular outline on the
+     input itself would just duplicate/clash with it — suppressed here,
+     not to hide focus, but because a clearer focus indicator already
+     exists on the thumb. */
+  outline: none;
+}
+
+.mef-slider::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.mef-slider::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+.mef-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-top: -0.625rem;
+  border-radius: 9999px;
+  background: #1b3a2d;
+  border: 3px solid #ffffff;
+  box-shadow:
+    0 2px 8px rgba(27, 58, 45, 0.35),
+    0 0 0 1px rgba(27, 58, 45, 0.08);
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.mef-slider::-moz-range-thumb {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background: #1b3a2d;
+  border: 3px solid #ffffff;
+  box-shadow:
+    0 2px 8px rgba(27, 58, 45, 0.35),
+    0 0 0 1px rgba(27, 58, 45, 0.08);
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.mef-slider:hover::-webkit-slider-thumb,
+.mef-slider:active::-webkit-slider-thumb {
+  transform: scale(1.08);
+}
+
+.mef-slider:hover::-moz-range-thumb,
+.mef-slider:active::-moz-range-thumb {
+  transform: scale(1.08);
+}
+
+.mef-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 5px rgba(27, 58, 45, 0.18),
+    0 2px 8px rgba(27, 58, 45, 0.35);
+}
+
+.mef-slider:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 5px rgba(27, 58, 45, 0.18),
+    0 2px 8px rgba(27, 58, 45, 0.35);
+}

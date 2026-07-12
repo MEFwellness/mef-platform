@@ -11,12 +11,12 @@
 // generic Low/High pairing (using the question's own min/max) for any
 // numeric question not listed here.
 export const SLIDER_ENDPOINT_LABELS: Record<string, { min: string; max: string }> = {
-  baseline_sleep_quality: { min: 'Very poor', max: 'Excellent' },
-  baseline_stress_level: { min: 'Very low', max: 'Very high' },
-  baseline_energy_level: { min: 'Very low', max: 'Very high' },
-  baseline_digestion: { min: 'Very poor', max: 'Excellent' },
-  readiness_importance: { min: 'Not important', max: 'Extremely important' },
-  readiness_confidence: { min: 'Not confident', max: 'Extremely confident' },
+  baseline_sleep_quality: { min: 'Very Poor', max: 'Excellent' },
+  baseline_stress_level: { min: 'Very Low', max: 'Very High' },
+  baseline_energy_level: { min: 'Very Low', max: 'Very High' },
+  baseline_digestion: { min: 'Very Poor', max: 'Excellent' },
+  readiness_importance: { min: 'Not Important', max: 'Extremely Important' },
+  readiness_confidence: { min: 'Not Confident', max: 'Extremely Confident' },
 };
 
 export function numericRange(questionKey: string): { min: number; max: number } {
