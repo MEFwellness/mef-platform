@@ -91,7 +91,7 @@ export default async function DashboardPage() {
   const recentCheckins = await getRecentCheckins(12);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[DM_Sans,ui-sans-serif,system-ui]">
+    <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <div className="mx-auto w-full max-w-md px-5 pb-28 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         {/* -------------------------------------------------------- */}
         {/* Header                                                   */}
@@ -110,7 +110,7 @@ export default async function DashboardPage() {
               }}
             />
             <div className="leading-tight">
-              <span className="block font-[Cormorant_Garamond,serif] text-lg tracking-wide text-[#1B3A2D]">
+              <span className="block font-[family-name:var(--font-cormorant-garamond)] text-lg tracking-wide text-[#1B3A2D]">
                 Rooted Reset
               </span>
               <span className="block text-[11px] font-medium uppercase tracking-wider text-[#6B7A72]">
@@ -129,7 +129,7 @@ export default async function DashboardPage() {
         </header>
 
         <div>
-          <h1 className="font-[Cormorant_Garamond,serif] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
             Good Morning, {firstName}
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">Here&apos;s where things stand today.</p>

@@ -160,3 +160,28 @@ export async function logHabitCompletion(
   if (error) return { error: error.message };
   return {};
 }
+
+/**
+ * Habit completion state for a single date, keyed by habit_id — used to
+ * prefill the check-in page's habit checklist so a revisit shows what's
+ * already been logged today instead of resetting to unchecked.
+ */
+export async function getHabitLogsForDate(localDate: string): Promise<Record<string, boolean>> {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) return {};
+
+  const { data, error } = await supabase
+    .from('habit_logs')
+    .select('habit_id, completed')
+    .eq('user_id', user.id)
+    .eq('local_date', localDate);
+
+  if (error) {
+    console.error('getHabitLogsForDate failed', error);
+    return {};
+  }
+  return Object.fromEntries(data.map((log) => [log.habit_id, log.completed]));
+}

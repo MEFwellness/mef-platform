@@ -62,6 +62,26 @@ export async function revokeAssignment(
   return {};
 }
 
+/**
+ * User IDs currently holding an active (non-revoked) coach grant — used by
+ * the admin UI to decide whether to show "Grant coach" or "Revoke coach"
+ * for each user. listUsers() alone doesn't carry role info.
+ */
+export async function listActiveCoachUserIds(): Promise<string[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', 'coach')
+    .is('revoked_at', null);
+
+  if (error) {
+    console.error('listActiveCoachUserIds failed', error);
+    return [];
+  }
+  return data.map((row) => row.user_id);
+}
+
 export async function listAssignmentHistory(): Promise<CoachClientAssignment[]> {
   const supabase = createClient();
   const { data, error } = await supabase

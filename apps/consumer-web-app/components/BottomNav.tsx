@@ -8,9 +8,7 @@ import { Home, PlusCircle, BarChart2, Users, User } from 'lucide-react';
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', Icon: Home },
   { label: 'Check-in', href: '/checkin', Icon: PlusCircle },
-  // No dedicated /progress page exists yet — the trend chart lives on the
-  // dashboard itself, so this points there rather than to a dead link.
-  { label: 'Progress', href: '/dashboard', Icon: BarChart2 },
+  { label: 'Progress', href: '/progress', Icon: BarChart2 },
   { label: 'Coach', href: '/coach', Icon: Users },
   { label: 'Profile', href: '/profile', Icon: User },
 ] as const;

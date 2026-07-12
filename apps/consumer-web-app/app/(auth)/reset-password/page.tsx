@@ -1,24 +1,57 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { requestPasswordReset } from '../../actions/auth';
 
 export default function ResetPasswordPage() {
   const [message, setMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   return (
-    <main>
-      <h1>Reset password</h1>
+    <>
+      <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
+        Reset password
+      </h1>
       <form
+        className="mt-5 space-y-4"
         action={async (formData) => {
+          setSubmitting(true);
           const result = await requestPasswordReset(formData);
           setMessage(result?.error ?? 'If that email exists, a reset link has been sent.');
+          setSubmitting(false);
         }}
       >
-        <label>Email <input name="email" type="email" required /></label>
-        <button type="submit">Send reset link</button>
+        <div>
+          <label className="text-sm font-medium text-[#1B3A2D]" htmlFor="email">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            className="mt-1.5 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="flex w-full items-center justify-center rounded-full bg-[#F5B700] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-60"
+        >
+          {submitting ? 'Sending…' : 'Send reset link'}
+        </button>
       </form>
-      {message && <p>{message}</p>}
-    </main>
+      {message && (
+        <p role="status" className="mt-4 rounded-2xl bg-[#EFF6F1] px-4 py-3 text-sm text-[#1B3A2D]">
+          {message}
+        </p>
+      )}
+      <p className="mt-5 text-center text-sm">
+        <Link href="/login" className="font-medium text-[#854D0E] underline underline-offset-2">
+          Back to log in
+        </Link>
+      </p>
+    </>
   );
 }

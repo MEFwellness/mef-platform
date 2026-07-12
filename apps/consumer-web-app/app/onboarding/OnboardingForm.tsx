@@ -18,6 +18,10 @@ type StoredAnswer = {
   value?: string | number | boolean | string[];
 };
 
+const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const INPUT =
+  'mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
+
 export function OnboardingForm({ questions }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, StoredAnswer>>({});
@@ -60,6 +64,7 @@ export function OnboardingForm({ questions }: Props) {
               value: Number(event.target.value)
             })
           }
+          className={INPUT}
         />
       );
     }
@@ -78,6 +83,7 @@ export function OnboardingForm({ questions }: Props) {
               value: event.target.value
             })
           }
+          className={`${INPUT} bg-white`}
         >
           <option value="">Select an option</option>
           {allowedValues.map((option) => (
@@ -96,9 +102,12 @@ export function OnboardingForm({ questions }: Props) {
           : [];
 
       return (
-        <div>
+        <div className="mt-2 space-y-2">
           {allowedValues.map((option) => (
-            <label key={option} style={{ display: 'block' }}>
+            <label
+              key={option}
+              className="flex items-center gap-3 rounded-2xl border border-[#1B3A2D]/10 px-4 py-2.5 text-sm text-[#1B3A2D]"
+            >
               <input
                 type="checkbox"
                 checked={selected.includes(option)}
@@ -112,7 +121,8 @@ export function OnboardingForm({ questions }: Props) {
                     value: nextValues
                   });
                 }}
-              />{' '}
+                className="h-4 w-4 accent-[#F5B700]"
+              />
               {option.replaceAll('_', ' ')}
             </label>
           ))}
@@ -135,6 +145,7 @@ export function OnboardingForm({ questions }: Props) {
               value: event.target.value === 'true'
             })
           }
+          className={`${INPUT} bg-white`}
         >
           <option value="">Select an option</option>
           <option value="true">Yes</option>
@@ -156,6 +167,8 @@ export function OnboardingForm({ questions }: Props) {
             value: event.target.value
           })
         }
+        rows={3}
+        className={INPUT}
       />
     );
   }
@@ -203,25 +216,22 @@ export function OnboardingForm({ questions }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-4">
       {questions.map((question) => {
         const currentStatus =
           answers[question.question_key]?.status ?? 'answered';
 
         return (
-          <fieldset
-            key={question.id}
-            style={{ marginBottom: '1.5rem', padding: '1rem' }}
-          >
-            <legend>{question.prompt_text}</legend>
+          <fieldset key={question.id} className={`${CARD} p-5`}>
+            <legend className="px-1 text-sm font-medium text-[#1B3A2D]">
+              {question.prompt_text}
+            </legend>
 
-            {currentStatus === 'answered'
-              ? renderQuestion(question)
-              : null}
+            {currentStatus === 'answered' ? renderQuestion(question) : null}
 
-            <div style={{ marginTop: '0.75rem' }}>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#6B7A72]">
               {question.allows_not_sure ? (
-                <label style={{ marginRight: '1rem' }}>
+                <label className="flex items-center gap-2">
                   <input
                     type="radio"
                     name={`${question.question_key}-status`}
@@ -231,13 +241,14 @@ export function OnboardingForm({ questions }: Props) {
                         status: 'not_sure'
                       })
                     }
-                  />{' '}
+                    className="h-4 w-4 accent-[#F5B700]"
+                  />
                   Not sure
                 </label>
               ) : null}
 
               {question.allows_not_applicable ? (
-                <label style={{ marginRight: '1rem' }}>
+                <label className="flex items-center gap-2">
                   <input
                     type="radio"
                     name={`${question.question_key}-status`}
@@ -247,13 +258,14 @@ export function OnboardingForm({ questions }: Props) {
                         status: 'not_applicable'
                       })
                     }
-                  />{' '}
+                    className="h-4 w-4 accent-[#F5B700]"
+                  />
                   Not applicable
                 </label>
               ) : null}
 
               {question.allows_prefer_not_to_answer ? (
-                <label>
+                <label className="flex items-center gap-2">
                   <input
                     type="radio"
                     name={`${question.question_key}-status`}
@@ -263,7 +275,8 @@ export function OnboardingForm({ questions }: Props) {
                         status: 'prefer_not_to_answer'
                       })
                     }
-                  />{' '}
+                    className="h-4 w-4 accent-[#F5B700]"
+                  />
                   Prefer not to answer
                 </label>
               ) : null}
@@ -277,7 +290,7 @@ export function OnboardingForm({ questions }: Props) {
                     status: 'answered'
                   })
                 }
-                style={{ marginTop: '0.75rem' }}
+                className="mt-3 text-sm font-medium text-[#854D0E] underline underline-offset-2"
               >
                 Answer this question
               </button>
@@ -286,9 +299,17 @@ export function OnboardingForm({ questions }: Props) {
         );
       })}
 
-      {error ? <p role="alert">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
 
-      <button type="submit" disabled={submitting}>
+      <button
+        type="submit"
+        disabled={submitting}
+        className="flex w-full items-center justify-center rounded-full bg-[#F5B700] px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-60"
+      >
         {submitting ? 'Saving...' : 'Submit onboarding'}
       </button>
     </form>

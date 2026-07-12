@@ -35,26 +35,39 @@ export function ConsentForm() {
 
   return (
     <form onSubmit={handleSubmit}>
-      {CONSENT_ITEMS.map((item) => (
-        <section key={item.type}>
-          <h2>{item.title}</h2>
-          <p>{item.body}</p>
-        </section>
-      ))}
+      <div className="space-y-5">
+        {CONSENT_ITEMS.map((item) => (
+          <section key={item.type}>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+              {item.title}
+            </h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">{item.body}</p>
+          </section>
+        ))}
+      </div>
 
-      <label>
+      <label className="mt-6 flex items-start gap-3 border-t border-[#1B3A2D]/10 pt-5 text-sm text-[#1B3A2D]">
         <input
           type="checkbox"
           checked={accepted}
           onChange={(event) => setAccepted(event.target.checked)}
-        />{' '}
+          className="mt-0.5 h-4 w-4 accent-[#F5B700]"
+        />
         I have reviewed and accept all of the items above.
       </label>
 
-      {error ? <p role="alert">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
 
-      <div>
-        <button type="submit" disabled={!accepted || submitting}>
+      <div className="mt-5">
+        <button
+          type="submit"
+          disabled={!accepted || submitting}
+          className="flex w-full items-center justify-center rounded-full bg-[#F5B700] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-60"
+        >
           {submitting ? 'Saving...' : 'Accept and continue'}
         </button>
       </div>
