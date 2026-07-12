@@ -38,6 +38,7 @@
  */
 
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Route } from 'next';
 import { Droplet, Moon, Activity, Bone, TrendingUp, Calendar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -98,12 +99,12 @@ export default async function DashboardPage() {
         {/* -------------------------------------------------------- */}
         <header className="flex items-center justify-between pt-8 pb-6">
           <div className="flex items-center gap-3">
-            <img
+            <Image
               src="/images/rooted-reset-logo.png"
               alt="Rooted Reset"
+              width={36}
+              height={36}
               style={{
-                width: '36px',
-                height: '36px',
                 objectFit: 'contain',
                 borderRadius: '8px',
                 flexShrink: 0,

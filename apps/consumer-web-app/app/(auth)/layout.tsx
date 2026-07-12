@@ -1,14 +1,17 @@
 import type { ReactNode } from 'react';
+import Image from 'next/image';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] px-5 py-12 font-[family-name:var(--font-dm-sans)]">
       <main className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center gap-3">
-          <img
+          <Image
             src="/images/rooted-reset-logo.png"
             alt="Rooted Reset"
-            style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '8px' }}
+            width={36}
+            height={36}
+            style={{ objectFit: 'contain', borderRadius: '8px' }}
           />
           <div className="leading-tight">
             <span className="block font-[family-name:var(--font-cormorant-garamond)] text-lg tracking-wide text-[#1B3A2D]">
