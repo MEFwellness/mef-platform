@@ -18,10 +18,7 @@ export type Role =
 export type AnswerType = 'numeric' | 'enum' | 'multi_select' | 'boolean' | 'free_text';
 export type AnswerStatus = 'answered' | 'not_sure' | 'not_applicable' | 'prefer_not_to_answer';
 export type ConsentType =
-  | 'terms_of_use'
-  | 'privacy_policy'
-  | 'wellness_education_disclaimer'
-  | 'ai_assisted_processing';
+  'terms_of_use' | 'privacy_policy' | 'wellness_education_disclaimer' | 'ai_assisted_processing';
 
 export interface Profile {
   id: string;

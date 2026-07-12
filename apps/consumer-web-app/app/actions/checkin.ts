@@ -40,7 +40,7 @@ export async function resolveLocalDate(
 export async function submitDailyCheckin(input: DailyCheckinInput): Promise<ActionResult> {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) return { error: 'Not signed in.' };
@@ -58,7 +58,7 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
     p_pain_discomfort_level: input.pain_discomfort_level,
     p_movement_today: input.movement_today,
     p_new_or_worsening_concern: input.new_or_worsening_concern,
-    p_optional_notes: input.optional_notes
+    p_optional_notes: input.optional_notes,
   });
 
   if (error) return { error: error.message };
@@ -73,7 +73,7 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
 export async function getTodaysCheckin(localDate: string): Promise<DailyCheckin | null> {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
 
@@ -98,7 +98,7 @@ export async function getTodaysCheckin(localDate: string): Promise<DailyCheckin 
 export async function getRecentCheckins(days: number): Promise<DailyCheckin[]> {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) return [];
 
@@ -121,7 +121,7 @@ export async function getRecentCheckins(days: number): Promise<DailyCheckin[]> {
 export async function getActiveHabits(): Promise<Habit[]> {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) return [];
 
@@ -146,7 +146,7 @@ export async function logHabitCompletion(
 ): Promise<ActionResult> {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Not signed in.' };
 
@@ -169,7 +169,7 @@ export async function logHabitCompletion(
 export async function getHabitLogsForDate(localDate: string): Promise<Record<string, boolean>> {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) return {};
 

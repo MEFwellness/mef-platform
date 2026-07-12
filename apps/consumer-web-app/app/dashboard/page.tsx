@@ -66,7 +66,7 @@ function painLabel(level: number | null): string {
 export default async function DashboardPage() {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
@@ -176,7 +176,9 @@ export default async function DashboardPage() {
                   Takes about a minute
                 </p>
                 <p className="mt-1.5 text-lg font-semibold">
-                  {todaysCheckin ? 'Update today\u2019s check-in' : 'Complete today\u2019s check-in'}
+                  {todaysCheckin
+                    ? 'Update today\u2019s check-in'
+                    : 'Complete today\u2019s check-in'}
                 </p>
               </div>
             </Link>

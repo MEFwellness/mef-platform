@@ -25,8 +25,8 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
     password,
     options: {
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
-      data: { display_name: displayName, timezone }
-    }
+      data: { display_name: displayName, timezone },
+    },
   });
 
   if (error) return { error: error.message };
@@ -54,7 +54,7 @@ export async function requestPasswordReset(formData: FormData): Promise<ActionRe
   const email = String(formData.get('email') ?? '');
   const supabase = createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password/confirm`
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password/confirm`,
   });
   if (error) return { error: error.message };
   return {};

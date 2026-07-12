@@ -34,8 +34,8 @@ export function createClient() {
           } catch {
             // See note above.
           }
-        }
-      }
+        },
+      },
     }
   );
 }

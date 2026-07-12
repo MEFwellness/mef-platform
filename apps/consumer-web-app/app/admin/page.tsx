@@ -7,14 +7,14 @@ import { AdminPanel } from './AdminPanel';
 export default async function AdminPage() {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
   const [users, coachIds, assignments] = await Promise.all([
     listUsers(),
     listActiveCoachUserIds(),
-    listAssignmentHistory()
+    listAssignmentHistory(),
   ]);
 
   return (

@@ -7,14 +7,16 @@ import { ConsentForm } from './ConsentForm';
 import { OnboardingForm } from './OnboardingForm';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-const SHELL = 'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
+const SHELL =
+  'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
 const CONTAINER = 'mx-auto w-full max-w-md px-5 py-10 sm:px-6 md:max-w-2xl md:px-10';
-const HEADING = 'font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]';
+const HEADING =
+  'font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]';
 
 export default async function OnboardingPage() {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
@@ -49,7 +51,10 @@ export default async function OnboardingPage() {
           <h1 className={HEADING}>Onboarding already complete</h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
             Thanks — your onboarding assessment is on file. Head to{' '}
-            <Link href="/checkin" className="font-medium text-[#854D0E] underline underline-offset-2">
+            <Link
+              href="/checkin"
+              className="font-medium text-[#854D0E] underline underline-offset-2"
+            >
               today&apos;s check-in
             </Link>
             .

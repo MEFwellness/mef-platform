@@ -20,7 +20,7 @@ const MOVEMENT_LEVELS = [
   { value: 'none', label: 'None' },
   { value: 'light', label: 'Light' },
   { value: 'moderate', label: 'Moderate' },
-  { value: 'full_session', label: 'Full session' }
+  { value: 'full_session', label: 'Full session' },
 ] as const;
 
 function ScaleInput({
@@ -28,7 +28,7 @@ function ScaleInput({
   value,
   onChange,
   min = 1,
-  max = 5
+  max = 5,
 }: {
   label: string;
   value: number | null;
@@ -67,16 +67,22 @@ export function CheckinForm({
   existingCheckin,
   habits,
   initialHabitLogs,
-  cardClassName
+  cardClassName,
 }: Props) {
   const router = useRouter();
   const [moodLevel, setMoodLevel] = useState<number | null>(existingCheckin?.mood_level ?? null);
-  const [sleepQuality, setSleepQuality] = useState<number | null>(existingCheckin?.sleep_quality ?? null);
+  const [sleepQuality, setSleepQuality] = useState<number | null>(
+    existingCheckin?.sleep_quality ?? null
+  );
   const [sleepDuration, setSleepDuration] = useState<(typeof SLEEP_DURATIONS)[number] | null>(
     existingCheckin?.sleep_duration ?? null
   );
-  const [energyLevel, setEnergyLevel] = useState<number | null>(existingCheckin?.energy_level ?? null);
-  const [stressLevel, setStressLevel] = useState<number | null>(existingCheckin?.stress_level ?? null);
+  const [energyLevel, setEnergyLevel] = useState<number | null>(
+    existingCheckin?.energy_level ?? null
+  );
+  const [stressLevel, setStressLevel] = useState<number | null>(
+    existingCheckin?.stress_level ?? null
+  );
   const [waterCups, setWaterCups] = useState<number>(existingCheckin?.water_cups ?? 0);
   const [digestionRating, setDigestionRating] = useState<number | null>(
     existingCheckin?.digestion_rating ?? null
@@ -84,9 +90,9 @@ export function CheckinForm({
   const [painLevel, setPainLevel] = useState<number | null>(
     existingCheckin?.pain_discomfort_level ?? null
   );
-  const [movementToday, setMovementToday] = useState<(typeof MOVEMENT_LEVELS)[number]['value'] | null>(
-    existingCheckin?.movement_today ?? null
-  );
+  const [movementToday, setMovementToday] = useState<
+    (typeof MOVEMENT_LEVELS)[number]['value'] | null
+  >(existingCheckin?.movement_today ?? null);
   const [concern, setConcern] = useState(existingCheckin?.new_or_worsening_concern ?? false);
   const [notes, setNotes] = useState(existingCheckin?.optional_notes ?? '');
   const [habitStatus, setHabitStatus] = useState<Record<string, boolean>>(initialHabitLogs);
@@ -97,7 +103,12 @@ export function CheckinForm({
     event.preventDefault();
     setError('');
 
-    if (moodLevel === null || sleepQuality === null || energyLevel === null || stressLevel === null) {
+    if (
+      moodLevel === null ||
+      sleepQuality === null ||
+      energyLevel === null ||
+      stressLevel === null
+    ) {
       setError('Please rate mood, sleep quality, energy, and stress before saving.');
       return;
     }
@@ -117,7 +128,7 @@ export function CheckinForm({
       pain_discomfort_level: painLevel,
       movement_today: movementToday,
       new_or_worsening_concern: concern,
-      optional_notes: notes.trim() ? notes.trim() : null
+      optional_notes: notes.trim() ? notes.trim() : null,
     };
 
     const result = await submitDailyCheckin(input);
@@ -152,7 +163,9 @@ export function CheckinForm({
       <div className={`${cardClassName} p-6`}>
         <ScaleInput label="Sleep quality" value={sleepQuality} onChange={setSleepQuality} />
         <div className="mt-5">
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Sleep duration</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+            Sleep duration
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {SLEEP_DURATIONS.map((duration) => (
               <button
@@ -200,9 +213,17 @@ export function CheckinForm({
 
       <div className={`${cardClassName} space-y-5 p-6`}>
         <ScaleInput label="Digestion" value={digestionRating} onChange={setDigestionRating} />
-        <ScaleInput label="Pain / discomfort" value={painLevel} onChange={setPainLevel} min={0} max={5} />
+        <ScaleInput
+          label="Pain / discomfort"
+          value={painLevel}
+          onChange={setPainLevel}
+          min={0}
+          max={5}
+        />
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Movement today</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+            Movement today
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {MOVEMENT_LEVELS.map((level) => (
               <button
@@ -225,7 +246,9 @@ export function CheckinForm({
 
       {habits.length > 0 && (
         <div className={`${cardClassName} p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Today&apos;s habits</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+            Today&apos;s habits
+          </p>
           <div className="mt-3 space-y-2">
             {habits.map((habit) => (
               <label
@@ -256,7 +279,10 @@ export function CheckinForm({
           I have a new or worsening concern I want my coach to know about
         </label>
         <div className="mt-4">
-          <label className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]" htmlFor="notes">
+          <label
+            className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]"
+            htmlFor="notes"
+          >
             Notes (optional)
           </label>
           <textarea

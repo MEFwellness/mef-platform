@@ -6,6 +6,7 @@ Implements Architecture v2.1 (canonical). Sprint 1 scope only — see
 ## Why a monorepo
 
 One repo, npm workspaces. Reasoning:
+
 - `shared-types-contracts` needs to be consumed by `consumer-web-app`,
   `knowledge-engine-api`, and `pattern-prioritization-engine` with zero drift —
   a schema change should be a compile error in every consumer immediately,
@@ -49,11 +50,11 @@ App: http://localhost:3000
 
 Three environments, three separate Supabase projects, never shared credentials:
 
-| Environment | Supabase project | Secrets location |
-|---|---|---|
-| local | `supabase start` (Docker, ephemeral) | `.env.local` (gitignored) |
-| development | dedicated dev Supabase project | CI/hosting provider secrets store |
-| production | dedicated prod Supabase project | CI/hosting provider secrets store, restricted access |
+| Environment | Supabase project                     | Secrets location                                     |
+| ----------- | ------------------------------------ | ---------------------------------------------------- |
+| local       | `supabase start` (Docker, ephemeral) | `.env.local` (gitignored)                            |
+| development | dedicated dev Supabase project       | CI/hosting provider secrets store                    |
+| production  | dedicated prod Supabase project      | CI/hosting provider secrets store, restricted access |
 
 No production secret is ever committed, printed in a migration, or hardcoded.
 `.env.local.example` contains placeholder values only.

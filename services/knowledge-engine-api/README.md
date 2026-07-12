@@ -3,6 +3,7 @@
 **Status: scaffold only. Not implemented in Sprint 1.**
 
 Per Architecture v2.1 Section D, this service will own:
+
 - Retrieval over `mef_method_content_versions`
 - LLM orchestration (the only service permitted to call a model provider)
 - Narrating pre-selected `prioritized_insights` rows

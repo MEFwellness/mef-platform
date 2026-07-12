@@ -5,21 +5,17 @@ import {
   getTodaysCheckin,
   getActiveHabits,
   getHabitLogsForDate,
-  resolveLocalDate
+  resolveLocalDate,
 } from '@/app/actions/checkin';
 import { BottomNav } from '@/components/BottomNav';
 import { CheckinForm } from './CheckinForm';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
-export default async function CheckinPage({
-  searchParams
-}: {
-  searchParams: { date?: string };
-}) {
+export default async function CheckinPage({ searchParams }: { searchParams: { date?: string } }) {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
@@ -39,7 +35,7 @@ export default async function CheckinPage({
   const [existingCheckin, habits, habitLogs] = await Promise.all([
     getTodaysCheckin(localDate),
     getActiveHabits(),
-    getHabitLogsForDate(localDate)
+    getHabitLogsForDate(localDate),
   ]);
 
   return (

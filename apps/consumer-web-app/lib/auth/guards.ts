@@ -20,7 +20,7 @@ export async function hasActiveRole(
 ): Promise<boolean> {
   const { data, error } = await supabase.rpc('has_active_role', {
     p_user: userId,
-    p_role: role
+    p_role: role,
   });
   if (error) {
     console.error('hasActiveRole RPC failed', error);

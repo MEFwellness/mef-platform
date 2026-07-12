@@ -29,14 +29,14 @@ function formatDate(localDate: string): string {
   return new Date(year!, month! - 1, day!).toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   });
 }
 
 export default async function ProgressPage() {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
@@ -50,7 +50,9 @@ export default async function ProgressPage() {
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
           Progress
         </h1>
-        <p className="mt-2 text-[15px] text-[#6B7A72]">Your check-in history and trends over time.</p>
+        <p className="mt-2 text-[15px] text-[#6B7A72]">
+          Your check-in history and trends over time.
+        </p>
 
         <div className="mt-7 grid grid-cols-1 gap-5 md:grid-cols-3">
           <section className={`${CARD} p-6`}>
@@ -60,7 +62,10 @@ export default async function ProgressPage() {
             </div>
             {streak > 0 ? (
               <p className="mt-3 text-3xl font-semibold text-[#1B3A2D]">
-                {streak} <span className="text-base font-normal text-[#6B7A72]">day{streak === 1 ? '' : 's'}</span>
+                {streak}{' '}
+                <span className="text-base font-normal text-[#6B7A72]">
+                  day{streak === 1 ? '' : 's'}
+                </span>
               </p>
             ) : (
               <p className="mt-3 text-sm text-[#6B7A72]">Check in today to start a streak.</p>
@@ -68,17 +73,22 @@ export default async function ProgressPage() {
           </section>
 
           <section className={`${CARD} p-6`}>
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Check-ins logged</p>
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+              Check-ins logged
+            </p>
             <p className="mt-3 text-3xl font-semibold text-[#1B3A2D]">{recentCheckins.length}</p>
             <p className="mt-1 text-sm text-[#6B7A72]">In the last 30 recorded days</p>
           </section>
 
           <section className={`${CARD} p-6`}>
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Average energy</p>
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+              Average energy
+            </p>
             {recentCheckins.length > 0 ? (
               <p className="mt-3 text-3xl font-semibold text-[#1B3A2D]">
                 {(
-                  recentCheckins.reduce((sum, c) => sum + (c.energy_level ?? 0), 0) / recentCheckins.length
+                  recentCheckins.reduce((sum, c) => sum + (c.energy_level ?? 0), 0) /
+                  recentCheckins.length
                 ).toFixed(1)}
                 <span className="text-base font-normal text-[#6B7A72]"> / 5</span>
               </p>
@@ -111,7 +121,9 @@ export default async function ProgressPage() {
             </div>
           ) : (
             <div className="mt-4 flex h-40 items-center justify-center rounded-2xl bg-[#F3F6F4] p-4">
-              <p className="text-sm text-[#6B7A72]">Trends will show up here after a few check-ins.</p>
+              <p className="text-sm text-[#6B7A72]">
+                Trends will show up here after a few check-ins.
+              </p>
             </div>
           )}
         </section>
@@ -122,9 +134,12 @@ export default async function ProgressPage() {
             <div className="mt-3 divide-y divide-[#1B3A2D]/5">
               {history.map((c) => (
                 <div key={c.id} className="flex items-center justify-between gap-4 py-3 text-sm">
-                  <span className="w-28 shrink-0 font-medium text-[#1B3A2D]">{formatDate(c.local_date)}</span>
+                  <span className="w-28 shrink-0 font-medium text-[#1B3A2D]">
+                    {formatDate(c.local_date)}
+                  </span>
                   <span className="flex-1 text-[#6B7A72]">
-                    Mood {c.mood_level ?? '—'} · Energy {c.energy_level ?? '—'} · Stress {c.stress_level ?? '—'}
+                    Mood {c.mood_level ?? '—'} · Energy {c.energy_level ?? '—'} · Stress{' '}
+                    {c.stress_level ?? '—'}
                     {c.sleep_duration ? ` · Sleep ${c.sleep_duration}` : ''}
                   </span>
                   {c.checkin_version > 1 && (

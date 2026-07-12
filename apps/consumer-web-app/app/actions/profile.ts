@@ -12,7 +12,7 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
 
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Not signed in.' };
 

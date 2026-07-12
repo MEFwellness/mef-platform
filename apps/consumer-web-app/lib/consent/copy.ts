@@ -17,7 +17,7 @@ export const CONSENT_ITEMS = [
     title: 'Terms of use',
     body:
       'PLACEHOLDER — LEGAL REVIEW REQUIRED. By continuing, you agree to use ' +
-      'MEF Wellness in accordance with our terms of use.'
+      'MEF Wellness in accordance with our terms of use.',
   },
   {
     type: 'privacy_policy',
@@ -25,7 +25,7 @@ export const CONSENT_ITEMS = [
     body:
       'PLACEHOLDER — LEGAL REVIEW REQUIRED. This explains what data we ' +
       'collect, how it is stored, and who can access it, including your ' +
-      'assigned coach.'
+      'assigned coach.',
   },
   {
     type: 'wellness_education_disclaimer',
@@ -35,7 +35,7 @@ export const CONSENT_ITEMS = [
       'educational, non-diagnostic wellness coaching. It is not a substitute ' +
       'for professional medical advice, diagnosis, or treatment. Always seek ' +
       'the advice of a qualified health provider with questions about a ' +
-      'medical condition.'
+      'medical condition.',
   },
   {
     type: 'ai_assisted_processing',
@@ -44,8 +44,8 @@ export const CONSENT_ITEMS = [
       'PLACEHOLDER — LEGAL REVIEW REQUIRED. Some of your check-in data may ' +
       'be processed by automated systems, including AI models, to help ' +
       'surface patterns and educational content. No automated system ' +
-      'diagnoses you or makes medical decisions on your behalf.'
-  }
+      'diagnoses you or makes medical decisions on your behalf.',
+  },
 ] as const;
 
 export type ConsentItemType = (typeof CONSENT_ITEMS)[number]['type'];

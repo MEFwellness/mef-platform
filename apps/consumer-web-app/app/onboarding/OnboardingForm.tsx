@@ -6,7 +6,7 @@ import { submitOnboarding } from '../actions/onboarding';
 import type {
   AnswerStatus,
   OnboardingAnswerInput,
-  OnboardingQuestion
+  OnboardingQuestion,
 } from '@mef/shared-types-contracts';
 
 type Props = {
@@ -31,7 +31,7 @@ export function OnboardingForm({ questions }: Props) {
   function updateAnswer(questionKey: string, answer: StoredAnswer) {
     setAnswers((current) => ({
       ...current,
-      [questionKey]: answer
+      [questionKey]: answer,
     }));
   }
 
@@ -54,14 +54,12 @@ export function OnboardingForm({ questions }: Props) {
           min={question.question_key.startsWith('readiness_') ? 0 : 1}
           max={question.question_key.startsWith('readiness_') ? 10 : 5}
           value={
-            current?.status === 'answered' && typeof current.value === 'number'
-              ? current.value
-              : ''
+            current?.status === 'answered' && typeof current.value === 'number' ? current.value : ''
           }
           onChange={(event) =>
             updateAnswer(question.question_key, {
               status: 'answered',
-              value: Number(event.target.value)
+              value: Number(event.target.value),
             })
           }
           className={INPUT}
@@ -73,14 +71,12 @@ export function OnboardingForm({ questions }: Props) {
       return (
         <select
           value={
-            current?.status === 'answered' && typeof current.value === 'string'
-              ? current.value
-              : ''
+            current?.status === 'answered' && typeof current.value === 'string' ? current.value : ''
           }
           onChange={(event) =>
             updateAnswer(question.question_key, {
               status: 'answered',
-              value: event.target.value
+              value: event.target.value,
             })
           }
           className={`${INPUT} bg-white`}
@@ -97,9 +93,7 @@ export function OnboardingForm({ questions }: Props) {
 
     if (question.answer_type === 'multi_select') {
       const selected =
-        current?.status === 'answered' && Array.isArray(current.value)
-          ? current.value
-          : [];
+        current?.status === 'answered' && Array.isArray(current.value) ? current.value : [];
 
       return (
         <div className="mt-2 space-y-2">
@@ -118,7 +112,7 @@ export function OnboardingForm({ questions }: Props) {
 
                   updateAnswer(question.question_key, {
                     status: 'answered',
-                    value: nextValues
+                    value: nextValues,
                   });
                 }}
                 className="h-4 w-4 accent-[#F5B700]"
@@ -134,15 +128,14 @@ export function OnboardingForm({ questions }: Props) {
       return (
         <select
           value={
-            current?.status === 'answered' &&
-            typeof current.value === 'boolean'
+            current?.status === 'answered' && typeof current.value === 'boolean'
               ? String(current.value)
               : ''
           }
           onChange={(event) =>
             updateAnswer(question.question_key, {
               status: 'answered',
-              value: event.target.value === 'true'
+              value: event.target.value === 'true',
             })
           }
           className={`${INPUT} bg-white`}
@@ -157,14 +150,12 @@ export function OnboardingForm({ questions }: Props) {
     return (
       <textarea
         value={
-          current?.status === 'answered' && typeof current.value === 'string'
-            ? current.value
-            : ''
+          current?.status === 'answered' && typeof current.value === 'string' ? current.value : ''
         }
         onChange={(event) =>
           updateAnswer(question.question_key, {
             status: 'answered',
-            value: event.target.value
+            value: event.target.value,
           })
         }
         rows={3}
@@ -177,9 +168,7 @@ export function OnboardingForm({ questions }: Props) {
     event.preventDefault();
     setError('');
 
-    const missingQuestion = questions.find(
-      (question) => !answers[question.question_key]
-    );
+    const missingQuestion = questions.find((question) => !answers[question.question_key]);
 
     if (missingQuestion) {
       setError(`Please answer: ${missingQuestion.prompt_text}`);
@@ -197,12 +186,11 @@ export function OnboardingForm({ questions }: Props) {
         question_key: question.question_key,
         question_version: question.question_version,
         answer_status: answer.status,
-        ...(answer.status === 'answered' ? { value: answer.value } : {})
+        ...(answer.status === 'answered' ? { value: answer.value } : {}),
       };
     });
 
-    const timezone =
-      Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
 
     const result = await submitOnboarding(timezone, payload);
 
@@ -218,8 +206,7 @@ export function OnboardingForm({ questions }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {questions.map((question) => {
-        const currentStatus =
-          answers[question.question_key]?.status ?? 'answered';
+        const currentStatus = answers[question.question_key]?.status ?? 'answered';
 
         return (
           <fieldset key={question.id} className={`${CARD} p-5`}>
@@ -238,7 +225,7 @@ export function OnboardingForm({ questions }: Props) {
                     checked={currentStatus === 'not_sure'}
                     onChange={() =>
                       updateAnswer(question.question_key, {
-                        status: 'not_sure'
+                        status: 'not_sure',
                       })
                     }
                     className="h-4 w-4 accent-[#F5B700]"
@@ -255,7 +242,7 @@ export function OnboardingForm({ questions }: Props) {
                     checked={currentStatus === 'not_applicable'}
                     onChange={() =>
                       updateAnswer(question.question_key, {
-                        status: 'not_applicable'
+                        status: 'not_applicable',
                       })
                     }
                     className="h-4 w-4 accent-[#F5B700]"
@@ -272,7 +259,7 @@ export function OnboardingForm({ questions }: Props) {
                     checked={currentStatus === 'prefer_not_to_answer'}
                     onChange={() =>
                       updateAnswer(question.question_key, {
-                        status: 'prefer_not_to_answer'
+                        status: 'prefer_not_to_answer',
                       })
                     }
                     className="h-4 w-4 accent-[#F5B700]"
@@ -287,7 +274,7 @@ export function OnboardingForm({ questions }: Props) {
                 type="button"
                 onClick={() =>
                   updateAnswer(question.question_key, {
-                    status: 'answered'
+                    status: 'answered',
                   })
                 }
                 className="mt-3 text-sm font-medium text-[#854D0E] underline underline-offset-2"

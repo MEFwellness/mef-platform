@@ -28,13 +28,13 @@ export async function updateSession(request: NextRequest) {
           request.cookies.set({ name, value: '', ...options });
           response = NextResponse.next({ request: { headers: request.headers } });
           response.cookies.set({ name, value: '', ...options });
-        }
-      }
+        },
+      },
     }
   );
 
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
 
   return { response, user, supabase };

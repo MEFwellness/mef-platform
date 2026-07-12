@@ -45,7 +45,7 @@ export async function submitOnboarding(
 ): Promise<ActionResult> {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) return { error: 'Not signed in.' };
@@ -59,7 +59,7 @@ export async function submitOnboarding(
     p_assessment_version: ASSESSMENT_VERSION,
     p_timezone: timezone,
     p_raw_payload: rawPayload,
-    p_answers: answers
+    p_answers: answers,
   });
 
   if (error) return { error: error.message };

@@ -6,7 +6,7 @@ import {
   grantCoachRole,
   revokeCoachRole,
   assignClientToCoach,
-  revokeAssignment
+  revokeAssignment,
 } from '@/app/actions/admin';
 import type { CoachClientAssignment, Profile } from '@mef/shared-types-contracts';
 
@@ -166,7 +166,10 @@ export function AdminPanel({ users, coachIds, assignments }: Props) {
         {assignments.length > 0 ? (
           <div className="mt-3 divide-y divide-[#1B3A2D]/5">
             {assignments.map((a) => (
-              <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+              <div
+                key={a.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
+              >
                 <span className="text-[#1B3A2D]">
                   {nameFor(users, a.coach_id)} → {nameFor(users, a.client_id)}
                 </span>

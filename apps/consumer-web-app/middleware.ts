@@ -39,6 +39,6 @@ export const config = {
   // a browser's manifest fetch for install-eligibility) was being
   // redirected to /login instead of served, silently breaking both.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)'
-  ]
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)',
+  ],
 };

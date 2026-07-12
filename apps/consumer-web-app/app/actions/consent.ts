@@ -14,7 +14,7 @@ import type { ActionResult } from './auth';
 export async function recordAllConsents(): Promise<ActionResult> {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) return { error: 'Not signed in.' };
@@ -23,7 +23,7 @@ export async function recordAllConsents(): Promise<ActionResult> {
     user_id: user.id,
     consent_type: item.type,
     version: CONSENT_VERSION,
-    granted_at: new Date().toISOString()
+    granted_at: new Date().toISOString(),
   }));
 
   const { error } = await supabase.from('consent_records').insert(rows);

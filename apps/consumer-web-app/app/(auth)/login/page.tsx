@@ -10,7 +10,9 @@ export default function LoginPage() {
 
   return (
     <>
-      <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">Log in</h1>
+      <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
+        Log in
+      </h1>
       <form
         className="mt-5 space-y-4"
         action={async (formData) => {
@@ -64,7 +66,10 @@ export default function LoginPage() {
           </Link>
         </p>
         <p>
-          <Link href="/reset-password" className="font-medium text-[#854D0E] underline underline-offset-2">
+          <Link
+            href="/reset-password"
+            className="font-medium text-[#854D0E] underline underline-offset-2"
+          >
             Forgot password?
           </Link>
         </p>

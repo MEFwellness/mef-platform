@@ -13,7 +13,7 @@ import type { Profile, DailyCheckin } from '@mef/shared-types-contracts';
 export async function listAssignedClients(): Promise<Profile[]> {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) return [];
 
@@ -26,10 +26,7 @@ export async function listAssignedClients(): Promise<Profile[]> {
   if (assignmentError || !assignments || assignments.length === 0) return [];
 
   const clientIds = assignments.map((a) => a.client_id);
-  const { data: profiles, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .in('id', clientIds);
+  const { data: profiles, error } = await supabase.from('profiles').select('*').in('id', clientIds);
 
   if (error) {
     console.error('listAssignedClients failed', error);

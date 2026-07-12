@@ -43,7 +43,7 @@ export async function assignClientToCoach(
   const supabase = createClient();
   const { error } = await supabase.rpc('assign_client_to_coach', {
     p_coach_id: coachId,
-    p_client_id: clientId
+    p_client_id: clientId,
   });
   if (error) return { error: error.message };
   return {};
@@ -56,7 +56,7 @@ export async function revokeAssignment(
   const supabase = createClient();
   const { error } = await supabase.rpc('revoke_assignment', {
     p_assignment_id: assignmentId,
-    p_reason: reason
+    p_reason: reason,
   });
   if (error) return { error: error.message };
   return {};

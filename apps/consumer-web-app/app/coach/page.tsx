@@ -11,18 +11,14 @@ function formatDate(localDate: string): string {
   return new Date(year!, month! - 1, day!).toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   });
 }
 
-export default async function CoachPage({
-  searchParams
-}: {
-  searchParams: { client?: string };
-}) {
+export default async function CoachPage({ searchParams }: { searchParams: { client?: string } }) {
   const supabase = createClient();
   const {
-    data: { user }
+    data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
@@ -74,7 +70,10 @@ export default async function CoachPage({
               {checkins.length > 0 ? (
                 <div className="mt-4 divide-y divide-[#1B3A2D]/5">
                   {checkins.map((c) => (
-                    <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+                    <div
+                      key={c.id}
+                      className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
+                    >
                       <span className="w-28 shrink-0 font-medium text-[#1B3A2D]">
                         {formatDate(c.local_date)}
                       </span>

@@ -7,14 +7,14 @@ const cormorantGaramond = Cormorant_Garamond({
   subsets: ['latin'],
   weight: ['500', '600', '700'],
   variable: '--font-cormorant-garamond',
-  display: 'swap'
+  display: 'swap',
 });
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-dm-sans',
-  display: 'swap'
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -23,21 +23,21 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
-    apple: '/icons/apple-touch-icon.png'
+    apple: '/icons/apple-touch-icon.png',
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Rooted Reset'
-  }
+    title: 'Rooted Reset',
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#1B3A2D'
+  themeColor: '#1B3A2D',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

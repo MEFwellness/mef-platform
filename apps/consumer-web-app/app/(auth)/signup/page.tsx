@@ -62,7 +62,11 @@ export default function SignUpPage() {
         <input
           type="hidden"
           name="timezone"
-          value={typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'America/New_York'}
+          value={
+            typeof Intl !== 'undefined'
+              ? Intl.DateTimeFormat().resolvedOptions().timeZone
+              : 'America/New_York'
+          }
         />
         {error && (
           <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">

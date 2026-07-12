@@ -11,7 +11,10 @@ type Props = {
 function getTimezoneOptions(current: string): string[] {
   const supported =
     typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
-  const options = supported.length > 0 ? supported : ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
+  const options =
+    supported.length > 0
+      ? supported
+      : ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
   return options.includes(current) ? options : [current, ...options];
 }
 
