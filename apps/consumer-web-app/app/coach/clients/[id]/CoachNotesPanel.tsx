@@ -22,9 +22,11 @@ type Props = {
   clientId: string;
   initialNotes: CoachNote[];
   coachName: string;
+  /** When set, a saved note is tied to this specific assessment instead of being a general client note. */
+  submissionId?: string;
 };
 
-export function CoachNotesPanel({ clientId, initialNotes, coachName }: Props) {
+export function CoachNotesPanel({ clientId, initialNotes, coachName, submissionId }: Props) {
   const router = useRouter();
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export function CoachNotesPanel({ clientId, initialNotes, coachName }: Props) {
     if (!draft.trim()) return;
     setError(null);
     startTransition(async () => {
-      const result = await addCoachNote(clientId, draft);
+      const result = await addCoachNote(clientId, draft, submissionId);
       if (result.error) {
         setError(result.error);
         return;

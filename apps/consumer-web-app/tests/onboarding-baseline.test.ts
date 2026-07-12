@@ -52,6 +52,8 @@ const submission: OnboardingSubmission = {
   local_date: '2026-01-01',
   raw_payload: {},
   superseded_at: null,
+  assessment_type: 'baseline',
+  checkpoint_label: null,
 };
 
 describe('buildBaselineAssessment', () => {

@@ -130,8 +130,18 @@ function painScoreOf(level: number | null): number | null {
   return ((5 - level) / 5) * 100;
 }
 
-/** poor is more severe than attention, which is more severe than good. */
-const SEVERITY: Record<MetricStatus, number> = { poor: 0, attention: 1, good: 2, 'no-data': 3 };
+/**
+ * poor is more severe than attention, which is more severe than good.
+ * Exported so anything comparing two statuses over time (e.g.
+ * lib/onboarding/comparison.ts's baseline-vs-latest direction of change)
+ * uses this exact ranking rather than re-deriving its own.
+ */
+export const SEVERITY: Record<MetricStatus, number> = {
+  poor: 0,
+  attention: 1,
+  good: 2,
+  'no-data': 3,
+};
 function worseOf(a: MetricStatus, b: MetricStatus): MetricStatus {
   return SEVERITY[a] <= SEVERITY[b] ? a : b;
 }

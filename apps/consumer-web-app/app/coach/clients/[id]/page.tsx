@@ -23,12 +23,16 @@ import {
   getClientHabitLogs,
   getCoachNotes,
   getClientBaselineAssessment,
+  getClientAssessmentHistory,
+  getClientProgressComparison,
 } from '@/app/actions/coach';
 import { buildClientSummary } from '../../lib';
 import { BottomNav } from '@/components/BottomNav';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from '@/app/dashboard/WellnessIndexCard';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
+import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
+import { AssessmentHistoryList } from '@/components/AssessmentHistoryList';
 import { CoachNotesPanel } from './CoachNotesPanel';
 import {
   stressStatus,
@@ -115,12 +119,15 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const firstName = profile.display_name?.split(' ')[0] ?? 'This client';
 
   const summary = await buildClientSummary(profile);
-  const [habits, habitLogs, notes, baseline] = await Promise.all([
-    getClientHabits(profile.id),
-    getClientHabitLogs(profile.id, summary.todaysLocalDate),
-    getCoachNotes(profile.id),
-    getClientBaselineAssessment(profile.id),
-  ]);
+  const [habits, habitLogs, notes, baseline, assessmentHistory, progressComparison] =
+    await Promise.all([
+      getClientHabits(profile.id),
+      getClientHabitLogs(profile.id, summary.todaysLocalDate),
+      getCoachNotes(profile.id),
+      getClientBaselineAssessment(profile.id),
+      getClientAssessmentHistory(profile.id),
+      getClientProgressComparison(profile.id),
+    ]);
 
   const checkin = summary.todaysCheckin;
   const chartCheckins = [...summary.checkins].reverse(); // oldest first, matches EnergyTrendChart's contract
@@ -372,6 +379,34 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               </div>
             )}
           </section>
+
+          {/* Baseline vs. latest reassessment, progress summary, and the
+              full assessment history — same computation and formatting
+              the member sees on their own Progress & Reassessments page. */}
+          {baseline && (
+            <section>
+              <div className="mb-3 flex items-center gap-2 text-[#854D0E]">
+                <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">
+                  Progress & Reassessments
+                </p>
+              </div>
+              <div className="space-y-5">
+                <AssessmentComparisonView
+                  metrics={progressComparison.metrics}
+                  summary={progressComparison.summary}
+                  hasLatest={progressComparison.latest !== null}
+                />
+                <AssessmentHistoryList
+                  history={assessmentHistory}
+                  baselineHref={`/coach/clients/${profile.id}/assessments/${baseline.submissionId}`}
+                  reassessmentHref={(submissionId) =>
+                    `/coach/clients/${profile.id}/assessments/${submissionId}`
+                  }
+                />
+              </div>
+            </section>
+          )}
 
           {/* Check-in history / wellness history */}
           <section className={`${CARD} p-6`}>

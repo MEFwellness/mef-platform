@@ -12,6 +12,16 @@ import type {
 
 type Props = {
   questions: OnboardingQuestion[];
+  /**
+   * Called after a successful submit instead of the default
+   * router.refresh() — used by the reassessment flow to navigate to the
+   * new submission instead of re-rendering in place (which is what the
+   * original /onboarding page relies on to flip into its "already
+   * complete" state). Omit to keep the original behavior exactly.
+   */
+  onSubmitted?: () => void;
+  /** Defaults to "Submit onboarding" — the reassessment flow relabels this without needing a second copy of the form. */
+  submitLabel?: string;
 };
 
 type StoredAnswer = {
@@ -120,7 +130,11 @@ function NumericSlider({
   );
 }
 
-export function OnboardingForm({ questions }: Props) {
+export function OnboardingForm({
+  questions,
+  onSubmitted,
+  submitLabel = 'Submit onboarding',
+}: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, StoredAnswer>>({});
   const [error, setError] = useState('');
@@ -324,7 +338,11 @@ export function OnboardingForm({ questions }: Props) {
       return;
     }
 
-    router.refresh();
+    if (onSubmitted) {
+      onSubmitted();
+    } else {
+      router.refresh();
+    }
   }
 
   return (
@@ -434,7 +452,7 @@ export function OnboardingForm({ questions }: Props) {
         disabled={submitting}
         className="flex w-full items-center justify-center rounded-full bg-[#F5B700] px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-60"
       >
-        {submitting ? 'Saving...' : 'Submit onboarding'}
+        {submitting ? 'Saving...' : submitLabel}
       </button>
     </form>
   );

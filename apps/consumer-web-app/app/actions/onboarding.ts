@@ -3,6 +3,18 @@
 import { createClient } from '@/lib/supabase/server';
 import { hasCompletedConsent } from './consent';
 import { fetchBaselineAssessment, type BaselineAssessment } from '@/lib/onboarding/baseline';
+import {
+  fetchAssessmentHistory,
+  fetchAssessmentById,
+  fetchLatestReassessment,
+  type AssessmentSummary,
+} from '@/lib/onboarding/reassessment';
+import {
+  buildComparison,
+  buildProgressSummary,
+  type ComparisonMetric,
+  type ProgressSummary,
+} from '@/lib/onboarding/comparison';
 import type { OnboardingAnswerInput, OnboardingQuestion } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
 
@@ -39,6 +51,13 @@ export async function getOnboardingQuestions(): Promise<OnboardingQuestion[]> {
  * onboarding_baselines — per Sprint 1 task 7, no wellness conclusions are
  * generated this sprint. That table stays empty until the baseline
  * projection job is built.
+ *
+ * Also the write path for reassessments (unchanged since migration 25):
+ * submit_onboarding() itself decides server-side whether this is the
+ * member's first submission ever (-> 'baseline') or a later one
+ * (-> 'reassessment') — this action doesn't need to know or care which,
+ * so the reassessment flow (app/profile/reassessments/new) calls this
+ * exact same function with the exact same payload shape.
  */
 export async function submitOnboarding(
   timezone: string,
@@ -81,4 +100,58 @@ export async function getMyBaselineAssessment(): Promise<BaselineAssessment | nu
   if (!user) return null;
 
   return fetchBaselineAssessment(supabase, user.id);
+}
+
+/** Every submission the signed-in member has ever made, oldest first (baseline always first). */
+export async function getMyAssessmentHistory(): Promise<AssessmentSummary[]> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  return fetchAssessmentHistory(supabase, user.id);
+}
+
+/** A specific past submission of the signed-in member's own, by id — used to open one entry from their reassessment history. */
+export async function getMyAssessmentById(
+  submissionId: string
+): Promise<BaselineAssessment | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  return fetchAssessmentById(supabase, user.id, submissionId);
+}
+
+/**
+ * Baseline-vs-latest-reassessment comparison for the signed-in member.
+ * `latest` is null (and every metric's direction is null) until they've
+ * completed at least one reassessment — that's a real, honest empty
+ * state, not an error.
+ */
+export async function getMyProgressComparison(): Promise<{
+  baseline: BaselineAssessment | null;
+  latest: BaselineAssessment | null;
+  metrics: ComparisonMetric[];
+  summary: ProgressSummary;
+}> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    const metrics = buildComparison(null, null);
+    return { baseline: null, latest: null, metrics, summary: buildProgressSummary(metrics) };
+  }
+
+  const [baseline, latest] = await Promise.all([
+    fetchBaselineAssessment(supabase, user.id),
+    fetchLatestReassessment(supabase, user.id),
+  ]);
+
+  const metrics = buildComparison(baseline, latest);
+  return { baseline, latest, metrics, summary: buildProgressSummary(metrics) };
 }

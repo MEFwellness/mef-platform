@@ -97,6 +97,11 @@ export interface OnboardingSubmission {
   // an earlier "current" one by setting this, without ever deleting the
   // row. Unused by submit_onboarding() today — every submission is kept.
   superseded_at: string | null;
+  // 'baseline' = the member's first-ever submission, permanent. Computed
+  // server-side by submit_onboarding() (migration 25), never client-set.
+  assessment_type: 'baseline' | 'reassessment';
+  // Reserved for a future scheduled-reminder system. Always null today.
+  checkpoint_label: '30_day' | '90_day' | null;
 }
 
 export interface OnboardingAnswerRecord {
@@ -166,4 +171,7 @@ export interface CoachNote {
   client_id: string;
   note: string;
   created_at: string;
+  // Optional link to a specific onboarding_submission (baseline or
+  // reassessment) this note is about. Null for general client notes.
+  onboarding_submission_id: string | null;
 }

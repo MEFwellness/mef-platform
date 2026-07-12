@@ -2,6 +2,18 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchBaselineAssessment, type BaselineAssessment } from '@/lib/onboarding/baseline';
+import {
+  fetchAssessmentHistory,
+  fetchAssessmentById,
+  fetchLatestReassessment,
+  type AssessmentSummary,
+} from '@/lib/onboarding/reassessment';
+import {
+  buildComparison,
+  buildProgressSummary,
+  type ComparisonMetric,
+  type ProgressSummary,
+} from '@/lib/onboarding/comparison';
 import type { Profile, DailyCheckin, Habit, CoachNote } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
 
@@ -96,14 +108,20 @@ export async function getClientHabitLogs(
  * member-facing RLS policy at all (migration 23), so this is enforced by
  * Postgres even if this action layer had a bug; there's no policy path
  * that could ever let a member's session read this table.
+ *
+ * Without a submissionId, returns every note for this client (unchanged
+ * behavior — the general client-detail-page notes panel). With one,
+ * returns only notes tied to that specific assessment, for the
+ * per-reassessment notes panel on the coach's assessment detail page.
  */
-export async function getCoachNotes(clientId: string): Promise<CoachNote[]> {
+export async function getCoachNotes(clientId: string, submissionId?: string): Promise<CoachNote[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('coach_notes')
-    .select('*')
-    .eq('client_id', clientId)
-    .order('created_at', { ascending: false });
+  let query = supabase.from('coach_notes').select('*').eq('client_id', clientId);
+  if (submissionId !== undefined) {
+    query = query.eq('onboarding_submission_id', submissionId);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
     console.error('getCoachNotes failed', error);
@@ -112,7 +130,11 @@ export async function getCoachNotes(clientId: string): Promise<CoachNote[]> {
   return data as CoachNote[];
 }
 
-export async function addCoachNote(clientId: string, note: string): Promise<ActionResult> {
+export async function addCoachNote(
+  clientId: string,
+  note: string,
+  submissionId?: string
+): Promise<ActionResult> {
   const trimmed = note.trim();
   if (!trimmed) return { error: 'Note cannot be empty.' };
 
@@ -124,9 +146,12 @@ export async function addCoachNote(clientId: string, note: string): Promise<Acti
 
   // is_active_coach_for RLS check (migration 23) is what actually rejects
   // a note about a client this coach isn't assigned to — not this check.
-  const { error } = await supabase
-    .from('coach_notes')
-    .insert({ coach_id: user.id, client_id: clientId, note: trimmed });
+  const { error } = await supabase.from('coach_notes').insert({
+    coach_id: user.id,
+    client_id: clientId,
+    note: trimmed,
+    onboarding_submission_id: submissionId ?? null,
+  });
 
   if (error) return { error: error.message };
   return {};
@@ -144,4 +169,36 @@ export async function getClientBaselineAssessment(
 ): Promise<BaselineAssessment | null> {
   const supabase = createClient();
   return fetchBaselineAssessment(supabase, clientId);
+}
+
+/** Every submission a client has made, oldest first — same RLS-gated read as the client's own history. */
+export async function getClientAssessmentHistory(clientId: string): Promise<AssessmentSummary[]> {
+  const supabase = createClient();
+  return fetchAssessmentHistory(supabase, clientId);
+}
+
+/** A specific one of a client's past submissions, by id. */
+export async function getClientAssessmentById(
+  clientId: string,
+  submissionId: string
+): Promise<BaselineAssessment | null> {
+  const supabase = createClient();
+  return fetchAssessmentById(supabase, clientId, submissionId);
+}
+
+/** Baseline-vs-latest-reassessment comparison for a client, from the coach's side — identical computation to the member's own view. */
+export async function getClientProgressComparison(clientId: string): Promise<{
+  baseline: BaselineAssessment | null;
+  latest: BaselineAssessment | null;
+  metrics: ComparisonMetric[];
+  summary: ProgressSummary;
+}> {
+  const supabase = createClient();
+  const [baseline, latest] = await Promise.all([
+    fetchBaselineAssessment(supabase, clientId),
+    fetchLatestReassessment(supabase, clientId),
+  ]);
+
+  const metrics = buildComparison(baseline, latest);
+  return { baseline, latest, metrics, summary: buildProgressSummary(metrics) };
 }

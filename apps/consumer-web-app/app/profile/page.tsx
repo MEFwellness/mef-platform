@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ClipboardList, ChevronRight } from 'lucide-react';
+import { ClipboardList, ChevronRight, TrendingUp } from 'lucide-react';
 import { signOut } from '@/app/actions/auth';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
@@ -58,6 +58,28 @@ export default async function ProfilePage() {
             </div>
             <p className="mt-1.5 text-sm text-[#6B7A72]">
               Review the onboarding assessment you completed when you first joined.
+            </p>
+          </div>
+          <ChevronRight
+            className="h-5 w-5 shrink-0 text-[#1B3A2D]/40"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+        </Link>
+
+        <Link
+          href="/profile/reassessments"
+          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+        >
+          <div>
+            <div className="flex items-center gap-2 text-[#854D0E]">
+              <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-wider">
+                Progress & Reassessments
+              </p>
+            </div>
+            <p className="mt-1.5 text-sm text-[#6B7A72]">
+              Compare your latest reassessment against your baseline and start a new one.
             </p>
           </div>
           <ChevronRight
