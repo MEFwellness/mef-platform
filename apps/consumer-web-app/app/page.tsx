@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { hasCompletedConsent } from './actions/consent';
 import { signOut } from './actions/auth';
+import { hasActiveRole } from '@/lib/auth/guards';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -11,6 +12,14 @@ export default async function HomePage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect('/login');
+
+  // Every sign-in, email-verify callback, and password-reset flow converges
+  // here before landing anywhere else. Coaches never have consent/onboarding
+  // rows (they're not a member), so without this check every coach login
+  // fell straight into the member-only branches below and saw nothing but
+  // "Complete consent and onboarding" — there was no coach path at all.
+  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
+  if (isCoach) redirect('/coach');
 
   const consented = await hasCompletedConsent(user.id);
   const { data: submission } = await supabase

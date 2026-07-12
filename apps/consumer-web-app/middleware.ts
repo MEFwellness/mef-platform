@@ -32,6 +32,15 @@ export async function middleware(request: NextRequest) {
     if (!isCoach) return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
+  // Coaches never go through the member consent/onboarding assessment —
+  // app/page.tsx already keeps them from ever landing here post-login, but
+  // a coach manually navigating to /onboarding (bookmark, typed URL) should
+  // bounce straight to their own dashboard rather than see the member flow.
+  if (user && path.startsWith('/onboarding')) {
+    const isCoach = await hasActiveRole(supabase, user.id, 'coach');
+    if (isCoach) return NextResponse.redirect(new URL('/coach', request.url));
+  }
+
   return response;
 }
 
