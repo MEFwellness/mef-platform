@@ -16,6 +16,8 @@ import {
 } from '@/lib/onboarding/comparison';
 import type { Profile, DailyCheckin, Habit, CoachNote } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
+import { emitAndDispatch } from '@/lib/ai/events';
+import { buildRuleFacts } from '@/lib/ai/rules/facts';
 
 /**
  * Reads only what coach_read_assigned_* RLS policies allow (migration 16).
@@ -154,6 +156,38 @@ export async function addCoachNote(
   });
 
   if (error) return { error: error.message };
+
+  // AI event emission — best-effort, never allowed to affect the result
+  // above. The event is about the CLIENT (member_id = clientId), even
+  // though the coach's own session is what's authorized to write it —
+  // same "source" distinction the ai_events RLS policies (migration 27)
+  // are built around.
+  try {
+    const { data: recent } = await supabase
+      .from('daily_checkins_current')
+      .select('*')
+      .eq('user_id', clientId)
+      .order('local_date', { ascending: false })
+      .limit(14);
+
+    const recentCheckins = ((recent as DailyCheckin[] | null) ?? []).slice().reverse();
+    const today = new Date().toISOString().slice(0, 10);
+    const facts = buildRuleFacts(recentCheckins, today);
+
+    await emitAndDispatch(
+      supabase,
+      {
+        eventType: 'coach_added_notes',
+        memberId: clientId,
+        source: 'coach',
+        payload: { coachId: user.id },
+      },
+      facts
+    );
+  } catch (aiError) {
+    console.error('AI event emission failed for addCoachNote', aiError);
+  }
+
   return {};
 }
 

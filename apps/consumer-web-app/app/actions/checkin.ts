@@ -12,6 +12,8 @@
 import { createClient } from '@/lib/supabase/server';
 import type { DailyCheckinInput, DailyCheckin, Habit } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
+import { emitAndDispatch } from '@/lib/ai/events';
+import { buildRuleFacts } from '@/lib/ai/rules/facts';
 
 // ---- Time helpers ----
 
@@ -62,6 +64,40 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
   });
 
   if (error) return { error: error.message };
+
+  // AI event emission — never allowed to affect the result above, which
+  // has already succeeded by this point. Best-effort: fetch recent
+  // history (now including the row just written), build real facts from
+  // it, and let the dispatcher decide what (if anything) to do. See
+  // lib/ai/events.ts and lib/ai/dispatcher.ts.
+  try {
+    const { data: recent } = await supabase
+      .from('daily_checkins_current')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('local_date', { ascending: false })
+      .limit(14);
+
+    const recentCheckins = ((recent as DailyCheckin[] | null) ?? []).slice().reverse();
+    const latest = recentCheckins[recentCheckins.length - 1];
+
+    if (latest) {
+      const facts = buildRuleFacts(recentCheckins, input.local_date);
+      await emitAndDispatch(
+        supabase,
+        {
+          eventType: 'member_completed_checkin',
+          memberId: user.id,
+          source: 'member',
+          payload: { checkin: latest, recentCheckins },
+        },
+        facts
+      );
+    }
+  } catch (aiError) {
+    console.error('AI event emission failed for submitDailyCheckin', aiError);
+  }
+
   return {};
 }
 

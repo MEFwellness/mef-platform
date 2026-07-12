@@ -17,6 +17,8 @@ import {
 } from '@/lib/onboarding/comparison';
 import type { OnboardingAnswerInput, OnboardingQuestion } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
+import { emitAndDispatch } from '@/lib/ai/events';
+import { buildRuleFacts } from '@/lib/ai/rules/facts';
 
 const ASSESSMENT_VERSION = 1;
 
@@ -75,7 +77,7 @@ export async function submitOnboarding(
 
   const rawPayload = { answers, submitted_client_side_at: new Date().toISOString() };
 
-  const { error } = await supabase.rpc('submit_onboarding', {
+  const { data: submissionId, error } = await supabase.rpc('submit_onboarding', {
     p_assessment_version: ASSESSMENT_VERSION,
     p_timezone: timezone,
     p_raw_payload: rawPayload,
@@ -83,6 +85,40 @@ export async function submitOnboarding(
   });
 
   if (error) return { error: error.message };
+
+  // AI event emission — best-effort, never allowed to affect the result
+  // above. submit_onboarding() itself already decided baseline vs
+  // reassessment (migration 25); read that back rather than re-deciding
+  // it here a second way.
+  try {
+    if (submissionId) {
+      const { data: submission } = await supabase
+        .from('onboarding_submissions')
+        .select('assessment_type, local_date')
+        .eq('id', submissionId)
+        .single();
+
+      if (submission) {
+        const facts = buildRuleFacts([], submission.local_date);
+        await emitAndDispatch(
+          supabase,
+          {
+            eventType:
+              submission.assessment_type === 'reassessment'
+                ? 'reassessment_completed'
+                : 'member_completed_onboarding',
+            memberId: user.id,
+            source: 'member',
+            payload: { submissionId },
+          },
+          facts
+        );
+      }
+    }
+  } catch (aiError) {
+    console.error('AI event emission failed for submitOnboarding', aiError);
+  }
+
   return {};
 }
 

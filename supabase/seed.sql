@@ -5,3 +5,4 @@
 \i seed/01_onboarding_questions.sql
 \i seed/02_users.sql
 \i seed/03_assignments_and_data.sql
+\i seed/04_ai_agents_and_rules.sql
