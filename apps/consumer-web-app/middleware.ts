@@ -32,5 +32,13 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)']
+  // Excludes framework internals, the PWA manifest, and public/ static
+  // assets (icons, images, and common file extensions) — none of these
+  // should ever require a session, and previously didn't have one: an
+  // unauthenticated request for any of them (e.g. the logo on /login, or
+  // a browser's manifest fetch for install-eligibility) was being
+  // redirected to /login instead of served, silently breaking both.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)'
+  ]
 };

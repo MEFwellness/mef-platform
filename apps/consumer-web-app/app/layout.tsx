@@ -20,12 +20,24 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: 'Rooted Reset | MEF Wellness',
   description: 'Daily wellness check-ins, trends, and coaching from MEF Wellness.',
-  icons: { icon: '/images/rooted-reset-logo.png' }
+  icons: {
+    icon: [
+      { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }
+    ],
+    apple: '/icons/apple-touch-icon.png'
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Rooted Reset'
+  }
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
-  initialScale: 1
+  initialScale: 1,
+  themeColor: '#1B3A2D'
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
