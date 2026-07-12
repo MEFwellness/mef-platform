@@ -38,6 +38,7 @@
  */
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { Droplet, Moon, Activity, Bone, TrendingUp, Calendar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
@@ -118,7 +119,7 @@ export default async function DashboardPage() {
             </div>
           </div>
           <Link
-            href="/profile"
+            href={'/profile' as Route}
             className="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-[#F5B700] bg-white"
           >
             <div className="flex h-full w-full items-center justify-center text-sm font-medium text-[#1B3A2D]">
@@ -167,7 +168,7 @@ export default async function DashboardPage() {
             </section>
 
             <Link
-              href="/checkin"
+              href={'/checkin' as Route}
               className={`${CARD} flex items-center justify-between bg-[#F5B700] p-6 text-left text-[#1B3A2D] transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B3A2D]`}
             >
               <div>

@@ -1,9 +1,10 @@
-// Hand-authored for Sprint 1. In practice this file is regenerated via
-// `supabase gen types typescript --local > database.types.ts` against the
-// running local instance — committing a generated copy here so every
-// consumer (consumer-web-app today; knowledge-engine-api and
-// pattern-prioritization-engine once they exist) shares one source of
+// Hand-authored, friendly domain types (not the raw `supabase gen types`
+// output) so every consumer (consumer-web-app today; knowledge-engine-api
+// and pattern-prioritization-engine once they exist) shares one source of
 // truth and a schema drift shows up as a compile error, not a runtime bug.
+// Must be kept in sync with supabase/migrations by hand — there is no
+// generation step wired up yet. When adding a column, update the matching
+// interface here in the same change as the migration.
 
 export type Role =
   | 'member'
@@ -90,10 +91,12 @@ export interface OnboardingAnswerInput {
 export interface DailyCheckinInput {
   timezone: string;
   local_date: string; // YYYY-MM-DD
+  mood_level: number | null;
   sleep_quality: number | null;
   sleep_duration: '<5h' | '5-6h' | '6-7h' | '7-8h' | '8h+' | null;
   energy_level: number | null;
   stress_level: number | null;
+  water_cups: number | null;
   digestion_rating: number | null;
   pain_discomfort_level: number | null;
   movement_today: 'none' | 'light' | 'moderate' | 'full_session' | null;

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
 import { Home, PlusCircle, BarChart2, Users, User } from 'lucide-react';
 
@@ -27,7 +28,7 @@ export function BottomNav() {
         return (
           <Link
             key={label}
-            href={href}
+            href={href as Route}
             className={`flex flex-col items-center gap-1 rounded-2xl px-4 py-2 text-[11px] font-medium transition-colors ${
               active
                 ? 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]'

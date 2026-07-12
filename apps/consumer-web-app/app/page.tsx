@@ -36,7 +36,7 @@ export default async function HomePage() {
       )}
       {consented && submission && (
         <p>
-          <Link href="/checkin">Go to today's check-in →</Link>
+          <Link href="/dashboard">Go to your dashboard →</Link>
         </p>
       )}
 

@@ -77,22 +77,25 @@ values
 
 -- Sample daily check-ins for member.one, via submit_daily_checkin(), including
 -- one same-day edit to demonstrate checkin_version incrementing safely.
+-- Positional args: timezone, local_date, mood_level, sleep_quality,
+-- sleep_duration, energy_level, stress_level, water_cups, digestion_rating,
+-- pain_discomfort_level, movement_today, new_or_worsening_concern, notes.
 select submit_daily_checkin(
   'America/New_York', current_date - 2,
-  3, '6-7h', 3, 3, 3, 1, 'light', false, null
+  3, 3, '6-7h', 3, 3, 5, 3, 1, 'light', false, null
 );
 select submit_daily_checkin(
   'America/New_York', current_date - 1,
-  2, '5-6h', 2, 4, 3, 1, 'none', false, 'Rough night, work deadline stress.'
+  2, 2, '5-6h', 2, 4, 4, 3, 1, 'none', false, 'Rough night, work deadline stress.'
 );
 -- Edit of yesterday's check-in — inserts checkin_version = 2 for the same local_date.
 select submit_daily_checkin(
   'America/New_York', current_date - 1,
-  2, '5-6h', 2, 4, 2, 2, 'none', false, 'Rough night, work deadline stress. Also some lower back tightness this morning.'
+  2, 2, '5-6h', 2, 4, 6, 2, 2, 'none', false, 'Rough night, work deadline stress. Also some lower back tightness this morning.'
 );
 select submit_daily_checkin(
   'America/New_York', current_date,
-  4, '7-8h', 4, 2, 4, 0, 'moderate', false, null
+  4, 4, '7-8h', 4, 2, 7, 4, 0, 'moderate', false, null
 );
 
 select set_config('request.jwt.claims', '', true);

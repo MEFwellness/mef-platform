@@ -1,12 +1,6 @@
 /**
  * apps/consumer-web-app/app/actions/checkin.ts
  *
- * Self-contained on purpose: no import from '@mef/shared-types-contracts'
- * (a workspace package that only resolves in a monorepo setup) and no
- * import from './auth' for the ActionResult type. Everything this file
- * needs is defined right here, so it works whether you're running a
- * standalone Next.js app or a monorepo.
- *
  * Exports required by the dashboard: getTodaysCheckin, getRecentCheckins,
  * resolveLocalDate. Also included: submitDailyCheckin (used by the
  * check-in form) and the habit-log helpers, since they're part of the same
@@ -16,53 +10,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-
-// ---- Local types (previously imported from @mef/shared-types-contracts) ----
-
-export interface ActionResult {
-  error?: string;
-}
-
-export type SleepDuration = '<5h' | '5-6h' | '6-7h' | '7-8h' | '8h+';
-export type MovementLevel = 'none' | 'light' | 'moderate' | 'full_session';
-
-export interface DailyCheckinInput {
-  timezone: string;
-  local_date: string; // YYYY-MM-DD
-  mood_level: number | null;
-  sleep_quality: number | null;
-  sleep_duration: SleepDuration | null;
-  energy_level: number | null;
-  stress_level: number | null;
-  water_cups: number | null;
-  digestion_rating: number | null;
-  pain_discomfort_level: number | null;
-  movement_today: MovementLevel | null;
-  new_or_worsening_concern: boolean;
-  optional_notes: string | null;
-}
-
-export interface DailyCheckin extends DailyCheckinInput {
-  id: string;
-  user_id: string;
-  recorded_at: string;
-  checkin_version: number;
-  edited_at: string | null;
-  sleep_observation_period_start: string | null;
-  sleep_observation_period_end: string | null;
-  created_at: string;
-}
-
-export interface Habit {
-  id: string;
-  user_id: string;
-  title: string;
-  domain: string;
-  target_frequency: 'daily' | '3x_week' | '5x_week';
-  active: boolean;
-  assigned_by: string | null;
-  assigned_at: string;
-}
+import type { DailyCheckinInput, DailyCheckin, Habit } from '@mef/shared-types-contracts';
+import type { ActionResult } from './auth';
 
 // ---- Time helpers ----
 

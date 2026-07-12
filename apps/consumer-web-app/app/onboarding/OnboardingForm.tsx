@@ -176,7 +176,9 @@ export function OnboardingForm({ questions }: Props) {
     setSubmitting(true);
 
     const payload: OnboardingAnswerInput[] = questions.map((question) => {
-      const answer = answers[question.question_key];
+      // Non-null: the missingQuestion check above already guarantees every
+      // question has an answer before this map runs.
+      const answer = answers[question.question_key]!;
 
       return {
         question_key: question.question_key,
