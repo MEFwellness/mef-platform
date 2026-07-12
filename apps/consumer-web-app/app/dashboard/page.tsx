@@ -56,6 +56,8 @@ import { redirect } from 'next/navigation';
 import { getTodaysCheckin, getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
 import { BottomNav } from '@/components/BottomNav';
 import { EnergyTrendChart } from './EnergyTrendChart';
+import { WellnessIndexCard } from './WellnessIndexCard';
+import { calculateWellnessIndex, inputsFromCheckin } from './wellness-index';
 import {
   stressStatus,
   painStatus,
@@ -108,6 +110,18 @@ function movementLabel(level: 'none' | 'light' | 'moderate' | 'full_session' | n
   return 'Full session';
 }
 
+/**
+ * local_date is a plain YYYY-MM-DD calendar string with no time/timezone
+ * component. Date.UTC (not `new Date(y, m, d)`, which is local-time and
+ * would shift by a day around midnight depending on the server's own
+ * timezone) keeps this pure calendar arithmetic.
+ */
+function previousLocalDate(localDate: string): string {
+  const [year, month, day] = localDate.split('-').map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day! - 1));
+  return date.toISOString().slice(0, 10);
+}
+
 export default async function DashboardPage() {
   const supabase = createClient();
   const {
@@ -134,6 +148,10 @@ export default async function DashboardPage() {
 
   const todaysCheckin = await getTodaysCheckin(localDate);
   const recentCheckins = await getRecentCheckins(12);
+  const yesterdaysCheckin = await getTodaysCheckin(previousLocalDate(localDate));
+
+  const wellnessIndex = calculateWellnessIndex(inputsFromCheckin(todaysCheckin));
+  const yesterdaysWellnessIndex = calculateWellnessIndex(inputsFromCheckin(yesterdaysCheckin));
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -181,6 +199,17 @@ export default async function DashboardPage() {
         </div>
 
         <div className="mt-7 space-y-5">
+          {/* ---------------------------------------------------- */}
+          {/* Daily Wellness Index — first thing shown after login,  */}
+          {/* per the current milestone. Real weighted score from    */}
+          {/* today's check-in (app/dashboard/wellness-index.ts);    */}
+          {/* never a placeholder number.                            */}
+          {/* ---------------------------------------------------- */}
+          <WellnessIndexCard
+            result={wellnessIndex}
+            previousScore={yesterdaysWellnessIndex?.score ?? null}
+          />
+
           {/* ---------------------------------------------------- */}
           {/* Today's Focus + CTA + Next Session                    */}
           {/* Same 3-column grid as before — just re-flows now that  */}
