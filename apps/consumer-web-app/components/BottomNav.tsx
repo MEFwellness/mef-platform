@@ -3,11 +3,23 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, PlusCircle, BarChart2, Users, User } from 'lucide-react';
+import {
+  Home,
+  Sparkles,
+  PlusCircle,
+  BarChart2,
+  Users,
+  User,
+  MessageCircle,
+  ScanFace,
+} from 'lucide-react';
 
 const MEMBER_NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', Icon: Home },
+  { label: 'Today', href: '/today', Icon: Sparkles },
   { label: 'Check-in', href: '/checkin', Icon: PlusCircle },
+  { label: 'Assessment', href: '/assessment', Icon: ScanFace },
+  { label: 'Coaching', href: '/conversation', Icon: MessageCircle },
   { label: 'Progress', href: '/progress', Icon: BarChart2 },
   { label: 'Profile', href: '/profile', Icon: User },
 ] as const;
@@ -29,7 +41,7 @@ type Props = {
 export function BottomNav({ isCoach = false }: Props) {
   const pathname = usePathname();
   const navItems = isCoach
-    ? [...MEMBER_NAV_ITEMS.slice(0, 3), COACH_NAV_ITEM, MEMBER_NAV_ITEMS[3]]
+    ? [...MEMBER_NAV_ITEMS.slice(0, -1), COACH_NAV_ITEM, MEMBER_NAV_ITEMS.at(-1)!]
     : MEMBER_NAV_ITEMS;
 
   return (

@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ClipboardList, ChevronRight, TrendingUp } from 'lucide-react';
+import { ClipboardList, ChevronRight, TrendingUp, Watch } from 'lucide-react';
 import { signOut } from '@/app/actions/auth';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
+import { buildProfileEntryContext } from '@/lib/conversation-coach/entryContext';
 import { ProfileForm } from './ProfileForm';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -89,6 +91,26 @@ export default async function ProfilePage() {
           />
         </Link>
 
+        <Link
+          href="/connections"
+          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+        >
+          <div>
+            <div className="flex items-center gap-2 text-[#854D0E]">
+              <Watch className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-wider">Connected Devices</p>
+            </div>
+            <p className="mt-1.5 text-sm text-[#6B7A72]">
+              Connect Oura, Apple Health, or Google Fit to personalize your coaching.
+            </p>
+          </div>
+          <ChevronRight
+            className="h-5 w-5 shrink-0 text-[#1B3A2D]/40"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+        </Link>
+
         <div className={`${CARD} mt-5 p-6`}>
           <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Account</p>
           <p className="mt-2 text-sm text-[#6B7A72]">
@@ -106,6 +128,8 @@ export default async function ProfilePage() {
       </main>
 
       <BottomNav isCoach={isCoach} />
+
+      <FloatingCoachLauncher entryPoint="profile" entryContext={buildProfileEntryContext()} />
     </div>
   );
 }

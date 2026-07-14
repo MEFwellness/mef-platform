@@ -1,6 +1,112 @@
 @import 'tailwindcss';
 
 /*
+ * Micro-interaction keyframes for the Daily Coaching Experience
+ * (app/today/page.tsx, FeedInteractions.tsx) — calm, subtle motion only:
+ * a gentle stagger-in on page load and a small pop for confirmations
+ * (reflection saved, action completed). Defined here rather than inline
+ * <style> because Tailwind v4's arbitrary `animate-[name_duration_ease]`
+ * utility resolves against globally-registered @keyframes.
+ */
+@keyframes mef-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mef-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Apply with an inline `animation-delay` (via style={{ animationDelay: '...' }}) for a staggered card entrance down the page. */
+.mef-animate-in {
+  animation: mef-fade-up 0.5s ease-out both;
+}
+
+.mef-pop-in {
+  animation: mef-pop-in 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-animate-in,
+  .mef-pop-in {
+    animation: none !important;
+  }
+}
+
+/*
+ * Voice-input listening indicator (components/conversation/MessageInput.tsx)
+ * — a calm pulse, not a flashing alert. Reduced-motion falls back to a
+ * plain static dot rather than removing the indicator entirely, since it's
+ * conveying real state (the microphone is live), not decoration.
+ */
+@keyframes mef-voice-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.3);
+  }
+}
+
+.mef-voice-pulse {
+  animation: mef-voice-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-voice-pulse {
+    animation: none !important;
+  }
+}
+
+/*
+ * "Pending" indicator dot (Coach Review Dashboard AI Analysis placeholder
+ * cards, app/coach/clients/[id]/body-assessments/[assessmentId]/RightPanel/
+ * AIAnalysisSection.tsx) — a slow, calm breathing pulse signaling "waiting",
+ * not an alert. Same reduced-motion fallback discipline as mef-voice-pulse.
+ */
+@keyframes mef-pulse-dot {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.mef-pulse-dot {
+  animation: mef-pulse-dot 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-pulse-dot {
+    animation: none !important;
+  }
+}
+
+/*
  * Premium range slider (used by the onboarding/reassessment questionnaire's
  * numeric questions). Tailwind's accent-color utility can't size or shadow
  * a slider thumb and there's no utility-class equivalent for the

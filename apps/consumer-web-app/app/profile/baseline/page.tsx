@@ -5,6 +5,8 @@ import { ChevronLeft } from 'lucide-react';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
+import { buildAssessmentEntryContext } from '@/lib/conversation-coach/entryContext';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -58,6 +60,13 @@ export default async function BaselineAssessmentPage() {
       </main>
 
       <BottomNav isCoach={isCoach} />
+
+      {baseline && (
+        <FloatingCoachLauncher
+          entryPoint="assessment"
+          entryContext={buildAssessmentEntryContext('baseline', baseline.localDate)}
+        />
+      )}
     </div>
   );
 }

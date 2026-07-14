@@ -9,6 +9,8 @@ import {
 } from '@/app/actions/checkin';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
+import { buildCheckinEntryContext } from '@/lib/conversation-coach/entryContext';
 import { CheckinForm } from './CheckinForm';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -77,9 +79,32 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           initialHabitLogs={habitLogs}
           cardClassName={CARD}
         />
+
+        <section className={`${CARD} mt-5 p-5`}>
+          <p className="text-sm font-medium text-[#1B3A2D]">Want to talk it through instead?</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href="/conversation?entry=checkin_feeling"
+              className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+            >
+              I want to explain how I&apos;m feeling
+            </Link>
+            <Link
+              href="/conversation?entry=checkin_explain"
+              className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+            >
+              Something affected my answers today
+            </Link>
+          </div>
+        </section>
       </main>
 
       <BottomNav isCoach={isCoach} />
+
+      <FloatingCoachLauncher
+        entryPoint="checkin_feeling"
+        entryContext={buildCheckinEntryContext(!!existingCheckin)}
+      />
     </div>
   );
 }

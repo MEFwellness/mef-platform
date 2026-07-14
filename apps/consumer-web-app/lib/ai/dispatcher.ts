@@ -28,6 +28,10 @@ import {
 } from './data';
 import { wasRecentlyActioned, recordHistoryEntry } from './memory';
 import type { AgentOutputItem } from './agents/types';
+import { guardAgentOutputItem } from '../safety/outputGuard';
+import { insertNotification } from '../notifications/data';
+import { updateNarrativeForEvent } from '../narrative/service';
+import { recalculateIntelligenceCore } from '../intelligence-core/service';
 
 /** How long to wait before this exact agent+action_type combination can fire again for the same member — keeps a chatty check-in streak from generating the same insight every single day. */
 const ACTION_COOLDOWN_HOURS: Record<string, number> = {
@@ -41,6 +45,22 @@ const ACTION_COOLDOWN_HOURS: Record<string, number> = {
   follow_up_recommendation: 24 * 3,
 };
 const DEFAULT_COOLDOWN_HOURS = 20;
+
+/**
+ * Not every event's payload carries an explicit local_date (only the
+ * check-in flow's does, via payload.checkin) — the same "fall back to
+ * today's UTC date" convention app/actions/coach.ts already uses for its
+ * own rule-facts computation when no check-in-derived date exists.
+ * Recalculation only needs an approximate anchor date for window
+ * boundaries; the exact member-local calendar day is re-resolved
+ * precisely wherever a human actually looks at the result (coach
+ * dashboard, member surfaces), same "recomputation is cheap" posture as
+ * the rest of this layer.
+ */
+function resolveAsOfLocalDate(event: AiEvent): string {
+  const payload = event.payload as { checkin?: { local_date?: string } } | null;
+  return payload?.checkin?.local_date ?? new Date().toISOString().slice(0, 10);
+}
 
 async function persistOutputItem(
   supabase: SupabaseClient,
@@ -106,6 +126,17 @@ async function persistOutputItem(
       });
     }
   }
+
+  if (item.notification) {
+    await insertNotification(supabase, {
+      memberId,
+      type: item.notification.notificationType,
+      title: item.notification.title,
+      body: item.notification.body ?? null,
+      sourceFeature: agentKey,
+      sourceRecordId: sourceEventId,
+    });
+  }
 }
 
 export async function dispatchEvent(
@@ -148,7 +179,20 @@ export async function dispatchEvent(
       });
 
       for (const item of output) {
-        await persistOutputItem(supabase, event.member_id, agent.key, event.id, item);
+        // Milestone 1 safety layer: every agent-generated item passes
+        // through the guard before it can be persisted. See
+        // lib/safety/outputGuard.ts — fast-pathed, so this is a no-op cost
+        // in the common (STANDARD_COACHING) case.
+        const { item: guardedItem } = await guardAgentOutputItem(
+          supabase,
+          event.member_id,
+          agent.key,
+          event,
+          item
+        );
+        if (guardedItem) {
+          await persistOutputItem(supabase, event.member_id, agent.key, event.id, guardedItem);
+        }
       }
 
       if (output.length > 0) {
@@ -161,6 +205,20 @@ export async function dispatchEvent(
         );
       }
     }
+
+    // Milestone 2: update the member's longitudinal narrative from this
+    // same event/facts, after agents have had their turn. See
+    // lib/narrative/service.ts — reuses this event, never a second
+    // parallel pipeline.
+    await updateNarrativeForEvent(supabase, event, facts);
+
+    // Milestone 9: recalculate the Wellness Intelligence Core from this
+    // same event — every check-in, assessment, and coach note (every
+    // event type this dispatcher handles) keeps the member's identity
+    // observations/profile dimensions/coaching style current. See
+    // lib/intelligence-core/service.ts; never throws, mirrors
+    // updateNarrativeForEvent's own best-effort discipline.
+    await recalculateIntelligenceCore(supabase, event.member_id, resolveAsOfLocalDate(event));
 
     await supabase
       .from('ai_events')

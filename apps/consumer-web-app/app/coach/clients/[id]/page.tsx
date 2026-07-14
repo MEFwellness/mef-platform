@@ -26,6 +26,21 @@ import {
   getClientAssessmentHistory,
   getClientProgressComparison,
 } from '@/app/actions/coach';
+import { getClientNarrative } from '@/app/actions/narrative';
+import { getClientFeedHistory, listContentLibraryForCoach } from '@/app/actions/feed';
+import { getClientCoachingDecision } from '@/app/actions/coaching-brain';
+import { getClientWellnessIntelligence } from '@/app/actions/wellness-intelligence';
+import {
+  getClientIntelligenceReport,
+  getClientCoachAlerts,
+} from '@/app/actions/intelligence-engine';
+import { getClientIntelligenceCoreSummary } from '@/app/actions/intelligence-core';
+import {
+  getClientConversationSessionsAction,
+  getClientConversationMessagesAction,
+  getSessionHandoffsAction,
+} from '@/app/actions/conversation-coach';
+import { getClientBodyAssessmentsAction } from '@/app/actions/body-assessment';
 import { buildClientSummary } from '../../lib';
 import { BottomNav } from '@/components/BottomNav';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
@@ -34,6 +49,14 @@ import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { AssessmentHistoryList } from '@/components/AssessmentHistoryList';
 import { CoachNotesPanel } from './CoachNotesPanel';
+import { NarrativePanel } from './NarrativePanel';
+import { FeedPanel } from './FeedPanel';
+import { BrainPanel } from './BrainPanel';
+import { IntelligencePanel } from './IntelligencePanel';
+import { MemberIntelligencePanel } from './MemberIntelligencePanel';
+import { IntelligenceCorePanel } from './IntelligenceCorePanel';
+import { ConversationPanel } from './ConversationPanel';
+import { BodyAssessmentPanel } from './BodyAssessmentPanel';
 import {
   stressStatus,
   painStatus,
@@ -119,15 +142,49 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const firstName = profile.display_name?.split(' ')[0] ?? 'This client';
 
   const summary = await buildClientSummary(profile);
-  const [habits, habitLogs, notes, baseline, assessmentHistory, progressComparison] =
-    await Promise.all([
-      getClientHabits(profile.id),
-      getClientHabitLogs(profile.id, summary.todaysLocalDate),
-      getCoachNotes(profile.id),
-      getClientBaselineAssessment(profile.id),
-      getClientAssessmentHistory(profile.id),
-      getClientProgressComparison(profile.id),
-    ]);
+  const [
+    habits,
+    habitLogs,
+    notes,
+    baseline,
+    assessmentHistory,
+    progressComparison,
+    narrativeItems,
+    feedHistory,
+    contentLibrary,
+    brainDecision,
+    wellnessIntelligence,
+    conversationSessions,
+    intelligenceReport,
+    coachAlerts,
+    intelligenceCoreSummary,
+    bodyAssessments,
+  ] = await Promise.all([
+    getClientHabits(profile.id),
+    getClientHabitLogs(profile.id, summary.todaysLocalDate),
+    getCoachNotes(profile.id),
+    getClientBaselineAssessment(profile.id),
+    getClientAssessmentHistory(profile.id),
+    getClientProgressComparison(profile.id),
+    getClientNarrative(profile.id),
+    getClientFeedHistory(profile.id),
+    listContentLibraryForCoach(),
+    getClientCoachingDecision(profile.id),
+    getClientWellnessIntelligence(profile.id),
+    getClientConversationSessionsAction(profile.id),
+    getClientIntelligenceReport(profile.id),
+    getClientCoachAlerts(profile.id),
+    getClientIntelligenceCoreSummary(profile.id),
+    getClientBodyAssessmentsAction(profile.id),
+  ]);
+
+  const latestConversationSession = conversationSessions[0] ?? null;
+  const [conversationMessages, conversationHandoffs] = latestConversationSession
+    ? await Promise.all([
+        getClientConversationMessagesAction(latestConversationSession.id),
+        getSessionHandoffsAction(latestConversationSession.id),
+      ])
+    : [[], []];
 
   const checkin = summary.todaysCheckin;
   const chartCheckins = [...summary.checkins].reverse(); // oldest first, matches EnergyTrendChart's contract
@@ -321,6 +378,56 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               </p>
             )}
           </section>
+
+          {/* Coaching Brain — the same Daily Decision Object the client's own /today page renders (Milestone 5) */}
+          <BrainPanel decision={brainDecision} />
+
+          {/* Personal Wellness Intelligence — longer-term trends/patterns across weeks and months (Milestone 6) */}
+          <IntelligencePanel clientId={profile.id} insights={wellnessIntelligence} />
+
+          {/* MEF Intelligence Engine — the centralized longitudinal layer
+              (Member Health Profile, longitudinal trends, patterns, root
+              cause hypotheses, coaching priorities, recommendations,
+              member summary, coach alerts) every coaching surface now
+              shares (Milestone 8) */}
+          {intelligenceReport && (
+            <MemberIntelligencePanel
+              clientId={profile.id}
+              report={intelligenceReport}
+              alerts={coachAlerts}
+            />
+          )}
+
+          {/* MEF Wellness Intelligence Core — the durable "who is this
+              member as a coaching subject" model: wellness identity
+              observations, the 15-dimension wellness profile, a learned
+              coaching style, and leverage-capped prioritization
+              (Milestone 9) */}
+          {intelligenceCoreSummary && (
+            <IntelligenceCorePanel clientId={profile.id} summary={intelligenceCoreSummary} />
+          )}
+
+          {/* Coaching Conversation — the MEF Conversation Coach transcript,
+              handoff requests, and restrict/reopen control (Milestone 7) */}
+          <ConversationPanel
+            clientId={profile.id}
+            sessions={conversationSessions}
+            initialMessages={conversationMessages}
+            initialHandoffs={conversationHandoffs}
+          />
+
+          {/* AI Body Assessment Framework — guided posture/movement
+              assessment history; full capture review, findings,
+              confirm/override, and coach review workflow live on their
+              own dedicated page (captures/video need more room than a
+              dashboard panel). */}
+          <BodyAssessmentPanel clientId={profile.id} assessments={bodyAssessments} />
+
+          {/* Member Narrative — structured, evolving understanding (Milestone 2) */}
+          <NarrativePanel clientId={profile.id} items={narrativeItems} />
+
+          {/* Daily Coaching Feed — preview and replace (Milestone 3) */}
+          <FeedPanel history={feedHistory} contentLibrary={contentLibrary} />
 
           {/* Habit completion — today's active habits */}
           <section className={`${CARD} p-6`}>

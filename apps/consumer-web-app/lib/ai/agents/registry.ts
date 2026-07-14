@@ -22,6 +22,8 @@ import { wellnessAnalysisAgent } from './wellness-analysis';
 import { coachAssistantAgent } from './coach-assistant';
 import { educationAgent } from './education';
 import { accountabilityAgent } from './accountability';
+import { bodyAssessmentAgent } from './body-assessment';
+import { proactiveCoachAgent } from './proactive-coach';
 
 export const AGENT_DEFINITIONS: readonly AiAgentDefinition[] = [
   memberEngagementAgent,
@@ -29,6 +31,8 @@ export const AGENT_DEFINITIONS: readonly AiAgentDefinition[] = [
   coachAssistantAgent,
   educationAgent,
   accountabilityAgent,
+  bodyAssessmentAgent,
+  proactiveCoachAgent,
 ];
 
 const AGENTS_BY_KEY: Record<AgentKey, AiAgentDefinition> = Object.fromEntries(

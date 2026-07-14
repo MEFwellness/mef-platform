@@ -17,7 +17,13 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { AgentKey, AiActionType, AiEvent, AiEventType } from '@mef/shared-types-contracts';
+import type {
+  AgentKey,
+  AiActionType,
+  AiEvent,
+  AiEventType,
+  NotificationType,
+} from '@mef/shared-types-contracts';
 import type { RuleFacts } from '../rules/facts';
 import type { RuleMatch } from '../rules/engine';
 
@@ -56,10 +62,26 @@ export type ActionDraft = {
   requiresCoachApproval: boolean;
 };
 
+/**
+ * A member-visible in-app notification — the Proactive AI Coach's
+ * delivery channel (lib/ai/agents/proactive-coach.ts). Distinct from
+ * insight/recommendation/action: those three are coaching-domain records
+ * a coach or report can surface later, while a notification is the one
+ * thing guaranteed to render somewhere the member will actually see it
+ * (the Coach Messages inbox), the same generic `notifications` table
+ * migration 39 already added for assessment-report-published.
+ */
+export type NotificationDraft = {
+  notificationType: NotificationType;
+  title: string;
+  body?: string | null;
+};
+
 export type AgentOutputItem = {
   insight?: InsightDraft;
   recommendation?: RecommendationDraft;
   action?: ActionDraft;
+  notification?: NotificationDraft;
 };
 
 export type AgentOutput = AgentOutputItem[];

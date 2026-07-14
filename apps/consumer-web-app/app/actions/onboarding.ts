@@ -19,6 +19,7 @@ import type { OnboardingAnswerInput, OnboardingQuestion } from '@mef/shared-type
 import type { ActionResult } from './auth';
 import { emitAndDispatch } from '@/lib/ai/events';
 import { buildRuleFacts } from '@/lib/ai/rules/facts';
+import { recordTimelineEvent } from '@/lib/timeline/data';
 
 const ASSESSMENT_VERSION = 1;
 
@@ -100,19 +101,26 @@ export async function submitOnboarding(
 
       if (submission) {
         const facts = buildRuleFacts([], submission.local_date);
+        const isReassessment = submission.assessment_type === 'reassessment';
         await emitAndDispatch(
           supabase,
           {
-            eventType:
-              submission.assessment_type === 'reassessment'
-                ? 'reassessment_completed'
-                : 'member_completed_onboarding',
+            eventType: isReassessment ? 'reassessment_completed' : 'member_completed_onboarding',
             memberId: user.id,
             source: 'member',
             payload: { submissionId },
           },
           facts
         );
+
+        await recordTimelineEvent(supabase, {
+          memberId: user.id,
+          eventType: isReassessment ? 'reassessment_completed' : 'onboarding_completed',
+          localDate: submission.local_date,
+          title: isReassessment ? 'Completed a reassessment' : 'Completed onboarding',
+          sourceFeature: 'onboarding_submissions',
+          sourceRecordId: submissionId,
+        });
       }
     }
   } catch (aiError) {

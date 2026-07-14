@@ -56,9 +56,11 @@ import { redirect } from 'next/navigation';
 import { getTodaysCheckin, getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from './WellnessIndexCard';
 import { calculateWellnessIndex, inputsFromCheckin } from '@/lib/wellness/wellness-index';
+import { buildDashboardEntryContext } from '@/lib/conversation-coach/entryContext';
 import {
   stressStatus,
   painStatus,
@@ -490,6 +492,11 @@ export default async function DashboardPage() {
       {/* real active state — see components/BottomNav.tsx.          */}
       {/* -------------------------------------------------------- */}
       <BottomNav isCoach={isCoach} />
+
+      <FloatingCoachLauncher
+        entryPoint="dashboard"
+        entryContext={buildDashboardEntryContext(wellnessIndex)}
+      />
     </div>
   );
 }

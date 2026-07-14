@@ -10,7 +10,11 @@
  * shows them, by construction.
  */
 
-import { calculateWellnessIndex, inputsFromCheckin } from '../../wellness/wellness-index';
+import {
+  calculateWellnessIndex,
+  inputsFromCheckin,
+  WELLNESS_METRIC_LABEL,
+} from '../../wellness/wellness-index';
 import { WELLNESS_COACHING } from '../../wellness/coaching';
 import { buildComparison, buildProgressSummary } from '../../onboarding/comparison';
 import {
@@ -23,6 +27,8 @@ import type { AiAgentDefinition } from './types';
 import type { DailyCheckin } from '@mef/shared-types-contracts';
 import { fetchBaselineAssessment, type BaselineAssessment } from '../../onboarding/baseline';
 import { fetchLatestReassessment } from '../../onboarding/reassessment';
+import { listNarrativeItems } from '../../narrative/data';
+import { pickCoachingReferenceSentence } from '../../narrative/coachingReference';
 
 /** "Today's priority" — only worth surfacing when the priority area is actually attention/poor, not on an ordinary good day (avoids noisy, unnecessary output). */
 async function priorityInsightFromCheckin(context: AgentContext): Promise<AgentOutput> {
@@ -43,6 +49,28 @@ async function priorityInsightFromCheckin(context: AgentContext): Promise<AgentO
     wellnessIndexScore: index.score,
   };
 
+  // Milestone 2: weave in at most one safe, relevant narrative reference —
+  // "Travel has made consistency harder for you before, so today's plan
+  // is intentionally lighter," never a raw dump of everything the system
+  // knows. Best-effort: a narrative lookup failure never blocks the
+  // priority insight itself from being produced.
+  let narrativeSentence: string | null = null;
+  try {
+    const narrativeItems = await listNarrativeItems(context.supabase, context.memberId, {
+      statusFilter: ['active'],
+    });
+    narrativeSentence = pickCoachingReferenceSentence(
+      narrativeItems,
+      WELLNESS_METRIC_LABEL[index.priority.key]
+    );
+  } catch (narrativeError) {
+    console.error('Narrative reference lookup failed in wellness-analysis agent', narrativeError);
+  }
+
+  const recommendationDescription = narrativeSentence
+    ? `${copy.priorityAction} ${narrativeSentence}`
+    : copy.priorityAction;
+
   return [
     {
       insight: {
@@ -55,7 +83,7 @@ async function priorityInsightFromCheckin(context: AgentContext): Promise<AgentO
       recommendation: {
         recommendationType: 'coaching_priority',
         title: copy.priorityTitle,
-        description: copy.priorityAction,
+        description: recommendationDescription,
         supportingData,
         confidence: 0.7,
         priority: 'medium',

@@ -5,6 +5,8 @@ import { ChevronLeft } from 'lucide-react';
 import { getMyAssessmentById } from '@/app/actions/onboarding';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
+import { buildAssessmentEntryContext } from '@/lib/conversation-coach/entryContext';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
 
 const DESCRIPTION =
@@ -42,6 +44,11 @@ export default async function ReassessmentDetailPage({ params }: { params: { id:
       </main>
 
       <BottomNav isCoach={isCoach} />
+
+      <FloatingCoachLauncher
+        entryPoint="assessment"
+        entryContext={buildAssessmentEntryContext('reassessment', assessment.localDate)}
+      />
     </div>
   );
 }

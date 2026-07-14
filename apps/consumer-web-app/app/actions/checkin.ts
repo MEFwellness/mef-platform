@@ -14,6 +14,9 @@ import type { DailyCheckinInput, DailyCheckin, Habit } from '@mef/shared-types-c
 import type { ActionResult } from './auth';
 import { emitAndDispatch } from '@/lib/ai/events';
 import { buildRuleFacts } from '@/lib/ai/rules/facts';
+import { evaluateConcern } from '@/lib/safety/service';
+import { recordSafetyRestrictionNarrative } from '@/lib/narrative/service';
+import { recordTimelineEvent } from '@/lib/timeline/data';
 
 // ---- Time helpers ----
 
@@ -93,9 +96,53 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
         },
         facts
       );
+
+      await recordTimelineEvent(supabase, {
+        memberId: user.id,
+        eventType: 'checkin_submitted',
+        localDate: input.local_date,
+        title: 'Submitted a daily check-in',
+        sourceFeature: 'daily_checkins',
+        sourceRecordId: latest.id,
+      });
     }
   } catch (aiError) {
     console.error('AI event emission failed for submitDailyCheckin', aiError);
+  }
+
+  // Milestone 1 safety layer — the check-in form's free-text notes and its
+  // "new or worsening concern" flag are real member-authored input; run
+  // them through the central classifier before anything downstream (a
+  // future coach view of this note, a future feed personalization step)
+  // could act on them unreviewed. Best-effort, same discipline as the AI
+  // event emission above — never allowed to affect the result already
+  // returned to the member.
+  try {
+    if (input.optional_notes || input.new_or_worsening_concern) {
+      const evaluation = await evaluateConcern(supabase, {
+        memberId: user.id,
+        sourceFeature: 'daily_checkin',
+        sourceRecordType: 'daily_checkin',
+        text: input.optional_notes,
+        newOrWorseningConcern: input.new_or_worsening_concern,
+      });
+
+      // Milestone 2: a topic-restricting classification becomes an
+      // 'active_restrictions' narrative item, so future coaching (and a
+      // future coach view of this member's narrative) has honest context
+      // without re-deriving it from the raw classification each time.
+      if (evaluation) {
+        await recordSafetyRestrictionNarrative(
+          supabase,
+          user.id,
+          'member',
+          user.id,
+          evaluation.classification
+        );
+      }
+    }
+  } catch (safetyError) {
+    console.error('Safety classification failed for submitDailyCheckin', safetyError);
   }
 
   return {};

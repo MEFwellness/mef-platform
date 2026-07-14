@@ -15,10 +15,16 @@ const EXPECTED_AGENT_KEYS = [
   'coach_assistant',
   'education',
   'accountability',
+  // AI Body Assessment Framework — deterministic bookkeeping agent added
+  // alongside the five foundation agents; see lib/ai/agents/body-assessment.ts.
+  'body_assessment',
+  // Wearables + Proactive AI Coach — reacts to already-detected wearable
+  // patterns; see lib/ai/agents/proactive-coach.ts.
+  'proactive_coach',
 ];
 
 describe('AGENT_DEFINITIONS', () => {
-  it('registers exactly the five foundation agents from the milestone brief', () => {
+  it('registers exactly the foundation agents plus Body Assessment and Proactive Coach', () => {
     expect(AGENT_DEFINITIONS.map((a) => a.key).sort()).toEqual([...EXPECTED_AGENT_KEYS].sort());
   });
 

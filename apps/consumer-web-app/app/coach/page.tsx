@@ -1,7 +1,16 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { Users, UserCheck, AlertTriangle, Calendar, ClipboardList } from 'lucide-react';
+import Link from 'next/link';
+import {
+  Users,
+  UserCheck,
+  AlertTriangle,
+  Calendar,
+  ClipboardList,
+  ShieldAlert,
+} from 'lucide-react';
 import { listAssignedClients } from '@/app/actions/coach';
+import { listCoachReviewQueue } from '@/app/actions/safety';
 import { buildAllClientSummaries } from './lib';
 import { BottomNav } from '@/components/BottomNav';
 import { STATUS_STYLES } from '@/lib/wellness/status';
@@ -36,6 +45,10 @@ export default async function CoachPage() {
 
   const clients = await listAssignedClients();
   const summaries = await buildAllClientSummaries(clients);
+  const reviewQueue = await listCoachReviewQueue();
+  const openReviewCases = reviewQueue.filter(
+    (entry) => entry.status !== 'closed' && entry.status !== 'approved_for_limited_coaching'
+  );
 
   const totalActive = summaries.length;
   const needingAttention = summaries.filter((s) => s.attentionReasons.length > 0);
@@ -127,6 +140,28 @@ export default async function CoachPage() {
           </div>
           <p className="mt-2 text-base text-[#1B3A2D]">{summarySentence}</p>
         </section>
+
+        {/* ---------------------------------------------------- */}
+        {/* Safety Review Queue — cases flagged by the coaching    */}
+        {/* safety layer (Milestone 1). Only shown when there's    */}
+        {/* something open, so it never clutters an empty queue.   */}
+        {/* ---------------------------------------------------- */}
+        {openReviewCases.length > 0 && (
+          <Link
+            href="/coach/review-queue"
+            className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:opacity-90`}
+          >
+            <div className={`flex items-center gap-2 ${STATUS_STYLES.poor.text}`}>
+              <ShieldAlert className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-wider">Safety Review Queue</p>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-semibold ${STATUS_STYLES.poor.bg} ${STATUS_STYLES.poor.text}`}
+            >
+              {openReviewCases.length} open
+            </span>
+          </Link>
+        )}
 
         {/* ---------------------------------------------------- */}
         {/* Priority Queue — clients needing attention, real data  */}

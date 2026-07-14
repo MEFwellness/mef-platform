@@ -18,8 +18,8 @@ import type { AiAgentDefinition } from './types';
 
 const STREAK_MILESTONES = [7, 14, 30, 60, 90, 180, 365];
 
-/** Consecutive most-recent days (ending at the latest check-in) with no calendar-day gap — a real count from real local_date values, not an estimate. */
-function currentStreakLength(checkinsOldestFirst: DailyCheckin[]): number {
+/** Consecutive most-recent days (ending at the latest check-in) with no calendar-day gap — a real count from real local_date values, not an estimate. Exported for lib/narrative/service.ts to reuse the exact same streak calculation for its own recent_wins narrative item, rather than a second, possibly-diverging count. */
+export function currentStreakLength(checkinsOldestFirst: DailyCheckin[]): number {
   if (checkinsOldestFirst.length === 0) return 0;
 
   let streak = 1;
