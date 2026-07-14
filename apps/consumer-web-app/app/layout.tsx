@@ -18,6 +18,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://app.mefwellness.com'),
   title: 'Rooted Reset | MEF Wellness',
   description: 'Daily wellness check-ins, trends, and coaching from MEF Wellness.',
   icons: {
@@ -31,6 +32,19 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'Rooted Reset',
+  },
+  openGraph: {
+    title: 'Rooted Reset | MEF Wellness',
+    description: 'Daily wellness check-ins, trends, and coaching from MEF Wellness.',
+    images: [
+      { url: '/images/og-image.png', width: 1200, height: 630, alt: 'Rooted Reset by MEF Wellness' },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Rooted Reset | MEF Wellness',
+    description: 'Daily wellness check-ins, trends, and coaching from MEF Wellness.',
+    images: ['/images/og-image.png'],
   },
 };
 
