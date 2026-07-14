@@ -14,8 +14,24 @@
  */
 
 export type AgentKey =
-  'member_engagement' | 'wellness_analysis' | 'coach_assistant' | 'education' | 'accountability';
+  | 'member_engagement'
+  | 'wellness_analysis'
+  | 'coach_assistant'
+  | 'education'
+  | 'accountability'
+  | 'body_assessment'
+  | 'proactive_coach';
 
+/**
+ * 'wearable_synced', 'hrv_declining', 'recovery_excellent', and
+ * 'activity_declined' are the only genuinely new triggers the Wearables +
+ * Proactive AI Coach milestone needs — every other wearable-observable
+ * condition (declining sleep, rising/falling stress, reduced pain, streak
+ * milestones, missed check-ins, reassessment/body-assessment completion)
+ * already has an event type above; the wearable sync path
+ * (app/actions/wearables.ts) reuses those directly rather than inventing
+ * parallel ones. See lib/ai/agents/proactive-coach.ts.
+ */
 export type AiEventType =
   | 'member_completed_onboarding'
   | 'member_completed_checkin'
@@ -32,7 +48,13 @@ export type AiEventType =
   | 'coach_completed_session'
   | 'member_inactive'
   | 'habit_streak_achieved'
-  | 'wellness_index_changed_significantly';
+  | 'wellness_index_changed_significantly'
+  | 'body_assessment_completed'
+  | 'assessment_submitted_for_coach_review'
+  | 'wearable_synced'
+  | 'hrv_declining'
+  | 'recovery_excellent'
+  | 'activity_declined';
 
 export type AiEventSource = 'member' | 'coach' | 'system';
 

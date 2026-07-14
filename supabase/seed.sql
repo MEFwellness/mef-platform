@@ -6,3 +6,5 @@
 \i seed/02_users.sql
 \i seed/03_assignments_and_data.sql
 \i seed/04_ai_agents_and_rules.sql
+\i seed/05_safety_message_templates.sql
+\i seed/06_mef_content_library.sql

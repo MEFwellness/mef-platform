@@ -44,6 +44,22 @@ insert into ai_agents (agent_key, name, category, description, responsibilities,
     'Tracks streaks, missed check-ins, and habit consistency to support long-term follow-through.',
     '["Track streaks","Track missed check-ins","Monitor habits","Schedule reminders","Celebrate milestones","Encourage long-term consistency"]'::jsonb,
     '{}'::jsonb
+  ),
+  (
+    'body_assessment',
+    'Body Assessment Agent',
+    'movement',
+    'Turns completed guided body assessments into member-facing bookkeeping (new findings ready for review) — never interprets or diagnoses a finding itself.',
+    '["Acknowledge a completed assessment","Surface a count of new findings awaiting coach review","Never interpret or diagnose a finding"]'::jsonb,
+    '{}'::jsonb
+  ),
+  (
+    'proactive_coach',
+    'Proactive Coach Agent',
+    'engagement',
+    'Observes real wearable-derived patterns (HRV, sleep, recovery, activity, stress) and reaches out first, in a calm, encouraging, never-alarming voice — never diagnoses, never interprets raw data itself.',
+    '["Detect HRV/sleep/activity/stress trends already computed from wearable data","Recognize excellent recovery","Deliver one calm, on-voice proactive message per real pattern","Never repeat the same nudge before its cooldown window passes"]'::jsonb,
+    '{}'::jsonb
   );
 
 -- Rule 1 — the milestone brief's first worked example verbatim: 3
