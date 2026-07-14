@@ -22,13 +22,18 @@ export async function middleware(request: NextRequest) {
   // unstyled internal "/" dev-build page — a member clicking the (now
   // role-hidden, see BottomNav) Coach link or hitting /coach directly
   // should land back in their normal member experience, not a dead end.
+  // supabase is only ever null when updateSession's try/catch caught a
+  // Supabase misconfiguration — in that same failure path user is always
+  // null too (see lib/supabase/middleware.ts), so every branch below that
+  // dereferences supabase is already unreachable when it's null. The
+  // assertion just tells TypeScript what's already true by construction.
   if (user && path.startsWith('/admin')) {
-    const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
+    const isAdmin = await hasActiveRole(supabase!, user.id, 'platform_administrator');
     if (!isAdmin) return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   if (user && path.startsWith('/coach')) {
-    const isCoach = await hasActiveRole(supabase, user.id, 'coach');
+    const isCoach = await hasActiveRole(supabase!, user.id, 'coach');
     if (!isCoach) return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
@@ -37,7 +42,7 @@ export async function middleware(request: NextRequest) {
   // a coach manually navigating to /onboarding (bookmark, typed URL) should
   // bounce straight to their own dashboard rather than see the member flow.
   if (user && path.startsWith('/onboarding')) {
-    const isCoach = await hasActiveRole(supabase, user.id, 'coach');
+    const isCoach = await hasActiveRole(supabase!, user.id, 'coach');
     if (isCoach) return NextResponse.redirect(new URL('/coach', request.url));
   }
 

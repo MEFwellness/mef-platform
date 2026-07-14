@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseEnv } from './env';
 
 /**
  * Browser-side Supabase client. Anon key only — the same RLS policies that
@@ -9,8 +10,6 @@ import { createBrowserClient } from '@supabase/ssr';
  * direct.
  */
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const { url, anonKey } = getSupabaseEnv();
+  return createBrowserClient(url, anonKey);
 }

@@ -16,15 +16,21 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { syncWearableConnection } from '@/lib/wearables/sync';
+import { getSupabaseEnv } from '@/lib/supabase/env';
 import type { WearableConnection } from '@mef/shared-types-contracts';
 
 export const dynamic = 'force-dynamic';
 
 function serviceRoleClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const { url } = getSupabaseEnv();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is missing — set it in your hosting provider\'s ' +
+        'project environment variables, then redeploy.'
+    );
+  }
+  return createClient(url, serviceRoleKey);
 }
 
 export async function GET(request: Request) {
@@ -33,7 +39,16 @@ export async function GET(request: Request) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
-  const supabase = serviceRoleClient();
+  let supabase;
+  try {
+    supabase = serviceRoleClient();
+  } catch (err) {
+    console.error('wearable-daily cron: Supabase misconfigured —', err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Supabase misconfigured' },
+      { status: 500 }
+    );
+  }
 
   const { data, error } = await supabase
     .from('wearable_connections')
