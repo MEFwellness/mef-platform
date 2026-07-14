@@ -1,10 +1,18 @@
--- Sprint 1 task 7 seed set: primary concern, sleep, stress, energy,
--- digestion, physical discomfort, movement, goals, readiness to change.
--- Covers all five answer_type values plus the not_sure / not_applicable /
--- prefer_not_to_answer affordances (allowed on every question by default).
-
+-- The onboarding_assessment_versions/onboarding_questions rows for version 1
+-- were only ever added via supabase/seed/01_onboarding_questions.sql, which
+-- runs on `supabase db reset` (local) but is never applied to a remote
+-- project by `supabase db push` — seeds and migrations are separate
+-- pipelines. That left production with the schema (migrations 7 and 8) but
+-- no version 1 row, so submit_onboarding() (migration 18) hit its "no
+-- active version" guard for every real member. This is that same reference
+-- data, promoted to a migration so it ships to every environment through
+-- the normal migration pipeline instead of a local-only seed step.
+--
+-- Idempotent: safe to run against a database that already has this data
+-- (e.g. local, where the seed already inserted it).
 insert into onboarding_assessment_versions (assessment_version)
-values (1);
+values (1)
+on conflict (assessment_version) do nothing;
 
 do $$
 declare
@@ -53,5 +61,6 @@ begin
      'How confident are you that you can make this change, 0 to 10?', 'numeric', null, 'mind_stress'),
 
     ('readiness_actively_working', v_version_id, 1, 12,
-     'Are you already actively working on this?', 'boolean', null, 'mind_stress');
+     'Are you already actively working on this?', 'boolean', null, 'mind_stress')
+  on conflict (question_key, question_version) do nothing;
 end $$;

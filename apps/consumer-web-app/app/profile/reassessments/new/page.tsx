@@ -34,6 +34,22 @@ export default async function NewReassessmentPage() {
 
   const questions = await getOnboardingQuestions();
 
+  // Same config-error guard as /onboarding (app/onboarding/page.tsx) — an
+  // empty question set is never something the member can fix.
+  if (questions.length === 0) {
+    return (
+      <div className={SHELL}>
+        <main className={CONTAINER}>
+          <h1 className={HEADING}>We&apos;ll be right with you</h1>
+          <p className="mt-2 text-[15px] text-[#6B7A72]">
+            Your reassessment isn&apos;t available right now. Please try again in a few minutes,
+            or contact support if this continues.
+          </p>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className={SHELL}>
       <main className={CONTAINER}>

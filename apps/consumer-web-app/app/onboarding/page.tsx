@@ -77,6 +77,24 @@ export default async function OnboardingPage() {
 
   const questions = await getOnboardingQuestions();
 
+  // getOnboardingQuestions() returns [] both on a real fetch error (logged
+  // there) and if reference data is missing — a config problem, never
+  // something the member can fix. Show a calm apology instead of an empty
+  // form with a submit button that has nothing to submit.
+  if (questions.length === 0) {
+    return (
+      <div className={SHELL}>
+        <main className={CONTAINER}>
+          <h1 className={HEADING}>We&apos;ll be right with you</h1>
+          <p className="mt-2 text-[15px] text-[#6B7A72]">
+            Your onboarding assessment isn&apos;t available right now. Please try again in a few
+            minutes, or contact support if this continues.
+          </p>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className={SHELL}>
       <main className={CONTAINER}>

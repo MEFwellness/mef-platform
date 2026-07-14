@@ -85,7 +85,15 @@ export async function submitOnboarding(
     p_answers: answers,
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    // submit_onboarding()'s exceptions (migration 18) are internal-consistency
+    // guards — "no active assessment version", "unknown question_key" — never
+    // something a member did wrong, so the raw Postgres message isn't
+    // actionable for them and shouldn't be shown. Log it for us, show them a
+    // generic apology instead.
+    console.error('submit_onboarding RPC failed', error);
+    return { error: "Something went wrong submitting your assessment. Please try again, or contact support if it keeps happening." };
+  }
 
   // AI event emission — best-effort, never allowed to affect the result
   // above. submit_onboarding() itself already decided baseline vs
