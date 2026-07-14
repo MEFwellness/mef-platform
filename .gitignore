@@ -10,3 +10,5 @@ supabase/.temp/
 coverage/
 *.log
 .DS_Store
+.vercel
+.env*
