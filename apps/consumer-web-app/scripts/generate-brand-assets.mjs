@@ -21,7 +21,7 @@ const ICONS_DIR = path.join(APP_ROOT, 'public/icons');
 // OG canvas background — keep this matched to the source artwork's own
 // background color (sample a corner pixel) so the composited square in
 // og-image.png has no visible seam against the surrounding field.
-const OG_BACKGROUND = { r: 0x19, g: 0x23, b: 0x1a };
+const OG_BACKGROUND = { r: 0xdd, g: 0xac, b: 0x53 };
 
 const source = process.argv[2];
 if (!source) {
