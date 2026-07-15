@@ -56,8 +56,8 @@ export type ConversationContext = {
    * A short, real-data-derived note on which page/moment the member opened
    * this conversation from (e.g. "Opened from Today. Current focus: Sleep.
    * Lesson: 'Wind down earlier tonight.'") — set only for the specific
-   * turn the floating "Ask Your MEF Coach" launcher (or an in-page "Talk
-   * to Your Coach" link) originated, never persisted, never containing
+   * turn the floating "Ask Root" launcher (or an in-page "Talk
+   * to Root" link) originated, never persisted, never containing
    * anything beyond what that page already legitimately shows the member.
    * Null for an ordinary continuing message.
    */

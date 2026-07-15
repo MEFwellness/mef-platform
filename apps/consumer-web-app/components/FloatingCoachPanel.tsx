@@ -129,10 +129,12 @@ export function FloatingCoachPanel({
 
       <div className="flex shrink-0 items-center justify-between border-b border-[#1B3A2D]/5 px-5 py-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
-            Your MEF Coach
+          <p className="font-[family-name:var(--font-cormorant-garamond)] text-lg leading-tight text-[#1B3A2D]">
+            Root
           </p>
-          <p className="text-sm text-[#6B7A72]">Grounded in your own history, not a chatbot.</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-[#854D0E]">
+            Your MEF Wellness Coach
+          </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {onToggleSheetState && (
@@ -166,7 +168,7 @@ export function FloatingCoachPanel({
 
         {loadError && (
           <p className="text-sm text-[#6B7A72]">
-            We couldn&apos;t start a conversation right now. Please try again shortly.
+            Give it a moment and try again, Root is having a little trouble getting started.
           </p>
         )}
 

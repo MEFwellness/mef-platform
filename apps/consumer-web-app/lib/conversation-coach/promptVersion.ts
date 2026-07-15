@@ -12,5 +12,11 @@
  * v3: Wellness Intelligence Core (Milestone 9) — adds this member's
  * wellness identity highlights and internal coaching-style guidance to the
  * context block; no change to safety, scope, or provider behavior.
+ *
+ * v4: Root rebrand — the coach now has a name (Root) instead of only a
+ * generic "your MEF Coach" identity, with sharper instructions on tone
+ * (calm, premium, never corporate or overly cheerful) and an explicit rule
+ * against ever exposing technical/system details. No change to safety,
+ * scope, or provider behavior.
  */
-export const CONVERSATION_COACH_PROMPT_VERSION = 'conversation-coach-prompt-v3';
+export const CONVERSATION_COACH_PROMPT_VERSION = 'conversation-coach-prompt-v4';

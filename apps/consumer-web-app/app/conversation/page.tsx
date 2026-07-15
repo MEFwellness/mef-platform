@@ -57,17 +57,19 @@ export default async function CoachingConversationPage({
           <p className="text-sm font-semibold uppercase tracking-wider">Coaching Conversation</p>
         </div>
         <h1 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          Your MEF Coach
+          Root
         </h1>
+        <p className="mt-1 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
+          Your MEF Wellness Coach
+        </p>
         <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
-          A coaching conversation grounded in your own history and today&apos;s focus — not a
-          general chatbot.
+          Built around your history. Focused on your future.
         </p>
 
         {!thread ? (
           <section className={`${CARD} mt-6 p-8`}>
             <p className="text-sm text-[#6B7A72]">
-              We couldn&apos;t start a conversation right now. Please try again shortly.
+              Give it a moment and try again, Root is having a little trouble getting started.
             </p>
           </section>
         ) : (

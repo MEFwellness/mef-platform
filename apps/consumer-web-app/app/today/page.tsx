@@ -319,7 +319,7 @@ export default async function TodayPage() {
 
               return (
                 <>
-                  {/* Today's Coach's Note — the emotional centerpiece */}
+                  {/* A Note from Root — the emotional centerpiece */}
                   <section
                     className={`${CARD} mef-animate-in relative overflow-hidden p-7`}
                     style={stagger(sectionIndex++)}
@@ -331,14 +331,14 @@ export default async function TodayPage() {
                     <div className="relative flex items-center gap-2 text-[#854D0E]">
                       <GreetingIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                       <p className="text-sm font-semibold uppercase tracking-wider">
-                        Today&apos;s Coach&apos;s Note
+                        A Note from Root
                       </p>
                     </div>
                     <p className="relative mt-3 text-lg leading-relaxed text-[#1B3A2D]">
                       {coachNote}
                     </p>
                     <p className="relative mt-4 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
-                      — Your MEF Coach
+                      — Root
                     </p>
                   </section>
 
@@ -458,7 +458,7 @@ export default async function TodayPage() {
                     )}
                   </section>
 
-                  {/* Talk to Your Coach — a single, contextual entry point into the
+                  {/* Talk to Root — a single, contextual entry point into the
                       Conversation Coach (Milestone 7), never a second decision
                       surface; it always opens the same thread the member's own
                       /conversation page shows. */}
@@ -466,7 +466,7 @@ export default async function TodayPage() {
                     <div className="flex items-center gap-2 text-[#854D0E]">
                       <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                       <p className="text-sm font-semibold uppercase tracking-wider">
-                        Talk to Your Coach
+                        Talk to Root
                       </p>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">

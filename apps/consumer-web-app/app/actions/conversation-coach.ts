@@ -133,7 +133,7 @@ export async function sendConversationMessageAction(
     entryContext,
   });
 
-  if (!result) return { error: 'Could not send your message right now. Please try again.' };
+  if (!result) return { error: "Root didn't quite catch that. Give it a moment and try again." };
 
   return {
     memberMessage: result.memberMessage,
@@ -155,7 +155,7 @@ export async function requestCoachHandoffAction(
   if (!user) return { error: 'Not signed in.' };
 
   const handoff = await requestHandoff(supabase, user.id, sessionId, note.trim() || null, urgency);
-  if (!handoff) return { error: 'Could not send that to your coach right now. Please try again.' };
+  if (!handoff) return { error: "That didn't quite go through. Give it another moment and try again." };
   return {};
 }
 

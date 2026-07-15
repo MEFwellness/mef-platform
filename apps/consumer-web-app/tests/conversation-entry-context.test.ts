@@ -1,7 +1,7 @@
 /**
  * Unit tests for lib/conversation-coach/entryContext.ts — pure builders
  * for the short, real-data-derived context string each member page hands
- * the floating "Ask Your MEF Coach" launcher (part 4). Confirms each
+ * the floating "Ask Root" launcher (part 4). Confirms each
  * builder only ever surfaces real, already-computed data (never invents
  * anything) and stays short (part 4's "do not send the entire page or
  * unnecessary member history").

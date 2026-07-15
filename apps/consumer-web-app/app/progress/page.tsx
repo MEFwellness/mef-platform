@@ -209,7 +209,7 @@ export default async function ProgressPage() {
         <section className={`${CARD} mt-5 p-6`}>
           <div className="flex items-center gap-2 text-[#854D0E]">
             <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Talk to Your Coach</p>
+            <p className="text-sm font-semibold uppercase tracking-wider">Talk to Root</p>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link

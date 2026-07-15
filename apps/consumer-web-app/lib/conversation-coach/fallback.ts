@@ -22,12 +22,12 @@ export const SAFETY_BLOCKED_REPLY_FALLBACK =
 
 export function buildFallbackReply(context: ConversationContext): string {
   const action = context.todaysAction
-    ? ` One thing worth trying right now: ${context.todaysAction.charAt(0).toLowerCase()}${context.todaysAction.slice(1)}`
+    ? ` In the meantime, here's one thing worth trying: ${context.todaysAction.charAt(0).toLowerCase()}${context.todaysAction.slice(1)}`
     : '';
 
   return (
-    `I'm having trouble responding right now, but I don't want to leave you without anything. ` +
-    `Your focus for today is ${context.focusLabel.toLowerCase()}.${action} ` +
-    `Please try sending that again in a moment, or ask your assigned coach to take a look.`
+    `Give me just a moment, I'm having a little trouble connecting right now. ` +
+    `Your focus for today is still ${context.focusLabel.toLowerCase()}.${action} ` +
+    `Try sending that again in a bit and we'll keep going, or ask your assigned coach to take a look.`
   );
 }

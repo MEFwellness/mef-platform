@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The restrained, platform-wide "Ask Your MEF Coach" launcher. A single
+ * The restrained, platform-wide "Ask Root" launcher. A single
  * floating pill button — never a robot icon, never a flashing badge,
  * never a popup that appears on its own — that opens FloatingCoachPanel
  * as a responsive bottom sheet on mobile (full-width, anchored to the
@@ -31,7 +31,7 @@ export function FloatingCoachLauncher({
   entryPoint,
   entryContext,
   starterPrompts,
-  label = 'Ask Your MEF Coach',
+  label = 'Ask Root',
 }: {
   entryPoint: ConversationEntryPoint;
   entryContext: string;

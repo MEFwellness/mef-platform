@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Play/pause/resume/stop/replay control for a single MEF Coach reply
+ * Play/pause/resume/stop/replay control for a single Root reply
  * (part 2/3/4). Built entirely on hooks/useTextToSpeech.ts — never touches
  * the underlying speech provider directly. Renders nothing at all when
  * the browser can't play back at all (no speechSynthesis AND no Audio

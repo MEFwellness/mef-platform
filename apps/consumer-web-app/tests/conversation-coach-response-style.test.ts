@@ -1,5 +1,5 @@
 /**
- * Verifies the response-style refinement to the MEF Coach's voice
+ * Verifies the response-style refinement to Root's voice
  * (lib/conversation-coach/prompt.ts) and every static, non-LLM template
  * string a member can actually see. The prompt itself can only be tested
  * for what it INSTRUCTS (a live model call isn't deterministic and isn't

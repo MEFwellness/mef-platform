@@ -1,6 +1,6 @@
 /**
  * Pure builders for the short, real-data-only "entry context" string each
- * member page hands the floating "Ask Your MEF Coach" launcher (part 4).
+ * member page hands the floating "Ask Root" launcher (part 4).
  * Every function here takes data the host page ALREADY fetched for its
  * own rendering — nothing here reaches back into the database, and
  * nothing here sends more than a couple of sentences (part 4's "do not

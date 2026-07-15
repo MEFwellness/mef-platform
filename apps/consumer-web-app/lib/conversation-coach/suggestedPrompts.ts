@@ -1,7 +1,7 @@
 /**
  * Canned starter prompts per entry point — shared between the full
  * Conversation Coach page (app/conversation/page.tsx) and the floating
- * "Ask Your MEF Coach" launcher's compact panel
+ * "Ask Root" launcher's compact panel
  * (components/FloatingCoachPanel.tsx), so both surfaces show the exact
  * same suggestion text for the same entry point rather than authoring it
  * twice.

@@ -1,6 +1,6 @@
 /**
  * Confirms the three new conversation_sessions.entry_point values added
- * for the floating "Ask Your MEF Coach" launcher (migration
+ * for the floating "Ask Root" launcher (migration
  * 00000000000035_conversation_entry_points_page_access.sql — 'dashboard',
  * 'profile', 'assessment') are actually accepted by the real database
  * constraint, against real local Supabase — no mocked client, same

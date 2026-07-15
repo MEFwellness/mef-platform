@@ -61,7 +61,7 @@ export type SendMessageInput = {
   sourcePage: string;
   sessionId?: string | null;
   entryPoint?: ConversationEntryPoint;
-  /** Set only when this specific turn originated from the floating "Ask Your MEF Coach" launcher (or an in-page "Talk to Your Coach" link) — see lib/conversation-coach/context.ts's ConversationContext.entryContext for what it's used for. */
+  /** Set only when this specific turn originated from the floating "Ask Root" launcher (or an in-page "Talk to Root" link) — see lib/conversation-coach/context.ts's ConversationContext.entryContext for what it's used for. */
   entryContext?: string | null | undefined;
 };
 
@@ -235,7 +235,7 @@ export async function sendMessage(input: SendMessageInput): Promise<SendMessageR
         const result = await provider.generateCompletion({
           templateKey: 'conversation_coach',
           systemPrompt,
-          userPrompt: `${transcript}\n\nRespond as the MEF Coach to the member's latest message above.`,
+          userPrompt: `${transcript}\n\nRespond as Root, this member's MEF Wellness Coach, to their latest message above.`,
           maxOutputTokens: 450,
           temperature: 0.6,
         });
