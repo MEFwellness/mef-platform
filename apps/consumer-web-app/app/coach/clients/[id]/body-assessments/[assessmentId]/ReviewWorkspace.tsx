@@ -7,6 +7,7 @@ import type {
   AssessmentAiSourceFeature,
   BodyAssessment,
   BodyAssessmentComparison,
+  BodyAssessmentFinding,
   BodyAssessmentNote,
 } from '@mef/shared-types-contracts';
 import type { CoachIntelligenceWorkspace } from '@/app/actions/coach-intelligence';
@@ -17,6 +18,7 @@ import { SummarySection } from './RightPanel/SummarySection';
 import { CoachNotesSection } from './RightPanel/CoachNotesSection';
 import { AIAssistantSection } from './RightPanel/AIAssistantSection';
 import { ComparisonSection, type ComparisonCapture } from './RightPanel/ComparisonSection';
+import { PostureFindingsSection } from './RightPanel/PostureFindingsSection';
 import { TimelineSection } from './RightPanel/TimelineSection';
 import { ActionsBar } from './RightPanel/ActionsBar';
 
@@ -43,6 +45,7 @@ export function ReviewWorkspace({
   comparisonRows,
   aiWorkspace,
   aiSourceFeature,
+  findings,
 }: {
   clientId: string;
   assessmentId: string;
@@ -58,6 +61,7 @@ export function ReviewWorkspace({
   comparisonRows: BodyAssessmentComparison[];
   aiWorkspace: CoachIntelligenceWorkspace | null;
   aiSourceFeature: AssessmentAiSourceFeature;
+  findings: BodyAssessmentFinding[];
 }) {
   const [selectedCaptureId, setSelectedCaptureId] = useState<string | null>(
     captures[0]?.capture.id ?? null
@@ -129,6 +133,10 @@ export function ReviewWorkspace({
               coachName={coachName}
               captureCount={captures.length}
             />
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Posture Screening Estimates">
+            <PostureFindingsSection findings={findings} />
           </CollapsibleSection>
 
           <CollapsibleSection title="Coach Notes">

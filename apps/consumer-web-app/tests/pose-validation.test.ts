@@ -231,4 +231,93 @@ describe('validatePoseFrame', () => {
     const result = validatePoseFrame([armsUp], FRONT);
     expect(result.status).toBe('ready');
   });
+
+  it('reports head_rotated when one ear is far less visible than the other on a front view', () => {
+    const turned = makePose({
+      rightEar: { visibility: 0.1 },
+    });
+    const result = validatePoseFrame([turned], FRONT);
+    expect(result.status).toBe('head_rotated');
+  });
+
+  it('reports head_rotated when the nose sits well off the shoulder midline on a front view', () => {
+    const turned = makePose({ nose: { x: 0.65 } });
+    const result = validatePoseFrame([turned], FRONT);
+    expect(result.status).toBe('head_rotated');
+  });
+
+  it('reports shoulders_rotated when the pose model supplies a large left/right shoulder depth difference', () => {
+    const twisted = makePose({
+      leftShoulder: { z: 0.2 },
+      rightShoulder: { z: -0.2 },
+    });
+    const result = validatePoseFrame([twisted], FRONT);
+    expect(result.status).toBe('shoulders_rotated');
+  });
+
+  it('does not flag shoulder rotation when the pose model supplies no z estimate', () => {
+    const result = validatePoseFrame([makePose()], FRONT);
+    expect(result.status).toBe('ready');
+  });
+
+  it('reports crouching_or_bending for a bent-knee stance distinct from sitting', () => {
+    const crouching = makePose({
+      leftKnee: { x: 0.66 },
+      rightKnee: { x: 0.34 },
+    });
+    const result = validatePoseFrame([crouching], FRONT);
+    expect(result.status).toBe('crouching_or_bending');
+  });
+
+  it('reports excessive_lean for a moderate torso tilt that is not a full lying-down angle', () => {
+    const leaning = makePose({
+      nose: { x: 0.63 },
+      leftShoulder: { x: 0.73 },
+      rightShoulder: { x: 0.53 },
+    });
+    const result = validatePoseFrame([leaning], FRONT);
+    expect(result.status).toBe('excessive_lean');
+  });
+
+  it('returns computed metrics on both passing and failing frames', () => {
+    const ok = validatePoseFrame([makePose()], FRONT);
+    expect(ok.metrics).not.toBeNull();
+    const failing = validatePoseFrame([], FRONT);
+    expect(failing.metrics).toBeNull();
+  });
+
+  describe('subject continuity (mid-hold person-swap detection)', () => {
+    it('stays ready when no previousSubjectCenter is supplied (not mid-hold yet)', () => {
+      const result = validatePoseFrame([makePose()], FRONT);
+      expect(result.status).toBe('ready');
+    });
+
+    it('stays ready when the subject barely moves between two mid-hold frames', () => {
+      const first = validatePoseFrame([makePose()], FRONT);
+      const result = validatePoseFrame([makePose()], {
+        ...FRONT,
+        previousSubjectCenter: first.metrics!.hipMid,
+      });
+      expect(result.status).toBe('ready');
+    });
+
+    it('reports subject_changed when the confident subject jumps far between mid-hold frames', () => {
+      const first = validatePoseFrame([makePose()], FRONT);
+      const swapped = makePose({
+        leftShoulder: { x: 0.2 },
+        rightShoulder: { x: 0.1 },
+        leftHip: { x: 0.2, y: 0.75 },
+        rightHip: { x: 0.1, y: 0.75 },
+        leftKnee: { x: 0.2, y: 0.85 },
+        rightKnee: { x: 0.1, y: 0.85 },
+        leftAnkle: { x: 0.2, y: 0.95 },
+        rightAnkle: { x: 0.1, y: 0.95 },
+      });
+      const result = validatePoseFrame([swapped], {
+        ...FRONT,
+        previousSubjectCenter: first.metrics!.hipMid,
+      });
+      expect(result.status).toBe('subject_changed');
+    });
+  });
 });

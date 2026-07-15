@@ -231,3 +231,115 @@
     }
   }
 }
+
+/*
+ * Body Intelligence Engine guided-capture motion
+ * (components/body-assessment/{CameraCapture,PoseOverlay,CaptureCountdown,
+ * CaptureFlash}.tsx). The product goal for this screen specifically is
+ * "this feels like professional equipment analyzing me, not a phone
+ * camera" — every keyframe below exists to reinforce that the system is
+ * actively, continuously measuring, not just displaying a viewfinder.
+ * Kept intentionally slow/smooth (elegance over speed, per product
+ * direction) and every non-essential one degrades to a static equivalent
+ * under reduced motion, same discipline as the rest of this file.
+ */
+
+/* A soft diagonal light band sweeping down the frame while the system is
+   still acquiring a confident lock — visually says "actively scanning"
+   from the very first frame, before any skeleton can be drawn yet. */
+@keyframes mef-scan-sweep {
+  0% {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.55;
+  }
+  85% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateY(120%);
+    opacity: 0;
+  }
+}
+
+.mef-scan-sweep {
+  animation: mef-scan-sweep 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-scan-sweep {
+    animation: none !important;
+    display: none;
+  }
+}
+
+/* A slow breathing glow around the capture-progress ring while a stable
+   hold is accumulating — calm, not urgent, matching the "calm confidence"
+   coaching tone rather than a countdown-timer feel. */
+@keyframes mef-ring-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(52, 211, 153, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px rgba(52, 211, 153, 0.6));
+  }
+}
+
+.mef-ring-glow {
+  animation: mef-ring-glow 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-ring-glow {
+    animation: none !important;
+  }
+}
+
+/* Capture confirmation: a brief white flash (like a shutter) immediately
+   followed by a checkmark badge settling into place — the "beautiful
+   capture confirmation" moment the member should remember. */
+@keyframes mef-capture-flash {
+  0% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.mef-capture-flash {
+  animation: mef-capture-flash 550ms ease-out both;
+}
+
+@keyframes mef-capture-check {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.mef-capture-check {
+  animation: mef-capture-check 480ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-capture-flash,
+  .mef-capture-check {
+    animation: none !important;
+  }
+  .mef-capture-check {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

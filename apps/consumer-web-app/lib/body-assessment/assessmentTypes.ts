@@ -22,6 +22,8 @@ export type CaptureStepConfig = {
   instructions: string[];
   /** Video steps only — how long to record before auto-stopping. */
   durationSeconds?: number;
+  /** Single-leg-balance's movement step only — CameraCapture.tsx runs pose tracking during recording and computes a pelvic-drop screening estimate (lib/body-assessment/pelvicDropScreening.ts) from the hip-line angle over the hold. See that file's docblock for what this passive analysis does and doesn't cover relative to a fully guided trial. */
+  tracksPelvicDrop?: boolean;
 };
 
 export type AssessmentTypeConfig = {
@@ -149,6 +151,7 @@ const SINGLE_LEG_BALANCE_STEP: CaptureStepConfig = {
     'Switch to the other leg when ready.',
   ],
   durationSeconds: 20,
+  tracksPelvicDrop: true,
 };
 
 const REACH_STEP: CaptureStepConfig = {

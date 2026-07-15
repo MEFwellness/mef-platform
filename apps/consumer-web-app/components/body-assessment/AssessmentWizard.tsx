@@ -39,10 +39,14 @@ import {
   startAssessmentAction,
   buildCaptureUploadPathAction,
   recordCaptureAction,
+  recordLandmarkSetAction,
+  recordPostureFindingsAction,
   deleteCaptureAction,
   submitAssessmentAction,
 } from '@/app/actions/body-assessment';
 import { CameraCapture, type CapturedMedia } from './CameraCapture';
+import { requestDeviceTiltPermission } from '@/hooks/useDeviceTilt';
+import { POSE_MODEL_VERSION } from '@/hooks/usePoseLandmarker';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -171,6 +175,44 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
       });
       if (result.error) throw new Error(result.error);
 
+      // Best-effort, same discipline as submitAssessmentAction's AI/
+      // analysis calls below it: the member's capture has already
+      // succeeded above and must never be rolled back or blocked by
+      // these — an on-device screening estimate failing to save is a
+      // real gap for the coach's later review, not something the member
+      // should have to retry the whole capture over.
+      if (media.landmarks && media.landmarks.length > 0) {
+        try {
+          await recordLandmarkSetAction({
+            assessmentId: currentAssessmentId,
+            captureId,
+            landmarks: media.landmarks,
+            modelVersion: POSE_MODEL_VERSION,
+          });
+        } catch (landmarkError) {
+          console.error('Could not save posture landmarks', landmarkError);
+        }
+      }
+
+      if (media.postureEstimates && media.postureEstimates.length > 0) {
+        try {
+          await recordPostureFindingsAction(
+            media.postureEstimates.map((estimate) => ({
+              assessmentId: currentAssessmentId,
+              captureId,
+              findingType: estimate.findingType,
+              side: estimate.side,
+              severity: estimate.severity,
+              confidence: estimate.confidence,
+              narrative: estimate.narrative,
+              landmarksUsed: estimate.landmarksUsed,
+            }))
+          );
+        } catch (findingError) {
+          console.error('Could not save posture findings', findingError);
+        }
+      }
+
       setRecords((prev) => [
         ...prev,
         { captureId, step, previewUrl: URL.createObjectURL(media.blob) },
@@ -234,7 +276,14 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
         </p>
         <button
           type="button"
-          onClick={() => setPhase('intro')}
+          onClick={() => {
+            // Fire-and-forget: iOS Safari's device-orientation permission
+            // prompt only works from within a genuine user-gesture
+            // handler like this one — the camera step itself is reached
+            // several taps later, too late for that requirement.
+            void requestDeviceTiltPermission();
+            setPhase('intro');
+          }}
           className="mt-6 rounded-full bg-[#1B3A2D] px-8 py-3 text-sm font-medium text-white hover:brightness-110"
         >
           Begin

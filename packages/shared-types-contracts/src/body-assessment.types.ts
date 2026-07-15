@@ -149,6 +149,20 @@ export type PostureFindingType =
   | 'weight_shift'
   | 'breathing_pattern'
   | 'hip_asymmetry'
+  // Added for the on-device MediaPipe screening provider
+  // (lib/body-assessment/postureMeasurements.ts) — each is a composite of
+  // several external landmark signals that doesn't map onto any single
+  // finding type above without either mislabeling it (e.g. calling a
+  // general trunk-inclination estimate "thoracic_kyphosis" would imply
+  // thoracic curvature was actually measured, which it wasn't) or losing
+  // the distinction coaches need between "one shoulder/hip is higher"
+  // (already covered above) and "several signals together suggest a
+  // broader visible pattern." See that file's docblock for exactly which
+  // landmarks/formula feed each one and the screening-only wording rules.
+  | 'lateral_trunk_asymmetry'
+  | 'lower_crossed_pattern'
+  | 'sagittal_trunk_posture'
+  | 'pelvic_drop_screening'
   | 'custom';
 
 export type FindingSide = 'left' | 'right' | 'bilateral' | 'not_applicable';

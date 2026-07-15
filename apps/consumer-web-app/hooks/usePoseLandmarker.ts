@@ -19,6 +19,9 @@ const WASM_FILESET_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
 
+/** Recorded alongside every stored landmark set (body_landmark_sets.model_version) so a future model upgrade is a visible, filterable fact in stored data, not a silent change. */
+export const POSE_MODEL_VERSION = 'mediapipe_pose_landmarker_lite_float16_v1';
+
 export type PoseLandmarkerState = {
   /** One entry per detected person this frame; empty when no one is visible. Null until the model has loaded at least once. */
   poses: RawPoseLandmark[][] | null;

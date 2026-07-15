@@ -7,7 +7,7 @@ import {
 } from '../lib/body-assessment/findings';
 
 describe('FINDING_TYPE_CONFIG', () => {
-  it('defines all eleven standardized findings plus custom, per the milestone brief', () => {
+  it('defines the original eleven standardized findings, the MediaPipe screening additions, plus custom', () => {
     const expected = [
       'forward_head',
       'rounded_shoulders',
@@ -20,6 +20,10 @@ describe('FINDING_TYPE_CONFIG', () => {
       'weight_shift',
       'breathing_pattern',
       'hip_asymmetry',
+      'lateral_trunk_asymmetry',
+      'lower_crossed_pattern',
+      'sagittal_trunk_posture',
+      'pelvic_drop_screening',
       'custom',
     ];
     expect(ALL_FINDING_TYPES.sort()).toEqual(expected.sort());

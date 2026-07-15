@@ -29,3 +29,22 @@ export const CAPTURE_STATUS_LABEL: Record<
 };
 
 export const TAKING_PHOTO_PROMPT = 'Hold still. Taking your photo.';
+
+/** Spoken once the pose has been stably valid — a distinct positive confirmation, not silence, per the guidance state machine's "ready" key. */
+export const READY_PROMPT = 'Perfect. Hold still.';
+
+/**
+ * A handful of statuses need different SPOKEN phrasing than the short
+ * on-screen status text — most notably multiple_people, where the
+ * on-screen line ("Only one person can be in the assessment area.") is a
+ * label-style statement, while the spoken line is a first-person,
+ * conversational heads-up a coach would actually say out loud. Anything
+ * not listed here is spoken exactly as displayed.
+ */
+export const SPOKEN_MESSAGE_OVERRIDES: Record<string, string> = {
+  multiple_people: 'I can see another person. Please make sure only you are visible.',
+};
+
+export function spokenMessageFor(statusKey: string, displayMessage: string): string {
+  return SPOKEN_MESSAGE_OVERRIDES[statusKey] ?? displayMessage;
+}

@@ -27,8 +27,12 @@ import type {
   BodyAssessmentNote,
   BodyAssessmentReviewStatus,
   BodyAssessmentType,
+  BodyLandmarkPoint,
   BodyLandmarkSet,
   BodyAssessmentCapture,
+  FindingSeverity,
+  FindingSide,
+  PostureFindingType,
 } from '@mef/shared-types-contracts';
 import { resolveLocalDate } from './checkin';
 import { performCoachIntelligenceAnalysis } from '@/lib/coach-intelligence/analysis';
@@ -152,6 +156,121 @@ export async function recordCaptureAction(
   });
   if (!capture) return { error: 'Could not save capture.' };
   return { capture };
+}
+
+export type RecordLandmarkSetInput = {
+  assessmentId: string;
+  captureId: string;
+  landmarks: BodyLandmarkPoint[];
+  modelVersion: string;
+};
+
+/**
+ * Persists the on-device MediaPipe landmarks for one capture — called
+ * client-side right after a validated, stable capture (CameraCapture.tsx
+ * already has these landmarks live; there is no second detection pass).
+ * Not part of the BodyAssessmentProvider.analyzeAssessment() flow — see
+ * lib/body-assessment/postureMeasurements.ts's docblock for why an
+ * on-device WASM library doesn't fit that server-callable-API interface.
+ * Authorized the same way any member-authored write is: RLS's
+ * member_insert_own_body_landmark_sets policy, not a special case here.
+ */
+export async function recordLandmarkSetAction(
+  input: RecordLandmarkSetInput
+): Promise<ActionResult & { landmarkSet?: BodyLandmarkSet }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const { supabase, userId } = ctx;
+
+  const assessment = await getAssessment(supabase, input.assessmentId);
+  if (!assessment || assessment.member_id !== userId) return { error: 'Assessment not found.' };
+
+  const landmarkSet = await insertLandmarkSet(
+    supabase,
+    input.assessmentId,
+    input.captureId,
+    userId,
+    input.landmarks,
+    'mediapipe',
+    input.modelVersion
+  );
+  if (!landmarkSet) return { error: 'Could not save landmarks.' };
+  return { landmarkSet };
+}
+
+export type RecordPostureFindingInput = {
+  assessmentId: string;
+  captureId: string;
+  findingType: PostureFindingType;
+  side: FindingSide;
+  severity: FindingSeverity;
+  confidence: number;
+  narrative: string;
+  landmarksUsed: string[];
+};
+
+/**
+ * Persists the screening estimates computed for one capture
+ * (lib/body-assessment/postureMeasurements.ts). Every finding is written
+ * with status 'pending_review' — a coach reviews and confirms/dismisses/
+ * overrides it (existing confirmFindingAction/dismissFindingAction/
+ * overrideFindingAction), never auto-confirmed. isConcerningFinding()
+ * only ever fires for 'significant' severity, which nothing in
+ * postureMeasurements.ts ever assigns (its heuristics only produce
+ * none/mild/moderate/unknown) — an automated geometric screening
+ * shouldn't be the thing that trips the Safety-restriction pathway, so
+ * this check is here for consistency with every other finding-writing
+ * path in this file, not because it's expected to trigger today.
+ */
+export async function recordPostureFindingsAction(
+  inputs: RecordPostureFindingInput[]
+): Promise<ActionResult> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const { supabase, userId } = ctx;
+  if (inputs.length === 0) return {};
+
+  const assessmentId = inputs[0]!.assessmentId;
+  const assessment = await getAssessment(supabase, assessmentId);
+  if (!assessment || assessment.member_id !== userId) return { error: 'Assessment not found.' };
+
+  for (const input of inputs) {
+    const created = await insertFinding(supabase, {
+      assessmentId: input.assessmentId,
+      memberId: userId,
+      findingType: input.findingType,
+      side: input.side,
+      severity: input.severity,
+      confidence: input.confidence,
+      narrative: input.narrative,
+      evidence: [{ type: 'capture', id: input.captureId, note: input.landmarksUsed.join(', ') }],
+      providerName: 'mediapipe',
+      status: 'pending_review',
+    });
+
+    if (created && isConcerningFinding(created.severity, created.confidence)) {
+      const evaluation = await evaluateConcern(supabase, {
+        memberId: userId,
+        sourceFeature: 'body_assessment',
+        sourceRecordType: 'body_assessment_finding',
+        sourceRecordId: created.id,
+        text: created.narrative ?? '',
+      });
+      if (evaluation) {
+        await recordSafetyRestrictionNarrative(supabase, userId, 'system', null, evaluation.classification);
+      }
+    }
+  }
+
+  // Reflects that on-device screening ran for this assessment — distinct
+  // from the still-unconfigured server-side BodyAssessmentProvider
+  // pipeline (performAnalysis below), which stays 'not_configured'.
+  await updateAssessment(supabase, assessmentId, {
+    provider_name: 'mediapipe',
+    provider_status: 'completed',
+  });
+
+  return {};
 }
 
 /**

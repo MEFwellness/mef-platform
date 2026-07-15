@@ -48,7 +48,7 @@ export default async function CoachBodyAssessmentDetailPage({
   const detail = await getClientBodyAssessmentDetailAction(params.assessmentId);
   if (!detail || detail.assessment.member_id !== params.id) notFound();
 
-  const { assessment, captures, coachReviews } = detail;
+  const { assessment, captures, coachReviews, findings } = detail;
   const typeConfig = getAssessmentTypeConfig(assessment.assessment_type);
   const firstName = clientProfile.display_name?.split(' ')[0] ?? 'This client';
 
@@ -153,6 +153,7 @@ export default async function CoachBodyAssessmentDetailPage({
             comparisonRows={comparisonRows}
             aiWorkspace={aiWorkspace}
             aiSourceFeature="body_assessment"
+            findings={findings}
           />
         </div>
       </main>

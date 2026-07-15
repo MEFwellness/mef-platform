@@ -75,6 +75,38 @@ export const FINDING_TYPE_CONFIG: Record<PostureFindingType, FindingTypeConfig> 
     description: 'The hips sit or move asymmetrically relative to each other.',
     relevantAssessmentTypes: ['static_posture', 'hip_hinge', 'walking_gait', 'single_leg_balance'],
   },
+  lateral_trunk_asymmetry: {
+    label: 'Lateral trunk asymmetry (screening indicator)',
+    description:
+      'A composite of visible external signals (shoulder/hip height, trunk and head lateral ' +
+      'offset) suggesting possible left-right asymmetry — not a spinal curvature measurement. ' +
+      'Screening indicator only; requires practitioner review to interpret.',
+    relevantAssessmentTypes: ['static_posture'],
+  },
+  lower_crossed_pattern: {
+    label: 'Possible lower-crossed postural pattern',
+    description:
+      'A composite of visible external signals (hip position relative to ankle, knee position, ' +
+      'forward trunk displacement) that may contribute to a lower-crossed-style pattern — not a ' +
+      'diagnosis of lower-crossed syndrome. Screening indicator only; requires practitioner review.',
+    relevantAssessmentTypes: ['static_posture'],
+  },
+  sagittal_trunk_posture: {
+    label: 'Sagittal posture pattern (external estimate)',
+    description:
+      'Head/neck and trunk inclination estimated from side-view external landmarks — this pose ' +
+      'model cannot separate cervical, thoracic, and lumbar curvature individually from skin-' +
+      'surface landmarks alone, so this is reported as one combined external alignment estimate, ' +
+      'not a spinal curvature measurement.',
+    relevantAssessmentTypes: ['static_posture'],
+  },
+  pelvic_drop_screening: {
+    label: 'Pelvic-drop screening indicator',
+    description:
+      'Contralateral pelvic-line change measured during a guided single-leg stance — a screening ' +
+      'indicator only, not a Trendelenburg diagnosis, which requires clinical examination.',
+    relevantAssessmentTypes: ['single_leg_balance'],
+  },
   custom: {
     label: 'Custom finding',
     description: 'A coach-defined observation not covered by a standard finding type.',
