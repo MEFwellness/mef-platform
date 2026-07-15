@@ -12,11 +12,13 @@
 import sharp from 'sharp';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(__dirname, '..');
 const IMAGES_DIR = path.join(APP_ROOT, 'public/images');
 const ICONS_DIR = path.join(APP_ROOT, 'public/icons');
+const PUBLIC_DIR = path.join(APP_ROOT, 'public');
 
 // OG canvas background — keep this matched to the source artwork's own
 // background color (sample a corner pixel) so the composited square in
@@ -53,6 +55,28 @@ async function run() {
     .png(pngOpts)
     .toFile(`${IMAGES_DIR}/og-image.png`);
   console.log('wrote images/og-image.png (1200x630) — Open Graph / Twitter share image');
+
+  // sharp can't write .ico; some browsers/crawlers still request /favicon.ico
+  // directly regardless of the <link rel="icon"> tags, so shell out to
+  // Pillow (if available locally) for a proper multi-resolution ICO.
+  const pyScript = `
+from PIL import Image
+im = Image.open(${JSON.stringify(source)}).convert("RGB")
+im.save(${JSON.stringify(`${PUBLIC_DIR}/favicon.ico`)}, sizes=[(16,16),(32,32),(48,48)])
+`;
+  const result = spawnSync('python3', ['-c', pyScript], { stdio: 'inherit' });
+  if (result.status === 0) {
+    console.log('wrote favicon.ico (16/32/48) — legacy /favicon.ico request');
+  } else {
+    console.warn(
+      'skipped favicon.ico (python3 + Pillow not available) — regenerate it by hand from the same source image',
+    );
+  }
+
+  console.log(
+    '\nRemember to bump BRAND_ASSET_VERSION in lib/brand.ts — browsers cache favicons by URL ' +
+      'and will keep showing the old one at the same path otherwise.',
+  );
 }
 
 run()

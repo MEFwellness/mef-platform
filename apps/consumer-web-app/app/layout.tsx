@@ -2,6 +2,7 @@ import './globals.css';
 import type { ReactNode } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
+import { withBrandVersion } from '@/lib/brand';
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ['latin'],
@@ -23,10 +24,11 @@ export const metadata: Metadata = {
   description: 'Daily wellness check-ins, trends, and coaching from MEF Wellness.',
   icons: {
     icon: [
-      { url: '/icons/favicon-32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: withBrandVersion('/icons/favicon-32.png'), sizes: '32x32', type: 'image/png' },
+      { url: withBrandVersion('/icons/icon-192.png'), sizes: '192x192', type: 'image/png' },
     ],
-    apple: '/icons/apple-touch-icon.png',
+    shortcut: withBrandVersion('/favicon.ico'),
+    apple: withBrandVersion('/icons/apple-touch-icon.png'),
   },
   appleWebApp: {
     capable: true,
@@ -37,14 +39,14 @@ export const metadata: Metadata = {
     title: 'Rooted Reset | MEF Wellness',
     description: 'Daily wellness check-ins, trends, and coaching from MEF Wellness.',
     images: [
-      { url: '/images/og-image.png', width: 1200, height: 630, alt: 'Rooted Reset by MEF Wellness' },
+      { url: withBrandVersion('/images/og-image.png'), width: 1200, height: 630, alt: 'Rooted Reset by MEF Wellness' },
     ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Rooted Reset | MEF Wellness',
     description: 'Daily wellness check-ins, trends, and coaching from MEF Wellness.',
-    images: ['/images/og-image.png'],
+    images: [withBrandVersion('/images/og-image.png')],
   },
 };
 
