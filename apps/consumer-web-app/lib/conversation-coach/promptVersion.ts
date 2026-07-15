@@ -18,5 +18,14 @@
  * (calm, premium, never corporate or overly cheerful) and an explicit rule
  * against ever exposing technical/system details. No change to safety,
  * scope, or provider behavior.
+ *
+ * v5: Natural-conversation refinement — the fixed 6-step response
+ * structure is now framed as optional ingredients, not a checklist, with
+ * explicit permission (and an example) to answer a plain question
+ * plainly in a sentence or two instead of always running it through the
+ * full coaching structure. Adds explicit natural-continuity guidance (this
+ * conversation's own recent turns, not just cross-session memory) and
+ * drops habitual greetings/closing questions. No change to safety, scope,
+ * or provider behavior.
  */
-export const CONVERSATION_COACH_PROMPT_VERSION = 'conversation-coach-prompt-v4';
+export const CONVERSATION_COACH_PROMPT_VERSION = 'conversation-coach-prompt-v5';

@@ -46,11 +46,14 @@ export class OpenAiSpeechProvider {
           },
           body: JSON.stringify({
             model: 'gpt-4o-mini-tts',
-            voice: 'nova',
+            voice: 'coral',
             input: text,
             response_format: 'mp3',
             instructions:
-              'Speak warmly, calmly, and supportively, like a caring, grounded wellness coach talking one-on-one. Natural pacing with brief pauses between sentences, gentle emphasis on the most important words, never rushed or flat.',
+              'Voice: a warm, calm, emotionally present wellness coach talking one-on-one with someone they know well, never a narrator, announcer, or voice assistant. ' +
+              'Pacing: unhurried and natural, like real speech, not a read-aloud. Take a real breath and a brief, natural pause between sentences and between distinct thoughts, longer at paragraph breaks. ' +
+              'Prosody: let pitch and energy rise and fall naturally with meaning rather than staying flat. Speak the most important word or phrase in each sentence with gentle emphasis, and let sentences fall in tone at the end the way a person naturally does, not clipped or robotic. ' +
+              'Expression: soften and slow down for anything reassuring, personal, or sensitive; bring a touch more warmth and lift for encouragement or good news. Sound genuinely caring and present, intelligent and grounded, quietly confident, never rushed, never flat, never cheerful in a forced way, never corporate, never like a generic text-to-speech voice.',
           }),
           signal: controller.signal,
         });

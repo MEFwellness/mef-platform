@@ -50,8 +50,7 @@ export type UseTextToSpeechResult = {
   retry(): void;
 };
 
-const NATURAL_VOICE_UNAVAILABLE_MESSAGE =
-  "We couldn't reach the natural voice service, so this is being read in your browser's built-in voice instead.";
+const NATURAL_VOICE_UNAVAILABLE_MESSAGE = "Playing in a different voice right now, still Root, just not my usual sound.";
 
 export function useTextToSpeech(id: string, rawText: string): UseTextToSpeechResult {
   const providerRef = useRef(getTextToSpeechProvider());
