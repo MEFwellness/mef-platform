@@ -11,8 +11,15 @@ import type {
 import { getAssessmentTypeConfig } from '@/lib/body-assessment/assessmentTypes';
 import { ComparisonSummary } from '@/app/assessment/[id]/ComparisonSummary';
 import { EmptyState } from './EmptyState';
+import { TrendChart, type TrendPoint } from './TrendChart';
 
 export type ComparisonCapture = { capture: BodyAssessmentCapture; url: string | null };
+
+export type FindingTrendSeries = {
+  findingType: string;
+  label: string;
+  points: TrendPoint[];
+};
 
 type Pair = {
   captureType: BodyAssessmentCaptureType;
@@ -99,12 +106,15 @@ export function ComparisonSection({
   currentCaptures,
   previousCaptures,
   comparisonRows,
+  trendSeries = [],
   emptyStateDescription = 'Complete another assessment for this client to unlock progress comparison.',
 }: {
   previousAssessment: BodyAssessment | null;
   currentCaptures: ComparisonCapture[];
   previousCaptures: ComparisonCapture[];
   comparisonRows: BodyAssessmentComparison[];
+  /** Multi-point (3+ assessment) trend data, one series per finding_type present on the current assessment — optional/additive, renders nothing when empty. See RightPanel/TrendChart.tsx. */
+  trendSeries?: FindingTrendSeries[];
   emptyStateDescription?: string;
 }) {
   const [mode, setMode] = useState<'side' | 'slider'>('side');
@@ -113,9 +123,23 @@ export function ComparisonSection({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ startX: number; startY: number; origin: { x: number; y: number } } | null>(null);
 
+  const trendSection = trendSeries.length > 0 && (
+    <div className="space-y-4 rounded-2xl bg-white p-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#9AA79F]">
+        Trend across assessments
+      </p>
+      {trendSeries.map((series) => (
+        <TrendChart key={series.findingType} title={series.label} points={series.points} />
+      ))}
+    </div>
+  );
+
   if (!previousAssessment) {
     return (
-      <EmptyState icon={GitCompareArrows} title="No previous assessments" description={emptyStateDescription} />
+      <div className="space-y-4">
+        <EmptyState icon={GitCompareArrows} title="No previous assessments" description={emptyStateDescription} />
+        {trendSection}
+      </div>
     );
   }
 
@@ -230,6 +254,7 @@ export function ComparisonSection({
       )}
 
       <ComparisonSummary rows={comparisonRows} />
+      {trendSection}
     </div>
   );
 }

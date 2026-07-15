@@ -22,21 +22,33 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, RotateCcw, SwitchCamera, Video, CircleStop, Volume2 } from 'lucide-react';
+import { Camera, RotateCcw, SwitchCamera, Video, CircleStop, Volume2, VolumeX, Ear } from 'lucide-react';
 import type { CaptureStepConfig } from '@/lib/body-assessment/assessmentTypes';
 import type { BodyLandmarkPoint } from '@mef/shared-types-contracts';
 import { usePoseLandmarker } from '@/hooks/usePoseLandmarker';
 import { useGuidedVoice } from '@/hooks/useGuidedVoice';
 import { useDeviceTilt } from '@/hooks/useDeviceTilt';
-import { validatePoseFrame, type PoseValidationResult } from '@/lib/body-assessment/poseValidation';
+import {
+  validatePoseFrame,
+  evaluateMultiPersonCandidate,
+  type PoseValidationResult,
+} from '@/lib/body-assessment/poseValidation';
 import { evaluateCameraTilt } from '@/lib/body-assessment/cameraTilt';
 import { computeFrameQualityStats, evaluateFrameQuality, type FrameQualityResult } from '@/lib/body-assessment/frameQuality';
 import { triggerHaptic, HAPTIC_PATTERNS } from '@/lib/body-assessment/haptics';
+import {
+  stepTemporalSignal,
+  isTemporalSignalPending,
+  INITIAL_TEMPORAL_SIGNAL_STATE,
+  type TemporalSignalState,
+} from '@/lib/body-assessment/temporalSignal';
 import {
   CAMERA_SETUP_INTRO,
   CAPTURE_STATUS_LABEL,
   READY_PROMPT,
   TAKING_PHOTO_PROMPT,
+  TRACKING_BRIEFLY_LOST_PROMPT,
+  TRACKING_LOST_PROMPT,
   spokenMessageFor,
 } from '@/lib/body-assessment/voiceGuidance';
 import {
@@ -53,8 +65,10 @@ import { toCoreLandmarks } from '@/lib/body-assessment/poseTypes';
 import { computePoseMetrics, type Point } from '@/lib/body-assessment/poseMetrics';
 import { PoseOverlay, type AngleLabel, type OverlayTone } from './PoseOverlay';
 import { CaptureCountdown } from './CaptureCountdown';
+import { CaptureCountdownNumeral } from './CaptureCountdownNumeral';
 import { CaptureFlash } from './CaptureFlash';
 import { ScanSweep } from './ScanSweep';
+import { InitializationOverlay, type InitializationStage } from './InitializationOverlay';
 
 export type CapturedMedia = {
   blob: Blob;
@@ -65,6 +79,12 @@ export type CapturedMedia = {
   landmarks?: BodyLandmarkPoint[];
   /** Present only for a validated standing-photo capture — screening estimates computed from the same frame. */
   postureEstimates?: PostureEstimate[];
+  /** The device-orientation reading at the moment of capture — persisted so a practitioner can see whether a distorted shot was a phone-angle artifact rather than a real postural finding. Omitted entirely when useDeviceTilt never resolved a reading (e.g. desktop browsers, permission denied) — matches @mef/shared-types-contracts' CameraTiltReading, which requires both numbers. */
+  cameraTilt?: { gamma: number; beta: number };
+  /** Coarse, non-fingerprinting device context — just enough to explain a low-quality capture after the fact (e.g. "recorded on a small/older device"), never used for tracking. Shape matches @mef/shared-types-contracts' CaptureDeviceInfo (string-valued fields only). */
+  deviceInfo?: { userAgent: string; platform: string; screenSize: string; pixelRatio: string };
+  /** How many frames failed each validation category, and how many confirmed multi-person events occurred, during this step's positioning — a session summary, not a full per-frame log. */
+  validationSummary?: { categoryFailureCounts: Record<string, number>; multiPersonEvents: number };
 };
 
 type Props = {
@@ -74,12 +94,56 @@ type Props = {
 
 type CameraPhase = 'requesting' | 'ready' | 'recording' | 'analyzing' | 'preview' | 'denied' | 'unsupported';
 
-/** How long a valid, stable pose must hold before we auto-capture — separate from voice-guidance timing (which governs how often we SPEAK, not when we capture). */
+/** How long a valid, stable pose must hold before the final capture countdown begins — separate from voice-guidance timing (which governs how often we SPEAK, not when we capture). */
 const REQUIRED_STABLE_MS = 1750;
-/** A brief, deliberate pause so "Analyzing alignment…" reads as a real step rather than a flash — the computation itself is near-instant (pure arithmetic on landmarks already in memory), so this is a UX pacing choice, not processing time. */
-const ANALYZING_DISPLAY_MS = 700;
+/** A calm, visible 3-2-1 before the shutter actually fires, once REQUIRED_STABLE_MS has already been satisfied — real elapsed time, not a fake delay layered on top of already-real stability. */
+const COUNTDOWN_MS = 3000;
+/** "Alignment captured" confirmation beat, immediately after the shutter fires. */
+const CAPTURED_CONFIRM_MS = 500;
+/** "Analyzing alignment…" beat that follows — the computation itself is near-instant (pure arithmetic on landmarks already in memory), so this is a UX pacing choice, not processing time. */
+const ANALYZING_DISPLAY_MS = 550;
 
-const NOT_READY_STATUSES = new Set(['no_person', 'multiple_people', 'low_confidence']);
+/** How long a second-person candidate must persist, unbroken, before it's actually spoken as a warning — filters single-frame duplicate/ghost-detection artifacts (see poseValidation.ts's evaluateMultiPersonCandidate docblock). */
+const MULTI_PERSON_CONFIRM_MS = 900;
+/** Hysteresis so a single clean frame in the middle of a real multi-person event doesn't immediately clear a just-confirmed warning and re-trigger it a moment later. */
+const MULTI_PERSON_RELEASE_MS = 700;
+/** How long a pose-detection gap must persist before it's worth mentioning at all — a single missed frame during normal tracking is not "you left the frame." */
+const PERSON_LOST_CONFIRM_MS = 450;
+/** Beyond this, "briefly lost" no longer applies and the messaging switches to the more directive "step into the frame." */
+const PERSON_LOST_LONG_MS = 3000;
+const PERSON_LOST_RELEASE_MS = 200;
+/** A single failing frame in the middle of an already-stable hold is absorbed without resetting accumulated stability — MediaPipe has occasional single-frame misses even for a genuinely still, correctly-positioned member; only a failure that persists past this counts as a real interruption. */
+const STABILITY_GRACE_MS = 400;
+
+const NOT_READY_STATUSES = new Set(['no_person', 'multiple_people', 'low_confidence', 'tracking_lost_brief', 'tracking_lost_long']);
+
+const ACKNOWLEDGMENTS = ['Good.', 'Perfect.', 'Great.', 'Nice.'];
+/** Keys that represent a NEW problem arising rather than the natural next fix in a sequence — never prefixed with a "good job" acknowledgment, since nothing was actually resolved into these. */
+const SKIP_ACKNOWLEDGMENT_KEYS = new Set(['multiple_people', 'tracking_lost_brief', 'tracking_lost_long', 'subject_changed', 'no_person']);
+
+function pickAcknowledgment(): string {
+  return ACKNOWLEDGMENTS[Math.floor(Math.random() * ACKNOWLEDGMENTS.length)]!;
+}
+
+/** The "nothing resolved yet" PoseValidationResult — used both as initial state and on every step transition. Kept as one function so the full structured-result shape (poseValidation.ts) only needs updating in one place here. */
+function emptyValidationResult(): PoseValidationResult {
+  return {
+    status: 'no_person',
+    category: 'person_detection',
+    ok: false,
+    message: '',
+    spokenMessage: '',
+    severity: 'blocking',
+    confidence: 0,
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'frame',
+    metrics: null,
+    core: null,
+    rawPoints: null,
+  };
+}
 
 function SilhouetteGuide({ wide, tone }: { wide: boolean; tone: OverlayTone }) {
   const stroke = tone === 'success' ? '#34D399' : tone === 'warning' ? '#FBBF24' : 'white';
@@ -124,31 +188,53 @@ export function CameraCapture({ step, onCaptured }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pendingMedia, setPendingMedia] = useState<CapturedMedia | null>(null);
 
-  const [validation, setValidation] = useState<PoseValidationResult>({
-    status: 'no_person',
-    ok: false,
-    message: '',
-    metrics: null,
-    core: null,
-    rawPoints: null,
-  });
+  const [validation, setValidation] = useState<PoseValidationResult>(emptyValidationResult());
   const [stableForMs, setStableForMs] = useState(0);
   const [autoCaptureTriggered, setAutoCaptureTriggered] = useState(false);
   const [screenLine, setScreenLine] = useState('');
   /** The frozen frame (landmarks + metrics) the capture actually fired on — what the preview overlay and the persisted measurements are both built from. */
   const [frozenValidation, setFrozenValidation] = useState<PoseValidationResult | null>(null);
+  /** Non-null only during the final visible 3-2-1 before the shutter fires — see COUNTDOWN_MS. */
+  const [countdownRemainingMs, setCountdownRemainingMs] = useState<number | null>(null);
+  /** Mirrors the temporally-confirmed multi-person/tracking-loss verdict computed inside the validation effect, so render (status chip, screen line, silhouette tone) can reflect it too — validation.status alone only ever reflects a single frame's opinion on the CHOSEN subject, never the separate continuity layer. */
+  const [continuityOverride, setContinuityOverride] = useState<{ key: string; message: string } | null>(null);
+  /** Which beat of the post-capture moment is showing — "Alignment captured" then "Analyzing alignment…", both over the same frozen frame. */
+  const [analyzingSubphase, setAnalyzingSubphase] = useState<'captured' | 'analyzing'>('captured');
 
   const readySinceRef = useRef<number | null>(null);
   const introQueueStartedRef = useRef(false);
+  /** The full intro script for the current step and where the chain has gotten to — refs (not closure locals) specifically so the "tap to enable voice" banner can resume the exact same chain from outside the effect that started it. */
+  const introLinesRef = useRef<string[]>([]);
+  const introIndexRef = useRef(0);
+  /** Bumped whenever the step changes, invalidating any in-flight intro chain from a previous step (replaces the old effect-closure `cancelled` flag, which a ref-based resumable chain can't rely on). */
+  const introGenerationRef = useRef(0);
   const autoCaptureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const guidanceMemoryRef = useRef<GuidanceMemory>(resetGuidanceMemory());
   /** Hip-line-angle samples collected during a tracksPelvicDrop recording — see pelvicDropScreening.ts's docblock for exactly what this passive analysis does and doesn't cover. */
   const pelvicSamplesRef = useRef<PelvicDropSample[]>([]);
   /** The confident subject's hip midpoint from the last mid-hold frame — see poseValidation.ts's previousSubjectCenter docblock. Only populated/consulted while readySinceRef is active. */
   const subjectCenterRef = useRef<Point | null>(null);
-  /** Tracks whether the previous frame was locked (result.ok && tilt.ok && frameQuality.ok) so the lock-acquired haptic fires once on the rising edge, not every frame while held. */
+  /** Tracks whether the previous frame was locked (result.ok && tilt.ok && frameQuality.ok, plus no confirmed/pending second person) so the lock-acquired haptic fires once on the rising edge, not every frame while held. */
   const wasLockedRef = useRef(false);
   const qualityCanvasRef = useRef<HTMLCanvasElement>(null);
+  /** Confirm/release hysteresis over per-frame multi-person candidate signals — see poseValidation.ts's evaluateMultiPersonCandidate and temporalSignal.ts's docblocks for why a single frame is never enough evidence on its own. */
+  const multiPersonStateRef = useRef<TemporalSignalState>(INITIAL_TEMPORAL_SIGNAL_STATE);
+  /** Same hysteresis treatment for "no person detected," so a single missed detection frame doesn't read as "you left the frame." */
+  const personLostStateRef = useRef<TemporalSignalState>(INITIAL_TEMPORAL_SIGNAL_STATE);
+  /** When the current not-locked streak started, mid-hold — see STABILITY_GRACE_MS. Null whenever not mid-hold or currently locked. */
+  const lockLostAtRef = useRef<number | null>(null);
+  /** When the current stable hold crossed REQUIRED_STABLE_MS and the final visible countdown began — null before that point or after a genuine (past-grace) interruption. */
+  const countdownStartRef = useRef<number | null>(null);
+  /** The last problem key actually spoken aloud — lets the next, DIFFERENT correction open with a brief acknowledgment ("Good — now...") instead of jumping straight from one issue to the next with no sense of progress. */
+  const lastResolvedProblemKeyRef = useRef<string | null>(null);
+  /** The last whole-second countdown value a haptic tick fired for, so each second gets exactly one tick rather than one per animation frame. */
+  const lastCountdownTickRef = useRef<number | null>(null);
+  /** How many frames failed each validation category during this step's positioning — a lightweight session summary (not a full per-frame event log) persisted alongside the capture so a coach can see e.g. "framing was corrected 6 times, orientation once" instead of nothing at all. Reset on every step transition. */
+  const validationFailureCountsRef = useRef<Record<string, number>>({});
+  /** How many times a second-person candidate was CONFIRMED (not just a fleeting single-frame opinion) during this step. */
+  const multiPersonEventCountRef = useRef(0);
+  /** Rising-edge detector for the above — only count a confirmation once per occurrence, not once per frame it stays confirmed. */
+  const wasMultiPersonConfirmedRef = useRef(false);
 
   const [frameQuality, setFrameQuality] = useState<FrameQualityResult>({ status: 'ready', ok: true, message: '' });
 
@@ -205,40 +291,73 @@ export function CameraCapture({ step, onCaptured }: Props) {
   // actual step transition, not on every render).
   useEffect(() => {
     introQueueStartedRef.current = false;
+    introGenerationRef.current += 1;
+    introIndexRef.current = 0;
     readySinceRef.current = null;
     subjectCenterRef.current = null;
     wasLockedRef.current = false;
+    multiPersonStateRef.current = INITIAL_TEMPORAL_SIGNAL_STATE;
+    personLostStateRef.current = INITIAL_TEMPORAL_SIGNAL_STATE;
+    lockLostAtRef.current = null;
+    countdownStartRef.current = null;
+    lastResolvedProblemKeyRef.current = null;
+    lastCountdownTickRef.current = null;
     guidanceMemoryRef.current = resetGuidanceMemory();
     setAutoCaptureTriggered(false);
     setStableForMs(0);
-    setValidation({ status: 'no_person', ok: false, message: '', metrics: null, core: null, rawPoints: null });
+    setCountdownRemainingMs(null);
+    setContinuityOverride(null);
+    setAnalyzingSubphase('captured');
+    setValidation(emptyValidationResult());
     setFrameQuality({ status: 'ready', ok: true, message: '' });
+    validationFailureCountsRef.current = {};
+    multiPersonEventCountRef.current = 0;
+    wasMultiPersonConfirmedRef.current = false;
     if (autoCaptureTimeoutRef.current) clearTimeout(autoCaptureTimeoutRef.current);
   }, [step]);
 
   // Speak the fixed setup script once per step, one line at a time,
   // cancelling before each new line (useGuidedVoice's speak() always does
-  // this) so instructions never stack on top of each other.
+  // this) so instructions never stack on top of each other. This starts
+  // automatically the moment the camera is ready — no tap required — and
+  // is written against refs (not effect-closure locals) specifically so
+  // handleEnableVoiceTap below can resume this exact same chain if the
+  // very first automatic speak() call gets silently blocked by a mobile
+  // autoplay policy (see useGuidedVoice.ts's docblock).
+  function speakIntroLine(generation: number) {
+    if (generation !== introGenerationRef.current) return;
+    const lines = introLinesRef.current;
+    const i = introIndexRef.current;
+    if (i >= lines.length) return;
+    const line = lines[i]!;
+    introIndexRef.current = i + 1;
+    setScreenLine(line);
+    guidedVoice.speak(line, () => speakIntroLine(generation));
+  }
+
   useEffect(() => {
     if (phase !== 'ready' || !requiresStanding || introQueueStartedRef.current) return;
     introQueueStartedRef.current = true;
-    const lines = [...CAMERA_SETUP_INTRO, ...step.instructions];
-    let index = 0;
-    let cancelled = false;
-
-    function playNext() {
-      if (cancelled || index >= lines.length) return;
-      const line = lines[index]!;
-      index += 1;
-      setScreenLine(line);
-      guidedVoice.speak(line, playNext);
-    }
-    playNext();
-
-    return () => {
-      cancelled = true;
-    };
+    const generation = introGenerationRef.current;
+    introLinesRef.current = [...CAMERA_SETUP_INTRO, ...step.instructions];
+    introIndexRef.current = 0;
+    speakIntroLine(generation);
   }, [phase, requiresStanding, step]);
+
+  // The one-time "Tap once to enable voice guidance" recovery path: a real
+  // gesture, so the speak() call it makes is guaranteed to actually play,
+  // which both unlocks the engine for everything after (see
+  // useGuidedVoice's confirmedUnlockedRef) and resumes the stalled intro
+  // chain from the exact line that silently failed to play.
+  function handleEnableVoiceTap() {
+    const generation = introGenerationRef.current;
+    if (introIndexRef.current > 0 && introIndexRef.current <= introLinesRef.current.length) {
+      introIndexRef.current -= 1;
+      speakIntroLine(generation);
+    } else {
+      guidedVoice.speak(currentScreenLine || screenLine || 'Voice guidance enabled.');
+    }
+  }
 
   // Cycle written guidance for movement/video steps only — photo steps get
   // their on-screen line from the voice queue / live validation instead.
@@ -271,7 +390,15 @@ export function CameraCapture({ step, onCaptured }: Props) {
         ctx.drawImage(video, 0, 0, 64, 48);
         const imageData = ctx.getImageData(0, 0, 64, 48);
         const stats = computeFrameQualityStats(imageData);
-        setFrameQuality(evaluateFrameQuality(stats));
+        const result = evaluateFrameQuality(stats);
+        if (process.env.NODE_ENV !== 'production') {
+          // MIN_SHARPNESS_SCORE/MIN_MEAN_LUMINANCE in frameQuality.ts are
+          // unvalidated placeholders (see that file's docblock) — these
+          // raw numbers, gathered from a real device, are exactly what's
+          // needed to tune them correctly.
+          console.debug('[posture-guidance] frame-quality', { ...stats, status: result.status });
+        }
+        setFrameQuality(result);
       } catch {
         // Sampling is a screening enhancement, not a requirement — a
         // transient canvas read failure should never block capture.
@@ -299,6 +426,15 @@ export function CameraCapture({ step, onCaptured }: Props) {
         const landmarks =
           core && finalValidation.rawPoints ? toBodyLandmarkPoints(finalValidation.rawPoints) : undefined;
         const postureEstimates = core ? computePostureEstimates(core, step.captureType) : undefined;
+        const deviceInfo =
+          typeof navigator !== 'undefined' && typeof screen !== 'undefined'
+            ? {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                screenSize: `${screen.width}x${screen.height}`,
+                pixelRatio: String(window.devicePixelRatio ?? 1),
+              }
+            : undefined;
 
         setFrozenValidation(finalValidation);
         setPendingMedia({
@@ -308,10 +444,20 @@ export function CameraCapture({ step, onCaptured }: Props) {
           durationSeconds: null,
           ...(landmarks ? { landmarks } : {}),
           ...(postureEstimates ? { postureEstimates } : {}),
+          ...(tiltGamma !== null && tiltBeta !== null ? { cameraTilt: { gamma: tiltGamma, beta: tiltBeta } } : {}),
+          ...(deviceInfo ? { deviceInfo } : {}),
+          validationSummary: {
+            categoryFailureCounts: validationFailureCountsRef.current,
+            multiPersonEvents: multiPersonEventCountRef.current,
+          },
         });
         setPreviewUrl(URL.createObjectURL(blob));
         setPhase('analyzing');
-        setTimeout(() => setPhase('preview'), ANALYZING_DISPLAY_MS);
+        setAnalyzingSubphase('captured');
+        setTimeout(() => {
+          setAnalyzingSubphase('analyzing');
+          setTimeout(() => setPhase('preview'), ANALYZING_DISPLAY_MS);
+        }, CAPTURED_CONFIRM_MS);
       },
       'image/jpeg',
       0.9
@@ -319,8 +465,10 @@ export function CameraCapture({ step, onCaptured }: Props) {
   }
 
   // Live pose validation loop for standing photo steps: interpret the
-  // latest frame, decide whether it counts toward the stability window,
-  // and drive the voice-guidance state machine.
+  // latest frame, layer temporal continuity on top of it (multi-person
+  // confirmation, brief-tracking-loss tolerance, stability-blip
+  // tolerance), decide whether it counts toward the stability window, and
+  // drive the voice-guidance state machine.
   useEffect(() => {
     if (!poseActive || !requiresStanding || poseLoading || poseLoadError || autoCaptureTriggered) return;
 
@@ -332,30 +480,120 @@ export function CameraCapture({ step, onCaptured }: Props) {
     });
     setValidation(result);
     subjectCenterRef.current = result.metrics?.hipMid ?? null;
+    if (!result.ok) {
+      validationFailureCountsRef.current[result.category] = (validationFailureCountsRef.current[result.category] ?? 0) + 1;
+    }
+
+    const now = Date.now();
+
+    // Multi-person: a single frame's spatial-separation-aware opinion
+    // (evaluateMultiPersonCandidate), fed through confirm/release
+    // hysteresis — never act on one frame alone. See both functions'
+    // docblocks for exactly why (duplicate/ghost detections of the SAME
+    // person are the dominant real-world false positive this replaces).
+    const multiPersonCandidate =
+      result.core && result.metrics
+        ? evaluateMultiPersonCandidate(poses ?? [], result.core, result.metrics)
+        : { candidateDetected: false, reason: 'none' as const };
+    multiPersonStateRef.current = stepTemporalSignal(
+      multiPersonStateRef.current,
+      multiPersonCandidate.candidateDetected,
+      now,
+      MULTI_PERSON_CONFIRM_MS,
+      MULTI_PERSON_RELEASE_MS
+    );
+    const multiPersonConfirmed = multiPersonStateRef.current.confirmed;
+    const multiPersonPending = isTemporalSignalPending(multiPersonStateRef.current);
+    if (multiPersonConfirmed && !wasMultiPersonConfirmedRef.current) multiPersonEventCountRef.current += 1;
+    wasMultiPersonConfirmedRef.current = multiPersonConfirmed;
+
+    // Tracking loss: same hysteresis treatment for "no person detected" —
+    // a single missed detection frame reads as "briefly lost," not "gone."
+    personLostStateRef.current = stepTemporalSignal(
+      personLostStateRef.current,
+      result.status === 'no_person',
+      now,
+      PERSON_LOST_CONFIRM_MS,
+      PERSON_LOST_RELEASE_MS
+    );
+    const personLostConfirmed = personLostStateRef.current.confirmed;
+    const personLostElapsedMs = personLostStateRef.current.activeSince
+      ? now - personLostStateRef.current.activeSince
+      : 0;
 
     const tilt = evaluateCameraTilt(tiltGamma, tiltBeta);
-    const now = Date.now();
-    const locked = result.ok && tilt.ok && frameQuality.ok;
+    const locked = result.ok && tilt.ok && frameQuality.ok && !multiPersonConfirmed && !multiPersonPending;
 
     if (locked && !wasLockedRef.current) triggerHaptic(HAPTIC_PATTERNS.lockAcquired);
     wasLockedRef.current = locked;
 
-    // Pose problems take priority over tilt, and tilt over frame quality —
-    // no point telling someone to level the phone when we can't see them
-    // at all yet, or to hold steadier when the phone itself is crooked.
-    const effectiveKey: string | null = !result.ok
-      ? result.status
-      : !tilt.ok
-        ? 'camera_tilted'
-        : !frameQuality.ok
-          ? frameQuality.status
-          : null;
-    const effectiveMessage = !result.ok ? result.message : !tilt.ok ? tilt.message : frameQuality.message;
+    // Priority: a CONFIRMED second person overrides everything else — no
+    // point discussing framing when the frame itself is invalid. Then the
+    // subject's own pose result (with "no_person" reframed by how long the
+    // gap has actually persisted — see personLostConfirmed/personLostElapsedMs),
+    // then tilt, then frame quality.
+    let effectiveKey: string | null = null;
+    let effectiveMessage = '';
+    let activeRule: string;
+    if (multiPersonConfirmed) {
+      effectiveKey = 'multiple_people';
+      effectiveMessage = spokenMessageFor('multiple_people', 'Another person is visible in the frame.');
+      activeRule = 'second_person_confirmed';
+    } else if (!result.ok) {
+      if (result.status === 'no_person') {
+        if (personLostConfirmed && personLostElapsedMs >= PERSON_LOST_LONG_MS) {
+          effectiveKey = 'tracking_lost_long';
+          effectiveMessage = TRACKING_LOST_PROMPT;
+          activeRule = 'tracking_lost';
+        } else if (personLostConfirmed) {
+          effectiveKey = 'tracking_lost_brief';
+          effectiveMessage = TRACKING_BRIEFLY_LOST_PROMPT;
+          activeRule = 'tracking_lost';
+        } else {
+          activeRule = 'uncertain'; // within the initial grace window — stay silent, not yet worth mentioning
+        }
+      } else {
+        effectiveKey = result.status;
+        effectiveMessage = result.message;
+        activeRule = result.status === 'subject_changed' ? 'subject_changed' : 'low_confidence';
+      }
+    } else if (!tilt.ok) {
+      effectiveKey = 'camera_tilted';
+      effectiveMessage = tilt.message;
+      activeRule = 'low_confidence';
+    } else if (!frameQuality.ok) {
+      effectiveKey = frameQuality.status;
+      effectiveMessage = frameQuality.message;
+      activeRule = 'low_confidence';
+    } else {
+      activeRule = multiPersonPending ? 'uncertain' : 'stable';
+    }
+
+    setContinuityOverride(
+      multiPersonConfirmed || effectiveKey === 'tracking_lost_brief' || effectiveKey === 'tracking_lost_long'
+        ? { key: effectiveKey!, message: effectiveMessage }
+        : null
+    );
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[posture-guidance] frame', {
+        poseStatus: result.status,
+        multiPerson: { ...multiPersonCandidate, confirmed: multiPersonConfirmed, pending: multiPersonPending },
+        personLost: { confirmed: personLostConfirmed, elapsedMs: personLostElapsedMs },
+        tiltOk: tilt.ok,
+        frameQuality: { status: frameQuality.status, ok: frameQuality.ok },
+        locked,
+        effectiveKey,
+        activeRule,
+      });
+    }
 
     if (locked) {
+      lockLostAtRef.current = null;
+      lastResolvedProblemKeyRef.current = null;
       if (readySinceRef.current === null) readySinceRef.current = now;
       const elapsed = now - readySinceRef.current;
-      setStableForMs(elapsed);
+      setStableForMs(Math.min(elapsed, REQUIRED_STABLE_MS));
 
       // Speak the one-time positive confirmation via the same guidance
       // machine (so it still respects "don't interrupt," "wait after
@@ -371,26 +609,65 @@ export function CameraCapture({ step, onCaptured }: Props) {
       }
 
       if (elapsed >= REQUIRED_STABLE_MS && !guidanceMemoryRef.current.isSpeaking) {
-        setAutoCaptureTriggered(true);
-        triggerHaptic(HAPTIC_PATTERNS.captured);
-        guidanceMemoryRef.current = markSpeechStarted(guidanceMemoryRef.current);
-        guidedVoice.speak(TAKING_PHOTO_PROMPT, () => {
-          guidanceMemoryRef.current = markSpeechEnded(guidanceMemoryRef.current, 'capturing', Date.now());
-        });
-        autoCaptureTimeoutRef.current = setTimeout(() => capturePhoto(result), 550);
+        if (countdownStartRef.current === null) countdownStartRef.current = now;
+        const countdownElapsed = now - countdownStartRef.current;
+
+        if (countdownElapsed >= COUNTDOWN_MS) {
+          setAutoCaptureTriggered(true);
+          setCountdownRemainingMs(null);
+          triggerHaptic(HAPTIC_PATTERNS.captured);
+          guidanceMemoryRef.current = markSpeechStarted(guidanceMemoryRef.current);
+          guidedVoice.speak(TAKING_PHOTO_PROMPT, () => {
+            guidanceMemoryRef.current = markSpeechEnded(guidanceMemoryRef.current, 'capturing', Date.now());
+          });
+          autoCaptureTimeoutRef.current = setTimeout(() => capturePhoto(result), 250);
+        } else {
+          const remaining = COUNTDOWN_MS - countdownElapsed;
+          setCountdownRemainingMs(remaining);
+          const wholeSecond = Math.ceil(remaining / 1000);
+          if (lastCountdownTickRef.current !== wholeSecond) {
+            lastCountdownTickRef.current = wholeSecond;
+            triggerHaptic(HAPTIC_PATTERNS.lockAcquired);
+          }
+        }
       }
       return;
     }
 
+    // Not locked this frame — but if we were already mid-hold, absorb a
+    // brief blip before treating it as a real interruption (see
+    // STABILITY_GRACE_MS's docblock).
+    if (readySinceRef.current !== null) {
+      if (lockLostAtRef.current === null) lockLostAtRef.current = now;
+      if (now - lockLostAtRef.current < STABILITY_GRACE_MS) {
+        return; // silently hold position — no reset, no correction spoken, countdown (if any) keeps running
+      }
+    }
+
+    lockLostAtRef.current = null;
     readySinceRef.current = null;
+    countdownStartRef.current = null;
+    lastCountdownTickRef.current = null;
     setStableForMs(0);
+    setCountdownRemainingMs(null);
     if (!effectiveKey) return;
 
     const decision = stepGuidance(guidanceMemoryRef.current, effectiveKey, now);
     guidanceMemoryRef.current = decision.memory;
     if (decision.decision === 'speak' && decision.keyToSpeak) {
       guidanceMemoryRef.current = markSpeechStarted(guidanceMemoryRef.current);
-      const spoken = spokenMessageFor(decision.keyToSpeak, effectiveMessage);
+      let spoken = spokenMessageFor(decision.keyToSpeak, effectiveMessage);
+      if (
+        lastResolvedProblemKeyRef.current &&
+        lastResolvedProblemKeyRef.current !== decision.keyToSpeak &&
+        !SKIP_ACKNOWLEDGMENT_KEYS.has(decision.keyToSpeak)
+      ) {
+        spoken = `${pickAcknowledgment()} ${spoken}`;
+      }
+      lastResolvedProblemKeyRef.current = decision.keyToSpeak;
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[posture-guidance] speaking', { activeRule, activeFailure: effectiveKey, spokenPrompt: spoken });
+      }
       guidedVoice.speak(spoken, () => {
         guidanceMemoryRef.current = markSpeechEnded(guidanceMemoryRef.current, decision.keyToSpeak!, Date.now());
       });
@@ -533,8 +810,9 @@ export function CameraCapture({ step, onCaptured }: Props) {
   }
 
   const tilt = evaluateCameraTilt(tiltGamma, tiltBeta);
-  const overallOk = validation.ok && tilt.ok && frameQuality.ok;
-  const notReady = NOT_READY_STATUSES.has(validation.status);
+  const overallOk = validation.ok && tilt.ok && frameQuality.ok && !continuityOverride;
+  const notReady =
+    NOT_READY_STATUSES.has(validation.status) || (continuityOverride !== null && NOT_READY_STATUSES.has(continuityOverride.key));
   const statusChip = !requiresStanding
     ? null
     : poseLoadError
@@ -545,20 +823,24 @@ export function CameraCapture({ step, onCaptured }: Props) {
           ? { label: CAPTURE_STATUS_LABEL.capturing, tone: 'success' as const }
           : !overallOk
             ? { label: notReady ? CAPTURE_STATUS_LABEL.not_ready : CAPTURE_STATUS_LABEL.adjust, tone: 'warning' as const }
-            : stableForMs >= REQUIRED_STABLE_MS
-              ? { label: CAPTURE_STATUS_LABEL.ready, tone: 'success' as const }
-              : { label: CAPTURE_STATUS_LABEL.hold_still, tone: 'success' as const };
+            : countdownRemainingMs !== null
+              ? { label: CAPTURE_STATUS_LABEL.hold_still, tone: 'success' as const }
+              : stableForMs >= REQUIRED_STABLE_MS
+                ? { label: CAPTURE_STATUS_LABEL.ready, tone: 'success' as const }
+                : { label: CAPTURE_STATUS_LABEL.hold_still, tone: 'success' as const };
 
   const currentScreenLine = requiresStanding
     ? poseLoadError
       ? step.instructions[0]
-      : !validation.ok && validation.message
-        ? validation.message
-        : !tilt.ok
-          ? tilt.message
-          : !frameQuality.ok
-            ? frameQuality.message
-            : screenLine
+      : continuityOverride
+        ? continuityOverride.message
+        : !validation.ok && validation.message
+          ? validation.message
+          : !tilt.ok
+            ? tilt.message
+            : !frameQuality.ok
+              ? frameQuality.message
+              : screenLine
     : step.instructions[instructionIndex];
 
   const captureGateOk = !requiresStanding || poseLoadError || (!poseLoading && overallOk);
@@ -605,6 +887,20 @@ export function CameraCapture({ step, onCaptured }: Props) {
   const showScanSweep =
     requiresStanding && phase === 'ready' && !poseLoading && !poseLoadError && !validation.core;
 
+  // Camera opening sequence — every stage below is a real, already-tracked
+  // readiness signal (never a fixed fake delay): permission/stream still
+  // being acquired, the MediaPipe WASM model still downloading, or the
+  // brief window after the model is ready but before any confident pose
+  // has resolved yet. Unmounts itself the instant validation.core exists.
+  const initializationStage: InitializationStage | null =
+    phase === 'requesting'
+      ? 'preparing'
+      : requiresStanding && phase === 'ready' && poseActive && poseLoading
+        ? 'calibrating'
+        : requiresStanding && phase === 'ready' && poseActive && !poseLoading && !poseLoadError && !validation.core
+          ? 'locating'
+          : null;
+
   return (
     <div className="overflow-hidden rounded-[28px] bg-black shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
       <div className="relative aspect-[3/4] w-full">
@@ -628,10 +924,19 @@ export function CameraCapture({ step, onCaptured }: Props) {
         ) : phase === 'analyzing' && previewUrl ? (
           <>
             <img src={previewUrl} alt="Captured preview" className="h-full w-full object-cover" />
+            {requiresStanding && frozenValidation?.core && (
+              <PoseOverlay
+                landmarks={frozenValidation.core}
+                metrics={frozenValidation.metrics}
+                tone="success"
+                angleLabels={angleLabels}
+                mirrored={false}
+              />
+            )}
             <CaptureFlash />
             <div className="absolute inset-0 flex items-center justify-center bg-black/25">
               <span className="rounded-full bg-black/60 px-4 py-2 text-sm font-medium text-white">
-                Analyzing alignment…
+                {analyzingSubphase === 'captured' ? 'Alignment captured' : 'Analyzing alignment…'}
               </span>
             </div>
           </>
@@ -650,6 +955,9 @@ export function CameraCapture({ step, onCaptured }: Props) {
                 tone={silhouetteTone}
                 angleLabels={angleLabels}
                 mirrored={facingMode === 'user'}
+                confidence={validation.confidence}
+                correctionTarget={overallOk ? null : validation.correctionTarget}
+                showBoundingZone={silhouetteTone !== 'success'}
               />
             ) : movementCore ? (
               <PoseOverlay
@@ -667,21 +975,21 @@ export function CameraCapture({ step, onCaptured }: Props) {
             )}
             {showScanSweep && <ScanSweep />}
             {requiresStanding && phase === 'ready' && overallOk && !autoCaptureTriggered && (
-              <CaptureCountdown
-                progress={stableForMs / REQUIRED_STABLE_MS}
-                tone={stableForMs >= REQUIRED_STABLE_MS ? 'success' : 'neutral'}
-              />
+              countdownRemainingMs !== null ? (
+                <CaptureCountdownNumeral remainingMs={countdownRemainingMs} />
+              ) : (
+                <CaptureCountdown
+                  progress={stableForMs / REQUIRED_STABLE_MS}
+                  tone={stableForMs >= REQUIRED_STABLE_MS ? 'success' : 'neutral'}
+                />
+              )
             )}
           </>
         )}
         <canvas ref={canvasRef} className="hidden" />
         <canvas ref={qualityCanvasRef} className="hidden" />
 
-        {phase === 'requesting' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <p className="text-sm text-white">Starting camera…</p>
-          </div>
-        )}
+        {initializationStage && <InitializationOverlay stage={initializationStage} />}
 
         {statusChip && (phase === 'ready' || phase === 'recording') && (
           <div className="absolute left-4 top-4 z-10">
@@ -710,6 +1018,23 @@ export function CameraCapture({ step, onCaptured }: Props) {
           </div>
         )}
 
+        {requiresStanding && phase === 'ready' && guidedVoice.status === 'blocked' && (
+          <button
+            type="button"
+            onClick={handleEnableVoiceTap}
+            className="absolute inset-x-4 top-24 z-20 flex items-center justify-center gap-2 rounded-2xl bg-[#1B3A2D] px-4 py-3 text-sm font-semibold text-white shadow-lg"
+          >
+            <Ear className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+            Tap once to enable voice guidance
+          </button>
+        )}
+
+        {requiresStanding && phase === 'ready' && guidedVoice.status === 'unavailable' && (
+          <div className="absolute inset-x-4 top-24 z-20 rounded-2xl bg-black/60 px-4 py-2.5 text-center text-xs font-medium text-white">
+            Voice guidance isn&apos;t available on this browser — follow the on-screen instructions.
+          </div>
+        )}
+
         {phase === 'recording' && (
           <div className="absolute inset-x-0 top-16 flex justify-center">
             <span className="flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1 text-xs font-semibold text-white">
@@ -720,16 +1045,26 @@ export function CameraCapture({ step, onCaptured }: Props) {
         )}
 
         {phase === 'ready' && (
-          <div className="absolute right-4 top-4 z-10 flex gap-2">
-            {requiresStanding && (
+          <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+            {requiresStanding && guidedVoice.isSupported && guidedVoice.status === 'idle' && (
+              <span className="rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white">
+                Voice loading…
+              </span>
+            )}
+            {requiresStanding && guidedVoice.isSupported && (
               <button
                 type="button"
-                onClick={() => guidedVoice.replay()}
-                title="Replay instruction"
-                aria-label="Replay current instruction"
+                onClick={() => guidedVoice.toggleMute()}
+                title={guidedVoice.status === 'muted' ? 'Unmute voice guidance' : 'Mute voice guidance'}
+                aria-label={guidedVoice.status === 'muted' ? 'Unmute voice guidance' : 'Mute voice guidance'}
+                aria-pressed={guidedVoice.status === 'muted'}
                 className="rounded-full bg-black/50 p-2 text-white"
               >
-                <Volume2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                {guidedVoice.status === 'muted' ? (
+                  <VolumeX className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                ) : (
+                  <Volume2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                )}
               </button>
             )}
             <button

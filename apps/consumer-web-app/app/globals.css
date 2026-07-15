@@ -343,3 +343,55 @@
     transform: scale(1);
   }
 }
+
+/* The final calm 3-2-1 (CaptureCountdownNumeral.tsx) — a soft pop per
+   tick, not a jarring flash, matching "calm confidence" over an urgent
+   countdown-timer feel. */
+@keyframes mef-countdown-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.mef-countdown-pop {
+  animation: mef-countdown-pop 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-countdown-pop {
+    animation: none !important;
+  }
+}
+
+/* Overlay elements (skeleton/lines) fading smoothly into place as
+   confidence is first established, rather than snapping in instantly —
+   PoseOverlay.tsx's canvas wrapper. */
+@keyframes mef-overlay-lock-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.mef-overlay-lock-in {
+  animation: mef-overlay-lock-in 420ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-overlay-lock-in {
+    animation: none !important;
+  }
+}

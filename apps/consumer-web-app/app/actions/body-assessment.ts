@@ -30,6 +30,9 @@ import type {
   BodyLandmarkPoint,
   BodyLandmarkSet,
   BodyAssessmentCapture,
+  CameraTiltReading,
+  CaptureDeviceInfo,
+  CaptureValidationSummary,
   FindingSeverity,
   FindingSide,
   PostureFindingType,
@@ -71,6 +74,7 @@ import {
   listCoachReviews,
   listComparisons,
   listFindings,
+  listFindingsByType,
   listLandmarkSets,
   setFindingReviewStatus,
   updateAssessment,
@@ -129,6 +133,12 @@ export type RecordCaptureInput = {
   width?: number;
   height?: number;
   durationSeconds?: number;
+  /** Optional — populated once the capturing client sends it (migration 51). Omitting it is fully backward-compatible; the column just stays null. */
+  deviceInfo?: CaptureDeviceInfo;
+  /** Optional — the device orientation reading at capture time (migration 51). Same backward-compatibility note as deviceInfo. */
+  cameraTilt?: CameraTiltReading;
+  /** Optional — the live capture-validation pipeline's session summary for this step (migration 51). Same backward-compatibility note as deviceInfo. */
+  validationSummary?: CaptureValidationSummary;
 };
 
 /** Called after the browser has already uploaded the capture's bytes directly to Supabase Storage (see components/body-assessment/CameraCapture.tsx) — this only records the metadata row. captureId must be the same id buildCaptureUploadPathAction generated the storage path from. */
@@ -153,6 +163,9 @@ export async function recordCaptureAction(
     width: input.width ?? null,
     height: input.height ?? null,
     durationSeconds: input.durationSeconds ?? null,
+    deviceInfo: input.deviceInfo ?? null,
+    cameraTilt: input.cameraTilt ?? null,
+    validationSummary: input.validationSummary ?? null,
   });
   if (!capture) return { error: 'Could not save capture.' };
   return { capture };
@@ -207,6 +220,14 @@ export type RecordPostureFindingInput = {
   confidence: number;
   narrative: string;
   landmarksUsed: string[];
+  /** Optional — which version of the on-device screening threshold constants (lib/body-assessment/postureMeasurements.ts) produced this finding (migration 51). Omitting it is fully backward-compatible. */
+  thresholdConfigVersion?: string;
+  /** Optional — the raw measured degree/ratio behind `narrative` (migration 51). */
+  rawValue?: number;
+  /** Optional — the unit rawValue is expressed in, e.g. 'degrees' or 'ratio'. */
+  unit?: string;
+  /** Optional — a left/right differential for findings that measure an asymmetry (migration 51). */
+  sideDiff?: number;
 };
 
 /**
@@ -246,6 +267,10 @@ export async function recordPostureFindingsAction(
       evidence: [{ type: 'capture', id: input.captureId, note: input.landmarksUsed.join(', ') }],
       providerName: 'mediapipe',
       status: 'pending_review',
+      thresholdConfigVersion: input.thresholdConfigVersion ?? null,
+      rawValue: input.rawValue ?? null,
+      unit: input.unit ?? null,
+      sideDiff: input.sideDiff ?? null,
     });
 
     if (created && isConcerningFinding(created.severity, created.confidence)) {
@@ -599,6 +624,8 @@ export type BodyAssessmentDetail = {
   captures: BodyAssessmentCapture[];
   landmarkSets: BodyLandmarkSet[];
   findings: BodyAssessmentFinding[];
+  /** Every finding for this assessment REGARDLESS of status, including 'superseded' ones — unlike `findings` above (active only). Additive field: existing callers that only read `findings`/`coachReviews` keep working unchanged. Backs the practitioner "show history" affordance so the append-only supersede chain (supersedes_id/superseded_by_id) is actually visible, not just persisted. */
+  allFindings: BodyAssessmentFinding[];
   coachReviews: BodyAssessmentCoachReview[];
 };
 
@@ -614,14 +641,15 @@ export async function getAssessmentDetailAction(
   const assessment = await getAssessment(supabase, assessmentId);
   if (!assessment) return null; // RLS already means "not found" covers "not yours/not assigned"
 
-  const [captures, landmarkSets, findings, coachReviews] = await Promise.all([
+  const [captures, landmarkSets, findings, allFindings, coachReviews] = await Promise.all([
     listCaptures(supabase, assessmentId),
     listLandmarkSets(supabase, assessmentId),
     listFindings(supabase, assessmentId, { activeOnly: true }),
+    listFindings(supabase, assessmentId, { activeOnly: false }),
     listCoachReviews(supabase, assessmentId),
   ]);
 
-  return { assessment, captures, landmarkSets, findings, coachReviews };
+  return { assessment, captures, landmarkSets, findings, allFindings, coachReviews };
 }
 
 export async function getSignedCaptureUrlAction(storagePath: string): Promise<string | null> {
@@ -637,6 +665,28 @@ export async function getAssessmentComparisonAction(
   const ctx = await requireMember();
   if (!ctx) return [];
   return listComparisons(ctx.supabase, assessmentAId, assessmentBId);
+}
+
+/**
+ * Every active finding of one type across a member's ENTIRE assessment
+ * history, ascending by date — feeds the multi-point trend chart
+ * (RightPanel/TrendChart.tsx). Not gated by requireMember (which only ever
+ * authorizes the caller's own member id) since a coach viewing a client's
+ * trend needs to pass the client's memberId, not their own — RLS's
+ * coach_read_assigned_body_assessment_findings policy (is_active_coach_for)
+ * is the real authorization boundary here, same as
+ * getClientBodyAssessmentDetailAction below.
+ */
+export async function getMemberFindingTrendAction(
+  memberId: string,
+  findingType: PostureFindingType
+): Promise<BodyAssessmentFinding[]> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  return listFindingsByType(supabase, memberId, findingType, { activeOnly: true });
 }
 
 // ---- Coach: reads + review workflow ----

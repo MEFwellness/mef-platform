@@ -92,6 +92,9 @@ export type PoseMetrics = {
   /** Signed horizontal offset of the nose from the shoulder-line midpoint, normalized by shoulder width. */
   noseOffsetRatio: number;
 
+  /** Normalized [0,1] image-space box enclosing every core landmark — the live overlay's "body bounding zone," and the shape persisted alongside a capture so a practitioner can see exactly how much of the frame the subject occupied. Built only from CorePoseLandmarks' 13 points (no hands/feet), so it's a close but not exact skeletal extent, not the literal silhouette edge. */
+  boundingBox: { minX: number; minY: number; maxX: number; maxY: number };
+
   /**
    * |leftShoulder.z - rightShoulder.z| normalized by shoulder width — null
    * when the pose model didn't supply a z estimate for both shoulders.
@@ -148,6 +151,18 @@ export function computePoseMetrics(core: CorePoseLandmarks): PoseMetrics {
   const noseOffsetRatio =
     shoulderWidth > 1e-4 ? (core.nose.x - shoulderMid.x) / shoulderWidth : 0;
 
+  const xs = [
+    core.nose.x, core.leftEye.x, core.rightEye.x, core.leftEar.x, core.rightEar.x,
+    core.leftShoulder.x, core.rightShoulder.x, core.leftHip.x, core.rightHip.x,
+    core.leftKnee.x, core.rightKnee.x, core.leftAnkle.x, core.rightAnkle.x,
+  ];
+  const ys = [
+    core.nose.y, core.leftEye.y, core.rightEye.y, core.leftEar.y, core.rightEar.y,
+    core.leftShoulder.y, core.rightShoulder.y, core.leftHip.y, core.rightHip.y,
+    core.leftKnee.y, core.rightKnee.y, core.leftAnkle.y, core.rightAnkle.y,
+  ];
+  const boundingBox = { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+
   const leftShoulderZ = core.leftShoulder.z;
   const rightShoulderZ = core.rightShoulder.z;
   const shoulderDepthDiffRatio =
@@ -178,6 +193,7 @@ export function computePoseMetrics(core: CorePoseLandmarks): PoseMetrics {
     frontalRatioHips,
     earVisibilityRatio,
     noseOffsetRatio,
+    boundingBox,
     shoulderDepthDiffRatio,
   };
 }

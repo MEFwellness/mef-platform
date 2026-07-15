@@ -6,6 +6,7 @@ import type {
   AnnotationShape,
   AssessmentAiSourceFeature,
   BodyAssessment,
+  BodyAssessmentCoachReview,
   BodyAssessmentComparison,
   BodyAssessmentFinding,
   BodyAssessmentNote,
@@ -17,8 +18,9 @@ import { CollapsibleSection } from './RightPanel/CollapsibleSection';
 import { SummarySection } from './RightPanel/SummarySection';
 import { CoachNotesSection } from './RightPanel/CoachNotesSection';
 import { AIAssistantSection } from './RightPanel/AIAssistantSection';
-import { ComparisonSection, type ComparisonCapture } from './RightPanel/ComparisonSection';
+import { ComparisonSection, type ComparisonCapture, type FindingTrendSeries } from './RightPanel/ComparisonSection';
 import { PostureFindingsSection } from './RightPanel/PostureFindingsSection';
+import { ReviewHistorySection } from './RightPanel/ReviewHistorySection';
 import { TimelineSection } from './RightPanel/TimelineSection';
 import { ActionsBar } from './RightPanel/ActionsBar';
 
@@ -46,6 +48,10 @@ export function ReviewWorkspace({
   aiWorkspace,
   aiSourceFeature,
   findings,
+  allFindings = [],
+  coachReviews = [],
+  coachNames = {},
+  trendSeries = [],
 }: {
   clientId: string;
   assessmentId: string;
@@ -62,6 +68,14 @@ export function ReviewWorkspace({
   aiWorkspace: CoachIntelligenceWorkspace | null;
   aiSourceFeature: AssessmentAiSourceFeature;
   findings: BodyAssessmentFinding[];
+  /** Every finding for this assessment including superseded ones — optional/additive, powers PostureFindingsSection's "Show history" affordance. */
+  allFindings?: BodyAssessmentFinding[];
+  /** Every coach review for this assessment, newest first — optional/additive, powers the Coach Review History section (previously only coachReviews[0] was ever surfaced). */
+  coachReviews?: BodyAssessmentCoachReview[];
+  /** coach_id -> display name, shared by the findings history view and the review history list. */
+  coachNames?: Record<string, string>;
+  /** Multi-point trend data, one series per finding_type present on this assessment — optional/additive. */
+  trendSeries?: FindingTrendSeries[];
 }) {
   const [selectedCaptureId, setSelectedCaptureId] = useState<string | null>(
     captures[0]?.capture.id ?? null
@@ -136,7 +150,7 @@ export function ReviewWorkspace({
           </CollapsibleSection>
 
           <CollapsibleSection title="Posture Screening Estimates">
-            <PostureFindingsSection findings={findings} />
+            <PostureFindingsSection findings={findings} history={allFindings} coachNames={coachNames} />
           </CollapsibleSection>
 
           <CollapsibleSection title="Coach Notes">
@@ -145,6 +159,10 @@ export function ReviewWorkspace({
               clientId={clientId}
               initialContent={note?.content ?? ''}
             />
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Review History" defaultOpen={false}>
+            <ReviewHistorySection reviews={coachReviews} coachNames={coachNames} />
           </CollapsibleSection>
 
           <CollapsibleSection title="AI Assistant" defaultOpen={false}>
@@ -163,6 +181,7 @@ export function ReviewWorkspace({
               currentCaptures={currentComparisonCaptures}
               previousCaptures={previousCaptures}
               comparisonRows={comparisonRows}
+              trendSeries={trendSeries}
             />
           </CollapsibleSection>
 

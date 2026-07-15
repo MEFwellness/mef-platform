@@ -145,3 +145,32 @@ export function getBrowserTextToSpeechProvider(): TextToSpeechProvider {
   if (!sharedProvider) sharedProvider = new BrowserTextToSpeechProvider();
   return sharedProvider;
 }
+
+/**
+ * Best-effort mobile-autoplay "unlock" for window.speechSynthesis — call
+ * from within a genuine user-gesture handler (a click/tap), as early in a
+ * flow as possible, before any automatic (non-gesture) speak() call is
+ * attempted. See hooks/useGuidedVoice.ts's docblock for why this matters:
+ * many mobile browsers silently drop speechSynthesis.speak() calls that
+ * don't originate from a gesture, and once one gesture-triggered call has
+ * succeeded, most of them allow every subsequent non-gesture call for the
+ * rest of the page's life. A single-space utterance at zero volume is
+ * real enough to register as a legitimate speak() call while staying
+ * inaudible, so it never sounds like a stray blip to the member.
+ *
+ * This is a best-effort optimization, not the guaranteed fix — if it
+ * doesn't hold on a given browser/OS combination, useGuidedVoice's own
+ * blocked-detection and one-time "tap to enable voice guidance" prompt is
+ * what actually guarantees the member can always get voice guidance
+ * working, in exactly one tap.
+ */
+export function primeBrowserSpeechSynthesis(): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    const utterance = new SpeechSynthesisUtterance(' ');
+    utterance.volume = 0;
+    window.speechSynthesis.speak(utterance);
+  } catch {
+    // Best-effort only — see docblock above.
+  }
+}

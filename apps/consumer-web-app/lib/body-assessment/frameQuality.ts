@@ -82,22 +82,34 @@ export type FrameQualityResult = {
   message: string;
 };
 
-/** Below this Laplacian-variance score on a ~64px-wide downsampled sample, the frame reads as meaningfully blurred (camera shake or out of focus) rather than just naturally soft. */
-const MIN_SHARPNESS_SCORE = 10;
-/** Below this mean luminance (0-255), the room is too dark for the pose model or a member to reliably self-check posture. */
-const MIN_MEAN_LUMINANCE = 32;
+/**
+ * Below this Laplacian-variance score on a ~64px-wide downsampled sample,
+ * the frame reads as meaningfully blurred (camera shake or out of focus)
+ * rather than just naturally soft. Deliberately set very conservatively
+ * (far below what a synthetic sharp-edge test fixture produces) — this
+ * number was never validated against real, bilinear-downsampled camera
+ * video, only hand-built test fixtures (tests/frame-quality.test.ts), and
+ * a false trigger here silently blocks the "locked" state auto-capture
+ * depends on with no visible explanation beyond a generic message. Until
+ * real-device numbers are gathered (this file logs every sample's raw
+ * stats in development — see CameraCapture.tsx), err toward under- rather
+ * than over-rejecting.
+ */
+const MIN_SHARPNESS_SCORE = 2;
+/** Below this mean luminance (0-255), the room is too dark for the pose model or a member to reliably self-check posture. Loosened for the same reason as MIN_SHARPNESS_SCORE — not yet validated against real camera output. */
+const MIN_MEAN_LUMINANCE = 18;
 /** Above this, the frame is blown out (backlighting, direct sun) — checked before sharpness, since an overexposed frame also reads as artificially "smooth" and would otherwise be misreported as blur. */
-const MAX_MEAN_LUMINANCE = 246;
+const MAX_MEAN_LUMINANCE = 250;
 
 export function evaluateFrameQuality(stats: FrameQualityStats): FrameQualityResult {
   if (stats.meanLuminance < MIN_MEAN_LUMINANCE) {
-    return { status: 'poor_lighting', ok: false, message: 'Move somewhere brighter.' };
+    return { status: 'poor_lighting', ok: false, message: 'The image is too dark. Move to a brighter area.' };
   }
   if (stats.meanLuminance > MAX_MEAN_LUMINANCE) {
-    return { status: 'poor_lighting', ok: false, message: 'Reduce the light behind you.' };
+    return { status: 'poor_lighting', ok: false, message: 'The image is too bright. Reduce the light behind you.' };
   }
   if (stats.sharpnessScore < MIN_SHARPNESS_SCORE) {
-    return { status: 'blurry_frame', ok: false, message: 'Hold the camera steady.' };
+    return { status: 'blurry_frame', ok: false, message: 'The image is blurry. Hold the phone steady.' };
   }
   return { status: 'ready', ok: true, message: '' };
 }

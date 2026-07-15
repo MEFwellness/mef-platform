@@ -47,6 +47,8 @@ import {
 import { CameraCapture, type CapturedMedia } from './CameraCapture';
 import { requestDeviceTiltPermission } from '@/hooks/useDeviceTilt';
 import { POSE_MODEL_VERSION } from '@/hooks/usePoseLandmarker';
+import { primeBrowserSpeechSynthesis } from '@/lib/speech/browserTextToSpeech';
+import { POSTURE_THRESHOLDS_VERSION } from '@/lib/body-assessment/postureMeasurements';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -172,6 +174,9 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
         ...(media.width != null ? { width: media.width } : {}),
         ...(media.height != null ? { height: media.height } : {}),
         ...(media.durationSeconds != null ? { durationSeconds: media.durationSeconds } : {}),
+        ...(media.deviceInfo ? { deviceInfo: media.deviceInfo } : {}),
+        ...(media.cameraTilt ? { cameraTilt: media.cameraTilt } : {}),
+        ...(media.validationSummary ? { validationSummary: media.validationSummary } : {}),
       });
       if (result.error) throw new Error(result.error);
 
@@ -206,6 +211,9 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
               confidence: estimate.confidence,
               narrative: estimate.narrative,
               landmarksUsed: estimate.landmarksUsed,
+              thresholdConfigVersion: POSTURE_THRESHOLDS_VERSION,
+              rawValue: estimate.value,
+              unit: estimate.unit,
             }))
           );
         } catch (findingError) {
@@ -278,10 +286,15 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
           type="button"
           onClick={() => {
             // Fire-and-forget: iOS Safari's device-orientation permission
-            // prompt only works from within a genuine user-gesture
-            // handler like this one — the camera step itself is reached
-            // several taps later, too late for that requirement.
+            // prompt, and the speechSynthesis mobile-autoplay unlock, both
+            // only work from within a genuine user-gesture handler like
+            // this one — the camera step itself is reached several taps
+            // later, too late for either requirement. See
+            // primeBrowserSpeechSynthesis()'s docblock; CameraCapture's
+            // voice guidance still detects and recovers from a blocked
+            // state on its own if this priming attempt doesn't hold.
             void requestDeviceTiltPermission();
+            primeBrowserSpeechSynthesis();
             setPhase('intro');
           }}
           className="mt-6 rounded-full bg-[#1B3A2D] px-8 py-3 text-sm font-medium text-white hover:brightness-110"

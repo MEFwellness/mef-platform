@@ -54,15 +54,15 @@ export function ActionsBar({ assessmentId, clientId }: { assessmentId: string; c
         <CheckCircle2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         {pendingAction === 'finalize' ? 'Finalizing…' : 'Finalize Review'}
       </button>
-      <button
-        type="button"
-        disabled
-        title="Coming soon"
-        className="flex cursor-not-allowed items-center justify-center gap-2 rounded-full border border-dashed border-[#1B3A2D]/15 px-5 py-2.5 text-sm font-medium text-[#6B7A72] opacity-60"
+      <a
+        href={`/coach/clients/${clientId}/body-assessments/${assessmentId}/report`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 rounded-full border border-[#1B3A2D]/15 px-5 py-2.5 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.04]"
       >
         <FileDown className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         Generate Client Report
-      </button>
+      </a>
 
       {error && <p className="text-center text-xs text-red-700">{error}</p>}
       {confirmed && (

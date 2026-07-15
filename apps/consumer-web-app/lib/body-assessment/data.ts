@@ -27,6 +27,9 @@ import type {
   BodyAssessmentType,
   BodyLandmarkPoint,
   BodyLandmarkSet,
+  CameraTiltReading,
+  CaptureDeviceInfo,
+  CaptureValidationSummary,
   ComparisonTrend,
   FindingEvidenceRef,
   FindingSeverity,
@@ -160,6 +163,12 @@ export type CaptureInput = {
   width?: number | null;
   height?: number | null;
   durationSeconds?: number | null;
+  /** Optional — populated once the capturing client sends it (migration 51). Backward-compatible: existing callers that omit this keep working, the column stays null. */
+  deviceInfo?: CaptureDeviceInfo | null;
+  /** Optional — the device orientation reading at capture time (migration 51). Same backward-compatibility note as deviceInfo. */
+  cameraTilt?: CameraTiltReading | null;
+  /** Optional — the live capture-validation pipeline's session summary for this step (migration 51). Same backward-compatibility note as deviceInfo. */
+  validationSummary?: CaptureValidationSummary | null;
 };
 
 export async function insertCapture(
@@ -172,6 +181,9 @@ export async function insertCapture(
   // here, unlike every other insert* function in this file.
   const id = input.id ?? randomUUID();
   const now = new Date().toISOString();
+  const deviceInfo = input.deviceInfo ?? null;
+  const cameraTilt = input.cameraTilt ?? null;
+  const validationSummary = input.validationSummary ?? null;
 
   const { error } = await supabase.from('body_assessment_captures').insert({
     id,
@@ -185,6 +197,9 @@ export async function insertCapture(
     width: input.width ?? null,
     height: input.height ?? null,
     duration_seconds: input.durationSeconds ?? null,
+    device_info: deviceInfo,
+    camera_tilt: cameraTilt,
+    validation_summary: validationSummary,
     captured_at: now,
   });
 
@@ -205,6 +220,9 @@ export async function insertCapture(
     width: input.width ?? null,
     height: input.height ?? null,
     duration_seconds: input.durationSeconds ?? null,
+    device_info: deviceInfo,
+    camera_tilt: cameraTilt,
+    validation_summary: validationSummary,
     captured_at: now,
     created_at: now,
   };
@@ -333,6 +351,14 @@ export type FindingInput = {
   status?: 'pending_review' | 'coach_overridden';
   coachReviewedBy?: string | null;
   coachOverrideNotes?: string | null;
+  /** Optional — which version of the on-device screening threshold constants produced this finding (migration 51). Backward-compatible: existing callers that omit these keep working, the columns stay null. */
+  thresholdConfigVersion?: string | null;
+  /** Optional — the raw measured degree/ratio behind `narrative` (migration 51). */
+  rawValue?: number | null;
+  /** Optional — the unit rawValue is expressed in, e.g. 'degrees' or 'ratio'. */
+  unit?: string | null;
+  /** Optional — a left/right differential for findings that measure an asymmetry (migration 51). */
+  sideDiff?: number | null;
 };
 
 export async function insertFinding(
@@ -358,6 +384,10 @@ export async function insertFinding(
     coach_reviewed_at: coachReviewed ? now : null,
     coach_override_notes: input.coachOverrideNotes ?? null,
     supersedes_id: input.supersedesId ?? null,
+    threshold_config_version: input.thresholdConfigVersion ?? null,
+    raw_value: input.rawValue ?? null,
+    unit: input.unit ?? null,
+    side_diff: input.sideDiff ?? null,
   };
 
   const { error } = await supabase.from('body_assessment_findings').insert(row);
@@ -397,6 +427,38 @@ export async function listFindings(
   const { data, error } = await query;
   if (error) {
     console.error('listFindings failed', error);
+    return [];
+  }
+  return data as BodyAssessmentFinding[];
+}
+
+/**
+ * Every finding of one type across a member's ENTIRE assessment history
+ * (not scoped to a single assessment_id, unlike listFindings above) —
+ * ascending by created_at so a caller can plot it left-to-right as a trend
+ * without re-sorting. Backs the multi-point trend chart
+ * (RightPanel/TrendChart.tsx): a coach dashboard needs "how has forward
+ * head posture changed across this member's last N assessments," which no
+ * existing query answers since listFindings is scoped to one assessment.
+ */
+export async function listFindingsByType(
+  supabase: SupabaseClient,
+  memberId: string,
+  findingType: PostureFindingType,
+  options: { activeOnly?: boolean } = {}
+): Promise<BodyAssessmentFinding[]> {
+  let query = supabase
+    .from('body_assessment_findings')
+    .select('*')
+    .eq('member_id', memberId)
+    .eq('finding_type', findingType)
+    .order('created_at', { ascending: true });
+
+  if (options.activeOnly) query = query.neq('status', 'superseded');
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('listFindingsByType failed', error);
     return [];
   }
   return data as BodyAssessmentFinding[];

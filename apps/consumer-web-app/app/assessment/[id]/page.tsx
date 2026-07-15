@@ -17,6 +17,7 @@ import { createSignedCaptureUrl } from '@/lib/body-assessment/storage';
 import { getAssessmentTypeConfig } from '@/lib/body-assessment/assessmentTypes';
 import { PendingCoachReviewCard } from './PendingCoachReviewCard';
 import { ClientReportView } from './ClientReportView';
+import { MemberFindingsSummary } from '@/components/body-assessment/MemberFindingsSummary';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -33,7 +34,7 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
   ]);
   if (!detail) notFound();
 
-  const { assessment, captures, coachReviews } = detail;
+  const { assessment, captures, findings, coachReviews } = detail;
   const typeConfig = getAssessmentTypeConfig(assessment.assessment_type);
 
   const [signedCaptures, history, aiWorkspace] = await Promise.all([
@@ -114,6 +115,7 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
           ) : (
             <>
               <PendingCoachReviewCard typeLabel={typeConfig.label} />
+              <MemberFindingsSummary findings={findings} />
               <section>
                 <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
                   Your captures

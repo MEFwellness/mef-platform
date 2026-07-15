@@ -53,7 +53,13 @@ export const FINDING_TYPE_CONFIG: Record<PostureFindingType, FindingTypeConfig> 
   knee_valgus: {
     label: 'Knee valgus',
     description: 'The knee(s) drift inward relative to the hip and ankle.',
-    relevantAssessmentTypes: ['squat', 'single_leg_balance', 'walking_gait'],
+    // 'static_posture' added alongside the on-device MediaPipe screening
+    // provider's computeKneeAlignmentEstimate (postureMeasurements.ts),
+    // which produces this finding_type from a static_posture assessment's
+    // front/back capture — without it here, the results UI would filter
+    // out a finding this engine actually produces during that assessment
+    // type. Purely a display-relevance list, no DB change involved.
+    relevantAssessmentTypes: ['static_posture', 'squat', 'single_leg_balance', 'walking_gait'],
   },
   foot_turnout: {
     label: 'Foot turnout',

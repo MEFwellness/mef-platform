@@ -59,6 +59,26 @@ export type BodyAssessmentCaptureType =
 
 export type BodyAssessmentMediaType = 'image' | 'video';
 
+/** Client-reported device metadata at capture time — see migration 51's docblock. Shape is intentionally loose (only userAgent is guaranteed) since it comes straight from the browser, not a controlled vocabulary. */
+export interface CaptureDeviceInfo {
+  userAgent?: string;
+  platform?: string;
+  model?: string;
+  [key: string]: string | undefined;
+}
+
+/** DeviceOrientationEvent's own field names — the device orientation reading at capture time, so a coach can tell a tilted phone from a tilted member. */
+export interface CameraTiltReading {
+  gamma: number;
+  beta: number;
+}
+
+/** Session summary of the live capture-validation pipeline for one step — how many frames failed each validation category, and how many confirmed second-person events occurred, while positioning for this capture. A lightweight summary, not a full per-frame event log. */
+export interface CaptureValidationSummary {
+  categoryFailureCounts: Record<string, number>;
+  multiPersonEvents: number;
+}
+
 export interface BodyAssessmentCapture {
   id: string;
   assessment_id: string;
@@ -71,6 +91,12 @@ export interface BodyAssessmentCapture {
   width: number | null;
   height: number | null;
   duration_seconds: number | null;
+  /** Null until the capturing client sends it (migration 51) — optional metadata, not required for existing rows. */
+  device_info: CaptureDeviceInfo | null;
+  /** Null on devices/browsers without orientation sensor access (migration 51). */
+  camera_tilt: CameraTiltReading | null;
+  /** Null for captures made before this column existed, or for movement/video steps that don't run the validation pipeline (migration 51). */
+  validation_summary: CaptureValidationSummary | null;
   captured_at: string;
   created_at: string;
 }
@@ -193,6 +219,14 @@ export interface BodyAssessmentFinding {
   coach_override_notes: string | null;
   supersedes_id: string | null;
   superseded_by_id: string | null;
+  /** Which version of the on-device screening threshold constants produced this finding (migration 51). Null for coach-authored/override findings and any finding written before this column existed. */
+  threshold_config_version: string | null;
+  /** The raw measured degree/ratio behind `narrative` (migration 51) — e.g. 14.2 for a 14.2-degree forward head angle. Null until a provider populates it; narrative remains the display source of truth until then. */
+  raw_value: number | null;
+  /** The unit raw_value is expressed in, e.g. 'degrees' or 'ratio'. Null whenever raw_value is null. */
+  unit: string | null;
+  /** Left/right differential for findings that measure an asymmetry, distinct from raw_value. Null for findings with no side-to-side comparison. */
+  side_diff: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -67,7 +67,7 @@ describe('evaluateFrameQuality', () => {
   });
 
   it('flags a low-edge-energy frame as blurry_frame', () => {
-    const result = evaluateFrameQuality({ sharpnessScore: 2, meanLuminance: 140 });
+    const result = evaluateFrameQuality({ sharpnessScore: 0.5, meanLuminance: 140 });
     expect(result.status).toBe('blurry_frame');
   });
 
@@ -77,7 +77,7 @@ describe('evaluateFrameQuality', () => {
   });
 
   it('returns a non-empty speakable message on every failure', () => {
-    expect(evaluateFrameQuality({ sharpnessScore: 2, meanLuminance: 140 }).message.length).toBeGreaterThan(0);
+    expect(evaluateFrameQuality({ sharpnessScore: 0.5, meanLuminance: 140 }).message.length).toBeGreaterThan(0);
     expect(evaluateFrameQuality({ sharpnessScore: 5000, meanLuminance: 10 }).message.length).toBeGreaterThan(0);
   });
 });

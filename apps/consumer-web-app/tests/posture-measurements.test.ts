@@ -13,15 +13,22 @@ import {
   computeLateralTrunkAsymmetry,
   computeLowerCrossedIndicators,
   computeSagittalTrunkPosture,
+  computeKneeAlignmentEstimate,
+  computeFootTurnoutEstimate,
+  computeWeightShiftEstimate,
+  computeCaptureCompositeScores,
+  computeAssessmentCompositeScores,
   computePostureEstimates,
+  MEASUREMENT_REGISTRY,
 } from '../lib/body-assessment/postureMeasurements';
 import { computePoseMetrics } from '../lib/body-assessment/poseMetrics';
 import { toCoreLandmarks, POSE_LANDMARK_INDEX, type RawPoseLandmark } from '../lib/body-assessment/poseTypes';
 import type { CorePoseLandmarks } from '../lib/body-assessment/poseTypes';
 
-function makeCore(
+/** Builds the raw 33-point landmark array (same shape landmarkMapping.ts/computeFootTurnoutEstimate consume) from the shared base fixture + overrides. `makeCore` wraps this with `toCoreLandmarks`. */
+function makeRaw(
   overrides: Partial<Record<keyof typeof POSE_LANDMARK_INDEX, Partial<RawPoseLandmark>>> = {}
-): CorePoseLandmarks {
+): RawPoseLandmark[] {
   const base: Record<keyof typeof POSE_LANDMARK_INDEX, RawPoseLandmark> = {
     nose: { x: 0.5, y: 0.12, visibility: 0.98 },
     leftEyeInner: { x: 0.52, y: 0.11, visibility: 0.95 },
@@ -64,7 +71,13 @@ function makeCore(
   for (const [key, index] of Object.entries(POSE_LANDMARK_INDEX)) {
     arr[index] = base[key as keyof typeof POSE_LANDMARK_INDEX];
   }
-  return toCoreLandmarks(arr)!;
+  return arr;
+}
+
+function makeCore(
+  overrides: Partial<Record<keyof typeof POSE_LANDMARK_INDEX, Partial<RawPoseLandmark>>> = {}
+): CorePoseLandmarks {
+  return toCoreLandmarks(makeRaw(overrides))!;
 }
 
 const DIAGNOSTIC_WORDS = /scoliosis|lower-crossed syndrome|trendelenburg sign|spinal disorder|you have/i;
@@ -156,6 +169,252 @@ describe('computeSagittalTrunkPosture', () => {
   });
 });
 
+describe('computeKneeAlignmentEstimate', () => {
+  it('only applies to front/back captures', () => {
+    const core = makeCore();
+    expect(computeKneeAlignmentEstimate(core, computePoseMetrics(core), 'left_side')).toBeNull();
+  });
+
+  it('rejects the measurement when knee/hip/ankle landmarks are not confidently visible', () => {
+    const core = makeCore({ leftKnee: { visibility: 0.1 }, rightKnee: { visibility: 0.1 } });
+    expect(computeKneeAlignmentEstimate(core, computePoseMetrics(core), 'front')).toBeNull();
+  });
+
+  it('reports no deviation flag for a knee that sits on the hip-ankle line', () => {
+    const core = makeCore();
+    const result = computeKneeAlignmentEstimate(core, computePoseMetrics(core), 'front')!;
+    expect(result).not.toBeNull();
+    expect(result.severity).toBe('none');
+    expect(result.findingType).toBe('knee_valgus');
+    expect(result.narrative).not.toMatch(DIAGNOSTIC_WORDS);
+  });
+
+  it('flags a positive (valgus/medial) value when the knee drifts toward the midline', () => {
+    // leftHip/leftAnkle are both x=0.56 (a vertical line); moving the knee
+    // toward the midline (lower x, since midline ~0.5 < leftHip.x) should
+    // produce a positive, flagged ratio.
+    const core = makeCore({ leftKnee: { x: 0.5 } });
+    const result = computeKneeAlignmentEstimate(core, computePoseMetrics(core), 'front')!;
+    expect(result.severity).not.toBe('none');
+    expect(result.value).toBeGreaterThan(0);
+    expect(result.narrative.toLowerCase()).toContain('valgus/medial');
+    expect(result.narrative).not.toMatch(DIAGNOSTIC_WORDS);
+  });
+
+  it('flags a negative (varus/lateral) value when the knee drifts away from the midline', () => {
+    const core = makeCore({ leftKnee: { x: 0.62 } });
+    const result = computeKneeAlignmentEstimate(core, computePoseMetrics(core), 'front')!;
+    expect(result.severity).not.toBe('none');
+    expect(result.value).toBeLessThan(0);
+    expect(result.narrative.toLowerCase()).toContain('varus/lateral');
+  });
+});
+
+describe('computeFootTurnoutEstimate', () => {
+  it('only applies to front/back captures', () => {
+    expect(computeFootTurnoutEstimate(makeRaw(), 'left_side')).toBeNull();
+  });
+
+  it('rejects the measurement when heel/foot-index landmarks are not confidently visible', () => {
+    const raw = makeRaw({ leftHeel: { visibility: 0.1 }, leftFootIndex: { visibility: 0.1 } });
+    expect(computeFootTurnoutEstimate(raw, 'front')).toBeNull();
+  });
+
+  it('returns null when the raw landmark array is missing required points', () => {
+    expect(computeFootTurnoutEstimate([], 'front')).toBeNull();
+  });
+
+  it('reports no turnout flag when the foot points neutrally', () => {
+    const result = computeFootTurnoutEstimate(makeRaw(), 'front')!;
+    expect(result).not.toBeNull();
+    expect(result.findingType).toBe('foot_turnout');
+    expect(result.severity).toBe('none');
+    expect(result.narrative).not.toMatch(DIAGNOSTIC_WORDS);
+  });
+
+  it('flags "turned outward" when the toe swings away from the midline', () => {
+    const raw = makeRaw({ leftFootIndex: { x: 0.66 } });
+    const result = computeFootTurnoutEstimate(raw, 'front')!;
+    expect(result.severity).not.toBe('none');
+    expect(result.value).toBeGreaterThan(0);
+    expect(result.narrative.toLowerCase()).toContain('turned outward');
+  });
+
+  it('flags "turned inward" when the toe swings toward the midline', () => {
+    const raw = makeRaw({ leftFootIndex: { x: 0.46 } });
+    const result = computeFootTurnoutEstimate(raw, 'front')!;
+    expect(result.severity).not.toBe('none');
+    expect(result.value).toBeLessThan(0);
+    expect(result.narrative.toLowerCase()).toContain('turned inward');
+  });
+});
+
+describe('computeWeightShiftEstimate', () => {
+  it('only applies to front/back captures', () => {
+    const core = makeCore();
+    expect(computeWeightShiftEstimate(core, computePoseMetrics(core), 'right_side')).toBeNull();
+  });
+
+  it('rejects the measurement when shoulder/hip/ankle landmarks are not confidently visible', () => {
+    const core = makeCore({ leftAnkle: { visibility: 0.1 }, rightAnkle: { visibility: 0.1 } });
+    expect(computeWeightShiftEstimate(core, computePoseMetrics(core), 'front')).toBeNull();
+  });
+
+  it('reports no shift flag when the visible-mass centroid sits over the base of support', () => {
+    const core = makeCore();
+    const result = computeWeightShiftEstimate(core, computePoseMetrics(core), 'front')!;
+    expect(result).not.toBeNull();
+    expect(result.findingType).toBe('weight_shift');
+    expect(result.severity).toBe('none');
+    expect(result.narrative).not.toMatch(DIAGNOSTIC_WORDS);
+  });
+
+  it('flags a shift toward the leg the centroid sits closer to, and discloses this is not a true center-of-mass measurement', () => {
+    // Move the base of support (both ankles) away from the unchanged
+    // shoulder/hip centroid, toward the right — the centroid should then
+    // register as shifted toward the left leg.
+    const core = makeCore({ leftAnkle: { x: 0.3 }, rightAnkle: { x: 0.2 } });
+    const result = computeWeightShiftEstimate(core, computePoseMetrics(core), 'front')!;
+    expect(result.severity).not.toBe('none');
+    expect(result.side).toBe('left');
+    expect(result.narrative.toLowerCase()).toContain('not a true center-of-mass');
+  });
+});
+
+describe('computeCaptureCompositeScores', () => {
+  it('computes a capture-quality score as the fraction of applicable measurements produced', () => {
+    const core = makeCore();
+    const estimates = computePostureEstimates(core, 'front');
+    const scores = computeCaptureCompositeScores(estimates, 'front');
+    const applicableCount = MEASUREMENT_REGISTRY.filter(
+      (m) => m.resultType !== 'composite' && m.requiredViews.includes('front')
+    ).length;
+    expect(scores.overallCaptureQualityScore).toBeCloseTo(estimates.length / applicableCount, 3);
+    expect(scores.overallAlignmentConfidenceScore).toBeGreaterThan(0);
+    expect(scores.overallAlignmentConfidenceScore).toBeLessThanOrEqual(1);
+  });
+
+  it('only computes frontal symmetry for front/back captures and sagittal posture for side captures', () => {
+    const frontCore = makeCore();
+    const frontScores = computeCaptureCompositeScores(
+      computePostureEstimates(frontCore, 'front'),
+      'front'
+    );
+    expect(frontScores.overallFrontalSymmetryScore).not.toBeNull();
+    expect(frontScores.overallSagittalPostureScore).toBeNull();
+
+    const sideCore = makeCore();
+    const sideScores = computeCaptureCompositeScores(
+      computePostureEstimates(sideCore, 'left_side'),
+      'left_side'
+    );
+    expect(sideScores.overallSagittalPostureScore).not.toBeNull();
+    expect(sideScores.overallFrontalSymmetryScore).toBeNull();
+  });
+
+  it('scores a flagged/asymmetric capture lower on frontal symmetry than a neutral one', () => {
+    const neutralScores = computeCaptureCompositeScores(
+      computePostureEstimates(makeCore(), 'front'),
+      'front'
+    );
+    const asymmetricCore = makeCore({ leftShoulder: { y: 0.32 }, leftHip: { y: 0.58 } });
+    const asymmetricScores = computeCaptureCompositeScores(
+      computePostureEstimates(asymmetricCore, 'front'),
+      'front'
+    );
+    expect(asymmetricScores.overallFrontalSymmetryScore!).toBeLessThan(
+      neutralScores.overallFrontalSymmetryScore!
+    );
+  });
+});
+
+describe('computeAssessmentCompositeScores', () => {
+  it('aggregates capture and estimate counts across every capture in the assessment', () => {
+    const captures: Array<'front' | 'left_side' | 'right_side' | 'back'> = [
+      'front',
+      'left_side',
+      'right_side',
+      'back',
+    ];
+    const estimatesByCaptureType = captures.map((captureType) => ({
+      captureType,
+      estimates: computePostureEstimates(makeCore(), captureType),
+    }));
+    const result = computeAssessmentCompositeScores(estimatesByCaptureType);
+    expect(result.captureCount).toBe(4);
+    expect(result.estimateCount).toBe(
+      estimatesByCaptureType.reduce((sum, c) => sum + c.estimates.length, 0)
+    );
+    expect(result.overallPostureScreeningScore).toBeGreaterThan(0.8);
+    expect(result.overallPostureScreeningScore).toBeLessThanOrEqual(1);
+    expect(result.measurementReliabilityScore).toBeGreaterThan(0);
+    expect(result.measurementReliabilityScore).toBeLessThanOrEqual(1);
+  });
+
+  it('returns a perfect screening score and zero reliability score for an empty assessment', () => {
+    const result = computeAssessmentCompositeScores([]);
+    expect(result.overallPostureScreeningScore).toBe(1);
+    expect(result.measurementReliabilityScore).toBe(0);
+    expect(result.captureCount).toBe(0);
+    expect(result.estimateCount).toBe(0);
+  });
+
+  it('scores a heavily-flagged assessment lower than a neutral one', () => {
+    const neutral = computeAssessmentCompositeScores([
+      { captureType: 'front', estimates: computePostureEstimates(makeCore(), 'front') },
+    ]);
+    const flaggedCore = makeCore({
+      leftShoulder: { y: 0.32 },
+      leftHip: { y: 0.58 },
+      leftKnee: { x: 0.5 },
+    });
+    const flagged = computeAssessmentCompositeScores([
+      { captureType: 'front', estimates: computePostureEstimates(flaggedCore, 'front') },
+    ]);
+    expect(flagged.overallPostureScreeningScore).toBeLessThan(neutral.overallPostureScreeningScore);
+  });
+});
+
+describe('MEASUREMENT_REGISTRY', () => {
+  it('declares every compute* measurement in this file, including the newly added ones', () => {
+    const ids = MEASUREMENT_REGISTRY.map((m) => m.id);
+    for (const expected of [
+      'forward_head',
+      'elevated_shoulder',
+      'hip_asymmetry',
+      'lateral_trunk_asymmetry',
+      'lower_crossed_pattern',
+      'sagittal_trunk_posture',
+      'knee_valgus',
+      'foot_turnout',
+      'weight_shift',
+      'overall_capture_quality_score',
+      'overall_alignment_confidence_score',
+      'overall_frontal_symmetry_score',
+      'overall_sagittal_posture_score',
+      'overall_posture_screening_score',
+      'measurement_reliability_score',
+    ]) {
+      expect(ids).toContain(expected);
+    }
+  });
+
+  it('does not list pelvic_drop_screening (a separate, time-series-shaped module)', () => {
+    const ids = MEASUREMENT_REGISTRY.map((m) => m.id);
+    expect(ids).not.toContain('pelvic_drop_screening');
+  });
+
+  it('gives every non-composite entry a positive min confidence and every composite entry zero', () => {
+    for (const entry of MEASUREMENT_REGISTRY) {
+      if (entry.resultType === 'composite') {
+        expect(entry.minConfidence).toBe(0);
+      } else {
+        expect(entry.minConfidence).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
 describe('computePostureEstimates', () => {
   it('returns only the estimates applicable to a front-view capture', () => {
     const estimates = computePostureEstimates(makeCore(), 'front');
@@ -163,8 +422,20 @@ describe('computePostureEstimates', () => {
     expect(types).toContain('elevated_shoulder');
     expect(types).toContain('hip_asymmetry');
     expect(types).toContain('lateral_trunk_asymmetry');
+    expect(types).toContain('knee_valgus');
+    expect(types).toContain('weight_shift');
     expect(types).not.toContain('forward_head');
     expect(types).not.toContain('sagittal_trunk_posture');
+    // foot_turnout is omitted when no raw landmarks are passed — not a
+    // guess, the same suppression behavior as low-confidence estimates.
+    expect(types).not.toContain('foot_turnout');
+  });
+
+  it('includes foot_turnout when the raw 33-point landmark array is passed', () => {
+    const core = makeCore();
+    const raw = makeRaw();
+    const estimates = computePostureEstimates(core, 'front', raw);
+    expect(estimates.map((e) => e.findingType)).toContain('foot_turnout');
   });
 
   it('returns only the estimates applicable to a side-view capture', () => {
@@ -173,13 +444,15 @@ describe('computePostureEstimates', () => {
     expect(types).toContain('forward_head');
     expect(types).toContain('sagittal_trunk_posture');
     expect(types).not.toContain('elevated_shoulder');
+    expect(types).not.toContain('knee_valgus');
+    expect(types).not.toContain('weight_shift');
   });
 
   it('never produces a narrative naming a medical diagnosis, across every applicable estimate', () => {
     const all = [
-      ...computePostureEstimates(makeCore(), 'front'),
+      ...computePostureEstimates(makeCore(), 'front', makeRaw()),
       ...computePostureEstimates(makeCore(), 'left_side'),
-      ...computePostureEstimates(makeCore(), 'back'),
+      ...computePostureEstimates(makeCore(), 'back', makeRaw()),
     ];
     for (const estimate of all) {
       expect(estimate.narrative).not.toMatch(DIAGNOSTIC_WORDS);

@@ -2,20 +2,30 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import type { AnnotationShape, BodyAssessmentCaptureType } from '@mef/shared-types-contracts';
+import type { AnnotationShape, BodyAssessmentCaptureType, PostureFindingType } from '@mef/shared-types-contracts';
 import {
   getAssessmentComparisonAction,
   getAssessmentNoteAction,
   getClientBodyAssessmentsAction,
   getClientBodyAssessmentDetailAction,
+  getMemberFindingTrendAction,
   listAssessmentAnnotationsAction,
 } from '@/app/actions/body-assessment';
 import { getAiAnalysisForAssessmentAction } from '@/app/actions/coach-intelligence';
 import { createSignedCaptureUrl } from '@/lib/body-assessment/storage';
 import { getAssessmentTypeConfig } from '@/lib/body-assessment/assessmentTypes';
+import { FINDING_TYPE_CONFIG, SEVERITY_LABEL, SEVERITY_RANK } from '@/lib/body-assessment/findings';
 import { ReviewWorkspace } from './ReviewWorkspace';
 import type { RailCapture } from './CaptureRail';
-import type { ComparisonCapture } from './RightPanel/ComparisonSection';
+import type { ComparisonCapture, FindingTrendSeries } from './RightPanel/ComparisonSection';
+import type { TrendPoint } from './RightPanel/TrendChart';
+
+/** A 0-100 "posture score" for one finding — higher is better (none=100, significant=0) — so TrendChart's default higherIsBetter reading matches. 'unknown' severities are excluded from the trend entirely rather than plotted as a fabricated midpoint. */
+function severityToScore(severity: keyof typeof SEVERITY_LABEL): number | null {
+  if (severity === 'unknown') return null;
+  const rank = SEVERITY_RANK[severity];
+  return Math.round(((3 - rank) / 3) * 100);
+}
 
 const CAPTURE_TYPE_LABELS: Record<BodyAssessmentCaptureType, string> = {
   front: 'Front View',
@@ -48,7 +58,7 @@ export default async function CoachBodyAssessmentDetailPage({
   const detail = await getClientBodyAssessmentDetailAction(params.assessmentId);
   if (!detail || detail.assessment.member_id !== params.id) notFound();
 
-  const { assessment, captures, coachReviews, findings } = detail;
+  const { assessment, captures, coachReviews, findings, allFindings } = detail;
   const typeConfig = getAssessmentTypeConfig(assessment.assessment_type);
   const firstName = clientProfile.display_name?.split(' ')[0] ?? 'This client';
 
@@ -113,6 +123,49 @@ export default async function CoachBodyAssessmentDetailPage({
     coachName = coachProfile?.display_name ?? null;
   }
 
+  // Bulk-resolved coach display names for the full review history list and
+  // the findings' supersede-chain "Changed by …" labels (both additive UI
+  // surfacing the audit trail this schema already persists) — one query
+  // instead of N.
+  const coachIds = new Set<string>();
+  for (const review of coachReviews) coachIds.add(review.coach_id);
+  for (const finding of allFindings) if (finding.coach_reviewed_by) coachIds.add(finding.coach_reviewed_by);
+  const coachNames: Record<string, string> = {};
+  if (coachIds.size > 0) {
+    const { data: coachProfiles } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .in('id', Array.from(coachIds));
+    for (const profile of coachProfiles ?? []) {
+      if (profile.display_name) coachNames[profile.id] = profile.display_name;
+    }
+  }
+
+  // Multi-point trend: one series per finding_type present (as an active
+  // finding) on this assessment, charted across the member's ENTIRE
+  // assessment history for that type (not just this pair) — see
+  // getMemberFindingTrendAction/listFindingsByType. Capped at 6 series so a
+  // client with many finding types doesn't turn this into a scroll wall.
+  const trendFindingTypes = Array.from(new Set(findings.map((f) => f.finding_type))).slice(0, 6);
+  const trendSeries: FindingTrendSeries[] = (
+    await Promise.all(
+      trendFindingTypes.map(async (findingType) => {
+        const typeFindings = await getMemberFindingTrendAction(params.id, findingType as PostureFindingType);
+        const points: TrendPoint[] = typeFindings
+          .map((f): TrendPoint | null => {
+            const value = severityToScore(f.severity);
+            return value === null ? null : { date: f.created_at, value, valueLabel: SEVERITY_LABEL[f.severity] };
+          })
+          .filter((p): p is TrendPoint => p !== null);
+        return {
+          findingType,
+          label: FINDING_TYPE_CONFIG[findingType as PostureFindingType]?.label ?? findingType,
+          points,
+        };
+      })
+    )
+  ).filter((series) => series.points.length >= 2);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-16 pt-8 sm:px-6 md:max-w-3xl md:px-10 md:pl-28 lg:max-w-6xl">
@@ -154,6 +207,10 @@ export default async function CoachBodyAssessmentDetailPage({
             aiWorkspace={aiWorkspace}
             aiSourceFeature="body_assessment"
             findings={findings}
+            allFindings={allFindings}
+            coachReviews={coachReviews}
+            coachNames={coachNames}
+            trendSeries={trendSeries}
           />
         </div>
       </main>
