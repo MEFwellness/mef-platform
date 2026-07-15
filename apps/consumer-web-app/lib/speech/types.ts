@@ -41,7 +41,8 @@ export interface SpeechToTextProvider {
   cancel(): void;
 }
 
-export type TextToSpeechStatus = 'idle' | 'playing' | 'paused' | 'stopped' | 'error';
+/** `loading` covers the server-voice request-in-flight window (fetch + audio decode) before playback actually starts — the browser voice never emits it, since speechSynthesis has no comparable async step. */
+export type TextToSpeechStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'stopped' | 'error';
 
 export type TextToSpeechHandlers = {
   onStatusChange(status: TextToSpeechStatus): void;

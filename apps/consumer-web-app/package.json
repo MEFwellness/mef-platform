@@ -11,6 +11,7 @@
     "brand:assets": "node scripts/generate-brand-assets.mjs"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.35",
     "@mef/shared-types-contracts": "*",
     "@supabase/ssr": "^0.4.0",
     "@supabase/supabase-js": "^2.44.4",

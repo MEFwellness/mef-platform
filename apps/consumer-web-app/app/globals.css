@@ -194,3 +194,40 @@
     0 0 0 5px rgba(27, 58, 45, 0.18),
     0 2px 8px rgba(27, 58, 45, 0.35);
 }
+
+/*
+ * Floating coach mobile bottom sheet (FloatingCoachLauncher.tsx /
+ * FloatingCoachPanel.tsx). `vh` on mobile Safari/Chrome is sized off the
+ * viewport with the address bar collapsed, so a sheet sized in vh can
+ * render taller than what's actually visible when the bar is expanded —
+ * `dvh` tracks the real visible viewport as browser chrome shows/hides.
+ * Declared as a plain CSS rule (not a Tailwind arbitrary-value utility)
+ * so browsers that don't parse `dvh` simply keep the `vh` fallback above
+ * it instead of the whole declaration being dropped.
+ *
+ * Scoped to below Tailwind's `md` breakpoint so it can never win a
+ * same-specificity cascade fight against the component's own
+ * `md:max-h-[75vh]` desktop override — this is mobile-sheet-only sizing,
+ * the desktop floating card keeps its own fixed height untouched.
+ */
+@media (max-width: 767.98px) {
+  .mef-coach-sheet-height {
+    max-height: 88vh;
+  }
+
+  @supports (height: 100dvh) {
+    .mef-coach-sheet-height {
+      max-height: 88dvh;
+    }
+  }
+
+  .mef-coach-sheet-height-half {
+    max-height: 60vh;
+  }
+
+  @supports (height: 100dvh) {
+    .mef-coach-sheet-height-half {
+      max-height: 60dvh;
+    }
+  }
+}

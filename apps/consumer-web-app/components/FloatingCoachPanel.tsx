@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { X, ExternalLink, Lock } from 'lucide-react';
+import { X, ExternalLink, Lock, ChevronUp, ChevronDown } from 'lucide-react';
 import type {
   ConversationEntryPoint,
   ConversationMessage,
@@ -30,17 +30,25 @@ import { Bubble } from '@/components/conversation/Bubble';
 import { TypingIndicator } from '@/components/conversation/TypingIndicator';
 import { MessageInput } from '@/components/conversation/MessageInput';
 import { HandoffForm } from '@/components/conversation/HandoffForm';
+// Type-only: erased at compile time, so this doesn't create a runtime
+// circular import even though FloatingCoachLauncher.tsx imports this
+// component's own value export the other way.
+import type { CoachSheetState } from '@/components/FloatingCoachLauncher';
 
 export function FloatingCoachPanel({
   entryPoint,
   entryContext,
   starterPrompts,
   onClose,
+  sheetState,
+  onToggleSheetState,
 }: {
   entryPoint: ConversationEntryPoint;
   entryContext: string;
   starterPrompts?: string[] | undefined;
   onClose: () => void;
+  sheetState?: CoachSheetState;
+  onToggleSheetState?: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,26 +121,47 @@ export function FloatingCoachPanel({
   const hasMessages = messages.length > 0;
 
   return (
-    <div className="flex h-full max-h-[75vh] flex-col">
-      <div className="flex items-center justify-between border-b border-[#1B3A2D]/5 px-5 py-4">
+    <div className="flex h-full min-h-0 flex-col overscroll-contain">
+      {/* Decorative grab-bar — mobile bottom-sheet affordance only; the desktop floating card has no comparable gesture, so it's hidden there. */}
+      <div className="flex shrink-0 justify-center pb-1 pt-2 md:hidden">
+        <span className="h-1 w-9 rounded-full bg-[#1B3A2D]/15" aria-hidden="true" />
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between border-b border-[#1B3A2D]/5 px-5 py-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
             Your MEF Coach
           </p>
           <p className="text-sm text-[#6B7A72]">Grounded in your own history, not a chatbot.</p>
         </div>
-        <button
-          ref={closeButtonRef}
-          type="button"
-          onClick={onClose}
-          aria-label="Close coach panel"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#1B3A2D]/50 transition hover:bg-[#1B3A2D]/[0.06] hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
-        >
-          <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          {onToggleSheetState && (
+            <button
+              type="button"
+              onClick={onToggleSheetState}
+              aria-label={sheetState === 'expanded' ? 'Collapse coach panel' : 'Expand coach panel'}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[#1B3A2D]/50 transition hover:bg-[#1B3A2D]/[0.06] hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] md:hidden"
+            >
+              {sheetState === 'expanded' ? (
+                <ChevronDown className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              ) : (
+                <ChevronUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              )}
+            </button>
+          )}
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Close coach panel"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[#1B3A2D]/50 transition hover:bg-[#1B3A2D]/[0.06] hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+          >
+            <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
         {isLoading && <p className="text-sm text-[#6B7A72]">Loading your conversation…</p>}
 
         {loadError && (
@@ -199,7 +228,10 @@ export function FloatingCoachPanel({
       </div>
 
       {!isLoading && !loadError && session && (
-        <div className="space-y-2 border-t border-[#1B3A2D]/5 px-5 py-4">
+        <div
+          className="shrink-0 space-y-2 border-t border-[#1B3A2D]/5 px-5 pb-4 pt-4"
+          style={{ paddingBottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))' }}
+        >
           {!isRestricted && (
             <MessageInput
               value={input}

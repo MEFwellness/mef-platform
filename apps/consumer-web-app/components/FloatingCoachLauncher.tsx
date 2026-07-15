@@ -1,25 +1,31 @@
 'use client';
 
 /**
- * The restrained, platform-wide "Ask Your MEF Coach" launcher (part 3).
- * A single floating pill button — never a robot icon, never a flashing
- * badge, never a popup that appears on its own — that opens
- * FloatingCoachPanel, a compact surface reusing the exact same
- * Conversation Coach session/actions as the full /conversation page
- * (part 5's "avoid duplicate conversation logic").
+ * The restrained, platform-wide "Ask Your MEF Coach" launcher. A single
+ * floating pill button — never a robot icon, never a flashing badge,
+ * never a popup that appears on its own — that opens FloatingCoachPanel
+ * as a responsive bottom sheet on mobile (full-width, anchored to the
+ * bottom of the viewport, collapsed/half/expanded height states) and a
+ * floating card on desktop (unchanged from before).
  *
- * Each of the 7 member pages that render this component passes its own
- * `entryPoint` + a short, real-data-derived `entryContext` string (see
- * lib/conversation-coach/entryContext.ts) — this component itself has no
- * page-awareness beyond what's handed to it as props, and is never
- * rendered on /login, /coach/*, /admin/*, or /conversation itself (see
- * each page file for why).
+ * The mobile-usability bug this rewrite fixes: the panel used to be a
+ * small fixed-size card sized in `vh`, with no body-scroll lock and no
+ * keyboard/safe-area awareness — on a phone, the header and input could
+ * end up outside the visible viewport (behind the address bar or the
+ * keyboard), forcing the member to pinch/zoom/scroll the whole page to
+ * reach parts of it. useBodyScrollLock + useVisualViewportInset +
+ * the `dvh`-based sheet-height classes in globals.css are the three
+ * pieces that fix that; each is described where it's used below.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import type { ConversationEntryPoint } from '@mef/shared-types-contracts';
 import { FloatingCoachPanel } from './FloatingCoachPanel';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useVisualViewportInset } from '@/hooks/useVisualViewportInset';
+
+export type CoachSheetState = 'half' | 'expanded';
 
 export function FloatingCoachLauncher({
   entryPoint,
@@ -33,7 +39,11 @@ export function FloatingCoachLauncher({
   label?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [sheetState, setSheetState] = useState<CoachSheetState>('half');
   const launcherButtonRef = useRef<HTMLButtonElement>(null);
+
+  useBodyScrollLock(isOpen);
+  const keyboardInset = useVisualViewportInset();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -42,6 +52,13 @@ export function FloatingCoachLauncher({
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  // Every time the sheet opens, start collapsed to "half" — an "expanded"
+  // state left over from a previous open would otherwise persist and feel
+  // like the panel is stuck open large.
+  useEffect(() => {
+    if (isOpen) setSheetState('half');
   }, [isOpen]);
 
   function close() {
@@ -76,13 +93,18 @@ export function FloatingCoachLauncher({
             role="dialog"
             aria-modal="true"
             aria-label={label}
-            className="fixed inset-x-3 bottom-3 z-50 max-h-[75vh] overflow-hidden rounded-[28px] bg-white shadow-[0_12px_48px_-8px_rgba(27,58,45,0.35)] sm:inset-x-4 sm:bottom-4 md:inset-x-auto md:bottom-8 md:right-8 md:w-[400px]"
+            style={{ transform: keyboardInset > 0 ? `translateY(-${keyboardInset}px)` : undefined }}
+            className={`fixed inset-x-0 bottom-0 z-50 flex w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-[0_-12px_48px_-8px_rgba(27,58,45,0.35)] transition-[max-height] duration-200 md:inset-x-auto md:bottom-8 md:right-8 md:max-h-[75vh] md:w-[400px] md:rounded-[28px] md:shadow-[0_12px_48px_-8px_rgba(27,58,45,0.35)] ${
+              sheetState === 'expanded' ? 'mef-coach-sheet-height' : 'mef-coach-sheet-height-half'
+            }`}
           >
             <FloatingCoachPanel
               entryPoint={entryPoint}
               entryContext={entryContext}
               starterPrompts={starterPrompts}
               onClose={close}
+              sheetState={sheetState}
+              onToggleSheetState={() => setSheetState((s) => (s === 'half' ? 'expanded' : 'half'))}
             />
           </div>
         </>

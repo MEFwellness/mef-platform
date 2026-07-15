@@ -1,22 +1,29 @@
 'use client';
 
 /**
- * The complete camera capture workflow for one guided-assessment step —
- * genuinely new ground in this codebase (no getUserMedia/MediaRecorder use
- * existed anywhere before this milestone; see the architecture survey in
- * lib/body-assessment/README notes). Pure browser APIs, no camera library
- * dependency.
+ * The complete camera capture workflow for one guided-assessment step.
+ * Pure browser APIs, no camera library dependency, plus (for image/photo
+ * steps only) on-device pose validation via hooks/usePoseLandmarker.ts —
+ * MediaPipe Pose Landmarker running fully client-side, no server round
+ * trip. lib/body-assessment/poseValidation.ts decides, frame by frame,
+ * whether the member is a single, clearly-visible, correctly-framed,
+ * correctly-oriented, standing person; this component's job is turning
+ * that per-frame verdict into voice guidance, a status indicator, and a
+ * stability timer that gates when a photo may actually be taken.
  *
- * The silhouette overlay is a placeholder guide only — it does not detect
- * or align to the member's actual body. It exists so a future posture/
- * movement analysis provider has a consistent framing convention to rely
- * on (member roughly centered, roughly filling the guide), and so the
- * member gets visual confirmation of "stand about here" today.
+ * Movement/video steps (walking, squat, shoulder mobility, etc.) are
+ * unchanged from before — this validator only applies to static standing
+ * photo steps, which is the one the platform got wrong (capturing a
+ * seated member for an assessment that required standing).
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, RotateCcw, SwitchCamera, Video, CircleStop } from 'lucide-react';
+import { Camera, RotateCcw, SwitchCamera, Video, CircleStop, Volume2 } from 'lucide-react';
 import type { CaptureStepConfig } from '@/lib/body-assessment/assessmentTypes';
+import { usePoseLandmarker } from '@/hooks/usePoseLandmarker';
+import { useGuidedVoice } from '@/hooks/useGuidedVoice';
+import { validatePoseFrame, type PoseValidationResult } from '@/lib/body-assessment/poseValidation';
+import { CAMERA_SETUP_INTRO, CAPTURE_STATUS_LABEL, TAKING_PHOTO_PROMPT } from '@/lib/body-assessment/voiceGuidance';
 
 export type CapturedMedia = {
   blob: Blob;
@@ -32,31 +39,38 @@ type Props = {
 
 type CameraPhase = 'requesting' | 'ready' | 'recording' | 'preview' | 'denied' | 'unsupported';
 
-function SilhouetteGuide({ wide }: { wide: boolean }) {
+/** How long a valid, stable pose must hold before we auto-capture. */
+const REQUIRED_STABLE_MS = 1750;
+/** Floor between two spoken corrections when the correction itself changed. */
+const MIN_SPEAK_GAP_MS = 1200;
+/** How often to repeat the same still-uncorrected instruction as a reminder. */
+const REMINDER_GAP_MS = 4500;
+
+const NOT_READY_STATUSES = new Set(['no_person', 'multiple_people', 'low_confidence']);
+
+function SilhouetteGuide({ wide, tone }: { wide: boolean; tone: 'neutral' | 'warning' | 'success' }) {
+  const stroke = tone === 'success' ? '#34D399' : tone === 'warning' ? '#FBBF24' : 'white';
   return (
     <svg
-      viewBox="0 0 200 320"
-      className={`pointer-events-none absolute inset-0 mx-auto h-full ${wide ? 'w-full' : 'w-2/3'} opacity-40`}
+      viewBox="0 0 200 400"
+      className={`pointer-events-none absolute inset-0 mx-auto h-full ${wide ? 'w-full' : 'w-2/3'} opacity-50 transition-colors`}
       aria-hidden="true"
     >
       {wide ? (
-        <rect
-          x="10"
-          y="40"
-          width="180"
-          height="240"
-          rx="16"
-          fill="none"
-          stroke="white"
-          strokeWidth="3"
-          strokeDasharray="10 8"
-        />
+        <rect x="10" y="40" width="180" height="320" rx="16" fill="none" stroke={stroke} strokeWidth="3" strokeDasharray="10 8" />
       ) : (
-        <g fill="none" stroke="white" strokeWidth="3" strokeDasharray="8 6">
-          <circle cx="100" cy="45" r="30" />
-          <path d="M55 300 L60 130 Q100 105 140 130 L145 300" />
-          <path d="M60 140 L20 210" />
-          <path d="M140 140 L180 210" />
+        // Roughly 8-head-height adult proportions: head, shoulders (~0.26H
+        // wide), waist, hips (~0.19H wide), knees, ankles — a realistic
+        // standing outline rather than a generic blob, so "stand inside
+        // the outline" actually corresponds to a believable stance.
+        <g fill="none" stroke={stroke} strokeWidth="3" strokeDasharray="8 6" strokeLinejoin="round">
+          <circle cx="100" cy="35" r="28" />
+          <path d="M48 100 Q45 160 62 200 L58 300 L55 388 M152 100 Q155 160 138 200 L142 300 L145 388" />
+          <path d="M48 100 Q100 82 152 100" />
+          <path d="M62 200 L138 200" />
+          <path d="M58 300 L142 300" />
+          <path d="M48 100 L30 190" />
+          <path d="M152 100 L170 190" />
         </g>
       )}
     </svg>
@@ -77,7 +91,27 @@ export function CameraCapture({ step, onCaptured }: Props) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pendingMedia, setPendingMedia] = useState<CapturedMedia | null>(null);
 
+  const [validation, setValidation] = useState<PoseValidationResult>({
+    status: 'no_person',
+    ok: false,
+    message: '',
+  });
+  const [stableForMs, setStableForMs] = useState(0);
+  const [autoCaptureTriggered, setAutoCaptureTriggered] = useState(false);
+  const [screenLine, setScreenLine] = useState('');
+
+  const readySinceRef = useRef<number | null>(null);
+  const lastSpokenMessageRef = useRef('');
+  const lastSpokenAtRef = useRef(0);
+  const introQueueStartedRef = useRef(false);
+  const autoCaptureTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isVideo = step.mediaType === 'video';
+  const requiresStanding = !isVideo;
+  const poseActive = phase === 'ready' && requiresStanding;
+
+  const { poses, isLoading: poseLoading, loadError: poseLoadError } = usePoseLandmarker(videoRef, poseActive);
+  const guidedVoice = useGuidedVoice('assessment-guidance');
 
   useEffect(() => {
     let cancelled = false;
@@ -118,18 +152,53 @@ export function CameraCapture({ step, onCaptured }: Props) {
     };
   }, [facingMode]);
 
-  // Cycle through guidance lines every few seconds while waiting to capture.
+  // Reset all step-scoped guidance state when moving to a new capture step
+  // (step objects are stable module-level consts, so this only fires on an
+  // actual step transition, not on every render).
   useEffect(() => {
-    if (phase !== 'ready' || step.instructions.length <= 1) return;
+    introQueueStartedRef.current = false;
+    readySinceRef.current = null;
+    lastSpokenMessageRef.current = '';
+    lastSpokenAtRef.current = 0;
+    setAutoCaptureTriggered(false);
+    setStableForMs(0);
+    setValidation({ status: 'no_person', ok: false, message: '' });
+    if (autoCaptureTimeoutRef.current) clearTimeout(autoCaptureTimeoutRef.current);
+  }, [step]);
+
+  // Speak the fixed setup script once per step, one line at a time,
+  // cancelling before each new line (useGuidedVoice's speak() always does
+  // this) so instructions never stack on top of each other.
+  useEffect(() => {
+    if (phase !== 'ready' || !requiresStanding || introQueueStartedRef.current) return;
+    introQueueStartedRef.current = true;
+    const lines = [...CAMERA_SETUP_INTRO, ...step.instructions];
+    let index = 0;
+    let cancelled = false;
+
+    function playNext() {
+      if (cancelled || index >= lines.length) return;
+      const line = lines[index]!;
+      index += 1;
+      setScreenLine(line);
+      guidedVoice.speak(line, playNext);
+    }
+    playNext();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, requiresStanding, step]);
+
+  // Cycle written guidance for movement/video steps only — photo steps get
+  // their on-screen line from the voice queue / live validation instead.
+  useEffect(() => {
+    if (phase !== 'ready' || requiresStanding || step.instructions.length <= 1) return;
     const timer = setInterval(() => {
       setInstructionIndex((i) => (i + 1) % step.instructions.length);
     }, 3000);
     return () => clearInterval(timer);
-  }, [phase, step.instructions.length]);
-
-  function switchCamera() {
-    setFacingMode((m) => (m === 'user' ? 'environment' : 'user'));
-  }
+  }, [phase, requiresStanding, step.instructions.length]);
 
   function capturePhoto() {
     const video = videoRef.current;
@@ -157,6 +226,52 @@ export function CameraCapture({ step, onCaptured }: Props) {
       'image/jpeg',
       0.9
     );
+  }
+
+  // Live pose validation loop for standing photo steps: interpret the
+  // latest frame, decide whether it counts toward the stability window,
+  // and speak a correction when something's wrong.
+  useEffect(() => {
+    if (!poseActive || poseLoading || poseLoadError || autoCaptureTriggered) return;
+
+    const result = validatePoseFrame(poses ?? [], { requiresStanding, captureType: step.captureType });
+    setValidation(result);
+    const now = Date.now();
+
+    if (result.ok) {
+      lastSpokenMessageRef.current = '';
+      if (readySinceRef.current === null) readySinceRef.current = now;
+      const elapsed = now - readySinceRef.current;
+      setStableForMs(elapsed);
+
+      if (elapsed >= REQUIRED_STABLE_MS) {
+        setAutoCaptureTriggered(true);
+        guidedVoice.speak(TAKING_PHOTO_PROMPT);
+        autoCaptureTimeoutRef.current = setTimeout(() => capturePhoto(), 550);
+      }
+      return;
+    }
+
+    readySinceRef.current = null;
+    setStableForMs(0);
+    if (!result.message) return;
+    const changed = result.message !== lastSpokenMessageRef.current;
+    const gap = now - lastSpokenAtRef.current;
+    if ((changed && gap > MIN_SPEAK_GAP_MS) || (!changed && gap > REMINDER_GAP_MS)) {
+      lastSpokenMessageRef.current = result.message;
+      lastSpokenAtRef.current = now;
+      guidedVoice.speak(result.message);
+    }
+  }, [poses, poseActive, poseLoading, poseLoadError, autoCaptureTriggered]);
+
+  useEffect(() => {
+    return () => {
+      if (autoCaptureTimeoutRef.current) clearTimeout(autoCaptureTimeoutRef.current);
+    };
+  }, []);
+
+  function switchCamera() {
+    setFacingMode((m) => (m === 'user' ? 'environment' : 'user'));
   }
 
   function startRecording() {
@@ -239,6 +354,40 @@ export function CameraCapture({ step, onCaptured }: Props) {
     );
   }
 
+  const notReady = NOT_READY_STATUSES.has(validation.status);
+  const statusChip = !requiresStanding
+    ? null
+    : poseLoadError
+      ? { label: CAPTURE_STATUS_LABEL.manual, tone: 'neutral' as const }
+      : poseLoading
+        ? { label: CAPTURE_STATUS_LABEL.loading, tone: 'neutral' as const }
+        : autoCaptureTriggered
+          ? { label: CAPTURE_STATUS_LABEL.capturing, tone: 'success' as const }
+          : !validation.ok
+            ? { label: notReady ? CAPTURE_STATUS_LABEL.not_ready : CAPTURE_STATUS_LABEL.adjust, tone: 'warning' as const }
+            : stableForMs >= REQUIRED_STABLE_MS
+              ? { label: CAPTURE_STATUS_LABEL.ready, tone: 'success' as const }
+              : { label: CAPTURE_STATUS_LABEL.hold_still, tone: 'success' as const };
+
+  const currentScreenLine = requiresStanding
+    ? poseLoadError
+      ? step.instructions[0]
+      : !validation.ok && validation.message
+        ? validation.message
+        : screenLine
+    : step.instructions[instructionIndex];
+
+  const captureGateOk = !requiresStanding || poseLoadError || (!poseLoading && validation.ok);
+  const silhouetteTone: 'neutral' | 'warning' | 'success' = !requiresStanding
+    ? 'neutral'
+    : poseLoading || poseLoadError
+      ? 'neutral'
+      : validation.ok
+        ? 'success'
+        : notReady
+          ? 'neutral'
+          : 'warning';
+
   return (
     <div className="overflow-hidden rounded-[28px] bg-black shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
       <div className="relative aspect-[3/4] w-full">
@@ -258,6 +407,7 @@ export function CameraCapture({ step, onCaptured }: Props) {
             />
             <SilhouetteGuide
               wide={step.captureType === 'walking' || step.captureType === 'movement'}
+              tone={silhouetteTone}
             />
           </>
         )}
@@ -269,11 +419,30 @@ export function CameraCapture({ step, onCaptured }: Props) {
           </div>
         )}
 
-        {(phase === 'ready' || phase === 'recording') && (
-          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-4">
-            <p className="text-center text-sm font-medium text-white">
-              {step.instructions[instructionIndex]}
-            </p>
+        {statusChip && (phase === 'ready' || phase === 'recording') && (
+          <div className="absolute left-4 top-4 z-10">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                statusChip.tone === 'success'
+                  ? 'bg-emerald-500/90 text-white'
+                  : statusChip.tone === 'warning'
+                    ? 'bg-amber-500/90 text-white'
+                    : 'bg-black/60 text-white'
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  statusChip.tone === 'success' ? 'animate-pulse bg-white' : 'bg-white/80'
+                }`}
+              />
+              {statusChip.label}
+            </span>
+          </div>
+        )}
+
+        {(phase === 'ready' || phase === 'recording') && currentScreenLine && (
+          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent p-4 pt-12">
+            <p className="text-center text-sm font-medium text-white">{currentScreenLine}</p>
           </div>
         )}
 
@@ -287,14 +456,33 @@ export function CameraCapture({ step, onCaptured }: Props) {
         )}
 
         {phase === 'ready' && (
-          <button
-            type="button"
-            onClick={switchCamera}
-            title="Switch camera"
-            className="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white"
-          >
-            <SwitchCamera className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          </button>
+          <div className="absolute right-4 top-4 z-10 flex gap-2">
+            {requiresStanding && (
+              <button
+                type="button"
+                onClick={() => guidedVoice.replay()}
+                title="Replay instruction"
+                aria-label="Replay current instruction"
+                className="rounded-full bg-black/50 p-2 text-white"
+              >
+                <Volume2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={switchCamera}
+              title="Switch camera"
+              className="rounded-full bg-black/50 p-2 text-white"
+            >
+              <SwitchCamera className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        {poseLoadError && phase === 'ready' && (
+          <div className="absolute inset-x-0 bottom-0 bg-amber-500/90 p-2">
+            <p className="text-center text-xs font-medium text-white">{poseLoadError}</p>
+          </div>
         )}
       </div>
 
@@ -341,7 +529,7 @@ export function CameraCapture({ step, onCaptured }: Props) {
         ) : (
           <button
             type="button"
-            disabled={phase !== 'ready'}
+            disabled={phase !== 'ready' || !captureGateOk || autoCaptureTriggered}
             onClick={capturePhoto}
             className="flex items-center gap-2 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-40"
           >

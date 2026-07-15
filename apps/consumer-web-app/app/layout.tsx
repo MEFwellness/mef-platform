@@ -52,6 +52,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: '#1B3A2D',
+  // Lets the page extend under the iPhone notch/home-indicator safe areas
+  // so `env(safe-area-inset-*)` (used by the floating coach bottom sheet)
+  // actually resolves to a non-zero value instead of always reading 0.
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
