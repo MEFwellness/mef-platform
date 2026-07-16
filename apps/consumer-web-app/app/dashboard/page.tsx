@@ -61,6 +61,12 @@ import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from './WellnessIndexCard';
 import { calculateWellnessIndex, inputsFromCheckin } from '@/lib/wellness/wellness-index';
 import { buildDashboardEntryContext } from '@/lib/conversation-coach/entryContext';
+import { buildTimeContext } from '@/lib/feed/timeContext';
+import { getMyWearableConnections } from '@/app/actions/wearables';
+import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
+import { ConnectWearableCard } from '@/components/wearables/ConnectWearableCard';
+import { WearableWelcomeModal } from '@/components/wearables/WearableWelcomeModal';
+import { WearableStatsRow } from '@/app/today/WearableStatsRow';
 import {
   stressStatus,
   painStatus,
@@ -140,14 +146,9 @@ export default async function DashboardPage() {
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 
   const timezone = profile?.timezone ?? 'America/New_York';
-  const localDate = await resolveLocalDate(
-    new Date(
-      new Date().toLocaleString('en-US', {
-        timeZone: timezone,
-      })
-    ),
-    false
-  );
+  const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
+  const localDate = await resolveLocalDate(nowInTz, false);
+  const timeContext = buildTimeContext(nowInTz);
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
 
   const todaysCheckin = await getTodaysCheckin(localDate);
@@ -156,6 +157,15 @@ export default async function DashboardPage() {
 
   const wellnessIndex = calculateWellnessIndex(inputsFromCheckin(todaysCheckin));
   const yesterdaysWellnessIndex = calculateWellnessIndex(inputsFromCheckin(yesterdaysCheckin));
+
+  // Wearable discoverability (Premium Product Pass) — a connected wearable
+  // replaces the "unlock" pitch with today's real recovery numbers; no
+  // connection at all also triggers the one-time welcome modal below.
+  const [wearableConnections, decision] = await Promise.all([
+    getMyWearableConnections(),
+    getMyCoachingDecision(),
+  ]);
+  const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -197,12 +207,46 @@ export default async function DashboardPage() {
 
         <div>
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-            Good Morning, {firstName}
+            {timeContext.greetingWord}, {firstName}
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">Here&apos;s where things stand today.</p>
         </div>
 
         <div className="mt-7 space-y-5">
+          {/* ---------------------------------------------------- */}
+          {/* Wearable discoverability — the unlock pitch until a    */}
+          {/* device is connected, then today's real recovery        */}
+          {/* numbers (WearableStatsRow, the same tiles Today shows). */}
+          {/* ---------------------------------------------------- */}
+          {hasConnectedWearable ? (
+            decision?.wearableSnapshot ? (
+              <section className={`${CARD} p-6`}>
+                <div className="flex items-center gap-2 text-[#854D0E]">
+                  <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <p className="text-sm font-semibold uppercase tracking-wider">
+                    Today&apos;s Recovery
+                  </p>
+                </div>
+                <WearableStatsRow snapshot={decision.wearableSnapshot} />
+              </section>
+            ) : (
+              <section className={`${CARD} p-6`}>
+                <div className="flex items-center gap-2 text-[#854D0E]">
+                  <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <p className="text-sm font-semibold uppercase tracking-wider">
+                    Today&apos;s Recovery
+                  </p>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                  Your device is connected — recovery numbers will appear here after your first
+                  sync.
+                </p>
+              </section>
+            )
+          ) : (
+            <ConnectWearableCard variant="dashboard" />
+          )}
+
           {/* ---------------------------------------------------- */}
           {/* Daily Wellness Index — first thing shown after login,  */}
           {/* per the current milestone. Real weighted score from    */}
@@ -215,11 +259,13 @@ export default async function DashboardPage() {
           />
 
           {/* ---------------------------------------------------- */}
-          {/* Today's Focus + CTA + Next Session                    */}
-          {/* Same 3-column grid as before — just re-flows now that  */}
-          {/* Health Score (which spanned 2 rows) is gone.           */}
+          {/* Today's Focus + CTA — the two things that actually    */}
+          {/* need this member's attention right now, given equal    */}
+          {/* weight. Next Session (below) is real but not yet live  */}
+          {/* (no booking integration), so it no longer competes for  */}
+          {/* the same visual priority as these two.                 */}
           {/* ---------------------------------------------------- */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <section className={`${CARD} p-7`}>
               <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
                 Today&apos;s Focus
@@ -260,22 +306,18 @@ export default async function DashboardPage() {
                 </p>
               </div>
             </Link>
+          </div>
 
-            <section className={`${CARD} p-6`}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
-                <Calendar className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Next Session</p>
-              </div>
-              <h2 className="mt-2.5 text-lg font-medium text-[#1B3A2D]">Nothing scheduled</h2>
-              <p className="text-sm text-[#6B7A72]">Booking isn&apos;t connected yet.</p>
-              <button
-                type="button"
-                disabled
-                className="mt-4 flex w-full cursor-not-allowed items-center justify-center rounded-full border border-[#1B3A2D]/10 px-4 py-2.5 text-sm font-medium text-[#1B3A2D]/40"
-              >
-                Coming soon
-              </button>
-            </section>
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/8 bg-white/50 px-5 py-3.5">
+            <div className="flex items-center gap-2 text-[#6B7A72]">
+              <Calendar className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm">
+                Next session: <span className="text-[#1B3A2D]/70">nothing scheduled yet</span>
+              </p>
+            </div>
+            <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-[#1B3A2D]/35">
+              Coming soon
+            </span>
           </div>
 
           {/* ---------------------------------------------------- */}
@@ -284,6 +326,9 @@ export default async function DashboardPage() {
           {/* gray = no data). Stress/Pain are inverse scales — low   */}
           {/* is good — see lib/wellness/status.ts.                  */}
           {/* ---------------------------------------------------- */}
+          <p className="pt-1 text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40">
+            Today&apos;s Numbers
+          </p>
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
             <div className={TRACKER_CARD}>
               <div className="flex items-center gap-2 text-[#854D0E]">
@@ -497,6 +542,8 @@ export default async function DashboardPage() {
         entryPoint="dashboard"
         entryContext={buildDashboardEntryContext(wellnessIndex)}
       />
+
+      {!hasConnectedWearable && <WearableWelcomeModal />}
     </div>
   );
 }

@@ -49,6 +49,7 @@ import { getMyNotifications } from '@/app/actions/notifications';
 import { FeedInteractions } from './FeedInteractions';
 import { CoachMessages } from './CoachMessages';
 import { WearableStatsRow } from './WearableStatsRow';
+import { ConnectWearableCard } from '@/components/wearables/ConnectWearableCard';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -235,12 +236,9 @@ export default async function TodayPage() {
               )}
             </div>
           ) : (
-            <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-              Connect a wearable to see recovery, sleep, and stress recommendations here.{' '}
-              <Link href="/connections" className="font-medium text-[#1B3A2D] underline underline-offset-2">
-                Connect a device
-              </Link>
-            </p>
+            <div className="mt-3">
+              <ConnectWearableCard variant="today" />
+            </div>
           )}
 
           <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#1B3A2D]/5 pt-4">
