@@ -26,10 +26,10 @@ export function Bubble({ message }: { message: ConversationMessage }) {
   const showSpeaker = !isMember && message.member_visible && message.id !== 'pending';
 
   return (
-    <div className={`flex ${isMember ? 'justify-end' : 'justify-start'} py-1`}>
-      <div className={`flex max-w-[80%] flex-col ${isMember ? 'items-end' : 'items-start'}`}>
+    <div className={`flex min-w-0 ${isMember ? 'justify-end' : 'justify-start'} py-1`}>
+      <div className={`flex min-w-0 max-w-[80%] flex-col ${isMember ? 'items-end' : 'items-start'}`}>
         <div
-          className={`whitespace-pre-wrap rounded-3xl px-4 py-3 text-[15px] leading-relaxed ${
+          className={`min-w-0 max-w-full whitespace-pre-wrap break-words rounded-3xl px-4 py-3 text-[15px] leading-relaxed ${
             isMember
               ? 'bg-[#1B3A2D] text-white'
               : 'border border-[#1B3A2D]/[0.06] bg-white text-[#1B3A2D] shadow-[0_2px_16px_-4px_rgba(27,58,45,0.08)]'

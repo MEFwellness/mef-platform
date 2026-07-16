@@ -163,7 +163,7 @@ export function FloatingCoachPanel({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4">
+      <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-4">
         {isLoading && <p className="text-sm text-[#6B7A72]">Loading your conversation…</p>}
 
         {loadError && (

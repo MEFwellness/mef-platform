@@ -93,7 +93,22 @@ export function FloatingCoachLauncher({
             role="dialog"
             aria-modal="true"
             aria-label={label}
-            style={{ transform: keyboardInset > 0 ? `translateY(-${keyboardInset}px)` : undefined }}
+            // Shrinks the sheet's height by the keyboard's height (rather
+            // than translating the whole box up) so the bottom edge rises
+            // above the keyboard while the top/header stays anchored in
+            // place — translating the whole box instead would have
+            // pushed the header above the top of the screen once the
+            // sheet was tall (the 'expanded' state) and the keyboard was
+            // large, hiding it entirely.
+            style={
+              keyboardInset > 0
+                ? {
+                    bottom: keyboardInset,
+                    height: `calc(${sheetState === 'expanded' ? '88dvh' : '60dvh'} - ${keyboardInset}px)`,
+                    maxHeight: `calc(${sheetState === 'expanded' ? '88dvh' : '60dvh'} - ${keyboardInset}px)`,
+                  }
+                : undefined
+            }
             className={`fixed inset-x-0 bottom-0 z-50 flex w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-[0_-12px_48px_-8px_rgba(27,58,45,0.35)] transition-[max-height] duration-200 md:inset-x-auto md:bottom-8 md:right-8 md:max-h-[75vh] md:w-[400px] md:rounded-[28px] md:shadow-[0_12px_48px_-8px_rgba(27,58,45,0.35)] ${
               sheetState === 'expanded' ? 'mef-coach-sheet-height' : 'mef-coach-sheet-height-half'
             }`}

@@ -209,24 +209,38 @@
  * same-specificity cascade fight against the component's own
  * `md:max-h-[75vh]` desktop override — this is mobile-sheet-only sizing,
  * the desktop floating card keeps its own fixed height untouched.
+ *
+ * `height` (not just `max-height`) is required here, not cosmetic: the
+ * panel's internal layout (FloatingCoachPanel.tsx) is `flex h-full
+ * flex-col` with a `min-h-0 flex-1 overflow-y-auto` message list between
+ * a fixed header and composer. `h-full`/`flex-1` only resolve correctly
+ * against a definite ancestor height — against a `max-height`-only
+ * ancestor (auto height, just capped) the message list can't establish
+ * its own scroll container, so long conversations grew the whole sheet
+ * past its cap and the outer `overflow-hidden` clipped the composer and
+ * the tail of the conversation instead of scrolling internally.
  */
 @media (max-width: 767.98px) {
   .mef-coach-sheet-height {
+    height: 88vh;
     max-height: 88vh;
   }
 
   @supports (height: 100dvh) {
     .mef-coach-sheet-height {
+      height: 88dvh;
       max-height: 88dvh;
     }
   }
 
   .mef-coach-sheet-height-half {
+    height: 60vh;
     max-height: 60vh;
   }
 
   @supports (height: 100dvh) {
     .mef-coach-sheet-height-half {
+      height: 60dvh;
       max-height: 60dvh;
     }
   }
