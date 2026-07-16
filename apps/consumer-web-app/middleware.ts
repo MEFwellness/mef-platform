@@ -2,7 +2,24 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { hasActiveRole } from '@/lib/auth/guards';
 
-const PUBLIC_PATHS = ['/login', '/signup', '/verify', '/reset-password', '/api/auth/callback'];
+// /api/cron/* routes authenticate their own way (a CRON_SECRET bearer
+// token checked inside each route handler — see
+// app/api/cron/wearable-daily/route.ts and
+// app/api/cron/daily-coaching-scan/route.ts), not a session cookie.
+// Vercel's own scheduled invocations never carry a session cookie, so
+// without this exclusion every cron request was being 307-redirected to
+// /login by the check below before it ever reached the route handler's
+// own auth check — silently preventing every cron job in this app from
+// running on schedule. Scoped to exactly this one path prefix, not all of
+// /api/, so no other route's behavior changes.
+const PUBLIC_PATHS = [
+  '/login',
+  '/signup',
+  '/verify',
+  '/reset-password',
+  '/api/auth/callback',
+  '/api/cron/',
+];
 
 export async function middleware(request: NextRequest) {
   const { response, user, supabase } = await updateSession(request);
