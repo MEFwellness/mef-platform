@@ -9,6 +9,10 @@ import {
   CalendarCheck,
   Milestone,
   Watch,
+  Trophy,
+  TrendingUp,
+  TrendingDown,
+  Link2,
 } from 'lucide-react';
 import type { HealthTimelineEvent } from '@mef/shared-types-contracts';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -24,6 +28,10 @@ const EVENT_ICON = {
   checkin_submitted: CalendarCheck,
   assessment_published: ScanFace,
   wearable_synced: Watch,
+  streak_milestone: Trophy,
+  trend_improving: TrendingUp,
+  trend_declining: TrendingDown,
+  wearable_connected: Link2,
 } as const;
 
 type Group =
@@ -54,7 +62,10 @@ function groupEvents(events: HealthTimelineEvent[]): Group[] {
   return groups;
 }
 
-async function resolveHrefs(supabase: ReturnType<typeof createClient>, groups: Group[]): Promise<Group[]> {
+async function resolveHrefs(
+  supabase: ReturnType<typeof createClient>,
+  groups: Group[]
+): Promise<Group[]> {
   return Promise.all(
     groups.map(async (group) => {
       if (group.kind !== 'milestone') return group;
@@ -91,7 +102,9 @@ function formatDate(localDate: string): string {
 function MilestoneCard({ event, href }: { event: HealthTimelineEvent; href: string | null }) {
   const Icon = EVENT_ICON[event.event_type] ?? Milestone;
   const body = (
-    <div className={`${CARD} mef-animate-in flex items-start gap-4 p-6 transition ${href ? 'hover:bg-[#FAFAF8]' : ''}`}>
+    <div
+      className={`${CARD} mef-animate-in flex items-start gap-4 p-6 transition ${href ? 'hover:bg-[#FAFAF8]' : ''}`}
+    >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EFF6F1] text-[#1B3A2D]">
         <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
       </div>

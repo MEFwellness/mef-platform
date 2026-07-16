@@ -68,6 +68,17 @@ export async function syncWearableConnection(
       },
       facts
     );
+    // Coach Timeline (section 3): "Connected Oura" is a milestone in its
+    // own right, distinct from the routine wearable_synced entries every
+    // later sync also writes below — worth its own entry exactly once.
+    await recordTimelineEvent(supabase, {
+      memberId: connection.member_id,
+      eventType: 'wearable_connected',
+      localDate: today,
+      title: `Connected ${WEARABLE_PROVIDER_LABEL[connection.provider]}`,
+      sourceFeature: 'wearable_connections',
+      sourceRecordId: connection.id,
+    });
   }
 
   // Every provider is an UnconfiguredProvider stub this milestone (see

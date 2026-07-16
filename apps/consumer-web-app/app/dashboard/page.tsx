@@ -64,9 +64,11 @@ import { buildDashboardEntryContext } from '@/lib/conversation-coach/entryContex
 import { buildTimeContext } from '@/lib/feed/timeContext';
 import { getMyWearableConnections } from '@/app/actions/wearables';
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
+import { getMyMorningBrief } from '@/app/actions/coaching-engine';
 import { ConnectWearableCard } from '@/components/wearables/ConnectWearableCard';
 import { WearableWelcomeModal } from '@/components/wearables/WearableWelcomeModal';
 import { WearableStatsRow } from '@/app/today/WearableStatsRow';
+import { MorningBriefCard } from '@/components/MorningBriefCard';
 import {
   stressStatus,
   painStatus,
@@ -161,9 +163,10 @@ export default async function DashboardPage() {
   // Wearable discoverability (Premium Product Pass) — a connected wearable
   // replaces the "unlock" pitch with today's real recovery numbers; no
   // connection at all also triggers the one-time welcome modal below.
-  const [wearableConnections, decision] = await Promise.all([
+  const [wearableConnections, decision, morningBrief] = await Promise.all([
     getMyWearableConnections(),
     getMyCoachingDecision(),
+    getMyMorningBrief(),
   ]);
   const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
 
@@ -213,6 +216,12 @@ export default async function DashboardPage() {
         </div>
 
         <div className="mt-7 space-y-5">
+          {/* ---------------------------------------------------- */}
+          {/* Root's Morning Brief — the Proactive Coaching Engine's  */}
+          {/* flagship surface, first thing shown after the greeting. */}
+          {/* ---------------------------------------------------- */}
+          {morningBrief && <MorningBriefCard brief={morningBrief} />}
+
           {/* ---------------------------------------------------- */}
           {/* Wearable discoverability — the unlock pitch until a    */}
           {/* device is connected, then today's real recovery        */}

@@ -34,6 +34,8 @@ import type { FourDoctorsCategory } from '@mef/shared-types-contracts';
 import { getFeedHistory } from '@/app/actions/feed';
 import { getRecentCheckins, getTodaysCheckin, resolveLocalDate } from '@/app/actions/checkin';
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
+import { getMyMorningBrief } from '@/app/actions/coaching-engine';
+import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { waterStatus, digestionStatus, STATUS_STYLES } from '@/lib/wellness/status';
 import type { CoachingMode } from '@/lib/brain/types';
 import { buildCoachNote, buildBonusChallenge, parseSelectionReason } from '@/lib/feed/copy';
@@ -113,13 +115,15 @@ export default async function TodayPage() {
   // what today's coaching experience is and why — this page renders its
   // decision instead of independently deciding a mode, risk posture, or
   // encouragement line of its own. See app/actions/coaching-brain.ts.
-  const [isCoach, { data: profile }, decision, history, notifications] = await Promise.all([
-    hasActiveRole(supabase, user.id, 'coach'),
-    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
-    getMyCoachingDecision(),
-    getFeedHistory(),
-    getMyNotifications(5),
-  ]);
+  const [isCoach, { data: profile }, decision, history, notifications, morningBrief] =
+    await Promise.all([
+      hasActiveRole(supabase, user.id, 'coach'),
+      supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+      getMyCoachingDecision(),
+      getFeedHistory(),
+      getMyNotifications(5),
+      getMyMorningBrief(),
+    ]);
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const timezone = profile?.timezone ?? 'America/New_York';
@@ -168,6 +172,15 @@ export default async function TodayPage() {
           )}
         </div>
         <p className="mt-2 text-[15px] italic text-[#6B7A72]">{decision?.encouragement ?? ''}</p>
+
+        {/* Root's Morning Brief — the Proactive Coaching Engine's own daily
+            digest (lib/coaching-engine/), distinct from the wearable-numbers
+            "Daily Coaching Brief" section directly below it. */}
+        {morningBrief && (
+          <div className="mt-6">
+            <MorningBriefCard brief={morningBrief} />
+          </div>
+        )}
 
         {/* Daily Coaching Brief (Part 5) — recovery/movement/stress/sleep
             lines are only ever real wearable-derived recommendations
@@ -248,7 +261,9 @@ export default async function TodayPage() {
                 strokeWidth={1.75}
                 aria-hidden="true"
               />
-              <p className={`text-sm leading-relaxed ${todaysCheckin?.water_cups != null ? STATUS_STYLES[waterStatus(todaysCheckin.water_cups)].text : 'text-[#6B7A72]'}`}>
+              <p
+                className={`text-sm leading-relaxed ${todaysCheckin?.water_cups != null ? STATUS_STYLES[waterStatus(todaysCheckin.water_cups)].text : 'text-[#6B7A72]'}`}
+              >
                 {todaysCheckin?.water_cups != null
                   ? `${todaysCheckin.water_cups} of 8 cups of water today.`
                   : 'Log your water intake in today’s check-in.'}
@@ -260,7 +275,9 @@ export default async function TodayPage() {
                 strokeWidth={1.75}
                 aria-hidden="true"
               />
-              <p className={`text-sm leading-relaxed ${todaysCheckin?.digestion_rating != null ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].text : 'text-[#6B7A72]'}`}>
+              <p
+                className={`text-sm leading-relaxed ${todaysCheckin?.digestion_rating != null ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].text : 'text-[#6B7A72]'}`}
+              >
                 {todaysCheckin?.digestion_rating != null
                   ? 'A grounding, whole-food meal fits well today.'
                   : "Note how today's meals feel in your check-in."}
@@ -463,9 +480,7 @@ export default async function TodayPage() {
                   <section className={`${CARD} mef-animate-in p-6`} style={stagger(sectionIndex++)}>
                     <div className="flex items-center gap-2 text-[#854D0E]">
                       <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                      <p className="text-sm font-semibold uppercase tracking-wider">
-                        Talk to Root
-                      </p>
+                      <p className="text-sm font-semibold uppercase tracking-wider">Talk to Root</p>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Link

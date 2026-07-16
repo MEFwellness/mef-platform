@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/wearable-daily",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/daily-coaching-scan",
+      "schedule": "0 13 * * *"
     }
   ]
 }

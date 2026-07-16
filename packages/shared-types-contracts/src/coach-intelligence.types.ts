@@ -15,7 +15,8 @@ export type AssessmentAiSourceFeature = 'body_assessment';
 
 export type AssessmentAiProviderStatus = 'not_configured' | 'pending' | 'completed' | 'failed';
 
-export type AssessmentAiAnalysisStatus = 'pending_coach_review' | 'draft_saved' | 'published' | 'archived';
+export type AssessmentAiAnalysisStatus =
+  'pending_coach_review' | 'draft_saved' | 'published' | 'archived';
 
 export interface AssessmentAiAnalysis {
   id: string;
@@ -105,8 +106,19 @@ export interface AssessmentReportExercise {
   created_at: string;
 }
 
-/** 'proactive_coach_message' is the Proactive AI Coach's delivery channel (lib/ai/agents/proactive-coach.ts) — reuses this same generic in-app notification table rather than a second one. */
-export type NotificationType = 'assessment_report_published' | 'proactive_coach_message';
+/**
+ * 'proactive_coach_message' is the Proactive AI Coach's delivery channel
+ * (lib/ai/agents/proactive-coach.ts) — reuses this same generic in-app
+ * notification table rather than a second one. 'morning_brief_ready' and
+ * 'weekly_summary' are the Root Proactive Coaching Engine's own two
+ * additions (lib/coaching-engine/, app/api/cron/daily-coaching-scan) —
+ * same table, same reasoning.
+ */
+export type NotificationType =
+  | 'assessment_report_published'
+  | 'proactive_coach_message'
+  | 'morning_brief_ready'
+  | 'weekly_summary';
 
 export interface Notification {
   id: string;

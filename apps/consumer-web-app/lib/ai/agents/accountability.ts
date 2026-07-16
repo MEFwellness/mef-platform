@@ -15,6 +15,7 @@ import {
   type AgentOutput,
 } from './types';
 import type { AiAgentDefinition } from './types';
+import { recordTimelineEvent } from '../../timeline/data';
 
 const STREAK_MILESTONES = [7, 14, 30, 60, 90, 180, 365];
 
@@ -43,6 +44,21 @@ async function streakMilestoneFromCheckin(context: AgentContext): Promise<AgentO
   }
 
   const supportingData = { streak };
+
+  // Coach Timeline (section 3): "30-day streak" is one of the milestone's
+  // own worked examples — best-effort, never blocks the insight/action
+  // above from being produced if this write fails.
+  const latestCheckin = checkins[checkins.length - 1];
+  if (latestCheckin) {
+    await recordTimelineEvent(context.supabase, {
+      memberId: context.memberId,
+      eventType: 'streak_milestone',
+      localDate: latestCheckin.local_date,
+      title: `${streak}-day check-in streak`,
+      detail: `${streak} consecutive days of check-ins.`,
+      sourceFeature: 'accountability',
+    });
+  }
 
   return [
     {

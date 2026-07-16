@@ -1,15 +1,22 @@
--- AI agent registry (metadata only — behavior lives in
--- apps/consumer-web-app/lib/ai/agents/*.ts, keyed by agent_key) and the
--- three example deterministic rules from the AI Coaching Engine
--- Foundation milestone brief. Real member data drives every one of
--- these; nothing here fabricates a recommendation.
+-- Activates the AI Coaching Engine Foundation in production.
 --
--- These same rows are now also inserted by migration
--- 00000000000052_activate_ai_agent_registry.sql, since seed/*.sql is
--- deliberately never run against production (docs/DEPLOYMENT.md) and the
--- dispatcher needs them to exist there too. Kept here (with ON CONFLICT
--- DO NOTHING) so `supabase db reset` for local dev/CI still works
--- unchanged and this file remains the readable reference copy.
+-- ai_agents/ai_rules have held real rows only in supabase/seed/04_ai_agents_and_rules.sql
+-- since the milestone that built them — but per docs/DEPLOYMENT.md, seed/*.sql
+-- is deliberately never run against production ("Do not run supabase/seed/*.sql
+-- against production — that seed data creates synthetic test users").
+-- lib/ai/dispatcher.ts's dispatchEvent() filters every event through
+-- getEnabledAgents(supabase) (a live query against ai_agents), so with an
+-- empty ai_agents table in production, every agent — proactive_coach,
+-- accountability, wellness_analysis, member_engagement, coach_assistant,
+-- education, body_assessment — silently does nothing, and every ai_rules
+-- match (the deterministic rules engine, lib/ai/rules/engine.ts) never
+-- fires either. This has been true since that milestone shipped.
+--
+-- This migration inserts the exact same rows as the seed file (agent
+-- metadata + the three original example rules) directly into a migration,
+-- so `supabase db push` actually carries them to production. Idempotent
+-- via ON CONFLICT so re-running (or the seed file still running locally)
+-- never duplicates a row.
 
 insert into ai_agents (agent_key, name, category, description, responsibilities, config) values
   (
@@ -70,9 +77,6 @@ insert into ai_agents (agent_key, name, category, description, responsibilities,
   )
 on conflict (agent_key) do nothing;
 
--- Rule 1 — the milestone brief's first worked example verbatim: 3
--- consecutive days of rising stress plus a declining sleep trend implies
--- a need for recovery, before any LLM is involved.
 insert into ai_rules (rule_key, agent_key, name, description, trigger_event_types, conditions, produces) values
 (
   'recovery_needed_stress_sleep',
@@ -95,8 +99,6 @@ insert into ai_rules (rule_key, agent_key, name, description, trigger_event_type
     "requiresCoachApproval": false
   }'::jsonb
 ),
--- Rule 2 — the milestone brief's second worked example: pain easing while
--- movement increases is real, positive, worth celebrating.
 (
   'celebrate_pain_movement_progress',
   'member_engagement',
@@ -118,13 +120,6 @@ insert into ai_rules (rule_key, agent_key, name, description, trigger_event_type
     "requiresCoachApproval": false
   }'::jsonb
 ),
--- Rule 3 — the milestone brief's third worked example: 5+ days without a
--- check-in warrants an accountability nudge. Full correctness needs a
--- scheduled job to evaluate this even when the member takes no action at
--- all (silence can't self-trigger an event) — not built this milestone,
--- see lib/ai/README.md. Wired to fire opportunistically whenever a
--- checkin/coach-note event gives the dispatcher a reason to load the
--- member's recent history anyway.
 (
   'missed_checkins_accountability',
   'accountability',
