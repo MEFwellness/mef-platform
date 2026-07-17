@@ -11,6 +11,7 @@ import { getFoodLensScanAction } from '@/app/actions/food-lens';
 import { getPrimalPatternProfileById } from '@/lib/food-lens/data';
 import { DetectedItemsList } from '@/components/food-lens/DetectedItemsList';
 import { MacroBalanceMeter } from '@/components/food-lens/MacroBalanceMeter';
+import { MealQualityIndicator } from '@/components/food-lens/MealQualityIndicator';
 import { PatternComparisonCard } from '@/components/food-lens/PatternComparisonCard';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -28,7 +29,7 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
   ]);
   if (!detail) notFound();
 
-  const { scan, detectedItems, macroEstimate, comparison, captures } = detail;
+  const { scan, detectedItems, macroEstimate, comparison, mealQuality, captures } = detail;
 
   const pattern = comparison
     ? await getPrimalPatternProfileById(supabase, comparison.primal_pattern_profile_id)
@@ -75,6 +76,10 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
                 </div>
               ))}
             </div>
+          )}
+
+          {mealQuality && (
+            <MealQualityIndicator rating={mealQuality.rating} explanation={mealQuality.explanation} />
           )}
 
           {scan.status === 'not_configured' && (

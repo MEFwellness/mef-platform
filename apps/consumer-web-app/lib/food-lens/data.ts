@@ -19,6 +19,12 @@ import type {
   FoodLensFoodCategory,
   FoodLensMacroEstimate,
   FoodLensMacroLevel,
+  FoodLensMealMacroLevel,
+  FoodLensMealQualityRating,
+  FoodLensMealQualityRatingValue,
+  FoodLensNutrientDensity,
+  FoodLensAddedSugarLevel,
+  FoodLensProcessingLevel,
   FoodLensPatternComparison,
   FoodLensScan,
   FoodLensScanStatus,
@@ -338,9 +344,9 @@ export async function insertFoodLensMacroEstimate(
   supabase: SupabaseClient,
   input: {
     scanId: string;
-    proteinLevel: FoodLensMacroLevel;
-    carbLevel: FoodLensMacroLevel;
-    fatLevel: FoodLensMacroLevel;
+    proteinLevel: FoodLensMealMacroLevel;
+    carbLevel: FoodLensMealMacroLevel;
+    fatLevel: FoodLensMealMacroLevel;
     proteinConfidence: number;
     carbConfidence: number;
     fatConfidence: number;
@@ -577,4 +583,79 @@ export async function setManualPrimalPatternProfile(
     supersedes_id: existing?.id ?? null,
     created_at: now,
   };
+}
+
+// ---- food_lens_meal_quality_ratings ----
+
+export async function insertFoodLensMealQualityRating(
+  supabase: SupabaseClient,
+  input: {
+    scanId: string;
+    macroEstimateId: string;
+    rating: FoodLensMealQualityRatingValue;
+    explanation: string;
+    nutrientDensity: FoodLensNutrientDensity;
+    addedSugarLevel: FoodLensAddedSugarLevel;
+    processingLevel: FoodLensProcessingLevel;
+    hasMeaningfulProtein: boolean;
+    hasMeaningfulFiber: boolean;
+    hasHealthyFat: boolean;
+    confidence: number;
+  }
+): Promise<FoodLensMealQualityRating | null> {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('food_lens_meal_quality_ratings').insert({
+    id,
+    scan_id: input.scanId,
+    macro_estimate_id: input.macroEstimateId,
+    rating: input.rating,
+    explanation: input.explanation,
+    nutrient_density: input.nutrientDensity,
+    added_sugar_level: input.addedSugarLevel,
+    processing_level: input.processingLevel,
+    has_meaningful_protein: input.hasMeaningfulProtein,
+    has_meaningful_fiber: input.hasMeaningfulFiber,
+    has_healthy_fat: input.hasHealthyFat,
+    confidence: input.confidence,
+    created_at: now,
+  });
+  if (error) {
+    console.error('insertFoodLensMealQualityRating failed', error);
+    return null;
+  }
+  return {
+    id,
+    scan_id: input.scanId,
+    macro_estimate_id: input.macroEstimateId,
+    rating: input.rating,
+    explanation: input.explanation,
+    nutrient_density: input.nutrientDensity,
+    added_sugar_level: input.addedSugarLevel,
+    processing_level: input.processingLevel,
+    has_meaningful_protein: input.hasMeaningfulProtein,
+    has_meaningful_fiber: input.hasMeaningfulFiber,
+    has_healthy_fat: input.hasHealthyFat,
+    confidence: input.confidence,
+    created_at: now,
+  };
+}
+
+/** Latest version only — a recompute after a correction inserts a new row rather than mutating, same versioning discipline as food_lens_macro_estimates. */
+export async function getLatestFoodLensMealQualityRating(
+  supabase: SupabaseClient,
+  scanId: string
+): Promise<FoodLensMealQualityRating | null> {
+  const { data, error } = await supabase
+    .from('food_lens_meal_quality_ratings')
+    .select('*')
+    .eq('scan_id', scanId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error('getLatestFoodLensMealQualityRating failed', error);
+    return null;
+  }
+  return data as FoodLensMealQualityRating | null;
 }

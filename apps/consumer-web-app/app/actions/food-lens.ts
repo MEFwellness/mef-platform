@@ -22,9 +22,11 @@ import { resolveLocalDate } from './checkin';
 import type {
   FoodLensCapture,
   FoodLensCaptureType,
+  FoodLensComparisonSignal,
   FoodLensDetectedItem,
   FoodLensFoodCategory,
   FoodLensMacroEstimate,
+  FoodLensMealQualityRating,
   FoodLensPatternComparison,
   FoodLensScan,
   FoodLensScanType,
@@ -39,12 +41,14 @@ import {
   getFoodLensProvider,
   resolveConfiguredFoodLensProvider,
 } from '@/lib/food-lens/providers/registry';
+import type { FoodLensQualitySignals } from '@/lib/food-lens/providers/types';
 import {
   compareMealToPattern,
   deriveMacroEstimateFromItems,
   overallConfidenceFor,
   type ComparisonMacroEstimate,
 } from '@/lib/food-lens/comparison';
+import { computeMealQualityRating } from '@/lib/food-lens/mealQuality';
 import { generateFoodLensCoachingNarrative } from '@/lib/food-lens/coachingNarrative';
 import { upsertRegistryEntryFromFoodLensComparison } from '@/lib/registry/adapters/foodLens';
 import {
@@ -52,11 +56,13 @@ import {
   getFoodLensScan,
   getFoodLensDetectedItem,
   getLatestFoodLensMacroEstimate,
+  getLatestFoodLensMealQualityRating,
   getLatestFoodLensPatternComparison,
   insertFoodLensCapture,
   insertFoodLensCorrection,
   insertFoodLensDetectedItem,
   insertFoodLensMacroEstimate,
+  insertFoodLensMealQualityRating,
   insertFoodLensPatternComparison,
   insertFoodLensScan,
   listCurrentFoodLensDetectedItems,
@@ -153,6 +159,7 @@ export type AnalyzeFoodLensScanResult = {
   detectedItems?: FoodLensDetectedItem[];
   macroEstimate?: FoodLensMacroEstimate;
   comparison?: FoodLensPatternComparison | undefined;
+  mealQuality?: FoodLensMealQualityRating | undefined;
   error?: string;
 };
 
@@ -263,6 +270,22 @@ export async function analyzeFoodLensScanAction(
       }, macroEstimate.id, target);
     }
 
+    // Meal Quality runs regardless of whether a Primal Pattern target
+    // exists — like the macro estimate itself (doc 5 §5.5), it's useful
+    // on its own. Freshly derived from THIS vision call's quality_signals.
+    const mealQuality = await computeAndStoreMealQuality(
+      supabase,
+      scanId,
+      macroEstimate.id,
+      result.qualitySignals,
+      {
+        protein: result.macroEstimate.protein,
+        carb: result.macroEstimate.carb,
+        fat: result.macroEstimate.fat,
+      },
+      comparison?.signals ?? null
+    );
+
     await updateFoodLensScan(supabase, scanId, {
       status: 'analyzed',
       provider_status: 'completed',
@@ -273,6 +296,7 @@ export async function analyzeFoodLensScanAction(
       detectedItems,
       macroEstimate,
       comparison,
+      mealQuality,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Analysis failed.';
@@ -330,11 +354,48 @@ async function runComparisonAndNarrative(
   return comparison ?? undefined;
 }
 
+/**
+ * Computes the deterministic Meal Quality rating (lib/food-lens/
+ * mealQuality.ts) and persists it as a new versioned row — mirrors how
+ * runComparisonAndNarrative persists a new pattern-comparison row rather
+ * than mutating. Best-effort in the sense that a failed insert doesn't
+ * throw — same "a member's own scan result must never fail because of a
+ * secondary write" discipline as the registry adapter call above.
+ */
+async function computeAndStoreMealQuality(
+  supabase: ReturnType<typeof createClient>,
+  scanId: string,
+  macroEstimateId: string,
+  qualitySignals: FoodLensQualitySignals,
+  macro: ComparisonMacroEstimate,
+  patternSignals: FoodLensComparisonSignal[] | null
+): Promise<FoodLensMealQualityRating | undefined> {
+  const { rating, explanation } = computeMealQualityRating(qualitySignals, macro, patternSignals);
+
+  const created = await insertFoodLensMealQualityRating(supabase, {
+    scanId,
+    macroEstimateId,
+    rating,
+    explanation,
+    nutrientDensity: qualitySignals.nutrientDensity,
+    addedSugarLevel: qualitySignals.addedSugarLevel,
+    processingLevel: qualitySignals.processingLevel,
+    hasMeaningfulProtein: qualitySignals.hasMeaningfulProtein,
+    hasMeaningfulFiber: qualitySignals.hasMeaningfulFiber,
+    hasHealthyFat: qualitySignals.hasHealthyFat,
+    confidence: qualitySignals.confidence,
+  });
+
+  return created ?? undefined;
+}
+
 export type FoodLensScanDetail = {
   scan: FoodLensScan;
   detectedItems: FoodLensDetectedItem[];
   macroEstimate: FoodLensMacroEstimate | null;
   comparison: FoodLensPatternComparison | null;
+  /** Null for a scan analyzed before this rating existed — the UI simply omits the indicator for those, never fabricates one after the fact. */
+  mealQuality: FoodLensMealQualityRating | null;
   captures: Array<{ captureId: string; signedViewUrl: string | null; captureType: string }>;
 };
 
@@ -346,10 +407,11 @@ export async function getFoodLensScanAction(scanId: string): Promise<FoodLensSca
   const scan = await getFoodLensScan(supabase, scanId);
   if (!scan || scan.member_id !== userId) return null;
 
-  const [detectedItems, macroEstimate, comparison, captures] = await Promise.all([
+  const [detectedItems, macroEstimate, comparison, mealQuality, captures] = await Promise.all([
     listCurrentFoodLensDetectedItems(supabase, scanId),
     getLatestFoodLensMacroEstimate(supabase, scanId),
     getLatestFoodLensPatternComparison(supabase, scanId),
+    getLatestFoodLensMealQualityRating(supabase, scanId),
     listFoodLensCaptures(supabase, scanId),
   ]);
 
@@ -361,7 +423,7 @@ export async function getFoodLensScanAction(scanId: string): Promise<FoodLensSca
     }))
   );
 
-  return { scan, detectedItems, macroEstimate, comparison, captures: signedCaptures };
+  return { scan, detectedItems, macroEstimate, comparison, mealQuality, captures: signedCaptures };
 }
 
 export type FoodLensScanSummary = {
@@ -528,6 +590,7 @@ export async function addManualFoodItemAction(
 export type RecomputeFoodLensResult = {
   macroEstimate?: FoodLensMacroEstimate;
   comparison?: FoodLensPatternComparison | undefined;
+  mealQuality?: FoodLensMealQualityRating | undefined;
   error?: string;
 };
 
@@ -538,6 +601,14 @@ export type RecomputeFoodLensResult = {
  * once per correction batch when the member is done editing), since the
  * facts underneath it changed and stale coaching copy would contradict the
  * member's own correction. See lib/food-lens/coachingNarrative.ts.
+ *
+ * Meal Quality is also recomputed (still no new vision call): the
+ * qualitative signals it needs (nutrient density, added sugar, processing
+ * level) came from the original photo, not from which items the member
+ * later confirmed, so this reuses the scan's most recently stored signals
+ * and re-derives the rating against the corrected macro estimate. A scan
+ * analyzed before this rating existed simply has none to reuse, and
+ * recompute leaves it that way rather than fabricating one.
  */
 export async function recomputeFoodLensResultAction(
   scanId: string
@@ -572,21 +643,42 @@ export async function recomputeFoodLensResultAction(
   const target = scan.primal_pattern_profile_id
     ? await getActivePrimalPatternProfile(supabase, userId)
     : null;
-  if (!target) return { macroEstimate };
 
-  const comparison = await runComparisonAndNarrative(
-    supabase,
-    userId,
-    scanId,
-    confirmedOrAdded,
-    derived,
-    macroEstimate.id,
-    target
-  );
+  const comparison = target
+    ? await runComparisonAndNarrative(
+        supabase,
+        userId,
+        scanId,
+        confirmedOrAdded,
+        derived,
+        macroEstimate.id,
+        target
+      )
+    : undefined;
+
+  const previousRating = await getLatestFoodLensMealQualityRating(supabase, scanId);
+  const mealQuality = previousRating
+    ? await computeAndStoreMealQuality(
+        supabase,
+        scanId,
+        macroEstimate.id,
+        {
+          nutrientDensity: previousRating.nutrient_density,
+          addedSugarLevel: previousRating.added_sugar_level,
+          processingLevel: previousRating.processing_level,
+          hasMeaningfulProtein: previousRating.has_meaningful_protein,
+          hasMeaningfulFiber: previousRating.has_meaningful_fiber,
+          hasHealthyFat: previousRating.has_healthy_fat,
+          confidence: previousRating.confidence,
+        },
+        derived,
+        comparison?.signals ?? null
+      )
+    : undefined;
 
   await updateFoodLensScan(supabase, scanId, { status: 'member_reviewed' });
 
-  return { macroEstimate, comparison };
+  return { macroEstimate, comparison, mealQuality };
 }
 
 // ---- Primal Pattern target (read-only from Food Lens's side; phase 1 manual-entry write) ----

@@ -8,7 +8,14 @@
  * levels — see docs/food-lens/02-ai-vision-models.md.
  */
 
-import type { FoodLensCaptureType, FoodLensFoodCategory, FoodLensMacroLevel } from '@mef/shared-types-contracts';
+import type {
+  FoodLensAddedSugarLevel,
+  FoodLensCaptureType,
+  FoodLensFoodCategory,
+  FoodLensMealMacroLevel,
+  FoodLensNutrientDensity,
+  FoodLensProcessingLevel,
+} from '@mef/shared-types-contracts';
 
 export type FoodLensCaptureInput = {
   captureId: string;
@@ -25,6 +32,26 @@ export type FoodLensAnalysisRequest = {
   personalizationContext?: Array<{ label: string; category: FoodLensFoodCategory }>;
 };
 
+/**
+ * The vision model's honest read of this meal/item's broader nutritional
+ * quality profile — separate from, and a finer-grained judgment than, the
+ * macro emphasis levels above (a food can be carb-'high' and nutrient-
+ * dense, e.g. lentils, or carb-'high' and nutrient-poor, e.g. a soda).
+ * Feeds the deterministic Meal Quality rating (lib/food-lens/mealQuality.ts)
+ * — the model reports facts/signals here, it never assigns the
+ * green/yellow/red verdict itself.
+ */
+export type FoodLensQualitySignals = {
+  nutrientDensity: FoodLensNutrientDensity;
+  addedSugarLevel: FoodLensAddedSugarLevel;
+  processingLevel: FoodLensProcessingLevel;
+  hasMeaningfulProtein: boolean;
+  hasMeaningfulFiber: boolean;
+  hasHealthyFat: boolean;
+  /** Confidence in these quality judgments specifically — may differ from item-identification confidence and macro-composition confidence below. */
+  confidence: number;
+};
+
 export type FoodLensAnalysisResult = {
   provider: string;
   model: string;
@@ -34,10 +61,11 @@ export type FoodLensAnalysisResult = {
     confidence: number;
   }>;
   macroEstimate: {
-    protein: { level: FoodLensMacroLevel; confidence: number };
-    carb: { level: FoodLensMacroLevel; confidence: number };
-    fat: { level: FoodLensMacroLevel; confidence: number };
+    protein: { level: FoodLensMealMacroLevel; confidence: number };
+    carb: { level: FoodLensMealMacroLevel; confidence: number };
+    fat: { level: FoodLensMealMacroLevel; confidence: number };
   };
+  qualitySignals: FoodLensQualitySignals;
 };
 
 export interface FoodLensProvider {

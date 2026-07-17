@@ -1,7 +1,8 @@
 /**
  * MEF Food Lens — shared types for the food_lens_* tables and
  * primal_pattern_profiles in
- * supabase/migrations/00000000000055_food_lens.sql. Same convention as
+ * supabase/migrations/00000000000055_food_lens.sql and
+ * 00000000000056_food_lens_meal_quality.sql. Same convention as
  * body-assessment.types.ts: hand-authored, kept in sync with the migration
  * by hand, row/type contracts only — no logic (that lives in
  * apps/consumer-web-app/lib/food-lens/).
@@ -16,8 +17,19 @@
  * docblock for the guardrails.
  */
 
-/** Never an exact percentage or gram value — MEF Food Lens never presents macro estimates as exact facts. */
+/** Never an exact percentage or gram value — MEF Food Lens never presents macro estimates as exact facts. Used for a Primal Pattern *target* (nobody's target is "no protein at all", so this stays 3-valued). */
 export type FoodLensMacroLevel = 'low' | 'moderate' | 'high';
+
+/**
+ * A *meal reading* can genuinely be 'none' — e.g. a can of regular soda has
+ * no meaningful protein or fat, plain water has none of any macro. Forcing
+ * every reading into low/moderate/high (the old FoodLensMacroLevel-only
+ * shape) is what produced the misleading "Sprite: Protein Low, Fat Low"
+ * result: 'low' reads to a member as "a small amount," not "essentially
+ * none." Used for FoodLensMacroEstimate's levels and a comparison signal's
+ * mealLevel — never for a Primal Pattern target (see FoodLensMacroLevel).
+ */
+export type FoodLensMealMacroLevel = FoodLensMacroLevel | 'none';
 
 export type FoodLensFoodCategory = 'protein' | 'carb' | 'fat' | 'vegetable' | 'mixed' | 'unknown';
 
@@ -123,9 +135,9 @@ export interface FoodLensCorrection {
 export interface FoodLensMacroEstimate {
   id: string;
   scan_id: string;
-  protein_level: FoodLensMacroLevel;
-  carb_level: FoodLensMacroLevel;
-  fat_level: FoodLensMacroLevel;
+  protein_level: FoodLensMealMacroLevel;
+  carb_level: FoodLensMealMacroLevel;
+  fat_level: FoodLensMealMacroLevel;
   protein_confidence: number;
   carb_confidence: number;
   fat_confidence: number;
@@ -138,7 +150,7 @@ export type FoodLensSignalDirection = 'match' | 'heavy' | 'light';
 
 export interface FoodLensComparisonSignal {
   dimension: 'protein' | 'carb' | 'fat';
-  mealLevel: FoodLensMacroLevel;
+  mealLevel: FoodLensMealMacroLevel;
   targetLevel: FoodLensMacroLevel;
   direction: FoodLensSignalDirection;
 }
@@ -151,6 +163,43 @@ export interface FoodLensPatternComparison {
   signals: FoodLensComparisonSignal[];
   /** Root-generated coaching copy — see this file's docblock. */
   narrative: string;
+  confidence: number;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Meal Quality indicator (green/yellow/red) — supabase/migrations/
+// 00000000000056_food_lens_meal_quality.sql
+// ---------------------------------------------------------------------------
+
+export type FoodLensMealQualityRatingValue = 'green' | 'yellow' | 'red';
+
+/** How much protein/fiber/micronutrient value a food has relative to its energy — a distinct judgment from the macro *emphasis* levels above (a food can be carb-'high' and still nutrient-dense, e.g. a bowl of lentils, or carb-'high' and nutrient-'low', e.g. a soda). */
+export type FoodLensNutrientDensity = 'low' | 'moderate' | 'high';
+export type FoodLensAddedSugarLevel = 'none' | 'some' | 'high';
+export type FoodLensProcessingLevel = 'whole_or_minimally_processed' | 'processed' | 'ultra_processed';
+
+/**
+ * The deterministic Meal Quality rating for one scan. Kept as its own
+ * table (not new columns on food_lens_pattern_comparisons) because a
+ * rating is computable, and useful, even for a member with no Primal
+ * Pattern target set yet — the same "still useful on its own" discipline
+ * doc 5 §5.5 already applies to the macro estimate.
+ */
+export interface FoodLensMealQualityRating {
+  id: string;
+  scan_id: string;
+  macro_estimate_id: string;
+  rating: FoodLensMealQualityRatingValue;
+  /** One short, reviewed explanation sentence shown beneath the rating — never generated per-call by an LLM; see lib/food-lens/mealQuality.ts. */
+  explanation: string;
+  nutrient_density: FoodLensNutrientDensity;
+  added_sugar_level: FoodLensAddedSugarLevel;
+  processing_level: FoodLensProcessingLevel;
+  has_meaningful_protein: boolean;
+  has_meaningful_fiber: boolean;
+  has_healthy_fat: boolean;
+  /** Confidence in these quality-signal judgments specifically — distinct from item-identification confidence (FoodLensDetectedItem.confidence) and macro-composition confidence (FoodLensMacroEstimate.*_confidence). */
   confidence: number;
   created_at: string;
 }

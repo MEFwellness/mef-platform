@@ -68,6 +68,15 @@ describe('compareMealToPattern', () => {
     );
     expect(confidence).toBeCloseTo(0.3);
   });
+
+  it('marks a "none" meal reading as "light" against any low/moderate/high target — never "match" just because it is the lowest rank', () => {
+    const { signals } = compareMealToPattern(
+      meal({ protein: { level: 'none', confidence: 0.8 } }),
+      target({ protein_emphasis: 'low' })
+    );
+    const proteinSignal = signals.find((s) => s.dimension === 'protein')!;
+    expect(proteinSignal.direction).toBe('light');
+  });
 });
 
 describe('overallConfidenceFor', () => {
@@ -82,10 +91,22 @@ describe('overallConfidenceFor', () => {
 });
 
 describe('deriveMacroEstimateFromItems', () => {
-  it('is honest that "no items in a category" is real information, not a missing measurement', () => {
+  it('is honest that "no items in a category" is real information, not a missing measurement — reads "none", never "low"', () => {
     const result = deriveMacroEstimateFromItems([item({ category: 'protein' })]);
-    expect(result.carb.level).toBe('low');
-    expect(result.carb.confidence).toBeLessThan(result.protein.confidence);
+    expect(result.carb.level).toBe('none');
+    expect(result.fat.level).toBe('none');
+  });
+
+  it('regression: a confirmed soda (Sprite) reads protein/fat as "none", not "low" — the original misleading-result bug', () => {
+    const result = deriveMacroEstimateFromItems([
+      item({ category: 'carb', confidence: 0.9 }),
+    ]);
+    expect(result.protein.level).toBe('none');
+    expect(result.carb.level).toBe('high');
+    expect(result.fat.level).toBe('none');
+    // A 'none' read from total absence in the member's own confirmed set is
+    // still a reasoned confidence, not a shrug default.
+    expect(result.protein.confidence).toBeGreaterThanOrEqual(0.5);
   });
 
   it('never lets "mixed"/"unknown" items inflate a specific dimension\'s share', () => {

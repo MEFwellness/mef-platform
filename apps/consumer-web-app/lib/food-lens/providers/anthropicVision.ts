@@ -20,8 +20,14 @@ const MAX_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 400;
 
 const RECORD_MEAL_ANALYSIS_TOOL = 'record_meal_analysis';
-const MACRO_LEVELS = ['low', 'moderate', 'high'] as const;
+// 'none' is a real, distinct level from 'low' — a meal reading can be
+// genuinely absent (a soda has no meaningful protein or fat), and forcing
+// that into 'low' is exactly what produced a misleading result before.
+const MACRO_LEVELS = ['none', 'low', 'moderate', 'high'] as const;
 const FOOD_CATEGORIES = ['protein', 'carb', 'fat', 'vegetable', 'mixed', 'unknown'] as const;
+const NUTRIENT_DENSITY_LEVELS = ['low', 'moderate', 'high'] as const;
+const ADDED_SUGAR_LEVELS = ['none', 'some', 'high'] as const;
+const PROCESSING_LEVELS = ['whole_or_minimally_processed', 'processed', 'ultra_processed'] as const;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -46,12 +52,35 @@ separable (casseroles, stir-fries, sauced dishes) rather than guessing a single 
 confidence.
 
 Then give a single plate-level estimate of the meal's overall protein, carbohydrate, and fat
-EMPHASIS as one of low/moderate/high each (never a percentage, never a gram value), each with its
-own confidence. This is a coarse relative judgment, not a nutrition-database lookup.
+EMPHASIS, each with its own confidence. This is a coarse relative judgment, not a nutrition-database
+lookup — never a percentage, never a gram value. Each dimension is one of:
+- "none" — essentially absent. Use this, not "low", when a macro is genuinely negligible: a can of
+  regular (non-diet) soda has no meaningful protein or fat; plain water has none of any macro; a
+  bowl of plain white rice has essentially no fat.
+- "low" — present, but a small share of the plate.
+- "moderate" / "high" — a moderate or dominant share of the plate.
+Do not default to "low" out of caution when the honest answer is "none" — that reads to a member as
+"a small amount," which is misleading for a food that has essentially none of that macro. When you
+recognize a specific, well-known packaged product or beverage, use your general knowledge of what
+that type of product typically contains (in addition to what's visible) to make this call, rather
+than treating every item as an ambiguous home-cooked plate.
 
-Be conservative with confidence: occluded, stacked, sauced, or ambiguous food should get a lower
-confidence, not a guessed-but-confident answer. You must call the ${RECORD_MEAL_ANALYSIS_TOOL} tool
-exactly once with your result.`;
+Separately, report your honest read of this meal/item's broader nutritional quality profile —
+this is a different judgment from the macro emphasis above (a food can be carb-"high" and still
+nutrient-dense, like lentils, or carb-"high" and nutrient-poor, like a soda):
+- nutrient_density: how much protein/fiber/vitamin/mineral value this has relative to its energy —
+  low/moderate/high.
+- added_sugar_level: none/some/high — added or refined sugar, not naturally occurring sugars in
+  whole fruit.
+- processing_level: whole_or_minimally_processed / processed / ultra_processed.
+- has_meaningful_protein / has_meaningful_fiber / has_healthy_fat: true only when genuinely present
+  in a meaningful amount, not a trace.
+- confidence (0 to 1) in THESE quality judgments specifically — this can differ from your
+  confidence in identifying the item, and from your confidence in the macro-emphasis levels above.
+
+Be conservative with confidence throughout: occluded, stacked, sauced, or ambiguous food should get
+a lower confidence, not a guessed-but-confident answer. You must call the
+${RECORD_MEAL_ANALYSIS_TOOL} tool exactly once with your result.`;
 
 function buildUserPromptText(
   personalizationContext: Array<{ label: string; category: string }> | undefined
@@ -79,7 +108,7 @@ function toolSchema() {
 
   return {
     name: RECORD_MEAL_ANALYSIS_TOOL,
-    description: 'Records structured, honest food identification and macro-emphasis estimates for one meal photo.',
+    description: 'Records structured, honest food identification, macro-emphasis, and quality-signal estimates for one meal photo.',
     input_schema: {
       type: 'object',
       properties: {
@@ -104,8 +133,29 @@ function toolSchema() {
           },
           required: ['protein', 'carb', 'fat'],
         },
+        quality_signals: {
+          type: 'object',
+          properties: {
+            nutrient_density: { type: 'string', enum: NUTRIENT_DENSITY_LEVELS },
+            added_sugar_level: { type: 'string', enum: ADDED_SUGAR_LEVELS },
+            processing_level: { type: 'string', enum: PROCESSING_LEVELS },
+            has_meaningful_protein: { type: 'boolean' },
+            has_meaningful_fiber: { type: 'boolean' },
+            has_healthy_fat: { type: 'boolean' },
+            confidence: { type: 'number', minimum: 0, maximum: 1 },
+          },
+          required: [
+            'nutrient_density',
+            'added_sugar_level',
+            'processing_level',
+            'has_meaningful_protein',
+            'has_meaningful_fiber',
+            'has_healthy_fat',
+            'confidence',
+          ],
+        },
       },
-      required: ['items', 'macro_estimate'],
+      required: ['items', 'macro_estimate', 'quality_signals'],
     },
   };
 }
@@ -117,6 +167,15 @@ type ToolResultShape = {
     carb: { level: string; confidence: number };
     fat: { level: string; confidence: number };
   };
+  quality_signals?: {
+    nutrient_density: string;
+    added_sugar_level: string;
+    processing_level: string;
+    has_meaningful_protein: boolean;
+    has_meaningful_fiber: boolean;
+    has_healthy_fat: boolean;
+    confidence: number;
+  };
 };
 
 function isMacroLevel(value: string): value is (typeof MACRO_LEVELS)[number] {
@@ -127,8 +186,20 @@ function isFoodCategory(value: string): value is (typeof FOOD_CATEGORIES)[number
   return (FOOD_CATEGORIES as readonly string[]).includes(value);
 }
 
+function isNutrientDensity(value: string): value is (typeof NUTRIENT_DENSITY_LEVELS)[number] {
+  return (NUTRIENT_DENSITY_LEVELS as readonly string[]).includes(value);
+}
+
+function isAddedSugarLevel(value: string): value is (typeof ADDED_SUGAR_LEVELS)[number] {
+  return (ADDED_SUGAR_LEVELS as readonly string[]).includes(value);
+}
+
+function isProcessingLevel(value: string): value is (typeof PROCESSING_LEVELS)[number] {
+  return (PROCESSING_LEVELS as readonly string[]).includes(value);
+}
+
 function clampConfidence(value: number): number {
-  if (Number.isNaN(value)) return 0;
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0;
   return Math.min(1, Math.max(0, value));
 }
 
@@ -245,9 +316,24 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
       }));
 
     const dimension = (d: { level: string; confidence: number } | undefined) => ({
+      // A malformed/missing dimension defaults to 'low' paired with
+      // confidence 0 — not 'none', since asserting absence is itself a
+      // claim we have no basis for here; the 0 confidence is what tells
+      // the UI/member this reading isn't trustworthy, not the level word.
       level: d && isMacroLevel(d.level) ? d.level : ('low' as const),
       confidence: d ? clampConfidence(d.confidence) : 0,
     });
+
+    const qs = input.quality_signals;
+    const qualitySignals = {
+      nutrientDensity: qs && isNutrientDensity(qs.nutrient_density) ? qs.nutrient_density : ('low' as const),
+      addedSugarLevel: qs && isAddedSugarLevel(qs.added_sugar_level) ? qs.added_sugar_level : ('none' as const),
+      processingLevel: qs && isProcessingLevel(qs.processing_level) ? qs.processing_level : ('processed' as const),
+      hasMeaningfulProtein: qs?.has_meaningful_protein === true,
+      hasMeaningfulFiber: qs?.has_meaningful_fiber === true,
+      hasHealthyFat: qs?.has_healthy_fat === true,
+      confidence: qs ? clampConfidence(qs.confidence) : 0,
+    };
 
     return {
       provider: this.name,
@@ -258,6 +344,7 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
         carb: dimension(input.macro_estimate?.carb),
         fat: dimension(input.macro_estimate?.fat),
       },
+      qualitySignals,
     };
   }
 }

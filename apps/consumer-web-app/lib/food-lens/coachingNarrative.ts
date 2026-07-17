@@ -52,13 +52,15 @@ experienced, and genuinely familiar with their history, not a generic nutrition-
 writing ONE short reaction to a meal they just photographed with MEF Food Lens.
 
 You are given, below, the ONLY facts you may use: the foods detected in this specific photo, a
-plate-level protein/carbohydrate/fat emphasis read (as low/moderate/high, never a number), how that
-compares to this member's own Primal Pattern eating target, and a little real context about this
-member (their recent Food Lens history, relevant wellness patterns, and current coaching focus).
+plate-level protein/carbohydrate/fat emphasis read (as none/low/moderate/high, never a number), how
+that compares to this member's own Primal Pattern eating target, and a little real context about
+this member (their recent Food Lens history, relevant wellness patterns, and current coaching focus).
+"None" means that macro is essentially absent (e.g. a sugary drink's protein or fat) — a real,
+distinct reading, not a placeholder; say so plainly rather than softening it into "a little."
 
 Hard rules, no exceptions:
 - Never state a calorie count, a gram weight, a percentage, or any numeric nutrition value. Only
-  ever speak in the low/moderate/high vocabulary you were given.
+  ever speak in the none/low/moderate/high vocabulary you were given.
 - Never invent a food item, a detail, or a fact that isn't in the data below. If the data is thin,
   say less, don't fill the gap with a guess.
 - Never diagnose a condition or claim a specific medical cause for anything.
@@ -106,7 +108,10 @@ export function buildDeterministicFallbackNarrative(
     return `This meal looks like a solid match for ${patternPhrase}.`;
   }
 
-  return `This meal reads ${nonMatch.mealLevel} in ${nonMatch.dimension} — ${directionWord(nonMatch.direction)} what ${patternPhrase} calls for right now.`;
+  const levelPhrase =
+    nonMatch.mealLevel === 'none' ? `shows no ${nonMatch.dimension}` : `reads ${nonMatch.mealLevel} in ${nonMatch.dimension}`;
+
+  return `This meal ${levelPhrase} — ${directionWord(nonMatch.direction)} what ${patternPhrase} calls for right now.`;
 }
 
 /** Used only when a member currently has an active safety restriction (doc 7.3) — a generic, gentle line with no detailed macro-balance talk. */
