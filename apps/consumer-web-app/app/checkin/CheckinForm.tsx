@@ -1,8 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Smile,
+  Moon,
+  Droplet,
+  Footprints,
+  MessageCircle,
+  CheckCircle2,
+  type LucideIcon,
+} from 'lucide-react';
 import { submitDailyCheckin, logHabitCompletion } from '@/app/actions/checkin';
 import type { DailyCheckin, DailyCheckinInput, Habit } from '@mef/shared-types-contracts';
 
@@ -12,7 +21,14 @@ type Props = {
   existingCheckin: DailyCheckin | null;
   habits: Habit[];
   initialHabitLogs: Record<string, boolean>;
-  cardClassName: string;
+  /**
+   * True only when this member has never completed a check-in before this
+   * one. Drives the post-save redirect to the Milestone 4 first-check-in
+   * transition (`/dashboard?firstCheckin=1`) rather than a plain dashboard
+   * redirect — computed by the server page from a real history read, not
+   * guessed here.
+   */
+  isFirstCheckin: boolean;
 };
 
 const SLEEP_DURATIONS = ['<5h', '5-6h', '6-7h', '7-8h', '8h+'] as const;
@@ -23,39 +39,78 @@ const MOVEMENT_LEVELS = [
   { value: 'full_session', label: 'Full session' },
 ] as const;
 
-function ScaleInput({
-  label,
+/** The "replace numbers with meaning" word sets, per Premium UX Milestone 4 — the 1-5 (or 0-5) integer stored on the row never changes, only what the member sees while choosing it. */
+const MOOD_MEANING = ['Very Low', 'Low', 'Okay', 'Good', 'Excellent'] as const;
+const ENERGY_MEANING = ['Exhausted', 'Low', 'Moderate', 'Good', 'High'] as const;
+const STRESS_MEANING = ['Very Calm', 'Calm', 'Moderate', 'High', 'Overwhelmed'] as const;
+const SLEEP_QUALITY_MEANING = ['Terrible', 'Poor', 'Fair', 'Good', 'Excellent'] as const;
+const DIGESTION_MEANING = ['Poor', 'Somewhat off', 'Fair', 'Good', 'Excellent'] as const;
+const PAIN_MEANING = ['None', 'Mild', 'Mild-moderate', 'Moderate', 'Significant', 'Severe'] as const;
+
+const SECTION_CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-shadow duration-300 hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]';
+
+function SectionHeader({
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">
+        <Icon className="h-4 w-4 text-[#1B3A2D]/70" strokeWidth={1.75} aria-hidden="true" />
+      </div>
+      <div>
+        <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
+          {title}
+        </p>
+        <p className="text-[13px] text-[#6B7A72]">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+/** A single "how much" rating, presented as its meaning rather than a bare number — the selected word is what the member reads back, the integer underneath is exactly what was scored before. */
+function MeaningScale({
+  question,
+  meanings,
   value,
   onChange,
   min = 1,
-  max = 5,
 }: {
-  label: string;
+  question: string;
+  meanings: readonly string[];
   value: number | null;
   onChange: (value: number) => void;
   min?: number;
-  max?: number;
 }) {
-  const options = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const options = meanings.map((word, i) => ({ value: min + i, word }));
+
   return (
     <div>
-      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">{label}</p>
-      <div className="mt-2 flex gap-2">
-        {options.map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => onChange(option)}
-            aria-pressed={value === option}
-            className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-medium transition-colors ${
-              value === option
-                ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
-                : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/30'
-            }`}
-          >
-            {option}
-          </button>
-        ))}
+      <p className="text-[13px] leading-relaxed text-[#6B7A72]">{question}</p>
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={question}>
+        {options.map((option) => {
+          const isSelected = value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              aria-pressed={isSelected}
+              className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                isSelected
+                  ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                  : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+              }`}
+            >
+              {option.word}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -67,7 +122,7 @@ export function CheckinForm({
   existingCheckin,
   habits,
   initialHabitLogs,
-  cardClassName,
+  isFirstCheckin,
 }: Props) {
   const router = useRouter();
   const [moodLevel, setMoodLevel] = useState<number | null>(existingCheckin?.mood_level ?? null);
@@ -98,6 +153,23 @@ export function CheckinForm({
   const [habitStatus, setHabitStatus] = useState<Record<string, boolean>>(initialHabitLogs);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Premium UX Milestone 4, "better progress feedback" — a calm sense of
+  // motion through the check-in rather than a blocking wizard. Habits and
+  // the fully-optional reflection notes are deliberately excluded from the
+  // denominator: their presence/size varies per member and per day, so
+  // counting them would make the same effort look like a different amount
+  // of "progress" from one day to the next.
+  const { completedSections, totalSections } = useMemo(() => {
+    const feelingsDone = moodLevel !== null && energyLevel !== null && stressLevel !== null;
+    const sleepDone = sleepQuality !== null && sleepDuration !== null;
+    const hydrationDone = waterCups > 0;
+    const bodyDone = digestionRating !== null && painLevel !== null && movementToday !== null;
+    return {
+      completedSections: [feelingsDone, sleepDone, hydrationDone, bodyDone].filter(Boolean).length,
+      totalSections: 4,
+    };
+  }, [moodLevel, energyLevel, stressLevel, sleepQuality, sleepDuration, waterCups, digestionRating, painLevel, movementToday]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -139,7 +211,7 @@ export function CheckinForm({
       return;
     }
 
-    router.push('/dashboard');
+    router.push(isFirstCheckin ? '/dashboard?firstCheckin=1' : '/dashboard');
     router.refresh();
   }
 
@@ -152,31 +224,78 @@ export function CheckinForm({
     }
   }
 
+  const progressLabel =
+    completedSections === totalSections
+      ? 'All set — ready to save'
+      : `${totalSections - completedSections} section${totalSections - completedSections === 1 ? '' : 's'} left`;
+
   return (
-    <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-      <div className={`${cardClassName} space-y-5 p-6`}>
-        <ScaleInput label="Mood" value={moodLevel} onChange={setMoodLevel} />
-        <ScaleInput label="Energy" value={energyLevel} onChange={setEnergyLevel} />
-        <ScaleInput label="Stress" value={stressLevel} onChange={setStressLevel} />
+    <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+      {/* Progress feedback — subtle, never blocking submission. */}
+      <div className="flex items-center gap-3">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#1B3A2D]/[0.07]">
+          <div
+            className="h-full rounded-full bg-[#1B3A2D] transition-all duration-500 ease-out"
+            style={{ width: `${(completedSections / totalSections) * 100}%` }}
+          />
+        </div>
+        <p className="shrink-0 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
+          {progressLabel}
+        </p>
       </div>
 
-      <div className={`${cardClassName} p-6`}>
-        <ScaleInput label="Sleep quality" value={sleepQuality} onChange={setSleepQuality} />
-        <div className="mt-5">
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-            Sleep duration
+      <div className={`${SECTION_CARD} mef-animate-in space-y-6 p-7`}>
+        <SectionHeader
+          icon={Smile}
+          title="How you're feeling"
+          subtitle="A quick emotional and physical read on right now"
+        />
+        <MeaningScale
+          question="How are you feeling emotionally today?"
+          meanings={MOOD_MEANING}
+          value={moodLevel}
+          onChange={setMoodLevel}
+        />
+        <MeaningScale
+          question="How energized do you feel right now?"
+          meanings={ENERGY_MEANING}
+          value={energyLevel}
+          onChange={setEnergyLevel}
+        />
+        <MeaningScale
+          question="How much stress are you carrying today?"
+          meanings={STRESS_MEANING}
+          value={stressLevel}
+          onChange={setStressLevel}
+        />
+      </div>
+
+      <div
+        className={`${SECTION_CARD} mef-animate-in space-y-6 p-7`}
+        style={{ animationDelay: '60ms' }}
+      >
+        <SectionHeader icon={Moon} title="Sleep" subtitle="How last night set up today" />
+        <MeaningScale
+          question="How restorative was your sleep?"
+          meanings={SLEEP_QUALITY_MEANING}
+          value={sleepQuality}
+          onChange={setSleepQuality}
+        />
+        <div>
+          <p className="text-[13px] leading-relaxed text-[#6B7A72]">
+            About how many hours did you sleep?
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {SLEEP_DURATIONS.map((duration) => (
               <button
                 key={duration}
                 type="button"
                 onClick={() => setSleepDuration(duration)}
                 aria-pressed={sleepDuration === duration}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
                   sleepDuration === duration
-                    ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
-                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/30'
+                    ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
                 }`}
               >
                 {duration}
@@ -186,24 +305,30 @@ export function CheckinForm({
         </div>
       </div>
 
-      <div className={`${cardClassName} p-6`}>
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Water</p>
-        <div className="mt-3 flex items-center gap-4">
+      <div
+        className={`${SECTION_CARD} mef-animate-in p-7`}
+        style={{ animationDelay: '120ms' }}
+      >
+        <SectionHeader icon={Droplet} title="Hydration" subtitle="How hydrated are you today?" />
+        <div className="mt-4 flex items-center gap-5">
           <button
             type="button"
             onClick={() => setWaterCups((cups) => Math.max(0, cups - 1))}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#1B3A2D]/10 text-lg text-[#1B3A2D] transition hover:border-[#1B3A2D]/30"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#1B3A2D]/10 text-lg text-[#1B3A2D] transition-all duration-150 ease-out hover:border-[#1B3A2D]/30 active:scale-90"
             aria-label="Remove a cup"
           >
             −
           </button>
-          <p className="text-2xl font-semibold text-[#1B3A2D]">
-            {waterCups} <span className="text-sm font-normal text-[#6B7A72]">of 8 cups</span>
+          <p className="min-w-[7rem] text-2xl font-semibold text-[#1B3A2D]">
+            <span key={waterCups} className="mef-pop-in inline-block">
+              {waterCups}
+            </span>{' '}
+            <span className="text-sm font-normal text-[#6B7A72]">of 8 cups</span>
           </p>
           <button
             type="button"
             onClick={() => setWaterCups((cups) => cups + 1)}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-[#1B3A2D]/10 text-lg text-[#1B3A2D] transition hover:border-[#1B3A2D]/30"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#1B3A2D]/10 text-lg text-[#1B3A2D] transition-all duration-150 ease-out hover:border-[#1B3A2D]/30 active:scale-90"
             aria-label="Add a cup"
           >
             +
@@ -211,30 +336,43 @@ export function CheckinForm({
         </div>
       </div>
 
-      <div className={`${cardClassName} space-y-5 p-6`}>
-        <ScaleInput label="Digestion" value={digestionRating} onChange={setDigestionRating} />
-        <ScaleInput
-          label="Pain / discomfort"
+      <div
+        className={`${SECTION_CARD} mef-animate-in space-y-6 p-7`}
+        style={{ animationDelay: '180ms' }}
+      >
+        <SectionHeader
+          icon={Footprints}
+          title="Body & movement"
+          subtitle="Digestion, discomfort, and how much you moved"
+        />
+        <MeaningScale
+          question="How is your body digesting and processing food today?"
+          meanings={DIGESTION_MEANING}
+          value={digestionRating}
+          onChange={setDigestionRating}
+        />
+        <MeaningScale
+          question="Are you noticing any pain or physical discomfort?"
+          meanings={PAIN_MEANING}
           value={painLevel}
           onChange={setPainLevel}
           min={0}
-          max={5}
         />
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-            Movement today
+          <p className="text-[13px] leading-relaxed text-[#6B7A72]">
+            How much did you move your body today?
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {MOVEMENT_LEVELS.map((level) => (
               <button
                 key={level.value}
                 type="button"
                 onClick={() => setMovementToday(level.value)}
                 aria-pressed={movementToday === level.value}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
                   movementToday === level.value
-                    ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
-                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/30'
+                    ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
                 }`}
               >
                 {level.label}
@@ -245,15 +383,24 @@ export function CheckinForm({
       </div>
 
       {habits.length > 0 && (
-        <div className={`${cardClassName} p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-            Today&apos;s habits
-          </p>
-          <div className="mt-3 space-y-2">
+        <div
+          className={`${SECTION_CARD} mef-animate-in p-7`}
+          style={{ animationDelay: '240ms' }}
+        >
+          <SectionHeader
+            icon={CheckCircle2}
+            title="Today's habits"
+            subtitle="Mark off what you've already done"
+          />
+          <div className="mt-4 space-y-2">
             {habits.map((habit) => (
               <label
                 key={habit.id}
-                className="flex items-center gap-3 rounded-2xl border border-[#1B3A2D]/10 px-4 py-3 text-sm text-[#1B3A2D]"
+                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition-all duration-200 ease-out ${
+                  habitStatus[habit.id]
+                    ? 'border-[#1B3A2D]/15 bg-[#1B3A2D]/[0.04] text-[#1B3A2D]'
+                    : 'border-[#1B3A2D]/10 text-[#1B3A2D]'
+                }`}
               >
                 <input
                   type="checkbox"
@@ -268,8 +415,16 @@ export function CheckinForm({
         </div>
       )}
 
-      <div className={`${cardClassName} p-6`}>
-        <label className="flex items-start gap-3 text-sm text-[#1B3A2D]">
+      <div
+        className={`${SECTION_CARD} mef-animate-in p-7`}
+        style={{ animationDelay: '300ms' }}
+      >
+        <SectionHeader
+          icon={MessageCircle}
+          title="Anything else?"
+          subtitle="Entirely optional — share as much or as little as you'd like"
+        />
+        <label className="mt-4 flex items-start gap-3 text-sm text-[#1B3A2D]">
           <input
             type="checkbox"
             checked={concern}
@@ -280,17 +435,17 @@ export function CheckinForm({
         </label>
         <div className="mt-4">
           <label
-            className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]"
+            className="text-[13px] leading-relaxed text-[#6B7A72]"
             htmlFor="notes"
           >
-            Notes (optional)
+            Notes
           </label>
           <textarea
             id="notes"
             value={notes ?? ''}
             onChange={(event) => setNotes(event.target.value)}
             rows={3}
-            className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+            className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
             placeholder="Anything else worth noting today?"
           />
         </div>
@@ -305,7 +460,7 @@ export function CheckinForm({
       <button
         type="submit"
         disabled={submitting}
-        className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+        className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition-all duration-200 ease-out hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
       >
         {submitting ? 'Saving…' : existingCheckin ? 'Update check-in' : 'Save check-in'}
       </button>

@@ -69,6 +69,9 @@ import { WearableWelcomeModal } from '@/components/wearables/WearableWelcomeModa
 import { WearableStatsRow } from '@/app/today/WearableStatsRow';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
+import { FirstCheckinTransition } from '@/components/FirstCheckinTransition';
+import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
+import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import {
   stressStatus,
   painStatus,
@@ -133,29 +136,34 @@ function previousLocalDate(localDate: string): string {
   return date.toISOString().slice(0, 10);
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { firstCheckin?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // All five of these are independent reads (each of the three action
+  // All six of these are independent reads (each of the three action
   // calls resolves its own user internally and touches none of the
-  // others' data), so batching them removes four serial network round
+  // others' data), so batching them removes five serial network round
   // trips that were previously paid one after another before the page
   // could render — the single biggest fixable cause of this page feeling
   // slow to open. Wearable discoverability (Premium Product Pass): a
   // connected wearable replaces the "unlock" pitch with today's real
   // recovery numbers; no connection at all also triggers the one-time
   // welcome modal below.
-  const [{ data: profile }, isCoach, wearableConnections, decision, morningBrief] =
+  const [{ data: profile }, isCoach, wearableConnections, decision, morningBrief, baseline] =
     await Promise.all([
       supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
       hasActiveRole(supabase, user.id, 'coach'),
       getMyWearableConnections(),
       getMyCoachingDecision(),
       getMyMorningBrief(),
+      getMyBaselineAssessment(),
     ]);
   const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
 
@@ -225,6 +233,15 @@ export default async function DashboardPage() {
           <FirstCheckInWelcome firstName={firstName} />
         ) : (
           <>
+          {/* ---------------------------------------------------- */}
+          {/* Comprehensive Assessment — Premium UX Milestone 4:      */}
+          {/* stays prominent here (never buried in Profile) until    */}
+          {/* the member has one on file, then auto-replaces itself   */}
+          {/* with a real, data-backed summary. See                   */}
+          {/* components/ComprehensiveAssessmentCard.tsx.              */}
+          {/* ---------------------------------------------------- */}
+          <ComprehensiveAssessmentCard baseline={baseline} />
+
           {/* ---------------------------------------------------- */}
           {/* Root's Daily Brief — the Proactive Coaching Engine's    */}
           {/* flagship surface, first thing shown after the greeting. */}
@@ -536,12 +553,20 @@ export default async function DashboardPage() {
         entryContext={buildDashboardEntryContext(wellnessIndex)}
       />
 
-      {/* Suppressed during the pre-first-check-in welcome state — a modal
-          competing with FirstCheckInWelcome's own single CTA right after
-          onboarding would undercut "one premium welcome experience." It
-          still shows (once, per its own localStorage dismissal) on a
-          later visit after that first check-in is done. */}
-      {!hasConnectedWearable && recentCheckins.length > 0 && <WearableWelcomeModal />}
+      {/* Suppressed during the pre-first-check-in welcome state, and
+          during the first-check-in transition below — a modal competing
+          with either of those single-CTA moments would undercut "one
+          premium welcome experience." It still shows (once, per its own
+          localStorage dismissal) on a later visit. */}
+      {!hasConnectedWearable && recentCheckins.length > 0 && searchParams.firstCheckin !== '1' && (
+        <WearableWelcomeModal />
+      )}
+
+      {/* Premium UX Milestone 4, part 6 — the one-time transition shown
+          immediately after a member's first-ever completed check-in. */}
+      {searchParams.firstCheckin === '1' && (
+        <FirstCheckinTransition firstName={firstName} hasBaseline={baseline !== null} />
+      )}
     </div>
   );
 }

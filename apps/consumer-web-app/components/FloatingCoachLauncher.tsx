@@ -48,6 +48,12 @@ export function FloatingCoachLauncher({
   label?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  // Separate from `isOpen` so the sheet mounts in its "entering" state
+  // first, then flips to visible a frame later — that one-frame gap is
+  // what turns the open into a real transition (opacity/translate below)
+  // instead of the panel simply appearing, per part 7's "smooth open
+  // animation."
+  const [visible, setVisible] = useState(false);
   const [sheetState, setSheetState] = useState<CoachSheetState>('half');
   const [active, setActive] = useState<RootOpenRequest>({ entryPoint, entryContext, starterPrompts });
   const launcherButtonRef = useRef<HTMLButtonElement>(null);
@@ -87,8 +93,18 @@ export function FloatingCoachLauncher({
     if (isOpen) setSheetState('half');
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setVisible(false);
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, [isOpen]);
+
   function close() {
-    setIsOpen(false);
+    setVisible(false);
+    // Let the closing transition play before actually unmounting, rather
+    // than cutting it off instantly — matches the open side's animation.
+    window.setTimeout(() => setIsOpen(false), 150);
     launcherButtonRef.current?.focus();
   }
 
@@ -117,7 +133,9 @@ export function FloatingCoachLauncher({
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-[#1B3A2D]/20 backdrop-blur-[1px] md:bg-transparent md:backdrop-blur-none"
+            className={`fixed inset-0 z-40 bg-[#1B3A2D]/20 backdrop-blur-[1px] transition-opacity duration-200 md:bg-transparent md:backdrop-blur-none ${
+              visible ? 'opacity-100' : 'opacity-0'
+            }`}
             onClick={close}
             aria-hidden="true"
           />
@@ -136,14 +154,14 @@ export function FloatingCoachLauncher({
               keyboardInset > 0
                 ? {
                     bottom: keyboardInset,
-                    height: `calc(${sheetState === 'expanded' ? '88dvh' : '60dvh'} - ${keyboardInset}px)`,
-                    maxHeight: `calc(${sheetState === 'expanded' ? '88dvh' : '60dvh'} - ${keyboardInset}px)`,
+                    height: `calc(${sheetState === 'expanded' ? '88dvh' : '81dvh'} - ${keyboardInset}px)`,
+                    maxHeight: `calc(${sheetState === 'expanded' ? '88dvh' : '81dvh'} - ${keyboardInset}px)`,
                   }
                 : undefined
             }
-            className={`fixed inset-x-0 bottom-0 z-50 flex w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-[0_-12px_48px_-8px_rgba(27,58,45,0.35)] transition-[max-height] duration-200 md:inset-x-auto md:bottom-8 md:right-8 md:max-h-[75vh] md:w-[400px] md:rounded-[28px] md:shadow-[0_12px_48px_-8px_rgba(27,58,45,0.35)] ${
+            className={`fixed inset-x-0 bottom-0 z-50 flex w-full flex-col overflow-hidden rounded-t-[28px] bg-white shadow-[0_-12px_48px_-8px_rgba(27,58,45,0.35)] transition-[max-height,opacity,transform] duration-200 ease-out md:inset-x-auto md:bottom-8 md:right-8 md:min-h-[500px] md:max-h-[75vh] md:w-[400px] md:rounded-[28px] md:shadow-[0_12px_48px_-8px_rgba(27,58,45,0.35)] ${
               sheetState === 'expanded' ? 'mef-coach-sheet-height' : 'mef-coach-sheet-height-half'
-            }`}
+            } ${visible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 md:translate-y-2'}`}
           >
             <FloatingCoachPanel
               entryPoint={active.entryPoint}

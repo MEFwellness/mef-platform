@@ -51,6 +51,7 @@ export function FloatingCoachPanel({
   onToggleSheetState?: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [session, setSession] = useState<ConversationSession | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
@@ -63,6 +64,20 @@ export function FloatingCoachPanel({
   useEffect(() => {
     closeButtonRef.current?.focus();
   }, []);
+
+  // Premium UX Milestone 4, part 7 — "newest message always visible."
+  // Without this the message list simply grew downward off-screen on
+  // every reply, silently requiring the member to scroll to see what
+  // Root just said. `auto` (not `smooth`) on the initial thread load
+  // so opening the panel doesn't visibly animate past a whole
+  // conversation; replies while it's already open still feel like a
+  // gentle scroll rather than a jump.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: isLoading ? 'auto' : 'smooth',
+      block: 'end',
+    });
+  }, [messages, pendingEcho, isPending, isLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -200,7 +215,7 @@ export function FloatingCoachPanel({
               </div>
             )}
 
-            {messages.slice(-6).map((message) => (
+            {messages.slice(-8).map((message) => (
               <Bubble key={message.id} message={message} />
             ))}
             {pendingEcho && session && (
@@ -225,6 +240,7 @@ export function FloatingCoachPanel({
             {isPending && pendingEcho && <TypingIndicator />}
 
             {error && <p className="text-sm text-red-700">{error}</p>}
+            <div ref={messagesEndRef} aria-hidden="true" />
           </>
         )}
       </div>

@@ -5,6 +5,7 @@ import {
   getTodaysCheckin,
   getActiveHabits,
   getHabitLogsForDate,
+  getRecentCheckins,
   resolveLocalDate,
 } from '@/app/actions/checkin';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -37,11 +38,16 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
   const hoursSinceMidnight = nowInTz.getHours() + nowInTz.getMinutes() / 60;
   const canLogYesterday = hoursSinceMidnight < 6;
 
-  const [existingCheckin, habits, habitLogs] = await Promise.all([
+  const [existingCheckin, habits, habitLogs, priorCheckins] = await Promise.all([
     getTodaysCheckin(localDate),
     getActiveHabits(),
     getHabitLogsForDate(localDate),
+    getRecentCheckins(1),
   ]);
+  // True only when this member has never completed any check-in before —
+  // drives the Milestone 4 first-check-in transition on Dashboard, not
+  // just "haven't logged today yet."
+  const isFirstCheckin = existingCheckin === null && priorCheckins.length === 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -52,10 +58,10 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           </h1>
           <AvatarLink firstName={firstName} />
         </div>
-        <p className="mt-2 text-[15px] text-[#6B7A72]">
+        <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
           {existingCheckin
             ? "You've already logged this day — update anything below."
-            : 'Takes about a minute. Every field is optional except mood, sleep quality, energy, and stress.'}
+            : 'A few gentle questions so Root understands how today actually feels. Takes about a minute.'}
         </p>
 
         {!requestedYesterday && canLogYesterday && (
@@ -81,7 +87,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           existingCheckin={existingCheckin}
           habits={habits}
           initialHabitLogs={habitLogs}
-          cardClassName={CARD}
+          isFirstCheckin={isFirstCheckin}
         />
 
         <section className={`${CARD} mt-5 p-5`}>

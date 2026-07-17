@@ -41,6 +41,8 @@ import {
   getHabitLogsForDate,
 } from '@/app/actions/checkin';
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
+import { getMyBaselineAssessment } from '@/app/actions/onboarding';
+import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
 import { waterStatus, digestionStatus, STATUS_STYLES } from '@/lib/wellness/status';
 import type { CoachingMode } from '@/lib/brain/types';
 import { buildCoachNote, buildBonusChallenge, parseSelectionReason } from '@/lib/feed/copy';
@@ -125,17 +127,26 @@ export default async function TodayPage() {
   // getRecentCheckins and getActiveHabits don't depend on the
   // profile/timezone lookups below, so they join this first batch
   // instead of paying their own, separate round trips afterward.
-  const [isCoach, { data: profile }, decision, history, notifications, recentCheckins, habits] =
-    await Promise.all([
-      hasActiveRole(supabase, user.id, 'coach'),
-      supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
-      getMyCoachingDecision(),
-      getFeedHistory(),
-      getMyNotifications(5),
-      // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
-      getRecentCheckins(30),
-      getActiveHabits(),
-    ]);
+  const [
+    isCoach,
+    { data: profile },
+    decision,
+    history,
+    notifications,
+    recentCheckins,
+    habits,
+    baseline,
+  ] = await Promise.all([
+    hasActiveRole(supabase, user.id, 'coach'),
+    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+    getMyCoachingDecision(),
+    getFeedHistory(),
+    getMyNotifications(5),
+    // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
+    getRecentCheckins(30),
+    getActiveHabits(),
+    getMyBaselineAssessment(),
+  ]);
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const timezone = profile?.timezone ?? 'America/New_York';
@@ -243,6 +254,14 @@ export default async function TodayPage() {
                   </p>
                 </div>
               </Link>
+            </div>
+
+            {/* Comprehensive Assessment — Premium UX Milestone 4: stays
+                prominent here (never buried in Profile) until the member
+                has one on file, then auto-replaces itself with a real,
+                data-backed summary. */}
+            <div className="mt-6">
+              <ComprehensiveAssessmentCard baseline={baseline} />
             </div>
 
             {/* Today's Habits — read-only status; logged from the check-in. */}

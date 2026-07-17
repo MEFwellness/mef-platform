@@ -219,6 +219,12 @@
  * its own scroll container, so long conversations grew the whole sheet
  * past its cap and the outer `overflow-hidden` clipped the composer and
  * the tail of the conversation instead of scrolling internally.
+ *
+ * Premium UX Milestone 4, part 7: the default ("half") sheet felt cramped
+ * — a couple of messages and the member was already scrolling. 60vh -> 81vh
+ * is the requested ~35% increase; "expanded" stays at 88vh, already close
+ * to the practical ceiling before the header/composer get too cramped
+ * against the top/bottom of the screen.
  */
 @media (max-width: 767.98px) {
   .mef-coach-sheet-height {
@@ -234,14 +240,14 @@
   }
 
   .mef-coach-sheet-height-half {
-    height: 60vh;
-    max-height: 60vh;
+    height: 81vh;
+    max-height: 81vh;
   }
 
   @supports (height: 100dvh) {
     .mef-coach-sheet-height-half {
-      height: 60dvh;
-      max-height: 60dvh;
+      height: 81dvh;
+      max-height: 81dvh;
     }
   }
 }
