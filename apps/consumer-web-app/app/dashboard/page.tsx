@@ -37,9 +37,7 @@
  *     else about the logo (size/placement/markup all identical).
  */
 
-import Link from 'next/link';
 import Image from 'next/image';
-import type { Route } from 'next';
 import {
   Droplet,
   Moon,
@@ -70,6 +68,7 @@ import { ConnectWearableCard } from '@/components/wearables/ConnectWearableCard'
 import { WearableWelcomeModal } from '@/components/wearables/WearableWelcomeModal';
 import { WearableStatsRow } from '@/app/today/WearableStatsRow';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
+import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
 import {
   stressStatus,
   painStatus,
@@ -216,16 +215,32 @@ export default async function DashboardPage() {
         </div>
 
         <div className="mt-7 space-y-5">
+        {recentCheckins.length === 0 ? (
+          /* Premium UX Milestone 2: before a member's first completed
+             check-in, Root has nothing real to personalize yet — one
+             welcome moment with a single CTA replaces what would
+             otherwise be an empty brief, an empty wearable pitch, an
+             empty wellness index, seven "Not logged yet" tracker cards,
+             and an empty trend chart all stacked on top of each other. */
+          <FirstCheckInWelcome firstName={firstName} />
+        ) : (
+          <>
           {/* ---------------------------------------------------- */}
-          {/* Root's Morning Brief — the Proactive Coaching Engine's  */}
+          {/* Root's Daily Brief — the Proactive Coaching Engine's    */}
           {/* flagship surface, first thing shown after the greeting. */}
+          {/* Dashboard-only now (Milestone 2): it used to also render */}
+          {/* on Today, which made the two pages feel duplicated.      */}
           {/* ---------------------------------------------------- */}
-          {morningBrief && <MorningBriefCard brief={morningBrief} />}
+          {morningBrief && (
+            <MorningBriefCard brief={morningBrief} greetingWord={timeContext.greetingWord} />
+          )}
 
           {/* ---------------------------------------------------- */}
-          {/* Wearable discoverability — the unlock pitch until a    */}
-          {/* device is connected, then today's real recovery        */}
-          {/* numbers (WearableStatsRow, the same tiles Today shows). */}
+          {/* Wearable Status + Recovery — the unlock pitch until a   */}
+          {/* device is connected, then today's real recovery         */}
+          {/* numbers. Dashboard-only now (Milestone 2): Today used    */}
+          {/* to render this same connect pitch and the same stats     */}
+          {/* row a second time.                                       */}
           {/* ---------------------------------------------------- */}
           {hasConnectedWearable ? (
             decision?.wearableSnapshot ? (
@@ -257,78 +272,25 @@ export default async function DashboardPage() {
           )}
 
           {/* ---------------------------------------------------- */}
-          {/* Daily Wellness Index — first thing shown after login,  */}
-          {/* per the current milestone. Real weighted score from    */}
-          {/* today's check-in (lib/wellness/wellness-index.ts);     */}
-          {/* never a placeholder number.                            */}
+          {/* Daily Wellness Index — real weighted score from         */}
+          {/* today's check-in (lib/wellness/wellness-index.ts);       */}
+          {/* never a placeholder number. Its own empty state covers   */}
+          {/* the "checked in before, not yet today" case.             */}
           {/* ---------------------------------------------------- */}
           <WellnessIndexCard
             result={wellnessIndex}
             previousScore={yesterdaysWellnessIndex?.score ?? null}
           />
-
           {/* ---------------------------------------------------- */}
-          {/* Today's Focus + CTA — the two things that actually    */}
-          {/* need this member's attention right now, given equal    */}
-          {/* weight. Next Session (below) is real but not yet live  */}
-          {/* (no booking integration), so it no longer competes for  */}
-          {/* the same visual priority as these two.                 */}
+          {/* Current wellness overview — today's numbers only when   */}
+          {/* today's check-in actually exists; otherwise a single     */}
+          {/* prompt instead of seven "Not logged yet" cards. (The      */}
+          {/* check-in status/CTA itself now lives on Today, which      */}
+          {/* answers "what should I do today" instead of "how am I     */}
+          {/* doing" — see Today's Check-In Progress section.)          */}
           {/* ---------------------------------------------------- */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <section className={`${CARD} p-7`}>
-              <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
-                Today&apos;s Focus
-              </p>
-              {todaysCheckin ? (
-                <>
-                  <h2 className="mt-3 text-xl font-semibold leading-snug tracking-tight text-[#1B3A2D]">
-                    You&apos;ve checked in today
-                  </h2>
-                  <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                    Thanks for logging today. Come back tomorrow to keep your trend going.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h2 className="mt-3 text-xl font-semibold leading-snug tracking-tight text-[#1B3A2D]">
-                    You haven&apos;t checked in yet today
-                  </h2>
-                  <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                    A quick check-in keeps your coach in the loop and your trends accurate.
-                  </p>
-                </>
-              )}
-            </section>
-
-            <Link
-              href={'/checkin' as Route}
-              className={`${CARD} flex items-center justify-between bg-[#F5B700] p-6 text-left text-[#1B3A2D] transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B3A2D]`}
-            >
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-[#1B3A2D]/70">
-                  Takes about a minute
-                </p>
-                <p className="mt-1.5 text-lg font-semibold">
-                  {todaysCheckin
-                    ? 'Update today\u2019s check-in'
-                    : 'Complete today\u2019s check-in'}
-                </p>
-              </div>
-            </Link>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/8 bg-white/50 px-5 py-3.5">
-            <div className="flex items-center gap-2 text-[#6B7A72]">
-              <Calendar className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
-              <p className="text-sm">
-                Next session: <span className="text-[#1B3A2D]/70">nothing scheduled yet</span>
-              </p>
-            </div>
-            <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-[#1B3A2D]/35">
-              Coming soon
-            </span>
-          </div>
-
+          {todaysCheckin ? (
+          <>
           {/* ---------------------------------------------------- */}
           {/* Trackers — real data, indicator color reflects status  */}
           {/* (green = good, gold = needs attention, red = poor,     */}
@@ -518,6 +480,14 @@ export default async function DashboardPage() {
               </div>
             </div>
           </div>
+          </>
+          ) : (
+          <section className={`${CARD} p-6 text-center`}>
+            <p className="text-sm leading-relaxed text-[#6B7A72]">
+              Complete today&apos;s check-in to see today&apos;s numbers here.
+            </p>
+          </section>
+          )}
 
           {/* ---------------------------------------------------- */}
           {/* Trend chart — real recent check-ins, premium SVG        */}
@@ -537,6 +507,20 @@ export default async function DashboardPage() {
             </div>
             <EnergyTrendChart checkins={recentCheckins} />
           </section>
+
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/8 bg-white/50 px-5 py-3.5">
+            <div className="flex items-center gap-2 text-[#6B7A72]">
+              <Calendar className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm">
+                Next session: <span className="text-[#1B3A2D]/70">nothing scheduled yet</span>
+              </p>
+            </div>
+            <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-[#1B3A2D]/35">
+              Coming soon
+            </span>
+          </div>
+          </>
+        )}
         </div>
       </main>
 
@@ -552,7 +536,12 @@ export default async function DashboardPage() {
         entryContext={buildDashboardEntryContext(wellnessIndex)}
       />
 
-      {!hasConnectedWearable && <WearableWelcomeModal />}
+      {/* Suppressed during the pre-first-check-in welcome state — a modal
+          competing with FirstCheckInWelcome's own single CTA right after
+          onboarding would undercut "one premium welcome experience." It
+          still shows (once, per its own localStorage dismissal) on a
+          later visit after that first check-in is done. */}
+      {!hasConnectedWearable && recentCheckins.length > 0 && <WearableWelcomeModal />}
     </div>
   );
 }

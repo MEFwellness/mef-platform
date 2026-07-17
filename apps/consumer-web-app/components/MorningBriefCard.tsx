@@ -1,6 +1,11 @@
 /**
- * Root's Daily Morning Brief — the Root Proactive Coaching Engine's
- * flagship surface (section 1). Renders exactly what
+ * Root's Daily Brief (Premium UX Milestone 2: renamed from "Morning
+ * Brief" — the underlying engine, types, and data model are still named
+ * "morning brief" throughout lib/coaching-engine/ and are left alone;
+ * this is a display-copy rename only) — the Root Proactive Coaching
+ * Engine's flagship surface (section 1), and Dashboard's alone now: it
+ * used to also render on Today, which made the two pages feel like
+ * duplicates of each other. Renders exactly what
  * lib/coaching-engine/morningBrief.ts composed and
  * app/actions/coaching-engine.ts's getMyMorningBrief() generated (or
  * app/api/cron/daily-coaching-scan pre-warmed) for today; every section
@@ -9,6 +14,13 @@
  * [otherwise say nothing]" rule every other card in this app already
  * follows (see app/dashboard/page.tsx's own header comment on the
  * now-removed fabricated Health Score/Four Doctors cards).
+ *
+ * greetingWord is a prop, not computed here, so it always matches the
+ * same timezone-aware value (lib/feed/timeContext.ts) the rest of the
+ * page's own greeting uses — this card used to compute its own via
+ * `new Date().getHours()` in the server's timezone, which could show a
+ * different time-of-day than the page header right above it for a
+ * member outside that timezone.
  */
 
 import {
@@ -25,13 +37,6 @@ import {
 import type { MorningBrief } from '@mef/shared-types-contracts';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
-function greetingWord(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-}
 
 type BriefLineProps = {
   icon: LucideIcon;
@@ -53,15 +58,21 @@ function BriefLine({ icon: Icon, label, text }: BriefLineProps) {
   );
 }
 
-export function MorningBriefCard({ brief }: { brief: MorningBrief }) {
+export function MorningBriefCard({
+  brief,
+  greetingWord,
+}: {
+  brief: MorningBrief;
+  greetingWord: string;
+}) {
   return (
     <section className={`${CARD} mef-animate-in p-6`}>
       <div className="flex items-center gap-2 text-[#854D0E]">
         <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        <p className="text-sm font-semibold uppercase tracking-wider">Root&apos;s Morning Brief</p>
+        <p className="text-sm font-semibold uppercase tracking-wider">Root&apos;s Daily Brief</p>
       </div>
       <h2 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#1B3A2D]">
-        {greetingWord()}, {brief.greeting_name}
+        {greetingWord}, {brief.greeting_name}
       </h2>
 
       <div className="mt-5 space-y-4">

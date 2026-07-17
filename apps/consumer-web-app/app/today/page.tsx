@@ -1,4 +1,6 @@
 import type { CSSProperties } from 'react';
+import Link from 'next/link';
+import type { Route } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import {
@@ -31,10 +33,14 @@ import {
 } from 'lucide-react';
 import type { FourDoctorsCategory } from '@mef/shared-types-contracts';
 import { getFeedHistory } from '@/app/actions/feed';
-import { getRecentCheckins, getTodaysCheckin, resolveLocalDate } from '@/app/actions/checkin';
+import {
+  getRecentCheckins,
+  getTodaysCheckin,
+  resolveLocalDate,
+  getActiveHabits,
+  getHabitLogsForDate,
+} from '@/app/actions/checkin';
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
-import { getMyMorningBrief } from '@/app/actions/coaching-engine';
-import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { waterStatus, digestionStatus, STATUS_STYLES } from '@/lib/wellness/status';
 import type { CoachingMode } from '@/lib/brain/types';
 import { buildCoachNote, buildBonusChallenge, parseSelectionReason } from '@/lib/feed/copy';
@@ -47,12 +53,12 @@ import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { RootQuickLink } from '@/components/RootQuickLink';
+import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
 import { buildTodayEntryContext } from '@/lib/conversation-coach/entryContext';
 import { getMyNotifications } from '@/app/actions/notifications';
 import { FeedInteractions } from './FeedInteractions';
 import { CoachMessages } from './CoachMessages';
-import { WearableStatsRow } from './WearableStatsRow';
-import { ConnectWearableCard } from '@/components/wearables/ConnectWearableCard';
+import { TodayHabits } from './TodayHabits';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -116,19 +122,19 @@ export default async function TodayPage() {
   // what today's coaching experience is and why — this page renders its
   // decision instead of independently deciding a mode, risk posture, or
   // encouragement line of its own. See app/actions/coaching-brain.ts.
-  // getRecentCheckins doesn't depend on the profile/timezone lookups
-  // below, so it joins this first batch instead of paying its own,
-  // separate round trip afterward.
-  const [isCoach, { data: profile }, decision, history, notifications, morningBrief, recentCheckins] =
+  // getRecentCheckins and getActiveHabits don't depend on the
+  // profile/timezone lookups below, so they join this first batch
+  // instead of paying their own, separate round trips afterward.
+  const [isCoach, { data: profile }, decision, history, notifications, recentCheckins, habits] =
     await Promise.all([
       hasActiveRole(supabase, user.id, 'coach'),
       supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
       getMyCoachingDecision(),
       getFeedHistory(),
       getMyNotifications(5),
-      getMyMorningBrief(),
       // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
       getRecentCheckins(30),
+      getActiveHabits(),
     ]);
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
@@ -138,7 +144,10 @@ export default async function TodayPage() {
   const GreetingIcon = timeContext.hour < 12 ? Sunrise : timeContext.hour < 18 ? Sun : Moon;
 
   const localDate = await resolveLocalDate(nowInTz, false);
-  const todaysCheckin = await getTodaysCheckin(localDate);
+  const [todaysCheckin, habitLogs] = await Promise.all([
+    getTodaysCheckin(localDate),
+    getHabitLogsForDate(localDate),
+  ]);
 
   let sectionIndex = 0;
   const modeBadge = decision ? MODE_BADGE[decision.mode] : null;
@@ -180,445 +189,509 @@ export default async function TodayPage() {
         </div>
         <p className="mt-2 text-[15px] italic text-[#6B7A72]">{decision?.encouragement ?? ''}</p>
 
-        {/* Root's Morning Brief — the Proactive Coaching Engine's own daily
-            digest (lib/coaching-engine/), distinct from the wearable-numbers
-            "Daily Coaching Brief" section directly below it. */}
-        {morningBrief && (
+        {recentCheckins.length === 0 ? (
+          /* Premium UX Milestone 2: same welcome moment Dashboard shows
+             before a member's first completed check-in — Root has no
+             lesson, no recommendations, and no habit status to show yet
+             either, so this replaces what would otherwise be its own
+             pile of empty cards here too. */
           <div className="mt-6">
-            <MorningBriefCard brief={morningBrief} />
+            <FirstCheckInWelcome firstName={firstName} />
           </div>
-        )}
-
-        {/* Daily Coaching Brief (Part 5) — recovery/movement/stress/sleep
-            lines are only ever real wearable-derived recommendations
-            (lib/brain/wearableRecommendations.ts), never shown when no
-            wearable is connected/synced yet; hydration/nutrition reuse the
-            same check-in status classification the Dashboard already uses. */}
-        <section className={`${CARD} mef-animate-in mt-6 p-7`}>
-          <div className="flex items-center gap-2 text-[#854D0E]">
-            <Watch className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">
-              Today&apos;s Coaching Brief
-            </p>
-          </div>
-
-          <WearableStatsRow snapshot={decision?.wearableSnapshot ?? null} />
-
-          {decision?.wearableBrief ? (
-            <div className="mt-3 space-y-3">
-              {decision.wearableBrief.recoveryStatus && (
-                <div className="flex items-start gap-2">
-                  <HeartPulse
-                    className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
-                    strokeWidth={1.75}
-                    aria-hidden="true"
-                  />
-                  <p className="text-sm leading-relaxed text-[#1B3A2D]">
-                    {decision.wearableBrief.recoveryStatus}
-                  </p>
-                </div>
-              )}
-              {decision.wearableBrief.sleepRecommendation && (
-                <div className="flex items-start gap-2">
-                  <Moon
-                    className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
-                    strokeWidth={1.75}
-                    aria-hidden="true"
-                  />
-                  <p className="text-sm leading-relaxed text-[#1B3A2D]">
-                    {decision.wearableBrief.sleepRecommendation}
-                  </p>
-                </div>
-              )}
-              {decision.wearableBrief.movementRecommendation && (
-                <div className="flex items-start gap-2">
-                  <Footprints
-                    className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
-                    strokeWidth={1.75}
-                    aria-hidden="true"
-                  />
-                  <p className="text-sm leading-relaxed text-[#1B3A2D]">
-                    {decision.wearableBrief.movementRecommendation}
-                  </p>
-                </div>
-              )}
-              {decision.wearableBrief.stressRecommendation && (
-                <div className="flex items-start gap-2">
-                  <Wind
-                    className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
-                    strokeWidth={1.75}
-                    aria-hidden="true"
-                  />
-                  <p className="text-sm leading-relaxed text-[#1B3A2D]">
-                    {decision.wearableBrief.stressRecommendation}
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="mt-3">
-              <ConnectWearableCard variant="today" />
-            </div>
-          )}
-
-          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-[#1B3A2D]/5 pt-4">
-            <div className="flex items-start gap-2">
-              <Droplet
-                className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
-                strokeWidth={1.75}
-                aria-hidden="true"
-              />
-              <p
-                className={`text-sm leading-relaxed ${todaysCheckin?.water_cups != null ? STATUS_STYLES[waterStatus(todaysCheckin.water_cups)].text : 'text-[#6B7A72]'}`}
-              >
-                {todaysCheckin?.water_cups != null
-                  ? `${todaysCheckin.water_cups} of 8 cups of water today.`
-                  : 'Log your water intake in today’s check-in.'}
-              </p>
-            </div>
-            <div className="flex items-start gap-2">
-              <Utensils
-                className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
-                strokeWidth={1.75}
-                aria-hidden="true"
-              />
-              <p
-                className={`text-sm leading-relaxed ${todaysCheckin?.digestion_rating != null ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].text : 'text-[#6B7A72]'}`}
-              >
-                {todaysCheckin?.digestion_rating != null
-                  ? 'A grounding, whole-food meal fits well today.'
-                  : "Note how today's meals feel in your check-in."}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <CoachMessages notifications={notifications} />
-
-        {!decision || !decision.feedItem || !decision.content ? (
-          <section className={`${CARD} mt-6 p-8`}>
-            <p className="text-base text-[#1B3A2D]">Nothing here yet.</p>
-            <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-              Your coaching lesson for today hasn&apos;t been prepared yet — check back shortly, or
-              complete today&apos;s check-in to help personalize it.
-            </p>
-          </section>
         ) : (
-          <div className="mt-6 space-y-5">
-            {(() => {
-              const today = { feedItem: decision.feedItem!, content: decision.content! };
-              const LessonIcon = FOUR_DOCTORS_ICON[today.content.four_doctors_category];
-              const reason = parseSelectionReason(today.feedItem.selection_reasons);
-              const localDate = today.feedItem.local_date;
-
-              // Member Coaching Memory Engine (Part 2) + Streak Intelligence (Part 5) —
-              // deterministic facts derived entirely from this member's own real history.
-              const feedMemory = buildFeedMemory(history, localDate);
-              const streakInsight = computeStreakInsight(recentCheckins, localDate);
-              const streakMessage = buildStreakMessage(streakInsight);
-              const continuitySentence = buildContinuitySentence(feedMemory);
-              const challengeCarryover = buildChallengeCarryover(
-                feedMemory,
-                today.feedItem.content_item_id
-              );
-              // Milestone 5: Coach Insight and the adaptive-difficulty note are
-              // now attached by the Coaching Brain (app/actions/coaching-brain.ts),
-              // not recomputed independently here.
-              const coachInsight = decision.coachInsight;
-              const adaptiveNote = decision.adaptiveNote;
-
-              const coachNote =
-                today.feedItem.coach_note ??
-                buildCoachNote({
-                  firstName,
-                  timeContext,
-                  reason,
-                  streakMessage,
-                  continuitySentence,
-                  category: today.content.four_doctors_category,
-                });
-              const bonusChallenge = buildBonusChallenge(today.content.four_doctors_category);
-
-              return (
-                <>
-                  {/* A Note from Root — the emotional centerpiece */}
-                  <section
-                    className={`${CARD} mef-animate-in relative overflow-hidden p-7`}
-                    style={stagger(sectionIndex++)}
-                  >
-                    <div
-                      className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#F5B700]/10"
-                      aria-hidden="true"
-                    />
-                    <div className="relative flex items-center gap-2 text-[#854D0E]">
-                      <GreetingIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                      <p className="text-sm font-semibold uppercase tracking-wider">
-                        A Note from Root
-                      </p>
-                    </div>
-                    <p className="relative mt-3 text-lg leading-relaxed text-[#1B3A2D]">
-                      {coachNote}
+          <>
+            {/* Check-In Progress — moved here from Dashboard (Milestone 2):
+                Dashboard answers "how am I doing," Today answers "what
+                should I do today," and finishing today's check-in is
+                squarely a today action. */}
+            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+              <section className={`${CARD} p-7`}>
+                <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+                  Check-In Progress
+                </p>
+                {todaysCheckin ? (
+                  <>
+                    <h2 className="mt-3 text-xl font-semibold leading-snug tracking-tight text-[#1B3A2D]">
+                      You&apos;ve checked in today
+                    </h2>
+                    <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                      Thanks for logging today. Come back tomorrow to keep your trend going.
                     </p>
-                    <p className="relative mt-4 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
-                      — Root
+                  </>
+                ) : (
+                  <>
+                    <h2 className="mt-3 text-xl font-semibold leading-snug tracking-tight text-[#1B3A2D]">
+                      You haven&apos;t checked in yet today
+                    </h2>
+                    <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                      A quick check-in shapes today&apos;s coaching and keeps your trends accurate.
                     </p>
-                  </section>
+                  </>
+                )}
+              </section>
 
-                  {/* Today's Focus */}
-                  <section className={`${CARD} mef-animate-in p-7`} style={stagger(sectionIndex++)}>
-                    <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
-                      Today&apos;s Focus
-                    </p>
-                    <p className="mt-3 text-lg leading-relaxed text-[#1B3A2D]">
-                      {today.feedItem.focus_text}
-                    </p>
-                  </section>
+              <Link
+                href={'/checkin' as Route}
+                className={`${CARD} flex items-center justify-between bg-[#F5B700] p-6 text-left text-[#1B3A2D] transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B3A2D]`}
+              >
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-[#1B3A2D]/70">
+                    Takes about a minute
+                  </p>
+                  <p className="mt-1.5 text-lg font-semibold">
+                    {todaysCheckin ? "Update today's check-in" : "Complete today's check-in"}
+                  </p>
+                </div>
+              </Link>
+            </div>
 
-                  {/* Today's Lesson */}
-                  <section
-                    className={`${CARD} mef-animate-in overflow-hidden p-0`}
-                    style={stagger(sectionIndex++)}
-                  >
-                    {/* Illustration placeholder — a soft gradient band with the lesson's Four Doctors icon, ready to swap for real lesson artwork whenever it exists. */}
-                    <div className="flex h-28 items-center justify-center bg-gradient-to-br from-[#1B3A2D]/[0.07] via-[#F5B700]/[0.08] to-[#1B3A2D]/[0.04]">
-                      <LessonIcon
-                        className="h-9 w-9 text-[#1B3A2D]/40"
-                        strokeWidth={1.5}
-                        aria-hidden="true"
-                      />
-                    </div>
-                    <div className="p-7">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-[#854D0E]">
-                          <BookOpen className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                          <p className="text-sm font-semibold uppercase tracking-wider">
-                            Today&apos;s Lesson
-                          </p>
-                        </div>
-                        <span className="flex items-center gap-1 text-xs text-[#6B7A72]">
-                          <Clock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-                          {today.content.estimated_reading_minutes} min
-                        </span>
-                      </div>
-                      <h2 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-snug text-[#1B3A2D]">
-                        {today.content.title}
-                      </h2>
-                      <p className="mt-3 text-[15px] leading-relaxed text-[#1B3A2D]/85">
-                        {today.content.body}
-                      </p>
-                      {today.content.evidence_sources.length > 0 && (
-                        <div className="mt-5 border-t border-[#1B3A2D]/5 pt-4">
-                          <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
-                            Learn More
-                          </p>
-                          <ul className="mt-1.5 space-y-1">
-                            {today.content.evidence_sources.map((source) => (
-                              <li key={source.url}>
-                                <a
-                                  href={source.url}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                  className="text-xs text-[#1B3A2D] underline underline-offset-2"
-                                >
-                                  {source.title}
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </section>
+            {/* Today's Habits — read-only status; logged from the check-in. */}
+            <TodayHabits habits={habits} habitLogs={habitLogs} />
 
-                  {/* Today's Challenge */}
-                  <section className={`${CARD} mef-animate-in p-7`} style={stagger(sectionIndex++)}>
-                    <div className="flex items-center gap-2 text-[#854D0E]">
-                      <ListChecks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                      <p className="text-sm font-semibold uppercase tracking-wider">
-                        Today&apos;s Challenge
-                      </p>
-                    </div>
-                    {challengeCarryover && (
-                      <p className="mt-2 text-sm font-medium text-[#854D0E]">
-                        {challengeCarryover}
-                      </p>
-                    )}
-                    <p className="mt-3 text-base leading-relaxed text-[#1B3A2D]">
-                      {today.content.suggested_action}
-                    </p>
-                    <div className="mt-4 flex items-start gap-2 rounded-2xl bg-[#F5B700]/[0.08] p-4">
-                      <Gift
-                        className="mt-0.5 h-4 w-4 shrink-0 text-[#854D0E]"
+            {/* Today's Recommendations (renamed from "Today's Coaching
+                Brief," Milestone 2) — recovery/movement/stress/sleep lines
+                are only ever real wearable-derived recommendations
+                (lib/brain/wearableRecommendations.ts), shown only when a
+                wearable is actually connected/synced; the wearable
+                connect pitch and raw stats themselves moved to Dashboard
+                so they're not shown here a second time. Hydration/
+                nutrition always show — they reuse the same check-in
+                status classification the Dashboard already uses. */}
+            <section className={`${CARD} mef-animate-in mt-6 p-7`}>
+              <div className="flex items-center gap-2 text-[#854D0E]">
+                <Watch className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">
+                  Today&apos;s Recommendations
+                </p>
+              </div>
+
+              {decision?.wearableBrief && (
+                <div className="mt-3 space-y-3">
+                  {decision.wearableBrief.recoveryStatus && (
+                    <div className="flex items-start gap-2">
+                      <HeartPulse
+                        className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
                         strokeWidth={1.75}
                         aria-hidden="true"
                       />
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
-                          Bonus
-                        </p>
-                        <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]/85">
-                          {bonusChallenge}
-                        </p>
-                      </div>
+                      <p className="text-sm leading-relaxed text-[#1B3A2D]">
+                        {decision.wearableBrief.recoveryStatus}
+                      </p>
                     </div>
-                    {adaptiveNote && (
-                      <div className="mt-3 flex items-start gap-2 rounded-2xl bg-[#1B3A2D]/[0.05] p-4">
-                        <Wand2
-                          className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/70"
-                          strokeWidth={1.75}
+                  )}
+                  {decision.wearableBrief.sleepRecommendation && (
+                    <div className="flex items-start gap-2">
+                      <Moon
+                        className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm leading-relaxed text-[#1B3A2D]">
+                        {decision.wearableBrief.sleepRecommendation}
+                      </p>
+                    </div>
+                  )}
+                  {decision.wearableBrief.movementRecommendation && (
+                    <div className="flex items-start gap-2">
+                      <Footprints
+                        className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm leading-relaxed text-[#1B3A2D]">
+                        {decision.wearableBrief.movementRecommendation}
+                      </p>
+                    </div>
+                  )}
+                  {decision.wearableBrief.stressRecommendation && (
+                    <div className="flex items-start gap-2">
+                      <Wind
+                        className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm leading-relaxed text-[#1B3A2D]">
+                        {decision.wearableBrief.stressRecommendation}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div
+                className={`mt-4 grid grid-cols-2 gap-3 ${decision?.wearableBrief ? 'border-t border-[#1B3A2D]/5 pt-4' : ''}`}
+              >
+                <div className="flex items-start gap-2">
+                  <Droplet
+                    className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                  <p
+                    className={`text-sm leading-relaxed ${todaysCheckin?.water_cups != null ? STATUS_STYLES[waterStatus(todaysCheckin.water_cups)].text : 'text-[#6B7A72]'}`}
+                  >
+                    {todaysCheckin?.water_cups != null
+                      ? `${todaysCheckin.water_cups} of 8 cups of water today.`
+                      : "Log your water intake in today's check-in."}
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Utensils
+                    className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                  <p
+                    className={`text-sm leading-relaxed ${todaysCheckin?.digestion_rating != null ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].text : 'text-[#6B7A72]'}`}
+                  >
+                    {todaysCheckin?.digestion_rating != null
+                      ? 'A grounding, whole-food meal fits well today.'
+                      : "Note how today's meals feel in your check-in."}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <CoachMessages notifications={notifications} />
+
+            {!decision || !decision.feedItem || !decision.content ? (
+              <section className={`${CARD} mt-6 p-8`}>
+                <p className="text-base text-[#1B3A2D]">Nothing here yet.</p>
+                <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
+                  Your coaching lesson for today hasn&apos;t been prepared yet — check back
+                  shortly.
+                </p>
+              </section>
+            ) : (
+              <div className="mt-6 space-y-5">
+                {(() => {
+                  const today = { feedItem: decision.feedItem!, content: decision.content! };
+                  const LessonIcon = FOUR_DOCTORS_ICON[today.content.four_doctors_category];
+                  const reason = parseSelectionReason(today.feedItem.selection_reasons);
+                  const localDate = today.feedItem.local_date;
+
+                  // Member Coaching Memory Engine (Part 2) + Streak Intelligence (Part 5) —
+                  // deterministic facts derived entirely from this member's own real history.
+                  const feedMemory = buildFeedMemory(history, localDate);
+                  const streakInsight = computeStreakInsight(recentCheckins, localDate);
+                  const streakMessage = buildStreakMessage(streakInsight);
+                  const continuitySentence = buildContinuitySentence(feedMemory);
+                  const challengeCarryover = buildChallengeCarryover(
+                    feedMemory,
+                    today.feedItem.content_item_id
+                  );
+                  // Milestone 5: Coach Insight and the adaptive-difficulty note are
+                  // now attached by the Coaching Brain (app/actions/coaching-brain.ts),
+                  // not recomputed independently here.
+                  const coachInsight = decision.coachInsight;
+                  const adaptiveNote = decision.adaptiveNote;
+
+                  const coachNote =
+                    today.feedItem.coach_note ??
+                    buildCoachNote({
+                      firstName,
+                      timeContext,
+                      reason,
+                      streakMessage,
+                      continuitySentence,
+                      category: today.content.four_doctors_category,
+                    });
+                  const bonusChallenge = buildBonusChallenge(today.content.four_doctors_category);
+
+                  return (
+                    <>
+                      {/* A Note from Root — the emotional centerpiece */}
+                      <section
+                        className={`${CARD} mef-animate-in relative overflow-hidden p-7`}
+                        style={stagger(sectionIndex++)}
+                      >
+                        <div
+                          className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#F5B700]/10"
                           aria-hidden="true"
                         />
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/70">
-                            Adjusted For You
-                          </p>
-                          <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]/85">
-                            {adaptiveNote}
+                        <div className="relative flex items-center gap-2 text-[#854D0E]">
+                          <GreetingIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                          <p className="text-sm font-semibold uppercase tracking-wider">
+                            A Note from Root
                           </p>
                         </div>
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Talk to Root — a single, contextual entry point into the
-                      Conversation Coach (Milestone 7), never a second decision
-                      surface; it always opens the same thread the member's own
-                      /conversation page shows. */}
-                  <section className={`${CARD} mef-animate-in p-6`} style={stagger(sectionIndex++)}>
-                    <div className="flex items-center gap-2 text-[#854D0E]">
-                      <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                      <p className="text-sm font-semibold uppercase tracking-wider">Talk to Root</p>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <RootQuickLink
-                        entryPoint="today_focus"
-                        entryContext={buildTodayEntryContext(
-                          decision,
-                          decision?.content?.title ?? null,
-                          decision?.content?.suggested_action ?? null
-                        )}
-                      >
-                        Talk through today&apos;s challenge
-                      </RootQuickLink>
-                      {today.feedItem.completed_at ? (
-                        <RootQuickLink
-                          entryPoint="today_completed"
-                          entryContext={buildTodayEntryContext(
-                            decision,
-                            decision?.content?.title ?? null,
-                            decision?.content?.suggested_action ?? null
-                          )}
-                        >
-                          I completed this — what&apos;s next?
-                        </RootQuickLink>
-                      ) : (
-                        <RootQuickLink
-                          entryPoint="today_easier_option"
-                          entryContext={buildTodayEntryContext(
-                            decision,
-                            decision?.content?.title ?? null,
-                            decision?.content?.suggested_action ?? null
-                          )}
-                        >
-                          I need an easier option
-                        </RootQuickLink>
-                      )}
-                    </div>
-                  </section>
-
-                  {/* Interactions: complete / save / dismiss / reflection / helpful */}
-                  <div className="mef-animate-in" style={stagger(sectionIndex++)}>
-                    <FeedInteractions
-                      feedItem={today.feedItem}
-                      reflectionPrompt={today.content.reflection_prompt}
-                    />
-                  </div>
-
-                  {/* Coach Insight — a single, real, derived observation (Part 7); omitted entirely when there isn't one worth showing. */}
-                  {coachInsight && (
-                    <section
-                      className={`${CARD} mef-animate-in p-6`}
-                      style={stagger(sectionIndex++)}
-                    >
-                      <div className="flex items-center gap-2 text-[#854D0E]">
-                        <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                        <p className="text-sm font-semibold uppercase tracking-wider">
-                          Coach Insight
+                        <p className="relative mt-3 text-lg leading-relaxed text-[#1B3A2D]">
+                          {coachNote}
                         </p>
+                        <p className="relative mt-4 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
+                          — Root
+                        </p>
+                      </section>
+
+                      {/* Today's Focus */}
+                      <section
+                        className={`${CARD} mef-animate-in p-7`}
+                        style={stagger(sectionIndex++)}
+                      >
+                        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+                          Today&apos;s Focus
+                        </p>
+                        <p className="mt-3 text-lg leading-relaxed text-[#1B3A2D]">
+                          {today.feedItem.focus_text}
+                        </p>
+                      </section>
+
+                      {/* Today's Lesson */}
+                      <section
+                        className={`${CARD} mef-animate-in overflow-hidden p-0`}
+                        style={stagger(sectionIndex++)}
+                      >
+                        {/* Illustration placeholder — a soft gradient band with the lesson's Four Doctors icon, ready to swap for real lesson artwork whenever it exists. */}
+                        <div className="flex h-28 items-center justify-center bg-gradient-to-br from-[#1B3A2D]/[0.07] via-[#F5B700]/[0.08] to-[#1B3A2D]/[0.04]">
+                          <LessonIcon
+                            className="h-9 w-9 text-[#1B3A2D]/40"
+                            strokeWidth={1.5}
+                            aria-hidden="true"
+                          />
+                        </div>
+                        <div className="p-7">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-[#854D0E]">
+                              <BookOpen className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                              <p className="text-sm font-semibold uppercase tracking-wider">
+                                Today&apos;s Lesson
+                              </p>
+                            </div>
+                            <span className="flex items-center gap-1 text-xs text-[#6B7A72]">
+                              <Clock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                              {today.content.estimated_reading_minutes} min
+                            </span>
+                          </div>
+                          <h2 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-snug text-[#1B3A2D]">
+                            {today.content.title}
+                          </h2>
+                          <p className="mt-3 text-[15px] leading-relaxed text-[#1B3A2D]/85">
+                            {today.content.body}
+                          </p>
+                          {today.content.evidence_sources.length > 0 && (
+                            <div className="mt-5 border-t border-[#1B3A2D]/5 pt-4">
+                              <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
+                                Learn More
+                              </p>
+                              <ul className="mt-1.5 space-y-1">
+                                {today.content.evidence_sources.map((source) => (
+                                  <li key={source.url}>
+                                    <a
+                                      href={source.url}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className="text-xs text-[#1B3A2D] underline underline-offset-2"
+                                    >
+                                      {source.title}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+
+                      {/* Today's Challenge */}
+                      <section
+                        className={`${CARD} mef-animate-in p-7`}
+                        style={stagger(sectionIndex++)}
+                      >
+                        <div className="flex items-center gap-2 text-[#854D0E]">
+                          <ListChecks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                          <p className="text-sm font-semibold uppercase tracking-wider">
+                            Today&apos;s Challenge
+                          </p>
+                        </div>
+                        {challengeCarryover && (
+                          <p className="mt-2 text-sm font-medium text-[#854D0E]">
+                            {challengeCarryover}
+                          </p>
+                        )}
+                        <p className="mt-3 text-base leading-relaxed text-[#1B3A2D]">
+                          {today.content.suggested_action}
+                        </p>
+                        <div className="mt-4 flex items-start gap-2 rounded-2xl bg-[#F5B700]/[0.08] p-4">
+                          <Gift
+                            className="mt-0.5 h-4 w-4 shrink-0 text-[#854D0E]"
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                          />
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
+                              Bonus
+                            </p>
+                            <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]/85">
+                              {bonusChallenge}
+                            </p>
+                          </div>
+                        </div>
+                        {adaptiveNote && (
+                          <div className="mt-3 flex items-start gap-2 rounded-2xl bg-[#1B3A2D]/[0.05] p-4">
+                            <Wand2
+                              className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/70"
+                              strokeWidth={1.75}
+                              aria-hidden="true"
+                            />
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/70">
+                                Adjusted For You
+                              </p>
+                              <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]/85">
+                                {adaptiveNote}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </section>
+
+                      {/* Talk to Root — a single, contextual entry point into the
+                          Conversation Coach (Milestone 7), never a second decision
+                          surface; it always opens the same thread the member's own
+                          /conversation page shows. */}
+                      <section
+                        className={`${CARD} mef-animate-in p-6`}
+                        style={stagger(sectionIndex++)}
+                      >
+                        <div className="flex items-center gap-2 text-[#854D0E]">
+                          <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                          <p className="text-sm font-semibold uppercase tracking-wider">
+                            Talk to Root
+                          </p>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <RootQuickLink
+                            entryPoint="today_focus"
+                            entryContext={buildTodayEntryContext(
+                              decision,
+                              decision?.content?.title ?? null,
+                              decision?.content?.suggested_action ?? null
+                            )}
+                          >
+                            Talk through today&apos;s challenge
+                          </RootQuickLink>
+                          {today.feedItem.completed_at ? (
+                            <RootQuickLink
+                              entryPoint="today_completed"
+                              entryContext={buildTodayEntryContext(
+                                decision,
+                                decision?.content?.title ?? null,
+                                decision?.content?.suggested_action ?? null
+                              )}
+                            >
+                              I completed this — what&apos;s next?
+                            </RootQuickLink>
+                          ) : (
+                            <RootQuickLink
+                              entryPoint="today_easier_option"
+                              entryContext={buildTodayEntryContext(
+                                decision,
+                                decision?.content?.title ?? null,
+                                decision?.content?.suggested_action ?? null
+                              )}
+                            >
+                              I need an easier option
+                            </RootQuickLink>
+                          )}
+                        </div>
+                      </section>
+
+                      {/* Interactions: complete / save / dismiss / reflection / helpful */}
+                      <div className="mef-animate-in" style={stagger(sectionIndex++)}>
+                        <FeedInteractions
+                          feedItem={today.feedItem}
+                          reflectionPrompt={today.content.reflection_prompt}
+                        />
                       </div>
-                      <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">{coachInsight}</p>
-                    </section>
-                  )}
 
-                  {/* Why You're Seeing This — the Coaching Brain's own reason leads, with the specific lesson's own reason underneath. */}
-                  <section className={`${CARD} mef-animate-in p-6`} style={stagger(sectionIndex++)}>
-                    <div className="flex items-center gap-2 text-[#854D0E]">
-                      <Info className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                      <p className="text-sm font-semibold uppercase tracking-wider">
-                        Why You&apos;re Seeing This
-                      </p>
-                    </div>
-                    <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-                      {decision.reasonText}
-                    </p>
-                    {today.feedItem.why_text !== decision.reasonText && (
-                      <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">
-                        {today.feedItem.why_text}
-                      </p>
-                    )}
-                    <RootQuickLink
-                      entryPoint="today_why"
-                      entryContext={buildTodayEntryContext(
-                        decision,
-                        decision?.content?.title ?? null,
-                        decision?.content?.suggested_action ?? null
+                      {/* Coach Insight — a single, real, derived observation (Part 7); omitted entirely when there isn't one worth showing. */}
+                      {coachInsight && (
+                        <section
+                          className={`${CARD} mef-animate-in p-6`}
+                          style={stagger(sectionIndex++)}
+                        >
+                          <div className="flex items-center gap-2 text-[#854D0E]">
+                            <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                            <p className="text-sm font-semibold uppercase tracking-wider">
+                              Coach Insight
+                            </p>
+                          </div>
+                          <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">
+                            {coachInsight}
+                          </p>
+                        </section>
                       )}
-                      className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
-                    >
-                      <MessageCircle
-                        className="h-3.5 w-3.5"
-                        strokeWidth={1.75}
-                        aria-hidden="true"
-                      />
-                      Ask your coach why
-                    </RootQuickLink>
-                  </section>
-                </>
-              );
-            })()}
-          </div>
-        )}
 
-        {/* Past Lessons */}
-        {history.length > 0 && (
-          <section className="mt-6">
-            <div className="flex items-center gap-2 text-[#854D0E]">
-              <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              <p className="text-sm font-semibold uppercase tracking-wider">Past Lessons</p>
-            </div>
-            <div className={`${CARD} mt-3 divide-y divide-[#1B3A2D]/5 p-2`}>
-              {history.map(({ feedItem, content }) => (
-                <div
-                  key={feedItem.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
-                >
-                  <div>
-                    <p className="font-medium text-[#1B3A2D]">
-                      {content?.title ?? 'Lesson unavailable'}
-                    </p>
-                    <p className="text-xs text-[#6B7A72]">{formatDate(feedItem.local_date)}</p>
-                  </div>
-                  <span className="text-xs text-[#6B7A72]">
-                    {feedItem.completed_at
-                      ? 'Completed'
-                      : feedItem.dismissed_at
-                        ? 'Dismissed'
-                        : 'Not completed'}
-                  </span>
+                      {/* Why You're Seeing This — the Coaching Brain's own reason leads, with the specific lesson's own reason underneath. */}
+                      <section
+                        className={`${CARD} mef-animate-in p-6`}
+                        style={stagger(sectionIndex++)}
+                      >
+                        <div className="flex items-center gap-2 text-[#854D0E]">
+                          <Info className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                          <p className="text-sm font-semibold uppercase tracking-wider">
+                            Why You&apos;re Seeing This
+                          </p>
+                        </div>
+                        <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
+                          {decision.reasonText}
+                        </p>
+                        {today.feedItem.why_text !== decision.reasonText && (
+                          <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">
+                            {today.feedItem.why_text}
+                          </p>
+                        )}
+                        <RootQuickLink
+                          entryPoint="today_why"
+                          entryContext={buildTodayEntryContext(
+                            decision,
+                            decision?.content?.title ?? null,
+                            decision?.content?.suggested_action ?? null
+                          )}
+                          className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                          Ask your coach why
+                        </RootQuickLink>
+                      </section>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Past Lessons */}
+            {history.length > 0 && (
+              <section className="mt-6">
+                <div className="flex items-center gap-2 text-[#854D0E]">
+                  <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <p className="text-sm font-semibold uppercase tracking-wider">Past Lessons</p>
                 </div>
-              ))}
-            </div>
-          </section>
+                <div className={`${CARD} mt-3 divide-y divide-[#1B3A2D]/5 p-2`}>
+                  {history.map(({ feedItem, content }) => (
+                    <div
+                      key={feedItem.id}
+                      className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium text-[#1B3A2D]">
+                          {content?.title ?? 'Lesson unavailable'}
+                        </p>
+                        <p className="text-xs text-[#6B7A72]">{formatDate(feedItem.local_date)}</p>
+                      </div>
+                      <span className="text-xs text-[#6B7A72]">
+                        {feedItem.completed_at
+                          ? 'Completed'
+                          : feedItem.dismissed_at
+                            ? 'Dismissed'
+                            : 'Not completed'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </main>
 
