@@ -18,6 +18,8 @@ import {
   Flame,
   ListChecks,
   MessageCircleHeart,
+  TrendingUp,
+  BookmarkCheck,
   type LucideIcon,
 } from 'lucide-react';
 import type { MorningBrief } from '@mef/shared-types-contracts';
@@ -71,11 +73,25 @@ export function MorningBriefCard({ brief }: { brief: MorningBrief }) {
         {brief.stress_summary && (
           <BriefLine icon={HeartPulse} label="Stress Level" text={brief.stress_summary} />
         )}
+        {brief.notable_pattern_title && brief.notable_pattern_summary && (
+          <BriefLine
+            icon={TrendingUp}
+            label={brief.notable_pattern_title}
+            text={brief.notable_pattern_summary}
+          />
+        )}
         {brief.habit_to_prioritize && (
           <BriefLine
             icon={ListChecks}
             label="Habit to Prioritize Today"
             text={brief.habit_to_prioritize}
+          />
+        )}
+        {brief.incomplete_recommendation && (
+          <BriefLine
+            icon={BookmarkCheck}
+            label="Still Waiting On"
+            text={brief.incomplete_recommendation}
           />
         )}
         <BriefLine

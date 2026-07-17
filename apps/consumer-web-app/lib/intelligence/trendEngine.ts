@@ -46,6 +46,43 @@ function reasoningTitle(area: WellnessMetricKey, state: string): string {
   return `${area.toUpperCase()}_${state.toUpperCase()}`;
 }
 
+/**
+ * Direction-appropriate verbs for the RAW metric itself, not the
+ * normalized wellness score this file's own delta math runs on. For
+ * stress and pain, a HIGHER score means LESS stress/pain — so a
+ * "declining" score means the raw value is actually increasing (getting
+ * worse), the opposite of what "X has been declining" would read as to a
+ * member. Mirrors lib/wellness/insights.ts's own trendMessage, which
+ * already gets this right for its simpler two-half-split detector; kept
+ * as a real fix here (not a rebuild) so this richer 30-vs-30-day engine's
+ * language is never backwards for the same two metrics.
+ */
+function trendVerb(area: WellnessMetricKey, scoreDirection: 'improving' | 'declining'): string {
+  const scoreWorsened = scoreDirection === 'declining';
+  if (area === 'stress') return scoreWorsened ? 'increasing' : 'decreasing';
+  if (area === 'pain') return scoreWorsened ? 'worsening' : 'easing';
+  return scoreWorsened ? 'declining' : 'improving';
+}
+
+/** Past-participle form of trendVerb, for "quietly {verb} this week" phrasing. */
+function trendVerbPast(area: WellnessMetricKey, scoreDirection: 'improving' | 'declining'): string {
+  const scoreWorsened = scoreDirection === 'declining';
+  if (area === 'stress') return scoreWorsened ? 'increased' : 'decreased';
+  if (area === 'pain') return scoreWorsened ? 'worsened' : 'eased';
+  return scoreWorsened ? 'declined' : 'improved';
+}
+
+/** "trending {word}" — also flipped for stress/pain so it always describes which way the RAW metric itself moved, never the abstract score. */
+function trendDirectionWord(
+  area: WellnessMetricKey,
+  scoreDirection: 'improving' | 'declining'
+): 'upward' | 'downward' {
+  const scoreWorsened = scoreDirection === 'declining';
+  const isInverse = area === 'stress' || area === 'pain';
+  const rawIncreased = isInverse ? scoreWorsened : !scoreWorsened;
+  return rawIncreased ? 'upward' : 'downward';
+}
+
 export function classifyMetricTrend(
   checkinsOldestFirst: DailyCheckin[],
   asOfLocalDate: string,
@@ -128,7 +165,7 @@ export function classifyMetricTrend(
         trendState: 'newly_emerging',
         trendStrength: strengthFromDelta(recentDrop),
         patternKey: `trend_${area}`,
-        title: `${label} has quietly declined this week`,
+        title: `${label} has quietly ${trendVerbPast(area, 'declining')} this week`,
         memberSummary: `${label} looks a little different over the last week compared to the weeks before — worth keeping an eye on.`,
         coachDetail: `${label}'s last-7-day average (${last7Avg.toFixed(0)}/100) is meaningfully below the rest of the last 30 days (${restAvg.toFixed(0)}/100) — a new development, not a continuation of an existing pattern.`,
         confidence: confidenceFromSample(last7Scores.length + restOf30Scores.length, 0.5, 20),
@@ -150,8 +187,8 @@ export function classifyMetricTrend(
       trendState: 'declining',
       trendStrength: strengthFromDelta(absDelta),
       patternKey: `trend_${area}`,
-      title: `${label} has been declining`,
-      memberSummary: `${label} has been trending downward over the last month compared to the month before.`,
+      title: `${label} has been ${trendVerb(area, 'declining')}`,
+      memberSummary: `${label} has been trending ${trendDirectionWord(area, 'declining')} over the last month compared to the month before.`,
       coachDetail: `${label} averaged ${last30Avg.toFixed(0)}/100 over the last 30 days, down from ${prev30Avg.toFixed(0)}/100 the prior 30 days (${delta.toFixed(0)} point change).`,
       confidence,
       severity: absDelta >= 20 ? 'important' : 'notable',
@@ -171,8 +208,8 @@ export function classifyMetricTrend(
       trendState: 'improving',
       trendStrength: strengthFromDelta(absDelta),
       patternKey: `trend_${area}`,
-      title: `${label} has been improving`,
-      memberSummary: `${label} has become more consistent over the last month compared to the month before.`,
+      title: `${label} has been ${trendVerb(area, 'improving')}`,
+      memberSummary: `${label} has been trending ${trendDirectionWord(area, 'improving')} over the last month compared to the month before.`,
       coachDetail: `${label} averaged ${last30Avg.toFixed(0)}/100 over the last 30 days, up from ${prev30Avg.toFixed(0)}/100 the prior 30 days (+${delta.toFixed(0)} points).`,
       confidence,
       severity: 'info',

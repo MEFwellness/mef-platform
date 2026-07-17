@@ -6,7 +6,7 @@
  * each test overrides only the fields relevant to the case under test.
  */
 import { describe, it, expect } from 'vitest';
-import type { DailyCheckin, Habit } from '@mef/shared-types-contracts';
+import type { DailyCheckin, Habit, WellnessInsight } from '@mef/shared-types-contracts';
 import type { CoachingFocusDecision } from '../lib/brain/types';
 import type { MorningBriefSignals } from '../lib/coaching-engine/types';
 import { composeMorningBrief } from '../lib/coaching-engine/morningBrief';
@@ -73,6 +73,46 @@ function decision(overrides: Partial<CoachingFocusDecision> = {}): CoachingFocus
   };
 }
 
+function wellnessInsight(overrides: Partial<WellnessInsight> = {}): WellnessInsight {
+  return {
+    id: 'insight-1',
+    member_id: 'u1',
+    insight_type: 'trend',
+    wellness_area: 'sleep',
+    trend_state: 'declining',
+    trend_strength: 'moderate',
+    pattern_key: 'trend_sleep',
+    title: 'Sleep has been declining',
+    member_summary:
+      'Sleep has been trending downward over the last month compared to the month before.',
+    coach_detail: 'coach detail',
+    confidence: 0.7,
+    severity: 'notable',
+    time_window: 'last_30_days',
+    evidence_refs: [],
+    reasoning_codes: [],
+    recommended_coaching_response: null,
+    recommended_coach_action: null,
+    safety_classification_level: 'standard_coaching',
+    safety_classification_id: null,
+    status: 'active',
+    is_pinned: false,
+    pinned_by: null,
+    pinned_at: null,
+    coach_context: null,
+    coach_reviewed_by: null,
+    coach_reviewed_at: null,
+    member_visible: true,
+    supersedes_id: null,
+    superseded_by_id: null,
+    last_confirmed_at: null,
+    expires_at: null,
+    created_at: '2026-01-05T08:00:00.000Z',
+    updated_at: '2026-01-05T08:00:00.000Z',
+    ...overrides,
+  };
+}
+
 function signals(overrides: Partial<MorningBriefSignals> = {}): MorningBriefSignals {
   return {
     firstName: 'Jordan',
@@ -82,6 +122,8 @@ function signals(overrides: Partial<MorningBriefSignals> = {}): MorningBriefSign
     activeHabits: [habit()],
     habitLogsToday: {},
     currentStreak: 1,
+    activeTrendInsights: [],
+    continuitySentence: null,
     ...overrides,
   };
 }
@@ -199,5 +241,96 @@ describe('composeMorningBrief', () => {
     const h = habit({ title: 'Morning stretch' });
     const brief = composeMorningBrief(signals({ activeHabits: [h], habitLogsToday: {} }));
     expect(brief.habitToPrioritize).toBe('Morning stretch');
+  });
+
+  it('prefers a real, longitudinal trend insight over a same-night check-in snapshot for sleep', () => {
+    const trend = wellnessInsight({
+      wellness_area: 'sleep',
+      trend_state: 'declining',
+      member_summary:
+        'Sleep has been trending downward over the last month compared to the month before.',
+    });
+    const brief = composeMorningBrief(
+      signals({
+        recentCheckins: [checkin({ sleep_quality: 5 })], // would otherwise say "good" tonight
+        activeTrendInsights: [trend],
+      })
+    );
+    expect(brief.sleepSummary).toBe(
+      'Sleep has been trending downward over the last month compared to the month before.'
+    );
+  });
+
+  it('prefers a real stress trend over the wearable brief', () => {
+    const trend = wellnessInsight({
+      wellness_area: 'stress',
+      trend_state: 'declining',
+      member_summary:
+        'Stress has been trending upward over the last month compared to the month before.',
+    });
+    const brief = composeMorningBrief(
+      signals({
+        decision: decision({
+          wearableBrief: {
+            recoveryStatus: null,
+            movementRecommendation: null,
+            stressRecommendation: 'Your stress levels look calm today.',
+            sleepRecommendation: null,
+          },
+        }),
+        activeTrendInsights: [trend],
+      })
+    );
+    expect(brief.stressSummary).toBe(
+      'Stress has been trending upward over the last month compared to the month before.'
+    );
+  });
+
+  it('ignores a stable/inconsistent trend row — only a meaningful trend state overrides the snapshot', () => {
+    const stable = wellnessInsight({ wellness_area: 'sleep', trend_state: 'stable' });
+    const brief = composeMorningBrief(
+      signals({
+        recentCheckins: [checkin({ sleep_quality: 5 })],
+        activeTrendInsights: [stable],
+      })
+    );
+    expect(brief.sleepSummary).toMatch(/good/i); // falls through to the check-in snapshot
+  });
+
+  it('surfaces a notable pattern for an area outside sleep/stress/recovery (e.g. digestion)', () => {
+    const digestionTrend = wellnessInsight({
+      wellness_area: 'digestion',
+      trend_state: 'improving',
+      title: 'Digestion has been improving',
+      member_summary:
+        'Digestion has been trending upward over the last month compared to the month before.',
+    });
+    const brief = composeMorningBrief(signals({ activeTrendInsights: [digestionTrend] }));
+    expect(brief.notablePatternTitle).toBe('Digestion has been improving');
+    expect(brief.notablePatternSummary).toBe(
+      'Digestion has been trending upward over the last month compared to the month before.'
+    );
+  });
+
+  it('never surfaces a notable pattern when there is no meaningful trend outside sleep/stress/recovery', () => {
+    const brief = composeMorningBrief(signals({ activeTrendInsights: [] }));
+    expect(brief.notablePatternTitle).toBeNull();
+    expect(brief.notablePatternSummary).toBeNull();
+  });
+
+  it('passes through a real incomplete-recommendation sentence when one exists', () => {
+    const brief = composeMorningBrief(
+      signals({
+        continuitySentence: 'You saved "Box breathing" for later — let\'s pick that back up today.',
+      })
+    );
+    expect(brief.incompleteRecommendation).toBe(
+      'You saved "Box breathing" for later — let\'s pick that back up today.'
+    );
+  });
+
+  it('leaves incompleteRecommendation null rather than inventing one', () => {
+    const brief = composeMorningBrief(signals({ continuitySentence: null }));
+    expect(brief.incompleteRecommendation).toBeNull();
   });
 });

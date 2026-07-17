@@ -53,6 +53,9 @@ export async function insertMorningBrief(
       habit_to_prioritize: brief.habitToPrioritize,
       coaching_recommendation: brief.coachingRecommendation,
       encouraging_message: brief.encouragingMessage,
+      notable_pattern_title: brief.notablePatternTitle,
+      notable_pattern_summary: brief.notablePatternSummary,
+      incomplete_recommendation: brief.incompleteRecommendation,
       evidence_refs: brief.evidenceRefs,
     })
     .select('*')

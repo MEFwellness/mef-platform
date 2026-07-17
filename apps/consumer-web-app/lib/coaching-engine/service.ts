@@ -13,9 +13,13 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { MorningBrief } from '@mef/shared-types-contracts';
+import type { MorningBrief, WellnessInsight } from '@mef/shared-types-contracts';
 import { getCoachingFocusDecision } from '../brain/service';
 import { currentStreakLength } from '../ai/agents/accountability';
+import { listInsightsForMember } from '../intelligence/data';
+import { listFeedHistory, getContentItem } from '../feed/data';
+import { buildFeedMemory, type FeedHistoryPair } from '../feed/memory';
+import { buildContinuitySentence } from '../feed/continuity';
 import { composeMorningBrief } from './morningBrief';
 import {
   getHabitLogsForDateForMember,
@@ -24,6 +28,36 @@ import {
   listActiveHabitsForMember,
   listRecentCheckinsForMember,
 } from './data';
+
+const FEED_HISTORY_WINDOW_DAYS = 14;
+
+/** Same real trend data the coach dashboard and Conversation Coach already read (lib/intelligence/data.ts) — never re-derived, only filtered down to the 'trend' rows a Morning Brief can meaningfully reference. */
+async function fetchActiveTrendInsights(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<WellnessInsight[]> {
+  const insights = await listInsightsForMember(supabase, memberId, {
+    statusFilter: ['active', 'confirmed'],
+  });
+  return insights.filter((i) => i.insight_type === 'trend' && i.member_visible);
+}
+
+/** Same FeedMemory Today's "A Note from Root" already builds (lib/feed/continuity.ts's buildContinuitySentence) — reused, not re-derived, so a saved-but-not-completed lesson reads identically wherever it's mentioned. */
+async function fetchContinuitySentence(
+  supabase: SupabaseClient,
+  memberId: string,
+  localDate: string
+): Promise<string | null> {
+  const feedHistory = await listFeedHistory(supabase, memberId, FEED_HISTORY_WINDOW_DAYS);
+  const pastItems = feedHistory.filter((item) => item.local_date < localDate);
+  const historyPairs: FeedHistoryPair[] = await Promise.all(
+    pastItems.map(async (feedItem) => ({
+      feedItem,
+      content: await getContentItem(supabase, feedItem.content_item_id),
+    }))
+  );
+  return buildContinuitySentence(buildFeedMemory(historyPairs, localDate));
+}
 
 export async function getOrCreateTodaysMorningBrief(
   supabase: SupabaseClient,
@@ -35,11 +69,20 @@ export async function getOrCreateTodaysMorningBrief(
   if (existing) return existing;
 
   try {
-    const [decision, recentCheckins, activeHabits, habitLogsToday] = await Promise.all([
+    const [
+      decision,
+      recentCheckins,
+      activeHabits,
+      habitLogsToday,
+      activeTrendInsights,
+      continuitySentence,
+    ] = await Promise.all([
       getCoachingFocusDecision(supabase, memberId, localDate),
       listRecentCheckinsForMember(supabase, memberId, localDate),
       listActiveHabitsForMember(supabase, memberId),
       getHabitLogsForDateForMember(supabase, memberId, localDate),
+      fetchActiveTrendInsights(supabase, memberId),
+      fetchContinuitySentence(supabase, memberId, localDate),
     ]);
 
     const composed = composeMorningBrief({
@@ -50,6 +93,8 @@ export async function getOrCreateTodaysMorningBrief(
       activeHabits,
       habitLogsToday,
       currentStreak: currentStreakLength(recentCheckins),
+      activeTrendInsights,
+      continuitySentence,
     });
 
     return await insertMorningBrief(supabase, memberId, localDate, composed);

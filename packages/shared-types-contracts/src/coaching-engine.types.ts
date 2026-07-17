@@ -30,6 +30,12 @@ export interface MorningBrief {
   coaching_recommendation: string;
   encouraging_message: string;
 
+  /** A real, longitudinal wellness_insights trend (e.g. digestion/movement/mood/hydration) not already covered by sleep_summary/stress_summary/recovery_summary above — null when nothing meaningful is active. */
+  notable_pattern_title: string | null;
+  notable_pattern_summary: string | null;
+  /** A specific saved-but-not-completed lesson, same text Today's "A Note from Root" shows (lib/feed/continuity.ts's buildContinuitySentence) — null when there is none. */
+  incomplete_recommendation: string | null;
+
   evidence_refs: MorningBriefEvidenceRef[];
 
   generated_at: string;

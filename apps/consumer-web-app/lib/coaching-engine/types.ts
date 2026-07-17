@@ -8,7 +8,12 @@
  * score or trend a second way.
  */
 
-import type { DailyCheckin, Habit, MorningBriefEvidenceRef } from '@mef/shared-types-contracts';
+import type {
+  DailyCheckin,
+  Habit,
+  MorningBriefEvidenceRef,
+  WellnessInsight,
+} from '@mef/shared-types-contracts';
 import type { CoachingFocusDecision } from '../brain/types';
 
 export type MorningBriefSignals = {
@@ -21,6 +26,10 @@ export type MorningBriefSignals = {
   habitLogsToday: Record<string, boolean>;
   /** lib/ai/agents/accountability.ts's currentStreakLength over recentCheckins — computed by the caller so this stays a pure function of already-fetched data. */
   currentStreak: number;
+  /** The member's active/confirmed 'trend' rows from wellness_insights (lib/intelligence/trendEngine.ts's already-computed 30-vs-30-day + 7-day analysis) — real longitudinal language, never re-derived here. Severity-sorted by the caller (lib/intelligence/data.ts's listInsightsForMember). */
+  activeTrendInsights: WellnessInsight[];
+  /** lib/feed/continuity.ts's buildContinuitySentence, called by the service layer with the same FeedMemory Today's "A Note from Root" already builds — a real saved-but-not-completed lesson, never invented here. */
+  continuitySentence: string | null;
 };
 
 export type ComposedMorningBrief = {
@@ -34,5 +43,9 @@ export type ComposedMorningBrief = {
   habitToPrioritize: string | null;
   coachingRecommendation: string;
   encouragingMessage: string;
+  /** A real trend (digestion/movement/mood/hydration, etc.) not already covered by sleep/stress/recovery above — null when nothing meaningful is active. */
+  notablePatternTitle: string | null;
+  notablePatternSummary: string | null;
+  incompleteRecommendation: string | null;
   evidenceRefs: MorningBriefEvidenceRef[];
 };
