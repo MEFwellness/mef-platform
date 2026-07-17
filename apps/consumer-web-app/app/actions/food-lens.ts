@@ -383,6 +383,7 @@ async function computeAndStoreMealQuality(
     hasMeaningfulProtein: qualitySignals.hasMeaningfulProtein,
     hasMeaningfulFiber: qualitySignals.hasMeaningfulFiber,
     hasHealthyFat: qualitySignals.hasHealthyFat,
+    isBeverage: qualitySignals.isBeverage,
     confidence: qualitySignals.confidence,
   });
 
@@ -669,6 +670,7 @@ export async function recomputeFoodLensResultAction(
           hasMeaningfulProtein: previousRating.has_meaningful_protein,
           hasMeaningfulFiber: previousRating.has_meaningful_fiber,
           hasHealthyFat: previousRating.has_healthy_fat,
+          isBeverage: previousRating.is_beverage,
           confidence: previousRating.confidence,
         },
         derived,

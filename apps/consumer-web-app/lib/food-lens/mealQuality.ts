@@ -44,8 +44,15 @@ const LOW_CONFIDENCE_EXPLANATION =
 const HYDRATION_EXPLANATION =
   'Plain water (or a similar zero-calorie beverage) supports hydration with no added sugar or processing concerns.';
 
-const SUGAR_DRIVEN_RED_EXPLANATION =
-  'This appears to be a regular sugary beverage or snack, with carbohydrates coming primarily from added sugar and little meaningful protein, fat, fiber, or nutrient density.';
+// Two distinct phrasings, not one hedged "beverage or snack" sentence — a
+// confidently identified item should read as confidently identified. Which
+// one is used is decided by the vision model's own is_beverage signal, not
+// guessed from the label text.
+const SUGAR_DRIVEN_RED_BEVERAGE_EXPLANATION =
+  'This appears to be a regular sugary soda or sweetened beverage, with carbohydrates coming primarily from added sugar and little meaningful protein, fat, fiber, or nutrient density.';
+
+const SUGAR_DRIVEN_RED_FOOD_EXPLANATION =
+  'This appears to be a sugary snack, with carbohydrates coming primarily from added sugar and little meaningful protein, fat, fiber, or nutrient density.';
 
 const ULTRA_PROCESSED_RED_EXPLANATION =
   'This appears to be a heavily processed item with little meaningful protein, fiber, healthy fat, or nutrient density.';
@@ -118,7 +125,12 @@ export function computeMealQualityRating(
     !signals.hasHealthyFat;
 
   if (sugarDriven) {
-    return { rating: 'red', explanation: SUGAR_DRIVEN_RED_EXPLANATION };
+    return {
+      rating: 'red',
+      explanation: signals.isBeverage
+        ? SUGAR_DRIVEN_RED_BEVERAGE_EXPLANATION
+        : SUGAR_DRIVEN_RED_FOOD_EXPLANATION,
+    };
   }
   if (ultraProcessedAndEmpty) {
     return { rating: 'red', explanation: ULTRA_PROCESSED_RED_EXPLANATION };

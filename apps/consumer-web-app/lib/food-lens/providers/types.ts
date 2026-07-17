@@ -48,6 +48,8 @@ export type FoodLensQualitySignals = {
   hasMeaningfulProtein: boolean;
   hasMeaningfulFiber: boolean;
   hasHealthyFat: boolean;
+  /** True when the item being judged is primarily a drink — used only to phrase Meal Quality feedback accurately ("sugary soda" vs. "sugary snack"), never to change the rating logic itself. See lib/food-lens/mealQuality.ts. */
+  isBeverage: boolean;
   /** Confidence in these quality judgments specifically — may differ from item-identification confidence and macro-composition confidence below. */
   confidence: number;
 };

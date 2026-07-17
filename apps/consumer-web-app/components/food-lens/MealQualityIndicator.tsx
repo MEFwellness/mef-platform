@@ -51,9 +51,13 @@ export function MealQualityIndicator({
 
   return (
     <div className={`rounded-[28px] p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] ${config.bgClass}`}>
-      <div className="flex items-center gap-2">
-        <Icon className={`h-5 w-5 shrink-0 ${config.iconClass}`} strokeWidth={1.75} aria-hidden="true" />
-        <p className={`text-sm font-semibold uppercase tracking-wider ${config.textClass}`}>
+      <div className="flex items-start gap-2">
+        <Icon
+          className={`mt-0.5 h-5 w-5 shrink-0 ${config.iconClass}`}
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+        <p className={`text-sm font-semibold uppercase tracking-wide ${config.textClass}`}>
           {config.label}
         </p>
       </div>

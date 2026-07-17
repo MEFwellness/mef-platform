@@ -199,6 +199,8 @@ export interface FoodLensMealQualityRating {
   has_meaningful_protein: boolean;
   has_meaningful_fiber: boolean;
   has_healthy_fat: boolean;
+  /** True when the rated item is primarily a drink — used only to phrase the explanation accurately ("sugary soda" vs. "sugary snack"), never to change the rating itself. */
+  is_beverage: boolean;
   /** Confidence in these quality-signal judgments specifically — distinct from item-identification confidence (FoodLensDetectedItem.confidence) and macro-composition confidence (FoodLensMacroEstimate.*_confidence). */
   confidence: number;
   created_at: string;

@@ -49,7 +49,10 @@ For each distinct food item you can see, report a short plain-language label, wh
 categories it mainly falls into (protein, carb, fat, vegetable, mixed, unknown), and your confidence
 (0 to 1) in that identification. Use "mixed" for composite dishes where ingredients aren't visually
 separable (casseroles, stir-fries, sauced dishes) rather than guessing a single category with false
-confidence.
+confidence. A sugary drink, soda, juice, or sweetened beverage is category "carb" (its composition is
+essentially all carbohydrate from sugar) — never "unknown" or "mixed" just because it's a liquid.
+Plain water or an unsweetened, calorie-free beverage has no macro-contributing composition at all;
+"unknown" is fine for it.
 
 Then give a single plate-level estimate of the meal's overall protein, carbohydrate, and fat
 EMPHASIS, each with its own confidence. This is a coarse relative judgment, not a nutrition-database
@@ -57,24 +60,39 @@ lookup — never a percentage, never a gram value. Each dimension is one of:
 - "none" — essentially absent. Use this, not "low", when a macro is genuinely negligible: a can of
   regular (non-diet) soda has no meaningful protein or fat; plain water has none of any macro; a
   bowl of plain white rice has essentially no fat.
-- "low" — present, but a small share of the plate.
-- "moderate" / "high" — a moderate or dominant share of the plate.
-Do not default to "low" out of caution when the honest answer is "none" — that reads to a member as
-"a small amount," which is misleading for a food that has essentially none of that macro. When you
-recognize a specific, well-known packaged product or beverage, use your general knowledge of what
-that type of product typically contains (in addition to what's visible) to make this call, rather
-than treating every item as an ambiguous home-cooked plate.
+- "low" — present, but a small share of this item/plate's own composition.
+- "moderate" / "high" — a moderate or dominant share of this item/plate's own composition.
+
+Critical calibration point — judge each dimension by the food or drink's OWN nutritional
+composition, never by comparing it to the size of a full day's eating or a large mixed meal, and
+never by how much of it is visibly left in a cup, can, or bottle. A can or bottle of regular soda,
+sweetened tea, or a sports drink is close to 100% carbohydrate by composition — that is HIGH
+carbohydrate emphasis, not "low," even though a drink looks small next to a dinner plate, and even if
+the container shown is only partly full or nearly empty. The amount of liquid remaining tells you
+nothing about the product's composition — a half-empty bottle of regular soda is still a sugar-based
+drink through and through. Do not default to "low" out of caution when the honest answer is "high" —
+that under-states exactly the foods this app most needs to flag honestly. When you recognize a
+specific, well-known packaged product or beverage, use your general knowledge of what that type of
+product typically contains (in addition to what's visible) to make this call, rather than treating
+every item as an ambiguous home-cooked plate.
 
 Separately, report your honest read of this meal/item's broader nutritional quality profile —
-this is a different judgment from the macro emphasis above (a food can be carb-"high" and still
-nutrient-dense, like lentils, or carb-"high" and nutrient-poor, like a soda):
+this is a genuinely different judgment from the macro emphasis above, not simply its inverse. A food
+can be carbohydrate-"high" and ALSO nutrient-dense at the same time: a sweet potato, whole fruit,
+oats, beans, and lentils are all carbohydrate-dominant and nutrient-dense together. Only rate
+nutrient density low when the food is genuinely low in protein, fiber, vitamins, and minerals
+relative to its energy — added sugar, refined flour/grains, or fried snack foods are the clear
+examples — regardless of which macro happens to dominate:
 - nutrient_density: how much protein/fiber/vitamin/mineral value this has relative to its energy —
-  low/moderate/high.
+  low/moderate/high. Never inferred from "this is mostly carbs" or "this is mostly fat" alone.
 - added_sugar_level: none/some/high — added or refined sugar, not naturally occurring sugars in
-  whole fruit.
+  whole fruit or vegetables.
 - processing_level: whole_or_minimally_processed / processed / ultra_processed.
 - has_meaningful_protein / has_meaningful_fiber / has_healthy_fat: true only when genuinely present
   in a meaningful amount, not a trace.
+- is_beverage: true only when the item being judged is primarily a drink (soda, juice, sweetened
+  tea/coffee, sports drink, water, etc.), false for solid food — used only to phrase feedback
+  accurately (e.g. "sugary soda" vs. "sugary snack"), never to change the rating logic itself.
 - confidence (0 to 1) in THESE quality judgments specifically — this can differ from your
   confidence in identifying the item, and from your confidence in the macro-emphasis levels above.
 
@@ -142,6 +160,7 @@ function toolSchema() {
             has_meaningful_protein: { type: 'boolean' },
             has_meaningful_fiber: { type: 'boolean' },
             has_healthy_fat: { type: 'boolean' },
+            is_beverage: { type: 'boolean' },
             confidence: { type: 'number', minimum: 0, maximum: 1 },
           },
           required: [
@@ -151,6 +170,7 @@ function toolSchema() {
             'has_meaningful_protein',
             'has_meaningful_fiber',
             'has_healthy_fat',
+            'is_beverage',
             'confidence',
           ],
         },
@@ -174,6 +194,7 @@ type ToolResultShape = {
     has_meaningful_protein: boolean;
     has_meaningful_fiber: boolean;
     has_healthy_fat: boolean;
+    is_beverage?: boolean;
     confidence: number;
   };
 };
@@ -315,16 +336,40 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
         confidence: clampConfidence(item.confidence),
       }));
 
-    const dimension = (d: { level: string; confidence: number } | undefined) => ({
+    const dimension = (
+      d: { level: string; confidence: number } | undefined,
+      dimensionName: 'protein' | 'carb' | 'fat'
+    ) => {
+      const valid = d && isMacroLevel(d.level);
+      if (d && !valid) {
+        // The model returned a macro_estimate level outside none/low/
+        // moderate/high (schema violation, or an off-schema tool-use
+        // response) — this must never silently masquerade as a confident
+        // "low" reading. Logged so a recurring pattern here is visible,
+        // rather than quietly under-reporting a dimension the same way
+        // the original "always low" bug did.
+        console.error(
+          `Anthropic vision provider returned an invalid macro_estimate.${dimensionName}.level ` +
+            `("${d.level}") — defaulting to 'low' with confidence 0, never fabricating certainty.`
+        );
+      }
       // A malformed/missing dimension defaults to 'low' paired with
       // confidence 0 — not 'none', since asserting absence is itself a
       // claim we have no basis for here; the 0 confidence is what tells
       // the UI/member this reading isn't trustworthy, not the level word.
-      level: d && isMacroLevel(d.level) ? d.level : ('low' as const),
-      confidence: d ? clampConfidence(d.confidence) : 0,
-    });
+      return {
+        level: valid ? (d!.level as (typeof MACRO_LEVELS)[number]) : ('low' as const),
+        confidence: d ? clampConfidence(d.confidence) : 0,
+      };
+    };
 
     const qs = input.quality_signals;
+    if (!qs) {
+      console.error(
+        'Anthropic vision provider returned no quality_signals — defaulting to the most ' +
+          'conservative reading (confidence 0) rather than fabricating a quality judgment.'
+      );
+    }
     const qualitySignals = {
       nutrientDensity: qs && isNutrientDensity(qs.nutrient_density) ? qs.nutrient_density : ('low' as const),
       addedSugarLevel: qs && isAddedSugarLevel(qs.added_sugar_level) ? qs.added_sugar_level : ('none' as const),
@@ -332,6 +377,7 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
       hasMeaningfulProtein: qs?.has_meaningful_protein === true,
       hasMeaningfulFiber: qs?.has_meaningful_fiber === true,
       hasHealthyFat: qs?.has_healthy_fat === true,
+      isBeverage: qs?.is_beverage === true,
       confidence: qs ? clampConfidence(qs.confidence) : 0,
     };
 
@@ -340,9 +386,9 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
       model: this.model,
       items,
       macroEstimate: {
-        protein: dimension(input.macro_estimate?.protein),
-        carb: dimension(input.macro_estimate?.carb),
-        fat: dimension(input.macro_estimate?.fat),
+        protein: dimension(input.macro_estimate?.protein, 'protein'),
+        carb: dimension(input.macro_estimate?.carb, 'carb'),
+        fat: dimension(input.macro_estimate?.fat, 'fat'),
       },
       qualitySignals,
     };

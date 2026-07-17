@@ -11,6 +11,7 @@ function signals(overrides: Partial<FoodLensQualitySignals> = {}): FoodLensQuali
     hasMeaningfulProtein: false,
     hasMeaningfulFiber: false,
     hasHealthyFat: false,
+    isBeverage: false,
     confidence: 0.8,
     ...overrides,
   };
@@ -26,7 +27,7 @@ function macro(overrides: Partial<ComparisonMacroEstimate> = {}): ComparisonMacr
 }
 
 describe('computeMealQualityRating', () => {
-  it('rates a regular sugary soda (Sprite) red, with an explanation naming added sugar and low nutrient density', () => {
+  it('rates a regular sugary soda (Sprite) red, naming it specifically as a soda — never the hedged "beverage or snack" phrasing', () => {
     const result = computeMealQualityRating(
       signals({
         nutrientDensity: 'low',
@@ -35,20 +36,44 @@ describe('computeMealQualityRating', () => {
         hasMeaningfulProtein: false,
         hasMeaningfulFiber: false,
         hasHealthyFat: false,
+        isBeverage: true,
         confidence: 0.85,
       }),
       macro({
         protein: { level: 'none', confidence: 0.7 },
+        // The root-cause fix under test: a sugary soda's carbohydrate
+        // reading must be 'high' (composition-based), never 'low' just
+        // because it "looks small" or because a container is partly empty.
         carb: { level: 'high', confidence: 0.85 },
         fat: { level: 'none', confidence: 0.7 },
       })
     );
     expect(result.rating).toBe('red');
-    expect(result.explanation.toLowerCase()).toContain('sugar');
+    expect(result.explanation.toLowerCase()).toContain('soda');
+    expect(result.explanation.toLowerCase()).not.toContain('beverage or snack');
     expect(result.explanation.toLowerCase()).not.toMatch(/bad food|unhealthy person|failure|should not eat/);
   });
 
-  it('rates plain water green, as a no-added-sugar, unprocessed hydration source — not red or yellow just for having no nutrients', () => {
+  it('rates a confidently identified sugary snack (not a beverage) red with food-specific wording, not beverage wording', () => {
+    const result = computeMealQualityRating(
+      signals({
+        nutrientDensity: 'low',
+        addedSugarLevel: 'high',
+        processingLevel: 'ultra_processed',
+        hasMeaningfulProtein: false,
+        hasMeaningfulFiber: false,
+        hasHealthyFat: false,
+        isBeverage: false,
+        confidence: 0.85,
+      }),
+      macro({ carb: { level: 'high', confidence: 0.85 } })
+    );
+    expect(result.rating).toBe('red');
+    expect(result.explanation.toLowerCase()).toContain('snack');
+    expect(result.explanation.toLowerCase()).not.toContain('soda');
+  });
+
+  it('rates plain water green, as hydration — not red or yellow just for having no nutrients', () => {
     const result = computeMealQualityRating(
       signals({
         nutrientDensity: 'low',
@@ -57,6 +82,7 @@ describe('computeMealQualityRating', () => {
         hasMeaningfulProtein: false,
         hasMeaningfulFiber: false,
         hasHealthyFat: false,
+        isBeverage: true,
         confidence: 0.9,
       }),
       macro({
@@ -86,6 +112,46 @@ describe('computeMealQualityRating', () => {
       })
     );
     expect(result.rating).toBe('green');
+  });
+
+  it('rates sweet potato green even though its carbohydrate reading is high — nutrient density and processing decide the color, not the carb amount', () => {
+    const result = computeMealQualityRating(
+      signals({
+        nutrientDensity: 'high',
+        addedSugarLevel: 'none',
+        processingLevel: 'whole_or_minimally_processed',
+        hasMeaningfulProtein: false,
+        hasMeaningfulFiber: true,
+        hasHealthyFat: false,
+        confidence: 0.8,
+      }),
+      macro({
+        protein: { level: 'none', confidence: 0.7 },
+        carb: { level: 'high', confidence: 0.85 },
+        fat: { level: 'none', confidence: 0.7 },
+      })
+    );
+    expect(result.rating).toBe('green');
+  });
+
+  it('rates potato chips yellow or red depending on signals, never green — moderate/high carb and fat with low nutrient density and no fiber', () => {
+    const result = computeMealQualityRating(
+      signals({
+        nutrientDensity: 'low',
+        addedSugarLevel: 'none',
+        processingLevel: 'ultra_processed',
+        hasMeaningfulProtein: false,
+        hasMeaningfulFiber: false,
+        hasHealthyFat: false,
+        confidence: 0.8,
+      }),
+      macro({
+        protein: { level: 'low', confidence: 0.75 },
+        carb: { level: 'high', confidence: 0.8 },
+        fat: { level: 'moderate', confidence: 0.8 },
+      })
+    );
+    expect(['yellow', 'red']).toContain(result.rating);
   });
 
   it('rates a balanced whole-food meal (protein + carb + vegetables) green', () => {
@@ -154,7 +220,7 @@ describe('computeMealQualityRating', () => {
     for (const [s, m] of scenarios) {
       const { explanation } = computeMealQualityRating(s, m);
       expect(explanation.toLowerCase()).not.toMatch(
-        /bad food|unhealthy person|failure|you should not eat|you failed/
+        /bad food|unhealthy person|failure|you should not eat|you failed|cheat food/
       );
     }
   });
@@ -179,4 +245,15 @@ describe('computeMealQualityRating', () => {
     );
     expect(result.rating).not.toBe('red');
   });
+
+  // "Empty or partially consumed packaging" (a half-drunk soda bottle, an
+  // almost-finished bag of chips) is a vision-reasoning concern, not a
+  // parameter this deterministic function ever receives — it has no
+  // "amount remaining" input at all, only the quality signals and macro
+  // estimate the vision model already resolved. That's enforced by the
+  // prompt in lib/food-lens/providers/anthropicVision.ts (which explicitly
+  // instructs judging composition, not fill level), not testable at this
+  // layer; the Sprite regression test above is the closest unit-level
+  // proxy: a soda always reads carb-'high' regardless of any notion of
+  // "how much is left."
 });

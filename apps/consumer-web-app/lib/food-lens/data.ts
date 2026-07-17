@@ -600,6 +600,7 @@ export async function insertFoodLensMealQualityRating(
     hasMeaningfulProtein: boolean;
     hasMeaningfulFiber: boolean;
     hasHealthyFat: boolean;
+    isBeverage: boolean;
     confidence: number;
   }
 ): Promise<FoodLensMealQualityRating | null> {
@@ -617,6 +618,7 @@ export async function insertFoodLensMealQualityRating(
     has_meaningful_protein: input.hasMeaningfulProtein,
     has_meaningful_fiber: input.hasMeaningfulFiber,
     has_healthy_fat: input.hasHealthyFat,
+    is_beverage: input.isBeverage,
     confidence: input.confidence,
     created_at: now,
   });
@@ -636,6 +638,7 @@ export async function insertFoodLensMealQualityRating(
     has_meaningful_protein: input.hasMeaningfulProtein,
     has_meaningful_fiber: input.hasMeaningfulFiber,
     has_healthy_fat: input.hasHealthyFat,
+    is_beverage: input.isBeverage,
     confidence: input.confidence,
     created_at: now,
   };

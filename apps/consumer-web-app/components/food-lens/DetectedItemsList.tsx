@@ -95,7 +95,7 @@ export function DetectedItemsList({
   return (
     <div className="rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
       <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Detected items</p>
-      <p className="mt-1 text-xs text-[#9AA79F]">
+      <p className="mt-1 text-xs text-[#6B7A72]">
         Correct anything Root got wrong — it helps your future scans too. The confidence below is
         how sure Root is that this is the right food, separate from the nutrient-amount confidence
         shown in Macro Balance.
@@ -113,9 +113,9 @@ export function DetectedItemsList({
               />
             ) : (
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium capitalize text-[#1B3A2D]">{item.label}</p>
-                  <p className="mt-0.5 text-xs text-[#9AA79F]">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium capitalize text-[#1B3A2D]">{item.label}</p>
+                  <p className="mt-0.5 text-xs text-[#6B7A72]">
                     {item.category} · {(item.confidence * 100).toFixed(0)}% confident this is right ·{' '}
                     {STATUS_LABEL[item.status]}
                   </p>

@@ -44,7 +44,7 @@ export function PatternComparisonCard({
 
       <p className="mt-3 text-[15px] leading-relaxed text-[#1B3A2D]">{narrative}</p>
 
-      <p className="mt-3 text-xs text-[#9AA79F]">Compared against your {patternLabel} pattern</p>
+      <p className="mt-3 text-xs text-[#6B7A72]">Compared against your {patternLabel} pattern</p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {signals.map((signal) => (
@@ -57,7 +57,7 @@ export function PatternComparisonCard({
         ))}
       </div>
 
-      <p className="mt-4 text-[11px] leading-relaxed text-[#9AA79F]">
+      <p className="mt-4 text-[11px] leading-relaxed text-[#6B7A72]">
         This reflects one meal, not a verdict on your overall eating — and it&apos;s built from AI
         estimates, not exact measurements.
       </p>

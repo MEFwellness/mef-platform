@@ -59,7 +59,22 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
         </p>
 
         <div className="mt-6 space-y-5">
-          {captures.length > 0 && (
+          {captures.length === 1 && captures[0]!.signedViewUrl && (
+            // A single meal photo (the common case) gets a full-width hero
+            // treatment, not a small square grid thumbnail — a 4:3 crop
+            // keeps most of a typical phone photo in frame instead of the
+            // aggressive center-crop a forced square applies to a taller
+            // portrait shot.
+            <div className="aspect-[4/3] w-full overflow-hidden rounded-2xl bg-black/5">
+              <img
+                src={captures[0]!.signedViewUrl!}
+                alt="Meal capture"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
+
+          {captures.length > 1 && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {captures.map((capture) => (
                 <div
