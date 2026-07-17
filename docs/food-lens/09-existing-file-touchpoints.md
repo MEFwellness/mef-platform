@@ -1,0 +1,45 @@
+# 9. Existing File Touchpoints
+
+Per the constraint this blueprint was written under: **none of the files below have been
+modified.** This is a catalog of every existing file that will eventually need a small, additive
+change when implementation begins, and exactly what that change is, so whoever picks this up (and
+whoever else is concurrently working in this codebase) has a precise, reviewable list instead of a
+vague "some files will need updates."
+
+Every change listed is **additive** — a new export, a new case in an existing switch/array, a new
+adapter file registered somewhere — not a rewrite of existing logic. None of them touch styling,
+layout, or component internals, which is why none were made as part of producing this blueprint.
+
+## Phase 1 (MVP) touchpoints
+
+| File | Change needed | Why it's additive, not disruptive |
+|---|---|---|
+| `apps/consumer-web-app/components/BottomNav.tsx` | Add one new nav item to the fixed member-item array (icon + `/food-lens` href), same shape as the existing `Assessment` entry. | Appending one array element; doesn't touch existing entries or the component's rendering logic. |
+| `apps/consumer-web-app/lib/ai/providers/` | Add a food-lens-specific provider file (e.g. `foodLensAnthropic.ts`) alongside the existing `anthropic.ts`, reusing its fetch/retry/timeout conventions for an image-bearing request. | New file, not an edit to `anthropic.ts` itself — though if the existing `AnthropicProvider` doesn't yet accept image content blocks, that class gains a new optional parameter/method rather than a behavior change to its existing text-only call path. Whoever implements this should confirm `anthropic.ts`'s current call signature before assuming zero changes there. |
+| Whatever mechanism gates premium features in this app | Food Lens needs to be gated the same way. | Not investigated as part of this blueprint — flagged here explicitly rather than guessed at. |
+
+## Phase 2 touchpoints
+
+| File | Change needed | Why it's additive |
+|---|---|---|
+| `apps/consumer-web-app/lib/registry/adapters/` | Add `foodLens.ts`, a new adapter following the same shape as this directory's existing adapters (body assessment, coach intelligence, wearables), writing `registry_entries` with `domain: 'nutrition'`. | New file in an existing directory explicitly designed for this — `RegistryDomain` already has `'nutrition'` reserved and unused. No existing adapter file is touched. |
+| `apps/consumer-web-app/lib/conversation-coach/entryContext.ts` | Add one new exported function, `buildFoodLensEntryContext(...)`, alongside the existing `buildDashboardEntryContext`, `buildTodayEntryContext`, etc. | Pure addition of one function; none of the existing entry-context builders change. |
+| `apps/consumer-web-app/app/food-lens/[id]/page.tsx` (new file, not a touchpoint on an existing one) | Wires the floating "Ask Root" launcher using the new entry-context function, the same way `app/dashboard/page.tsx` or the body-assessment report page already does. | New page; the existing launcher component (`FloatingCoachLauncher.tsx`) is used as-is, not modified — it already accepts arbitrary entry context per the pattern seen on other pages. |
+
+## Phase 3 touchpoints
+
+| File | Change needed | Why it's additive |
+|---|---|---|
+| `apps/consumer-web-app/lib/brain/` (specifically wherever `getCoachingFocusDecision` aggregates its input signals) | Add nutrition-pattern registry entries as one more weighed input, alongside the existing celebration/challenge/risk/priority engines. | New signal source feeding an existing decision function; the function's existing signal types aren't changed, a new one is added to the set it considers. |
+| `supabase/migrations/` | New migration file(s) for the tables in doc 3, numbered after whatever the highest existing migration number is at implementation time (this blueprint was written against a tree topping out at `00000000000051`; re-check before picking a number). | New file(s); no existing migration is edited, consistent with this repo's "never destructively alter, only additively extend" convention observed across every existing migration. |
+
+## Explicitly not a touchpoint
+
+- No changes anywhere in `lib/body-assessment/`, `lib/intelligence*/`, `lib/coach-intelligence/`,
+  or `lib/narrative/` are required at any phase — Food Lens integrates with all of them
+  transitively through the Registry adapter (doc 8), which is the entire reason that pattern
+  exists.
+- No changes to `lib/conversation-coach/service.ts`, `context.ts`, `prompt.ts`, or
+  `promptVersion.ts` — Root's core reply pipeline doesn't need to know Food Lens exists; it
+  receives nutrition signal through the Intelligence Engine (registry-fed) and through
+  `entryContext.ts`'s new one-liner, both additive integration points.

@@ -31,4 +31,5 @@ export const SUGGESTED_PROMPTS: Record<ConversationEntryPoint, string[]> = {
     'Explain what my body assessment found.',
     'What should I focus on before my next assessment?',
   ],
+  food_lens: ['Why did this meal read that way?', 'What should I eat differently next time?'],
 };

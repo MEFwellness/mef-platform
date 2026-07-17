@@ -27,7 +27,9 @@ export type ConversationEntryPoint =
   // AI Body Assessment Framework — a member launching a conversation from
   // a body assessment result page (distinct from the onboarding/
   // reassessment 'assessment' entry point above).
-  | 'body_assessment';
+  | 'body_assessment'
+  // Food Lens — a member launching a conversation from a meal scan result.
+  | 'food_lens';
 
 export type ConversationSessionStatus = 'active' | 'restricted' | 'archived';
 

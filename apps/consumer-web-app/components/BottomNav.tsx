@@ -28,7 +28,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Plus, BarChart2, Users, User, ScanFace } from 'lucide-react';
+import { Home, Sparkles, Plus, BarChart2, Users, User, ScanFace, UtensilsCrossed } from 'lucide-react';
 
 type NavItem = { label: string; href: string; Icon: typeof Home };
 
@@ -39,6 +39,7 @@ const LEFT_ITEMS: NavItem[] = [
 
 const RIGHT_ITEMS: NavItem[] = [
   { label: 'Assessments', href: '/assessment', Icon: ScanFace },
+  { label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed },
   { label: 'Progress', href: '/progress', Icon: BarChart2 },
   { label: 'Profile', href: '/profile', Icon: User },
 ];

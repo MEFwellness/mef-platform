@@ -9,7 +9,7 @@
  * unit-testable without rendering anything.
  */
 
-import type { WellnessInsight } from '@mef/shared-types-contracts';
+import type { FoodLensComparisonSignal, WellnessInsight } from '@mef/shared-types-contracts';
 import type { WellnessIndexResult } from '../wellness/wellness-index';
 import type { CoachingFocusDecision } from '../brain/types';
 
@@ -60,6 +60,23 @@ export function buildAssessmentEntryContext(
 ): string {
   const label = kind === 'baseline' ? 'Baseline Assessment' : 'Reassessment';
   return `Opened from the ${label} result (submitted ${submittedLocalDate}).`;
+}
+
+/** Food Lens's results page (doc 8 §8.2) — gives Root the scan-specific verdict immediately if the member taps "Ask Root" right from the results screen, without waiting for the registry pipeline to run. `narrative` is Root's own already-generated coaching sentence for this scan (lib/food-lens/coachingNarrative.ts); passed through as-is, never re-derived here. */
+export function buildFoodLensEntryContext(
+  patternLabel: string | null,
+  signals: FoodLensComparisonSignal[] | null,
+  narrative: string | null
+): string {
+  if (!patternLabel || !signals || signals.length === 0) {
+    return 'Opened from a Food Lens meal scan (no Primal Pattern target set yet, so no personalized comparison was run).';
+  }
+  const nonMatch = signals.find((s) => s.direction !== 'match');
+  const verdict = nonMatch
+    ? `came back ${nonMatch.mealLevel} in ${nonMatch.dimension}, ${nonMatch.direction} against`
+    : 'matched';
+  const narrativePart = narrative ? ` Root told them: "${narrative}"` : '';
+  return `Member just scanned a meal that ${verdict} their ${patternLabel} Primal Pattern target.${narrativePart}`;
 }
 
 export function buildBodyAssessmentReportEntryContext(

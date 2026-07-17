@@ -1,0 +1,623 @@
+'use server';
+
+/**
+ * MEF Food Lens — server actions. Same convention as every other action
+ * file in this app (see app/actions/body-assessment.ts): a session-scoped
+ * Supabase client, RLS (migration 55) as the real authorization boundary,
+ * `{ error }`-shaped results for mutations, empty/null for unauthenticated
+ * reads.
+ *
+ * Per the product decision (hybrid approach): identification, macro
+ * estimation, confidence, and comparison signals are computed
+ * deterministically here (lib/food-lens/comparison.ts); the coaching
+ * sentence is generated dynamically (lib/food-lens/coachingNarrative.ts)
+ * from those signals plus the member's real context. Both stages always
+ * run together — a scan is never left with structured signals but no
+ * coaching sentence, or vice versa.
+ */
+
+import { createClient } from '@/lib/supabase/server';
+import type { ActionResult } from './auth';
+import { resolveLocalDate } from './checkin';
+import type {
+  FoodLensCapture,
+  FoodLensCaptureType,
+  FoodLensDetectedItem,
+  FoodLensFoodCategory,
+  FoodLensMacroEstimate,
+  FoodLensPatternComparison,
+  FoodLensScan,
+  FoodLensScanType,
+  PrimalPatternProfile,
+} from '@mef/shared-types-contracts';
+import {
+  buildFoodLensCaptureStoragePath,
+  createSignedFoodLensCaptureUrl,
+  FOOD_LENS_BUCKET,
+} from '@/lib/food-lens/storage';
+import {
+  getFoodLensProvider,
+  resolveConfiguredFoodLensProvider,
+} from '@/lib/food-lens/providers/registry';
+import {
+  compareMealToPattern,
+  deriveMacroEstimateFromItems,
+  overallConfidenceFor,
+  type ComparisonMacroEstimate,
+} from '@/lib/food-lens/comparison';
+import { generateFoodLensCoachingNarrative } from '@/lib/food-lens/coachingNarrative';
+import { upsertRegistryEntryFromFoodLensComparison } from '@/lib/registry/adapters/foodLens';
+import {
+  getActivePrimalPatternProfile,
+  getFoodLensScan,
+  getFoodLensDetectedItem,
+  getLatestFoodLensMacroEstimate,
+  getLatestFoodLensPatternComparison,
+  insertFoodLensCapture,
+  insertFoodLensCorrection,
+  insertFoodLensDetectedItem,
+  insertFoodLensMacroEstimate,
+  insertFoodLensPatternComparison,
+  insertFoodLensScan,
+  listCurrentFoodLensDetectedItems,
+  listFoodLensCaptures,
+  listFoodLensScans,
+  listRecentConfirmedLabelsForMember,
+  setManualPrimalPatternProfile,
+  updateFoodLensDetectedItemStatus,
+  updateFoodLensScan,
+} from '@/lib/food-lens/data';
+
+async function requireMember(): Promise<{
+  supabase: ReturnType<typeof createClient>;
+  userId: string;
+} | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  return { supabase, userId: user.id };
+}
+
+async function memberLocalDate(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<string> {
+  const { data } = await supabase.from('profiles').select('timezone').eq('id', userId).single();
+  const timezone = data?.timezone ?? 'America/New_York';
+  return resolveLocalDate(new Date(new Date().toLocaleString('en-US', { timeZone: timezone })), false);
+}
+
+// ---- Scan lifecycle ----
+
+export async function startFoodLensScanAction(
+  scanType: FoodLensScanType = 'meal_photo'
+): Promise<ActionResult & { scan?: FoodLensScan }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const { supabase, userId } = ctx;
+
+  const activeProfile = await getActivePrimalPatternProfile(supabase, userId);
+  const scan = await insertFoodLensScan(supabase, userId, scanType, activeProfile?.id ?? null);
+  if (!scan) return { error: 'Could not start scan.' };
+  return { scan };
+}
+
+/** The storage path a new capture should upload to — computed server-side so the member id segment storage.objects' RLS relies on is never trusted from the client, same discipline as buildCaptureUploadPathAction in body-assessment. */
+export async function buildFoodLensCaptureUploadPathAction(
+  scanId: string,
+  captureId: string,
+  extension: string
+): Promise<{ bucket: string; path: string } | null> {
+  const ctx = await requireMember();
+  if (!ctx) return null;
+  return {
+    bucket: FOOD_LENS_BUCKET,
+    path: buildFoodLensCaptureStoragePath(ctx.userId, scanId, captureId, extension),
+  };
+}
+
+export type RecordFoodLensCaptureInput = {
+  captureId: string;
+  scanId: string;
+  storagePath: string;
+  captureType?: FoodLensCaptureType;
+  deviceInfo?: Record<string, unknown>;
+};
+
+/** Called after the browser has already uploaded the capture's bytes directly to Supabase Storage — this only records the metadata row. */
+export async function recordFoodLensCaptureAction(
+  input: RecordFoodLensCaptureInput
+): Promise<ActionResult & { capture?: FoodLensCapture }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const { supabase, userId } = ctx;
+
+  const scan = await getFoodLensScan(supabase, input.scanId);
+  if (!scan || scan.member_id !== userId) return { error: 'Scan not found.' };
+
+  const capture = await insertFoodLensCapture(supabase, {
+    id: input.captureId,
+    scanId: input.scanId,
+    storagePath: input.storagePath,
+    captureType: input.captureType ?? 'photo',
+    deviceInfo: input.deviceInfo ?? {},
+  });
+  if (!capture) return { error: 'Could not save capture.' };
+  return { capture };
+}
+
+export type AnalyzeFoodLensScanResult = {
+  status: 'analyzed' | 'not_configured' | 'failed';
+  detectedItems?: FoodLensDetectedItem[];
+  macroEstimate?: FoodLensMacroEstimate;
+  comparison?: FoodLensPatternComparison | undefined;
+  error?: string;
+};
+
+/**
+ * Runs the configured vision provider against this scan's captures, then
+ * (deterministically) computes the macro estimate and comparison signals,
+ * then (dynamically) generates Root's coaching sentence, then registers
+ * the result with the Universal Registry so Root's ongoing conversations
+ * and the Intelligence Engine pick it up too. Mirrors performAnalysis in
+ * app/actions/body-assessment.ts's overall shape.
+ */
+export async function analyzeFoodLensScanAction(
+  scanId: string
+): Promise<AnalyzeFoodLensScanResult> {
+  const ctx = await requireMember();
+  if (!ctx) return { status: 'failed', error: 'Not signed in.' };
+  const { supabase, userId } = ctx;
+
+  const scan = await getFoodLensScan(supabase, scanId);
+  if (!scan || scan.member_id !== userId) return { status: 'failed', error: 'Scan not found.' };
+
+  const providerName = resolveConfiguredFoodLensProvider();
+  if (!providerName) {
+    await updateFoodLensScan(supabase, scanId, {
+      status: 'not_configured',
+      provider_status: 'not_configured',
+    });
+    return {
+      status: 'not_configured',
+      error:
+        'Food Lens isn\'t available yet — no vision provider is configured. This scan is saved and ' +
+        'will be analyzed automatically once one is connected.',
+    };
+  }
+
+  await updateFoodLensScan(supabase, scanId, {
+    status: 'analyzing',
+    provider_name: providerName,
+    provider_status: 'pending',
+  });
+
+  try {
+    const captures = await listFoodLensCaptures(supabase, scanId);
+    if (captures.length === 0) {
+      await updateFoodLensScan(supabase, scanId, { status: 'failed', provider_status: 'failed' });
+      return { status: 'failed', error: 'No capture found for this scan.' };
+    }
+
+    const signedCaptures = await Promise.all(
+      captures.map(async (capture) => ({
+        captureId: capture.id,
+        captureType: capture.capture_type,
+        signedUrl: (await createSignedFoodLensCaptureUrl(supabase, capture.storage_path)) ?? '',
+      }))
+    );
+
+    const personalizationContext = await listRecentConfirmedLabelsForMember(supabase, userId, 20);
+
+    const provider = getFoodLensProvider(providerName);
+    const result = await provider.analyzeMeal({
+      scanId,
+      memberId: userId,
+      captures: signedCaptures,
+      personalizationContext,
+    });
+
+    const detectedItems: FoodLensDetectedItem[] = [];
+    for (const item of result.items) {
+      const created = await insertFoodLensDetectedItem(supabase, {
+        scanId,
+        label: item.label,
+        category: item.category,
+        confidence: item.confidence,
+        source: 'ai_detected',
+      });
+      if (created) detectedItems.push(created);
+    }
+
+    const macroEstimate = await insertFoodLensMacroEstimate(supabase, {
+      scanId,
+      proteinLevel: result.macroEstimate.protein.level,
+      carbLevel: result.macroEstimate.carb.level,
+      fatLevel: result.macroEstimate.fat.level,
+      proteinConfidence: result.macroEstimate.protein.confidence,
+      carbConfidence: result.macroEstimate.carb.confidence,
+      fatConfidence: result.macroEstimate.fat.confidence,
+      overallConfidence: overallConfidenceFor(result.macroEstimate),
+      basis: 'ai_estimated',
+    });
+    if (!macroEstimate) {
+      await updateFoodLensScan(supabase, scanId, { status: 'failed', provider_status: 'failed' });
+      return { status: 'failed', error: 'Could not save macro estimate.' };
+    }
+
+    // No Primal Pattern target yet: still useful on its own (doc 4 §4.4,
+    // doc 5 §5.5) — items + macro estimate stand alone, no comparison row.
+    const targetProfileId = scan.primal_pattern_profile_id;
+    const target = targetProfileId
+      ? await getActivePrimalPatternProfile(supabase, userId)
+      : null;
+
+    let comparison: FoodLensPatternComparison | undefined;
+    if (target) {
+      comparison = await runComparisonAndNarrative(supabase, userId, scanId, detectedItems, {
+        protein: result.macroEstimate.protein,
+        carb: result.macroEstimate.carb,
+        fat: result.macroEstimate.fat,
+      }, macroEstimate.id, target);
+    }
+
+    await updateFoodLensScan(supabase, scanId, {
+      status: 'analyzed',
+      provider_status: 'completed',
+    });
+
+    return {
+      status: 'analyzed',
+      detectedItems,
+      macroEstimate,
+      comparison,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Analysis failed.';
+    await updateFoodLensScan(supabase, scanId, {
+      status: 'failed',
+      provider_status: 'failed',
+      provider_error: message,
+    });
+    return { status: 'failed', error: message };
+  }
+}
+
+async function runComparisonAndNarrative(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  scanId: string,
+  detectedItems: Pick<FoodLensDetectedItem, 'label' | 'category' | 'confidence'>[],
+  macroEstimate: ComparisonMacroEstimate,
+  macroEstimateId: string,
+  target: PrimalPatternProfile
+): Promise<FoodLensPatternComparison | undefined> {
+  const { signals, confidence } = compareMealToPattern(macroEstimate, target);
+
+  const localDate = await memberLocalDate(supabase, userId);
+  const { narrative } = await generateFoodLensCoachingNarrative({
+    supabase,
+    memberId: userId,
+    localDate,
+    detectedItems,
+    macroEstimate,
+    target,
+    signals,
+  });
+
+  const comparison = await insertFoodLensPatternComparison(supabase, {
+    scanId,
+    macroEstimateId,
+    primalPatternProfileId: target.id,
+    signals,
+    narrative,
+    confidence,
+  });
+
+  if (comparison) {
+    try {
+      await upsertRegistryEntryFromFoodLensComparison(supabase, userId, comparison);
+    } catch (err) {
+      // Best-effort, same discipline as every other registry-write call
+      // site in this app — a member's own scan result must never fail
+      // because the downstream Intelligence Engine feed had a problem.
+      console.error('upsertRegistryEntryFromFoodLensComparison failed', err);
+    }
+  }
+
+  return comparison ?? undefined;
+}
+
+export type FoodLensScanDetail = {
+  scan: FoodLensScan;
+  detectedItems: FoodLensDetectedItem[];
+  macroEstimate: FoodLensMacroEstimate | null;
+  comparison: FoodLensPatternComparison | null;
+  captures: Array<{ captureId: string; signedViewUrl: string | null; captureType: string }>;
+};
+
+export async function getFoodLensScanAction(scanId: string): Promise<FoodLensScanDetail | null> {
+  const ctx = await requireMember();
+  if (!ctx) return null;
+  const { supabase, userId } = ctx;
+
+  const scan = await getFoodLensScan(supabase, scanId);
+  if (!scan || scan.member_id !== userId) return null;
+
+  const [detectedItems, macroEstimate, comparison, captures] = await Promise.all([
+    listCurrentFoodLensDetectedItems(supabase, scanId),
+    getLatestFoodLensMacroEstimate(supabase, scanId),
+    getLatestFoodLensPatternComparison(supabase, scanId),
+    listFoodLensCaptures(supabase, scanId),
+  ]);
+
+  const signedCaptures = await Promise.all(
+    captures.map(async (capture) => ({
+      captureId: capture.id,
+      signedViewUrl: await createSignedFoodLensCaptureUrl(supabase, capture.storage_path),
+      captureType: capture.capture_type,
+    }))
+  );
+
+  return { scan, detectedItems, macroEstimate, comparison, captures: signedCaptures };
+}
+
+export type FoodLensScanSummary = {
+  id: string;
+  scanType: FoodLensScanType;
+  status: FoodLensScan['status'];
+  createdAt: string;
+  headline: string | null;
+};
+
+export async function listMyFoodLensScansAction(
+  options: { limit?: number; before?: string } = {}
+): Promise<FoodLensScanSummary[]> {
+  const ctx = await requireMember();
+  if (!ctx) return [];
+  const { supabase, userId } = ctx;
+
+  const scans = await listFoodLensScans(supabase, userId, options);
+  return Promise.all(
+    scans.map(async (scan) => {
+      const comparison = await getLatestFoodLensPatternComparison(supabase, scan.id);
+      return {
+        id: scan.id,
+        scanType: scan.scan_type,
+        status: scan.status,
+        createdAt: scan.created_at,
+        headline: comparison?.narrative ?? null,
+      };
+    })
+  );
+}
+
+// ---- Corrections ----
+
+async function requireOwnedItem(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  itemId: string
+): Promise<{ item: FoodLensDetectedItem; scan: FoodLensScan } | null> {
+  const item = await getFoodLensDetectedItem(supabase, itemId);
+  if (!item) return null;
+  const scan = await getFoodLensScan(supabase, item.scan_id);
+  if (!scan || scan.member_id !== userId) return null;
+  return { item, scan };
+}
+
+export async function confirmDetectedItemAction(
+  itemId: string
+): Promise<ActionResult & { item?: FoodLensDetectedItem }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const owned = await requireOwnedItem(ctx.supabase, ctx.userId, itemId);
+  if (!owned) return { error: 'Item not found.' };
+
+  const ok = await updateFoodLensDetectedItemStatus(ctx.supabase, itemId, 'confirmed');
+  if (!ok) return { error: 'Could not confirm item.' };
+  return { item: { ...owned.item, status: 'confirmed' } };
+}
+
+export async function rejectDetectedItemAction(
+  itemId: string
+): Promise<ActionResult & { item?: FoodLensDetectedItem }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const owned = await requireOwnedItem(ctx.supabase, ctx.userId, itemId);
+  if (!owned) return { error: 'Item not found.' };
+
+  const ok = await updateFoodLensDetectedItemStatus(ctx.supabase, itemId, 'rejected');
+  if (!ok) return { error: 'Could not reject item.' };
+
+  await insertFoodLensCorrection(ctx.supabase, {
+    memberId: ctx.userId,
+    detectedItemId: itemId,
+    correctionType: 'item_removed',
+    originalValue: { label: owned.item.label, category: owned.item.category },
+    correctedValue: { status: 'rejected' },
+  });
+
+  return { item: { ...owned.item, status: 'rejected' } };
+}
+
+export type CorrectDetectedItemInput = {
+  itemId: string;
+  correctedLabel?: string;
+  correctedCategory?: FoodLensFoodCategory;
+};
+
+/** Never mutates the AI's original detection in place — supersedes it with a new row, so what the model actually said stays inspectable (doc 4 §4.3). */
+export async function correctDetectedItemAction(
+  input: CorrectDetectedItemInput
+): Promise<ActionResult & { newItem?: FoodLensDetectedItem }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const owned = await requireOwnedItem(ctx.supabase, ctx.userId, input.itemId);
+  if (!owned) return { error: 'Item not found.' };
+
+  if (!input.correctedLabel && !input.correctedCategory) {
+    return { error: 'No change provided.' };
+  }
+
+  const newLabel = input.correctedLabel ?? owned.item.label;
+  const newCategory = input.correctedCategory ?? owned.item.category;
+
+  const newItem = await insertFoodLensDetectedItem(ctx.supabase, {
+    scanId: owned.item.scan_id,
+    label: newLabel,
+    category: newCategory,
+    confidence: 1,
+    source: 'member_corrected',
+    supersedesId: owned.item.id,
+  });
+  if (!newItem) return { error: 'Could not save correction.' };
+
+  await updateFoodLensDetectedItemStatus(ctx.supabase, owned.item.id, 'superseded');
+
+  await insertFoodLensCorrection(ctx.supabase, {
+    memberId: ctx.userId,
+    detectedItemId: owned.item.id,
+    correctionType: input.correctedLabel ? 'label_fixed' : 'category_fixed',
+    originalValue: { label: owned.item.label, category: owned.item.category },
+    correctedValue: { label: newLabel, category: newCategory },
+  });
+
+  return { newItem };
+}
+
+export type AddManualFoodItemInput = {
+  scanId: string;
+  label: string;
+  category: FoodLensFoodCategory;
+};
+
+export async function addManualFoodItemAction(
+  input: AddManualFoodItemInput
+): Promise<ActionResult & { item?: FoodLensDetectedItem }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const { supabase, userId } = ctx;
+
+  const scan = await getFoodLensScan(supabase, input.scanId);
+  if (!scan || scan.member_id !== userId) return { error: 'Scan not found.' };
+
+  const item = await insertFoodLensDetectedItem(supabase, {
+    scanId: input.scanId,
+    label: input.label,
+    category: input.category,
+    confidence: 1,
+    source: 'member_added',
+    status: 'confirmed',
+  });
+  if (!item) return { error: 'Could not add item.' };
+
+  await insertFoodLensCorrection(supabase, {
+    memberId: userId,
+    detectedItemId: item.id,
+    correctionType: 'item_added',
+    originalValue: {},
+    correctedValue: { label: input.label, category: input.category },
+  });
+
+  return { item };
+}
+
+export type RecomputeFoodLensResult = {
+  macroEstimate?: FoodLensMacroEstimate;
+  comparison?: FoodLensPatternComparison | undefined;
+  error?: string;
+};
+
+/**
+ * Recomputes the macro estimate and comparison signals from the current
+ * confirmed items — deterministic, no vision-provider call. The coaching
+ * sentence IS regenerated (one LLM call, not per-keystroke — this runs
+ * once per correction batch when the member is done editing), since the
+ * facts underneath it changed and stale coaching copy would contradict the
+ * member's own correction. See lib/food-lens/coachingNarrative.ts.
+ */
+export async function recomputeFoodLensResultAction(
+  scanId: string
+): Promise<RecomputeFoodLensResult> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const { supabase, userId } = ctx;
+
+  const scan = await getFoodLensScan(supabase, scanId);
+  if (!scan || scan.member_id !== userId) return { error: 'Scan not found.' };
+
+  const items = await listCurrentFoodLensDetectedItems(supabase, scanId);
+  const confirmedOrAdded = items.filter((i) => i.status === 'confirmed');
+  if (confirmedOrAdded.length === 0) {
+    return { error: 'Confirm at least one item before recomputing.' };
+  }
+
+  const derived = deriveMacroEstimateFromItems(confirmedOrAdded);
+  const macroEstimate = await insertFoodLensMacroEstimate(supabase, {
+    scanId,
+    proteinLevel: derived.protein.level,
+    carbLevel: derived.carb.level,
+    fatLevel: derived.fat.level,
+    proteinConfidence: derived.protein.confidence,
+    carbConfidence: derived.carb.confidence,
+    fatConfidence: derived.fat.confidence,
+    overallConfidence: overallConfidenceFor(derived),
+    basis: 'member_adjusted',
+  });
+  if (!macroEstimate) return { error: 'Could not save recomputed estimate.' };
+
+  const target = scan.primal_pattern_profile_id
+    ? await getActivePrimalPatternProfile(supabase, userId)
+    : null;
+  if (!target) return { macroEstimate };
+
+  const comparison = await runComparisonAndNarrative(
+    supabase,
+    userId,
+    scanId,
+    confirmedOrAdded,
+    derived,
+    macroEstimate.id,
+    target
+  );
+
+  await updateFoodLensScan(supabase, scanId, { status: 'member_reviewed' });
+
+  return { macroEstimate, comparison };
+}
+
+// ---- Primal Pattern target (read-only from Food Lens's side; phase 1 manual-entry write) ----
+
+export async function getActivePrimalPatternProfileAction(): Promise<PrimalPatternProfile | null> {
+  const ctx = await requireMember();
+  if (!ctx) return null;
+  return getActivePrimalPatternProfile(ctx.supabase, ctx.userId);
+}
+
+export type SetManualPrimalPatternProfileInput = {
+  patternLabel: string;
+  proteinEmphasis: PrimalPatternProfile['protein_emphasis'];
+  carbEmphasis: PrimalPatternProfile['carb_emphasis'];
+  fatEmphasis: PrimalPatternProfile['fat_emphasis'];
+};
+
+/**
+ * Phase 1 manual-entry placeholder (doc 6 phase 1) — no Primal Pattern
+ * questionnaire scoring engine exists in this codebase yet (doc 5 §5.1).
+ * This unblocks Food Lens end-to-end; swapping in the real questionnaire
+ * later means removing this form, not changing any Food Lens code (doc 5's
+ * contract seam).
+ */
+export async function setManualPrimalPatternProfileAction(
+  input: SetManualPrimalPatternProfileInput
+): Promise<ActionResult & { profile?: PrimalPatternProfile }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+
+  const profile = await setManualPrimalPatternProfile(ctx.supabase, ctx.userId, input);
+  if (!profile) return { error: 'Could not save your pattern.' };
+  return { profile };
+}

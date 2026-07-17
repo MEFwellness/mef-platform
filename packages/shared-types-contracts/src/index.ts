@@ -14,3 +14,4 @@ export * from './health-profile.types';
 export * from './timeline.types';
 export * from './wearable.types';
 export * from './coaching-engine.types';
+export * from './food-lens.types';

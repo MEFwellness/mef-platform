@@ -1,0 +1,277 @@
+/**
+ * The real FoodLensProvider implementation — Claude vision via forced
+ * tool-use, per docs/food-lens/02-ai-vision-models.md §2.1. Talks to the
+ * Anthropic Messages API directly over fetch, same retry/timeout
+ * discipline as lib/ai/providers/anthropic.ts, extended to send image
+ * content blocks (a signed URL each, never raw bytes) and to force a
+ * structured tool-call response rather than parsing freeform prose — a
+ * malformed response must never silently produce a bogus macro estimate.
+ *
+ * Server-only: reads its API key from process.env, never accepts one as a
+ * constructor default, must never be imported from a client component.
+ */
+
+import type { FoodLensCaptureInput, FoodLensProvider, FoodLensAnalysisRequest, FoodLensAnalysisResult } from './types';
+
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_API_VERSION = '2023-06-01';
+const DEFAULT_TIMEOUT_MS = 30_000;
+const MAX_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 400;
+
+const RECORD_MEAL_ANALYSIS_TOOL = 'record_meal_analysis';
+const MACRO_LEVELS = ['low', 'moderate', 'high'] as const;
+const FOOD_CATEGORIES = ['protein', 'carb', 'fat', 'vegetable', 'mixed', 'unknown'] as const;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+class NonRetryableApiError extends Error {
+  readonly nonRetryable = true;
+}
+
+const SYSTEM_PROMPT = `You identify foods in a meal photo for a wellness-coaching app. Your ONLY job is
+structured, honest observation — never coaching advice, never calorie or gram estimates, never a
+diagnosis.
+
+For each distinct food item you can see, report a short plain-language label, which of these
+categories it mainly falls into (protein, carb, fat, vegetable, mixed, unknown), and your confidence
+(0 to 1) in that identification. Use "mixed" for composite dishes where ingredients aren't visually
+separable (casseroles, stir-fries, sauced dishes) rather than guessing a single category with false
+confidence.
+
+Then give a single plate-level estimate of the meal's overall protein, carbohydrate, and fat
+EMPHASIS as one of low/moderate/high each (never a percentage, never a gram value), each with its
+own confidence. This is a coarse relative judgment, not a nutrition-database lookup.
+
+Be conservative with confidence: occluded, stacked, sauced, or ambiguous food should get a lower
+confidence, not a guessed-but-confident answer. You must call the ${RECORD_MEAL_ANALYSIS_TOOL} tool
+exactly once with your result.`;
+
+function buildUserPromptText(
+  personalizationContext: Array<{ label: string; category: string }> | undefined
+): string {
+  const base =
+    'Identify the foods in the attached meal photo(s) and estimate the plate-level macro emphasis.';
+  if (!personalizationContext || personalizationContext.length === 0) return base;
+
+  const examples = personalizationContext
+    .slice(0, 15)
+    .map((c) => `- "${c.label}" → ${c.category}`)
+    .join('\n');
+  return `${base}\n\nThis member has previously confirmed these label→category mappings for their own recurring meals (use as helpful prior context, not as a guarantee this photo contains the same foods):\n${examples}`;
+}
+
+function toolSchema() {
+  const macroDimension = {
+    type: 'object',
+    properties: {
+      level: { type: 'string', enum: MACRO_LEVELS },
+      confidence: { type: 'number', minimum: 0, maximum: 1 },
+    },
+    required: ['level', 'confidence'],
+  };
+
+  return {
+    name: RECORD_MEAL_ANALYSIS_TOOL,
+    description: 'Records structured, honest food identification and macro-emphasis estimates for one meal photo.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              label: { type: 'string' },
+              category: { type: 'string', enum: FOOD_CATEGORIES },
+              confidence: { type: 'number', minimum: 0, maximum: 1 },
+            },
+            required: ['label', 'category', 'confidence'],
+          },
+        },
+        macro_estimate: {
+          type: 'object',
+          properties: {
+            protein: macroDimension,
+            carb: macroDimension,
+            fat: macroDimension,
+          },
+          required: ['protein', 'carb', 'fat'],
+        },
+      },
+      required: ['items', 'macro_estimate'],
+    },
+  };
+}
+
+type ToolResultShape = {
+  items: Array<{ label: string; category: string; confidence: number }>;
+  macro_estimate: {
+    protein: { level: string; confidence: number };
+    carb: { level: string; confidence: number };
+    fat: { level: string; confidence: number };
+  };
+};
+
+function isMacroLevel(value: string): value is (typeof MACRO_LEVELS)[number] {
+  return (MACRO_LEVELS as readonly string[]).includes(value);
+}
+
+function isFoodCategory(value: string): value is (typeof FOOD_CATEGORIES)[number] {
+  return (FOOD_CATEGORIES as readonly string[]).includes(value);
+}
+
+function clampConfidence(value: number): number {
+  if (Number.isNaN(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+export class AnthropicFoodLensProvider implements FoodLensProvider {
+  readonly name = 'anthropic_vision';
+
+  constructor(
+    private readonly apiKey: string,
+    private readonly model: string,
+    private readonly timeoutMs: number = DEFAULT_TIMEOUT_MS
+  ) {}
+
+  async analyzeMeal(request: FoodLensAnalysisRequest): Promise<FoodLensAnalysisResult> {
+    const photoContent = request.captures
+      .filter((c) => c.signedUrl)
+      .map((c: FoodLensCaptureInput) => ({
+        type: 'image' as const,
+        source: { type: 'url' as const, url: c.signedUrl },
+      }));
+
+    if (photoContent.length === 0) {
+      throw new Error('AnthropicFoodLensProvider: no capture with a usable signed URL was provided.');
+    }
+
+    const userContent = [
+      { type: 'text' as const, text: buildUserPromptText(request.personalizationContext) },
+      ...photoContent,
+    ];
+
+    const body = {
+      model: this.model,
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userContent }],
+      tools: [toolSchema()],
+      tool_choice: { type: 'tool', name: RECORD_MEAL_ANALYSIS_TOOL },
+    };
+
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+      try {
+        const response = await fetch(ANTHROPIC_API_URL, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': this.apiKey,
+            'anthropic-version': ANTHROPIC_API_VERSION,
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+
+        if (!response.ok) {
+          const bodyText = await response.text().catch(() => '');
+          const message = `Anthropic vision API returned ${response.status}: ${bodyText.slice(0, 300)}`;
+          if (isRetryableStatus(response.status) && attempt < MAX_ATTEMPTS) {
+            lastError = new Error(message);
+            await sleep(RETRY_BASE_DELAY_MS * attempt);
+            continue;
+          }
+          throw new NonRetryableApiError(message);
+        }
+
+        const json = (await response.json()) as {
+          content?: Array<{ type: string; input?: unknown }>;
+          stop_reason?: string;
+        };
+
+        const toolUseBlock = (json.content ?? []).find(
+          (block): block is { type: string; input: ToolResultShape } =>
+            block.type === 'tool_use' && block.input !== undefined
+        );
+
+        if (!toolUseBlock) {
+          throw new Error(
+            `Anthropic vision provider returned no ${RECORD_MEAL_ANALYSIS_TOOL} tool call ` +
+              `(stop_reason: ${json.stop_reason ?? 'unknown'}) — never fabricating a result.`
+          );
+        }
+
+        return this.parseToolResult(toolUseBlock.input);
+      } catch (err) {
+        clearTimeout(timer);
+        if (err instanceof NonRetryableApiError) throw err;
+
+        lastError = err;
+        const isAbort = err instanceof Error && err.name === 'AbortError';
+        if (attempt < MAX_ATTEMPTS) {
+          await sleep(RETRY_BASE_DELAY_MS * attempt);
+          continue;
+        }
+        if (isAbort) {
+          throw new Error(`Anthropic vision provider timed out after ${this.timeoutMs}ms`);
+        }
+        throw err instanceof Error ? err : new Error('Anthropic vision provider failed');
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('Anthropic vision provider failed');
+  }
+
+  private parseToolResult(input: ToolResultShape): FoodLensAnalysisResult {
+    const items = (input.items ?? [])
+      .filter((item) => typeof item.label === 'string' && item.label.trim().length > 0)
+      .map((item) => ({
+        label: item.label.trim(),
+        category: isFoodCategory(item.category) ? item.category : ('unknown' as const),
+        confidence: clampConfidence(item.confidence),
+      }));
+
+    const dimension = (d: { level: string; confidence: number } | undefined) => ({
+      level: d && isMacroLevel(d.level) ? d.level : ('low' as const),
+      confidence: d ? clampConfidence(d.confidence) : 0,
+    });
+
+    return {
+      provider: this.name,
+      model: this.model,
+      items,
+      macroEstimate: {
+        protein: dimension(input.macro_estimate?.protein),
+        carb: dimension(input.macro_estimate?.carb),
+        fat: dimension(input.macro_estimate?.fat),
+      },
+    };
+  }
+}
+
+/**
+ * Builds a real provider from environment configuration, or returns null if
+ * unconfigured — reuses the same ANTHROPIC_API_KEY/ANTHROPIC_MODEL as the
+ * Conversation Coach (lib/ai/providers/anthropic.ts), since this is the
+ * same account/model, just a vision-capable request shape. No separate
+ * env vars invented for this — one fewer thing to misconfigure.
+ */
+export function buildAnthropicFoodLensProviderFromEnv(): AnthropicFoodLensProvider | null {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const model = process.env.ANTHROPIC_MODEL;
+  if (!apiKey || !model) return null;
+  return new AnthropicFoodLensProvider(apiKey, model);
+}
