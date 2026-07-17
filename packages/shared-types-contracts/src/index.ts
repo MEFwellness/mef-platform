@@ -18,3 +18,4 @@ export * from './food-lens.types';
 export * from './movement.types';
 export * from './food-products.types';
 export * from './food-lens-ecosystem.types';
+export * from './scoring.types';

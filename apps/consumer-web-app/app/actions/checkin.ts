@@ -17,6 +17,7 @@ import { buildRuleFacts } from '@/lib/ai/rules/facts';
 import { evaluateConcern } from '@/lib/safety/service';
 import { recordSafetyRestrictionNarrative } from '@/lib/narrative/service';
 import { recordTimelineEvent } from '@/lib/timeline/data';
+import { getOrCalculateRootScore } from '@/lib/scoring/service';
 
 // ---- Time helpers ----
 
@@ -143,6 +144,24 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
     }
   } catch (safetyError) {
     console.error('Safety classification failed for submitDailyCheckin', safetyError);
+  }
+
+  // Root Score System — best-effort recalculation, same discipline as the
+  // two blocks above: never allowed to affect the result already
+  // returned to the member. A completed check-in is exactly the kind of
+  // "meaningful update" the Root Score product spec calls out as a
+  // recalculation trigger; getOrCalculateRootScore's own once-per-day
+  // cache means this is cheap on a normal day and a real recompute only
+  // when it's the first qualifying event of the day.
+  try {
+    await getOrCalculateRootScore(
+      supabase,
+      user.id,
+      { localDate: input.local_date, timezone: input.timezone },
+      { forceRecalculate: true }
+    );
+  } catch (scoringError) {
+    console.error('Root Score recalculation failed for submitDailyCheckin', scoringError);
   }
 
   return {};

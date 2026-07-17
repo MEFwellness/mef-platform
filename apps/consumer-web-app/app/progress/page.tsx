@@ -8,6 +8,7 @@ import { getMyWellnessIdentityHighlights, getMyWellnessStorySummary } from '@/ap
 import { getMyHealthProfileSummary } from '@/app/actions/health-profile';
 import { getMyProgressComparison } from '@/app/actions/onboarding';
 import { getMyWearableMetricHistory } from '@/app/actions/wearables';
+import { getMyRootScoreHistory } from '@/app/actions/scoring';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
@@ -20,6 +21,7 @@ import { WellnessPatternsPanel } from './WellnessPatternsPanel';
 import { WellnessIdentityPanel } from './WellnessIdentityPanel';
 import { WellnessStoryPanel } from './WellnessStoryPanel';
 import { WearableTrendsPanel } from './WearableTrendsPanel';
+import { ProgressRootScorePanel } from './ProgressRootScorePanel';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -77,6 +79,7 @@ export default async function ProgressPage() {
     sleepHistory,
     stepsHistory,
     stressHistory,
+    rootScoreHistory,
   ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
@@ -90,6 +93,7 @@ export default async function ProgressPage() {
     getMyWearableMetricHistory('sleep_duration_minutes', 7),
     getMyWearableMetricHistory('steps', 7),
     getMyWearableMetricHistory('stress_score', 7),
+    getMyRootScoreHistory(90),
   ]);
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const streak = calculateStreak(recentCheckins);
@@ -155,6 +159,8 @@ export default async function ProgressPage() {
             )}
           </section>
         </div>
+
+        <ProgressRootScorePanel history={rootScoreHistory} />
 
         <section className={`${CARD} mt-5 p-6`}>
           <div className="flex items-center justify-between">

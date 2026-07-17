@@ -107,6 +107,37 @@
 }
 
 /*
+ * Root Score living-score object (components/RootScoreCard.tsx) — a very
+ * slow, restrained breathing effect on the score's own glow ring only
+ * (never the number itself, which must stay perfectly legible). Deliberately
+ * subtle: 6s duration, a few percent of scale/opacity, signaling "this is a
+ * living, current measurement" without reading as decoration or a loading
+ * state. Same reduced-motion discipline as every other animation here.
+ */
+@keyframes mef-root-score-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.04);
+  }
+}
+
+.mef-root-score-breathe {
+  animation: mef-root-score-breathe 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-root-score-breathe {
+    animation: none !important;
+    opacity: 0.7;
+  }
+}
+
+/*
  * Premium range slider (used by the onboarding/reassessment questionnaire's
  * numeric questions). Tailwind's accent-color utility can't size or shadow
  * a slider thumb and there's no utility-class equivalent for the

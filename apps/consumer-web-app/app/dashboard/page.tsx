@@ -57,8 +57,9 @@ import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
-import { WellnessIndexCard } from './WellnessIndexCard';
 import { calculateWellnessIndex, inputsFromCheckin } from '@/lib/wellness/wellness-index';
+import { RootScoreCard } from '@/components/RootScoreCard';
+import { getMyRootScore } from '@/app/actions/scoring';
 import { buildDashboardEntryContext } from '@/lib/conversation-coach/entryContext';
 import { buildTimeContext } from '@/lib/feed/timeContext';
 import { getMyWearableConnections } from '@/app/actions/wearables';
@@ -126,18 +127,6 @@ function movementLabel(level: 'none' | 'light' | 'moderate' | 'full_session' | n
   return 'Full session';
 }
 
-/**
- * local_date is a plain YYYY-MM-DD calendar string with no time/timezone
- * component. Date.UTC (not `new Date(y, m, d)`, which is local-time and
- * would shift by a day around midnight depending on the server's own
- * timezone) keeps this pure calendar arithmetic.
- */
-function previousLocalDate(localDate: string): string {
-  const [year, month, day] = localDate.split('-').map(Number);
-  const date = new Date(Date.UTC(year!, month! - 1, day! - 1));
-  return date.toISOString().slice(0, 10);
-}
-
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -179,14 +168,16 @@ export default async function DashboardPage({
 
   // recentCheckins doesn't depend on localDate, so it joins the other two
   // (which do) in a single batch instead of three more serial round trips.
-  const [todaysCheckin, recentCheckins, yesterdaysCheckin] = await Promise.all([
+  // rootScoreSnapshot reads today's already-calculated snapshot (or
+  // calculates it once, the first time it's asked for today) — see
+  // lib/scoring/service.ts; it never recalculates on every render.
+  const [todaysCheckin, recentCheckins, rootScoreSnapshot] = await Promise.all([
     getTodaysCheckin(localDate),
     getRecentCheckins(12),
-    getTodaysCheckin(previousLocalDate(localDate)),
+    getMyRootScore(localDate, timezone),
   ]);
 
   const wellnessIndex = calculateWellnessIndex(inputsFromCheckin(todaysCheckin));
-  const yesterdaysWellnessIndex = calculateWellnessIndex(inputsFromCheckin(yesterdaysCheckin));
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -238,6 +229,19 @@ export default async function DashboardPage({
         ) : (
           <>
           {/* ---------------------------------------------------- */}
+          {/* Root Score — the platform's central heartbeat.          */}
+          {/* Longer-term, cross-domain, deliberately slow-moving      */}
+          {/* (lib/scoring/), placed first so "how am I doing          */}
+          {/* overall" is answered before anything else. Replaces      */}
+          {/* the single-day Daily Wellness Index's spot on this       */}
+          {/* dashboard (that component and its calculation still      */}
+          {/* power the coach client view unchanged — see               */}
+          {/* app/coach/clients/[id]/page.tsx). See                     */}
+          {/* components/RootScoreCard.tsx and app/root-score/.         */}
+          {/* ---------------------------------------------------- */}
+          <RootScoreCard snapshot={rootScoreSnapshot} />
+
+          {/* ---------------------------------------------------- */}
           {/* Guided Posture & Movement Assessment — Premium UX       */}
           {/* Milestone 4: the actual next step after a first Daily   */}
           {/* Check-In. Stays prominent here (never buried in         */}
@@ -262,7 +266,9 @@ export default async function DashboardPage({
           {/* Dashboard-only now (Milestone 2): it used to also render */}
           {/* on Today, which made the two pages feel duplicated.      */}
           {/* ---------------------------------------------------- */}
-          {morningBrief && <MorningBriefCard brief={morningBrief} />}
+          {morningBrief && (
+            <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
+          )}
 
           {/* ---------------------------------------------------- */}
           {/* Wearable Status + Recovery — the unlock pitch until a   */}
@@ -300,16 +306,6 @@ export default async function DashboardPage({
             <ConnectWearableCard variant="dashboard" />
           )}
 
-          {/* ---------------------------------------------------- */}
-          {/* Daily Wellness Index — real weighted score from         */}
-          {/* today's check-in (lib/wellness/wellness-index.ts);       */}
-          {/* never a placeholder number. Its own empty state covers   */}
-          {/* the "checked in before, not yet today" case.             */}
-          {/* ---------------------------------------------------- */}
-          <WellnessIndexCard
-            result={wellnessIndex}
-            previousScore={yesterdaysWellnessIndex?.score ?? null}
-          />
           {/* ---------------------------------------------------- */}
           {/* Current wellness overview — today's numbers only when   */}
           {/* today's check-in actually exists; otherwise a single     */}

@@ -21,6 +21,7 @@
  * Focus, so it reads as insight rather than a second hello.
  */
 
+import Link from 'next/link';
 import {
   Sparkles,
   HeartPulse,
@@ -30,9 +31,11 @@ import {
   MessageCircleHeart,
   TrendingUp,
   BookmarkCheck,
+  Gauge,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
-import type { MorningBrief } from '@mef/shared-types-contracts';
+import type { MorningBrief, RootScoreSnapshot } from '@mef/shared-types-contracts';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -56,7 +59,19 @@ function BriefLine({ icon: Icon, label, text }: BriefLineProps) {
   );
 }
 
-export function MorningBriefCard({ brief }: { brief: MorningBrief }) {
+type Props = {
+  brief: MorningBrief;
+  /**
+   * Optional Root Score context — additive, presentation-only. Passed in
+   * by app/dashboard/page.tsx from lib/scoring/service.ts; this component
+   * never calculates or fetches a score itself, and omits the section
+   * entirely rather than showing a placeholder when there's no real score
+   * yet, same discipline every other line in this card already follows.
+   */
+  rootScoreSnapshot?: RootScoreSnapshot | null;
+};
+
+export function MorningBriefCard({ brief, rootScoreSnapshot }: Props) {
   return (
     <section className={`${CARD} mef-animate-in p-6`}>
       <div className="flex items-center gap-2 text-[#6B7A72]">
@@ -66,6 +81,29 @@ export function MorningBriefCard({ brief }: { brief: MorningBrief }) {
 
       <div className="mt-5 space-y-4">
         <BriefLine icon={Flame} label="Today's Focus" text={brief.focus_label} />
+        {rootScoreSnapshot?.root_score !== null && rootScoreSnapshot && (
+          <Link
+            href="/root-score"
+            className="-mx-1 flex items-start gap-3 rounded-2xl px-1 py-0.5 transition hover:bg-[#FAFAF8]"
+          >
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EFF6F1] text-[#1B3A2D]">
+              <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden={true} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                Root Score: {rootScoreSnapshot.root_score}
+              </p>
+              <p className="mt-0.5 text-sm leading-relaxed text-[#1B3A2D]">
+                {rootScoreSnapshot.explanation_summary}
+              </p>
+            </div>
+            <ChevronRight
+              className="mt-1 h-4 w-4 shrink-0 text-[#1B3A2D]/40"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+          </Link>
+        )}
         {brief.recovery_summary && (
           <BriefLine icon={HeartPulse} label="Recovery Status" text={brief.recovery_summary} />
         )}
