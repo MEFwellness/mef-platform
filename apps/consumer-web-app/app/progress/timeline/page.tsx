@@ -13,6 +13,7 @@ import {
   TrendingUp,
   TrendingDown,
   Link2,
+  Activity,
 } from 'lucide-react';
 import type { HealthTimelineEvent } from '@mef/shared-types-contracts';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -32,6 +33,7 @@ const EVENT_ICON = {
   trend_improving: TrendingUp,
   trend_declining: TrendingDown,
   wearable_connected: Link2,
+  movement_session_completed: Activity,
 } as const;
 
 type Group =

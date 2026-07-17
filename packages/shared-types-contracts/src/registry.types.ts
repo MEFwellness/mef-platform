@@ -31,12 +31,13 @@ export type RegistryEntrySeverity = 'none' | 'mild' | 'moderate' | 'significant'
 
 export type RegistryEntryStatus = 'active' | 'resolved' | 'superseded' | 'dismissed';
 
-/** Four real producers now — body assessment and coach intelligence from the original milestone, wearable_daily_metric (see lib/registry/adapters/wearables.ts), and food_lens_pattern_comparison (see lib/registry/adapters/foodLens.ts). Extend alongside the migration's check constraint as future adapters land. */
+/** Five real producers now — body assessment and coach intelligence from the original milestone, wearable_daily_metric (see lib/registry/adapters/wearables.ts), food_lens_pattern_comparison (see lib/registry/adapters/foodLens.ts), and movement_session_completed (see lib/registry/adapters/movement.ts). Extend alongside the migration's check constraint as future adapters land. */
 export type RegistrySourceFeature =
   | 'body_assessment_finding'
   | 'assessment_ai_observation'
   | 'wearable_daily_metric'
-  | 'food_lens_pattern_comparison';
+  | 'food_lens_pattern_comparison'
+  | 'movement_session_completed';
 
 /** Same {type, id, note?} shape every other engine's evidence-ref type already uses, independently declared per this codebase's established convention. */
 export interface RegistryEvidenceRef {

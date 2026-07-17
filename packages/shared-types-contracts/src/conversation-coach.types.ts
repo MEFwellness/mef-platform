@@ -29,7 +29,10 @@ export type ConversationEntryPoint =
   // reassessment 'assessment' entry point above).
   | 'body_assessment'
   // Food Lens — a member launching a conversation from a meal scan result.
-  | 'food_lens';
+  | 'food_lens'
+  // Movement Intelligence — a member launching a conversation from the
+  // Movement Dashboard or an active session.
+  | 'movement';
 
 export type ConversationSessionStatus = 'active' | 'restricted' | 'archived';
 

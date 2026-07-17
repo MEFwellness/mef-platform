@@ -43,7 +43,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Plus, BarChart2, Users, UtensilsCrossed } from 'lucide-react';
+import { Home, Sparkles, Plus, BarChart2, Users, UtensilsCrossed, Activity } from 'lucide-react';
 
 type NavItem = { label: string; href: string; Icon: typeof Home };
 
@@ -52,7 +52,18 @@ const LEFT_ITEMS: NavItem[] = [
   { label: 'Today', href: '/today', Icon: Sparkles },
 ];
 
+/**
+ * Movement Intelligence milestone: added as a sixth permanent slot,
+ * deliberately widening the "5-slot" bar Premium UX Milestone 1
+ * established (see this file's own top docblock) — Movement is its own
+ * primary daily surface (a full dashboard, not a card tucked into an
+ * existing page), on par with Dashboard/Today/Progress rather than a
+ * feature that fits inside one of them. The grid-based layout below
+ * already computes its column count from this array's length, so no
+ * layout math needed to change.
+ */
 const RIGHT_ITEMS: NavItem[] = [
+  { label: 'Movement', href: '/movement', Icon: Activity },
   { label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed },
   { label: 'Progress', href: '/progress', Icon: BarChart2 },
 ];

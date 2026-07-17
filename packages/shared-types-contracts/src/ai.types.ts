@@ -54,7 +54,8 @@ export type AiEventType =
   | 'wearable_synced'
   | 'hrv_declining'
   | 'recovery_excellent'
-  | 'activity_declined';
+  | 'activity_declined'
+  | 'movement_session_completed';
 
 export type AiEventSource = 'member' | 'coach' | 'system';
 

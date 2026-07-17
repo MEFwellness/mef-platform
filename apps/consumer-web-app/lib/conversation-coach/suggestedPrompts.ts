@@ -32,4 +32,5 @@ export const SUGGESTED_PROMPTS: Record<ConversationEntryPoint, string[]> = {
     'What should I focus on before my next assessment?',
   ],
   food_lens: ['Why did this meal read that way?', 'What should I eat differently next time?'],
+  movement: ['Why was this session chosen for me?', 'Can I make today’s session easier?'],
 };

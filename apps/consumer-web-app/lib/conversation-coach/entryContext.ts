@@ -9,7 +9,11 @@
  * unit-testable without rendering anything.
  */
 
-import type { FoodLensComparisonSignal, WellnessInsight } from '@mef/shared-types-contracts';
+import type {
+  FoodLensComparisonSignal,
+  MovementSessionWithExercises,
+  WellnessInsight,
+} from '@mef/shared-types-contracts';
 import type { WellnessIndexResult } from '../wellness/wellness-index';
 import type { CoachingFocusDecision } from '../brain/types';
 
@@ -77,6 +81,13 @@ export function buildFoodLensEntryContext(
     : 'matched';
   const narrativePart = narrative ? ` Root told them: "${narrative}"` : '';
   return `Member just scanned a meal that ${verdict} their ${patternLabel} Primal Pattern target.${narrativePart}`;
+}
+
+export function buildMovementEntryContext(session: MovementSessionWithExercises | null): string {
+  if (!session) {
+    return 'Opened from the Movement Dashboard, before a first check-in has been logged.';
+  }
+  return `Opened from the Movement Dashboard. Today's focus: "${session.focus_summary}" (${session.recovery_status} recovery, ~${session.estimated_duration_minutes} min).`;
 }
 
 export function buildBodyAssessmentReportEntryContext(
