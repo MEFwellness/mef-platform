@@ -15,12 +15,10 @@
  * follows (see app/dashboard/page.tsx's own header comment on the
  * now-removed fabricated Health Score/Four Doctors cards).
  *
- * greetingWord is a prop, not computed here, so it always matches the
- * same timezone-aware value (lib/feed/timeContext.ts) the rest of the
- * page's own greeting uses — this card used to compute its own via
- * `new Date().getHours()` in the server's timezone, which could show a
- * different time-of-day than the page header right above it for a
- * member outside that timezone.
+ * UX refinement: this card no longer repeats its own "{greeting},
+ * {name}" — the page header right above it (app/dashboard/page.tsx)
+ * already says that once. The card now starts straight at Today's
+ * Focus, so it reads as insight rather than a second hello.
  */
 
 import {
@@ -58,22 +56,13 @@ function BriefLine({ icon: Icon, label, text }: BriefLineProps) {
   );
 }
 
-export function MorningBriefCard({
-  brief,
-  greetingWord,
-}: {
-  brief: MorningBrief;
-  greetingWord: string;
-}) {
+export function MorningBriefCard({ brief }: { brief: MorningBrief }) {
   return (
     <section className={`${CARD} mef-animate-in p-6`}>
       <div className="flex items-center gap-2 text-[#6B7A72]">
         <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Root&apos;s Daily Brief</p>
       </div>
-      <h2 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#1B3A2D]">
-        {greetingWord}, {brief.greeting_name}
-      </h2>
 
       <div className="mt-5 space-y-4">
         <BriefLine icon={Flame} label="Today's Focus" text={brief.focus_label} />

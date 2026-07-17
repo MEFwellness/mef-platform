@@ -262,9 +262,7 @@ export default async function DashboardPage({
           {/* Dashboard-only now (Milestone 2): it used to also render */}
           {/* on Today, which made the two pages feel duplicated.      */}
           {/* ---------------------------------------------------- */}
-          {morningBrief && (
-            <MorningBriefCard brief={morningBrief} greetingWord={timeContext.greetingWord} />
-          )}
+          {morningBrief && <MorningBriefCard brief={morningBrief} />}
 
           {/* ---------------------------------------------------- */}
           {/* Wearable Status + Recovery — the unlock pitch until a   */}
