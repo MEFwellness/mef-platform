@@ -157,7 +157,7 @@ export default async function TodayPage() {
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         <div className="flex items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-2 text-[#854D0E]">
+          <div className="flex items-center gap-2 text-[#6B7A72]">
             <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">
               Your MEF Coaching Experience
@@ -206,7 +206,7 @@ export default async function TodayPage() {
                 squarely a today action. */}
             <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
               <section className={`${CARD} p-7`}>
-                <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+                <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                   Check-In Progress
                 </p>
                 {todaysCheckin ? (
@@ -232,10 +232,10 @@ export default async function TodayPage() {
 
               <Link
                 href={'/checkin' as Route}
-                className={`${CARD} flex items-center justify-between bg-[#F5B700] p-6 text-left text-[#1B3A2D] transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B3A2D]`}
+                className="flex items-center justify-between rounded-[28px] bg-[#1B3A2D] p-6 text-left text-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
               >
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-[#1B3A2D]/70">
+                  <p className="text-xs font-medium uppercase tracking-wider text-white/70">
                     Takes about a minute
                   </p>
                   <p className="mt-1.5 text-lg font-semibold">
@@ -258,7 +258,7 @@ export default async function TodayPage() {
                 nutrition always show — they reuse the same check-in
                 status classification the Dashboard already uses. */}
             <section className={`${CARD} mef-animate-in mt-6 p-7`}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Watch className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">
                   Today&apos;s Recommendations
@@ -409,7 +409,7 @@ export default async function TodayPage() {
                           className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#F5B700]/10"
                           aria-hidden="true"
                         />
-                        <div className="relative flex items-center gap-2 text-[#854D0E]">
+                        <div className="relative flex items-center gap-2 text-[#6B7A72]">
                           <GreetingIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           <p className="text-sm font-semibold uppercase tracking-wider">
                             A Note from Root
@@ -428,7 +428,7 @@ export default async function TodayPage() {
                         className={`${CARD} mef-animate-in p-7`}
                         style={stagger(sectionIndex++)}
                       >
-                        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+                        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                           Today&apos;s Focus
                         </p>
                         <p className="mt-3 text-lg leading-relaxed text-[#1B3A2D]">
@@ -451,7 +451,7 @@ export default async function TodayPage() {
                         </div>
                         <div className="p-7">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-[#854D0E]">
+                            <div className="flex items-center gap-2 text-[#6B7A72]">
                               <BookOpen className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                               <p className="text-sm font-semibold uppercase tracking-wider">
                                 Today&apos;s Lesson
@@ -497,14 +497,14 @@ export default async function TodayPage() {
                         className={`${CARD} mef-animate-in p-7`}
                         style={stagger(sectionIndex++)}
                       >
-                        <div className="flex items-center gap-2 text-[#854D0E]">
+                        <div className="flex items-center gap-2 text-[#6B7A72]">
                           <ListChecks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           <p className="text-sm font-semibold uppercase tracking-wider">
                             Today&apos;s Challenge
                           </p>
                         </div>
                         {challengeCarryover && (
-                          <p className="mt-2 text-sm font-medium text-[#854D0E]">
+                          <p className="mt-2 text-sm font-medium text-[#6B7A72]">
                             {challengeCarryover}
                           </p>
                         )}
@@ -553,7 +553,7 @@ export default async function TodayPage() {
                         className={`${CARD} mef-animate-in p-6`}
                         style={stagger(sectionIndex++)}
                       >
-                        <div className="flex items-center gap-2 text-[#854D0E]">
+                        <div className="flex items-center gap-2 text-[#6B7A72]">
                           <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           <p className="text-sm font-semibold uppercase tracking-wider">
                             Talk to Root
@@ -610,7 +610,7 @@ export default async function TodayPage() {
                           className={`${CARD} mef-animate-in p-6`}
                           style={stagger(sectionIndex++)}
                         >
-                          <div className="flex items-center gap-2 text-[#854D0E]">
+                          <div className="flex items-center gap-2 text-[#6B7A72]">
                             <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                             <p className="text-sm font-semibold uppercase tracking-wider">
                               Coach Insight
@@ -627,7 +627,7 @@ export default async function TodayPage() {
                         className={`${CARD} mef-animate-in p-6`}
                         style={stagger(sectionIndex++)}
                       >
-                        <div className="flex items-center gap-2 text-[#854D0E]">
+                        <div className="flex items-center gap-2 text-[#6B7A72]">
                           <Info className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           <p className="text-sm font-semibold uppercase tracking-wider">
                             Why You&apos;re Seeing This
@@ -663,7 +663,7 @@ export default async function TodayPage() {
             {/* Past Lessons */}
             {history.length > 0 && (
               <section className="mt-6">
-                <div className="flex items-center gap-2 text-[#854D0E]">
+                <div className="flex items-center gap-2 text-[#6B7A72]">
                   <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">Past Lessons</p>
                 </div>

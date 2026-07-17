@@ -68,7 +68,7 @@ export function ConnectWearableCard({ variant }: { variant: 'dashboard' | 'today
         className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-[#F5B700]/10"
         aria-hidden="true"
       />
-      <div className="relative flex items-center gap-2 text-[#854D0E]">
+      <div className="relative flex items-center gap-2 text-[#6B7A72]">
         <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Unlock Smarter Coaching</p>
       </div>

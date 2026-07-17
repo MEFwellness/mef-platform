@@ -49,7 +49,7 @@ export default async function BaselineAssessmentPage() {
               You haven&apos;t completed your onboarding assessment yet.{' '}
               <Link
                 href="/onboarding"
-                className="font-medium text-[#854D0E] underline underline-offset-2"
+                className="font-medium text-[#6B7A72] underline underline-offset-2"
               >
                 Complete it now
               </Link>

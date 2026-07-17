@@ -80,7 +80,7 @@ export function FoodLensCaptureFlow() {
   if (phase === 'intro') {
     return (
       <div className="rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
-        <div className="flex items-center gap-2 text-[#854D0E]">
+        <div className="flex items-center gap-2 text-[#6B7A72]">
           <Camera className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Food Lens</p>
         </div>

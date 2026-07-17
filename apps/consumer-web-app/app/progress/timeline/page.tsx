@@ -109,7 +109,7 @@ function MilestoneCard({ event, href }: { event: HealthTimelineEvent; href: stri
         <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
           {formatDate(event.local_date)}
         </p>
         <p className="mt-1 text-sm font-medium leading-relaxed text-[#1B3A2D]">{event.title}</p>

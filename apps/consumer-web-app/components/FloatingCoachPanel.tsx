@@ -132,7 +132,7 @@ export function FloatingCoachPanel({
           <p className="font-[family-name:var(--font-cormorant-garamond)] text-lg leading-tight text-[#1B3A2D]">
             Root
           </p>
-          <p className="text-xs font-medium uppercase tracking-wider text-[#854D0E]">
+          <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
             Your MEF Wellness Coach
           </p>
         </div>

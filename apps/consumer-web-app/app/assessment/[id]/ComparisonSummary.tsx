@@ -24,7 +24,7 @@ export function ComparisonSummary({ rows }: { rows: BodyAssessmentComparison[] }
 
   return (
     <section className={`${CARD} p-6`}>
-      <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
         Progress since your last assessment
       </p>
 

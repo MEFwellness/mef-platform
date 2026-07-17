@@ -26,7 +26,7 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
     <div className="mt-5 space-y-5">
       {hasNarrative && (
         <section className={`${CARD} mef-animate-in p-7`}>
-          <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Where You Are Right Now
           </p>
@@ -38,7 +38,7 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
 
       {hasPriority && (
         <section className={`${CARD} mef-animate-in p-6`}>
-          <div className="flex items-center gap-2 text-[#854D0E]">
+          <div className="flex items-center gap-2 text-[#6B7A72]">
             <Target className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Your Focus</p>
           </div>
@@ -64,7 +64,7 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             {hasStrengths && (
               <div>
-                <div className="flex items-center gap-2 text-[#854D0E]">
+                <div className="flex items-center gap-2 text-[#6B7A72]">
                   <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">Strengths</p>
                 </div>
@@ -79,7 +79,7 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
             )}
             {hasOpportunities && (
               <div>
-                <div className="flex items-center gap-2 text-[#854D0E]">
+                <div className="flex items-center gap-2 text-[#6B7A72]">
                   <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">Opportunities</p>
                 </div>
@@ -98,7 +98,7 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
 
       {hasWins && (
         <section className={`${CARD} mef-animate-in p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Recent Wins</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Recent Wins</p>
           <ul className="mt-2.5 space-y-2">
             {summary.recentWins.map((win) => (
               <li key={win} className="rounded-2xl bg-[#FAFAF8] p-3.5 text-sm text-[#1B3A2D]">

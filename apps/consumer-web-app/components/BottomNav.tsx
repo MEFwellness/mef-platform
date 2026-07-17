@@ -29,6 +29,15 @@
  * to four), labels get real breathing room, so they render at a larger,
  * always-on-one-line size instead of the old cramped fallback that let
  * long labels wrap.
+ *
+ * Premium UX Milestone 3 (brand color discipline): inactive items were
+ * the app's amber eyebrow color (#854D0E) at full strength — the same
+ * color every card's section label used, which meant 4 of these 5 icons
+ * were "gold" at rest, the opposite of "gold should remain special."
+ * Inactive now reads in muted gray; the active item gets a soft gold
+ * pill behind the icon (a real but restrained use of "gold: active
+ * navigation") while its text/icon stay dark green for contrast — gold
+ * text on white at this size would have been hard to read.
  */
 
 import Link from 'next/link';
@@ -58,10 +67,11 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <Link
       href={item.href as Route}
+      aria-current={active ? 'page' : undefined}
       className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 text-center text-[10px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:min-h-0 md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
         active
-          ? 'text-[#1B3A2D]'
-          : 'text-[#854D0E] hover:bg-[#1B3A2D]/[0.04] hover:text-[#6B380A]'
+          ? 'bg-[#F5B700]/[0.16] text-[#1B3A2D]'
+          : 'text-[#6B7A72] hover:bg-[#1B3A2D]/[0.04] hover:text-[#1B3A2D]'
       }`}
     >
       <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} aria-hidden="true" />

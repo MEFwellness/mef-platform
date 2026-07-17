@@ -122,7 +122,7 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
 
           {macroEstimate && (
             <div className={`${CARD} p-6`}>
-              <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+              <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Macro balance
               </p>
               <MacroBalanceMeter

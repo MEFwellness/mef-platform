@@ -121,7 +121,7 @@ export function MemberFindingsSummary({ findings }: { findings: BodyAssessmentFi
 
   return (
     <section className={`${CARD} mef-animate-in p-6`}>
-      <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+      <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
         <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         What We Noticed
       </p>

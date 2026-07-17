@@ -24,9 +24,9 @@ const RATING_CONFIG: Record<
   yellow: {
     label: 'Use with awareness',
     Icon: AlertTriangle,
-    bgClass: 'bg-[#F5B700]/[0.14]',
-    textClass: 'text-[#854D0E]',
-    iconClass: 'text-[#854D0E]',
+    bgClass: 'bg-amber-50',
+    textClass: 'text-amber-700',
+    iconClass: 'text-amber-700',
   },
   red: {
     label: 'Limited nutritional value',

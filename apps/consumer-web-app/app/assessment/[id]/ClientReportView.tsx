@@ -84,7 +84,7 @@ export function ClientReportView({
     <div className="space-y-5">
       {summary && (
         <section className={`${CARD} mef-animate-in p-7`}>
-          <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Your Coach&apos;s Summary
           </p>
@@ -96,7 +96,7 @@ export function ClientReportView({
 
       {priorities.length > 0 && (
         <section className={`${CARD} mef-animate-in p-6`}>
-          <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             <AlertCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Key Priorities
           </p>
@@ -115,7 +115,7 @@ export function ClientReportView({
 
       {currentCaptures.length > 0 && (
         <section className={`${CARD} mef-animate-in p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Your captures
           </p>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -137,7 +137,7 @@ export function ClientReportView({
         if (items.length === 0) return null;
         return (
           <section key={category} className={`${CARD} mef-animate-in p-6`}>
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
               {CATEGORY_LABELS[category]}
             </p>
             <ul className="mt-2 space-y-2.5">
@@ -158,7 +158,7 @@ export function ClientReportView({
 
       {exercises.length > 0 && (
         <section className={`${CARD} mef-animate-in p-6`}>
-          <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             <Dumbbell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Recommended Exercises
           </p>
@@ -176,7 +176,7 @@ export function ClientReportView({
       )}
 
       <section className={`${CARD} mef-animate-in p-6`}>
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
           Progress since your last assessment
         </p>
         <div className="mt-3">

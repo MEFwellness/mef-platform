@@ -57,14 +57,14 @@ export default async function OnboardingPage() {
             Thanks — your onboarding assessment is on file. Head to{' '}
             <Link
               href="/checkin"
-              className="font-medium text-[#854D0E] underline underline-offset-2"
+              className="font-medium text-[#6B7A72] underline underline-offset-2"
             >
               today&apos;s check-in
             </Link>{' '}
             or review your{' '}
             <Link
               href="/profile/baseline"
-              className="font-medium text-[#854D0E] underline underline-offset-2"
+              className="font-medium text-[#6B7A72] underline underline-offset-2"
             >
               Baseline Assessment
             </Link>

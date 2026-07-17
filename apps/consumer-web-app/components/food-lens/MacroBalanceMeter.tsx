@@ -50,7 +50,7 @@ function Bar({ dimension }: { dimension: Dimension }) {
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
           {dimension.label}
         </p>
         <p className="text-right text-xs text-[#6B7A72]">

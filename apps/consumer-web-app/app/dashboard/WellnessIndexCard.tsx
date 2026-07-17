@@ -32,7 +32,7 @@ export function WellnessIndexCard({ result, previousScore, clientFirstName }: Pr
   return (
     <section className={`${CARD} p-7`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-2 text-[#854D0E]">
+        <div className="flex items-center gap-2 text-[#6B7A72]">
           <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Daily Wellness Index</p>
         </div>
@@ -83,7 +83,7 @@ export function WellnessIndexCard({ result, previousScore, clientFirstName }: Pr
 
           {result.priority && (
             <div className="mt-4 rounded-2xl bg-[#F3F6F4] p-6">
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Target className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-xs font-semibold uppercase tracking-wider">
                   Today&apos;s Priority
@@ -98,7 +98,7 @@ export function WellnessIndexCard({ result, previousScore, clientFirstName }: Pr
                 {WELLNESS_COACHING[result.priority.key].priorityWhy}
               </p>
               <div className="mt-4 rounded-xl bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
                   Today&apos;s Action
                 </p>
                 <p className="mt-1 text-sm font-medium leading-relaxed text-[#1B3A2D]">

@@ -17,7 +17,7 @@ const DIRECTION_LABEL: Record<FoodLensComparisonSignal['direction'], string> = {
 const DIRECTION_STYLE: Record<FoodLensComparisonSignal['direction'], string> = {
   match: 'bg-[#1B3A2D]/10 text-[#1B3A2D]',
   heavy: 'bg-[#B45309]/10 text-[#B45309]',
-  light: 'bg-[#854D0E]/10 text-[#854D0E]',
+  light: 'bg-[#854D0E]/10 text-[#6B7A72]',
 };
 
 export function PatternComparisonCard({
@@ -34,7 +34,7 @@ export function PatternComparisonCard({
   return (
     <div className="rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
           Root&apos;s take
         </p>
         <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs font-medium text-[#1B3A2D]">

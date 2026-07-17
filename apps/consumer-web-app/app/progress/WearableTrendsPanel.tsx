@@ -98,7 +98,7 @@ export function WearableTrendsPanel({
   return (
     <section className={`${CARD} mef-animate-in mt-5 p-6`}>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[#854D0E]">
+        <div className="flex items-center gap-2 text-[#6B7A72]">
           <HeartPulse className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Recovery Trends</p>
         </div>
@@ -143,7 +143,7 @@ export function WearableTrendsPanel({
 
       {weeklyRows.length > 0 && (
         <div className="mt-5 border-t border-[#1B3A2D]/5 pt-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
             Weekly Insights
           </p>
           <div className="mt-3 grid grid-cols-3 gap-3">

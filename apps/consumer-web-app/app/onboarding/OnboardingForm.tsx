@@ -94,7 +94,7 @@ function NumericSlider({
   const touched = value !== null;
   const displayValue = value ?? Math.round((min + max) / 2);
   const percent = ((displayValue - min) / (max - min)) * 100;
-  const trackFill = touched ? '#F5B700' : invalid ? '#FCA5A5' : '#EFE9DB';
+  const trackFill = touched ? '#1B3A2D' : invalid ? '#FCA5A5' : '#EFE9DB';
 
   return (
     <div>
@@ -265,7 +265,7 @@ export function OnboardingForm({
                 onClick={() => toggleOption(option)}
                 className={`flex items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition-colors ${
                   isSelected
-                    ? 'border-[#F5B700] bg-[#F5B700] text-[#1B3A2D]'
+                    ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                     : invalid
                       ? 'border-red-400 bg-white text-[#1B3A2D]/70'
                       : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
@@ -464,7 +464,7 @@ export function OnboardingForm({
                       status: 'answered',
                     })
                   }
-                  className="mt-3 text-sm font-medium text-[#854D0E] underline underline-offset-2"
+                  className="mt-3 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
                 >
                   Answer this question
                 </button>
@@ -483,7 +483,7 @@ export function OnboardingForm({
       <button
         type="submit"
         disabled={submitting}
-        className="flex w-full items-center justify-center rounded-full bg-[#F5B700] px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-60"
+        className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
       >
         {submitting ? 'Saving...' : submitLabel}
       </button>

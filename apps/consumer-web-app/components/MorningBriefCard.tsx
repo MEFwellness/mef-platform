@@ -51,7 +51,7 @@ function BriefLine({ icon: Icon, label, text }: BriefLineProps) {
         <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden={true} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">{label}</p>
         <p className="mt-0.5 text-sm leading-relaxed text-[#1B3A2D]">{text}</p>
       </div>
     </div>
@@ -67,7 +67,7 @@ export function MorningBriefCard({
 }) {
   return (
     <section className={`${CARD} mef-animate-in p-6`}>
-      <div className="flex items-center gap-2 text-[#854D0E]">
+      <div className="flex items-center gap-2 text-[#6B7A72]">
         <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Root&apos;s Daily Brief</p>
       </div>

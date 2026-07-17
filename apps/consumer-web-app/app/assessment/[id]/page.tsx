@@ -117,7 +117,7 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
               <PendingCoachReviewCard typeLabel={typeConfig.label} />
               <MemberFindingsSummary findings={findings} />
               <section>
-                <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+                <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                   Your captures
                 </p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -152,7 +152,7 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
           {/* Coach review */}
           {latestReview && (latestReview.observations || latestReview.recommendations) && (
             <section className={`${CARD} p-6`}>
-              <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+              <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Your coach&apos;s notes
               </p>
               {latestReview.observations && (

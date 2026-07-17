@@ -54,7 +54,7 @@ export default async function ProfilePage() {
           className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
         >
           <div>
-            <div className="flex items-center gap-2 text-[#854D0E]">
+            <div className="flex items-center gap-2 text-[#6B7A72]">
               <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-wider">Baseline Assessment</p>
             </div>
@@ -74,7 +74,7 @@ export default async function ProfilePage() {
           className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
         >
           <div>
-            <div className="flex items-center gap-2 text-[#854D0E]">
+            <div className="flex items-center gap-2 text-[#6B7A72]">
               <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-wider">
                 Progress & Reassessments
@@ -99,7 +99,7 @@ export default async function ProfilePage() {
           className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
         >
           <div>
-            <div className="flex items-center gap-2 text-[#854D0E]">
+            <div className="flex items-center gap-2 text-[#6B7A72]">
               <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
             </div>
@@ -119,7 +119,7 @@ export default async function ProfilePage() {
           className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
         >
           <div>
-            <div className="flex items-center gap-2 text-[#854D0E]">
+            <div className="flex items-center gap-2 text-[#6B7A72]">
               <Watch className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-wider">Connected Devices</p>
             </div>
@@ -135,7 +135,7 @@ export default async function ProfilePage() {
         </Link>
 
         <div className={`${CARD} mt-5 p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Account</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Account</p>
           <p className="mt-2 text-sm text-[#6B7A72]">
             Signed in as <span className="text-[#1B3A2D]">{user.email}</span>
           </p>

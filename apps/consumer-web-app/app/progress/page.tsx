@@ -114,7 +114,7 @@ export default async function ProgressPage() {
 
         <div className="mt-7 grid grid-cols-1 gap-5 md:grid-cols-3">
           <section className={`${CARD} p-6`}>
-            <div className="flex items-center gap-2 text-[#854D0E]">
+            <div className="flex items-center gap-2 text-[#6B7A72]">
               <Flame className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-wider">Current streak</p>
             </div>
@@ -131,7 +131,7 @@ export default async function ProgressPage() {
           </section>
 
           <section className={`${CARD} p-6`}>
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
               Check-ins logged
             </p>
             <p className="mt-3 text-3xl font-semibold text-[#1B3A2D]">{recentCheckins.length}</p>
@@ -139,7 +139,7 @@ export default async function ProgressPage() {
           </section>
 
           <section className={`${CARD} p-6`}>
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
               Average energy
             </p>
             {recentCheckins.length > 0 ? (
@@ -158,7 +158,7 @@ export default async function ProgressPage() {
 
         <section className={`${CARD} mt-5 p-6`}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[#854D0E]">
+            <div className="flex items-center gap-2 text-[#6B7A72]">
               <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-wider">Energy trend</p>
             </div>
@@ -178,7 +178,7 @@ export default async function ProgressPage() {
 
         {healthProfileSummary && activeFindingSeverities.length > 0 && (
           <section className={`${CARD} mef-animate-in mt-5 p-6`}>
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+            <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
               From Your Assessments
             </p>
             <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">
@@ -208,7 +208,7 @@ export default async function ProgressPage() {
           href="/progress/timeline"
           className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
         >
-          <div className="flex items-center gap-2 text-[#854D0E]">
+          <div className="flex items-center gap-2 text-[#6B7A72]">
             <HistoryIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Your Health Timeline</p>
           </div>
@@ -223,7 +223,7 @@ export default async function ProgressPage() {
           href="/assessment"
           className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
         >
-          <div className="flex items-center gap-2 text-[#854D0E]">
+          <div className="flex items-center gap-2 text-[#6B7A72]">
             <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
           </div>
@@ -231,7 +231,7 @@ export default async function ProgressPage() {
         </Link>
 
         <section className={`${CARD} mt-5 p-6`}>
-          <div className="flex items-center gap-2 text-[#854D0E]">
+          <div className="flex items-center gap-2 text-[#6B7A72]">
             <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Talk to Root</p>
           </div>
@@ -258,7 +258,7 @@ export default async function ProgressPage() {
         </section>
 
         <section className={`${CARD} mt-5 p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">History</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">History</p>
           {history.length > 0 ? (
             <div className="mt-3 divide-y divide-[#1B3A2D]/5">
               {history.map((c) => (

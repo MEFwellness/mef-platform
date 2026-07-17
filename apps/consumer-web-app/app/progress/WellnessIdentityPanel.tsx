@@ -17,7 +17,7 @@ export function WellnessIdentityPanel({ highlights }: { highlights: MemberWellne
 
   return (
     <section className={`${CARD} mt-5 p-6`}>
-      <div className="flex items-center gap-2 text-[#854D0E]">
+      <div className="flex items-center gap-2 text-[#6B7A72]">
         <Fingerprint className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Your Wellness Identity</p>
       </div>

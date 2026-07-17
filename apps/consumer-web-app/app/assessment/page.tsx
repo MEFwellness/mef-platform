@@ -50,7 +50,7 @@ export default async function BodyAssessmentPage() {
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[#854D0E]">
+          <div className="flex items-center gap-2 text-[#6B7A72]">
             <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Body Assessment</p>
           </div>
@@ -65,7 +65,7 @@ export default async function BodyAssessmentPage() {
         </p>
 
         <section className="mt-6">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Start a new assessment
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -96,7 +96,7 @@ export default async function BodyAssessmentPage() {
         </section>
 
         <section className="mt-8">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Your assessment history
           </p>
           {assessments.length === 0 ? (

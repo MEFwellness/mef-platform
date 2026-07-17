@@ -38,7 +38,7 @@ export function ConsentForm() {
       <div className="space-y-5">
         {CONSENT_ITEMS.map((item) => (
           <section key={item.type}>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
               {item.title}
             </h2>
             <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">{item.body}</p>
@@ -66,7 +66,7 @@ export function ConsentForm() {
         <button
           type="submit"
           disabled={!accepted || submitting}
-          className="flex w-full items-center justify-center rounded-full bg-[#F5B700] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-60"
+          className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
         >
           {submitting ? 'Saving...' : 'Accept and continue'}
         </button>

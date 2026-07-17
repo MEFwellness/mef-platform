@@ -59,7 +59,7 @@ export default async function ReassessmentsPage() {
           {hasBaseline && (
             <Link
               href="/profile/reassessments/new"
-              className="flex items-center justify-center rounded-full bg-[#F5B700] px-5 py-2.5 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95"
+              className="flex items-center justify-center rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
             >
               Start a new reassessment
             </Link>
@@ -76,7 +76,7 @@ export default async function ReassessmentsPage() {
               You haven&apos;t completed your onboarding assessment yet.{' '}
               <Link
                 href="/onboarding"
-                className="font-medium text-[#854D0E] underline underline-offset-2"
+                className="font-medium text-[#6B7A72] underline underline-offset-2"
               >
                 Complete it now
               </Link>{' '}
@@ -93,7 +93,7 @@ export default async function ReassessmentsPage() {
 
             {comparison.baseline && comparison.latest === null && (
               <section className={`${CARD} p-6`}>
-                <div className="flex items-center gap-2 text-[#854D0E]">
+                <div className="flex items-center gap-2 text-[#6B7A72]">
                   <CalendarClock className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">
                     Suggested Check-in Windows

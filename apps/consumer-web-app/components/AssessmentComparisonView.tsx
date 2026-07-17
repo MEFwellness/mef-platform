@@ -84,7 +84,7 @@ export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props)
   if (!hasLatest) {
     return (
       <section className={`${CARD} p-6`}>
-        <div className="flex items-center gap-2 text-[#854D0E]">
+        <div className="flex items-center gap-2 text-[#6B7A72]">
           <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">
             Baseline vs. Latest Comparison
@@ -100,7 +100,7 @@ export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props)
   return (
     <div className="space-y-5">
       <section className={`${CARD} p-6`}>
-        <div className="flex items-center gap-2 text-[#854D0E]">
+        <div className="flex items-center gap-2 text-[#6B7A72]">
           <Target className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Progress Summary</p>
         </div>
@@ -149,7 +149,7 @@ export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props)
 
           {summary.stableAreas.length > 0 && (
             <div className="rounded-2xl bg-[#F3F6F4] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Stable Areas
               </p>
               <p className="mt-1 text-sm text-[#1B3A2D]/75">
@@ -174,7 +174,7 @@ export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props)
       </section>
 
       <section className={`${CARD} p-6`}>
-        <div className="flex items-center gap-2 text-[#854D0E]">
+        <div className="flex items-center gap-2 text-[#6B7A72]">
           <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">
             Baseline vs. Latest Comparison

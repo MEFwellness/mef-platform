@@ -33,7 +33,7 @@ export function BaselineAssessmentView({ baseline, description }: Props) {
   return (
     <div className="space-y-5">
       <section className={`${CARD} p-6`}>
-        <div className="flex items-center gap-2 text-[#854D0E]">
+        <div className="flex items-center gap-2 text-[#6B7A72]">
           <CalendarCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Completed</p>
         </div>
@@ -48,7 +48,7 @@ export function BaselineAssessmentView({ baseline, description }: Props) {
 
       {groups.map((group) => (
         <section key={group.domain} className={`${CARD} p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             {group.label}
           </p>
           <div className="mt-3 divide-y divide-[#1B3A2D]/5">

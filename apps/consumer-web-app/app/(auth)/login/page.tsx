@@ -54,21 +54,21 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center rounded-full bg-[#F5B700] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-60"
+          className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
         >
           {submitting ? 'Logging in…' : 'Log in'}
         </button>
       </form>
       <div className="mt-5 space-y-1.5 text-center text-sm">
         <p>
-          <Link href="/signup" className="font-medium text-[#854D0E] underline underline-offset-2">
+          <Link href="/signup" className="font-medium text-[#6B7A72] underline underline-offset-2">
             Need an account? Sign up
           </Link>
         </p>
         <p>
           <Link
             href="/reset-password"
-            className="font-medium text-[#854D0E] underline underline-offset-2"
+            className="font-medium text-[#6B7A72] underline underline-offset-2"
           >
             Forgot password?
           </Link>

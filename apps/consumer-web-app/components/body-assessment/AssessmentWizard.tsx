@@ -274,7 +274,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
   if (phase === 'welcome') {
     return (
       <div className={`${CARD} p-8 text-center`}>
-        <Sparkles className="mx-auto h-8 w-8 text-[#854D0E]" strokeWidth={1.5} aria-hidden="true" />
+        <Sparkles className="mx-auto h-8 w-8 text-[#6B7A72]" strokeWidth={1.5} aria-hidden="true" />
         <h2 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
           {typeConfig.label} Assessment
         </h2>
@@ -311,7 +311,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
     const Icon = step.icon;
     return (
       <div className={`${CARD} p-8`}>
-        <Icon className="h-7 w-7 text-[#854D0E]" strokeWidth={1.5} aria-hidden="true" />
+        <Icon className="h-7 w-7 text-[#6B7A72]" strokeWidth={1.5} aria-hidden="true" />
         <h2 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
           {step.title}
         </h2>
@@ -352,7 +352,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
     return (
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             {step.title}
           </p>
           <p className="text-xs text-[#9AA79F]">
@@ -376,7 +376,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
   if (phase === 'review') {
     return (
       <div className={`${CARD} p-6`}>
-        <div className="flex items-center gap-2 text-[#854D0E]">
+        <div className="flex items-center gap-2 text-[#6B7A72]">
           <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Review your captures</p>
         </div>

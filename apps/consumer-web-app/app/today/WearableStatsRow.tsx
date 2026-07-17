@@ -31,7 +31,7 @@ export function WearableStatsRow({ snapshot }: { snapshot: WearableDailySnapshot
   return (
     <div className="mt-4 grid grid-cols-3 gap-3">
       <div className={TILE}>
-        <div className="flex items-center gap-1.5 text-[#854D0E]">
+        <div className="flex items-center gap-1.5 text-[#6B7A72]">
           <Gauge className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-[11px] font-semibold uppercase tracking-wider">Readiness</p>
         </div>
@@ -44,7 +44,7 @@ export function WearableStatsRow({ snapshot }: { snapshot: WearableDailySnapshot
       </div>
 
       <div className={TILE}>
-        <div className="flex items-center gap-1.5 text-[#854D0E]">
+        <div className="flex items-center gap-1.5 text-[#6B7A72]">
           <HeartPulse className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-[11px] font-semibold uppercase tracking-wider">Recovery</p>
         </div>
@@ -62,7 +62,7 @@ export function WearableStatsRow({ snapshot }: { snapshot: WearableDailySnapshot
       </div>
 
       <div className={TILE}>
-        <div className="flex items-center gap-1.5 text-[#854D0E]">
+        <div className="flex items-center gap-1.5 text-[#6B7A72]">
           <Moon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-[11px] font-semibold uppercase tracking-wider">Latest Sleep</p>
         </div>

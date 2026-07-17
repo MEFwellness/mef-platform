@@ -192,7 +192,7 @@ export function MealCamera({ onCapture, busy = false }: Props) {
             type="button"
             onClick={handleCapture}
             aria-label="Capture photo"
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F5B700] text-[#1B3A2D] shadow-[0_10px_24px_-6px_rgba(245,183,0,0.55)]"
+            className="flex h-16 w-16 items-center justify-center rounded-full bg-[#1B3A2D] text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)]"
           >
             <Camera className="h-7 w-7" strokeWidth={2} aria-hidden="true" />
           </button>

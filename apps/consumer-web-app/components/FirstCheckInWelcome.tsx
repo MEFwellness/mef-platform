@@ -41,7 +41,7 @@ export function FirstCheckInWelcome({ firstName }: { firstName: string }) {
       </p>
       <Link
         href={'/checkin' as Route}
-        className="relative mt-6 inline-flex items-center justify-center rounded-full bg-[#F5B700] px-7 py-3.5 text-sm font-semibold text-[#1B3A2D] shadow-[0_10px_24px_-6px_rgba(245,183,0,0.55)] transition hover:brightness-95"
+        className="relative mt-6 inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
       >
         Complete your first check-in
       </Link>

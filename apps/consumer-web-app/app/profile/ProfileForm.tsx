@@ -41,7 +41,7 @@ export function ProfileForm({ displayName, timezone }: Props) {
 
   return (
     <form action={handleSubmit}>
-      <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Your details</p>
+      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Your details</p>
 
       <div className="mt-3">
         <label className="text-sm text-[#6B7A72]" htmlFor="displayName">
@@ -92,7 +92,7 @@ export function ProfileForm({ displayName, timezone }: Props) {
       <button
         type="submit"
         disabled={submitting}
-        className="mt-4 flex w-full items-center justify-center rounded-full bg-[#F5B700] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-60"
+        className="mt-4 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
       >
         {submitting ? 'Saving…' : 'Save changes'}
       </button>

@@ -28,7 +28,7 @@ function LevelPicker({
 }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">{label}</p>
       <div className="mt-1.5 grid grid-cols-3 gap-2">
         {LEVELS.map((level) => (
           <button
@@ -74,7 +74,7 @@ export function PrimalPatternForm({ initial }: { initial: PrimalPatternProfile |
 
   return (
     <div className="rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
-      <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
         Your Primal Pattern target
       </p>
       <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">
@@ -83,7 +83,7 @@ export function PrimalPatternForm({ initial }: { initial: PrimalPatternProfile |
       </p>
 
       <div className="mt-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">Pattern name</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Pattern name</p>
         <input
           type="text"
           value={patternLabel}

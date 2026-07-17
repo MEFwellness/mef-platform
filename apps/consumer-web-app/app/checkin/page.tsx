@@ -61,7 +61,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
         {!requestedYesterday && canLogYesterday && (
           <Link
             href={{ pathname: '/checkin', query: { date: 'yesterday' } }}
-            className="mt-2 inline-block text-sm font-medium text-[#854D0E] underline underline-offset-2"
+            className="mt-2 inline-block text-sm font-medium text-[#6B7A72] underline underline-offset-2"
           >
             Actually logging for yesterday?
           </Link>
@@ -69,7 +69,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
         {requestedYesterday && (
           <Link
             href="/checkin"
-            className="mt-2 inline-block text-sm font-medium text-[#854D0E] underline underline-offset-2"
+            className="mt-2 inline-block text-sm font-medium text-[#6B7A72] underline underline-offset-2"
           >
             ← Back to today
           </Link>

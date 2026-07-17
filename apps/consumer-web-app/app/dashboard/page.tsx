@@ -245,7 +245,7 @@ export default async function DashboardPage() {
           {hasConnectedWearable ? (
             decision?.wearableSnapshot ? (
               <section className={`${CARD} p-6`}>
-                <div className="flex items-center gap-2 text-[#854D0E]">
+                <div className="flex items-center gap-2 text-[#6B7A72]">
                   <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">
                     Today&apos;s Recovery
@@ -255,7 +255,7 @@ export default async function DashboardPage() {
               </section>
             ) : (
               <section className={`${CARD} p-6`}>
-                <div className="flex items-center gap-2 text-[#854D0E]">
+                <div className="flex items-center gap-2 text-[#6B7A72]">
                   <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">
                     Today&apos;s Recovery
@@ -302,7 +302,7 @@ export default async function DashboardPage() {
           </p>
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
             <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Droplet className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Water</p>
               </div>
@@ -329,7 +329,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Moon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Sleep</p>
               </div>
@@ -359,7 +359,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Stress</p>
               </div>
@@ -383,7 +383,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Bone className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Pain</p>
               </div>
@@ -408,7 +408,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Smile className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Mood</p>
               </div>
@@ -432,7 +432,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Utensils className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Digestion</p>
               </div>
@@ -456,7 +456,7 @@ export default async function DashboardPage() {
             </div>
 
             <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Footprints className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Movement</p>
               </div>
@@ -497,7 +497,7 @@ export default async function DashboardPage() {
           {/* ---------------------------------------------------- */}
           <section className={`${CARD} p-6`}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[#854D0E]">
+              <div className="flex items-center gap-2 text-[#6B7A72]">
                 <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Energy Trend</p>
               </div>

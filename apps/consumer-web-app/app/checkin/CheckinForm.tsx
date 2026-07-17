@@ -39,7 +39,7 @@ function ScaleInput({
   const options = Array.from({ length: max - min + 1 }, (_, i) => min + i);
   return (
     <div>
-      <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">{label}</p>
+      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">{label}</p>
       <div className="mt-2 flex gap-2">
         {options.map((option) => (
           <button
@@ -49,7 +49,7 @@ function ScaleInput({
             aria-pressed={value === option}
             className={`flex h-10 w-10 items-center justify-center rounded-full border text-sm font-medium transition-colors ${
               value === option
-                ? 'border-[#F5B700] bg-[#F5B700] text-[#1B3A2D]'
+                ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                 : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/30'
             }`}
           >
@@ -163,7 +163,7 @@ export function CheckinForm({
       <div className={`${cardClassName} p-6`}>
         <ScaleInput label="Sleep quality" value={sleepQuality} onChange={setSleepQuality} />
         <div className="mt-5">
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Sleep duration
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -175,7 +175,7 @@ export function CheckinForm({
                 aria-pressed={sleepDuration === duration}
                 className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
                   sleepDuration === duration
-                    ? 'border-[#F5B700] bg-[#F5B700] text-[#1B3A2D]'
+                    ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                     : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/30'
                 }`}
               >
@@ -187,7 +187,7 @@ export function CheckinForm({
       </div>
 
       <div className={`${cardClassName} p-6`}>
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Water</p>
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Water</p>
         <div className="mt-3 flex items-center gap-4">
           <button
             type="button"
@@ -221,7 +221,7 @@ export function CheckinForm({
           max={5}
         />
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Movement today
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -233,7 +233,7 @@ export function CheckinForm({
                 aria-pressed={movementToday === level.value}
                 className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
                   movementToday === level.value
-                    ? 'border-[#F5B700] bg-[#F5B700] text-[#1B3A2D]'
+                    ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                     : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/30'
                 }`}
               >
@@ -246,7 +246,7 @@ export function CheckinForm({
 
       {habits.length > 0 && (
         <div className={`${cardClassName} p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Today&apos;s habits
           </p>
           <div className="mt-3 space-y-2">
@@ -280,7 +280,7 @@ export function CheckinForm({
         </label>
         <div className="mt-4">
           <label
-            className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]"
+            className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]"
             htmlFor="notes"
           >
             Notes (optional)
@@ -305,7 +305,7 @@ export function CheckinForm({
       <button
         type="submit"
         disabled={submitting}
-        className="flex w-full items-center justify-center rounded-full bg-[#F5B700] px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-60"
+        className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
       >
         {submitting ? 'Saving…' : existingCheckin ? 'Update check-in' : 'Save check-in'}
       </button>
