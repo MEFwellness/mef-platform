@@ -1,18 +1,21 @@
 'use client';
 
 /**
- * Premium Product Pass: Check-In is now the visually dominant center
- * action (a larger, elevated gold circle) since it's the single highest-
- * value daily action; the standalone "Coaching" tab is gone entirely
- * since the floating "Ask Root" launcher (FloatingCoachLauncher.tsx)
- * already reaches the same conversation from every screen, making a
- * dedicated nav slot for it redundant. Inactive items use the app's
- * existing gold label color (#854D0E, the same color every card eyebrow
- * label already uses at full strength) instead of a faint gray, so the
- * bar reads as confidently branded rather than washed out; the active
- * page stays the signature MEF green.
+ * Premium UX Milestone 1: permanent 5-slot nav — Dashboard, Today,
+ * Check-In (center), Food Lens, Progress. Assessments and Profile are
+ * intentionally not tabs here anymore: Assessments now lives inside
+ * Progress (and stays reachable from Profile), and Profile itself is
+ * reached via the avatar in the page header (AvatarLink.tsx) rather than
+ * a nav slot — freeing this bar down to the five actions members reach
+ * for daily. The standalone "Coaching" tab is gone entirely since the
+ * floating "Ask Root" launcher (FloatingCoachLauncher.tsx) already
+ * reaches the same conversation from every screen. Inactive items use
+ * the app's existing gold label color (#854D0E, the same color every
+ * card eyebrow label already uses at full strength) instead of a faint
+ * gray, so the bar reads as confidently branded rather than washed out;
+ * the active page stays the signature MEF green.
  *
- * Mobile alignment fix: the bar is two independent `flex-1` halves (left
+ * Mobile alignment: the bar is two independent `flex-1` halves (left
  * items, right items) with the Check-In button as a fixed-width sibling
  * between them — since both halves always get an equal share of the
  * remaining width regardless of how many items each holds (2 vs 3 for a
@@ -21,14 +24,17 @@
  * positioning. Within each half, items sit in a CSS grid with one equal-
  * width column per item so the gaps between them are always identical,
  * which is what `justify-around` could not guarantee once items of
- * different label lengths (e.g. "Today" vs "Assessments") sat either
- * side of a much larger, differently-shaped center button.
+ * different label lengths sat either side of a much larger, differently
+ * shaped center button. With only two items per half now (down from up
+ * to four), labels get real breathing room, so they render at a larger,
+ * always-on-one-line size instead of the old cramped fallback that let
+ * long labels wrap.
  */
 
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Plus, BarChart2, Users, User, ScanFace, UtensilsCrossed } from 'lucide-react';
+import { Home, Sparkles, Plus, BarChart2, Users, UtensilsCrossed } from 'lucide-react';
 
 type NavItem = { label: string; href: string; Icon: typeof Home };
 
@@ -38,15 +44,13 @@ const LEFT_ITEMS: NavItem[] = [
 ];
 
 const RIGHT_ITEMS: NavItem[] = [
-  { label: 'Assessments', href: '/assessment', Icon: ScanFace },
   { label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed },
   { label: 'Progress', href: '/progress', Icon: BarChart2 },
-  { label: 'Profile', href: '/profile', Icon: User },
 ];
 
 const CHECK_IN_HREF = '/checkin';
 
-/** Between Today and the center Check-In button so a coach's extra tab keeps the bar visually balanced (3 items either side of center) instead of only ever growing the right-hand group. */
+/** Appended after Today for coach accounts only — kept on the left half so it sits next to the member tabs it supplements rather than crowding the newly-trimmed right half. */
 const COACH_NAV_ITEM: NavItem = { label: 'Coach', href: '/coach', Icon: Users };
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -54,16 +58,14 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <Link
       href={item.href as Route}
-      className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-2 text-center text-[7.5px] font-bold uppercase leading-[1.05] tracking-tighter transition-colors min-[400px]:text-[8px] md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
+      className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 text-center text-[10px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:min-h-0 md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
         active
           ? 'text-[#1B3A2D]'
           : 'text-[#854D0E] hover:bg-[#1B3A2D]/[0.04] hover:text-[#6B380A]'
       }`}
     >
       <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} aria-hidden="true" />
-      <span className="max-w-full break-words [word-break:break-word] md:whitespace-nowrap">
-        {item.label}
-      </span>
+      <span className="max-w-full whitespace-nowrap">{item.label}</span>
     </Link>
   );
 }

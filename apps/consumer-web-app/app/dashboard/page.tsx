@@ -56,6 +56,7 @@ import { redirect } from 'next/navigation';
 import { getTodaysCheckin, getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { AvatarLink } from '@/components/AvatarLink';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from './WellnessIndexCard';
@@ -140,12 +141,24 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, timezone')
-    .eq('id', user.id)
-    .single();
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
+  // All five of these are independent reads (each of the three action
+  // calls resolves its own user internally and touches none of the
+  // others' data), so batching them removes four serial network round
+  // trips that were previously paid one after another before the page
+  // could render — the single biggest fixable cause of this page feeling
+  // slow to open. Wearable discoverability (Premium Product Pass): a
+  // connected wearable replaces the "unlock" pitch with today's real
+  // recovery numbers; no connection at all also triggers the one-time
+  // welcome modal below.
+  const [{ data: profile }, isCoach, wearableConnections, decision, morningBrief] =
+    await Promise.all([
+      supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+      hasActiveRole(supabase, user.id, 'coach'),
+      getMyWearableConnections(),
+      getMyCoachingDecision(),
+      getMyMorningBrief(),
+    ]);
+  const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
 
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
@@ -153,22 +166,16 @@ export default async function DashboardPage() {
   const timeContext = buildTimeContext(nowInTz);
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
 
-  const todaysCheckin = await getTodaysCheckin(localDate);
-  const recentCheckins = await getRecentCheckins(12);
-  const yesterdaysCheckin = await getTodaysCheckin(previousLocalDate(localDate));
+  // recentCheckins doesn't depend on localDate, so it joins the other two
+  // (which do) in a single batch instead of three more serial round trips.
+  const [todaysCheckin, recentCheckins, yesterdaysCheckin] = await Promise.all([
+    getTodaysCheckin(localDate),
+    getRecentCheckins(12),
+    getTodaysCheckin(previousLocalDate(localDate)),
+  ]);
 
   const wellnessIndex = calculateWellnessIndex(inputsFromCheckin(todaysCheckin));
   const yesterdaysWellnessIndex = calculateWellnessIndex(inputsFromCheckin(yesterdaysCheckin));
-
-  // Wearable discoverability (Premium Product Pass) — a connected wearable
-  // replaces the "unlock" pitch with today's real recovery numbers; no
-  // connection at all also triggers the one-time welcome modal below.
-  const [wearableConnections, decision, morningBrief] = await Promise.all([
-    getMyWearableConnections(),
-    getMyCoachingDecision(),
-    getMyMorningBrief(),
-  ]);
-  const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -198,14 +205,7 @@ export default async function DashboardPage() {
               </span>
             </div>
           </div>
-          <Link
-            href={'/profile' as Route}
-            className="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-[#F5B700] bg-white"
-          >
-            <div className="flex h-full w-full items-center justify-center text-sm font-medium text-[#1B3A2D]">
-              {firstName.charAt(0).toUpperCase()}
-            </div>
-          </Link>
+          <AvatarLink firstName={firstName} />
         </header>
 
         <div>

@@ -9,7 +9,9 @@ import {
 } from '@/app/actions/checkin';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { AvatarLink } from '@/components/AvatarLink';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
+import { RootQuickLink } from '@/components/RootQuickLink';
 import { buildCheckinEntryContext } from '@/lib/conversation-coach/entryContext';
 import { CheckinForm } from './CheckinForm';
 
@@ -22,13 +24,12 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .single();
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
+  const [{ data: profile }, isCoach] = await Promise.all([
+    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+    hasActiveRole(supabase, user.id, 'coach'),
+  ]);
 
+  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const requestedYesterday = searchParams?.date === 'yesterday';
@@ -45,9 +46,12 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
-        <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          {requestedYesterday ? "Yesterday's check-in" : "Today's check-in"}
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+            {requestedYesterday ? "Yesterday's check-in" : "Today's check-in"}
+          </h1>
+          <AvatarLink firstName={firstName} />
+        </div>
         <p className="mt-2 text-[15px] text-[#6B7A72]">
           {existingCheckin
             ? "You've already logged this day — update anything below."
@@ -83,18 +87,18 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
         <section className={`${CARD} mt-5 p-5`}>
           <p className="text-sm font-medium text-[#1B3A2D]">Want to talk it through instead?</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              href="/conversation?entry=checkin_feeling"
-              className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+            <RootQuickLink
+              entryPoint="checkin_feeling"
+              entryContext={buildCheckinEntryContext(!!existingCheckin)}
             >
               I want to explain how I&apos;m feeling
-            </Link>
-            <Link
-              href="/conversation?entry=checkin_explain"
-              className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+            </RootQuickLink>
+            <RootQuickLink
+              entryPoint="checkin_explain"
+              entryContext={buildCheckinEntryContext(!!existingCheckin)}
             >
               Something affected my answers today
-            </Link>
+            </RootQuickLink>
           </div>
         </section>
       </main>

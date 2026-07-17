@@ -1,7 +1,6 @@
 import type { CSSProperties } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import {
   Sparkles,
   BookOpen,
@@ -45,7 +44,9 @@ import { computeStreakInsight, buildStreakMessage } from '@/lib/feed/streakIntel
 import { buildContinuitySentence, buildChallengeCarryover } from '@/lib/feed/continuity';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { AvatarLink } from '@/components/AvatarLink';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
+import { RootQuickLink } from '@/components/RootQuickLink';
 import { buildTodayEntryContext } from '@/lib/conversation-coach/entryContext';
 import { getMyNotifications } from '@/app/actions/notifications';
 import { FeedInteractions } from './FeedInteractions';
@@ -115,7 +116,10 @@ export default async function TodayPage() {
   // what today's coaching experience is and why — this page renders its
   // decision instead of independently deciding a mode, risk posture, or
   // encouragement line of its own. See app/actions/coaching-brain.ts.
-  const [isCoach, { data: profile }, decision, history, notifications, morningBrief] =
+  // getRecentCheckins doesn't depend on the profile/timezone lookups
+  // below, so it joins this first batch instead of paying its own,
+  // separate round trip afterward.
+  const [isCoach, { data: profile }, decision, history, notifications, morningBrief, recentCheckins] =
     await Promise.all([
       hasActiveRole(supabase, user.id, 'coach'),
       supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
@@ -123,6 +127,8 @@ export default async function TodayPage() {
       getFeedHistory(),
       getMyNotifications(5),
       getMyMorningBrief(),
+      // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
+      getRecentCheckins(30),
     ]);
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
@@ -131,8 +137,6 @@ export default async function TodayPage() {
   const timeContext = buildTimeContext(nowInTz);
   const GreetingIcon = timeContext.hour < 12 ? Sunrise : timeContext.hour < 18 ? Sun : Moon;
 
-  // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
-  const recentCheckins = await getRecentCheckins(30);
   const localDate = await resolveLocalDate(nowInTz, false);
   const todaysCheckin = await getTodaysCheckin(localDate);
 
@@ -143,11 +147,14 @@ export default async function TodayPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <div className="flex items-center gap-2 text-[#854D0E]">
-          <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          <p className="text-sm font-semibold uppercase tracking-wider">
-            Your MEF Coaching Experience
-          </p>
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <div className="flex items-center gap-2 text-[#854D0E]">
+            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">
+              Your MEF Coaching Experience
+            </p>
+          </div>
+          <AvatarLink firstName={firstName} />
         </div>
         <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
@@ -483,26 +490,38 @@ export default async function TodayPage() {
                       <p className="text-sm font-semibold uppercase tracking-wider">Talk to Root</p>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Link
-                        href="/conversation?entry=today_focus"
-                        className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+                      <RootQuickLink
+                        entryPoint="today_focus"
+                        entryContext={buildTodayEntryContext(
+                          decision,
+                          decision?.content?.title ?? null,
+                          decision?.content?.suggested_action ?? null
+                        )}
                       >
                         Talk through today&apos;s challenge
-                      </Link>
+                      </RootQuickLink>
                       {today.feedItem.completed_at ? (
-                        <Link
-                          href="/conversation?entry=today_completed"
-                          className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+                        <RootQuickLink
+                          entryPoint="today_completed"
+                          entryContext={buildTodayEntryContext(
+                            decision,
+                            decision?.content?.title ?? null,
+                            decision?.content?.suggested_action ?? null
+                          )}
                         >
                           I completed this — what&apos;s next?
-                        </Link>
+                        </RootQuickLink>
                       ) : (
-                        <Link
-                          href="/conversation?entry=today_easier_option"
-                          className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+                        <RootQuickLink
+                          entryPoint="today_easier_option"
+                          entryContext={buildTodayEntryContext(
+                            decision,
+                            decision?.content?.title ?? null,
+                            decision?.content?.suggested_action ?? null
+                          )}
                         >
                           I need an easier option
-                        </Link>
+                        </RootQuickLink>
                       )}
                     </div>
                   </section>
@@ -547,8 +566,13 @@ export default async function TodayPage() {
                         {today.feedItem.why_text}
                       </p>
                     )}
-                    <Link
-                      href="/conversation?entry=today_why"
+                    <RootQuickLink
+                      entryPoint="today_why"
+                      entryContext={buildTodayEntryContext(
+                        decision,
+                        decision?.content?.title ?? null,
+                        decision?.content?.suggested_action ?? null
+                      )}
                       className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
                     >
                       <MessageCircle
@@ -557,7 +581,7 @@ export default async function TodayPage() {
                         aria-hidden="true"
                       />
                       Ask your coach why
-                    </Link>
+                    </RootQuickLink>
                   </section>
                 </>
               );

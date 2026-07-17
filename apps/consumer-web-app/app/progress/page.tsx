@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { TrendingUp, Flame, MessageCircle, History as HistoryIcon, ArrowRight } from 'lucide-react';
+import { TrendingUp, Flame, MessageCircle, History as HistoryIcon, ArrowRight, ScanFace } from 'lucide-react';
 import { getRecentCheckins } from '@/app/actions/checkin';
 import { getMyWellnessPatterns } from '@/app/actions/wellness-intelligence';
 import { getMyWellnessIdentityHighlights, getMyWellnessStorySummary } from '@/app/actions/intelligence-core';
@@ -10,7 +10,9 @@ import { getMyProgressComparison } from '@/app/actions/onboarding';
 import { getMyWearableMetricHistory } from '@/app/actions/wearables';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { AvatarLink } from '@/components/AvatarLink';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
+import { RootQuickLink } from '@/components/RootQuickLink';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { buildProgressEntryContext } from '@/lib/conversation-coach/entryContext';
@@ -61,9 +63,10 @@ export default async function ProgressPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 
   const [
+    isCoach,
+    { data: profile },
     recentCheckins,
     wellnessPatterns,
     wellnessIdentity,
@@ -75,6 +78,8 @@ export default async function ProgressPage() {
     stepsHistory,
     stressHistory,
   ] = await Promise.all([
+    hasActiveRole(supabase, user.id, 'coach'),
+    supabase.from('profiles').select('display_name').eq('id', user.id).single(),
     getRecentCheckins(30),
     getMyWellnessPatterns(),
     getMyWellnessIdentityHighlights(),
@@ -86,6 +91,7 @@ export default async function ProgressPage() {
     getMyWearableMetricHistory('steps', 7),
     getMyWearableMetricHistory('stress_score', 7),
   ]);
+  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const streak = calculateStreak(recentCheckins);
   const history = [...recentCheckins].reverse(); // most recent first for the list
 
@@ -96,9 +102,12 @@ export default async function ProgressPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          Your Wellness Story
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+            Your Wellness Story
+          </h1>
+          <AvatarLink firstName={firstName} />
+        </div>
         <p className="mt-2 text-[15px] text-[#6B7A72]">
           Your health journey so far — trends, strengths, and what to focus on next.
         </p>
@@ -206,30 +215,45 @@ export default async function ProgressPage() {
           <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
         </Link>
 
+        {/* Assessments moved here from the bottom nav (Premium UX Milestone
+            1) — still the same Body Assessment feature at /assessment,
+            unchanged; just reached from Progress (and Profile) instead of
+            its own permanent tab. */}
+        <Link
+          href="/assessment"
+          className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
+        >
+          <div className="flex items-center gap-2 text-[#854D0E]">
+            <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
         <section className={`${CARD} mt-5 p-6`}>
           <div className="flex items-center gap-2 text-[#854D0E]">
             <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Talk to Root</p>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              href="/conversation?entry=progress_pattern"
-              className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+            <RootQuickLink
+              entryPoint="progress_pattern"
+              entryContext={buildProgressEntryContext(wellnessPatterns)}
             >
               Help me understand this pattern
-            </Link>
-            <Link
-              href="/conversation?entry=progress_improved"
-              className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+            </RootQuickLink>
+            <RootQuickLink
+              entryPoint="progress_improved"
+              entryContext={buildProgressEntryContext(wellnessPatterns)}
             >
               What has improved?
-            </Link>
-            <Link
-              href="/conversation?entry=progress_focus"
-              className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06]"
+            </RootQuickLink>
+            <RootQuickLink
+              entryPoint="progress_focus"
+              entryContext={buildProgressEntryContext(wellnessPatterns)}
             >
               What should I focus on?
-            </Link>
+            </RootQuickLink>
           </div>
         </section>
 
