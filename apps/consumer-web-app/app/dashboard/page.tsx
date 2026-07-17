@@ -71,7 +71,9 @@ import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
 import { FirstCheckinTransition } from '@/components/FirstCheckinTransition';
 import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
+import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
+import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
 import {
   stressStatus,
   painStatus,
@@ -156,7 +158,7 @@ export default async function DashboardPage({
   // connected wearable replaces the "unlock" pitch with today's real
   // recovery numbers; no connection at all also triggers the one-time
   // welcome modal below.
-  const [{ data: profile }, isCoach, wearableConnections, decision, morningBrief, baseline] =
+  const [{ data: profile }, isCoach, wearableConnections, decision, morningBrief, baseline, bodyAssessments] =
     await Promise.all([
       supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
       hasActiveRole(supabase, user.id, 'coach'),
@@ -164,7 +166,9 @@ export default async function DashboardPage({
       getMyCoachingDecision(),
       getMyMorningBrief(),
       getMyBaselineAssessment(),
+      getMyAssessmentsAction(),
     ]);
+  const movementAnalyzed = bodyAssessments.some((a) => a.completed_at !== null);
   const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
 
   const timezone = profile?.timezone ?? 'America/New_York';
@@ -234,13 +238,23 @@ export default async function DashboardPage({
         ) : (
           <>
           {/* ---------------------------------------------------- */}
-          {/* Comprehensive Assessment — Premium UX Milestone 4:      */}
-          {/* stays prominent here (never buried in Profile) until    */}
-          {/* the member has one on file, then auto-replaces itself   */}
-          {/* with a real, data-backed summary. See                   */}
+          {/* Guided Posture & Movement Assessment — Premium UX       */}
+          {/* Milestone 4: the actual next step after a first Daily   */}
+          {/* Check-In. Stays prominent here (never buried in         */}
+          {/* Profile) until completed, then auto-replaces itself     */}
+          {/* with a real, data-backed status. See                    */}
+          {/* components/MovementAssessmentCard.tsx.                   */}
+          {/* ---------------------------------------------------- */}
+          <MovementAssessmentCard assessments={bodyAssessments} />
+
+          {/* ---------------------------------------------------- */}
+          {/* Comprehensive Health Assessment — now a secondary       */}
+          {/* recommendation surfaced only after the movement          */}
+          {/* assessment above is done (or immediately, once a         */}
+          {/* baseline already exists). See                            */}
           {/* components/ComprehensiveAssessmentCard.tsx.              */}
           {/* ---------------------------------------------------- */}
-          <ComprehensiveAssessmentCard baseline={baseline} />
+          <ComprehensiveAssessmentCard baseline={baseline} movementCompleted={movementAnalyzed} />
 
           {/* ---------------------------------------------------- */}
           {/* Root's Daily Brief — the Proactive Coaching Engine's    */}
@@ -565,7 +579,10 @@ export default async function DashboardPage({
       {/* Premium UX Milestone 4, part 6 — the one-time transition shown
           immediately after a member's first-ever completed check-in. */}
       {searchParams.firstCheckin === '1' && (
-        <FirstCheckinTransition firstName={firstName} hasBaseline={baseline !== null} />
+        <FirstCheckinTransition
+          firstName={firstName}
+          hasMovementAssessment={bodyAssessments.length > 0}
+        />
       )}
     </div>
   );

@@ -42,7 +42,9 @@ import {
 } from '@/app/actions/checkin';
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
+import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
 import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
+import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
 import { waterStatus, digestionStatus, STATUS_STYLES } from '@/lib/wellness/status';
 import type { CoachingMode } from '@/lib/brain/types';
 import { buildCoachNote, buildBonusChallenge, parseSelectionReason } from '@/lib/feed/copy';
@@ -136,6 +138,7 @@ export default async function TodayPage() {
     recentCheckins,
     habits,
     baseline,
+    bodyAssessments,
   ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
@@ -146,7 +149,9 @@ export default async function TodayPage() {
     getRecentCheckins(30),
     getActiveHabits(),
     getMyBaselineAssessment(),
+    getMyAssessmentsAction(),
   ]);
+  const movementAnalyzed = bodyAssessments.some((a) => a.completed_at !== null);
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const timezone = profile?.timezone ?? 'America/New_York';
@@ -256,12 +261,21 @@ export default async function TodayPage() {
               </Link>
             </div>
 
-            {/* Comprehensive Assessment — Premium UX Milestone 4: stays
-                prominent here (never buried in Profile) until the member
-                has one on file, then auto-replaces itself with a real,
-                data-backed summary. */}
+            {/* Guided Posture & Movement Assessment — Premium UX
+                Milestone 4: the actual next step after a first Daily
+                Check-In. Stays prominent here (never buried in Profile)
+                until completed, then auto-replaces itself with a real,
+                data-backed status. */}
             <div className="mt-6">
-              <ComprehensiveAssessmentCard baseline={baseline} />
+              <MovementAssessmentCard assessments={bodyAssessments} />
+            </div>
+
+            {/* Comprehensive Health Assessment — now a secondary
+                recommendation surfaced only after the movement
+                assessment above is done (or immediately, once a
+                baseline already exists). */}
+            <div className="mt-6">
+              <ComprehensiveAssessmentCard baseline={baseline} movementCompleted={movementAnalyzed} />
             </div>
 
             {/* Today's Habits — read-only status; logged from the check-in. */}

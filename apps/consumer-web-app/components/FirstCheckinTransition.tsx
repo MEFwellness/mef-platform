@@ -1,29 +1,30 @@
 'use client';
 
 /**
- * Premium UX Milestone 4, part 6 — shown exactly once, immediately after a
- * member's first-ever successful check-in (app/checkin/CheckinForm.tsx
- * redirects to `/dashboard?firstCheckin=1` only on that specific
- * transition). Explains the relationship between today's check-in ("how
- * you feel today") and the Comprehensive Assessment ("why you feel this
- * way") before the member ever sees the rest of the dashboard. Dismissing
- * strips the query param via router.replace so refreshing or navigating
- * back never re-triggers it.
+ * Premium UX Milestone 4 (corrected) — shown exactly once, immediately
+ * after a member's first-ever successful check-in
+ * (app/checkin/CheckinForm.tsx redirects to `/dashboard?firstCheckin=1`
+ * only on that specific transition). Introduces the Guided Posture &
+ * Movement Assessment (the "Body Assessment" feature, app/assessment/*)
+ * as the next step — NOT the Comprehensive Health Assessment, which is
+ * now a later, secondary recommendation (see ComprehensiveAssessmentCard).
+ * Dismissing strips the query param via router.replace so refreshing or
+ * navigating back never re-triggers it.
  */
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { X, Sparkles } from 'lucide-react';
+import { X, PersonStanding } from 'lucide-react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export function FirstCheckinTransition({
   firstName,
-  hasBaseline,
+  hasMovementAssessment,
 }: {
   firstName: string;
-  hasBaseline: boolean;
+  hasMovementAssessment: boolean;
 }) {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
@@ -76,25 +77,29 @@ export function FirstCheckinTransition({
           aria-hidden="true"
         />
         <div className="relative mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5B700]/15">
-          <Sparkles className="h-5 w-5 text-[#854D0E]" strokeWidth={1.75} aria-hidden="true" />
+          <PersonStanding className="h-5 w-5 text-[#854D0E]" strokeWidth={1.75} aria-hidden="true" />
         </div>
 
         <h2 className="relative mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
           Well done, {firstName}
         </h2>
-        <p className="relative mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
-          That check-in captures how you feel today — and every day forward, it&apos;s how Root
-          keeps up with you.
+        {!hasMovementAssessment && (
+          <p className="relative mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
+            Now let&apos;s understand how your body moves.
+          </p>
+        )}
+        <p className="relative mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
+          Your Daily Check-In tells us how you feel.
         </p>
-        {!hasBaseline && (
+        {!hasMovementAssessment && (
           <p className="relative mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
-            Your Comprehensive Assessment goes a layer deeper — it helps Root understand{' '}
-            <span className="italic">why</span> you feel this way, so your coaching, recommendations,
-            and insights are personalized to you.
+            Your Guided Posture &amp; Movement Assessment helps us identify movement imbalances,
+            posture patterns, and areas that may be contributing to discomfort or poor
+            performance — the foundation for your personalized corrective exercise program.
           </p>
         )}
 
-        {hasBaseline ? (
+        {hasMovementAssessment ? (
           <button
             type="button"
             onClick={dismiss}
@@ -105,7 +110,7 @@ export function FirstCheckinTransition({
         ) : (
           <div className="relative mt-6 flex flex-col items-center gap-3">
             <Link
-              href={'/onboarding' as Route}
+              href={'/assessment' as Route}
               className="inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
             >
               Start Assessment
