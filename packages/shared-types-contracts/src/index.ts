@@ -16,3 +16,4 @@ export * from './wearable.types';
 export * from './coaching-engine.types';
 export * from './food-lens.types';
 export * from './movement.types';
+export * from './food-products.types';

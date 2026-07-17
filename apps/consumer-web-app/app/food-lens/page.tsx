@@ -2,7 +2,14 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { UtensilsCrossed, ChevronRight, Settings2 } from 'lucide-react';
+import {
+  UtensilsCrossed,
+  ChevronRight,
+  Settings2,
+  Barcode,
+  Camera,
+  NotebookText,
+} from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
@@ -59,16 +66,29 @@ export default async function FoodLensPage() {
           Meal coaching, not counting
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
-          Photograph a meal and Root will let you know how it compares to your own eating pattern —
-          no calories, no gram weights, ever.
+          Photograph a meal or scan a barcode, and Root will walk through what actually matters —
+          never just one nutrient in isolation.
         </p>
 
-        <Link
-          href={'/food-lens/new' as Route}
-          className="mt-6 flex items-center justify-center rounded-full bg-[#1B3A2D] py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)]"
-        >
-          Scan a meal
-        </Link>
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <Link
+            href={'/food-lens/new' as Route}
+            className="flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-[#1B3A2D] py-5 text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)]"
+          >
+            <Camera className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+            <span className="text-sm font-semibold">Scan a meal</span>
+          </Link>
+          <Link
+            href={'/food-lens/barcode/new' as Route}
+            className="flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-[#1B3A2D] py-5 text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)]"
+          >
+            <Barcode className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+            <span className="text-sm font-semibold">Scan a barcode</span>
+          </Link>
+        </div>
+        <p className="mt-2.5 text-center text-xs text-[#9AA79F]">
+          Nutrition Facts label scanning — coming soon
+        </p>
 
         <Link
           href={'/food-lens/pattern' as Route}
@@ -90,6 +110,27 @@ export default async function FoodLensPage() {
           <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
         </Link>
 
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <Link
+            href={'/food-lens/log' as Route}
+            className={`${CARD} flex items-center gap-2.5 p-4`}
+          >
+            <NotebookText
+              className="h-4 w-4 text-[#9AA79F]"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            <p className="text-sm font-medium text-[#1B3A2D]">Today&apos;s food log</p>
+          </Link>
+          <Link
+            href={'/food-lens/preferences' as Route}
+            className={`${CARD} flex items-center gap-2.5 p-4`}
+          >
+            <Settings2 className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-medium text-[#1B3A2D]">Allergies &amp; preferences</p>
+          </Link>
+        </div>
+
         <section className="mt-8">
           <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Your recent scans
@@ -105,12 +146,17 @@ export default async function FoodLensPage() {
               {scans.map((scan) => (
                 <li key={scan.id}>
                   <Link
-                    href={`/food-lens/${scan.id}` as Route}
+                    href={
+                      (scan.scanType === 'barcode'
+                        ? `/food-lens/barcode/${scan.id}`
+                        : `/food-lens/${scan.id}`) as Route
+                    }
                     className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-[#1B3A2D]/[0.02]"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-[#1B3A2D]">
-                        {scan.headline ?? 'Meal scan'}
+                        {scan.headline ??
+                          (scan.scanType === 'barcode' ? 'Barcode scan' : 'Meal scan')}
                       </p>
                       <p className="mt-0.5 text-xs text-[#6B7A72]">{formatDate(scan.createdAt)}</p>
                     </div>

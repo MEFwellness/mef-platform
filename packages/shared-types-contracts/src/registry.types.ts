@@ -37,7 +37,8 @@ export type RegistrySourceFeature =
   | 'assessment_ai_observation'
   | 'wearable_daily_metric'
   | 'food_lens_pattern_comparison'
-  | 'movement_session_completed';
+  | 'movement_session_completed'
+  | 'food_analysis_result';
 
 /** Same {type, id, note?} shape every other engine's evidence-ref type already uses, independently declared per this codebase's established convention. */
 export interface RegistryEvidenceRef {

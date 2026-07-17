@@ -18,6 +18,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
+import { getFoodLensBarcodeScanByScanId } from '@/lib/food-products/data';
 import { resolveLocalDate } from './checkin';
 import type {
   FoodLensCapture,
@@ -92,7 +93,10 @@ async function memberLocalDate(
 ): Promise<string> {
   const { data } = await supabase.from('profiles').select('timezone').eq('id', userId).single();
   const timezone = data?.timezone ?? 'America/New_York';
-  return resolveLocalDate(new Date(new Date().toLocaleString('en-US', { timeZone: timezone })), false);
+  return resolveLocalDate(
+    new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
+    false
+  );
 }
 
 // ---- Scan lifecycle ----
@@ -190,7 +194,7 @@ export async function analyzeFoodLensScanAction(
     return {
       status: 'not_configured',
       error:
-        'Food Lens isn\'t available yet — no vision provider is configured. This scan is saved and ' +
+        "Food Lens isn't available yet — no vision provider is configured. This scan is saved and " +
         'will be analyzed automatically once one is connected.',
     };
   }
@@ -257,17 +261,23 @@ export async function analyzeFoodLensScanAction(
     // No Primal Pattern target yet: still useful on its own (doc 4 §4.4,
     // doc 5 §5.5) — items + macro estimate stand alone, no comparison row.
     const targetProfileId = scan.primal_pattern_profile_id;
-    const target = targetProfileId
-      ? await getActivePrimalPatternProfile(supabase, userId)
-      : null;
+    const target = targetProfileId ? await getActivePrimalPatternProfile(supabase, userId) : null;
 
     let comparison: FoodLensPatternComparison | undefined;
     if (target) {
-      comparison = await runComparisonAndNarrative(supabase, userId, scanId, detectedItems, {
-        protein: result.macroEstimate.protein,
-        carb: result.macroEstimate.carb,
-        fat: result.macroEstimate.fat,
-      }, macroEstimate.id, target);
+      comparison = await runComparisonAndNarrative(
+        supabase,
+        userId,
+        scanId,
+        detectedItems,
+        {
+          protein: result.macroEstimate.protein,
+          carb: result.macroEstimate.carb,
+          fat: result.macroEstimate.fat,
+        },
+        macroEstimate.id,
+        target
+      );
     }
 
     // Meal Quality runs regardless of whether a Primal Pattern target
@@ -445,6 +455,28 @@ export async function listMyFoodLensScansAction(
   const scans = await listFoodLensScans(supabase, userId, options);
   return Promise.all(
     scans.map(async (scan) => {
+      if (scan.scan_type === 'barcode') {
+        // No Primal Pattern comparison exists for a packaged-food scan —
+        // the product name is the useful headline instead.
+        const barcodeScan = await getFoodLensBarcodeScanByScanId(supabase, scan.id);
+        let headline: string | null = null;
+        if (barcodeScan?.product_id) {
+          const { data: product } = await supabase
+            .from('food_products')
+            .select('name')
+            .eq('id', barcodeScan.product_id)
+            .maybeSingle();
+          headline = (product?.name as string | undefined) ?? null;
+        }
+        return {
+          id: scan.id,
+          scanType: scan.scan_type,
+          status: scan.status,
+          createdAt: scan.created_at,
+          headline,
+        };
+      }
+
       const comparison = await getLatestFoodLensPatternComparison(supabase, scan.id);
       return {
         id: scan.id,

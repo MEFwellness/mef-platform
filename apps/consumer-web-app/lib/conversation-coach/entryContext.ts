@@ -83,6 +83,18 @@ export function buildFoodLensEntryContext(
   return `Member just scanned a meal that ${verdict} their ${patternLabel} Primal Pattern target.${narrativePart}`;
 }
 
+/** Food Lens's packaged-food (barcode) results page — gives Root the scan's already-generated coaching summary immediately if the member taps "Ask Root" right from the results screen. `supportsYou` is Root's own already-generated line for this scan (lib/food-products/coachingNarrative.ts); passed through as-is, never re-derived here. */
+export function buildFoodProductEntryContext(
+  productName: string | null,
+  supportsYou: string | null
+): string {
+  if (!productName) {
+    return 'Opened from a Food Lens barcode scan (product details not yet available).';
+  }
+  const summaryPart = supportsYou ? ` Root told them: "${supportsYou}"` : '';
+  return `Member just scanned the packaged product "${productName}" with Food Lens.${summaryPart}`;
+}
+
 export function buildMovementEntryContext(session: MovementSessionWithExercises | null): string {
   if (!session) {
     return 'Opened from the Movement Dashboard, before a first check-in has been logged.';
