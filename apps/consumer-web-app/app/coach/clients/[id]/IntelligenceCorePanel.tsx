@@ -80,7 +80,7 @@ export function IntelligenceCorePanel({
       </div>
       <p className="mt-1 text-xs text-[#6B7A72]">
         A durable, confidence-weighted model of who this member is as a coaching subject — never a
-        diagnosis. Composes every other system's output; nothing here is fabricated.
+        diagnosis. Composes every other system&apos;s output; nothing here is fabricated.
       </p>
       {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
 

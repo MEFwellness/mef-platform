@@ -92,7 +92,7 @@ export default async function MovementPage() {
             Movement
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
-            Intelligently composed for how you're doing today — not a fixed plan.
+            Intelligently composed for how you&apos;re doing today — not a fixed plan.
           </p>
         </div>
 
@@ -111,7 +111,7 @@ export default async function MovementPage() {
                   aria-hidden="true"
                 />
                 <p className="relative text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-                  Today's Focus
+                  Today&apos;s Focus
                 </p>
                 <h2 className="relative mt-2 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-4xl">
                   {session.focus_summary}

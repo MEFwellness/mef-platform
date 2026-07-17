@@ -95,7 +95,7 @@ export default async function MovementSessionPage() {
           {sectionsPresent.length === 0 && (
             <section className={`${CARD} p-6 text-center`}>
               <p className="text-sm leading-relaxed text-[#6B7A72]">
-                No exercises are available for today's session yet.
+                No exercises are available for today&apos;s session yet.
               </p>
             </section>
           )}

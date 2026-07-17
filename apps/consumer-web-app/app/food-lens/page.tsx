@@ -124,7 +124,7 @@ export default async function FoodLensPage() {
           Meal coaching, not counting
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
-          However you'd like to log it, Root will walk through what actually matters — never just
+          However you&apos;d like to log it, Root will walk through what actually matters — never just
           one nutrient in isolation.
         </p>
 

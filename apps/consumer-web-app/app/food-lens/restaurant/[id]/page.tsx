@@ -164,7 +164,7 @@ export default async function RestaurantMealEntryResultPage({
 
               <p className="px-1 text-xs leading-relaxed text-[#9AA79F]">
                 This reflects your own entry and the available menu information — not a medical
-                assessment, and not the restaurant's own nutrition facts unless stated above.
+                assessment, and not the restaurant&apos;s own nutrition facts unless stated above.
               </p>
             </>
           )}
