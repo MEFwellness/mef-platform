@@ -182,6 +182,131 @@ export async function upsertFoodProductFromProvider(
   return getFoodProductWithDetails(supabase, productId);
 }
 
+/**
+ * Materializes a member-confirmed Nutrition Facts label scan into the
+ * shared food_products cache — the exact same food_products +
+ * product_nutrients + product_ingredients + product_allergens rows a
+ * barcode lookup writes (data_source = 'mef_verified', barcode null since
+ * a photographed label may have no decodable barcode). This is what lets
+ * a label-scanned product flow through the identical MEF Nutrition Rules
+ * Engine / food log / registry path a barcode product does — see migration
+ * 60's header, point 1. Each confirmed label scan gets its own row rather
+ * than attempting fuzzy name/brand de-duplication — a deliberate v1
+ * simplification; two members scanning the same product's label twice
+ * will each get their own verified record rather than sharing one.
+ */
+export async function insertVerifiedFoodProductFromLabelScan(
+  supabase: SupabaseClient,
+  input: {
+    productName: string | null;
+    brand: string | null;
+    servingSizeText: string | null;
+    nutrients: {
+      calories: number | null;
+      proteinG: number | null;
+      totalCarbohydrateG: number | null;
+      fiberG: number | null;
+      totalSugarG: number | null;
+      addedSugarG: number | null;
+      totalFatG: number | null;
+      saturatedFatG: number | null;
+      monounsaturatedFatG: number | null;
+      polyunsaturatedFatG: number | null;
+      transFatG: number | null;
+      sodiumMg: number | null;
+      potassiumMg: number | null;
+    };
+    ingredientsText: string | null;
+    allergensText: string | null;
+    dataCompleteness: FoodProduct['data_completeness'];
+  }
+): Promise<FoodProductWithDetails | null> {
+  const productId = randomUUID();
+  const now = new Date().toISOString();
+
+  const { error: productError } = await supabase.from('food_products').insert({
+    id: productId,
+    barcode: null,
+    barcode_type: 'unknown',
+    name: input.productName,
+    brand: input.brand,
+    image_url: null,
+    serving_size_text: input.servingSizeText,
+    serving_size_grams: null,
+    data_source: 'mef_verified',
+    source_product_id: null,
+    nutrition_grade: null,
+    data_completeness: input.dataCompleteness,
+    raw_source_data: {},
+    last_fetched_at: now,
+    created_at: now,
+    updated_at: now,
+  });
+  if (productError) {
+    console.error('insertVerifiedFoodProductFromLabelScan: food_products insert failed', productError);
+    return null;
+  }
+
+  const { error: nutrientsError } = await supabase.from('product_nutrients').insert({
+    product_id: productId,
+    basis: 'per_serving',
+    calories: input.nutrients.calories,
+    protein_g: input.nutrients.proteinG,
+    total_carbohydrate_g: input.nutrients.totalCarbohydrateG,
+    fiber_g: input.nutrients.fiberG,
+    total_sugar_g: input.nutrients.totalSugarG,
+    added_sugar_g: input.nutrients.addedSugarG,
+    total_fat_g: input.nutrients.totalFatG,
+    saturated_fat_g: input.nutrients.saturatedFatG,
+    monounsaturated_fat_g: input.nutrients.monounsaturatedFatG,
+    polyunsaturated_fat_g: input.nutrients.polyunsaturatedFatG,
+    trans_fat_g: input.nutrients.transFatG,
+    sodium_mg: input.nutrients.sodiumMg,
+    potassium_mg: input.nutrients.potassiumMg,
+    created_at: now,
+    updated_at: now,
+  });
+  if (nutrientsError) {
+    console.error('insertVerifiedFoodProductFromLabelScan: product_nutrients insert failed', nutrientsError);
+  }
+
+  if (input.ingredientsText) {
+    const ingredientsList = input.ingredientsText
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const { error: ingredientsError } = await supabase.from('product_ingredients').insert({
+      product_id: productId,
+      ingredients_text: input.ingredientsText,
+      ingredients_list: ingredientsList,
+      additives: [],
+      created_at: now,
+      updated_at: now,
+    });
+    if (ingredientsError) {
+      console.error('insertVerifiedFoodProductFromLabelScan: product_ingredients insert failed', ingredientsError);
+    }
+  }
+
+  if (input.allergensText) {
+    const allergenNames = input.allergensText
+      .replace(/^contains:?/i, '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (allergenNames.length > 0) {
+      const { error: allergensError } = await supabase.from('product_allergens').insert(
+        allergenNames.map((allergen) => ({ product_id: productId, allergen, kind: 'contains' as const }))
+      );
+      if (allergensError) {
+        console.error('insertVerifiedFoodProductFromLabelScan: product_allergens insert failed', allergensError);
+      }
+    }
+  }
+
+  return getFoodProductWithDetails(supabase, productId);
+}
+
 // ---- food_lens_barcode_scans ----
 
 export async function insertFoodLensBarcodeScan(
@@ -347,11 +472,14 @@ export async function insertFoodLogEntry(
     mealCategory: MealCategory;
     servings: number;
     consumedAt: string;
+    notes?: string | null;
+    photoStoragePath?: string | null;
+    manualLabel?: string | null;
   }
 ): Promise<MemberFoodLogEntry | null> {
   const id = randomUUID();
   const now = new Date().toISOString();
-  const { error } = await supabase.from('member_food_log').insert({
+  const row = {
     id,
     member_id: input.memberId,
     product_id: input.productId ?? null,
@@ -359,22 +487,68 @@ export async function insertFoodLogEntry(
     meal_category: input.mealCategory,
     servings: input.servings,
     consumed_at: input.consumedAt,
+    notes: input.notes ?? null,
+    photo_storage_path: input.photoStoragePath ?? null,
+    member_adjusted: false,
+    manual_label: input.manualLabel ?? null,
     created_at: now,
-  });
+  };
+  const { error } = await supabase.from('member_food_log').insert(row);
   if (error) {
     console.error('insertFoodLogEntry failed', error);
     return null;
   }
-  return {
-    id,
-    member_id: input.memberId,
-    product_id: input.productId ?? null,
-    scan_id: input.scanId ?? null,
-    meal_category: input.mealCategory,
-    servings: input.servings,
-    consumed_at: input.consumedAt,
-    created_at: now,
-  };
+  return row;
+}
+
+/** Any of servings/mealCategory/consumedAt/notes may be edited after the fact (Part 16) — always marks member_adjusted so the log entry is distinguishable from an untouched one. Never touches product_id/scan_id (the underlying facts a correction shouldn't rewrite). */
+export async function updateFoodLogEntry(
+  supabase: SupabaseClient,
+  memberId: string,
+  entryId: string,
+  patch: Partial<{
+    mealCategory: MealCategory;
+    servings: number;
+    consumedAt: string;
+    notes: string | null;
+    photoStoragePath: string | null;
+  }>
+): Promise<boolean> {
+  const update: Record<string, unknown> = { member_adjusted: true };
+  if (patch.mealCategory !== undefined) update.meal_category = patch.mealCategory;
+  if (patch.servings !== undefined) update.servings = patch.servings;
+  if (patch.consumedAt !== undefined) update.consumed_at = patch.consumedAt;
+  if (patch.notes !== undefined) update.notes = patch.notes;
+  if (patch.photoStoragePath !== undefined) update.photo_storage_path = patch.photoStoragePath;
+
+  const { error } = await supabase
+    .from('member_food_log')
+    .update(update)
+    .eq('id', entryId)
+    .eq('member_id', memberId);
+  if (error) {
+    console.error('updateFoodLogEntry failed', error);
+    return false;
+  }
+  return true;
+}
+
+export async function getFoodLogEntry(
+  supabase: SupabaseClient,
+  memberId: string,
+  entryId: string
+): Promise<MemberFoodLogEntry | null> {
+  const { data, error } = await supabase
+    .from('member_food_log')
+    .select('*')
+    .eq('id', entryId)
+    .eq('member_id', memberId)
+    .maybeSingle();
+  if (error) {
+    console.error('getFoodLogEntry failed', error);
+    return null;
+  }
+  return data as MemberFoodLogEntry | null;
 }
 
 export async function listFoodLogForDateRange(

@@ -16,7 +16,6 @@ import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
 import { resolveLocalDate } from './checkin';
 import type {
-  AllergenMatch,
   BarcodeType,
   FoodAnalysisResult,
   FoodLensBarcodeScan,
@@ -37,23 +36,21 @@ import {
   deleteFoodLogEntry,
   findCachedFoodProduct,
   getFoodLensBarcodeScanByScanId,
+  getFoodLogEntry,
   getFoodProductWithDetails,
   getLatestFoodAnalysisResult,
   getMemberFoodPreferences,
-  insertFoodAnalysisResult,
   insertFoodLensBarcodeScan,
   insertFoodLogEntry,
   listFoodLogForDateRange,
-  listNutritionRuleThresholds,
   updateFoodLensBarcodeScan,
+  updateFoodLogEntry,
   upsertFoodProductFromProvider,
   upsertMemberFoodPreferences,
 } from '@/lib/food-products/data';
-import { runFoodRulesEngine, resolveNutritionThresholds } from '@/lib/food-products/rulesEngine';
-import { matchMemberAllergens } from '@/lib/food-products/rulesEngine/allergenCheck';
-import { generateFoodCoachingNarrative } from '@/lib/food-products/coachingNarrative';
-import { upsertRegistryEntryFromFoodAnalysis } from '@/lib/registry/adapters/foodProducts';
+import { runProductAnalysisForScan } from '@/lib/food-products/analyze';
 import { getFoodLensScan, updateFoodLensScan } from '@/lib/food-lens/data';
+import { getFoodLensLabelScanByScanId } from '@/lib/food-lens/labelScanData';
 
 async function requireMember(): Promise<{
   supabase: ReturnType<typeof createClient>;
@@ -212,91 +209,13 @@ export async function analyzeProductScanAction(scanId: string): Promise<AnalyzeP
 
   await updateFoodLensScan(supabase, scanId, { status: 'analyzing' });
 
-  try {
-    const details = await getFoodProductWithDetails(supabase, barcodeScan.product_id);
-    if (!details) {
-      await updateFoodLensScan(supabase, scanId, { status: 'failed' });
-      return { status: 'failed', error: 'Could not load the product record.' };
-    }
-
-    const [thresholdOverrides, preferences] = await Promise.all([
-      listNutritionRuleThresholds(supabase),
-      getMemberFoodPreferences(supabase, userId),
-    ]);
-    const thresholds = resolveNutritionThresholds(thresholdOverrides);
-
-    const rulesResult = runFoodRulesEngine({
-      productName: details.product.name,
-      dataCompleteness: details.product.data_completeness,
-      nutrients: details.nutrients
-        ? {
-            calories: details.nutrients.calories,
-            proteinG: details.nutrients.protein_g,
-            totalCarbohydrateG: details.nutrients.total_carbohydrate_g,
-            fiberG: details.nutrients.fiber_g,
-            totalSugarG: details.nutrients.total_sugar_g,
-            addedSugarG: details.nutrients.added_sugar_g,
-            totalFatG: details.nutrients.total_fat_g,
-            saturatedFatG: details.nutrients.saturated_fat_g,
-            monounsaturatedFatG: details.nutrients.monounsaturated_fat_g,
-            polyunsaturatedFatG: details.nutrients.polyunsaturated_fat_g,
-            transFatG: details.nutrients.trans_fat_g,
-            sodiumMg: details.nutrients.sodium_mg,
-            potassiumMg: details.nutrients.potassium_mg,
-          }
-        : null,
-      ingredientsText: details.ingredients?.ingredients_text ?? null,
-      ingredientsList: details.ingredients?.ingredients_list ?? [],
-      additives: details.ingredients?.additives ?? [],
-      thresholds,
-    });
-
-    const allergenMatches: AllergenMatch[] = matchMemberAllergens(
-      details.allergens.map((a) => ({ allergen: a.allergen, kind: a.kind })),
-      preferences?.allergies ?? []
-    );
-
-    const localDate = await memberLocalDate(supabase, userId);
-    const { result: coachingResult, promptVersion } = await generateFoodCoachingNarrative({
-      supabase,
-      memberId: userId,
-      localDate,
-      productName: details.product.name,
-      brand: details.product.brand,
-      servingSizeText: details.product.serving_size_text,
-      rulesResult,
-      allergenMatches,
-      dietaryPattern: preferences?.dietary_pattern ?? null,
-    });
-
-    const analysis = await insertFoodAnalysisResult(supabase, {
-      scanId,
-      productId: details.product.id,
-      dataCompleteness: rulesResult.dataCompleteness,
-      overallConfidence: rulesResult.overallConfidence,
-      rulesResult,
-      coachingResult,
-      coachingPromptVersion: promptVersion,
-      memberAllergenMatches: allergenMatches,
-    });
-    if (!analysis) {
-      await updateFoodLensScan(supabase, scanId, { status: 'failed' });
-      return { status: 'failed', error: 'Could not save the analysis.' };
-    }
-
-    try {
-      await upsertRegistryEntryFromFoodAnalysis(supabase, userId, analysis, details.product.name);
-    } catch (err) {
-      console.error('upsertRegistryEntryFromFoodAnalysis failed', err);
-    }
-
-    await updateFoodLensScan(supabase, scanId, { status: 'analyzed' });
-    return { status: 'analyzed', analysis };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Analysis failed.';
-    await updateFoodLensScan(supabase, scanId, { status: 'failed', provider_error: message });
-    return { status: 'failed', error: message };
-  }
+  const localDate = await memberLocalDate(supabase, userId);
+  const result = await runProductAnalysisForScan(supabase, userId, localDate, scanId, barcodeScan.product_id);
+  await updateFoodLensScan(supabase, scanId, {
+    status: result.status === 'analyzed' ? 'analyzed' : 'failed',
+    provider_error: result.status === 'failed' ? (result.error ?? null) : null,
+  });
+  return result;
 }
 
 // ---- Read ----
@@ -320,9 +239,28 @@ export async function getProductScanAction(scanId: string): Promise<ProductScanD
   if (!scan || scan.member_id !== userId) return null;
 
   const barcodeScan = await getFoodLensBarcodeScanByScanId(supabase, scanId);
-  const details = barcodeScan?.product_id
-    ? await getFoodProductWithDetails(supabase, barcodeScan.product_id)
-    : null;
+  let productId = barcodeScan?.product_id ?? null;
+
+  // A nutrition-label scan (scan_type = 'nutrition_label') has no
+  // food_lens_barcode_scans row — once the member confirms it, the
+  // resolved product lives on food_lens_label_scans.confirmed_product_id
+  // instead. Checking here (rather than a second result page) is what lets
+  // this one page render a product scan's result regardless of whether it
+  // arrived via barcode or label photo (Part 15's unified result design).
+  if (!productId) {
+    const labelScan = await getFoodLensLabelScanByScanId(supabase, scanId);
+    productId = labelScan?.confirmed_product_id ?? null;
+  }
+
+  // A search result, favorite, or manual entry links its product directly
+  // on the scan row itself (scan_type = 'manual_entry', or 'barcode' when
+  // reopening an already-cached product) rather than through either child
+  // table above — see migration 60.
+  if (!productId) {
+    productId = scan.linked_product_id ?? null;
+  }
+
+  const details = productId ? await getFoodProductWithDetails(supabase, productId) : null;
   const analysis = await getLatestFoodAnalysisResult(supabase, scanId);
 
   return {
@@ -404,6 +342,52 @@ export async function removeFoodLogEntryAction(entryId: string): Promise<ActionR
   const ok = await deleteFoodLogEntry(ctx.supabase, ctx.userId, entryId);
   if (!ok) return { error: 'Could not remove this entry.' };
   return {};
+}
+
+export type EditFoodLogEntryInput = Partial<{
+  mealCategory: MealCategory;
+  servings: number;
+  consumedAt: string;
+  notes: string | null;
+}>;
+
+/** Part 16 — editing servings/category/time/notes on an existing entry. Recalculates nothing on the server beyond what the UI already re-derives from servings × per-serving facts; product_nutrients itself is never touched. */
+export async function editFoodLogEntryAction(
+  entryId: string,
+  input: EditFoodLogEntryInput
+): Promise<ActionResult> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  if (input.servings !== undefined && input.servings <= 0) {
+    return { error: 'Servings must be greater than zero.' };
+  }
+  const ok = await updateFoodLogEntry(ctx.supabase, ctx.userId, entryId, input);
+  if (!ok) return { error: 'Could not save your changes.' };
+  return {};
+}
+
+/** Part 16 — "duplicate a previous meal": re-logs the same product/scan/manual entry at the current time, same servings/category, ready to adjust. */
+export async function duplicateFoodLogEntryAction(
+  entryId: string
+): Promise<ActionResult & { entry?: MemberFoodLogEntry }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const { supabase, userId } = ctx;
+
+  const original = await getFoodLogEntry(supabase, userId, entryId);
+  if (!original) return { error: 'Entry not found.' };
+
+  const entry = await insertFoodLogEntry(supabase, {
+    memberId: userId,
+    productId: original.product_id,
+    scanId: original.scan_id,
+    mealCategory: original.meal_category,
+    servings: original.servings,
+    consumedAt: new Date().toISOString(),
+    manualLabel: original.manual_label,
+  });
+  if (!entry) return { error: 'Could not duplicate this entry.' };
+  return { entry };
 }
 
 // ---- Food preferences (allergies, intolerances, dietary pattern) ----

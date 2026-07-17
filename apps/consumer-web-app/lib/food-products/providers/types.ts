@@ -15,7 +15,17 @@
 
 import type { NormalizedFoodProduct } from '@mef/shared-types-contracts';
 
+/** A lightweight, unverified search hit — enough to show a name/brand/image in a results list and let the member pick one, NOT a full NormalizedFoodProduct. Selecting one always goes through a real lookupByBarcode (or an equivalent full fetch) before anything is trusted as nutrition fact — a search hit is a pointer, never itself a source of truth. */
+export type FoodProductSearchHit = {
+  barcode: string;
+  name: string | null;
+  brand: string | null;
+  imageUrl: string | null;
+};
+
 export interface FoodProductProvider {
   readonly name: string;
   lookupByBarcode(barcode: string): Promise<NormalizedFoodProduct | null>;
+  /** Optional — not every provider supports free-text search (product requirement §4's "external search results" is explicitly the lowest-priority tier). */
+  searchByName?(query: string, limit?: number): Promise<FoodProductSearchHit[]>;
 }

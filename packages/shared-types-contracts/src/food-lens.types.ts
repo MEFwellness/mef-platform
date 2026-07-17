@@ -55,7 +55,7 @@ export interface PrimalPatternProfile {
 // Scan lifecycle
 // ---------------------------------------------------------------------------
 
-export type FoodLensScanType = 'meal_photo' | 'barcode' | 'nutrition_label';
+export type FoodLensScanType = 'meal_photo' | 'barcode' | 'nutrition_label' | 'manual_entry';
 
 export type FoodLensScanStatus =
   | 'pending'
@@ -74,17 +74,23 @@ export interface FoodLensScan {
   provider_status: string | null;
   provider_error: string | null;
   primal_pattern_profile_id: string | null;
+  /** Set only when this scan was opened directly against an already-cached product (search result, favorite, pantry item, repeat-log) rather than a fresh capture — see migration 60. */
+  linked_product_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export type FoodLensCaptureType = 'photo' | 'barcode_image' | 'label_image';
 
+/** Which part of a packaged-food label a label_image capture is — lets the multi-photo label scan flow (Part 1) route each image to the right OCR extraction step. Only meaningful when capture_type === 'label_image'. */
+export type FoodLensLabelPhotoRole = 'nutrition_facts' | 'ingredients' | 'allergens' | 'front_label';
+
 export interface FoodLensCapture {
   id: string;
   scan_id: string;
   storage_path: string;
   capture_type: FoodLensCaptureType;
+  label_photo_role: FoodLensLabelPhotoRole | null;
   device_info: Record<string, unknown>;
   created_at: string;
 }
@@ -100,6 +106,27 @@ export type FoodLensDetectedItemStatus =
   | 'rejected'
   | 'superseded';
 
+/** Practical, non-exact portion units a member can enter or confirm — Part 2's "never display false precision" (grams/ounces are offered too, for members who want precise entry). */
+export type FoodLensPortionUnit =
+  | 'grams'
+  | 'ounces'
+  | 'cups'
+  | 'tablespoons'
+  | 'teaspoons'
+  | 'pieces'
+  | 'servings';
+
+export type FoodLensCookingMethod =
+  | 'grilled'
+  | 'fried'
+  | 'baked'
+  | 'roasted'
+  | 'steamed'
+  | 'boiled'
+  | 'raw'
+  | 'sauteed'
+  | 'unknown';
+
 export interface FoodLensDetectedItem {
   id: string;
   scan_id: string;
@@ -109,6 +136,14 @@ export interface FoodLensDetectedItem {
   source: FoodLensDetectedItemSource;
   status: FoodLensDetectedItemStatus;
   supersedes_id: string | null;
+  /** A calm, practical phrase ("about half a cup") — never a bare precise number unless the member entered grams/ounces themselves. */
+  portion_description: string | null;
+  portion_confidence: number | null;
+  quantity: number | null;
+  unit: FoodLensPortionUnit | null;
+  cooking_method: FoodLensCookingMethod | null;
+  /** True for a sauce, dressing, oil, or topping rather than a standalone food — used only for display grouping, never excluded from analysis. */
+  is_condiment: boolean;
   created_at: string;
 }
 
@@ -116,7 +151,9 @@ export type FoodLensCorrectionType =
   | 'label_fixed'
   | 'category_fixed'
   | 'item_removed'
-  | 'item_added';
+  | 'item_added'
+  | 'portion_adjusted'
+  | 'cooking_method_set';
 
 export interface FoodLensCorrection {
   id: string;
@@ -203,5 +240,77 @@ export interface FoodLensMealQualityRating {
   is_beverage: boolean;
   /** Confidence in these quality-signal judgments specifically — distinct from item-identification confidence (FoodLensDetectedItem.confidence) and macro-composition confidence (FoodLensMacroEstimate.*_confidence). */
   confidence: number;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Nutrition Facts label scanning — supabase/migrations/
+// 00000000000060_food_lens_ecosystem.sql. Reuses food_lens_scans
+// (scan_type = 'nutrition_label') and food_lens_captures
+// (capture_type = 'label_image') exactly as reserved since migration 55.
+// ---------------------------------------------------------------------------
+
+export type FoodLensLabelScanStatus = 'pending' | 'extracted' | 'member_confirmed';
+
+/** One extracted Nutrition Facts / ingredients / allergens reading, held for member review before anything is written to the shared food_products cache. Never presents a missing value as zero — a field the OCR pass couldn't read is left null, not defaulted. */
+export interface FoodLensLabelScan {
+  id: string;
+  scan_id: string;
+  product_name: string | null;
+  brand: string | null;
+  serving_size_text: string | null;
+  servings_per_container: number | null;
+  calories: number | null;
+  protein_g: number | null;
+  total_carbohydrate_g: number | null;
+  fiber_g: number | null;
+  total_sugar_g: number | null;
+  added_sugar_g: number | null;
+  total_fat_g: number | null;
+  saturated_fat_g: number | null;
+  trans_fat_g: number | null;
+  monounsaturated_fat_g: number | null;
+  polyunsaturated_fat_g: number | null;
+  cholesterol_mg: number | null;
+  sodium_mg: number | null;
+  potassium_mg: number | null;
+  /** e.g. `{ vitamin_d_mcg: 2, calcium_mg: 260 }` — an open bag since which vitamins/minerals a label discloses varies by product. */
+  vitamins_minerals: Record<string, number>;
+  ingredients_text: string | null;
+  allergens_text: string | null;
+  /** One 0–1 confidence per extracted field, keyed by the same field name (e.g. `{ calories: 0.92, protein_g: 0.4 }`). A field absent here was never read at all — distinct from a field read with low confidence. */
+  field_confidence: Record<string, number>;
+  status: FoodLensLabelScanStatus;
+  /** Set once the member confirms — the food_products row this scan materialized into (data_source = 'mef_verified'), so it flows through the exact same rules engine / food log / registry path a barcode product does. */
+  confirmed_product_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Every field the label-scan OCR pass can extract, as a plain key so the extraction/confirmation UI can iterate them generically. */
+export type FoodLensLabelScanNumericField =
+  | 'servings_per_container'
+  | 'calories'
+  | 'protein_g'
+  | 'total_carbohydrate_g'
+  | 'fiber_g'
+  | 'total_sugar_g'
+  | 'added_sugar_g'
+  | 'total_fat_g'
+  | 'saturated_fat_g'
+  | 'trans_fat_g'
+  | 'monounsaturated_fat_g'
+  | 'polyunsaturated_fat_g'
+  | 'cholesterol_mg'
+  | 'sodium_mg'
+  | 'potassium_mg';
+
+export interface FoodLensLabelFieldCorrection {
+  id: string;
+  member_id: string;
+  label_scan_id: string;
+  field_name: string;
+  original_value: unknown;
+  corrected_value: unknown;
   created_at: string;
 }

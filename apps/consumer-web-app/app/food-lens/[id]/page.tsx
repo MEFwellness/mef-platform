@@ -13,6 +13,7 @@ import { DetectedItemsList } from '@/components/food-lens/DetectedItemsList';
 import { MacroBalanceMeter } from '@/components/food-lens/MacroBalanceMeter';
 import { MealQualityIndicator } from '@/components/food-lens/MealQualityIndicator';
 import { PatternComparisonCard } from '@/components/food-lens/PatternComparisonCard';
+import { MealLogActions } from '@/components/food-lens/MealLogActions';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -156,6 +157,11 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
           ) : null}
 
           {detectedItems.length > 0 && <DetectedItemsList scanId={scan.id} items={detectedItems} />}
+
+          <MealLogActions
+            scanId={scan.id}
+            hasConfirmedItems={detectedItems.some((i) => i.status === 'confirmed')}
+          />
         </div>
       </main>
 

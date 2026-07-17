@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   FoodLensCapture,
   FoodLensCaptureType,
+  FoodLensLabelPhotoRole,
   FoodLensComparisonSignal,
   FoodLensCorrection,
   FoodLensCorrectionType,
@@ -38,7 +39,8 @@ export async function insertFoodLensScan(
   supabase: SupabaseClient,
   memberId: string,
   scanType: FoodLensScanType,
-  primalPatternProfileId: string | null
+  primalPatternProfileId: string | null,
+  linkedProductId: string | null = null
 ): Promise<FoodLensScan | null> {
   const id = randomUUID();
   const now = new Date().toISOString();
@@ -47,8 +49,9 @@ export async function insertFoodLensScan(
     id,
     member_id: memberId,
     scan_type: scanType,
-    status: 'pending',
+    status: linkedProductId ? 'analyzed' : 'pending',
     primal_pattern_profile_id: primalPatternProfileId,
+    linked_product_id: linkedProductId,
     created_at: now,
     updated_at: now,
   });
@@ -62,11 +65,12 @@ export async function insertFoodLensScan(
     id,
     member_id: memberId,
     scan_type: scanType,
-    status: 'pending',
+    status: linkedProductId ? 'analyzed' : 'pending',
     provider_name: null,
     provider_status: null,
     provider_error: null,
     primal_pattern_profile_id: primalPatternProfileId,
+    linked_product_id: linkedProductId,
     created_at: now,
     updated_at: now,
   };
@@ -140,6 +144,7 @@ export async function insertFoodLensCapture(
     scanId: string;
     storagePath: string;
     captureType: FoodLensCaptureType;
+    labelPhotoRole?: FoodLensLabelPhotoRole | null;
     deviceInfo?: Record<string, unknown>;
   }
 ): Promise<FoodLensCapture | null> {
@@ -149,6 +154,7 @@ export async function insertFoodLensCapture(
     scan_id: input.scanId,
     storage_path: input.storagePath,
     capture_type: input.captureType,
+    label_photo_role: input.labelPhotoRole ?? null,
     device_info: input.deviceInfo ?? {},
     created_at: now,
   });
@@ -161,6 +167,7 @@ export async function insertFoodLensCapture(
     scan_id: input.scanId,
     storage_path: input.storagePath,
     capture_type: input.captureType,
+    label_photo_role: input.labelPhotoRole ?? null,
     device_info: input.deviceInfo ?? {},
     created_at: now,
   };
@@ -194,11 +201,23 @@ export async function insertFoodLensDetectedItem(
     source: FoodLensDetectedItemSource;
     status?: FoodLensDetectedItemStatus;
     supersedesId?: string | null;
+    portionDescription?: string | null;
+    portionConfidence?: number | null;
+    quantity?: number | null;
+    unit?: FoodLensDetectedItem['unit'];
+    cookingMethod?: FoodLensDetectedItem['cooking_method'];
+    isCondiment?: boolean;
   }
 ): Promise<FoodLensDetectedItem | null> {
   const id = randomUUID();
   const now = new Date().toISOString();
   const status = input.status ?? 'pending_confirmation';
+  const portionDescription = input.portionDescription ?? null;
+  const portionConfidence = input.portionConfidence ?? null;
+  const quantity = input.quantity ?? null;
+  const unit = input.unit ?? null;
+  const cookingMethod = input.cookingMethod ?? null;
+  const isCondiment = input.isCondiment ?? false;
 
   const { error } = await supabase.from('food_lens_detected_items').insert({
     id,
@@ -209,6 +228,12 @@ export async function insertFoodLensDetectedItem(
     source: input.source,
     status,
     supersedes_id: input.supersedesId ?? null,
+    portion_description: portionDescription,
+    portion_confidence: portionConfidence,
+    quantity,
+    unit,
+    cooking_method: cookingMethod,
+    is_condiment: isCondiment,
     created_at: now,
   });
   if (error) {
@@ -224,6 +249,12 @@ export async function insertFoodLensDetectedItem(
     source: input.source,
     status,
     supersedes_id: input.supersedesId ?? null,
+    portion_description: portionDescription,
+    portion_confidence: portionConfidence,
+    quantity,
+    unit,
+    cooking_method: cookingMethod,
+    is_condiment: isCondiment,
     created_at: now,
   };
 }

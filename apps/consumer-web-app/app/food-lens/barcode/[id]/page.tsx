@@ -16,6 +16,10 @@ import { ObservationCard } from '@/components/food-products/ObservationCard';
 import { NutrientCombinationsList } from '@/components/food-products/NutrientCombinationsList';
 import { CoachingSections } from '@/components/food-products/CoachingSections';
 import { AddToFoodLogSheet } from '@/components/food-products/AddToFoodLogSheet';
+import { SwapSuggestionsList } from '@/components/food-products/SwapSuggestionsList';
+import { generateSwapSuggestions } from '@/lib/food-products/swaps';
+import { QuickProductActions } from '@/components/food-products/QuickProductActions';
+import { isProductFavorited } from '@/lib/food-products/savedMeals';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -45,6 +49,8 @@ export default async function BarcodeScanResultPage({ params }: { params: { id: 
     getProductScanAction(params.id),
   ]);
   if (!detail) notFound();
+
+  const favorited = detail.product ? await isProductFavorited(supabase, user.id, detail.product.id) : false;
 
   const { scan, barcodeScan, product, nutrients, ingredients, allergens, analysis } = detail;
 
@@ -77,6 +83,7 @@ export default async function BarcodeScanResultPage({ params }: { params: { id: 
           )}
 
           {product && <ProductHeader product={product} />}
+          {product && <QuickProductActions productId={product.id} initiallyFavorited={favorited} />}
 
           {product && !analysis && scan.status === 'analyzing' && (
             <div className={`${CARD} p-6`}>
@@ -126,6 +133,7 @@ export default async function BarcodeScanResultPage({ params }: { params: { id: 
               />
               <NutrientCombinationsList findings={analysis.rules_result.nutrientCombinations} />
               <CoachingSections coaching={analysis.coaching_result} />
+              <SwapSuggestionsList suggestions={generateSwapSuggestions(analysis.rules_result)} />
             </>
           )}
 

@@ -8,7 +8,14 @@ import {
   Settings2,
   Barcode,
   Camera,
+  ScanLine,
+  Search,
+  PenLine,
   NotebookText,
+  ScrollText,
+  Refrigerator,
+  Store,
+  MessageCircle,
 } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
@@ -17,6 +24,7 @@ import {
   listMyFoodLensScansAction,
   getActivePrimalPatternProfileAction,
 } from '@/app/actions/food-lens';
+import { getTodaysCoachingMessageAction } from '@/app/actions/food-insights';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -37,6 +45,55 @@ function formatDate(iso: string): string {
   });
 }
 
+/** Where a recent scan's row should link — the unified product result page for anything with a resolved product, the label confirm screen for one still awaiting confirmation, and the meal-photo result page otherwise. */
+function scanHref(scan: { id: string; scanType: string }): Route {
+  if (scan.scanType === 'nutrition_label') return `/food-lens/label/${scan.id}` as Route;
+  if (scan.scanType === 'barcode' || scan.scanType === 'manual_entry') {
+    return `/food-lens/barcode/${scan.id}` as Route;
+  }
+  return `/food-lens/${scan.id}` as Route;
+}
+
+const FALLBACK_SCAN_LABEL: Record<string, string> = {
+  barcode: 'Barcode scan',
+  nutrition_label: 'Label scan',
+  manual_entry: 'Manual entry',
+  meal_photo: 'Meal scan',
+};
+
+const ENTRY_OPTIONS = [
+  {
+    href: '/food-lens/new' as Route,
+    icon: Camera,
+    title: 'Scan a Meal',
+    description: 'Take a photo and review the foods and portions before saving.',
+  },
+  {
+    href: '/food-lens/barcode/new' as Route,
+    icon: Barcode,
+    title: 'Scan a Barcode',
+    description: 'Identify packaged foods and receive ingredient and nutrition guidance.',
+  },
+  {
+    href: '/food-lens/label/new' as Route,
+    icon: ScanLine,
+    title: 'Scan a Label',
+    description: 'Capture Nutrition Facts and ingredients when a product is missing from the database.',
+  },
+  {
+    href: '/food-lens/search' as Route,
+    icon: Search,
+    title: 'Search',
+    description: 'Find a previously scanned or commonly logged food.',
+  },
+  {
+    href: '/food-lens/manual/new' as Route,
+    icon: PenLine,
+    title: 'Manual Entry',
+    description: 'Add a meal or food yourself.',
+  },
+];
+
 export default async function FoodLensPage() {
   const supabase = createClient();
   const {
@@ -44,11 +101,12 @@ export default async function FoodLensPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, scans, pattern, { data: profile }] = await Promise.all([
+  const [isCoach, scans, pattern, { data: profile }, dailyCoaching] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     listMyFoodLensScansAction(),
     getActivePrimalPatternProfileAction(),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
+    getTodaysCoachingMessageAction(),
   ]);
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
 
@@ -66,33 +124,50 @@ export default async function FoodLensPage() {
           Meal coaching, not counting
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
-          Photograph a meal or scan a barcode, and Root will walk through what actually matters —
-          never just one nutrient in isolation.
+          However you'd like to log it, Root will walk through what actually matters — never just
+          one nutrient in isolation.
         </p>
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <Link
-            href={'/food-lens/new' as Route}
-            className="flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-[#1B3A2D] py-5 text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)]"
-          >
-            <Camera className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
-            <span className="text-sm font-semibold">Scan a meal</span>
-          </Link>
-          <Link
-            href={'/food-lens/barcode/new' as Route}
-            className="flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-[#1B3A2D] py-5 text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)]"
-          >
-            <Barcode className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
-            <span className="text-sm font-semibold">Scan a barcode</span>
-          </Link>
+        {dailyCoaching.messages.length > 0 && (
+          <div className={`${CARD} mt-5 p-5`}>
+            <div className="flex items-center gap-2 text-[#1B3A2D]">
+              <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+                Today
+              </p>
+            </div>
+            <div className="mt-2 space-y-2">
+              {dailyCoaching.messages.map((message, i) => (
+                <p key={i} className="text-[15px] leading-relaxed text-[#1B3A2D]">
+                  {message}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 space-y-2.5">
+          {ENTRY_OPTIONS.map((option) => (
+            <Link
+              key={option.href}
+              href={option.href}
+              className={`${CARD} flex items-center gap-3.5 p-4`}
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#1B3A2D]/[0.06]">
+                <option.icon className="h-5 w-5 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-[#1B3A2D]">{option.title}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">{option.description}</p>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+            </Link>
+          ))}
         </div>
-        <p className="mt-2.5 text-center text-xs text-[#9AA79F]">
-          Nutrition Facts label scanning — coming soon
-        </p>
 
         <Link
           href={'/food-lens/pattern' as Route}
-          className={`${CARD} mt-4 flex items-center justify-between p-4`}
+          className={`${CARD} mt-5 flex items-center justify-between p-4`}
         >
           <div className="flex items-center gap-2.5">
             <Settings2 className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
@@ -131,6 +206,37 @@ export default async function FoodLensPage() {
           </Link>
         </div>
 
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <Link
+            href={'/food-lens/pantry' as Route}
+            className={`${CARD} flex items-center gap-2.5 p-4`}
+          >
+            <Refrigerator className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-medium text-[#1B3A2D]">Pantry</p>
+          </Link>
+          <Link
+            href={'/food-lens/restaurant/new' as Route}
+            className={`${CARD} flex items-center gap-2.5 p-4`}
+          >
+            <Store className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-medium text-[#1B3A2D]">Eating out</p>
+          </Link>
+        </div>
+
+        <Link
+          href={'/food-lens/report' as Route}
+          className={`${CARD} mt-3 flex items-center justify-between p-4`}
+        >
+          <div className="flex items-center gap-2.5">
+            <ScrollText className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+            <div>
+              <p className="text-sm font-medium text-[#1B3A2D]">Your Week in Food</p>
+              <p className="mt-0.5 text-xs text-[#6B7A72]">A calm weekly summary of your patterns</p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
         <section className="mt-8">
           <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Your recent scans
@@ -138,7 +244,7 @@ export default async function FoodLensPage() {
           {scans.length === 0 ? (
             <div className={`${CARD} p-6`}>
               <p className="text-sm text-[#6B7A72]">
-                No scans yet — photograph a meal above to get your first read.
+                No scans yet — choose an option above to get your first read.
               </p>
             </div>
           ) : (
@@ -146,17 +252,12 @@ export default async function FoodLensPage() {
               {scans.map((scan) => (
                 <li key={scan.id}>
                   <Link
-                    href={
-                      (scan.scanType === 'barcode'
-                        ? `/food-lens/barcode/${scan.id}`
-                        : `/food-lens/${scan.id}`) as Route
-                    }
+                    href={scanHref({ id: scan.id, scanType: scan.scanType })}
                     className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-[#1B3A2D]/[0.02]"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-[#1B3A2D]">
-                        {scan.headline ??
-                          (scan.scanType === 'barcode' ? 'Barcode scan' : 'Meal scan')}
+                        {scan.headline ?? FALLBACK_SCAN_LABEL[scan.scanType] ?? 'Scan'}
                       </p>
                       <p className="mt-0.5 text-xs text-[#6B7A72]">{formatDate(scan.createdAt)}</p>
                     </div>

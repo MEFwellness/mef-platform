@@ -14,7 +14,8 @@ export type DataCompleteness = 'complete' | 'partial' | 'minimal';
 
 export interface FoodProduct {
   id: string;
-  barcode: string;
+  /** Null for a product that entered the cache via a confirmed Nutrition Facts label scan with no decodable barcode (data_source = 'mef_verified') — see migration 60's header. */
+  barcode: string | null;
   barcode_type: BarcodeType;
   name: string | null;
   brand: string | null;
@@ -278,6 +279,11 @@ export interface MemberFoodLogEntry {
   servings: number;
   consumed_at: string;
   created_at: string;
+  notes: string | null;
+  photo_storage_path: string | null;
+  member_adjusted: boolean;
+  /** Fallback display label for an entry with no product_id (e.g. a repeat-logged saved-meal item that came from a meal-photo detection) — never used by any rules engine. */
+  manual_label: string | null;
 }
 
 // ---------------------------------------------------------------------------

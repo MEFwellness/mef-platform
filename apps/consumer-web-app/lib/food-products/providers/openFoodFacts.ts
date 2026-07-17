@@ -15,9 +15,10 @@ import type {
   NormalizedFoodProduct,
   NutrientBasis,
 } from '@mef/shared-types-contracts';
-import type { FoodProductProvider } from './types';
+import type { FoodProductProvider, FoodProductSearchHit } from './types';
 
 const OFF_API_BASE = 'https://world.openfoodfacts.org/api/v2/product';
+const OFF_SEARCH_URL = 'https://world.openfoodfacts.org/cgi/search.pl';
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 300;
@@ -283,5 +284,50 @@ export class OpenFoodFactsProvider implements FoodProductProvider {
     }
 
     throw lastError instanceof Error ? lastError : new Error('Open Food Facts lookup failed');
+  }
+
+  /**
+   * Free-text search against Open Food Facts' public, documented search
+   * endpoint (not HTML scraping — a stable JSON API OFF publishes for this
+   * purpose). Returns lightweight hits only; a member selecting one still
+   * goes through the normal lookupByBarcode + cache path before any
+   * nutrient/ingredient data is trusted, so a bad/incomplete search hit can
+   * never itself become a source of fabricated facts. Failures here return
+   * an empty list rather than throwing — external search is the lowest
+   * priority tier (product requirement §4) and must never block the
+   * member's own recent/frequent/cached results from showing.
+   */
+  async searchByName(query: string, limit = 10): Promise<FoodProductSearchHit[]> {
+    const trimmed = query.trim();
+    if (trimmed.length === 0) return [];
+
+    const url = `${OFF_SEARCH_URL}?search_terms=${encodeURIComponent(trimmed)}&search_simple=1&action=process&json=1&page_size=${limit}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'User-Agent': 'MEF-Wellness-FoodLens/1.0 (contact: support@mefwellness.com)' },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!response.ok) return [];
+
+      const json = (await response.json()) as { products?: OffProduct[] };
+      return (json.products ?? [])
+        .filter((p): p is OffProduct & { code: string } => Boolean(p.code))
+        .slice(0, limit)
+        .map((p) => ({
+          barcode: p.code,
+          name: p.product_name_en || p.product_name || null,
+          brand: p.brands ?? null,
+          imageUrl: p.image_front_url || p.image_url || null,
+        }));
+    } catch (err) {
+      clearTimeout(timer);
+      console.error('OpenFoodFactsProvider.searchByName failed — returning no external results', err);
+      return [];
+    }
   }
 }

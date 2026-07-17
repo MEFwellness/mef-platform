@@ -18,11 +18,14 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
-import { getFoodLensBarcodeScanByScanId } from '@/lib/food-products/data';
+import { getFoodLensBarcodeScanByScanId, insertFoodLogEntry } from '@/lib/food-products/data';
+import { getFoodLensLabelScanByScanId } from '@/lib/food-lens/labelScanData';
+import type { MealCategory } from '@mef/shared-types-contracts';
 import { resolveLocalDate } from './checkin';
 import type {
   FoodLensCapture,
   FoodLensCaptureType,
+  FoodLensLabelPhotoRole,
   FoodLensComparisonSignal,
   FoodLensDetectedItem,
   FoodLensFoodCategory,
@@ -133,6 +136,7 @@ export type RecordFoodLensCaptureInput = {
   scanId: string;
   storagePath: string;
   captureType?: FoodLensCaptureType;
+  labelPhotoRole?: FoodLensLabelPhotoRole;
   deviceInfo?: Record<string, unknown>;
 };
 
@@ -152,6 +156,7 @@ export async function recordFoodLensCaptureAction(
     scanId: input.scanId,
     storagePath: input.storagePath,
     captureType: input.captureType ?? 'photo',
+    labelPhotoRole: input.labelPhotoRole ?? null,
     deviceInfo: input.deviceInfo ?? {},
   });
   if (!capture) return { error: 'Could not save capture.' };
@@ -238,6 +243,12 @@ export async function analyzeFoodLensScanAction(
         category: item.category,
         confidence: item.confidence,
         source: 'ai_detected',
+        portionDescription: item.portionDescription,
+        portionConfidence: item.portionConfidence,
+        quantity: item.quantity,
+        unit: item.unit,
+        cookingMethod: item.cookingMethod,
+        isCondiment: item.isCondiment,
       });
       if (created) detectedItems.push(created);
     }
@@ -455,16 +466,20 @@ export async function listMyFoodLensScansAction(
   const scans = await listFoodLensScans(supabase, userId, options);
   return Promise.all(
     scans.map(async (scan) => {
-      if (scan.scan_type === 'barcode') {
-        // No Primal Pattern comparison exists for a packaged-food scan —
-        // the product name is the useful headline instead.
+      if (scan.scan_type === 'barcode' || scan.scan_type === 'manual_entry') {
+        // No Primal Pattern comparison exists for a packaged-food or
+        // manual-entry scan — the product name is the useful headline
+        // instead. A barcode scan resolves its product via
+        // food_lens_barcode_scans; a manual entry (or a reopened
+        // search/favorite) resolves it directly via linked_product_id.
         const barcodeScan = await getFoodLensBarcodeScanByScanId(supabase, scan.id);
+        const productId = barcodeScan?.product_id ?? scan.linked_product_id ?? null;
         let headline: string | null = null;
-        if (barcodeScan?.product_id) {
+        if (productId) {
           const { data: product } = await supabase
             .from('food_products')
             .select('name')
-            .eq('id', barcodeScan.product_id)
+            .eq('id', productId)
             .maybeSingle();
           headline = (product?.name as string | undefined) ?? null;
         }
@@ -474,6 +489,17 @@ export async function listMyFoodLensScansAction(
           status: scan.status,
           createdAt: scan.created_at,
           headline,
+        };
+      }
+
+      if (scan.scan_type === 'nutrition_label') {
+        const labelScan = await getFoodLensLabelScanByScanId(supabase, scan.id);
+        return {
+          id: scan.id,
+          scanType: scan.scan_type,
+          status: scan.status,
+          createdAt: scan.created_at,
+          headline: labelScan?.product_name ?? null,
         };
       }
 
@@ -542,9 +568,14 @@ export type CorrectDetectedItemInput = {
   itemId: string;
   correctedLabel?: string;
   correctedCategory?: FoodLensFoodCategory;
+  correctedPortionDescription?: string | null;
+  correctedQuantity?: number | null;
+  correctedUnit?: FoodLensDetectedItem['unit'];
+  correctedCookingMethod?: FoodLensDetectedItem['cooking_method'];
+  correctedIsCondiment?: boolean;
 };
 
-/** Never mutates the AI's original detection in place — supersedes it with a new row, so what the model actually said stays inspectable (doc 4 §4.3). */
+/** Never mutates the AI's original detection in place — supersedes it with a new row, so what the model actually said stays inspectable (doc 4 §4.3). Covers label/category (Phase 1) as well as portion/cooking-method/condiment corrections (Meal Photo Intelligence 2.0, Part 2). */
 export async function correctDetectedItemAction(
   input: CorrectDetectedItemInput
 ): Promise<ActionResult & { newItem?: FoodLensDetectedItem }> {
@@ -553,12 +584,25 @@ export async function correctDetectedItemAction(
   const owned = await requireOwnedItem(ctx.supabase, ctx.userId, input.itemId);
   if (!owned) return { error: 'Item not found.' };
 
-  if (!input.correctedLabel && !input.correctedCategory) {
-    return { error: 'No change provided.' };
-  }
+  const hasChange =
+    input.correctedLabel !== undefined ||
+    input.correctedCategory !== undefined ||
+    input.correctedPortionDescription !== undefined ||
+    input.correctedQuantity !== undefined ||
+    input.correctedUnit !== undefined ||
+    input.correctedCookingMethod !== undefined ||
+    input.correctedIsCondiment !== undefined;
+  if (!hasChange) return { error: 'No change provided.' };
 
   const newLabel = input.correctedLabel ?? owned.item.label;
   const newCategory = input.correctedCategory ?? owned.item.category;
+  const newPortionDescription =
+    input.correctedPortionDescription !== undefined ? input.correctedPortionDescription : owned.item.portion_description;
+  const newQuantity = input.correctedQuantity !== undefined ? input.correctedQuantity : owned.item.quantity;
+  const newUnit = input.correctedUnit !== undefined ? input.correctedUnit : owned.item.unit;
+  const newCookingMethod =
+    input.correctedCookingMethod !== undefined ? input.correctedCookingMethod : owned.item.cooking_method;
+  const newIsCondiment = input.correctedIsCondiment ?? owned.item.is_condiment;
 
   const newItem = await insertFoodLensDetectedItem(ctx.supabase, {
     scanId: owned.item.scan_id,
@@ -567,17 +611,47 @@ export async function correctDetectedItemAction(
     confidence: 1,
     source: 'member_corrected',
     supersedesId: owned.item.id,
+    portionDescription: newPortionDescription,
+    portionConfidence: input.correctedPortionDescription !== undefined || input.correctedQuantity !== undefined ? 1 : owned.item.portion_confidence,
+    quantity: newQuantity,
+    unit: newUnit,
+    cookingMethod: newCookingMethod,
+    isCondiment: newIsCondiment,
   });
   if (!newItem) return { error: 'Could not save correction.' };
 
   await updateFoodLensDetectedItemStatus(ctx.supabase, owned.item.id, 'superseded');
 
+  const correctionType = input.correctedLabel
+    ? 'label_fixed'
+    : input.correctedCategory
+      ? 'category_fixed'
+      : input.correctedCookingMethod !== undefined
+        ? 'cooking_method_set'
+        : 'portion_adjusted';
+
   await insertFoodLensCorrection(ctx.supabase, {
     memberId: ctx.userId,
     detectedItemId: owned.item.id,
-    correctionType: input.correctedLabel ? 'label_fixed' : 'category_fixed',
-    originalValue: { label: owned.item.label, category: owned.item.category },
-    correctedValue: { label: newLabel, category: newCategory },
+    correctionType,
+    originalValue: {
+      label: owned.item.label,
+      category: owned.item.category,
+      portionDescription: owned.item.portion_description,
+      quantity: owned.item.quantity,
+      unit: owned.item.unit,
+      cookingMethod: owned.item.cooking_method,
+      isCondiment: owned.item.is_condiment,
+    },
+    correctedValue: {
+      label: newLabel,
+      category: newCategory,
+      portionDescription: newPortionDescription,
+      quantity: newQuantity,
+      unit: newUnit,
+      cookingMethod: newCookingMethod,
+      isCondiment: newIsCondiment,
+    },
   });
 
   return { newItem };
@@ -746,4 +820,49 @@ export async function setManualPrimalPatternProfileAction(
   const profile = await setManualPrimalPatternProfile(ctx.supabase, ctx.userId, input);
   if (!profile) return { error: 'Could not save your pattern.' };
   return { profile };
+}
+
+// ---- Food log (meal-photo scans) ----
+
+/**
+ * Logs every currently-confirmed item from a meal-photo scan as one
+ * member_food_log row apiece (Part 16 — meal photos can be logged just
+ * like any packaged/manual food). Never logs a pending-confirmation or
+ * rejected item — "Does this look accurate?" (the member's confirmation)
+ * is what makes an item eligible here, matching product requirement §2's
+ * "do not save the meal until the member confirms it."
+ */
+export async function logMealScanToFoodLogAction(
+  scanId: string,
+  input: { mealCategory: MealCategory; consumedAt: string }
+): Promise<ActionResult & { entriesCreated?: number }> {
+  const ctx = await requireMember();
+  if (!ctx) return { error: 'Not signed in.' };
+  const { supabase, userId } = ctx;
+
+  const scan = await getFoodLensScan(supabase, scanId);
+  if (!scan || scan.member_id !== userId) return { error: 'Scan not found.' };
+
+  const items = (await listCurrentFoodLensDetectedItems(supabase, scanId)).filter(
+    (i) => i.status === 'confirmed' && !i.is_condiment
+  );
+  if (items.length === 0) {
+    return { error: 'Confirm at least one food before adding this meal to your log.' };
+  }
+
+  let created = 0;
+  for (const item of items) {
+    const entry = await insertFoodLogEntry(supabase, {
+      memberId: userId,
+      productId: null,
+      scanId,
+      mealCategory: input.mealCategory,
+      servings: item.quantity ?? 1,
+      consumedAt: input.consumedAt,
+      manualLabel: item.label,
+    });
+    if (entry) created += 1;
+  }
+
+  return created > 0 ? { entriesCreated: created } : { error: 'Could not add this meal to your log.' };
 }

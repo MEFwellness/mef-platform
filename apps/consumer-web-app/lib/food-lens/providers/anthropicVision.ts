@@ -28,6 +28,18 @@ const FOOD_CATEGORIES = ['protein', 'carb', 'fat', 'vegetable', 'mixed', 'unknow
 const NUTRIENT_DENSITY_LEVELS = ['low', 'moderate', 'high'] as const;
 const ADDED_SUGAR_LEVELS = ['none', 'some', 'high'] as const;
 const PROCESSING_LEVELS = ['whole_or_minimally_processed', 'processed', 'ultra_processed'] as const;
+const COOKING_METHODS = [
+  'grilled',
+  'fried',
+  'baked',
+  'roasted',
+  'steamed',
+  'boiled',
+  'raw',
+  'sauteed',
+  'unknown',
+] as const;
+const PORTION_UNITS = ['grams', 'ounces', 'cups', 'tablespoons', 'teaspoons', 'pieces', 'servings'] as const;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -53,6 +65,25 @@ confidence. A sugary drink, soda, juice, or sweetened beverage is category "carb
 essentially all carbohydrate from sugar) — never "unknown" or "mixed" just because it's a liquid.
 Plain water or an unsweetened, calorie-free beverage has no macro-contributing composition at all;
 "unknown" is fine for it.
+
+For each item, also report:
+- portion_description: a short, practical, non-precise phrase a person would actually say — "about
+  half a cup", "a palm-sized serving", "one medium piece", "roughly one cup", "a tablespoon or so".
+  NEVER a specific gram or ounce figure here (that would be false precision from a photo alone) —
+  save exact units for quantity/unit below, and only fill those when you have a genuinely reasonable
+  basis (a known package/container size, a clearly countable item like "2 eggs").
+- portion_confidence (0 to 1): your honest confidence in this portion read specifically — this is
+  usually lower than your confidence identifying the food itself. Occluded plates, unusual angles, or
+  stacked/layered food should get a low portion_confidence rather than a guessed-but-confident one.
+- quantity + unit: OPTIONAL structured amount (grams/ounces/cups/tablespoons/teaspoons/pieces/
+  servings) — only when you can identify a specific countable amount (e.g. "2" + "pieces" for two
+  visible eggs); leave both null otherwise. Never invent a gram weight for food that isn't in a
+  clearly measurable/countable form.
+- cooking_method: your best honest read of preparation (grilled/fried/baked/roasted/steamed/boiled/
+  raw/sauteed), or "unknown" when it genuinely isn't identifiable from the photo (a sauced or breaded
+  dish, insufficient visual cues) — never guess confidently from ambiguous visual cues.
+- is_condiment: true for a sauce, dressing, dip, oil drizzle, or topping rather than a standalone
+  food — used only for display grouping, never to exclude it from analysis.
 
 Then give a single plate-level estimate of the meal's overall protein, carbohydrate, and fat
 EMPHASIS, each with its own confidence. This is a coarse relative judgment, not a nutrition-database
@@ -138,8 +169,14 @@ function toolSchema() {
               label: { type: 'string' },
               category: { type: 'string', enum: FOOD_CATEGORIES },
               confidence: { type: 'number', minimum: 0, maximum: 1 },
+              portion_description: { type: 'string', nullable: true },
+              portion_confidence: { type: 'number', minimum: 0, maximum: 1, nullable: true },
+              quantity: { type: 'number', nullable: true },
+              unit: { type: 'string', enum: PORTION_UNITS, nullable: true },
+              cooking_method: { type: 'string', enum: COOKING_METHODS, nullable: true },
+              is_condiment: { type: 'boolean' },
             },
-            required: ['label', 'category', 'confidence'],
+            required: ['label', 'category', 'confidence', 'portion_description', 'portion_confidence', 'is_condiment'],
           },
         },
         macro_estimate: {
@@ -181,7 +218,17 @@ function toolSchema() {
 }
 
 type ToolResultShape = {
-  items: Array<{ label: string; category: string; confidence: number }>;
+  items: Array<{
+    label: string;
+    category: string;
+    confidence: number;
+    portion_description?: string | null;
+    portion_confidence?: number | null;
+    quantity?: number | null;
+    unit?: string | null;
+    cooking_method?: string | null;
+    is_condiment?: boolean;
+  }>;
   macro_estimate: {
     protein: { level: string; confidence: number };
     carb: { level: string; confidence: number };
@@ -217,6 +264,14 @@ function isAddedSugarLevel(value: string): value is (typeof ADDED_SUGAR_LEVELS)[
 
 function isProcessingLevel(value: string): value is (typeof PROCESSING_LEVELS)[number] {
   return (PROCESSING_LEVELS as readonly string[]).includes(value);
+}
+
+function isCookingMethod(value: string): value is (typeof COOKING_METHODS)[number] {
+  return (COOKING_METHODS as readonly string[]).includes(value);
+}
+
+function isPortionUnit(value: string): value is (typeof PORTION_UNITS)[number] {
+  return (PORTION_UNITS as readonly string[]).includes(value);
 }
 
 function clampConfidence(value: number): number {
@@ -334,6 +389,19 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
         label: item.label.trim(),
         category: isFoodCategory(item.category) ? item.category : ('unknown' as const),
         confidence: clampConfidence(item.confidence),
+        portionDescription:
+          typeof item.portion_description === 'string' && item.portion_description.trim().length > 0
+            ? item.portion_description.trim()
+            : null,
+        portionConfidence:
+          typeof item.portion_confidence === 'number' ? clampConfidence(item.portion_confidence) : null,
+        quantity: typeof item.quantity === 'number' && Number.isFinite(item.quantity) ? item.quantity : null,
+        unit: typeof item.unit === 'string' && isPortionUnit(item.unit) ? item.unit : null,
+        cookingMethod:
+          typeof item.cooking_method === 'string' && isCookingMethod(item.cooking_method)
+            ? item.cooking_method
+            : null,
+        isCondiment: item.is_condiment === true,
       }));
 
     const dimension = (

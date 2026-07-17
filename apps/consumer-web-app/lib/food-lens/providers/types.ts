@@ -11,9 +11,11 @@
 import type {
   FoodLensAddedSugarLevel,
   FoodLensCaptureType,
+  FoodLensCookingMethod,
   FoodLensFoodCategory,
   FoodLensMealMacroLevel,
   FoodLensNutrientDensity,
+  FoodLensPortionUnit,
   FoodLensProcessingLevel,
 } from '@mef/shared-types-contracts';
 
@@ -61,6 +63,15 @@ export type FoodLensAnalysisResult = {
     label: string;
     category: FoodLensFoodCategory;
     confidence: number;
+    /** A calm, practical phrase ("about half a cup") — Meal Photo Intelligence 2.0 (Part 2). Never a bare precise gram figure from a photo alone. */
+    portionDescription: string | null;
+    portionConfidence: number | null;
+    quantity: number | null;
+    unit: FoodLensPortionUnit | null;
+    /** Best-effort, honest guess at preparation method — null when not reasonably identifiable from the photo, never guessed with false confidence. */
+    cookingMethod: FoodLensCookingMethod | null;
+    /** True for a sauce, dressing, oil, or topping rather than a standalone food. */
+    isCondiment: boolean;
   }>;
   macroEstimate: {
     protein: { level: FoodLensMealMacroLevel; confidence: number };

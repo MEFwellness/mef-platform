@@ -13,7 +13,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, X, Pencil, Plus } from 'lucide-react';
-import type { FoodLensDetectedItem, FoodLensFoodCategory } from '@mef/shared-types-contracts';
+import type { FoodLensCookingMethod, FoodLensDetectedItem, FoodLensFoodCategory, FoodLensPortionUnit } from '@mef/shared-types-contracts';
 import {
   confirmDetectedItemAction,
   rejectDetectedItemAction,
@@ -30,6 +30,27 @@ const CATEGORY_OPTIONS: FoodLensFoodCategory[] = [
   'mixed',
   'unknown',
 ];
+
+const COOKING_METHOD_OPTIONS: FoodLensCookingMethod[] = [
+  'unknown',
+  'grilled',
+  'fried',
+  'baked',
+  'roasted',
+  'steamed',
+  'boiled',
+  'raw',
+  'sauteed',
+];
+
+const UNIT_OPTIONS: FoodLensPortionUnit[] = ['servings', 'cups', 'tablespoons', 'teaspoons', 'pieces', 'grams', 'ounces'];
+
+function portionConfidenceLabel(confidence: number | null): string | null {
+  if (confidence === null) return null;
+  if (confidence >= 0.7) return 'High confidence';
+  if (confidence >= 0.4) return 'Likely';
+  return 'Needs confirmation';
+}
 
 const STATUS_LABEL: Record<FoodLensDetectedItem['status'], string> = {
   pending_confirmation: 'Tap to confirm',
@@ -71,9 +92,27 @@ export function DetectedItemsList({
     setBusyId(null);
   }
 
-  async function handleCorrect(itemId: string, correctedLabel: string, correctedCategory: FoodLensFoodCategory) {
+  async function handleCorrect(
+    itemId: string,
+    correctedLabel: string,
+    correctedCategory: FoodLensFoodCategory,
+    correctedPortionDescription: string | null,
+    correctedQuantity: number | null,
+    correctedUnit: FoodLensPortionUnit | null,
+    correctedCookingMethod: FoodLensCookingMethod,
+    correctedIsCondiment: boolean
+  ) {
     setBusyId(itemId);
-    await correctDetectedItemAction({ itemId, correctedLabel, correctedCategory });
+    await correctDetectedItemAction({
+      itemId,
+      correctedLabel,
+      correctedCategory,
+      correctedPortionDescription,
+      correctedQuantity,
+      correctedUnit,
+      correctedCookingMethod,
+      correctedIsCondiment,
+    });
     setEditingId(null);
     await afterChange();
     setBusyId(null);
@@ -108,17 +147,35 @@ export function DetectedItemsList({
               <EditRow
                 item={item}
                 busy={busyId === item.id}
-                onSave={(label, category) => handleCorrect(item.id, label, category)}
+                onSave={(label, category, portionDescription, quantity, unit, cookingMethod, isCondiment) =>
+                  handleCorrect(item.id, label, category, portionDescription, quantity, unit, cookingMethod, isCondiment)
+                }
                 onCancel={() => setEditingId(null)}
               />
             ) : (
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium capitalize text-[#1B3A2D]">{item.label}</p>
+                  <p className="truncate text-sm font-medium capitalize text-[#1B3A2D]">
+                    {item.label}
+                    {item.is_condiment && (
+                      <span className="ml-1.5 rounded-full bg-[#1B3A2D]/[0.06] px-2 py-0.5 text-[10px] font-medium normal-case text-[#6B7A72]">
+                        sauce/condiment
+                      </span>
+                    )}
+                  </p>
                   <p className="mt-0.5 text-xs text-[#6B7A72]">
                     {item.category} · {(item.confidence * 100).toFixed(0)}% confident this is right ·{' '}
                     {STATUS_LABEL[item.status]}
                   </p>
+                  {(item.portion_description || item.cooking_method) && (
+                    <p className="mt-0.5 text-xs text-[#9AA79F]">
+                      {item.portion_description ?? 'Portion not estimated'}
+                      {item.cooking_method && item.cooking_method !== 'unknown' ? ` · ${item.cooking_method}` : ''}
+                      {portionConfidenceLabel(item.portion_confidence)
+                        ? ` · ${portionConfidenceLabel(item.portion_confidence)}`
+                        : ''}
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   {item.status === 'pending_confirmation' && (
@@ -217,14 +274,41 @@ function EditRow({
 }: {
   item: FoodLensDetectedItem;
   busy: boolean;
-  onSave: (label: string, category: FoodLensFoodCategory) => void;
+  onSave: (
+    label: string,
+    category: FoodLensFoodCategory,
+    portionDescription: string | null,
+    quantity: number | null,
+    unit: FoodLensPortionUnit | null,
+    cookingMethod: FoodLensCookingMethod,
+    isCondiment: boolean
+  ) => void;
   onCancel: () => void;
 }) {
   const [label, setLabel] = useState(item.label);
   const [category, setCategory] = useState<FoodLensFoodCategory>(item.category);
+  const [portionDescription, setPortionDescription] = useState(item.portion_description ?? '');
+  const [quantity, setQuantity] = useState(item.quantity === null ? '' : String(item.quantity));
+  const [unit, setUnit] = useState<FoodLensPortionUnit>(item.unit ?? 'servings');
+  const [cookingMethod, setCookingMethod] = useState<FoodLensCookingMethod>(item.cooking_method ?? 'unknown');
+  const [isCondiment, setIsCondiment] = useState(item.is_condiment);
+
+  function handleSave() {
+    const trimmedQuantity = quantity.trim();
+    const parsedQuantity = trimmedQuantity.length === 0 ? null : Number(trimmedQuantity);
+    onSave(
+      label.trim(),
+      category,
+      portionDescription.trim().length > 0 ? portionDescription.trim() : null,
+      parsedQuantity !== null && Number.isNaN(parsedQuantity) ? null : parsedQuantity,
+      parsedQuantity !== null ? unit : null,
+      cookingMethod,
+      isCondiment
+    );
+  }
 
   return (
-    <div>
+    <div className="space-y-2">
       <input
         type="text"
         value={label}
@@ -234,7 +318,7 @@ function EditRow({
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value as FoodLensFoodCategory)}
-        className="mt-2 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm capitalize text-[#1B3A2D]"
+        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm capitalize text-[#1B3A2D]"
       >
         {CATEGORY_OPTIONS.map((c) => (
           <option key={c} value={c}>
@@ -242,10 +326,53 @@ function EditRow({
           </option>
         ))}
       </select>
-      <div className="mt-2 flex gap-2">
+      <input
+        type="text"
+        value={portionDescription}
+        onChange={(e) => setPortionDescription(e.target.value)}
+        placeholder="Portion, e.g. about half a cup"
+        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]"
+      />
+      <div className="flex gap-2">
+        <input
+          type="number"
+          inputMode="decimal"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          placeholder="Amount (optional)"
+          className="w-1/2 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]"
+        />
+        <select
+          value={unit}
+          onChange={(e) => setUnit(e.target.value as FoodLensPortionUnit)}
+          className="w-1/2 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+        >
+          {UNIT_OPTIONS.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </select>
+      </div>
+      <select
+        value={cookingMethod}
+        onChange={(e) => setCookingMethod(e.target.value as FoodLensCookingMethod)}
+        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm capitalize text-[#1B3A2D]"
+      >
+        {COOKING_METHOD_OPTIONS.map((m) => (
+          <option key={m} value={m}>
+            {m}
+          </option>
+        ))}
+      </select>
+      <label className="flex items-center gap-2 text-xs text-[#6B7A72]">
+        <input type="checkbox" checked={isCondiment} onChange={(e) => setIsCondiment(e.target.checked)} />
+        This is a sauce, dressing, or condiment
+      </label>
+      <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => onSave(label.trim(), category)}
+          onClick={handleSave}
           disabled={busy || !label.trim()}
           className="rounded-full bg-[#1B3A2D] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
         >
