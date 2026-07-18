@@ -117,16 +117,31 @@ export function FloatingCoachLauncher({
           onClick={openWithDefault}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
+          aria-label={label}
           // bottom-20 alone (a fixed 80px) sat behind the bottom nav on
           // devices with a tall safe-area inset (e.g. the ~34px home-
           // indicator inset on notched iPhones), since the nav's own
           // height grows by that same inset but this button's offset
           // didn't — env(safe-area-inset-bottom) keeps the gap constant
           // above the nav on every device instead of just some.
-          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-40 flex items-center gap-2 rounded-full bg-[#1B3A2D] px-5 py-3 text-sm font-medium text-white shadow-[0_8px_24px_-6px_rgba(27,58,45,0.45)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] md:bottom-8 md:right-8"
+          //
+          // Icon-only circular FAB on mobile (was a wide "Ask Root" text
+          // pill at right-5): every primary card CTA in this app
+          // (MovementAssessmentCard's "Start Assessment", movement
+          // session's "Begin Session", etc.) is horizontally centered in
+          // the content column, not edge-aligned — on a 375-390px phone a
+          // ~130px-wide text pill sitting at the right edge reached far
+          // enough left to sit on top of those centered buttons whenever
+          // that card was in view. A 52px circle tucked into the true
+          // corner (right-4) clears every centered CTA's edge with real
+          // margin at every phone width this app supports, verified
+          // against the narrowest supported width (iPhone SE, 320px).
+          // The full label pill returns at md: where content is no longer
+          // full-bleed under the corner.
+          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#1B3A2D] text-white shadow-[0_8px_24px_-6px_rgba(27,58,45,0.45)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] md:bottom-8 md:right-8 md:h-auto md:w-auto md:gap-2 md:rounded-full md:px-5 md:py-3 md:text-sm md:font-medium"
         >
-          <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          <span>{label}</span>
+          <MessageCircle className="h-5 w-5 md:h-4 md:w-4" strokeWidth={1.75} aria-hidden="true" />
+          <span className="hidden md:inline">{label}</span>
         </button>
       )}
 

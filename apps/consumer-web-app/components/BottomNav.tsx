@@ -1,76 +1,41 @@
 'use client';
 
 /**
- * Premium UX Milestone 1: permanent 5-slot nav — Dashboard, Today,
- * Check-In (center), Food Lens, Progress. Assessments and Profile are
- * intentionally not tabs here anymore: Assessments now lives inside
- * Progress (and stays reachable from Profile), and Profile itself is
- * reached via the avatar in the page header (AvatarLink.tsx) rather than
- * a nav slot — freeing this bar down to the five actions members reach
- * for daily. The standalone "Coaching" tab is gone entirely since the
- * floating "Ask Root" launcher (FloatingCoachLauncher.tsx) already
- * reaches the same conversation from every screen. Inactive items use
- * the app's existing gold label color (#854D0E, the same color every
- * card eyebrow label already uses at full strength) instead of a faint
- * gray, so the bar reads as confidently branded rather than washed out;
- * the active page stays the signature MEF green.
+ * Primary navigation. The fixed bottom bar is deliberately minimal — Home
+ * on the left, the large centered Check-In action, and Today on the
+ * right. Every other primary surface (Movement, Food Lens, Progress) is
+ * reached from Dashboard quick-access cards instead (see
+ * components/DashboardQuickLinks.tsx), and Root is reached through the
+ * floating "Ask Root" launcher (FloatingCoachLauncher.tsx) — never a
+ * bottom-nav tab. This is an explicit, deliberate scope: three items,
+ * nothing more, not a redesign to fit more tabs in.
  *
- * Mobile alignment: the bar is two independent `flex-1` halves (left
- * items, right items) with the Check-In button as a fixed-width sibling
- * between them — since both halves always get an equal share of the
- * remaining width regardless of how many items each holds (2 vs 3 for a
- * member, 3 vs 3 for a coach), Check-In's midpoint lands on the bar's
- * exact horizontal center at any viewport width, with no fixed-pixel
- * positioning. Within each half, items sit in a CSS grid with one equal-
- * width column per item so the gaps between them are always identical,
- * which is what `justify-around` could not guarantee once items of
- * different label lengths sat either side of a much larger, differently
- * shaped center button. With only two items per half now (down from up
- * to four), labels get real breathing room, so they render at a larger,
- * always-on-one-line size instead of the old cramped fallback that let
- * long labels wrap.
+ * Mobile alignment: two independent `flex-1` halves (left items, right
+ * items) with the Check-In button as a fixed-width sibling between them,
+ * so Check-In's midpoint always lands on the bar's exact horizontal
+ * center regardless of viewport width. With exactly one item per half for
+ * a member, the bar reads as three clearly separated, evenly-weighted
+ * targets — Home, Check-In, Today — with no crowding at any phone width.
  *
- * Premium UX Milestone 3 (brand color discipline): inactive items were
- * the app's amber eyebrow color (#854D0E) at full strength — the same
- * color every card's section label used, which meant 4 of these 5 icons
- * were "gold" at rest, the opposite of "gold should remain special."
- * Inactive now reads in muted gray; the active item gets a soft gold
- * pill behind the icon (a real but restrained use of "gold: active
- * navigation") while its text/icon stay dark green for contrast — gold
- * text on white at this size would have been hard to read.
+ * Brand color discipline: inactive items read in muted gray; the active
+ * item gets a soft gold pill behind the icon while its text/icon stay
+ * dark green for contrast.
  */
 
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Plus, BarChart2, Users, UtensilsCrossed, Activity } from 'lucide-react';
+import { Home, Sparkles, Plus, Users } from 'lucide-react';
 
 type NavItem = { label: string; href: string; Icon: typeof Home };
 
-const LEFT_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', Icon: Home },
-  { label: 'Today', href: '/today', Icon: Sparkles },
-];
+const LEFT_ITEMS: NavItem[] = [{ label: 'Home', href: '/dashboard', Icon: Home }];
 
-/**
- * Movement Intelligence milestone: added as a sixth permanent slot,
- * deliberately widening the "5-slot" bar Premium UX Milestone 1
- * established (see this file's own top docblock) — Movement is its own
- * primary daily surface (a full dashboard, not a card tucked into an
- * existing page), on par with Dashboard/Today/Progress rather than a
- * feature that fits inside one of them. The grid-based layout below
- * already computes its column count from this array's length, so no
- * layout math needed to change.
- */
-const RIGHT_ITEMS: NavItem[] = [
-  { label: 'Movement', href: '/movement', Icon: Activity },
-  { label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed },
-  { label: 'Progress', href: '/progress', Icon: BarChart2 },
-];
+const RIGHT_ITEMS: NavItem[] = [{ label: 'Today', href: '/today', Icon: Sparkles }];
 
 const CHECK_IN_HREF = '/checkin';
 
-/** Appended after Today for coach accounts only — kept on the left half so it sits next to the member tabs it supplements rather than crowding the newly-trimmed right half. */
+/** Appended after Home for coach accounts only — a distinct role-gated surface, not part of the three-item member nav this bar is otherwise scoped to. */
 const COACH_NAV_ITEM: NavItem = { label: 'Coach', href: '/coach', Icon: Users };
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -79,14 +44,14 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href as Route}
       aria-current={active ? 'page' : undefined}
-      className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 text-center text-[10px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:min-h-0 md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
+      className={`flex min-w-0 min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 text-center text-[10px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:min-h-0 md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
         active
           ? 'bg-[#F5B700]/[0.16] text-[#1B3A2D]'
           : 'text-[#6B7A72] hover:bg-[#1B3A2D]/[0.04] hover:text-[#1B3A2D]'
       }`}
     >
       <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} aria-hidden="true" />
-      <span className="max-w-full whitespace-nowrap">{item.label}</span>
+      <span className="w-full truncate">{item.label}</span>
     </Link>
   );
 }

@@ -7,14 +7,13 @@
  */
 
 import Image from 'next/image';
-import Link from 'next/link';
-import type { Route } from 'next';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getTodaysMovementSession } from '@/app/actions/movement';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { BackButton } from '@/components/BackButton';
 import { AvatarLink } from '@/components/AvatarLink';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildMovementEntryContext } from '@/lib/conversation-coach/entryContext';
@@ -51,13 +50,7 @@ export default async function MovementSessionPage() {
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         <header className="flex items-center justify-between pt-0 pb-6">
-          <Link
-            href={'/movement' as Route}
-            className="flex items-center gap-2 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D]"
-          >
-            <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            Movement
-          </Link>
+          <BackButton fallbackHref="/movement" label="Movement" />
           <AvatarLink firstName={firstName} />
         </header>
 

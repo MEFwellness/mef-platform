@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { TrendingUp, Flame, MessageCircle, History as HistoryIcon, ArrowRight, ScanFace } from 'lucide-react';
+import type { Route } from 'next';
+import { TrendingUp, Flame, MessageCircle, History as HistoryIcon, ArrowRight, ScanFace, ClipboardList } from 'lucide-react';
 import { getRecentCheckins } from '@/app/actions/checkin';
 import { getMyWellnessPatterns } from '@/app/actions/wellness-intelligence';
 import { getMyWellnessIdentityHighlights, getMyWellnessStorySummary } from '@/app/actions/intelligence-core';
@@ -12,6 +13,7 @@ import { getMyRootScoreHistory } from '@/app/actions/scoring';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
+import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { RootQuickLink } from '@/components/RootQuickLink';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
@@ -106,7 +108,9 @@ export default async function ProgressPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <div className="flex items-start justify-between gap-3">
+        <BackButton fallbackHref="/dashboard" label="Back to Home" />
+
+        <div className="mt-4 flex items-start justify-between gap-3">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
             Your Wellness Story
           </h1>
@@ -221,10 +225,15 @@ export default async function ProgressPage() {
           <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
         </Link>
 
-        {/* Assessments moved here from the bottom nav (Premium UX Milestone
-            1) — still the same Body Assessment feature at /assessment,
-            unchanged; just reached from Progress (and Profile) instead of
-            its own permanent tab. */}
+        {/* Two separate, equal-weight, full-width stacked cards — same
+            pattern as every other card on this page, no grid/breakpoint
+            logic that could collapse or hide either one on any viewport.
+            Assessments (posture/movement, Body Assessment at /assessment)
+            is unchanged from before; Questionnaires (self-reported wellness
+            questionnaires, starting with CHEK HLC1 Nutrition & Lifestyle)
+            is its own dedicated area at /questionnaires, not a card inside
+            Assessments. Both moved here from the bottom nav (Premium UX
+            Milestone 1) rather than getting their own permanent tabs. */}
         <Link
           href="/assessment"
           className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
@@ -232,6 +241,17 @@ export default async function ProgressPage() {
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
+        <Link
+          href={'/questionnaires' as Route}
+          className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
+        >
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Questionnaires</p>
           </div>
           <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
         </Link>
