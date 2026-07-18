@@ -1,76 +1,54 @@
 'use client';
 
 /**
- * Premium UX Milestone 1: permanent 5-slot nav — Dashboard, Today,
- * Check-In (center), Food Lens, Progress. Assessments and Profile are
- * intentionally not tabs here anymore: Assessments now lives inside
- * Progress (and stays reachable from Profile), and Profile itself is
- * reached via the avatar in the page header (AvatarLink.tsx) rather than
- * a nav slot — freeing this bar down to the five actions members reach
- * for daily. The standalone "Coaching" tab is gone entirely since the
- * floating "Ask Root" launcher (FloatingCoachLauncher.tsx) already
- * reaches the same conversation from every screen. Inactive items use
- * the app's existing gold label color (#854D0E, the same color every
- * card eyebrow label already uses at full strength) instead of a faint
- * gray, so the bar reads as confidently branded rather than washed out;
- * the active page stays the signature MEF green.
+ * Premium Dashboard Experience milestone, part 1 — the 5-slot bar this
+ * milestone specifies: Home, Today, Check-In (center), Progress, Root.
+ * Root now gets its own permanent tab (linking to the full /conversation
+ * page) rather than being reachable only through the floating "Ask Root"
+ * launcher — the launcher stays for quick, in-context questions from any
+ * screen, this tab is Root's own home. Movement and Food Lens — both full
+ * dashboards in their own right — are no longer nav slots; they're reached
+ * from their Dashboard quick-access cards instead (see
+ * app/dashboard/page.tsx), the same "drill-down, not a permanent tab"
+ * treatment Root Score and Assessments already had. This intentionally
+ * restores the bar to the original 5-item design Premium UX Milestone 1
+ * described but never actually shipped (Movement's arrival afterward had
+ * widened it to 6).
  *
- * Mobile alignment: the bar is two independent `flex-1` halves (left
- * items, right items) with the Check-In button as a fixed-width sibling
- * between them — since both halves always get an equal share of the
- * remaining width regardless of how many items each holds (2 vs 3 for a
- * member, 3 vs 3 for a coach), Check-In's midpoint lands on the bar's
- * exact horizontal center at any viewport width, with no fixed-pixel
- * positioning. Within each half, items sit in a CSS grid with one equal-
- * width column per item so the gaps between them are always identical,
- * which is what `justify-around` could not guarantee once items of
- * different label lengths sat either side of a much larger, differently
- * shaped center button. With only two items per half now (down from up
- * to four), labels get real breathing room, so they render at a larger,
- * always-on-one-line size instead of the old cramped fallback that let
- * long labels wrap.
+ * Mobile alignment: unchanged mechanics from Premium UX Milestone 1 — two
+ * independent `flex-1` halves (left items, right items) with the Check-In
+ * button as a fixed-width sibling between them, so Check-In's midpoint
+ * always lands on the bar's exact horizontal center regardless of viewport
+ * width or how many items sit in the coach-only left half. With exactly
+ * two items per half for a member (Home/Today, Progress/Root), the two
+ * halves are symmetric for the first time since Milestone 1's original
+ * design — a coach's extra "Coach" tab still only affects the left half.
  *
- * Premium UX Milestone 3 (brand color discipline): inactive items were
- * the app's amber eyebrow color (#854D0E) at full strength — the same
- * color every card's section label used, which meant 4 of these 5 icons
- * were "gold" at rest, the opposite of "gold should remain special."
- * Inactive now reads in muted gray; the active item gets a soft gold
- * pill behind the icon (a real but restrained use of "gold: active
- * navigation") while its text/icon stay dark green for contrast — gold
- * text on white at this size would have been hard to read.
+ * Brand color discipline (Premium UX Milestone 3, unchanged): inactive
+ * items read in muted gray; the active item gets a soft gold pill behind
+ * the icon while its text/icon stay dark green for contrast.
  */
 
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Plus, BarChart2, Users, UtensilsCrossed, Activity } from 'lucide-react';
+import { Home, Sparkles, Plus, BarChart2, Users, Sprout } from 'lucide-react';
 
 type NavItem = { label: string; href: string; Icon: typeof Home };
 
 const LEFT_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', Icon: Home },
+  { label: 'Home', href: '/dashboard', Icon: Home },
   { label: 'Today', href: '/today', Icon: Sparkles },
 ];
 
-/**
- * Movement Intelligence milestone: added as a sixth permanent slot,
- * deliberately widening the "5-slot" bar Premium UX Milestone 1
- * established (see this file's own top docblock) — Movement is its own
- * primary daily surface (a full dashboard, not a card tucked into an
- * existing page), on par with Dashboard/Today/Progress rather than a
- * feature that fits inside one of them. The grid-based layout below
- * already computes its column count from this array's length, so no
- * layout math needed to change.
- */
 const RIGHT_ITEMS: NavItem[] = [
-  { label: 'Movement', href: '/movement', Icon: Activity },
-  { label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed },
   { label: 'Progress', href: '/progress', Icon: BarChart2 },
+  { label: 'Root', href: '/conversation', Icon: Sprout },
 ];
 
 const CHECK_IN_HREF = '/checkin';
 
-/** Appended after Today for coach accounts only — kept on the left half so it sits next to the member tabs it supplements rather than crowding the newly-trimmed right half. */
+/** Appended after Today for coach accounts only — kept on the left half so it sits next to the member tabs it supplements rather than crowding the right half. */
 const COACH_NAV_ITEM: NavItem = { label: 'Coach', href: '/coach', Icon: Users };
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {

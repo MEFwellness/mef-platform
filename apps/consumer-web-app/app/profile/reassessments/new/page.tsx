@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getOnboardingQuestions } from '@/app/actions/onboarding';
+import { BackButton } from '@/components/BackButton';
 import { ReassessmentFormShell } from './ReassessmentFormShell';
 
 const SHELL =
@@ -53,7 +54,9 @@ export default async function NewReassessmentPage() {
   return (
     <div className={SHELL}>
       <main className={CONTAINER}>
-        <h1 className={HEADING}>New reassessment</h1>
+        <BackButton fallbackHref="/profile/reassessments" label="Back to Progress & Reassessments" />
+
+        <h1 className={`mt-4 ${HEADING}`}>New reassessment</h1>
         <p className="mt-2 text-[15px] text-[#6B7A72]">
           The same questions as your baseline, so your answers can be compared side by side.
         </p>

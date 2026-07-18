@@ -2,9 +2,10 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ClipboardList, ChevronRight, TrendingUp, Watch, ScanFace } from 'lucide-react';
-import { signOut } from '@/app/actions/auth';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { BackButton } from '@/components/BackButton';
+import { SignOutButton } from '@/components/SignOutButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildProfileEntryContext } from '@/lib/conversation-coach/entryContext';
 import { ProfileForm } from './ProfileForm';
@@ -30,7 +31,9 @@ export default async function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
-        <div className="flex items-center gap-3">
+        <BackButton fallbackHref="/dashboard" label="Back" />
+
+        <div className="mt-4 flex items-center gap-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[#F5B700] bg-white text-lg font-medium text-[#1B3A2D]">
             {firstName.charAt(0).toUpperCase()}
           </div>
@@ -139,14 +142,9 @@ export default async function ProfilePage() {
           <p className="mt-2 text-sm text-[#6B7A72]">
             Signed in as <span className="text-[#1B3A2D]">{user.email}</span>
           </p>
-          <form action={signOut} className="mt-4">
-            <button
-              type="submit"
-              className="w-full rounded-full border border-[#1B3A2D]/10 px-4 py-2.5 text-sm font-medium text-[#1B3A2D] transition hover:border-[#1B3A2D]/30"
-            >
-              Sign out
-            </button>
-          </form>
+          <div className="mt-4">
+            <SignOutButton variant="block" />
+          </div>
         </div>
       </main>
 

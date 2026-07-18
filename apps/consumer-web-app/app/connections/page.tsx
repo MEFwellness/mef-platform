@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { BackButton } from '@/components/BackButton';
 import { getMyWearableConnections } from '@/app/actions/wearables';
 import { WEARABLE_PROVIDER_NAMES } from '@/lib/wearables/providers/registry';
 import { WearableConnectionCard } from './WearableConnectionCard';
@@ -22,7 +23,9 @@ export default async function ConnectionsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
-        <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+        <BackButton fallbackHref="/dashboard" label="Back" />
+
+        <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
           Connected Devices
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
