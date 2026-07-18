@@ -54,15 +54,21 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <div className="flex items-start justify-between gap-3">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-            {requestedYesterday ? "Yesterday's check-in" : "Today's check-in"}
+            {requestedYesterday ? "Yesterday's Morning Readiness" : 'Morning Readiness'}
           </h1>
           <AvatarLink firstName={firstName} />
         </div>
         <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
           {existingCheckin
-            ? "You've already logged this day — update anything below."
-            : 'A few gentle questions so Root understands how today actually feels. Takes about a minute.'}
+            ? "You've already logged this day. Update anything below."
+            : 'A few gentle questions so Root understands how today actually feels. Takes about a minute. This stands on its own. Nothing here depends on an evening reflection.'}
         </p>
+        <Link
+          href="/checkin/evening"
+          className="mt-2 inline-block text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
+        >
+          Have a moment for your Evening Reflection instead?
+        </Link>
 
         {!requestedYesterday && canLogYesterday && (
           <Link

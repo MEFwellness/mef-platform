@@ -68,6 +68,12 @@ describe('dashboard data loading (same queries app/dashboard/page.tsx and app/ac
       p_movement_today: 'moderate',
       p_new_or_worsening_concern: false,
       p_optional_notes: null,
+      p_actual_bedtime: null,
+      p_actual_wake_time: null,
+      p_night_waking_count: null,
+      p_night_sweats: null,
+      p_morning_soreness: null,
+      p_bowel_movement_status: null,
     });
 
     const { data, error } = await client
@@ -98,6 +104,12 @@ describe('dashboard data loading (same queries app/dashboard/page.tsx and app/ac
       p_movement_today: 'light',
       p_new_or_worsening_concern: false,
       p_optional_notes: null,
+      p_actual_bedtime: null,
+      p_actual_wake_time: null,
+      p_night_waking_count: null,
+      p_night_sweats: null,
+      p_morning_soreness: null,
+      p_bowel_movement_status: null,
     });
 
     const { data, error } = await client

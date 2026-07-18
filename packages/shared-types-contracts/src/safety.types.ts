@@ -23,7 +23,8 @@ export type SafetySourceFeature =
   | 'dynamic_coaching'
   | 'wellness_intelligence'
   | 'conversation_coach'
-  | 'body_assessment';
+  | 'body_assessment'
+  | 'member_wellness_event';
 
 export type SafetyEscalationAction =
   'none' | 'notify_coach' | 'coach_review_queue' | 'urgent_follow_up';

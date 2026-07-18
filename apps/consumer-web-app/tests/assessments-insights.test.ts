@@ -72,7 +72,7 @@ describe('buildWellnessInsight', () => {
       CHEK_HLC1_COPY
     );
     expect(insight.summary).toBe(
-      'Your stress, circadian rhythm, and digestive scores all indicate they deserve greater attention. These areas commonly influence one another — improving sleep consistency may positively support stress recovery and digestive wellness.'
+      'Your stress, circadian rhythm, and digestive scores all indicate they deserve greater attention. These areas commonly influence one another, and improving sleep consistency may positively support stress recovery and digestive wellness.'
     );
     expect(insight.focusCategoryIds).toEqual(
       expect.arrayContaining(['stress', 'circadian_health', 'digestive_system_health'])

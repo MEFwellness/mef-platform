@@ -39,7 +39,6 @@
 
 import Image from 'next/image';
 import {
-  Droplet,
   Moon,
   Activity,
   Bone,
@@ -76,12 +75,17 @@ import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
 import { DashboardQuickLinks } from '@/components/DashboardQuickLinks';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
+import { getTodaysHydrationTotal, getTodaysMovementEvents } from '@/app/actions/events';
+import { getTodaysEveningReflection } from '@/app/actions/eveningReflection';
+import { HydrationTracker } from '@/components/checkin/HydrationTracker';
+import { MovementLogger } from '@/components/checkin/MovementLogger';
+import { ConcernFlag } from '@/components/checkin/ConcernFlag';
+import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection';
 import {
   stressStatus,
   painStatus,
   sleepQualityStatus,
   sleepDurationStatus,
-  waterStatus,
   moodStatus,
   digestionStatus,
   movementStatus,
@@ -172,11 +176,15 @@ export default async function DashboardPage({
   // rootScoreSnapshot reads today's already-calculated snapshot (or
   // calculates it once, the first time it's asked for today) — see
   // lib/scoring/service.ts; it never recalculates on every render.
-  const [todaysCheckin, recentCheckins, rootScoreSnapshot] = await Promise.all([
-    getTodaysCheckin(localDate),
-    getRecentCheckins(12),
-    getMyRootScore(localDate, timezone),
-  ]);
+  const [todaysCheckin, recentCheckins, rootScoreSnapshot, hydrationTotal, todaysMovementEvents, eveningReflection] =
+    await Promise.all([
+      getTodaysCheckin(localDate),
+      getRecentCheckins(12),
+      getMyRootScore(localDate, timezone),
+      getTodaysHydrationTotal(),
+      getTodaysMovementEvents(),
+      getTodaysEveningReflection(),
+    ]);
 
   const wellnessIndex = calculateWellnessIndex(inputsFromCheckin(todaysCheckin));
 
@@ -241,6 +249,28 @@ export default async function DashboardPage({
           {/* components/RootScoreCard.tsx and app/root-score/.         */}
           {/* ---------------------------------------------------- */}
           <RootScoreCard snapshot={rootScoreSnapshot} />
+
+          {/* ---------------------------------------------------- */}
+          {/* Today's Wellness — Morning Readiness Score (shown the   */}
+          {/* moment its own morning inputs exist) and the Daily      */}
+          {/* Wellness Score (shown only once Morning Readiness AND   */}
+          {/* an Evening Reflection both exist for today — never a    */}
+          {/* zero or placeholder before then). See                   */}
+          {/* components/checkin/DailyWellnessSection.tsx.            */}
+          {/* ---------------------------------------------------- */}
+          <DailyWellnessSection checkin={todaysCheckin} eveningReflection={eveningReflection} />
+
+          {/* ---------------------------------------------------- */}
+          {/* Live, throughout-the-day logging — movement logged as   */}
+          {/* it happens and mid-day concern flagging, both writing   */}
+          {/* through the standardized member event stream (see       */}
+          {/* app/actions/events.ts). Hydration's own live tracker    */}
+          {/* replaces the static Water card further down.            */}
+          {/* ---------------------------------------------------- */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <MovementLogger todaysCount={todaysMovementEvents.length} />
+            <ConcernFlag />
+          </div>
 
           {/* ---------------------------------------------------- */}
           {/* Movement + Food Lens + Progress quick links — their     */}
@@ -335,32 +365,7 @@ export default async function DashboardPage({
             Today&apos;s Numbers
           </p>
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-            <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <Droplet className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Water</p>
-              </div>
-              {todaysCheckin?.water_cups != null ? (
-                <>
-                  <p
-                    className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[waterStatus(todaysCheckin.water_cups)].text}`}
-                  >
-                    {todaysCheckin.water_cups}
-                    <span className="text-sm font-normal text-[#6B7A72]"> of 8 cups</span>
-                  </p>
-                  <div className="mt-auto pt-3">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-[#EFE9DB]">
-                      <div
-                        className={`h-full rounded-full ${STATUS_STYLES[waterStatus(todaysCheckin.water_cups)].bar}`}
-                        style={{ width: `${Math.min(100, (todaysCheckin.water_cups / 8) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="mt-auto text-sm text-[#6B7A72]">Not logged yet</p>
-              )}
-            </div>
+            <HydrationTracker initialTotal={hydrationTotal} />
 
             <div className={TRACKER_CARD}>
               <div className="flex items-center gap-2 text-[#6B7A72]">

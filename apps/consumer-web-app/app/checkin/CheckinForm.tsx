@@ -6,14 +6,15 @@ import { useRouter } from 'next/navigation';
 import {
   Smile,
   Moon,
-  Droplet,
+  Sunrise,
   Footprints,
   MessageCircle,
   CheckCircle2,
   type LucideIcon,
 } from 'lucide-react';
 import { submitDailyCheckin, logHabitCompletion } from '@/app/actions/checkin';
-import type { DailyCheckin, DailyCheckinInput, Habit } from '@mef/shared-types-contracts';
+import { getTodaysHydrationTotal } from '@/app/actions/events';
+import type { BowelMovementStatus, DailyCheckin, DailyCheckinInput, Habit } from '@mef/shared-types-contracts';
 
 type Props = {
   localDate: string;
@@ -38,6 +39,13 @@ const MOVEMENT_LEVELS = [
   { value: 'moderate', label: 'Moderate' },
   { value: 'full_session', label: 'Full session' },
 ] as const;
+const NIGHT_WAKING_OPTIONS = [0, 1, 2, 3, 4, 5] as const;
+const BOWEL_MOVEMENT_OPTIONS: { value: BowelMovementStatus; label: string }[] = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'constipated', label: 'Constipated' },
+  { value: 'loose', label: 'Loose' },
+  { value: 'none', label: 'None' },
+];
 
 /** The "replace numbers with meaning" word sets, per Premium UX Milestone 4 — the 1-5 (or 0-5) integer stored on the row never changes, only what the member sees while choosing it. */
 const MOOD_MEANING = ['Very Low', 'Low', 'Okay', 'Good', 'Excellent'] as const;
@@ -46,6 +54,7 @@ const STRESS_MEANING = ['Very Calm', 'Calm', 'Moderate', 'High', 'Overwhelmed'] 
 const SLEEP_QUALITY_MEANING = ['Terrible', 'Poor', 'Fair', 'Good', 'Excellent'] as const;
 const DIGESTION_MEANING = ['Poor', 'Somewhat off', 'Fair', 'Good', 'Excellent'] as const;
 const PAIN_MEANING = ['None', 'Mild', 'Mild-moderate', 'Moderate', 'Significant', 'Severe'] as const;
+const SORENESS_MEANING = ['None', 'Mild', 'Moderate', 'Noticeable', 'Significant'] as const;
 
 const SECTION_CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-shadow duration-300 hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]';
 
@@ -138,7 +147,6 @@ export function CheckinForm({
   const [stressLevel, setStressLevel] = useState<number | null>(
     existingCheckin?.stress_level ?? null
   );
-  const [waterCups, setWaterCups] = useState<number>(existingCheckin?.water_cups ?? 0);
   const [digestionRating, setDigestionRating] = useState<number | null>(
     existingCheckin?.digestion_rating ?? null
   );
@@ -154,6 +162,26 @@ export function CheckinForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Morning Readiness fields (migration 63) — bedtime/wake time/night
+  // waking/night sweats/soreness/bowel movement status. These, plus mood/
+  // energy/stress above, are what a Morning Readiness day needs — see
+  // lib/wellness/morningReadiness.ts's eligibility rule, which this form's
+  // required-field validation below matches.
+  const [actualBedtime, setActualBedtime] = useState(existingCheckin?.actual_bedtime ?? '');
+  const [actualWakeTime, setActualWakeTime] = useState(existingCheckin?.actual_wake_time ?? '');
+  const [nightWakingCount, setNightWakingCount] = useState<number | null>(
+    existingCheckin?.night_waking_count ?? null
+  );
+  const [nightSweats, setNightSweats] = useState<boolean | null>(
+    existingCheckin?.night_sweats ?? null
+  );
+  const [morningSoreness, setMorningSoreness] = useState<number | null>(
+    existingCheckin?.morning_soreness ?? null
+  );
+  const [bowelMovementStatus, setBowelMovementStatus] = useState<BowelMovementStatus | null>(
+    existingCheckin?.bowel_movement_status ?? null
+  );
+
   // Premium UX Milestone 4, "better progress feedback" — a calm sense of
   // motion through the check-in rather than a blocking wizard. Habits and
   // the fully-optional reflection notes are deliberately excluded from the
@@ -161,27 +189,48 @@ export function CheckinForm({
   // counting them would make the same effort look like a different amount
   // of "progress" from one day to the next.
   const { completedSections, totalSections } = useMemo(() => {
-    const feelingsDone = moodLevel !== null && energyLevel !== null && stressLevel !== null;
+    const readinessDone =
+      actualBedtime !== '' && actualWakeTime !== '' && moodLevel !== null && energyLevel !== null && stressLevel !== null;
     const sleepDone = sleepQuality !== null && sleepDuration !== null;
-    const hydrationDone = waterCups > 0;
-    const bodyDone = digestionRating !== null && painLevel !== null && movementToday !== null;
+    const bodyDone =
+      digestionRating !== null &&
+      painLevel !== null &&
+      movementToday !== null &&
+      bowelMovementStatus !== null;
     return {
-      completedSections: [feelingsDone, sleepDone, hydrationDone, bodyDone].filter(Boolean).length,
-      totalSections: 4,
+      completedSections: [readinessDone, sleepDone, bodyDone].filter(Boolean).length,
+      totalSections: 3,
     };
-  }, [moodLevel, energyLevel, stressLevel, sleepQuality, sleepDuration, waterCups, digestionRating, painLevel, movementToday]);
+  }, [
+    actualBedtime,
+    actualWakeTime,
+    moodLevel,
+    energyLevel,
+    stressLevel,
+    sleepQuality,
+    sleepDuration,
+    digestionRating,
+    painLevel,
+    movementToday,
+    bowelMovementStatus,
+  ]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
 
+    // Required for a valid Morning Readiness day (see
+    // lib/wellness/morningReadiness.ts's isMorningReadinessEligible, which
+    // this list matches exactly) — everything else on this form is
+    // optional-but-encouraged.
     if (
+      actualBedtime === '' ||
+      actualWakeTime === '' ||
       moodLevel === null ||
-      sleepQuality === null ||
       energyLevel === null ||
       stressLevel === null
     ) {
-      setError('Please rate mood, sleep quality, energy, and stress before saving.');
+      setError('Please add your bedtime, wake time, mood, energy, and stress before saving.');
       return;
     }
 
@@ -195,12 +244,23 @@ export function CheckinForm({
       sleep_duration: sleepDuration,
       energy_level: energyLevel,
       stress_level: stressLevel,
-      water_cups: waterCups,
+      // Hydration is now a live running counter logged throughout the day
+      // (see app/actions/events.ts) rather than a field this form edits —
+      // the member's current live total is snapshotted here purely so
+      // historical/coach views of this checkin row still carry a real
+      // water_cups value, same as before this feature.
+      water_cups: await getTodaysHydrationTotal(),
       digestion_rating: digestionRating,
       pain_discomfort_level: painLevel,
       movement_today: movementToday,
       new_or_worsening_concern: concern,
       optional_notes: notes.trim() ? notes.trim() : null,
+      actual_bedtime: actualBedtime || null,
+      actual_wake_time: actualWakeTime || null,
+      night_waking_count: nightWakingCount,
+      night_sweats: nightSweats,
+      morning_soreness: morningSoreness,
+      bowel_movement_status: bowelMovementStatus,
     };
 
     const result = await submitDailyCheckin(input);
@@ -248,22 +308,22 @@ export function CheckinForm({
         <SectionHeader
           icon={Smile}
           title="How you're feeling"
-          subtitle="A quick emotional and physical read on right now"
+          subtitle="A quick emotional and physical read on this morning"
         />
         <MeaningScale
-          question="How are you feeling emotionally today?"
+          question="How are you feeling emotionally this morning?"
           meanings={MOOD_MEANING}
           value={moodLevel}
           onChange={setMoodLevel}
         />
         <MeaningScale
-          question="How energized do you feel right now?"
+          question="How energized do you feel this morning?"
           meanings={ENERGY_MEANING}
           value={energyLevel}
           onChange={setEnergyLevel}
         />
         <MeaningScale
-          question="How much stress are you carrying today?"
+          question="How much stress are you carrying as you wake up?"
           meanings={STRESS_MEANING}
           value={stressLevel}
           onChange={setStressLevel}
@@ -306,33 +366,108 @@ export function CheckinForm({
       </div>
 
       <div
-        className={`${SECTION_CARD} mef-animate-in p-7`}
+        className={`${SECTION_CARD} mef-animate-in space-y-6 p-7`}
         style={{ animationDelay: '120ms' }}
       >
-        <SectionHeader icon={Droplet} title="Hydration" subtitle="How hydrated are you today?" />
-        <div className="mt-4 flex items-center gap-5">
-          <button
-            type="button"
-            onClick={() => setWaterCups((cups) => Math.max(0, cups - 1))}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#1B3A2D]/10 text-lg text-[#1B3A2D] transition-all duration-150 ease-out hover:border-[#1B3A2D]/30 active:scale-90"
-            aria-label="Remove a cup"
-          >
-            −
-          </button>
-          <p className="min-w-[7rem] text-2xl font-semibold text-[#1B3A2D]">
-            <span key={waterCups} className="mef-pop-in inline-block">
-              {waterCups}
-            </span>{' '}
-            <span className="text-sm font-normal text-[#6B7A72]">of 8 cups</span>
+        <SectionHeader
+          icon={Sunrise}
+          title="Morning Readiness"
+          subtitle="Bedtime, wake time, and how the night actually went"
+        />
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block">
+            <span className="text-[13px] leading-relaxed text-[#6B7A72]">Bedtime</span>
+            <input
+              type="time"
+              value={actualBedtime}
+              onChange={(event) => setActualBedtime(event.target.value)}
+              className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 px-3 py-2.5 text-sm text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[13px] leading-relaxed text-[#6B7A72]">Wake time</span>
+            <input
+              type="time"
+              value={actualWakeTime}
+              onChange={(event) => setActualWakeTime(event.target.value)}
+              className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 px-3 py-2.5 text-sm text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
+            />
+          </label>
+        </div>
+
+        <div>
+          <p className="text-[13px] leading-relaxed text-[#6B7A72]">
+            How many times did you wake up during the night?
           </p>
-          <button
-            type="button"
-            onClick={() => setWaterCups((cups) => cups + 1)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#1B3A2D]/10 text-lg text-[#1B3A2D] transition-all duration-150 ease-out hover:border-[#1B3A2D]/30 active:scale-90"
-            aria-label="Add a cup"
-          >
-            +
-          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {NIGHT_WAKING_OPTIONS.map((count) => (
+              <button
+                key={count}
+                type="button"
+                onClick={() => setNightWakingCount(count)}
+                aria-pressed={nightWakingCount === count}
+                className={`flex h-10 w-10 items-center justify-center rounded-full border text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                  nightWakingCount === count
+                    ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                }`}
+              >
+                {count === 5 ? '5+' : count}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[13px] leading-relaxed text-[#6B7A72]">Any night sweats?</p>
+          <div className="mt-3 flex gap-2">
+            {[
+              { value: true, label: 'Yes' },
+              { value: false, label: 'No' },
+            ].map((option) => (
+              <button
+                key={String(option.value)}
+                type="button"
+                onClick={() => setNightSweats(option.value)}
+                aria-pressed={nightSweats === option.value}
+                className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                  nightSweats === option.value
+                    ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <MeaningScale
+          question="How sore does your body feel this morning?"
+          meanings={SORENESS_MEANING}
+          value={morningSoreness}
+          onChange={setMorningSoreness}
+        />
+
+        <div>
+          <p className="text-[13px] leading-relaxed text-[#6B7A72]">Bowel movement status</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {BOWEL_MOVEMENT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setBowelMovementStatus(option.value)}
+                aria-pressed={bowelMovementStatus === option.value}
+                className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                  bowelMovementStatus === option.value
+                    ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

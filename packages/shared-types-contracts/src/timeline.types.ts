@@ -18,7 +18,8 @@ export type HealthTimelineEventType =
   | 'trend_improving'
   | 'trend_declining'
   | 'wearable_connected'
-  | 'movement_session_completed';
+  | 'movement_session_completed'
+  | 'evening_reflection_submitted';
 
 /** Same {type, id, note?} shape every other evidence-ref type in this codebase already uses, independently declared per established convention. */
 export interface HealthTimelineEvidenceRef {

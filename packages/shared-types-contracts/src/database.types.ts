@@ -116,6 +116,8 @@ export interface OnboardingAnswerRecord {
   value_free_text: string | null;
 }
 
+export type BowelMovementStatus = 'normal' | 'constipated' | 'loose' | 'none';
+
 export interface DailyCheckinInput {
   timezone: string;
   local_date: string; // YYYY-MM-DD
@@ -130,6 +132,14 @@ export interface DailyCheckinInput {
   movement_today: 'none' | 'light' | 'moderate' | 'full_session' | null;
   new_or_worsening_concern: boolean;
   optional_notes: string | null;
+  // Morning Readiness fields (migration 63) — all nullable/optional so the
+  // morning check-in stands on its own without requiring every field.
+  actual_bedtime: string | null; // HH:MM (24h), the time the member went to bed
+  actual_wake_time: string | null; // HH:MM (24h)
+  night_waking_count: number | null;
+  night_sweats: boolean | null;
+  morning_soreness: number | null; // 1-5
+  bowel_movement_status: BowelMovementStatus | null;
 }
 
 export interface DailyCheckin extends DailyCheckinInput {

@@ -14,6 +14,7 @@ import {
   TrendingDown,
   Link2,
   Activity,
+  Moon,
 } from 'lucide-react';
 import type { HealthTimelineEvent } from '@mef/shared-types-contracts';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -34,6 +35,7 @@ const EVENT_ICON = {
   trend_declining: TrendingDown,
   wearable_connected: Link2,
   movement_session_completed: Activity,
+  evening_reflection_submitted: Moon,
 } as const;
 
 type Group =

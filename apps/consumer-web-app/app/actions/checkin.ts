@@ -18,6 +18,7 @@ import { evaluateConcern } from '@/lib/safety/service';
 import { recordSafetyRestrictionNarrative } from '@/lib/narrative/service';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { getOrCalculateRootScore } from '@/lib/scoring/service';
+import { recordMemberEvent } from '@/lib/events/service';
 
 // ---- Time helpers ----
 
@@ -51,7 +52,7 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
 
   if (!user) return { error: 'Not signed in.' };
 
-  const { error } = await supabase.rpc('submit_daily_checkin', {
+  const { data: newCheckinId, error } = await supabase.rpc('submit_daily_checkin', {
     p_timezone: input.timezone,
     p_local_date: input.local_date,
     p_mood_level: input.mood_level,
@@ -65,9 +66,32 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
     p_movement_today: input.movement_today,
     p_new_or_worsening_concern: input.new_or_worsening_concern,
     p_optional_notes: input.optional_notes,
+    p_actual_bedtime: input.actual_bedtime,
+    p_actual_wake_time: input.actual_wake_time,
+    p_night_waking_count: input.night_waking_count,
+    p_night_sweats: input.night_sweats,
+    p_morning_soreness: input.morning_soreness,
+    p_bowel_movement_status: input.bowel_movement_status,
   });
 
   if (error) return { error: error.message };
+
+  // Member Wellness Event Stream — a completed Morning Readiness check-in
+  // is one of the five standardized events every check-in-adjacent
+  // feature publishes (see lib/events/service.ts). Best-effort, same
+  // discipline as every other side-effect block below: never allowed to
+  // affect the result already returned to the member.
+  try {
+    await recordMemberEvent(supabase, {
+      memberId: user.id,
+      eventType: 'morning_readiness_recorded',
+      timezone: input.timezone,
+      payload: { checkinId: newCheckinId as string },
+      sourceRecordId: newCheckinId as string,
+    });
+  } catch (eventError) {
+    console.error('Member event recording failed for submitDailyCheckin', eventError);
+  }
 
   // AI event emission — never allowed to affect the result above, which
   // has already succeeded by this point. Best-effort: fetch recent

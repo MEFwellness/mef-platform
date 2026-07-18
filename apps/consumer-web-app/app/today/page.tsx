@@ -43,6 +43,7 @@ import {
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
+import { getTodaysHydrationTotal } from '@/app/actions/events';
 import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
 import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
 import { waterStatus, digestionStatus, STATUS_STYLES } from '@/lib/wellness/status';
@@ -160,9 +161,10 @@ export default async function TodayPage() {
   const GreetingIcon = timeContext.hour < 12 ? Sunrise : timeContext.hour < 18 ? Sun : Moon;
 
   const localDate = await resolveLocalDate(nowInTz, false);
-  const [todaysCheckin, habitLogs] = await Promise.all([
+  const [todaysCheckin, habitLogs, hydrationTotal] = await Promise.all([
     getTodaysCheckin(localDate),
     getHabitLogsForDate(localDate),
+    getTodaysHydrationTotal(),
   ]);
 
   let sectionIndex = 0;
@@ -360,12 +362,10 @@ export default async function TodayPage() {
                     strokeWidth={1.75}
                     aria-hidden="true"
                   />
-                  <p
-                    className={`text-sm leading-relaxed ${todaysCheckin?.water_cups != null ? STATUS_STYLES[waterStatus(todaysCheckin.water_cups)].text : 'text-[#6B7A72]'}`}
-                  >
-                    {todaysCheckin?.water_cups != null
-                      ? `${todaysCheckin.water_cups} of 8 cups of water today.`
-                      : "Log your water intake in today's check-in."}
+                  <p className={`text-sm leading-relaxed ${STATUS_STYLES[waterStatus(hydrationTotal)].text}`}>
+                    {hydrationTotal > 0
+                      ? `${hydrationTotal} of 8 cups of water today.`
+                      : 'Log water as you drink it from your dashboard.'}
                   </p>
                 </div>
                 <div className="flex items-start gap-2">

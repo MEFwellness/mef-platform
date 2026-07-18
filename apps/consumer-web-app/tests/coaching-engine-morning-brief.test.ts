@@ -34,6 +34,12 @@ function checkin(overrides: Partial<DailyCheckin> = {}): DailyCheckin {
     movement_today: 'moderate',
     new_or_worsening_concern: false,
     optional_notes: null,
+    actual_bedtime: null,
+    actual_wake_time: null,
+    night_waking_count: null,
+    night_sweats: null,
+    morning_soreness: null,
+    bowel_movement_status: null,
     created_at: '2026-01-05T08:00:00.000Z',
     ...overrides,
   };

@@ -52,6 +52,12 @@ async function submitCheckin(
     p_movement_today: overrides.movement_today ?? 'light',
     p_new_or_worsening_concern: false,
     p_optional_notes: null,
+    p_actual_bedtime: null,
+    p_actual_wake_time: null,
+    p_night_waking_count: null,
+    p_night_sweats: null,
+    p_morning_soreness: null,
+    p_bowel_movement_status: null,
   });
   if (error) throw error;
 }
