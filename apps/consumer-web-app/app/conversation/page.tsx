@@ -6,6 +6,7 @@ import { getOrStartConversationAction } from '@/app/actions/conversation-coach';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
+import { BackButton } from '@/components/BackButton';
 import { SUGGESTED_PROMPTS } from '@/lib/conversation-coach/suggestedPrompts';
 import { ConversationView } from './ConversationView';
 
@@ -55,7 +56,9 @@ export default async function CoachingConversationPage({
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto flex w-full max-w-md flex-col px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
-        <div className="flex items-center justify-between gap-3">
+        <BackButton fallbackHref="/dashboard" label="Back to Home" />
+
+        <div className="mt-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <Sprout className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Coaching Conversation</p>

@@ -12,6 +12,7 @@ import { getMyRootScoreHistory } from '@/app/actions/scoring';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
+import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { RootQuickLink } from '@/components/RootQuickLink';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
@@ -106,7 +107,9 @@ export default async function ProgressPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <div className="flex items-start justify-between gap-3">
+        <BackButton fallbackHref="/dashboard" label="Back to Home" />
+
+        <div className="mt-4 flex items-start justify-between gap-3">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
             Your Wellness Story
           </h1>

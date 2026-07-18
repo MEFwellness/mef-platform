@@ -73,6 +73,7 @@ import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
 import { FirstCheckinTransition } from '@/components/FirstCheckinTransition';
 import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
 import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
+import { DashboardQuickLinks } from '@/components/DashboardQuickLinks';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
 import {
@@ -240,6 +241,14 @@ export default async function DashboardPage({
           {/* components/RootScoreCard.tsx and app/root-score/.         */}
           {/* ---------------------------------------------------- */}
           <RootScoreCard snapshot={rootScoreSnapshot} />
+
+          {/* ---------------------------------------------------- */}
+          {/* Movement + Food Lens + Progress quick links — their     */}
+          {/* fixed-bottom-nav replacement now that the bar is        */}
+          {/* scoped to Home/Check-In/Today only. See                 */}
+          {/* components/DashboardQuickLinks.tsx.                      */}
+          {/* ---------------------------------------------------- */}
+          <DashboardQuickLinks />
 
           {/* ---------------------------------------------------- */}
           {/* Guided Posture & Movement Assessment — Premium UX       */}
