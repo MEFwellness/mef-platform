@@ -16,7 +16,7 @@
 import type { AssessmentCopy, PriorityLevel, Questionnaire, QuestionnaireScoreResult } from './engine/types';
 
 export const ASSESSMENT_SAFETY_STATEMENT =
-  'This assessment is a wellness coaching guide built from your own answers about everyday habits and how you feel — it is not a medical diagnosis, a lab test, or a clinical measurement. Talk to a qualified healthcare provider about any symptom that concerns you.';
+  'This assessment is a wellness coaching guide built from your own answers about everyday habits and how you feel. It is not a medical diagnosis, a lab test, or a clinical measurement. Talk to a qualified healthcare provider about any symptom that concerns you.';
 
 export type WellnessInsight = {
   headline: string;
@@ -45,7 +45,7 @@ const RELATIONSHIP_RULES: { categories: string[]; focusCategoryId: string; sente
     categories: ['stress', 'circadian_health', 'digestive_system_health'],
     focusCategoryId: 'circadian_health',
     sentence:
-      'Your stress, circadian rhythm, and digestive scores all indicate they deserve greater attention. These areas commonly influence one another — improving sleep consistency may positively support stress recovery and digestive wellness.',
+      'Your stress, circadian rhythm, and digestive scores all indicate they deserve greater attention. These areas commonly influence one another, and improving sleep consistency may positively support stress recovery and digestive wellness.',
   },
   {
     categories: ['circadian_health', 'you_are_when_you_eat'],
@@ -57,7 +57,7 @@ const RELATIONSHIP_RULES: { categories: string[]; focusCategoryId: string; sente
     categories: ['stress', 'detoxification_system_health'],
     focusCategoryId: 'stress',
     sentence:
-      'Your stress and detoxification scores both indicate they deserve greater attention. Chronic stress and a taxed detox system commonly show up together — building in real recovery time is usually the highest-leverage first step.',
+      'Your stress and detoxification scores both indicate they deserve greater attention. Chronic stress and a taxed detox system commonly show up together, so building in real recovery time is usually the highest-leverage first step.',
   },
   {
     categories: ['you_are_what_you_eat', 'digestive_system_health'],
@@ -69,7 +69,7 @@ const RELATIONSHIP_RULES: { categories: string[]; focusCategoryId: string; sente
     categories: ['fungus_and_parasites', 'digestive_system_health'],
     focusCategoryId: 'digestive_system_health',
     sentence:
-      "Your gut-balance and digestive scores both indicate they deserve greater attention — they're closely linked. Easing off sugar and processed foods tends to support both together.",
+      "Your gut-balance and digestive scores both indicate they deserve greater attention, since they're closely linked. Easing off sugar and processed foods tends to support both together.",
   },
 ];
 
@@ -101,7 +101,7 @@ export function buildWellnessInsight(
     return {
       headline,
       summary:
-        "Every area of this assessment currently falls in the low-priority range — a strong overall pattern across nutrition, stress, rhythm, and digestion. Keep doing what's working.",
+        "Every area of this assessment currently falls in the low-priority range, a strong overall pattern across nutrition, stress, rhythm, and digestion. Keep doing what's working.",
       focusCategoryIds: [],
     };
   }
@@ -110,7 +110,7 @@ export function buildWellnessInsight(
     const names = moderate.map((c) => labelFor(c.categoryId));
     return {
       headline,
-      summary: `Everything here sits at low or moderate priority — a solid overall pattern. Keep an eye on ${joinWithAnd(
+      summary: `Everything here sits at low or moderate priority, a solid overall pattern. Keep an eye on ${joinWithAnd(
         names
       )}, which are trending toward needing more attention.`,
       focusCategoryIds: moderate.map((c) => c.categoryId),
@@ -140,7 +140,7 @@ export function buildWellnessInsight(
     headline,
     summary: `Your ${joinWithAnd(
       names
-    )} scores all indicate they deserve greater attention. These areas commonly influence one another — small, consistent improvements in ${focusLabel} are a reasonable place to start.`,
+    )} scores all indicate they deserve greater attention. These areas commonly influence one another, and small, consistent improvements in ${focusLabel} are a reasonable place to start.`,
     focusCategoryIds,
   };
 }

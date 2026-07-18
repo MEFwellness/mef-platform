@@ -89,7 +89,7 @@ export function AssessmentComparisonPanel({
 
       {!loading && comparison && !comparison.previous && (
         <p className="mt-4 text-sm text-[#6B7A72]">
-          No completed assessment falls in that window yet — complete another assessment to unlock this
+          No completed assessment falls in that window yet. Complete another assessment to unlock this
           comparison.
         </p>
       )}
@@ -126,7 +126,7 @@ export function AssessmentComparisonPanel({
                   </Link>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-[#6B7A72]">
-                      {category.previousScore ?? '—'} → {category.currentScore}
+                      {category.previousScore ?? 'N/A'} → {category.currentScore}
                     </span>
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[status].bg} ${STATUS_STYLES[status].text}`}

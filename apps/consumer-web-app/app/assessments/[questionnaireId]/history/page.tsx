@@ -34,7 +34,7 @@ export default async function AssessmentHistoryPage({
 
   const definition = findAssessmentDefinition(params.questionnaireId);
   if (!definition) notFound();
-  const { questionnaire } = definition;
+  const { questionnaire, copy } = definition;
 
   const [history, isCoach] = await Promise.all([
     getMyAssessmentHistory(params.questionnaireId),
@@ -60,7 +60,7 @@ export default async function AssessmentHistoryPage({
         <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
           Assessment History
         </h1>
-        <p className="mt-2 text-sm text-[#6B7A72]">{questionnaire.title}</p>
+        <p className="mt-2 text-sm text-[#6B7A72]">{copy.displayTitle}</p>
 
         {history.length === 0 ? (
           <section className={`${CARD} mef-animate-in mt-5 p-7`}>

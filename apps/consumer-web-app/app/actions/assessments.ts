@@ -117,7 +117,7 @@ export async function getMyQuestionnaireList(): Promise<QuestionnaireListItem[]>
 
       return {
         questionnaireId: questionnaire.id,
-        title: questionnaire.title,
+        title: copy.displayTitle,
         listDescription: copy.listDescription,
         sectionCount: questionnaire.categories.length,
         estimatedMinutes: copy.estimatedMinutes,
@@ -136,6 +136,7 @@ export async function getMyQuestionnaireList(): Promise<QuestionnaireListItem[]>
 
 export type TakeAssessmentState = {
   questionnaire: Questionnaire;
+  copy: AssessmentCopy;
   inProgress: InProgressAssessment;
 };
 
@@ -144,10 +145,10 @@ export async function getMyTakeAssessmentState(questionnaireId: string): Promise
   const memberId = await requireMemberId();
   if (!memberId) return null;
 
-  const { questionnaire } = getAssessmentDefinition(questionnaireId);
+  const { questionnaire, copy } = getAssessmentDefinition(questionnaireId);
   const supabase = createClient();
   const inProgress = await getOrCreateInProgressAssessment(supabase, memberId, questionnaire);
-  return { questionnaire, inProgress };
+  return { questionnaire, copy, inProgress };
 }
 
 /**
@@ -294,7 +295,7 @@ export async function getMyAssessmentCategoryAnswers(
     return {
       questionNumber: question.number,
       questionText: question.text,
-      selectedLabel: option?.label ?? '—',
+      selectedLabel: option?.label ?? 'Not answered',
       points: option?.points ?? 0,
     };
   });

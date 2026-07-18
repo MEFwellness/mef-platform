@@ -125,7 +125,7 @@ export function AssessmentTaker({
       if (result) {
         router.push(`/assessments/${questionnaire.id}/results/${result.record.id}` as Route);
       } else {
-        setSaveError('Something went wrong finishing your assessment — please try again.');
+        setSaveError('Something went wrong finishing your assessment. Please try again.');
       }
     });
   }
@@ -192,7 +192,7 @@ export function AssessmentTaker({
       </div>
 
       <p className="mt-4 text-center text-xs text-[#6B7A72]">
-        {answeredCount} of {flat.length} answered · Your progress is saved automatically — it&apos;s safe to
+        {answeredCount} of {flat.length} answered · Your progress is saved automatically, it&apos;s safe to
         come back later.
       </p>
     </div>

@@ -54,7 +54,7 @@ export default async function AssessmentOverviewPage({
             <p className="text-sm font-semibold uppercase tracking-wider">Wellness Assessment</p>
           </div>
           <h1 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D]">
-            {questionnaire.title}
+            {copy.displayTitle}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">{copy.welcomeSubtitle}</p>
 
@@ -71,7 +71,7 @@ export default async function AssessmentOverviewPage({
 
           {draft && (
             <p className="mt-4 text-sm text-[#1B3A2D]">
-              You&apos;re {draft.answered} of {draft.total} questions in — pick up right where you left off.
+              You&apos;re {draft.answered} of {draft.total} questions in. Pick up right where you left off.
             </p>
           )}
 
@@ -118,6 +118,10 @@ export default async function AssessmentOverviewPage({
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-xs leading-relaxed text-[#6B7A72]">{ASSESSMENT_SAFETY_STATEMENT}</p>
         </section>
+
+        {copy.attribution && (
+          <p className="mt-4 px-1 text-center text-[11px] leading-relaxed text-[#6B7A72]/70">{copy.attribution}</p>
+        )}
       </main>
 
       <BottomNav isCoach={isCoach} />

@@ -50,7 +50,7 @@ export default async function QuestionnairesPage() {
           Wellness Questionnaires
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
-          In-depth, self-reported check-ins across nutrition, stress, sleep, digestion, and more —
+          In-depth, self-reported check-ins across nutrition, stress, sleep, digestion, and more,
           separate from your posture and movement Body Assessment.
         </p>
 

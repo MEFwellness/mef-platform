@@ -31,7 +31,7 @@ export default async function TakeAssessmentPage({
           Save and exit
         </Link>
 
-        <h1 className="sr-only">{state.questionnaire.title}</h1>
+        <h1 className="sr-only">{state.copy.displayTitle}</h1>
 
         <div className="mt-5">
           <AssessmentTaker

@@ -119,10 +119,14 @@ export type CategoryCopy = {
 };
 
 export type AssessmentCopy = {
+  /** Member-facing title shown everywhere a questionnaire's name appears (list card, welcome screen, take flow, history). Deliberately separate from questionnaire.title, which is the verbatim-extracted source document title and is never rendered directly. */
+  displayTitle: string;
   /** One sentence for the Questionnaires list-page card — shorter than welcomeSubtitle, which is the full welcome-screen hero paragraph. */
   listDescription: string;
   welcomeSubtitle: string;
   estimatedMinutes: number;
+  /** Small, subtle source-attribution line shown once on the welcome screen, if this questionnaire is adapted from a named external instrument. Omitted entirely (not rendered) when not set. */
+  attribution?: string;
   categoryCopy: Record<string, CategoryCopy>;
 };
 

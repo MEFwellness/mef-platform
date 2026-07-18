@@ -18,23 +18,25 @@
 import type { AssessmentCopy } from '../engine/types';
 
 export const CHEK_HLC1_COPY: AssessmentCopy = {
+  displayTitle: 'Nutrition & Lifestyle Questionnaire',
   listDescription:
-    'A CHEK-based check-in across nutrition, stress, circadian rhythm, meal timing, and digestion.',
+    'A MEF Wellness check-in across nutrition, stress, circadian rhythm, meal timing, and digestion.',
   welcomeSubtitle:
-    "A whole-lifestyle wellness check-in across nutrition, stress, circadian rhythm, meal timing, digestion, and more — the same framework CHEK-certified coaches use to find where your next win is hiding.",
+    'A whole-lifestyle wellness check-in across nutrition, stress, circadian rhythm, meal timing, digestion, and more. The same framework MEF Wellness coaches use to find where your next win is hiding.',
   estimatedMinutes: 15,
+  attribution: 'Based on the CHEK Practitioner Nutrition & Lifestyle Assessment.',
   categoryCopy: {
     you_are_what_you_eat: {
       shortLabel: 'food choices',
       shortDescription:
-        'How closely your everyday food choices — freshness, quality, and how processed they are — align with a whole-foods way of eating.',
+        'How closely your everyday food choices (freshness, quality, and how processed they are) align with a whole-foods way of eating.',
       coachingFocus:
         "Shifting even a few of your highest-scoring habits toward whole, fresh, minimally processed foods tends to move this score the fastest.",
     },
     stress: {
       shortLabel: 'stress',
       shortDescription:
-        'How much everyday stress — work, relationships, and emotional load — is showing up in your life right now.',
+        'How much everyday stress (work, relationships, and emotional load) is showing up in your life right now.',
       coachingFocus:
         'Naming your biggest stress source and building one small recovery habit around it (breath work, a walk, an honest conversation) is usually the highest-leverage place to start.',
     },
@@ -48,14 +50,14 @@ export const CHEK_HLC1_COPY: AssessmentCopy = {
     you_are_when_you_eat: {
       shortLabel: 'meal timing',
       shortDescription:
-        'The timing and structure of your meals — how consistently and mindfully you eat, not just what you eat.',
+        'The timing and structure of your meals: how consistently and mindfully you eat, not just what you eat.',
       coachingFocus:
-        'Eating on a more regular rhythm — and giving meals your full attention — is usually more impactful here than any specific food swap.',
+        'Eating on a more regular rhythm, and giving meals your full attention, is usually more impactful here than any specific food swap.',
     },
     digestive_system_health: {
       shortLabel: 'digestive wellness',
       shortDescription:
-        'How your digestive system is responding day to day — bloating, regularity, and comfort after meals.',
+        'How your digestive system is responding day to day: bloating, regularity, and comfort after meals.',
       coachingFocus:
         'Slowing down at meals and noticing which foods reliably trigger discomfort is often the fastest way to bring this down.',
     },
@@ -64,14 +66,14 @@ export const CHEK_HLC1_COPY: AssessmentCopy = {
       shortDescription:
         'Historical exposures (antibiotics, medications, dental metals) and everyday habits that can burden gut microbial balance over time.',
       coachingFocus:
-        'This category reflects history more than daily choices — the habits worth focusing on now are the sugar and processed-food patterns that keep feeding an imbalance.',
+        'This category reflects history more than daily choices. The habits worth focusing on now are the sugar and processed-food patterns that keep feeding an imbalance.',
     },
     detoxification_system_health: {
       shortLabel: 'detoxification',
       shortDescription:
-        "Signs your body's detox pathways may be under extra load — energy, skin, and sensitivity to chemicals or fragrances.",
+        "Signs your body's detox pathways may be under extra load: energy, skin, and sensitivity to chemicals or fragrances.",
       coachingFocus:
-        'Reducing your heaviest chemical and fragrance exposures and supporting basic detox pathways — hydration, movement, sleep — is the most direct lever here.',
+        'Reducing your heaviest chemical and fragrance exposures and supporting basic detox pathways (hydration, movement, sleep) is the most direct lever here.',
     },
   },
 };
