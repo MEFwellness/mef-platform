@@ -1,0 +1,247 @@
+{
+  "id": "chek-hlc1-nutrition-lifestyle",
+  "version": 1,
+  "title": "CHEK Nutrition and Lifestyle Questionnaires for HLC 1",
+  "source": "CHEK Institute — Holistic Lifestyle Coaching Level 1 (scanned PDF, user-provided)",
+  "notes": "Verbatim extraction. Wording, spelling, and punctuation preserved exactly as printed in the source document, including apparent typos ('Rice-aroni', 'Arbey's', 'as apposed to', 'Nurtasweet'). Do not correct wording when consuming this file.",
+  "scoring": {
+    "unit": "points",
+    "direction": "higher_is_worse",
+    "categoryScoreFormula": "sum of points of the single option selected per question in the category",
+    "totalScoreFormula": "sum of all category scores",
+    "totalMaxScore": 635,
+    "totalPriorityBands": {
+      "high": { "min": 300, "max": 635 },
+      "moderate": { "min": 170, "max": 299 },
+      "low": { "min": 0, "max": 169 }
+    }
+  },
+  "verification": {
+    "allCategoriesReconciled": true,
+    "categoriesVerified": [
+      "you_are_what_you_eat",
+      "stress",
+      "circadian_health",
+      "you_are_when_you_eat",
+      "digestive_system_health",
+      "fungus_and_parasites",
+      "detoxification_system_health"
+    ],
+    "categoriesWithDiscrepancy": [],
+    "detail": "Fungus & Parasites was re-verified 2026-07-18 against a complete, uncropped scan: all 13 questions and every option (including Q9's previously-cropped 'No (0)') are confirmed present and legible, summing to 115. The master score sheet's printed column max of 195 (and the dependent printed Total Score max of 715) is treated as a typo in that summary sheet — most plausibly a 9/1 digit transposition of '115' — since the questionnaire page itself, the task's designated source of truth, has no missing or extra question. totalMaxScore is corrected to 635 (130+81+90+50+81+115+88). See SPEC.md §7 and §10 for the full amendment record."
+  },
+  "categories": [
+    {
+      "id": "you_are_what_you_eat",
+      "order": 1,
+      "name": "You Are What You Eat",
+      "zones": ["1", "2", "3"],
+      "maxScore": 130,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 50, "max": 130 },
+        "moderate": { "min": 30, "max": 49 },
+        "low": { "min": 0, "max": 29 }
+      },
+      "questions": [
+        { "number": 1, "text": "Do you shop less frequently than every four days?", "type": "binary", "options": [{ "label": "Yes", "points": 1 }, { "label": "No", "points": 0 }], "maxPoints": 1 },
+        { "number": 2, "text": "Do you eat more packaged (frozen or canned) fruits and vegetables than fresh?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 3, "text": "Do you eat more cooked vegetables than raw?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 4, "text": "Do you eat vegetables with less than two meals daily?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 5, "text": "Do you buy more non-organic vegetables than organic vegetables?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 6, "text": "Do you use a microwave oven?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 2 }, { "label": "3-4 times per week", "points": 5 }, { "label": "more than 4 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 7, "text": "Do you eat quick cook grains such as Rice-aroni, Quaker Oats or Minute rice more often than slow cooked organic whole grains?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 8, "text": "Do you eat white bread more often than whole grain breads?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 9, "text": "Do you drink pasteurized/homogenized milk, or eat cheeses frequently?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 1 }, { "label": "3 times per week", "points": 3 }, { "label": "more than 3 times per week", "points": 5 }], "maxPoints": 5 },
+        { "number": 10, "text": "Do you eat non-organic yogurts that are low fat, presweetened or have fruit added?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 1 }, { "label": "3 times per week", "points": 3 }, { "label": "more than 3 times per week", "points": 5 }], "maxPoints": 5 },
+        { "number": 11, "text": "Do you eat typical store bought eggs from cage raised chickens (as apposed to free range, grain fed eggs)?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 12, "text": "Do you eat red meat more than once every four days?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 13, "text": "Do you commonly eat meats (beef, chicken, turkey) from sources other than a free-range and hormone-free source?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 14, "text": "Do you eat canned fish more frequently than fresh fish?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 15, "text": "Do you use commercial salad dressings?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "twice per week", "points": 2 }, { "label": "more than 2 times per week", "points": 3 }], "maxPoints": 3 },
+        { "number": 16, "text": "Do you use Mayonnaise or products containing hydrogenated oils?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "twice per week", "points": 2 }, { "label": "more than 2 times per week", "points": 5 }], "maxPoints": 5 },
+        { "number": 17, "text": "Do you eat nuts and/or seeds that are roasted and/or salted?", "type": "binary", "options": [{ "label": "Yes", "points": 1 }, { "label": "No", "points": 0 }], "maxPoints": 1 },
+        { "number": 18, "text": "Do you use white table sugar as a sweetener?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "2-3 times per week", "points": 3 }, { "label": "more than 3 times per week", "points": 5 }], "maxPoints": 5 },
+        { "number": 19, "text": "Do you use artificial sweeteners such as Sweet-n-Low, Equal or Nurtasweet?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "2-3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 20, "text": "Do you use standard white table salt?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 21, "text": "Do you eat TV dinners or other highly processed foods more than three times a week?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 22, "text": "Do you eat from fast food restaurants like McDonald's, Arbey's, Wendy's, etc…?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 2 }, { "label": "3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 23, "text": "Do you eat from vending machines?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 2 }, { "label": "3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 24, "text": "Do you drink tap water?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 25, "text": "Do you eat some form of store bought dessert, such as ice cream, cookies, donuts, cakes or pies after dinner most nights?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "2-3 times per week", "points": 3 }, { "label": "more than 3 times per week", "points": 5 }], "maxPoints": 5 }
+      ]
+    },
+    {
+      "id": "stress",
+      "order": 2,
+      "name": "Stress",
+      "zones": ["4"],
+      "maxScore": 81,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 40, "max": 81 },
+        "moderate": { "min": 20, "max": 39 },
+        "low": { "min": 0, "max": 19 }
+      },
+      "questions": [
+        { "number": 1, "text": "Do you eat more or less when stressed than when not stressed?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 2, "text": "Do you worry over job, income or money problems?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 3, "text": "Are any of your relationships causing you stress?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 4, "text": "Do you often feel anxious?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 5, "text": "Do you often feel upset when things go wrong or feel that things go wrong often?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 6, "text": "Do you lash out at others?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 7, "text": "Do you feel your sex drive is lower than normal for you?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 8, "text": "Do you feel stressed due to lack of intimacy in one or more relationships?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 9, "text": "Have you had reduced contact with friends (feeling antisocial) or an increase in contact because you feel you need to vent your frustrations or stresses to others?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 10, "text": "Do you feel isolated or suffer from loneliness?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 11, "text": "Do you take any form of medication prescribed by a physician directly or indirectly related to stress in your life or a psychological disorder?", "type": "binary", "options": [{ "label": "Yes", "points": 15 }, { "label": "No", "points": 0 }], "maxPoints": 15 },
+        { "number": 12, "text": "Do you lose more than two days of work a year due to illness?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 }
+      ]
+    },
+    {
+      "id": "circadian_health",
+      "order": 3,
+      "name": "Circadian Health",
+      "zones": ["2"],
+      "maxScore": 90,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 50, "max": 90 },
+        "moderate": { "min": 30, "max": 49 },
+        "low": { "min": 0, "max": 29 }
+      },
+      "questions": [
+        { "number": 1, "text": "Do you live in the same time zone you were born in?", "type": "binary", "note": "Inverted: 'No' scores points, 'Yes' scores 0.", "options": [{ "label": "Yes", "points": 0 }, { "label": "No", "points": 5 }], "maxPoints": 5 },
+        { "number": 2, "text": "Do you travel across time zones more than once a month?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 3, "text": "Do you wake up feeling un-rested and in need of more sleep?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 4, "text": "Do you commonly go to bed after 10:30 PM?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 5, "text": "Are the times you have bowel movements consistent and predictable on a daily basis?", "type": "binary", "note": "Inverted: 'No' scores points, 'Yes' scores 0.", "options": [{ "label": "Yes", "points": 0 }, { "label": "No", "points": 5 }], "maxPoints": 5 },
+        { "number": 6, "text": "Do you suffer from reduced memory since moving to a new time zone or since traveling across time zones?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 7, "text": "Has your sense of hunger changed from being hungry at breakfast (upon rising), lunch (mid-day) and dinner times (sunset) since moving to a new time zone or traveling across time zones frequently (> 1 x Mo.)?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 8, "text": "Do you wake up at night between 1:00 am and 4:00 am and have a hard time falling back to sleep?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 9, "text": "Do you tend to have a hard time staying awake in the afternoon after eating lunch?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 10, "text": "Do you do shift work that requires you to stay up late at night?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 }
+      ]
+    },
+    {
+      "id": "you_are_when_you_eat",
+      "order": 4,
+      "name": "You Are When You Eat",
+      "zones": ["3"],
+      "maxScore": 50,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 20, "max": 50 },
+        "moderate": { "min": 10, "max": 19 },
+        "low": { "min": 0, "max": 9 }
+      },
+      "questions": [
+        { "number": 1, "text": "Do you frequently skip meals?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 2, "text": "Do you typically go more than four hours without eating?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 1 }, { "label": "3 times per week", "points": 2 }, { "label": "more than 3 times per week", "points": 3 }], "maxPoints": 3 },
+        { "number": 3, "text": "Do you sometimes skip breakfast?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "2 times per week", "points": 1 }, { "label": "3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 4, "text": "Do you avoid fats when eating?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 5, "text": "Do you frequently eat carbohydrates (i.e. breads, bagels, cookies, pasta, fruit, cereals, muffins, crackers, chocolate, or candy) by themselves?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 6, "text": "Do you get hungry or crave sweets within two hours after eating a meal?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 7, "text": "Do you use caffeine and/or sugar containing drinks (i.e. coffee, tea, sodas, fruit juices with sucrose, corn syrup or added sugar)?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1 cup a day", "points": 1 }, { "label": "2 cups per day", "points": 3 }, { "label": "more than 2 cups per day", "points": 5 }], "maxPoints": 5 },
+        { "number": 8, "text": "Have you tried diets to lose weight?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once", "points": 1 }, { "label": "twice", "points": 2 }, { "label": "three-five times", "points": 5 }, { "label": "more than five times", "points": 10 }], "maxPoints": 10 },
+        { "number": 9, "text": "Do you have difficulty burning fat around your belly, hips or thighs even with regular exercise?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 10, "text": "Do you eat your largest meal at night?", "type": "binary", "options": [{ "label": "Yes", "points": 1 }, { "label": "No", "points": 0 }], "maxPoints": 1 }
+      ]
+    },
+    {
+      "id": "digestive_system_health",
+      "order": 5,
+      "name": "Digestive System Health",
+      "zones": ["1", "2", "3"],
+      "maxScore": 81,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 40, "max": 81 },
+        "moderate": { "min": 20, "max": 39 },
+        "low": { "min": 0, "max": 19 }
+      },
+      "questions": [
+        { "number": 1, "text": "Do you experience lower abdominal bloating?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 3 }, { "label": "3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 2, "text": "Do you frequently have loose stools or diarrhea?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "3 or more times per week", "points": 5 }], "maxPoints": 5 },
+        { "number": 3, "text": "Do you experience constipation or stools that are compact/hard to pass?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 3 }, { "label": "3 or more times per week", "points": 5 }], "maxPoints": 5 },
+        { "number": 4, "text": "Do you find that you often burp/belch after meals?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 5, "text": "Do you frequently have gas?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 6, "text": "Do you crave certain foods, such as bread, chocolate, certain fruit, and red meat, if you have not eaten them in a day or two?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 7, "text": "Do you have a poor appetite and/or feel worse after eating?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 3 }, { "label": "3 times per week", "points": 5 }, { "label": "more 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 8, "text": "Do you have an excessive appetite and/or sweet cravings?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 9, "text": "Do you frequently (more than twice a week) experience abdominal pain, cramps or general abdominal discomfort?", "type": "binary", "options": [{ "label": "Yes", "points": 20 }, { "label": "No", "points": 0 }], "maxPoints": 20 },
+        { "number": 10, "text": "Do you have indigestion, heartburn or upset stomach?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 3 }, { "label": "3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 11, "text": "Do you get a headache after eating?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 3 }, { "label": "more than 3 times per week", "points": 5 }], "maxPoints": 5 }
+      ]
+    },
+    {
+      "id": "fungus_and_parasites",
+      "order": 6,
+      "name": "Fungus & Parasites",
+      "zones": ["3", "4"],
+      "maxScore": 115,
+      "verified": true,
+      "amendment": "Originally flagged unverified because the first scan cropped Q9's 'No (0)' option and the 13-question sum (115) didn't match the score sheet's printed column max (195). Re-verified 2026-07-18 against a complete scan: no missing question, no misread option. The printed '195' (and the dependent printed Total Score of 715) is treated as a typo in the summary sheet, corrected here to 115 / 635.",
+      "priorityBands": {
+        "high": { "min": 60, "max": 115 },
+        "moderate": { "min": 40, "max": 59 },
+        "low": { "min": 0, "max": 39 }
+      },
+      "questions": [
+        { "number": 1, "text": "Have you ever been given general anesthesia?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 2, "text": "Have you ever taken antibiotics?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 3, "text": "Have you been or are you being treated for any condition requiring that you take medical drugs?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 4, "text": "In general, are your bowel movements loose, hard or foul smelling?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 5, "text": "Would you consider your life to be:", "type": "multiple_choice", "options": [{ "label": "Stress free", "points": 0 }, { "label": "Mildly stressful", "points": 5 }, { "label": "Very stressful", "points": 10 }], "maxPoints": 10 },
+        { "number": 6, "text": "Do you currently suffer from any digestive disorder or frequently have pain in the region above or below the navel?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 7, "text": "Do you have mercury amalgam fillings in your mouth?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 8, "text": "Do you have two different kinds of metal in your mouth; i.e., gold and silver or mercury amalgam and gold or silver?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 9, "text": "Do you experience itching in the ears, nose or rectum area?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 10, "text": "Do you have or have you had dandruff in the past year?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 11, "text": "Do you regularly eat or drink products containing sugar, white flour, processed dairy products?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 },
+        { "number": 12, "text": "Do you crave sugar, fruit or milk if you don't have either of these items for more than three days?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 13, "text": "Do you find that regardless of how much you eat you get hungry quickly?", "type": "binary", "options": [{ "label": "Yes", "points": 5 }, { "label": "No", "points": 0 }], "maxPoints": 5 }
+      ]
+    },
+    {
+      "id": "detoxification_system_health",
+      "order": 7,
+      "name": "Detoxification System Health",
+      "zones": ["3", "4"],
+      "maxScore": 88,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 40, "max": 88 },
+        "moderate": { "min": 20, "max": 39 },
+        "low": { "min": 0, "max": 19 }
+      },
+      "questions": [
+        { "number": 1, "text": "Are your eyes sensitive to bright light?", "type": "binary", "options": [{ "label": "Yes", "points": 3 }, { "label": "No", "points": 0 }], "maxPoints": 3 },
+        { "number": 2, "text": "Do you suffer from irritability and have difficulty relaxing?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 3, "text": "Do you often feel fatigued and sluggish?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 4, "text": "Do you suffer from frequent headaches?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 1 }, { "label": "3 or more per week", "points": 5 }], "maxPoints": 5 },
+        { "number": 5, "text": "Do you have dark circles and/or puffiness under eyes?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "once a week", "points": 3 }, { "label": "2-3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 6, "text": "Are you sensitive to perfumes, paint fumes, traffic fumes, detergents or cigarette smoke?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "mildly", "points": 3 }, { "label": "moderately", "points": 5 }, { "label": "very", "points": 10 }], "maxPoints": 10 },
+        { "number": 7, "text": "Have you been unable to lose cellulite with diet and/or exercise?", "type": "binary", "options": [{ "label": "Yes", "points": 10 }, { "label": "No", "points": 0 }], "maxPoints": 10 },
+        { "number": 8, "text": "Are you currently, or have you in the past, been frequently exposed to industrial or agricultural chemicals, such as solvents, cleaning fluids, paint fumes, plant sprays and fertilizers?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "brief exposure", "points": 3 }, { "label": "more than once a week", "points": 5 }, { "label": "daily", "points": 10 }], "maxPoints": 10 },
+        { "number": 9, "text": "Do you experience mental sluggishness, poor memory or poor concentration?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per week", "points": 3 }, { "label": "3 times per week", "points": 5 }, { "label": "more than 3 times per week", "points": 10 }], "maxPoints": 10 },
+        { "number": 10, "text": "Do you suffer from skin reactions such as rashes, itching or burning, for which the cause is unknown?", "type": "frequency", "options": [{ "label": "No", "points": 0 }, { "label": "1-2 times per month", "points": 3 }, { "label": "3 times per month", "points": 5 }, { "label": "more than 3 times per month", "points": 10 }], "maxPoints": 10 }
+      ]
+    }
+  ],
+  "masterScoreSheet": {
+    "title": "Nutrition and Lifestyle Questionnaires Score Sheet",
+    "columnOrder": [
+      "you_are_what_you_eat",
+      "stress",
+      "circadian_health",
+      "you_are_when_you_eat",
+      "digestive_system_health",
+      "fungus_and_parasites",
+      "detoxification_system_health",
+      "total_score"
+    ],
+    "fields": ["Name", "Date 1", "Date 2", "Score 1", "Score 2"],
+    "administrations": 2
+  }
+}
