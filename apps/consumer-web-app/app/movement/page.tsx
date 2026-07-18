@@ -9,10 +9,11 @@
  * into the session itself (app/movement/session/page.tsx).
  */
 
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
-import { Clock, PlayCircle, Activity } from 'lucide-react';
+import { Clock, PlayCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getRecentCheckins } from '@/app/actions/checkin';
 import {
@@ -22,7 +23,7 @@ import {
 } from '@/app/actions/movement';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
-import { BackButton } from '@/components/BackButton';
+import { AvatarLink } from '@/components/AvatarLink';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildMovementEntryContext } from '@/lib/conversation-coach/entryContext';
 import { MovementEmptyState } from '@/components/movement/MovementEmptyState';
@@ -65,14 +66,28 @@ export default async function MovementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        <BackButton fallbackHref="/dashboard" label="Back to Home" />
+        <header className="flex items-center justify-between pt-0 pb-6">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/images/rooted-reset-logo.png"
+              alt="Rooted Reset"
+              width={36}
+              height={36}
+              style={{ objectFit: 'contain', borderRadius: '8px', flexShrink: 0 }}
+            />
+            <div className="leading-tight">
+              <span className="block font-[family-name:var(--font-cormorant-garamond)] text-lg tracking-wide text-[#1B3A2D]">
+                Rooted Reset
+              </span>
+              <span className="block text-[11px] font-medium uppercase tracking-wider text-[#6B7A72]">
+                by MEF Wellness
+              </span>
+            </div>
+          </div>
+          <AvatarLink firstName={firstName} />
+        </header>
 
-        <div className="mt-4 flex items-center gap-2 text-[#6B7A72]">
-          <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          <p className="text-sm font-semibold uppercase tracking-wider">Movement Intelligence</p>
-        </div>
-
-        <div className="mt-2">
+        <div>
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
             Movement
           </h1>

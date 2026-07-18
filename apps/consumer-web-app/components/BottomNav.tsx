@@ -1,54 +1,67 @@
 'use client';
 
 /**
- * Premium Dashboard Experience milestone, part 1 — the 5-slot bar this
- * milestone specifies: Home, Today, Check-In (center), Progress, Root.
- * Root now gets its own permanent tab (linking to the full /conversation
- * page) rather than being reachable only through the floating "Ask Root"
- * launcher — the launcher stays for quick, in-context questions from any
- * screen, this tab is Root's own home. Movement and Food Lens — both full
- * dashboards in their own right — are no longer nav slots; they're reached
- * from their Dashboard quick-access cards instead (see
- * app/dashboard/page.tsx), the same "drill-down, not a permanent tab"
- * treatment Root Score and Assessments already had. This intentionally
- * restores the bar to the original 5-item design Premium UX Milestone 1
- * described but never actually shipped (Movement's arrival afterward had
- * widened it to 6).
+ * Primary navigation. Every first-class member surface gets a permanent
+ * slot: Home, Today, Movement, Food Lens, Progress, and Root, with
+ * Check-In as the large centered action between the two halves. Root's
+ * tab (linking to the full /conversation page) is additive to the
+ * floating "Ask Root" launcher, not a replacement for it — the launcher
+ * stays for quick, in-context questions from any screen, this tab is
+ * Root's own home.
  *
- * Mobile alignment: unchanged mechanics from Premium UX Milestone 1 — two
- * independent `flex-1` halves (left items, right items) with the Check-In
- * button as a fixed-width sibling between them, so Check-In's midpoint
- * always lands on the bar's exact horizontal center regardless of viewport
- * width or how many items sit in the coach-only left half. With exactly
- * two items per half for a member (Home/Today, Progress/Root), the two
- * halves are symmetric for the first time since Milestone 1's original
- * design — a coach's extra "Coach" tab still only affects the left half.
+ * Correction: an earlier pass trimmed this bar down to 5 slots and moved
+ * Movement and Food Lens onto Dashboard quick-access cards instead. That
+ * demoted two flagship, frequently-used dashboards behind an extra tap
+ * (Home, then a card) without being asked to — this restores both to the
+ * bar itself so every primary feature stays one tap away, which is the
+ * navigation philosophy the rest of this app follows (nothing a member
+ * reaches for daily should require a detour through another page first).
  *
- * Brand color discipline (Premium UX Milestone 3, unchanged): inactive
- * items read in muted gray; the active item gets a soft gold pill behind
- * the icon while its text/icon stay dark green for contrast.
+ * Mobile alignment: two independent `flex-1` halves (left items, right
+ * items) with the Check-In button as a fixed-width sibling between them,
+ * so Check-In's midpoint always lands on the bar's exact horizontal
+ * center regardless of viewport width or how many items sit in the
+ * coach-only left half. Left/right are balanced 3-and-3 for a member
+ * (Home/Today/Movement, Food Lens/Progress/Root) — the same item count
+ * per half this app already shipped and validated for coaches before
+ * Root existed (3 member items + Coach on the left, 3 on the right).
+ *
+ * Brand color discipline: inactive items read in muted gray; the active
+ * item gets a soft gold pill behind the icon while its text/icon stay
+ * dark green for contrast.
  */
 
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Plus, BarChart2, Users, Sprout } from 'lucide-react';
+import {
+  Home,
+  Sparkles,
+  Plus,
+  BarChart2,
+  Users,
+  Sprout,
+  Activity,
+  UtensilsCrossed,
+} from 'lucide-react';
 
 type NavItem = { label: string; href: string; Icon: typeof Home };
 
 const LEFT_ITEMS: NavItem[] = [
   { label: 'Home', href: '/dashboard', Icon: Home },
   { label: 'Today', href: '/today', Icon: Sparkles },
+  { label: 'Movement', href: '/movement', Icon: Activity },
 ];
 
 const RIGHT_ITEMS: NavItem[] = [
+  { label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed },
   { label: 'Progress', href: '/progress', Icon: BarChart2 },
   { label: 'Root', href: '/conversation', Icon: Sprout },
 ];
 
 const CHECK_IN_HREF = '/checkin';
 
-/** Appended after Today for coach accounts only — kept on the left half so it sits next to the member tabs it supplements rather than crowding the right half. */
+/** Appended after Movement for coach accounts only — kept on the left half so it sits next to the member tabs it supplements rather than crowding the right half. */
 const COACH_NAV_ITEM: NavItem = { label: 'Coach', href: '/coach', Icon: Users };
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -57,14 +70,22 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href as Route}
       aria-current={active ? 'page' : undefined}
-      className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 text-center text-[10px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:min-h-0 md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
+      className={`flex min-w-0 min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-0.5 py-2.5 text-center text-[9px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:min-h-0 md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
         active
           ? 'bg-[#F5B700]/[0.16] text-[#1B3A2D]'
           : 'text-[#6B7A72] hover:bg-[#1B3A2D]/[0.04] hover:text-[#1B3A2D]'
       }`}
     >
       <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} aria-hidden="true" />
-      <span className="max-w-full whitespace-nowrap">{item.label}</span>
+      {/* `truncate` (not just `whitespace-nowrap`) so a long label on a
+          narrow phone clips with an ellipsis inside its own grid column
+          instead of overflowing, unclipped, into the next tab's label —
+          the bug that made e.g. "Food Lens" and "Progress" visually run
+          together at 320-390px widths once the bar grew from 5 to 6
+          member-facing tabs. `w-full` gives the span the grid column's
+          actual width to truncate against (a flex child otherwise sizes
+          to its own content, which defeats truncation). */}
+      <span className="w-full truncate">{item.label}</span>
     </Link>
   );
 }

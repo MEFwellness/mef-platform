@@ -1,29 +1,23 @@
 'use client';
 
 /**
- * Premium Dashboard Experience milestone, part 3 — the profile bottom
- * sheet opened by tapping the avatar (AvatarLink.tsx, which owns open/close
- * state and mounts this). Deliberately a fixed, short list — Profile,
- * Membership, Connected Devices, Notifications, Settings, Help & Support,
- * About Rooted Reset, then Sign Out below a divider — not a dumping ground
- * for every account-adjacent page in the app. Mirrors the same bottom-sheet
- * mechanics FloatingCoachPanel/FloatingCoachLauncher already established
- * (backdrop fade, translate-up entrance, safe-area-aware padding, Escape to
- * close) so the two sheets in this app feel like one system.
+ * The profile bottom sheet opened by tapping the avatar (AvatarLink.tsx,
+ * which owns open/close state and mounts this). Deliberately a fixed,
+ * short list — Profile, Membership, Connected Devices, Notifications,
+ * Help & Support, About Rooted Reset, then Sign Out below a divider — not
+ * a dumping ground for every account-adjacent page in the app. A separate
+ * "Settings" entry was removed: it only ever re-linked to Profile,
+ * Notifications, and Connected Devices, all three already one tap away
+ * right here, so it added a hop without adding content. Mirrors the same
+ * bottom-sheet mechanics FloatingCoachPanel/FloatingCoachLauncher already
+ * established (backdrop fade, translate-up entrance, safe-area-aware
+ * padding, Escape to close) so the two sheets in this app feel like one
+ * system.
  */
 
 import Link from 'next/link';
 import type { Route } from 'next';
-import {
-  User,
-  Gem,
-  Watch,
-  Bell,
-  Settings as SettingsIcon,
-  LifeBuoy,
-  Info,
-  X,
-} from 'lucide-react';
+import { User, Gem, Watch, Bell, LifeBuoy, Info, X } from 'lucide-react';
 import { SignOutButton } from '@/components/SignOutButton';
 
 const MENU_ITEMS: { label: string; href: Route; Icon: typeof User }[] = [
@@ -31,7 +25,6 @@ const MENU_ITEMS: { label: string; href: Route; Icon: typeof User }[] = [
   { label: 'Membership', href: '/membership', Icon: Gem },
   { label: 'Connected Devices', href: '/connections', Icon: Watch },
   { label: 'Notifications', href: '/notifications', Icon: Bell },
-  { label: 'Settings', href: '/settings', Icon: SettingsIcon },
   { label: 'Help & Support', href: '/help', Icon: LifeBuoy },
   { label: 'About Rooted Reset', href: '/about', Icon: Info },
 ];

@@ -73,7 +73,6 @@ import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
 import { FirstCheckinTransition } from '@/components/FirstCheckinTransition';
 import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
 import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
-import { DashboardQuickLinks } from '@/components/DashboardQuickLinks';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
 import {
@@ -241,13 +240,6 @@ export default async function DashboardPage({
           {/* components/RootScoreCard.tsx and app/root-score/.         */}
           {/* ---------------------------------------------------- */}
           <RootScoreCard snapshot={rootScoreSnapshot} />
-
-          {/* ---------------------------------------------------- */}
-          {/* Movement + Food Lens quick links — their bottom-nav     */}
-          {/* replacement now that the bar is back to 5 slots. See    */}
-          {/* components/DashboardQuickLinks.tsx.                      */}
-          {/* ---------------------------------------------------- */}
-          <DashboardQuickLinks />
 
           {/* ---------------------------------------------------- */}
           {/* Guided Posture & Movement Assessment — Premium UX       */}
