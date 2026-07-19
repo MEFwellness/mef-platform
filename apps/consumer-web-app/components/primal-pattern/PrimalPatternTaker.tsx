@@ -67,7 +67,7 @@ export function PrimalPatternTaker({
   const [answers, setAnswers] = useState<PrimalPatternAnswers>(initialAnswers);
   const [index, setIndex] = useState(startIndex);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; retry: () => void } | null>(null);
   const [isCompleting, startCompleting] = useTransition();
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -78,7 +78,7 @@ export function PrimalPatternTaker({
   }, [showResumeBanner]);
 
   useEffect(() => {
-    setErrorMessage(null);
+    setError(null);
   }, [index]);
 
   useEffect(() => {
@@ -108,14 +108,14 @@ export function PrimalPatternTaker({
 
     if (!result.ok) {
       setSaveStatus('error');
-      setErrorMessage(result.error);
+      setError({ message: result.error, retry: () => void persist(letters) });
     } else {
       markSaved();
     }
   }
 
   function toggleLetter(letter: Letter) {
-    setErrorMessage(null);
+    setError(null);
     const next = selected.includes(letter)
       ? selected.filter((l) => l !== letter)
       : [...selected, letter];
@@ -124,7 +124,7 @@ export function PrimalPatternTaker({
   }
 
   function handleSkip() {
-    setErrorMessage(null);
+    setError(null);
     setAnswers((prev) => ({ ...prev, [current.number]: [] }));
     void persist([]);
     goNext();
@@ -146,7 +146,10 @@ export function PrimalPatternTaker({
       if (record) {
         router.push(`/assessments/primal-pattern-diet-type/results/${record.id}` as Route);
       } else {
-        setErrorMessage('Something went wrong finishing your assessment. Please try again.');
+        setError({
+          message: 'Something went wrong finishing your assessment.',
+          retry: handleComplete,
+        });
       }
     });
   }
@@ -186,10 +189,17 @@ export function PrimalPatternTaker({
         <PrimalPatternQuestionCard question={current} selected={selected} onToggle={toggleLetter} />
       </div>
 
-      {errorMessage && (
-        <p className="mt-3 text-sm text-red-600" role="alert">
-          {errorMessage}
-        </p>
+      {error && (
+        <div className="mt-3 flex items-center gap-3" role="alert">
+          <p className="text-sm text-red-600">{error.message}</p>
+          <button
+            type="button"
+            onClick={error.retry}
+            className="shrink-0 rounded-full px-3 py-1 text-sm font-semibold text-red-700 underline decoration-red-300 underline-offset-2 hover:text-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+          >
+            Retry
+          </button>
+        </div>
       )}
 
       <div className="mt-7 flex items-center justify-between gap-3">
@@ -197,7 +207,7 @@ export function PrimalPatternTaker({
           type="button"
           onClick={goPrev}
           disabled={index === 0}
-          className="inline-flex items-center gap-1 rounded-2xl px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#F3F6F4] disabled:opacity-30 disabled:hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+          className="inline-flex items-center gap-1 rounded-2xl px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#F3F6F4] active:scale-[0.97] disabled:opacity-30 disabled:hover:bg-transparent disabled:active:scale-100 motion-reduce:active:scale-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
         >
           <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           Previous
@@ -207,7 +217,7 @@ export function PrimalPatternTaker({
           <button
             type="button"
             onClick={handleSkip}
-            className="rounded-2xl px-4 py-3 text-sm font-medium text-[#6B7A72] transition hover:bg-[#F3F6F4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+            className="rounded-2xl px-4 py-3 text-sm font-medium text-[#6B7A72] transition hover:bg-[#F3F6F4] active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
           >
             Skip
           </button>
@@ -217,7 +227,7 @@ export function PrimalPatternTaker({
               type="button"
               onClick={handleComplete}
               disabled={isCompleting}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100 motion-reduce:active:scale-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
             >
               {isCompleting && (
                 <Loader2
@@ -232,7 +242,7 @@ export function PrimalPatternTaker({
               type="button"
               onClick={goNext}
               disabled={selected.length === 0}
-              className="inline-flex items-center gap-1 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+              className="inline-flex items-center gap-1 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100 motion-reduce:active:scale-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
             >
               Next
               <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />

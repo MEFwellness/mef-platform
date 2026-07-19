@@ -58,7 +58,10 @@ export function HeroResultCard({
       <p className="relative mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-[#C9A227]">
         Your Result
       </p>
-      <h1 className="relative mt-2 font-[family-name:var(--font-cormorant-garamond)] text-5xl leading-none text-white sm:text-6xl">
+      <h1
+        className="mef-pop-in relative mt-2 font-[family-name:var(--font-cormorant-garamond)] text-5xl leading-none text-white sm:text-6xl"
+        style={{ animationDelay: '150ms' }}
+      >
         {copy?.label ?? 'Unavailable'}
       </h1>
 

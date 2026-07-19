@@ -53,7 +53,7 @@ export function PrimalPatternQuestionCard({ question, selected, onToggle }: Prop
               role="checkbox"
               aria-checked={isSelected}
               onClick={() => onToggle(letter)}
-              className={`group flex w-full items-start gap-4 rounded-3xl border-2 p-5 text-left transition-all duration-200 sm:p-6 ${
+              className={`group flex w-full items-start gap-4 rounded-3xl border-2 p-5 text-left transition-all duration-200 active:scale-[0.985] motion-reduce:active:scale-100 sm:p-6 ${
                 isSelected
                   ? 'border-[#1B3A2D] bg-[#F3F6F4] shadow-[0_6px_24px_-8px_rgba(27,58,45,0.25)]'
                   : 'border-[#EDEBE3] bg-white hover:border-[#1B3A2D]/25 hover:bg-[#FAFAF8]'
