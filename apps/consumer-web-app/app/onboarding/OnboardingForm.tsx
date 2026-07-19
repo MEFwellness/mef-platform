@@ -36,6 +36,33 @@ type StoredAnswer = {
 // focus-on-invalid mechanism as every other question type.
 type Focusable = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
 
+/**
+ * Friendlier display labels for specific enum values that read better as
+ * a full phrase than as their normalized value uppercased (e.g. the
+ * primary_concern/goal question's "pain" -> "GET OUT OF PAIN"). Falls
+ * back to the generic value.replaceAll('_', ' ') for every value not
+ * listed here (short enums like sleep-hours buckets read fine as-is),
+ * so this stays additive rather than a per-question special case.
+ */
+const ENUM_OPTION_LABELS: Record<string, string> = {
+  pain: 'Get out of pain',
+  energy: 'Improve my energy',
+  sleep: 'Sleep better',
+  stress: 'Reduce stress',
+  weight: 'Lose weight',
+  digestion: 'Improve digestion',
+  movement: 'Move better',
+  performance: 'Increase performance',
+  healthy_aging: 'Age healthier',
+  habits: 'Build healthier habits',
+  general_optimization: 'Overall wellness',
+  other: 'Something else',
+};
+
+function enumOptionLabel(option: string): string {
+  return ENUM_OPTION_LABELS[option] ?? option.replaceAll('_', ' ');
+}
+
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const INPUT =
   'mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
@@ -227,7 +254,7 @@ export function OnboardingForm({
                       : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
                 }`}
               >
-                {option.replaceAll('_', ' ')}
+                {enumOptionLabel(option)}
                 {isSelected && (
                   <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={3} aria-hidden="true" />
                 )}
