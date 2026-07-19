@@ -13,12 +13,14 @@
 import { redirect } from 'next/navigation';
 import { ClipboardList } from 'lucide-react';
 import { getMyQuestionnaireList } from '@/app/actions/assessments';
+import { getMyPrimalPatternListItem } from '@/app/actions/primal-pattern';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { AvatarLink } from '@/components/AvatarLink';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { QuestionnaireCard } from '@/components/questionnaires/QuestionnaireCard';
+import { PrimalPatternQuestionnaireCard } from '@/components/primal-pattern/PrimalPatternQuestionnaireCard';
 
 export default async function QuestionnairesPage() {
   const supabase = createClient();
@@ -27,9 +29,10 @@ export default async function QuestionnairesPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, questionnaires, { data: profile }] = await Promise.all([
+  const [isCoach, questionnaires, primalPattern, { data: profile }] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     getMyQuestionnaireList(),
+    getMyPrimalPatternListItem(),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
   ]);
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
@@ -55,6 +58,7 @@ export default async function QuestionnairesPage() {
         </p>
 
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {primalPattern && <PrimalPatternQuestionnaireCard item={primalPattern} />}
           {questionnaires.map((item) => (
             <QuestionnaireCard key={item.questionnaireId} item={item} />
           ))}
