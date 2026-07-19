@@ -19,6 +19,20 @@ import path from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { beforeAll } from 'vitest';
 
+// @supabase/supabase-js's realtime-js constructs a RealtimeClient on every
+// createClient() call (even though these tests never subscribe to a
+// channel), and it throws "Node.js detected but native WebSocket not
+// found" if globalThis.WebSocket is missing. Native WebSocket only landed
+// in Node 22 — CI's lint-and-typecheck job already moved on, but
+// db-and-permission-tests still runs on Node 20 (ci.yml), so this
+// polyfills the same gap the browser fills for the real app (which never
+// needs this — it always has a real window.WebSocket). Guarded so it's a
+// no-op on Node 22+, where nothing needs to change.
+if (typeof globalThis.WebSocket === 'undefined') {
+  const { WebSocket } = await import('ws');
+  globalThis.WebSocket = WebSocket as unknown as typeof globalThis.WebSocket;
+}
+
 function loadEnvLocal() {
   const envPath = path.resolve(__dirname, '../../.env.local');
   if (!existsSync(envPath)) return;
