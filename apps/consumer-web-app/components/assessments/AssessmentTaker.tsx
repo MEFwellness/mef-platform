@@ -146,6 +146,17 @@ export function AssessmentTaker({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isCompleting, startCompleting] = useTransition();
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * The most recent in-flight submitAssessmentAnswer/submitAssessmentContext
+   * call. Every save is fire-and-forget from the tapping member's point of
+   * view (see handleSelectOption/handleSelectContext below — nothing awaits
+   * it there, so the auto-advance stays instant), but completing the
+   * assessment is not allowed to race it: handleComplete awaits this before
+   * calling completeMyAssessment, so a member who answers the very last
+   * question and immediately taps "See my results" can never have the
+   * server check completeness before that last answer has actually landed.
+   */
+  const pendingSaveRef = useRef<Promise<unknown> | null>(null);
 
   useEffect(() => {
     return () => {
@@ -201,7 +212,7 @@ export function AssessmentTaker({
       [category.id]: { ...prev[category.id], [question.number]: optionIndex },
     }));
 
-    submitAssessmentAnswer(
+    pendingSaveRef.current = submitAssessmentAnswer(
       questionnaire.id,
       assessmentId,
       category.id,
@@ -227,7 +238,7 @@ export function AssessmentTaker({
     setSaveError(null);
     setContext((prev) => ({ ...prev, [key]: value }));
 
-    submitAssessmentContext(questionnaire.id, assessmentId, key, value)
+    pendingSaveRef.current = submitAssessmentContext(questionnaire.id, assessmentId, key, value)
       .then((result) => {
         if (!result.ok) setSaveError(result.error);
       })
@@ -241,6 +252,14 @@ export function AssessmentTaker({
   function handleComplete() {
     startCompleting(async () => {
       try {
+        // Wait for the last answer's save to actually land before asking the
+        // server to check completeness — otherwise a fast tap on "See my
+        // results" right after the final answer can lose this exact race and
+        // fail with "unanswered questions" even though the member answered
+        // everything.
+        if (pendingSaveRef.current) {
+          await pendingSaveRef.current;
+        }
         const result = await completeMyAssessment(questionnaire.id, assessmentId);
         if (result) {
           router.push(`/assessments/${questionnaire.id}/results/${result.record.id}` as Route);
