@@ -1,8 +1,8 @@
 /**
  * Elegant, minimal explanation of the three zones printed on the source
  * instrument's "Suggested Use of Exercise" table (docs/assessments/
- * four-doctors/SPEC.md section 7): a color swatch, the zone's own name,
- * and one short phrase, never a paragraph. Reads the same ZONES config
+ * four-doctors/SPEC.md section 7): each zone gets its own softly tinted
+ * card in its own color, never a paragraph. Reads the same ZONES config
  * the Wheel and Doctor cards use, so a color here always matches what a
  * member already saw elsewhere on the page.
  */
@@ -15,19 +15,27 @@ export function ZoneLegend() {
       <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
         Understanding Your Zones
       </p>
-      <div className="mt-5 space-y-4">
+      <div className="mt-5 space-y-3">
         {ZONE_ORDER.map((zoneId) => {
           const zone = ZONES[zoneId];
           return (
-            <div key={zone.id} className="flex items-start gap-3">
+            <div
+              key={zone.id}
+              className="flex items-start gap-3.5 rounded-2xl p-4"
+              style={{ backgroundColor: zone.tint }}
+            >
               <span
-                className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full"
-                style={{ backgroundColor: zone.color }}
+                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                style={{ backgroundColor: zone.color, color: '#FFFFFF' }}
                 aria-hidden="true"
-              />
+              >
+                {zone.label.charAt(0)}
+              </span>
               <div>
-                <p className="text-sm font-semibold text-[#1B3A2D]">{zone.label}</p>
-                <p className="mt-0.5 text-sm leading-relaxed text-[#6B7A72]">{zone.meaning}</p>
+                <p className="text-sm font-semibold" style={{ color: zone.color }}>
+                  {zone.label}
+                </p>
+                <p className="mt-0.5 text-sm leading-relaxed text-[#1B3A2D]/80">{zone.meaning}</p>
               </div>
             </div>
           );

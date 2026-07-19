@@ -45,7 +45,7 @@ function NextStepCardItem({ card }: { card: NextStepCard }) {
   const content = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F3F6F4] text-[#1B3A2D]">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EFF6F1] text-[#1B3A2D]">
           <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
         </span>
         {card.status === 'coming_soon' && (
@@ -65,7 +65,7 @@ function NextStepCardItem({ card }: { card: NextStepCard }) {
     return (
       <Link
         href={card.href as Route}
-        className="mef-focus-ring block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        className="mef-focus-ring block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_32px_-8px_rgba(27,58,45,0.18)]"
       >
         {content}
       </Link>
@@ -73,7 +73,7 @@ function NextStepCardItem({ card }: { card: NextStepCard }) {
   }
 
   return (
-    <div className="rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
+    <div className="rounded-[28px] bg-white/70 p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.06)]">
       {content}
     </div>
   );

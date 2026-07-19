@@ -19,7 +19,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import type { Route } from 'next';
-import { History, ShieldCheck } from 'lucide-react';
+import { ChevronRight, History, ShieldCheck } from 'lucide-react';
 import { getMyAssessmentResult } from '@/app/actions/assessments';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
@@ -69,7 +69,7 @@ export default async function FourDoctorsResultsPage({
 
         <h1 className="sr-only">{copy.displayTitle} results</h1>
 
-        <div className="mt-4 space-y-5">
+        <div className="mt-4 space-y-6">
           <HealthSnapshotHero
             categories={orderedCategories}
             totalScore={result.record.totalScore!}
@@ -96,19 +96,26 @@ export default async function FourDoctorsResultsPage({
 
           <Link
             href={`/assessments/${QUESTIONNAIRE_ID}/history` as Route}
-            className="mef-animate-in mef-focus-ring flex items-center justify-between rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+            className="mef-animate-in mef-focus-ring flex items-center justify-between rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_32px_-8px_rgba(27,58,45,0.18)]"
             style={{ animationDelay: '320ms' }}
           >
-            <div className="flex items-center gap-2 text-[#6B7A72]">
-              <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <div className="flex items-center gap-2.5 text-[#1B3A2D]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EFF6F1]">
+                <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              </span>
               <p className="text-sm font-semibold uppercase tracking-wider">
                 Assessment history &amp; comparison
               </p>
             </div>
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-[#6B7A72]"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
           </Link>
         </div>
 
-        <section className="mt-6 flex items-start gap-3 px-1">
+        <section className="mt-7 flex items-start gap-3 px-1">
           <ShieldCheck
             className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]"
             strokeWidth={1.75}
