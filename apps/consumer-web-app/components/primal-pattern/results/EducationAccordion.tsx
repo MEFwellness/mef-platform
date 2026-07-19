@@ -3,9 +3,7 @@
  * Food Quality). Built on native <details>/<summary> rather than a
  * hand-rolled ARIA accordion: it's keyboard-operable and screen-reader
  * friendly by default (open/closed state, toggling) with zero extra
- * state management, which matches this prompt's own instruction that
- * "the structure matters more than the wording" right now. Copy is
- * intentionally placeholder (EDUCATION_TOPICS).
+ * state management. Copy lives in EDUCATION_TOPICS.
  */
 
 import { ChevronDown } from 'lucide-react';

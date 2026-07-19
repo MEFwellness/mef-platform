@@ -1,50 +1,69 @@
 /**
- * PLACEHOLDER COPY — REQUIRES LEGAL REVIEW BEFORE ANY REAL USER SEES IT.
+ * Consent surface copy, shown once on "Before we start" and recorded
+ * per-item in consent_records. Structured so legal counsel can edit the
+ * wording of any `body` field in place without touching layout: each
+ * item is a plain { type, title, body } record rendered generically by
+ * ConsentForm.tsx, so a wording change here is the entire change.
  *
- * Per Architecture v2.1 Section H, the actual wording of every consent
- * surface is a legal dependency, not an engineering decision. This file
- * exists so Sprint 1 has a working consent flow to build and test against;
- * none of this text should be treated as final. CONSENT_VERSION is bumped
- * whenever the copy changes, and every consent_records row stores exactly
- * which version the member agreed to and when.
+ * `type` is a stored, RLS-covered enum value (consent_records.consent_type,
+ * migration 5) read by hasCompletedConsent() to gate onboarding — it is
+ * an internal record key, never shown to a member, so it stays stable
+ * even where the visible `title` changes. CONSENT_VERSION is bumped
+ * whenever body copy changes, so every consent_records row keeps an
+ * exact record of which version a member agreed to and when.
  */
 
-export const CONSENT_VERSION = 'v1-placeholder';
+export const CONSENT_VERSION = 'v2';
 
 export const CONSENT_ITEMS = [
   {
     type: 'terms_of_use',
     title: 'Terms of use',
     body:
-      'PLACEHOLDER — LEGAL REVIEW REQUIRED. By continuing, you agree to use ' +
-      'MEF Wellness in accordance with our terms of use.',
+      'By creating an account, you agree to use MEF Wellness for its intended ' +
+      'purpose: tracking your daily wellness, working with your assigned coach, ' +
+      'and completing the assessments and check-ins available on the platform. ' +
+      'Keep your login credentials private, and let us know right away if you ' +
+      'suspect unauthorized access to your account. We may update these terms ' +
+      'as the platform evolves; continuing to use MEF Wellness after an update ' +
+      'means you accept the current version.',
   },
   {
     type: 'privacy_policy',
     title: 'Privacy policy',
     body:
-      'PLACEHOLDER — LEGAL REVIEW REQUIRED. This explains what data we ' +
-      'collect, how it is stored, and who can access it, including your ' +
-      'assigned coach.',
+      'We collect what you enter directly (check-ins, assessments, profile ' +
+      'details, messages to your coach) and what the platform observes as you ' +
+      'use it (habit completions, progress history). This information is used ' +
+      'to run your coaching experience: your assigned coach can see the data ' +
+      'relevant to supporting you, and it is never sold or shared with ' +
+      'advertisers. You can request a copy of your data or ask us to delete ' +
+      'your account at any time from your profile settings or by contacting ' +
+      'support.',
   },
   {
     type: 'wellness_education_disclaimer',
     title: 'Wellness education disclaimer',
     body:
-      'PLACEHOLDER — LEGAL REVIEW REQUIRED. MEF Wellness provides ' +
-      'educational, non-diagnostic wellness coaching. It is not a substitute ' +
-      'for professional medical advice, diagnosis, or treatment. Always seek ' +
+      'MEF Wellness provides educational, non-diagnostic wellness coaching. ' +
+      'It is not a substitute for professional medical advice, diagnosis, or ' +
+      'treatment, and your coach is not acting as your physician. Always seek ' +
       'the advice of a qualified health provider with questions about a ' +
-      'medical condition.',
+      'medical condition, and never disregard professional medical advice or ' +
+      'delay seeking it because of something you read here.',
   },
   {
     type: 'ai_assisted_processing',
-    title: 'AI-assisted processing disclosure',
+    title: 'Data usage notice',
     body:
-      'PLACEHOLDER — LEGAL REVIEW REQUIRED. Some of your check-in data may ' +
-      'be processed by automated systems, including AI models, to help ' +
-      'surface patterns and educational content. No automated system ' +
-      'diagnoses you or makes medical decisions on your behalf.',
+      'Some of your check-in and assessment data is analyzed by automated ' +
+      'systems to help surface patterns over time (trends in your sleep, ' +
+      'energy, or mood, for example) and to power personalized coaching ' +
+      'insights and progress tracking. This processing supports the ' +
+      'education and pattern-recognition your coach uses to guide you; it ' +
+      'never produces a diagnosis or makes a medical decision on your ' +
+      'behalf, and a person, your coach, remains responsible for the ' +
+      'guidance you receive.',
   },
 ] as const;
 

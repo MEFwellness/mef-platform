@@ -38,7 +38,7 @@ export function MovementStatsGrid({
           <p className="mt-auto text-sm text-[#6B7A72]">Building your score</p>
         )}
         <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-[#1B3A2D]/35">
-          Placeholder metric
+          Early version, more depth coming
         </p>
       </div>
 
