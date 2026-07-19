@@ -75,12 +75,14 @@ import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
 import { DashboardQuickLinks } from '@/components/DashboardQuickLinks';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
-import { getTodaysHydrationTotal, getTodaysMovementEvents } from '@/app/actions/events';
+import { getTodaysHydrationTotal } from '@/app/actions/events';
 import { getTodaysEveningReflection } from '@/app/actions/eveningReflection';
 import { HydrationTracker } from '@/components/checkin/HydrationTracker';
-import { MovementLogger } from '@/components/checkin/MovementLogger';
 import { ConcernFlag } from '@/components/checkin/ConcernFlag';
 import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection';
+import { getMyQuestionnaireList } from '@/app/actions/assessments';
+import { getMyPrimalPatternListItem } from '@/app/actions/primal-pattern';
+import { QuestionnairesHomeCard, type HomeQuestionnaireItem } from '@/components/questionnaires/QuestionnairesHomeCard';
 import {
   stressStatus,
   painStatus,
@@ -152,18 +154,53 @@ export default async function DashboardPage({
   // connected wearable replaces the "unlock" pitch with today's real
   // recovery numbers; no connection at all also triggers the one-time
   // welcome modal below.
-  const [{ data: profile }, isCoach, wearableConnections, decision, morningBrief, baseline, bodyAssessments] =
-    await Promise.all([
-      supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
-      hasActiveRole(supabase, user.id, 'coach'),
-      getMyWearableConnections(),
-      getMyCoachingDecision(),
-      getMyMorningBrief(),
-      getMyBaselineAssessment(),
-      getMyAssessmentsAction(),
-    ]);
+  const [
+    { data: profile },
+    isCoach,
+    wearableConnections,
+    decision,
+    morningBrief,
+    baseline,
+    bodyAssessments,
+    questionnaireList,
+    primalPatternItem,
+  ] = await Promise.all([
+    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+    hasActiveRole(supabase, user.id, 'coach'),
+    getMyWearableConnections(),
+    getMyCoachingDecision(),
+    getMyMorningBrief(),
+    getMyBaselineAssessment(),
+    getMyAssessmentsAction(),
+    getMyQuestionnaireList(),
+    getMyPrimalPatternListItem(),
+  ]);
   const movementAnalyzed = bodyAssessments.some((a) => a.completed_at !== null);
   const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
+
+  // Normalizes both questionnaire sources (registry-based + Primal
+  // Pattern's own result shape) into one list Home's Questionnaires card
+  // can render without knowing either source's scoring details.
+  const homeQuestionnaireItems: HomeQuestionnaireItem[] = [
+    ...(primalPatternItem
+      ? [
+          {
+            questionnaireId: primalPatternItem.questionnaireId,
+            title: primalPatternItem.title,
+            status: primalPatternItem.status,
+            draft: primalPatternItem.draft,
+            resultId: primalPatternItem.latestCompleted?.id ?? null,
+          },
+        ]
+      : []),
+    ...questionnaireList.map((item) => ({
+      questionnaireId: item.questionnaireId,
+      title: item.title,
+      status: item.status,
+      draft: item.draft,
+      resultId: item.latestCompleted?.id ?? null,
+    })),
+  ];
 
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
@@ -176,13 +213,12 @@ export default async function DashboardPage({
   // rootScoreSnapshot reads today's already-calculated snapshot (or
   // calculates it once, the first time it's asked for today) — see
   // lib/scoring/service.ts; it never recalculates on every render.
-  const [todaysCheckin, recentCheckins, rootScoreSnapshot, hydrationTotal, todaysMovementEvents, eveningReflection] =
+  const [todaysCheckin, recentCheckins, rootScoreSnapshot, hydrationTotal, eveningReflection] =
     await Promise.all([
       getTodaysCheckin(localDate),
       getRecentCheckins(12),
       getMyRootScore(localDate, timezone),
       getTodaysHydrationTotal(),
-      getTodaysMovementEvents(),
       getTodaysEveningReflection(),
     ]);
 
@@ -251,26 +287,16 @@ export default async function DashboardPage({
           <RootScoreCard snapshot={rootScoreSnapshot} />
 
           {/* ---------------------------------------------------- */}
-          {/* Today's Wellness — Morning Readiness Score (shown the   */}
-          {/* moment its own morning inputs exist) and the Daily      */}
-          {/* Wellness Score (shown only once Morning Readiness AND   */}
-          {/* an Evening Reflection both exist for today — never a    */}
-          {/* zero or placeholder before then). See                   */}
-          {/* components/checkin/DailyWellnessSection.tsx.            */}
+          {/* Questionnaires — a dedicated, premium summary card      */}
+          {/* directly below Root Score. Real completion progress     */}
+          {/* across every registered questionnaire (registry-based   */}
+          {/* + Primal Pattern), backed by getMyQuestionnaireList()    */}
+          {/* and getMyPrimalPatternListItem(). Questionnaires-only:   */}
+          {/* no check-ins, movement, Food Lens, or Concern belong     */}
+          {/* here — those live in their own sections below. See       */}
+          {/* components/questionnaires/QuestionnairesHomeCard.tsx.    */}
           {/* ---------------------------------------------------- */}
-          <DailyWellnessSection checkin={todaysCheckin} eveningReflection={eveningReflection} />
-
-          {/* ---------------------------------------------------- */}
-          {/* Live, throughout-the-day logging — movement logged as   */}
-          {/* it happens and mid-day concern flagging, both writing   */}
-          {/* through the standardized member event stream (see       */}
-          {/* app/actions/events.ts). Hydration's own live tracker    */}
-          {/* replaces the static Water card further down.            */}
-          {/* ---------------------------------------------------- */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <MovementLogger todaysCount={todaysMovementEvents.length} />
-            <ConcernFlag />
-          </div>
+          <QuestionnairesHomeCard items={homeQuestionnaireItems} />
 
           {/* ---------------------------------------------------- */}
           {/* Movement + Food Lens + Progress quick links — their     */}
@@ -279,6 +305,27 @@ export default async function DashboardPage({
           {/* components/DashboardQuickLinks.tsx.                      */}
           {/* ---------------------------------------------------- */}
           <DashboardQuickLinks />
+
+          {/* ---------------------------------------------------- */}
+          {/* Mid-day concern flagging — writes through the           */}
+          {/* standardized member event stream (see                   */}
+          {/* app/actions/events.ts). The ad-hoc "Log movement"        */}
+          {/* widget that used to sit here was removed in favor of     */}
+          {/* the Questionnaires card above; movement logging still    */}
+          {/* lives on the Movement quick-link (/movement) via         */}
+          {/* Movement Intelligence sessions.                          */}
+          {/* ---------------------------------------------------- */}
+          <ConcernFlag />
+
+          {/* ---------------------------------------------------- */}
+          {/* Today's Wellness — Morning Readiness Score (shown the   */}
+          {/* moment its own morning inputs exist) and the Daily      */}
+          {/* Wellness Score (shown only once Morning Readiness AND   */}
+          {/* an Evening Reflection both exist for today — never a    */}
+          {/* zero or placeholder before then). See                   */}
+          {/* components/checkin/DailyWellnessSection.tsx.            */}
+          {/* ---------------------------------------------------- */}
+          <DailyWellnessSection checkin={todaysCheckin} eveningReflection={eveningReflection} />
 
           {/* ---------------------------------------------------- */}
           {/* Guided Posture & Movement Assessment — Premium UX       */}
