@@ -2,15 +2,18 @@
 
 /**
  * Visual "how balanced are you" storytelling, deliberately not a table:
- * four horizontal bars, ranked strongest to weakest (by health ratio,
+ * four rows, ranked strongest to weakest (by health ratio,
  * `1 - score/maxScore`, the same "fuller is healthier" convention as
- * ScoreRing.tsx and CategoryRadarChart.tsx), each filled with its own
- * zone color, with the strongest and weakest called out by label so a
- * member reads "where I'm strongest / where I need the most attention"
+ * ScoreRing.tsx and CategoryRadarChart.tsx), each with its own doctor
+ * icon and a bar filled in its zone color, with the strongest and
+ * weakest called out by a badge on its own line (never sharing a line
+ * with the score, so neither wraps into the other on a narrow phone) so
+ * a member reads "where I'm strongest / where I need the most attention"
  * in one glance rather than by comparing four numbers themselves.
  */
 
 import { useEffect, useState } from 'react';
+import { getDoctorIcon } from '@/lib/assessments/four-doctors/premium/icons';
 import { zoneForPriority } from '@/lib/assessments/four-doctors/premium/zones';
 import type { CategoryScoreResult } from '@/lib/assessments/engine/types';
 
@@ -38,35 +41,53 @@ export function BalanceOverview({ categories }: { categories: CategoryScoreResul
         Where you&apos;re strongest, and where to focus next.
       </p>
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-7 space-y-6">
         {ranked.map((category, index) => {
+          const Icon = getDoctorIcon(category.categoryId);
           const zone = zoneForPriority(category.priority);
           const ratio = healthRatio(category);
           const delayMs = index * 130;
           const isStrongest = category.categoryId === strongestId;
           const isWeakest = category.categoryId === weakestId;
           return (
-            <div key={category.categoryId}>
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="flex items-center gap-2 font-medium text-[#1B3A2D]">
-                  {category.categoryName}
-                  {isStrongest && (
-                    <span className="rounded-full bg-[#E8F0EA] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#4F7A63]">
+            <div
+              key={category.categoryId}
+              className="transition-opacity duration-500 motion-reduce:transition-none"
+              style={{ opacity: mounted ? 1 : 0, transitionDelay: `${delayMs}ms` }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2.5">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: zone.tint, color: zone.color }}
+                  >
+                    <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  </span>
+                  <span className="text-sm font-semibold text-[#1B3A2D]">
+                    {category.categoryName}
+                  </span>
+                </span>
+                <span className="shrink-0 text-xs font-medium text-[#6B7A72]">
+                  {category.score} <span className="text-[#B7C1BA]">of</span> {category.maxScore}
+                </span>
+              </div>
+
+              {(isStrongest || (isWeakest && !isStrongest)) && (
+                <p className="ml-[42px] mt-1">
+                  {isStrongest ? (
+                    <span className="rounded-full bg-[#E8F0EA] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#4F7A63]">
                       Strongest
                     </span>
-                  )}
-                  {isWeakest && !isStrongest && (
-                    <span className="rounded-full bg-[#F5E9E3] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#B0522D]">
+                  ) : (
+                    <span className="rounded-full bg-[#F5E9E3] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#B0522D]">
                       Focus here
                     </span>
                   )}
-                </span>
-                <span className="text-xs text-[#6B7A72]">
-                  {category.score} of {category.maxScore}
-                </span>
-              </div>
+                </p>
+              )}
+
               <div
-                className="mt-2 h-3 w-full overflow-hidden rounded-full bg-[#F3F6F4]"
+                className="mt-2.5 ml-[42px] h-4 overflow-hidden rounded-full bg-[#F3F6F4]"
                 role="img"
                 aria-label={`${category.categoryName}: ${zone.label} zone, ${category.score} of ${category.maxScore}`}
               >

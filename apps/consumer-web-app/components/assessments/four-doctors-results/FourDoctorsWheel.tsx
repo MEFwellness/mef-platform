@@ -10,6 +10,10 @@
  * what CategoryRadarChart.tsx already does elsewhere. Same "mount, then
  * animate on next frame" pattern as ScoreRing.tsx, staggered per segment
  * so each one draws into place in doctor order rather than all at once.
+ *
+ * Styled for the dark hero it lives inside (HealthSnapshotHero.tsx) —
+ * the only place this renders — so the track and center text are tuned
+ * for a dark background rather than a neutral one.
  */
 
 import { useEffect, useState } from 'react';
@@ -30,7 +34,7 @@ export function FourDoctorsWheel({
   totalScore,
   totalMaxScore,
   totalPriority,
-  size = 260,
+  size = 272,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -38,11 +42,11 @@ export function FourDoctorsWheel({
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const stroke = size * 0.1;
+  const stroke = size * 0.09;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const segmentLength = circumference / categories.length;
-  const gap = segmentLength * 0.08;
+  const gap = segmentLength * 0.1;
   const drawLength = segmentLength - gap;
   const overallZone = zoneForPriority(totalPriority);
 
@@ -58,12 +62,17 @@ export function FourDoctorsWheel({
         role="img"
         aria-label={`Four Doctors wheel. ${wheelLabel}. Overall total ${totalScore} of ${totalMaxScore}, ${overallZone.label} zone.`}
       >
+        <defs>
+          <filter id="mef-fdw-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3" floodOpacity="0.35" />
+          </filter>
+        </defs>
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#EFE9DB"
+          stroke="rgba(255,255,255,0.10)"
           strokeWidth={stroke}
         />
         {categories.map((category, index) => {
@@ -81,7 +90,8 @@ export function FourDoctorsWheel({
               strokeLinecap="round"
               strokeDasharray={`${drawLength} ${circumference - drawLength}`}
               strokeDashoffset={mounted ? targetOffset : circumference + targetOffset}
-              className="transition-[stroke-dashoffset] duration-[900ms] ease-out motion-reduce:transition-none"
+              filter="url(#mef-fdw-glow)"
+              className="transition-[stroke-dashoffset] duration-[1000ms] ease-out motion-reduce:transition-none"
               style={{ transitionDelay: `${index * 140}ms` }}
             />
           );
@@ -89,13 +99,15 @@ export function FourDoctorsWheel({
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-        <span className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-none text-[#1B3A2D] sm:text-5xl">
+        <span className="font-[family-name:var(--font-cormorant-garamond)] text-6xl leading-none text-white sm:text-7xl">
           {totalScore}
         </span>
-        <span className="mt-1 text-xs text-[#6B7A72]">of {totalMaxScore}</span>
+        <span className="mt-1.5 text-xs font-medium uppercase tracking-[0.14em] text-[#B7C6BE]">
+          of {totalMaxScore} points
+        </span>
         <span
-          className="mt-3 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider"
-          style={{ color: overallZone.color, backgroundColor: overallZone.tint }}
+          className="mt-4 rounded-full px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider shadow-[0_4px_16px_-4px_rgba(0,0,0,0.35)]"
+          style={{ color: '#12261D', backgroundColor: overallZone.color }}
         >
           {overallZone.label}
         </span>
