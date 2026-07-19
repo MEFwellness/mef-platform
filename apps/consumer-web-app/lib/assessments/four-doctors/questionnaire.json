@@ -1,0 +1,1043 @@
+{
+  "id": "four-doctors",
+  "version": 1,
+  "title": "Four Doctors Assessment Score Sheets (Dr. Happiness, Dr. Quiet, Dr. Diet, Dr. Movement)",
+  "source": "5 score-sheet images provided by the user: 4 single-page Yes/No questionnaires (Dr. Happiness, Dr. Quiet, Dr. Diet, Dr. Movement) plus a combined \"Suggested Use of Exercise\" master lookup table. See docs/assessments/four-doctors/SPEC.md for the full extraction record.",
+  "notes": "Higher score = worse (a lifestyle-gap/risk questionnaire, not a wellness score): every question is phrased as a positive practice, and answering No (lacking that practice) is what scores points; Yes always scores 0. Dr. Quiet questions 4-7 are gender-conditional (see contextQuestions and each question's condition) - 4 of Dr. Quiet's 10 questions apply to any one respondent, so its achievable max (80) is lower than the sum of all 10 configured questions (100). Three of the four categories (Dr. Happiness, Dr. Quiet, Dr. Diet) have a documented, unresolved discrepancy between the verified per-question sum and the printed master lookup table's column max - see SPEC.md sections 7-8 for the proportional-scaling reconciliation used to derive priorityBands, and the verified:false / amendment fields below.",
+  "scoring": {
+    "unit": "points",
+    "direction": "higher_is_worse",
+    "categoryScoreFormula": "sum of points of the single option selected per question in the category, counting only questions active for the respondent (see contextQuestions/condition)",
+    "totalScoreFormula": "sum of all category scores",
+    "totalMaxScore": 610,
+    "totalPriorityBands": {
+      "high": {
+        "min": 290,
+        "max": 610
+      },
+      "moderate": {
+        "min": 190,
+        "max": 289
+      },
+      "low": {
+        "min": 0,
+        "max": 189
+      }
+    }
+  },
+  "verification": {
+    "allCategoriesReconciled": false,
+    "categoriesVerified": ["dr_movement"],
+    "categoriesWithDiscrepancy": ["dr_happiness", "dr_quiet", "dr_diet"],
+    "detail": "Dr. Movement's 14-question sum (150) matches the printed master table's column max (150) exactly. Dr. Happiness (160 vs printed 150), Dr. Quiet (100 all-questions / 80 per-respondent-achievable vs printed 110), and Dr. Diet (220 vs printed 230) each have a small, documented discrepancy against the printed 'Suggested Use of Exercise' master table. No corrected/uncropped source page is available to close these fully. Question text, options, and point values are fully verified against the provided images; only the priorityBands thresholds for these 3 categories carry the proportional-scaling caveat documented in SPEC.md section 7 - see each category's own amendment field below."
+  },
+  "categories": [
+    {
+      "id": "dr_happiness",
+      "order": 1,
+      "name": "Dr. Happiness",
+      "zones": [],
+      "maxScore": 160,
+      "verified": false,
+      "amendment": "Verified per-question sum is 160; the printed master table's Dr. Happiness column max is 150 (a 10-point discrepancy). priorityBands below are the printed table's red/yellow floor rows (70, 50) expressed as a percentage of the table's own printed max (150), then re-applied to the verified max of 160 - see SPEC.md section 7.",
+      "priorityBands": {
+        "high": {
+          "min": 75,
+          "max": 160
+        },
+        "moderate": {
+          "min": 55,
+          "max": 74
+        },
+        "low": {
+          "min": 0,
+          "max": 54
+        }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "Do you have an overarching dream/legacy for your life?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        },
+        {
+          "number": 2,
+          "text": "Do you have clearly defined goals to achieve your dream?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 3,
+          "text": "Do you have a clear definition of what \"happiness\" is for you?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 4,
+          "text": "Do you Love yourself?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        },
+        {
+          "number": 5,
+          "text": "Can you look into your own eyes in the mirror and honestly say, \"I love you\" to yourself?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        },
+        {
+          "number": 6,
+          "text": "Do you have clearly defined core values regarding your needs for rest, inner spiritual practice, food, exercise and movement?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 7,
+          "text": "Do you feel happy about yourself and your life without needing to use or take any form of stimulants or drugs?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 8,
+          "text": "Do you make time for unbound play, art or unstructured activities each day?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        },
+        {
+          "number": 9,
+          "text": "If you were to die today, would you die knowing that you have lived fully?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        },
+        {
+          "number": 10,
+          "text": "Are you doing what you love to do to make a living?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        }
+      ]
+    },
+    {
+      "id": "dr_quiet",
+      "order": 2,
+      "name": "Dr. Quiet",
+      "zones": [],
+      "maxScore": 80,
+      "verified": false,
+      "amendment": "10 questions are configured (verbatim from the source page), but only 8 ever apply to one respondent: 6 always-applicable questions (max 60) plus one gender pair (either \"Men\" Q4-5 or \"Women\" Q6-7, each worth 20) - a per-respondent achievable max of 80. A respondent who selects \"Prefer not to say\" for the dr_quiet_gender context question answers only the 6 always-applicable questions (achievable max 60); scoreCategory computes maxScore dynamically per respondent rather than trusting this static field. The printed master table's Dr. Quiet column max is 110, which reconciles with neither 100 (sum of all 10) nor 80 (per-respondent achievable). priorityBands below scale the printed table's red/yellow floor rows (70, 40) as a percentage of the table's own printed max (110), re-applied to the 80-point achievable max - see SPEC.md sections 6-7.",
+      "priorityBands": {
+        "high": {
+          "min": 50,
+          "max": 80
+        },
+        "moderate": {
+          "min": 30,
+          "max": 49
+        },
+        "low": {
+          "min": 0,
+          "max": 29
+        }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "Do you get eight hours of sleep each night?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 2,
+          "text": "Do you have your head on the pillow by 10:00pm most nights?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 5
+            }
+          ],
+          "maxPoints": 5
+        },
+        {
+          "number": 3,
+          "text": "Upon rising, are you \"quick\" to get with it?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 5
+            }
+          ],
+          "maxPoints": 5
+        },
+        {
+          "number": 4,
+          "text": "Men: Do you have a healthy erection most mornings?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10,
+          "condition": {
+            "contextKey": "dr_quiet_gender",
+            "equals": ["male"]
+          }
+        },
+        {
+          "number": 5,
+          "text": "Men: Is your sexual performance optimal; can you bring a partner to orgasm without losing your erection?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10,
+          "condition": {
+            "contextKey": "dr_quiet_gender",
+            "equals": ["male"]
+          }
+        },
+        {
+          "number": 6,
+          "text": "Women: Are you free of menstrual irregularities or vaginal dryness?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10,
+          "condition": {
+            "contextKey": "dr_quiet_gender",
+            "equals": ["female"]
+          }
+        },
+        {
+          "number": 7,
+          "text": "Women: Do you have a healthy interest or desire for sex most days?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10,
+          "condition": {
+            "contextKey": "dr_quiet_gender",
+            "equals": ["female"]
+          }
+        },
+        {
+          "number": 8,
+          "text": "Do you find yourself able to function well without coffee, tea, chocolate (cacao) or the use of stimulants throughout your day?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 9,
+          "text": "Can you work and play throughout your day without feeling the need to sleep/nap?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        },
+        {
+          "number": 10,
+          "text": "Do you make adequate time for introspection, self-reflection and spiritual practice each day?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        }
+      ]
+    },
+    {
+      "id": "dr_diet",
+      "order": 3,
+      "name": "Dr. Diet",
+      "zones": [],
+      "maxScore": 220,
+      "verified": false,
+      "amendment": "Verified per-question sum is 220; the printed master table's Dr. Diet column max is 230 (a 10-point discrepancy). priorityBands below are the printed table's red/yellow floor rows (100, 50) expressed as a percentage of the table's own printed max (230), then re-applied to the verified max of 220 - see SPEC.md section 7.",
+      "priorityBands": {
+        "high": {
+          "min": 95,
+          "max": 220
+        },
+        "moderate": {
+          "min": 50,
+          "max": 94
+        },
+        "low": {
+          "min": 0,
+          "max": 49
+        }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "Is your diet composed of mostly organic produce (vegetables and fruits)?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 2,
+          "text": "Do you eat primarily free-range organic meats?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        },
+        {
+          "number": 3,
+          "text": "Do you include wild caught fish in your diet?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 4,
+          "text": "Do you eat a variety of foods each day during the week and as seasons change?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 5,
+          "text": "Is your diet composed primarily of unprocessed whole foods?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 6,
+          "text": "Do you change how much flesh foods you eat, based on your body-mind needs day-to-day?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 7,
+          "text": "Do you eat in a calm quiet atmosphere and taste and thoroughly chew your food?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 8,
+          "text": "Do you move at least 12 inches (30cm) of feces daily and feel a sense of complete elimination?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 9,
+          "text": "Is your digestion, assimilation and elimination optimal?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 10,
+          "text": "Is your skin healthy?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 11,
+          "text": "Are you drinking approximately half your bodyweight in ounces of high quality water each day?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 12,
+          "text": "Do you feel satiated after eating?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 13,
+          "text": "Do you feel energized after eating?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 14,
+          "text": "Are you free of food cravings such as chocolate or cacao, sugary treats, grains or fats?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 15,
+          "text": "Do your bodily odors (breath, armpits, etc.) smell neutral?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 16,
+          "text": "Do your bowel movements have a healthy earthy smell?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 17,
+          "text": "Do you tend to eat three meals a day at regular times?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 18,
+          "text": "Are your teeth and gums healthy?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 19,
+          "text": "Are you rotating your foods and drinks (water not included) so that you are not eating the same basic foods more than once every three to four days?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        },
+        {
+          "number": 20,
+          "text": "Is either breakfast or lunch the largest meal of your day?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        }
+      ]
+    },
+    {
+      "id": "dr_movement",
+      "order": 4,
+      "name": "Dr. Movement",
+      "zones": [],
+      "maxScore": 150,
+      "verified": true,
+      "priorityBands": {
+        "high": {
+          "min": 70,
+          "max": 150
+        },
+        "moderate": {
+          "min": 50,
+          "max": 69
+        },
+        "low": {
+          "min": 0,
+          "max": 49
+        }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "When you take a deep breath, does your belly expand before your chest moves?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 2,
+          "text": "Do you get a minimum of 30 minutes of exercise each day?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 3,
+          "text": "Can you exercise regardless of current body and movement challenges?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 4,
+          "text": "Do you consider yourself at optimal weight and body fat for your body?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 5,
+          "text": "Is your metabolism functioning optimally?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 20
+            }
+          ],
+          "maxPoints": 20
+        },
+        {
+          "number": 6,
+          "text": "Do you easily put on muscle mass/strength with resistance exercise?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 7,
+          "text": "Do you consider yourself emotionally stable?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 8,
+          "text": "Can you maintain mental focus easily and naturally?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 9,
+          "text": "Do you stretch and mobilize your body to maintain structural balance and energy flow regularly?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 10,
+          "text": "Does your body look and feel younger than your actual age?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 11,
+          "text": "Is your body-mind healthy and fit enough to effectively support the creation of your dreams?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 12,
+          "text": "Can you exercise easily without the use of stimulants or performance enhancements?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 13,
+          "text": "Do you find that your thoughts and beliefs support your overarching dreams and goals?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        },
+        {
+          "number": 14,
+          "text": "Do you warm up quickly and feel good and fully functional to begin exercise?",
+          "type": "binary",
+          "options": [
+            {
+              "label": "Yes",
+              "points": 0
+            },
+            {
+              "label": "No",
+              "points": 10
+            }
+          ],
+          "maxPoints": 10
+        }
+      ]
+    }
+  ],
+  "contextQuestions": [
+    {
+      "key": "dr_quiet_gender",
+      "categoryId": "dr_quiet",
+      "prompt": "A couple of these questions are gender-specific. How do you identify?",
+      "options": [
+        {
+          "label": "Male",
+          "value": "male"
+        },
+        {
+          "label": "Female",
+          "value": "female"
+        },
+        {
+          "label": "Prefer not to say",
+          "value": "unspecified"
+        }
+      ],
+      "helperText": "Choosing Prefer not to say simply skips these two questions. We never guess, estimate, or fill in an answer on your behalf, and your score reflects exactly the questions you chose to answer."
+    }
+  ],
+  "masterScoreSheet": {
+    "title": "Suggested Use of Exercise",
+    "columnOrder": ["dr_happiness", "dr_quiet", "dr_diet", "dr_movement", "four_doctor_total"],
+    "fields": ["Name", "Date"],
+    "administrations": 1
+  }
+}

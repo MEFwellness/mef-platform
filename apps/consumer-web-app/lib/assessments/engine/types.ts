@@ -5,10 +5,10 @@
  * questionnaire. A questionnaire is just data conforming to these shapes,
  * shipped as a config file under lib/assessments/<questionnaire-id>/ and
  * wired up once in lib/assessments/registry.ts. Adding a future
- * questionnaire (a new CHEK HLC level, a different intake instrument,
- * whatever comes next) means adding a new folder with a questionnaire.json
- * + copy.ts and one registry entry — never touching this file, engine/
- * scoring.ts, or any UI component.
+ * questionnaire (a different intake instrument, a new assessment
+ * category, whatever comes next) means adding a new folder with a
+ * questionnaire.json + copy.ts and one registry entry, never touching
+ * this file, engine/scoring.ts, or any UI component.
  */
 
 export type PriorityLevel = 'low' | 'moderate' | 'high';
@@ -20,6 +20,21 @@ export type QuestionOption = {
   points: number;
 };
 
+/**
+ * Gates a question on a member's answer to one of the questionnaire's own
+ * `contextQuestions` (see below) rather than on another scored question —
+ * e.g. a category with a branching intake question could show a different
+ * pair of follow-up questions depending on which option a member picked.
+ * Absent on every question that always applies (every question in every
+ * questionnaire that doesn't declare `contextQuestions`), so this is a
+ * purely additive, opt-in mechanism with no effect on a questionnaire
+ * that never sets it.
+ */
+export type QuestionCondition = {
+  contextKey: string;
+  equals: string[];
+};
+
 export type Question = {
   number: number;
   text: string;
@@ -27,7 +42,29 @@ export type Question = {
   options: QuestionOption[];
   maxPoints: number;
   note?: string;
+  condition?: QuestionCondition;
 };
+
+/**
+ * A small, product-authored (not part of the verbatim source instrument)
+ * intake question shown once during the take flow, before the first
+ * question whose `condition.contextKey` matches. Answers are stored on the
+ * assessment attempt itself (`wellness_assessments.context`), not on the
+ * member's profile — scoped to this one questionnaire, not a durable
+ * member attribute.
+ */
+export type ContextQuestion = {
+  key: string;
+  /** The category this gates — the prompt is shown immediately before that category's first conditional question. */
+  categoryId: string;
+  prompt: string;
+  options: { label: string; value: string }[];
+  /** Optional small reassurance/explanation line shown below the options — e.g. clarifying that skipping is safe and never guessed at on the member's behalf. Omitted entirely (not rendered) when not set. */
+  helperText?: string;
+};
+
+/** Answers to a questionnaire's `contextQuestions`, keyed by `key`. */
+export type AssessmentContext = Record<string, string>;
 
 export type PriorityBand = {
   min: number;
@@ -69,6 +106,7 @@ export type Questionnaire = {
     detail: string;
   };
   categories: Category[];
+  contextQuestions?: ContextQuestion[];
   masterScoreSheet: {
     title: string;
     columnOrder: string[];

@@ -3,10 +3,16 @@
  * engine/types.ts (which describes a questionnaire's *content*): these
  * describe a member's *response* to one, as stored in wellness_assessments/
  * wellness_assessment_answers/wellness_assessment_category_scores
- * (migration 62). Questionnaire-agnostic — nothing here references CHEK.
+ * (migration 62). Questionnaire-agnostic — nothing here references any
+ * one specific assessment.
  */
 
-import type { CategoryScoreResult, PriorityLevel, QuestionnaireAnswers } from './engine/types';
+import type {
+  AssessmentContext,
+  CategoryScoreResult,
+  PriorityLevel,
+  QuestionnaireAnswers,
+} from './engine/types';
 
 export type AssessmentStatus = 'in_progress' | 'completed';
 
@@ -23,6 +29,14 @@ export type AssessmentRecord = {
   totalPriority: PriorityLevel | null;
   startedAt: string;
   completedAt: string | null;
+  /**
+   * Answers to the questionnaire's own `contextQuestions`, if it declares
+   * any, keyed by key. Optional and absent/`{}` for every questionnaire
+   * that doesn't declare `contextQuestions` — this field exists for the
+   * generic conditional-question mechanism in engine/types.ts, not for
+   * any one specific questionnaire.
+   */
+  context?: AssessmentContext;
 };
 
 /** An in-progress assessment plus every answer captured so far — enough to resume the taking flow exactly where it left off. */

@@ -16,7 +16,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { findFirstUnanswered, flattenQuestions } from './engine/navigation';
 import { findCategory, isQuestionnaireComplete, scoreQuestionnaire } from './engine/scoring';
-import type { PriorityLevel, Questionnaire, QuestionnaireAnswers } from './engine/types';
+import type {
+  AssessmentContext,
+  PriorityLevel,
+  Questionnaire,
+  QuestionnaireAnswers,
+} from './engine/types';
 import {
   buildAssessmentComparison,
   findClosestAssessmentOnOrBefore,
@@ -42,6 +47,7 @@ type AssessmentRow = {
   total_priority: PriorityLevel | null;
   started_at: string;
   completed_at: string | null;
+  context: AssessmentContext | null;
 };
 
 function mapRecord(row: AssessmentRow): AssessmentRecord {
@@ -57,6 +63,7 @@ function mapRecord(row: AssessmentRow): AssessmentRecord {
     totalPriority: row.total_priority,
     startedAt: row.started_at,
     completedAt: row.completed_at,
+    context: row.context ?? {},
   };
 }
 
@@ -146,6 +153,38 @@ export async function getOrCreateInProgressAssessment(
 }
 
 /**
+ * Persists one answer to a questionnaire's contextQuestions (e.g. Four
+ * Doctors' gender gate) — a small, generic side-channel on the assessment
+ * row itself, not part of wellness_assessment_answers, since it isn't a
+ * scored question from the source instrument. Merges into the existing
+ * `context` object rather than overwriting it, so answering one context
+ * question never clobbers another.
+ */
+export async function saveContext(
+  supabase: SupabaseClient,
+  assessmentId: string,
+  key: string,
+  value: string
+): Promise<void> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('wellness_assessments')
+    .select('context')
+    .eq('id', assessmentId)
+    .single();
+
+  if (fetchError) throw new Error(`Failed to load assessment context: ${fetchError.message}`);
+
+  const nextContext: AssessmentContext = { ...(existing?.context ?? {}), [key]: value };
+
+  const { error: updateError } = await supabase
+    .from('wellness_assessments')
+    .update({ context: nextContext, updated_at: new Date().toISOString() })
+    .eq('id', assessmentId);
+
+  if (updateError) throw new Error(`Failed to save assessment context: ${updateError.message}`);
+}
+
+/**
  * Persists one answer and advances the resume position to the next
  * unanswered question — called after every single tap in the take flow
  * (see app/actions/assessments.ts), which is what makes "auto-save after
@@ -174,9 +213,22 @@ export async function saveAnswer(
 
   if (answerError) throw new Error(`Failed to save answer: ${answerError.message}`);
 
+  // Only questionnaires that declare contextQuestions ever need this extra
+  // read — for any other questionnaire (every one that predates this
+  // mechanism), skip it entirely so the query count here is unchanged.
+  let context: AssessmentContext = {};
+  if (questionnaire.contextQuestions && questionnaire.contextQuestions.length > 0) {
+    const { data: assessmentRow } = await supabase
+      .from('wellness_assessments')
+      .select('context')
+      .eq('id', assessmentId)
+      .single();
+    context = assessmentRow?.context ?? {};
+  }
+
   const answers = await fetchAnswers(supabase, assessmentId);
   const flat = flattenQuestions(questionnaire);
-  const next = findFirstUnanswered(flat, answers);
+  const next = findFirstUnanswered(flat, answers, context);
 
   const { error: positionError } = await supabase
     .from('wellness_assessments')
@@ -205,12 +257,29 @@ export async function completeAssessment(
   questionnaire: Questionnaire,
   assessmentId: string
 ): Promise<AssessmentResult> {
+  // Same guard as saveAnswer above: only fetch context for a questionnaire
+  // that actually declares contextQuestions. Every other questionnaire
+  // completes exactly the same way it did before this mechanism existed.
+  let context: AssessmentContext = {};
+  if (questionnaire.contextQuestions && questionnaire.contextQuestions.length > 0) {
+    const { data: assessmentRow, error: assessmentError } = await supabase
+      .from('wellness_assessments')
+      .select('context')
+      .eq('id', assessmentId)
+      .single();
+
+    if (assessmentError || !assessmentRow) {
+      throw new Error(`Failed to load assessment: ${assessmentError?.message ?? 'not found'}`);
+    }
+    context = assessmentRow.context ?? {};
+  }
+
   const answers = await fetchAnswers(supabase, assessmentId);
-  if (!isQuestionnaireComplete(questionnaire, answers)) {
+  if (!isQuestionnaireComplete(questionnaire, answers, context)) {
     throw new Error('Cannot complete an assessment with unanswered questions.');
   }
 
-  const result = scoreQuestionnaire(questionnaire, answers);
+  const result = scoreQuestionnaire(questionnaire, answers, context);
   const completedAt = new Date().toISOString();
 
   const { data: updated, error: updateError } = await supabase
