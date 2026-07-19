@@ -2,10 +2,22 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { TrendingUp, Flame, MessageCircle, History as HistoryIcon, ArrowRight, ScanFace, ClipboardList } from 'lucide-react';
+import {
+  TrendingUp,
+  Flame,
+  MessageCircle,
+  History as HistoryIcon,
+  ArrowRight,
+  ScanFace,
+  ClipboardList,
+  Lightbulb,
+} from 'lucide-react';
 import { getRecentCheckins } from '@/app/actions/checkin';
 import { getMyWellnessPatterns } from '@/app/actions/wellness-intelligence';
-import { getMyWellnessIdentityHighlights, getMyWellnessStorySummary } from '@/app/actions/intelligence-core';
+import {
+  getMyWellnessIdentityHighlights,
+  getMyWellnessStorySummary,
+} from '@/app/actions/intelligence-core';
 import { getMyHealthProfileSummary } from '@/app/actions/health-profile';
 import { getMyProgressComparison } from '@/app/actions/onboarding';
 import { getMyWearableMetricHistory } from '@/app/actions/wearables';
@@ -102,7 +114,9 @@ export default async function ProgressPage() {
   const history = [...recentCheckins].reverse(); // most recent first for the list
 
   const activeFindingSeverities = healthProfileSummary
-    ? Object.entries(healthProfileSummary.activeRegistryFindingsBySeverity).filter(([, count]) => count > 0)
+    ? Object.entries(healthProfileSummary.activeRegistryFindingsBySeverity).filter(
+        ([, count]) => count > 0
+      )
     : [];
 
   return (
@@ -193,7 +207,10 @@ export default async function ProgressPage() {
             </p>
             <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">
               {activeFindingSeverities
-                .map(([severity, count]) => `${count} ${SEVERITY_LABEL[severity] ?? severity} finding${count === 1 ? '' : 's'}`)
+                .map(
+                  ([severity, count]) =>
+                    `${count} ${SEVERITY_LABEL[severity] ?? severity} finding${count === 1 ? '' : 's'}`
+                )
                 .join(', ')}{' '}
               currently active
               {healthProfileSummary.lastAssessmentPublishedAt
@@ -207,6 +224,17 @@ export default async function ProgressPage() {
 
         <WellnessPatternsPanel insights={wellnessPatterns} />
         <WellnessIdentityPanel highlights={wellnessIdentity} />
+
+        <Link
+          href={'/insights' as Route}
+          className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
+        >
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Lightbulb className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Coaching Insights</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
 
         <AssessmentComparisonView
           metrics={progressComparison.metrics}
