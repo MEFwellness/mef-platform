@@ -69,7 +69,11 @@ export function deriveHabitAdherenceObservation(
     confidence: confidenceFromSample(breaks.length, 0.5, 8, 0.85),
     evidenceCount: breaks.length,
     evidenceRefs: [
-      { type: 'daily_feed_history', id: `${breaks.length}_streak_breaks`, note: `avg ${avgBreak.toFixed(1)} days` },
+      {
+        type: 'daily_feed_history',
+        id: `${breaks.length}_streak_breaks`,
+        note: `avg ${avgBreak.toFixed(1)} days`,
+      },
     ],
     memberVisible: true,
   };
@@ -79,8 +83,12 @@ export function deriveTimeCommitmentObservation(
   historyPairs: FeedHistoryPair[]
 ): WellnessIdentityObservationDraft | null {
   const withContent = historyPairs.filter((p) => p.content !== null);
-  const short = withContent.filter((p) => p.content!.estimated_reading_minutes <= SHORT_CONTENT_MINUTES);
-  const long = withContent.filter((p) => p.content!.estimated_reading_minutes > SHORT_CONTENT_MINUTES);
+  const short = withContent.filter(
+    (p) => p.content!.estimated_reading_minutes <= SHORT_CONTENT_MINUTES
+  );
+  const long = withContent.filter(
+    (p) => p.content!.estimated_reading_minutes > SHORT_CONTENT_MINUTES
+  );
   if (short.length < MIN_BUCKET_SAMPLE || long.length < MIN_BUCKET_SAMPLE) return null;
 
   const shortRate = short.filter((p) => p.feedItem.completed_at).length / short.length;
@@ -95,7 +103,11 @@ export function deriveTimeCommitmentObservation(
     confidence: confidenceFromSample(short.length + long.length, 0.5, 20, 0.85),
     evidenceCount: short.length + long.length,
     evidenceRefs: [
-      { type: 'daily_feed_history', id: 'content_duration_split', note: `short=${short.length}, long=${long.length}` },
+      {
+        type: 'daily_feed_history',
+        id: 'content_duration_split',
+        note: `short=${short.length}, long=${long.length}`,
+      },
     ],
     memberVisible: true,
   };
@@ -104,7 +116,9 @@ export function deriveTimeCommitmentObservation(
 export function deriveMovementResponseObservation(
   checkinsOldestFirst: DailyCheckin[]
 ): WellnessIdentityObservationDraft | null {
-  const withData = checkinsOldestFirst.filter((c) => c.movement_today !== null && c.mood_level !== null);
+  const withData = checkinsOldestFirst.filter(
+    (c) => c.movement_today !== null && c.mood_level !== null
+  );
   const moved = withData.filter((c) => c.movement_today !== 'none');
   const rested = withData.filter((c) => c.movement_today === 'none');
   if (moved.length < MIN_BUCKET_SAMPLE || rested.length < MIN_BUCKET_SAMPLE) return null;
@@ -121,7 +135,11 @@ export function deriveMovementResponseObservation(
     confidence: confidenceFromSample(moved.length + rested.length, 0.5, 20, 0.85),
     evidenceCount: moved.length + rested.length,
     evidenceRefs: [
-      { type: 'daily_checkin_range', id: 'movement_vs_mood', note: `${moved.length} moved, ${rested.length} rest` },
+      {
+        type: 'daily_checkin_range',
+        id: 'movement_vs_mood',
+        note: `${moved.length} moved, ${rested.length} rest`,
+      },
     ],
     memberVisible: true,
   };
@@ -170,7 +188,11 @@ export function deriveSleepCorrelationObservation(
     confidence: confidenceFromSample(highStress.length + lowStress.length, 0.5, 15, 0.85),
     evidenceCount: highStress.length + lowStress.length,
     evidenceRefs: [
-      { type: 'daily_checkin_range', id: 'stress_then_sleep', note: `${highStress.length} high-stress, ${lowStress.length} low-stress pairs` },
+      {
+        type: 'daily_checkin_range',
+        id: 'stress_then_sleep',
+        note: `${highStress.length} high-stress, ${lowStress.length} low-stress pairs`,
+      },
     ],
     memberVisible: true,
   };
@@ -200,7 +222,11 @@ export function derivePainCorrelationObservation(
     confidence: confidenceFromSample(poorSleep.length + goodSleep.length, 0.5, 15, 0.85),
     evidenceCount: poorSleep.length + goodSleep.length,
     evidenceRefs: [
-      { type: 'daily_checkin_range', id: 'sleep_then_pain', note: `${poorSleep.length} poor-sleep, ${goodSleep.length} good-sleep pairs` },
+      {
+        type: 'daily_checkin_range',
+        id: 'sleep_then_pain',
+        note: `${poorSleep.length} poor-sleep, ${goodSleep.length} good-sleep pairs`,
+      },
     ],
     memberVisible: true,
   };
@@ -267,7 +293,9 @@ export function deriveCoachingPreferenceObservation(
   conversationMemory: ConversationMemoryItem[]
 ): WellnessIdentityObservationDraft | null {
   const narrativePrefs = profile.narrativeItems
-    .filter((i) => i.category === 'coaching_preferences' && i.status === 'active' && i.member_visible)
+    .filter(
+      (i) => i.category === 'coaching_preferences' && i.status === 'active' && i.member_visible
+    )
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const memoryPrefs = conversationMemory.filter((m) => m.memory_type === 'preference');
 

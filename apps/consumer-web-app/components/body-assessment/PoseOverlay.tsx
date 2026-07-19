@@ -19,14 +19,21 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { toCoreLandmarks, type CorePoseLandmarks, type RawPoseLandmark } from '@/lib/body-assessment/poseTypes';
+import {
+  toCoreLandmarks,
+  type CorePoseLandmarks,
+  type RawPoseLandmark,
+} from '@/lib/body-assessment/poseTypes';
 import type { PoseMetrics } from '@/lib/body-assessment/poseMetrics';
 import type { CorrectionTarget } from '@/lib/body-assessment/poseValidation';
 
 export type OverlayTone = 'neutral' | 'warning' | 'success';
 
 /** Which skeleton connections (or virtual shoulder/hip-midpoint centerline) get the amber "primary correction" emphasis pass for a given target — kept separate from SKELETON_CONNECTIONS so the normal pass always draws the full skeleton and this is purely an additive highlight on top. */
-const CORRECTION_CONNECTIONS: Record<Exclude<CorrectionTarget, 'frame' | null>, [keyof CorePoseLandmarks, keyof CorePoseLandmarks][]> = {
+const CORRECTION_CONNECTIONS: Record<
+  Exclude<CorrectionTarget, 'frame' | null>,
+  [keyof CorePoseLandmarks, keyof CorePoseLandmarks][]
+> = {
   head: [['leftEar', 'rightEar']],
   shoulders: [['leftShoulder', 'rightShoulder']],
   hips: [['leftHip', 'rightHip']],
@@ -188,7 +195,11 @@ export function PoseOverlay({
     for (const [a, b] of SKELETON_CONNECTIONS) {
       const pa = landmarks[a];
       const pb = landmarks[b];
-      if (visOf(pa.visibility) < CONFIDENT_VISIBILITY || visOf(pb.visibility) < CONFIDENT_VISIBILITY) continue;
+      if (
+        visOf(pa.visibility) < CONFIDENT_VISIBILITY ||
+        visOf(pb.visibility) < CONFIDENT_VISIBILITY
+      )
+        continue;
       const { x: x1, y: y1 } = toPx(pa);
       const { x: x2, y: y2 } = toPx(pb);
       ctx.beginPath();
@@ -219,7 +230,11 @@ export function PoseOverlay({
         for (const [a, b] of CORRECTION_CONNECTIONS[correctionTarget]) {
           const pa = landmarks[a];
           const pb = landmarks[b];
-          if (visOf(pa.visibility) < CONFIDENT_VISIBILITY || visOf(pb.visibility) < CONFIDENT_VISIBILITY) continue;
+          if (
+            visOf(pa.visibility) < CONFIDENT_VISIBILITY ||
+            visOf(pb.visibility) < CONFIDENT_VISIBILITY
+          )
+            continue;
           const { x: x1, y: y1 } = toPx(pa);
           const { x: x2, y: y2 } = toPx(pb);
           ctx.beginPath();
@@ -251,7 +266,8 @@ export function PoseOverlay({
       ctx.moveTo(cx, cy - 4);
       ctx.lineTo(cx, cy + 4);
       ctx.stroke();
-      ctx.fillStyle = Math.abs(signedTilt) < 0.25 ? 'rgba(52,211,153,0.95)' : 'rgba(251,191,36,0.95)';
+      ctx.fillStyle =
+        Math.abs(signedTilt) < 0.25 ? 'rgba(52,211,153,0.95)' : 'rgba(251,191,36,0.95)';
       ctx.beginPath();
       ctx.arc(cx + signedTilt * trackHalfWidth, cy, 4.5, 0, Math.PI * 2);
       ctx.fill();

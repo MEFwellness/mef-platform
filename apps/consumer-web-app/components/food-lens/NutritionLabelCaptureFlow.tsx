@@ -102,7 +102,9 @@ export function NutritionLabelCaptureFlow() {
 
       goToNextOptionalOrFinish(currentScanId);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      );
       setPhase('error');
     }
   }
@@ -141,12 +143,16 @@ export function NutritionLabelCaptureFlow() {
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
           Use this when a product isn&apos;t in our database yet. You&apos;ll photograph the
-          Nutrition Facts panel, then you can add the ingredient list, allergen statement, and
-          front of package too — each as its own photo. You&apos;ll review and confirm everything
-          before it&apos;s saved.
+          Nutrition Facts panel, then you can add the ingredient list, allergen statement, and front
+          of package too — each as its own photo. You&apos;ll review and confirm everything before
+          it&apos;s saved.
         </p>
         <div className="mt-4 flex items-start gap-2 rounded-2xl bg-[#1B3A2D]/[0.04] p-3">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+          <ShieldCheck
+            className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <p className="text-xs leading-relaxed text-[#6B7A72]">
             Root never guesses a missing number — anything unclear is marked so you can confirm or
             fill it in yourself.

@@ -12,11 +12,12 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: 'How is my Root Score calculated?',
     answer:
-      'Root Score blends your recent check-ins, movement, and connected wearable data into one slow-moving, cross-domain measure. Open a day\'s score from Progress for a full breakdown of every contributing factor.',
+      "Root Score blends your recent check-ins, movement, and connected wearable data into one slow-moving, cross-domain measure. Open a day's score from Progress for a full breakdown of every contributing factor.",
   },
   {
     question: 'Can I change my daily check-in later?',
-    answer: 'Yes — open today\'s check-in from the Today tab any time before midnight in your timezone to update it.',
+    answer:
+      "Yes — open today's check-in from the Today tab any time before midnight in your timezone to update it.",
   },
   {
     question: 'How do I disconnect a wearable?',
@@ -47,7 +48,11 @@ export default async function HelpPage() {
         </h1>
 
         <div className={`${CARD} mt-6 flex items-start gap-3 p-6`}>
-          <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#1B3A2D]/60" strokeWidth={1.75} aria-hidden="true" />
+          <MessageCircle
+            className="mt-0.5 h-5 w-5 shrink-0 text-[#1B3A2D]/60"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <div>
             <p className="text-sm font-semibold text-[#1B3A2D]">Ask Root</p>
             <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">
@@ -72,7 +77,11 @@ export default async function HelpPage() {
         </div>
 
         <div className={`${CARD} mt-5 flex items-start gap-3 p-6`}>
-          <Mail className="mt-0.5 h-5 w-5 shrink-0 text-[#1B3A2D]/60" strokeWidth={1.75} aria-hidden="true" />
+          <Mail
+            className="mt-0.5 h-5 w-5 shrink-0 text-[#1B3A2D]/60"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <div>
             <p className="text-sm font-semibold text-[#1B3A2D]">Contact support</p>
             <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">

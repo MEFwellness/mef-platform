@@ -10,7 +10,11 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
-import type { WearableConnection, WearableDailyMetric, WearableProviderName } from '@mef/shared-types-contracts';
+import type {
+  WearableConnection,
+  WearableDailyMetric,
+  WearableProviderName,
+} from '@mef/shared-types-contracts';
 import {
   listWearableConnections,
   getWearableConnection,
@@ -57,7 +61,9 @@ export async function connectWearableProvider(
   return {};
 }
 
-export async function disconnectWearableProviderAction(connectionId: string): Promise<ActionResult> {
+export async function disconnectWearableProviderAction(
+  connectionId: string
+): Promise<ActionResult> {
   const supabase = createClient();
   const {
     data: { user },

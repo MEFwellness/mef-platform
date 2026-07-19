@@ -14,9 +14,11 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
 export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySummary }) {
   const hasStrengths = summary.topStrengths.length > 0;
   const hasOpportunities = summary.biggestOpportunities.length > 0;
-  const hasPriority = summary.primaryPriorityTitle !== null || summary.secondaryPriorityTitles.length > 0;
+  const hasPriority =
+    summary.primaryPriorityTitle !== null || summary.secondaryPriorityTitles.length > 0;
   const hasWins = summary.recentWins.length > 0;
-  const hasNarrative = summary.motivationProfile.length > 0 || summary.longTermTrendSummary !== null;
+  const hasNarrative =
+    summary.motivationProfile.length > 0 || summary.longTermTrendSummary !== null;
 
   if (!hasStrengths && !hasOpportunities && !hasPriority && !hasWins && !hasNarrative) {
     return null;
@@ -98,7 +100,9 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
 
       {hasWins && (
         <section className={`${CARD} mef-animate-in p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Recent Wins</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+            Recent Wins
+          </p>
           <ul className="mt-2.5 space-y-2">
             {summary.recentWins.map((win) => (
               <li key={win} className="rounded-2xl bg-[#FAFAF8] p-3.5 text-sm text-[#1B3A2D]">

@@ -35,7 +35,9 @@ const pngOpts = { compressionLevel: 9, adaptiveFiltering: true };
 
 async function run() {
   await sharp(source).resize(512, 512).png(pngOpts).toFile(`${IMAGES_DIR}/rooted-reset-logo.png`);
-  console.log('wrote images/rooted-reset-logo.png (512x512) — the in-app logo, login/signup/dashboard');
+  console.log(
+    'wrote images/rooted-reset-logo.png (512x512) — the in-app logo, login/signup/dashboard'
+  );
 
   await sharp(source).resize(32, 32).png(pngOpts).toFile(`${ICONS_DIR}/favicon-32.png`);
   console.log('wrote icons/favicon-32.png (32x32) — browser tab icon');
@@ -69,13 +71,13 @@ im.save(${JSON.stringify(`${PUBLIC_DIR}/favicon.ico`)}, sizes=[(16,16),(32,32),(
     console.log('wrote favicon.ico (16/32/48) — legacy /favicon.ico request');
   } else {
     console.warn(
-      'skipped favicon.ico (python3 + Pillow not available) — regenerate it by hand from the same source image',
+      'skipped favicon.ico (python3 + Pillow not available) — regenerate it by hand from the same source image'
     );
   }
 
   console.log(
     '\nRemember to bump BRAND_ASSET_VERSION in lib/brand.ts — browsers cache favicons by URL ' +
-      'and will keep showing the old one at the same path otherwise.',
+      'and will keep showing the old one at the same path otherwise.'
   );
 }
 

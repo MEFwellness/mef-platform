@@ -20,7 +20,13 @@ import type {
 import { addDaysToLocalDate } from '@/lib/feed/dateMath';
 import { applySmoothingCap, computeComposite } from './aggregate';
 import { computeRootConfidence } from './confidence';
-import { MOMENTUM_PRIOR_WINDOW_DAYS, MOMENTUM_RECENT_WINDOW_DAYS, ROOT_WINDOW_DAYS, RESILIENCE_LOOKBACK_DAYS, SCORE_VERSION } from './config';
+import {
+  MOMENTUM_PRIOR_WINDOW_DAYS,
+  MOMENTUM_RECENT_WINDOW_DAYS,
+  ROOT_WINDOW_DAYS,
+  RESILIENCE_LOOKBACK_DAYS,
+  SCORE_VERSION,
+} from './config';
 import {
   computeConsistencyDomain,
   computeMovementDomain,
@@ -90,11 +96,14 @@ export function calculateRootScoreSnapshot(input: CalculateRootScoreInput): Calc
   const composite = computeComposite(domainScores);
 
   const previousRootScore = input.previousSnapshot?.root_score ?? null;
-  const rootScore = composite.score === null ? null : applySmoothingCap(composite.score, previousRootScore);
-  const { confidence: rootConfidence, level: rootConfidenceLevel } = composite.score === null
-    ? { confidence: 0, level: 'building' as const }
-    : computeRootConfidence(composite.coverageRatio, input.priorSnapshotCount);
-  const rootScoreChange = rootScore === null || previousRootScore === null ? null : rootScore - previousRootScore;
+  const rootScore =
+    composite.score === null ? null : applySmoothingCap(composite.score, previousRootScore);
+  const { confidence: rootConfidence, level: rootConfidenceLevel } =
+    composite.score === null
+      ? { confidence: 0, level: 'building' as const }
+      : computeRootConfidence(composite.coverageRatio, input.priorSnapshotCount);
+  const rootScoreChange =
+    rootScore === null || previousRootScore === null ? null : rootScore - previousRootScore;
 
   // ---- Momentum: trailing 7 days vs the 7 days before that ----
   const recentWindow: DateWindow = {

@@ -6,13 +6,21 @@
  * is an "improved" direction.
  */
 import { describe, it, expect } from 'vitest';
-import { buildAssessmentComparison, findClosestAssessmentOnOrBefore } from '../lib/assessments/comparison';
+import {
+  buildAssessmentComparison,
+  findClosestAssessmentOnOrBefore,
+} from '../lib/assessments/comparison';
 import type { AssessmentResult } from '../lib/assessments/types';
 
 function makeResult(
   id: string,
   completedAt: string,
-  categoryScores: { categoryId: string; score: number; maxScore: number; priority: 'low' | 'moderate' | 'high' }[]
+  categoryScores: {
+    categoryId: string;
+    score: number;
+    maxScore: number;
+    priority: 'low' | 'moderate' | 'high';
+  }[]
 ): AssessmentResult {
   const totalScore = categoryScores.reduce((sum, c) => sum + c.score, 0);
   return {

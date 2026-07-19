@@ -67,17 +67,23 @@ function HistoryEntry({
   coachNames: Record<string, string>;
 }) {
   const config = FINDING_TYPE_CONFIG[entry.finding_type];
-  const changedBy = entry.coach_reviewed_by ? coachNames[entry.coach_reviewed_by] ?? 'A coach' : null;
+  const changedBy = entry.coach_reviewed_by
+    ? (coachNames[entry.coach_reviewed_by] ?? 'A coach')
+    : null;
 
   return (
     <div className="rounded-xl border border-dashed border-[#1B3A2D]/10 bg-white p-2.5">
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-medium text-[#6B7A72]">Previously: {config.label}</p>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${SEVERITY_TONE[entry.severity]}`}>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${SEVERITY_TONE[entry.severity]}`}
+        >
           {SEVERITY_LABEL[entry.severity]}
         </span>
       </div>
-      {entry.narrative && <p className="mt-1 text-[11px] leading-relaxed text-[#9AA79F]">{entry.narrative}</p>}
+      {entry.narrative && (
+        <p className="mt-1 text-[11px] leading-relaxed text-[#9AA79F]">{entry.narrative}</p>
+      )}
       {entry.coach_override_notes && (
         <p className="mt-1 text-[11px] italic leading-relaxed text-[#6B7A72]">
           Override note: {entry.coach_override_notes}
@@ -85,7 +91,9 @@ function HistoryEntry({
       )}
       <p className="mt-1 text-[10px] text-[#9AA79F]">
         {changedBy ? `Changed by ${changedBy}` : 'Recorded'}
-        {entry.coach_reviewed_at ? ` · ${formatDateTime(entry.coach_reviewed_at)}` : ` · ${formatDateTime(entry.created_at)}`}
+        {entry.coach_reviewed_at
+          ? ` · ${formatDateTime(entry.coach_reviewed_at)}`
+          : ` · ${formatDateTime(entry.created_at)}`}
       </p>
     </div>
   );
@@ -128,12 +136,16 @@ function FindingRow({
             <p className="text-[11px] capitalize text-[#9AA79F]">{finding.side}</p>
           )}
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${SEVERITY_TONE[finding.severity]}`}>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${SEVERITY_TONE[finding.severity]}`}
+        >
           {SEVERITY_LABEL[finding.severity]}
         </span>
       </div>
 
-      {finding.narrative && <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">{finding.narrative}</p>}
+      {finding.narrative && (
+        <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">{finding.narrative}</p>
+      )}
 
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[11px] text-[#9AA79F]">
@@ -161,7 +173,9 @@ function FindingRow({
             </button>
           </div>
         ) : (
-          <span className="text-[11px] font-medium capitalize text-[#9AA79F]">{status.replace('_', ' ')}</span>
+          <span className="text-[11px] font-medium capitalize text-[#9AA79F]">
+            {status.replace('_', ' ')}
+          </span>
         )}
       </div>
 
@@ -173,7 +187,9 @@ function FindingRow({
             className="flex items-center gap-1 text-[11px] font-medium text-[#6B7A72] hover:text-[#1B3A2D]"
           >
             <History className="h-3 w-3" strokeWidth={1.75} aria-hidden />
-            {historyOpen ? 'Hide history' : `Show history (${supersedeChain.length} change${supersedeChain.length === 1 ? '' : 's'})`}
+            {historyOpen
+              ? 'Hide history'
+              : `Show history (${supersedeChain.length} change${supersedeChain.length === 1 ? '' : 's'})`}
             <ChevronDown
               className={`h-3 w-3 transition-transform ${historyOpen ? 'rotate-180' : ''}`}
               strokeWidth={1.75}

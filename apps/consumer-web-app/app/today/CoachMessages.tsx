@@ -52,7 +52,9 @@ export function CoachMessages({ notifications }: { notifications: Notification[]
               {notification.body && (
                 <p className="mt-1 text-sm leading-relaxed text-[#6B7A72]">{notification.body}</p>
               )}
-              <p className="mt-1 text-xs text-[#6B7A72]/70">{formatWhen(notification.created_at)}</p>
+              <p className="mt-1 text-xs text-[#6B7A72]/70">
+                {formatWhen(notification.created_at)}
+              </p>
             </div>
           </button>
         ))}

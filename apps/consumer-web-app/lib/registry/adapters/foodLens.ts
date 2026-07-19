@@ -16,7 +16,10 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { FoodLensComparisonSignal, FoodLensPatternComparison } from '@mef/shared-types-contracts';
+import type {
+  FoodLensComparisonSignal,
+  FoodLensPatternComparison,
+} from '@mef/shared-types-contracts';
 import { findActiveRegistryEntry, insertRegistryEntry } from '../data';
 import type { RegistryEntryDraft } from '../types';
 

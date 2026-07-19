@@ -25,7 +25,7 @@ type MacroLevel = 'low' | 'moderate' | 'high';
 interface PrimalPatternProfile {
   id: string;
   memberId: string;
-  patternLabel: string;        // human-readable name, owned entirely by the proprietary engine
+  patternLabel: string; // human-readable name, owned entirely by the proprietary engine
   proteinEmphasis: MacroLevel;
   carbEmphasis: MacroLevel;
   fatEmphasis: MacroLevel;
@@ -35,7 +35,7 @@ interface PrimalPatternProfile {
 ```
 
 That's the entire surface area. Whatever questionnaire, scoring weights, or classification rules
-produce this triplet are completely opaque to Food Lens — it only ever reads the *result* via
+produce this triplet are completely opaque to Food Lens — it only ever reads the _result_ via
 `getActivePrimalPatternProfileAction` (doc 4 §4.4). This means:
 
 - The proprietary scoring logic can change its internal algorithm at any time without touching
@@ -51,7 +51,7 @@ produce this triplet are completely opaque to Food Lens — it only ever reads t
 ## 5.3 Why three ordinal levels, not percentages
 
 The member-facing requirement is explicit: never present macro estimates as exact facts. That
-constraint should shape the *target* representation too, not just the meal estimate — if the
+constraint should shape the _target_ representation too, not just the meal estimate — if the
 Primal Pattern target were "35% protein / 40% carb / 25% fat" and the meal estimate were
 qualitative levels, the comparison would be forced to either fabricate false precision on the meal
 side or throw away real precision on the target side. Keeping both sides of the comparison in the
@@ -80,18 +80,18 @@ interface ComparisonSignal {
   dimension: 'protein' | 'carb' | 'fat';
   mealLevel: MacroLevel;
   targetLevel: MacroLevel;
-  direction: SignalDirection;   // 'heavy' = meal level ranks above target, 'light' = below
+  direction: SignalDirection; // 'heavy' = meal level ranks above target, 'light' = below
 }
 
 function compareMealToPattern(
   meal: MacroEstimate,
-  target: PrimalPatternProfile,
-): { signals: ComparisonSignal[]; narrative: string; confidence: number }
+  target: PrimalPatternProfile
+): { signals: ComparisonSignal[]; narrative: string; confidence: number };
 ```
 
 - `direction` per dimension is a simple three-way comparison on the `low < moderate < high`
   ordering — no numeric distance needed.
-- `narrative` is selected from a **reviewed message template library** keyed by the *pattern* of
+- `narrative` is selected from a **reviewed message template library** keyed by the _pattern_ of
   signals (e.g. all three `match` → "This looks well balanced for your pattern"; `carb: heavy` +
   others `match` → "This meal appears carbohydrate-heavy for your pattern. Consider reducing
   refined carbohydrates or balancing with more protein and fat.") — not generated per-call. This

@@ -52,7 +52,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WellnessIdentityObservation } from '@mef/shared-types-contracts';
 import { gatherMemberHealthProfile } from '../intelligence-engine/profile';
-import { computeIntelligenceFromProfile, computeMemberIntelligence } from '../intelligence-engine/engine';
+import {
+  computeIntelligenceFromProfile,
+  computeMemberIntelligence,
+} from '../intelligence-engine/engine';
 import { listActiveMemory } from '../conversation-coach/data';
 import { deriveAllIdentityObservationDrafts } from './observations';
 import { computeAllProfileDimensions, computeCoachingStyleDimension } from './dimensions';
@@ -73,12 +76,20 @@ import {
   upsertProfileDimension,
   upsertRecommendationFeedback,
 } from './data';
-import type { CoachingStyleComputation, IntelligenceCoreSummary, WellnessIdentityObservationDraft } from './types';
+import type {
+  CoachingStyleComputation,
+  IntelligenceCoreSummary,
+  WellnessIdentityObservationDraft,
+} from './types';
 import { CONFIDENCE_TOUCH_TOLERANCE } from './thresholds';
 import { toMemberWellnessHighlights } from './memberView';
 
 /** Domains whose statements read as physical-symptom correlations — downgraded to coach-only (never dropped) while any topic is currently restricted for this member, same "downgrade, never silently assert" discipline as wellness_insights' safety gate (lib/intelligence/safety.ts). */
-const SAFETY_SENSITIVE_DOMAINS = new Set(['pain_correlation', 'sleep_correlation', 'movement_response']);
+const SAFETY_SENSITIVE_DOMAINS = new Set([
+  'pain_correlation',
+  'sleep_correlation',
+  'movement_response',
+]);
 
 function applySafetyGate(
   draft: WellnessIdentityObservationDraft,
@@ -94,7 +105,11 @@ async function upsertObservation(
   memberId: string,
   draft: WellnessIdentityObservationDraft
 ): Promise<void> {
-  const existing = await findActiveIdentityObservationByKey(supabase, memberId, draft.observationKey);
+  const existing = await findActiveIdentityObservationByKey(
+    supabase,
+    memberId,
+    draft.observationKey
+  );
 
   if (!existing) {
     await insertIdentityObservation(supabase, memberId, draft);
@@ -148,8 +163,8 @@ export async function recalculateIntelligenceCore(
     const report = computeIntelligenceFromProfile(profile);
     const conversationMemory = await listActiveMemory(supabase, memberId);
 
-    const drafts = deriveAllIdentityObservationDrafts(profile, report, conversationMemory).map((draft) =>
-      applySafetyGate(draft, profile.restrictedTopics)
+    const drafts = deriveAllIdentityObservationDrafts(profile, report, conversationMemory).map(
+      (draft) => applySafetyGate(draft, profile.restrictedTopics)
     );
 
     const activeObservations = await listIdentityObservationsForMember(supabase, memberId, {
@@ -206,12 +221,13 @@ export async function getIntelligenceCoreSummary(
 ): Promise<IntelligenceCoreSummary> {
   const report = await computeMemberIntelligence(supabase, memberId, asOfLocalDate);
 
-  const [activeObservations, profileDimensions, coachingStyleRow, existingFeedback] = await Promise.all([
-    listIdentityObservationsForMember(supabase, memberId, { statusFilter: ['active'] }),
-    listProfileDimensionsForMember(supabase, memberId),
-    getCoachingStyleProfile(supabase, memberId),
-    listRecommendationFeedback(supabase, memberId),
-  ]);
+  const [activeObservations, profileDimensions, coachingStyleRow, existingFeedback] =
+    await Promise.all([
+      listIdentityObservationsForMember(supabase, memberId, { statusFilter: ['active'] }),
+      listProfileDimensionsForMember(supabase, memberId),
+      getCoachingStyleProfile(supabase, memberId),
+      listRecommendationFeedback(supabase, memberId),
+    ]);
 
   const { surfaced } = guardRecommendations(report.recommendations, existingFeedback);
   const prioritization = prioritizeRecommendations(surfaced);
@@ -232,13 +248,21 @@ export async function getIntelligenceCoreSummary(
     .filter((d) => d.level === 'high' || d.level === 'very_high')
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     .slice(0, 3)
-    .map((d) => ({ title: `${d.dimension.replace(/_/g, ' ')}`, detail: d.rationale, confidence: d.confidence }));
+    .map((d) => ({
+      title: `${d.dimension.replace(/_/g, ' ')}`,
+      detail: d.rationale,
+      confidence: d.confidence,
+    }));
 
   const weakDimensions = profileDimensions
     .filter((d) => d.level === 'low' || d.level === 'very_low')
     .sort((a, b) => (a.score ?? 100) - (b.score ?? 100))
     .slice(0, 3)
-    .map((d) => ({ title: `${d.dimension.replace(/_/g, ' ')}`, detail: d.rationale, confidence: d.confidence }));
+    .map((d) => ({
+      title: `${d.dimension.replace(/_/g, ' ')}`,
+      detail: d.rationale,
+      confidence: d.confidence,
+    }));
 
   const emergingConcerns = report.patterns
     .filter((p) => p.kind === 'burnout_signal' || p.kind === 'lifestyle_disruption')
@@ -312,7 +336,9 @@ function coachingStyleGuidanceText(style: CoachingStyleComputation): string | nu
   }
 
   if (style.timeCommitmentSweetSpotMinutes !== null) {
-    parts.push(`Prefer suggestions that take about ${style.timeCommitmentSweetSpotMinutes} minutes or less.`);
+    parts.push(
+      `Prefer suggestions that take about ${style.timeCommitmentSweetSpotMinutes} minutes or less.`
+    );
   }
 
   return parts.length > 0 ? parts.join(' ') : null;

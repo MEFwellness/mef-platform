@@ -7,7 +7,12 @@
  * two "re-wrap an existing pattern" derivations never re-detect anything.
  */
 import { describe, it, expect } from 'vitest';
-import type { DailyFeedItem, DailyCheckin, MefContentItem, NarrativeItem } from '@mef/shared-types-contracts';
+import type {
+  DailyFeedItem,
+  DailyCheckin,
+  MefContentItem,
+  NarrativeItem,
+} from '@mef/shared-types-contracts';
 import {
   deriveHabitAdherenceObservation,
   deriveTimeCommitmentObservation,
@@ -19,7 +24,10 @@ import {
   deriveCoachingPreferenceObservation,
 } from '../lib/intelligence-core/observations';
 import type { FeedHistoryPair } from '../lib/feed/memory';
-import type { MemberHealthProfile, MemberIntelligenceReport } from '../lib/intelligence-engine/types';
+import type {
+  MemberHealthProfile,
+  MemberIntelligenceReport,
+} from '../lib/intelligence-engine/types';
 import { addDaysToLocalDate } from '../lib/feed/dateMath';
 
 const AS_OF = '2026-06-30';
@@ -133,8 +141,16 @@ describe('deriveHabitAdherenceObservation', () => {
     // Three 2-day streaks each ending in a miss.
     for (let block = 0; block < 3; block++) {
       const base = block * 3;
-      pairs.push(feedPair(`2026-06-${String(base + 1).padStart(2, '0')}`, { completed_at: '2026-06-01T09:00:00.000Z' }));
-      pairs.push(feedPair(`2026-06-${String(base + 2).padStart(2, '0')}`, { completed_at: '2026-06-01T09:00:00.000Z' }));
+      pairs.push(
+        feedPair(`2026-06-${String(base + 1).padStart(2, '0')}`, {
+          completed_at: '2026-06-01T09:00:00.000Z',
+        })
+      );
+      pairs.push(
+        feedPair(`2026-06-${String(base + 2).padStart(2, '0')}`, {
+          completed_at: '2026-06-01T09:00:00.000Z',
+        })
+      );
       pairs.push(feedPair(`2026-06-${String(base + 3).padStart(2, '0')}`, { completed_at: null }));
     }
     const draft = deriveHabitAdherenceObservation(pairs);
@@ -148,8 +164,16 @@ describe('deriveHabitAdherenceObservation', () => {
     const pairs: FeedHistoryPair[] = [];
     for (let block = 0; block < 3; block++) {
       const base = block * 3;
-      pairs.push(feedPair(`2026-06-${String(base + 1).padStart(2, '0')}`, { completed_at: '2026-06-01T09:00:00.000Z' }));
-      pairs.push(feedPair(`2026-06-${String(base + 2).padStart(2, '0')}`, { completed_at: '2026-06-01T09:00:00.000Z' }));
+      pairs.push(
+        feedPair(`2026-06-${String(base + 1).padStart(2, '0')}`, {
+          completed_at: '2026-06-01T09:00:00.000Z',
+        })
+      );
+      pairs.push(
+        feedPair(`2026-06-${String(base + 2).padStart(2, '0')}`, {
+          completed_at: '2026-06-01T09:00:00.000Z',
+        })
+      );
       pairs.push(feedPair(`2026-06-${String(base + 3).padStart(2, '0')}`, { completed_at: null }));
     }
     // Trailing open run — not yet a break, must not shift the average.
@@ -162,7 +186,11 @@ describe('deriveHabitAdherenceObservation', () => {
 describe('deriveTimeCommitmentObservation', () => {
   it('returns null without at least 4 samples in both duration buckets', () => {
     const pairs = [
-      feedPair('2026-06-01', { completed_at: '2026-06-01T09:00:00.000Z' }, contentItem({ estimated_reading_minutes: 5 })),
+      feedPair(
+        '2026-06-01',
+        { completed_at: '2026-06-01T09:00:00.000Z' },
+        contentItem({ estimated_reading_minutes: 5 })
+      ),
     ];
     expect(deriveTimeCommitmentObservation(pairs)).toBeNull();
   });
@@ -242,7 +270,10 @@ describe('deriveSleepCorrelationObservation', () => {
   });
 
   it('returns null when there are not enough consecutive-day pairs', () => {
-    const checkins = [checkin('2026-06-01', { stress_level: 5 }), checkin('2026-06-02', { sleep_quality: 1 })];
+    const checkins = [
+      checkin('2026-06-01', { stress_level: 5 }),
+      checkin('2026-06-02', { sleep_quality: 1 }),
+    ];
     expect(deriveSleepCorrelationObservation(checkins)).toBeNull();
   });
 });
@@ -340,7 +371,12 @@ describe('deriveCoachingPreferenceObservation', () => {
       baseline: null,
       latestReassessment: null,
       comparison: [],
-      progressSummary: { biggestImprovement: null, needsAttention: null, stableAreas: [], suggestedFocusAction: null },
+      progressSummary: {
+        biggestImprovement: null,
+        needsAttention: null,
+        stableAreas: [],
+        suggestedFocusAction: null,
+      },
       narrativeItems: [],
       wellnessInsights: [],
       feedHistoryPairs: [],
@@ -360,7 +396,14 @@ describe('deriveCoachingPreferenceObservation', () => {
         wearableSnapshot: null,
         generatedAt: '2026-06-30T00:00:00.000Z',
       },
-      streak: { currentStreak: 0, longestStreak: 0, daysSinceLastCheckin: 0, checkedInToday: true, justRecovered: false, isLongestInWindow: false },
+      streak: {
+        currentStreak: 0,
+        longestStreak: 0,
+        daysSinceLastCheckin: 0,
+        checkedInToday: true,
+        justRecovered: false,
+        isLongestInWindow: false,
+      },
       adherence: { level: 'typical', rate: null, sampleSize: 0 },
       restrictedTopics: [],
       openSafetyReviewCount: 0,
@@ -404,9 +447,14 @@ describe('deriveCoachingPreferenceObservation', () => {
   });
 
   it('surfaces the most recent narrative item verbatim as the member statement', () => {
-    const draft = deriveCoachingPreferenceObservation(profile({ narrativeItems: [narrativeItem()] }), []);
+    const draft = deriveCoachingPreferenceObservation(
+      profile({ narrativeItems: [narrativeItem()] }),
+      []
+    );
     expect(draft).not.toBeNull();
-    expect(draft!.statement).toBe('Responds better to encouraging language than direct instruction.');
+    expect(draft!.statement).toBe(
+      'Responds better to encouraging language than direct instruction.'
+    );
   });
 
   it('ignores resolved/dismissed narrative items', () => {

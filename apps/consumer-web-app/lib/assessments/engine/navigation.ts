@@ -35,7 +35,9 @@ export function getFlatIndex(
     (ref) => ref.category.id === categoryId && ref.question.number === questionNumber
   );
   if (index === -1) {
-    throw new Error(`Question ${questionNumber} in category "${categoryId}" not found in questionnaire`);
+    throw new Error(
+      `Question ${questionNumber} in category "${categoryId}" not found in questionnaire`
+    );
   }
   return index;
 }

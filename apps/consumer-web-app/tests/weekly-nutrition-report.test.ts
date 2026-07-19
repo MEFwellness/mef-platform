@@ -184,7 +184,11 @@ describe('computeWeeklyNutritionReport — two different weeks diverge in wordin
     ].map((label, i) => detectedItem(`2026-07-1${(i % 6) + 3}`, label, 'mixed'));
 
     const narrowVarietyItems = Array.from({ length: 10 }, (_, i) =>
-      detectedItem(`2026-07-1${(i % 6) + 3}`, i % 2 === 0 ? 'white rice' : 'chicken breast', 'mixed')
+      detectedItem(
+        `2026-07-1${(i % 6) + 3}`,
+        i % 2 === 0 ? 'white rice' : 'chicken breast',
+        'mixed'
+      )
     );
 
     const withRatings = (items: WeeklyReportDetectedItem[]) =>
@@ -385,7 +389,9 @@ describe('computeWeeklyNutritionReport — rootedFocusForNextWeek stays to at mo
             processingLevel: 'ultra_processed',
           }),
         ],
-        detectedItems: Array.from({ length: 10 }, () => detectedItem('2026-07-13', 'chips', 'carb')),
+        detectedItems: Array.from({ length: 10 }, () =>
+          detectedItem('2026-07-13', 'chips', 'carb')
+        ),
         waterCupsByLocalDate: { '2026-07-13': 1, '2026-07-14': 1, '2026-07-15': 1 },
       })
     );
@@ -394,7 +400,9 @@ describe('computeWeeklyNutritionReport — rootedFocusForNextWeek stays to at mo
     // At most two focus clauses were ever assembled — approximate check:
     // the sentence should not contain 3+ occurrences of the joining split
     // pattern this function uses when combining two focus sentences.
-    const sentenceCount = (result.rootedFocusForNextWeek ?? '').split(/(?<=[.!?])\s+/).filter(Boolean);
+    const sentenceCount = (result.rootedFocusForNextWeek ?? '')
+      .split(/(?<=[.!?])\s+/)
+      .filter(Boolean);
     // Each focus sentence is 1-2 clauses of prose; combining at most two
     // candidates yields at most ~4 sentences of text (2 sentences each).
     expect(sentenceCount.length).toBeLessThanOrEqual(4);

@@ -15,7 +15,10 @@ import { createClient } from '@/lib/supabase/server';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { PriorityBadge } from '@/components/assessments/PriorityBadge';
-import { CategoryScoreTrendChart, type TrendPoint } from '@/components/assessments/CategoryScoreTrendChart';
+import {
+  CategoryScoreTrendChart,
+  type TrendPoint,
+} from '@/components/assessments/CategoryScoreTrendChart';
 import { AssessmentComparisonPanel } from '@/components/assessments/AssessmentComparisonPanel';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
 
@@ -92,7 +95,10 @@ export default async function AssessmentHistoryPage({
                   Compare Your Progress
                 </p>
                 <div className="mt-4">
-                  <AssessmentComparisonPanel questionnaire={questionnaire} latestAssessmentId={latest.id} />
+                  <AssessmentComparisonPanel
+                    questionnaire={questionnaire}
+                    latestAssessmentId={latest.id}
+                  />
                 </div>
               </section>
             )}
@@ -108,7 +114,9 @@ export default async function AssessmentHistoryPage({
                     href={`/assessments/${questionnaire.id}/results/${summary.id}` as Route}
                     className="flex items-center justify-between gap-4 py-3 transition hover:opacity-80"
                   >
-                    <span className="text-sm text-[#1B3A2D]">{formatAssessmentDate(summary.completedAt)}</span>
+                    <span className="text-sm text-[#1B3A2D]">
+                      {formatAssessmentDate(summary.completedAt)}
+                    </span>
                     <span className="flex items-center gap-2 text-sm text-[#6B7A72]">
                       {summary.totalScore} / {summary.totalMaxScore}
                       <PriorityBadge priority={summary.totalPriority} />

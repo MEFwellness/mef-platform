@@ -23,7 +23,13 @@ export type FoodSearchResult = {
   servingSizeText: string | null;
 };
 
-function toResult(product: Pick<FoodProduct, 'id' | 'barcode' | 'name' | 'brand' | 'image_url' | 'serving_size_text'>, source: FoodSearchResultSource): FoodSearchResult {
+function toResult(
+  product: Pick<
+    FoodProduct,
+    'id' | 'barcode' | 'name' | 'brand' | 'image_url' | 'serving_size_text'
+  >,
+  source: FoodSearchResultSource
+): FoodSearchResult {
   return {
     source,
     productId: product.id,
@@ -43,7 +49,9 @@ export async function listRecentProductsForMember(
 ): Promise<FoodSearchResult[]> {
   const { data, error } = await supabase
     .from('member_food_log')
-    .select('product_id, consumed_at, food_products(id, barcode, name, brand, image_url, serving_size_text)')
+    .select(
+      'product_id, consumed_at, food_products(id, barcode, name, brand, image_url, serving_size_text)'
+    )
     .eq('member_id', memberId)
     .not('product_id', 'is', null)
     .order('consumed_at', { ascending: false })
@@ -56,7 +64,10 @@ export async function listRecentProductsForMember(
 
   const seen = new Set<string>();
   const results: FoodSearchResult[] = [];
-  for (const row of (data ?? []) as unknown as Array<{ product_id: string; food_products: FoodProduct | null }>) {
+  for (const row of (data ?? []) as unknown as Array<{
+    product_id: string;
+    food_products: FoodProduct | null;
+  }>) {
     const product = row.food_products;
     if (!product || seen.has(product.id)) continue;
     seen.add(product.id);

@@ -55,7 +55,11 @@ export function FloatingCoachLauncher({
   // animation."
   const [visible, setVisible] = useState(false);
   const [sheetState, setSheetState] = useState<CoachSheetState>('half');
-  const [active, setActive] = useState<RootOpenRequest>({ entryPoint, entryContext, starterPrompts });
+  const [active, setActive] = useState<RootOpenRequest>({
+    entryPoint,
+    entryContext,
+    starterPrompts,
+  });
   const launcherButtonRef = useRef<HTMLButtonElement>(null);
 
   useBodyScrollLock(isOpen);

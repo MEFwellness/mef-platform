@@ -20,7 +20,8 @@ describe('splitIntoChunks', () => {
   });
 
   it('splits once accumulated sentences would exceed the chunk length cap', () => {
-    const longSentence = 'This is a fairly long sentence meant to take up a good chunk of space. '.repeat(4);
+    const longSentence =
+      'This is a fairly long sentence meant to take up a good chunk of space. '.repeat(4);
     const chunks = splitIntoChunks(longSentence);
     expect(chunks.length).toBeGreaterThan(1);
     for (const chunk of chunks) {

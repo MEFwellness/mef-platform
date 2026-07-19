@@ -68,9 +68,7 @@ export function MovementAssessmentCard({
   }
 
   return (
-    <section
-      className={`${CARD} relative overflow-hidden p-8 text-center sm:p-10 ${className}`}
-    >
+    <section className={`${CARD} relative overflow-hidden p-8 text-center sm:p-10 ${className}`}>
       <div
         className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#F5B700]/10"
         aria-hidden="true"

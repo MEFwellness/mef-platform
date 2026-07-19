@@ -38,8 +38,17 @@ function sumOf(...values: Array<number | null>): number | null {
 export function validateLabelExtraction(input: LabelValidationInput): LabelValidationWarning[] {
   const warnings: LabelValidationWarning[] = [];
 
-  const fatComponents = sumOf(input.saturatedFatG, input.transFatG, input.monounsaturatedFatG, input.polyunsaturatedFatG);
-  if (input.totalFatG !== null && fatComponents !== null && fatComponents > input.totalFatG + TOLERANCE_G) {
+  const fatComponents = sumOf(
+    input.saturatedFatG,
+    input.transFatG,
+    input.monounsaturatedFatG,
+    input.polyunsaturatedFatG
+  );
+  if (
+    input.totalFatG !== null &&
+    fatComponents !== null &&
+    fatComponents > input.totalFatG + TOLERANCE_G
+  ) {
     warnings.push({
       field: 'total_fat_g',
       message:
@@ -47,7 +56,11 @@ export function validateLabelExtraction(input: LabelValidationInput): LabelValid
     });
   }
 
-  if (input.totalSugarG !== null && input.addedSugarG !== null && input.addedSugarG > input.totalSugarG + TOLERANCE_G) {
+  if (
+    input.totalSugarG !== null &&
+    input.addedSugarG !== null &&
+    input.addedSugarG > input.totalSugarG + TOLERANCE_G
+  ) {
     warnings.push({
       field: 'added_sugar_g',
       message: 'Added sugar is listed as more than total sugar — double-check these values.',
@@ -62,14 +75,21 @@ export function validateLabelExtraction(input: LabelValidationInput): LabelValid
   ) {
     warnings.push({
       field: 'total_carbohydrate_g',
-      message: 'Fiber and total sugar add up to more than total carbohydrate — double-check these values.',
+      message:
+        'Fiber and total sugar add up to more than total carbohydrate — double-check these values.',
     });
   }
 
-  if (input.calories !== null && input.calories > 0 && input.totalFatG === null && input.totalCarbohydrateG === null) {
+  if (
+    input.calories !== null &&
+    input.calories > 0 &&
+    input.totalFatG === null &&
+    input.totalCarbohydrateG === null
+  ) {
     warnings.push({
       field: 'calories',
-      message: 'Calories were read but fat and carbohydrate were not — this label may need a clearer photo.',
+      message:
+        'Calories were read but fat and carbohydrate were not — this label may need a clearer photo.',
     });
   }
 

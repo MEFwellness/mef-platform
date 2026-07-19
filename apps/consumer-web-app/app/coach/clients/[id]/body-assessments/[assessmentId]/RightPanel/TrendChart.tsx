@@ -40,7 +40,11 @@ const DELTA_TONE = {
 } as const;
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export function TrendChart({
@@ -86,14 +90,17 @@ export function TrendChart({
   const yFor = (value: number) =>
     padTop + (height - padTop - padBottom) * (1 - (value - minValue) / range);
 
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(i)} ${yFor(p.value)}`).join(' ');
+  const linePath = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(i)} ${yFor(p.value)}`)
+    .join(' ');
 
   const first = points[0]!;
   const latest = points[points.length - 1]!;
   const delta = latest.value - first.value;
-  const pctChange = first.value !== 0 ? (delta / Math.abs(first.value)) * 100 : delta === 0 ? 0 : 100;
+  const pctChange =
+    first.value !== 0 ? (delta / Math.abs(first.value)) * 100 : delta === 0 ? 0 : 100;
   const direction: 'improved' | 'declined' | 'stable' =
-    Math.round(pctChange) === 0 ? 'stable' : (delta > 0) === higherIsBetter ? 'improved' : 'declined';
+    Math.round(pctChange) === 0 ? 'stable' : delta > 0 === higherIsBetter ? 'improved' : 'declined';
   const directionLabel =
     direction === 'stable' ? 'No change' : direction === 'improved' ? 'Improved' : 'Declined';
 
@@ -101,7 +108,9 @@ export function TrendChart({
     <div>
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-[#1B3A2D]">{title}</p>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${DELTA_TONE[direction]}`}>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${DELTA_TONE[direction]}`}
+        >
           {directionLabel} {pctChange > 0 ? '+' : ''}
           {Math.round(pctChange)}% <span className="opacity-70">{changeAgainstLabel}</span>
         </span>
@@ -141,7 +150,14 @@ export function TrendChart({
           const cy = yFor(p.value);
           return (
             <g key={p.date + i}>
-              <circle cx={cx} cy={cy} r={5} fill={LINE_COLOR} stroke={SURFACE_COLOR} strokeWidth={2}>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={5}
+                fill={LINE_COLOR}
+                stroke={SURFACE_COLOR}
+                strokeWidth={2}
+              >
                 <title>
                   {formatDate(p.date)} — {p.valueLabel ?? p.value}
                 </title>

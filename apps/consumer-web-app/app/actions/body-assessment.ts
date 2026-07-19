@@ -282,7 +282,13 @@ export async function recordPostureFindingsAction(
         text: created.narrative ?? '',
       });
       if (evaluation) {
-        await recordSafetyRestrictionNarrative(supabase, userId, 'system', null, evaluation.classification);
+        await recordSafetyRestrictionNarrative(
+          supabase,
+          userId,
+          'system',
+          null,
+          evaluation.classification
+        );
       }
     }
   }
@@ -568,7 +574,10 @@ export async function submitAssessmentAction(
       context: { captures: signedCaptures },
     });
   } catch (coachIntelligenceError) {
-    console.error('Coach Intelligence analysis failed for submitAssessmentAction', coachIntelligenceError);
+    console.error(
+      'Coach Intelligence analysis failed for submitAssessmentAction',
+      coachIntelligenceError
+    );
   }
 
   try {
@@ -839,9 +848,7 @@ export async function saveAssessmentNoteAction(
   return {};
 }
 
-export async function getCaptureAnnotationsAction(
-  captureId: string
-): Promise<AnnotationShape[]> {
+export async function getCaptureAnnotationsAction(captureId: string): Promise<AnnotationShape[]> {
   const supabase = createClient();
   const {
     data: { user },

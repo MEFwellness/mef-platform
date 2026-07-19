@@ -69,8 +69,8 @@ export function ComprehensiveAssessmentCard({
       </div>
       <h3 className="mt-2 text-lg font-semibold text-[#1B3A2D]">Comprehensive Health Assessment</h3>
       <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-        A deeper look at your health history and lifestyle so Root can understand why you feel
-        the way you do, day to day — not just what your movement assessment shows.
+        A deeper look at your health history and lifestyle so Root can understand why you feel the
+        way you do, day to day — not just what your movement assessment shows.
       </p>
       <Link
         href={'/onboarding' as Route}

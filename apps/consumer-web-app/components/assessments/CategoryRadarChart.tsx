@@ -44,7 +44,9 @@ export function CategoryRadarChart({ points }: { points: RadarDatum[] }) {
 
   if (points.length < 3) return null;
 
-  const ratios = points.map((p) => (p.maxScore > 0 ? Math.max(0, Math.min(1, 1 - p.score / p.maxScore)) : 0));
+  const ratios = points.map((p) =>
+    p.maxScore > 0 ? Math.max(0, Math.min(1, 1 - p.score / p.maxScore)) : 0
+  );
   const polygonPoints = points.map((_, i) => polarPoint(i, points.length, ratios[i]!));
   const polygonPath = polygonPoints.map((pt) => `${pt.x},${pt.y}`).join(' ');
 
@@ -112,7 +114,9 @@ export function CategoryRadarChart({ points }: { points: RadarDatum[] }) {
               strokeWidth={1.5}
               className="cursor-pointer transition-[r]"
               onMouseEnter={() => setActiveId(p.categoryId)}
-              onMouseLeave={() => setActiveId((current) => (current === p.categoryId ? null : current))}
+              onMouseLeave={() =>
+                setActiveId((current) => (current === p.categoryId ? null : current))
+              }
               onFocus={() => setActiveId(p.categoryId)}
               onBlur={() => setActiveId((current) => (current === p.categoryId ? null : current))}
               tabIndex={0}

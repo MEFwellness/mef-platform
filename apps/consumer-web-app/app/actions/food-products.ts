@@ -210,7 +210,13 @@ export async function analyzeProductScanAction(scanId: string): Promise<AnalyzeP
   await updateFoodLensScan(supabase, scanId, { status: 'analyzing' });
 
   const localDate = await memberLocalDate(supabase, userId);
-  const result = await runProductAnalysisForScan(supabase, userId, localDate, scanId, barcodeScan.product_id);
+  const result = await runProductAnalysisForScan(
+    supabase,
+    userId,
+    localDate,
+    scanId,
+    barcodeScan.product_id
+  );
   await updateFoodLensScan(supabase, scanId, {
     status: result.status === 'analyzed' ? 'analyzed' : 'failed',
     provider_error: result.status === 'failed' ? (result.error ?? null) : null,

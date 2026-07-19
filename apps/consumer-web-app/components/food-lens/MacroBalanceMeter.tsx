@@ -92,8 +92,8 @@ export function MacroBalanceMeter({
       <Bar dimension={{ label: 'Fat', ...fat }} />
       <p className="text-[11px] leading-relaxed text-[#6B7A72]">
         These are rough, relative estimates from your photo, not exact measurements — never a
-        calorie count or gram weight. A high amount here isn&apos;t automatically good or bad —
-        see Root&apos;s take above for that.
+        calorie count or gram weight. A high amount here isn&apos;t automatically good or bad — see
+        Root&apos;s take above for that.
       </p>
     </div>
   );

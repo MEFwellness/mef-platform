@@ -71,7 +71,8 @@ export default async function AssessmentOverviewPage({
 
           {draft && (
             <p className="mt-4 text-sm text-[#1B3A2D]">
-              You&apos;re {draft.answered} of {draft.total} questions in. Pick up right where you left off.
+              You&apos;re {draft.answered} of {draft.total} questions in. Pick up right where you
+              left off.
             </p>
           )}
 
@@ -83,7 +84,8 @@ export default async function AssessmentOverviewPage({
           </Link>
 
           <p className="mt-3 text-center text-xs text-[#6B7A72]">
-            One question at a time. Your progress saves automatically, so you can always finish later.
+            One question at a time. Your progress saves automatically, so you can always finish
+            later.
           </p>
         </section>
 
@@ -97,8 +99,8 @@ export default async function AssessmentOverviewPage({
                 Your last assessment
               </p>
               <p className="mt-1 text-sm text-[#1B3A2D]">
-                {formatAssessmentDate(latestCompleted.completedAt)} · {latestCompleted.totalScore} of{' '}
-                {latestCompleted.totalMaxScore}
+                {formatAssessmentDate(latestCompleted.completedAt)} · {latestCompleted.totalScore}{' '}
+                of {latestCompleted.totalMaxScore}
               </p>
             </div>
             <PriorityBadge priority={latestCompleted.totalPriority} />
@@ -115,12 +117,18 @@ export default async function AssessmentOverviewPage({
         )}
 
         <section className="mt-6 flex items-start gap-3 px-1">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+          <ShieldCheck
+            className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <p className="text-xs leading-relaxed text-[#6B7A72]">{ASSESSMENT_SAFETY_STATEMENT}</p>
         </section>
 
         {copy.attribution && (
-          <p className="mt-4 px-1 text-center text-[11px] leading-relaxed text-[#6B7A72]/70">{copy.attribution}</p>
+          <p className="mt-4 px-1 text-center text-[11px] leading-relaxed text-[#6B7A72]/70">
+            {copy.attribution}
+          </p>
         )}
       </main>
 

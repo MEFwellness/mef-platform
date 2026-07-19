@@ -73,14 +73,19 @@ export async function getOrGenerateWeeklyNutritionReportAction(
   const existing = await getWeeklyNutritionReportForWeek(supabase, userId, weekStart);
   if (existing) return { report: existing };
 
-  const [logEntries, mealQualityRatings, detectedItems, completedWorkoutLocalDates, waterCupsByLocalDate] =
-    await Promise.all([
-      listWeeklyLogEntriesForReport(supabase, userId, weekStart, weekEnd, timezone),
-      listWeeklyMealQualityRatingsForReport(supabase, userId, weekStart, weekEnd, timezone),
-      listWeeklyDetectedItemsForReport(supabase, userId, weekStart, weekEnd, timezone),
-      listWeeklyCompletedWorkoutLocalDates(supabase, userId, weekStart, weekEnd),
-      listWeeklyWaterCupsByLocalDate(supabase, userId, weekStart, weekEnd),
-    ]);
+  const [
+    logEntries,
+    mealQualityRatings,
+    detectedItems,
+    completedWorkoutLocalDates,
+    waterCupsByLocalDate,
+  ] = await Promise.all([
+    listWeeklyLogEntriesForReport(supabase, userId, weekStart, weekEnd, timezone),
+    listWeeklyMealQualityRatingsForReport(supabase, userId, weekStart, weekEnd, timezone),
+    listWeeklyDetectedItemsForReport(supabase, userId, weekStart, weekEnd, timezone),
+    listWeeklyCompletedWorkoutLocalDates(supabase, userId, weekStart, weekEnd),
+    listWeeklyWaterCupsByLocalDate(supabase, userId, weekStart, weekEnd),
+  ]);
 
   const computed = computeWeeklyNutritionReport({
     weekStart,

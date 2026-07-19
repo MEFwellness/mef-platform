@@ -16,8 +16,16 @@
  */
 import { describe, it, expect, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
-import { insertAssessment, insertFinding, setFindingReviewStatus } from '../lib/body-assessment/data';
-import { insertAnalysis, insertObservations, updateObservation } from '../lib/coach-intelligence/data';
+import {
+  insertAssessment,
+  insertFinding,
+  setFindingReviewStatus,
+} from '../lib/body-assessment/data';
+import {
+  insertAnalysis,
+  insertObservations,
+  updateObservation,
+} from '../lib/coach-intelligence/data';
 import { upsertRegistryEntriesFromBodyAssessment } from '../lib/registry/adapters/bodyAssessment';
 import { upsertRegistryEntriesFromCoachIntelligence } from '../lib/registry/adapters/coachIntelligence';
 import { listRegistryEntriesForMember } from '../lib/registry/data';
@@ -27,7 +35,13 @@ const memberId = TEST_USERS.memberOne.id;
 
 afterAll(async () => {
   const service = serviceRoleClient();
-  for (const table of ['registry_entries', 'assessment_ai_observations', 'assessment_ai_analyses', 'body_assessment_findings', 'body_assessments']) {
+  for (const table of [
+    'registry_entries',
+    'assessment_ai_observations',
+    'assessment_ai_analyses',
+    'body_assessment_findings',
+    'body_assessments',
+  ]) {
     await service.from(table).delete().eq('member_id', memberId);
   }
 });
@@ -37,7 +51,13 @@ describe('upsertRegistryEntriesFromBodyAssessment — domain mapping and status 
     const memberClient = await signInAs(TEST_USERS.memberOne);
     const coachClient = await signInAs(TEST_USERS.coachOne);
 
-    const assessment = await insertAssessment(memberClient, memberId, 'static_posture', 'America/New_York', LOCAL_DATE);
+    const assessment = await insertAssessment(
+      memberClient,
+      memberId,
+      'static_posture',
+      'America/New_York',
+      LOCAL_DATE
+    );
 
     // coach_overridden is a valid insert-time status (a coach's own correction, not a review of an AI draft).
     await insertFinding(coachClient, {
@@ -66,7 +86,12 @@ describe('upsertRegistryEntriesFromBodyAssessment — domain mapping and status 
       severity: 'moderate',
       confidence: 0.7,
     });
-    await setFindingReviewStatus(coachClient, roundedShoulders!.id, 'confirmed', TEST_USERS.coachOne.id);
+    await setFindingReviewStatus(
+      coachClient,
+      roundedShoulders!.id,
+      'confirmed',
+      TEST_USERS.coachOne.id
+    );
 
     // Not yet coach-gated — must NOT be registered.
     await insertFinding(coachClient, {
@@ -88,7 +113,9 @@ describe('upsertRegistryEntriesFromBodyAssessment — domain mapping and status 
 
     await upsertRegistryEntriesFromBodyAssessment(coachClient, memberId, assessment!.id);
 
-    const entries = await listRegistryEntriesForMember(coachClient, memberId, { statusFilter: ['active'] });
+    const entries = await listRegistryEntriesForMember(coachClient, memberId, {
+      statusFilter: ['active'],
+    });
     const byCode = Object.fromEntries(entries.map((e) => [e.code, e]));
 
     expect(byCode.breathing_pattern?.domain).toBe('breathing');
@@ -105,7 +132,13 @@ describe('upsertRegistryEntriesFromCoachIntelligence — category filtering and 
     const memberClient = await signInAs(TEST_USERS.memberOne);
     const coachClient = await signInAs(TEST_USERS.coachOne);
 
-    const assessment = await insertAssessment(memberClient, memberId, 'static_posture', 'America/New_York', LOCAL_DATE);
+    const assessment = await insertAssessment(
+      memberClient,
+      memberId,
+      'static_posture',
+      'America/New_York',
+      LOCAL_DATE
+    );
     const analysis = await insertAnalysis(memberClient, {
       sourceFeature: 'body_assessment',
       sourceRecordId: assessment!.id,
@@ -114,10 +147,30 @@ describe('upsertRegistryEntriesFromCoachIntelligence — category filtering and 
 
     const observations = await insertObservations(coachClient, analysis!.id, memberId, [
       { category: 'observation', text: 'Visible forward lean.', confidence: 0.6, evidence: [] },
-      { category: 'compensation', text: 'Compensating with lumbar extension.', confidence: 0.6, evidence: [] },
-      { category: 'red_flag', text: 'Recommend medical evaluation.', confidence: 0.9, evidence: [] },
-      { category: 'education_topic', text: 'Explain diaphragmatic breathing.', confidence: 0.5, evidence: [] },
-      { category: 'coach_question', text: 'Ask about prior injuries.', confidence: 0.5, evidence: [] },
+      {
+        category: 'compensation',
+        text: 'Compensating with lumbar extension.',
+        confidence: 0.6,
+        evidence: [],
+      },
+      {
+        category: 'red_flag',
+        text: 'Recommend medical evaluation.',
+        confidence: 0.9,
+        evidence: [],
+      },
+      {
+        category: 'education_topic',
+        text: 'Explain diaphragmatic breathing.',
+        confidence: 0.5,
+        evidence: [],
+      },
+      {
+        category: 'coach_question',
+        text: 'Ask about prior injuries.',
+        confidence: 0.5,
+        evidence: [],
+      },
     ]);
     for (const obs of observations) {
       await updateObservation(coachClient, obs.id, {
@@ -129,7 +182,9 @@ describe('upsertRegistryEntriesFromCoachIntelligence — category filtering and 
 
     await upsertRegistryEntriesFromCoachIntelligence(coachClient, memberId, analysis!.id);
 
-    const entries = await listRegistryEntriesForMember(coachClient, memberId, { statusFilter: ['active'] });
+    const entries = await listRegistryEntriesForMember(coachClient, memberId, {
+      statusFilter: ['active'],
+    });
     const bySource = Object.fromEntries(entries.map((e) => [e.source_record_id, e]));
 
     const observationEntry = observations.find((o) => o.category === 'observation')!;

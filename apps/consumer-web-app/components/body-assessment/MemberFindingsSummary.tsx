@@ -18,7 +18,11 @@
  */
 
 import { Activity, ShieldCheck } from 'lucide-react';
-import type { BodyAssessmentFinding, FindingSeverity, FindingStatus } from '@mef/shared-types-contracts';
+import type {
+  BodyAssessmentFinding,
+  FindingSeverity,
+  FindingStatus,
+} from '@mef/shared-types-contracts';
 import { MemberFindingCard, type MemberFindingCopy } from './MemberFindingCard';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -33,7 +37,11 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
 // hiding the one row a coach explicitly authored would be a stranger
 // member experience than showing it. 'draft' and 'superseded' rows are
 // intentionally never shown.
-const DISPLAY_STATUSES = new Set<FindingStatus>(['confirmed', 'pending_review', 'coach_overridden']);
+const DISPLAY_STATUSES = new Set<FindingStatus>([
+  'confirmed',
+  'pending_review',
+  'coach_overridden',
+]);
 
 // Below this confidence the screening estimate is too uncertain to be
 // worth a member-facing tile at all.
@@ -51,7 +59,7 @@ function copyFor(finding: BodyAssessmentFinding): MemberFindingCopy {
   const reviewed = finding.status === 'confirmed' || finding.status === 'coach_overridden';
   const reviewNote = reviewed
     ? 'Reviewed by your coach'
-    : "Your coach will confirm this at your next review";
+    : 'Your coach will confirm this at your next review';
 
   let confidenceNote: string | null = null;
   if (finding.confidence >= 0.7) confidenceNote = 'Based on a clear reading';
@@ -92,7 +100,10 @@ function dedupe(findings: BodyAssessmentFinding[]): BodyAssessmentFinding[] {
     }
     const currentRank = SEVERITY_SORT_RANK[current.severity];
     const nextRank = SEVERITY_SORT_RANK[finding.severity];
-    if (nextRank > currentRank || (nextRank === currentRank && finding.confidence > current.confidence)) {
+    if (
+      nextRank > currentRank ||
+      (nextRank === currentRank && finding.confidence > current.confidence)
+    ) {
       bestByKey.set(key, finding);
     }
   }
@@ -132,8 +143,8 @@ export function MemberFindingsSummary({ findings }: { findings: BodyAssessmentFi
             <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           </span>
           <p className="text-sm leading-relaxed text-[#1B3A2D]">
-            Nothing stood out in this screening — your posture looked balanced across what we
-            could observe.
+            Nothing stood out in this screening — your posture looked balanced across what we could
+            observe.
           </p>
         </div>
       ) : (
@@ -147,8 +158,8 @@ export function MemberFindingsSummary({ findings }: { findings: BodyAssessmentFi
       )}
 
       <p className="mt-4 text-[11px] leading-relaxed text-[#9AA79F]">
-        This is a wellness screening based on your photos and videos, not a medical diagnosis.
-        Your coach reviews every finding before it becomes part of your plan.
+        This is a wellness screening based on your photos and videos, not a medical diagnosis. Your
+        coach reviews every finding before it becomes part of your plan.
       </p>
     </section>
   );

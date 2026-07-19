@@ -29,8 +29,17 @@
  */
 import { describe, it, expect, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
-import { insertAssessment, insertFinding, setFindingReviewStatus } from '../lib/body-assessment/data';
-import { insertAnalysis, insertObservations, updateObservation, updateAnalysis } from '../lib/coach-intelligence/data';
+import {
+  insertAssessment,
+  insertFinding,
+  setFindingReviewStatus,
+} from '../lib/body-assessment/data';
+import {
+  insertAnalysis,
+  insertObservations,
+  updateObservation,
+  updateAnalysis,
+} from '../lib/coach-intelligence/data';
 import { onAssessmentPublished } from '../lib/health-profile/orchestration';
 import { listRegistryEntriesForMember } from '../lib/registry/data';
 import { listTimelineEvents } from '../lib/timeline/data';
@@ -58,7 +67,13 @@ describe('onAssessmentPublished — publish-time cascade against real Supabase',
     const memberClient = await signInAs(TEST_USERS.memberOne);
     const coachClient = await signInAs(TEST_USERS.coachOne);
 
-    const assessment = await insertAssessment(memberClient, memberId, 'static_posture', 'America/New_York', LOCAL_DATE);
+    const assessment = await insertAssessment(
+      memberClient,
+      memberId,
+      'static_posture',
+      'America/New_York',
+      LOCAL_DATE
+    );
     expect(assessment).not.toBeNull();
 
     const finding = await insertFinding(coachClient, {
@@ -111,7 +126,9 @@ describe('onAssessmentPublished — publish-time cascade against real Supabase',
       asOfLocalDate: LOCAL_DATE,
     });
 
-    const registryEntries = await listRegistryEntriesForMember(coachClient, memberId, { statusFilter: ['active'] });
+    const registryEntries = await listRegistryEntriesForMember(coachClient, memberId, {
+      statusFilter: ['active'],
+    });
     const findingEntry = registryEntries.find((e) => e.source_record_id === finding!.id);
     expect(findingEntry).toBeDefined();
     expect(findingEntry!.domain).toBe('posture');
@@ -161,12 +178,19 @@ describe('onAssessmentPublished — publish-time cascade against real Supabase',
       .limit(1);
     const analysisId = analyses![0]!.id as string;
 
-    await onAssessmentPublished(coachClient, { memberId, assessmentId, analysisId, asOfLocalDate: LOCAL_DATE });
+    await onAssessmentPublished(coachClient, {
+      memberId,
+      assessmentId,
+      analysisId,
+      asOfLocalDate: LOCAL_DATE,
+    });
 
     const registryEntries = await listRegistryEntriesForMember(coachClient, memberId, {
       statusFilter: ['active'],
     });
-    const postureEntries = registryEntries.filter((e) => e.domain === 'posture' && e.code === 'forward_head');
+    const postureEntries = registryEntries.filter(
+      (e) => e.domain === 'posture' && e.code === 'forward_head'
+    );
     expect(postureEntries).toHaveLength(1);
   }, 60_000);
 

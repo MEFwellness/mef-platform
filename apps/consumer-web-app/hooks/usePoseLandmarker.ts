@@ -90,7 +90,12 @@ export function usePoseLandmarker(
     function tick() {
       const video = videoRef.current;
       const landmarker = landmarkerRef.current;
-      if (video && landmarker && video.readyState >= 2 && video.currentTime !== lastVideoTimeRef.current) {
+      if (
+        video &&
+        landmarker &&
+        video.readyState >= 2 &&
+        video.currentTime !== lastVideoTimeRef.current
+      ) {
         lastVideoTimeRef.current = video.currentTime;
         try {
           const result = landmarker.detectForVideo(video, performance.now());

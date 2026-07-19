@@ -12,9 +12,15 @@
 import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
 import { resolveLocalDate } from './checkin';
-import { recalculateIntelligenceCore, getIntelligenceCoreSummary } from '@/lib/intelligence-core/service';
+import {
+  recalculateIntelligenceCore,
+  getIntelligenceCoreSummary,
+} from '@/lib/intelligence-core/service';
 import { listIdentityObservationsForMember } from '@/lib/intelligence-core/data';
-import { toMemberWellnessHighlights, toMemberWellnessStorySummary } from '@/lib/intelligence-core/memberView';
+import {
+  toMemberWellnessHighlights,
+  toMemberWellnessStorySummary,
+} from '@/lib/intelligence-core/memberView';
 import type {
   IntelligenceCoreSummary,
   MemberWellnessHighlight,
@@ -86,7 +92,9 @@ export async function getClientIntelligenceCoreSummary(
 }
 
 /** Explicit recalculation trigger — same recalculation getClientIntelligenceCoreSummary already runs on every page view, triggered on demand instead. */
-export async function requestIntelligenceCoreRecalculation(clientId: string): Promise<ActionResult> {
+export async function requestIntelligenceCoreRecalculation(
+  clientId: string
+): Promise<ActionResult> {
   const supabase = createClient();
   const coachId = await currentCoachId(supabase);
   if (!coachId) return { error: 'Not signed in.' };

@@ -11,7 +11,9 @@ export function SwapSuggestionsList({ suggestions }: { suggestions: SwapSuggesti
     <div className={`${CARD} p-6`}>
       <div className="flex items-center gap-2">
         <ArrowRightLeft className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Possible Swaps</p>
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+          Possible Swaps
+        </p>
       </div>
       <div className="mt-3 space-y-3.5">
         {suggestions.map((s, i) => (

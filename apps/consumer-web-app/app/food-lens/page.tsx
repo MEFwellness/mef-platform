@@ -78,7 +78,8 @@ const ENTRY_OPTIONS = [
     href: '/food-lens/label/new' as Route,
     icon: ScanLine,
     title: 'Scan a Label',
-    description: 'Capture Nutrition Facts and ingredients when a product is missing from the database.',
+    description:
+      'Capture Nutrition Facts and ingredients when a product is missing from the database.',
   },
   {
     href: '/food-lens/search' as Route,
@@ -121,17 +122,15 @@ export default async function FoodLensPage() {
           Meal coaching, not counting
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
-          However you&apos;d like to log it, Root will walk through what actually matters — never just
-          one nutrient in isolation.
+          However you&apos;d like to log it, Root will walk through what actually matters — never
+          just one nutrient in isolation.
         </p>
 
         {dailyCoaching.messages.length > 0 && (
           <div className={`${CARD} mt-5 p-5`}>
             <div className="flex items-center gap-2 text-[#1B3A2D]">
               <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-                Today
-              </p>
+              <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Today</p>
             </div>
             <div className="mt-2 space-y-2">
               {dailyCoaching.messages.map((message, i) => (
@@ -151,13 +150,23 @@ export default async function FoodLensPage() {
               className={`${CARD} flex items-center gap-3.5 p-4`}
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#1B3A2D]/[0.06]">
-                <option.icon className="h-5 w-5 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+                <option.icon
+                  className="h-5 w-5 text-[#1B3A2D]"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-[#1B3A2D]">{option.title}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">{option.description}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">
+                  {option.description}
+                </p>
               </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+              <ChevronRight
+                className="h-4 w-4 shrink-0 text-[#9AA79F]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
             </Link>
           ))}
         </div>
@@ -208,7 +217,11 @@ export default async function FoodLensPage() {
             href={'/food-lens/pantry' as Route}
             className={`${CARD} flex items-center gap-2.5 p-4`}
           >
-            <Refrigerator className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+            <Refrigerator
+              className="h-4 w-4 text-[#9AA79F]"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
             <p className="text-sm font-medium text-[#1B3A2D]">Pantry</p>
           </Link>
           <Link
@@ -228,7 +241,9 @@ export default async function FoodLensPage() {
             <ScrollText className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
             <div>
               <p className="text-sm font-medium text-[#1B3A2D]">Your Week in Food</p>
-              <p className="mt-0.5 text-xs text-[#6B7A72]">A calm weekly summary of your patterns</p>
+              <p className="mt-0.5 text-xs text-[#6B7A72]">
+                A calm weekly summary of your patterns
+              </p>
             </div>
           </div>
           <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />

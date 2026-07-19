@@ -81,10 +81,15 @@ export function FoodSearch() {
     if (items.length === 0) return null;
     return (
       <div>
-        <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">{title}</p>
+        <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+          {title}
+        </p>
         <ul className={`${CARD} divide-y divide-[#1B3A2D]/5 px-2`}>
           {items.map((item, i) => (
-            <li key={`${item.productId ?? item.barcode}-${i}`} className="flex items-center gap-3 px-3 py-3">
+            <li
+              key={`${item.productId ?? item.barcode}-${i}`}
+              className="flex items-center gap-3 px-3 py-3"
+            >
               <button
                 type="button"
                 onClick={() => handleOpen(item)}
@@ -93,7 +98,11 @@ export function FoodSearch() {
               >
                 {item.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                  />
                 ) : (
                   <div className="h-10 w-10 shrink-0 rounded-lg bg-[#1B3A2D]/[0.06]" />
                 )}
@@ -130,7 +139,10 @@ export function FoodSearch() {
   return (
     <div className="space-y-6">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA79F]" strokeWidth={1.75} />
+        <Search
+          className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9AA79F]"
+          strokeWidth={1.75}
+        />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -138,7 +150,10 @@ export function FoodSearch() {
           className="w-full rounded-full border border-[#1B3A2D]/15 bg-white py-3 pl-11 pr-4 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]"
         />
         {isSearching && (
-          <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#9AA79F]" strokeWidth={1.75} />
+          <Loader2
+            className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#9AA79F]"
+            strokeWidth={1.75}
+          />
         )}
       </div>
 

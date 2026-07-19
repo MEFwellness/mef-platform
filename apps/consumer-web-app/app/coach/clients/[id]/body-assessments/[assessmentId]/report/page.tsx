@@ -169,7 +169,9 @@ export default async function BodyAssessmentReportPage({
               )}
               {featuredReview.recommendations && (
                 <p className="mt-2 text-sm leading-relaxed text-[#6B7A72] print:text-black">
-                  <span className="font-medium text-[#1B3A2D] print:text-black">Recommendations: </span>
+                  <span className="font-medium text-[#1B3A2D] print:text-black">
+                    Recommendations:{' '}
+                  </span>
                   {featuredReview.recommendations}
                 </p>
               )}
@@ -180,7 +182,8 @@ export default async function BodyAssessmentReportPage({
         {previousAssessment && comparisonRows.length > 0 && (
           <section className="mt-8 print:break-inside-avoid">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-[#854D0E] print:text-black">
-              Progress since {new Date(previousAssessment.started_at).toLocaleDateString('en-US', {
+              Progress since{' '}
+              {new Date(previousAssessment.started_at).toLocaleDateString('en-US', {
                 month: 'long',
                 day: 'numeric',
                 year: 'numeric',

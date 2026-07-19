@@ -29,7 +29,11 @@ import { listObservations } from '../../coach-intelligence/data';
 import { findActiveRegistryEntry, insertRegistryEntry } from '../data';
 import type { RegistryEntryDraft } from '../types';
 
-const REGISTERED_CATEGORIES = new Set<AiObservationCategory>(['observation', 'compensation', 'red_flag']);
+const REGISTERED_CATEGORIES = new Set<AiObservationCategory>([
+  'observation',
+  'compensation',
+  'red_flag',
+]);
 
 function codeForObservation(observationId: string, text: string): string {
   const slug = text

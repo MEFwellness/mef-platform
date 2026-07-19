@@ -27,7 +27,9 @@ export function Bubble({ message }: { message: ConversationMessage }) {
 
   return (
     <div className={`flex min-w-0 ${isMember ? 'justify-end' : 'justify-start'} py-1`}>
-      <div className={`flex min-w-0 max-w-[80%] flex-col ${isMember ? 'items-end' : 'items-start'}`}>
+      <div
+        className={`flex min-w-0 max-w-[80%] flex-col ${isMember ? 'items-end' : 'items-start'}`}
+      >
         <div
           className={`min-w-0 max-w-full whitespace-pre-wrap break-words rounded-3xl px-4 py-3 text-[15px] leading-relaxed ${
             isMember

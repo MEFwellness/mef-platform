@@ -52,7 +52,9 @@ function LevelPicker({
 export function PrimalPatternForm({ initial }: { initial: PrimalPatternProfile | null }) {
   const router = useRouter();
   const [patternLabel, setPatternLabel] = useState(initial?.pattern_label ?? 'My Eating Pattern');
-  const [protein, setProtein] = useState<FoodLensMacroLevel>(initial?.protein_emphasis ?? 'moderate');
+  const [protein, setProtein] = useState<FoodLensMacroLevel>(
+    initial?.protein_emphasis ?? 'moderate'
+  );
   const [carb, setCarb] = useState<FoodLensMacroLevel>(initial?.carb_emphasis ?? 'moderate');
   const [fat, setFat] = useState<FoodLensMacroLevel>(initial?.fat_emphasis ?? 'moderate');
   const [saving, setSaving] = useState(false);
@@ -83,7 +85,9 @@ export function PrimalPatternForm({ initial }: { initial: PrimalPatternProfile |
       </p>
 
       <div className="mt-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Pattern name</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+          Pattern name
+        </p>
         <input
           type="text"
           value={patternLabel}

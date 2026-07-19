@@ -45,7 +45,11 @@ export function DashboardQuickLinks() {
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">
               <Icon className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
             </span>
-            <ChevronRight className="h-3.5 w-3.5 text-[#1B3A2D]/30" strokeWidth={1.75} aria-hidden="true" />
+            <ChevronRight
+              className="h-3.5 w-3.5 text-[#1B3A2D]/30"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
           </div>
           <div className="mt-3">
             <p className="text-sm font-semibold text-[#1B3A2D]">{label}</p>

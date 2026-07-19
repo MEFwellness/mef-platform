@@ -33,10 +33,7 @@ const COMBO_CATEGORIES: ComboCategory[] = ['protein', 'carb', 'fat', 'vegetable'
 
 function isComboCategory(category: FoodLensFoodCategory | null): category is ComboCategory {
   return (
-    category === 'protein' ||
-    category === 'carb' ||
-    category === 'fat' ||
-    category === 'vegetable'
+    category === 'protein' || category === 'carb' || category === 'fat' || category === 'vegetable'
   );
 }
 
@@ -93,7 +90,8 @@ const RULES: ComboRule[] = [
   },
   {
     categories: ['carb', 'fat'],
-    build: (p) => `${p.carb.name} and ${p.fat.name} are on hand for a simple, energy-dense combination.`,
+    build: (p) =>
+      `${p.carb.name} and ${p.fat.name} are on hand for a simple, energy-dense combination.`,
   },
   {
     categories: ['carb', 'vegetable'],
@@ -102,7 +100,8 @@ const RULES: ComboRule[] = [
   },
   {
     categories: ['vegetable', 'fat'],
-    build: (p) => `${p.vegetable.name} and ${p.fat.name} are on hand — enough for a simple dressed vegetable dish.`,
+    build: (p) =>
+      `${p.vegetable.name} and ${p.fat.name} are on hand — enough for a simple dressed vegetable dish.`,
   },
 ];
 

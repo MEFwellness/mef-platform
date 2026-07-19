@@ -11,9 +11,9 @@ block alongside the prompt. Reasons this beats bringing in a second AI vendor:
   code path to build and maintain — the existing `AnthropicProvider` shape (or a close sibling of
   it) already does 90% of what's needed.
 - **Structured output via forced tool-use.** Claude's tool-use can be forced (`tool_choice`) so
-  the model *must* return a JSON object matching a schema — e.g.
+  the model _must_ return a JSON object matching a schema — e.g.
   `{ items: [{ label, category, confidence }], macro_estimate: { protein: {level, confidence},
-  carb: {...}, fat: {...} } }` — instead of parsing freeform prose. This is materially more
+carb: {...}, fat: {...} } }` — instead of parsing freeform prose. This is materially more
   reliable than prompting for "please respond in JSON" and matters a lot here because a malformed
   response should never silently produce a bogus macro estimate.
 - **Multi-image support** in a single request, needed later for barcode/label photos that include
@@ -34,12 +34,12 @@ Sonnet-tier accuracy is insufficient for composite dishes.
 
 ### Alternatives considered
 
-| Option | Verdict |
-|---|---|
-| **GPT-4o / GPT-4.1 vision (OpenAI)** | Comparable food-recognition quality. Rejected for MVP only because it means standing up a second provider's auth/retry/error-handling path for no accuracy gain over what's already integrated. Worth keeping in the `providers/registry.ts`-style stub list (see doc 3) as a documented fallback/comparison option, exactly how `openai_vision` already sits alongside `anthropic_vision` in the Body Assessment provider registry. |
-| **Google Gemini (2.x) vision** | Same reasoning as GPT-4o — solid option, not worth a second integration for MVP. Already present as `google_gemini` in the Body Assessment provider registry naming convention; reuse that naming if/when evaluated. |
+| Option                                                                            | Verdict                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GPT-4o / GPT-4.1 vision (OpenAI)**                                              | Comparable food-recognition quality. Rejected for MVP only because it means standing up a second provider's auth/retry/error-handling path for no accuracy gain over what's already integrated. Worth keeping in the `providers/registry.ts`-style stub list (see doc 3) as a documented fallback/comparison option, exactly how `openai_vision` already sits alongside `anthropic_vision` in the Body Assessment provider registry.                                                         |
+| **Google Gemini (2.x) vision**                                                    | Same reasoning as GPT-4o — solid option, not worth a second integration for MVP. Already present as `google_gemini` in the Body Assessment provider registry naming convention; reuse that naming if/when evaluated.                                                                                                                                                                                                                                                                         |
 | **Specialized food-recognition APIs** (LogMeal, Foodvisor, Clarifai's food model) | These are trained specifically for food and can be more accurate on packaged/branded/restaurant-chain foods, and some return actual nutrition-database lookups. Worth a real bake-off before committing engineering time, **but** they push MEF toward exactly the calorie/gram-precision framing this feature is explicitly avoiding, and adds a third vendor relationship. Not recommended for MVP; revisit only if Claude/GPT-4o composite-dish accuracy proves insufficient in practice. |
-| **Self-hosted/open model** (e.g., a fine-tuned food-classification CNN) | Overkill for MVP volume; meaningful infra investment (hosting, GPU cost, retraining pipeline) for a premium feature that hasn't validated demand yet. Revisit only at production scale if per-call vendor API cost becomes the dominant cost driver — see doc 6 phase 3. |
+| **Self-hosted/open model** (e.g., a fine-tuned food-classification CNN)           | Overkill for MVP volume; meaningful infra investment (hosting, GPU cost, retraining pipeline) for a premium feature that hasn't validated demand yet. Revisit only at production scale if per-call vendor API cost becomes the dominant cost driver — see doc 6 phase 3.                                                                                                                                                                                                                     |
 
 ## 2.2 Barcode scanning (future phase) — recommendation: on-device decode + free/open product database
 
@@ -69,17 +69,17 @@ Sonnet-tier accuracy is insufficient for composite dishes.
   text extraction accuracy turns out to need a purpose-built OCR engine rather than a general
   vision-language model. Start with (a) for architectural simplicity; only add (b) if eval data
   shows it's meaningfully more accurate on real (non-flat, glare-heavy, curved) label photos.
-- Because a nutrition label states real values, this is the one capture type where the app *can*
+- Because a nutrition label states real values, this is the one capture type where the app _can_
   show the label's own printed numbers verbatim (that's the label doing the claiming, not MEF's
   AI) — but the comparison-against-Primal-Pattern output should still be expressed as levels, not
   as a recomputed macro percentage, to stay consistent with the rest of the feature and requirement
-  "never present macro estimates as exact facts" (the *meal-level* estimate stays qualitative even
-  when one *ingredient's* label is exact).
+  "never present macro estimates as exact facts" (the _meal-level_ estimate stays qualitative even
+  when one _ingredient's_ label is exact).
 
 ## 2.4 What NOT to build
 
 - No calorie estimation, ever — out of scope by explicit product requirement, not just an MVP cut.
 - No attempt to estimate portion size/weight from a 2D photo for MVP. Portion/depth estimation
   from a single monocular image is a hard, low-accuracy problem (needs a reference object or
-  depth sensor for reasonable accuracy) and isn't needed for a *relative balance* judgment anyway
+  depth sensor for reasonable accuracy) and isn't needed for a _relative balance_ judgment anyway
   — "is this plate carb-heavy" doesn't require knowing it's exactly 340g of rice.

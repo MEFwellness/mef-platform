@@ -1,14 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  Maximize2,
-  Minimize2,
-  Pencil,
-  RotateCcw,
-  ZoomIn,
-  ZoomOut,
-} from 'lucide-react';
+import { Maximize2, Minimize2, Pencil, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import type { AnnotationShape, BodyAssessmentCapture } from '@mef/shared-types-contracts';
 import { saveCaptureAnnotationsAction } from '@/app/actions/body-assessment';
 import { AnnotationCanvas } from './AnnotationCanvas';
@@ -45,9 +38,11 @@ export function MediaViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const panState = useRef<{ startX: number; startY: number; origin: { x: number; y: number } } | null>(
-    null
-  );
+  const panState = useRef<{
+    startX: number;
+    startY: number;
+    origin: { x: number; y: number };
+  } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDrawMode, setIsDrawMode] = useState(false);
   const [tool, setTool] = useState<AnnotationTool>('select');

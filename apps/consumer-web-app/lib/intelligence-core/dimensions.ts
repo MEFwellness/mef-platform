@@ -35,7 +35,10 @@ function levelFromScore(score: number | null): WellnessProfileLevel {
   return 'very_low';
 }
 
-const WINDOW_PREFERENCE: { window: LongitudinalTrend['points'][number]['window']; minSample: number }[] = [
+const WINDOW_PREFERENCE: {
+  window: LongitudinalTrend['points'][number]['window'];
+  minSample: number;
+}[] = [
   { window: 'last_30_days', minSample: 10 },
   { window: 'last_14_days', minSample: 6 },
   { window: 'last_7_days', minSample: 4 },
@@ -81,7 +84,8 @@ function dimensionFromArea(
     level: levelFromScore(score),
     score,
     confidence: best.trend.confidence,
-    trendDirection: best.trend.direction === 'insufficient_data' ? 'insufficient_data' : best.trend.direction,
+    trendDirection:
+      best.trend.direction === 'insufficient_data' ? 'insufficient_data' : best.trend.direction,
     evidenceCount: best.point.sampleSize,
     rationale: `${describe(areaLabel(area), score, best.trend.direction)}${proxyNote ? ` ${proxyNote}` : ''}`,
     contributingEvidence: best.trend.evidenceRefs,
@@ -94,7 +98,9 @@ function averageDimension(
   areas: WellnessMetricKey[],
   describe: (score: number) => string
 ): WellnessDimensionComputation {
-  const points = areas.map((area) => bestPoint(trends.find((t) => t.area === area))).filter((p) => p !== null);
+  const points = areas
+    .map((area) => bestPoint(trends.find((t) => t.area === area)))
+    .filter((p) => p !== null);
   if (points.length === 0) {
     return {
       dimension,
@@ -107,7 +113,9 @@ function averageDimension(
       contributingEvidence: [],
     };
   }
-  const score = Math.round(points.reduce((sum, p) => sum + p!.point.averageScore!, 0) / points.length);
+  const score = Math.round(
+    points.reduce((sum, p) => sum + p!.point.averageScore!, 0) / points.length
+  );
   const avgConfidence = points.reduce((sum, p) => sum + p!.trend.confidence, 0) / points.length;
   const evidenceCount = points.reduce((sum, p) => sum + p!.point.sampleSize, 0);
   const directions = new Set(points.map((p) => p!.trend.direction));
@@ -145,7 +153,8 @@ function lifestyleConsistencyDimension(profile: MemberHealthProfile): WellnessDi
     level: levelFromScore(score),
     score,
     confidence: confidenceFromSample(adherence.sampleSize, 0.5, 14, 0.85),
-    trendDirection: adherence.level === 'high' ? 'improving' : adherence.level === 'low' ? 'declining' : 'stable',
+    trendDirection:
+      adherence.level === 'high' ? 'improving' : adherence.level === 'low' ? 'declining' : 'stable',
     evidenceCount: adherence.sampleSize,
     rationale: `Completed ${score}% of daily coaching actions over the last ${adherence.sampleSize} days (adherence level: ${adherence.level}).`,
     contributingEvidence: [{ type: 'daily_feed_history', id: 'adherence_window' }],
@@ -174,18 +183,27 @@ function habitReliabilityDimension(profile: MemberHealthProfile): WellnessDimens
     level: levelFromScore(score),
     score,
     confidence: confidenceFromSample(streak.longestStreak, 0.5, 20, 0.85),
-    trendDirection: streak.isLongestInWindow ? 'improving' : momentumRatio < 0.5 ? 'declining' : 'stable',
+    trendDirection: streak.isLongestInWindow
+      ? 'improving'
+      : momentumRatio < 0.5
+        ? 'declining'
+        : 'stable',
     evidenceCount: streak.longestStreak,
     rationale: `Current check-in streak is ${streak.currentStreak} day(s) vs. a longest streak of ${streak.longestStreak}.`,
     contributingEvidence: [{ type: 'checkin_streak', id: 'current_vs_longest' }],
   };
 }
 
-function motivationProfileDimension(profile: MemberHealthProfile, report: MemberIntelligenceReport): WellnessDimensionComputation {
+function motivationProfileDimension(
+  profile: MemberHealthProfile,
+  report: MemberIntelligenceReport
+): WellnessDimensionComputation {
   const { adherence, streak } = profile;
-  const momentumRatio = streak.longestStreak > 0 ? streak.currentStreak / streak.longestStreak : null;
+  const momentumRatio =
+    streak.longestStreak > 0 ? streak.currentStreak / streak.longestStreak : null;
   const parts = [adherence.rate, momentumRatio].filter((v): v is number => v !== null);
-  const score = parts.length > 0 ? Math.round((parts.reduce((s, v) => s + v, 0) / parts.length) * 100) : null;
+  const score =
+    parts.length > 0 ? Math.round((parts.reduce((s, v) => s + v, 0) / parts.length) * 100) : null;
 
   return {
     dimension: 'motivation_profile',
@@ -207,7 +225,9 @@ function motivationProfileDimension(profile: MemberHealthProfile, report: Member
 }
 
 /** Aggregates the already-classified per-area directions (never re-derives one) into a net momentum score — distinct from motivation_profile (which reads adherence/streak): this one asks "across everything being tracked, is the overall balance right now improving or declining." */
-function behaviorChangeMomentumDimension(report: MemberIntelligenceReport): WellnessDimensionComputation {
+function behaviorChangeMomentumDimension(
+  report: MemberIntelligenceReport
+): WellnessDimensionComputation {
   const classified = report.longitudinalTrends.filter((t) => t.direction !== 'insufficient_data');
   if (classified.length === 0) {
     return {
@@ -242,7 +262,10 @@ function behaviorChangeMomentumDimension(report: MemberIntelligenceReport): Well
   };
 }
 
-const ATTENTION_TO_RISK_SCORE: Record<MemberIntelligenceReport['priorities']['recommendedCoachAttentionLevel'], number> = {
+const ATTENTION_TO_RISK_SCORE: Record<
+  MemberIntelligenceReport['priorities']['recommendedCoachAttentionLevel'],
+  number
+> = {
   none: 90,
   monitor: 70,
   discuss: 45,
@@ -274,25 +297,63 @@ export function computeAllProfileDimensions(
   const trends = report.longitudinalTrends;
 
   return [
-    dimensionFromArea('sleep_stability', trends, 'sleep', (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`),
-    dimensionFromArea('energy_stability', trends, 'energy', (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`),
-    dimensionFromArea('pain_stability', trends, 'pain', (label, score, dir) => `${label} comfort has averaged ${score}/100 recently and is currently ${dir}.`),
-    dimensionFromArea('hydration_consistency', trends, 'hydration', (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`),
+    dimensionFromArea(
+      'sleep_stability',
+      trends,
+      'sleep',
+      (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`
+    ),
+    dimensionFromArea(
+      'energy_stability',
+      trends,
+      'energy',
+      (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`
+    ),
+    dimensionFromArea(
+      'pain_stability',
+      trends,
+      'pain',
+      (label, score, dir) =>
+        `${label} comfort has averaged ${score}/100 recently and is currently ${dir}.`
+    ),
+    dimensionFromArea(
+      'hydration_consistency',
+      trends,
+      'hydration',
+      (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`
+    ),
     dimensionFromArea(
       'nutrition_consistency',
       trends,
       'digestion',
-      (label, score, dir) => `Digestion (the closest currently-collected proxy for nutrition) has averaged ${score}/100 and is currently ${dir}.`,
+      (label, score, dir) =>
+        `Digestion (the closest currently-collected proxy for nutrition) has averaged ${score}/100 and is currently ${dir}.`,
       'Replace with real nutrition-tracking data once that integration exists.'
     ),
-    dimensionFromArea('stress_resilience', trends, 'stress', (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`),
-    dimensionFromArea('emotional_stability', trends, 'mood', (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`),
-    dimensionFromArea('movement_confidence', trends, 'movement', (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`),
+    dimensionFromArea(
+      'stress_resilience',
+      trends,
+      'stress',
+      (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`
+    ),
+    dimensionFromArea(
+      'emotional_stability',
+      trends,
+      'mood',
+      (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`
+    ),
+    dimensionFromArea(
+      'movement_confidence',
+      trends,
+      'movement',
+      (label, score, dir) => `${label} has averaged ${score}/100 recently and is currently ${dir}.`
+    ),
     averageDimension(
       'recovery_capacity',
       trends,
       ['energy', 'pain'],
-      (score) => `Blends recent energy and pain comfort into a single recovery picture (${score}/100).`
+      (score) =>
+        `Blends recent energy and pain comfort into a single recovery picture (${score}/100).`
     ),
     lifestyleConsistencyDimension(profile),
     habitReliabilityDimension(profile),
@@ -303,7 +364,9 @@ export function computeAllProfileDimensions(
 }
 
 /** The 15th dimension — a rollup of how well-understood (not how "good") the member's coaching style currently is, computed after coachingStyle.ts runs. */
-export function computeCoachingStyleDimension(style: CoachingStyleComputation): WellnessDimensionComputation {
+export function computeCoachingStyleDimension(
+  style: CoachingStyleComputation
+): WellnessDimensionComputation {
   const score = Math.round(style.confidence * 100);
   return {
     dimension: 'coaching_style_preference',

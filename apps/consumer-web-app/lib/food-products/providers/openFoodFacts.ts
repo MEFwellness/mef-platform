@@ -326,7 +326,10 @@ export class OpenFoodFactsProvider implements FoodProductProvider {
         }));
     } catch (err) {
       clearTimeout(timer);
-      console.error('OpenFoodFactsProvider.searchByName failed — returning no external results', err);
+      console.error(
+        'OpenFoodFactsProvider.searchByName failed — returning no external results',
+        err
+      );
       return [];
     }
   }

@@ -82,7 +82,10 @@ import { ConcernFlag } from '@/components/checkin/ConcernFlag';
 import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection';
 import { getMyQuestionnaireList } from '@/app/actions/assessments';
 import { getMyPrimalPatternListItem } from '@/app/actions/primal-pattern';
-import { QuestionnairesHomeCard, type HomeQuestionnaireItem } from '@/components/questionnaires/QuestionnairesHomeCard';
+import {
+  QuestionnairesHomeCard,
+  type HomeQuestionnaireItem,
+} from '@/components/questionnaires/QuestionnairesHomeCard';
 import {
   stressStatus,
   painStatus,
@@ -263,350 +266,354 @@ export default async function DashboardPage({
         </div>
 
         <div className="mt-7 space-y-5">
-        {recentCheckins.length === 0 ? (
-          /* Premium UX Milestone 2: before a member's first completed
+          {recentCheckins.length === 0 ? (
+            /* Premium UX Milestone 2: before a member's first completed
              check-in, Root has nothing real to personalize yet — one
              welcome moment with a single CTA replaces what would
              otherwise be an empty brief, an empty wearable pitch, an
              empty wellness index, seven "Not logged yet" tracker cards,
              and an empty trend chart all stacked on top of each other. */
-          <FirstCheckInWelcome firstName={firstName} />
-        ) : (
-          <>
-          {/* ---------------------------------------------------- */}
-          {/* Root Score — the platform's central heartbeat.          */}
-          {/* Longer-term, cross-domain, deliberately slow-moving      */}
-          {/* (lib/scoring/), placed first so "how am I doing          */}
-          {/* overall" is answered before anything else. Replaces      */}
-          {/* the single-day Daily Wellness Index's spot on this       */}
-          {/* dashboard (that component and its calculation still      */}
-          {/* power the coach client view unchanged — see               */}
-          {/* app/coach/clients/[id]/page.tsx). See                     */}
-          {/* components/RootScoreCard.tsx and app/root-score/.         */}
-          {/* ---------------------------------------------------- */}
-          <RootScoreCard snapshot={rootScoreSnapshot} />
-
-          {/* ---------------------------------------------------- */}
-          {/* Questionnaires — a dedicated, premium summary card      */}
-          {/* directly below Root Score. Real completion progress     */}
-          {/* across every registered questionnaire (registry-based   */}
-          {/* + Primal Pattern), backed by getMyQuestionnaireList()    */}
-          {/* and getMyPrimalPatternListItem(). Questionnaires-only:   */}
-          {/* no check-ins, movement, Food Lens, or Concern belong     */}
-          {/* here — those live in their own sections below. See       */}
-          {/* components/questionnaires/QuestionnairesHomeCard.tsx.    */}
-          {/* ---------------------------------------------------- */}
-          <QuestionnairesHomeCard items={homeQuestionnaireItems} />
-
-          {/* ---------------------------------------------------- */}
-          {/* Movement + Food Lens + Progress quick links — their     */}
-          {/* fixed-bottom-nav replacement now that the bar is        */}
-          {/* scoped to Home/Check-In/Today only. See                 */}
-          {/* components/DashboardQuickLinks.tsx.                      */}
-          {/* ---------------------------------------------------- */}
-          <DashboardQuickLinks />
-
-          {/* ---------------------------------------------------- */}
-          {/* Mid-day concern flagging — writes through the           */}
-          {/* standardized member event stream (see                   */}
-          {/* app/actions/events.ts). The ad-hoc "Log movement"        */}
-          {/* widget that used to sit here was removed in favor of     */}
-          {/* the Questionnaires card above; movement logging still    */}
-          {/* lives on the Movement quick-link (/movement) via         */}
-          {/* Movement Intelligence sessions.                          */}
-          {/* ---------------------------------------------------- */}
-          <ConcernFlag />
-
-          {/* ---------------------------------------------------- */}
-          {/* Today's Wellness — Morning Readiness Score (shown the   */}
-          {/* moment its own morning inputs exist) and the Daily      */}
-          {/* Wellness Score (shown only once Morning Readiness AND   */}
-          {/* an Evening Reflection both exist for today — never a    */}
-          {/* zero or placeholder before then). See                   */}
-          {/* components/checkin/DailyWellnessSection.tsx.            */}
-          {/* ---------------------------------------------------- */}
-          <DailyWellnessSection checkin={todaysCheckin} eveningReflection={eveningReflection} />
-
-          {/* ---------------------------------------------------- */}
-          {/* Guided Posture & Movement Assessment — Premium UX       */}
-          {/* Milestone 4: the actual next step after a first Daily   */}
-          {/* Check-In. Stays prominent here (never buried in         */}
-          {/* Profile) until completed, then auto-replaces itself     */}
-          {/* with a real, data-backed status. See                    */}
-          {/* components/MovementAssessmentCard.tsx.                   */}
-          {/* ---------------------------------------------------- */}
-          <MovementAssessmentCard assessments={bodyAssessments} />
-
-          {/* ---------------------------------------------------- */}
-          {/* Comprehensive Health Assessment — now a secondary       */}
-          {/* recommendation surfaced only after the movement          */}
-          {/* assessment above is done (or immediately, once a         */}
-          {/* baseline already exists). See                            */}
-          {/* components/ComprehensiveAssessmentCard.tsx.              */}
-          {/* ---------------------------------------------------- */}
-          <ComprehensiveAssessmentCard baseline={baseline} movementCompleted={movementAnalyzed} />
-
-          {/* ---------------------------------------------------- */}
-          {/* Root's Daily Brief — the Proactive Coaching Engine's    */}
-          {/* flagship surface, first thing shown after the greeting. */}
-          {/* Dashboard-only now (Milestone 2): it used to also render */}
-          {/* on Today, which made the two pages feel duplicated.      */}
-          {/* ---------------------------------------------------- */}
-          {morningBrief && (
-            <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
-          )}
-
-          {/* ---------------------------------------------------- */}
-          {/* Wearable Status + Recovery — the unlock pitch until a   */}
-          {/* device is connected, then today's real recovery         */}
-          {/* numbers. Dashboard-only now (Milestone 2): Today used    */}
-          {/* to render this same connect pitch and the same stats     */}
-          {/* row a second time.                                       */}
-          {/* ---------------------------------------------------- */}
-          {hasConnectedWearable ? (
-            decision?.wearableSnapshot ? (
-              <section className={`${CARD} p-6`}>
-                <div className="flex items-center gap-2 text-[#6B7A72]">
-                  <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                  <p className="text-sm font-semibold uppercase tracking-wider">
-                    Today&apos;s Recovery
-                  </p>
-                </div>
-                <WearableStatsRow snapshot={decision.wearableSnapshot} />
-              </section>
-            ) : (
-              <section className={`${CARD} p-6`}>
-                <div className="flex items-center gap-2 text-[#6B7A72]">
-                  <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                  <p className="text-sm font-semibold uppercase tracking-wider">
-                    Today&apos;s Recovery
-                  </p>
-                </div>
-                <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                  Your device is connected — recovery numbers will appear here after your first
-                  sync.
-                </p>
-              </section>
-            )
+            <FirstCheckInWelcome firstName={firstName} />
           ) : (
-            <ConnectWearableCard variant="dashboard" />
-          )}
+            <>
+              {/* ---------------------------------------------------- */}
+              {/* Root Score — the platform's central heartbeat.          */}
+              {/* Longer-term, cross-domain, deliberately slow-moving      */}
+              {/* (lib/scoring/), placed first so "how am I doing          */}
+              {/* overall" is answered before anything else. Replaces      */}
+              {/* the single-day Daily Wellness Index's spot on this       */}
+              {/* dashboard (that component and its calculation still      */}
+              {/* power the coach client view unchanged — see               */}
+              {/* app/coach/clients/[id]/page.tsx). See                     */}
+              {/* components/RootScoreCard.tsx and app/root-score/.         */}
+              {/* ---------------------------------------------------- */}
+              <RootScoreCard snapshot={rootScoreSnapshot} />
 
-          {/* ---------------------------------------------------- */}
-          {/* Current wellness overview — today's numbers only when   */}
-          {/* today's check-in actually exists; otherwise a single     */}
-          {/* prompt instead of seven "Not logged yet" cards. (The      */}
-          {/* check-in status/CTA itself now lives on Today, which      */}
-          {/* answers "what should I do today" instead of "how am I     */}
-          {/* doing" — see Today's Check-In Progress section.)          */}
-          {/* ---------------------------------------------------- */}
-          {todaysCheckin ? (
-          <>
-          {/* ---------------------------------------------------- */}
-          {/* Trackers — real data, indicator color reflects status  */}
-          {/* (green = good, gold = needs attention, red = poor,     */}
-          {/* gray = no data). Stress/Pain are inverse scales — low   */}
-          {/* is good — see lib/wellness/status.ts.                  */}
-          {/* ---------------------------------------------------- */}
-          <p className="pt-1 text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40">
-            Today&apos;s Numbers
-          </p>
-          <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-            <HydrationTracker initialTotal={hydrationTotal} />
+              {/* ---------------------------------------------------- */}
+              {/* Questionnaires — a dedicated, premium summary card      */}
+              {/* directly below Root Score. Real completion progress     */}
+              {/* across every registered questionnaire (registry-based   */}
+              {/* + Primal Pattern), backed by getMyQuestionnaireList()    */}
+              {/* and getMyPrimalPatternListItem(). Questionnaires-only:   */}
+              {/* no check-ins, movement, Food Lens, or Concern belong     */}
+              {/* here — those live in their own sections below. See       */}
+              {/* components/questionnaires/QuestionnairesHomeCard.tsx.    */}
+              {/* ---------------------------------------------------- */}
+              <QuestionnairesHomeCard items={homeQuestionnaireItems} />
 
-            <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <Moon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Sleep</p>
-              </div>
-              {todaysCheckin?.sleep_duration ? (
+              {/* ---------------------------------------------------- */}
+              {/* Movement + Food Lens + Progress quick links — their     */}
+              {/* fixed-bottom-nav replacement now that the bar is        */}
+              {/* scoped to Home/Check-In/Today only. See                 */}
+              {/* components/DashboardQuickLinks.tsx.                      */}
+              {/* ---------------------------------------------------- */}
+              <DashboardQuickLinks />
+
+              {/* ---------------------------------------------------- */}
+              {/* Mid-day concern flagging — writes through the           */}
+              {/* standardized member event stream (see                   */}
+              {/* app/actions/events.ts). The ad-hoc "Log movement"        */}
+              {/* widget that used to sit here was removed in favor of     */}
+              {/* the Questionnaires card above; movement logging still    */}
+              {/* lives on the Movement quick-link (/movement) via         */}
+              {/* Movement Intelligence sessions.                          */}
+              {/* ---------------------------------------------------- */}
+              <ConcernFlag />
+
+              {/* ---------------------------------------------------- */}
+              {/* Today's Wellness — Morning Readiness Score (shown the   */}
+              {/* moment its own morning inputs exist) and the Daily      */}
+              {/* Wellness Score (shown only once Morning Readiness AND   */}
+              {/* an Evening Reflection both exist for today — never a    */}
+              {/* zero or placeholder before then). See                   */}
+              {/* components/checkin/DailyWellnessSection.tsx.            */}
+              {/* ---------------------------------------------------- */}
+              <DailyWellnessSection checkin={todaysCheckin} eveningReflection={eveningReflection} />
+
+              {/* ---------------------------------------------------- */}
+              {/* Guided Posture & Movement Assessment — Premium UX       */}
+              {/* Milestone 4: the actual next step after a first Daily   */}
+              {/* Check-In. Stays prominent here (never buried in         */}
+              {/* Profile) until completed, then auto-replaces itself     */}
+              {/* with a real, data-backed status. See                    */}
+              {/* components/MovementAssessmentCard.tsx.                   */}
+              {/* ---------------------------------------------------- */}
+              <MovementAssessmentCard assessments={bodyAssessments} />
+
+              {/* ---------------------------------------------------- */}
+              {/* Comprehensive Health Assessment — now a secondary       */}
+              {/* recommendation surfaced only after the movement          */}
+              {/* assessment above is done (or immediately, once a         */}
+              {/* baseline already exists). See                            */}
+              {/* components/ComprehensiveAssessmentCard.tsx.              */}
+              {/* ---------------------------------------------------- */}
+              <ComprehensiveAssessmentCard
+                baseline={baseline}
+                movementCompleted={movementAnalyzed}
+              />
+
+              {/* ---------------------------------------------------- */}
+              {/* Root's Daily Brief — the Proactive Coaching Engine's    */}
+              {/* flagship surface, first thing shown after the greeting. */}
+              {/* Dashboard-only now (Milestone 2): it used to also render */}
+              {/* on Today, which made the two pages feel duplicated.      */}
+              {/* ---------------------------------------------------- */}
+              {morningBrief && (
+                <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
+              )}
+
+              {/* ---------------------------------------------------- */}
+              {/* Wearable Status + Recovery — the unlock pitch until a   */}
+              {/* device is connected, then today's real recovery         */}
+              {/* numbers. Dashboard-only now (Milestone 2): Today used    */}
+              {/* to render this same connect pitch and the same stats     */}
+              {/* row a second time.                                       */}
+              {/* ---------------------------------------------------- */}
+              {hasConnectedWearable ? (
+                decision?.wearableSnapshot ? (
+                  <section className={`${CARD} p-6`}>
+                    <div className="flex items-center gap-2 text-[#6B7A72]">
+                      <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                      <p className="text-sm font-semibold uppercase tracking-wider">
+                        Today&apos;s Recovery
+                      </p>
+                    </div>
+                    <WearableStatsRow snapshot={decision.wearableSnapshot} />
+                  </section>
+                ) : (
+                  <section className={`${CARD} p-6`}>
+                    <div className="flex items-center gap-2 text-[#6B7A72]">
+                      <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                      <p className="text-sm font-semibold uppercase tracking-wider">
+                        Today&apos;s Recovery
+                      </p>
+                    </div>
+                    <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                      Your device is connected — recovery numbers will appear here after your first
+                      sync.
+                    </p>
+                  </section>
+                )
+              ) : (
+                <ConnectWearableCard variant="dashboard" />
+              )}
+
+              {/* ---------------------------------------------------- */}
+              {/* Current wellness overview — today's numbers only when   */}
+              {/* today's check-in actually exists; otherwise a single     */}
+              {/* prompt instead of seven "Not logged yet" cards. (The      */}
+              {/* check-in status/CTA itself now lives on Today, which      */}
+              {/* answers "what should I do today" instead of "how am I     */}
+              {/* doing" — see Today's Check-In Progress section.)          */}
+              {/* ---------------------------------------------------- */}
+              {todaysCheckin ? (
                 <>
-                  <p
-                    className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[sleepDurationStatus(todaysCheckin.sleep_duration)].text}`}
-                  >
-                    {todaysCheckin.sleep_duration}
+                  {/* ---------------------------------------------------- */}
+                  {/* Trackers — real data, indicator color reflects status  */}
+                  {/* (green = good, gold = needs attention, red = poor,     */}
+                  {/* gray = no data). Stress/Pain are inverse scales — low   */}
+                  {/* is good — see lib/wellness/status.ts.                  */}
+                  {/* ---------------------------------------------------- */}
+                  <p className="pt-1 text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40">
+                    Today&apos;s Numbers
                   </p>
-                  <div className="mt-auto flex gap-1 pt-3">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <div
-                        key={n}
-                        className={`h-2 flex-1 rounded-full ${
-                          todaysCheckin?.sleep_quality && n <= todaysCheckin.sleep_quality
-                            ? STATUS_STYLES[sleepQualityStatus(todaysCheckin.sleep_quality)].dot
-                            : 'bg-[#EFE9DB]'
-                        }`}
-                      />
-                    ))}
+                  <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
+                    <HydrationTracker initialTotal={hydrationTotal} />
+
+                    <div className={TRACKER_CARD}>
+                      <div className="flex items-center gap-2 text-[#6B7A72]">
+                        <Moon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                        <p className="text-sm font-semibold uppercase tracking-wider">Sleep</p>
+                      </div>
+                      {todaysCheckin?.sleep_duration ? (
+                        <>
+                          <p
+                            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[sleepDurationStatus(todaysCheckin.sleep_duration)].text}`}
+                          >
+                            {todaysCheckin.sleep_duration}
+                          </p>
+                          <div className="mt-auto flex gap-1 pt-3">
+                            {[1, 2, 3, 4, 5].map((n) => (
+                              <div
+                                key={n}
+                                className={`h-2 flex-1 rounded-full ${
+                                  todaysCheckin?.sleep_quality && n <= todaysCheckin.sleep_quality
+                                    ? STATUS_STYLES[sleepQualityStatus(todaysCheckin.sleep_quality)]
+                                        .dot
+                                    : 'bg-[#EFE9DB]'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="mt-auto text-sm text-[#6B7A72]">Not logged yet</p>
+                      )}
+                    </div>
+
+                    <div className={TRACKER_CARD}>
+                      <div className="flex items-center gap-2 text-[#6B7A72]">
+                        <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                        <p className="text-sm font-semibold uppercase tracking-wider">Stress</p>
+                      </div>
+                      <p
+                        className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[stressStatus(todaysCheckin?.stress_level ?? null)].text}`}
+                      >
+                        {stressLabel(todaysCheckin?.stress_level ?? null)}
+                      </p>
+                      <div className="mt-auto flex gap-1 pt-3">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <div
+                            key={n}
+                            className={`h-2 flex-1 rounded-full ${
+                              todaysCheckin?.stress_level && n <= todaysCheckin.stress_level
+                                ? STATUS_STYLES[stressStatus(todaysCheckin.stress_level)].dot
+                                : 'bg-[#EFE9DB]'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={TRACKER_CARD}>
+                      <div className="flex items-center gap-2 text-[#6B7A72]">
+                        <Bone className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                        <p className="text-sm font-semibold uppercase tracking-wider">Pain</p>
+                      </div>
+                      <p
+                        className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[painStatus(todaysCheckin?.pain_discomfort_level ?? null)].text}`}
+                      >
+                        {painLabel(todaysCheckin?.pain_discomfort_level ?? null)}
+                      </p>
+                      <div className="mt-auto flex gap-1 pt-3">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <div
+                            key={n}
+                            className={`h-2 flex-1 rounded-full ${
+                              todaysCheckin?.pain_discomfort_level != null &&
+                              n <= todaysCheckin.pain_discomfort_level
+                                ? STATUS_STYLES[painStatus(todaysCheckin.pain_discomfort_level)].dot
+                                : 'bg-[#EFE9DB]'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={TRACKER_CARD}>
+                      <div className="flex items-center gap-2 text-[#6B7A72]">
+                        <Smile className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                        <p className="text-sm font-semibold uppercase tracking-wider">Mood</p>
+                      </div>
+                      <p
+                        className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[moodStatus(todaysCheckin?.mood_level ?? null)].text}`}
+                      >
+                        {moodLabel(todaysCheckin?.mood_level ?? null)}
+                      </p>
+                      <div className="mt-auto flex gap-1 pt-3">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <div
+                            key={n}
+                            className={`h-2 flex-1 rounded-full ${
+                              todaysCheckin?.mood_level && n <= todaysCheckin.mood_level
+                                ? STATUS_STYLES[moodStatus(todaysCheckin.mood_level)].dot
+                                : 'bg-[#EFE9DB]'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={TRACKER_CARD}>
+                      <div className="flex items-center gap-2 text-[#6B7A72]">
+                        <Utensils className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                        <p className="text-sm font-semibold uppercase tracking-wider">Digestion</p>
+                      </div>
+                      <p
+                        className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[digestionStatus(todaysCheckin?.digestion_rating ?? null)].text}`}
+                      >
+                        {digestionLabel(todaysCheckin?.digestion_rating ?? null)}
+                      </p>
+                      <div className="mt-auto flex gap-1 pt-3">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <div
+                            key={n}
+                            className={`h-2 flex-1 rounded-full ${
+                              todaysCheckin?.digestion_rating && n <= todaysCheckin.digestion_rating
+                                ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].dot
+                                : 'bg-[#EFE9DB]'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={TRACKER_CARD}>
+                      <div className="flex items-center gap-2 text-[#6B7A72]">
+                        <Footprints className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                        <p className="text-sm font-semibold uppercase tracking-wider">Movement</p>
+                      </div>
+                      <p
+                        className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
+                      >
+                        {movementLabel(todaysCheckin?.movement_today ?? null)}
+                      </p>
+                      <div className="mt-auto pt-3">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].bg} ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
+                        >
+                          {todaysCheckin?.movement_today
+                            ? movementStatus(todaysCheckin.movement_today) === 'good'
+                              ? 'On track'
+                              : movementStatus(todaysCheckin.movement_today) === 'attention'
+                                ? 'Could be more'
+                                : 'Sedentary'
+                            : 'No data'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </>
               ) : (
-                <p className="mt-auto text-sm text-[#6B7A72]">Not logged yet</p>
+                <section className={`${CARD} p-6 text-center`}>
+                  <p className="text-sm leading-relaxed text-[#6B7A72]">
+                    Complete today&apos;s check-in to see today&apos;s numbers here.
+                  </p>
+                </section>
               )}
-            </div>
 
-            <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Stress</p>
-              </div>
-              <p
-                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[stressStatus(todaysCheckin?.stress_level ?? null)].text}`}
-              >
-                {stressLabel(todaysCheckin?.stress_level ?? null)}
-              </p>
-              <div className="mt-auto flex gap-1 pt-3">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <div
-                    key={n}
-                    className={`h-2 flex-1 rounded-full ${
-                      todaysCheckin?.stress_level && n <= todaysCheckin.stress_level
-                        ? STATUS_STYLES[stressStatus(todaysCheckin.stress_level)].dot
-                        : 'bg-[#EFE9DB]'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
+              {/* ---------------------------------------------------- */}
+              {/* Trend chart — real recent check-ins, premium SVG        */}
+              {/* chart in EnergyTrendChart.tsx, colored per-point by     */}
+              {/* status. viewBox-based so it's always fully visible on   */}
+              {/* any screen size, never clipped.                         */}
+              {/* ---------------------------------------------------- */}
+              <section className={`${CARD} p-6`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[#6B7A72]">
+                    <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                    <p className="text-sm font-semibold uppercase tracking-wider">Energy Trend</p>
+                  </div>
+                  <span className="text-xs text-[#6B7A72]">
+                    {recentCheckins.length > 0 ? `Last ${recentCheckins.length} check-ins` : ''}
+                  </span>
+                </div>
+                <EnergyTrendChart checkins={recentCheckins} />
+              </section>
 
-            <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <Bone className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Pain</p>
-              </div>
-              <p
-                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[painStatus(todaysCheckin?.pain_discomfort_level ?? null)].text}`}
-              >
-                {painLabel(todaysCheckin?.pain_discomfort_level ?? null)}
-              </p>
-              <div className="mt-auto flex gap-1 pt-3">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <div
-                    key={n}
-                    className={`h-2 flex-1 rounded-full ${
-                      todaysCheckin?.pain_discomfort_level != null &&
-                      n <= todaysCheckin.pain_discomfort_level
-                        ? STATUS_STYLES[painStatus(todaysCheckin.pain_discomfort_level)].dot
-                        : 'bg-[#EFE9DB]'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <Smile className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Mood</p>
-              </div>
-              <p
-                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[moodStatus(todaysCheckin?.mood_level ?? null)].text}`}
-              >
-                {moodLabel(todaysCheckin?.mood_level ?? null)}
-              </p>
-              <div className="mt-auto flex gap-1 pt-3">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <div
-                    key={n}
-                    className={`h-2 flex-1 rounded-full ${
-                      todaysCheckin?.mood_level && n <= todaysCheckin.mood_level
-                        ? STATUS_STYLES[moodStatus(todaysCheckin.mood_level)].dot
-                        : 'bg-[#EFE9DB]'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <Utensils className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Digestion</p>
-              </div>
-              <p
-                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[digestionStatus(todaysCheckin?.digestion_rating ?? null)].text}`}
-              >
-                {digestionLabel(todaysCheckin?.digestion_rating ?? null)}
-              </p>
-              <div className="mt-auto flex gap-1 pt-3">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <div
-                    key={n}
-                    className={`h-2 flex-1 rounded-full ${
-                      todaysCheckin?.digestion_rating && n <= todaysCheckin.digestion_rating
-                        ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].dot
-                        : 'bg-[#EFE9DB]'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <Footprints className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Movement</p>
-              </div>
-              <p
-                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
-              >
-                {movementLabel(todaysCheckin?.movement_today ?? null)}
-              </p>
-              <div className="mt-auto pt-3">
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].bg} ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
-                >
-                  {todaysCheckin?.movement_today
-                    ? movementStatus(todaysCheckin.movement_today) === 'good'
-                      ? 'On track'
-                      : movementStatus(todaysCheckin.movement_today) === 'attention'
-                        ? 'Could be more'
-                        : 'Sedentary'
-                    : 'No data'}
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/8 bg-white/50 px-5 py-3.5">
+                <div className="flex items-center gap-2 text-[#6B7A72]">
+                  <Calendar className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                  <p className="text-sm">
+                    Next session: <span className="text-[#1B3A2D]/70">nothing scheduled yet</span>
+                  </p>
+                </div>
+                <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-[#1B3A2D]/35">
+                  Coming soon
                 </span>
               </div>
-            </div>
-          </div>
-          </>
-          ) : (
-          <section className={`${CARD} p-6 text-center`}>
-            <p className="text-sm leading-relaxed text-[#6B7A72]">
-              Complete today&apos;s check-in to see today&apos;s numbers here.
-            </p>
-          </section>
+            </>
           )}
-
-          {/* ---------------------------------------------------- */}
-          {/* Trend chart — real recent check-ins, premium SVG        */}
-          {/* chart in EnergyTrendChart.tsx, colored per-point by     */}
-          {/* status. viewBox-based so it's always fully visible on   */}
-          {/* any screen size, never clipped.                         */}
-          {/* ---------------------------------------------------- */}
-          <section className={`${CARD} p-6`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Energy Trend</p>
-              </div>
-              <span className="text-xs text-[#6B7A72]">
-                {recentCheckins.length > 0 ? `Last ${recentCheckins.length} check-ins` : ''}
-              </span>
-            </div>
-            <EnergyTrendChart checkins={recentCheckins} />
-          </section>
-
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/8 bg-white/50 px-5 py-3.5">
-            <div className="flex items-center gap-2 text-[#6B7A72]">
-              <Calendar className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
-              <p className="text-sm">
-                Next session: <span className="text-[#1B3A2D]/70">nothing scheduled yet</span>
-              </p>
-            </div>
-            <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-[#1B3A2D]/35">
-              Coming soon
-            </span>
-          </div>
-          </>
-        )}
         </div>
       </main>
 

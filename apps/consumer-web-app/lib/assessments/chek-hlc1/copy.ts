@@ -31,7 +31,7 @@ export const CHEK_HLC1_COPY: AssessmentCopy = {
       shortDescription:
         'How closely your everyday food choices (freshness, quality, and how processed they are) align with a whole-foods way of eating.',
       coachingFocus:
-        "Shifting even a few of your highest-scoring habits toward whole, fresh, minimally processed foods tends to move this score the fastest.",
+        'Shifting even a few of your highest-scoring habits toward whole, fresh, minimally processed foods tends to move this score the fastest.',
     },
     stress: {
       shortLabel: 'stress',

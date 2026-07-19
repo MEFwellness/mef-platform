@@ -84,13 +84,15 @@ export async function gatherConversationContext(
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const timeContext = buildTimeContext(nowInTz);
 
-  const [intelligence, coachingContext, feedItem, activeMemory, recentMessages] = await Promise.all([
-    getConversationContextIntelligence(supabase, memberId, localDate),
-    getConversationCoachingContext(supabase, memberId),
-    getOrCreateTodaysFeed(supabase, memberId, localDate),
-    listActiveMemory(supabase, memberId, 8),
-    listRecentMessages(supabase, sessionId, RECENT_MESSAGE_WINDOW),
-  ]);
+  const [intelligence, coachingContext, feedItem, activeMemory, recentMessages] = await Promise.all(
+    [
+      getConversationContextIntelligence(supabase, memberId, localDate),
+      getConversationCoachingContext(supabase, memberId),
+      getOrCreateTodaysFeed(supabase, memberId, localDate),
+      listActiveMemory(supabase, memberId, 8),
+      listRecentMessages(supabase, sessionId, RECENT_MESSAGE_WINDOW),
+    ]
+  );
 
   const content = feedItem ? await getContentItem(supabase, feedItem.content_item_id) : null;
 

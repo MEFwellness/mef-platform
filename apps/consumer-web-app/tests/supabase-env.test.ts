@@ -36,7 +36,9 @@ describe('getSupabaseEnv', () => {
   it('throws once, naming both, when both are missing', () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    expect(() => getSupabaseEnv()).toThrow(/NEXT_PUBLIC_SUPABASE_URL.*NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+    expect(() => getSupabaseEnv()).toThrow(
+      /NEXT_PUBLIC_SUPABASE_URL.*NEXT_PUBLIC_SUPABASE_ANON_KEY/
+    );
   });
 
   it('the error message points at where to fix it, not just what is wrong', () => {

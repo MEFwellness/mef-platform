@@ -18,7 +18,11 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { flattenQuestions, findFirstUnanswered, getFlatIndex } from '@/lib/assessments/engine/navigation';
+import {
+  flattenQuestions,
+  findFirstUnanswered,
+  getFlatIndex,
+} from '@/lib/assessments/engine/navigation';
 import { totalAnsweredCount } from '@/lib/assessments/engine/scoring';
 import { completeMyAssessment, submitAssessmentAnswer } from '@/app/actions/assessments';
 import { AssessmentProgressBar } from './AssessmentProgressBar';
@@ -98,7 +102,10 @@ export function AssessmentTaker({
     setSaveError(null);
     setAnswers((prev) => ({
       ...prev,
-      [current.category.id]: { ...prev[current.category.id], [current.question.number]: optionIndex },
+      [current.category.id]: {
+        ...prev[current.category.id],
+        [current.question.number]: optionIndex,
+      },
     }));
 
     submitAssessmentAnswer(
@@ -192,8 +199,8 @@ export function AssessmentTaker({
       </div>
 
       <p className="mt-4 text-center text-xs text-[#6B7A72]">
-        {answeredCount} of {flat.length} answered · Your progress is saved automatically, it&apos;s safe to
-        come back later.
+        {answeredCount} of {flat.length} answered · Your progress is saved automatically, it&apos;s
+        safe to come back later.
       </p>
     </div>
   );

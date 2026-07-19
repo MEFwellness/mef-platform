@@ -46,7 +46,9 @@ export function DailyWellnessSection({
 
   return (
     <div className={`${CARD} p-6`}>
-      <p className="text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40">Today&apos;s Wellness</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40">
+        Today&apos;s Wellness
+      </p>
 
       {morning && (
         <div className="mt-3 flex items-center justify-between gap-3">
@@ -74,13 +76,18 @@ export function DailyWellnessSection({
             {daily.score}
           </span>
         ) : (
-          <Link href={'/checkin/evening' as Route} className="text-xs font-medium text-[#1B3A2D] underline underline-offset-2">
+          <Link
+            href={'/checkin/evening' as Route}
+            className="text-xs font-medium text-[#1B3A2D] underline underline-offset-2"
+          >
             Reflect now
           </Link>
         )}
       </div>
       {!daily && (
-        <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">{DAILY_WELLNESS_SCORE_LOCKED_MESSAGE}</p>
+        <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">
+          {DAILY_WELLNESS_SCORE_LOCKED_MESSAGE}
+        </p>
       )}
     </div>
   );

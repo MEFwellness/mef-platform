@@ -13,7 +13,11 @@
  * definition of "how was this day" for the whole platform.
  */
 
-import type { DailyCheckin, ResilienceState, ScoreConfidenceLevel } from '@mef/shared-types-contracts';
+import type {
+  DailyCheckin,
+  ResilienceState,
+  ScoreConfidenceLevel,
+} from '@mef/shared-types-contracts';
 import { calculateWellnessIndex, inputsFromCheckin } from '@/lib/wellness/wellness-index';
 import { daysBetweenLocalDates } from '@/lib/feed/dateMath';
 import {
@@ -47,12 +51,18 @@ type DailyPoint = { localDate: string; score: number };
  * (see lib/scoring/config.ts's RESILIENCE_LOOKBACK_DAYS) by the caller —
  * this function only ever reasons about whatever it's given.
  */
-export function computeResilience(checkinsOldestFirst: DailyCheckin[], asOfLocalDate: string): ResilienceResult {
+export function computeResilience(
+  checkinsOldestFirst: DailyCheckin[],
+  asOfLocalDate: string
+): ResilienceResult {
   if (checkinsOldestFirst.length === 0) return BUILDING;
 
   const firstDate = checkinsOldestFirst[0]!.local_date;
   const historyDays = daysBetweenLocalDates(firstDate, asOfLocalDate);
-  if (historyDays < RESILIENCE_MIN_HISTORY_DAYS || checkinsOldestFirst.length < RESILIENCE_MIN_CHECKIN_COUNT) {
+  if (
+    historyDays < RESILIENCE_MIN_HISTORY_DAYS ||
+    checkinsOldestFirst.length < RESILIENCE_MIN_CHECKIN_COUNT
+  ) {
     return BUILDING;
   }
 
@@ -74,7 +84,8 @@ export function computeResilience(checkinsOldestFirst: DailyCheckin[], asOfLocal
     if (below) {
       if (runStart === null) runStart = i;
     } else if (runStart !== null) {
-      if (i - runStart >= RESILIENCE_DIP_MIN_CONSECUTIVE_DAYS) dips.push({ startIdx: runStart, endIdx: i - 1 });
+      if (i - runStart >= RESILIENCE_DIP_MIN_CONSECUTIVE_DAYS)
+        dips.push({ startIdx: runStart, endIdx: i - 1 });
       runStart = null;
     }
   }
@@ -101,7 +112,9 @@ export function computeResilience(checkinsOldestFirst: DailyCheckin[], asOfLocal
     if (recoveredAtIdx !== null) {
       const recoveryDays = daysBetweenLocalDates(dipEndDate, points[recoveredAtIdx]!.localDate);
       const boundedDays = Math.max(0, Math.min(recoveryDays, RESILIENCE_RECOVERY_WINDOW_DAYS));
-      recoverySpeedScores.push(Math.round(100 * (1 - boundedDays / RESILIENCE_RECOVERY_WINDOW_DAYS)));
+      recoverySpeedScores.push(
+        Math.round(100 * (1 - boundedDays / RESILIENCE_RECOVERY_WINDOW_DAYS))
+      );
     } else if (dipIndex === dips.length - 1) {
       // The most recent dip never recovered within the window (or is
       // still ongoing) — the member is currently in a disrupted stretch.
@@ -115,9 +128,16 @@ export function computeResilience(checkinsOldestFirst: DailyCheckin[], asOfLocal
 
   const score = Math.max(
     10,
-    Math.min(100, Math.round(recoverySpeedScores.reduce((s, v) => s + v, 0) / recoverySpeedScores.length))
+    Math.min(
+      100,
+      Math.round(recoverySpeedScores.reduce((s, v) => s + v, 0) / recoverySpeedScores.length)
+    )
   );
-  const state: ResilienceState = activeUnresolvedDip ? 'recovering' : score < 40 ? 'strained' : 'stable';
+  const state: ResilienceState = activeUnresolvedDip
+    ? 'recovering'
+    : score < 40
+      ? 'strained'
+      : 'stable';
   const confidenceLevel: ScoreConfidenceLevel =
     recoverySpeedScores.length >= 4 ? 'high' : recoverySpeedScores.length >= 3 ? 'moderate' : 'low';
 

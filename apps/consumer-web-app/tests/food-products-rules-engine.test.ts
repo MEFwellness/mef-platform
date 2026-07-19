@@ -25,7 +25,9 @@ describe('analyzeIngredientQuality', () => {
     expect(result.hasArtificialColors).toBe(true);
     expect(result.preservativeCount).toBeGreaterThan(0);
     expect(result.isLongIngredientList).toBe(true);
-    expect(result.observations.join(' ')).not.toMatch(/\bhealthy\b|\bunhealthy\b|this is (good|bad)/i);
+    expect(result.observations.join(' ')).not.toMatch(
+      /\bhealthy\b|\bunhealthy\b|this is (good|bad)/i
+    );
   });
 
   it('does not flag refined flour when whole grain is also present', () => {
@@ -211,7 +213,11 @@ describe('estimateProcessingContext', () => {
       additives: [],
       longIngredientListThreshold: T.longIngredientListCount,
     });
-    const result = estimateProcessingContext({ ingredientsText: 'chicken, salt, pepper', ingredientCount: 3, ingredientQuality: iq });
+    const result = estimateProcessingContext({
+      ingredientsText: 'chicken, salt, pepper',
+      ingredientCount: 3,
+      ingredientQuality: iq,
+    });
     expect(result.label).toBe('lightly_processed');
     expect(result.reason).not.toMatch(/\b(good|bad|healthy|unhealthy)\b/i);
   });
@@ -233,7 +239,7 @@ describe('estimateProcessingContext', () => {
 });
 
 describe('matchMemberAllergens', () => {
-  it('matches a declared allergen against the member\'s stated allergies', () => {
+  it("matches a declared allergen against the member's stated allergies", () => {
     const matches = matchMemberAllergens([{ allergen: 'peanuts', kind: 'contains' }], ['Peanuts']);
     expect(matches).toEqual([{ allergen: 'peanuts', kind: 'contains' }]);
   });
@@ -468,7 +474,10 @@ describe('analyzeNutrientCombinations', () => {
       processingContext: { label: 'highly_processed', reason: 'test' },
       thresholds: T,
     });
-    const text = findings.map((f) => f.narrative).join(' ').toLowerCase();
+    const text = findings
+      .map((f) => f.narrative)
+      .join(' ')
+      .toLowerCase();
     expect(text).not.toMatch(/this will cause|prevents disease|toxic|inflammatory/);
   });
 });
@@ -508,7 +517,9 @@ describe('runFoodRulesEngine (end to end)', () => {
 
   it('lowers confidence further when no ingredient text is available at all', () => {
     const withText = runFoodRulesEngine(input({ ingredientsText: 'oats, water, salt' }));
-    const withoutText = runFoodRulesEngine(input({ ingredientsText: null, dataCompleteness: 'complete' }));
+    const withoutText = runFoodRulesEngine(
+      input({ ingredientsText: null, dataCompleteness: 'complete' })
+    );
     expect(withoutText.overallConfidence).toBeLessThanOrEqual(withText.overallConfidence);
   });
 

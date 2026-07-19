@@ -58,12 +58,7 @@ export interface PrimalPatternProfile {
 export type FoodLensScanType = 'meal_photo' | 'barcode' | 'nutrition_label' | 'manual_entry';
 
 export type FoodLensScanStatus =
-  | 'pending'
-  | 'analyzing'
-  | 'analyzed'
-  | 'not_configured'
-  | 'failed'
-  | 'member_reviewed';
+  'pending' | 'analyzing' | 'analyzed' | 'not_configured' | 'failed' | 'member_reviewed';
 
 export interface FoodLensScan {
   id: string;
@@ -83,7 +78,8 @@ export interface FoodLensScan {
 export type FoodLensCaptureType = 'photo' | 'barcode_image' | 'label_image';
 
 /** Which part of a packaged-food label a label_image capture is — lets the multi-photo label scan flow (Part 1) route each image to the right OCR extraction step. Only meaningful when capture_type === 'label_image'. */
-export type FoodLensLabelPhotoRole = 'nutrition_facts' | 'ingredients' | 'allergens' | 'front_label';
+export type FoodLensLabelPhotoRole =
+  'nutrition_facts' | 'ingredients' | 'allergens' | 'front_label';
 
 export interface FoodLensCapture {
   id: string;
@@ -101,31 +97,14 @@ export interface FoodLensCapture {
 
 export type FoodLensDetectedItemSource = 'ai_detected' | 'member_added' | 'member_corrected';
 export type FoodLensDetectedItemStatus =
-  | 'pending_confirmation'
-  | 'confirmed'
-  | 'rejected'
-  | 'superseded';
+  'pending_confirmation' | 'confirmed' | 'rejected' | 'superseded';
 
 /** Practical, non-exact portion units a member can enter or confirm — Part 2's "never display false precision" (grams/ounces are offered too, for members who want precise entry). */
 export type FoodLensPortionUnit =
-  | 'grams'
-  | 'ounces'
-  | 'cups'
-  | 'tablespoons'
-  | 'teaspoons'
-  | 'pieces'
-  | 'servings';
+  'grams' | 'ounces' | 'cups' | 'tablespoons' | 'teaspoons' | 'pieces' | 'servings';
 
 export type FoodLensCookingMethod =
-  | 'grilled'
-  | 'fried'
-  | 'baked'
-  | 'roasted'
-  | 'steamed'
-  | 'boiled'
-  | 'raw'
-  | 'sauteed'
-  | 'unknown';
+  'grilled' | 'fried' | 'baked' | 'roasted' | 'steamed' | 'boiled' | 'raw' | 'sauteed' | 'unknown';
 
 export interface FoodLensDetectedItem {
   id: string;
@@ -214,7 +193,8 @@ export type FoodLensMealQualityRatingValue = 'green' | 'yellow' | 'red';
 /** How much protein/fiber/micronutrient value a food has relative to its energy — a distinct judgment from the macro *emphasis* levels above (a food can be carb-'high' and still nutrient-dense, e.g. a bowl of lentils, or carb-'high' and nutrient-'low', e.g. a soda). */
 export type FoodLensNutrientDensity = 'low' | 'moderate' | 'high';
 export type FoodLensAddedSugarLevel = 'none' | 'some' | 'high';
-export type FoodLensProcessingLevel = 'whole_or_minimally_processed' | 'processed' | 'ultra_processed';
+export type FoodLensProcessingLevel =
+  'whole_or_minimally_processed' | 'processed' | 'ultra_processed';
 
 /**
  * The deterministic Meal Quality rating for one scan. Kept as its own

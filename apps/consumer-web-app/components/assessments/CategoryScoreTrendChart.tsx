@@ -50,7 +50,13 @@ function buildSmoothPath(points: { x: number; y: number }[]): string {
   return d;
 }
 
-export function CategoryScoreTrendChart({ points, emptyLabel }: { points: TrendPoint[]; emptyLabel: string }) {
+export function CategoryScoreTrendChart({
+  points,
+  emptyLabel,
+}: {
+  points: TrendPoint[];
+  emptyLabel: string;
+}) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   if (points.length < 2) {

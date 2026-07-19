@@ -25,7 +25,9 @@ export type CoachIntelligenceProviderName = (typeof COACH_INTELLIGENCE_PROVIDER_
 class UnconfiguredCoachIntelligenceProvider implements CoachIntelligenceProvider {
   constructor(public readonly name: string) {}
 
-  async analyze(_request: CoachIntelligenceAnalysisRequest): Promise<CoachIntelligenceAnalysisResult> {
+  async analyze(
+    _request: CoachIntelligenceAnalysisRequest
+  ): Promise<CoachIntelligenceAnalysisResult> {
     throw new Error(
       `Coach Intelligence provider "${this.name}" is not configured. This milestone builds the ` +
         'AI-assisted coach review workflow and provider abstraction only — no real AI API is ' +

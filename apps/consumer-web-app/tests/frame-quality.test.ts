@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { computeFrameQualityStats, evaluateFrameQuality } from '../lib/body-assessment/frameQuality';
+import {
+  computeFrameQualityStats,
+  evaluateFrameQuality,
+} from '../lib/body-assessment/frameQuality';
 
 /** Builds a flat RGBA buffer for a width x height sample, one solid gray value everywhere. */
 function solidSample(width: number, height: number, gray: number): Uint8ClampedArray {
@@ -31,13 +34,21 @@ function checkerboardSample(width: number, height: number): Uint8ClampedArray {
 
 describe('computeFrameQualityStats', () => {
   it('reports zero sharpness and the flat luminance for a perfectly uniform sample', () => {
-    const stats = computeFrameQualityStats({ data: solidSample(16, 16, 120), width: 16, height: 16 });
+    const stats = computeFrameQualityStats({
+      data: solidSample(16, 16, 120),
+      width: 16,
+      height: 16,
+    });
     expect(stats.sharpnessScore).toBe(0);
     expect(stats.meanLuminance).toBeCloseTo(120, 0);
   });
 
   it('reports high sharpness for a high-frequency checkerboard sample', () => {
-    const stats = computeFrameQualityStats({ data: checkerboardSample(16, 16), width: 16, height: 16 });
+    const stats = computeFrameQualityStats({
+      data: checkerboardSample(16, 16),
+      width: 16,
+      height: 16,
+    });
     expect(stats.sharpnessScore).toBeGreaterThan(1000);
   });
 
@@ -77,7 +88,11 @@ describe('evaluateFrameQuality', () => {
   });
 
   it('returns a non-empty speakable message on every failure', () => {
-    expect(evaluateFrameQuality({ sharpnessScore: 0.5, meanLuminance: 140 }).message.length).toBeGreaterThan(0);
-    expect(evaluateFrameQuality({ sharpnessScore: 5000, meanLuminance: 10 }).message.length).toBeGreaterThan(0);
+    expect(
+      evaluateFrameQuality({ sharpnessScore: 0.5, meanLuminance: 140 }).message.length
+    ).toBeGreaterThan(0);
+    expect(
+      evaluateFrameQuality({ sharpnessScore: 5000, meanLuminance: 10 }).message.length
+    ).toBeGreaterThan(0);
   });
 });

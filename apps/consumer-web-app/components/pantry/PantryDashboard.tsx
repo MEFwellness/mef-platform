@@ -38,11 +38,7 @@ function isExpiringSoon(item: PantryItemWithProduct): boolean {
   return new Date(`${item.expiration_date}T00:00:00`).getTime() <= cutoff.getTime();
 }
 
-export function PantryDashboard({
-  initialActive,
-}: {
-  initialActive: PantryItemWithProduct[];
-}) {
+export function PantryDashboard({ initialActive }: { initialActive: PantryItemWithProduct[] }) {
   const [items, setItems] = useState(initialActive);
 
   const expiringSoon = useMemo(
@@ -167,8 +163,8 @@ export function PantryDashboard({
         {items.length === 0 ? (
           <div className={`${CARD} p-6`}>
             <p className="text-sm text-[#6B7A72]">
-              Nothing in your pantry yet — add an item above, or add one straight from a barcode
-              or label scan result.
+              Nothing in your pantry yet — add an item above, or add one straight from a barcode or
+              label scan result.
             </p>
           </div>
         ) : (

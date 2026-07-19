@@ -82,7 +82,10 @@ afterAll(async () => {
   }
   await service.from('food_lens_scans').delete().in('member_id', memberIds);
   await service.from('product_allergens').delete().eq('allergen', 'nuts');
-  const { data: products } = await service.from('food_products').select('id').eq('barcode', TEST_BARCODE);
+  const { data: products } = await service
+    .from('food_products')
+    .select('id')
+    .eq('barcode', TEST_BARCODE);
   const productIds = (products ?? []).map((p) => p.id as string);
   if (productIds.length > 0) {
     await service.from('product_nutrients').delete().in('product_id', productIds);
@@ -121,7 +124,10 @@ describe('food_products cache — miss then hit', () => {
 
   it('an unauthenticated request cannot read the product cache', async () => {
     const anon = anonClient();
-    const { data, error } = await anon.from('food_products').select('*').eq('barcode', TEST_BARCODE);
+    const { data, error } = await anon
+      .from('food_products')
+      .select('*')
+      .eq('barcode', TEST_BARCODE);
     expect(error).toBeNull();
     expect(data).toEqual([]);
   });
@@ -203,7 +209,7 @@ describe('barcode scan lifecycle + analysis, scoped to the owning member', () =>
     expect(latest?.member_allergen_matches).toEqual([{ allergen: 'nuts', kind: 'contains' }]);
   });
 
-  it('a different member cannot read another member\'s barcode scan or analysis (unauthorized access attempt)', async () => {
+  it("a different member cannot read another member's barcode scan or analysis (unauthorized access attempt)", async () => {
     const owner = await signInAs(TEST_USERS.memberOne);
     const other = await signInAs(TEST_USERS.memberTwo);
 
@@ -291,7 +297,7 @@ describe('member_food_log', () => {
     expect(afterDelete.some((e) => e.id === entry!.id)).toBe(false);
   });
 
-  it('a member cannot delete another member\'s food log entry', async () => {
+  it("a member cannot delete another member's food log entry", async () => {
     const owner = await signInAs(TEST_USERS.memberOne);
     const other = await signInAs(TEST_USERS.memberTwo);
     const product = await findCachedFoodProduct(owner, TEST_BARCODE);
@@ -337,7 +343,7 @@ describe('member_food_preferences', () => {
     expect(read?.dietary_pattern).toBe('mediterranean');
   });
 
-  it('a member cannot read another member\'s food preferences', async () => {
+  it("a member cannot read another member's food preferences", async () => {
     const owner = await signInAs(TEST_USERS.memberOne);
     await upsertMemberFoodPreferences(owner, TEST_USERS.memberOne.id, {
       allergies: ['tree nuts'],

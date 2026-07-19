@@ -10,7 +10,11 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { HealthTimelineEvent, HealthTimelineEventType, HealthTimelineEvidenceRef } from '@mef/shared-types-contracts';
+import type {
+  HealthTimelineEvent,
+  HealthTimelineEventType,
+  HealthTimelineEvidenceRef,
+} from '@mef/shared-types-contracts';
 
 export type RecordTimelineEventInput = {
   memberId: string;

@@ -24,8 +24,16 @@ const STAGE_COPY: Record<InitializationStage, string> = {
 export function InitializationOverlay({ stage }: { stage: InitializationStage }) {
   return (
     <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-[#0B120E]/90">
-      <Loader2 className="h-6 w-6 animate-spin text-white/85" strokeWidth={1.75} aria-hidden="true" />
-      <p className="text-center text-sm font-medium tracking-wide text-white" role="status" aria-live="polite">
+      <Loader2
+        className="h-6 w-6 animate-spin text-white/85"
+        strokeWidth={1.75}
+        aria-hidden="true"
+      />
+      <p
+        className="text-center text-sm font-medium tracking-wide text-white"
+        role="status"
+        aria-live="polite"
+      >
         {STAGE_COPY[stage]}
       </p>
     </div>

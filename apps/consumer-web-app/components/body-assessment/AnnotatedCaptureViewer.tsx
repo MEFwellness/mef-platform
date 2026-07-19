@@ -117,7 +117,12 @@ export function AnnotatedCaptureViewer({
               className="relative inline-block max-h-full max-w-full leading-none transition-transform duration-150 ease-out"
               style={{ transform: `scale(${zoom})` }}
             >
-              <img src={url} alt={label} className="block max-h-[80vh] max-w-full select-none" draggable={false} />
+              <img
+                src={url}
+                alt={label}
+                className="block max-h-[80vh] max-w-full select-none"
+                draggable={false}
+              />
               {shapes.length > 0 && (
                 <div className="absolute inset-0">
                   <AnnotationCanvas

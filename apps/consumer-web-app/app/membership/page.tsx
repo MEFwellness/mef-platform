@@ -47,7 +47,11 @@ export default async function MembershipPage() {
           <div className="mt-4 space-y-4">
             {INCLUDED.map(({ label, Icon }) => (
               <div key={label} className="flex items-start gap-3">
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50" strokeWidth={1.75} aria-hidden="true" />
+                <Icon
+                  className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
                 <p className="text-sm leading-relaxed text-[#1B3A2D]">{label}</p>
               </div>
             ))}
@@ -55,7 +59,11 @@ export default async function MembershipPage() {
         </div>
 
         <div className={`${CARD} mt-5 flex items-start gap-3 p-6`}>
-          <Mail className="mt-0.5 h-5 w-5 shrink-0 text-[#1B3A2D]/60" strokeWidth={1.75} aria-hidden="true" />
+          <Mail
+            className="mt-0.5 h-5 w-5 shrink-0 text-[#1B3A2D]/60"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <div>
             <p className="text-sm font-semibold text-[#1B3A2D]">Billing questions</p>
             <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">

@@ -54,7 +54,10 @@ describe('Personal Health Timeline — record/list, RLS, append-only', () => {
       .eq('id', hidden!.id);
     expect(memberView).toEqual([]);
 
-    const { data: coachView } = await coachClient.from('health_timeline_events').select('id').eq('id', hidden!.id);
+    const { data: coachView } = await coachClient
+      .from('health_timeline_events')
+      .select('id')
+      .eq('id', hidden!.id);
     expect(coachView).toHaveLength(1);
   }, 30_000);
 

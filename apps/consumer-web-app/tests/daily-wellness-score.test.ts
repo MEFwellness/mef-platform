@@ -112,11 +112,21 @@ describe('calculateDailyWellnessScore', () => {
   it('a poor day scores low, a good day scores high — sanity check the composite direction', () => {
     const goodDay = calculateDailyWellnessScore(
       fullMorningCheckin(),
-      reflection({ overall_day_rating: 5, daytime_stress: 1, recovery: 5, energy_pattern: 'improved' })
+      reflection({
+        overall_day_rating: 5,
+        daytime_stress: 1,
+        recovery: 5,
+        energy_pattern: 'improved',
+      })
     );
     const badDay = calculateDailyWellnessScore(
       fullMorningCheckin({ energy_level: 1, stress_level: 5, mood_level: 1, morning_soreness: 5 }),
-      reflection({ overall_day_rating: 1, daytime_stress: 5, recovery: 1, energy_pattern: 'crashed' })
+      reflection({
+        overall_day_rating: 1,
+        daytime_stress: 5,
+        recovery: 1,
+        energy_pattern: 'crashed',
+      })
     );
     expect(goodDay.score).toBeGreaterThan(badDay.score);
   });

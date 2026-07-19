@@ -39,7 +39,10 @@ export const DIRECTION_LABEL: Record<ComparisonDirection, string> = {
 };
 
 /** Pure — a draft (in_progress row) always wins over completed history, since resuming it is always the actionable next step regardless of how many past completions exist. */
-export function deriveQuestionnaireStatus(hasDraft: boolean, hasCompleted: boolean): QuestionnaireStatus {
+export function deriveQuestionnaireStatus(
+  hasDraft: boolean,
+  hasCompleted: boolean
+): QuestionnaireStatus {
   if (hasDraft) return 'in_progress';
   if (hasCompleted) return 'completed';
   return 'not_started';

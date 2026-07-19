@@ -12,11 +12,21 @@ const memberId = TEST_USERS.memberOne.id;
 
 async function upsert(
   client: Awaited<ReturnType<typeof signInAs>>,
-  overrides: Partial<{ summary: Record<string, unknown>; trigger: string; targetMemberId: string }> = {}
+  overrides: Partial<{
+    summary: Record<string, unknown>;
+    trigger: string;
+    targetMemberId: string;
+  }> = {}
 ) {
   return client.rpc('upsert_member_health_profile', {
     p_member: overrides.targetMemberId ?? memberId,
-    p_summary: overrides.summary ?? { topPriorities: [], activeRegistryFindingsBySeverity: {}, wellnessInsightHighlights: [], identityHighlights: [], lastAssessmentPublishedAt: null },
+    p_summary: overrides.summary ?? {
+      topPriorities: [],
+      activeRegistryFindingsBySeverity: {},
+      wellnessInsightHighlights: [],
+      identityHighlights: [],
+      lastAssessmentPublishedAt: null,
+    },
     p_latest_snapshot_id: null,
     p_wellness_insight_count: 0,
     p_registry_finding_count: 0,
@@ -36,7 +46,11 @@ describe('member_health_profiles — atomic upsert, RLS, one row per member', ()
     const { error } = await upsert(memberClient, { trigger: 'check_in' });
     expect(error).toBeNull();
 
-    const { data } = await memberClient.from('member_health_profiles').select('*').eq('member_id', memberId).single();
+    const { data } = await memberClient
+      .from('member_health_profiles')
+      .select('*')
+      .eq('member_id', memberId)
+      .single();
     expect(data!.last_recalculated_trigger).toBe('check_in');
   }, 30_000);
 
@@ -45,7 +59,10 @@ describe('member_health_profiles — atomic upsert, RLS, one row per member', ()
     await upsert(memberClient, { trigger: 'onboarding' });
     await upsert(memberClient, { trigger: 'reassessment' });
 
-    const { data } = await memberClient.from('member_health_profiles').select('*').eq('member_id', memberId);
+    const { data } = await memberClient
+      .from('member_health_profiles')
+      .select('*')
+      .eq('member_id', memberId);
     expect(data).toHaveLength(1);
     expect(data![0]!.last_recalculated_trigger).toBe('reassessment');
   }, 30_000);
@@ -56,13 +73,13 @@ describe('member_health_profiles — atomic upsert, RLS, one row per member', ()
     expect(error).toBeNull();
   }, 30_000);
 
-  it('an unassigned member (memberTwo) cannot upsert memberOne\'s health profile — the RPC raises', async () => {
+  it("an unassigned member (memberTwo) cannot upsert memberOne's health profile — the RPC raises", async () => {
     const memberTwoClient = await signInAs(TEST_USERS.memberTwo);
     const { error } = await upsert(memberTwoClient, { targetMemberId: memberId });
     expect(error).not.toBeNull();
   }, 30_000);
 
-  it('RLS: an unassigned member cannot read another member\'s health profile row directly', async () => {
+  it("RLS: an unassigned member cannot read another member's health profile row directly", async () => {
     const memberTwoClient = await signInAs(TEST_USERS.memberTwo);
     const { data, error } = await memberTwoClient
       .from('member_health_profiles')

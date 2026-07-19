@@ -17,7 +17,13 @@ const PATTERN_SEVERITIES = new Set(['mild', 'moderate', 'significant']);
 
 export function buildRegistryPatternInsights(profile: MemberHealthProfile): PatternInsight[] {
   return profile.registryEntries
-    .filter((e) => e.entry_kind === 'finding' && e.status === 'active' && e.severity && PATTERN_SEVERITIES.has(e.severity))
+    .filter(
+      (e) =>
+        e.entry_kind === 'finding' &&
+        e.status === 'active' &&
+        e.severity &&
+        PATTERN_SEVERITIES.has(e.severity)
+    )
     .map((entry) => ({
       key: `registry_${entry.domain}_${entry.code}`,
       kind: 'body_assessment_finding' as const,
@@ -31,12 +37,16 @@ export function buildRegistryPatternInsights(profile: MemberHealthProfile): Patt
 
 export function buildRegistryCoachAlertDrafts(profile: MemberHealthProfile): CoachAlertDraft[] {
   return profile.registryEntries
-    .filter((e) => e.entry_kind === 'finding' && e.status === 'active' && e.severity === 'significant')
+    .filter(
+      (e) => e.entry_kind === 'finding' && e.status === 'active' && e.severity === 'significant'
+    )
     .map((entry) => ({
       alertType: 'assessment_finding_requires_attention' as const,
       severity: 'important' as const,
       title: `Assessment finding needs attention: ${entry.label}`,
-      reason: entry.narrative ?? `A significant-severity ${entry.domain} finding ("${entry.label}") was registered from ${entry.source_feature}.`,
+      reason:
+        entry.narrative ??
+        `A significant-severity ${entry.domain} finding ("${entry.label}") was registered from ${entry.source_feature}.`,
       alertKey: `assessment_finding_${entry.code}`,
       evidenceRefs: [...entry.evidence_refs, { type: 'registry_entry', id: entry.id }],
       sourceRefs: [{ type: 'registry_entry', id: entry.id }],

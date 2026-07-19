@@ -31,7 +31,10 @@ const MAX_ROLL_DEGREES = 12;
 /** `beta` reads ~90 when the phone stands vertical; degrees of deviation from that before forward/backward lean is considered heavy enough to distort the shot. Deliberately generous — see docblock above. */
 const MAX_FORWARD_TILT_DEVIATION_DEGREES = 40;
 
-export function evaluateCameraTilt(gammaDegrees: number | null, betaDegrees: number | null = null): TiltCheckResult {
+export function evaluateCameraTilt(
+  gammaDegrees: number | null,
+  betaDegrees: number | null = null
+): TiltCheckResult {
   if (gammaDegrees !== null && Math.abs(gammaDegrees) > MAX_ROLL_DEGREES) {
     return { ok: false, message: 'Please hold your phone upright and level.' };
   }

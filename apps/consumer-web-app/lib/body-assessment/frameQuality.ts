@@ -62,7 +62,8 @@ export function computeFrameQualityStats(sample: GrayscaleFrameSample): FrameQua
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       const idx = y * width + x;
-      const lap = 4 * gray[idx]! - gray[idx - 1]! - gray[idx + 1]! - gray[idx - width]! - gray[idx + width]!;
+      const lap =
+        4 * gray[idx]! - gray[idx - 1]! - gray[idx + 1]! - gray[idx - width]! - gray[idx + width]!;
       lapSum += lap;
       lapSumSq += lap * lap;
       count += 1;
@@ -103,13 +104,25 @@ const MAX_MEAN_LUMINANCE = 250;
 
 export function evaluateFrameQuality(stats: FrameQualityStats): FrameQualityResult {
   if (stats.meanLuminance < MIN_MEAN_LUMINANCE) {
-    return { status: 'poor_lighting', ok: false, message: 'The image is too dark. Move to a brighter area.' };
+    return {
+      status: 'poor_lighting',
+      ok: false,
+      message: 'The image is too dark. Move to a brighter area.',
+    };
   }
   if (stats.meanLuminance > MAX_MEAN_LUMINANCE) {
-    return { status: 'poor_lighting', ok: false, message: 'The image is too bright. Reduce the light behind you.' };
+    return {
+      status: 'poor_lighting',
+      ok: false,
+      message: 'The image is too bright. Reduce the light behind you.',
+    };
   }
   if (stats.sharpnessScore < MIN_SHARPNESS_SCORE) {
-    return { status: 'blurry_frame', ok: false, message: 'The image is blurry. Hold the phone steady.' };
+    return {
+      status: 'blurry_frame',
+      ok: false,
+      message: 'The image is blurry. Hold the phone steady.',
+    };
   }
   return { status: 'ready', ok: true, message: '' };
 }

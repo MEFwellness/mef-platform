@@ -193,7 +193,9 @@ export function useGuidedVoice(id: string) {
       }
       setStatus('muted');
     } else {
-      setStatus(confirmedUnlockedRef.current ? 'unlocked' : blockedRef.current ? 'blocked' : 'idle');
+      setStatus(
+        confirmedUnlockedRef.current ? 'unlocked' : blockedRef.current ? 'blocked' : 'idle'
+      );
       if (lastTextRef.current) speak(lastTextRef.current);
     }
   }, [id, clearTimers, speak]);

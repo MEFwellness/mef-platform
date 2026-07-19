@@ -55,9 +55,7 @@ export function TimelineSection({
                     }`}
                   >
                     <span>{getAssessmentTypeConfig(assessment.assessment_type).label}</span>
-                    <span
-                      className={`text-xs ${isCurrent ? 'text-white/70' : 'text-[#6B7A72]'}`}
-                    >
+                    <span className={`text-xs ${isCurrent ? 'text-white/70' : 'text-[#6B7A72]'}`}>
                       {new Date(assessment.started_at).toLocaleDateString('en-US', {
                         day: 'numeric',
                       })}

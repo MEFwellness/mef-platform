@@ -51,7 +51,9 @@ describe('computeMealQualityRating', () => {
     expect(result.rating).toBe('red');
     expect(result.explanation.toLowerCase()).toContain('soda');
     expect(result.explanation.toLowerCase()).not.toContain('beverage or snack');
-    expect(result.explanation.toLowerCase()).not.toMatch(/bad food|unhealthy person|failure|should not eat/);
+    expect(result.explanation.toLowerCase()).not.toMatch(
+      /bad food|unhealthy person|failure|should not eat/
+    );
   });
 
   it('rates a confidently identified sugary snack (not a beverage) red with food-specific wording, not beverage wording', () => {
@@ -208,13 +210,29 @@ describe('computeMealQualityRating', () => {
       macro()
     );
     expect(result.rating).toBe('yellow');
-    expect(result.explanation).toBe('The photo does not provide enough information for a stronger rating.');
+    expect(result.explanation).toBe(
+      'The photo does not provide enough information for a stronger rating.'
+    );
   });
 
   it('never uses judgmental wording in any explanation', () => {
     const scenarios: Array<[FoodLensQualitySignals, ComparisonMacroEstimate]> = [
-      [signals({ addedSugarLevel: 'high', nutrientDensity: 'low', processingLevel: 'ultra_processed' }), macro()],
-      [signals({ nutrientDensity: 'high', processingLevel: 'whole_or_minimally_processed', hasMeaningfulProtein: true }), macro()],
+      [
+        signals({
+          addedSugarLevel: 'high',
+          nutrientDensity: 'low',
+          processingLevel: 'ultra_processed',
+        }),
+        macro(),
+      ],
+      [
+        signals({
+          nutrientDensity: 'high',
+          processingLevel: 'whole_or_minimally_processed',
+          hasMeaningfulProtein: true,
+        }),
+        macro(),
+      ],
       [signals({ confidence: 0.1 }), macro()],
     ];
     for (const [s, m] of scenarios) {

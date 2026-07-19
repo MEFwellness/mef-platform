@@ -37,7 +37,11 @@ export function findCategory(questionnaire: Questionnaire, categoryId: string): 
   return category;
 }
 
-function resolveSelectedPoints(category: Category, question: Question, answers: CategoryAnswers): number {
+function resolveSelectedPoints(
+  category: Category,
+  question: Question,
+  answers: CategoryAnswers
+): number {
   const optionIndex = answers[question.number];
   if (optionIndex === undefined) {
     throw new Error(
@@ -69,24 +73,38 @@ export function scoreCategory(category: Category, answers: CategoryAnswers): Cat
 }
 
 /** How many of a category's questions already have a stored answer — drives progress bars and the resume position. */
-export function countAnsweredInCategory(category: Category, answers: CategoryAnswers | undefined): number {
+export function countAnsweredInCategory(
+  category: Category,
+  answers: CategoryAnswers | undefined
+): number {
   if (!answers) return 0;
   return category.questions.filter((q) => answers[q.number] !== undefined).length;
 }
 
-export function isCategoryComplete(category: Category, answers: CategoryAnswers | undefined): boolean {
+export function isCategoryComplete(
+  category: Category,
+  answers: CategoryAnswers | undefined
+): boolean {
   return countAnsweredInCategory(category, answers) === category.questions.length;
 }
 
-export function isQuestionnaireComplete(questionnaire: Questionnaire, answers: QuestionnaireAnswers): boolean {
-  return questionnaire.categories.every((category) => isCategoryComplete(category, answers[category.id]));
+export function isQuestionnaireComplete(
+  questionnaire: Questionnaire,
+  answers: QuestionnaireAnswers
+): boolean {
+  return questionnaire.categories.every((category) =>
+    isCategoryComplete(category, answers[category.id])
+  );
 }
 
 export function totalQuestionCount(questionnaire: Questionnaire): number {
   return questionnaire.categories.reduce((sum, c) => sum + c.questions.length, 0);
 }
 
-export function totalAnsweredCount(questionnaire: Questionnaire, answers: QuestionnaireAnswers): number {
+export function totalAnsweredCount(
+  questionnaire: Questionnaire,
+  answers: QuestionnaireAnswers
+): number {
   return questionnaire.categories.reduce(
     (sum, category) => sum + countAnsweredInCategory(category, answers[category.id]),
     0

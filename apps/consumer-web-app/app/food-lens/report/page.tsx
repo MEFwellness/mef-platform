@@ -2,7 +2,15 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { ChevronLeft, NotebookText, Leaf, Sparkles, Compass, CalendarDays, TrendingUp } from 'lucide-react';
+import {
+  ChevronLeft,
+  NotebookText,
+  Leaf,
+  Sparkles,
+  Compass,
+  CalendarDays,
+  TrendingUp,
+} from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { getOrGenerateWeeklyNutritionReportAction } from '@/app/actions/nutrition-reports';
@@ -17,7 +25,8 @@ function formatWeekRange(weekStart: string, weekEnd: string): string {
   const start = new Date(`${weekStart}T00:00:00.000Z`);
   const endExclusive = new Date(`${weekEnd}T00:00:00.000Z`);
   const endInclusive = new Date(endExclusive.getTime() - 24 * 60 * 60 * 1000);
-  const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   const year = start.toLocaleDateString('en-US', { year: 'numeric', timeZone: 'UTC' });
   return `${fmt(start)} – ${fmt(endInclusive)}, ${year}`;
 }
@@ -69,7 +78,9 @@ export default async function WeeklyNutritionReportPage() {
           </div>
         ) : report.status === 'insufficient_data' ? (
           <div className={`${CARD} mt-6 p-6`}>
-            <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{INSUFFICIENT_DATA_MESSAGE}</p>
+            <p className="text-[15px] leading-relaxed text-[#1B3A2D]">
+              {INSUFFICIENT_DATA_MESSAGE}
+            </p>
             <Link
               href={'/food-lens/log' as Route}
               className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#1B3A2D]"
@@ -129,7 +140,11 @@ export default async function WeeklyNutritionReportPage() {
             {report.report.winToBuildOn ? (
               <section className={`${CARD} p-6`}>
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#854D0E]" strokeWidth={1.75} aria-hidden="true" />
+                  <Sparkles
+                    className="h-4 w-4 text-[#854D0E]"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
                   <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                     A Win to Build On
                   </p>
@@ -144,7 +159,11 @@ export default async function WeeklyNutritionReportPage() {
             {report.report.rootedFocusForNextWeek ? (
               <section className={`${CARD} p-6`}>
                 <div className="flex items-center gap-2">
-                  <Compass className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+                  <Compass
+                    className="h-4 w-4 text-[#1B3A2D]"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
                   <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                     Your Rooted Focus for Next Week
                   </p>
@@ -160,7 +179,11 @@ export default async function WeeklyNutritionReportPage() {
         {!thirtyDayPatterns.insufficientData && thirtyDayPatterns.observations.length > 0 && (
           <section className={`${CARD} mt-4 p-6`}>
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+              <TrendingUp
+                className="h-4 w-4 text-[#1B3A2D]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
               <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Your Last 30 Days
               </p>

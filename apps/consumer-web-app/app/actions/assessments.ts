@@ -16,10 +16,18 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getAssessmentDefinition, listAssessmentDefinitions } from '@/lib/assessments/registry';
-import { findCategory, totalAnsweredCount, totalQuestionCount } from '@/lib/assessments/engine/scoring';
+import {
+  findCategory,
+  totalAnsweredCount,
+  totalQuestionCount,
+} from '@/lib/assessments/engine/scoring';
 import { buildWellnessInsight, type WellnessInsight } from '@/lib/assessments/insights';
 import { deriveQuestionnaireStatus } from '@/lib/assessments/presentation';
-import type { AssessmentCopy, Questionnaire, QuestionnaireStatus } from '@/lib/assessments/engine/types';
+import type {
+  AssessmentCopy,
+  Questionnaire,
+  QuestionnaireStatus,
+} from '@/lib/assessments/engine/types';
 import type { AssessmentComparison } from '@/lib/assessments/comparison';
 import type {
   AssessmentResult,
@@ -59,7 +67,9 @@ export type AssessmentOverview = {
 };
 
 /** Everything the welcome/overview screen needs: static questionnaire metadata plus the member's current draft/history state. */
-export async function getMyAssessmentOverview(questionnaireId: string): Promise<AssessmentOverview | null> {
+export async function getMyAssessmentOverview(
+  questionnaireId: string
+): Promise<AssessmentOverview | null> {
   const memberId = await requireMemberId();
   if (!memberId) return null;
 
@@ -77,7 +87,10 @@ export async function getMyAssessmentOverview(questionnaireId: string): Promise<
     sectionCount: questionnaire.categories.length,
     totalQuestions: totalQuestionCount(questionnaire),
     draft: draftAssessment
-      ? { answered: totalAnsweredCount(questionnaire, draftAssessment.answers), total: totalQuestionCount(questionnaire) }
+      ? {
+          answered: totalAnsweredCount(questionnaire, draftAssessment.answers),
+          total: totalQuestionCount(questionnaire),
+        }
       : null,
     latestCompleted,
   };
@@ -141,7 +154,9 @@ export type TakeAssessmentState = {
 };
 
 /** Starts a new draft or resumes the existing one — the single entry point for the take flow. */
-export async function getMyTakeAssessmentState(questionnaireId: string): Promise<TakeAssessmentState | null> {
+export async function getMyTakeAssessmentState(
+  questionnaireId: string
+): Promise<TakeAssessmentState | null> {
   const memberId = await requireMemberId();
   if (!memberId) return null;
 
@@ -177,7 +192,15 @@ export async function submitAssessmentAnswer(
     }
 
     const supabase = createClient();
-    await saveAnswer(supabase, questionnaire, assessmentId, categoryId, questionNumber, optionIndex, option.points);
+    await saveAnswer(
+      supabase,
+      questionnaire,
+      assessmentId,
+      categoryId,
+      questionNumber,
+      optionIndex,
+      option.points
+    );
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Failed to save answer.' };
@@ -224,11 +247,18 @@ export async function getMyAssessmentResult(
     totalPriority: result.record.totalPriority!,
   };
 
-  return { result, questionnaire, copy, insight: buildWellnessInsight(scoreResult, questionnaire, copy) };
+  return {
+    result,
+    questionnaire,
+    copy,
+    insight: buildWellnessInsight(scoreResult, questionnaire, copy),
+  };
 }
 
 /** Oldest-first list of every completed assessment for this questionnaire. */
-export async function getMyAssessmentHistory(questionnaireId: string): Promise<AssessmentSummary[]> {
+export async function getMyAssessmentHistory(
+  questionnaireId: string
+): Promise<AssessmentSummary[]> {
   const memberId = await requireMemberId();
   if (!memberId) return [];
 

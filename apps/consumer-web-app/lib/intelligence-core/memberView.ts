@@ -8,7 +8,11 @@
  */
 
 import type { WellnessIdentityObservation } from '@mef/shared-types-contracts';
-import type { IntelligenceCoreSummary, MemberWellnessHighlight, MemberWellnessStorySummary } from './types';
+import type {
+  IntelligenceCoreSummary,
+  MemberWellnessHighlight,
+  MemberWellnessStorySummary,
+} from './types';
 
 const MIN_CONFIDENCE_FOR_MEMBER = 0.6;
 const MAX_MEMBER_HIGHLIGHTS = 4;
@@ -17,7 +21,9 @@ export function toMemberWellnessHighlights(
   observations: WellnessIdentityObservation[]
 ): MemberWellnessHighlight[] {
   return observations
-    .filter((o) => o.status === 'active' && o.member_visible && o.confidence >= MIN_CONFIDENCE_FOR_MEMBER)
+    .filter(
+      (o) => o.status === 'active' && o.member_visible && o.confidence >= MIN_CONFIDENCE_FOR_MEMBER
+    )
     .sort((a, b) => b.confidence - a.confidence)
     .slice(0, MAX_MEMBER_HIGHLIGHTS)
     .map((o) => ({ id: o.id, statement: o.statement }));

@@ -12,7 +12,8 @@ import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { createManualFoodEntryAction } from '@/app/actions/food-manual';
 
-const INPUT = 'w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]';
+const INPUT =
+  'w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]';
 const LABEL = 'mb-1.5 block text-sm font-medium text-[#1B3A2D]';
 
 export function ManualFoodEntryForm() {
@@ -72,7 +73,13 @@ export function ManualFoodEntryForm() {
         <div className="space-y-4">
           <div>
             <label className={LABEL}>Name</label>
-            <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Homemade lentil soup" className={INPUT} />
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Homemade lentil soup"
+              className={INPUT}
+            />
           </div>
           <div>
             <label className={LABEL}>Brand (optional)</label>
@@ -80,7 +87,12 @@ export function ManualFoodEntryForm() {
           </div>
           <div>
             <label className={LABEL}>Serving size (optional)</label>
-            <input value={servingSizeText} onChange={(e) => setServingSizeText(e.target.value)} placeholder="e.g. 1 bowl (about 1.5 cups)" className={INPUT} />
+            <input
+              value={servingSizeText}
+              onChange={(e) => setServingSizeText(e.target.value)}
+              placeholder="e.g. 1 bowl (about 1.5 cups)"
+              className={INPUT}
+            />
           </div>
         </div>
       </div>
@@ -95,38 +107,86 @@ export function ManualFoodEntryForm() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={LABEL}>Calories</label>
-            <input type="number" inputMode="decimal" value={calories} onChange={(e) => setCalories(e.target.value)} className={INPUT} />
+            <input
+              type="number"
+              inputMode="decimal"
+              value={calories}
+              onChange={(e) => setCalories(e.target.value)}
+              className={INPUT}
+            />
           </div>
           <div>
             <label className={LABEL}>Protein (g)</label>
-            <input type="number" inputMode="decimal" value={proteinG} onChange={(e) => setProteinG(e.target.value)} className={INPUT} />
+            <input
+              type="number"
+              inputMode="decimal"
+              value={proteinG}
+              onChange={(e) => setProteinG(e.target.value)}
+              className={INPUT}
+            />
           </div>
           <div>
             <label className={LABEL}>Total carbohydrate (g)</label>
-            <input type="number" inputMode="decimal" value={totalCarbohydrateG} onChange={(e) => setTotalCarbohydrateG(e.target.value)} className={INPUT} />
+            <input
+              type="number"
+              inputMode="decimal"
+              value={totalCarbohydrateG}
+              onChange={(e) => setTotalCarbohydrateG(e.target.value)}
+              className={INPUT}
+            />
           </div>
           <div>
             <label className={LABEL}>Fiber (g)</label>
-            <input type="number" inputMode="decimal" value={fiberG} onChange={(e) => setFiberG(e.target.value)} className={INPUT} />
+            <input
+              type="number"
+              inputMode="decimal"
+              value={fiberG}
+              onChange={(e) => setFiberG(e.target.value)}
+              className={INPUT}
+            />
           </div>
           <div>
             <label className={LABEL}>Total fat (g)</label>
-            <input type="number" inputMode="decimal" value={totalFatG} onChange={(e) => setTotalFatG(e.target.value)} className={INPUT} />
+            <input
+              type="number"
+              inputMode="decimal"
+              value={totalFatG}
+              onChange={(e) => setTotalFatG(e.target.value)}
+              className={INPUT}
+            />
           </div>
           <div>
             <label className={LABEL}>Saturated fat (g)</label>
-            <input type="number" inputMode="decimal" value={saturatedFatG} onChange={(e) => setSaturatedFatG(e.target.value)} className={INPUT} />
+            <input
+              type="number"
+              inputMode="decimal"
+              value={saturatedFatG}
+              onChange={(e) => setSaturatedFatG(e.target.value)}
+              className={INPUT}
+            />
           </div>
           <div className="col-span-2">
             <label className={LABEL}>Sodium (mg)</label>
-            <input type="number" inputMode="decimal" value={sodiumMg} onChange={(e) => setSodiumMg(e.target.value)} className={INPUT} />
+            <input
+              type="number"
+              inputMode="decimal"
+              value={sodiumMg}
+              onChange={(e) => setSodiumMg(e.target.value)}
+              className={INPUT}
+            />
           </div>
         </div>
       </div>
 
       <div className="rounded-[28px] bg-white p-5 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
         <label className={LABEL}>Ingredients (optional)</label>
-        <textarea rows={3} value={ingredientsText} onChange={(e) => setIngredientsText(e.target.value)} placeholder="Comma-separated, in order if you know it" className={INPUT} />
+        <textarea
+          rows={3}
+          value={ingredientsText}
+          onChange={(e) => setIngredientsText(e.target.value)}
+          placeholder="Comma-separated, in order if you know it"
+          className={INPUT}
+        />
       </div>
 
       {error && <p className="text-sm text-[#B45309]">{error}</p>}

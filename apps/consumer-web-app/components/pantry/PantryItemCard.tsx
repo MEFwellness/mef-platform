@@ -35,7 +35,10 @@ function isPastOrToday(dateStr: string): boolean {
   return new Date(`${dateStr}T00:00:00`).getTime() <= today.getTime();
 }
 
-export type PantryItemUpdatePatch = { quantityText?: string | null; expirationDate?: string | null };
+export type PantryItemUpdatePatch = {
+  quantityText?: string | null;
+  expirationDate?: string | null;
+};
 
 export type PantryItemCardProps = {
   item: PantryItemWithProduct;

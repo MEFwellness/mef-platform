@@ -20,9 +20,12 @@ const CONFIDENCE_LABEL: Record<DomainScore['confidence_level'], string> = {
 };
 
 function DirectionIcon({ direction }: { direction: DomainScore['direction'] }) {
-  if (direction === 'improving') return <TrendingUp className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
-  if (direction === 'declining') return <TrendingDown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
-  if (direction === 'stable') return <Minus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
+  if (direction === 'improving')
+    return <TrendingUp className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
+  if (direction === 'declining')
+    return <TrendingDown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
+  if (direction === 'stable')
+    return <Minus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
   return null;
 }
 
@@ -43,7 +46,9 @@ export function RootScoreDomainRow({ domain }: { domain: DomainScore }) {
         </div>
         <p className="mt-1 text-sm leading-relaxed text-[#6B7A72]">{domain.explanation}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-xs text-[#1B3A2D]/50">{CONFIDENCE_LABEL[domain.confidence_level]}</span>
+          <span className="text-xs text-[#1B3A2D]/50">
+            {CONFIDENCE_LABEL[domain.confidence_level]}
+          </span>
           <Link
             href={copy.linkHref}
             className="inline-flex items-center gap-0.5 text-xs font-medium text-[#1B3A2D] hover:underline"
@@ -55,7 +60,9 @@ export function RootScoreDomainRow({ domain }: { domain: DomainScore }) {
       </div>
       <div className="shrink-0 text-right">
         {domain.score !== null ? (
-          <span className={`text-2xl font-semibold ${STATUS_STYLES[status].text}`}>{domain.score}</span>
+          <span className={`text-2xl font-semibold ${STATUS_STYLES[status].text}`}>
+            {domain.score}
+          </span>
         ) : (
           <span
             className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES['no-data'].bg} ${STATUS_STYLES['no-data'].text}`}

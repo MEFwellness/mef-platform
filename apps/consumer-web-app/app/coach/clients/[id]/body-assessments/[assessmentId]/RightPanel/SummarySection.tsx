@@ -3,7 +3,10 @@ import type { BodyAssessment, BodyAssessmentStatus } from '@mef/shared-types-con
 const STATUS_META: Record<BodyAssessmentStatus, { label: string; className: string }> = {
   in_progress: { label: 'In progress', className: 'bg-amber-50 text-amber-700' },
   submitted: { label: 'Submitted', className: 'bg-blue-50 text-blue-700' },
-  not_configured: { label: 'Awaiting analysis setup', className: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]' },
+  not_configured: {
+    label: 'Awaiting analysis setup',
+    className: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]',
+  },
   analyzing: { label: 'Analyzing', className: 'bg-amber-50 text-amber-700' },
   analyzed: { label: 'Analyzed', className: 'bg-blue-50 text-blue-700' },
   coach_reviewed: { label: 'Reviewed', className: 'bg-emerald-50 text-emerald-700' },

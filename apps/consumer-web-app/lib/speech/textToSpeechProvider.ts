@@ -23,7 +23,9 @@ function activeProvider(): TextToSpeechProvider {
 
 class FallbackTextToSpeechProvider implements TextToSpeechProvider {
   get isSupported(): boolean {
-    return getServerTextToSpeechProvider().isSupported || getBrowserTextToSpeechProvider().isSupported;
+    return (
+      getServerTextToSpeechProvider().isSupported || getBrowserTextToSpeechProvider().isSupported
+    );
   }
 
   speak(text: string, handlers: TextToSpeechHandlers): void {

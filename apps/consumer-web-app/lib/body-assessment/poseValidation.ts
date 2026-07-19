@@ -94,22 +94,134 @@ type StatusMeta = {
 };
 
 const STATUS_META: Record<PoseValidationStatus, StatusMeta> = {
-  no_person: { category: 'person_detection', severity: 'blocking', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'frame' },
-  multiple_people: { category: 'multi_person', severity: 'blocking', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: true, correctionTarget: 'frame' },
-  low_confidence: { category: 'landmark_confidence', severity: 'blocking', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: true, correctionTarget: null },
-  subject_changed: { category: 'subject_continuity', severity: 'blocking', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: true, correctionTarget: 'frame' },
-  not_full_body: { category: 'framing', severity: 'blocking', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'frame' },
-  too_close: { category: 'framing', severity: 'moderate', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'frame' },
-  too_far: { category: 'framing', severity: 'moderate', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'frame' },
-  off_center: { category: 'framing', severity: 'mild', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'frame' },
-  camera_position: { category: 'camera_geometry', severity: 'mild', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'frame' },
-  wrong_orientation: { category: 'orientation', severity: 'moderate', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'torso' },
-  head_rotated: { category: 'head_position', severity: 'mild', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'head' },
-  shoulders_rotated: { category: 'shoulder_torso_rotation', severity: 'moderate', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'shoulders' },
-  not_standing: { category: 'posture_state', severity: 'moderate', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'torso' },
-  crouching_or_bending: { category: 'posture_state', severity: 'moderate', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'knees' },
-  excessive_lean: { category: 'posture_state', severity: 'mild', blocksCapture: true, resetsStabilityHold: true, practitionerReviewRecommended: false, correctionTarget: 'torso' },
-  ready: { category: 'measurement_readiness', severity: 'info', blocksCapture: false, resetsStabilityHold: false, practitionerReviewRecommended: false, correctionTarget: null },
+  no_person: {
+    category: 'person_detection',
+    severity: 'blocking',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'frame',
+  },
+  multiple_people: {
+    category: 'multi_person',
+    severity: 'blocking',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: true,
+    correctionTarget: 'frame',
+  },
+  low_confidence: {
+    category: 'landmark_confidence',
+    severity: 'blocking',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: true,
+    correctionTarget: null,
+  },
+  subject_changed: {
+    category: 'subject_continuity',
+    severity: 'blocking',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: true,
+    correctionTarget: 'frame',
+  },
+  not_full_body: {
+    category: 'framing',
+    severity: 'blocking',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'frame',
+  },
+  too_close: {
+    category: 'framing',
+    severity: 'moderate',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'frame',
+  },
+  too_far: {
+    category: 'framing',
+    severity: 'moderate',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'frame',
+  },
+  off_center: {
+    category: 'framing',
+    severity: 'mild',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'frame',
+  },
+  camera_position: {
+    category: 'camera_geometry',
+    severity: 'mild',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'frame',
+  },
+  wrong_orientation: {
+    category: 'orientation',
+    severity: 'moderate',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'torso',
+  },
+  head_rotated: {
+    category: 'head_position',
+    severity: 'mild',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'head',
+  },
+  shoulders_rotated: {
+    category: 'shoulder_torso_rotation',
+    severity: 'moderate',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'shoulders',
+  },
+  not_standing: {
+    category: 'posture_state',
+    severity: 'moderate',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'torso',
+  },
+  crouching_or_bending: {
+    category: 'posture_state',
+    severity: 'moderate',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'knees',
+  },
+  excessive_lean: {
+    category: 'posture_state',
+    severity: 'mild',
+    blocksCapture: true,
+    resetsStabilityHold: true,
+    practitionerReviewRecommended: false,
+    correctionTarget: 'torso',
+  },
+  ready: {
+    category: 'measurement_readiness',
+    severity: 'info',
+    blocksCapture: false,
+    resetsStabilityHold: false,
+    practitionerReviewRecommended: false,
+    correctionTarget: null,
+  },
 };
 
 export type PoseValidationResult = {
@@ -205,7 +317,11 @@ function coreVisibilityScore(core: CorePoseLandmarks): number {
   ]);
 }
 
-function ready(metrics: PoseMetrics, core: CorePoseLandmarks, rawPoints: RawPoseLandmark[]): PoseValidationResult {
+function ready(
+  metrics: PoseMetrics,
+  core: CorePoseLandmarks,
+  rawPoints: RawPoseLandmark[]
+): PoseValidationResult {
   const meta = STATUS_META.ready;
   return {
     status: 'ready',
@@ -342,18 +458,41 @@ export function validatePoseFrame(
     const dy = metrics.hipMid.y - options.previousSubjectCenter.y;
     const jumpRatio = Math.hypot(dx, dy) / metrics.bodySpan;
     if (jumpRatio > SUBJECT_JUMP_RATIO_MAX) {
-      return fail('subject_changed', 'Please return to the center of the frame.', metrics, core, subject.points);
+      return fail(
+        'subject_changed',
+        'Please return to the center of the frame.',
+        metrics,
+        core,
+        subject.points
+      );
     }
   }
 
   // Full-body framing: knees/ankles must be visible and not clipped at the frame edge.
-  const lowerBodyVisibility = averageVisibility([core.leftKnee, core.rightKnee, core.leftAnkle, core.rightAnkle]);
+  const lowerBodyVisibility = averageVisibility([
+    core.leftKnee,
+    core.rightKnee,
+    core.leftAnkle,
+    core.rightAnkle,
+  ]);
   const headTop = Math.min(core.nose.y, core.leftEye.y, core.rightEye.y);
   if (lowerBodyVisibility < CONFIDENCE_THRESHOLD || metrics.ankleMid.y > 0.97) {
-    return fail('not_full_body', "Step back until your entire body is visible.", metrics, core, subject.points);
+    return fail(
+      'not_full_body',
+      'Step back until your entire body is visible.',
+      metrics,
+      core,
+      subject.points
+    );
   }
   if (headTop < 0.04) {
-    return fail('not_full_body', 'Step back so your head is fully visible.', metrics, core, subject.points);
+    return fail(
+      'not_full_body',
+      'Step back so your head is fully visible.',
+      metrics,
+      core,
+      subject.points
+    );
   }
 
   // Lying down collapses the body's vertical span, which would otherwise
@@ -399,41 +538,91 @@ export function validatePoseFrame(
   }
 
   // Orientation: front/back need a wide shoulder line; side views need a narrow one.
-  const faceVisibility = averageVisibility([core.nose, core.leftEye, core.rightEye, core.leftEar, core.rightEar]);
+  const faceVisibility = averageVisibility([
+    core.nose,
+    core.leftEye,
+    core.rightEye,
+    core.leftEar,
+    core.rightEar,
+  ]);
 
   if (options.captureType === 'left_side' || options.captureType === 'right_side') {
     if (metrics.frontalRatioShoulders >= FRONTAL_MIN_RATIO) {
-      return fail('wrong_orientation', 'Turn so your side faces the camera.', metrics, core, subject.points);
+      return fail(
+        'wrong_orientation',
+        'Turn so your side faces the camera.',
+        metrics,
+        core,
+        subject.points
+      );
     }
   } else if (options.captureType === 'front') {
     if (metrics.frontalRatioShoulders < FRONTAL_MIN_RATIO) {
-      return fail('wrong_orientation', 'Face directly toward the camera.', metrics, core, subject.points);
+      return fail(
+        'wrong_orientation',
+        'Face directly toward the camera.',
+        metrics,
+        core,
+        subject.points
+      );
     }
     if (faceVisibility < CONFIDENCE_THRESHOLD) {
-      return fail('wrong_orientation', 'Turn to face the camera directly.', metrics, core, subject.points);
+      return fail(
+        'wrong_orientation',
+        'Turn to face the camera directly.',
+        metrics,
+        core,
+        subject.points
+      );
     }
-    if (metrics.earVisibilityRatio < HEAD_ROTATION_EAR_RATIO_MAX ||
-        Math.abs(metrics.noseOffsetRatio) > HEAD_ROTATION_NOSE_OFFSET_MAX) {
+    if (
+      metrics.earVisibilityRatio < HEAD_ROTATION_EAR_RATIO_MAX ||
+      Math.abs(metrics.noseOffsetRatio) > HEAD_ROTATION_NOSE_OFFSET_MAX
+    ) {
       return fail('head_rotated', 'Turn your head forward.', metrics, core, subject.points);
     }
     if (
       metrics.shoulderDepthDiffRatio !== null &&
       metrics.shoulderDepthDiffRatio > SHOULDER_ROTATION_DEPTH_RATIO_MAX
     ) {
-      return fail('shoulders_rotated', 'Please square your shoulders to the camera.', metrics, core, subject.points);
+      return fail(
+        'shoulders_rotated',
+        'Please square your shoulders to the camera.',
+        metrics,
+        core,
+        subject.points
+      );
     }
   } else if (options.captureType === 'back') {
     if (metrics.frontalRatioShoulders < FRONTAL_MIN_RATIO) {
-      return fail('wrong_orientation', 'Please turn your back to the camera.', metrics, core, subject.points);
+      return fail(
+        'wrong_orientation',
+        'Please turn your back to the camera.',
+        metrics,
+        core,
+        subject.points
+      );
     }
     if (faceVisibility >= CONFIDENCE_THRESHOLD) {
-      return fail('wrong_orientation', 'Please turn your back to the camera.', metrics, core, subject.points);
+      return fail(
+        'wrong_orientation',
+        'Please turn your back to the camera.',
+        metrics,
+        core,
+        subject.points
+      );
     }
     if (
       metrics.shoulderDepthDiffRatio !== null &&
       metrics.shoulderDepthDiffRatio > SHOULDER_ROTATION_DEPTH_RATIO_MAX
     ) {
-      return fail('shoulders_rotated', 'Please square your shoulders to the camera.', metrics, core, subject.points);
+      return fail(
+        'shoulders_rotated',
+        'Please square your shoulders to the camera.',
+        metrics,
+        core,
+        subject.points
+      );
     }
   }
 
@@ -461,7 +650,13 @@ export function validatePoseFrame(
 
   // Excessive lean: torso meaningfully off vertical without being extreme enough to be lying down.
   if (metrics.torsoAngleFromVertical > EXCESSIVE_LEAN_ANGLE_MIN) {
-    return fail('excessive_lean', 'Please stand up straight without leaning.', metrics, core, subject.points);
+    return fail(
+      'excessive_lean',
+      'Please stand up straight without leaning.',
+      metrics,
+      core,
+      subject.points
+    );
   }
 
   // Last resort: every specific geometric check above already passed, but
@@ -552,15 +747,26 @@ export function evaluateMultiPersonCandidate(
         // Not literally the subject itself (that has separationRatio 0) —
         // a genuine near-duplicate ghost candidate, worth a distinct log
         // reason even though it's still never treated as evidence.
-        bestAmbiguous = { candidateDetected: false, reason: 'same_person_duplicate', detail: { score: coreVisibilityScore(core), separationRatio } };
+        bestAmbiguous = {
+          candidateDetected: false,
+          reason: 'same_person_duplicate',
+          detail: { score: coreVisibilityScore(core), separationRatio },
+        };
       }
       continue;
     }
 
     const score = coreVisibilityScore(core);
 
-    if (separationRatio >= SECOND_PERSON_SEPARATION_MIN && score >= MULTI_PERSON_CONFIDENCE_THRESHOLD) {
-      return { candidateDetected: true, reason: 'second_person_candidate', detail: { score, separationRatio } };
+    if (
+      separationRatio >= SECOND_PERSON_SEPARATION_MIN &&
+      score >= MULTI_PERSON_CONFIDENCE_THRESHOLD
+    ) {
+      return {
+        candidateDetected: true,
+        reason: 'second_person_candidate',
+        detail: { score, separationRatio },
+      };
     }
 
     bestAmbiguous = {

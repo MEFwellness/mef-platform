@@ -2,7 +2,11 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import type { AnnotationShape, BodyAssessmentCaptureType, PostureFindingType } from '@mef/shared-types-contracts';
+import type {
+  AnnotationShape,
+  BodyAssessmentCaptureType,
+  PostureFindingType,
+} from '@mef/shared-types-contracts';
 import {
   getAssessmentComparisonAction,
   getAssessmentNoteAction,
@@ -129,7 +133,8 @@ export default async function CoachBodyAssessmentDetailPage({
   // instead of N.
   const coachIds = new Set<string>();
   for (const review of coachReviews) coachIds.add(review.coach_id);
-  for (const finding of allFindings) if (finding.coach_reviewed_by) coachIds.add(finding.coach_reviewed_by);
+  for (const finding of allFindings)
+    if (finding.coach_reviewed_by) coachIds.add(finding.coach_reviewed_by);
   const coachNames: Record<string, string> = {};
   if (coachIds.size > 0) {
     const { data: coachProfiles } = await supabase
@@ -150,11 +155,16 @@ export default async function CoachBodyAssessmentDetailPage({
   const trendSeries: FindingTrendSeries[] = (
     await Promise.all(
       trendFindingTypes.map(async (findingType) => {
-        const typeFindings = await getMemberFindingTrendAction(params.id, findingType as PostureFindingType);
+        const typeFindings = await getMemberFindingTrendAction(
+          params.id,
+          findingType as PostureFindingType
+        );
         const points: TrendPoint[] = typeFindings
           .map((f): TrendPoint | null => {
             const value = severityToScore(f.severity);
-            return value === null ? null : { date: f.created_at, value, valueLabel: SEVERITY_LABEL[f.severity] };
+            return value === null
+              ? null
+              : { date: f.created_at, value, valueLabel: SEVERITY_LABEL[f.severity] };
           })
           .filter((p): p is TrendPoint => p !== null);
         return {

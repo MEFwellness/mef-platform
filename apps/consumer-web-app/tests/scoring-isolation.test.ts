@@ -45,8 +45,18 @@ async function submitCheckin(client: SupabaseClient, localDate: string) {
 describe('Root Score System — persistence + isolation', () => {
   afterAll(async () => {
     const service = serviceRoleClient();
-    await service.from('root_score_snapshots').delete().eq('member_id', TEST_USERS.memberOne.id).gte('local_date', START_DATE).lte('local_date', LAST_DATE);
-    await service.from('daily_checkins').delete().eq('user_id', TEST_USERS.memberOne.id).gte('local_date', START_DATE).lte('local_date', LAST_DATE);
+    await service
+      .from('root_score_snapshots')
+      .delete()
+      .eq('member_id', TEST_USERS.memberOne.id)
+      .gte('local_date', START_DATE)
+      .lte('local_date', LAST_DATE);
+    await service
+      .from('daily_checkins')
+      .delete()
+      .eq('user_id', TEST_USERS.memberOne.id)
+      .gte('local_date', START_DATE)
+      .lte('local_date', LAST_DATE);
   });
 
   it('calculates and persists a real snapshot from real check-in history, and upserts (not duplicates) on recalculation', async () => {
@@ -81,7 +91,7 @@ describe('Root Score System — persistence + isolation', () => {
     expect(count).toBe(1);
   });
 
-  it('getOrCalculateRootScore reuses today\'s snapshot instead of recalculating on a second call', async () => {
+  it("getOrCalculateRootScore reuses today's snapshot instead of recalculating on a second call", async () => {
     const memberOne = await signInAs(TEST_USERS.memberOne);
     const first = await getOrCalculateRootScore(memberOne, TEST_USERS.memberOne.id, {
       localDate: LAST_DATE,
@@ -94,7 +104,7 @@ describe('Root Score System — persistence + isolation', () => {
     expect(second!.calculated_at).toBe(first!.calculated_at); // no recompute happened
   });
 
-  it('a member can never read another member\'s Root Score snapshot (RLS)', async () => {
+  it("a member can never read another member's Root Score snapshot (RLS)", async () => {
     const memberTwo = await signInAs(TEST_USERS.memberTwo);
 
     const direct = await memberTwo

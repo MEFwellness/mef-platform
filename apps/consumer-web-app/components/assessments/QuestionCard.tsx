@@ -13,7 +13,13 @@ type Props = {
   onSelect: (optionIndex: number) => void;
 };
 
-export function QuestionCard({ categoryName, sectionPosition, question, selectedOptionIndex, onSelect }: Props) {
+export function QuestionCard({
+  categoryName,
+  sectionPosition,
+  question,
+  selectedOptionIndex,
+  onSelect,
+}: Props) {
   const legendId = `question-${question.number}-legend`;
 
   return (
@@ -45,7 +51,9 @@ export function QuestionCard({ categoryName, sectionPosition, question, selected
               } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]`}
             >
               <span>{option.label}</span>
-              {selected && <Check className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />}
+              {selected && (
+                <Check className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
+              )}
             </button>
           );
         })}

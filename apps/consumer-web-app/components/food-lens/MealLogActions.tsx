@@ -24,7 +24,13 @@ function nowForInput(): string {
   return d.toISOString().slice(0, 16);
 }
 
-export function MealLogActions({ scanId, hasConfirmedItems }: { scanId: string; hasConfirmedItems: boolean }) {
+export function MealLogActions({
+  scanId,
+  hasConfirmedItems,
+}: {
+  scanId: string;
+  hasConfirmedItems: boolean;
+}) {
   const router = useRouter();
   const [mealCategory, setMealCategory] = useState<MealCategory>('snack');
   const [consumedAt, setConsumedAt] = useState(nowForInput());

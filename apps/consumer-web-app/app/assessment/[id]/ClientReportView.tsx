@@ -7,7 +7,10 @@ import type {
   BodyAssessment,
   BodyAssessmentComparison,
 } from '@mef/shared-types-contracts';
-import { ComparisonSection, type ComparisonCapture } from '@/app/coach/clients/[id]/body-assessments/[assessmentId]/RightPanel/ComparisonSection';
+import {
+  ComparisonSection,
+  type ComparisonCapture,
+} from '@/app/coach/clients/[id]/body-assessments/[assessmentId]/RightPanel/ComparisonSection';
 import { AnnotatedCaptureViewer } from '@/components/body-assessment/AnnotatedCaptureViewer';
 import type { AnnotationShape } from '@mef/shared-types-contracts';
 
@@ -38,12 +41,20 @@ const CATEGORY_ORDER: AiObservationCategory[] = [
 // first, versus care-team considerations or education topics, which are
 // context rather than a "look at this" signal.
 const PRIORITY_CATEGORIES = new Set<AiObservationCategory>(['observation', 'compensation']);
-const SEVERITY_RANK: Record<string, number> = { significant: 3, moderate: 2, mild: 1, unknown: 0, none: -1 };
+const SEVERITY_RANK: Record<string, number> = {
+  significant: 3,
+  moderate: 2,
+  mild: 1,
+  unknown: 0,
+  none: -1,
+};
 const MAX_PRIORITIES = 3;
 
 function keyPriorities(observations: AssessmentAiObservation[]): AssessmentAiObservation[] {
   return observations
-    .filter((o) => PRIORITY_CATEGORIES.has(o.category) && o.severity && SEVERITY_RANK[o.severity]! >= 2)
+    .filter(
+      (o) => PRIORITY_CATEGORIES.has(o.category) && o.severity && SEVERITY_RANK[o.severity]! >= 2
+    )
     .sort(
       (a, b) =>
         SEVERITY_RANK[b.severity ?? 'none']! - SEVERITY_RANK[a.severity ?? 'none']! ||
@@ -148,7 +159,9 @@ export function ClientReportView({
                     strokeWidth={1.75}
                     aria-hidden="true"
                   />
-                  <span className="leading-relaxed">{observation.coach_text ?? observation.ai_text}</span>
+                  <span className="leading-relaxed">
+                    {observation.coach_text ?? observation.ai_text}
+                  </span>
                 </li>
               ))}
             </ul>

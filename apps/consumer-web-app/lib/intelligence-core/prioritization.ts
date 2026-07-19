@@ -15,7 +15,9 @@ function toOpportunity(r: Recommendation): PrioritizedOpportunity {
   return { domain: r.domain, title: r.title, detail: r.detail, confidence: r.confidence };
 }
 
-export function prioritizeRecommendations(recommendations: Recommendation[]): WellnessCorePrioritization {
+export function prioritizeRecommendations(
+  recommendations: Recommendation[]
+): WellnessCorePrioritization {
   const sorted = [...recommendations].sort(
     (a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority] || b.confidence - a.confidence
   );

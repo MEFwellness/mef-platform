@@ -11,7 +11,11 @@ import { CHEK_HLC1_QUESTIONNAIRE } from '../lib/assessments/chek-hlc1';
 import { CHEK_HLC1_COPY } from '../lib/assessments/chek-hlc1/copy';
 import { buildWellnessInsight } from '../lib/assessments/insights';
 import { findCategory, classifyPriority } from '../lib/assessments/engine/scoring';
-import type { CategoryScoreResult, PriorityLevel, QuestionnaireScoreResult } from '../lib/assessments/engine/types';
+import type {
+  CategoryScoreResult,
+  PriorityLevel,
+  QuestionnaireScoreResult,
+} from '../lib/assessments/engine/types';
 
 function scoreFor(categoryId: string, priority: PriorityLevel): number {
   const category = findCategory(CHEK_HLC1_QUESTIONNAIRE, categoryId);
@@ -20,11 +24,19 @@ function scoreFor(categoryId: string, priority: PriorityLevel): number {
 }
 
 function makeResult(priorities: Partial<Record<string, PriorityLevel>>): QuestionnaireScoreResult {
-  const categoryScores: CategoryScoreResult[] = CHEK_HLC1_QUESTIONNAIRE.categories.map((category) => {
-    const priority = priorities[category.id] ?? 'low';
-    const score = scoreFor(category.id, priority);
-    return { categoryId: category.id, categoryName: category.name, score, maxScore: category.maxScore, priority };
-  });
+  const categoryScores: CategoryScoreResult[] = CHEK_HLC1_QUESTIONNAIRE.categories.map(
+    (category) => {
+      const priority = priorities[category.id] ?? 'low';
+      const score = scoreFor(category.id, priority);
+      return {
+        categoryId: category.id,
+        categoryName: category.name,
+        score,
+        maxScore: category.maxScore,
+        priority,
+      };
+    }
+  );
   const totalScore = categoryScores.reduce((sum, c) => sum + c.score, 0);
   return {
     questionnaireId: CHEK_HLC1_QUESTIONNAIRE.id,

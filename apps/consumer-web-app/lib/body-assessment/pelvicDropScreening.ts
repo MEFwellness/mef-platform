@@ -62,7 +62,10 @@ export function computePelvicDropScreening(samples: PelvicDropSample[]): PelvicD
   for (let i = 0; i < sorted.length; i++) {
     const deviation = Math.abs(sorted[i]!.hipLineAngle - baselineAngle);
     if (deviation > maxDeviation) maxDeviation = deviation;
-    if (i > 0 && Math.abs(sorted[i]!.hipLineAngle - sorted[i - 1]!.hipLineAngle) > JUMP_NOISE_THRESHOLD_DEGREES) {
+    if (
+      i > 0 &&
+      Math.abs(sorted[i]!.hipLineAngle - sorted[i - 1]!.hipLineAngle) > JUMP_NOISE_THRESHOLD_DEGREES
+    ) {
       jumpCount += 1;
     }
   }

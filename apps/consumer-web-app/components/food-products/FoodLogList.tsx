@@ -67,18 +67,37 @@ export function FoodLogList({ entries: initial }: { entries: FoodLogEntryWithPro
   function handleFavorite(entry: FoodLogEntryWithProduct) {
     if (!entry.product) return;
     startTransition(async () => {
-      await saveMealFromProductAction(entry.product!.id, entry.product!.name ?? 'Saved food', entry.product!.name ?? 'Saved food');
+      await saveMealFromProductAction(
+        entry.product!.id,
+        entry.product!.name ?? 'Saved food',
+        entry.product!.name ?? 'Saved food'
+      );
       setMessage('Saved — find it under repeatable meals from Search.');
     });
   }
 
-  async function handleSaveEdit(id: string, patch: { mealCategory: MealCategory; servings: number; consumedAt: string; notes: string | null }) {
+  async function handleSaveEdit(
+    id: string,
+    patch: {
+      mealCategory: MealCategory;
+      servings: number;
+      consumedAt: string;
+      notes: string | null;
+    }
+  ) {
     const result = await editFoodLogEntryAction(id, patch);
     if (!result.error) {
       setEntries((prev) =>
         prev.map((e) =>
           e.id === id
-            ? { ...e, meal_category: patch.mealCategory, servings: patch.servings, consumed_at: patch.consumedAt, notes: patch.notes, member_adjusted: true }
+            ? {
+                ...e,
+                meal_category: patch.mealCategory,
+                servings: patch.servings,
+                consumed_at: patch.consumedAt,
+                notes: patch.notes,
+                member_adjusted: true,
+              }
             : e
         )
       );
@@ -116,11 +135,13 @@ export function FoodLogList({ entries: initial }: { entries: FoodLogEntryWithPro
                   {entry.product?.name ?? entry.manual_label ?? 'Logged item'}
                 </p>
                 <p className="mt-0.5 text-xs text-[#6B7A72]">
-                  {MEAL_LABEL[entry.meal_category] ?? entry.meal_category} · {entry.servings}× serving ·{' '}
-                  {formatTime(entry.consumed_at)}
+                  {MEAL_LABEL[entry.meal_category] ?? entry.meal_category} · {entry.servings}×
+                  serving · {formatTime(entry.consumed_at)}
                   {entry.member_adjusted ? ' · edited' : ''}
                 </p>
-                {entry.notes && <p className="mt-0.5 truncate text-xs text-[#9AA79F]">{entry.notes}</p>}
+                {entry.notes && (
+                  <p className="mt-0.5 truncate text-xs text-[#9AA79F]">{entry.notes}</p>
+                )}
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 {entry.product && (
@@ -175,7 +196,12 @@ function EditEntryForm({
   onCancel,
 }: {
   entry: FoodLogEntryWithProduct;
-  onSave: (patch: { mealCategory: MealCategory; servings: number; consumedAt: string; notes: string | null }) => void;
+  onSave: (patch: {
+    mealCategory: MealCategory;
+    servings: number;
+    consumedAt: string;
+    notes: string | null;
+  }) => void;
   onCancel: () => void;
 }) {
   const [mealCategory, setMealCategory] = useState<MealCategory>(entry.meal_category);
@@ -237,7 +263,11 @@ function EditEntryForm({
         >
           Save
         </button>
-        <button type="button" onClick={onCancel} className="rounded-full px-4 py-2 text-xs font-medium text-[#6B7A72]">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-full px-4 py-2 text-xs font-medium text-[#6B7A72]"
+        >
           Cancel
         </button>
       </div>

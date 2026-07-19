@@ -6,7 +6,12 @@
  * fires without a real matching narrative/memory item.
  */
 import { describe, it, expect } from 'vitest';
-import type { ConversationMemoryItem, DailyFeedItem, MefContentItem, NarrativeItem } from '@mef/shared-types-contracts';
+import type {
+  ConversationMemoryItem,
+  DailyFeedItem,
+  MefContentItem,
+  NarrativeItem,
+} from '@mef/shared-types-contracts';
 import { computeCoachingStyle } from '../lib/intelligence-core/coachingStyle';
 import type { FeedHistoryPair } from '../lib/feed/memory';
 
@@ -156,7 +161,9 @@ describe('computeCoachingStyle', () => {
     const lesson = contentItem({ id: 'lesson', content_format: 'lesson' });
     const pairs: FeedHistoryPair[] = [
       ...Array.from({ length: 4 }, (_, i) => feedPair(`p${i}`, { completed_at: null }, practice)),
-      ...Array.from({ length: 4 }, (_, i) => feedPair(`l${i}`, { completed_at: '2026-06-01T09:00:00.000Z' }, lesson)),
+      ...Array.from({ length: 4 }, (_, i) =>
+        feedPair(`l${i}`, { completed_at: '2026-06-01T09:00:00.000Z' }, lesson)
+      ),
     ];
     const style = computeCoachingStyle(pairs, [], [], null);
     expect(style.taskLoadPreference).toBe('single_focus');

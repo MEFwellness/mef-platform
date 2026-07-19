@@ -92,7 +92,10 @@ export async function submitOnboarding(
     // actionable for them and shouldn't be shown. Log it for us, show them a
     // generic apology instead.
     console.error('submit_onboarding RPC failed', error);
-    return { error: "Something went wrong submitting your assessment. Please try again, or contact support if it keeps happening." };
+    return {
+      error:
+        'Something went wrong submitting your assessment. Please try again, or contact support if it keeps happening.',
+    };
   }
 
   // AI event emission — best-effort, never allowed to affect the result

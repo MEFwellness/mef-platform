@@ -136,7 +136,8 @@ export function computePoseMetrics(core: CorePoseLandmarks): PoseMetrics {
 
   const shoulderHeightDiffRatio =
     shoulderWidth > 1e-4 ? Math.abs(core.leftShoulder.y - core.rightShoulder.y) / shoulderWidth : 0;
-  const hipHeightDiffRatio = hipWidth > 1e-4 ? Math.abs(core.leftHip.y - core.rightHip.y) / hipWidth : 0;
+  const hipHeightDiffRatio =
+    hipWidth > 1e-4 ? Math.abs(core.leftHip.y - core.rightHip.y) / hipWidth : 0;
 
   const frontalRatioShoulders = shoulderWidth / Math.max(bodySpan, 1e-4);
   const frontalRatioHips = hipWidth / Math.max(bodySpan, 1e-4);
@@ -148,20 +149,44 @@ export function computePoseMetrics(core: CorePoseLandmarks): PoseMetrics {
       ? Math.min(leftEarVis, rightEarVis) / Math.max(leftEarVis, rightEarVis)
       : 1;
 
-  const noseOffsetRatio =
-    shoulderWidth > 1e-4 ? (core.nose.x - shoulderMid.x) / shoulderWidth : 0;
+  const noseOffsetRatio = shoulderWidth > 1e-4 ? (core.nose.x - shoulderMid.x) / shoulderWidth : 0;
 
   const xs = [
-    core.nose.x, core.leftEye.x, core.rightEye.x, core.leftEar.x, core.rightEar.x,
-    core.leftShoulder.x, core.rightShoulder.x, core.leftHip.x, core.rightHip.x,
-    core.leftKnee.x, core.rightKnee.x, core.leftAnkle.x, core.rightAnkle.x,
+    core.nose.x,
+    core.leftEye.x,
+    core.rightEye.x,
+    core.leftEar.x,
+    core.rightEar.x,
+    core.leftShoulder.x,
+    core.rightShoulder.x,
+    core.leftHip.x,
+    core.rightHip.x,
+    core.leftKnee.x,
+    core.rightKnee.x,
+    core.leftAnkle.x,
+    core.rightAnkle.x,
   ];
   const ys = [
-    core.nose.y, core.leftEye.y, core.rightEye.y, core.leftEar.y, core.rightEar.y,
-    core.leftShoulder.y, core.rightShoulder.y, core.leftHip.y, core.rightHip.y,
-    core.leftKnee.y, core.rightKnee.y, core.leftAnkle.y, core.rightAnkle.y,
+    core.nose.y,
+    core.leftEye.y,
+    core.rightEye.y,
+    core.leftEar.y,
+    core.rightEar.y,
+    core.leftShoulder.y,
+    core.rightShoulder.y,
+    core.leftHip.y,
+    core.rightHip.y,
+    core.leftKnee.y,
+    core.rightKnee.y,
+    core.leftAnkle.y,
+    core.rightAnkle.y,
   ];
-  const boundingBox = { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+  const boundingBox = {
+    minX: Math.min(...xs),
+    minY: Math.min(...ys),
+    maxX: Math.max(...xs),
+    maxY: Math.max(...ys),
+  };
 
   const leftShoulderZ = core.leftShoulder.z;
   const rightShoulderZ = core.rightShoulder.z;

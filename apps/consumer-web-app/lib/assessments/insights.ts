@@ -13,7 +13,12 @@
  * alongside every result, exactly like Root Score's SAFETY_STATEMENT.
  */
 
-import type { AssessmentCopy, PriorityLevel, Questionnaire, QuestionnaireScoreResult } from './engine/types';
+import type {
+  AssessmentCopy,
+  PriorityLevel,
+  Questionnaire,
+  QuestionnaireScoreResult,
+} from './engine/types';
 
 export const ASSESSMENT_SAFETY_STATEMENT =
   'This assessment is a wellness coaching guide built from your own answers about everyday habits and how you feel. It is not a medical diagnosis, a lab test, or a clinical measurement. Talk to a qualified healthcare provider about any symptom that concerns you.';

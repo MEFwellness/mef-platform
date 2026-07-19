@@ -24,7 +24,10 @@ import { computeMomentum } from '../lib/scoring/momentum';
 import { computeResilience } from '../lib/scoring/resilience';
 import { buildExplanation } from '../lib/scoring/explain';
 import { calculateRootScoreSnapshot } from '../lib/scoring/calculate';
-import { MAX_ROOT_SCORE_DAILY_CHANGE, RESILIENCE_MIN_RECOVERED_CYCLES } from '../lib/scoring/config';
+import {
+  MAX_ROOT_SCORE_DAILY_CHANGE,
+  RESILIENCE_MIN_RECOVERED_CYCLES,
+} from '../lib/scoring/config';
 
 const AS_OF = '2026-02-01';
 
@@ -78,7 +81,11 @@ describe('domain calculators — missing data behavior', () => {
   it('recovery domain averages real sleep + energy data, excluding a day with neither logged', () => {
     const window = { startDate: addDaysToLocalDate(AS_OF, -6), endDate: AS_OF };
     const checkins = daysBack(7).map((d) => checkin(d));
-    checkins[3] = checkin(checkins[3]!.local_date, { sleep_quality: null, sleep_duration: null, energy_level: null });
+    checkins[3] = checkin(checkins[3]!.local_date, {
+      sleep_quality: null,
+      sleep_duration: null,
+      energy_level: null,
+    });
     const result = computeRecoveryDomain(checkins, window);
     expect(result.score).not.toBeNull();
     expect(result.data_points).toBe(6); // the blanked-out day contributes zero data points
@@ -86,8 +93,14 @@ describe('domain calculators — missing data behavior', () => {
 
   it('stress domain is inverse (low reported stress -> high score)', () => {
     const window = { startDate: addDaysToLocalDate(AS_OF, -6), endDate: AS_OF };
-    const lowStress = computeStressDomain(daysBack(7).map((d) => checkin(d, { stress_level: 1 })), window);
-    const highStress = computeStressDomain(daysBack(7).map((d) => checkin(d, { stress_level: 5 })), window);
+    const lowStress = computeStressDomain(
+      daysBack(7).map((d) => checkin(d, { stress_level: 1 })),
+      window
+    );
+    const highStress = computeStressDomain(
+      daysBack(7).map((d) => checkin(d, { stress_level: 5 })),
+      window
+    );
     expect(lowStress.score!).toBeGreaterThan(highStress.score!);
   });
 
@@ -126,7 +139,7 @@ describe('domain calculators — missing data behavior', () => {
     expect(result.score).toBe(100);
   });
 
-  it('consistency domain never penalizes a window predating the member\'s first-ever check-in', () => {
+  it("consistency domain never penalizes a window predating the member's first-ever check-in", () => {
     const window = { startDate: addDaysToLocalDate(AS_OF, -29), endDate: AS_OF };
     // Member's real history only goes back 5 days, well inside a 30-day window.
     const checkins = daysBack(5).map((d) => checkin(d));
@@ -146,8 +159,26 @@ describe('domain calculators — missing data behavior', () => {
 describe('aggregate — weighted composite + domain-weight redistribution', () => {
   it('excludes a null-score domain from both the weighted sum and the weight denominator', () => {
     const domains = [
-      { domain: 'recovery' as const, label: 'Recovery', score: 80, confidence_level: 'high' as const, direction: 'stable' as const, data_points: 10, window_days: 30, explanation: '' },
-      { domain: 'stress' as const, label: 'Stress', score: null, confidence_level: 'building' as const, direction: 'unknown' as const, data_points: 0, window_days: 30, explanation: '' },
+      {
+        domain: 'recovery' as const,
+        label: 'Recovery',
+        score: 80,
+        confidence_level: 'high' as const,
+        direction: 'stable' as const,
+        data_points: 10,
+        window_days: 30,
+        explanation: '',
+      },
+      {
+        domain: 'stress' as const,
+        label: 'Stress',
+        score: null,
+        confidence_level: 'building' as const,
+        direction: 'unknown' as const,
+        data_points: 0,
+        window_days: 30,
+        explanation: '',
+      },
     ];
     const result = computeComposite(domains);
     // Only recovery (weight 0.25) is available -> composite equals recovery's own score.
@@ -157,7 +188,16 @@ describe('aggregate — weighted composite + domain-weight redistribution', () =
 
   it('returns score: null when every domain is null', () => {
     const domains = [
-      { domain: 'recovery' as const, label: 'Recovery', score: null, confidence_level: 'building' as const, direction: 'unknown' as const, data_points: 0, window_days: 30, explanation: '' },
+      {
+        domain: 'recovery' as const,
+        label: 'Recovery',
+        score: null,
+        confidence_level: 'building' as const,
+        direction: 'unknown' as const,
+        data_points: 0,
+        window_days: 30,
+        explanation: '',
+      },
     ];
     expect(computeComposite(domains).score).toBeNull();
   });
@@ -225,10 +265,28 @@ describe('momentum', () => {
 
   it('reports improving when the recent window scores higher than the prior window', () => {
     const recent = [
-      { domain: 'recovery' as const, label: 'Recovery', score: 85, confidence_level: 'moderate' as const, direction: 'stable' as const, data_points: 5, window_days: 7, explanation: '' },
+      {
+        domain: 'recovery' as const,
+        label: 'Recovery',
+        score: 85,
+        confidence_level: 'moderate' as const,
+        direction: 'stable' as const,
+        data_points: 5,
+        window_days: 7,
+        explanation: '',
+      },
     ];
     const prior = [
-      { domain: 'recovery' as const, label: 'Recovery', score: 60, confidence_level: 'moderate' as const, direction: 'stable' as const, data_points: 5, window_days: 7, explanation: '' },
+      {
+        domain: 'recovery' as const,
+        label: 'Recovery',
+        score: 60,
+        confidence_level: 'moderate' as const,
+        direction: 'stable' as const,
+        data_points: 5,
+        window_days: 7,
+        explanation: '',
+      },
     ];
     const result = computeMomentum(recent, prior);
     expect(result.state).toBe('improving');
@@ -238,10 +296,28 @@ describe('momentum', () => {
 
   it('reports declining when the recent window scores lower than the prior window', () => {
     const recent = [
-      { domain: 'stress' as const, label: 'Stress', score: 40, confidence_level: 'moderate' as const, direction: 'stable' as const, data_points: 5, window_days: 7, explanation: '' },
+      {
+        domain: 'stress' as const,
+        label: 'Stress',
+        score: 40,
+        confidence_level: 'moderate' as const,
+        direction: 'stable' as const,
+        data_points: 5,
+        window_days: 7,
+        explanation: '',
+      },
     ];
     const prior = [
-      { domain: 'stress' as const, label: 'Stress', score: 80, confidence_level: 'moderate' as const, direction: 'stable' as const, data_points: 5, window_days: 7, explanation: '' },
+      {
+        domain: 'stress' as const,
+        label: 'Stress',
+        score: 80,
+        confidence_level: 'moderate' as const,
+        direction: 'stable' as const,
+        data_points: 5,
+        window_days: 7,
+        explanation: '',
+      },
     ];
     const result = computeMomentum(recent, prior);
     expect(result.state).toBe('declining');
@@ -280,7 +356,13 @@ describe('resilience — never a fabricated score without sufficient history', (
       const inDipOne = i >= 20 && i <= 24;
       const inDipTwo = i >= 55 && i <= 59;
       if (inDipOne || inDipTwo) {
-        return checkin(d, { sleep_quality: 1, energy_level: 1, mood_level: 1, stress_level: 5, pain_discomfort_level: 3 });
+        return checkin(d, {
+          sleep_quality: 1,
+          energy_level: 1,
+          mood_level: 1,
+          stress_level: 5,
+          pain_discomfort_level: 3,
+        });
       }
       return checkin(d);
     });
@@ -295,16 +377,18 @@ describe('resilience — never a fabricated score without sufficient history', (
 
 describe('explanation builder', () => {
   it('produces a no-data explanation and no factors when nothing is available', () => {
-    const domains = (['recovery', 'stress', 'nutrition', 'movement', 'consistency'] as const).map((domain) => ({
-      domain,
-      label: domain,
-      score: null,
-      confidence_level: 'building' as const,
-      direction: 'unknown' as const,
-      data_points: 0,
-      window_days: 30,
-      explanation: '',
-    }));
+    const domains = (['recovery', 'stress', 'nutrition', 'movement', 'consistency'] as const).map(
+      (domain) => ({
+        domain,
+        label: domain,
+        score: null,
+        confidence_level: 'building' as const,
+        direction: 'unknown' as const,
+        data_points: 0,
+        window_days: 30,
+        explanation: '',
+      })
+    );
     const result = buildExplanation(domains);
     expect(result.strongestDomain).toBeNull();
     expect(result.primaryOpportunityDomain).toBeNull();
@@ -314,8 +398,26 @@ describe('explanation builder', () => {
 
   it('identifies the highest-scoring domain as strongest and the lowest as the opportunity', () => {
     const domains = [
-      { domain: 'recovery' as const, label: 'Recovery', score: 90, confidence_level: 'high' as const, direction: 'stable' as const, data_points: 20, window_days: 30, explanation: 'x' },
-      { domain: 'stress' as const, label: 'Stress Regulation', score: 40, confidence_level: 'moderate' as const, direction: 'stable' as const, data_points: 10, window_days: 30, explanation: 'y' },
+      {
+        domain: 'recovery' as const,
+        label: 'Recovery',
+        score: 90,
+        confidence_level: 'high' as const,
+        direction: 'stable' as const,
+        data_points: 20,
+        window_days: 30,
+        explanation: 'x',
+      },
+      {
+        domain: 'stress' as const,
+        label: 'Stress Regulation',
+        score: 40,
+        confidence_level: 'moderate' as const,
+        direction: 'stable' as const,
+        data_points: 10,
+        window_days: 30,
+        explanation: 'y',
+      },
     ];
     const result = buildExplanation(domains);
     expect(result.strongestDomain).toBe('recovery');
@@ -366,7 +468,9 @@ describe('calculateRootScoreSnapshot — full orchestration', () => {
     // window already dilutes this, and the smoothing cap is the second
     // line of defense against any large jump reaching the stored score.
     const checkins = daysBack(29).map((d) => checkin(d));
-    checkins.push(checkin(AS_OF, { sleep_quality: 1, energy_level: 1, stress_level: 5, mood_level: 1 }));
+    checkins.push(
+      checkin(AS_OF, { sleep_quality: 1, energy_level: 1, stress_level: 5, mood_level: 1 })
+    );
 
     const result = calculateRootScoreSnapshot({
       localDate: AS_OF,

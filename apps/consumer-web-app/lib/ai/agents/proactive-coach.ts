@@ -83,7 +83,11 @@ export const proactiveCoachAgent: AiAgentDefinition = {
     'recovery_excellent',
   ],
   async handle(context: AgentContext): Promise<AgentOutput> {
-    const payload = context.event.payload as { source?: string; provider?: WearableProviderName; isFirstSync?: boolean };
+    const payload = context.event.payload as {
+      source?: string;
+      provider?: WearableProviderName;
+      isFirstSync?: boolean;
+    };
 
     switch (context.event.event_type) {
       case 'wearable_synced': {
@@ -106,7 +110,12 @@ export const proactiveCoachAgent: AiAgentDefinition = {
         // wearable-flavored message.
         if (payload.source !== 'wearable') return [];
         return [
-          toOutputItem(sleepDecliningMessage(), 'sleep_declining', 'reminder_recommendation', payload),
+          toOutputItem(
+            sleepDecliningMessage(),
+            'sleep_declining',
+            'reminder_recommendation',
+            payload
+          ),
         ];
 
       case 'activity_declined':
@@ -117,7 +126,12 @@ export const proactiveCoachAgent: AiAgentDefinition = {
       case 'stress_increased':
         if (payload.source !== 'wearable') return [];
         return [
-          toOutputItem(stressRisingMessage(), 'stress_rising', 'educational_recommendation', payload),
+          toOutputItem(
+            stressRisingMessage(),
+            'stress_rising',
+            'educational_recommendation',
+            payload
+          ),
         ];
 
       case 'stress_decreased':

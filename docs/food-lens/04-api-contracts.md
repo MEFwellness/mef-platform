@@ -18,6 +18,7 @@ implementation of every one of these is a typed server action function, not an H
 ## 4.2 Scan lifecycle
 
 ### `startFoodLensScanAction`
+
 Creates the scan row and hands back where to upload.
 
 ```
@@ -27,6 +28,7 @@ Errors:   UNAUTHENTICATED
 ```
 
 ### `recordCaptureAction`
+
 Called after the client finishes the direct-to-storage upload (see doc 1 §1.2).
 
 ```
@@ -37,6 +39,7 @@ Errors:   UNAUTHENTICATED, SCAN_NOT_FOUND, SCAN_NOT_OWNED
 ```
 
 ### `analyzeFoodLensScanAction`
+
 Triggers the vision provider call and writes detected items + macro estimate + comparison.
 Mirrors `performAnalysis` in `app/actions/body-assessment.ts`.
 
@@ -58,6 +61,7 @@ Note: if `status` is `'not_configured'`, the response must not include fabricate
 not a guess.
 
 ### `getFoodLensScanAction`
+
 Full read for the results page.
 
 ```
@@ -73,6 +77,7 @@ Errors:   UNAUTHENTICATED, SCAN_NOT_FOUND, SCAN_NOT_OWNED
 ```
 
 ### `listMyFoodLensScansAction`
+
 History/hub list.
 
 ```
@@ -100,6 +105,7 @@ Errors:   UNAUTHENTICATED, ITEM_NOT_FOUND, ITEM_NOT_OWNED
 ```
 
 ### `correctDetectedItemAction`
+
 Writes a `food_lens_corrections` row and supersedes the original item with a new one — never
 mutates the AI's original detection in place, so what the model actually said stays inspectable.
 
@@ -110,6 +116,7 @@ Errors:   UNAUTHENTICATED, ITEM_NOT_FOUND, ITEM_NOT_OWNED, NO_CHANGE_PROVIDED
 ```
 
 ### `addManualFoodItemAction`
+
 For something the AI missed entirely.
 
 ```
@@ -119,6 +126,7 @@ Errors:   UNAUTHENTICATED, SCAN_NOT_FOUND, SCAN_NOT_OWNED
 ```
 
 ### `recomputeFoodLensResultAction`
+
 Called automatically after any of the four correction actions above (or explicitly by the client
 after a batch of edits) — recomputes the macro estimate and comparison from the current set of
 confirmed items. Purely deterministic, no AI call. See doc 1 §1.5 and doc 6 for why this is the
@@ -133,6 +141,7 @@ Errors:   UNAUTHENTICATED, SCAN_NOT_FOUND, SCAN_NOT_OWNED
 ## 4.4 Primal Pattern target (read-only from Food Lens's side)
 
 ### `getActivePrimalPatternProfileAction`
+
 Food Lens's only touchpoint with the (separately built) questionnaire logic — a read of whatever
 that system last wrote. See doc 5 for the full contract discussion.
 
@@ -150,6 +159,7 @@ personalized coaching. This keeps Food Lens usable before that dependency ships 
 ## 4.5 Future: barcode & label lookups (not MVP, contracts sketched for forward-compatibility)
 
 ### `lookupBarcodeAction` (phase 3)
+
 ```
 Request:  { scanId: string, upc: string }   // decoded on-device, see doc 2 §2.2
 Response: { product: PackagedProduct | null, macroEstimate: MacroEstimate | null }
@@ -157,6 +167,7 @@ Errors:   UNAUTHENTICATED, SCAN_NOT_FOUND, SCAN_NOT_OWNED, PROVIDER_UNAVAILABLE
 ```
 
 ### `analyzeNutritionLabelAction` (phase 3)
+
 ```
 Request:  { scanId: string }   // capture already recorded via recordCaptureAction
 Response: { extractedLabel: NutritionLabelFields | null, macroEstimate: MacroEstimate | null,

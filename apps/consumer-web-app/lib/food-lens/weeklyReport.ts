@@ -67,7 +67,8 @@ export const INSUFFICIENT_DATA_MESSAGE =
 
 /** food_analysis_results.rules_result judgments for a logged packaged/labeled product — reused exactly as the Nutrition Rules Engine already computed them, never re-derived here. */
 export interface WeeklyReportPackagedFoodSignal {
-  processingLabel: 'minimally_processed' | 'lightly_processed' | 'moderately_processed' | 'highly_processed';
+  processingLabel:
+    'minimally_processed' | 'lightly_processed' | 'moderately_processed' | 'highly_processed';
   isMeaningfulProtein: boolean;
   fiberG: number | null;
   addedSugarG: number | null;
@@ -198,7 +199,8 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
   const sugarSignalTotal = input.mealQualityRatings.length + packagedWithSignal.length;
   const sugarSignalHigh =
     input.mealQualityRatings.filter((r) => r.addedSugarLevel === 'high').length +
-    packagedWithSignal.filter((s) => s.addedSugarG !== null && s.addedSugarG >= HIGH_ADDED_SUGAR_G).length;
+    packagedWithSignal.filter((s) => s.addedSugarG !== null && s.addedSugarG >= HIGH_ADDED_SUGAR_G)
+      .length;
 
   const processingSignalTotal = input.mealQualityRatings.length + packagedWithSignal.length;
   const processingSignalHigh =
@@ -225,7 +227,7 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
         strength: 1 - frac,
         sentence: `A pattern worth noticing: protein was light in most of what was logged — only ${proteinSignalPositive} of ${proteinSignalTotal} assessed meals had a clear protein source. Your data may be incomplete if some meals weren't logged.`,
         focusSentence:
-          'Try adding a protein source to at least one more meal each day — even a small, consistent addition tends to show up clearly in next week\'s report.',
+          "Try adding a protein source to at least one more meal each day — even a small, consistent addition tends to show up clearly in next week's report.",
       });
     }
   }
@@ -260,7 +262,8 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
         priority: 3,
         strength: 1 - frac,
         sentence: `Added sugar rarely stood out in what you logged — only ${sugarSignalHigh} of ${sugarSignalTotal} assessed meals registered a high added-sugar level.`,
-        winSentence: 'Added sugar staying low this week is worth carrying forward, based on what was logged.',
+        winSentence:
+          'Added sugar staying low this week is worth carrying forward, based on what was logged.',
       });
     } else if (frac >= 0.4) {
       patternCandidates.push({
@@ -281,7 +284,8 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
         priority: 4,
         strength: 1 - frac,
         sentence: `Most of what you logged leaned whole or minimally processed — only ${processingSignalHigh} of ${processingSignalTotal} assessed meals were on the highly processed end.`,
-        winSentence: 'Meals staying mostly whole and minimally processed is a real pattern worth keeping.',
+        winSentence:
+          'Meals staying mostly whole and minimally processed is a real pattern worth keeping.',
       });
     } else if (frac >= 0.4) {
       patternCandidates.push({
@@ -308,14 +312,16 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
         priority: 5,
         strength: Math.min(1, varietyCount / 20),
         sentence: `Your recent meals suggest real variety — ${varietyCount} different foods appeared across what Root could identify this week.`,
-        winSentence: 'The variety in what you logged this week stood out — a wide range of foods showed up across your meals.',
+        winSentence:
+          'The variety in what you logged this week stood out — a wide range of foods showed up across your meals.',
       });
     } else if (varietyCount <= 5) {
       patternCandidates.push({
         priority: 5,
         strength: 1 - varietyCount / 8,
         sentence: `A pattern worth noticing: the same handful of foods repeated often this week — only ${varietyCount} distinct foods appeared across what was logged.`,
-        focusSentence: 'Bringing in one or two new foods next week could add some variety to your rotation.',
+        focusSentence:
+          'Bringing in one or two new foods next week could add some variety to your rotation.',
       });
     }
   }
@@ -327,7 +333,9 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
   // treated as exact: "vegetable and fruit variety" below means distinct
   // labels detected in that category.
   const produceLabels = uniq(
-    input.detectedItems.filter((i) => i.category === 'vegetable').map((i) => normalizeLabel(i.label))
+    input.detectedItems
+      .filter((i) => i.category === 'vegetable')
+      .map((i) => normalizeLabel(i.label))
   );
   if (input.detectedItems.length >= 5) {
     if (produceLabels.length >= 4) {
@@ -335,7 +343,8 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
         priority: 6,
         strength: Math.min(1, produceLabels.length / 8),
         sentence: `Several different vegetables and fruits appeared in what you logged this week (${produceLabels.length} distinct items) — a pattern worth recognizing.`,
-        winSentence: 'A real range of vegetables and fruit showed up in what you logged — worth keeping up.',
+        winSentence:
+          'A real range of vegetables and fruit showed up in what you logged — worth keeping up.',
       });
     } else if (produceLabels.length === 0) {
       patternCandidates.push({
@@ -343,7 +352,8 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
         strength: 0.6,
         sentence:
           'A pattern worth noticing: vegetables and fruit did not clearly appear in what was logged this week. Your data may be incomplete if produce was eaten but not logged alongside the rest of a meal.',
-        focusSentence: 'Adding one vegetable or piece of fruit to a meal you already log could be an easy focus for next week.',
+        focusSentence:
+          'Adding one vegetable or piece of fruit to a meal you already log could be an easy focus for next week.',
       });
     }
   }
@@ -361,14 +371,16 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
           priority: 7,
           strength: frac,
           sentence: `Breakfast showed up regularly in your log — ${breakfastDays} of ${logDaySet.length} logged days included a breakfast entry.`,
-          winSentence: 'Logging breakfast consistently gave Root a clearer read on your full day — worth continuing.',
+          winSentence:
+            'Logging breakfast consistently gave Root a clearer read on your full day — worth continuing.',
         });
       } else if (frac <= 0.2) {
         patternCandidates.push({
           priority: 7,
           strength: 1 - frac,
           sentence: `A pattern worth noticing: breakfast rarely appeared in your log — only ${breakfastDays} of ${logDaySet.length} logged days included a breakfast entry. Your data may be incomplete if breakfast was eaten but not logged.`,
-          focusSentence: 'If breakfast is part of your routine, logging it could round out next week\'s picture.',
+          focusSentence:
+            "If breakfast is part of your routine, logging it could round out next week's picture.",
         });
       }
     }
@@ -378,20 +390,23 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
   const waterDays = Object.keys(input.waterCupsByLocalDate);
   if (waterDays.length >= 3) {
     const avgCups =
-      waterDays.reduce((sum, d) => sum + (input.waterCupsByLocalDate[d] ?? 0), 0) / waterDays.length;
+      waterDays.reduce((sum, d) => sum + (input.waterCupsByLocalDate[d] ?? 0), 0) /
+      waterDays.length;
     if (avgCups >= 7) {
       supportCandidates.push({
         priority: 8,
         strength: Math.min(1, avgCups / 10),
         sentence: `Hydration looked solid on the days you checked in — averaging about ${Math.round(avgCups)} cups a day.`,
-        winSentence: 'Hydration was consistently strong on the days you checked in — a good habit to keep.',
+        winSentence:
+          'Hydration was consistently strong on the days you checked in — a good habit to keep.',
       });
     } else if (avgCups <= 3) {
       patternCandidates.push({
         priority: 8,
         strength: 1 - avgCups / 5,
         sentence: `A pattern worth noticing: hydration looked light on the days you checked in — averaging about ${Math.round(avgCups)} cups a day. Your data may be incomplete on days without a check-in.`,
-        focusSentence: 'Keeping a glass of water within reach at meals could be a simple focus for next week.',
+        focusSentence:
+          'Keeping a glass of water within reach at meals could be a simple focus for next week.',
       });
     }
   }
@@ -423,7 +438,8 @@ export function computeWeeklyNutritionReport(input: WeeklyReportInput): WeeklyRe
           priority: 9,
           strength: workoutFrac,
           sentence: `On days you completed a movement session, your logged meals leaned more protein-supportive — ${proteinOnWorkoutDays.positive} of ${proteinOnWorkoutDays.total} assessed meals on those days included a meaningful protein source.`,
-          winSentence: 'Your meals tended to support your movement sessions well — protein showed up more on workout days than elsewhere.',
+          winSentence:
+            'Your meals tended to support your movement sessions well — protein showed up more on workout days than elsewhere.',
         });
       }
     }
