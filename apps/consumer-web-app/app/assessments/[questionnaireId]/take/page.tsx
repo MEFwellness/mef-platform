@@ -38,6 +38,7 @@ export default async function TakeAssessmentPage({
             questionnaire={state.questionnaire}
             assessmentId={state.inProgress.record.id}
             initialAnswers={state.inProgress.answers}
+            initialContext={state.inProgress.record.context ?? {}}
             resumeCategoryId={state.inProgress.record.currentCategoryId}
             resumeQuestionNumber={state.inProgress.record.currentQuestionNumber}
           />

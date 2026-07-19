@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getAssessmentDefinition, listAssessmentDefinitions } from '@/lib/assessments/registry';
 import {
   findCategory,
+  isQuestionActive,
   totalAnsweredCount,
   totalQuestionCount,
 } from '@/lib/assessments/engine/scoring';
@@ -46,6 +47,7 @@ import {
   getOrCreateInProgressAssessment,
   listCompletedAssessments,
   saveAnswer,
+  saveContext,
   type ComparisonMode,
 } from '@/lib/assessments/store';
 
@@ -88,8 +90,12 @@ export async function getMyAssessmentOverview(
     totalQuestions: totalQuestionCount(questionnaire),
     draft: draftAssessment
       ? {
-          answered: totalAnsweredCount(questionnaire, draftAssessment.answers),
-          total: totalQuestionCount(questionnaire),
+          answered: totalAnsweredCount(
+            questionnaire,
+            draftAssessment.answers,
+            draftAssessment.record.context
+          ),
+          total: totalQuestionCount(questionnaire, draftAssessment.record.context),
         }
       : null,
     latestCompleted,
@@ -137,8 +143,12 @@ export async function getMyQuestionnaireList(): Promise<QuestionnaireListItem[]>
         status: deriveQuestionnaireStatus(Boolean(draftAssessment), Boolean(latestCompleted)),
         draft: draftAssessment
           ? {
-              answered: totalAnsweredCount(questionnaire, draftAssessment.answers),
-              total: totalQuestionCount(questionnaire),
+              answered: totalAnsweredCount(
+                questionnaire,
+                draftAssessment.answers,
+                draftAssessment.record.context
+              ),
+              total: totalQuestionCount(questionnaire, draftAssessment.record.context),
             }
           : null,
         latestCompleted,
@@ -201,6 +211,39 @@ export async function submitAssessmentAnswer(
       optionIndex,
       option.points
     );
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Failed to save answer.' };
+  }
+}
+
+/**
+ * Persists one answer to a questionnaire's contextQuestions (e.g. Four
+ * Doctors' gender gate) — same shape/auth-guard pattern as
+ * submitAssessmentAnswer. Validates the submitted value against the
+ * context question's own configured options before writing, so a
+ * tampered request can pick an unexpected value but never one outside
+ * the small enumerated set the questionnaire actually defines.
+ */
+export async function submitAssessmentContext(
+  questionnaireId: string,
+  assessmentId: string,
+  key: string,
+  value: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const memberId = await requireMemberId();
+  if (!memberId) return { ok: false, error: 'Not signed in.' };
+
+  try {
+    const { questionnaire } = getAssessmentDefinition(questionnaireId);
+    const contextQuestion = questionnaire.contextQuestions?.find((cq) => cq.key === key);
+    const option = contextQuestion?.options.find((o) => o.value === value);
+    if (!contextQuestion || !option) {
+      return { ok: false, error: 'Unknown context question or value.' };
+    }
+
+    const supabase = createClient();
+    await saveContext(supabase, assessmentId, key, value);
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Failed to save answer.' };
@@ -319,14 +362,16 @@ export async function getMyAssessmentCategoryAnswers(
   const answers = await getAssessmentAnswers(supabase, assessmentId);
   const categoryAnswers = answers[categoryId] ?? {};
 
-  return category.questions.map((question) => {
-    const optionIndex = categoryAnswers[question.number];
-    const option = optionIndex !== undefined ? question.options[optionIndex] : undefined;
-    return {
-      questionNumber: question.number,
-      questionText: question.text,
-      selectedLabel: option?.label ?? 'Not answered',
-      points: option?.points ?? 0,
-    };
-  });
+  return category.questions
+    .filter((question) => isQuestionActive(question, owned.record.context ?? {}))
+    .map((question) => {
+      const optionIndex = categoryAnswers[question.number];
+      const option = optionIndex !== undefined ? question.options[optionIndex] : undefined;
+      return {
+        questionNumber: question.number,
+        questionText: question.text,
+        selectedLabel: option?.label ?? 'Not answered',
+        points: option?.points ?? 0,
+      };
+    });
 }

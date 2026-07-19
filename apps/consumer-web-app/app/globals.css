@@ -51,6 +51,21 @@
 }
 
 /*
+ * Keyboard focus ring (components/assessments/QuestionCard.tsx,
+ * ContextQuestionCard.tsx, AssessmentTaker.tsx). A plain custom-property
+ * class rather than stacked `focus-visible:outline-*` Tailwind v4
+ * arbitrary-value utilities — those compiled correctly (verified in the
+ * built CSS) but the outline color still computed back to `currentColor`
+ * at runtime in Chromium, so the ring rendered in whatever text color the
+ * element already had instead of the intended gold accent. This sidesteps
+ * that entirely with one unambiguous rule.
+ */
+.mef-focus-ring:focus-visible {
+  outline: 2px solid #f5b700;
+  outline-offset: 2px;
+}
+
+/*
  * Voice-input listening indicator (components/conversation/MessageInput.tsx)
  * — a calm pulse, not a flashing alert. Reduced-motion falls back to a
  * plain static dot rather than removing the indicator entirely, since it's

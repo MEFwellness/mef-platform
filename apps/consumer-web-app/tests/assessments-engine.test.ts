@@ -12,12 +12,14 @@
  */
 import { describe, it, expect } from 'vitest';
 import { CHEK_HLC1_QUESTIONNAIRE } from '../lib/assessments/chek-hlc1';
+import { FOUR_DOCTORS_QUESTIONNAIRE } from '../lib/assessments/four-doctors';
 import { getAssessmentDefinition, findAssessmentDefinition } from '../lib/assessments/registry';
 import {
   classifyPriority,
   countAnsweredInCategory,
   findCategory,
   isCategoryComplete,
+  isQuestionActive,
   isQuestionnaireComplete,
   scoreCategory,
   scoreQuestionnaire,
@@ -30,6 +32,7 @@ import {
   getFlatIndex,
 } from '../lib/assessments/engine/navigation';
 import type {
+  AssessmentContext,
   Category,
   CategoryAnswers,
   QuestionnaireAnswers,
@@ -276,5 +279,229 @@ describe('registry', () => {
       /Unknown questionnaire/
     );
     expect(findAssessmentDefinition('not-a-real-questionnaire')).toBeNull();
+  });
+});
+
+/**
+ * Four Doctors is the first questionnaire to use conditional questions
+ * (Dr. Quiet's gender-gated pair, see docs/assessments/four-doctors/
+ * SPEC.md §6) — these tests exercise `isQuestionActive` and every
+ * context-aware engine function it threads through, alongside a plain
+ * data-integrity pass over the config itself.
+ */
+describe('questionnaire data integrity (Four Doctors fixture)', () => {
+  it('has all 4 categories and 54 questions configured', () => {
+    expect(FOUR_DOCTORS_QUESTIONNAIRE.categories).toHaveLength(4);
+    const configuredQuestionCount = FOUR_DOCTORS_QUESTIONNAIRE.categories.reduce(
+      (sum, c) => sum + c.questions.length,
+      0
+    );
+    expect(configuredQuestionCount).toBe(54);
+  });
+
+  it('every question has exactly one zero-point option (an achievable floor)', () => {
+    for (const category of FOUR_DOCTORS_QUESTIONNAIRE.categories) {
+      for (const question of category.questions) {
+        expect(question.options.some((o) => o.points === 0)).toBe(true);
+      }
+    }
+  });
+
+  it('Dr. Movement is fully verified (question sum matches the printed master table)', () => {
+    const category = findCategory(FOUR_DOCTORS_QUESTIONNAIRE, 'dr_movement');
+    expect(category.verified).toBe(true);
+    expect(category.maxScore).toBe(150);
+  });
+
+  it('Dr. Happiness, Dr. Quiet, and Dr. Diet are flagged unverified with a documented amendment', () => {
+    for (const id of ['dr_happiness', 'dr_quiet', 'dr_diet']) {
+      const category = findCategory(FOUR_DOCTORS_QUESTIONNAIRE, id);
+      expect(category.verified, `${id} should be unverified`).toBe(false);
+      expect(category.amendment, `${id} should have an amendment note`).toBeTruthy();
+    }
+  });
+
+  it('Dr. Quiet has exactly 4 gender-conditional questions, 2 gated to each value', () => {
+    const category = findCategory(FOUR_DOCTORS_QUESTIONNAIRE, 'dr_quiet');
+    const conditional = category.questions.filter((q) => q.condition);
+    expect(conditional).toHaveLength(4);
+    expect(conditional.filter((q) => q.condition!.equals.includes('male'))).toHaveLength(2);
+    expect(conditional.filter((q) => q.condition!.equals.includes('female'))).toHaveLength(2);
+  });
+
+  it('exposes one contextQuestion gating Dr. Quiet, with male/female/unspecified options', () => {
+    const gate = FOUR_DOCTORS_QUESTIONNAIRE.contextQuestions?.find(
+      (cq) => cq.categoryId === 'dr_quiet'
+    );
+    expect(gate).toBeDefined();
+    expect(gate!.options.map((o) => o.value).sort()).toEqual(['female', 'male', 'unspecified']);
+  });
+
+  it('priority bands are contiguous within every category', () => {
+    for (const category of FOUR_DOCTORS_QUESTIONNAIRE.categories) {
+      const { low, moderate, high } = category.priorityBands;
+      expect(low.min).toBe(0);
+      expect(moderate.min).toBe(low.max + 1);
+      expect(high.min).toBe(moderate.max + 1);
+      expect(high.max).toBe(category.maxScore);
+    }
+  });
+});
+
+describe('isQuestionActive', () => {
+  const category = findCategory(FOUR_DOCTORS_QUESTIONNAIRE, 'dr_quiet');
+  const unconditional = category.questions.find((q) => q.number === 1)!;
+  const maleQuestion = category.questions.find((q) => q.number === 4)!;
+  const femaleQuestion = category.questions.find((q) => q.number === 6)!;
+
+  it('a question with no condition is always active', () => {
+    expect(isQuestionActive(unconditional, {})).toBe(true);
+    expect(isQuestionActive(unconditional, { dr_quiet_gender: 'male' })).toBe(true);
+  });
+
+  it('a conditional question is active only when context matches', () => {
+    expect(isQuestionActive(maleQuestion, { dr_quiet_gender: 'male' })).toBe(true);
+    expect(isQuestionActive(maleQuestion, { dr_quiet_gender: 'female' })).toBe(false);
+    expect(isQuestionActive(maleQuestion, { dr_quiet_gender: 'unspecified' })).toBe(false);
+    expect(isQuestionActive(maleQuestion, {})).toBe(false);
+    expect(isQuestionActive(femaleQuestion, { dr_quiet_gender: 'female' })).toBe(true);
+    expect(isQuestionActive(femaleQuestion, { dr_quiet_gender: 'male' })).toBe(false);
+  });
+});
+
+function fourDoctorsAnswers(
+  category: Category,
+  context: AssessmentContext,
+  optionPicker: (points: number[]) => number
+): CategoryAnswers {
+  const answers: CategoryAnswers = {};
+  for (const question of category.questions) {
+    if (!isQuestionActive(question, context)) continue;
+    answers[question.number] = optionPicker(question.options.map((o) => o.points));
+  }
+  return answers;
+}
+
+const zeroPointIndex = (points: number[]) => points.findIndex((p) => p === 0);
+const maxPointIndex = (points: number[]) =>
+  points.reduce((best, p, i, arr) => (p === Math.max(...arr) ? i : best), 0);
+
+describe('scoreCategory with a conditional category (Dr. Quiet)', () => {
+  const category = findCategory(FOUR_DOCTORS_QUESTIONNAIRE, 'dr_quiet');
+
+  it('computes an 80-point dynamic maxScore for a resolved "male" context (6 always-on + 2 gated)', () => {
+    const context: AssessmentContext = { dr_quiet_gender: 'male' };
+    const answers = fourDoctorsAnswers(category, context, maxPointIndex);
+    const result = scoreCategory(category, answers, context);
+    expect(result.maxScore).toBe(80);
+    expect(result.score).toBe(80);
+    expect(result.priority).toBe('high');
+  });
+
+  it('computes a 60-point dynamic maxScore when gender is unresolved ("unspecified" or unset)', () => {
+    for (const context of [{ dr_quiet_gender: 'unspecified' }, {}] as AssessmentContext[]) {
+      const answers = fourDoctorsAnswers(category, context, maxPointIndex);
+      const result = scoreCategory(category, answers, context);
+      expect(result.maxScore).toBe(60);
+      expect(result.score).toBe(60);
+    }
+  });
+
+  it('scores 0 at the floor regardless of which gender branch is active', () => {
+    const context: AssessmentContext = { dr_quiet_gender: 'female' };
+    const answers = fourDoctorsAnswers(category, context, zeroPointIndex);
+    const result = scoreCategory(category, answers, context);
+    expect(result.score).toBe(0);
+    expect(result.priority).toBe('low');
+  });
+});
+
+describe('progress helpers respect context (Dr. Quiet)', () => {
+  const category = findCategory(FOUR_DOCTORS_QUESTIONNAIRE, 'dr_quiet');
+
+  it('countAnsweredInCategory / isCategoryComplete only require the active 8 questions, not all 10', () => {
+    const context: AssessmentContext = { dr_quiet_gender: 'male' };
+    const answers = fourDoctorsAnswers(category, context, zeroPointIndex);
+    expect(countAnsweredInCategory(category, answers, context)).toBe(8);
+    expect(isCategoryComplete(category, answers, context)).toBe(true);
+
+    // Answering the *other* gender's questions instead never counts toward completion.
+    const wrongBranchAnswers = fourDoctorsAnswers(
+      category,
+      { dr_quiet_gender: 'female' },
+      zeroPointIndex
+    );
+    expect(isCategoryComplete(category, wrongBranchAnswers, context)).toBe(false);
+  });
+
+  it('totalQuestionCount / totalAnsweredCount shrink to 52 once gender resolves, and to 50 while unresolved', () => {
+    expect(totalQuestionCount(FOUR_DOCTORS_QUESTIONNAIRE, {})).toBe(50);
+    expect(totalQuestionCount(FOUR_DOCTORS_QUESTIONNAIRE, { dr_quiet_gender: 'male' })).toBe(52);
+  });
+});
+
+describe('scoreQuestionnaire / isQuestionnaireComplete (Four Doctors)', () => {
+  function allAnswers(
+    context: AssessmentContext,
+    optionPicker: (points: number[]) => number
+  ): QuestionnaireAnswers {
+    const answers: QuestionnaireAnswers = {};
+    for (const category of FOUR_DOCTORS_QUESTIONNAIRE.categories) {
+      answers[category.id] = fourDoctorsAnswers(category, context, optionPicker);
+    }
+    return answers;
+  }
+
+  it('is incomplete until the gender-gated questions are answered', () => {
+    const context: AssessmentContext = { dr_quiet_gender: 'male' };
+    expect(isQuestionnaireComplete(FOUR_DOCTORS_QUESTIONNAIRE, {}, context)).toBe(false);
+    const complete = allAnswers(context, zeroPointIndex);
+    expect(isQuestionnaireComplete(FOUR_DOCTORS_QUESTIONNAIRE, complete, context)).toBe(true);
+  });
+
+  it('scores a dynamic totalMaxScore of 610 for a resolved gender, and 590 while unresolved', () => {
+    const resolvedContext: AssessmentContext = { dr_quiet_gender: 'female' };
+    const resolved = scoreQuestionnaire(
+      FOUR_DOCTORS_QUESTIONNAIRE,
+      allAnswers(resolvedContext, maxPointIndex),
+      resolvedContext
+    );
+    expect(resolved.totalMaxScore).toBe(610);
+    expect(resolved.totalScore).toBe(610);
+    expect(resolved.totalPriority).toBe('high');
+
+    const unresolvedContext: AssessmentContext = { dr_quiet_gender: 'unspecified' };
+    const unresolved = scoreQuestionnaire(
+      FOUR_DOCTORS_QUESTIONNAIRE,
+      allAnswers(unresolvedContext, maxPointIndex),
+      unresolvedContext
+    );
+    expect(unresolved.totalMaxScore).toBe(590);
+  });
+
+  it('scores 0 / low priority across the board on an all-minimum response', () => {
+    const context: AssessmentContext = { dr_quiet_gender: 'male' };
+    const result = scoreQuestionnaire(
+      FOUR_DOCTORS_QUESTIONNAIRE,
+      allAnswers(context, zeroPointIndex),
+      context
+    );
+    expect(result.totalScore).toBe(0);
+    expect(result.totalPriority).toBe('low');
+    expect(result.categoryScores).toHaveLength(4);
+  });
+});
+
+describe('registry (Four Doctors)', () => {
+  it('resolves the Four Doctors definition by id', () => {
+    const definition = getAssessmentDefinition('four-doctors');
+    expect(definition.questionnaire).toBe(FOUR_DOCTORS_QUESTIONNAIRE);
+    expect(Object.keys(definition.copy.categoryCopy).sort()).toEqual([
+      'dr_diet',
+      'dr_happiness',
+      'dr_movement',
+      'dr_quiet',
+    ]);
+    expect(definition.copy.displayTitle).not.toMatch(/CHEK/i);
   });
 });

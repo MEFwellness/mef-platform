@@ -9,43 +9,55 @@
 import { describe, it, expect } from 'vitest';
 import { CHEK_HLC1_QUESTIONNAIRE } from '../lib/assessments/chek-hlc1';
 import { CHEK_HLC1_COPY } from '../lib/assessments/chek-hlc1/copy';
+import { FOUR_DOCTORS_QUESTIONNAIRE } from '../lib/assessments/four-doctors';
+import { FOUR_DOCTORS_COPY } from '../lib/assessments/four-doctors/copy';
 import { buildWellnessInsight } from '../lib/assessments/insights';
 import { findCategory, classifyPriority } from '../lib/assessments/engine/scoring';
 import type {
   CategoryScoreResult,
   PriorityLevel,
+  Questionnaire,
   QuestionnaireScoreResult,
 } from '../lib/assessments/engine/types';
 
-function scoreFor(categoryId: string, priority: PriorityLevel): number {
-  const category = findCategory(CHEK_HLC1_QUESTIONNAIRE, categoryId);
+function scoreFor(
+  questionnaire: Questionnaire,
+  categoryId: string,
+  priority: PriorityLevel
+): number {
+  const category = findCategory(questionnaire, categoryId);
   const band = category.priorityBands[priority];
   return band.min;
 }
 
-function makeResult(priorities: Partial<Record<string, PriorityLevel>>): QuestionnaireScoreResult {
-  const categoryScores: CategoryScoreResult[] = CHEK_HLC1_QUESTIONNAIRE.categories.map(
-    (category) => {
-      const priority = priorities[category.id] ?? 'low';
-      const score = scoreFor(category.id, priority);
-      return {
-        categoryId: category.id,
-        categoryName: category.name,
-        score,
-        maxScore: category.maxScore,
-        priority,
-      };
-    }
-  );
+function makeResultFor(
+  questionnaire: Questionnaire,
+  priorities: Partial<Record<string, PriorityLevel>>
+): QuestionnaireScoreResult {
+  const categoryScores: CategoryScoreResult[] = questionnaire.categories.map((category) => {
+    const priority = priorities[category.id] ?? 'low';
+    const score = scoreFor(questionnaire, category.id, priority);
+    return {
+      categoryId: category.id,
+      categoryName: category.name,
+      score,
+      maxScore: category.maxScore,
+      priority,
+    };
+  });
   const totalScore = categoryScores.reduce((sum, c) => sum + c.score, 0);
   return {
-    questionnaireId: CHEK_HLC1_QUESTIONNAIRE.id,
-    questionnaireVersion: CHEK_HLC1_QUESTIONNAIRE.version,
+    questionnaireId: questionnaire.id,
+    questionnaireVersion: questionnaire.version,
     categoryScores,
     totalScore,
-    totalMaxScore: CHEK_HLC1_QUESTIONNAIRE.scoring.totalMaxScore,
-    totalPriority: classifyPriority(totalScore, CHEK_HLC1_QUESTIONNAIRE.scoring.totalPriorityBands),
+    totalMaxScore: questionnaire.scoring.totalMaxScore,
+    totalPriority: classifyPriority(totalScore, questionnaire.scoring.totalPriorityBands),
   };
+}
+
+function makeResult(priorities: Partial<Record<string, PriorityLevel>>): QuestionnaireScoreResult {
+  return makeResultFor(CHEK_HLC1_QUESTIONNAIRE, priorities);
 }
 
 describe('buildWellnessInsight', () => {
@@ -113,6 +125,50 @@ describe('buildWellnessInsight', () => {
     ];
     for (const result of results) {
       const insight = buildWellnessInsight(result, CHEK_HLC1_QUESTIONNAIRE, CHEK_HLC1_COPY);
+      expect(insight.summary).not.toMatch(forbidden);
+      expect(insight.headline).not.toMatch(forbidden);
+    }
+  });
+});
+
+/**
+ * Four Doctors has no authored RELATIONSHIP_RULES entries (those are all
+ * specific to the other registered questionnaire's category-id
+ * combinations), so every multi-high-priority case exercises the generic
+ * fallback sentence — confirms the engine generalizes to a second
+ * questionnaire's categories without any change.
+ */
+describe('buildWellnessInsight (Four Doctors, generic fallback)', () => {
+  it('gives a positive summary when every category is low priority', () => {
+    const insight = buildWellnessInsight(
+      makeResultFor(FOUR_DOCTORS_QUESTIONNAIRE, {}),
+      FOUR_DOCTORS_QUESTIONNAIRE,
+      FOUR_DOCTORS_COPY
+    );
+    expect(insight.focusCategoryIds).toEqual([]);
+    expect(insight.headline).toBe('A strong overall pattern');
+  });
+
+  it('falls back to the generic multi-category sentence for dr_diet + dr_movement both high', () => {
+    const insight = buildWellnessInsight(
+      makeResultFor(FOUR_DOCTORS_QUESTIONNAIRE, { dr_diet: 'high', dr_movement: 'high' }),
+      FOUR_DOCTORS_QUESTIONNAIRE,
+      FOUR_DOCTORS_COPY
+    );
+    expect(insight.summary).toContain('nutrition');
+    expect(insight.summary).toContain('movement and vitality');
+    expect(insight.summary).toMatch(/deserve greater attention/);
+  });
+
+  it('never diagnoses, claims disease, or mentions CHEK in any generated summary', () => {
+    const forbidden = /diagnos|disease|cure|treat(ment)?|disorder|syndrome|CHEK/i;
+    const results = [
+      makeResultFor(FOUR_DOCTORS_QUESTIONNAIRE, {}),
+      makeResultFor(FOUR_DOCTORS_QUESTIONNAIRE, { dr_happiness: 'high' }),
+      makeResultFor(FOUR_DOCTORS_QUESTIONNAIRE, { dr_diet: 'high', dr_movement: 'high' }),
+    ];
+    for (const result of results) {
+      const insight = buildWellnessInsight(result, FOUR_DOCTORS_QUESTIONNAIRE, FOUR_DOCTORS_COPY);
       expect(insight.summary).not.toMatch(forbidden);
       expect(insight.headline).not.toMatch(forbidden);
     }
