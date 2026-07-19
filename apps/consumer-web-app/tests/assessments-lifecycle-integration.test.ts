@@ -17,11 +17,12 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
 import { CHEK_HLC1_QUESTIONNAIRE } from '../lib/assessments/chek-hlc1';
+import { FOUR_DOCTORS_QUESTIONNAIRE } from '../lib/assessments/four-doctors';
 import { flattenQuestions } from '../lib/assessments/engine/navigation';
-import { scoreQuestionnaire } from '../lib/assessments/engine/scoring';
+import { isQuestionActive, scoreQuestionnaire } from '../lib/assessments/engine/scoring';
 import { deriveQuestionnaireStatus } from '../lib/assessments/presentation';
 import { listAssessmentDefinitions } from '../lib/assessments/registry';
-import type { QuestionnaireAnswers } from '../lib/assessments/engine/types';
+import type { AssessmentContext, QuestionnaireAnswers } from '../lib/assessments/engine/types';
 import {
   completeAssessment,
   findInProgressAssessment,
@@ -33,6 +34,7 @@ import {
   getOrCreateInProgressAssessment,
   listCompletedAssessments,
   saveAnswer,
+  saveContext,
 } from '../lib/assessments/store';
 
 const QUESTIONNAIRE_ID = CHEK_HLC1_QUESTIONNAIRE.id;
@@ -382,5 +384,156 @@ describe('Questionnaires page data source (real RLS, real DB)', () => {
     );
     expect(retakeStarted.record.id).not.toBe(started.record.id);
     expect(retakeStarted.record.status).toBe('in_progress');
+  });
+});
+
+/**
+ * Four Doctors is the first questionnaire with a context question (the
+ * gender gate ahead of Dr. Quiet's conditional pair, see
+ * docs/assessments/four-doctors/SPEC.md §6) — this exercises `context`
+ * end-to-end against real RLS: it starts life as an empty '{}' default
+ * from migration 67, survives a resume, and is what completeAssessment
+ * re-derives active questions from server-side.
+ */
+describe('Four Doctors context/conditional-question lifecycle (real RLS, real DB)', () => {
+  const FOUR_DOCTORS_ID = FOUR_DOCTORS_QUESTIONNAIRE.id;
+
+  it('context defaults to {}, persists through saveContext, and survives resume', async () => {
+    const client = await signInAs(TEST_USERS.memberOne);
+
+    const started = await getOrCreateInProgressAssessment(
+      client,
+      TEST_USERS.memberOne.id,
+      FOUR_DOCTORS_QUESTIONNAIRE
+    );
+    expect(started.record.context).toEqual({});
+
+    await saveContext(client, started.record.id, 'dr_quiet_gender', 'male');
+
+    const resumed = await findInProgressAssessment(
+      client,
+      TEST_USERS.memberOne.id,
+      FOUR_DOCTORS_ID
+    );
+    expect(resumed?.record.context).toEqual({ dr_quiet_gender: 'male' });
+  });
+
+  it('completeAssessment rejects a submit with an active gender-gated question left unanswered', async () => {
+    const client = await signInAs(TEST_USERS.memberOne);
+
+    // Continues the in-progress draft from the previous test (context already male).
+    const inProgress = await findInProgressAssessment(
+      client,
+      TEST_USERS.memberOne.id,
+      FOUR_DOCTORS_ID
+    );
+    const assessmentId = inProgress!.record.id;
+    const context: AssessmentContext = inProgress!.record.context ?? {};
+
+    for (const category of FOUR_DOCTORS_QUESTIONNAIRE.categories) {
+      for (const question of category.questions) {
+        if (!isQuestionActive(question, context)) continue;
+        if (category.id === 'dr_quiet' && question.number === 5) continue; // leave one active question unanswered
+        const zeroIndex = question.options.findIndex((o) => o.points === 0);
+        await saveAnswer(
+          client,
+          FOUR_DOCTORS_QUESTIONNAIRE,
+          assessmentId,
+          category.id,
+          question.number,
+          zeroIndex,
+          0
+        );
+      }
+    }
+
+    await expect(
+      completeAssessment(client, FOUR_DOCTORS_QUESTIONNAIRE, assessmentId)
+    ).rejects.toThrow(/unanswered questions/);
+
+    // Answer the one remaining active question, then completion succeeds and
+    // matches the pure engine's own computation for this same context.
+    const question5 = FOUR_DOCTORS_QUESTIONNAIRE.categories
+      .find((c) => c.id === 'dr_quiet')!
+      .questions.find((q) => q.number === 5)!;
+    await saveAnswer(
+      client,
+      FOUR_DOCTORS_QUESTIONNAIRE,
+      assessmentId,
+      'dr_quiet',
+      5,
+      question5.options.findIndex((o) => o.points === 0),
+      0
+    );
+
+    const completed = await completeAssessment(client, FOUR_DOCTORS_QUESTIONNAIRE, assessmentId);
+    expect(completed.record.status).toBe('completed');
+    expect(completed.record.totalScore).toBe(0);
+    expect(completed.record.totalMaxScore).toBe(610); // resolved-gender achievable max, see SPEC.md §7
+    const drQuietScore = completed.categoryScores.find((c) => c.categoryId === 'dr_quiet')!;
+    expect(drQuietScore.maxScore).toBe(80); // 6 always-on + the resolved "male" pair, not all 10 configured questions
+
+    const answers = await getAssessmentAnswers(client, assessmentId);
+    const expected = scoreQuestionnaire(FOUR_DOCTORS_QUESTIONNAIRE, answers, context);
+    expect(completed.record.totalScore).toBe(expected.totalScore);
+    expect(completed.record.totalMaxScore).toBe(expected.totalMaxScore);
+  });
+
+  it('a retake creates a new, separately-dated assessment instance and never overwrites the earlier completed one', async () => {
+    const client = await signInAs(TEST_USERS.memberOne);
+
+    // The completed assessment from the previous test (score 0, "male" context).
+    const before = await listCompletedAssessments(client, TEST_USERS.memberOne.id, FOUR_DOCTORS_ID);
+    expect(before.length).toBeGreaterThanOrEqual(1);
+    const firstAssessmentId = before[0]!.id;
+    const firstScore = before[0]!.totalScore;
+
+    // Tapping "Start" again opens a brand-new draft, not the completed one.
+    const retake = await getOrCreateInProgressAssessment(
+      client,
+      TEST_USERS.memberOne.id,
+      FOUR_DOCTORS_QUESTIONNAIRE
+    );
+    expect(retake.record.status).toBe('in_progress');
+    expect(retake.record.id).not.toBe(firstAssessmentId);
+    expect(retake.record.context).toEqual({}); // a fresh attempt starts with no context, regardless of the first attempt's choice
+
+    // Answer this attempt entirely differently ("female" branch, every question at its
+    // highest-point option) so its score is unambiguously distinct from the first (0).
+    await saveContext(client, retake.record.id, 'dr_quiet_gender', 'female');
+    const retakeContext: AssessmentContext = { dr_quiet_gender: 'female' };
+    for (const category of FOUR_DOCTORS_QUESTIONNAIRE.categories) {
+      for (const question of category.questions) {
+        if (!isQuestionActive(question, retakeContext)) continue;
+        const maxIndex = question.options.findIndex((o) => o.points === question.maxPoints);
+        await saveAnswer(
+          client,
+          FOUR_DOCTORS_QUESTIONNAIRE,
+          retake.record.id,
+          category.id,
+          question.number,
+          maxIndex,
+          question.maxPoints
+        );
+      }
+    }
+    const completedRetake = await completeAssessment(
+      client,
+      FOUR_DOCTORS_QUESTIONNAIRE,
+      retake.record.id
+    );
+    expect(completedRetake.record.totalScore).toBe(610); // full achievable max, see SPEC.md §7
+    expect(completedRetake.record.totalScore).not.toBe(firstScore);
+
+    // Both instances are preserved in history, each with its own id and score —
+    // completing the retake never touched, rescored, or removed the first row.
+    const after = await listCompletedAssessments(client, TEST_USERS.memberOne.id, FOUR_DOCTORS_ID);
+    expect(after.length).toBe(before.length + 1);
+    const original = after.find((a) => a.id === firstAssessmentId);
+    expect(original).toBeDefined();
+    expect(original!.totalScore).toBe(firstScore); // unchanged by the retake
+    const retakeSummary = after.find((a) => a.id === completedRetake.record.id);
+    expect(retakeSummary).toBeDefined();
+    expect(retakeSummary!.totalScore).toBe(610);
   });
 });

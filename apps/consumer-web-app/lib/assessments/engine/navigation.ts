@@ -7,7 +7,16 @@
  * how many categories or questions a given questionnaire happens to have.
  */
 
-import type { Category, Question, Questionnaire, QuestionnaireAnswers } from './types';
+import { isQuestionActive } from './scoring';
+import type {
+  AssessmentContext,
+  Category,
+  Question,
+  Questionnaire,
+  QuestionnaireAnswers,
+} from './types';
+
+const NO_CONTEXT: AssessmentContext = {};
 
 export type FlatQuestionRef = {
   flatIndex: number;
@@ -42,10 +51,23 @@ export function getFlatIndex(
   return index;
 }
 
-/** First question with no stored answer yet, in flattened order — the resume position. Null if every question is answered. */
+/**
+ * First question with no stored answer yet, in flattened order — the
+ * resume position. Skips questions inactive for this respondent's context
+ * (see `isQuestionActive`) so resume never lands on, and progress never
+ * waits on, a branch the member didn't take. Null if every active
+ * question is answered.
+ */
 export function findFirstUnanswered(
   flat: FlatQuestionRef[],
-  answers: QuestionnaireAnswers
+  answers: QuestionnaireAnswers,
+  context: AssessmentContext = NO_CONTEXT
 ): FlatQuestionRef | null {
-  return flat.find((ref) => answers[ref.category.id]?.[ref.question.number] === undefined) ?? null;
+  return (
+    flat.find(
+      (ref) =>
+        isQuestionActive(ref.question, context) &&
+        answers[ref.category.id]?.[ref.question.number] === undefined
+    ) ?? null
+  );
 }
