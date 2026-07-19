@@ -19,6 +19,7 @@ import { recordSafetyRestrictionNarrative } from '@/lib/narrative/service';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { getOrCalculateRootScore } from '@/lib/scoring/service';
 import { recordMemberEvent } from '@/lib/events/service';
+import { getTodaysHydrationTotal } from './events';
 
 // ---- Time helpers ----
 
@@ -189,6 +190,57 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
   }
 
   return {};
+}
+
+/**
+ * Digestion and movement are asked at the end of the day, not first thing
+ * in the morning (Premium UX polish milestone) — a member can only
+ * honestly answer "how much did I move today" and "how did digestion
+ * feel today" once the day has actually happened. Both fields still live
+ * on the same daily_checkins row Morning Readiness writes to (unchanged
+ * schema, unchanged scoring: lib/wellness/wellness-index.ts and the
+ * coaching-insights sources that read them are untouched), so this
+ * fetches today's existing row (if Morning Readiness was already
+ * submitted) and resubmits it through the exact same submitDailyCheckin
+ * path with only these two fields overridden — every other field, and
+ * every side effect (events, AI facts, Root Score), stays identical to a
+ * normal check-in save. If Morning Readiness was never submitted today,
+ * this still creates a valid row: only new_or_worsening_concern is
+ * required at the database level, everything else the member never got
+ * to (mood, sleep, and so on) is simply null, same as any partially
+ * answered day.
+ */
+export async function submitEveningBodyCheckin(
+  localDate: string,
+  timezone: string,
+  movementToday: DailyCheckinInput['movement_today'],
+  digestionRating: number | null
+): Promise<ActionResult> {
+  const existing = await getTodaysCheckin(localDate);
+
+  const input: DailyCheckinInput = {
+    timezone,
+    local_date: localDate,
+    mood_level: existing?.mood_level ?? null,
+    sleep_quality: existing?.sleep_quality ?? null,
+    sleep_duration: existing?.sleep_duration ?? null,
+    energy_level: existing?.energy_level ?? null,
+    stress_level: existing?.stress_level ?? null,
+    water_cups: await getTodaysHydrationTotal(),
+    digestion_rating: digestionRating,
+    pain_discomfort_level: existing?.pain_discomfort_level ?? null,
+    movement_today: movementToday,
+    new_or_worsening_concern: existing?.new_or_worsening_concern ?? false,
+    optional_notes: existing?.optional_notes ?? null,
+    actual_bedtime: existing?.actual_bedtime ?? null,
+    actual_wake_time: existing?.actual_wake_time ?? null,
+    night_waking_count: existing?.night_waking_count ?? null,
+    night_sweats: existing?.night_sweats ?? null,
+    morning_soreness: existing?.morning_soreness ?? null,
+    bowel_movement_status: existing?.bowel_movement_status ?? null,
+  };
+
+  return submitDailyCheckin(input);
 }
 
 /**

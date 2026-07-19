@@ -6,13 +6,15 @@
  * this page itself never refuses to render.
  */
 
-import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getTodaysEveningReflection } from '@/app/actions/eveningReflection';
+import { getTodaysCheckin } from '@/app/actions/checkin';
+import { todaysLocalDate } from '@/lib/time/localDate';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
+import { CheckInModeSwitch } from '@/components/checkin/CheckInModeSwitch';
 import { EveningReflectionForm } from './EveningReflectionForm';
 
 export default async function EveningReflectionPage() {
@@ -22,10 +24,18 @@ export default async function EveningReflectionPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: profile }, isCoach, existing] = await Promise.all([
-    supabase.from('profiles').select('display_name').eq('id', user.id).single(),
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name, timezone')
+    .eq('id', user.id)
+    .single();
+  const timezone = profile?.timezone ?? 'America/New_York';
+  const localDate = todaysLocalDate(timezone);
+
+  const [isCoach, existing, todaysCheckin] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     getTodaysEveningReflection(),
+    getTodaysCheckin(localDate),
   ]);
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
@@ -44,14 +54,14 @@ export default async function EveningReflectionPage() {
             ? "You've already reflected on today. Update anything below."
             : 'A short close to the day. Available any time, morning or night. Your Morning Readiness never depends on this.'}
         </p>
-        <Link
-          href="/checkin"
-          className="mt-2 inline-block text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
-        >
-          ← Back to Morning Readiness
-        </Link>
+        <CheckInModeSwitch active="evening" />
 
-        <EveningReflectionForm existing={existing} />
+        <EveningReflectionForm
+          existing={existing}
+          localDate={localDate}
+          timezone={timezone}
+          todaysCheckin={todaysCheckin}
+        />
       </main>
 
       <BottomNav isCoach={isCoach} />

@@ -280,8 +280,8 @@ export const MEAL_EXAMPLES_BY_RESULT: Record<PrimalPatternResult, MealExample[]>
 };
 
 // ---------------------------------------------------------------------------
-// Education — expandable topic cards. Placeholder copy per this prompt's
-// explicit instruction to prioritize structure over final wording.
+// Education — expandable topic cards, wellness-education language only:
+// what tends to happen and why, never a diagnosis or a guarantee.
 // ---------------------------------------------------------------------------
 
 export type EducationTopic = {
@@ -296,31 +296,31 @@ export const EDUCATION_TOPICS: EducationTopic[] = [
     id: 'energy',
     title: 'Energy',
     summary: 'How your fuel mix shapes how you feel through the day.',
-    body: 'Placeholder: how the balance of protein, fat, and carbohydrate in your meals tends to affect steady energy versus energy dips throughout the day.',
+    body: 'Carbohydrate tends to raise energy quickly and fade quickly, protein and fat release more slowly and hold steadier. A meal weighted toward your Primal Pattern result is more likely to leave you feeling even through the afternoon instead of reaching for a snack an hour after eating.',
   },
   {
     id: 'recovery',
     title: 'Recovery',
     summary: 'Why protein and fat support how your body repairs and rebuilds.',
-    body: 'Placeholder: the general role protein and healthy fat play in recovery after activity and everyday stress.',
+    body: 'Protein supplies the building blocks your body uses to repair tissue after activity and everyday stress, and healthy fat supports the hormones involved in that process. Getting enough of both, at a ratio that fits your pattern, tends to make recovery feel more complete rather than partial.',
   },
   {
     id: 'meal-timing',
     title: 'Meal Timing',
     summary: 'How often and when you eat matters, not just what you eat.',
-    body: 'Placeholder: how meal frequency and timing relate to your Primal Pattern result and everyday consistency.',
+    body: 'The same foods can feel different depending on when and how often you eat them. Some people do best with three defined meals, others feel steadier with smaller, more frequent ones. Noticing your own pattern here, alongside your Primal Pattern result, is often as useful as the food choices themselves.',
   },
   {
     id: 'satiety',
     title: 'Satiety',
     summary: 'What tends to keep you satisfied between meals.',
-    body: 'Placeholder: how protein, fat, and fiber-rich carbohydrates each contribute differently to feeling satisfied after eating.',
+    body: 'Protein and fat are generally what make a meal feel finished, while fiber-rich carbohydrate adds volume and staying power. A plate light on all three tends to leave you hungry again soon after, regardless of the calories in it.',
   },
   {
     id: 'food-quality',
     title: 'Food Quality',
     summary: 'Why the source and quality of your food matters alongside the ratio.',
-    body: 'Placeholder: whole, minimally processed sources of each macronutrient tend to serve this pattern better than processed alternatives.',
+    body: 'Hitting your protein, fat, and carbohydrate targets with whole, minimally processed foods tends to serve your pattern better than reaching the same numbers with processed alternatives. Source and quality shape how satisfied and steady a meal leaves you feeling, not just its macronutrient breakdown.',
   },
 ];
 

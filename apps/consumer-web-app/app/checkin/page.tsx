@@ -13,6 +13,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { RootQuickLink } from '@/components/RootQuickLink';
+import { CheckInModeSwitch } from '@/components/checkin/CheckInModeSwitch';
 import { buildCheckinEntryContext } from '@/lib/conversation-coach/entryContext';
 import { CheckinForm } from './CheckinForm';
 
@@ -63,12 +64,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
             ? "You've already logged this day. Update anything below."
             : 'A few gentle questions so Root understands how today actually feels. Takes about a minute. This stands on its own. Nothing here depends on an evening reflection.'}
         </p>
-        <Link
-          href="/checkin/evening"
-          className="mt-2 inline-block text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
-        >
-          Have a moment for your Evening Reflection instead?
-        </Link>
+        <CheckInModeSwitch active="morning" />
 
         {!requestedYesterday && canLogYesterday && (
           <Link

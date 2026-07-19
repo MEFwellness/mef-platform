@@ -1,11 +1,11 @@
 /**
- * Movement Score — explicitly a placeholder metric (per this milestone's
- * spec) pending richer signals: wearable-verified exertion, range-of-
- * motion tracking, coach-reviewed form quality. Today it's an honest,
- * real computation over actual completed-session history (adherence
- * against a default weekly target) — never a fabricated number — but the
- * UI must still label it "placeholder" so a member doesn't mistake a
- * simple completion ratio for a true movement-quality score.
+ * Movement Score — an early, first-version metric pending richer signals:
+ * wearable-verified exertion, range-of-motion tracking, coach-reviewed
+ * form quality. Today it's an honest, real computation over actual
+ * completed-session history (adherence against a default weekly target),
+ * never a fabricated number, but the UI must still read as "early" so a
+ * member doesn't mistake a simple completion ratio for a true
+ * movement-quality score.
  */
 
 import type { MovementSession } from '@mef/shared-types-contracts';

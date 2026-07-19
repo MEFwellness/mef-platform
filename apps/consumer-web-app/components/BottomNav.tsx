@@ -22,6 +22,7 @@
  * dark green for contrast.
  */
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
@@ -33,7 +34,22 @@ const LEFT_ITEMS: NavItem[] = [{ label: 'Home', href: '/dashboard', Icon: Home }
 
 const RIGHT_ITEMS: NavItem[] = [{ label: 'Today', href: '/today', Icon: Sparkles }];
 
-const CHECK_IN_HREF = '/checkin';
+const MORNING_HREF = '/checkin';
+const EVENING_HREF = '/checkin/evening';
+
+/**
+ * 5:00 AM-11:59 AM local device time defaults to Morning Readiness,
+ * 5:00 PM onward (through the night, wrapping past midnight) defaults to
+ * Evening Reflection, and the hours in between leave the button on
+ * Morning Readiness since no default is specified for midday — a member
+ * can always switch manually from either check-in page regardless of
+ * this default. Device-local, not profile timezone, per the polish
+ * milestone spec ("user's local device time").
+ */
+function checkInHrefForLocalHour(hour: number): string {
+  if (hour >= 17 || hour < 5) return EVENING_HREF;
+  return MORNING_HREF;
+}
 
 /** Appended after Home for coach accounts only — a distinct role-gated surface, not part of the three-item member nav this bar is otherwise scoped to. */
 const COACH_NAV_ITEM: NavItem = { label: 'Coach', href: '/coach', Icon: Users };
@@ -71,7 +87,16 @@ type Props = {
 export function BottomNav({ isCoach = false }: Props) {
   const pathname = usePathname();
   const leftItems = isCoach ? [...LEFT_ITEMS, COACH_NAV_ITEM] : LEFT_ITEMS;
-  const checkInActive = pathname === CHECK_IN_HREF;
+  const checkInActive = pathname === MORNING_HREF || pathname === EVENING_HREF;
+
+  // Defaults to Morning on first paint (matches the server-rendered
+  // markup, avoiding a hydration mismatch), then swaps to the
+  // time-appropriate check-in a moment after mount, once the browser's
+  // local clock is available.
+  const [checkInHref, setCheckInHref] = useState(MORNING_HREF);
+  useEffect(() => {
+    setCheckInHref(checkInHrefForLocalHour(new Date().getHours()));
+  }, []);
 
   return (
     <nav
@@ -95,7 +120,7 @@ export function BottomNav({ isCoach = false }: Props) {
       </div>
 
       <Link
-        href={CHECK_IN_HREF as Route}
+        href={checkInHref as Route}
         aria-label="Check In"
         className="flex shrink-0 flex-col items-center gap-1.5 px-2 -mt-7 md:mt-0 md:gap-2"
       >

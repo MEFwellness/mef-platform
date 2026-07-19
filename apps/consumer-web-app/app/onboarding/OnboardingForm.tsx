@@ -197,29 +197,44 @@ export function OnboardingForm({
     }
 
     if (question.answer_type === 'enum') {
+      const selectedValue =
+        current?.status === 'answered' && typeof current.value === 'string' ? current.value : null;
+
       return (
-        <select
-          ref={setRef}
+        <div
+          role="radiogroup"
           aria-labelledby={legendId}
           aria-invalid={invalid}
-          value={
-            current?.status === 'answered' && typeof current.value === 'string' ? current.value : ''
-          }
-          onChange={(event) =>
-            updateAnswer(question.question_key, {
-              status: 'answered',
-              value: event.target.value,
-            })
-          }
-          className={`${INPUT} bg-white ${invalid ? INPUT_INVALID : ''}`}
+          className="grid grid-cols-1 gap-2.5 sm:grid-cols-2"
         >
-          <option value="">Select an option</option>
-          {allowedValues.map((option) => (
-            <option key={option} value={option}>
-              {option.replaceAll('_', ' ')}
-            </option>
-          ))}
-        </select>
+          {allowedValues.map((option, index) => {
+            const isSelected = selectedValue === option;
+            return (
+              <button
+                key={option}
+                ref={index === 0 ? setRef : undefined}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() =>
+                  updateAnswer(question.question_key, { status: 'answered', value: option })
+                }
+                className={`mef-focus-ring flex items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition-colors ${
+                  isSelected
+                    ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
+                    : invalid
+                      ? 'border-red-400 bg-white text-[#1B3A2D]/70'
+                      : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
+                }`}
+              >
+                {option.replaceAll('_', ' ')}
+                {isSelected && (
+                  <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={3} aria-hidden="true" />
+                )}
+              </button>
+            );
+          })}
+        </div>
       );
     }
 

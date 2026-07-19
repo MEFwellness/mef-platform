@@ -6,11 +6,12 @@
  * EducationAccordion.tsx. Collapsed state is the "at a glance" summary
  * (name, zone badge, score); expanded state adds the category's own
  * already-approved short description (four-doctors/copy.ts), what the
- * zone means, and the one guidance sentence for this category+zone,
- * always read from the centralized guidance config, never generated here.
+ * zone means, and the full strengths/opportunity/recommendations/weekly
+ * habit guidance for this category+zone, always read from the
+ * centralized guidance config, never generated here.
  */
 
-import { Footprints, Moon, Sparkles, UtensilsCrossed } from 'lucide-react';
+import { Footprints, Moon, Sparkles, UtensilsCrossed, Check } from 'lucide-react';
 import { ChevronDown } from 'lucide-react';
 import { zoneForPriority } from '@/lib/assessments/four-doctors/premium/zones';
 import { getGuidance } from '@/lib/assessments/four-doctors/premium/guidance';
@@ -83,13 +84,13 @@ function DoctorCard({ category, copy }: { category: CategoryScoreResult; copy: A
         </div>
       </summary>
 
-      <div className="mt-5 space-y-4 border-t border-[#EDEBE3] pt-4">
+      <div className="mt-5 space-y-5 border-t border-[#EDEBE3] pt-5">
         {categoryCopy && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-              About this area
+              What this doctor represents
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">
+            <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]">
               {categoryCopy.shortDescription}
             </p>
           </div>
@@ -97,19 +98,55 @@ function DoctorCard({ category, copy }: { category: CategoryScoreResult; copy: A
 
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-            What {zone.label} means
+            What your score means
           </p>
-          <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{zone.meaning}</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]">{zone.meaning}</p>
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Guidance</p>
-          <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{guidance.sentence}</p>
-          {!guidance.approved && (
-            <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wider text-[#B0522D]">
-              Pending content review
-            </p>
-          )}
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+            Your current strengths
+          </p>
+          <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]">{guidance.strengths}</p>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+            Your biggest opportunity
+          </p>
+          <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]">{guidance.opportunity}</p>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+            Three ways to move this forward
+          </p>
+          <ul className="mt-2 space-y-2">
+            {guidance.recommendations.map((recommendation) => (
+              <li
+                key={recommendation}
+                className="flex items-start gap-2 text-sm leading-relaxed text-[#1B3A2D]"
+              >
+                <Check
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                  style={{ color: zone.color }}
+                  strokeWidth={2.25}
+                  aria-hidden="true"
+                />
+                {recommendation}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-2xl p-4" style={{ backgroundColor: zone.tint }}>
+          <p
+            className="text-xs font-semibold uppercase tracking-wider"
+            style={{ color: zone.color }}
+          >
+            Focus this week
+          </p>
+          <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]">{guidance.weeklyHabit}</p>
         </div>
       </div>
     </details>

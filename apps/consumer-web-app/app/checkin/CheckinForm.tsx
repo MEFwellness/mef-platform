@@ -7,7 +7,7 @@ import {
   Smile,
   Moon,
   Sunrise,
-  Footprints,
+  HeartPulse,
   MessageCircle,
   CheckCircle2,
   type LucideIcon,
@@ -38,12 +38,6 @@ type Props = {
 };
 
 const SLEEP_DURATIONS = ['<5h', '5-6h', '6-7h', '7-8h', '8h+'] as const;
-const MOVEMENT_LEVELS = [
-  { value: 'none', label: 'None' },
-  { value: 'light', label: 'Light' },
-  { value: 'moderate', label: 'Moderate' },
-  { value: 'full_session', label: 'Full session' },
-] as const;
 const NIGHT_WAKING_OPTIONS = [0, 1, 2, 3, 4, 5] as const;
 const BOWEL_MOVEMENT_OPTIONS: { value: BowelMovementStatus; label: string }[] = [
   { value: 'normal', label: 'Normal' },
@@ -57,7 +51,6 @@ const MOOD_MEANING = ['Very Low', 'Low', 'Okay', 'Good', 'Excellent'] as const;
 const ENERGY_MEANING = ['Exhausted', 'Low', 'Moderate', 'Good', 'High'] as const;
 const STRESS_MEANING = ['Very Calm', 'Calm', 'Moderate', 'High', 'Overwhelmed'] as const;
 const SLEEP_QUALITY_MEANING = ['Terrible', 'Poor', 'Fair', 'Good', 'Excellent'] as const;
-const DIGESTION_MEANING = ['Poor', 'Somewhat off', 'Fair', 'Good', 'Excellent'] as const;
 const PAIN_MEANING = [
   'None',
   'Mild',
@@ -160,15 +153,9 @@ export function CheckinForm({
   const [stressLevel, setStressLevel] = useState<number | null>(
     existingCheckin?.stress_level ?? null
   );
-  const [digestionRating, setDigestionRating] = useState<number | null>(
-    existingCheckin?.digestion_rating ?? null
-  );
   const [painLevel, setPainLevel] = useState<number | null>(
     existingCheckin?.pain_discomfort_level ?? null
   );
-  const [movementToday, setMovementToday] = useState<
-    (typeof MOVEMENT_LEVELS)[number]['value'] | null
-  >(existingCheckin?.movement_today ?? null);
   const [concern, setConcern] = useState(existingCheckin?.new_or_worsening_concern ?? false);
   const [notes, setNotes] = useState(existingCheckin?.optional_notes ?? '');
   const [habitStatus, setHabitStatus] = useState<Record<string, boolean>>(initialHabitLogs);
@@ -209,11 +196,7 @@ export function CheckinForm({
       energyLevel !== null &&
       stressLevel !== null;
     const sleepDone = sleepQuality !== null && sleepDuration !== null;
-    const bodyDone =
-      digestionRating !== null &&
-      painLevel !== null &&
-      movementToday !== null &&
-      bowelMovementStatus !== null;
+    const bodyDone = painLevel !== null && bowelMovementStatus !== null;
     return {
       completedSections: [readinessDone, sleepDone, bodyDone].filter(Boolean).length,
       totalSections: 3,
@@ -226,9 +209,7 @@ export function CheckinForm({
     stressLevel,
     sleepQuality,
     sleepDuration,
-    digestionRating,
     painLevel,
-    movementToday,
     bowelMovementStatus,
   ]);
 
@@ -267,9 +248,13 @@ export function CheckinForm({
       // historical/coach views of this checkin row still carry a real
       // water_cups value, same as before this feature.
       water_cups: await getTodaysHydrationTotal(),
-      digestion_rating: digestionRating,
+      // Digestion and movement are now asked in Evening Reflection, not
+      // here (Premium UX polish milestone) — preserve whatever Evening
+      // already saved for today rather than overwriting it with null on
+      // a Morning Readiness save.
+      digestion_rating: existingCheckin?.digestion_rating ?? null,
       pain_discomfort_level: painLevel,
-      movement_today: movementToday,
+      movement_today: existingCheckin?.movement_today ?? null,
       new_or_worsening_concern: concern,
       optional_notes: notes.trim() ? notes.trim() : null,
       actual_bedtime: actualBedtime || null,
@@ -493,15 +478,9 @@ export function CheckinForm({
         style={{ animationDelay: '180ms' }}
       >
         <SectionHeader
-          icon={Footprints}
-          title="Body & movement"
-          subtitle="Digestion, discomfort, and how much you moved"
-        />
-        <MeaningScale
-          question="How is your body digesting and processing food today?"
-          meanings={DIGESTION_MEANING}
-          value={digestionRating}
-          onChange={setDigestionRating}
+          icon={HeartPulse}
+          title="How your body feels"
+          subtitle="Any pain or discomfort as you start the day"
         />
         <MeaningScale
           question="Are you noticing any pain or physical discomfort?"
@@ -510,28 +489,6 @@ export function CheckinForm({
           onChange={setPainLevel}
           min={0}
         />
-        <div>
-          <p className="text-[13px] leading-relaxed text-[#6B7A72]">
-            How much did you move your body today?
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {MOVEMENT_LEVELS.map((level) => (
-              <button
-                key={level.value}
-                type="button"
-                onClick={() => setMovementToday(level.value)}
-                aria-pressed={movementToday === level.value}
-                className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                  movementToday === level.value
-                    ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                }`}
-              >
-                {level.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {habits.length > 0 && (
