@@ -122,7 +122,11 @@ export function markSpeechStarted(memory: GuidanceMemory): GuidanceMemory {
 }
 
 /** Call when an utterance finishes (naturally, not mid-sentence) — starts the cooldown and records what was said for repeat-suppression. */
-export function markSpeechEnded(memory: GuidanceMemory, spokenKey: string, now: number): GuidanceMemory {
+export function markSpeechEnded(
+  memory: GuidanceMemory,
+  spokenKey: string,
+  now: number
+): GuidanceMemory {
   return { ...memory, isSpeaking: false, lastSpokenKey: spokenKey, lastSpokenAt: now };
 }
 

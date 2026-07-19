@@ -31,7 +31,8 @@ export const DOMAIN_COPY: Record<ScoreDomainKey, DomainCopy> = {
   recovery: {
     opportunityPhrase: 'recovery deserves more attention',
     strengthPhrase: 'your recovery is a real strength',
-    nextAction: 'Wind down 30 minutes earlier tonight and keep tomorrow morning’s check-in consistent.',
+    nextAction:
+      'Wind down 30 minutes earlier tonight and keep tomorrow morning’s check-in consistent.',
     linkHref: '/checkin',
     linkLabel: 'Log tonight’s check-in',
   },

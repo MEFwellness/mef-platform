@@ -32,7 +32,10 @@ const DOT_FILL: Record<string, string> = {
 
 function formatDate(localDate: string): string {
   const [year, month, day] = localDate.split('-').map(Number);
-  return new Date(year!, month! - 1, day!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return new Date(year!, month! - 1, day!).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function buildSmoothPath(points: { x: number; y: number }[]): string {
@@ -67,7 +70,8 @@ export function RootScoreTrendChart({ snapshots }: Props) {
 
   const points = withScores.map((s, i) => {
     const normalized = s.root_score / 100;
-    const x = withScores.length === 1 ? 50 : PAD_X + (i / (withScores.length - 1)) * (100 - 2 * PAD_X);
+    const x =
+      withScores.length === 1 ? 50 : PAD_X + (i / (withScores.length - 1)) * (100 - 2 * PAD_X);
     const y = PAD_TOP + (1 - normalized) * (100 - PAD_TOP - PAD_BOTTOM);
     return { x, y, snapshot: s, status: scoreToStatus(s.root_score) };
   });

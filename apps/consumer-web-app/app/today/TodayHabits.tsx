@@ -52,7 +52,9 @@ export function TodayHabits({
                   aria-hidden="true"
                 />
               )}
-              <span className={`text-sm ${done ? 'text-[#1B3A2D]/50 line-through' : 'text-[#1B3A2D]'}`}>
+              <span
+                className={`text-sm ${done ? 'text-[#1B3A2D]/50 line-through' : 'text-[#1B3A2D]'}`}
+              >
                 {habit.title}
               </span>
             </li>

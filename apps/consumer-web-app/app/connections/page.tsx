@@ -40,8 +40,8 @@ export default async function ConnectionsPage() {
             aria-hidden="true"
           />
           <p className="text-sm leading-relaxed text-[#1B3A2D]/85">
-            We use this information only to personalize your coaching experience. You can
-            disconnect a device at any time.
+            We use this information only to personalize your coaching experience. You can disconnect
+            a device at any time.
           </p>
         </div>
 

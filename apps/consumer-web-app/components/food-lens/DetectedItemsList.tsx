@@ -13,7 +13,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, X, Pencil, Plus } from 'lucide-react';
-import type { FoodLensCookingMethod, FoodLensDetectedItem, FoodLensFoodCategory, FoodLensPortionUnit } from '@mef/shared-types-contracts';
+import type {
+  FoodLensCookingMethod,
+  FoodLensDetectedItem,
+  FoodLensFoodCategory,
+  FoodLensPortionUnit,
+} from '@mef/shared-types-contracts';
 import {
   confirmDetectedItemAction,
   rejectDetectedItemAction,
@@ -43,7 +48,15 @@ const COOKING_METHOD_OPTIONS: FoodLensCookingMethod[] = [
   'sauteed',
 ];
 
-const UNIT_OPTIONS: FoodLensPortionUnit[] = ['servings', 'cups', 'tablespoons', 'teaspoons', 'pieces', 'grams', 'ounces'];
+const UNIT_OPTIONS: FoodLensPortionUnit[] = [
+  'servings',
+  'cups',
+  'tablespoons',
+  'teaspoons',
+  'pieces',
+  'grams',
+  'ounces',
+];
 
 function portionConfidenceLabel(confidence: number | null): string | null {
   if (confidence === null) return null;
@@ -129,11 +142,15 @@ export function DetectedItemsList({
     setBusyId(null);
   }
 
-  const visibleItems = items.filter((item) => item.status !== 'rejected' && item.status !== 'superseded');
+  const visibleItems = items.filter(
+    (item) => item.status !== 'rejected' && item.status !== 'superseded'
+  );
 
   return (
     <div className="rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
-      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Detected items</p>
+      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+        Detected items
+      </p>
       <p className="mt-1 text-xs text-[#6B7A72]">
         Correct anything Root got wrong — it helps your future scans too. The confidence below is
         how sure Root is that this is the right food, separate from the nutrient-amount confidence
@@ -147,8 +164,25 @@ export function DetectedItemsList({
               <EditRow
                 item={item}
                 busy={busyId === item.id}
-                onSave={(label, category, portionDescription, quantity, unit, cookingMethod, isCondiment) =>
-                  handleCorrect(item.id, label, category, portionDescription, quantity, unit, cookingMethod, isCondiment)
+                onSave={(
+                  label,
+                  category,
+                  portionDescription,
+                  quantity,
+                  unit,
+                  cookingMethod,
+                  isCondiment
+                ) =>
+                  handleCorrect(
+                    item.id,
+                    label,
+                    category,
+                    portionDescription,
+                    quantity,
+                    unit,
+                    cookingMethod,
+                    isCondiment
+                  )
                 }
                 onCancel={() => setEditingId(null)}
               />
@@ -164,13 +198,15 @@ export function DetectedItemsList({
                     )}
                   </p>
                   <p className="mt-0.5 text-xs text-[#6B7A72]">
-                    {item.category} · {(item.confidence * 100).toFixed(0)}% confident this is right ·{' '}
-                    {STATUS_LABEL[item.status]}
+                    {item.category} · {(item.confidence * 100).toFixed(0)}% confident this is right
+                    · {STATUS_LABEL[item.status]}
                   </p>
                   {(item.portion_description || item.cooking_method) && (
                     <p className="mt-0.5 text-xs text-[#9AA79F]">
                       {item.portion_description ?? 'Portion not estimated'}
-                      {item.cooking_method && item.cooking_method !== 'unknown' ? ` · ${item.cooking_method}` : ''}
+                      {item.cooking_method && item.cooking_method !== 'unknown'
+                        ? ` · ${item.cooking_method}`
+                        : ''}
                       {portionConfidenceLabel(item.portion_confidence)
                         ? ` · ${portionConfidenceLabel(item.portion_confidence)}`
                         : ''}
@@ -290,7 +326,9 @@ function EditRow({
   const [portionDescription, setPortionDescription] = useState(item.portion_description ?? '');
   const [quantity, setQuantity] = useState(item.quantity === null ? '' : String(item.quantity));
   const [unit, setUnit] = useState<FoodLensPortionUnit>(item.unit ?? 'servings');
-  const [cookingMethod, setCookingMethod] = useState<FoodLensCookingMethod>(item.cooking_method ?? 'unknown');
+  const [cookingMethod, setCookingMethod] = useState<FoodLensCookingMethod>(
+    item.cooking_method ?? 'unknown'
+  );
   const [isCondiment, setIsCondiment] = useState(item.is_condiment);
 
   function handleSave() {
@@ -366,7 +404,11 @@ function EditRow({
         ))}
       </select>
       <label className="flex items-center gap-2 text-xs text-[#6B7A72]">
-        <input type="checkbox" checked={isCondiment} onChange={(e) => setIsCondiment(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={isCondiment}
+          onChange={(e) => setIsCondiment(e.target.checked)}
+        />
         This is a sauce, dressing, or condiment
       </label>
       <div className="flex gap-2">

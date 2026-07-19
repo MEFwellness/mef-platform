@@ -10,7 +10,10 @@
  * database's own RLS policies on pantry_items, not just this app's code.
  */
 import { describe, it, expect, afterAll } from 'vitest';
-import { categorizePantryItemName, deriveCategoryFromProductNutrients } from '../lib/pantry/categorize';
+import {
+  categorizePantryItemName,
+  deriveCategoryFromProductNutrients,
+} from '../lib/pantry/categorize';
 import { generatePantrySuggestions } from '../lib/pantry/suggestions';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
 import {
@@ -285,7 +288,7 @@ describe('pantry_items CRUD + RLS (real local Supabase)', () => {
     expect(expiringAfterRemoval.some((i) => i.id === item!.id)).toBe(false);
   });
 
-  it('a member cannot read, update, or remove another member\'s pantry item (unauthorized access attempt)', async () => {
+  it("a member cannot read, update, or remove another member's pantry item (unauthorized access attempt)", async () => {
     const owner = await signInAs(TEST_USERS.memberOne);
     const other = await signInAs(TEST_USERS.memberTwo);
 

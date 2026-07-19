@@ -11,7 +11,12 @@
  * constructor default, must never be imported from a client component.
  */
 
-import type { FoodLensCaptureInput, FoodLensProvider, FoodLensAnalysisRequest, FoodLensAnalysisResult } from './types';
+import type {
+  FoodLensCaptureInput,
+  FoodLensProvider,
+  FoodLensAnalysisRequest,
+  FoodLensAnalysisResult,
+} from './types';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_API_VERSION = '2023-06-01';
@@ -39,7 +44,15 @@ const COOKING_METHODS = [
   'sauteed',
   'unknown',
 ] as const;
-const PORTION_UNITS = ['grams', 'ounces', 'cups', 'tablespoons', 'teaspoons', 'pieces', 'servings'] as const;
+const PORTION_UNITS = [
+  'grams',
+  'ounces',
+  'cups',
+  'tablespoons',
+  'teaspoons',
+  'pieces',
+  'servings',
+] as const;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -157,7 +170,8 @@ function toolSchema() {
 
   return {
     name: RECORD_MEAL_ANALYSIS_TOOL,
-    description: 'Records structured, honest food identification, macro-emphasis, and quality-signal estimates for one meal photo.',
+    description:
+      'Records structured, honest food identification, macro-emphasis, and quality-signal estimates for one meal photo.',
     input_schema: {
       type: 'object',
       properties: {
@@ -176,7 +190,14 @@ function toolSchema() {
               cooking_method: { type: 'string', enum: COOKING_METHODS, nullable: true },
               is_condiment: { type: 'boolean' },
             },
-            required: ['label', 'category', 'confidence', 'portion_description', 'portion_confidence', 'is_condiment'],
+            required: [
+              'label',
+              'category',
+              'confidence',
+              'portion_description',
+              'portion_confidence',
+              'is_condiment',
+            ],
           },
         },
         macro_estimate: {
@@ -297,7 +318,9 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
       }));
 
     if (photoContent.length === 0) {
-      throw new Error('AnthropicFoodLensProvider: no capture with a usable signed URL was provided.');
+      throw new Error(
+        'AnthropicFoodLensProvider: no capture with a usable signed URL was provided.'
+      );
     }
 
     const userContent = [
@@ -394,8 +417,13 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
             ? item.portion_description.trim()
             : null,
         portionConfidence:
-          typeof item.portion_confidence === 'number' ? clampConfidence(item.portion_confidence) : null,
-        quantity: typeof item.quantity === 'number' && Number.isFinite(item.quantity) ? item.quantity : null,
+          typeof item.portion_confidence === 'number'
+            ? clampConfidence(item.portion_confidence)
+            : null,
+        quantity:
+          typeof item.quantity === 'number' && Number.isFinite(item.quantity)
+            ? item.quantity
+            : null,
         unit: typeof item.unit === 'string' && isPortionUnit(item.unit) ? item.unit : null,
         cookingMethod:
           typeof item.cooking_method === 'string' && isCookingMethod(item.cooking_method)
@@ -439,9 +467,12 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
       );
     }
     const qualitySignals = {
-      nutrientDensity: qs && isNutrientDensity(qs.nutrient_density) ? qs.nutrient_density : ('low' as const),
-      addedSugarLevel: qs && isAddedSugarLevel(qs.added_sugar_level) ? qs.added_sugar_level : ('none' as const),
-      processingLevel: qs && isProcessingLevel(qs.processing_level) ? qs.processing_level : ('processed' as const),
+      nutrientDensity:
+        qs && isNutrientDensity(qs.nutrient_density) ? qs.nutrient_density : ('low' as const),
+      addedSugarLevel:
+        qs && isAddedSugarLevel(qs.added_sugar_level) ? qs.added_sugar_level : ('none' as const),
+      processingLevel:
+        qs && isProcessingLevel(qs.processing_level) ? qs.processing_level : ('processed' as const),
       hasMeaningfulProtein: qs?.has_meaningful_protein === true,
       hasMeaningfulFiber: qs?.has_meaningful_fiber === true,
       hasHealthyFat: qs?.has_healthy_fat === true,

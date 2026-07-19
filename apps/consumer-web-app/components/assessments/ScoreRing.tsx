@@ -46,7 +46,10 @@ export function ScoreRing({ score, maxScore, priority, size = 176 }: Props) {
   const dashOffset = circumference * (1 - (mounted ? healthRatio : 0));
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+    <div
+      className="relative flex items-center justify-center"
+      style={{ width: size, height: size }}
+    >
       <svg
         width={size}
         height={size}
@@ -55,7 +58,14 @@ export function ScoreRing({ score, maxScore, priority, size = 176 }: Props) {
         role="img"
         aria-label={`Score ${score} out of ${maxScore}, ${PRIORITY_LABEL[priority].toLowerCase()}`}
       >
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#EFE9DB" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#EFE9DB"
+          strokeWidth={stroke}
+        />
         <circle
           cx={size / 2}
           cy={size / 2}

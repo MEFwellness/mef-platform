@@ -63,7 +63,8 @@ export default async function FoodLensLabelScanPage({ params }: { params: { id: 
           {scan.status === 'failed' && (
             <div className={`${CARD} p-6`}>
               <p className="text-sm text-[#B45309]">
-                {scan.provider_error ?? "This label couldn't be read. Try retaking the photo with more light."}
+                {scan.provider_error ??
+                  "This label couldn't be read. Try retaking the photo with more light."}
               </p>
               <Link
                 href={'/food-lens/label/new' as Route}

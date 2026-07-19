@@ -305,7 +305,9 @@ export function analyzeMenuItemHeuristics(
     );
   } else {
     if (friedHits.length > 0)
-      observations.push(`The name/description mentions a fried or breaded preparation (${friedHits[0]}).`);
+      observations.push(
+        `The name/description mentions a fried or breaded preparation (${friedHits[0]}).`
+      );
     if (lighterHits.length > 0)
       observations.push(
         `The name/description mentions a lighter preparation method (${lighterHits[0]}).`
@@ -320,7 +322,8 @@ export function analyzeMenuItemHeuristics(
       observations.push(
         'This appears to be a salad — many restaurants can serve the dressing on the side on request.'
       );
-    if (vegetableHits.length > 0) observations.push('Vegetables are mentioned in the name/description.');
+    if (vegetableHits.length > 0)
+      observations.push('Vegetables are mentioned in the name/description.');
     if (proteinHits.length > 0)
       observations.push(`Mentions a protein source (${proteinHits.slice(0, 3).join(', ')}).`);
     if (refinedCarbHits.length > 0)

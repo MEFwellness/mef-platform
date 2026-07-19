@@ -35,7 +35,11 @@ import { RootScoreDomainRow } from '@/components/RootScoreDomainRow';
 import { RootScoreTrendChart } from '@/components/RootScoreTrendChart';
 import { DOMAIN_ORDER } from '@/lib/scoring/config';
 import { SAFETY_STATEMENT } from '@/lib/scoring/copy';
-import type { MomentumState, ResilienceState, ScoreConfidenceLevel } from '@mef/shared-types-contracts';
+import type {
+  MomentumState,
+  ResilienceState,
+  ScoreConfidenceLevel,
+} from '@mef/shared-types-contracts';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -167,18 +171,27 @@ export default async function RootScorePage() {
                 <ChangeBadge change={snapshot!.root_score_change} />
               </div>
               <p className="mt-2 text-sm font-medium text-[#6B7A72]">
-                {scoreLabel(snapshot!.root_score!)} · {CONFIDENCE_LABEL[snapshot!.root_confidence_level]}
+                {scoreLabel(snapshot!.root_score!)} ·{' '}
+                {CONFIDENCE_LABEL[snapshot!.root_confidence_level]}
               </p>
-              <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">{snapshot!.explanation_summary}</p>
+              <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">
+                {snapshot!.explanation_summary}
+              </p>
 
               {snapshot!.next_action && (
                 <div className="mt-5 flex items-start gap-3 rounded-2xl bg-[#F3F6F4] p-5">
-                  <Target className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+                  <Target
+                    className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
                       Prioritized Next Action
                     </p>
-                    <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{snapshot!.next_action}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">
+                      {snapshot!.next_action}
+                    </p>
                   </div>
                 </div>
               )}
@@ -214,8 +227,8 @@ export default async function RootScorePage() {
                   </>
                 ) : (
                   <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                    Keep checking in — Momentum needs at least two weeks of recent activity to show a
-                    direction.
+                    Keep checking in — Momentum needs at least two weeks of recent activity to show
+                    a direction.
                   </p>
                 )}
               </section>
@@ -243,8 +256,8 @@ export default async function RootScorePage() {
                       {RESILIENCE_LABEL['building_baseline']}
                     </p>
                     <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-                      MEF Wellness needs more history to understand how you recover after a disrupted
-                      period. Keep checking in — there&apos;s nothing else to do here.
+                      MEF Wellness needs more history to understand how you recover after a
+                      disrupted period. Keep checking in — there&apos;s nothing else to do here.
                     </p>
                   </>
                 )}
@@ -272,7 +285,10 @@ export default async function RootScorePage() {
                 <div className="mt-4 space-y-4">
                   {snapshot!.positive_factors.map((factor) => (
                     <div key={`positive-${factor.domain}`} className="flex items-start gap-3">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-600" aria-hidden="true" />
+                      <span
+                        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-green-600"
+                        aria-hidden="true"
+                      />
                       <p className="text-sm leading-relaxed text-[#1B3A2D]">
                         <span className="font-semibold">{factor.label}:</span> {factor.detail}
                       </p>
@@ -280,7 +296,10 @@ export default async function RootScorePage() {
                   ))}
                   {snapshot!.limiting_factors.map((factor) => (
                     <div key={`limiting-${factor.domain}`} className="flex items-start gap-3">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                      <span
+                        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
+                        aria-hidden="true"
+                      />
                       <p className="text-sm leading-relaxed text-[#1B3A2D]">
                         <span className="font-semibold">{factor.label}:</span> {factor.detail}
                       </p>
@@ -298,17 +317,21 @@ export default async function RootScorePage() {
               <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
                 Root Score blends up to five areas — recovery, stress, nutrition, movement, and
                 consistency — using a rolling 30-day window, so no single day, meal, or workout can
-                move it very far. A domain only counts when there&apos;s real data behind it; missing
-                data lowers confidence, never the score itself. Momentum looks at your most recent 7
-                days against the 7 before that. Resilience only shows a real number once MEF Wellness
-                has seen enough of your history to understand how you recover after a disrupted
-                stretch.
+                move it very far. A domain only counts when there&apos;s real data behind it;
+                missing data lowers confidence, never the score itself. Momentum looks at your most
+                recent 7 days against the 7 before that. Resilience only shows a real number once
+                MEF Wellness has seen enough of your history to understand how you recover after a
+                disrupted stretch.
               </p>
             </section>
 
             {/* Safety statement */}
             <section className="mt-5 flex items-start gap-3 px-1">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+              <ShieldCheck
+                className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
               <p className="text-xs leading-relaxed text-[#6B7A72]">{SAFETY_STATEMENT}</p>
             </section>
           </>

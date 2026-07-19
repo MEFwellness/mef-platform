@@ -17,7 +17,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { findFirstUnanswered, flattenQuestions } from './engine/navigation';
 import { findCategory, isQuestionnaireComplete, scoreQuestionnaire } from './engine/scoring';
 import type { PriorityLevel, Questionnaire, QuestionnaireAnswers } from './engine/types';
-import { buildAssessmentComparison, findClosestAssessmentOnOrBefore, type AssessmentComparison } from './comparison';
+import {
+  buildAssessmentComparison,
+  findClosestAssessmentOnOrBefore,
+  type AssessmentComparison,
+} from './comparison';
 import type {
   AssessmentRecord,
   AssessmentResult,
@@ -64,7 +68,10 @@ export async function getAssessmentAnswers(
   return fetchAnswers(supabase, assessmentId);
 }
 
-async function fetchAnswers(supabase: SupabaseClient, assessmentId: string): Promise<QuestionnaireAnswers> {
+async function fetchAnswers(
+  supabase: SupabaseClient,
+  assessmentId: string
+): Promise<QuestionnaireAnswers> {
   const { data, error } = await supabase
     .from('wellness_assessment_answers')
     .select('category_id, question_number, option_index')
@@ -294,8 +301,19 @@ export async function listCompletedAssessments(
   if (error || !data) return [];
 
   return data
-    .filter((row): row is typeof row & { completed_at: string; total_score: number; total_max_score: number; total_priority: PriorityLevel } =>
-      row.completed_at !== null && row.total_score !== null && row.total_max_score !== null && row.total_priority !== null
+    .filter(
+      (
+        row
+      ): row is typeof row & {
+        completed_at: string;
+        total_score: number;
+        total_max_score: number;
+        total_priority: PriorityLevel;
+      } =>
+        row.completed_at !== null &&
+        row.total_score !== null &&
+        row.total_max_score !== null &&
+        row.total_priority !== null
     )
     .map((row) => ({
       id: row.id,

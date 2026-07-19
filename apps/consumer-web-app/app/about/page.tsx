@@ -50,7 +50,11 @@ export default async function AboutPage() {
         </div>
 
         <div className={`${CARD} mt-5 flex items-start gap-3 p-6`}>
-          <Mail className="mt-0.5 h-5 w-5 shrink-0 text-[#1B3A2D]/60" strokeWidth={1.75} aria-hidden="true" />
+          <Mail
+            className="mt-0.5 h-5 w-5 shrink-0 text-[#1B3A2D]/60"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <div>
             <p className="text-sm font-semibold text-[#1B3A2D]">Get in touch</p>
             <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">

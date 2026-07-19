@@ -9,11 +9,7 @@
  */
 
 export type HealthProfileRecalcTrigger =
-  | 'assessment_published'
-  | 'check_in'
-  | 'onboarding'
-  | 'reassessment'
-  | 'manual';
+  'assessment_published' | 'check_in' | 'onboarding' | 'reassessment' | 'manual';
 
 /**
  * The compact jsonb rollup stored in member_health_profiles.summary — built

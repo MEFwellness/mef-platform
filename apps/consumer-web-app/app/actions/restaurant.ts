@@ -20,7 +20,11 @@
 import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
 import { resolveLocalDate } from './checkin';
-import type { RestaurantEntrySource, RestaurantEstimateBasis, RestaurantMealEntry } from '@mef/shared-types-contracts';
+import type {
+  RestaurantEntrySource,
+  RestaurantEstimateBasis,
+  RestaurantMealEntry,
+} from '@mef/shared-types-contracts';
 import {
   getRestaurantMealEntry,
   insertRestaurantMealEntry,
@@ -180,7 +184,9 @@ export async function analyzeRestaurantMealEntryAction(
   }
 }
 
-export async function getRestaurantMealEntryAction(id: string): Promise<RestaurantMealEntry | null> {
+export async function getRestaurantMealEntryAction(
+  id: string
+): Promise<RestaurantMealEntry | null> {
   const ctx = await requireMember();
   if (!ctx) return null;
   const entry = await getRestaurantMealEntry(ctx.supabase, id);

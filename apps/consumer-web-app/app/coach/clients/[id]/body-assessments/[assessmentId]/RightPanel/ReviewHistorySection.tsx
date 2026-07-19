@@ -1,5 +1,8 @@
 import { ClipboardCheck } from 'lucide-react';
-import type { BodyAssessmentCoachReview, BodyAssessmentReviewStatus } from '@mef/shared-types-contracts';
+import type {
+  BodyAssessmentCoachReview,
+  BodyAssessmentReviewStatus,
+} from '@mef/shared-types-contracts';
 import { EmptyState } from './EmptyState';
 
 /**
@@ -60,7 +63,9 @@ export function ReviewHistorySection({
             <p className="text-sm font-medium text-[#1B3A2D]">
               {coachNames[review.coach_id] ?? 'A coach'}
             </p>
-            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${STATUS_TONE[review.review_status]}`}>
+            <span
+              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${STATUS_TONE[review.review_status]}`}
+            >
               {STATUS_LABEL[review.review_status]}
             </span>
           </div>

@@ -66,7 +66,9 @@ export default async function AssessmentResultsPage({
 
         <div className="mt-4 flex items-center gap-2 text-[#6B7A72]">
           <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          <p className="text-sm font-semibold uppercase tracking-wider">Overall Wellness Assessment</p>
+          <p className="text-sm font-semibold uppercase tracking-wider">
+            Overall Wellness Assessment
+          </p>
         </div>
 
         {/* Hero: overall score ring */}
@@ -135,7 +137,11 @@ export default async function AssessmentResultsPage({
         </Link>
 
         <section className="mt-6 flex items-start gap-3 px-1">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+          <ShieldCheck
+            className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <p className="text-xs leading-relaxed text-[#6B7A72]">{ASSESSMENT_SAFETY_STATEMENT}</p>
         </section>
       </main>

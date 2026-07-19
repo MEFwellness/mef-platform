@@ -9,7 +9,9 @@ import { describe, it, expect } from 'vitest';
 import type { WellnessIdentityObservation } from '@mef/shared-types-contracts';
 import { toMemberWellnessHighlights } from '../lib/intelligence-core/memberView';
 
-function observation(overrides: Partial<WellnessIdentityObservation> = {}): WellnessIdentityObservation {
+function observation(
+  overrides: Partial<WellnessIdentityObservation> = {}
+): WellnessIdentityObservation {
   return {
     id: 'o1',
     member_id: 'u1',
@@ -40,7 +42,9 @@ function observation(overrides: Partial<WellnessIdentityObservation> = {}): Well
 describe('toMemberWellnessHighlights', () => {
   it('returns only id and statement — no confidence, evidence, or domain code', () => {
     const highlights = toMemberWellnessHighlights([observation()]);
-    expect(highlights).toEqual([{ id: 'o1', statement: 'Your mood tends to be better on days you move.' }]);
+    expect(highlights).toEqual([
+      { id: 'o1', statement: 'Your mood tends to be better on days you move.' },
+    ]);
   });
 
   it('excludes observations below the member confidence floor', () => {
@@ -53,7 +57,9 @@ describe('toMemberWellnessHighlights', () => {
   });
 
   it('excludes coach-only (member_visible: false) observations, even at high confidence', () => {
-    expect(toMemberWellnessHighlights([observation({ member_visible: false, confidence: 0.95 })])).toEqual([]);
+    expect(
+      toMemberWellnessHighlights([observation({ member_visible: false, confidence: 0.95 })])
+    ).toEqual([]);
   });
 
   it('caps output at 4, highest confidence first', () => {

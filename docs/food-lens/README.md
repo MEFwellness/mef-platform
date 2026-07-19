@@ -26,23 +26,23 @@ left implicit.
 
 ## Documents in this set
 
-| # | File | Covers |
-|---|---|---|
-| 1 | [01-architecture.md](./01-architecture.md) | System architecture, sequence flow, on-device vs. backend split |
-| 2 | [02-ai-vision-models.md](./02-ai-vision-models.md) | Vision model/API recommendations for meal photos, barcodes, labels |
-| 3 | [03-database-schema.md](./03-database-schema.md) | Proposed tables, RLS, storage bucket (draft migration SQL, not applied) |
-| 4 | [04-api-contracts.md](./04-api-contracts.md) | Server action / endpoint contracts, request & response shapes |
-| 5 | [05-primal-pattern-integration.md](./05-primal-pattern-integration.md) | The target-consumption contract Food Lens needs from the (separate, proprietary) Primal Pattern engine |
-| 6 | [06-roadmap.md](./06-roadmap.md) | Phased MVP → production plan |
-| 7 | [07-risks-privacy.md](./07-risks-privacy.md) | Technical risk, accuracy limitations, privacy/safety considerations |
-| 8 | [08-coach-integration.md](./08-coach-integration.md) | How this connects to Root (the AI wellness coach) |
-| 9 | [09-existing-file-touchpoints.md](./09-existing-file-touchpoints.md) | Every existing file that will eventually need a small, additive change, and exactly what changes — **not modified by this blueprint** |
-| — | [interfaces/types.ts](./interfaces/types.ts) | Reference TypeScript types for the contracts above (not wired into the app build) |
+| #   | File                                                                   | Covers                                                                                                                                |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | [01-architecture.md](./01-architecture.md)                             | System architecture, sequence flow, on-device vs. backend split                                                                       |
+| 2   | [02-ai-vision-models.md](./02-ai-vision-models.md)                     | Vision model/API recommendations for meal photos, barcodes, labels                                                                    |
+| 3   | [03-database-schema.md](./03-database-schema.md)                       | Proposed tables, RLS, storage bucket (draft migration SQL, not applied)                                                               |
+| 4   | [04-api-contracts.md](./04-api-contracts.md)                           | Server action / endpoint contracts, request & response shapes                                                                         |
+| 5   | [05-primal-pattern-integration.md](./05-primal-pattern-integration.md) | The target-consumption contract Food Lens needs from the (separate, proprietary) Primal Pattern engine                                |
+| 6   | [06-roadmap.md](./06-roadmap.md)                                       | Phased MVP → production plan                                                                                                          |
+| 7   | [07-risks-privacy.md](./07-risks-privacy.md)                           | Technical risk, accuracy limitations, privacy/safety considerations                                                                   |
+| 8   | [08-coach-integration.md](./08-coach-integration.md)                   | How this connects to Root (the AI wellness coach)                                                                                     |
+| 9   | [09-existing-file-touchpoints.md](./09-existing-file-touchpoints.md)   | Every existing file that will eventually need a small, additive change, and exactly what changes — **not modified by this blueprint** |
+| —   | [interfaces/types.ts](./interfaces/types.ts)                           | Reference TypeScript types for the contracts above (not wired into the app build)                                                     |
 
 ## Key design decisions, up front
 
 1. **Food identification and coaching judgment are two separate steps, deliberately.** The vision
-   model's only job is: identify foods, estimate a coarse protein/carb/fat *level* (low/moderate/
+   model's only job is: identify foods, estimate a coarse protein/carb/fat _level_ (low/moderate/
    high) with a confidence per dimension. A plain, deterministic TypeScript function — not another
    LLM call — compares that estimate to the member's Primal Pattern target and selects the
    coaching message from a reviewed template library. This mirrors

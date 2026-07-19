@@ -51,7 +51,10 @@ export function computeHistoryPatterns(input: HistoryPatternsInput): HistoryPatt
   ]).length;
   const totalEntries = input.logEntries.length + input.mealQualityRatings.length;
 
-  if (distinctDays < MIN_DISTINCT_DAYS_FOR_HISTORY || totalEntries < MIN_TOTAL_ENTRIES_FOR_HISTORY) {
+  if (
+    distinctDays < MIN_DISTINCT_DAYS_FOR_HISTORY ||
+    totalEntries < MIN_TOTAL_ENTRIES_FOR_HISTORY
+  ) {
     return { insufficientData: true, message: INSUFFICIENT_HISTORY_MESSAGE };
   }
 
@@ -59,15 +62,17 @@ export function computeHistoryPatterns(input: HistoryPatternsInput): HistoryPatt
   const periodLabel = input.windowDays === 30 ? 'past 30 days' : 'past 7 days';
 
   // Protein consistency
-  const proteinDays = uniq(
-    [
-      ...input.logEntries.filter((e) => e.packagedFoodSignal?.isMeaningfulProtein).map((e) => e.localDate),
-      ...input.mealQualityRatings.filter((r) => r.hasMeaningfulProtein).map((r) => r.localDate),
-    ]
-  ).length;
+  const proteinDays = uniq([
+    ...input.logEntries
+      .filter((e) => e.packagedFoodSignal?.isMeaningfulProtein)
+      .map((e) => e.localDate),
+    ...input.mealQualityRatings.filter((r) => r.hasMeaningfulProtein).map((r) => r.localDate),
+  ]).length;
   const proteinRatio = distinctDays > 0 ? proteinDays / distinctDays : 0;
   if (proteinRatio >= 0.7) {
-    observations.push(`Based on what was logged, protein has shown up consistently across your ${periodLabel}.`);
+    observations.push(
+      `Based on what was logged, protein has shown up consistently across your ${periodLabel}.`
+    );
   } else if (proteinRatio > 0 && proteinRatio < 0.4) {
     observations.push(
       `Your recent meals suggest protein appeared on fewer days than not over the ${periodLabel} — worth keeping an eye on if that's not intentional.`
@@ -75,42 +80,53 @@ export function computeHistoryPatterns(input: HistoryPatternsInput): HistoryPatt
   }
 
   // Fiber-supportive meals
-  const fiberDays = uniq(
-    [
-      ...input.logEntries.filter((e) => (e.packagedFoodSignal?.fiberG ?? 0) >= MEANINGFUL_FIBER_G).map((e) => e.localDate),
-      ...input.mealQualityRatings.filter((r) => r.hasMeaningfulFiber).map((r) => r.localDate),
-    ]
-  ).length;
+  const fiberDays = uniq([
+    ...input.logEntries
+      .filter((e) => (e.packagedFoodSignal?.fiberG ?? 0) >= MEANINGFUL_FIBER_G)
+      .map((e) => e.localDate),
+    ...input.mealQualityRatings.filter((r) => r.hasMeaningfulFiber).map((r) => r.localDate),
+  ]).length;
   if (fiberDays > 0 && fiberDays / distinctDays < 0.35) {
-    observations.push(`A pattern worth noticing: fiber-supportive foods appeared on relatively few logged days over the ${periodLabel}.`);
+    observations.push(
+      `A pattern worth noticing: fiber-supportive foods appeared on relatively few logged days over the ${periodLabel}.`
+    );
   }
 
   // Added sugar frequency
   const highSugarCount =
-    input.logEntries.filter((e) => (e.packagedFoodSignal?.addedSugarG ?? 0) >= HIGH_ADDED_SUGAR_G).length +
-    input.mealQualityRatings.filter((r) => r.addedSugarLevel === 'high').length;
+    input.logEntries.filter((e) => (e.packagedFoodSignal?.addedSugarG ?? 0) >= HIGH_ADDED_SUGAR_G)
+      .length + input.mealQualityRatings.filter((r) => r.addedSugarLevel === 'high').length;
   if (highSugarCount >= Math.max(3, Math.round(distinctDays * 0.3))) {
-    observations.push(`Higher-added-sugar foods have come up fairly often in what you've logged over the ${periodLabel}.`);
+    observations.push(
+      `Higher-added-sugar foods have come up fairly often in what you've logged over the ${periodLabel}.`
+    );
   }
 
   // Food variety (vegetables/fruit proxy — this schema groups both under the 'vegetable' category)
   const distinctVegetableLabels = uniq(
-    input.detectedItems.filter((i) => i.category === 'vegetable').map((i) => i.label.trim().toLowerCase())
+    input.detectedItems
+      .filter((i) => i.category === 'vegetable')
+      .map((i) => i.label.trim().toLowerCase())
   ).length;
   if (distinctVegetableLabels > 0 && distinctVegetableLabels <= 2) {
     observations.push(
       `Your recent meals suggest a fairly narrow range of vegetables and fruit — trying a new one now and then could add variety.`
     );
   } else if (distinctVegetableLabels >= 6) {
-    observations.push(`You've logged a good variety of vegetables and fruit over the ${periodLabel}.`);
+    observations.push(
+      `You've logged a good variety of vegetables and fruit over the ${periodLabel}.`
+    );
   }
 
   // Highly processed food frequency
   const highlyProcessedCount =
-    input.logEntries.filter((e) => e.packagedFoodSignal?.processingLabel === 'highly_processed').length +
+    input.logEntries.filter((e) => e.packagedFoodSignal?.processingLabel === 'highly_processed')
+      .length +
     input.mealQualityRatings.filter((r) => r.processingLevel === 'ultra_processed').length;
   if (highlyProcessedCount / Math.max(1, totalEntries) >= 0.4) {
-    observations.push(`A meaningful share of what's been logged over the ${periodLabel} has been highly processed — something to keep in view, not a verdict on any single meal.`);
+    observations.push(
+      `A meaningful share of what's been logged over the ${periodLabel} has been highly processed — something to keep in view, not a verdict on any single meal.`
+    );
   }
 
   // Repeated foods (recurring meals)
@@ -121,8 +137,15 @@ export function computeHistoryPatterns(input: HistoryPatternsInput): HistoryPatt
   }
   const mostRepeated = [...labelCounts.entries()].sort((a, b) => b[1] - a[1])[0];
   if (mostRepeated && mostRepeated[1] >= 4) {
-    observations.push(`"${mostRepeated[0]}" has come up often in your recent meals — a recurring favorite, based on what was logged.`);
+    observations.push(
+      `"${mostRepeated[0]}" has come up often in your recent meals — a recurring favorite, based on what was logged.`
+    );
   }
 
-  return { insufficientData: false, observations: observations.slice(0, 6), daysLogged: distinctDays, totalEntries };
+  return {
+    insufficientData: false,
+    observations: observations.slice(0, 6),
+    daysLogged: distinctDays,
+    totalEntries,
+  };
 }

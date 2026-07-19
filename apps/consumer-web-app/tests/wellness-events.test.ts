@@ -77,11 +77,13 @@ describe('member_wellness_events', () => {
     const events = await listMemberEventsForDate(client, TEST_USERS.memberOne.id, TEST_DATE);
     const movementEvents = events.filter((e) => e.event_type === 'movement_logged');
 
-    expect(movementEvents.map((e) => (e.payload as { movementType: string }).movementType)).toEqual([
-      'walk', // 09:00 — happened first, entered last
-      'stretch', // 13:00
-      'workout', // 18:00 — happened last, entered first
-    ]);
+    expect(movementEvents.map((e) => (e.payload as { movementType: string }).movementType)).toEqual(
+      [
+        'walk', // 09:00 — happened first, entered last
+        'stretch', // 13:00
+        'workout', // 18:00 — happened last, entered first
+      ]
+    );
   });
 
   it('sumHydrationForDate sums deltas across multiple hydration_logged events and clamps at 0', async () => {

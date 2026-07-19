@@ -71,7 +71,9 @@ export async function getTodaysEveningReflection(): Promise<EveningReflection | 
  * (member_id, local_date) so re-opening and re-saving the same day's
  * reflection updates it in place rather than creating a duplicate.
  */
-export async function submitEveningReflection(input: EveningReflectionFormInput): Promise<ActionResult> {
+export async function submitEveningReflection(
+  input: EveningReflectionFormInput
+): Promise<ActionResult> {
   const supabase = createClient();
   const ctx = await requireMemberTimezone(supabase);
   if (!ctx) return { error: 'Not signed in.' };
@@ -88,7 +90,9 @@ export async function submitEveningReflection(input: EveningReflectionFormInput)
         overall_day_rating: input.overallDayRating,
         daytime_stress: input.daytimeStress,
         energy_pattern: input.energyPattern,
-        symptoms_or_changes: input.symptomsOrChanges?.trim() ? input.symptomsOrChanges.trim() : null,
+        symptoms_or_changes: input.symptomsOrChanges?.trim()
+          ? input.symptomsOrChanges.trim()
+          : null,
         recovery: input.recovery,
         updated_at: new Date().toISOString(),
       },
@@ -97,7 +101,8 @@ export async function submitEveningReflection(input: EveningReflectionFormInput)
     .select('*')
     .single();
 
-  if (error || !saved) return { error: error?.message ?? 'Failed to save your Evening Reflection.' };
+  if (error || !saved)
+    return { error: error?.message ?? 'Failed to save your Evening Reflection.' };
 
   const reflection = saved as EveningReflection;
 

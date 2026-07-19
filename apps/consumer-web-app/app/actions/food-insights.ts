@@ -20,10 +20,19 @@ import {
   toLocalDateString,
   addCalendarDays,
 } from '@/lib/food-lens/weeklyReportData';
-import { computeDailyCoachingMessage, type DailyCoachingResult } from '@/lib/food-lens/dailyCoaching';
-import { computeHistoryPatterns, type HistoryPatternsResult } from '@/lib/food-lens/historyPatterns';
+import {
+  computeDailyCoachingMessage,
+  type DailyCoachingResult,
+} from '@/lib/food-lens/dailyCoaching';
+import {
+  computeHistoryPatterns,
+  type HistoryPatternsResult,
+} from '@/lib/food-lens/historyPatterns';
 
-async function requireMember(): Promise<{ supabase: ReturnType<typeof createClient>; userId: string } | null> {
+async function requireMember(): Promise<{
+  supabase: ReturnType<typeof createClient>;
+  userId: string;
+} | null> {
   const supabase = createClient();
   const {
     data: { user },
@@ -42,7 +51,9 @@ export async function getTodaysCoachingMessageAction(): Promise<DailyCoachingRes
   const today = toLocalDateString(nowIso, timezone);
   const tomorrow = addCalendarDays(today, 1);
   const localHour = Number(
-    new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }).format(new Date(nowIso))
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }).format(
+      new Date(nowIso)
+    )
   );
 
   const [logEntries, mealQualityRatings, workoutDates] = await Promise.all([
@@ -53,13 +64,18 @@ export async function getTodaysCoachingMessageAction(): Promise<DailyCoachingRes
 
   return computeDailyCoachingMessage({
     localHour,
-    logEntries: logEntries.map((e) => ({ mealCategory: e.mealCategory, packagedFoodSignal: e.packagedFoodSignal ?? null })),
+    logEntries: logEntries.map((e) => ({
+      mealCategory: e.mealCategory,
+      packagedFoodSignal: e.packagedFoodSignal ?? null,
+    })),
     mealQualityRatings,
     hasWorkoutToday: workoutDates.includes(today),
   });
 }
 
-export async function getHistoryPatternsAction(windowDays: 7 | 30 = 30): Promise<HistoryPatternsResult> {
+export async function getHistoryPatternsAction(
+  windowDays: 7 | 30 = 30
+): Promise<HistoryPatternsResult> {
   const ctx = await requireMember();
   if (!ctx) return { insufficientData: true, message: 'Sign in to see your patterns.' };
   const { supabase, userId } = ctx;

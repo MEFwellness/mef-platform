@@ -68,14 +68,12 @@ export interface PantryItem {
 // Restaurant intelligence (Part 8, first useful version)
 // ---------------------------------------------------------------------------
 
-export type RestaurantEntrySource = 'search' | 'manual_entry' | 'menu_photo' | 'menu_text' | 'meal_photo';
+export type RestaurantEntrySource =
+  'search' | 'manual_entry' | 'menu_photo' | 'menu_text' | 'meal_photo';
 
 /** How confidently `analysis` on a RestaurantMealEntry can be trusted as a nutrition fact — must always be rendered alongside the analysis (product requirement §8). */
 export type RestaurantEstimateBasis =
-  | 'published_nutrition'
-  | 'visual_estimate'
-  | 'ingredient_estimate'
-  | 'member_entered';
+  'published_nutrition' | 'visual_estimate' | 'ingredient_estimate' | 'member_entered';
 
 export interface RestaurantMealAnalysis {
   supportsYou: string[];

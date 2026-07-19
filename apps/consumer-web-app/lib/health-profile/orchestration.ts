@@ -32,7 +32,10 @@ async function step(label: string, fn: () => Promise<void>): Promise<void> {
   try {
     await fn();
   } catch (err) {
-    console.error(`onAssessmentPublished step failed: ${label}`, err instanceof Error ? err.message : err);
+    console.error(
+      `onAssessmentPublished step failed: ${label}`,
+      err instanceof Error ? err.message : err
+    );
   }
 }
 

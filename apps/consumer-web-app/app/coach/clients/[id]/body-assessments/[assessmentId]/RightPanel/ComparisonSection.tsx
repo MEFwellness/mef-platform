@@ -37,7 +37,12 @@ function Pane({ item, dateLabel }: { item: ComparisonCapture; dateLabel: string 
       </div>
       <div className="aspect-[3/4] w-full overflow-hidden">
         {item.url ? (
-          <img src={item.url} alt="" className="h-full w-full select-none object-cover" draggable={false} />
+          <img
+            src={item.url}
+            alt=""
+            className="h-full w-full select-none object-cover"
+            draggable={false}
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-white/40">
             Unavailable
@@ -48,7 +53,15 @@ function Pane({ item, dateLabel }: { item: ComparisonCapture; dateLabel: string 
   );
 }
 
-function SideBySideView({ pair, zoom, pan }: { pair: Pair; zoom: number; pan: { x: number; y: number } }) {
+function SideBySideView({
+  pair,
+  zoom,
+  pan,
+}: {
+  pair: Pair;
+  zoom: number;
+  pan: { x: number; y: number };
+}) {
   const style = { transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)` };
   return (
     <div className="grid grid-cols-2 gap-2">
@@ -67,11 +80,24 @@ function SliderView({ pair }: { pair: Pair }) {
   return (
     <div className="relative aspect-[3/4] w-full select-none overflow-hidden rounded-2xl bg-[#12241C]">
       {pair.previous.url && (
-        <img src={pair.previous.url} alt="Previous" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+        <img
+          src={pair.previous.url}
+          alt="Previous"
+          className="absolute inset-0 h-full w-full object-cover"
+          draggable={false}
+        />
       )}
       {pair.current.url && (
-        <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - value}% 0 0)` }}>
-          <img src={pair.current.url} alt="Current" className="h-full w-full object-cover" draggable={false} />
+        <div
+          className="absolute inset-0 overflow-hidden"
+          style={{ clipPath: `inset(0 ${100 - value}% 0 0)` }}
+        >
+          <img
+            src={pair.current.url}
+            alt="Current"
+            className="h-full w-full object-cover"
+            draggable={false}
+          />
         </div>
       )}
       <div
@@ -121,7 +147,11 @@ export function ComparisonSection({
   const [pairIndex, setPairIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<{ startX: number; startY: number; origin: { x: number; y: number } } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    origin: { x: number; y: number };
+  } | null>(null);
 
   const trendSection = trendSeries.length > 0 && (
     <div className="space-y-4 rounded-2xl bg-white p-1">
@@ -137,7 +167,11 @@ export function ComparisonSection({
   if (!previousAssessment) {
     return (
       <div className="space-y-4">
-        <EmptyState icon={GitCompareArrows} title="No previous assessments" description={emptyStateDescription} />
+        <EmptyState
+          icon={GitCompareArrows}
+          title="No previous assessments"
+          description={emptyStateDescription}
+        />
         {trendSection}
       </div>
     );
@@ -145,7 +179,9 @@ export function ComparisonSection({
 
   const pairs: Pair[] = currentCaptures
     .map((current) => {
-      const previous = previousCaptures.find((p) => p.capture.capture_type === current.capture.capture_type);
+      const previous = previousCaptures.find(
+        (p) => p.capture.capture_type === current.capture.capture_type
+      );
       return previous ? { captureType: current.capture.capture_type, current, previous } : null;
     })
     .filter((p): p is Pair => p !== null);
@@ -207,7 +243,9 @@ export function ComparisonSection({
                 className="cursor-grab active:cursor-grabbing"
                 onWheel={(e) => {
                   e.preventDefault();
-                  setZoom((z) => Math.min(3, Math.max(1, +(z + (e.deltaY < 0 ? 0.2 : -0.2)).toFixed(2))));
+                  setZoom((z) =>
+                    Math.min(3, Math.max(1, +(z + (e.deltaY < 0 ? 0.2 : -0.2)).toFixed(2)))
+                  );
                 }}
                 onPointerDown={(e) => {
                   if (zoom <= 1) return;
@@ -217,7 +255,10 @@ export function ComparisonSection({
                 onPointerMove={(e) => {
                   if (!dragRef.current) return;
                   const { startX, startY, origin } = dragRef.current;
-                  setPan({ x: origin.x + (e.clientX - startX), y: origin.y + (e.clientY - startY) });
+                  setPan({
+                    x: origin.x + (e.clientX - startX),
+                    y: origin.y + (e.clientY - startY),
+                  });
                 }}
                 onPointerUp={() => (dragRef.current = null)}
                 onPointerLeave={() => (dragRef.current = null)}

@@ -20,7 +20,11 @@
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MemberWellnessEvent } from '@mef/shared-types-contracts';
-import { recordMemberEvent, sumHydrationForDate, listMemberEventsForDate } from '@/lib/events/service';
+import {
+  recordMemberEvent,
+  sumHydrationForDate,
+  listMemberEventsForDate,
+} from '@/lib/events/service';
 import { evaluateConcern } from '@/lib/safety/service';
 import { nowInTimezone, todaysLocalDate } from '@/lib/time/localDate';
 import type { ActionResult } from './auth';
@@ -106,7 +110,9 @@ export async function logMovementEvent(
   const ctx = await requireMemberContext(supabase);
   if (!ctx) return { error: 'Not signed in.' };
 
-  const occurredAt = new Date(nowInTimezone(ctx.timezone).getTime() - Math.max(0, minutesAgo) * 60_000);
+  const occurredAt = new Date(
+    nowInTimezone(ctx.timezone).getTime() - Math.max(0, minutesAgo) * 60_000
+  );
 
   const event = await recordMemberEvent(supabase, {
     memberId: ctx.memberId,

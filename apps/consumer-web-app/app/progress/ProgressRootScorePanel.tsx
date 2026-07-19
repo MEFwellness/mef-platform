@@ -56,7 +56,9 @@ export function ProgressRootScorePanel({ history }: { history: RootScoreSnapshot
 
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Momentum</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                Momentum
+              </p>
               <p className="mt-1 text-sm font-medium text-[#1B3A2D]">
                 {latest.momentum_score !== null
                   ? `${latest.momentum_score} · ${MOMENTUM_LABEL[latest.momentum_state]}`
@@ -64,7 +66,9 @@ export function ProgressRootScorePanel({ history }: { history: RootScoreSnapshot
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Resilience</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                Resilience
+              </p>
               <p className="mt-1 text-sm font-medium text-[#1B3A2D]">
                 {latest.resilience_score !== null
                   ? `${latest.resilience_score} · ${RESILIENCE_LABEL[latest.resilience_state]}`
@@ -75,8 +79,8 @@ export function ProgressRootScorePanel({ history }: { history: RootScoreSnapshot
         </>
       ) : (
         <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-          Complete a check-in to start building your Root Score — it summarizes your recovery, stress,
-          nutrition, movement, and consistency into one longer-term wellness picture.
+          Complete a check-in to start building your Root Score — it summarizes your recovery,
+          stress, nutrition, movement, and consistency into one longer-term wellness picture.
         </p>
       )}
     </section>

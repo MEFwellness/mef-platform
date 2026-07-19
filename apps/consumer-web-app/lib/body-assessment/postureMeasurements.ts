@@ -179,7 +179,10 @@ export function computeForwardHeadEstimate(
     narrative: possible
       ? `Estimated craniovertebral angle (photographic estimate, ear-to-shoulder line vs. horizontal): ${angle.toFixed(1)}°. This is a screening indicator of possible forward-head posture, not a diagnosis — requires practitioner review.`
       : `Estimated craniovertebral angle (photographic estimate): ${angle.toFixed(1)}°. No forward-head screening indicator flagged at this angle.`,
-    landmarksUsed: [useLeft ? 'left_ear' : 'right_ear', useLeft ? 'left_shoulder' : 'right_shoulder'],
+    landmarksUsed: [
+      useLeft ? 'left_ear' : 'right_ear',
+      useLeft ? 'left_shoulder' : 'right_shoulder',
+    ],
   };
 }
 
@@ -241,7 +244,10 @@ export function computeHipAlignment(
 ): PostureEstimate | null {
   if (captureType !== 'front' && captureType !== 'back') return null;
 
-  const confidence = confidenceFrom([visOf(core.leftHip.visibility), visOf(core.rightHip.visibility)]);
+  const confidence = confidenceFrom([
+    visOf(core.leftHip.visibility),
+    visOf(core.rightHip.visibility),
+  ]);
   if (confidence < MIN_CONFIDENCE_TO_ESTIMATE) return null;
 
   // Screening-only bounds, not clinical cutoffs — see docblock.
@@ -297,7 +303,9 @@ export function computeLateralTrunkAsymmetry(
       ? Math.abs(metrics.shoulderMid.x - metrics.hipMid.x) / metrics.shoulderWidth
       : 0;
   const headToPelvisOffsetRatio =
-    metrics.shoulderWidth > 1e-4 ? Math.abs(core.nose.x - metrics.hipMid.x) / metrics.shoulderWidth : 0;
+    metrics.shoulderWidth > 1e-4
+      ? Math.abs(core.nose.x - metrics.hipMid.x) / metrics.shoulderWidth
+      : 0;
 
   // Screening-only bounds, not clinical cutoffs — see docblock. Any one
   // signal exceeding its bound is enough to flag "visible asymmetry" —
@@ -376,7 +384,14 @@ export function computeLowerCrossedIndicators(
     narrative: possible
       ? `Possible lower-crossed postural pattern — practitioner review required. Contributing visible signals: hip position relative to ankle, forward trunk displacement, and knee position (${flagCount} of 3 checked). Not a diagnosis of lower-crossed syndrome; anterior pelvic tilt itself is not measured (requires pelvis-orientation landmarks this pose model does not provide).`
       : 'No lower-crossed postural pattern screening indicator flagged across the external signals checked.',
-    landmarksUsed: ['left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle'],
+    landmarksUsed: [
+      'left_hip',
+      'right_hip',
+      'left_knee',
+      'right_knee',
+      'left_ankle',
+      'right_ankle',
+    ],
   };
 }
 
@@ -416,7 +431,12 @@ export function computeSagittalTrunkPosture(
       `from vertical. This pose model cannot separate cervical, thoracic, and lumbar curvature ` +
       `individually from external landmarks — reported as one combined sagittal alignment ` +
       `estimate for practitioner review, not per-region spinal measurements.`,
-    landmarksUsed: [useLeft ? 'left_ear' : 'right_ear', useLeft ? 'left_shoulder' : 'right_shoulder', 'left_hip', 'right_hip'],
+    landmarksUsed: [
+      useLeft ? 'left_ear' : 'right_ear',
+      useLeft ? 'left_shoulder' : 'right_shoulder',
+      'left_hip',
+      'right_hip',
+    ],
   };
 }
 
@@ -508,7 +528,14 @@ export function computeKneeAlignmentEstimate(
     narrative: possible
       ? `Possible frontal-plane knee deviation — screening indicator, not a diagnosis. Left knee offset from the hip-ankle line: ${(leftRatio * 100).toFixed(0)}% of hip width (${directionLabel(leftRatio)}); right: ${(rightRatio * 100).toFixed(0)}% (${directionLabel(rightRatio)}). This 2D estimate cannot distinguish true valgus/varus from foot rotation, stance width, or camera-angle artifacts. Requires practitioner review.`
       : `No frontal-plane knee deviation screening indicator flagged. Left knee offset: ${(leftRatio * 100).toFixed(0)}% of hip width, right: ${(rightRatio * 100).toFixed(0)}%.`,
-    landmarksUsed: ['left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle'],
+    landmarksUsed: [
+      'left_hip',
+      'right_hip',
+      'left_knee',
+      'right_knee',
+      'left_ankle',
+      'right_ankle',
+    ],
   };
 }
 
@@ -587,7 +614,8 @@ export function computeFootTurnoutEstimate(
   const describeDirection = (angle: number): string =>
     angle > 0 ? 'turned outward' : angle < 0 ? 'turned inward' : 'neutral';
 
-  const flaggedAngle = Math.abs(leftSignedAngle) >= Math.abs(rightSignedAngle) ? leftSignedAngle : rightSignedAngle;
+  const flaggedAngle =
+    Math.abs(leftSignedAngle) >= Math.abs(rightSignedAngle) ? leftSignedAngle : rightSignedAngle;
 
   return {
     findingType: 'foot_turnout',
@@ -599,7 +627,14 @@ export function computeFootTurnoutEstimate(
     narrative: possible
       ? `Estimated foot-direction angle (heel-to-toe line vs. vertical, 2D image-plane proxy): left ${leftSignedAngle.toFixed(1)}° (${describeDirection(leftSignedAngle)}), right ${rightSignedAngle.toFixed(1)}° (${describeDirection(rightSignedAngle)}). This is a screening indicator only — it cannot separate true foot rotation from stance width or camera-angle artifacts, and is not a diagnosis. Requires practitioner review.`
       : `No foot-turnout screening indicator flagged. Estimated foot-direction angle: left ${leftSignedAngle.toFixed(1)}°, right ${rightSignedAngle.toFixed(1)}°.`,
-    landmarksUsed: ['left_heel', 'right_heel', 'left_foot_index', 'right_foot_index', 'left_hip', 'right_hip'],
+    landmarksUsed: [
+      'left_heel',
+      'right_heel',
+      'left_foot_index',
+      'right_foot_index',
+      'left_hip',
+      'right_hip',
+    ],
   };
 }
 
@@ -667,7 +702,14 @@ export function computeWeightShiftEstimate(
     narrative: possible
       ? `Possible weight-shift screening indicator — a 2D visible-mass centroid (midpoint of the shoulder and hip midpoints) sits ${(Math.abs(lateralOffsetRatio) * 100).toFixed(0)}% of stance width toward the ${towardLeft ? 'left' : 'right'} side, relative to the midpoint between both ankles. This is NOT a true center-of-mass or force-plate weight-distribution measurement, only a 2D image-plane proxy — not a diagnosis. Requires practitioner review.`
       : `No weight-shift screening indicator flagged. Visible-mass centroid offset from the base of support: ${(lateralOffsetRatio * 100).toFixed(0)}% of stance width.`,
-    landmarksUsed: ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_ankle', 'right_ankle'],
+    landmarksUsed: [
+      'left_shoulder',
+      'right_shoulder',
+      'left_hip',
+      'right_hip',
+      'left_ankle',
+      'right_ankle',
+    ],
   };
 }
 
@@ -757,7 +799,10 @@ const SAGITTAL_POSTURE_FINDING_TYPES: PostureFindingType[] = [
 function planeScore(estimates: PostureEstimate[], types: PostureFindingType[]): number {
   const relevant = estimates.filter((e) => types.includes(e.findingType));
   if (relevant.length === 0) return 1;
-  const totalPenalty = relevant.reduce((sum, e) => sum + severityPenalty(e.severity) * e.confidence, 0);
+  const totalPenalty = relevant.reduce(
+    (sum, e) => sum + severityPenalty(e.severity) * e.confidence,
+    0
+  );
   const avgPenalty = totalPenalty / relevant.length;
   return Math.max(0, Math.min(1, 1 - avgPenalty));
 }
@@ -877,12 +922,7 @@ export function computeAssessmentCompositeScores(
  * confidence model — see that file's docblock.
  */
 export type MeasurementCategory =
-  | 'head_neck'
-  | 'shoulders'
-  | 'trunk'
-  | 'pelvis_hips'
-  | 'lower_extremity'
-  | 'whole_body';
+  'head_neck' | 'shoulders' | 'trunk' | 'pelvis_hips' | 'lower_extremity' | 'whole_body';
 
 export type MeasurementResultType = 'direct' | 'derived' | 'estimated' | 'composite';
 
@@ -915,7 +955,8 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'degrees',
     resultType: 'estimated',
     scope: 'per_capture',
-    notes: 'Shoulder-to-ear line vs. horizontal, a proxy for the clinical CVA protocol (which uses palpated C7, unavailable here).',
+    notes:
+      'Shoulder-to-ear line vs. horizontal, a proxy for the clinical CVA protocol (which uses palpated C7, unavailable here).',
   },
   {
     id: 'elevated_shoulder',
@@ -927,7 +968,8 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'ratio',
     resultType: 'derived',
     scope: 'per_capture',
-    notes: 'Direct shoulder-height difference, normalized by shoulder width; depth-based rotation note when z is available.',
+    notes:
+      'Direct shoulder-height difference, normalized by shoulder width; depth-based rotation note when z is available.',
   },
   {
     id: 'hip_asymmetry',
@@ -939,7 +981,8 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'ratio',
     resultType: 'derived',
     scope: 'per_capture',
-    notes: 'Hip-height difference and lateral hip-to-ankle shift. Does not measure pelvis rotation/tilt (no ASIS/PSIS landmarks).',
+    notes:
+      'Hip-height difference and lateral hip-to-ankle shift. Does not measure pelvis rotation/tilt (no ASIS/PSIS landmarks).',
   },
   {
     id: 'lateral_trunk_asymmetry',
@@ -951,67 +994,108 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'ratio',
     resultType: 'estimated',
     scope: 'per_capture',
-    notes: 'Count of 4 external asymmetry signals flagged. Not a Cobb angle or scoliosis measurement.',
+    notes:
+      'Count of 4 external asymmetry signals flagged. Not a Cobb angle or scoliosis measurement.',
   },
   {
     id: 'lower_crossed_pattern',
     label: 'Lower-crossed postural pattern (external signals)',
     category: 'pelvis_hips',
-    landmarksUsed: ['left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle'],
+    landmarksUsed: [
+      'left_hip',
+      'right_hip',
+      'left_knee',
+      'right_knee',
+      'left_ankle',
+      'right_ankle',
+    ],
     requiredViews: ['left_side', 'right_side'],
     minConfidence: MIN_CONFIDENCE_TO_ESTIMATE,
     unit: 'ratio',
     resultType: 'estimated',
     scope: 'per_capture',
-    notes: 'Hip-forward offset, trunk-forward offset, knee angle — does not measure anterior pelvic tilt itself (no pelvis-orientation landmarks).',
+    notes:
+      'Hip-forward offset, trunk-forward offset, knee angle — does not measure anterior pelvic tilt itself (no pelvis-orientation landmarks).',
   },
   {
     id: 'sagittal_trunk_posture',
     label: 'Sagittal trunk posture (combined external estimate)',
     category: 'trunk',
-    landmarksUsed: ['left_ear', 'right_ear', 'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip'],
+    landmarksUsed: [
+      'left_ear',
+      'right_ear',
+      'left_shoulder',
+      'right_shoulder',
+      'left_hip',
+      'right_hip',
+    ],
     requiredViews: ['left_side', 'right_side'],
     minConfidence: MIN_CONFIDENCE_TO_ESTIMATE,
     unit: 'degrees',
     resultType: 'estimated',
     scope: 'per_capture',
-    notes: 'One combined neck+trunk inclination estimate — deliberately not split into cervical/thoracic/lumbar (no region-boundary landmarks).',
+    notes:
+      'One combined neck+trunk inclination estimate — deliberately not split into cervical/thoracic/lumbar (no region-boundary landmarks).',
   },
   {
     id: 'knee_valgus',
     label: 'Frontal-plane knee alignment (valgus/varus screening proxy)',
     category: 'lower_extremity',
-    landmarksUsed: ['left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle'],
+    landmarksUsed: [
+      'left_hip',
+      'right_hip',
+      'left_knee',
+      'right_knee',
+      'left_ankle',
+      'right_ankle',
+    ],
     requiredViews: ['front', 'back'],
     minConfidence: MIN_CONFIDENCE_TO_ESTIMATE,
     unit: 'ratio',
     resultType: 'estimated',
     scope: 'per_capture',
-    notes: 'Knee offset from the hip-ankle line, normalized by hip width. Both valgus (positive) and varus (negative) reported under this one finding_type — DB constraint has no separate knee_varus value.',
+    notes:
+      'Knee offset from the hip-ankle line, normalized by hip width. Both valgus (positive) and varus (negative) reported under this one finding_type — DB constraint has no separate knee_varus value.',
   },
   {
     id: 'foot_turnout',
     label: 'Foot turnout/turn-in (2D direction proxy)',
     category: 'lower_extremity',
-    landmarksUsed: ['left_heel', 'right_heel', 'left_foot_index', 'right_foot_index', 'left_hip', 'right_hip'],
+    landmarksUsed: [
+      'left_heel',
+      'right_heel',
+      'left_foot_index',
+      'right_foot_index',
+      'left_hip',
+      'right_hip',
+    ],
     requiredViews: ['front', 'back'],
     minConfidence: MIN_CONFIDENCE_TO_ESTIMATE,
     unit: 'degrees',
     resultType: 'estimated',
     scope: 'per_capture',
-    notes: 'Heel-to-toe line vs. vertical. Requires raw 33-point landmarks (heel/foot-index are outside CorePoseLandmarks) — see computeFootTurnoutEstimate.',
+    notes:
+      'Heel-to-toe line vs. vertical. Requires raw 33-point landmarks (heel/foot-index are outside CorePoseLandmarks) — see computeFootTurnoutEstimate.',
   },
   {
     id: 'weight_shift',
     label: 'Weight shift (2D visible-mass centroid proxy)',
     category: 'whole_body',
-    landmarksUsed: ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_ankle', 'right_ankle'],
+    landmarksUsed: [
+      'left_shoulder',
+      'right_shoulder',
+      'left_hip',
+      'right_hip',
+      'left_ankle',
+      'right_ankle',
+    ],
     requiredViews: ['front', 'back'],
     minConfidence: MIN_CONFIDENCE_TO_ESTIMATE,
     unit: 'ratio',
     resultType: 'estimated',
     scope: 'per_capture',
-    notes: 'Midpoint of shoulderMid/hipMid vs. ankle midpoint, normalized by stance width. Not a true center of mass.',
+    notes:
+      'Midpoint of shoulderMid/hipMid vs. ankle midpoint, normalized by stance width. Not a true center of mass.',
   },
   {
     id: 'overall_capture_quality_score',
@@ -1023,7 +1107,8 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'score_0_1',
     resultType: 'composite',
     scope: 'per_capture',
-    notes: 'Proportion of applicable measurements confidently producible for one capture — a photo-retake signal, not a posture signal. See computeCaptureCompositeScores.',
+    notes:
+      'Proportion of applicable measurements confidently producible for one capture — a photo-retake signal, not a posture signal. See computeCaptureCompositeScores.',
   },
   {
     id: 'overall_alignment_confidence_score',
@@ -1035,7 +1120,8 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'score_0_1',
     resultType: 'composite',
     scope: 'per_capture',
-    notes: 'Mean confidence of the estimates actually produced for one capture. See computeCaptureCompositeScores.',
+    notes:
+      'Mean confidence of the estimates actually produced for one capture. See computeCaptureCompositeScores.',
   },
   {
     id: 'overall_frontal_symmetry_score',
@@ -1047,7 +1133,8 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'score_0_1',
     resultType: 'composite',
     scope: 'per_capture',
-    notes: 'Severity+confidence-weighted aggregation of frontal-plane findings for one front/back capture. See computeCaptureCompositeScores.',
+    notes:
+      'Severity+confidence-weighted aggregation of frontal-plane findings for one front/back capture. See computeCaptureCompositeScores.',
   },
   {
     id: 'overall_sagittal_posture_score',
@@ -1059,7 +1146,8 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'score_0_1',
     resultType: 'composite',
     scope: 'per_capture',
-    notes: 'Severity+confidence-weighted aggregation of sagittal-plane findings for one side capture. See computeCaptureCompositeScores.',
+    notes:
+      'Severity+confidence-weighted aggregation of sagittal-plane findings for one side capture. See computeCaptureCompositeScores.',
   },
   {
     id: 'overall_posture_screening_score',
@@ -1071,7 +1159,8 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'score_0_1',
     resultType: 'composite',
     scope: 'per_assessment',
-    notes: 'Severity+confidence-weighted aggregation across every capture in the whole assessment. See computeAssessmentCompositeScores.',
+    notes:
+      'Severity+confidence-weighted aggregation across every capture in the whole assessment. See computeAssessmentCompositeScores.',
   },
   {
     id: 'measurement_reliability_score',
@@ -1083,7 +1172,8 @@ export const MEASUREMENT_REGISTRY: MeasurementRegistryEntry[] = [
     unit: 'score_0_1',
     resultType: 'composite',
     scope: 'per_assessment',
-    notes: 'Average, across every capture, of that capture’s quality+confidence scores. How much to trust this assessment’s numbers overall. See computeAssessmentCompositeScores.',
+    notes:
+      'Average, across every capture, of that capture’s quality+confidence scores. How much to trust this assessment’s numbers overall. See computeAssessmentCompositeScores.',
   },
 ];
 

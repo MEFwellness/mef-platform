@@ -46,7 +46,8 @@ export const SPOKEN_MESSAGE_OVERRIDES: Record<string, string> = {
 };
 
 /** Spoken only once a brief pose-detection gap has persisted long enough to mention (CameraCapture's tracking-loss grace window) — a genuinely momentary miss stays silent rather than alarming the member over nothing. */
-export const TRACKING_BRIEFLY_LOST_PROMPT = 'I briefly lost your position. Please hold still for a moment.';
+export const TRACKING_BRIEFLY_LOST_PROMPT =
+  'I briefly lost your position. Please hold still for a moment.';
 /** Spoken once a pose-detection gap has persisted long enough that "briefly" no longer applies — the original, more directive framing. */
 export const TRACKING_LOST_PROMPT = "We can't see you. Step into the frame.";
 

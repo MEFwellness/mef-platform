@@ -64,7 +64,14 @@ function ShapeRenderer({ shape }: { shape: AnnotationShape }) {
     if (pts.length < 2) return null;
     const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
     return (
-      <path d={d} fill="none" stroke={stroke} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={d}
+        fill="none"
+        stroke={stroke}
+        strokeWidth={width}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     );
   }
 
@@ -72,7 +79,14 @@ function ShapeRenderer({ shape }: { shape: AnnotationShape }) {
     const [anchor] = pts;
     if (!anchor || !shape.text) return null;
     return (
-      <text x={anchor.x} y={anchor.y} fill={stroke} fontSize={4.2} fontWeight={600} paintOrder="stroke">
+      <text
+        x={anchor.x}
+        y={anchor.y}
+        fill={stroke}
+        fontSize={4.2}
+        fontWeight={600}
+        paintOrder="stroke"
+      >
         {shape.text}
       </text>
     );
@@ -152,7 +166,9 @@ export function AnnotationCanvas({
     const isDegenerate =
       draft.type === 'freedraw'
         ? draft.points.length < 2
-        : start !== undefined && end !== undefined && Math.hypot(end.x - start.x, end.y - start.y) < 0.01;
+        : start !== undefined &&
+          end !== undefined &&
+          Math.hypot(end.x - start.x, end.y - start.y) < 0.01;
     if (!isDegenerate) {
       onShapesChange([...shapes, draft]);
     }

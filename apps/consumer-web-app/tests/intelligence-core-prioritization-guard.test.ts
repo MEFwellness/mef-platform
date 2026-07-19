@@ -8,7 +8,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import { prioritizeRecommendations } from '../lib/intelligence-core/prioritization';
-import { guardRecommendations, recommendationKeyFor, evidenceSignatureFor } from '../lib/intelligence-core/recommendationGuard';
+import {
+  guardRecommendations,
+  recommendationKeyFor,
+  evidenceSignatureFor,
+} from '../lib/intelligence-core/recommendationGuard';
 import type { Recommendation } from '../lib/intelligence-engine/types';
 import type { RecommendationFeedbackState } from '../lib/intelligence-core/types';
 
@@ -40,7 +44,10 @@ describe('prioritizeRecommendations', () => {
   });
 
   it('ranks by priority first, then confidence within the same priority', () => {
-    const recs = [rec({ title: 'low-conf-high', priority: 'high', confidence: 0.5 }), rec({ title: 'hi-conf-high', priority: 'high', confidence: 0.95 })];
+    const recs = [
+      rec({ title: 'low-conf-high', priority: 'high', confidence: 0.5 }),
+      rec({ title: 'hi-conf-high', priority: 'high', confidence: 0.95 }),
+    ];
     const result = prioritizeRecommendations(recs);
     expect(result.primary?.title).toBe('hi-conf-high');
   });

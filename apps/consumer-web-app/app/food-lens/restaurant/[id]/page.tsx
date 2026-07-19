@@ -82,7 +82,7 @@ export default async function RestaurantMealEntryResultPage({
   if (!entry) notFound();
 
   const capturedImageUrl = entry.scan_id
-    ? (await getFoodLensScanAction(entry.scan_id))?.captures[0]?.signedViewUrl ?? null
+    ? ((await getFoodLensScanAction(entry.scan_id))?.captures[0]?.signedViewUrl ?? null)
     : null;
 
   const banner = ESTIMATE_BASIS_BANNER[entry.estimate_basis];
@@ -121,9 +121,15 @@ export default async function RestaurantMealEntryResultPage({
           </div>
 
           <div className={`${CARD} flex items-start gap-3 p-5`}>
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+            <ShieldCheck
+              className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">{banner.label}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                {banner.label}
+              </p>
               <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{banner.text}</p>
             </div>
           </div>

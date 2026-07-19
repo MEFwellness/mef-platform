@@ -26,7 +26,7 @@ function serviceRoleClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) {
     throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY is missing — set it in your hosting provider\'s ' +
+      "SUPABASE_SERVICE_ROLE_KEY is missing — set it in your hosting provider's " +
         'project environment variables, then redeploy.'
     );
   }

@@ -25,7 +25,11 @@ export function RootQuickLink({
   children: React.ReactNode;
 }) {
   return (
-    <button type="button" onClick={() => requestOpenRoot({ entryPoint, entryContext })} className={className}>
+    <button
+      type="button"
+      onClick={() => requestOpenRoot({ entryPoint, entryContext })}
+      className={className}
+    >
       {children}
     </button>
   );

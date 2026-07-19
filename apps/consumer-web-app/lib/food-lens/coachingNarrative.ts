@@ -77,7 +77,9 @@ Hard rules, no exceptions:
   actually text it.
 - Never say you are an AI, a model, or a chatbot.`;
 
-function formatItems(items: Array<{ label: string; category: string; confidence: number }>): string {
+function formatItems(
+  items: Array<{ label: string; category: string; confidence: number }>
+): string {
   if (items.length === 0) return '(no items confirmed yet)';
   return items
     .map((i) => `- ${i.label} (${i.category}, confidence ${(i.confidence * 100).toFixed(0)}%)`)
@@ -86,7 +88,10 @@ function formatItems(items: Array<{ label: string; category: string; confidence:
 
 function formatSignals(signals: FoodLensComparisonSignal[]): string {
   return signals
-    .map((s) => `- ${s.dimension}: this meal reads ${s.mealLevel}, target is ${s.targetLevel} -> ${s.direction}`)
+    .map(
+      (s) =>
+        `- ${s.dimension}: this meal reads ${s.mealLevel}, target is ${s.targetLevel} -> ${s.direction}`
+    )
     .join('\n');
 }
 
@@ -109,7 +114,9 @@ export function buildDeterministicFallbackNarrative(
   }
 
   const levelPhrase =
-    nonMatch.mealLevel === 'none' ? `shows no ${nonMatch.dimension}` : `reads ${nonMatch.mealLevel} in ${nonMatch.dimension}`;
+    nonMatch.mealLevel === 'none'
+      ? `shows no ${nonMatch.dimension}`
+      : `reads ${nonMatch.mealLevel} in ${nonMatch.dimension}`;
 
   return `This meal ${levelPhrase} — ${directionWord(nonMatch.direction)} what ${patternPhrase} calls for right now.`;
 }
@@ -236,7 +243,10 @@ Write Root's one short reaction to this specific scan now.`;
     return { narrative: text, promptVersion: FOOD_LENS_NARRATIVE_PROMPT_VERSION };
   } catch (err) {
     const detail = err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err);
-    console.error(`Food Lens: narrative provider call threw for member ${memberId} — ${detail}`, err);
+    console.error(
+      `Food Lens: narrative provider call threw for member ${memberId} — ${detail}`,
+      err
+    );
     return {
       narrative: buildDeterministicFallbackNarrative(input.signals, input.target.pattern_label),
       promptVersion: null,

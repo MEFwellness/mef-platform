@@ -35,7 +35,9 @@ function capitalize(text: string): string {
 }
 
 export function buildExplanation(domainScores: DomainScore[]): ExplanationResult {
-  const available = domainScores.filter((d): d is DomainScore & { score: number } => d.score !== null);
+  const available = domainScores.filter(
+    (d): d is DomainScore & { score: number } => d.score !== null
+  );
   if (available.length === 0) return NO_DATA_EXPLANATION;
 
   const sortedDescending = [...available].sort((a, b) => b.score - a.score);

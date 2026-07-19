@@ -47,7 +47,13 @@ const NUMERIC_FIELDS = [
   'potassium_mg',
 ] as const;
 
-const TEXT_FIELDS = ['product_name', 'brand', 'serving_size_text', 'ingredients_text', 'allergens_text'] as const;
+const TEXT_FIELDS = [
+  'product_name',
+  'brand',
+  'serving_size_text',
+  'ingredients_text',
+  'allergens_text',
+] as const;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -113,7 +119,8 @@ function toolSchema() {
 
   return {
     name: RECORD_LABEL_EXTRACTION_TOOL,
-    description: 'Records an honest, confidence-scored transcription of a Nutrition Facts label, ingredient list, and allergen statement.',
+    description:
+      'Records an honest, confidence-scored transcription of a Nutrition Facts label, ingredient list, and allergen statement.',
     input_schema: {
       type: 'object',
       properties: {
@@ -198,7 +205,9 @@ export class AnthropicFoodLabelOcrProvider implements FoodLabelOcrProvider {
       }));
 
     if (photoContent.length === 0) {
-      throw new Error('AnthropicFoodLabelOcrProvider: no capture with a usable signed URL was provided.');
+      throw new Error(
+        'AnthropicFoodLabelOcrProvider: no capture with a usable signed URL was provided.'
+      );
     }
 
     const userContent = [
@@ -285,7 +294,9 @@ export class AnthropicFoodLabelOcrProvider implements FoodLabelOcrProvider {
 
   private parseToolResult(input: ToolResultShape): FoodLabelOcrResult {
     const imageQuality =
-      input.image_quality && isImageQuality(input.image_quality) ? input.image_quality : 'unreadable';
+      input.image_quality && isImageQuality(input.image_quality)
+        ? input.image_quality
+        : 'unreadable';
     if (input.image_quality && !isImageQuality(input.image_quality)) {
       console.error(
         `Anthropic label OCR provider returned an invalid image_quality ("${input.image_quality}") — ` +
@@ -320,7 +331,11 @@ export class AnthropicFoodLabelOcrProvider implements FoodLabelOcrProvider {
     const vitaminsMinerals = Array.isArray(input.vitamins_minerals)
       ? input.vitamins_minerals
           .filter((v) => v && typeof v.name === 'string' && typeof v.amount === 'number')
-          .map((v) => ({ name: v.name.trim(), amount: v.amount, unit: typeof v.unit === 'string' ? v.unit : '' }))
+          .map((v) => ({
+            name: v.name.trim(),
+            amount: v.amount,
+            unit: typeof v.unit === 'string' ? v.unit : '',
+          }))
       : [];
 
     return {

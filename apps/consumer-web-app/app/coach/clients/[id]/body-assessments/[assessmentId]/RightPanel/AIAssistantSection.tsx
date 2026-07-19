@@ -18,10 +18,7 @@ import {
   Waves,
   X,
 } from 'lucide-react';
-import type {
-  AiObservationCategory,
-  AssessmentAiSourceFeature,
-} from '@mef/shared-types-contracts';
+import type { AiObservationCategory, AssessmentAiSourceFeature } from '@mef/shared-types-contracts';
 import type { CoachIntelligenceWorkspace } from '@/app/actions/coach-intelligence';
 import {
   addReportExerciseAction,
@@ -57,7 +54,11 @@ const CATEGORY_META: Record<
     icon: HelpCircle,
     tone: 'default',
   },
-  red_flag: { label: 'Potential Red Flags — Requires Manual Review', icon: AlertTriangle, tone: 'warning' },
+  red_flag: {
+    label: 'Potential Red Flags — Requires Manual Review',
+    icon: AlertTriangle,
+    tone: 'warning',
+  },
 };
 
 const CATEGORY_ORDER: AiObservationCategory[] = [
@@ -71,8 +72,10 @@ const CATEGORY_ORDER: AiObservationCategory[] = [
 ];
 
 function confidenceLabel(confidence: number): { text: string; className: string } {
-  if (confidence >= 0.75) return { text: 'High confidence', className: 'bg-emerald-50 text-emerald-700' };
-  if (confidence >= 0.5) return { text: 'Moderate confidence', className: 'bg-amber-50 text-amber-700' };
+  if (confidence >= 0.75)
+    return { text: 'High confidence', className: 'bg-emerald-50 text-emerald-700' };
+  if (confidence >= 0.5)
+    return { text: 'Moderate confidence', className: 'bg-amber-50 text-amber-700' };
   return { text: 'Low confidence', className: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]' };
 }
 
@@ -98,7 +101,12 @@ export function AIAssistantSection({
 
   function handleRunAnalysis() {
     startTransition(async () => {
-      await runAiAnalysisAction({ sourceFeature, sourceRecordId, memberId: clientId, assessmentTypeLabel });
+      await runAiAnalysisAction({
+        sourceFeature,
+        sourceRecordId,
+        memberId: clientId,
+        assessmentTypeLabel,
+      });
       refresh();
     });
   }
@@ -308,9 +316,7 @@ function SummaryCard({
           </div>
         </div>
       ) : (
-        <p className="text-sm leading-relaxed text-[#1B3A2D]">
-          {value || 'No summary yet.'}
-        </p>
+        <p className="text-sm leading-relaxed text-[#1B3A2D]">{value || 'No summary yet.'}</p>
       )}
     </div>
   );
@@ -397,11 +403,13 @@ function ObservationCard({
             {Math.round(observation.confidence * 100)}% confidence
           </span>
         )}
-        {observation.severity && observation.severity !== 'unknown' && observation.severity !== 'none' && (
-          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium capitalize text-[#6B7A72]">
-            {observation.severity}
-          </span>
-        )}
+        {observation.severity &&
+          observation.severity !== 'unknown' &&
+          observation.severity !== 'none' && (
+            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium capitalize text-[#6B7A72]">
+              {observation.severity}
+            </span>
+          )}
 
         <div className="ml-auto flex items-center gap-1">
           {!isEditing && (

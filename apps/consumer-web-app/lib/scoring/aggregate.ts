@@ -44,6 +44,9 @@ export function computeComposite(domainScores: DomainScore[]): CompositeResult {
 export function applySmoothingCap(rawComposite: number, previousRootScore: number | null): number {
   if (previousRootScore === null) return rawComposite;
   const delta = rawComposite - previousRootScore;
-  const cappedDelta = Math.max(-MAX_ROOT_SCORE_DAILY_CHANGE, Math.min(MAX_ROOT_SCORE_DAILY_CHANGE, delta));
+  const cappedDelta = Math.max(
+    -MAX_ROOT_SCORE_DAILY_CHANGE,
+    Math.min(MAX_ROOT_SCORE_DAILY_CHANGE, delta)
+  );
   return Math.max(0, Math.min(100, previousRootScore + cappedDelta));
 }

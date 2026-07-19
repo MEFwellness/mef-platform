@@ -93,7 +93,10 @@ function fivePointInverse(level: number | null): number | null {
 }
 
 /** Minutes asleep between actual_bedtime and actual_wake_time, handling an overnight wrap (bed before midnight, wake after). Null if either clock time is missing. */
-export function sleepDurationMinutes(bedtime: string | null, wakeTime: string | null): number | null {
+export function sleepDurationMinutes(
+  bedtime: string | null,
+  wakeTime: string | null
+): number | null {
   if (!bedtime || !wakeTime) return null;
   const [bh, bm] = bedtime.split(':').map(Number);
   const [wh, wm] = wakeTime.split(':').map(Number);
@@ -148,14 +151,27 @@ export type MorningReadinessResult = {
  * null when nothing at all is logged). This function assumes the caller
  * already decided a score is allowed to exist for this day.
  */
-export function calculateMorningReadinessScore(inputs: MorningReadinessInputs): MorningReadinessResult {
+export function calculateMorningReadinessScore(
+  inputs: MorningReadinessInputs
+): MorningReadinessResult {
   const sleepMinutes = sleepDurationMinutes(inputs.actualBedtime, inputs.actualWakeTime);
 
-  const candidates: { key: MorningReadinessMetricKey; score: number | null; status: MetricStatus }[] = [
+  const candidates: {
+    key: MorningReadinessMetricKey;
+    score: number | null;
+    status: MetricStatus;
+  }[] = [
     {
       key: 'sleepDuration',
       score: sleepDurationScore(sleepMinutes),
-      status: sleepMinutes === null ? 'no-data' : sleepMinutes / 60 >= 7 ? 'good' : sleepMinutes / 60 >= 6 ? 'attention' : 'poor',
+      status:
+        sleepMinutes === null
+          ? 'no-data'
+          : sleepMinutes / 60 >= 7
+            ? 'good'
+            : sleepMinutes / 60 >= 6
+              ? 'attention'
+              : 'poor',
     },
     {
       key: 'nightWaking',
@@ -169,13 +185,28 @@ export function calculateMorningReadinessScore(inputs: MorningReadinessInputs): 
               ? 'attention'
               : 'poor',
     },
-    { key: 'morningEnergy', score: fivePointDirect(inputs.morningEnergy), status: energyStatus(inputs.morningEnergy) },
+    {
+      key: 'morningEnergy',
+      score: fivePointDirect(inputs.morningEnergy),
+      status: energyStatus(inputs.morningEnergy),
+    },
     {
       key: 'morningSoreness',
       score: fivePointInverse(inputs.morningSoreness),
-      status: inputs.morningSoreness === null ? 'no-data' : inputs.morningSoreness <= 2 ? 'good' : inputs.morningSoreness === 3 ? 'attention' : 'poor',
+      status:
+        inputs.morningSoreness === null
+          ? 'no-data'
+          : inputs.morningSoreness <= 2
+            ? 'good'
+            : inputs.morningSoreness === 3
+              ? 'attention'
+              : 'poor',
     },
-    { key: 'stressOnWaking', score: fivePointInverse(inputs.stressOnWaking), status: stressStatus(inputs.stressOnWaking) },
+    {
+      key: 'stressOnWaking',
+      score: fivePointInverse(inputs.stressOnWaking),
+      status: stressStatus(inputs.stressOnWaking),
+    },
     { key: 'mood', score: fivePointDirect(inputs.mood), status: moodStatus(inputs.mood) },
     {
       key: 'bowelMovement',
@@ -192,11 +223,15 @@ export function calculateMorningReadinessScore(inputs: MorningReadinessInputs): 
   ];
 
   const available = candidates.filter(
-    (c): c is { key: MorningReadinessMetricKey; score: number; status: MetricStatus } => c.score !== null
+    (c): c is { key: MorningReadinessMetricKey; score: number; status: MetricStatus } =>
+      c.score !== null
   );
 
   const totalWeight = available.reduce((sum, c) => sum + MORNING_READINESS_WEIGHTS[c.key], 0);
-  const weightedSum = available.reduce((sum, c) => sum + c.score * MORNING_READINESS_WEIGHTS[c.key], 0);
+  const weightedSum = available.reduce(
+    (sum, c) => sum + c.score * MORNING_READINESS_WEIGHTS[c.key],
+    0
+  );
   const finalScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
 
   const status: MetricStatus = finalScore >= 70 ? 'good' : finalScore >= 55 ? 'attention' : 'poor';

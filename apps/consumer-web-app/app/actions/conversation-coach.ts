@@ -155,7 +155,8 @@ export async function requestCoachHandoffAction(
   if (!user) return { error: 'Not signed in.' };
 
   const handoff = await requestHandoff(supabase, user.id, sessionId, note.trim() || null, urgency);
-  if (!handoff) return { error: "That didn't quite go through. Give it another moment and try again." };
+  if (!handoff)
+    return { error: "That didn't quite go through. Give it another moment and try again." };
   return {};
 }
 

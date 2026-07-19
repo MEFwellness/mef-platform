@@ -94,7 +94,9 @@ export function MealCamera({ onCapture, busy = false }: Props) {
 
     const luminance = averageLuminance(ctx, canvas.width, canvas.height);
     if (luminance < DARK_THRESHOLD) {
-      setQualityWarning('This photo looks too dark to identify food reliably. Try more light, then retake.');
+      setQualityWarning(
+        'This photo looks too dark to identify food reliably. Try more light, then retake.'
+      );
       setBlocked(true);
     } else if (luminance < DIM_THRESHOLD) {
       setQualityWarning('This looks a little dim — you can use it, or retake with more light.');

@@ -105,7 +105,9 @@ describe('Morning Readiness fields on daily_checkins', () => {
 
   it('rejects an invalid bowel_movement_status value (check constraint enum)', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
-    const { error } = await submitMorningReadiness(client, { bowel_movement_status: 'invalid_value' });
+    const { error } = await submitMorningReadiness(client, {
+      bowel_movement_status: 'invalid_value',
+    });
     expect(error).not.toBeNull();
   });
 

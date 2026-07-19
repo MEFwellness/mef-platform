@@ -14,7 +14,11 @@
  * crown/apex the key's label describes.
  */
 
-import type { BodyLandmarkKey, BodyLandmarkPoint, BodyLandmarkVisibility } from '@mef/shared-types-contracts';
+import type {
+  BodyLandmarkKey,
+  BodyLandmarkPoint,
+  BodyLandmarkVisibility,
+} from '@mef/shared-types-contracts';
 import { POSE_LANDMARK_INDEX, type RawPoseLandmark } from './poseTypes';
 
 const CONFIDENT_VISIBILITY = 0.5;

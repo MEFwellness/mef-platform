@@ -32,7 +32,7 @@ food_lens_pattern_comparisons  --[lib/registry/adapters/foodLens.ts]-->  registr
 ```
 
 This is doc 6 phase 2's single integration line-item — `lib/registry/adapters/foodLens.ts` — and
-it's deliberately the *only* thing that needs to exist for Root to become nutrition-aware. No
+it's deliberately the _only_ thing that needs to exist for Root to become nutrition-aware. No
 change to `context.ts`, the Intelligence Engine, or the Intelligence Core is required.
 
 ## 8.2 The floating "Ask Root" launcher on Food Lens screens
@@ -43,7 +43,10 @@ etc.) that take data the host page already fetched and hand a short string to th
 launcher — never re-querying the DB. Food Lens's results page adds its own:
 
 ```ts
-function buildFoodLensEntryContext(scan: FoodLensScan, comparison: PatternComparison | null): string
+function buildFoodLensEntryContext(
+  scan: FoodLensScan,
+  comparison: PatternComparison | null
+): string;
 ```
 
 e.g. `"Member just scanned a meal that came back carbohydrate-heavy against their protein-forward
@@ -52,11 +55,11 @@ Root" right from the results screen, without waiting for the registry pipeline t
 additive to `entryContext.ts` (a new exported function, doc 9 covers exactly what that touch
 looks like) and doesn't change any existing entry-context builder.
 
-## 8.3 What Root should *not* do
+## 8.3 What Root should _not_ do
 
 Root should never be the one generating the meal-specific coaching verdict — that's
 `food_lens_pattern_comparisons.narrative`, produced deterministically (doc 5 §5.4). Root's role is
-downstream: a member can *ask about* a result conversationally ("why did it say this was
+downstream: a member can _ask about_ a result conversationally ("why did it say this was
 carb-heavy?", "what should I eat instead next time?") and Root, with the entry context and/or
 registry-derived pattern history, can have that broader conversation using its normal LLM-backed
 reply pipeline (`lib/conversation-coach/service.ts`) — including its existing safety

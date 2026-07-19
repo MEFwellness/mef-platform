@@ -8,7 +8,11 @@
  */
 import { describe, it, expect, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
-import { insertRegistryEntry, findActiveRegistryEntry, listRegistryEntriesForMember } from '../lib/registry/data';
+import {
+  insertRegistryEntry,
+  findActiveRegistryEntry,
+  listRegistryEntriesForMember,
+} from '../lib/registry/data';
 import type { RegistryEntryDraft } from '../lib/registry/types';
 
 const memberId = TEST_USERS.memberOne.id;
@@ -50,7 +54,12 @@ describe('Universal Registry — insert, dedup, supersede, RLS', () => {
     expect(entry!.entry_kind).toBe('metric');
     expect(entry!.numeric_value).toBe(58);
 
-    const active = await findActiveRegistryEntry(coachClient, memberId, 'wearable', 'resting_heart_rate');
+    const active = await findActiveRegistryEntry(
+      coachClient,
+      memberId,
+      'wearable',
+      'resting_heart_rate'
+    );
     expect(active).not.toBeNull();
     expect(active!.id).toBe(entry!.id);
   }, 30_000);
@@ -70,11 +79,20 @@ describe('Universal Registry — insert, dedup, supersede, RLS', () => {
       { supersedesId: first!.id }
     );
 
-    const { data: oldRow } = await coachClient.from('registry_entries').select('*').eq('id', first!.id).single();
+    const { data: oldRow } = await coachClient
+      .from('registry_entries')
+      .select('*')
+      .eq('id', first!.id)
+      .single();
     expect(oldRow!.status).toBe('superseded');
     expect(oldRow!.superseded_by_id).toBe(second!.id);
 
-    const active = await findActiveRegistryEntry(coachClient, memberId, 'wearable', 'sleep_efficiency');
+    const active = await findActiveRegistryEntry(
+      coachClient,
+      memberId,
+      'wearable',
+      'sleep_efficiency'
+    );
     expect(active!.id).toBe(second!.id);
   }, 30_000);
 
@@ -88,7 +106,12 @@ describe('Universal Registry — insert, dedup, supersede, RLS', () => {
     );
     expect(entry).not.toBeNull();
 
-    const active = await findActiveRegistryEntry(coachClient, memberId, 'wearable', 'coach_only_metric');
+    const active = await findActiveRegistryEntry(
+      coachClient,
+      memberId,
+      'wearable',
+      'coach_only_metric'
+    );
     expect(active!.id).toBe(entry!.id);
   }, 30_000);
 
@@ -96,10 +119,21 @@ describe('Universal Registry — insert, dedup, supersede, RLS', () => {
     const memberClient = await signInAs(TEST_USERS.memberOne);
     const coachClient = await signInAs(TEST_USERS.coachOne);
 
-    await insertRegistryEntry(coachClient, memberId, metricDraft({ code: 'visible_metric', member_visible: true }));
-    await insertRegistryEntry(coachClient, memberId, metricDraft({ code: 'hidden_metric', member_visible: false }));
+    await insertRegistryEntry(
+      coachClient,
+      memberId,
+      metricDraft({ code: 'visible_metric', member_visible: true })
+    );
+    await insertRegistryEntry(
+      coachClient,
+      memberId,
+      metricDraft({ code: 'hidden_metric', member_visible: false })
+    );
 
-    const { data, error } = await memberClient.from('registry_entries').select('code').eq('member_id', memberId);
+    const { data, error } = await memberClient
+      .from('registry_entries')
+      .select('code')
+      .eq('member_id', memberId);
     expect(error).toBeNull();
     const codes = data!.map((r) => r.code);
     expect(codes).toContain('visible_metric');
@@ -109,7 +143,10 @@ describe('Universal Registry — insert, dedup, supersede, RLS', () => {
   it("RLS: an unassigned member (memberTwo) cannot read or write memberOne's registry entries", async () => {
     const memberTwoClient = await signInAs(TEST_USERS.memberTwo);
 
-    const { data, error } = await memberTwoClient.from('registry_entries').select('*').eq('member_id', memberId);
+    const { data, error } = await memberTwoClient
+      .from('registry_entries')
+      .select('*')
+      .eq('member_id', memberId);
     expect(error).toBeNull();
     expect(data).toEqual([]);
 
@@ -128,7 +165,9 @@ describe('Universal Registry — insert, dedup, supersede, RLS', () => {
 
   it('listRegistryEntriesForMember filters by status', async () => {
     const coachClient = await signInAs(TEST_USERS.coachOne);
-    const entries = await listRegistryEntriesForMember(coachClient, memberId, { statusFilter: ['active'] });
+    const entries = await listRegistryEntriesForMember(coachClient, memberId, {
+      statusFilter: ['active'],
+    });
     expect(entries.every((e) => e.status === 'active')).toBe(true);
     expect(entries.length).toBeGreaterThan(0);
   }, 30_000);

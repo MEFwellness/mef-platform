@@ -33,7 +33,9 @@ export function SignOutButton({ variant = 'row' }: { variant?: 'row' | 'block' }
             : 'w-full rounded-full border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50'
         }
       >
-        {variant === 'row' && <LogOut className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />}
+        {variant === 'row' && (
+          <LogOut className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+        )}
         Sign Out
       </button>
 

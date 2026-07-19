@@ -24,7 +24,10 @@ const MAX_CHUNK_LENGTH = 280;
 
 /** Groups sentences up to ~MAX_CHUNK_LENGTH so each server request stays fast and each spoken section stays short (part 3's "long responses divided into shorter spoken sections"). */
 export function splitIntoChunks(text: string): string[] {
-  const sentences = text.match(/[^.!?]+[.!?]*\s*/g)?.map((s) => s.trim()).filter(Boolean) ?? [text];
+  const sentences = text
+    .match(/[^.!?]+[.!?]*\s*/g)
+    ?.map((s) => s.trim())
+    .filter(Boolean) ?? [text];
   const chunks: string[] = [];
   let current = '';
   for (const sentence of sentences) {
@@ -55,7 +58,9 @@ export class ServerTextToSpeechProvider implements TextToSpeechProvider {
   private generation = 0;
 
   get isSupported(): boolean {
-    return typeof window !== 'undefined' && typeof Audio !== 'undefined' && typeof fetch !== 'undefined';
+    return (
+      typeof window !== 'undefined' && typeof Audio !== 'undefined' && typeof fetch !== 'undefined'
+    );
   }
 
   speak(text: string, handlers: TextToSpeechHandlers): void {

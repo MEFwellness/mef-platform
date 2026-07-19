@@ -50,7 +50,9 @@ export default async function BarcodeScanResultPage({ params }: { params: { id: 
   ]);
   if (!detail) notFound();
 
-  const favorited = detail.product ? await isProductFavorited(supabase, user.id, detail.product.id) : false;
+  const favorited = detail.product
+    ? await isProductFavorited(supabase, user.id, detail.product.id)
+    : false;
 
   const { scan, barcodeScan, product, nutrients, ingredients, allergens, analysis } = detail;
 

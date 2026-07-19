@@ -109,11 +109,15 @@ export function IntelligenceCorePanel({
             <span className="rounded-full bg-[#F5B700]/20 px-2.5 py-1 text-xs font-medium text-[#854D0E]">
               Primary focus
             </span>
-            <p className="mt-1.5 text-sm font-medium text-[#1B3A2D]">{prioritization.primary.title}</p>
+            <p className="mt-1.5 text-sm font-medium text-[#1B3A2D]">
+              {prioritization.primary.title}
+            </p>
             <p className="mt-0.5 text-sm text-[#1B3A2D]/80">{prioritization.primary.detail}</p>
           </div>
         ) : (
-          <p className="mt-2 text-sm text-[#6B7A72]">No single leverage point stands out right now.</p>
+          <p className="mt-2 text-sm text-[#6B7A72]">
+            No single leverage point stands out right now.
+          </p>
         )}
         {prioritization.secondary.length > 0 && (
           <ul className="mt-2 space-y-2">
@@ -130,8 +134,9 @@ export function IntelligenceCorePanel({
         )}
         {prioritization.deferredCount > 0 && (
           <p className="mt-2 text-xs text-[#6B7A72]">
-            {prioritization.deferredCount} more opportunit{prioritization.deferredCount === 1 ? 'y' : 'ies'} waiting
-            — never surfaced all at once, to avoid overwhelming the member.
+            {prioritization.deferredCount} more opportunit
+            {prioritization.deferredCount === 1 ? 'y' : 'ies'} waiting — never surfaced all at once,
+            to avoid overwhelming the member.
           </p>
         )}
       </div>
@@ -238,7 +243,9 @@ export function IntelligenceCorePanel({
           {summary.profileDimensions.map((d) => (
             <div key={d.dimension} className="rounded-xl bg-[#FAFAF8] p-3 text-sm">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium capitalize text-[#1B3A2D]">{titleCase(d.dimension)}</span>
+                <span className="font-medium capitalize text-[#1B3A2D]">
+                  {titleCase(d.dimension)}
+                </span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${LEVEL_STYLE[d.level]}`}
                 >

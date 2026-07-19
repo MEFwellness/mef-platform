@@ -161,7 +161,10 @@ export async function insertObservations(
     sort_order: index,
   }));
 
-  const { data, error } = await supabase.from('assessment_ai_observations').insert(rows).select('*');
+  const { data, error } = await supabase
+    .from('assessment_ai_observations')
+    .insert(rows)
+    .select('*');
   if (error) {
     console.error('insertObservations failed', error);
     return [];
@@ -268,7 +271,10 @@ export async function deleteReportExercise(
   supabase: SupabaseClient,
   exerciseId: string
 ): Promise<boolean> {
-  const { error } = await supabase.from('assessment_report_exercises').delete().eq('id', exerciseId);
+  const { error } = await supabase
+    .from('assessment_report_exercises')
+    .delete()
+    .eq('id', exerciseId);
   if (error) {
     console.error('deleteReportExercise failed', error);
     return false;

@@ -34,7 +34,9 @@ describe('buildRecoveryStatus — real recovery-level phrasing, sourced from the
   });
 
   it('matches copy.ts recoveryLevelText for the classified level, not an independently written sentence', () => {
-    expect(buildRecoveryStatus(snapshot({ readinessScore: 90 }))).toBe(recoveryLevelText('excellent'));
+    expect(buildRecoveryStatus(snapshot({ readinessScore: 90 }))).toBe(
+      recoveryLevelText('excellent')
+    );
     expect(buildRecoveryStatus(snapshot({ readinessScore: 75 }))).toBe(recoveryLevelText('good'));
     expect(buildRecoveryStatus(snapshot({ readinessScore: 55 }))).toBe(recoveryLevelText('fair'));
     expect(buildRecoveryStatus(snapshot({ readinessScore: 20 }))).toBe(recoveryLevelText('poor'));
@@ -47,9 +49,15 @@ describe('buildMovementRecommendation', () => {
   });
 
   it('matches copy.ts movementRecommendationText for the real step count', () => {
-    expect(buildMovementRecommendation(snapshot({ steps: 1500 }))).toBe(movementRecommendationText(1500));
-    expect(buildMovementRecommendation(snapshot({ steps: 5000 }))).toBe(movementRecommendationText(5000));
-    expect(buildMovementRecommendation(snapshot({ steps: 9000 }))).toBe(movementRecommendationText(9000));
+    expect(buildMovementRecommendation(snapshot({ steps: 1500 }))).toBe(
+      movementRecommendationText(1500)
+    );
+    expect(buildMovementRecommendation(snapshot({ steps: 5000 }))).toBe(
+      movementRecommendationText(5000)
+    );
+    expect(buildMovementRecommendation(snapshot({ steps: 9000 }))).toBe(
+      movementRecommendationText(9000)
+    );
   });
 });
 

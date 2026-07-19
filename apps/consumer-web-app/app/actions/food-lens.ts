@@ -597,11 +597,16 @@ export async function correctDetectedItemAction(
   const newLabel = input.correctedLabel ?? owned.item.label;
   const newCategory = input.correctedCategory ?? owned.item.category;
   const newPortionDescription =
-    input.correctedPortionDescription !== undefined ? input.correctedPortionDescription : owned.item.portion_description;
-  const newQuantity = input.correctedQuantity !== undefined ? input.correctedQuantity : owned.item.quantity;
+    input.correctedPortionDescription !== undefined
+      ? input.correctedPortionDescription
+      : owned.item.portion_description;
+  const newQuantity =
+    input.correctedQuantity !== undefined ? input.correctedQuantity : owned.item.quantity;
   const newUnit = input.correctedUnit !== undefined ? input.correctedUnit : owned.item.unit;
   const newCookingMethod =
-    input.correctedCookingMethod !== undefined ? input.correctedCookingMethod : owned.item.cooking_method;
+    input.correctedCookingMethod !== undefined
+      ? input.correctedCookingMethod
+      : owned.item.cooking_method;
   const newIsCondiment = input.correctedIsCondiment ?? owned.item.is_condiment;
 
   const newItem = await insertFoodLensDetectedItem(ctx.supabase, {
@@ -612,7 +617,10 @@ export async function correctDetectedItemAction(
     source: 'member_corrected',
     supersedesId: owned.item.id,
     portionDescription: newPortionDescription,
-    portionConfidence: input.correctedPortionDescription !== undefined || input.correctedQuantity !== undefined ? 1 : owned.item.portion_confidence,
+    portionConfidence:
+      input.correctedPortionDescription !== undefined || input.correctedQuantity !== undefined
+        ? 1
+        : owned.item.portion_confidence,
     quantity: newQuantity,
     unit: newUnit,
     cookingMethod: newCookingMethod,
@@ -864,5 +872,7 @@ export async function logMealScanToFoodLogAction(
     if (entry) created += 1;
   }
 
-  return created > 0 ? { entriesCreated: created } : { error: 'Could not add this meal to your log.' };
+  return created > 0
+    ? { entriesCreated: created }
+    : { error: 'Could not add this meal to your log.' };
 }

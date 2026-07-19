@@ -136,7 +136,9 @@ export function WearableTrendsPanel({
             <span>{formatDate(readinessHistory[readinessHistory.length - 1]!.local_date)}</span>
           </div>
           {latestReadiness !== null && (
-            <p className="mt-3 text-sm text-[#6B7A72]">Today&apos;s readiness: {latestReadiness}/100</p>
+            <p className="mt-3 text-sm text-[#6B7A72]">
+              Today&apos;s readiness: {latestReadiness}/100
+            </p>
           )}
         </>
       )}

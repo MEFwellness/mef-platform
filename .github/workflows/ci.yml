@@ -31,7 +31,19 @@ jobs:
       - run: npm ci
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned, not "latest": Supabase CLI v2's local dev bootstrap no
+          # longer auto-grants baseline USAGE/SELECT on the public schema
+          # to anon/authenticated. This repo's migrations rely on that
+          # grant existing (same as local dev, which already pins
+          # "supabase": "^1.190.0" in package.json) — none of them issue
+          # an explicit GRANT. "latest" silently drifted from v1.x to
+          # v2.109.1 and broke every anon/authenticated query in CI with
+          # "permission denied for table X" (Postgres error 42501), while
+          # local dev, lint, typecheck, and the deployed app itself were
+          # all unaffected. Confirmed by bootstrapping isolated instances
+          # with both versions against this repo's exact migrations +
+          # seed: v1.226.4 grants access correctly; v2.109.1 does not.
+          version: 1.226.4
       - name: Start local Supabase
         run: supabase start
       - name: Apply migrations + seed

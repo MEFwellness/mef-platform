@@ -13,10 +13,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
-import type {
-  AiObservationStatus,
-  AssessmentAiSourceFeature,
-} from '@mef/shared-types-contracts';
+import type { AiObservationStatus, AssessmentAiSourceFeature } from '@mef/shared-types-contracts';
 import { performCoachIntelligenceAnalysis } from '@/lib/coach-intelligence/analysis';
 import {
   deleteReportExercise,
@@ -125,7 +122,9 @@ export async function updateAiAnalysisSummaryAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Not signed in.' };
 
-  const ok = await updateAnalysis(supabase, input.analysisId, { coach_summary: input.coachSummary });
+  const ok = await updateAnalysis(supabase, input.analysisId, {
+    coach_summary: input.coachSummary,
+  });
   if (!ok) return { error: 'Could not save summary.' };
   return {};
 }
@@ -140,7 +139,9 @@ export async function updateAiAnalysisPersonalNotesAction(input: {
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Not signed in.' };
 
-  const ok = await updateAnalysis(supabase, input.analysisId, { coach_personal_notes: input.notes });
+  const ok = await updateAnalysis(supabase, input.analysisId, {
+    coach_personal_notes: input.notes,
+  });
   if (!ok) return { error: 'Could not save notes.' };
   return {};
 }

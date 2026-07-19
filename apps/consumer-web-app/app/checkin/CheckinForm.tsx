@@ -14,7 +14,12 @@ import {
 } from 'lucide-react';
 import { submitDailyCheckin, logHabitCompletion } from '@/app/actions/checkin';
 import { getTodaysHydrationTotal } from '@/app/actions/events';
-import type { BowelMovementStatus, DailyCheckin, DailyCheckinInput, Habit } from '@mef/shared-types-contracts';
+import type {
+  BowelMovementStatus,
+  DailyCheckin,
+  DailyCheckinInput,
+  Habit,
+} from '@mef/shared-types-contracts';
 
 type Props = {
   localDate: string;
@@ -53,10 +58,18 @@ const ENERGY_MEANING = ['Exhausted', 'Low', 'Moderate', 'Good', 'High'] as const
 const STRESS_MEANING = ['Very Calm', 'Calm', 'Moderate', 'High', 'Overwhelmed'] as const;
 const SLEEP_QUALITY_MEANING = ['Terrible', 'Poor', 'Fair', 'Good', 'Excellent'] as const;
 const DIGESTION_MEANING = ['Poor', 'Somewhat off', 'Fair', 'Good', 'Excellent'] as const;
-const PAIN_MEANING = ['None', 'Mild', 'Mild-moderate', 'Moderate', 'Significant', 'Severe'] as const;
+const PAIN_MEANING = [
+  'None',
+  'Mild',
+  'Mild-moderate',
+  'Moderate',
+  'Significant',
+  'Severe',
+] as const;
 const SORENESS_MEANING = ['None', 'Mild', 'Moderate', 'Noticeable', 'Significant'] as const;
 
-const SECTION_CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-shadow duration-300 hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]';
+const SECTION_CARD =
+  'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-shadow duration-300 hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]';
 
 function SectionHeader({
   icon: Icon,
@@ -190,7 +203,11 @@ export function CheckinForm({
   // of "progress" from one day to the next.
   const { completedSections, totalSections } = useMemo(() => {
     const readinessDone =
-      actualBedtime !== '' && actualWakeTime !== '' && moodLevel !== null && energyLevel !== null && stressLevel !== null;
+      actualBedtime !== '' &&
+      actualWakeTime !== '' &&
+      moodLevel !== null &&
+      energyLevel !== null &&
+      stressLevel !== null;
     const sleepDone = sleepQuality !== null && sleepDuration !== null;
     const bodyDone =
       digestionRating !== null &&
@@ -518,10 +535,7 @@ export function CheckinForm({
       </div>
 
       {habits.length > 0 && (
-        <div
-          className={`${SECTION_CARD} mef-animate-in p-7`}
-          style={{ animationDelay: '240ms' }}
-        >
+        <div className={`${SECTION_CARD} mef-animate-in p-7`} style={{ animationDelay: '240ms' }}>
           <SectionHeader
             icon={CheckCircle2}
             title="Today's habits"
@@ -550,10 +564,7 @@ export function CheckinForm({
         </div>
       )}
 
-      <div
-        className={`${SECTION_CARD} mef-animate-in p-7`}
-        style={{ animationDelay: '300ms' }}
-      >
+      <div className={`${SECTION_CARD} mef-animate-in p-7`} style={{ animationDelay: '300ms' }}>
         <SectionHeader
           icon={MessageCircle}
           title="Anything else?"
@@ -569,10 +580,7 @@ export function CheckinForm({
           I have a new or worsening concern I want my coach to know about
         </label>
         <div className="mt-4">
-          <label
-            className="text-[13px] leading-relaxed text-[#6B7A72]"
-            htmlFor="notes"
-          >
+          <label className="text-[13px] leading-relaxed text-[#6B7A72]" htmlFor="notes">
             Notes
           </label>
           <textarea

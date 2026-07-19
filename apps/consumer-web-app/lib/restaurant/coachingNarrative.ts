@@ -57,12 +57,11 @@ const FORBIDDEN_PHRASES = [
 ];
 
 const ESTIMATE_BASIS_EXPLANATION: Record<RestaurantEstimateBasis, string> = {
-  published_nutrition:
-    "the restaurant's own published nutrition information for this item",
+  published_nutrition: "the restaurant's own published nutrition information for this item",
   visual_estimate:
     "a visual estimate Root made from your photo — not the restaurant's own nutrition data",
   ingredient_estimate:
-    'an estimate based on the menu description/ingredients you provided — not the restaurant\'s own nutrition data',
+    "an estimate based on the menu description/ingredients you provided — not the restaurant's own nutrition data",
   member_entered: 'information you entered yourself',
 };
 
@@ -129,7 +128,8 @@ PORTION_GUIDANCE: <one calm, practical sentence>
 - Never say you are an AI, a model, or a chatbot.`;
 
 function formatHeuristics(h: MenuItemHeuristicsResult): string {
-  if (h.observations.length === 0) return '(no notable findings — very little text or photo detail was available)';
+  if (h.observations.length === 0)
+    return '(no notable findings — very little text or photo detail was available)';
   return h.observations.map((o) => `- ${o}`).join('\n');
 }
 
@@ -165,7 +165,9 @@ export function buildDeterministicFallbackCoaching(
   if (heuristics.wholeGrainOrFiberMentioned)
     supportsYou.push('This item appears to include a whole-grain or fiber-rich component.');
   if (heuristics.lighterPreparation)
-    supportsYou.push('This appears to use a lighter preparation method (grilled, roasted, steamed, or similar).');
+    supportsYou.push(
+      'This appears to use a lighter preparation method (grilled, roasted, steamed, or similar).'
+    );
   if (supportsYou.length === 0)
     supportsYou.push(
       `There isn't much menu detail to point to a specific strength yet — this analysis is based on ${basisNote}.`
@@ -173,7 +175,9 @@ export function buildDeterministicFallbackCoaching(
 
   const mindfulOf: string[] = [];
   if (heuristics.friedOrBreaded)
-    mindfulOf.push('This is prepared fried or breaded — worth being mindful of, especially if you order this often.');
+    mindfulOf.push(
+      'This is prepared fried or breaded — worth being mindful of, especially if you order this often.'
+    );
   if (heuristics.creamyOrRichSauce)
     mindfulOf.push('This appears to include a creamy or rich sauce/topping.');
   if (heuristics.loadedOrLargePortionLanguage)
@@ -183,27 +187,39 @@ export function buildDeterministicFallbackCoaching(
   if (heuristics.sweetenedMentioned)
     mindfulOf.push('This appears to have a sweetened preparation.');
   if (mindfulOf.length === 0)
-    mindfulOf.push('No specific preparation concerns stood out from the available menu information.');
+    mindfulOf.push(
+      'No specific preparation concerns stood out from the available menu information.'
+    );
   mindfulOf.push(`Keep in mind this is ${basisNote}, not a lab-verified nutrition fact.`);
 
   const modifications: string[] = [];
   if (heuristics.friedOrBreaded)
-    modifications.push('Ask if a grilled, roasted, or steamed version is available instead of fried.');
+    modifications.push(
+      'Ask if a grilled, roasted, or steamed version is available instead of fried.'
+    );
   if (heuristics.creamyOrRichSauce || heuristics.dressingOrSauceMentioned)
-    modifications.push('Consider asking for the sauce or dressing on the side so you can control how much you use.');
+    modifications.push(
+      'Consider asking for the sauce or dressing on the side so you can control how much you use.'
+    );
   if (heuristics.loadedOrLargePortionLanguage)
     modifications.push('Consider sharing this item or saving half for later.');
   if (!heuristics.vegetablesMentioned)
     modifications.push('Consider adding a side salad or vegetables to round out the meal.');
   if (heuristics.refinedCarbMentioned && !heuristics.wholeGrainOrFiberMentioned)
-    modifications.push('Ask if a vegetable or whole-grain side can be substituted for the standard side.');
+    modifications.push(
+      'Ask if a vegetable or whole-grain side can be substituted for the standard side.'
+    );
   if (modifications.length === 0)
-    modifications.push('No specific modification stands out — this item can likely be enjoyed as described.');
+    modifications.push(
+      'No specific modification stands out — this item can likely be enjoyed as described.'
+    );
 
   const pairings: string[] = [];
   if (!heuristics.vegetablesMentioned) pairings.push('A side salad or steamed vegetables');
   if (heuristics.proteinSourcesMentioned.length === 0)
-    pairings.push("Adding a protein source, like grilled chicken, fish, or beans, if one isn't already included");
+    pairings.push(
+      "Adding a protein source, like grilled chicken, fish, or beans, if one isn't already included"
+    );
   pairings.push('Water or an unsweetened beverage to help balance the rest of the meal');
 
   const betterFitAlternatives: string[] =
@@ -219,13 +235,22 @@ export function buildDeterministicFallbackCoaching(
     ? 'The name/description suggests a larger portion than a standard serving — consider sharing it or saving half for later.'
     : 'Let your own hunger and fullness cues guide the portion — restaurant portions can run larger than a standard serving.';
 
-  return { supportsYou, mindfulOf, modifications, pairings, betterFitAlternatives, portionGuidance };
+  return {
+    supportsYou,
+    mindfulOf,
+    modifications,
+    pairings,
+    betterFitAlternatives,
+    portionGuidance,
+  };
 }
 
 function buildSafetySoftenedCoaching(): RestaurantMealAnalysis {
   return {
     supportsYou: ["Thanks for logging this meal — I'll keep today's feedback light here."],
-    mindfulOf: ["Check in with your assigned coach if you'd like to talk through this in more detail."],
+    mindfulOf: [
+      "Check in with your assigned coach if you'd like to talk through this in more detail.",
+    ],
     modifications: [],
     pairings: [],
     betterFitAlternatives: [],
@@ -311,7 +336,11 @@ export async function generateRestaurantCoachingNarrative(
 ): Promise<GenerateRestaurantCoachingResult> {
   const { supabase, memberId } = input;
 
-  const intelligence = await getConversationContextIntelligence(supabase, memberId, input.localDate);
+  const intelligence = await getConversationContextIntelligence(
+    supabase,
+    memberId,
+    input.localDate
+  );
 
   if (intelligence.restrictedTopics.length > 0) {
     return { result: buildSafetySoftenedCoaching(), promptVersion: null };

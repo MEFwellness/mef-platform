@@ -38,15 +38,21 @@ export async function calculateAndPersistRootScore(
   memberId: string,
   params: ScoreDateParams
 ): Promise<RootScoreSnapshot | null> {
-  const [checkins, mealQualityEvents, movementSessions, bodyAssessments, previousSnapshot, priorSnapshotCount] =
-    await Promise.all([
-      fetchCheckinsForScoring(supabase, memberId, params.localDate),
-      fetchMealQualityEventsForScoring(supabase, memberId, params.localDate),
-      fetchMovementSessionsForScoring(supabase, memberId, params.localDate),
-      fetchBodyAssessmentsForScoring(supabase, memberId, params.localDate),
-      getLatestSnapshotBefore(supabase, memberId, params.localDate),
-      countSnapshotsBefore(supabase, memberId, params.localDate),
-    ]);
+  const [
+    checkins,
+    mealQualityEvents,
+    movementSessions,
+    bodyAssessments,
+    previousSnapshot,
+    priorSnapshotCount,
+  ] = await Promise.all([
+    fetchCheckinsForScoring(supabase, memberId, params.localDate),
+    fetchMealQualityEventsForScoring(supabase, memberId, params.localDate),
+    fetchMovementSessionsForScoring(supabase, memberId, params.localDate),
+    fetchBodyAssessmentsForScoring(supabase, memberId, params.localDate),
+    getLatestSnapshotBefore(supabase, memberId, params.localDate),
+    countSnapshotsBefore(supabase, memberId, params.localDate),
+  ]);
 
   const calculated = calculateRootScoreSnapshot({
     localDate: params.localDate,

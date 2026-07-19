@@ -13,31 +13,27 @@ export function createClient() {
   const cookieStore = cookies();
   const { url, anonKey } = getSupabaseEnv();
 
-  return createServerClient(
-    url,
-    anonKey,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value, ...options });
-          } catch {
-            // Called from a Server Component during render — the middleware
-            // is what actually persists the refreshed session cookie in
-            // that case. Safe to ignore here.
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value: '', ...options });
-          } catch {
-            // See note above.
-          }
-        },
+  return createServerClient(url, anonKey, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value;
       },
-    }
-  );
+      set(name: string, value: string, options: CookieOptions) {
+        try {
+          cookieStore.set({ name, value, ...options });
+        } catch {
+          // Called from a Server Component during render — the middleware
+          // is what actually persists the refreshed session cookie in
+          // that case. Safe to ignore here.
+        }
+      },
+      remove(name: string, options: CookieOptions) {
+        try {
+          cookieStore.set({ name, value: '', ...options });
+        } catch {
+          // See note above.
+        }
+      },
+    },
+  });
 }

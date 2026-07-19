@@ -64,7 +64,11 @@ describe('Wellness Assessment System lifecycle (real RLS, real DB)', () => {
     const client = await signInAs(TEST_USERS.memberOne);
 
     // 1. Start (creates an in_progress draft; resume position is question 1 of category 1).
-    const started = await getOrCreateInProgressAssessment(client, TEST_USERS.memberOne.id, CHEK_HLC1_QUESTIONNAIRE);
+    const started = await getOrCreateInProgressAssessment(
+      client,
+      TEST_USERS.memberOne.id,
+      CHEK_HLC1_QUESTIONNAIRE
+    );
     expect(started.record.status).toBe('in_progress');
     expect(started.record.currentCategoryId).toBe('you_are_what_you_eat');
     expect(started.record.currentQuestionNumber).toBe(1);
@@ -73,7 +77,11 @@ describe('Wellness Assessment System lifecycle (real RLS, real DB)', () => {
 
     // Calling start again returns the SAME draft (the partial unique index in
     // migration 62 is what makes this true) rather than creating a second one.
-    const startedAgain = await getOrCreateInProgressAssessment(client, TEST_USERS.memberOne.id, CHEK_HLC1_QUESTIONNAIRE);
+    const startedAgain = await getOrCreateInProgressAssessment(
+      client,
+      TEST_USERS.memberOne.id,
+      CHEK_HLC1_QUESTIONNAIRE
+    );
     expect(startedAgain.record.id).toBe(assessmentId);
 
     // 2. Answer the first 3 questions of "You Are What You Eat", then stop — simulating leaving mid-assessment.
@@ -94,7 +102,11 @@ describe('Wellness Assessment System lifecycle (real RLS, real DB)', () => {
 
     // 3. Resume: findInProgressAssessment must reflect the 3 saved answers
     // and the server-persisted resume position must point at question 4.
-    const resumed = await findInProgressAssessment(client, TEST_USERS.memberOne.id, QUESTIONNAIRE_ID);
+    const resumed = await findInProgressAssessment(
+      client,
+      TEST_USERS.memberOne.id,
+      QUESTIONNAIRE_ID
+    );
     expect(resumed).not.toBeNull();
     expect(resumed!.record.currentCategoryId).toBe('you_are_what_you_eat');
     expect(resumed!.record.currentQuestionNumber).toBe(4);
@@ -106,7 +118,15 @@ describe('Wellness Assessment System lifecycle (real RLS, real DB)', () => {
       for (const question of category.questions) {
         const optionIndex = fullAnswers[category.id]![question.number]!;
         const points = question.options[optionIndex]!.points;
-        await saveAnswer(client, CHEK_HLC1_QUESTIONNAIRE, assessmentId, category.id, question.number, optionIndex, points);
+        await saveAnswer(
+          client,
+          CHEK_HLC1_QUESTIONNAIRE,
+          assessmentId,
+          category.id,
+          question.number,
+          optionIndex,
+          points
+        );
       }
     }
 
@@ -126,19 +146,30 @@ describe('Wellness Assessment System lifecycle (real RLS, real DB)', () => {
     expect(completed.record.totalPriority).toBe('low');
     expect(completed.categoryScores).toHaveLength(7);
     for (const expectedCategory of expected.categoryScores) {
-      const actual = completed.categoryScores.find((c) => c.categoryId === expectedCategory.categoryId);
+      const actual = completed.categoryScores.find(
+        (c) => c.categoryId === expectedCategory.categoryId
+      );
       expect(actual?.score).toBe(expectedCategory.score);
       expect(actual?.maxScore).toBe(expectedCategory.maxScore);
       expect(actual?.priority).toBe(expectedCategory.priority);
     }
 
     // No draft remains once completed.
-    expect(await findInProgressAssessment(client, TEST_USERS.memberOne.id, QUESTIONNAIRE_ID)).toBeNull();
+    expect(
+      await findInProgressAssessment(client, TEST_USERS.memberOne.id, QUESTIONNAIRE_ID)
+    ).toBeNull();
 
     // 6. Results dashboard read path.
-    const result = await getAssessmentResult(client, TEST_USERS.memberOne.id, assessmentId, CHEK_HLC1_QUESTIONNAIRE);
+    const result = await getAssessmentResult(
+      client,
+      TEST_USERS.memberOne.id,
+      assessmentId,
+      CHEK_HLC1_QUESTIONNAIRE
+    );
     expect(result?.record.totalScore).toBe(0);
-    expect(result?.categoryScores.find((c) => c.categoryId === 'stress')?.categoryName).toBe('Stress');
+    expect(result?.categoryScores.find((c) => c.categoryId === 'stress')?.categoryName).toBe(
+      'Stress'
+    );
 
     // Every answer is still readable post-completion (category detail's Q&A list depends on this).
     const persistedAnswers = await getAssessmentAnswers(client, assessmentId);
@@ -146,11 +177,20 @@ describe('Wellness Assessment System lifecycle (real RLS, real DB)', () => {
     expect(persistedAnswers.stress![1]).toBe(fullAnswers.stress![1]);
 
     // 7. History.
-    const history = await listCompletedAssessments(client, TEST_USERS.memberOne.id, QUESTIONNAIRE_ID);
+    const history = await listCompletedAssessments(
+      client,
+      TEST_USERS.memberOne.id,
+      QUESTIONNAIRE_ID
+    );
     expect(history.map((h) => h.id)).toContain(assessmentId);
 
     // 8. Category score history (the category-detail trend chart's data source).
-    const stressHistory = await getCategoryScoreHistory(client, TEST_USERS.memberOne.id, QUESTIONNAIRE_ID, 'stress');
+    const stressHistory = await getCategoryScoreHistory(
+      client,
+      TEST_USERS.memberOne.id,
+      QUESTIONNAIRE_ID,
+      'stress'
+    );
     expect(stressHistory).toHaveLength(1);
     expect(stressHistory[0]!.score).toBe(0);
   });
@@ -163,7 +203,11 @@ describe('Wellness Assessment System lifecycle (real RLS, real DB)', () => {
     expect(first.length).toBeGreaterThanOrEqual(1);
 
     // Second assessment: answer everything with the HIGHEST-point option this time, so the comparison has a real, non-zero delta to check.
-    const second = await getOrCreateInProgressAssessment(client, TEST_USERS.memberOne.id, CHEK_HLC1_QUESTIONNAIRE);
+    const second = await getOrCreateInProgressAssessment(
+      client,
+      TEST_USERS.memberOne.id,
+      CHEK_HLC1_QUESTIONNAIRE
+    );
     for (const category of CHEK_HLC1_QUESTIONNAIRE.categories) {
       for (const question of category.questions) {
         const maxIndex = question.options.findIndex((o) => o.points === question.maxPoints);
@@ -178,7 +222,11 @@ describe('Wellness Assessment System lifecycle (real RLS, real DB)', () => {
         );
       }
     }
-    const completedSecond = await completeAssessment(client, CHEK_HLC1_QUESTIONNAIRE, second.record.id);
+    const completedSecond = await completeAssessment(
+      client,
+      CHEK_HLC1_QUESTIONNAIRE,
+      second.record.id
+    );
     expect(completedSecond.record.totalScore).toBe(635);
     expect(completedSecond.record.totalPriority).toBe('high');
 
@@ -200,11 +248,15 @@ describe('Wellness Assessment System lifecycle (real RLS, real DB)', () => {
     expect(stressEntry.direction).toBe('regressed');
   });
 
-  it('RLS blocks a second member from reading or writing into the first member\'s assessment', async () => {
+  it("RLS blocks a second member from reading or writing into the first member's assessment", async () => {
     const memberOneClient = await signInAs(TEST_USERS.memberOne);
     const memberTwoClient = await signInAs(TEST_USERS.memberTwo);
 
-    const memberOneAssessments = await listCompletedAssessments(memberOneClient, TEST_USERS.memberOne.id, QUESTIONNAIRE_ID);
+    const memberOneAssessments = await listCompletedAssessments(
+      memberOneClient,
+      TEST_USERS.memberOne.id,
+      QUESTIONNAIRE_ID
+    );
     expect(memberOneAssessments.length).toBeGreaterThan(0);
     const targetAssessmentId = memberOneAssessments[0]!.id;
 
@@ -260,11 +312,17 @@ describe('Questionnaires page data source (real RLS, real DB)', () => {
       findInProgressAssessment(client, TEST_USERS.memberTwo.id, QUESTIONNAIRE_ID),
       getLatestCompletedAssessmentSummary(client, TEST_USERS.memberTwo.id, QUESTIONNAIRE_ID),
     ]);
-    expect(deriveQuestionnaireStatus(Boolean(draftBefore), Boolean(completedBefore))).toBe('not_started');
+    expect(deriveQuestionnaireStatus(Boolean(draftBefore), Boolean(completedBefore))).toBe(
+      'not_started'
+    );
 
     // 2. in_progress: exactly what tapping "Start" then answering one
     // question does.
-    const started = await getOrCreateInProgressAssessment(client, TEST_USERS.memberTwo.id, CHEK_HLC1_QUESTIONNAIRE);
+    const started = await getOrCreateInProgressAssessment(
+      client,
+      TEST_USERS.memberTwo.id,
+      CHEK_HLC1_QUESTIONNAIRE
+    );
     const flat = flattenQuestions(CHEK_HLC1_QUESTIONNAIRE);
     const firstQuestion = flat[0]!;
     await saveAnswer(
@@ -280,7 +338,9 @@ describe('Questionnaires page data source (real RLS, real DB)', () => {
       findInProgressAssessment(client, TEST_USERS.memberTwo.id, QUESTIONNAIRE_ID),
       getLatestCompletedAssessmentSummary(client, TEST_USERS.memberTwo.id, QUESTIONNAIRE_ID),
     ]);
-    expect(deriveQuestionnaireStatus(Boolean(draftDuring), Boolean(completedDuring))).toBe('in_progress');
+    expect(deriveQuestionnaireStatus(Boolean(draftDuring), Boolean(completedDuring))).toBe(
+      'in_progress'
+    );
 
     // 3. completed: exactly what "View Results" on the card depends on —
     // answer everything else, complete, then re-derive status the same way
@@ -290,7 +350,15 @@ describe('Questionnaires page data source (real RLS, real DB)', () => {
       for (const question of category.questions) {
         if (answers[category.id]?.[question.number] !== undefined) continue;
         const zeroIndex = question.options.findIndex((o) => o.points === 0);
-        await saveAnswer(client, CHEK_HLC1_QUESTIONNAIRE, started.record.id, category.id, question.number, zeroIndex, 0);
+        await saveAnswer(
+          client,
+          CHEK_HLC1_QUESTIONNAIRE,
+          started.record.id,
+          category.id,
+          question.number,
+          zeroIndex,
+          0
+        );
       }
     }
     await completeAssessment(client, CHEK_HLC1_QUESTIONNAIRE, started.record.id);
@@ -301,11 +369,17 @@ describe('Questionnaires page data source (real RLS, real DB)', () => {
     ]);
     expect(draftAfter).toBeNull();
     expect(completedAfter).not.toBeNull();
-    expect(deriveQuestionnaireStatus(Boolean(draftAfter), Boolean(completedAfter))).toBe('completed');
+    expect(deriveQuestionnaireStatus(Boolean(draftAfter), Boolean(completedAfter))).toBe(
+      'completed'
+    );
 
     // "Retake" (tapping Start again from a completed card) must open a
     // brand-new draft, not resurrect the completed one.
-    const retakeStarted = await getOrCreateInProgressAssessment(client, TEST_USERS.memberTwo.id, CHEK_HLC1_QUESTIONNAIRE);
+    const retakeStarted = await getOrCreateInProgressAssessment(
+      client,
+      TEST_USERS.memberTwo.id,
+      CHEK_HLC1_QUESTIONNAIRE
+    );
     expect(retakeStarted.record.id).not.toBe(started.record.id);
     expect(retakeStarted.record.status).toBe('in_progress');
   });

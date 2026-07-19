@@ -88,19 +88,25 @@ describe('proactiveCoachAgent.handle — wearable_synced (first-connect welcome)
   });
 
   it('produces nothing when isFirstSync is not set — a routine re-sync should stay silent', async () => {
-    const output = await proactiveCoachAgent.handle(fakeContext('wearable_synced', { provider: 'oura' }));
+    const output = await proactiveCoachAgent.handle(
+      fakeContext('wearable_synced', { provider: 'oura' })
+    );
     expect(output).toEqual([]);
   });
 
   it('produces nothing without a provider in the payload', async () => {
-    const output = await proactiveCoachAgent.handle(fakeContext('wearable_synced', { isFirstSync: true }));
+    const output = await proactiveCoachAgent.handle(
+      fakeContext('wearable_synced', { isFirstSync: true })
+    );
     expect(output).toEqual([]);
   });
 });
 
 describe('proactiveCoachAgent.handle — hrv_declining', () => {
   it('always produces the HRV-declining message — no source gate, since only wearables measure HRV', async () => {
-    const output = await proactiveCoachAgent.handle(fakeContext('hrv_declining', { values: [70, 60, 50] }));
+    const output = await proactiveCoachAgent.handle(
+      fakeContext('hrv_declining', { values: [70, 60, 50] })
+    );
     expect(output).toHaveLength(1);
     expect(output[0]!.insight?.title).toBe(hrvDecliningMessage().title);
     expect(output[0]!.action?.actionType).toBe('risk_alert');
@@ -125,7 +131,9 @@ describe('proactiveCoachAgent.handle — sleep_declined (shared event type, wear
 
 describe('proactiveCoachAgent.handle — activity_declined', () => {
   it('always produces the activity-declined message', async () => {
-    const output = await proactiveCoachAgent.handle(fakeContext('activity_declined', { values: [8000, 4000, 2000] }));
+    const output = await proactiveCoachAgent.handle(
+      fakeContext('activity_declined', { values: [8000, 4000, 2000] })
+    );
     expect(output).toHaveLength(1);
     expect(output[0]!.insight?.title).toBe(activityDeclinedMessage().title);
   });
@@ -161,7 +169,9 @@ describe('proactiveCoachAgent.handle — stress_increased / stress_decreased (sh
 
 describe('proactiveCoachAgent.handle — recovery_excellent', () => {
   it('always produces the excellent-recovery celebration message', async () => {
-    const output = await proactiveCoachAgent.handle(fakeContext('recovery_excellent', { readinessScore: 92 }));
+    const output = await proactiveCoachAgent.handle(
+      fakeContext('recovery_excellent', { readinessScore: 92 })
+    );
     expect(output).toHaveLength(1);
     expect(output[0]!.insight?.title).toBe(recoveryExcellentMessage().title);
     expect(output[0]!.action?.actionType).toBe('follow_up_recommendation');
@@ -169,9 +179,11 @@ describe('proactiveCoachAgent.handle — recovery_excellent', () => {
 });
 
 describe('proactiveCoachAgent.handle — no two conditions share an actionType', () => {
-  it('regression guard: every one of the 7 conditions gets its own AiActionType, so the dispatcher\'s per-(agent, actionType) cooldown can never suppress one condition because another just fired — see the module docblock for why a real first sync can trigger several of these on the same day', async () => {
+  it("regression guard: every one of the 7 conditions gets its own AiActionType, so the dispatcher's per-(agent, actionType) cooldown can never suppress one condition because another just fired — see the module docblock for why a real first sync can trigger several of these on the same day", async () => {
     const outputs = await Promise.all([
-      proactiveCoachAgent.handle(fakeContext('wearable_synced', { provider: 'oura', isFirstSync: true })),
+      proactiveCoachAgent.handle(
+        fakeContext('wearable_synced', { provider: 'oura', isFirstSync: true })
+      ),
       proactiveCoachAgent.handle(fakeContext('hrv_declining', {})),
       proactiveCoachAgent.handle(fakeContext('sleep_declined', { source: 'wearable' })),
       proactiveCoachAgent.handle(fakeContext('activity_declined', {})),

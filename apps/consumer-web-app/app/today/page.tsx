@@ -277,7 +277,10 @@ export default async function TodayPage() {
                 assessment above is done (or immediately, once a
                 baseline already exists). */}
             <div className="mt-6">
-              <ComprehensiveAssessmentCard baseline={baseline} movementCompleted={movementAnalyzed} />
+              <ComprehensiveAssessmentCard
+                baseline={baseline}
+                movementCompleted={movementAnalyzed}
+              />
             </div>
 
             {/* Today's Habits — read-only status; logged from the check-in. */}
@@ -362,7 +365,9 @@ export default async function TodayPage() {
                     strokeWidth={1.75}
                     aria-hidden="true"
                   />
-                  <p className={`text-sm leading-relaxed ${STATUS_STYLES[waterStatus(hydrationTotal)].text}`}>
+                  <p
+                    className={`text-sm leading-relaxed ${STATUS_STYLES[waterStatus(hydrationTotal)].text}`}
+                  >
                     {hydrationTotal > 0
                       ? `${hydrationTotal} of 8 cups of water today.`
                       : 'Log water as you drink it from your dashboard.'}
@@ -391,8 +396,7 @@ export default async function TodayPage() {
               <section className={`${CARD} mt-6 p-8`}>
                 <p className="text-base text-[#1B3A2D]">Nothing here yet.</p>
                 <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-                  Your coaching lesson for today hasn&apos;t been prepared yet — check back
-                  shortly.
+                  Your coaching lesson for today hasn&apos;t been prepared yet — check back shortly.
                 </p>
               </section>
             ) : (
@@ -491,7 +495,11 @@ export default async function TodayPage() {
                               </p>
                             </div>
                             <span className="flex items-center gap-1 text-xs text-[#6B7A72]">
-                              <Clock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                              <Clock
+                                className="h-3.5 w-3.5"
+                                strokeWidth={1.75}
+                                aria-hidden="true"
+                              />
                               {today.content.estimated_reading_minutes} min
                             </span>
                           </div>
@@ -587,7 +595,11 @@ export default async function TodayPage() {
                         style={stagger(sectionIndex++)}
                       >
                         <div className="flex items-center gap-2 text-[#6B7A72]">
-                          <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                          <MessageCircle
+                            className="h-4 w-4"
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                          />
                           <p className="text-sm font-semibold uppercase tracking-wider">
                             Talk to Root
                           </p>
@@ -683,7 +695,11 @@ export default async function TodayPage() {
                           )}
                           className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
                         >
-                          <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                          <MessageCircle
+                            className="h-3.5 w-3.5"
+                            strokeWidth={1.75}
+                            aria-hidden="true"
+                          />
                           Ask your coach why
                         </RootQuickLink>
                       </section>

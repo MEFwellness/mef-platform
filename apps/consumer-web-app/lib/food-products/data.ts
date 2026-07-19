@@ -166,15 +166,13 @@ export async function upsertFoodProductFromProvider(
 
   if (normalized.allergens.length > 0) {
     await supabase.from('product_allergens').delete().eq('product_id', productId);
-    const { error } = await supabase
-      .from('product_allergens')
-      .insert(
-        normalized.allergens.map((a) => ({
-          product_id: productId,
-          allergen: a.allergen,
-          kind: a.kind,
-        }))
-      );
+    const { error } = await supabase.from('product_allergens').insert(
+      normalized.allergens.map((a) => ({
+        product_id: productId,
+        allergen: a.allergen,
+        kind: a.kind,
+      }))
+    );
     if (error)
       console.error('upsertFoodProductFromProvider: product_allergens insert failed', error);
   }
@@ -243,7 +241,10 @@ export async function insertVerifiedFoodProductFromLabelScan(
     updated_at: now,
   });
   if (productError) {
-    console.error('insertVerifiedFoodProductFromLabelScan: food_products insert failed', productError);
+    console.error(
+      'insertVerifiedFoodProductFromLabelScan: food_products insert failed',
+      productError
+    );
     return null;
   }
 
@@ -267,7 +268,10 @@ export async function insertVerifiedFoodProductFromLabelScan(
     updated_at: now,
   });
   if (nutrientsError) {
-    console.error('insertVerifiedFoodProductFromLabelScan: product_nutrients insert failed', nutrientsError);
+    console.error(
+      'insertVerifiedFoodProductFromLabelScan: product_nutrients insert failed',
+      nutrientsError
+    );
   }
 
   if (input.ingredientsText) {
@@ -284,7 +288,10 @@ export async function insertVerifiedFoodProductFromLabelScan(
       updated_at: now,
     });
     if (ingredientsError) {
-      console.error('insertVerifiedFoodProductFromLabelScan: product_ingredients insert failed', ingredientsError);
+      console.error(
+        'insertVerifiedFoodProductFromLabelScan: product_ingredients insert failed',
+        ingredientsError
+      );
     }
   }
 
@@ -296,10 +303,17 @@ export async function insertVerifiedFoodProductFromLabelScan(
       .filter(Boolean);
     if (allergenNames.length > 0) {
       const { error: allergensError } = await supabase.from('product_allergens').insert(
-        allergenNames.map((allergen) => ({ product_id: productId, allergen, kind: 'contains' as const }))
+        allergenNames.map((allergen) => ({
+          product_id: productId,
+          allergen,
+          kind: 'contains' as const,
+        }))
       );
       if (allergensError) {
-        console.error('insertVerifiedFoodProductFromLabelScan: product_allergens insert failed', allergensError);
+        console.error(
+          'insertVerifiedFoodProductFromLabelScan: product_allergens insert failed',
+          allergensError
+        );
       }
     }
   }

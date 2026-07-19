@@ -26,7 +26,9 @@ function findValue(entries: RegistryEntry[], code: string): number | null {
 }
 
 /** Null when the member has no active wearable registry entries at all — the honest empty state every consumer should render, never a zeroed-out snapshot. */
-export function buildWearableSnapshot(registryEntries: RegistryEntry[]): WearableDailySnapshot | null {
+export function buildWearableSnapshot(
+  registryEntries: RegistryEntry[]
+): WearableDailySnapshot | null {
   const wearableEntries = registryEntries.filter((e) => e.domain === 'wearable');
   if (wearableEntries.length === 0) return null;
 

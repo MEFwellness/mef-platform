@@ -26,7 +26,11 @@ const EDUCATION_KEYWORDS = ['explain', 'why', 'understand', 'education', 'learn 
 function inferTonePreference(
   narrativeItems: NarrativeItem[],
   conversationMemory: ConversationMemoryItem[]
-): { tone: CoachingStyleComputation['tonePreference']; matchCount: number; matchedText: string | null } {
+): {
+  tone: CoachingStyleComputation['tonePreference'];
+  matchCount: number;
+  matchedText: string | null;
+} {
   const texts = [
     ...narrativeItems
       .filter((n) => n.category === 'coaching_preferences' && n.status === 'active')
@@ -56,14 +60,16 @@ function inferTonePreference(
 
   const best = Math.max(encouragement, direct, education);
   if (best === 0) return { tone: 'unclear', matchCount: 0, matchedText: null };
-  if (best === encouragement) return { tone: 'encouragement', matchCount: encouragement, matchedText };
+  if (best === encouragement)
+    return { tone: 'encouragement', matchCount: encouragement, matchedText };
   if (best === direct) return { tone: 'direct', matchCount: direct, matchedText };
   return { tone: 'education_first', matchCount: education, matchedText };
 }
 
-function inferDetailPreference(
-  historyPairs: FeedHistoryPair[]
-): { detail: CoachingStyleComputation['detailPreference']; sampleSize: number } {
+function inferDetailPreference(historyPairs: FeedHistoryPair[]): {
+  detail: CoachingStyleComputation['detailPreference'];
+  sampleSize: number;
+} {
   const rated = historyPairs.filter((p) => p.feedItem.helpful !== null && p.content !== null);
   const helpful = rated.filter((p) => p.feedItem.helpful === true);
   const notHelpful = rated.filter((p) => p.feedItem.helpful === false);
@@ -72,7 +78,9 @@ function inferDetailPreference(
   }
 
   const helpfulAvgMinutes = average(helpful.map((p) => p.content!.estimated_reading_minutes))!;
-  const notHelpfulAvgMinutes = average(notHelpful.map((p) => p.content!.estimated_reading_minutes))!;
+  const notHelpfulAvgMinutes = average(
+    notHelpful.map((p) => p.content!.estimated_reading_minutes)
+  )!;
   const diff = notHelpfulAvgMinutes - helpfulAvgMinutes;
 
   if (diff >= 3) return { detail: 'brief', sampleSize: rated.length };
@@ -80,9 +88,10 @@ function inferDetailPreference(
   return { detail: 'unclear', sampleSize: rated.length };
 }
 
-function inferTaskLoadPreference(
-  historyPairs: FeedHistoryPair[]
-): { taskLoad: CoachingStyleComputation['taskLoadPreference']; sampleSize: number } {
+function inferTaskLoadPreference(historyPairs: FeedHistoryPair[]): {
+  taskLoad: CoachingStyleComputation['taskLoadPreference'];
+  sampleSize: number;
+} {
   const withContent = historyPairs.filter((p) => p.content !== null);
   const practice = withContent.filter((p) => p.content!.content_format === 'practice');
   const single = withContent.filter((p) => p.content!.content_format !== 'practice');
@@ -121,14 +130,21 @@ export function computeCoachingStyle(
     sweetSpotMinutes !== null,
   ].filter(Boolean).length;
 
-  const confidence = signalsFound === 0 ? 0 : confidenceFromSample(evidenceCount, 0.4 + signalsFound * 0.05, 25, 0.85);
+  const confidence =
+    signalsFound === 0
+      ? 0
+      : confidenceFromSample(evidenceCount, 0.4 + signalsFound * 0.05, 25, 0.85);
 
   const rationaleParts: string[] = [];
   if (toneResult.tone !== 'unclear') {
-    rationaleParts.push(`Coaching-preference history suggests a "${toneResult.tone.replace('_', ' ')}" tone.`);
+    rationaleParts.push(
+      `Coaching-preference history suggests a "${toneResult.tone.replace('_', ' ')}" tone.`
+    );
   }
   if (detailResult.detail !== 'unclear') {
-    rationaleParts.push(`Helpfulness ratings suggest a preference for ${detailResult.detail} content.`);
+    rationaleParts.push(
+      `Helpfulness ratings suggest a preference for ${detailResult.detail} content.`
+    );
   }
   if (taskLoadResult.taskLoad !== 'unclear') {
     rationaleParts.push(

@@ -115,3 +115,53 @@ export async function listRegistryEntriesForMember(
   }
   return data as RegistryEntry[];
 }
+
+/**
+ * Domain- and date-ranged variant of listRegistryEntriesForMember. Every
+ * current consumer of that function pulls the member's whole active set
+ * and filters in memory, which is fine at today's registry volume but
+ * doesn't scale to a consumer that only cares about one domain over a
+ * rolling window — e.g. a future Coaching Intelligence Engine source
+ * provider (lib/coaching-insights/sources/) reading domain='wearable' or
+ * domain='sleep' entries for the last N days once those domains have real
+ * producers. Filters on `recorded_at` (when the underlying event actually
+ * happened), not `created_at` (when the row was written), since a
+ * consumer reasoning about "what happened between these dates" needs the
+ * former.
+ */
+export async function listRegistryEntriesForMemberInRange(
+  supabase: SupabaseClient,
+  memberId: string,
+  options: {
+    domains?: RegistryEntry['domain'][];
+    sinceLocalDate?: string;
+    untilLocalDate?: string;
+    statusFilter?: RegistryEntryStatus[];
+  } = {}
+): Promise<RegistryEntry[]> {
+  let query = supabase
+    .from('registry_entries')
+    .select('*')
+    .eq('member_id', memberId)
+    .order('recorded_at', { ascending: false });
+
+  if (options.domains && options.domains.length > 0) {
+    query = query.in('domain', options.domains);
+  }
+  if (options.sinceLocalDate) {
+    query = query.gte('recorded_at', options.sinceLocalDate);
+  }
+  if (options.untilLocalDate) {
+    query = query.lte('recorded_at', options.untilLocalDate);
+  }
+  if (options.statusFilter && options.statusFilter.length > 0) {
+    query = query.in('status', options.statusFilter);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('listRegistryEntriesForMemberInRange failed', error);
+    return [];
+  }
+  return data as RegistryEntry[];
+}

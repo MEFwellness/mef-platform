@@ -77,8 +77,10 @@ const MACRO_FIELDS: Array<{ key: NumericFieldKey; label: string; unit: string }>
 ];
 
 function confidenceLabel(value: number | undefined): { text: string; className: string } {
-  if (value === undefined) return { text: 'Not read', className: 'bg-[#1B3A2D]/[0.06] text-[#6B7A72]' };
-  if (value >= 0.75) return { text: 'High confidence', className: 'bg-[#1B3A2D]/[0.08] text-[#1B3A2D]' };
+  if (value === undefined)
+    return { text: 'Not read', className: 'bg-[#1B3A2D]/[0.06] text-[#6B7A72]' };
+  if (value >= 0.75)
+    return { text: 'High confidence', className: 'bg-[#1B3A2D]/[0.08] text-[#1B3A2D]' };
   if (value >= 0.4) return { text: 'Likely', className: 'bg-[#F5B700]/15 text-[#854D0E]' };
   return { text: 'Needs confirmation', className: 'bg-[#B45309]/15 text-[#B45309]' };
 }
@@ -87,7 +89,11 @@ type Props = {
   scanId: string;
   initialLabelScan: FoodLensLabelScan;
   initialWarnings: LabelValidationWarning[];
-  captures: Array<{ captureId: string; signedViewUrl: string | null; labelPhotoRole: string | null }>;
+  captures: Array<{
+    captureId: string;
+    signedViewUrl: string | null;
+    labelPhotoRole: string | null;
+  }>;
 };
 
 export function LabelConfirmForm({ scanId, initialLabelScan, initialWarnings, captures }: Props) {
@@ -135,10 +141,17 @@ export function LabelConfirmForm({ scanId, initialLabelScan, initialWarnings, ca
       {captures.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {captures.map((c) => (
-            <div key={c.captureId} className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#1B3A2D]/[0.06]">
+            <div
+              key={c.captureId}
+              className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#1B3A2D]/[0.06]"
+            >
               {c.signedViewUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.signedViewUrl} alt={c.labelPhotoRole ?? 'label photo'} className="h-full w-full object-cover" />
+                <img
+                  src={c.signedViewUrl}
+                  alt={c.labelPhotoRole ?? 'label photo'}
+                  className="h-full w-full object-cover"
+                />
               )}
             </div>
           ))}
@@ -149,7 +162,11 @@ export function LabelConfirmForm({ scanId, initialLabelScan, initialWarnings, ca
         <div className={`${CARD} space-y-2 p-4`}>
           {warnings.map((w) => (
             <div key={w.field} className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#B45309]" strokeWidth={1.75} aria-hidden="true" />
+              <AlertTriangle
+                className="mt-0.5 h-4 w-4 shrink-0 text-[#B45309]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
               <p className="text-xs leading-relaxed text-[#854D0E]">{w.message}</p>
             </div>
           ))}
@@ -195,7 +212,9 @@ export function LabelConfirmForm({ scanId, initialLabelScan, initialWarnings, ca
       </div>
 
       <div className={`${CARD} space-y-4 p-5`}>
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Nutrition Facts</p>
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+          Nutrition Facts
+        </p>
         {MACRO_FIELDS.map((f) => (
           <NumberField
             key={f.key}
@@ -262,7 +281,9 @@ function FieldShell({
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <label className="text-sm font-medium text-[#1B3A2D]">{label}</label>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.className}`}>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.className}`}
+        >
           {badge.text}
         </span>
       </div>

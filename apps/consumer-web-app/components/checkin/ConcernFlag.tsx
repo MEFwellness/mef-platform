@@ -52,7 +52,8 @@ export function ConcernFlag() {
         >
           {justSent ? (
             <>
-              <Check className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> Shared with your coach
+              <Check className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> Shared with your
+              coach
             </>
           ) : (
             'Flag a new or worsening concern'

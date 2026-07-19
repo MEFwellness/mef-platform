@@ -23,11 +23,7 @@ const CATEGORY_OPTIONS = [
   { value: 'mixed', label: 'Mixed' },
 ];
 
-export function AddPantryItemForm({
-  onAdded,
-}: {
-  onAdded: (item: PantryItemWithProduct) => void;
-}) {
+export function AddPantryItemForm({ onAdded }: { onAdded: (item: PantryItemWithProduct) => void }) {
   const [name, setName] = useState('');
   const [quantityText, setQuantityText] = useState('');
   const [category, setCategory] = useState('');

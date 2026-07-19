@@ -52,7 +52,8 @@ const MODE_OPTIONS: Array<{
     source: 'menu_text',
     icon: FileText,
     title: 'Paste menu text',
-    description: 'Copy and paste a menu (or part of one) — Root can look for lighter-prep alternatives in it too.',
+    description:
+      'Copy and paste a menu (or part of one) — Root can look for lighter-prep alternatives in it too.',
   },
   {
     mode: 'menu_photo',
@@ -111,7 +112,9 @@ export function RestaurantEntryFlow() {
 
       router.push(`/food-lens/restaurant/${created.entry.id}` as Route);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      );
       setMode('error');
       setSubmitting(false);
     }
@@ -155,7 +158,9 @@ export function RestaurantEntryFlow() {
 
       await finishEntry(source, { scanId });
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      );
       setMode('error');
       setSubmitting(false);
     }
@@ -173,11 +178,15 @@ export function RestaurantEntryFlow() {
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
           Restaurants rarely publish full nutrition data, so this is coaching based on the best
-          information available — never a guess dressed up as a fact. You&apos;ll always see
-          exactly where the analysis came from.
+          information available — never a guess dressed up as a fact. You&apos;ll always see exactly
+          where the analysis came from.
         </p>
         <div className="mt-4 flex items-start gap-2 rounded-2xl bg-[#1B3A2D]/[0.04] p-3">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+          <ShieldCheck
+            className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <p className="text-xs leading-relaxed text-[#6B7A72]">
             Choose whatever information you actually have — just a name, pasted menu text, or a
             photo. More detail means a more specific (though still estimated) analysis.
@@ -197,7 +206,9 @@ export function RestaurantEntryFlow() {
               </span>
               <span>
                 <span className="block text-sm font-semibold text-[#1B3A2D]">{title}</span>
-                <span className="mt-0.5 block text-xs leading-relaxed text-[#6B7A72]">{description}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-[#6B7A72]">
+                  {description}
+                </span>
               </span>
             </button>
           ))}
@@ -318,11 +329,15 @@ export function RestaurantEntryFlow() {
         )}
 
         <MealCamera
-          onCapture={(blob) => handlePhotoCaptured(mode === 'menu_photo' ? 'menu_photo' : 'meal_photo', blob)}
+          onCapture={(blob) =>
+            handlePhotoCaptured(mode === 'menu_photo' ? 'menu_photo' : 'meal_photo', blob)
+          }
           busy={submitting}
         />
         {submitting && (
-          <p className="text-center text-xs text-[#6B7A72]">Getting Root&apos;s take on this one…</p>
+          <p className="text-center text-xs text-[#6B7A72]">
+            Getting Root&apos;s take on this one…
+          </p>
         )}
       </div>
     );

@@ -7,7 +7,10 @@
  * the coaching-style dimension is a rollup of confidence, not "goodness."
  */
 import { describe, it, expect } from 'vitest';
-import { computeAllProfileDimensions, computeCoachingStyleDimension } from '../lib/intelligence-core/dimensions';
+import {
+  computeAllProfileDimensions,
+  computeCoachingStyleDimension,
+} from '../lib/intelligence-core/dimensions';
 import type {
   LongitudinalTrend,
   MemberHealthProfile,
@@ -17,7 +20,10 @@ import type { CoachingStyleComputation } from '../lib/intelligence-core/types';
 
 const AS_OF = '2026-06-30';
 
-function trend(area: LongitudinalTrend['area'], overrides: Partial<LongitudinalTrend> = {}): LongitudinalTrend {
+function trend(
+  area: LongitudinalTrend['area'],
+  overrides: Partial<LongitudinalTrend> = {}
+): LongitudinalTrend {
   return {
     area,
     direction: 'stable',
@@ -42,7 +48,12 @@ function profile(overrides: Partial<MemberHealthProfile> = {}): MemberHealthProf
     baseline: null,
     latestReassessment: null,
     comparison: [],
-    progressSummary: { biggestImprovement: null, needsAttention: null, stableAreas: [], suggestedFocusAction: null },
+    progressSummary: {
+      biggestImprovement: null,
+      needsAttention: null,
+      stableAreas: [],
+      suggestedFocusAction: null,
+    },
     narrativeItems: [],
     wellnessInsights: [],
     feedHistoryPairs: [],
@@ -62,7 +73,14 @@ function profile(overrides: Partial<MemberHealthProfile> = {}): MemberHealthProf
       wearableSnapshot: null,
       generatedAt: '2026-06-30T00:00:00.000Z',
     },
-    streak: { currentStreak: 5, longestStreak: 10, daysSinceLastCheckin: 0, checkedInToday: true, justRecovered: false, isLongestInWindow: false },
+    streak: {
+      currentStreak: 5,
+      longestStreak: 10,
+      daysSinceLastCheckin: 0,
+      checkedInToday: true,
+      justRecovered: false,
+      isLongestInWindow: false,
+    },
     adherence: { level: 'typical', rate: 0.7, sampleSize: 10 },
     restrictedTopics: [],
     openSafetyReviewCount: 0,
@@ -143,8 +161,14 @@ describe('computeAllProfileDimensions', () => {
       profile(),
       report({
         longitudinalTrends: [
-          trend('energy', { points: [{ window: 'last_30_days', averageScore: 60, sampleSize: 12, status: 'attention' }] }),
-          trend('pain', { points: [{ window: 'last_30_days', averageScore: 100, sampleSize: 12, status: 'good' }] }),
+          trend('energy', {
+            points: [
+              { window: 'last_30_days', averageScore: 60, sampleSize: 12, status: 'attention' },
+            ],
+          }),
+          trend('pain', {
+            points: [{ window: 'last_30_days', averageScore: 100, sampleSize: 12, status: 'good' }],
+          }),
         ],
       })
     );
@@ -153,16 +177,34 @@ describe('computeAllProfileDimensions', () => {
   });
 
   it('lifestyle_consistency reads real feed adherence, insufficient_data with no rate yet', () => {
-    const withRate = computeAllProfileDimensions(profile({ adherence: { level: 'high', rate: 0.9, sampleSize: 14 } }), report());
+    const withRate = computeAllProfileDimensions(
+      profile({ adherence: { level: 'high', rate: 0.9, sampleSize: 14 } }),
+      report()
+    );
     expect(withRate.find((d) => d.dimension === 'lifestyle_consistency')!.score).toBe(90);
 
-    const withoutRate = computeAllProfileDimensions(profile({ adherence: { level: 'typical', rate: null, sampleSize: 0 } }), report());
-    expect(withoutRate.find((d) => d.dimension === 'lifestyle_consistency')!.level).toBe('insufficient_data');
+    const withoutRate = computeAllProfileDimensions(
+      profile({ adherence: { level: 'typical', rate: null, sampleSize: 0 } }),
+      report()
+    );
+    expect(withoutRate.find((d) => d.dimension === 'lifestyle_consistency')!.level).toBe(
+      'insufficient_data'
+    );
   });
 
   it('habit_reliability blends current-vs-longest streak with adherence', () => {
     const dims = computeAllProfileDimensions(
-      profile({ streak: { currentStreak: 10, longestStreak: 10, daysSinceLastCheckin: 0, checkedInToday: true, justRecovered: false, isLongestInWindow: true }, adherence: { level: 'high', rate: 1, sampleSize: 10 } }),
+      profile({
+        streak: {
+          currentStreak: 10,
+          longestStreak: 10,
+          daysSinceLastCheckin: 0,
+          checkedInToday: true,
+          justRecovered: false,
+          isLongestInWindow: true,
+        },
+        adherence: { level: 'high', rate: 1, sampleSize: 10 },
+      }),
       report()
     );
     expect(dims.find((d) => d.dimension === 'habit_reliability')!.score).toBe(100);
@@ -228,7 +270,9 @@ describe('computeCoachingStyleDimension', () => {
   }
 
   it('is a rollup of confidence (how well-understood), not a good/bad axis', () => {
-    const highConfidence = computeCoachingStyleDimension(style({ confidence: 0.9, evidenceCount: 20 }));
+    const highConfidence = computeCoachingStyleDimension(
+      style({ confidence: 0.9, evidenceCount: 20 })
+    );
     expect(highConfidence.score).toBe(90);
     expect(highConfidence.level).toBe('very_high');
 

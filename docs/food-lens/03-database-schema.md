@@ -13,7 +13,7 @@ number by the time this is implemented may be different).
 
 - snake_case, feature-prefixed table names (`food_lens_*`).
 - `id uuid primary key default gen_random_uuid()`, `member_id uuid not null references
-  auth.users(id) on delete cascade`, `created_at timestamptz not null default now()`.
+auth.users(id) on delete cascade`, `created_at timestamptz not null default now()`.
 - Enum-like fields are `text not null check (x in (...))`, extended additively in later migrations
   (drop + re-add constraint), never destructively renamed.
 - **Append-only, supersede-not-mutate** for anything a correction can change

@@ -51,7 +51,9 @@ export function computeDailyCoachingMessage(input: DailyCoachingInput): DailyCoa
   if (totalLogged === 0) {
     if (hour >= 14) {
       return {
-        messages: ['You have not logged much today, so there is not enough information for a reliable summary.'],
+        messages: [
+          'You have not logged much today, so there is not enough information for a reliable summary.',
+        ],
         insufficientToday: true,
       };
     }
@@ -69,7 +71,8 @@ export function computeDailyCoachingMessage(input: DailyCoachingInput): DailyCoa
     input.mealQualityRatings.some((r) => r.hasMeaningfulFiber);
   const hasMeaningfulFatToday = input.mealQualityRatings.some((r) => r.hasHealthyFat);
   const highlyProcessedCount =
-    input.logEntries.filter((e) => e.packagedFoodSignal?.processingLabel === 'highly_processed').length +
+    input.logEntries.filter((e) => e.packagedFoodSignal?.processingLabel === 'highly_processed')
+      .length +
     input.mealQualityRatings.filter((r) => r.processingLevel === 'ultra_processed').length;
 
   // Protein light so far — only worth surfacing once enough of the day has
@@ -79,7 +82,8 @@ export function computeDailyCoachingMessage(input: DailyCoachingInput): DailyCoa
     candidates.push({
       priority: 1,
       strength: 0.7,
-      sentence: 'Protein has been light so far today. Consider including a meaningful protein source at your next meal.',
+      sentence:
+        'Protein has been light so far today. Consider including a meaningful protein source at your next meal.',
     });
   }
 
@@ -99,7 +103,8 @@ export function computeDailyCoachingMessage(input: DailyCoachingInput): DailyCoa
     candidates.push({
       priority: 3,
       strength: 0.55,
-      sentence: "You've had a few highly processed foods today. A simpler next meal may offer better balance.",
+      sentence:
+        "You've had a few highly processed foods today. A simpler next meal may offer better balance.",
     });
   }
 
@@ -111,7 +116,8 @@ export function computeDailyCoachingMessage(input: DailyCoachingInput): DailyCoa
     candidates.push({
       priority: 0,
       strength: 0.65,
-      sentence: 'You trained today. Your next meal may benefit from protein, carbohydrates, and fluids.',
+      sentence:
+        'You trained today. Your next meal may benefit from protein, carbohydrates, and fluids.',
     });
   }
 

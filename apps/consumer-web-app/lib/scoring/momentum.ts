@@ -43,7 +43,9 @@ export function computeMomentum(
   const delta = recent.score - prior.score;
   const score = Math.max(0, Math.min(100, Math.round(50 + delta)));
   const state: MomentumState = delta > 2 ? 'improving' : delta < -2 ? 'declining' : 'stable';
-  const confidenceLevel = confidenceLevelFromRatio(Math.min(recent.coverageRatio, prior.coverageRatio));
+  const confidenceLevel = confidenceLevelFromRatio(
+    Math.min(recent.coverageRatio, prior.coverageRatio)
+  );
 
   return { score, state, confidenceLevel };
 }

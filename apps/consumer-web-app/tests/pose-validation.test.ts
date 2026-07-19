@@ -12,14 +12,20 @@ import {
   evaluateMultiPersonCandidate,
   type PoseValidationOptions,
 } from '../lib/body-assessment/poseValidation';
-import { toCoreLandmarks, POSE_LANDMARK_INDEX, type RawPoseLandmark } from '../lib/body-assessment/poseTypes';
+import {
+  toCoreLandmarks,
+  POSE_LANDMARK_INDEX,
+  type RawPoseLandmark,
+} from '../lib/body-assessment/poseTypes';
 import { computePoseMetrics } from '../lib/body-assessment/poseMetrics';
 
 const FRONT: PoseValidationOptions = { requiresStanding: true, captureType: 'front' };
 const LEFT_SIDE: PoseValidationOptions = { requiresStanding: true, captureType: 'left_side' };
 const BACK: PoseValidationOptions = { requiresStanding: true, captureType: 'back' };
 
-function makePose(overrides: Partial<Record<keyof typeof POSE_LANDMARK_INDEX, Partial<RawPoseLandmark>>> = {}): RawPoseLandmark[] {
+function makePose(
+  overrides: Partial<Record<keyof typeof POSE_LANDMARK_INDEX, Partial<RawPoseLandmark>>> = {}
+): RawPoseLandmark[] {
   // A well-framed, centered, standing, front-facing adult — every check should pass on this unless overridden.
   const base: Record<keyof typeof POSE_LANDMARK_INDEX, RawPoseLandmark> = {
     nose: { x: 0.5, y: 0.12, visibility: 0.98 },
@@ -84,7 +90,7 @@ describe('validatePoseFrame', () => {
     expect(result.ok).toBe(false);
   });
 
-  it('validates the primary subject normally even when a second, identical (duplicate/ghost) detection is present — multi-person confirmation is a separate, temporally-hysteresis-protected layer, not this function\'s job', () => {
+  it("validates the primary subject normally even when a second, identical (duplicate/ghost) detection is present — multi-person confirmation is a separate, temporally-hysteresis-protected layer, not this function's job", () => {
     const result = validatePoseFrame([makePose(), makePose()], FRONT);
     expect(result.status).toBe('ready');
   });

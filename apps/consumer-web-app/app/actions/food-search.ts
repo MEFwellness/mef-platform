@@ -19,7 +19,10 @@ import {
   searchCachedFoodProducts,
   type FoodSearchResult,
 } from '@/lib/food-products/search';
-import { getFoodProductProvider, resolveFoodProductProviderChain } from '@/lib/food-products/providers/registry';
+import {
+  getFoodProductProvider,
+  resolveFoodProductProviderChain,
+} from '@/lib/food-products/providers/registry';
 import { findCachedFoodProduct, upsertFoodProductFromProvider } from '@/lib/food-products/data';
 import { validateBarcode } from '@/lib/food-products/barcode';
 import { runProductAnalysisForScan } from '@/lib/food-products/analyze';
@@ -33,10 +36,17 @@ import {
   listMySavedMeals,
   removeFavoriteByProduct,
 } from '@/lib/food-products/savedMeals';
-import { insertFoodLensScan, listCurrentFoodLensDetectedItems, getFoodLensScan } from '@/lib/food-lens/data';
+import {
+  insertFoodLensScan,
+  listCurrentFoodLensDetectedItems,
+  getFoodLensScan,
+} from '@/lib/food-lens/data';
 import { insertFoodLogEntry } from '@/lib/food-products/data';
 
-async function requireMember(): Promise<{ supabase: ReturnType<typeof createClient>; userId: string } | null> {
+async function requireMember(): Promise<{
+  supabase: ReturnType<typeof createClient>;
+  userId: string;
+} | null> {
   const supabase = createClient();
   const {
     data: { user },
@@ -45,10 +55,16 @@ async function requireMember(): Promise<{ supabase: ReturnType<typeof createClie
   return { supabase, userId: user.id };
 }
 
-async function memberLocalDate(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+async function memberLocalDate(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<string> {
   const { data } = await supabase.from('profiles').select('timezone').eq('id', userId).single();
   const timezone = data?.timezone ?? 'America/New_York';
-  return resolveLocalDate(new Date(new Date().toLocaleString('en-US', { timeZone: timezone })), false);
+  return resolveLocalDate(
+    new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
+    false
+  );
 }
 
 // ---- Search ----
@@ -74,7 +90,9 @@ export async function searchFoodsAction(query: string = ''): Promise<FoodSearchR
     8
   );
 
-  const shownIds = [...recent, ...frequent].map((r) => r.productId).filter((id): id is string => Boolean(id));
+  const shownIds = [...recent, ...frequent]
+    .map((r) => r.productId)
+    .filter((id): id is string => Boolean(id));
 
   let cached: FoodSearchResult[] = [];
   let external: FoodSearchResult[] = [];
@@ -92,7 +110,9 @@ export async function searchFoodsAction(query: string = ''): Promise<FoodSearchR
         try {
           const hits = await provider.searchByName(trimmed, 10 - cached.length);
           external = hits
-            .filter((h) => !shownIds.includes(h.barcode) && !cached.some((c) => c.barcode === h.barcode))
+            .filter(
+              (h) => !shownIds.includes(h.barcode) && !cached.some((c) => c.barcode === h.barcode)
+            )
             .map((h) => ({
               source: 'external' as const,
               productId: null,
@@ -163,14 +183,17 @@ export async function openFoodSearchResultAction(
 
   const localDate = await memberLocalDate(supabase, userId);
   const result = await runProductAnalysisForScan(supabase, userId, localDate, scan.id, productId);
-  if (result.status !== 'analyzed') return { error: result.error ?? 'Could not analyze this product.' };
+  if (result.status !== 'analyzed')
+    return { error: result.error ?? 'Could not analyze this product.' };
 
   return { scanId: scan.id };
 }
 
 // ---- Favorites ----
 
-export async function toggleFavoriteProductAction(productId: string): Promise<ActionResult & { isFavorited?: boolean }> {
+export async function toggleFavoriteProductAction(
+  productId: string
+): Promise<ActionResult & { isFavorited?: boolean }> {
   const ctx = await requireMember();
   if (!ctx) return { error: 'Not signed in.' };
   const { supabase, userId } = ctx;
@@ -180,13 +203,20 @@ export async function toggleFavoriteProductAction(productId: string): Promise<Ac
     const ok = await removeFavoriteByProduct(supabase, userId, productId);
     return ok ? { isFavorited: false } : { error: 'Could not remove favorite.' };
   }
-  const created = await addFavorite(supabase, { memberId: userId, favoriteType: 'product' as FoodFavoriteType, productId });
+  const created = await addFavorite(supabase, {
+    memberId: userId,
+    favoriteType: 'product' as FoodFavoriteType,
+    productId,
+  });
   return created ? { isFavorited: true } : { error: 'Could not save favorite.' };
 }
 
 // ---- Saved meals ----
 
-export async function saveMealFromScanAction(scanId: string, name: string): Promise<ActionResult & { savedMeal?: SavedMeal }> {
+export async function saveMealFromScanAction(
+  scanId: string,
+  name: string
+): Promise<ActionResult & { savedMeal?: SavedMeal }> {
   const ctx = await requireMember();
   if (!ctx) return { error: 'Not signed in.' };
   const { supabase, userId } = ctx;
@@ -194,7 +224,9 @@ export async function saveMealFromScanAction(scanId: string, name: string): Prom
   const scan = await getFoodLensScan(supabase, scanId);
   if (!scan || scan.member_id !== userId) return { error: 'Scan not found.' };
 
-  const items = (await listCurrentFoodLensDetectedItems(supabase, scanId)).filter((i) => i.status === 'confirmed');
+  const items = (await listCurrentFoodLensDetectedItems(supabase, scanId)).filter(
+    (i) => i.status === 'confirmed'
+  );
   if (items.length === 0) return { error: 'Confirm at least one food before saving this meal.' };
 
   const savedMeal = await insertSavedMealFromDetectedItems(supabase, {

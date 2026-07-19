@@ -87,7 +87,11 @@ export function ProfileSheet({
               onClick={onClose}
               className="flex items-center gap-3 rounded-2xl px-3 py-3.5 text-[15px] font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.05]"
             >
-              <Icon className="h-5 w-5 shrink-0 text-[#1B3A2D]/60" strokeWidth={1.75} aria-hidden="true" />
+              <Icon
+                className="h-5 w-5 shrink-0 text-[#1B3A2D]/60"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
               {label}
             </Link>
           ))}

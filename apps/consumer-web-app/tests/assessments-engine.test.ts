@@ -24,8 +24,16 @@ import {
   totalAnsweredCount,
   totalQuestionCount,
 } from '../lib/assessments/engine/scoring';
-import { findFirstUnanswered, flattenQuestions, getFlatIndex } from '../lib/assessments/engine/navigation';
-import type { Category, CategoryAnswers, QuestionnaireAnswers } from '../lib/assessments/engine/types';
+import {
+  findFirstUnanswered,
+  flattenQuestions,
+  getFlatIndex,
+} from '../lib/assessments/engine/navigation';
+import type {
+  Category,
+  CategoryAnswers,
+  QuestionnaireAnswers,
+} from '../lib/assessments/engine/types';
 
 function minAnswers(category: Category): CategoryAnswers {
   const answers: CategoryAnswers = {};
@@ -264,7 +272,9 @@ describe('registry', () => {
   });
 
   it('throws for an unknown id, and findAssessmentDefinition returns null instead', () => {
-    expect(() => getAssessmentDefinition('not-a-real-questionnaire')).toThrow(/Unknown questionnaire/);
+    expect(() => getAssessmentDefinition('not-a-real-questionnaire')).toThrow(
+      /Unknown questionnaire/
+    );
     expect(findAssessmentDefinition('not-a-real-questionnaire')).toBeNull();
   });
 });

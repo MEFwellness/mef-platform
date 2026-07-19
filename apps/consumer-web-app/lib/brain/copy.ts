@@ -85,7 +85,7 @@ export function buildReasonText(
 export function recoveryLevelText(level: RecoveryLevel): string {
   switch (level) {
     case 'excellent':
-      return "Your recovery is excellent today — your body is well-rested and ready to be pushed a little.";
+      return 'Your recovery is excellent today — your body is well-rested and ready to be pushed a little.';
     case 'good':
       return 'Your recovery is solid today — a normal, steady day is a good call.';
     case 'fair':
@@ -98,7 +98,8 @@ export function recoveryLevelText(level: RecoveryLevel): string {
 /** Today's step count, as one movement recommendation sentence. */
 export function movementRecommendationText(steps: number): string {
   if (steps < 3000) return 'Movement has been light — even a 10-minute walk today would help.';
-  if (steps < 7000) return "You're moving, but there's room for a bit more today if it feels right.";
+  if (steps < 7000)
+    return "You're moving, but there's room for a bit more today if it feels right.";
   return "You're staying active — keep it up.";
 }
 
@@ -107,14 +108,17 @@ export function stressLevelRecommendationText(stressScore: number): string {
   if (stressScore >= 70) {
     return 'Your stress has been elevated — a few minutes of slow breathing today can help more than it seems.';
   }
-  if (stressScore >= 40) return 'Your stress is moderate today — worth a short pause somewhere in your day.';
+  if (stressScore >= 40)
+    return 'Your stress is moderate today — worth a short pause somewhere in your day.';
   return 'Your stress levels look calm today.';
 }
 
 /** Last night's sleep duration in hours, as one recommendation sentence. */
 export function sleepDurationRecommendationText(hours: number): string {
-  if (hours < 6) return 'Last night was short on sleep — an earlier wind-down tonight would go a long way.';
-  if (hours < 7) return 'Sleep was a little light last night — nothing urgent, just worth protecting tonight.';
+  if (hours < 6)
+    return 'Last night was short on sleep — an earlier wind-down tonight would go a long way.';
+  if (hours < 7)
+    return 'Sleep was a little light last night — nothing urgent, just worth protecting tonight.';
   return 'You got a solid night of sleep — that foundation makes everything else easier today.';
 }
 
@@ -137,7 +141,7 @@ export function sleepTrendDecliningText(): string {
 
 export function activityTrendDecliningText(): string {
   return (
-    "Your activity has been lighter than usual the last few days. No judgment here — just a " +
+    'Your activity has been lighter than usual the last few days. No judgment here — just a ' +
     'gentle nudge that even a short walk today would help.'
   );
 }

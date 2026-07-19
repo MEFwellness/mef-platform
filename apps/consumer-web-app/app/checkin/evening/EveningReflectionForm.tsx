@@ -18,10 +18,14 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitEveningReflection, type EveningReflectionFormInput } from '@/app/actions/eveningReflection';
+import {
+  submitEveningReflection,
+  type EveningReflectionFormInput,
+} from '@/app/actions/eveningReflection';
 import type { EnergyPattern, EveningReflection } from '@mef/shared-types-contracts';
 
-const SECTION_CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] space-y-6 p-7';
+const SECTION_CARD =
+  'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] space-y-6 p-7';
 
 const RATING_LABELS = ['Rough', 'Below average', 'Okay', 'Good', 'Great'] as const;
 const STRESS_LABELS = ['Very calm', 'Calm', 'Moderate', 'High', 'Overwhelmed'] as const;
@@ -74,9 +78,15 @@ function ScaleQuestion({
 
 export function EveningReflectionForm({ existing }: { existing: EveningReflection | null }) {
   const router = useRouter();
-  const [overallDayRating, setOverallDayRating] = useState<number | null>(existing?.overall_day_rating ?? null);
-  const [daytimeStress, setDaytimeStress] = useState<number | null>(existing?.daytime_stress ?? null);
-  const [energyPattern, setEnergyPattern] = useState<EnergyPattern | null>(existing?.energy_pattern ?? null);
+  const [overallDayRating, setOverallDayRating] = useState<number | null>(
+    existing?.overall_day_rating ?? null
+  );
+  const [daytimeStress, setDaytimeStress] = useState<number | null>(
+    existing?.daytime_stress ?? null
+  );
+  const [energyPattern, setEnergyPattern] = useState<EnergyPattern | null>(
+    existing?.energy_pattern ?? null
+  );
   const [symptomsOrChanges, setSymptomsOrChanges] = useState(existing?.symptoms_or_changes ?? '');
   const [recovery, setRecovery] = useState<number | null>(existing?.recovery ?? null);
   const [isPending, startTransition] = useTransition();
@@ -119,7 +129,9 @@ export function EveningReflectionForm({ existing }: { existing: EveningReflectio
           onChange={setDaytimeStress}
         />
         <div>
-          <p className="text-[13px] leading-relaxed text-[#6B7A72]">How did your energy move through the day?</p>
+          <p className="text-[13px] leading-relaxed text-[#6B7A72]">
+            How did your energy move through the day?
+          </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {ENERGY_PATTERNS.map((option) => (
               <button

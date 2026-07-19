@@ -123,8 +123,14 @@ export async function listWeeklyLogEntriesForReport(
     return [];
   }
 
-  const rows = data as Array<{ meal_category: string; consumed_at: string; scan_id: string | null }>;
-  const scanIds = [...new Set(rows.map((r) => r.scan_id).filter((id): id is string => Boolean(id)))];
+  const rows = data as Array<{
+    meal_category: string;
+    consumed_at: string;
+    scan_id: string | null;
+  }>;
+  const scanIds = [
+    ...new Set(rows.map((r) => r.scan_id).filter((id): id is string => Boolean(id))),
+  ];
 
   const signalByScanId = new Map<string, WeeklyReportPackagedFoodSignal>();
   if (scanIds.length > 0) {
@@ -134,9 +140,15 @@ export async function listWeeklyLogEntriesForReport(
       .in('scan_id', scanIds)
       .order('created_at', { ascending: false });
     if (analysisError) {
-      console.error('listWeeklyLogEntriesForReport: food_analysis_results lookup failed', analysisError);
+      console.error(
+        'listWeeklyLogEntriesForReport: food_analysis_results lookup failed',
+        analysisError
+      );
     } else {
-      for (const row of analyses as Array<{ scan_id: string; rules_result: Partial<FoodRulesEngineResult> }>) {
+      for (const row of analyses as Array<{
+        scan_id: string;
+        rules_result: Partial<FoodRulesEngineResult>;
+      }>) {
         // Rows arrive newest-first; keep only the first (latest) per scan_id.
         if (signalByScanId.has(row.scan_id)) continue;
         const rr = row.rules_result ?? {};
@@ -184,7 +196,9 @@ export async function listWeeklyMealQualityRatingsForReport(
   if (scanRows.length === 0) return [];
 
   const scanIds = scanRows.map((s) => s.id);
-  const localDateByScanId = new Map(scanRows.map((s) => [s.id, toLocalDateString(s.created_at, timezone)]));
+  const localDateByScanId = new Map(
+    scanRows.map((s) => [s.id, toLocalDateString(s.created_at, timezone)])
+  );
 
   const { data: ratings, error: ratingsError } = await supabase
     .from('food_lens_meal_quality_ratings')
@@ -260,7 +274,9 @@ export async function listWeeklyDetectedItemsForReport(
   if (scanRows.length === 0) return [];
 
   const scanIds = scanRows.map((s) => s.id);
-  const localDateByScanId = new Map(scanRows.map((s) => [s.id, toLocalDateString(s.created_at, timezone)]));
+  const localDateByScanId = new Map(
+    scanRows.map((s) => [s.id, toLocalDateString(s.created_at, timezone)])
+  );
 
   const { data: items, error: itemsError } = await supabase
     .from('food_lens_detected_items')

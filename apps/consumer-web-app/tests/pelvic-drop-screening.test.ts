@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { computePelvicDropScreening, type PelvicDropSample } from '../lib/body-assessment/pelvicDropScreening';
+import {
+  computePelvicDropScreening,
+  type PelvicDropSample,
+} from '../lib/body-assessment/pelvicDropScreening';
 
 function samplesAt(angles: number[], confidence = 0.9): PelvicDropSample[] {
   return angles.map((hipLineAngle, i) => ({ hipLineAngle, confidence, timestampMs: i * 100 }));

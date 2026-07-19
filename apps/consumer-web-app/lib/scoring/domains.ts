@@ -103,9 +103,14 @@ function fivePointDirect(level: number | null | undefined): number | null {
 
 export function computeRecoveryDomain(checkins: DailyCheckin[], window: DateWindow): DomainScore {
   const inRange = checkins.filter((c) => inWindow(c.local_date, window));
-  const windowDays = Math.max(1, Math.round(
-    (new Date(`${window.endDate}T00:00:00Z`).getTime() - new Date(`${window.startDate}T00:00:00Z`).getTime()) / 86_400_000
-  ) + 1);
+  const windowDays = Math.max(
+    1,
+    Math.round(
+      (new Date(`${window.endDate}T00:00:00Z`).getTime() -
+        new Date(`${window.startDate}T00:00:00Z`).getTime()) /
+        86_400_000
+    ) + 1
+  );
 
   const dailyScores: number[] = [];
   for (const c of inRange) {
@@ -118,7 +123,11 @@ export function computeRecoveryDomain(checkins: DailyCheckin[], window: DateWind
   }
 
   if (dailyScores.length === 0) {
-    return emptyDomain('recovery', windowDays, 'No sleep or energy check-ins logged in this window yet.');
+    return emptyDomain(
+      'recovery',
+      windowDays,
+      'No sleep or energy check-ins logged in this window yet.'
+    );
   }
 
   const score = Math.round(dailyScores.reduce((s, v) => s + v, 0) / dailyScores.length);
@@ -148,9 +157,14 @@ export function computeRecoveryDomain(checkins: DailyCheckin[], window: DateWind
 
 export function computeStressDomain(checkins: DailyCheckin[], window: DateWindow): DomainScore {
   const inRange = checkins.filter((c) => inWindow(c.local_date, window) && c.stress_level !== null);
-  const windowDays = Math.max(1, Math.round(
-    (new Date(`${window.endDate}T00:00:00Z`).getTime() - new Date(`${window.startDate}T00:00:00Z`).getTime()) / 86_400_000
-  ) + 1);
+  const windowDays = Math.max(
+    1,
+    Math.round(
+      (new Date(`${window.endDate}T00:00:00Z`).getTime() -
+        new Date(`${window.startDate}T00:00:00Z`).getTime()) /
+        86_400_000
+    ) + 1
+  );
 
   if (inRange.length === 0) {
     return emptyDomain('stress', windowDays, 'No stress readings logged in this window yet.');
@@ -190,11 +204,19 @@ const MEAL_QUALITY_SCORE: Record<MealQualityEvent['rating'], number> = {
   red: 20,
 };
 
-export function computeNutritionDomain(events: MealQualityEvent[], window: DateWindow): DomainScore {
+export function computeNutritionDomain(
+  events: MealQualityEvent[],
+  window: DateWindow
+): DomainScore {
   const inRange = events.filter((e) => inWindow(e.logged_at.slice(0, 10), window));
-  const windowDays = Math.max(1, Math.round(
-    (new Date(`${window.endDate}T00:00:00Z`).getTime() - new Date(`${window.startDate}T00:00:00Z`).getTime()) / 86_400_000
-  ) + 1);
+  const windowDays = Math.max(
+    1,
+    Math.round(
+      (new Date(`${window.endDate}T00:00:00Z`).getTime() -
+        new Date(`${window.startDate}T00:00:00Z`).getTime()) /
+        86_400_000
+    ) + 1
+  );
 
   if (inRange.length === 0) {
     return emptyDomain('nutrition', windowDays, 'No Food Lens meals logged in this window yet.');
@@ -241,13 +263,22 @@ export function computeMovementDomain(
   const assessmentsInRange = assessments.filter(
     (a) => a.completed_at !== null && inWindow(a.local_date, window)
   );
-  const windowDays = Math.max(1, Math.round(
-    (new Date(`${window.endDate}T00:00:00Z`).getTime() - new Date(`${window.startDate}T00:00:00Z`).getTime()) / 86_400_000
-  ) + 1);
+  const windowDays = Math.max(
+    1,
+    Math.round(
+      (new Date(`${window.endDate}T00:00:00Z`).getTime() -
+        new Date(`${window.startDate}T00:00:00Z`).getTime()) /
+        86_400_000
+    ) + 1
+  );
 
   const dataPoints = completed.length + assessmentsInRange.length;
   if (sessionsInRange.length === 0 && assessmentsInRange.length === 0) {
-    return emptyDomain('movement', windowDays, 'No movement sessions or assessments in this window yet.');
+    return emptyDomain(
+      'movement',
+      windowDays,
+      'No movement sessions or assessments in this window yet.'
+    );
   }
 
   const target = Math.max(1, Math.round((windowDays / 7) * WEEKLY_SESSION_TARGET));
@@ -291,25 +322,34 @@ export function computeConsistencyDomain(
   firstEverCheckinDate: string | null,
   window: DateWindow
 ): DomainScore {
-  const windowDays = Math.max(1, Math.round(
-    (new Date(`${window.endDate}T00:00:00Z`).getTime() - new Date(`${window.startDate}T00:00:00Z`).getTime()) / 86_400_000
-  ) + 1);
+  const windowDays = Math.max(
+    1,
+    Math.round(
+      (new Date(`${window.endDate}T00:00:00Z`).getTime() -
+        new Date(`${window.startDate}T00:00:00Z`).getTime()) /
+        86_400_000
+    ) + 1
+  );
 
   if (firstEverCheckinDate === null) {
     return emptyDomain('consistency', windowDays, 'No check-ins yet.');
   }
 
-  const effectiveStart = firstEverCheckinDate > window.startDate ? firstEverCheckinDate : window.startDate;
+  const effectiveStart =
+    firstEverCheckinDate > window.startDate ? firstEverCheckinDate : window.startDate;
   const effectiveDays = Math.max(
     1,
     Math.round(
-      (new Date(`${window.endDate}T00:00:00Z`).getTime() - new Date(`${effectiveStart}T00:00:00Z`).getTime()) /
+      (new Date(`${window.endDate}T00:00:00Z`).getTime() -
+        new Date(`${effectiveStart}T00:00:00Z`).getTime()) /
         86_400_000
     ) + 1
   );
 
   const daysLogged = new Set(
-    checkins.filter((c) => c.local_date >= effectiveStart && c.local_date <= window.endDate).map((c) => c.local_date)
+    checkins
+      .filter((c) => c.local_date >= effectiveStart && c.local_date <= window.endDate)
+      .map((c) => c.local_date)
   ).size;
 
   const score = Math.min(100, Math.round((daysLogged / effectiveDays) * 100));

@@ -87,7 +87,10 @@ export function RootScoreCard({ snapshot }: { snapshot: RootScoreSnapshot | null
       </div>
 
       <div className="mt-5 flex items-center gap-5">
-        <div className="relative flex h-24 w-24 shrink-0 items-center justify-center" aria-hidden="true">
+        <div
+          className="relative flex h-24 w-24 shrink-0 items-center justify-center"
+          aria-hidden="true"
+        >
           <div
             className={`mef-root-score-breathe absolute inset-0 rounded-full ${STATUS_STYLES[status].bg}`}
             style={{ filter: 'blur(7px)' }}
@@ -104,7 +107,9 @@ export function RootScoreCard({ snapshot }: { snapshot: RootScoreSnapshot | null
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
             {CONFIDENCE_LABEL[snapshot.root_confidence_level]}
           </p>
-          <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]">{snapshot.explanation_summary}</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]">
+            {snapshot.explanation_summary}
+          </p>
         </div>
       </div>
 

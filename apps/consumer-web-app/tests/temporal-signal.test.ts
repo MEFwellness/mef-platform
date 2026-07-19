@@ -23,7 +23,13 @@ describe('stepTemporalSignal', () => {
   });
 
   it('does not confirm on a single active frame', () => {
-    const state = stepTemporalSignal(INITIAL_TEMPORAL_SIGNAL_STATE, true, 1000, CONFIRM_MS, RELEASE_MS);
+    const state = stepTemporalSignal(
+      INITIAL_TEMPORAL_SIGNAL_STATE,
+      true,
+      1000,
+      CONFIRM_MS,
+      RELEASE_MS
+    );
     expect(state.confirmed).toBe(false);
     expect(isTemporalSignalPending(state)).toBe(true);
   });
@@ -79,7 +85,13 @@ describe('stepTemporalSignal', () => {
   });
 
   it('isTemporalSignalPending is false once confirmed, and false when fully inactive', () => {
-    const pendingState = stepTemporalSignal(INITIAL_TEMPORAL_SIGNAL_STATE, true, 0, CONFIRM_MS, RELEASE_MS);
+    const pendingState = stepTemporalSignal(
+      INITIAL_TEMPORAL_SIGNAL_STATE,
+      true,
+      0,
+      CONFIRM_MS,
+      RELEASE_MS
+    );
     expect(isTemporalSignalPending(pendingState)).toBe(true);
 
     const confirmedState = stepTemporalSignal(pendingState, true, 950, CONFIRM_MS, RELEASE_MS);

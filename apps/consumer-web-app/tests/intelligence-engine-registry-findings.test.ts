@@ -4,7 +4,10 @@
  * Supabase involved.
  */
 import { describe, it, expect } from 'vitest';
-import { buildRegistryPatternInsights, buildRegistryCoachAlertDrafts } from '../lib/intelligence-engine/registryFindings';
+import {
+  buildRegistryPatternInsights,
+  buildRegistryCoachAlertDrafts,
+} from '../lib/intelligence-engine/registryFindings';
 import type { MemberHealthProfile } from '../lib/intelligence-engine/types';
 import type { RegistryEntry } from '@mef/shared-types-contracts';
 
@@ -16,7 +19,12 @@ function makeProfile(registryEntries: RegistryEntry[]): MemberHealthProfile {
     baseline: null,
     latestReassessment: null,
     comparison: [],
-    progressSummary: { improved: [], declined: [], stable: [], overallDirection: 'insufficient_data' } as never,
+    progressSummary: {
+      improved: [],
+      declined: [],
+      stable: [],
+      overallDirection: 'insufficient_data',
+    } as never,
     narrativeItems: [],
     wellnessInsights: [],
     feedHistoryPairs: [],

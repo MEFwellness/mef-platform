@@ -26,7 +26,10 @@ export function computeRootConfidence(
   coverageRatio: number,
   priorSnapshotCount: number
 ): { confidence: number; level: ScoreConfidenceLevel } {
-  const historyFactor = Math.min(1, priorSnapshotCount / ROOT_SNAPSHOTS_FOR_FULL_HISTORY_CONFIDENCE);
+  const historyFactor = Math.min(
+    1,
+    priorSnapshotCount / ROOT_SNAPSHOTS_FOR_FULL_HISTORY_CONFIDENCE
+  );
   const confidence = Math.max(0, Math.min(1, coverageRatio * 0.7 + historyFactor * 0.3));
   return { confidence, level: confidenceLevelFromRatio(confidence) };
 }

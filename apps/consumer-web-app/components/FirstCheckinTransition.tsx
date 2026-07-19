@@ -77,7 +77,11 @@ export function FirstCheckinTransition({
           aria-hidden="true"
         />
         <div className="relative mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5B700]/15">
-          <PersonStanding className="h-5 w-5 text-[#854D0E]" strokeWidth={1.75} aria-hidden="true" />
+          <PersonStanding
+            className="h-5 w-5 text-[#854D0E]"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
         </div>
 
         <h2 className="relative mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
@@ -94,8 +98,8 @@ export function FirstCheckinTransition({
         {!hasMovementAssessment && (
           <p className="relative mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
             Your Guided Posture &amp; Movement Assessment helps us identify movement imbalances,
-            posture patterns, and areas that may be contributing to discomfort or poor
-            performance — the foundation for your personalized corrective exercise program.
+            posture patterns, and areas that may be contributing to discomfort or poor performance —
+            the foundation for your personalized corrective exercise program.
           </p>
         )}
 

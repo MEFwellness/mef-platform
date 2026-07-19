@@ -19,7 +19,10 @@ import { insertFoodLensScan } from '@/lib/food-lens/data';
 import { insertVerifiedFoodProductFromLabelScan } from '@/lib/food-products/data';
 import { runProductAnalysisForScan } from '@/lib/food-products/analyze';
 
-async function requireMember(): Promise<{ supabase: ReturnType<typeof createClient>; userId: string } | null> {
+async function requireMember(): Promise<{
+  supabase: ReturnType<typeof createClient>;
+  userId: string;
+} | null> {
   const supabase = createClient();
   const {
     data: { user },
@@ -28,10 +31,16 @@ async function requireMember(): Promise<{ supabase: ReturnType<typeof createClie
   return { supabase, userId: user.id };
 }
 
-async function memberLocalDate(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
+async function memberLocalDate(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+): Promise<string> {
   const { data } = await supabase.from('profiles').select('timezone').eq('id', userId).single();
   const timezone = data?.timezone ?? 'America/New_York';
-  return resolveLocalDate(new Date(new Date().toLocaleString('en-US', { timeZone: timezone })), false);
+  return resolveLocalDate(
+    new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
+    false
+  );
 }
 
 export type CreateManualFoodEntryInput = {
@@ -111,8 +120,15 @@ export async function createManualFoodEntryAction(
   if (!scan) return { error: 'Could not create this entry.' };
 
   const localDate = await memberLocalDate(supabase, userId);
-  const result = await runProductAnalysisForScan(supabase, userId, localDate, scan.id, product.product.id);
-  if (result.status !== 'analyzed') return { error: result.error ?? 'Could not analyze this food.' };
+  const result = await runProductAnalysisForScan(
+    supabase,
+    userId,
+    localDate,
+    scan.id,
+    product.product.id
+  );
+  if (result.status !== 'analyzed')
+    return { error: result.error ?? 'Could not analyze this food.' };
 
   return { scanId: scan.id };
 }

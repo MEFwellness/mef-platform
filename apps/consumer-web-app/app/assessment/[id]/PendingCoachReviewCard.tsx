@@ -20,8 +20,8 @@ export function PendingCoachReviewCard({ typeLabel }: { typeLabel: string }) {
       </h2>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#6B7A72]">
         Your {typeLabel.toLowerCase()} assessment is now under review by your coach. They&apos;re
-        putting together a personalized report with their observations and recommendations — we&apos;ll
-        let you know the moment it&apos;s ready.
+        putting together a personalized report with their observations and recommendations —
+        we&apos;ll let you know the moment it&apos;s ready.
       </p>
       <div className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-[#FAFAF8] px-4 py-1.5 text-xs font-medium text-[#6B7A72]">
         <span className="mef-pulse-dot h-1.5 w-1.5 rounded-full bg-[#F5B700]" aria-hidden="true" />

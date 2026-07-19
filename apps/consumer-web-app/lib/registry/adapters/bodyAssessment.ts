@@ -46,7 +46,12 @@ export async function upsertRegistryEntriesFromBodyAssessment(
 
   for (const finding of registerable) {
     const domain = domainForFindingType(finding.finding_type);
-    const existing = await findActiveRegistryEntry(supabase, memberId, domain, finding.finding_type);
+    const existing = await findActiveRegistryEntry(
+      supabase,
+      memberId,
+      domain,
+      finding.finding_type
+    );
     if (existing && existing.source_record_id === finding.id) continue; // already registered, nothing changed
 
     const draft: RegistryEntryDraft = {

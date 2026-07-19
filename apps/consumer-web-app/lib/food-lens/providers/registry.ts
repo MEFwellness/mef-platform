@@ -9,7 +9,11 @@
 import type { FoodLensProvider, FoodLensAnalysisRequest, FoodLensAnalysisResult } from './types';
 import { buildAnthropicFoodLensProviderFromEnv } from './anthropicVision';
 
-export const FOOD_LENS_PROVIDER_NAMES = ['anthropic_vision', 'openai_vision', 'google_gemini'] as const;
+export const FOOD_LENS_PROVIDER_NAMES = [
+  'anthropic_vision',
+  'openai_vision',
+  'google_gemini',
+] as const;
 
 export type FoodLensProviderName = (typeof FOOD_LENS_PROVIDER_NAMES)[number];
 
@@ -55,7 +59,10 @@ export function getFoodLensProvider(name: FoodLensProviderName): FoodLensProvide
 }
 
 /** Registers or swaps a provider implementation at runtime — how a real integration (or a test double) gets wired in without touching any calling code. */
-export function registerFoodLensProvider(name: FoodLensProviderName, provider: FoodLensProvider): void {
+export function registerFoodLensProvider(
+  name: FoodLensProviderName,
+  provider: FoodLensProvider
+): void {
   PROVIDERS[name] = provider;
 }
 

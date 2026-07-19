@@ -24,12 +24,12 @@
 import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
 import { resolveLocalDate } from './checkin';
-import type { DataCompleteness, FoodAnalysisResult, FoodLensLabelScan } from '@mef/shared-types-contracts';
-import {
-  getFoodLensScan,
-  listFoodLensCaptures,
-  updateFoodLensScan,
-} from '@/lib/food-lens/data';
+import type {
+  DataCompleteness,
+  FoodAnalysisResult,
+  FoodLensLabelScan,
+} from '@mef/shared-types-contracts';
+import { getFoodLensScan, listFoodLensCaptures, updateFoodLensScan } from '@/lib/food-lens/data';
 import { createSignedFoodLensCaptureUrl } from '@/lib/food-lens/storage';
 import {
   getFoodLabelOcrProvider,
@@ -42,8 +42,14 @@ import {
   markFoodLensLabelScanConfirmed,
   updateFoodLensLabelScanFields,
 } from '@/lib/food-lens/labelScanData';
-import { validateLabelExtraction, type LabelValidationWarning } from '@/lib/food-lens/labelValidation';
-import { getLatestFoodAnalysisResult, insertVerifiedFoodProductFromLabelScan } from '@/lib/food-products/data';
+import {
+  validateLabelExtraction,
+  type LabelValidationWarning,
+} from '@/lib/food-lens/labelValidation';
+import {
+  getLatestFoodAnalysisResult,
+  insertVerifiedFoodProductFromLabelScan,
+} from '@/lib/food-products/data';
 import { runProductAnalysisForScan } from '@/lib/food-products/analyze';
 
 async function requireMember(): Promise<{
@@ -142,7 +148,11 @@ export async function analyzeFoodLensLabelScanAction(
     );
 
     const provider = getFoodLabelOcrProvider(providerName);
-    const result = await provider.extractLabel({ scanId, memberId: userId, captures: signedCaptures });
+    const result = await provider.extractLabel({
+      scanId,
+      memberId: userId,
+      captures: signedCaptures,
+    });
 
     const labelScan = await insertFoodLensLabelScanFromExtraction(supabase, scanId, result);
     if (!labelScan) {
@@ -150,7 +160,10 @@ export async function analyzeFoodLensLabelScanAction(
       return { status: 'failed', error: 'Could not save the extracted label.' };
     }
 
-    await updateFoodLensScan(supabase, scanId, { status: 'analyzed', provider_status: 'completed' });
+    await updateFoodLensScan(supabase, scanId, {
+      status: 'analyzed',
+      provider_status: 'completed',
+    });
 
     return { status: 'extracted', labelScan, validationWarnings: warningsFor(labelScan) };
   } catch (err) {
@@ -170,10 +183,16 @@ export type FoodLensLabelScanDetail = {
   scan: NonNullable<Awaited<ReturnType<typeof getFoodLensScan>>>;
   labelScan: FoodLensLabelScan | null;
   validationWarnings: LabelValidationWarning[];
-  captures: Array<{ captureId: string; signedViewUrl: string | null; labelPhotoRole: string | null }>;
+  captures: Array<{
+    captureId: string;
+    signedViewUrl: string | null;
+    labelPhotoRole: string | null;
+  }>;
 };
 
-export async function getFoodLensLabelScanAction(scanId: string): Promise<FoodLensLabelScanDetail | null> {
+export async function getFoodLensLabelScanAction(
+  scanId: string
+): Promise<FoodLensLabelScanDetail | null> {
   const ctx = await requireMember();
   if (!ctx) return null;
   const { supabase, userId } = ctx;
@@ -255,7 +274,9 @@ const FIELD_TO_COLUMN: Record<string, string> = {
 export async function updateFoodLensLabelScanFieldsAction(
   scanId: string,
   input: UpdateFoodLensLabelScanFieldsInput
-): Promise<ActionResult & { labelScan?: FoodLensLabelScan; validationWarnings?: LabelValidationWarning[] }> {
+): Promise<
+  ActionResult & { labelScan?: FoodLensLabelScan; validationWarnings?: LabelValidationWarning[] }
+> {
   const ctx = await requireMember();
   if (!ctx) return { error: 'Not signed in.' };
   const { supabase, userId } = ctx;
@@ -378,7 +399,13 @@ export async function confirmFoodLensLabelScanAction(
     await markFoodLensLabelScanConfirmed(supabase, labelScan.id, product.product.id);
 
     const localDate = await memberLocalDate(supabase, userId);
-    const result = await runProductAnalysisForScan(supabase, userId, localDate, scanId, product.product.id);
+    const result = await runProductAnalysisForScan(
+      supabase,
+      userId,
+      localDate,
+      scanId,
+      product.product.id
+    );
     await updateFoodLensScan(supabase, scanId, {
       status: result.status === 'analyzed' ? 'analyzed' : 'failed',
       provider_error: result.status === 'failed' ? (result.error ?? null) : null,

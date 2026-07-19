@@ -31,8 +31,8 @@ export function ConnectWearableCard({ variant }: { variant: 'dashboard' | 'today
     return (
       <div>
         <p className="text-sm leading-relaxed text-[#1B3A2D]">
-          Root coaches from what it can see. Connect a wearable and your recovery, sleep, and
-          stress data shape what Root recommends each day, not just what you log by hand.
+          Root coaches from what it can see. Connect a wearable and your recovery, sleep, and stress
+          data shape what Root recommends each day, not just what you log by hand.
         </p>
         <ProviderLogos className="mt-3" />
         <div className="mt-3 flex flex-wrap items-center gap-4">

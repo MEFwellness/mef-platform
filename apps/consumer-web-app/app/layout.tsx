@@ -39,7 +39,12 @@ export const metadata: Metadata = {
     title: 'Rooted Reset | MEF Wellness',
     description: 'Daily wellness check-ins, trends, and coaching from MEF Wellness.',
     images: [
-      { url: withBrandVersion('/images/og-image.png'), width: 1200, height: 630, alt: 'Rooted Reset by MEF Wellness' },
+      {
+        url: withBrandVersion('/images/og-image.png'),
+        width: 1200,
+        height: 630,
+        alt: 'Rooted Reset by MEF Wellness',
+      },
     ],
   },
   twitter: {

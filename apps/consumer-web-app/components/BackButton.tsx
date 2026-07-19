@@ -17,13 +17,7 @@ import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { ChevronLeft } from 'lucide-react';
 
-export function BackButton({
-  fallbackHref,
-  label,
-}: {
-  fallbackHref: Route;
-  label: string;
-}) {
+export function BackButton({ fallbackHref, label }: { fallbackHref: Route; label: string }) {
   const router = useRouter();
 
   function handleClick() {

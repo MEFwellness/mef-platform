@@ -49,12 +49,7 @@ export interface PrimalPatternProfile {
 export type FoodLensScanType = 'meal_photo' | 'barcode' | 'nutrition_label';
 
 export type FoodLensScanStatus =
-  | 'pending'
-  | 'analyzing'
-  | 'analyzed'
-  | 'not_configured'
-  | 'failed'
-  | 'member_reviewed';
+  'pending' | 'analyzing' | 'analyzed' | 'not_configured' | 'failed' | 'member_reviewed';
 
 export interface FoodLensScan {
   id: string;
@@ -109,10 +104,7 @@ export interface DetectedItem {
 }
 
 export type FoodLensCorrectionType =
-  | 'label_fixed'
-  | 'category_fixed'
-  | 'item_removed'
-  | 'item_added';
+  'label_fixed' | 'category_fixed' | 'item_removed' | 'item_added';
 
 export interface FoodLensCorrection {
   id: string;

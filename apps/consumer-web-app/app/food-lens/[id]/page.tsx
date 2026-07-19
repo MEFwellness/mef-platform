@@ -95,7 +95,10 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
           )}
 
           {mealQuality && (
-            <MealQualityIndicator rating={mealQuality.rating} explanation={mealQuality.explanation} />
+            <MealQualityIndicator
+              rating={mealQuality.rating}
+              explanation={mealQuality.explanation}
+            />
           )}
 
           {scan.status === 'not_configured' && (
@@ -127,8 +130,14 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
                 Macro balance
               </p>
               <MacroBalanceMeter
-                protein={{ level: macroEstimate.protein_level, confidence: macroEstimate.protein_confidence }}
-                carb={{ level: macroEstimate.carb_level, confidence: macroEstimate.carb_confidence }}
+                protein={{
+                  level: macroEstimate.protein_level,
+                  confidence: macroEstimate.protein_confidence,
+                }}
+                carb={{
+                  level: macroEstimate.carb_level,
+                  confidence: macroEstimate.carb_confidence,
+                }}
                 fat={{ level: macroEstimate.fat_level, confidence: macroEstimate.fat_confidence }}
               />
             </div>

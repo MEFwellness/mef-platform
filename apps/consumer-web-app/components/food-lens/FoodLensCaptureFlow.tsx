@@ -72,7 +72,9 @@ export function FoodLensCaptureFlow() {
 
       router.push(`/food-lens/${currentScanId}` as Route);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      );
       setPhase('error');
     }
   }
@@ -94,7 +96,11 @@ export function FoodLensCaptureFlow() {
           target.
         </p>
         <div className="mt-4 flex items-start gap-2 rounded-2xl bg-[#1B3A2D]/[0.04] p-3">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+          <ShieldCheck
+            className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
           <p className="text-xs leading-relaxed text-[#6B7A72]">
             Your meal photos are stored privately and only used to identify food for your own
             coaching. You can always correct what Root got wrong.

@@ -75,14 +75,10 @@ export type WellnessProfileDimensionKey =
   | 'emotional_stability';
 
 export type WellnessProfileLevel =
-  | 'very_low'
-  | 'low'
-  | 'moderate'
-  | 'high'
-  | 'very_high'
-  | 'insufficient_data';
+  'very_low' | 'low' | 'moderate' | 'high' | 'very_high' | 'insufficient_data';
 
-export type WellnessProfileTrendDirection = 'improving' | 'declining' | 'stable' | 'insufficient_data';
+export type WellnessProfileTrendDirection =
+  'improving' | 'declining' | 'stable' | 'insufficient_data';
 
 export interface WellnessProfileDimension {
   id: string;

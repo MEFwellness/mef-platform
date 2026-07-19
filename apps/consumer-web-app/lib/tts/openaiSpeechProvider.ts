@@ -68,7 +68,11 @@ export class OpenAiSpeechProvider {
         }
 
         const audio = await response.arrayBuffer();
-        return { ok: true, audio, contentType: response.headers.get('content-type') ?? 'audio/mpeg' };
+        return {
+          ok: true,
+          audio,
+          contentType: response.headers.get('content-type') ?? 'audio/mpeg',
+        };
       } catch (err) {
         clearTimeout(timer);
         const isAbort = err instanceof Error && err.name === 'AbortError';

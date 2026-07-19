@@ -22,7 +22,11 @@ import {
   MEASUREMENT_REGISTRY,
 } from '../lib/body-assessment/postureMeasurements';
 import { computePoseMetrics } from '../lib/body-assessment/poseMetrics';
-import { toCoreLandmarks, POSE_LANDMARK_INDEX, type RawPoseLandmark } from '../lib/body-assessment/poseTypes';
+import {
+  toCoreLandmarks,
+  POSE_LANDMARK_INDEX,
+  type RawPoseLandmark,
+} from '../lib/body-assessment/poseTypes';
 import type { CorePoseLandmarks } from '../lib/body-assessment/poseTypes';
 
 /** Builds the raw 33-point landmark array (same shape landmarkMapping.ts/computeFootTurnoutEstimate consume) from the shared base fixture + overrides. `makeCore` wraps this with `toCoreLandmarks`. */
@@ -80,7 +84,8 @@ function makeCore(
   return toCoreLandmarks(makeRaw(overrides))!;
 }
 
-const DIAGNOSTIC_WORDS = /scoliosis|lower-crossed syndrome|trendelenburg sign|spinal disorder|you have/i;
+const DIAGNOSTIC_WORDS =
+  /scoliosis|lower-crossed syndrome|trendelenburg sign|spinal disorder|you have/i;
 
 describe('computeForwardHeadEstimate', () => {
   it('only applies to side-view captures', () => {
@@ -109,7 +114,9 @@ describe('computeForwardHeadEstimate', () => {
 
 describe('computeShoulderAlignment', () => {
   it('only applies to front/back captures', () => {
-    expect(computeShoulderAlignment(makeCore(), computePoseMetrics(makeCore()), 'left_side')).toBeNull();
+    expect(
+      computeShoulderAlignment(makeCore(), computePoseMetrics(makeCore()), 'left_side')
+    ).toBeNull();
   });
 
   it('flags possible asymmetry only when the height difference exceeds the screening threshold', () => {
@@ -154,7 +161,9 @@ describe('computeLateralTrunkAsymmetry', () => {
 
 describe('computeLowerCrossedIndicators', () => {
   it('only applies to side-view captures and never names lower-crossed syndrome as a diagnosis', () => {
-    expect(computeLowerCrossedIndicators(makeCore(), computePoseMetrics(makeCore()), 'front')).toBeNull();
+    expect(
+      computeLowerCrossedIndicators(makeCore(), computePoseMetrics(makeCore()), 'front')
+    ).toBeNull();
     const core = makeCore();
     const result = computeLowerCrossedIndicators(core, computePoseMetrics(core), 'left_side')!;
     expect(result.narrative).not.toMatch(DIAGNOSTIC_WORDS);
@@ -164,7 +173,11 @@ describe('computeLowerCrossedIndicators', () => {
 
 describe('computeSagittalTrunkPosture', () => {
   it('labels the output as an external estimate, not a spinal curvature measurement', () => {
-    const result = computeSagittalTrunkPosture(makeCore(), computePoseMetrics(makeCore()), 'left_side')!;
+    const result = computeSagittalTrunkPosture(
+      makeCore(),
+      computePoseMetrics(makeCore()),
+      'left_side'
+    )!;
     expect(result.narrative.toLowerCase()).toContain('not a spinal curvature measurement');
   });
 });

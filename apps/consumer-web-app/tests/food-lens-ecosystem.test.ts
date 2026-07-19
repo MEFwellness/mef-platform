@@ -104,7 +104,17 @@ describe('computeDailyCoachingMessage', () => {
   it('flags light protein in the afternoon when nothing logged has meaningful protein', () => {
     const result = computeDailyCoachingMessage({
       localHour: afternoon,
-      logEntries: [{ mealCategory: 'breakfast', packagedFoodSignal: { processingLabel: 'moderately_processed', isMeaningfulProtein: false, fiberG: 1, addedSugarG: 2 } }],
+      logEntries: [
+        {
+          mealCategory: 'breakfast',
+          packagedFoodSignal: {
+            processingLabel: 'moderately_processed',
+            isMeaningfulProtein: false,
+            fiberG: 1,
+            addedSugarG: 2,
+          },
+        },
+      ],
       mealQualityRatings: [],
       hasWorkoutToday: false,
     });
@@ -114,7 +124,17 @@ describe('computeDailyCoachingMessage', () => {
   it('does not flag light protein in the morning even with no protein logged yet', () => {
     const result = computeDailyCoachingMessage({
       localHour: morning,
-      logEntries: [{ mealCategory: 'breakfast', packagedFoodSignal: { processingLabel: 'moderately_processed', isMeaningfulProtein: false, fiberG: 1, addedSugarG: 2 } }],
+      logEntries: [
+        {
+          mealCategory: 'breakfast',
+          packagedFoodSignal: {
+            processingLabel: 'moderately_processed',
+            isMeaningfulProtein: false,
+            fiberG: 1,
+            addedSugarG: 2,
+          },
+        },
+      ],
       mealQualityRatings: [],
       hasWorkoutToday: false,
     });
@@ -140,13 +160,25 @@ describe('computeDailyCoachingMessage', () => {
       ],
       hasWorkoutToday: false,
     });
-    expect(result.messages.some((m) => /protein and fat, but very little fiber/i.test(m))).toBe(true);
+    expect(result.messages.some((m) => /protein and fat, but very little fiber/i.test(m))).toBe(
+      true
+    );
   });
 
   it('surfaces a workout-day recovery nudge using the spec example phrasing', () => {
     const result = computeDailyCoachingMessage({
       localHour: afternoon,
-      logEntries: [{ mealCategory: 'lunch', packagedFoodSignal: { processingLabel: 'minimally_processed', isMeaningfulProtein: true, fiberG: 5, addedSugarG: 0 } }],
+      logEntries: [
+        {
+          mealCategory: 'lunch',
+          packagedFoodSignal: {
+            processingLabel: 'minimally_processed',
+            isMeaningfulProtein: true,
+            fiberG: 5,
+            addedSugarG: 0,
+          },
+        },
+      ],
       mealQualityRatings: [],
       hasWorkoutToday: true,
     });
@@ -157,8 +189,24 @@ describe('computeDailyCoachingMessage', () => {
     const result = computeDailyCoachingMessage({
       localHour: afternoon,
       logEntries: [
-        { mealCategory: 'breakfast', packagedFoodSignal: { processingLabel: 'highly_processed', isMeaningfulProtein: false, fiberG: 0, addedSugarG: 20 } },
-        { mealCategory: 'lunch', packagedFoodSignal: { processingLabel: 'highly_processed', isMeaningfulProtein: false, fiberG: 0, addedSugarG: 15 } },
+        {
+          mealCategory: 'breakfast',
+          packagedFoodSignal: {
+            processingLabel: 'highly_processed',
+            isMeaningfulProtein: false,
+            fiberG: 0,
+            addedSugarG: 20,
+          },
+        },
+        {
+          mealCategory: 'lunch',
+          packagedFoodSignal: {
+            processingLabel: 'highly_processed',
+            isMeaningfulProtein: false,
+            fiberG: 0,
+            addedSugarG: 15,
+          },
+        },
       ],
       mealQualityRatings: [],
       hasWorkoutToday: true,
@@ -169,7 +217,17 @@ describe('computeDailyCoachingMessage', () => {
   it('never fabricates a workout that was not logged', () => {
     const result = computeDailyCoachingMessage({
       localHour: afternoon,
-      logEntries: [{ mealCategory: 'lunch', packagedFoodSignal: { processingLabel: 'minimally_processed', isMeaningfulProtein: true, fiberG: 5, addedSugarG: 0 } }],
+      logEntries: [
+        {
+          mealCategory: 'lunch',
+          packagedFoodSignal: {
+            processingLabel: 'minimally_processed',
+            isMeaningfulProtein: true,
+            fiberG: 5,
+            addedSugarG: 0,
+          },
+        },
+      ],
       mealQualityRatings: [],
       hasWorkoutToday: false,
     });
@@ -194,9 +252,19 @@ describe('computeHistoryPatterns', () => {
     const logEntries = Array.from({ length: ENOUGH_DAYS }, (_, i) => ({
       localDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
       mealCategory: 'lunch' as const,
-      packagedFoodSignal: { processingLabel: 'highly_processed' as const, isMeaningfulProtein: false, fiberG: 0, addedSugarG: 15 },
+      packagedFoodSignal: {
+        processingLabel: 'highly_processed' as const,
+        isMeaningfulProtein: false,
+        fiberG: 0,
+        addedSugarG: 15,
+      },
     }));
-    const result = computeHistoryPatterns({ windowDays: 30, logEntries, mealQualityRatings: [], detectedItems: [] });
+    const result = computeHistoryPatterns({
+      windowDays: 30,
+      logEntries,
+      mealQualityRatings: [],
+      detectedItems: [],
+    });
     expect(result.insufficientData).toBe(false);
     if (!result.insufficientData) {
       expect(result.observations.length).toBeGreaterThan(0);
@@ -208,21 +276,40 @@ describe('computeHistoryPatterns', () => {
     const highProteinDays = Array.from({ length: ENOUGH_DAYS }, (_, i) => ({
       localDate: `2024-02-${String(i + 1).padStart(2, '0')}`,
       mealCategory: 'lunch' as const,
-      packagedFoodSignal: { processingLabel: 'minimally_processed' as const, isMeaningfulProtein: true, fiberG: 5, addedSugarG: 0 },
+      packagedFoodSignal: {
+        processingLabel: 'minimally_processed' as const,
+        isMeaningfulProtein: true,
+        fiberG: 5,
+        addedSugarG: 0,
+      },
     }));
     const lowProteinDays = Array.from({ length: ENOUGH_DAYS }, (_, i) => ({
       localDate: `2024-03-${String(i + 1).padStart(2, '0')}`,
       mealCategory: 'lunch' as const,
-      packagedFoodSignal: { processingLabel: 'highly_processed' as const, isMeaningfulProtein: false, fiberG: 0, addedSugarG: 15 },
+      packagedFoodSignal: {
+        processingLabel: 'highly_processed' as const,
+        isMeaningfulProtein: false,
+        fiberG: 0,
+        addedSugarG: 15,
+      },
     }));
-    const a = computeHistoryPatterns({ windowDays: 30, logEntries: highProteinDays, mealQualityRatings: [], detectedItems: [] });
-    const b = computeHistoryPatterns({ windowDays: 30, logEntries: lowProteinDays, mealQualityRatings: [], detectedItems: [] });
+    const a = computeHistoryPatterns({
+      windowDays: 30,
+      logEntries: highProteinDays,
+      mealQualityRatings: [],
+      detectedItems: [],
+    });
+    const b = computeHistoryPatterns({
+      windowDays: 30,
+      logEntries: lowProteinDays,
+      mealQualityRatings: [],
+      detectedItems: [],
+    });
     expect(a).not.toEqual(b);
   });
 });
 
 describe('generateSwapSuggestions', () => {
-
   it('suggests a protein source when protein is not meaningful', () => {
     const rules = runFoodRulesEngine({
       productName: 'Fruit snack',
@@ -276,7 +363,10 @@ describe('generateSwapSuggestions', () => {
     });
     const suggestions = generateSwapSuggestions(rules);
     expect(suggestions.length).toBeLessThanOrEqual(3);
-    const text = suggestions.map((s) => s.suggestion + s.reason).join(' ').toLowerCase();
+    const text = suggestions
+      .map((s) => s.suggestion + s.reason)
+      .join(' ')
+      .toLowerCase();
     expect(text).not.toMatch(/\bbad\b|\bunhealthy\b|\bavoid this\b|\btoxic\b/);
   });
 

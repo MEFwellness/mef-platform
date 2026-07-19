@@ -7,10 +7,9 @@ import {
 } from '../lib/food-lens/comparison';
 import type { FoodLensDetectedItem, PrimalPatternProfile } from '@mef/shared-types-contracts';
 
-function target(overrides: Partial<PrimalPatternProfile> = {}): Pick<
-  PrimalPatternProfile,
-  'protein_emphasis' | 'carb_emphasis' | 'fat_emphasis'
-> {
+function target(
+  overrides: Partial<PrimalPatternProfile> = {}
+): Pick<PrimalPatternProfile, 'protein_emphasis' | 'carb_emphasis' | 'fat_emphasis'> {
   return {
     protein_emphasis: 'high',
     carb_emphasis: 'low',
@@ -28,10 +27,9 @@ function meal(overrides: Partial<ComparisonMacroEstimate> = {}): ComparisonMacro
   };
 }
 
-function item(overrides: Partial<FoodLensDetectedItem> = {}): Pick<
-  FoodLensDetectedItem,
-  'category' | 'confidence'
-> {
+function item(
+  overrides: Partial<FoodLensDetectedItem> = {}
+): Pick<FoodLensDetectedItem, 'category' | 'confidence'> {
   return { category: 'protein', confidence: 0.8, ...overrides };
 }
 
@@ -98,9 +96,7 @@ describe('deriveMacroEstimateFromItems', () => {
   });
 
   it('regression: a confirmed soda (Sprite) reads protein/fat as "none", not "low" — the original misleading-result bug', () => {
-    const result = deriveMacroEstimateFromItems([
-      item({ category: 'carb', confidence: 0.9 }),
-    ]);
+    const result = deriveMacroEstimateFromItems([item({ category: 'carb', confidence: 0.9 })]);
     expect(result.protein.level).toBe('none');
     expect(result.carb.level).toBe('high');
     expect(result.fat.level).toBe('none');

@@ -11,7 +11,10 @@
  */
 import { describe, it, expect, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
-import { recalculateIntelligenceCore, getIntelligenceCoreSummary } from '../lib/intelligence-core/service';
+import {
+  recalculateIntelligenceCore,
+  getIntelligenceCoreSummary,
+} from '../lib/intelligence-core/service';
 import {
   listIdentityObservationsForMember,
   listProfileDimensionsForMember,
@@ -36,7 +39,10 @@ function dateRange(daysAgoStart: number, daysAgoEnd: number): string[] {
 async function submitCheckin(
   client: Awaited<ReturnType<typeof signInAs>>,
   localDate: string,
-  overrides: Partial<{ mood_level: number; movement_today: 'none' | 'light' | 'moderate' | 'full_session' }> = {}
+  overrides: Partial<{
+    mood_level: number;
+    movement_today: 'none' | 'light' | 'moderate' | 'full_session';
+  }> = {}
 ) {
   const { error } = await client.rpc('submit_daily_checkin', {
     p_timezone: 'America/New_York',
@@ -67,7 +73,10 @@ const BATCH_SIZE = 12;
 async function submitManyCheckins(
   client: Awaited<ReturnType<typeof signInAs>>,
   dates: string[],
-  overrides: Partial<{ mood_level: number; movement_today: 'none' | 'light' | 'moderate' | 'full_session' }> = {}
+  overrides: Partial<{
+    mood_level: number;
+    movement_today: 'none' | 'light' | 'moderate' | 'full_session';
+  }> = {}
 ): Promise<void> {
   for (let i = 0; i < dates.length; i += BATCH_SIZE) {
     const batch = dates.slice(i, i + BATCH_SIZE);
@@ -95,19 +104,29 @@ afterAll(async () => {
 });
 
 describe('Wellness Intelligence Core — end-to-end against real check-in history', () => {
-  it('recalculateIntelligenceCore persists identity observations, profile dimensions, and a coaching style, under the member\'s own session', async () => {
+  it("recalculateIntelligenceCore persists identity observations, profile dimensions, and a coaching style, under the member's own session", async () => {
     const memberClient = await signInAs(TEST_USERS.memberOne);
 
     // Movement days get noticeably better mood than rest days, over 40 days —
     // enough real signal for deriveMovementResponseObservation to fire.
-    await submitManyCheckins(memberClient, dateRange(39, 20), { movement_today: 'full_session', mood_level: 5 });
-    await submitManyCheckins(memberClient, dateRange(19, 0), { movement_today: 'none', mood_level: 2 });
+    await submitManyCheckins(memberClient, dateRange(39, 20), {
+      movement_today: 'full_session',
+      mood_level: 5,
+    });
+    await submitManyCheckins(memberClient, dateRange(19, 0), {
+      movement_today: 'none',
+      mood_level: 2,
+    });
 
     await recalculateIntelligenceCore(memberClient, TEST_USERS.memberOne.id, AS_OF);
 
-    const observations = await listIdentityObservationsForMember(memberClient, TEST_USERS.memberOne.id, {
-      statusFilter: ['active'],
-    });
+    const observations = await listIdentityObservationsForMember(
+      memberClient,
+      TEST_USERS.memberOne.id,
+      {
+        statusFilter: ['active'],
+      }
+    );
     expect(observations.length).toBeGreaterThan(0);
     const movementObservation = observations.find((o) => o.domain === 'movement_response');
     expect(movementObservation).toBeDefined();
@@ -134,9 +153,13 @@ describe('Wellness Intelligence Core — end-to-end against real check-in histor
     await recalculateIntelligenceCore(memberClient, TEST_USERS.memberOne.id, AS_OF);
     await recalculateIntelligenceCore(memberClient, TEST_USERS.memberOne.id, AS_OF);
 
-    const observations = await listIdentityObservationsForMember(memberClient, TEST_USERS.memberOne.id, {
-      statusFilter: ['active'],
-    });
+    const observations = await listIdentityObservationsForMember(
+      memberClient,
+      TEST_USERS.memberOne.id,
+      {
+        statusFilter: ['active'],
+      }
+    );
     // Scoped to this specific observation_key, not the whole movement_response
     // domain — a second, independent detector in that same domain
     // (deriveMovementResponseFromRegistryObservation, keyed
@@ -204,11 +227,15 @@ describe('Wellness Intelligence Core — end-to-end against real check-in histor
     expect(Array.isArray(summary.identityObservations)).toBe(true);
   }, 60_000);
 
-  it("the member-safe highlight view never includes confidence, evidence, or domain codes", async () => {
+  it('the member-safe highlight view never includes confidence, evidence, or domain codes', async () => {
     const memberClient = await signInAs(TEST_USERS.memberOne);
-    const observations = await listIdentityObservationsForMember(memberClient, TEST_USERS.memberOne.id, {
-      statusFilter: ['active'],
-    });
+    const observations = await listIdentityObservationsForMember(
+      memberClient,
+      TEST_USERS.memberOne.id,
+      {
+        statusFilter: ['active'],
+      }
+    );
     const highlights = toMemberWellnessHighlights(observations);
     for (const highlight of highlights) {
       expect(Object.keys(highlight).sort()).toEqual(['id', 'statement']);

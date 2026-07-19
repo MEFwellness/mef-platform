@@ -12,7 +12,13 @@ import type { FoodLensMealQualityRatingValue } from '@mef/shared-types-contracts
 
 const RATING_CONFIG: Record<
   FoodLensMealQualityRatingValue,
-  { label: string; Icon: typeof CheckCircle2; bgClass: string; textClass: string; iconClass: string }
+  {
+    label: string;
+    Icon: typeof CheckCircle2;
+    bgClass: string;
+    textClass: string;
+    iconClass: string;
+  }
 > = {
   green: {
     label: 'Strong choice',
@@ -50,7 +56,9 @@ export function MealQualityIndicator({
   const Icon = config.Icon;
 
   return (
-    <div className={`rounded-[28px] p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] ${config.bgClass}`}>
+    <div
+      className={`rounded-[28px] p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] ${config.bgClass}`}
+    >
       <div className="flex items-start gap-2">
         <Icon
           className={`mt-0.5 h-5 w-5 shrink-0 ${config.iconClass}`}

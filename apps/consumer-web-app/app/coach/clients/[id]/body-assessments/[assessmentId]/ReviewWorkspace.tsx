@@ -18,7 +18,11 @@ import { CollapsibleSection } from './RightPanel/CollapsibleSection';
 import { SummarySection } from './RightPanel/SummarySection';
 import { CoachNotesSection } from './RightPanel/CoachNotesSection';
 import { AIAssistantSection } from './RightPanel/AIAssistantSection';
-import { ComparisonSection, type ComparisonCapture, type FindingTrendSeries } from './RightPanel/ComparisonSection';
+import {
+  ComparisonSection,
+  type ComparisonCapture,
+  type FindingTrendSeries,
+} from './RightPanel/ComparisonSection';
 import { PostureFindingsSection } from './RightPanel/PostureFindingsSection';
 import { ReviewHistorySection } from './RightPanel/ReviewHistorySection';
 import { TimelineSection } from './RightPanel/TimelineSection';
@@ -150,7 +154,11 @@ export function ReviewWorkspace({
           </CollapsibleSection>
 
           <CollapsibleSection title="Posture Screening Estimates">
-            <PostureFindingsSection findings={findings} history={allFindings} coachNames={coachNames} />
+            <PostureFindingsSection
+              findings={findings}
+              history={allFindings}
+              coachNames={coachNames}
+            />
           </CollapsibleSection>
 
           <CollapsibleSection title="Coach Notes">
@@ -186,7 +194,11 @@ export function ReviewWorkspace({
           </CollapsibleSection>
 
           <CollapsibleSection title="Assessment Timeline" defaultOpen={false}>
-            <TimelineSection history={history} currentAssessmentId={assessmentId} clientId={clientId} />
+            <TimelineSection
+              history={history}
+              currentAssessmentId={assessmentId}
+              clientId={clientId}
+            />
           </CollapsibleSection>
 
           <div className="rounded-[28px] bg-white p-5 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">

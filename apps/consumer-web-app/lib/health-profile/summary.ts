@@ -10,8 +10,15 @@
  * docblock establishes.
  */
 
-import type { HealthProfileSummary, RegistryEntry, WellnessInsight } from '@mef/shared-types-contracts';
-import type { MemberIntelligenceReport, RecommendationPriority } from '../intelligence-engine/types';
+import type {
+  HealthProfileSummary,
+  RegistryEntry,
+  WellnessInsight,
+} from '@mef/shared-types-contracts';
+import type {
+  MemberIntelligenceReport,
+  RecommendationPriority,
+} from '../intelligence-engine/types';
 
 const TOP_N = 3;
 
@@ -33,14 +40,20 @@ export function buildHealthProfileSummary(
   }
 
   const topPriorities = [...report.recommendations]
-    .sort((a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority] || b.confidence - a.confidence)
+    .sort(
+      (a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority] || b.confidence - a.confidence
+    )
     .slice(0, TOP_N)
     .map((r) => r.title);
 
   const wellnessInsightHighlights = wellnessInsights.slice(0, TOP_N).map((i) => i.title);
 
   const assessmentDerivedTimestamps = registryEntries
-    .filter((e) => e.source_feature === 'body_assessment_finding' || e.source_feature === 'assessment_ai_observation')
+    .filter(
+      (e) =>
+        e.source_feature === 'body_assessment_finding' ||
+        e.source_feature === 'assessment_ai_observation'
+    )
     .map((e) => e.recorded_at)
     .sort();
   const lastAssessmentPublishedAt = assessmentDerivedTimestamps.length

@@ -1,6 +1,15 @@
 'use client';
 
-import { MousePointer2, Minus, ArrowUpRight, Circle, Type, PenTool, Undo2, Trash2 } from 'lucide-react';
+import {
+  MousePointer2,
+  Minus,
+  ArrowUpRight,
+  Circle,
+  Type,
+  PenTool,
+  Undo2,
+  Trash2,
+} from 'lucide-react';
 import { ANNOTATION_COLORS, type AnnotationTool } from './annotation-utils';
 
 const TOOLS: { tool: AnnotationTool; icon: typeof MousePointer2; label: string }[] = [

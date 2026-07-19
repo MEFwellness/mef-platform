@@ -513,15 +513,15 @@ export async function listRecentFoodLensComparisonsForMember(
     console.error('listRecentFoodLensComparisonsForMember failed', error);
     return [];
   }
-  return (data as unknown as Array<Record<string, unknown> & { food_lens_scans: FoodLensScan }>).map(
-    (row) => {
-      const { food_lens_scans, ...comparison } = row;
-      return {
-        scan: food_lens_scans,
-        comparison: comparison as unknown as FoodLensPatternComparison,
-      };
-    }
-  );
+  return (
+    data as unknown as Array<Record<string, unknown> & { food_lens_scans: FoodLensScan }>
+  ).map((row) => {
+    const { food_lens_scans, ...comparison } = row;
+    return {
+      scan: food_lens_scans,
+      comparison: comparison as unknown as FoodLensPatternComparison,
+    };
+  });
 }
 
 // ---- primal_pattern_profiles ----

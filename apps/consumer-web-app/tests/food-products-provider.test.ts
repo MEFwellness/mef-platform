@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { normalizeOffProduct, OpenFoodFactsProvider } from '../lib/food-products/providers/openFoodFacts';
+import {
+  normalizeOffProduct,
+  OpenFoodFactsProvider,
+} from '../lib/food-products/providers/openFoodFacts';
 
 describe('normalizeOffProduct', () => {
   it('normalizes a complete Open Food Facts product without fabricating fields', () => {
@@ -98,7 +101,10 @@ describe('OpenFoodFactsProvider network behavior', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ status: 1, product: { product_name: 'Test Product', code: '012345678905' } }),
+        json: async () => ({
+          status: 1,
+          product: { product_name: 'Test Product', code: '012345678905' },
+        }),
       })
     );
     const provider = new OpenFoodFactsProvider();
@@ -107,7 +113,9 @@ describe('OpenFoodFactsProvider network behavior', () => {
   });
 
   it('retries on a 500 and eventually throws when every attempt fails', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503, text: async () => 'unavailable' });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 503, text: async () => 'unavailable' });
     vi.stubGlobal('fetch', fetchMock);
     const provider = new OpenFoodFactsProvider(1000);
     await expect(provider.lookupByBarcode('012345678905')).rejects.toThrow();
@@ -119,7 +127,9 @@ describe('OpenFoodFactsProvider network behavior', () => {
       'fetch',
       vi.fn().mockImplementation((_url: string, init: { signal: AbortSignal }) => {
         return new Promise((_resolve, reject) => {
-          init.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+          init.signal.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError'))
+          );
         });
       })
     );

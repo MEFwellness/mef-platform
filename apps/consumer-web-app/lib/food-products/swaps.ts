@@ -33,28 +33,35 @@ export function generateSwapSuggestions(rules: FoodRulesEngineResult): SwapSugge
   if (highSatFatHighSugar) {
     suggestions.push({
       reason: 'This combines a notable amount of saturated fat with added sugar.',
-      suggestion: 'Look for a version with less added sugar, or pair this with a whole-food protein source to help balance the meal.',
+      suggestion:
+        'Look for a version with less added sugar, or pair this with a whole-food protein source to help balance the meal.',
     });
   }
 
   if (rules.carbQuality.isPrimarilyRefinedCarbohydrate && (rules.carbQuality.fiberG ?? 0) < 3) {
     suggestions.push({
       reason: 'This is a refined-carbohydrate item without much fiber.',
-      suggestion: 'Choose a version with at least 3 grams of fiber, or add a side of vegetables or beans.',
+      suggestion:
+        'Choose a version with at least 3 grams of fiber, or add a side of vegetables or beans.',
     });
   }
 
   if (!rules.proteinQuality.isMeaningfulAmount) {
     suggestions.push({
       reason: "This doesn't provide a meaningful amount of protein on its own.",
-      suggestion: 'Add a whole-food protein source — eggs, Greek yogurt, beans, or a lean meat all work well alongside this.',
+      suggestion:
+        'Add a whole-food protein source — eggs, Greek yogurt, beans, or a lean meat all work well alongside this.',
     });
   }
 
-  if (rules.ingredientQuality.hasAddedSugar && rules.processingContext.label !== 'minimally_processed') {
+  if (
+    rules.ingredientQuality.hasAddedSugar &&
+    rules.processingContext.label !== 'minimally_processed'
+  ) {
     suggestions.push({
       reason: 'Added sugar shows up in the ingredient list.',
-      suggestion: 'Look for an option with less added sugar, or reserve this for an occasional choice rather than an everyday one.',
+      suggestion:
+        'Look for an option with less added sugar, or reserve this for an occasional choice rather than an everyday one.',
     });
   }
 
@@ -68,7 +75,8 @@ export function generateSwapSuggestions(rules: FoodRulesEngineResult): SwapSugge
   if (rules.fatQuality.hasIndustrialTransFat) {
     suggestions.push({
       reason: 'The ingredient list indicates a partially hydrogenated oil.',
-      suggestion: 'Look for a similar product made without partially hydrogenated oils, if one is available to you.',
+      suggestion:
+        'Look for a similar product made without partially hydrogenated oils, if one is available to you.',
     });
   }
 
@@ -79,7 +87,8 @@ export function generateSwapSuggestions(rules: FoodRulesEngineResult): SwapSugge
   if ((rules.carbQuality.fiberG ?? 0) < 2 && (rules.carbQuality.totalCarbohydrateG ?? 0) >= 15) {
     suggestions.push({
       reason: 'Fiber is low relative to the carbohydrate here.',
-      suggestion: 'Pair this with plain Greek yogurt, a handful of nuts, or a vegetable side for more staying power.',
+      suggestion:
+        'Pair this with plain Greek yogurt, a handful of nuts, or a vegetable side for more staying power.',
     });
   }
 

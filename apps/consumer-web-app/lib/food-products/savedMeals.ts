@@ -19,7 +19,12 @@ import type {
 
 export async function insertSavedMealFromDetectedItems(
   supabase: SupabaseClient,
-  input: { memberId: string; name: string; sourceScanId: string | null; items: FoodLensDetectedItem[] }
+  input: {
+    memberId: string;
+    name: string;
+    sourceScanId: string | null;
+    items: FoodLensDetectedItem[];
+  }
 ): Promise<SavedMeal | null> {
   const id = randomUUID();
   const now = new Date().toISOString();
@@ -52,7 +57,13 @@ export async function insertSavedMealFromDetectedItems(
     }
   }
 
-  return { id, member_id: input.memberId, name: input.name, source_scan_id: input.sourceScanId, created_at: now };
+  return {
+    id,
+    member_id: input.memberId,
+    name: input.name,
+    source_scan_id: input.sourceScanId,
+    created_at: now,
+  };
 }
 
 export async function insertSavedMealFromProduct(
@@ -81,12 +92,16 @@ export async function insertSavedMealFromProduct(
     servings: 1,
     created_at: now,
   });
-  if (itemError) console.error('insertSavedMealFromProduct: saved_meal_items insert failed', itemError);
+  if (itemError)
+    console.error('insertSavedMealFromProduct: saved_meal_items insert failed', itemError);
 
   return { id, member_id: input.memberId, name: input.name, source_scan_id: null, created_at: now };
 }
 
-export async function listMySavedMeals(supabase: SupabaseClient, memberId: string): Promise<SavedMeal[]> {
+export async function listMySavedMeals(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<SavedMeal[]> {
   const { data, error } = await supabase
     .from('saved_meals')
     .select('*')
@@ -115,8 +130,16 @@ export async function getSavedMealWithItems(
   return { meal: meal as SavedMeal, items: (items as SavedMealItem[]) ?? [] };
 }
 
-export async function deleteSavedMeal(supabase: SupabaseClient, memberId: string, savedMealId: string): Promise<boolean> {
-  const { error } = await supabase.from('saved_meals').delete().eq('id', savedMealId).eq('member_id', memberId);
+export async function deleteSavedMeal(
+  supabase: SupabaseClient,
+  memberId: string,
+  savedMealId: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('saved_meals')
+    .delete()
+    .eq('id', savedMealId)
+    .eq('member_id', memberId);
   if (error) {
     console.error('deleteSavedMeal failed', error);
     return false;
@@ -126,7 +149,10 @@ export async function deleteSavedMeal(supabase: SupabaseClient, memberId: string
 
 // ---- member_food_favorites ----
 
-export async function listMyFavorites(supabase: SupabaseClient, memberId: string): Promise<MemberFoodFavorite[]> {
+export async function listMyFavorites(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<MemberFoodFavorite[]> {
   const { data, error } = await supabase
     .from('member_food_favorites')
     .select('*')
@@ -141,7 +167,12 @@ export async function listMyFavorites(supabase: SupabaseClient, memberId: string
 
 export async function addFavorite(
   supabase: SupabaseClient,
-  input: { memberId: string; favoriteType: FoodFavoriteType; productId?: string | null; savedMealId?: string | null }
+  input: {
+    memberId: string;
+    favoriteType: FoodFavoriteType;
+    productId?: string | null;
+    savedMealId?: string | null;
+  }
 ): Promise<MemberFoodFavorite | null> {
   const id = randomUUID();
   const now = new Date().toISOString();
@@ -167,7 +198,11 @@ export async function addFavorite(
   };
 }
 
-export async function removeFavoriteByProduct(supabase: SupabaseClient, memberId: string, productId: string): Promise<boolean> {
+export async function removeFavoriteByProduct(
+  supabase: SupabaseClient,
+  memberId: string,
+  productId: string
+): Promise<boolean> {
   const { error } = await supabase
     .from('member_food_favorites')
     .delete()
@@ -180,7 +215,11 @@ export async function removeFavoriteByProduct(supabase: SupabaseClient, memberId
   return true;
 }
 
-export async function isProductFavorited(supabase: SupabaseClient, memberId: string, productId: string): Promise<boolean> {
+export async function isProductFavorited(
+  supabase: SupabaseClient,
+  memberId: string,
+  productId: string
+): Promise<boolean> {
   const { data, error } = await supabase
     .from('member_food_favorites')
     .select('id')

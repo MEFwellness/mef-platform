@@ -86,7 +86,10 @@ export async function fetchMealQualityEventsForScoring(
     }
 
     const latestRatingByScan = new Map<string, 'green' | 'yellow' | 'red'>();
-    for (const r of (ratings ?? []) as Array<{ scan_id: string; rating: 'green' | 'yellow' | 'red' }>) {
+    for (const r of (ratings ?? []) as Array<{
+      scan_id: string;
+      rating: 'green' | 'yellow' | 'red';
+    }>) {
       if (!latestRatingByScan.has(r.scan_id)) latestRatingByScan.set(r.scan_id, r.rating);
     }
 

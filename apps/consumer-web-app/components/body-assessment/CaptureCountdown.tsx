@@ -44,7 +44,14 @@ export function CaptureCountdown({
         className={nearComplete ? 'mef-ring-glow' : ''}
         style={{ transition: 'filter 300ms ease' }}
       >
-        <circle cx="29" cy="29" r={radius} fill="rgba(0,0,0,0.32)" stroke="rgba(255,255,255,0.22)" strokeWidth="3" />
+        <circle
+          cx="29"
+          cy="29"
+          r={radius}
+          fill="rgba(0,0,0,0.32)"
+          stroke="rgba(255,255,255,0.22)"
+          strokeWidth="3"
+        />
         <circle
           cx="29"
           cy="29"

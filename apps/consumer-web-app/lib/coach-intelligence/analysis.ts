@@ -26,7 +26,11 @@ export async function performCoachIntelligenceAnalysis(
   supabase: SupabaseClient,
   request: CoachIntelligenceAnalysisRequest
 ): Promise<{ error?: string; analysisId?: string }> {
-  const existing = await getAnalysisBySource(supabase, request.sourceFeature, request.sourceRecordId);
+  const existing = await getAnalysisBySource(
+    supabase,
+    request.sourceFeature,
+    request.sourceRecordId
+  );
   const analysis =
     existing ??
     (await insertAnalysis(supabase, {
@@ -47,7 +51,10 @@ export async function performCoachIntelligenceAnalysis(
     };
   }
 
-  await updateAnalysis(supabase, analysis.id, { provider_name: providerName, provider_status: 'pending' });
+  await updateAnalysis(supabase, analysis.id, {
+    provider_name: providerName,
+    provider_status: 'pending',
+  });
 
   try {
     const provider = getCoachIntelligenceProvider(providerName);
@@ -63,7 +70,10 @@ export async function performCoachIntelligenceAnalysis(
     return { analysisId: analysis.id };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Coach Intelligence analysis failed.';
-    await updateAnalysis(supabase, analysis.id, { provider_status: 'failed', provider_error: message });
+    await updateAnalysis(supabase, analysis.id, {
+      provider_status: 'failed',
+      provider_error: message,
+    });
     return { analysisId: analysis.id, error: message };
   }
 }

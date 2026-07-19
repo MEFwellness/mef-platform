@@ -17,7 +17,11 @@ import { Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { getMyAssessmentComparison } from '@/app/actions/assessments';
 import type { ComparisonMode } from '@/lib/assessments/store';
 import type { AssessmentComparison } from '@/lib/assessments/comparison';
-import { DIRECTION_LABEL, directionToStatus, formatAssessmentDate } from '@/lib/assessments/presentation';
+import {
+  DIRECTION_LABEL,
+  directionToStatus,
+  formatAssessmentDate,
+} from '@/lib/assessments/presentation';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import type { Questionnaire } from '@/lib/assessments/engine/types';
 
@@ -32,9 +36,12 @@ const MODE_OPTIONS: ModeOption[] = [
 ];
 
 function DirectionIcon({ direction }: { direction: AssessmentComparison['totalDirection'] }) {
-  if (direction === 'improved') return <TrendingDown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
-  if (direction === 'regressed') return <TrendingUp className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
-  if (direction === 'unchanged') return <Minus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
+  if (direction === 'improved')
+    return <TrendingDown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
+  if (direction === 'regressed')
+    return <TrendingUp className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
+  if (direction === 'unchanged')
+    return <Minus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />;
   return null;
 }
 
@@ -89,8 +96,8 @@ export function AssessmentComparisonPanel({
 
       {!loading && comparison && !comparison.previous && (
         <p className="mt-4 text-sm text-[#6B7A72]">
-          No completed assessment falls in that window yet. Complete another assessment to unlock this
-          comparison.
+          No completed assessment falls in that window yet. Complete another assessment to unlock
+          this comparison.
         </p>
       )}
 
@@ -113,9 +120,13 @@ export function AssessmentComparisonPanel({
             {comparison.categories.map((category) => {
               const status = directionToStatus(category.direction);
               const categoryName =
-                questionnaire.categories.find((c) => c.id === category.categoryId)?.name ?? category.categoryId;
+                questionnaire.categories.find((c) => c.id === category.categoryId)?.name ??
+                category.categoryId;
               return (
-                <div key={category.categoryId} className="flex items-center justify-between gap-4 py-3">
+                <div
+                  key={category.categoryId}
+                  className="flex items-center justify-between gap-4 py-3"
+                >
                   <Link
                     href={
                       `/assessments/${questionnaire.id}/results/${latestAssessmentId}/category/${category.categoryId}` as Route

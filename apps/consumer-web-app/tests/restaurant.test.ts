@@ -30,7 +30,9 @@ describe('analyzeMenuItemHeuristics', () => {
     });
     expect(result.friedOrBreaded).toBe(true);
     expect(result.lighterPreparation).toBe(false);
-    expect(result.observations.join(' ')).not.toMatch(/\bhealthy\b|\bunhealthy\b|\bgood\b|\bbad\b/i);
+    expect(result.observations.join(' ')).not.toMatch(
+      /\bhealthy\b|\bunhealthy\b|\bgood\b|\bbad\b/i
+    );
   });
 
   it('flags a lighter preparation for a grilled/vegetable-forward description, distinct from the fried item above', () => {
@@ -91,7 +93,7 @@ describe('analyzeMenuItemHeuristics', () => {
     expect(result.observations.join(' ')).toMatch(/visual estimate/i);
   });
 
-  it('finds a lighter-prep alternative candidate literally present in the member\'s own pasted menu text, never inventing one', () => {
+  it("finds a lighter-prep alternative candidate literally present in the member's own pasted menu text, never inventing one", () => {
     const rawMenuText = [
       'Crispy Chicken Tenders - $12',
       'Grilled Salmon Plate - $18',
@@ -174,7 +176,10 @@ describe('buildDeterministicFallbackCoaching', () => {
       visualEstimateLabels: [],
     });
     const resultWith = buildDeterministicFallbackCoaching(withAlternative, 'ingredient_estimate');
-    const resultWithout = buildDeterministicFallbackCoaching(withoutAlternative, 'ingredient_estimate');
+    const resultWithout = buildDeterministicFallbackCoaching(
+      withoutAlternative,
+      'ingredient_estimate'
+    );
     expect(resultWith.betterFitAlternatives.some((a) => a.includes('Grilled Chicken Salad'))).toBe(
       true
     );

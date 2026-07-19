@@ -112,7 +112,11 @@ export async function insertIdentityObservation(
 export async function touchIdentityObservationObserved(
   supabase: SupabaseClient,
   id: string,
-  patch: { evidenceCount: number; confidence: number; trendDirection: 'strengthening' | 'weakening' | 'stable' }
+  patch: {
+    evidenceCount: number;
+    confidence: number;
+    trendDirection: 'strengthening' | 'weakening' | 'stable';
+  }
 ): Promise<void> {
   const { error } = await supabase
     .from('wellness_identity_observations')
@@ -139,10 +143,17 @@ export async function supersedeIdentityObservation(
   if (error) console.error('supersedeIdentityObservation failed', error);
 }
 
-export async function resolveIdentityObservation(supabase: SupabaseClient, id: string): Promise<void> {
+export async function resolveIdentityObservation(
+  supabase: SupabaseClient,
+  id: string
+): Promise<void> {
   const { error } = await supabase
     .from('wellness_identity_observations')
-    .update({ status: 'resolved', resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({
+      status: 'resolved',
+      resolved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id);
   if (error) console.error('resolveIdentityObservation failed', error);
 }

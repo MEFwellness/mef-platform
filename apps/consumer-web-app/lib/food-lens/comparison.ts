@@ -116,7 +116,10 @@ export function deriveMacroEstimateFromItems(
   const countable = items.filter((i) => i.category !== 'unknown' && i.category !== 'mixed');
   const total = countable.length;
 
-  function dimension(category: 'protein' | 'carb' | 'fat'): { level: FoodLensMealMacroLevel; confidence: number } {
+  function dimension(category: 'protein' | 'carb' | 'fat'): {
+    level: FoodLensMealMacroLevel;
+    confidence: number;
+  } {
     const matches = countable.filter((i) => i.category === category);
     const share = total === 0 ? 0 : matches.length / total;
     const level = levelForShare(share);
@@ -132,9 +135,7 @@ export function deriveMacroEstimateFromItems(
     // case to give a flat confidence to, not a separate "low from absence"
     // case.
     const confidence =
-      matches.length > 0
-        ? matches.reduce((sum, i) => sum + i.confidence, 0) / matches.length
-        : 0.6;
+      matches.length > 0 ? matches.reduce((sum, i) => sum + i.confidence, 0) / matches.length : 0.6;
     return { level, confidence };
   }
 

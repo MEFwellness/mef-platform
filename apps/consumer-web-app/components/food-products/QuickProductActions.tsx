@@ -7,7 +7,13 @@ import { Heart, Refrigerator } from 'lucide-react';
 import { toggleFavoriteProductAction } from '@/app/actions/food-search';
 import { addPantryItemFromProductAction } from '@/app/actions/pantry';
 
-export function QuickProductActions({ productId, initiallyFavorited }: { productId: string; initiallyFavorited: boolean }) {
+export function QuickProductActions({
+  productId,
+  initiallyFavorited,
+}: {
+  productId: string;
+  initiallyFavorited: boolean;
+}) {
   const [favorited, setFavorited] = useState(initiallyFavorited);
   const [pantryAdded, setPantryAdded] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -34,7 +40,11 @@ export function QuickProductActions({ productId, initiallyFavorited }: { product
         disabled={isPending}
         className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1B3A2D]/15 py-2.5 text-xs font-semibold text-[#1B3A2D] disabled:opacity-60"
       >
-        <Heart className={`h-3.5 w-3.5 ${favorited ? 'fill-[#1B3A2D]' : ''}`} strokeWidth={1.75} aria-hidden="true" />
+        <Heart
+          className={`h-3.5 w-3.5 ${favorited ? 'fill-[#1B3A2D]' : ''}`}
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
         {favorited ? 'Favorited' : 'Favorite'}
       </button>
       <button
