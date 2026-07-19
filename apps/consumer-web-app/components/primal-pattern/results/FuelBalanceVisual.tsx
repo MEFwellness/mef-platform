@@ -36,15 +36,20 @@ export function FuelBalanceVisual({ balance }: { balance: FuelBalance }) {
         Visual Fuel Balance
       </p>
       <p className="mt-1 text-sm leading-relaxed text-[#6B7A72]">
-        A visual illustration of how your fuel mix tends to lean for your result.
+        How your fuel mix tends to lean for your result.
       </p>
 
       <div className="mt-6 space-y-5">
-        {macros.map((macro) => {
+        {macros.map((macro, index) => {
           const Icon = MACRO_ICON[macro];
           const percent = balance[macro];
+          const delayMs = index * 150;
           return (
-            <div key={macro}>
+            <div
+              key={macro}
+              className="transition-opacity duration-500 motion-reduce:transition-none"
+              style={{ opacity: mounted ? 1 : 0, transitionDelay: `${delayMs}ms` }}
+            >
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2 font-medium text-[#1B3A2D]">
                   <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -62,6 +67,7 @@ export function FuelBalanceVisual({ balance }: { balance: FuelBalance }) {
                   style={{
                     width: mounted ? `${percent}%` : '0%',
                     backgroundColor: FUEL_MACRO_COLOR[macro],
+                    transitionDelay: `${delayMs}ms`,
                   }}
                 />
               </div>

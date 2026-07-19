@@ -40,7 +40,7 @@ export function DailyPlateGuide({ defaultFrequency }: { defaultFrequency: MealFr
             type="button"
             aria-pressed={frequency === option}
             onClick={() => setFrequency(option)}
-            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] ${
+            className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-200 active:scale-95 motion-reduce:active:scale-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] ${
               frequency === option
                 ? 'bg-[#1B3A2D] text-white shadow-sm'
                 : 'text-[#6B7A72] hover:text-[#1B3A2D]'

@@ -70,7 +70,10 @@ export default async function PrimalPatternResultsPage({
           />
         </div>
 
-        <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <section
+          className="mef-animate-in mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          style={{ animationDelay: '80ms' }}
+        >
           <div className={STAT_CARD}>
             <p className="text-2xl font-semibold text-[#1B3A2D]">{record.aCount}</p>
             <p className="mt-1 text-xs text-[#6B7A72]">A answers</p>
@@ -91,14 +94,26 @@ export default async function PrimalPatternResultsPage({
 
         {record.result && (
           <div className="mt-5 space-y-5">
-            <FuelBalanceVisual balance={FUEL_BALANCE_BY_RESULT[record.result]} />
-            <DailyPlateGuide
-              defaultFrequency={defaultMealFrequencyFor(nutritionProfile.mealFrequency)}
-            />
-            <HandPortionGuide />
-            <MealExampleCards meals={MEAL_EXAMPLES_BY_RESULT[record.result]} />
-            <EducationAccordion />
-            <NextStepsCards />
+            <div className="mef-animate-in" style={{ animationDelay: '140ms' }}>
+              <FuelBalanceVisual balance={FUEL_BALANCE_BY_RESULT[record.result]} />
+            </div>
+            <div className="mef-animate-in" style={{ animationDelay: '200ms' }}>
+              <DailyPlateGuide
+                defaultFrequency={defaultMealFrequencyFor(nutritionProfile.mealFrequency)}
+              />
+            </div>
+            <div className="mef-animate-in" style={{ animationDelay: '260ms' }}>
+              <HandPortionGuide />
+            </div>
+            <div className="mef-animate-in" style={{ animationDelay: '320ms' }}>
+              <MealExampleCards meals={MEAL_EXAMPLES_BY_RESULT[record.result]} />
+            </div>
+            <div className="mef-animate-in" style={{ animationDelay: '380ms' }}>
+              <EducationAccordion />
+            </div>
+            <div className="mef-animate-in" style={{ animationDelay: '440ms' }}>
+              <NextStepsCards />
+            </div>
           </div>
         )}
 
