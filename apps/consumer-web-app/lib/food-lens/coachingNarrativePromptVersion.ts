@@ -12,5 +12,14 @@
  * deterministic; only the coaching sentence is generated, from those
  * signals plus the member's real history/goals/Primal Pattern, grounded
  * and scope-limited the same way the main Conversation Coach prompt is.
+ *
+ * v2: Nutrition Intelligence Service integration — the prompt now also
+ * receives the member's self-reported Primal Pattern Assessment result
+ * (via lib/nutrition-intelligence/service.ts), an explicit low-confidence
+ * disclosure instruction, and the shared nutrition-coaching hard rules
+ * (lib/nutrition-intelligence/coachingGuardrails.ts: expanded forbidden
+ * phrase list, no bare carb/protein/fat directives). Generation is now
+ * also short-circuited (no LLM call) for a member with an active
+ * Nutrition Safety Override — see buildHealthSafetyPriorityMessage.
  */
-export const FOOD_LENS_NARRATIVE_PROMPT_VERSION = 'food-lens-narrative-prompt-v1';
+export const FOOD_LENS_NARRATIVE_PROMPT_VERSION = 'food-lens-narrative-prompt-v2';

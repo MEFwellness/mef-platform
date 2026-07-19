@@ -18,13 +18,21 @@
  *   in the prompt and re-checked structurally isn't possible for free-text
  *   generation, so this relies on instruction plus the same synchronous
  *   safety re-check (lib/safety/classifier.ts) Food Lens's narrative uses.
+ * - If the member currently has an active Nutrition Safety Override
+ *   (migration 65 — diabetes, prediabetes, gestational diabetes, reactive
+ *   hypoglycemia, insulin use, pregnancy, or an existing clinician
+ *   nutrition plan, read via lib/nutrition-intelligence/service.ts), this
+ *   skips the LLM call entirely and returns a generic result explaining
+ *   the member's health profile takes priority.
  * - If the member currently has an active safety restriction, this skips
  *   the LLM call entirely and returns a soft, generic result (mirrors
  *   lib/food-lens/coachingNarrative.ts's buildSafetySoftenedNarrative).
  * - If the provider is unconfigured, fails, returns unparseable output, or
- *   fails the safety re-check, this falls back to a deterministic,
- *   signal-derived result built directly from rules_result — the member
- *   never sees a blank or broken result.
+ *   fails the safety re-check (which now also rejects the shared
+ *   nutrition-coaching forbidden-phrase list — see
+ *   lib/nutrition-intelligence/coachingGuardrails.ts), this falls back to
+ *   a deterministic, signal-derived result built directly from
+ *   rules_result — the member never sees a blank or broken result.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -38,10 +46,16 @@ import { getConversationCoachingContext } from '@/lib/intelligence-core/service'
 import { getConversationCoachProvider } from '@/lib/conversation-coach/provider';
 import { classifyConcern } from '@/lib/safety/classifier';
 import { FOOD_PRODUCT_COACHING_PROMPT_VERSION } from './coachingNarrativePromptVersion';
+import { getMemberNutritionCoachingContext } from '@/lib/nutrition-intelligence/service';
+import type { NutritionIntelligenceProfile } from '@/lib/nutrition-intelligence/types';
+import {
+  buildHealthSafetyPriorityMessage,
+  NUTRITION_COACHING_FORBIDDEN_PHRASES,
+  NUTRITION_COACHING_HARD_RULES,
+} from '@/lib/nutrition-intelligence/coachingGuardrails';
 
 const FORBIDDEN_PHRASES = [
-  'good food',
-  'bad food',
+  ...NUTRITION_COACHING_FORBIDDEN_PHRASES,
   'toxic',
   'clean',
   'dirty',
@@ -59,8 +73,10 @@ You are given, below, the ONLY facts you may use: the MEF Nutrition Rules Engine
 deterministic findings for this product (ingredient quality, fat quality and source, carbohydrate
 quality, protein quality, processing context, and nutrient-combination findings), the product's own
 basic facts (name, brand, serving size, and normalized nutrients), whether any of the member's own
-stated allergies matched a declared allergen, and a little real context about this member (relevant
-wellness patterns, current coaching focus, dietary pattern, and recent Food Lens history).
+stated allergies matched a declared allergen, this member's self-reported Primal Pattern Assessment
+result (if they've completed it) via the Nutrition Intelligence Service, and a little real context
+about this member (relevant wellness patterns, current coaching focus, dietary pattern, and recent
+Food Lens history).
 
 Hard rules, no exceptions:
 - Never invent a nutrient value, ingredient, allergen, health benefit, health risk, processing detail,
@@ -77,6 +93,7 @@ Hard rules, no exceptions:
   disease", "this food is inflammatory" — unless the rules engine's own findings specifically and
   narrowly support a safety-grade statement (e.g. a confirmed trans-fat/partially-hydrogenated-oil
   finding, or a member allergen match), and even then stay factual and calm, never alarmist.
+${NUTRITION_COACHING_HARD_RULES}
 - If a member allergen match is present in the data below, acknowledge it clearly and directly in
   "Things to Be Mindful Of" — this is a safety-relevant fact, not something to soften.
 - Write in exactly these four sections, each 1-3 sentences, using this EXACT format with each label on
@@ -177,6 +194,29 @@ function buildSafetySoftenedCoaching(): FoodCoachingResult {
   };
 }
 
+/** Used only when a member currently has an active Nutrition Safety Override (migration 65) — no carb/protein/fat-specific suggestion is generated while this is true; see lib/nutrition-intelligence/coachingGuardrails.ts. */
+function buildHealthSafetyPriorityCoaching(): FoodCoachingResult {
+  return {
+    supportsYou: null,
+    mindfulOf: buildHealthSafetyPriorityMessage(),
+    bestFit: null,
+    recommendation: null,
+    missingInformation: null,
+  };
+}
+
+/** Frames the Nutrition Intelligence Service's derived profile as "what the member reported" — kept distinct from the rules engine's own findings. */
+function formatNutritionProfile(profile: NutritionIntelligenceProfile): string {
+  if (!profile.currentResult) {
+    return '(this member has not completed the Primal Pattern Assessment yet — no self-reported eating-pattern result to reference)';
+  }
+  const qualityNote =
+    profile.completionQualityStatus === 'low_quality'
+      ? ' (based on a partially completed assessment — treat as a lighter signal, do not lean on it heavily)'
+      : '';
+  return `Self-reported Primal Pattern Assessment result: "${profile.currentResult}"${qualityNote}. Their guided meal frequency for that result: ${profile.mealFrequency.replace(/_/g, ' ')}.`;
+}
+
 function parseCoachingSections(text: string): FoodCoachingResult | null {
   const extract = (label: string): string | null => {
     const regex = new RegExp(
@@ -228,10 +268,19 @@ export async function generateFoodCoachingNarrative(
 ): Promise<GenerateFoodCoachingResult> {
   const { supabase, memberId } = input;
 
-  const [intelligence, coachingContext] = await Promise.all([
+  const [intelligence, coachingContext, nutritionContext] = await Promise.all([
     getConversationContextIntelligence(supabase, memberId, input.localDate),
     getConversationCoachingContext(supabase, memberId),
+    getMemberNutritionCoachingContext(supabase, memberId),
   ]);
+
+  // A member with an active Nutrition Safety Override (migration 65) never
+  // gets a carb/protein/fat-specific suggestion generated — their health
+  // profile takes priority. Checked before the general restrictedTopics
+  // gate since it needs its own, more specific explanation.
+  if (nutritionContext.safetyOverrides?.hasActiveOverride) {
+    return { result: buildHealthSafetyPriorityCoaching(), promptVersion: null };
+  }
 
   if (intelligence.restrictedTopics.length > 0) {
     return { result: buildSafetySoftenedCoaching(), promptVersion: null };
@@ -256,6 +305,9 @@ MEMBER ALLERGEN MATCH: ${
       : 'none'
   }
 MEMBER'S DIETARY PATTERN: ${input.dietaryPattern ?? '(not set)'}
+
+WHAT THE MEMBER SELF-REPORTED (separate from this product's own data):
+${formatNutritionProfile(nutritionContext.profile)}
 
 ${formatObservations('INGREDIENT QUALITY', input.rulesResult.ingredientQuality.observations)}
 

@@ -21,15 +21,24 @@
  * - Never mentions calories or gram/weight values, under any circumstance.
  * - Stays inside wellness-coaching scope, same restriction as the main
  *   Conversation Coach prompt.
+ * - If the member currently has an active Nutrition Safety Override
+ *   (migration 65 — diabetes, prediabetes, gestational diabetes, reactive
+ *   hypoglycemia, insulin use, pregnancy, or an existing clinician
+ *   nutrition plan, read via lib/nutrition-intelligence/service.ts), this
+ *   skips the LLM call entirely and returns a generic line explaining the
+ *   member's health profile takes priority — never a carbohydrate/
+ *   protein/fat increase-or-decrease suggestion while this is true.
  * - If the member currently has any active safety restriction (same
  *   signal lib/safety/ already tracks and the Conversation Coach already
  *   checks), this skips the LLM call entirely and returns a soft, generic
  *   line — doc 7.3's "soften or suppress detailed macro-balance feedback
  *   for members currently flagged."
  * - If the provider is unconfigured, fails, or returns an unsafe result on
- *   the synchronous safety re-check, this falls back to a small set of
- *   honest, signal-derived deterministic lines — the member never sees a
- *   blank or broken result, same discipline as
+ *   the synchronous safety re-check (which now also rejects the shared
+ *   nutrition-coaching forbidden-phrase list — see
+ *   lib/nutrition-intelligence/coachingGuardrails.ts), this falls back to
+ *   a small set of honest, signal-derived deterministic lines — the
+ *   member never sees a blank or broken result, same discipline as
  *   lib/conversation-coach/fallback.ts.
  */
 
@@ -46,6 +55,16 @@ import { classifyConcern } from '@/lib/safety/classifier';
 import type { ComparisonMacroEstimate } from './comparison';
 import { listRecentFoodLensComparisonsForMember } from './data';
 import { FOOD_LENS_NARRATIVE_PROMPT_VERSION } from './coachingNarrativePromptVersion';
+import { getMemberNutritionCoachingContext } from '@/lib/nutrition-intelligence/service';
+import type { NutritionIntelligenceProfile } from '@/lib/nutrition-intelligence/types';
+import {
+  buildHealthSafetyPriorityMessage,
+  containsNutritionCoachingForbiddenPhrase,
+  NUTRITION_COACHING_HARD_RULES,
+} from '@/lib/nutrition-intelligence/coachingGuardrails';
+
+/** Below this, the meal-level macro read is too uncertain to speak about confidently — same bar lib/food-lens/mealQuality.ts uses for its own low-confidence branch. */
+const LOW_CONFIDENCE_THRESHOLD = 0.45;
 
 const SYSTEM_PROMPT = `Your name is Root. You are this member's own MEF Wellness Coach — calm, warm,
 experienced, and genuinely familiar with their history, not a generic nutrition-facts label. You are
@@ -53,8 +72,10 @@ writing ONE short reaction to a meal they just photographed with MEF Food Lens.
 
 You are given, below, the ONLY facts you may use: the foods detected in this specific photo, a
 plate-level protein/carbohydrate/fat emphasis read (as none/low/moderate/high, never a number), how
-that compares to this member's own Primal Pattern eating target, and a little real context about
-this member (their recent Food Lens history, relevant wellness patterns, and current coaching focus).
+that compares to this member's own Primal Pattern eating target, this member's self-reported Primal
+Pattern Assessment result (if they've completed it) via the Nutrition Intelligence Service, and a
+little real context about this member (their recent Food Lens history, relevant wellness patterns,
+and current coaching focus).
 "None" means that macro is essentially absent (e.g. a sugary drink's protein or fat) — a real,
 distinct reading, not a placeholder; say so plainly rather than softening it into "a little."
 
@@ -72,12 +93,16 @@ Hard rules, no exceptions:
   anything that reads as scored or shaming ("you didn't eat enough protein").
 - If it genuinely fits, you may reference a real recent pattern (e.g. "your last couple of scans have
   leaned this way too") or a real wellness identity note given below — only if it's actually provided,
-  never fabricated, and only when it adds real value rather than padding the message.
+  never fabricated, and only when it adds real value rather than padding the message. Never say "you
+  always" or "you usually" unless the recent-scan history below actually supports it.
+${NUTRITION_COACHING_HARD_RULES}
 - No greeting, no preamble, no label like "Coaching:" — just the message itself, the way Root would
   actually text it.
 - Never say you are an AI, a model, or a chatbot.`;
 
-function formatItems(items: Array<{ label: string; category: string; confidence: number }>): string {
+function formatItems(
+  items: Array<{ label: string; category: string; confidence: number }>
+): string {
   if (items.length === 0) return '(no items confirmed yet)';
   return items
     .map((i) => `- ${i.label} (${i.category}, confidence ${(i.confidence * 100).toFixed(0)}%)`)
@@ -86,7 +111,10 @@ function formatItems(items: Array<{ label: string; category: string; confidence:
 
 function formatSignals(signals: FoodLensComparisonSignal[]): string {
   return signals
-    .map((s) => `- ${s.dimension}: this meal reads ${s.mealLevel}, target is ${s.targetLevel} -> ${s.direction}`)
+    .map(
+      (s) =>
+        `- ${s.dimension}: this meal reads ${s.mealLevel}, target is ${s.targetLevel} -> ${s.direction}`
+    )
     .join('\n');
 }
 
@@ -94,6 +122,18 @@ function directionWord(direction: 'match' | 'heavy' | 'light'): string {
   if (direction === 'match') return 'a good match for';
   if (direction === 'heavy') return 'heavier than';
   return 'lighter than';
+}
+
+/** Frames the Nutrition Intelligence Service's derived profile as "what the member reported" — kept distinct in the prompt from "what Food Lens detected in this photo" per the coaching-limits requirement. */
+function formatNutritionProfile(profile: NutritionIntelligenceProfile): string {
+  if (!profile.currentResult) {
+    return '(this member has not completed the Primal Pattern Assessment yet — no self-reported eating-pattern result to reference)';
+  }
+  const qualityNote =
+    profile.completionQualityStatus === 'low_quality'
+      ? ' (based on a partially completed assessment — treat as a lighter signal, do not lean on it heavily)'
+      : '';
+  return `Self-reported Primal Pattern Assessment result: "${profile.currentResult}"${qualityNote}. Their guided meal frequency for that result: ${profile.mealFrequency.replace(/_/g, ' ')}.`;
 }
 
 /** A small, honest, signal-derived line — used only when the dynamic path is unavailable (provider unconfigured/failed) or the member is currently safety-restricted. Never the primary path; see this file's docblock. */
@@ -109,7 +149,9 @@ export function buildDeterministicFallbackNarrative(
   }
 
   const levelPhrase =
-    nonMatch.mealLevel === 'none' ? `shows no ${nonMatch.dimension}` : `reads ${nonMatch.mealLevel} in ${nonMatch.dimension}`;
+    nonMatch.mealLevel === 'none'
+      ? `shows no ${nonMatch.dimension}`
+      : `reads ${nonMatch.mealLevel} in ${nonMatch.dimension}`;
 
   return `This meal ${levelPhrase} — ${directionWord(nonMatch.direction)} what ${patternPhrase} calls for right now.`;
 }
@@ -140,11 +182,21 @@ export async function generateFoodLensCoachingNarrative(
 ): Promise<GenerateFoodLensNarrativeResult> {
   const { supabase, memberId, localDate } = input;
 
-  const [intelligence, coachingContext, recentScans] = await Promise.all([
+  const [intelligence, coachingContext, recentScans, nutritionContext] = await Promise.all([
     getConversationContextIntelligence(supabase, memberId, localDate),
     getConversationCoachingContext(supabase, memberId),
     listRecentFoodLensComparisonsForMember(supabase, memberId, 5),
+    getMemberNutritionCoachingContext(supabase, memberId),
   ]);
+
+  // A member with an active Nutrition Safety Override (migration 65) never
+  // gets a carb/protein/fat-specific suggestion generated — their health
+  // profile takes priority, full stop. Checked before the general
+  // restrictedTopics gate below since it needs its own, more specific
+  // explanation rather than the generic "I'll keep feedback light" line.
+  if (nutritionContext.safetyOverrides?.hasActiveOverride) {
+    return { narrative: buildHealthSafetyPriorityMessage(), promptVersion: null };
+  }
 
   // doc 7.3: a member currently flagged by the existing Coaching Safety
   // System gets softened, non-detailed feedback — same signal the main
@@ -174,12 +226,22 @@ export async function generateFoodLensCoachingNarrative(
         : `- ${date}: matched their pattern`;
     });
 
+  const overallConfidence = Math.min(
+    input.macroEstimate.protein.confidence,
+    input.macroEstimate.carb.confidence,
+    input.macroEstimate.fat.confidence
+  );
+
   const userPrompt = `MEMBER'S PRIMAL PATTERN TARGET: "${input.target.pattern_label}" — protein: ${input.target.protein_emphasis}, carb: ${input.target.carb_emphasis}, fat: ${input.target.fat_emphasis}.
+
+WHAT THE MEMBER SELF-REPORTED (separate from what Food Lens detected in this photo):
+${formatNutritionProfile(nutritionContext.profile)}
 
 THIS SCAN'S DETECTED ITEMS:
 ${formatItems(input.detectedItems)}
 
 THIS SCAN'S MACRO ESTIMATE: protein ${input.macroEstimate.protein.level} (confidence ${(input.macroEstimate.protein.confidence * 100).toFixed(0)}%), carb ${input.macroEstimate.carb.level} (confidence ${(input.macroEstimate.carb.confidence * 100).toFixed(0)}%), fat ${input.macroEstimate.fat.level} (confidence ${(input.macroEstimate.fat.confidence * 100).toFixed(0)}%).
+OVERALL DETECTION CONFIDENCE FOR THIS SCAN: ${(overallConfidence * 100).toFixed(0)}%${overallConfidence < LOW_CONFIDENCE_THRESHOLD ? ' — LOW: this reading is genuinely uncertain, say so rather than speaking confidently about it.' : ''}
 
 COMPARISON SIGNALS (this meal vs. their target):
 ${formatSignals(input.signals)}
@@ -216,6 +278,17 @@ Write Root's one short reaction to this specific scan now.`;
       };
     }
 
+    if (containsNutritionCoachingForbiddenPhrase(text)) {
+      console.error(
+        `Food Lens: generated narrative used a forbidden coaching phrase for member ${memberId} — ` +
+          'using deterministic fallback narrative.'
+      );
+      return {
+        narrative: buildDeterministicFallbackNarrative(input.signals, input.target.pattern_label),
+        promptVersion: null,
+      };
+    }
+
     // Defense-in-depth, same free synchronous check
     // lib/conversation-coach/safety.ts's guardConversationReply runs before
     // showing any generated text to a member — no DB-recorded evaluation
@@ -236,7 +309,10 @@ Write Root's one short reaction to this specific scan now.`;
     return { narrative: text, promptVersion: FOOD_LENS_NARRATIVE_PROMPT_VERSION };
   } catch (err) {
     const detail = err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err);
-    console.error(`Food Lens: narrative provider call threw for member ${memberId} — ${detail}`, err);
+    console.error(
+      `Food Lens: narrative provider call threw for member ${memberId} — ${detail}`,
+      err
+    );
     return {
       narrative: buildDeterministicFallbackNarrative(input.signals, input.target.pattern_label),
       promptVersion: null,

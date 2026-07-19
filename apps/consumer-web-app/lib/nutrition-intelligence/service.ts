@@ -2,10 +2,12 @@
  * Nutrition Intelligence Service. Reads the Primal Pattern Assessment
  * result (lib/primal-pattern/store.ts) and derives a small, stable,
  * versioned profile — never raw table rows — for other platform features
- * to consume. Food Lens will become the first consumer of this in a later
- * phase; it is written now against this service, not against
- * primal_pattern_assessments directly, so that a future change to how
- * assessments are stored never requires a change in Food Lens.
+ * to consume. Food Lens's coaching narratives (lib/food-lens/
+ * coachingNarrative.ts, lib/food-products/coachingNarrative.ts) are the
+ * first consumers, via getMemberNutritionCoachingContext below; they're
+ * written against this service, not against primal_pattern_assessments
+ * directly, so that a future change to how assessments are stored never
+ * requires a change in Food Lens.
  *
  * Deliberately excludes health-safety information (lib/health-safety/) —
  * that's a structurally separate concern (migration 65) with its own
@@ -118,4 +120,34 @@ export async function getMemberHealthSafetyOverrides(
   memberId: string
 ): Promise<NutritionSafetyProfile | null> {
   return getNutritionSafetyProfile(supabase, memberId);
+}
+
+export type MemberNutritionCoachingContext = {
+  profile: NutritionIntelligenceProfile;
+  safetyOverrides: NutritionSafetyProfile | null;
+};
+
+/**
+ * Convenience aggregator for coaching-facing consumers (Food Lens's
+ * meal-photo and barcode narratives today; any future feature that
+ * generates personalized nutrition coaching) that need both halves of
+ * this service together. Two independent, cheap, indexed reads — no
+ * cross-request caching here on purpose: safety-override data must never
+ * be served stale to a coaching pipeline (a member could update a flag
+ * and scan a meal moments later), and the profile read is already a
+ * single indexed query, so the "recomputation is cheap, re-run rather
+ * than cached" posture lib/intelligence-engine/engine.ts documents
+ * applies here too. Callers should fetch this once per request/scan (in
+ * parallel with whatever else they gather) and pass the result down,
+ * rather than calling it once per macro dimension or per retry.
+ */
+export async function getMemberNutritionCoachingContext(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<MemberNutritionCoachingContext> {
+  const [profile, safetyOverrides] = await Promise.all([
+    getMemberNutritionProfile(supabase, memberId),
+    getMemberHealthSafetyOverrides(supabase, memberId),
+  ]);
+  return { profile, safetyOverrides };
 }
