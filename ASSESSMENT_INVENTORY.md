@@ -1,0 +1,316 @@
+# Assessment Inventory — Rooted Reset / MEF Wellness Platform
+
+Read-only reconnaissance. No code, schema, or data was changed to produce this report.
+Repo: `apps/consumer-web-app` (Next.js) + root-level `supabase/migrations` (68 migrations as of this audit).
+
+**Headline finding:** there are **five separate assessment systems** in production, at three different levels of architectural maturity:
+
+1. **Onboarding Assessment** — health history/lifestyle intake. Its own hand-built system, with the most mature versioning/reassessment model in the codebase.
+2. **A generic "questionnaire engine"** (`lib/assessments/`) that currently powers two questionnaires: **CHEK HLC1 Nutrition & Lifestyle** and **Four Doctors**. This is the closest thing that already exists to what Prompt 2+ is presumably being asked to build — it is explicitly designed to be extended by registry entry alone.
+3. **Primal Pattern Diet Type** — a *third*, deliberately parallel, hand-rolled "reusable engine," architecturally similar to #2 but incompatible with it at the data-model level (letter-based multi-select answers vs. point-scored single-select). Not registered in the generic engine's registry.
+4. **Body Assessment** — camera-based posture/movement assessment. Entirely different shape (media capture + AI/coach findings review, not question/answer).
+5. Several **downstream/derived scoring systems** (Root Score, Wellness Intelligence, Universal Health Registry, Persisted Health Profile) that consume outputs from #1–#4 but are not questionnaires themselves — included here because they are part of the blast radius of any framework change.
+
+Internal code identifiers are reported factually below for engineering accuracy (this is not member-facing copy).
+
+---
+
+## Table of contents
+
+1. [Assessment-by-assessment inventory](#1-assessment-by-assessment-inventory)
+2. [Database tables — full schema reference](#2-database-tables)
+3. [Routes — member-facing and API](#3-routes)
+4. [RLS policy patterns](#4-rls-policies)
+5. [Roles / membership / program-enrollment structure](#5-roles-membership-structure)
+6. [Questionnaires page structure](#6-questionnaires-page)
+7. [Mobile navigation structure](#7-mobile-navigation)
+8. [Downstream consumers / dependency map](#8-downstream-consumers)
+9. [RISK LIST](#9-risk-list)
+10. [Open questions for you](#10-open-questions)
+
+---
+
+## 1. Assessment-by-assessment inventory
+
+### 1.1 Onboarding Assessment (health history / lifestyle intake)
+
+| Field | Detail |
+|---|---|
+| **Assessment name** | Onboarding Assessment (member-facing: initial intake at signup; reassessment via Profile) |
+| **Stable internal identifier** | No single string ID. Identity is `assessment_version` (int, currently `1`, hardcoded as `ASSESSMENT_VERSION = 1` in `app/actions/onboarding.ts:24`) × per-question `question_key`/`question_version`. Submissions are typed by `assessment_type` (`'baseline'` \| `'reassessment'`), derived server-side, never client-supplied. |
+| **Route** | `/onboarding` (first-time); `/profile/reassessments/new` (reassessment — reuses the same form component) |
+| **Main component** | `app/onboarding/page.tsx`, `app/onboarding/OnboardingForm.tsx`, `app/onboarding/ConsentForm.tsx` |
+| **Question source** | DB-stored, versioned: `onboarding_questions` table, tied to `onboarding_assessment_versions` via FK. Seeded by migration `00000000000049` (v1 reference data); content-only edits go through plain `UPDATE`s (e.g. migration `00000000000068` expanded the `primary_concern` option list without bumping `question_version`). |
+| **Answer structure** | One `onboarding_answers` row per question: `answer_status` (`answered`\|`not_sure`\|`not_applicable`\|`prefer_not_to_answer`) + one of five typed value columns (`value_numeric`, `value_enum`, `value_multi_select` jsonb, `value_boolean`, `value_free_text`), CHECK-enforced that `answered` requires a non-null value. |
+| **Scoring logic** | **None** — no point/priority scoring. It's raw stored answers plus a baseline-vs-latest-reassessment comparator: `lib/onboarding/comparison.ts` (`buildComparison`, `buildProgressSummary`), `lib/onboarding/scale.ts` (per-metric classifiers, reusing `lib/wellness/status.ts` where scales match). |
+| **Results logic** | `lib/onboarding/baseline.ts` (`fetchBaselineAssessment` = earliest submission by `submitted_at`), `lib/onboarding/reassessment.ts` (`fetchAssessmentHistory`, `fetchLatestReassessment`). Surfaced via `ComprehensiveAssessmentCard`, `BaselineAssessmentView`, `AssessmentHistoryList`, `AssessmentComparisonView`. |
+| **Database storage** | `onboarding_assessment_versions`, `onboarding_questions`, `onboarding_submissions`, `onboarding_answers`, `onboarding_baselines` (schema exists but **is never written to** — see Risk List). |
+| **Completion tracking** | No status column. Inferred from existence of any `onboarding_submissions` row for the user (checked at `app/onboarding/page.tsx:41-49` and the root redirect gate `app/page.tsx:27-39`). |
+| **Membership access** | Any authenticated member (consent required first). Coach can read assigned client's submissions/answers. Admin: full access. |
+| **Reassessment support** | Yes — the most mature in the codebase. `assessment_type` column, server-derived (first-ever submission → `baseline`, else → `reassessment`), unlimited reassessments, no cooldown. `checkpoint_label` (`30_day`\|`90_day`) column exists but is **reserved/unused** — no scheduler reads it yet. |
+| **Version information** | Real two-axis versioning: `onboarding_assessment_versions.assessment_version` (assessment "edition") × `onboarding_questions.question_version` (per-question). Only version 1 exists/is exercised. Adding v2 requires an app code change (`ASSESSMENT_VERSION` constant), not just a data change. |
+| **Existing dependencies (what breaks if this changes)** | `app/page.tsx` root redirect logic; `app/actions/coach.ts` (coach client-detail view); `lib/wellness/wellness-index.ts`; `lib/narrative/generator.ts`; `lib/intelligence/baselineEngine.ts`; `lib/intelligence-engine/profile.ts`; `lib/health-profile/orchestration.ts` (indirectly, via wellness-intelligence recalculation); `tests/onboarding-baseline.test.ts`, `tests/onboarding-comparison.test.ts`. **Not** consumed by `lib/scoring/` (Root Score). |
+
+---
+
+### 1.2 CHEK HLC1 Nutrition & Lifestyle (generic questionnaire engine)
+
+| Field | Detail |
+|---|---|
+| **Assessment name** | Displayed to members as **"Nutrition & Lifestyle Questionnaire"** (`copy.ts` `displayTitle`). Source-of-truth JSON title: "CHEK Nutrition and Lifestyle Questionnaires for HLC 1". |
+| **Stable internal identifier** | `"chek-hlc1-nutrition-lifestyle"` (`lib/assessments/chek-hlc1/questionnaire.json:2`, `.id` field — this is the literal registry key, DB `questionnaire_id` value, and URL path segment). Folder name `chek-hlc1/` and constant name `CHEK_HLC1_QUESTIONNAIRE` are shorter aliases only. |
+| **Route** | `/assessments/chek-hlc1-nutrition-lifestyle` (overview) → `/take` → `/results/[assessmentId]` (+ per-category drill-down `/results/[assessmentId]/category/[categoryId]`) → `/history` |
+| **Main component** | `components/assessments/AssessmentTaker.tsx` (shared with Four Doctors); results rendered via generic `app/assessments/[questionnaireId]/results/[assessmentId]/page.tsx` |
+| **Question source** | `lib/assessments/chek-hlc1/questionnaire.json` — 91 questions across 7 categories, question types `binary`\|`frequency`\|`multiple_choice`, no conditional/branching questions. |
+| **Answer structure** | `QuestionnaireAnswers = Record<categoryId, Record<questionNumber, selectedOptionIndex>>` (`lib/assessments/engine/types.ts:118-122`). DB row: `wellness_assessment_answers` (`assessment_id, category_id, question_number, option_index, points, answered_at`) — `points` is a snapshot at answer time, immune to later question-config edits. |
+| **Scoring logic** | `lib/assessments/engine/scoring.ts` `scoreQuestionnaire()` — generic, category point-sum vs. `priorityBands` from `questionnaire.json`, classified into `low`/`moderate`/`high`. Identical code path to Four Doctors; no per-questionnaire override. |
+| **Results logic** | Generic `app/assessments/[questionnaireId]/results/[assessmentId]/page.tsx` → `getMyAssessmentResult()` (`app/actions/assessments.ts`) → `store.ts` `getAssessmentResult()` + `lib/assessments/insights.ts` `buildWellnessInsight()` for summary text. History/trend via `lib/assessments/comparison.ts`. |
+| **Database storage** | `wellness_assessments` (one row/attempt), `wellness_assessment_answers` (one row/answered question), `wellness_assessment_category_scores` (one row/category, written once at completion). |
+| **Completion tracking** | `wellness_assessments.status` (`in_progress`\|`completed`); `current_category_id`/`current_question_number` track resume position; both null once completed. |
+| **Membership access** | Any authenticated member (owner-only via `member_id = auth.uid()`); assigned coach read-only; admin full access. |
+| **Reassessment support** | Yes, unlimited — no cooldown/expiry by explicit product decision (`engine/types.ts:176-186`). A retake is simply a new `wellness_assessments` row (one-draft-at-a-time enforced by a partial unique index). |
+| **Version information** | `Questionnaire.version` (int) is stamped on every attempt (`questionnaire_version` column) but is **write-only** — nothing compares a stored version against the current spec to detect drift or trigger re-scoring. It's an audit stamp, not an active mechanism. |
+| **Existing dependencies (what breaks if this changes)** | Narrow blast radius by design: only `lib/assessments/store.ts` touches the tables directly. Callers (`app/actions/assessments.ts`, `app/dashboard/page.tsx`, `lib/coaching-insights/sources/assessmentSource.ts`) go through questionnaire-agnostic functions (`listCompletedAssessments`, `listAssessmentDefinitions`). **Not** consumed by `lib/scoring/` (Root Score), `lib/registry/` (Universal Registry excludes this `source_feature` by CHECK constraint), or `lib/wellness/` (unrelated despite the shared "wellness" table-name prefix — see Risk List item 1). |
+
+---
+
+### 1.3 Four Doctors Assessment (generic questionnaire engine)
+
+| Field | Detail |
+|---|---|
+| **Assessment name** | "Four Doctors Assessment" (`copy.ts` `displayTitle`) |
+| **Stable internal identifier** | `"four-doctors"` (`lib/assessments/four-doctors/questionnaire.json:2`) |
+| **Route** | Generic overview/take: `/assessments/four-doctors`, `/assessments/four-doctors/take`. **Results has a dedicated static route** `/assessments/four-doctors/results/[assessmentId]` that shadows the generic `[questionnaireId]/results/[assessmentId]` route (Next.js resolves the static segment first — intentional, documented, isolated override; the file's own header comment states removing it would cleanly fall back to the generic results page). |
+| **Main component** | `components/assessments/AssessmentTaker.tsx` (shared, same as CHEK HLC1); results-specific: `components/assessments/four-doctors-results/{BalanceOverview,DoctorSummaryCards,FourDoctorsWheel,HealthSnapshotHero,NextStepsCards,ZoneLegend}.tsx` |
+| **Question source** | `lib/assessments/four-doctors/questionnaire.json` — 54 `binary`-only questions across 4 categories. **The only questionnaire that exercises the engine's conditional-question mechanism** (`contextQuestions`) — the `dr_quiet` category gates 4 questions on a `dr_quiet_gender` context answer. |
+| **Answer structure** | Same generic shape as CHEK HLC1, plus `wellness_assessments.context` jsonb (added migration 67) for the gender-gate context answer. |
+| **Scoring logic** | **Identical generic engine** (`engine/scoring.ts` `scoreQuestionnaire()`) — no override. `lib/assessments/four-doctors/premium/zones.ts` `zoneForPriority()` only **relabels** the already-computed priority (`high→work_in`, `moderate→caution`, `low→workout_to_ability`) for presentation; it never touches the score itself. |
+| **Results logic** | Both the generic results page and the Four-Doctors-specific results page call the *same* `getMyAssessmentResult()`. The dedicated page additionally imports `zoneForPriority`, `getGuidance` (`premium/guidance.ts`, purely presentational copy keyed by `categoryId:zoneId`), `getDoctorIcon` (`premium/icons.ts`) for its richer visual treatment (wheel, doctor cards, balance overview). |
+| **Database storage** | Same three tables as CHEK HLC1 (`wellness_assessments`, `wellness_assessment_answers`, `wellness_assessment_category_scores`) — fully shared schema, discriminated by `questionnaire_id`. |
+| **Completion tracking** | Same as CHEK HLC1. |
+| **Membership access** | Same as CHEK HLC1. |
+| **Reassessment support** | Same as CHEK HLC1 — unlimited, no cooldown. |
+| **Version information** | Same mechanism/limitation as CHEK HLC1. |
+| **Existing dependencies (what breaks if this changes)** | Same narrow blast radius as CHEK HLC1, **plus**: `lib/assessments/four-doctors/premium/nextSteps.ts` links out to Primal Pattern as a related next step; `app/dashboard/page.tsx`/`app/today/page.tsx` reference a `four_doctors_category` field — **this is a taxonomy label on `mef_content_items` (coaching content classification), not a read of Four Doctors questionnaire results.** Naming echo only, not a data dependency — worth double-checking before assuming any content-library coupling. |
+
+---
+
+### 1.4 Primal Pattern Diet Type (parallel, non-registered engine)
+
+| Field | Detail |
+|---|---|
+| **Assessment name** | "Primal Pattern Diet Type" |
+| **Stable internal identifier** | `PRIMAL_PATTERN_QUESTIONNAIRE_ID = 'primal-pattern-diet-type'` (`lib/primal-pattern/questionnaire.ts:16`) — **not registered in `lib/assessments/registry.ts`.** Confirmed zero references to it anywhere in that registry. |
+| **Route** | `/assessments/primal-pattern-diet-type` → `/take` → `/results/[assessmentId]`. A **literal (non-dynamic) route**, explicitly relying on Next.js resolving it ahead of the generic `[questionnaireId]` family — the same pattern the Four Doctors results route later cited as precedent. |
+| **Main component** | `components/primal-pattern/PrimalPatternTaker.tsx`, `PrimalPatternQuestionCard.tsx` — **fully reimplemented**, not reusing `AssessmentTaker.tsx`, because of checkbox-vs-radio and both-answer semantics. |
+| **Question source** | Hardcoded TS literal `lib/primal-pattern/questionnaire.ts` (14 questions, flat list, no categories) — explicitly "transcribed verbatim, must never change without an explicit content decision." Not a JSON file (unlike the generic engine). |
+| **Answer structure** | `Record<questionNumber, ('A'|'B')[]>` — 1 or 2 letters per question (both-selected is a valid, meaningful answer). DB-enforced via array-subset + length CHECK constraint. **This shape cannot be represented in the generic engine's single-select model** — the core reason this system exists in parallel rather than as a registry entry. |
+| **Scoring logic** | `lib/primal-pattern/scoring.ts` — rule-based threshold classifier (not point-sum-vs-band): counts A vs. B selections; `diff ≥ 3 → 'polar'`, `diff ≤ -3 → 'equatorial'`, else `'variable'`. Server-side only, at completion. |
+| **Results logic** | `app/assessments/primal-pattern-diet-type/results/[assessmentId]/page.tsx` — composes config-driven presentational sections from `lib/primal-pattern/premium/content.ts`, explicitly labeled "educational illustration, not a clinical prescription." Also reads `getMemberNutritionProfile()` from the unrelated `lib/nutrition-intelligence/` module (read-only, for a default UI tab). |
+| **Database storage** | `primal_pattern_assessments`, `primal_pattern_assessment_answers` (migration `00000000000064` — its own header comment calls this "a second, deliberately separate reusable assessment engine, alongside the points-based one from migration 62"). |
+| **Completion tracking** | `primal_pattern_assessments.status` (`in_progress`\|`completed`), structurally identical pattern to `wellness_assessments`. |
+| **Membership access** | Same owner/coach/admin RLS triad as the generic engine tables. |
+| **Reassessment support** | Yes, unlimited, same partial-unique-index-on-draft pattern. History via `listCompletedPrimalPatternAssessments`. |
+| **Version information** | `questionnaire_version` column exists (default 1), same write-only limitation as the generic engine. |
+| **Existing dependencies (what breaks if this changes)** | `lib/nutrition-intelligence/service.ts` + `app/api/v1/nutrition-intelligence/route.ts` (external API surface); `lib/coaching-insights/sources/assessmentSource.ts` (`fetchPrimalPatternObservations`); linked from Four Doctors' `premium/nextSteps.ts` as an external cross-link. Two small presentational helpers (`deriveQuestionnaireStatus`, `formatAssessmentDate`) are the *only* code actually shared with `lib/assessments/`. |
+
+---
+
+### 1.5 Body Assessment (camera-based posture/movement)
+
+| Field | Detail |
+|---|---|
+| **Assessment name** | "Body Assessment" — 9 self-serve types (`static_posture`, `walking_gait`, `breathing_observation`, `shoulder_mobility`, `hip_hinge`, `squat`, `single_leg_balance`, `reach`, `rotation`) + a `custom` type reserved for coach-assigned flows not found in the reviewed page set. |
+| **Stable internal identifier** | `assessment_type` CHECK-enum value per type (see above); no single questionnaire-wide ID — this is architecturally a media-capture-and-review system, not a Q&A questionnaire. |
+| **Route** | `/assessment` (list/overview), `/assessment/new?type=...` (guided capture wizard), `/assessment/[id]` (member results/pending-review view). Coach workspace: `/coach/clients/[id]/body-assessments/[assessmentId]` (+ `/report`). |
+| **Main component** | `components/body-assessment/AssessmentWizard.tsx` (capture flow); `app/assessment/[id]/ClientReportView.tsx` / `PendingCoachReviewCard.tsx` (member results); `app/coach/clients/[id]/body-assessments/[assessmentId]/ReviewWorkspace.tsx` (coach workspace) |
+| **Question source** | N/A — no questions. Structured photo/video capture steps defined in `lib/body-assessment/assessmentTypes.ts` (`ASSESSMENT_TYPE_CONFIG`). |
+| **Answer structure** | N/A — captures (images/video in Supabase Storage) + on-device MediaPipe landmark sets + on-device geometric "findings" (posture measurements), not question answers. |
+| **Scoring logic** | No point score. On-device geometric screening (`lib/body-assessment/postureMeasurements.ts`, `pelvicDropScreening.ts`) produces draft `body_assessment_findings` (severity/confidence, not points). A separate, currently-unconfigured AI vision provider abstraction (`lib/body-assessment/providers/`) exists but every registered provider is a stub — `resolveConfiguredBodyAssessmentProvider()` returns null unless an env var names one, and no real vision model is wired in. |
+| **Results logic** | Member view gated entirely by whether a **published** `assessment_ai_analyses` record exists (RLS-enforced, not app-logic-checked) — present → `ClientReportView` (coach-approved); absent → `PendingCoachReviewCard` + on-device finding summary. Coach review: dual-track — finding-level confirm/dismiss/override (`body_assessment_findings.status`, supersede-chain, never edited in place) and report-level AI-draft-then-publish workflow (`assessment_ai_analyses`, migration 39). |
+| **Database storage** | `body_assessments`, `body_assessment_captures`, `body_landmark_sets`, `body_assessment_findings`, `body_assessment_comparisons`, `body_assessment_coach_reviews`, `body_assessment_notes` (coach scratchpad, member-invisible), `body_assessment_annotations` (drawn shapes on media). Plus Storage bucket `body-assessment-media`. |
+| **Completion tracking** | `body_assessments.status`: `in_progress → submitted → not_configured/analyzing/analyzed → coach_reviewed → archived`. |
+| **Membership access** | Member owns their own; coach access via `/coach/*` middleware role gate (not re-checked per-page) + RLS `is_active_coach_for`; admin full. |
+| **Reassessment support** | Implicit only — no `assessment_type` marking "first vs. later"; "previous" is computed live as "most recent same-type assessment with an earlier `started_at`." Less explicit than Onboarding's baseline/reassessment model. |
+| **Version information** | No questionnaire-style versioning (not applicable to this format). `body_assessment_findings.threshold_config_version` tracks which geometric-threshold config version produced a given on-device finding. |
+| **Existing dependencies (what breaks if this changes)** | **Widest blast radius of any assessment system**: `lib/scoring/fetchInputs.ts` (Root Score's Movement domain reads `body_assessments.completed_at/status/local_date/member_id` directly); `lib/registry/adapters/bodyAssessment.ts` (Universal Registry, keyed on `finding_type/severity/confidence/narrative`); `lib/health-profile/orchestration.ts` (cascades from the registry adapter into the Persisted Health Profile); `lib/ai/agents/body-assessment.ts`. A renamed column here ripples furthest. |
+
+---
+
+## 2. Database tables
+
+All RLS-enabled; helper functions `has_active_role()` and `is_active_coach_for()` (`00000000000015_security_functions.sql`) underpin nearly every policy below.
+
+### 2.1 Onboarding
+
+| Table | Key columns | Migration |
+|---|---|---|
+| `onboarding_assessment_versions` | `assessment_version` (unique int), `released_at`, `retired_at` | 07 |
+| `onboarding_questions` | `question_key`, `assessment_version_id` FK, `question_version`, `display_order`, `prompt_text`, `answer_type` (5-value CHECK), `allowed_values` jsonb, `domain`, `allows_not_sure/not_applicable/prefer_not_to_answer` bool; unique `(question_key, question_version)` | 08, 24 (default flip), 68 (content edit) |
+| `onboarding_submissions` | `user_id` FK cascade, `assessment_version_id` FK, `submitted_at`, `timezone`, `local_date`, `raw_payload` jsonb, `superseded_at` (reserved/unused), `assessment_type` (`baseline`\|`reassessment`), `checkpoint_label` (`30_day`\|`90_day`\|null, reserved/unused) | 09, 25 |
+| `onboarding_answers` | `submission_id` FK cascade, `question_id` FK, `answer_status` (4-value CHECK), 5 typed value columns | 10 |
+| `onboarding_baselines` | `user_id`, `baseline_version`, `metric`, `value`, `source_submission_id`, `source_answer_id`; unique `(user_id, metric, baseline_version)` — **schema-only, never written** | 11 |
+
+### 2.2 Generic questionnaire engine (CHEK HLC1 + Four Doctors)
+
+| Table | Key columns | Migration |
+|---|---|---|
+| `wellness_assessments` | `member_id`, `questionnaire_id`, `questionnaire_version`, `status` (`in_progress`\|`completed`), `current_category_id`, `current_question_number`, `total_score`, `total_max_score`, `total_priority` (`low`\|`moderate`\|`high`\|null), `started_at`, `completed_at`, `context` jsonb (added 67). CHECK: completed ⇒ all four completion fields non-null. Unique partial index: one `in_progress` draft per `(member_id, questionnaire_id)`. | 62, 67 |
+| `wellness_assessment_answers` | `assessment_id` FK cascade, `category_id`, `question_number`, `option_index`, `points` (snapshot at answer time); unique `(assessment_id, category_id, question_number)` | 62 |
+| `wellness_assessment_category_scores` | `assessment_id` FK cascade, `category_id`, `score`, `max_score`, `priority` (`low`\|`moderate`\|`high`, NOT nullable); unique `(assessment_id, category_id)` | 62 |
+
+### 2.3 Primal Pattern
+
+| Table | Key columns | Migration |
+|---|---|---|
+| `primal_pattern_assessments` | `member_id`, `questionnaire_id` (default `'primal-pattern-diet-type'`), `questionnaire_version`, `status`, `current_question_number`, `result` (`polar`\|`variable`\|`equatorial`\|null), `a_count`, `b_count`, `skipped_count`, `both_count`. Same completed-fields CHECK + one-draft-per-questionnaire pattern as `wellness_assessments`. | 64 |
+| `primal_pattern_assessment_answers` | `assessment_id` FK cascade, `question_number`, `selected_letters` text[] (CHECK: subset of `{A,B}`, length 1–2, no duplicates); unique `(assessment_id, question_number)` | 64 |
+
+### 2.4 Body Assessment
+
+| Table | Key columns | Migration |
+|---|---|---|
+| `body_assessments` | `member_id`, `assessment_type` (10-value CHECK), `status` (7-value CHECK), `timezone`, `local_date`, `started_at`, `submitted_at`, `completed_at`, `provider_name`, `provider_status` (4-value CHECK), `provider_error`, `member_notes` | 37 |
+| `body_assessment_captures` | `assessment_id` FK cascade, `member_id`, `capture_type` (7-value CHECK), `sequence_index`, `media_type` (`image`\|`video`), `storage_bucket`, `storage_path`, `width`, `height`, `duration_seconds`; unique `(assessment_id, storage_path)`; `device_info`/`camera_tilt`/`validation_summary` jsonb added migration 51 | 37, 51 |
+| `body_landmark_sets` | `assessment_id`, `capture_id` (unique — one per capture), `member_id`, `provider_name`, `model_version`, `landmarks` jsonb array | 37 |
+| `body_assessment_findings` | `assessment_id`, `member_id`, `finding_type` (15-value CHECK as of migration 50, up from 12), `side` (4-value CHECK), `severity` (5-value CHECK), `confidence` [0,1], `narrative`, `evidence` jsonb, `status` (6-value CHECK), `coach_reviewed_by/at`, `coach_override_notes`, `supersedes_id`/`superseded_by_id` (self-referential chain); `threshold_config_version`/`raw_value`/`unit`/`side_diff` added migration 51 | 37, 50, 51 |
+| `body_assessment_comparisons` | `member_id`, `assessment_a_id`, `assessment_b_id`, `dimension`, `trend` (4-value CHECK), `confidence`, `summary`, `details` jsonb; unique `(assessment_a_id, assessment_b_id, dimension)` | 37 |
+| `body_assessment_coach_reviews` | `assessment_id`, `member_id`, `coach_id`, `review_status` (4-value CHECK), `observations`, `recommendations`, `findings_approved`, `reassessment_marked_complete` — append-only | 37 |
+| `body_assessment_notes` | `assessment_id` (unique), `member_id`, `content`, `updated_by` — coach-only mutable scratchpad, **no member SELECT policy** | 38 |
+| `body_assessment_annotations` | `capture_id` (unique), `assessment_id`, `member_id`, `shapes` jsonb array (drawn annotations) | 38 |
+
+### 2.5 Downstream/derived (consumers, not questionnaires — included for completeness)
+
+| Table | Purpose | Migration |
+|---|---|---|
+| `root_score_snapshots` | Daily composite "Root Score" + momentum/resilience sub-scores, one row/member/day | 61 |
+| `registry_entries` | Universal Health Registry — normalized findings/metrics; `source_feature` CHECK restricted to `body_assessment_finding`\|`assessment_ai_observation` **only** (onboarding/questionnaire-engine data does not feed this table today, though `domain='questionnaire'` is reserved) | 40, 43, 48 |
+| `member_health_profiles` | One row/member, upserted jsonb summary; `last_recalculated_trigger` CHECK includes `onboarding`/`reassessment` as reserved-but-currently-unused trigger values | 41 |
+| `health_timeline_events` | Append-only member-visible timeline (`onboarding_completed`, `reassessment_completed`, `assessment_published`, `checkin_submitted`) | 42 |
+| `member_nutrition_safety_flags` | Clinical safety overrides (diabetes, pregnancy, etc.) — one row/member | 65 |
+
+---
+
+## 3. Routes
+
+### Member-facing
+
+| Route | System |
+|---|---|
+| `/onboarding` | Onboarding (baseline) |
+| `/profile/reassessments/new` | Onboarding (reassessment) |
+| `/questionnaires` | Questionnaires landing page (lists generic-engine + Primal Pattern) |
+| `/assessments/[questionnaireId]` , `/take`, `/results/[assessmentId]`, `/results/[assessmentId]/category/[categoryId]`, `/history` | Generic engine (CHEK HLC1 today; any future registry entry automatically) |
+| `/assessments/four-doctors/results/[assessmentId]` | Four Doctors (static override of the results route only) |
+| `/assessments/primal-pattern-diet-type`, `/take`, `/results/[assessmentId]` | Primal Pattern (fully separate, literal routes) |
+| `/assessment`, `/assessment/new`, `/assessment/[id]` | Body Assessment |
+| `/coach/clients/[id]/body-assessments/[assessmentId]`, `/report` | Coach review workspace |
+
+### API routes
+
+Only 5 API routes exist in the entire app (business logic otherwise runs through Server Actions/Server Components, RLS-authorized):
+
+| Route | Purpose |
+|---|---|
+| `/api/auth/callback` | Supabase auth code exchange |
+| `/api/cron/daily-coaching-scan` | Scheduled proactive-coaching scan (references assessment-derived events) |
+| `/api/cron/wearable-daily` | Scheduled wearable sync |
+| `/api/speech` | Coach text-to-speech (unrelated to assessments) |
+| `/api/v1/nutrition-intelligence` | Versioned external read surface over Primal Pattern-derived nutrition profile; RLS on `primal_pattern_assessments` is the real auth boundary |
+
+No dedicated `/api/assessments`, `/api/questionnaires`, or `/api/onboarding` routes exist.
+
+---
+
+## 4. RLS policies
+
+449 `CREATE POLICY` statements across 31 migrations. Every assessment-related table follows one shared pattern built on two `SECURITY DEFINER` functions:
+
+- **`has_active_role(user, role)`** — non-revoked grant AND role itself `activation_status='active'` in the `roles` catalog.
+- **`is_active_coach_for(coach, client)`** — active, non-expired `coach_client_assignments` row.
+
+Standard four-policy family per table: `member_read/insert/update_own_*` (`user_id/member_id = auth.uid()`), `coach_read/insert/update_assigned_*` (via `is_active_coach_for`), `platform_admin_all_*` (superuser escape hatch on nearly every table), and for shared reference data (`onboarding_questions`, `onboarding_assessment_versions`) `authenticated_read_*` (any signed-in user). No explicit deny policies — RLS-enabled + zero matching policy = zero rows by default.
+
+**Two coach-authored tables are deliberately append-only** (`coach_notes`, `body_assessment_coach_reviews`) — no UPDATE/DELETE policy for coach. **One coach-authored table is deliberately mutable** (`body_assessment_notes`, a scratchpad).
+
+**Notable gotcha:** `wellness_assessment_category_scores` needs a member **UPDATE** policy purely so its `INSERT ... ON CONFLICT DO UPDATE` (used by `completeAssessment`) works — Postgres checks the UPDATE policy for the conflict branch even though the statement is nominally an insert. Removing that policy would silently break assessment completion.
+
+---
+
+## 5. Roles / membership structure
+
+**There is no subscription, billing, or plan/tier data model in this codebase.** Confirmed by exhaustive grep — `app/membership/page.tsx` is a static informational page (hardcoded feature list + "email support for billing questions"), not backed by any subscription table. Gating is **entirely role-based**.
+
+**Roles** (`roles` reference table, `00000000000003`): `member`, `coach`, `platform_administrator` (all `activation_status='active'`, i.e. enforceable) and `clinician_reviewer`, `corporate_administrator`, `organization_administrator`, `api_client` (all `activation_status='inactive'` — schema exists, not enforceable regardless of any grant).
+
+**Stable keys**: `user_roles(user_id, role, organization_id, granted_at, revoked_at)` — "active role" = a row with `revoked_at is null` for a role whose catalog `activation_status='active'`. `coach_client_assignments(coach_id, client_id, status, start_date, end_date)` — append-only; changing a client's coach is a new row + revoke of the old, never an in-place update. `organizations`/`profiles.organization_id` exist for future multi-tenancy but are unused (`organization_id = null` for all Sprint-1 users).
+
+App-side `hasActiveRole()` (`lib/auth/guards.ts`) is explicitly documented as **UX-only** (redirect convenience) — the RLS policies calling the identical `has_active_role()` RPC are the real security boundary, so the two can never disagree.
+
+---
+
+## 6. Questionnaires page
+
+`app/questionnaires/page.tsx` — server component, requires auth. Renders:
+1. `PrimalPatternQuestionnaireCard` (hardcoded, always-first, calls `getMyPrimalPatternListItem()`) — **not** part of the generic list.
+2. `QuestionnaireCard` for every entry in `getMyQuestionnaireList()` → `listAssessmentDefinitions()` from `lib/assessments/registry.ts` — **currently renders both CHEK HLC1 and Four Doctors as cards.**
+
+**Note:** the page's own header comment says "today that's one card (CHEK HLC1 Nutrition & Lifestyle)" — this is **stale relative to actual behavior**; the registry has had two entries (adding Four Doctors) since before this audit, and the code genuinely lists both. Flagged as open question #1 below — likely just a comment that wasn't updated when Four Doctors was registered, not a functional bug.
+
+Page explicitly frames itself as "deliberately separate from `/assessment` (posture/movement Body Assessment)" and states the generic-list portion of the page "never changes" as new questionnaires are registered — only Primal Pattern's bespoke card is a manual addition outside that promise.
+
+---
+
+## 7. Mobile navigation
+
+`components/BottomNav.tsx` — not in a shared layout; **every page renders it individually** (~45 files). Three items only, by explicit deliberate design (comment in the file): **Home** (`/dashboard`), **Check-In** (`/checkin` or `/checkin/evening`, time-based default), **Today** (`/today`); **Coach** tab appended only when `isCoach=true` is passed in.
+
+**No assessment routes are in the bottom nav at all** — not `/assessments`, `/assessment`, or `/questionnaires`. Every assessment page renders `BottomNav` for chrome consistency, but nothing in the nav itself links to assessments/questionnaires. Reachable only via Dashboard quick-access cards or deep links — same pattern as Movement, Food Lens, and Progress.
+
+---
+
+## 8. Downstream consumers / dependency map
+
+**Critical naming collision:** `wellness_assessments` (the DB table for CHEK HLC1/Four Doctors) and `lib/wellness/*` (Daily Wellness Index/Score, derived purely from `daily_checkins`) are **two completely unrelated systems that happen to share the word "wellness."** Migration 62's own header comment states it is "deliberately questionnaire-agnostic: nothing here references CHEK, HLC1, or any specific category/question" — and separately, nothing in `lib/wellness/*` ever queries `wellness_assessments`. Do not conflate these when naming anything in the new framework.
+
+| Assessment system | Direct downstream consumers |
+|---|---|
+| **Onboarding** | `lib/intelligence/baselineEngine.ts`, `lib/intelligence-engine/profile.ts`, `lib/narrative/generator.ts`, `lib/ai/agents/wellness-analysis.ts`, `lib/health-profile/orchestration.ts` (indirect), dashboard/today pages. **Not** read by Root Score. |
+| **CHEK HLC1 / Four Doctors (generic engine)** | `lib/coaching-insights/sources/assessmentSource.ts` only (plus its own action/UI callers). **Not** read by Root Score, Universal Registry, or Health Profile. |
+| **Primal Pattern** | `lib/nutrition-intelligence/*`, `app/api/v1/nutrition-intelligence`, `lib/coaching-insights/sources/assessmentSource.ts`. **Not** read by Root Score, Universal Registry, or Health Profile. |
+| **Body Assessment** | `lib/scoring/fetchInputs.ts` (Root Score's Movement domain), `lib/registry/adapters/bodyAssessment.ts` (Universal Registry) → cascades into `lib/health-profile/orchestration.ts` (Persisted Health Profile) → `lib/ai/agents/body-assessment.ts`. **Widest blast radius of the four assessment systems.** |
+
+`lib/health-profile/orchestration.ts`'s cascade (`onAssessmentPublished`) is triggered **only by Body Assessment publish**, not by completing any questionnaire — despite `member_health_profiles.last_recalculated_trigger` reserving `onboarding`/`reassessment` values that no code path currently uses.
+
+---
+
+## 9. RISK LIST
+
+Ranked roughly by blast radius / danger of a silent break.
+
+1. **`has_active_role()` / `is_active_coach_for()`** are single points of failure for authorization across 20+ tables. RLS fails silently (zero rows, no error) — a bad change here is easy to miss in manual testing and would look like "my data disappeared," not a crash.
+2. **`wellness_assessments` naming collision with `lib/wellness/*`.** Two unrelated systems, one table-name prefix. Any new framework work should pick unambiguous names, or a future engineer will assume a data dependency that doesn't exist.
+3. **Repeated hand-copied CHECK-constraint enum lists.** Multiple migrations (31/33/35/37/43/50) extend enums on tables they don't own (`ai_events.event_type`, `safety_classifications.source_feature`, `conversation_sessions.entry_point`) via `DROP CONSTRAINT` + `ADD CONSTRAINT` with the *entire* value list retyped by hand each time. A future migration that misses one existing value silently reverts an earlier addition — no diff-based safety net.
+4. **`onboarding_baselines` table exists but has never been written to** (explicitly scoped out per its own migration comment). Anyone reading the schema alone would wrongly assume it's live data. Same for `checkpoint_label`/`superseded_at` on `onboarding_submissions` — reserved columns with no writer.
+5. **`onboarding_questions` reference-data edits are destructive to historical interpretation.** Migration 68 changed `allowed_values` for `primary_concern` *in place* rather than bumping `question_version`, despite the schema being explicitly designed for versioned question content. Every historical answer recorded before that migration references option values from the old list — display/label code reading "current" `allowed_values` to interpret an old answer needs to handle values no longer present.
+6. **`wellness_assessment_category_scores` requires a member UPDATE RLS policy purely to make its own INSERT-on-conflict work** (Postgres checks the UPDATE policy for the conflict branch). A well-intentioned RLS cleanup that removes "unused" update policies would silently break assessment completion with a confusing RLS-denial error, not an obvious bug report.
+7. **`registry_entries.source_record_id` / `health_timeline_events.source_record_id` are polymorphic pointers with no real FK.** `body_assessment_findings` rows cascade-delete when their parent `body_assessments` is deleted, but nothing cleans up the pointing `registry_entries` row — a real orphaned-reference risk if hard deletes of assessments are ever introduced.
+8. **Four separate "reusable assessment engine" implementations exist or nearly exist** (generic `lib/assessments/`, Primal Pattern's parallel clone of the same conventions, Onboarding's own versioning model, Body Assessment's capture/review model). A framework effort needs to decide explicitly whether it's unifying all four, extending only the generic engine, or building a fifth abstraction above them — the codebase does not currently express an opinion on this, and each system's own comments justify its separateness on real data-model grounds (see 1.4's answer-shape mismatch).
+9. **No AI vision provider is actually wired into Body Assessment** despite a full provider abstraction existing (`lib/body-assessment/providers/`) — all registered providers are stubs, and every real finding today comes from a separate on-device geometric-screening pathway. Building on top of "the provider abstraction" without checking `resolveConfiguredBodyAssessmentProvider()` would build on dead code.
+10. **`body_assessment_comparisons` may not be reliably populated** in the default (no-provider-configured) state — comparison generation only runs inside the AI-provider success path (`performAnalysis()`), which is presently a no-op. Worth verifying live behavior before relying on this table for any cross-assessment trend feature.
+11. **`ASSESSMENT_VERSION = 1` is a hardcoded module constant** (`app/actions/onboarding.ts`), not derived from "the currently active `onboarding_assessment_versions` row" at the type level — introducing v2 requires an app deploy in lockstep with the data migration, not just a data change.
+12. **Coach-review authorization for `/coach/*` is enforced once, in `middleware.ts`**, not re-checked per-page — individual coach pages (including the Body Assessment review workspace) trust the middleware gate + RLS rather than re-verifying the coach role themselves. Any future route added under `/coach/*` that bypasses the standard layout could accidentally skip this gate.
+
+---
+
+## 10. Open questions for you
+
+1. **Questionnaires-page comment vs. behavior.** The page's own comment says "today that's one card (CHEK HLC1)," but the code actually renders both CHEK HLC1 and Four Doctors generically. Is this just a stale comment (harmless, worth a one-line fix later), or is there an intended reason Four Doctors shouldn't yet appear there that I'm missing?
+2. **Should Primal Pattern be pulled into the generic engine, or does its incompatible answer model (1-or-2-letter selection vs. single-select points) mean it should stay permanently separate?** This is a first-order design decision for whatever framework comes next — I did not find any existing plan or comment committing to either direction.
+3. **Is Body Assessment in scope for "the reusable assessment framework" at all**, or is it understood to be a structurally different thing (media capture + coach review, not Q&A)? The prompt's example list ("Four Doctors," "Primal Pattern," "Nutrition and Lifestyle," "health history, lifestyle, or readiness questionnaire") reads like Q&A-only, but Body Assessment is also routed through `/assessment*` and shares the "assessment" vocabulary.
+4. **`checkpoint_label` (30/90-day) and `onboarding_baselines`** — reserved-but-unbuilt features. Should the new framework build these out, formally deprecate/remove the columns, or leave them alone as future scope?
+5. **Should a future questionnaire framework write to the Universal Health Registry / Persisted Health Profile** (currently only Body Assessment and coach-intelligence observations do, via a `source_feature` CHECK constraint that would need extending), or is that integration intentionally out of scope for now?
+
+---
+
+*No files, schema, or data were modified in producing this report.*
