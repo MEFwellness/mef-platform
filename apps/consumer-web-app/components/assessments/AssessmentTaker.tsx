@@ -28,7 +28,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { flattenQuestions, type FlatQuestionRef } from '@/lib/assessments/engine/navigation';
 import { isQuestionActive, totalAnsweredCount } from '@/lib/assessments/engine/scoring';
 import {
@@ -44,9 +44,12 @@ import type {
   Questionnaire,
   QuestionnaireAnswers,
 } from '@/lib/assessments/engine/types';
+import type { AssessmentResult } from '@/lib/assessments/types';
 
 type Props = {
   questionnaire: Questionnaire;
+  /** The welcome/results display name (AssessmentCopy.displayTitle) — used only for the completion screen's copy, e.g. "Your Four Doctors Assessment has been successfully saved." */
+  displayTitle: string;
   assessmentId: string;
   initialAnswers: QuestionnaireAnswers;
   /** Optional — only meaningful for a questionnaire that declares `contextQuestions`. Defaults to `{}`, so callers for every other questionnaire can omit it entirely. */
@@ -113,6 +116,7 @@ function findStepIndexForQuestion(
 
 export function AssessmentTaker({
   questionnaire,
+  displayTitle,
   assessmentId,
   initialAnswers,
   initialContext = {},
@@ -145,6 +149,9 @@ export function AssessmentTaker({
   const [stepIndex, setStepIndex] = useState(startIndex);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isCompleting, startCompleting] = useTransition();
+  const [isExiting, setIsExiting] = useState(false);
+  /** Set once completeMyAssessment succeeds — switches the whole component into the completion-choice screen (View My Results / Return to Dashboard) instead of auto-navigating, so a member decides when to see their results. */
+  const [completedResult, setCompletedResult] = useState<AssessmentResult | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
    * The most recent in-flight submitAssessmentAnswer/submitAssessmentContext
@@ -262,7 +269,9 @@ export function AssessmentTaker({
         }
         const result = await completeMyAssessment(questionnaire.id, assessmentId);
         if (result) {
-          router.push(`/assessments/${questionnaire.id}/results/${result.record.id}` as Route);
+          // Show the completion screen and let the member choose when to see
+          // results, rather than forcing navigation straight there.
+          setCompletedResult(result);
         } else {
           setSaveError('Something went wrong finishing your assessment. Please try again.');
         }
@@ -274,81 +283,147 @@ export function AssessmentTaker({
     });
   }
 
-  return (
-    <div>
-      <AssessmentProgressBar
-        currentNumber={currentQuestionNumber}
-        totalQuestions={totalQuestionSteps}
-        sectionLabel={currentCategory.name}
-        sectionIndex={sectionIndex}
-        sectionCount={questionnaire.categories.length}
-      />
+  function handleSaveAndExit() {
+    setIsExiting(true);
+    (async () => {
+      try {
+        // Same discipline as handleComplete: never leave the last answer's
+        // save still in flight when the member navigates away.
+        if (pendingSaveRef.current) {
+          await pendingSaveRef.current;
+        }
+      } catch {
+        // A save failure here doesn't block exiting, the member is leaving
+        // anyway, and the overview page's own fresh read of the DB (not this
+        // client's optimistic state) is what it shows next.
+      }
+      router.push(`/assessments/${questionnaire.id}?saved=1` as Route);
+      router.refresh();
+    })();
+  }
 
-      <div className="mt-6">
-        {current.kind === 'context' ? (
-          <ContextQuestionCard
-            key={`context-${current.contextQuestion.key}`}
-            sectionPosition={`Section ${sectionIndex} of ${questionnaire.categories.length} · ${currentCategory.name}`}
-            contextQuestion={current.contextQuestion}
-            selectedValue={context[current.contextQuestion.key]}
-            onSelect={handleSelectContext}
-          />
-        ) : (
-          <QuestionCard
-            key={`question-${current.ref.category.id}-${current.ref.question.number}`}
-            categoryName={current.ref.category.name}
-            sectionPosition={`Section ${sectionIndex} of ${questionnaire.categories.length}`}
-            question={current.ref.question}
-            selectedOptionIndex={answers[current.ref.category.id]?.[current.ref.question.number]}
-            onSelect={handleSelectOption}
-          />
-        )}
-      </div>
-
-      {saveError && (
-        <p className="mt-3 text-sm text-red-600" role="alert">
-          {saveError}
+  if (completedResult) {
+    return (
+      <div className="mef-animate-in rounded-[28px] bg-white p-8 text-center shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#E8F0EA] text-[#4F7A63]">
+          <CheckCircle2 className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" />
+        </span>
+        <p className="mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
+          Assessment Complete
         </p>
-      )}
+        <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
+          Your {displayTitle} has been successfully saved.
+        </p>
 
-      <div className="mt-6 flex items-center justify-between gap-3">
         <button
           type="button"
-          onClick={goPrev}
-          disabled={stepIndex === 0}
-          className="inline-flex items-center gap-1 rounded-2xl px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#F3F6F4] disabled:opacity-30 disabled:hover:bg-transparent mef-focus-ring"
+          onClick={() =>
+            router.push(
+              `/assessments/${questionnaire.id}/results/${completedResult.record.id}` as Route
+            )
+          }
+          className="mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
         >
-          <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          Previous
+          View My Results
         </button>
-
-        {isLast ? (
-          <button
-            type="button"
-            onClick={handleComplete}
-            disabled={!isAnswered || isCompleting}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40 mef-focus-ring"
-          >
-            {isCompleting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            See my results
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={goNext}
-            disabled={!isAnswered}
-            className="inline-flex items-center gap-1 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40 mef-focus-ring"
-          >
-            Next
-            <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard' as Route)}
+          className="mef-focus-ring mt-3 block w-full rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+        >
+          Return to Dashboard
+        </button>
       </div>
+    );
+  }
 
-      <p className="mt-4 text-center text-xs text-[#6B7A72]">
-        {answeredCount} of {totalQuestionSteps} answered · Your progress is saved automatically,
-        it&apos;s safe to come back later.
-      </p>
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={handleSaveAndExit}
+        disabled={isExiting}
+        className="mef-focus-ring inline-flex items-center gap-1 rounded-lg text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] disabled:opacity-60"
+      >
+        <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+        {isExiting ? 'Saving…' : 'Save and exit'}
+      </button>
+
+      <div className="mt-5">
+        <AssessmentProgressBar
+          currentNumber={currentQuestionNumber}
+          totalQuestions={totalQuestionSteps}
+          sectionLabel={currentCategory.name}
+          sectionIndex={sectionIndex}
+          sectionCount={questionnaire.categories.length}
+        />
+
+        <div className="mt-6">
+          {current.kind === 'context' ? (
+            <ContextQuestionCard
+              key={`context-${current.contextQuestion.key}`}
+              sectionPosition={`Section ${sectionIndex} of ${questionnaire.categories.length} · ${currentCategory.name}`}
+              contextQuestion={current.contextQuestion}
+              selectedValue={context[current.contextQuestion.key]}
+              onSelect={handleSelectContext}
+            />
+          ) : (
+            <QuestionCard
+              key={`question-${current.ref.category.id}-${current.ref.question.number}`}
+              categoryName={current.ref.category.name}
+              sectionPosition={`Section ${sectionIndex} of ${questionnaire.categories.length}`}
+              question={current.ref.question}
+              selectedOptionIndex={answers[current.ref.category.id]?.[current.ref.question.number]}
+              onSelect={handleSelectOption}
+            />
+          )}
+        </div>
+
+        {saveError && (
+          <p className="mt-3 text-sm text-red-600" role="alert">
+            {saveError}
+          </p>
+        )}
+
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={goPrev}
+            disabled={stepIndex === 0}
+            className="inline-flex items-center gap-1 rounded-2xl px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#F3F6F4] disabled:opacity-30 disabled:hover:bg-transparent mef-focus-ring"
+          >
+            <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            Previous
+          </button>
+
+          {isLast ? (
+            <button
+              type="button"
+              onClick={handleComplete}
+              disabled={!isAnswered || isCompleting}
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40 mef-focus-ring"
+            >
+              {isCompleting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              See my results
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!isAnswered}
+              className="inline-flex items-center gap-1 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40 mef-focus-ring"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
+        <p className="mt-4 text-center text-xs text-[#6B7A72]">
+          {answeredCount} of {totalQuestionSteps} answered · Your progress is saved automatically,
+          it&apos;s safe to come back later.
+        </p>
+      </div>
     </div>
   );
 }

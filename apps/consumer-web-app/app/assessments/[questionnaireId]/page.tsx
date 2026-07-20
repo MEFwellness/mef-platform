@@ -9,7 +9,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
-import { Clock3, ListChecks, ShieldCheck, Sparkles } from 'lucide-react';
+import { CheckCircle2, Clock3, ListChecks, ShieldCheck, Sparkles } from 'lucide-react';
 import { getMyAssessmentOverview } from '@/app/actions/assessments';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
@@ -17,14 +17,16 @@ import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { PriorityBadge } from '@/components/assessments/PriorityBadge';
 import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
-import { formatAssessmentDate } from '@/lib/assessments/presentation';
+import { formatAssessmentDate, formatLastSaved } from '@/lib/assessments/presentation';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 export default async function AssessmentOverviewPage({
   params,
+  searchParams,
 }: {
   params: { questionnaireId: string };
+  searchParams: { saved?: string };
 }) {
   const supabase = createClient();
   const {
@@ -32,62 +34,96 @@ export default async function AssessmentOverviewPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [overview, isCoach] = await Promise.all([
+  const [overview, isCoach, { data: profile }] = await Promise.all([
     getMyAssessmentOverview(params.questionnaireId),
     hasActiveRole(supabase, user.id, 'coach'),
+    supabase.from('profiles').select('timezone').eq('id', user.id).single(),
   ]);
 
   if (!overview) redirect('/login');
 
   const { questionnaire, copy, sectionCount, totalQuestions, draft, latestCompleted } = overview;
+  const timezone = profile?.timezone ?? 'America/New_York';
   const ctaLabel = draft ? 'Resume assessment' : 'Begin assessment';
   const ctaHref = `/assessments/${questionnaire.id}/take` as Route;
+  const justSaved = searchParams.saved === '1' && draft !== null;
+  const answeredCount = draft?.answered ?? 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
-        <BackButton fallbackHref="/progress" label="Back to Progress" />
+        <BackButton fallbackHref="/questionnaires" label="Back to Questionnaires" forceFallback />
 
-        <section className={`${CARD} mef-animate-in mt-4 p-7`}>
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Wellness Assessment</p>
-          </div>
-          <h1 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D]">
-            {copy.displayTitle}
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">{copy.welcomeSubtitle}</p>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <div className="flex items-center gap-2 rounded-2xl bg-[#F3F6F4] px-4 py-2.5 text-sm text-[#1B3A2D]">
-              <Clock3 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              About {copy.estimatedMinutes} minutes
-            </div>
-            <div className="flex items-center gap-2 rounded-2xl bg-[#F3F6F4] px-4 py-2.5 text-sm text-[#1B3A2D]">
-              <ListChecks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              {sectionCount} sections · {totalQuestions} questions
-            </div>
-          </div>
-
-          {draft && (
-            <p className="mt-4 text-sm text-[#1B3A2D]">
-              You&apos;re {draft.answered} of {draft.total} questions in. Pick up right where you
-              left off.
+        {justSaved && draft && (
+          <section className={`${CARD} mef-animate-in mt-4 p-7 text-center`}>
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#E8F0EA] text-[#4F7A63]">
+              <CheckCircle2 className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            <p className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
+              Assessment saved.
             </p>
-          )}
+            <p className="mt-1 text-sm text-[#6B7A72]">You can continue anytime.</p>
 
-          <Link
-            href={ctaHref}
-            className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-          >
-            {ctaLabel}
-          </Link>
+            <Link
+              href={ctaHref}
+              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+            >
+              Resume Assessment
+            </Link>
+            <Link
+              href={'/dashboard' as Route}
+              className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+            >
+              Return to Dashboard
+            </Link>
+          </section>
+        )}
 
-          <p className="mt-3 text-center text-xs text-[#6B7A72]">
-            One question at a time. Your progress saves automatically, so you can always finish
-            later.
-          </p>
-        </section>
+        {!justSaved && (
+          <section className={`${CARD} mef-animate-in mt-4 p-7`}>
+            <div className="flex items-center gap-2 text-[#6B7A72]">
+              <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-wider">Wellness Assessment</p>
+            </div>
+            <h1 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D]">
+              {copy.displayTitle}
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">{copy.welcomeSubtitle}</p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <div className="flex items-center gap-2 rounded-2xl bg-[#F3F6F4] px-4 py-2.5 text-sm text-[#1B3A2D]">
+                <Clock3 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                About {copy.estimatedMinutes} minutes
+              </div>
+              <div className="flex items-center gap-2 rounded-2xl bg-[#F3F6F4] px-4 py-2.5 text-sm text-[#1B3A2D]">
+                <ListChecks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                {sectionCount} sections · {totalQuestions} questions
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm text-[#1B3A2D]">
+              {answeredCount} of {totalQuestions} questions completed
+              {draft ? ', pick up right where you left off.' : ''}
+            </p>
+            {draft && (
+              <p className="mt-1 text-xs text-[#6B7A72]">
+                Last saved: {formatLastSaved(draft.updatedAt, timezone)}
+              </p>
+            )}
+
+            <Link
+              href={ctaHref}
+              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+            >
+              {ctaLabel}
+            </Link>
+
+            <p className="mt-3 text-center text-xs text-[#6B7A72]">
+              One question at a time. Your progress saves automatically, so you can always finish
+              later.
+            </p>
+          </section>
+        )}
 
         {latestCompleted && (
           <Link

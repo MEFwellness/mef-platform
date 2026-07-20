@@ -36,6 +36,7 @@ function makeResult(
       totalPriority: 'moderate',
       startedAt: completedAt,
       completedAt,
+      updatedAt: completedAt,
     },
     categoryScores: categoryScores.map((c) => ({ ...c, categoryName: c.categoryId })),
   };

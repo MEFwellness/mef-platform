@@ -68,3 +68,34 @@ export function formatAssessmentDate(isoDate: string): string {
     year: 'numeric',
   });
 }
+
+/**
+ * "Last saved" display for a resume screen — "Today at 8:14 PM" /
+ * "Yesterday at 7:35 AM" / "Jul 12 at 8:14 PM" for anything older, all in
+ * the member's own local timezone (not the server's), display only,
+ * never used to compute anything.
+ */
+export function formatLastSaved(isoDate: string, timezone: string): string {
+  const date = new Date(isoDate);
+  const dateInTz = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+  const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
+
+  const yesterdayInTz = new Date(nowInTz);
+  yesterdayInTz.setDate(yesterdayInTz.getDate() - 1);
+
+  const time = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timezone,
+  });
+
+  if (dateInTz.toDateString() === nowInTz.toDateString()) return `Today at ${time}`;
+  if (dateInTz.toDateString() === yesterdayInTz.toDateString()) return `Yesterday at ${time}`;
+
+  const day = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: timezone,
+  });
+  return `${day} at ${time}`;
+}
