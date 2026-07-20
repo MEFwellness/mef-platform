@@ -47,11 +47,19 @@ function Section({
   );
 }
 
-export function QuestionnaireCatalogView({ catalog }: { catalog: QuestionnaireCatalog }): ReactNode {
+export function QuestionnaireCatalogView({
+  catalog,
+}: {
+  catalog: QuestionnaireCatalog;
+}): ReactNode {
   const [filter, setFilter] = useState<FilterKey>('all');
 
   const counts: Record<FilterKey, number> = {
-    all: catalog.assigned.length + catalog.completed.length + catalog.premium.length + catalog.available.length,
+    all:
+      catalog.assigned.length +
+      catalog.completed.length +
+      catalog.premium.length +
+      catalog.available.length,
     assigned: catalog.assigned.length,
     completed: catalog.completed.length,
     premium: catalog.premium.length,

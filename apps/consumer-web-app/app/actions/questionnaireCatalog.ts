@@ -22,7 +22,11 @@ import { getMyPrimalPatternListItem } from './primal-pattern';
 import { fetchBaselineAssessment } from '@/lib/onboarding/baseline';
 import { getMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
 import { listAssessmentRegistryEntries } from '@/lib/assessment-registry/registry';
-import { categorizeForCatalog, type CatalogFlags, type CatalogSection } from '@/lib/assessment-registry/catalog';
+import {
+  categorizeForCatalog,
+  type CatalogFlags,
+  type CatalogSection,
+} from '@/lib/assessment-registry/catalog';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
 
 export type CatalogCard = {

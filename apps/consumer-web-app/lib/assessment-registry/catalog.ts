@@ -21,11 +21,7 @@
  */
 
 import type { AssessmentDefinition } from './types';
-import {
-  calculateLockReason,
-  describeLockReason,
-  type MemberAssessmentFacts,
-} from './status';
+import { calculateLockReason, describeLockReason, type MemberAssessmentFacts } from './status';
 
 export type CatalogSection = 'assigned' | 'completed' | 'premium' | 'available';
 

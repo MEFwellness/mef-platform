@@ -34,7 +34,10 @@ function primaryAction(card: CatalogCard): { label: string; href: string } | nul
   // Not yet due — nothing to start until the schedule fires.
   if (card.flags.scheduledAt && !card.flags.reassessmentDueAt) return null;
 
-  return { label: card.flags.reassessmentDueAt ? 'Start Reassessment' : 'Start', href: card.primaryHref };
+  return {
+    label: card.flags.reassessmentDueAt ? 'Start Reassessment' : 'Start',
+    href: card.primaryHref,
+  };
 }
 
 export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
