@@ -10,6 +10,7 @@ import type { Route } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { getMyAssessmentHistory } from '@/app/actions/assessments';
 import { findAssessmentDefinition } from '@/lib/assessments/registry';
+import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { BackButton } from '@/components/BackButton';
@@ -35,12 +36,13 @@ export default async function AssessmentHistoryPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const definition = findAssessmentDefinition(params.questionnaireId);
+  const questionnaireId = fromPublicSlug(params.questionnaireId);
+  const definition = findAssessmentDefinition(questionnaireId);
   if (!definition) notFound();
   const { questionnaire, copy } = definition;
 
   const [history, isCoach] = await Promise.all([
-    getMyAssessmentHistory(params.questionnaireId),
+    getMyAssessmentHistory(questionnaireId),
     hasActiveRole(supabase, user.id, 'coach'),
   ]);
 
@@ -58,7 +60,10 @@ export default async function AssessmentHistoryPage({
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
-        <BackButton fallbackHref={`/assessments/${questionnaire.id}` as Route} label="Back" />
+        <BackButton
+          fallbackHref={`/assessments/${toPublicSlug(questionnaire.id)}` as Route}
+          label="Back"
+        />
 
         <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
           Assessment History
@@ -71,7 +76,7 @@ export default async function AssessmentHistoryPage({
               You haven&apos;t completed this assessment yet.
             </p>
             <Link
-              href={`/assessments/${questionnaire.id}/take` as Route}
+              href={`/assessments/${toPublicSlug(questionnaire.id)}/take` as Route}
               className="mt-4 inline-block rounded-2xl bg-[#1B3A2D] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#163025]"
             >
               Begin assessment
@@ -111,7 +116,9 @@ export default async function AssessmentHistoryPage({
                 {mostRecentFirst.map((summary) => (
                   <Link
                     key={summary.id}
-                    href={`/assessments/${questionnaire.id}/results/${summary.id}` as Route}
+                    href={
+                      `/assessments/${toPublicSlug(questionnaire.id)}/results/${summary.id}` as Route
+                    }
                     className="flex items-center justify-between gap-4 py-3 transition hover:opacity-80"
                   >
                     <span className="text-sm text-[#1B3A2D]">

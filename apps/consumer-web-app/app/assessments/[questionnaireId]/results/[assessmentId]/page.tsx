@@ -13,6 +13,7 @@ import type { Route } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { History, ShieldCheck, Sparkles } from 'lucide-react';
 import { getMyAssessmentResult } from '@/app/actions/assessments';
+import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { BackButton } from '@/components/BackButton';
@@ -38,7 +39,7 @@ export default async function AssessmentResultsPage({
   if (!user) redirect('/login');
 
   const [view, isCoach] = await Promise.all([
-    getMyAssessmentResult(params.questionnaireId, params.assessmentId),
+    getMyAssessmentResult(fromPublicSlug(params.questionnaireId), params.assessmentId),
     hasActiveRole(supabase, user.id, 'coach'),
   ]);
 
@@ -62,7 +63,10 @@ export default async function AssessmentResultsPage({
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28">
-        <BackButton fallbackHref={`/assessments/${questionnaire.id}` as Route} label="Back" />
+        <BackButton
+          fallbackHref={`/assessments/${toPublicSlug(questionnaire.id)}` as Route}
+          label="Back"
+        />
 
         <div className="mt-4 flex items-center gap-2 text-[#6B7A72]">
           <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -112,7 +116,7 @@ export default async function AssessmentResultsPage({
               <CategoryCard
                 key={c.categoryId}
                 href={
-                  `/assessments/${questionnaire.id}/results/${result.record.id}/category/${c.categoryId}` as Route
+                  `/assessments/${toPublicSlug(questionnaire.id)}/results/${result.record.id}/category/${c.categoryId}` as Route
                 }
                 name={c.categoryName}
                 score={c.score}
@@ -125,7 +129,7 @@ export default async function AssessmentResultsPage({
         </section>
 
         <Link
-          href={`/assessments/${questionnaire.id}/history` as Route}
+          href={`/assessments/${toPublicSlug(questionnaire.id)}/history` as Route}
           className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
         >
           <div className="flex items-center gap-2 text-[#6B7A72]">

@@ -14,6 +14,7 @@ import {
   getMyAssessmentResult,
   getMyCategoryScoreHistory,
 } from '@/app/actions/assessments';
+import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { BackButton } from '@/components/BackButton';
@@ -38,8 +39,10 @@ export default async function AssessmentCategoryDetailPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  const questionnaireId = fromPublicSlug(params.questionnaireId);
+
   const [view, isCoach] = await Promise.all([
-    getMyAssessmentResult(params.questionnaireId, params.assessmentId),
+    getMyAssessmentResult(questionnaireId, params.assessmentId),
     hasActiveRole(supabase, user.id, 'coach'),
   ]);
   if (!view) notFound();
@@ -48,8 +51,8 @@ export default async function AssessmentCategoryDetailPage({
   if (!categoryScore) notFound();
 
   const [history, answers] = await Promise.all([
-    getMyCategoryScoreHistory(params.questionnaireId, params.categoryId),
-    getMyAssessmentCategoryAnswers(params.questionnaireId, params.assessmentId, params.categoryId),
+    getMyCategoryScoreHistory(questionnaireId, params.categoryId),
+    getMyAssessmentCategoryAnswers(questionnaireId, params.assessmentId, params.categoryId),
   ]);
 
   const copy = view.copy.categoryCopy[params.categoryId];
@@ -67,7 +70,7 @@ export default async function AssessmentCategoryDetailPage({
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <BackButton
           fallbackHref={
-            `/assessments/${params.questionnaireId}/results/${params.assessmentId}` as Route
+            `/assessments/${toPublicSlug(view.questionnaire.id)}/results/${params.assessmentId}` as Route
           }
           label="Back to results"
         />

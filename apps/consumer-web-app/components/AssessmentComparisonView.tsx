@@ -1,4 +1,6 @@
-import { TrendingUp, TrendingDown, Minus, Sparkles, Target, Gauge } from 'lucide-react';
+import Link from 'next/link';
+import type { Route } from 'next';
+import { TrendingUp, TrendingDown, Minus, Sparkles, Target, Gauge, ArrowRight } from 'lucide-react';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import type { ComparisonMetric, ProgressSummary } from '@/lib/onboarding/comparison';
 
@@ -93,6 +95,13 @@ export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props)
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
           Complete a reassessment to see how things have changed since the baseline.
         </p>
+        <Link
+          href={'/questionnaires' as Route}
+          className="mt-4 flex items-center gap-1 text-sm font-medium text-[#1B3A2D] hover:underline"
+        >
+          Go to Questionnaires
+          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
       </section>
     );
   }

@@ -6,7 +6,11 @@
  */
 
 import { redirect } from 'next/navigation';
+import type { Route } from 'next';
 import { getMyTakeAssessmentState } from '@/app/actions/assessments';
+import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
+import { createClient } from '@/lib/supabase/server';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { AssessmentTaker } from '@/components/assessments/AssessmentTaker';
 
 export default async function TakeAssessmentPage({
@@ -14,7 +18,24 @@ export default async function TakeAssessmentPage({
 }: {
   params: { questionnaireId: string };
 }) {
-  const state = await getMyTakeAssessmentState(params.questionnaireId);
+  const questionnaireId = fromPublicSlug(params.questionnaireId);
+
+  // Access is checked before getMyTakeAssessmentState, which would
+  // otherwise create a fresh in-progress draft row on its very first call
+  // — checking after the fact would be too late, since that new draft
+  // would then (correctly, but wrongly-early) grandfather the member in.
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const access = await checkAssessmentAccess(supabase, user.id, questionnaireId);
+  if (!access.allowed) {
+    redirect(`/assessments/${toPublicSlug(questionnaireId)}` as Route);
+  }
+
+  const state = await getMyTakeAssessmentState(questionnaireId);
   if (!state) redirect('/login');
 
   return (

@@ -41,6 +41,11 @@ import {
   getSessionHandoffsAction,
 } from '@/app/actions/conversation-coach';
 import { getClientBodyAssessmentsAction } from '@/app/actions/body-assessment';
+import { getClientAssessmentAssignments } from '@/app/actions/assessmentAssignments';
+import {
+  listAssessmentRegistryEntries,
+  listAssignableAssessments,
+} from '@/lib/assessment-registry/registry';
 import { buildClientSummary } from '../../lib';
 import { BottomNav } from '@/components/BottomNav';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
@@ -57,6 +62,7 @@ import { MemberIntelligencePanel } from './MemberIntelligencePanel';
 import { IntelligenceCorePanel } from './IntelligenceCorePanel';
 import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
+import { AssessmentAssignmentPanel } from './AssessmentAssignmentPanel';
 import {
   stressStatus,
   painStatus,
@@ -159,6 +165,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     coachAlerts,
     intelligenceCoreSummary,
     bodyAssessments,
+    assessmentAssignments,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -176,7 +183,16 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientCoachAlerts(profile.id),
     getClientIntelligenceCoreSummary(profile.id),
     getClientBodyAssessmentsAction(profile.id),
+    getClientAssessmentAssignments(profile.id),
   ]);
+
+  const assignableAssessments = listAssignableAssessments().map((e) => ({
+    key: e.key,
+    displayName: e.displayName,
+  }));
+  const assessmentDisplayNameById = Object.fromEntries(
+    listAssessmentRegistryEntries().map((e) => [e.databaseId, e.displayName])
+  );
 
   const latestConversationSession = conversationSessions[0] ?? null;
   const [conversationMessages, conversationHandoffs] = latestConversationSession
@@ -422,6 +438,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               own dedicated page (captures/video need more room than a
               dashboard panel). */}
           <BodyAssessmentPanel clientId={profile.id} assessments={bodyAssessments} />
+
+          {/* Coach assignment minimum interface — Assessment Registry framework */}
+          <AssessmentAssignmentPanel
+            clientId={profile.id}
+            assignableAssessments={assignableAssessments}
+            assignmentsByDefinitionId={assessmentDisplayNameById}
+            initialAssignments={assessmentAssignments}
+          />
 
           {/* Member Narrative — structured, evolving understanding (Milestone 2) */}
           <NarrativePanel clientId={profile.id} items={narrativeItems} />

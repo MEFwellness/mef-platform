@@ -16,6 +16,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getAssessmentDefinition, listAssessmentDefinitions } from '@/lib/assessments/registry';
+import { toPublicSlug } from '@/lib/assessments/publicSlug';
 import {
   findCategory,
   isQuestionActive,
@@ -136,7 +137,7 @@ export async function getMyQuestionnaireList(): Promise<QuestionnaireListItem[]>
       ]);
 
       return {
-        questionnaireId: questionnaire.id,
+        questionnaireId: toPublicSlug(questionnaire.id),
         title: copy.displayTitle,
         listDescription: copy.listDescription,
         sectionCount: questionnaire.categories.length,

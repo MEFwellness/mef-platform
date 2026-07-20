@@ -258,8 +258,8 @@ export default async function ProgressPage() {
             logic that could collapse or hide either one on any viewport.
             Assessments (posture/movement, Body Assessment at /assessment)
             is unchanged from before; Questionnaires (self-reported wellness
-            questionnaires, starting with CHEK HLC1 Nutrition & Lifestyle)
-            is its own dedicated area at /questionnaires, not a card inside
+            questionnaires, starting with the Nutrition & Lifestyle
+            Questionnaire) is its own dedicated area at /questionnaires, not a card inside
             Assessments. Both moved here from the bottom nav (Premium UX
             Milestone 1) rather than getting their own permanent tabs. */}
         <Link
