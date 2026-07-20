@@ -80,12 +80,8 @@ import { getTodaysEveningReflection } from '@/app/actions/eveningReflection';
 import { HydrationTracker } from '@/components/checkin/HydrationTracker';
 import { ConcernFlag } from '@/components/checkin/ConcernFlag';
 import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection';
-import { getMyQuestionnaireList } from '@/app/actions/assessments';
-import { getMyPrimalPatternListItem } from '@/app/actions/primal-pattern';
-import {
-  QuestionnairesHomeCard,
-  type HomeQuestionnaireItem,
-} from '@/components/questionnaires/QuestionnairesHomeCard';
+import { getMyQuestionnaireCatalog } from '@/app/actions/questionnaireCatalog';
+import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
 import {
   stressStatus,
   painStatus,
@@ -165,8 +161,7 @@ export default async function DashboardPage({
     morningBrief,
     baseline,
     bodyAssessments,
-    questionnaireList,
-    primalPatternItem,
+    questionnaireCatalog,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
@@ -175,35 +170,10 @@ export default async function DashboardPage({
     getMyMorningBrief(),
     getMyBaselineAssessment(),
     getMyAssessmentsAction(),
-    getMyQuestionnaireList(),
-    getMyPrimalPatternListItem(),
+    getMyQuestionnaireCatalog(),
   ]);
   const movementAnalyzed = bodyAssessments.some((a) => a.completed_at !== null);
   const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
-
-  // Normalizes both questionnaire sources (registry-based + Primal
-  // Pattern's own result shape) into one list Home's Questionnaires card
-  // can render without knowing either source's scoring details.
-  const homeQuestionnaireItems: HomeQuestionnaireItem[] = [
-    ...(primalPatternItem
-      ? [
-          {
-            questionnaireId: primalPatternItem.questionnaireId,
-            title: primalPatternItem.title,
-            status: primalPatternItem.status,
-            draft: primalPatternItem.draft,
-            resultId: primalPatternItem.latestCompleted?.id ?? null,
-          },
-        ]
-      : []),
-    ...questionnaireList.map((item) => ({
-      questionnaireId: item.questionnaireId,
-      title: item.title,
-      status: item.status,
-      draft: item.draft,
-      resultId: item.latestCompleted?.id ?? null,
-    })),
-  ];
 
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
@@ -290,16 +260,21 @@ export default async function DashboardPage({
               <RootScoreCard snapshot={rootScoreSnapshot} />
 
               {/* ---------------------------------------------------- */}
-              {/* Questionnaires — a dedicated, premium summary card      */}
-              {/* directly below Root Score. Real completion progress     */}
-              {/* across every registered questionnaire (registry-based   */}
-              {/* + Primal Pattern), backed by getMyQuestionnaireList()    */}
-              {/* and getMyPrimalPatternListItem(). Questionnaires-only:   */}
-              {/* no check-ins, movement, Food Lens, or Concern belong     */}
-              {/* here — those live in their own sections below. See       */}
+              {/* Questionnaires — a single summary tile directly below   */}
+              {/* Root Score. Real completion progress across every       */}
+              {/* registered questionnaire, from the same catalog query    */}
+              {/* (getMyQuestionnaireCatalog) the /questionnaires           */}
+              {/* destination itself reads — one rendering path for        */}
+              {/* status, no duplicated logic between Home and there.      */}
+              {/* Questionnaires-only: no check-ins, movement, Food Lens,   */}
+              {/* or Concern belong here — those live in their own          */}
+              {/* sections below. See                                      */}
               {/* components/questionnaires/QuestionnairesHomeCard.tsx.    */}
               {/* ---------------------------------------------------- */}
-              <QuestionnairesHomeCard items={homeQuestionnaireItems} />
+              <QuestionnairesHomeCard
+                completedCount={questionnaireCatalog.completedCount}
+                totalCount={questionnaireCatalog.totalCount}
+              />
 
               {/* ---------------------------------------------------- */}
               {/* Movement + Food Lens + Progress quick links — their     */}

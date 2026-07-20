@@ -1,18 +1,17 @@
 /**
- * Orchestrates the new Questionnaires page (guided member journey) on top
- * of the Assessment Registry framework. Reads status/facts generically
- * from lib/assessment-registry/*, and reads display detail (title,
- * description, draft progress, result links) from each system's own
- * existing, unmodified action (getMyQuestionnaireList for the generic
- * engine, getMyPrimalPatternListItem for Primal Pattern,
- * fetchBaselineAssessment for Onboarding) — nothing here re-implements
- * any system's own question/scoring/storage logic.
+ * The Questionnaires catalog — one query, one grouping, used by both the
+ * Home summary card and the Questionnaires destination (app/questionnaires
+ * /page.tsx). Reads status/facts generically from lib/assessment-registry/*
+ * and reads display detail (title, description, draft progress, result
+ * links) from each system's own existing, unmodified action
+ * (getMyQuestionnaireList for the generic engine, getMyPrimalPatternListItem
+ * for Primal Pattern, fetchBaselineAssessment for Onboarding) — nothing
+ * here re-implements any system's own question/scoring/storage logic.
  *
- * Body Assessment is registered in the framework (for status/
- * recommendation purposes) but deliberately does not get a card here —
- * app/questionnaires/page.tsx has always been "deliberately separate from
- * /assessment," and that existing product decision is preserved, not
- * overridden by this task.
+ * Body Assessment is registered in the framework but deliberately excluded
+ * here — app/questionnaires/page.tsx (and Home's Questionnaires card) has
+ * always been "deliberately separate from /assessment," and that existing
+ * product decision is preserved, not overridden by this restructuring.
  */
 
 'use server';
@@ -23,51 +22,53 @@ import { getMyPrimalPatternListItem } from './primal-pattern';
 import { fetchBaselineAssessment } from '@/lib/onboarding/baseline';
 import { getMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
 import { listAssessmentRegistryEntries } from '@/lib/assessment-registry/registry';
-import {
-  calculateAssessmentStatus,
-  describeLockReason,
-  type AssessmentStatus,
-  type LockReason,
-} from '@/lib/assessment-registry/status';
-import { pickRecommendation } from '@/lib/assessment-registry/recommendation';
+import { categorizeForCatalog, type CatalogFlags, type CatalogSection } from '@/lib/assessment-registry/catalog';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
 
-export type JourneyCard = {
+export type CatalogCard = {
   key: AssessmentKey;
   title: string;
   description: string;
   estimatedMinutes: number;
   category: string;
-  status: AssessmentStatus;
-  isRecommended: boolean;
-  lockMessage: string | null;
+  section: CatalogSection;
+  flags: CatalogFlags;
   draftProgress: { answered: number; total: number } | null;
   latestCompletedAt: string | null;
   primaryHref: string | null;
   resultHref: string | null;
   coachAssignmentReason: string | null;
-  reassessmentDueAt: string | null;
 };
 
-export type QuestionnaireJourney = {
-  recommended: JourneyCard | null;
-  continueWhereLeftOff: JourneyCard[];
-  available: JourneyCard[];
-  completed: JourneyCard[];
-  scheduled: JourneyCard[];
-  locked: JourneyCard[];
-  comingSoon: JourneyCard[];
+export type QuestionnaireCatalog = {
+  assigned: CatalogCard[];
+  completed: CatalogCard[];
+  premium: CatalogCard[];
+  available: CatalogCard[];
+  /** Takeable catalog entries (excludes Coming Soon placeholders). */
+  totalCount: number;
+  completedCount: number;
 };
 
-const EMPTY_JOURNEY: QuestionnaireJourney = {
-  recommended: null,
-  continueWhereLeftOff: [],
-  available: [],
-  completed: [],
-  scheduled: [],
-  locked: [],
-  comingSoon: [],
-};
+/**
+ * A fresh, empty catalog for every call — this must be a factory, not a
+ * shared module-level constant. This module is a long-lived Node.js server
+ * process, not re-evaluated per request, so a `{ ...EMPTY_CATALOG }`
+ * shallow spread of a singleton object would only copy its top-level
+ * properties: the four array properties would stay shared by reference
+ * across every request, and every call's `.push()` would silently
+ * accumulate onto the same arrays forever.
+ */
+function emptyCatalog(): QuestionnaireCatalog {
+  return {
+    assigned: [],
+    completed: [],
+    premium: [],
+    available: [],
+    totalCount: 0,
+    completedCount: 0,
+  };
+}
 
 async function requireMemberId(): Promise<string | null> {
   const supabase = createClient();
@@ -77,9 +78,9 @@ async function requireMemberId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
-export async function getMyQuestionnaireJourney(): Promise<QuestionnaireJourney> {
+export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog> {
   const memberId = await requireMemberId();
-  if (!memberId) return EMPTY_JOURNEY;
+  if (!memberId) return emptyCatalog();
 
   const supabase = createClient();
   const entries = listAssessmentRegistryEntries().filter((e) => e.key !== 'body-assessment');
@@ -92,16 +93,14 @@ export async function getMyQuestionnaireJourney(): Promise<QuestionnaireJourney>
   ]);
 
   const engineByKey = new Map(engineList.map((item) => [item.questionnaireId, item] as const));
-  const recommendation = pickRecommendation(factsByKey);
 
-  const cards: JourneyCard[] = [];
+  const cards: CatalogCard[] = [];
 
   for (const entry of entries) {
     const facts = factsByKey.get(entry.key);
     if (!facts) continue;
 
-    const { status, lockReason } = calculateAssessmentStatus(entry, facts);
-    const isRecommended = recommendation.key === entry.key;
+    const { section, flags } = categorizeForCatalog(entry, facts);
 
     if (entry.key === 'onboarding-health-history') {
       cards.push({
@@ -110,21 +109,13 @@ export async function getMyQuestionnaireJourney(): Promise<QuestionnaireJourney>
         description: entry.shortDescription,
         estimatedMinutes: entry.estimatedMinutes,
         category: entry.category,
-        // Once a baseline exists, fall back to 'completed' only when
-        // nothing more specific (a pending coach assignment or due
-        // reassessment) is already in play — those signals still win.
-        status:
-          onboardingBaseline && (status === 'available' || status === 'locked')
-            ? 'completed'
-            : status,
-        isRecommended,
-        lockMessage: lockReason ? describeLockReason(lockReason) : null,
+        section,
+        flags,
         draftProgress: null,
-        latestCompletedAt: onboardingBaseline?.submittedAt ?? null,
+        latestCompletedAt: onboardingBaseline?.submittedAt ?? facts.latestCompletedAt,
         primaryHref: onboardingBaseline ? '/profile/reassessments/new' : '/onboarding',
         resultHref: onboardingBaseline ? '/profile/baseline' : null,
         coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
-        reassessmentDueAt: facts.pendingReassessmentSchedule?.dueAt ?? null,
       });
       continue;
     }
@@ -137,9 +128,8 @@ export async function getMyQuestionnaireJourney(): Promise<QuestionnaireJourney>
         description: primalPatternItem.listDescription,
         estimatedMinutes: primalPatternItem.estimatedMinutes,
         category: entry.category,
-        status,
-        isRecommended,
-        lockMessage: lockReason ? describeLockReason(lockReason) : null,
+        section,
+        flags,
         draftProgress: primalPatternItem.draft,
         latestCompletedAt: facts.latestCompletedAt,
         primaryHref: `/assessments/${primalPatternItem.questionnaireId}`,
@@ -147,7 +137,6 @@ export async function getMyQuestionnaireJourney(): Promise<QuestionnaireJourney>
           ? `/assessments/${primalPatternItem.questionnaireId}/results/${primalPatternItem.latestCompleted.id}`
           : null,
         coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
-        reassessmentDueAt: facts.pendingReassessmentSchedule?.dueAt ?? null,
       });
       continue;
     }
@@ -167,9 +156,8 @@ export async function getMyQuestionnaireJourney(): Promise<QuestionnaireJourney>
         description: engineItem.listDescription,
         estimatedMinutes: engineItem.estimatedMinutes,
         category: entry.category,
-        status,
-        isRecommended,
-        lockMessage: lockReason ? describeLockReason(lockReason) : null,
+        section,
+        flags,
         draftProgress: engineItem.draft,
         latestCompletedAt: facts.latestCompletedAt,
         primaryHref: `/assessments/${engineItem.questionnaireId}`,
@@ -177,7 +165,6 @@ export async function getMyQuestionnaireJourney(): Promise<QuestionnaireJourney>
           ? `/assessments/${engineItem.questionnaireId}/results/${engineItem.latestCompleted.id}`
           : null,
         coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
-        reassessmentDueAt: facts.pendingReassessmentSchedule?.dueAt ?? null,
       });
       continue;
     }
@@ -189,59 +176,22 @@ export async function getMyQuestionnaireJourney(): Promise<QuestionnaireJourney>
       description: entry.shortDescription,
       estimatedMinutes: entry.estimatedMinutes,
       category: entry.category,
-      status: 'coming_soon',
-      isRecommended: false,
-      lockMessage: null,
+      section,
+      flags,
       draftProgress: null,
       latestCompletedAt: null,
       primaryHref: null,
       resultHref: null,
       coachAssignmentReason: null,
-      reassessmentDueAt: null,
     });
   }
 
-  const journey: QuestionnaireJourney = { ...EMPTY_JOURNEY };
+  const catalog: QuestionnaireCatalog = emptyCatalog();
   for (const card of cards) {
-    // A card that is the single Recommended Next appears only in its own
-    // hero section — every other bucket excludes it, so no card ever
-    // renders twice on the page.
-    if (card.isRecommended) {
-      journey.recommended = card;
-      continue;
-    }
-
-    switch (card.status) {
-      case 'in_progress':
-        journey.continueWhereLeftOff.push(card);
-        break;
-      case 'coach_assigned':
-        // Coach-assigned surfaces alongside Available — a coach
-        // assignment is actionable now, same bucket as anything else the
-        // member can start today.
-        journey.available.push(card);
-        break;
-      case 'available':
-        journey.available.push(card);
-        break;
-      case 'completed':
-        journey.completed.push(card);
-        break;
-      case 'scheduled':
-        journey.scheduled.push(card);
-        break;
-      case 'locked':
-        journey.locked.push(card);
-        break;
-      case 'coming_soon':
-        journey.comingSoon.push(card);
-        break;
-      default:
-        break;
-    }
+    catalog[card.section].push(card);
+    if (!card.flags.comingSoon) catalog.totalCount += 1;
   }
+  catalog.completedCount = catalog.completed.length;
 
-  return journey;
+  return catalog;
 }
-
-export type { AssessmentStatus, LockReason };
