@@ -21,12 +21,19 @@ const MEMBERSHIP_RANK: Record<MembershipKey, number> = {
 
 /** profiles.membership_tier is nullable at the DB level for defensiveness; this is the single place that resolves the fallback. */
 export function resolveMembershipKey(profileMembershipTier: string | null): MembershipKey {
-  if (profileMembershipTier === 'free_trial' || profileMembershipTier === 'membership' || profileMembershipTier === 'holistic_reset') {
+  if (
+    profileMembershipTier === 'free_trial' ||
+    profileMembershipTier === 'membership' ||
+    profileMembershipTier === 'holistic_reset'
+  ) {
     return profileMembershipTier;
   }
   return DEFAULT_MEMBERSHIP_KEY;
 }
 
-export function membershipMeetsMinimum(memberLevel: MembershipKey, minLevel: MembershipKey): boolean {
+export function membershipMeetsMinimum(
+  memberLevel: MembershipKey,
+  minLevel: MembershipKey
+): boolean {
   return MEMBERSHIP_RANK[memberLevel] >= MEMBERSHIP_RANK[minLevel];
 }
