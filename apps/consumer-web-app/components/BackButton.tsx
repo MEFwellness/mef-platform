@@ -17,11 +17,28 @@ import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { ChevronLeft } from 'lucide-react';
 
-export function BackButton({ fallbackHref, label }: { fallbackHref: Route; label: string }) {
+type Props = {
+  fallbackHref: Route;
+  label: string;
+  /**
+   * Skips the `router.back()` branch entirely and always navigates to
+   * `fallbackHref` — for the handful of call sites where "back" has one
+   * correct, fixed destination regardless of how the member arrived
+   * (e.g. an assessment's results page: in-app history from the take
+   * flow always exists by the time a member is looking at results, so
+   * the default smart-back would silently reopen the questionnaire
+   * instead of returning to the overview). Defaults to false, preserving
+   * the smart "go back to wherever you came from" behavior everywhere
+   * else that already relies on it.
+   */
+  forceFallback?: boolean;
+};
+
+export function BackButton({ fallbackHref, label, forceFallback = false }: Props) {
   const router = useRouter();
 
   function handleClick() {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
+    if (!forceFallback && typeof window !== 'undefined' && window.history.length > 1) {
       router.back();
     } else {
       router.push(fallbackHref);

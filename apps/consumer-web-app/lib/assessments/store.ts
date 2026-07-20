@@ -47,6 +47,7 @@ type AssessmentRow = {
   total_priority: PriorityLevel | null;
   started_at: string;
   completed_at: string | null;
+  updated_at: string;
   context: AssessmentContext | null;
 };
 
@@ -63,6 +64,7 @@ function mapRecord(row: AssessmentRow): AssessmentRecord {
     totalPriority: row.total_priority,
     startedAt: row.started_at,
     completedAt: row.completed_at,
+    updatedAt: row.updated_at,
     context: row.context ?? {},
   };
 }

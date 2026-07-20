@@ -65,7 +65,11 @@ export default async function FourDoctorsResultsPage({
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28 lg:max-w-4xl">
-        <BackButton fallbackHref={`/assessments/${QUESTIONNAIRE_ID}` as Route} label="Back" />
+        <BackButton
+          fallbackHref={`/assessments/${QUESTIONNAIRE_ID}` as Route}
+          label="Back"
+          forceFallback
+        />
 
         <h1 className="sr-only">{copy.displayTitle} results</h1>
 

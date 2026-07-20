@@ -64,7 +64,7 @@ export type AssessmentOverview = {
   copy: AssessmentCopy;
   sectionCount: number;
   totalQuestions: number;
-  draft: { answered: number; total: number } | null;
+  draft: { answered: number; total: number; updatedAt: string } | null;
   latestCompleted: AssessmentSummary | null;
 };
 
@@ -96,6 +96,7 @@ export async function getMyAssessmentOverview(
             draftAssessment.record.context
           ),
           total: totalQuestionCount(questionnaire, draftAssessment.record.context),
+          updatedAt: draftAssessment.record.updatedAt,
         }
       : null,
     latestCompleted,

@@ -29,6 +29,8 @@ export type AssessmentRecord = {
   totalPriority: PriorityLevel | null;
   startedAt: string;
   completedAt: string | null;
+  /** Bumped on every answer/context save (store.ts) — the "last saved" timestamp a resume screen shows a member, never used in scoring. */
+  updatedAt: string;
   /**
    * Answers to the questionnaire's own `contextQuestions`, if it declares
    * any, keyed by key. Optional and absent/`{}` for every questionnaire
