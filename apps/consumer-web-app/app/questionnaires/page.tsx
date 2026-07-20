@@ -1,26 +1,43 @@
 /**
- * Questionnaires — the dedicated landing page for wellness questionnaires,
- * deliberately separate from /assessment (posture/movement Body
- * Assessment). Renders a scalable card grid purely from
- * lib/assessments/registry.ts via getMyQuestionnaireList(): today that's
- * one card (CHEK HLC1 Nutrition & Lifestyle), but the ~10 future
- * questionnaires (Health Appraisal, Breathing, Stress, Circadian & Sleep,
- * Digestive, Hormone, Colon Transit, Right/Left Brain, ...) each need only
- * a new lib/assessments/<id>/ config + one registry line to appear here —
- * this page never changes.
+ * Questionnaires — a guided member journey, not a flat catalog. Built on
+ * the Assessment Registry framework (lib/assessment-registry/*): one
+ * server action (getMyQuestionnaireJourney) computes status, locks, and a
+ * single recommendation for every registered assessment, and this page
+ * only ever renders the sections that are actually relevant to this
+ * member right now. Deliberately still separate from /assessment
+ * (posture/movement Body Assessment) — same existing product decision as
+ * before, just now expressed through the framework instead of a hardcoded
+ * card list.
  */
 
+import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
-import { ClipboardList } from 'lucide-react';
-import { getMyQuestionnaireList } from '@/app/actions/assessments';
-import { getMyPrimalPatternListItem } from '@/app/actions/primal-pattern';
+import { ClipboardList, Sparkles } from 'lucide-react';
+import { getMyQuestionnaireJourney } from '@/app/actions/questionnaireJourney';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { AvatarLink } from '@/components/AvatarLink';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
-import { QuestionnaireCard } from '@/components/questionnaires/QuestionnaireCard';
-import { PrimalPatternQuestionnaireCard } from '@/components/primal-pattern/PrimalPatternQuestionnaireCard';
+import { JourneyAssessmentCard } from '@/components/questionnaires/JourneyAssessmentCard';
+
+function Section({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="mt-8">
+      <p className="px-1 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">{title}</p>
+      {subtitle && <p className="mt-1 px-1 text-xs text-[#6B7A72]">{subtitle}</p>}
+      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+    </section>
+  );
+}
 
 export default async function QuestionnairesPage() {
   const supabase = createClient();
@@ -29,13 +46,21 @@ export default async function QuestionnairesPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, questionnaires, primalPattern, { data: profile }] = await Promise.all([
+  const [isCoach, journey, { data: profile }] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
-    getMyQuestionnaireList(),
-    getMyPrimalPatternListItem(),
+    getMyQuestionnaireJourney(),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
   ]);
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+
+  const hasAnything =
+    journey.recommended ||
+    journey.continueWhereLeftOff.length > 0 ||
+    journey.available.length > 0 ||
+    journey.completed.length > 0 ||
+    journey.scheduled.length > 0 ||
+    journey.locked.length > 0 ||
+    journey.comingSoon.length > 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -57,12 +82,73 @@ export default async function QuestionnairesPage() {
           separate from your posture and movement Body Assessment.
         </p>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {primalPattern && <PrimalPatternQuestionnaireCard item={primalPattern} />}
-          {questionnaires.map((item) => (
-            <QuestionnaireCard key={item.questionnaireId} item={item} />
-          ))}
-        </div>
+        {!hasAnything && (
+          <section className="mef-animate-in mt-8 rounded-[28px] bg-white p-7 text-center shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
+            <p className="text-sm leading-relaxed text-[#6B7A72]">
+              Nothing available right now. Check back soon.
+            </p>
+          </section>
+        )}
+
+        {journey.recommended && (
+          <section className="mt-6">
+            <div className="flex items-center gap-2 text-[#1B3A2D]">
+              <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-wider">Recommended Next</p>
+            </div>
+            <div className="mt-3">
+              <JourneyAssessmentCard card={journey.recommended} variant="hero" />
+            </div>
+          </section>
+        )}
+
+        {journey.continueWhereLeftOff.length > 0 && (
+          <Section title="Continue Where You Left Off">
+            {journey.continueWhereLeftOff.map((card) => (
+              <JourneyAssessmentCard key={card.key} card={card} />
+            ))}
+          </Section>
+        )}
+
+        {journey.available.length > 0 && (
+          <Section title="Available Assessments">
+            {journey.available.map((card) => (
+              <JourneyAssessmentCard key={card.key} card={card} />
+            ))}
+          </Section>
+        )}
+
+        {journey.scheduled.length > 0 && (
+          <Section title="Scheduled Reassessments">
+            {journey.scheduled.map((card) => (
+              <JourneyAssessmentCard key={card.key} card={card} />
+            ))}
+          </Section>
+        )}
+
+        {journey.completed.length > 0 && (
+          <Section title="Completed Assessments">
+            {journey.completed.map((card) => (
+              <JourneyAssessmentCard key={card.key} card={card} />
+            ))}
+          </Section>
+        )}
+
+        {journey.locked.length > 0 && (
+          <Section title="Locked" subtitle="A few upcoming opportunities as your access grows.">
+            {journey.locked.map((card) => (
+              <JourneyAssessmentCard key={card.key} card={card} />
+            ))}
+          </Section>
+        )}
+
+        {journey.comingSoon.length > 0 && (
+          <Section title="Coming Soon">
+            {journey.comingSoon.map((card) => (
+              <JourneyAssessmentCard key={card.key} card={card} />
+            ))}
+          </Section>
+        )}
       </main>
 
       <BottomNav isCoach={isCoach} />

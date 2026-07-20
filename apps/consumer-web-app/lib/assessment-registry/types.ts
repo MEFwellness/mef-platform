@@ -37,7 +37,11 @@ export type AssessmentKey =
   | 'chek-hlc1-nutrition-lifestyle'
   | 'four-doctors'
   | 'primal-pattern-diet-type'
-  | 'body-assessment';
+  | 'body-assessment'
+  /** Coming Soon — catalog row only (00000000000078), no question content, no route. */
+  | 'readiness-to-change'
+  | 'short-haq'
+  | 'finding-1-love';
 
 export type AssessmentType =
   /** Structured Q&A, scored, single-select-with-points (the reusable engine's own model). */

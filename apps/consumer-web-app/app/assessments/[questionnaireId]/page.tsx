@@ -11,8 +11,11 @@ import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { CheckCircle2, Clock3, ListChecks, ShieldCheck, Sparkles } from 'lucide-react';
 import { getMyAssessmentOverview } from '@/app/actions/assessments';
+import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
+import { describeLockReason } from '@/lib/assessment-registry/status';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { PriorityBadge } from '@/components/assessments/PriorityBadge';
@@ -34,18 +37,54 @@ export default async function AssessmentOverviewPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [overview, isCoach, { data: profile }] = await Promise.all([
-    getMyAssessmentOverview(params.questionnaireId),
+  const questionnaireId = fromPublicSlug(params.questionnaireId);
+
+  const [overview, isCoach, { data: profile }, access] = await Promise.all([
+    getMyAssessmentOverview(questionnaireId),
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('timezone').eq('id', user.id).single(),
+    checkAssessmentAccess(supabase, user.id, questionnaireId),
   ]);
 
   if (!overview) redirect('/login');
 
   const { questionnaire, copy, sectionCount, totalQuestions, draft, latestCompleted } = overview;
+
+  if (!access.allowed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+        <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
+          <BackButton fallbackHref="/questionnaires" label="Back to Questionnaires" forceFallback />
+
+          <section className={`${CARD} mef-animate-in mt-4 p-7 text-center`}>
+            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
+              {copy.displayTitle}
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+              {describeLockReason(access.reason)}
+            </p>
+            <Link
+              href={'/membership' as Route}
+              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+            >
+              View Membership
+            </Link>
+            <Link
+              href={'/questionnaires' as Route}
+              className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+            >
+              Back to Questionnaires
+            </Link>
+          </section>
+        </main>
+
+        <BottomNav isCoach={isCoach} />
+      </div>
+    );
+  }
   const timezone = profile?.timezone ?? 'America/New_York';
   const ctaLabel = draft ? 'Resume assessment' : 'Begin assessment';
-  const ctaHref = `/assessments/${questionnaire.id}/take` as Route;
+  const ctaHref = `/assessments/${toPublicSlug(questionnaire.id)}/take` as Route;
   const justSaved = searchParams.saved === '1' && draft !== null;
   const answeredCount = draft?.answered ?? 0;
 
@@ -127,7 +166,9 @@ export default async function AssessmentOverviewPage({
 
         {latestCompleted && (
           <Link
-            href={`/assessments/${questionnaire.id}/results/${latestCompleted.id}` as Route}
+            href={
+              `/assessments/${toPublicSlug(questionnaire.id)}/results/${latestCompleted.id}` as Route
+            }
             className={`${CARD} mef-animate-in mt-5 flex items-center justify-between gap-4 p-6 transition hover:bg-[#FAFAF8]`}
           >
             <div>
@@ -145,7 +186,7 @@ export default async function AssessmentOverviewPage({
 
         {latestCompleted && (
           <Link
-            href={`/assessments/${questionnaire.id}/history` as Route}
+            href={`/assessments/${toPublicSlug(questionnaire.id)}/history` as Route}
             className="mt-3 block text-center text-sm font-medium text-[#1B3A2D] hover:underline"
           >
             View your full assessment history

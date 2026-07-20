@@ -31,6 +31,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { flattenQuestions, type FlatQuestionRef } from '@/lib/assessments/engine/navigation';
 import { isQuestionActive, totalAnsweredCount } from '@/lib/assessments/engine/scoring';
+import { toPublicSlug } from '@/lib/assessments/publicSlug';
 import {
   completeMyAssessment,
   submitAssessmentAnswer,
@@ -297,7 +298,7 @@ export function AssessmentTaker({
         // anyway, and the overview page's own fresh read of the DB (not this
         // client's optimistic state) is what it shows next.
       }
-      router.push(`/assessments/${questionnaire.id}?saved=1` as Route);
+      router.push(`/assessments/${toPublicSlug(questionnaire.id)}?saved=1` as Route);
       router.refresh();
     })();
   }
@@ -319,7 +320,7 @@ export function AssessmentTaker({
           type="button"
           onClick={() =>
             router.push(
-              `/assessments/${questionnaire.id}/results/${completedResult.record.id}` as Route
+              `/assessments/${toPublicSlug(questionnaire.id)}/results/${completedResult.record.id}` as Route
             )
           }
           className="mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"

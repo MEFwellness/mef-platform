@@ -15,6 +15,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { getMyAssessmentComparison } from '@/app/actions/assessments';
+import { toPublicSlug } from '@/lib/assessments/publicSlug';
 import type { ComparisonMode } from '@/lib/assessments/store';
 import type { AssessmentComparison } from '@/lib/assessments/comparison';
 import {
@@ -129,7 +130,7 @@ export function AssessmentComparisonPanel({
                 >
                   <Link
                     href={
-                      `/assessments/${questionnaire.id}/results/${latestAssessmentId}/category/${category.categoryId}` as Route
+                      `/assessments/${toPublicSlug(questionnaire.id)}/results/${latestAssessmentId}/category/${category.categoryId}` as Route
                     }
                     className="text-sm font-medium text-[#1B3A2D] hover:underline"
                   >

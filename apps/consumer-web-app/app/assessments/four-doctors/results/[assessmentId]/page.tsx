@@ -23,6 +23,7 @@ import { ChevronRight, History, ShieldCheck } from 'lucide-react';
 import { getMyAssessmentResult } from '@/app/actions/assessments';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
+import { resolveMembershipKey } from '@/lib/assessment-registry/membership';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
@@ -31,6 +32,7 @@ import { BalanceOverview } from '@/components/assessments/four-doctors-results/B
 import { DoctorSummaryCards } from '@/components/assessments/four-doctors-results/DoctorSummaryCards';
 import { ZoneLegend } from '@/components/assessments/four-doctors-results/ZoneLegend';
 import { NextStepsCards } from '@/components/assessments/four-doctors-results/NextStepsCards';
+import { FreeTierSummary } from '@/components/assessments/four-doctors-results/FreeTierSummary';
 
 const QUESTIONNAIRE_ID = 'four-doctors';
 
@@ -45,14 +47,17 @@ export default async function FourDoctorsResultsPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [view, isCoach] = await Promise.all([
+  const [view, isCoach, { data: profile }] = await Promise.all([
     getMyAssessmentResult(QUESTIONNAIRE_ID, params.assessmentId),
     hasActiveRole(supabase, user.id, 'coach'),
+    supabase.from('profiles').select('membership_tier').eq('id', user.id).single(),
   ]);
 
   if (!view) notFound();
 
   const { result, questionnaire, copy } = view;
+  const membershipKey = resolveMembershipKey(profile?.membership_tier ?? null);
+  const isFreeTier = membershipKey === 'free_trial';
 
   // Same category-order guarantee the generic results page enforces:
   // DB row order isn't guaranteed, so sort explicitly by the config's own order.
@@ -82,41 +87,49 @@ export default async function FourDoctorsResultsPage({
             completedAt={result.record.completedAt!}
           />
 
-          <div className="mef-animate-in" style={{ animationDelay: '80ms' }}>
-            <BalanceOverview categories={orderedCategories} />
-          </div>
-
-          <div className="mef-animate-in" style={{ animationDelay: '140ms' }}>
-            <DoctorSummaryCards categories={orderedCategories} copy={copy} />
-          </div>
-
-          <div className="mef-animate-in" style={{ animationDelay: '200ms' }}>
-            <ZoneLegend />
-          </div>
-
-          <div className="mef-animate-in" style={{ animationDelay: '260ms' }}>
-            <NextStepsCards />
-          </div>
-
-          <Link
-            href={`/assessments/${QUESTIONNAIRE_ID}/history` as Route}
-            className="mef-animate-in mef-focus-ring flex items-center justify-between rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_32px_-8px_rgba(27,58,45,0.18)]"
-            style={{ animationDelay: '320ms' }}
-          >
-            <div className="flex items-center gap-2.5 text-[#1B3A2D]">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EFF6F1]">
-                <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              </span>
-              <p className="text-sm font-semibold uppercase tracking-wider">
-                Assessment history &amp; comparison
-              </p>
+          {isFreeTier ? (
+            <div className="mef-animate-in" style={{ animationDelay: '80ms' }}>
+              <FreeTierSummary categories={orderedCategories} copy={copy} />
             </div>
-            <ChevronRight
-              className="h-4 w-4 shrink-0 text-[#6B7A72]"
-              strokeWidth={1.75}
-              aria-hidden="true"
-            />
-          </Link>
+          ) : (
+            <>
+              <div className="mef-animate-in" style={{ animationDelay: '80ms' }}>
+                <BalanceOverview categories={orderedCategories} />
+              </div>
+
+              <div className="mef-animate-in" style={{ animationDelay: '140ms' }}>
+                <DoctorSummaryCards categories={orderedCategories} copy={copy} />
+              </div>
+
+              <div className="mef-animate-in" style={{ animationDelay: '200ms' }}>
+                <ZoneLegend />
+              </div>
+
+              <div className="mef-animate-in" style={{ animationDelay: '260ms' }}>
+                <NextStepsCards />
+              </div>
+
+              <Link
+                href={`/assessments/${QUESTIONNAIRE_ID}/history` as Route}
+                className="mef-animate-in mef-focus-ring flex items-center justify-between rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_32px_-8px_rgba(27,58,45,0.18)]"
+                style={{ animationDelay: '320ms' }}
+              >
+                <div className="flex items-center gap-2.5 text-[#1B3A2D]">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EFF6F1]">
+                    <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  </span>
+                  <p className="text-sm font-semibold uppercase tracking-wider">
+                    Assessment history &amp; comparison
+                  </p>
+                </div>
+                <ChevronRight
+                  className="h-4 w-4 shrink-0 text-[#6B7A72]"
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                />
+              </Link>
+            </>
+          )}
         </div>
 
         <section className="mt-7 flex items-start gap-3 px-1">

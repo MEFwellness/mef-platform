@@ -24,7 +24,7 @@ export const CHEK_HLC1_COPY: AssessmentCopy = {
   welcomeSubtitle:
     'A whole-lifestyle wellness check-in across nutrition, stress, circadian rhythm, meal timing, digestion, and more. The same framework MEF Wellness coaches use to find where your next win is hiding.',
   estimatedMinutes: 15,
-  attribution: 'Based on the CHEK Practitioner Nutrition & Lifestyle Assessment.',
+  attribution: 'Based on a CHEK Practitioner questionnaire.',
   categoryCopy: {
     you_are_what_you_eat: {
       shortLabel: 'food choices',
