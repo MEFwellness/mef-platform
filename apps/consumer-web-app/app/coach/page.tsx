@@ -8,6 +8,8 @@ import {
   Calendar,
   ClipboardList,
   ShieldAlert,
+  Dumbbell,
+  ChevronRight,
 } from 'lucide-react';
 import { listAssignedClients } from '@/app/actions/coach';
 import { listCoachReviewQueue } from '@/app/actions/safety';
@@ -140,6 +142,24 @@ export default async function CoachPage() {
           </div>
           <p className="mt-2 text-base text-[#1B3A2D]">{summarySentence}</p>
         </section>
+
+        {/* ---------------------------------------------------- */}
+        {/* Program Library — reusable coach-authored workout       */}
+        {/* templates (Coach Program Builder milestone). Always      */}
+        {/* shown, unlike the conditional Safety Review Queue link   */}
+        {/* below, since building/reusing programs is a routine      */}
+        {/* coaching task, not an exception state.                   */}
+        {/* ---------------------------------------------------- */}
+        <Link
+          href="/coach/programs"
+          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:opacity-90`}
+        >
+          <div className="flex items-center gap-2 text-[#854D0E]">
+            <Dumbbell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Program Library</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
 
         {/* ---------------------------------------------------- */}
         {/* Safety Review Queue — cases flagged by the coaching    */}

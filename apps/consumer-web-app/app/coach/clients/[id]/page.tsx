@@ -46,6 +46,7 @@ import {
   getClientMovementProfile,
   getClientMovementProfileReviewQueue,
 } from '@/app/actions/movement-profile';
+import { getClientProgramAssignmentSummariesAction } from '@/app/actions/coach-programs';
 import {
   listAssessmentRegistryEntries,
   listAssignableAssessments,
@@ -68,6 +69,7 @@ import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
 import { AssessmentAssignmentPanel } from './AssessmentAssignmentPanel';
 import { MovementProfilePanel } from './MovementProfilePanel';
+import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
 import {
   stressStatus,
   painStatus,
@@ -173,6 +175,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
+    programAssignmentSummaries,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -193,6 +196,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
+    getClientProgramAssignmentSummariesAction(profile.id),
   ]);
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
@@ -456,6 +460,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             profile={movementProfile}
             reviewItems={movementProfileReviewItems}
           />
+
+          {/* Coach Program Builder — assigned workout programs summary,
+              links through to the full assignment list and the Program
+              Library (Coach Program Builder milestone) */}
+          <ClientProgramsSummaryCard clientId={profile.id} summaries={programAssignmentSummaries} />
 
           {/* Coach assignment minimum interface — Assessment Registry framework */}
           <AssessmentAssignmentPanel
