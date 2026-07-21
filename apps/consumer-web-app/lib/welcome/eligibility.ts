@@ -2,20 +2,20 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { hasActiveRole } from '@/lib/auth/guards';
 
 /**
- * Kept false until the four-screen welcome interface exists (a later
- * prompt). Flipping this to true is the only step needed to activate the
- * future welcome route from the normal post-login routing hub
- * (app/page.tsx). Everything else in this file and app/welcome/page.tsx is
- * already safe to ship disabled: an eligible member who manually visits
- * /welcome today still lands on the protected placeholder, never a
- * redirect loop or an unfinished production experience.
+ * Was kept false through Prompt 1 until the four-screen welcome interface
+ * (app/welcome/WelcomeFlow.tsx) existed. Now that it does, this activates
+ * the welcome route from the normal post-login routing hub (app/page.tsx)
+ * for eligible members. Turning it back off (without touching anything
+ * else) is the safe rollback if the interface ever needs to be pulled:
+ * app/page.tsx's routing and app/welcome/page.tsx's own eligibility check
+ * both key off this one constant.
  */
-export const WELCOME_FLOW_ENABLED: boolean = false;
+export const WELCOME_FLOW_ENABLED: boolean = true;
 
 /**
- * True only for a signed-in member who should see the future welcome flow:
- * marked eligible at signup (handle_new_user, migration 85), hasn't
- * finished it, and isn't a coach or administrator.
+ * True only for a signed-in member who should see the welcome flow: marked
+ * eligible at signup (handle_new_user, migration 85), hasn't finished it,
+ * and isn't a coach or administrator.
  *
  * Fails closed (false) on a missing profile, a query error, or an
  * ambiguous role. Callers must treat "false" as "send this user through
