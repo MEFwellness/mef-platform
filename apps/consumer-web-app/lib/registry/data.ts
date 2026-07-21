@@ -6,6 +6,16 @@
  * insertWellnessInsight/insertFinding (a coach-only, member_visible=false
  * row wouldn't satisfy the inserting session's own SELECT policy on
  * RETURNING).
+ *
+ * The supersede step goes through the supersede_registry_entry RPC
+ * (migration 84), not a direct `.update()` — a real, previously-latent bug
+ * that migration's own comment documents in full: marking a row
+ * status='superseded' moves it outside member_read_own_registry_entries's
+ * `status = 'active'` SELECT policy, and Postgres's row-security
+ * machinery requires an UPDATE's resulting row to still satisfy the
+ * table's SELECT policy for the executing role, regardless of how
+ * permissive the UPDATE policy itself is. The RPC bakes the same
+ * authorization check into a SECURITY DEFINER function body instead.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -38,6 +48,7 @@ export async function insertRegistryEntry(
     source_feature: draft.source_feature,
     source_record_id: draft.source_record_id,
     status: 'active' as const,
+    trend_status: draft.trend_status,
     member_visible: draft.member_visible,
     coach_context: draft.coach_context,
     coach_reviewed_by: draft.coach_reviewed_by,
@@ -53,10 +64,10 @@ export async function insertRegistryEntry(
   }
 
   if (options.supersedesId) {
-    const { error: supersedeError } = await supabase
-      .from('registry_entries')
-      .update({ status: 'superseded', superseded_by_id: id, updated_at: now })
-      .eq('id', options.supersedesId);
+    const { error: supersedeError } = await supabase.rpc('supersede_registry_entry', {
+      p_id: options.supersedesId,
+      p_superseded_by_id: id,
+    });
     if (supersedeError) console.error('insertRegistryEntry supersede failed', supersedeError);
   }
 

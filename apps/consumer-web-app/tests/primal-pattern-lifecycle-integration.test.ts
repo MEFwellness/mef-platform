@@ -38,6 +38,12 @@ import { EMPTY_NUTRITION_SAFETY_PROFILE_FLAGS } from '../lib/health-safety/types
 
 afterAll(async () => {
   const service = serviceRoleClient();
+  // registry_entries does not cascade with primal_pattern_assessments
+  // (source_record_id is a polymorphic pointer, not an FK) — completing an
+  // attempt now also writes a metric row there (Universal Assessment
+  // Intelligence Engine, lib/registry/adapters/primalPattern.ts).
+  await service.from('registry_entries').delete().eq('member_id', TEST_USERS.memberOne.id);
+  await service.from('registry_entries').delete().eq('member_id', TEST_USERS.memberTwo.id);
   await service
     .from('primal_pattern_assessments')
     .delete()

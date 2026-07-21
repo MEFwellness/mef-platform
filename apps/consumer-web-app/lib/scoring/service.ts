@@ -25,6 +25,7 @@ import {
   upsertSnapshot,
 } from './data';
 import {
+  fetchActiveRegistryFindingsForScoring,
   fetchBodyAssessmentsForScoring,
   fetchCheckinsForScoring,
   fetchMealQualityEventsForScoring,
@@ -43,6 +44,7 @@ export async function calculateAndPersistRootScore(
     mealQualityEvents,
     movementSessions,
     bodyAssessments,
+    activeRegistryFindings,
     previousSnapshot,
     priorSnapshotCount,
   ] = await Promise.all([
@@ -50,6 +52,7 @@ export async function calculateAndPersistRootScore(
     fetchMealQualityEventsForScoring(supabase, memberId, params.localDate),
     fetchMovementSessionsForScoring(supabase, memberId, params.localDate),
     fetchBodyAssessmentsForScoring(supabase, memberId, params.localDate),
+    fetchActiveRegistryFindingsForScoring(supabase, memberId),
     getLatestSnapshotBefore(supabase, memberId, params.localDate),
     countSnapshotsBefore(supabase, memberId, params.localDate),
   ]);
@@ -61,6 +64,7 @@ export async function calculateAndPersistRootScore(
     mealQualityEvents,
     movementSessions,
     bodyAssessments,
+    activeRegistryFindings,
     previousSnapshot: previousSnapshot ? { root_score: previousSnapshot.root_score } : null,
     priorSnapshotCount,
   });

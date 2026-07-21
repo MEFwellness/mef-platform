@@ -71,6 +71,7 @@ export async function upsertRegistryEntriesFromWearableMetrics(
       coach_context: null,
       coach_reviewed_by: null,
       coach_reviewed_at: null,
+      trend_status: null,
       recorded_at: metric.recorded_at,
     };
 

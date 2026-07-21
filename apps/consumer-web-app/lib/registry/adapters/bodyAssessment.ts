@@ -71,6 +71,7 @@ export async function upsertRegistryEntriesFromBodyAssessment(
       coach_context: finding.coach_override_notes,
       coach_reviewed_by: finding.coach_reviewed_by,
       coach_reviewed_at: finding.coach_reviewed_at,
+      trend_status: null,
       recorded_at: finding.updated_at,
     };
 

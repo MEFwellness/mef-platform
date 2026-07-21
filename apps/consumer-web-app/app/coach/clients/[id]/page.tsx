@@ -34,6 +34,7 @@ import {
   getClientIntelligenceReport,
   getClientCoachAlerts,
 } from '@/app/actions/intelligence-engine';
+import { getClientRootCauseSignals } from '@/app/actions/rootCauseSignals';
 import { getClientIntelligenceCoreSummary } from '@/app/actions/intelligence-core';
 import {
   getClientConversationSessionsAction,
@@ -65,6 +66,7 @@ import { FeedPanel } from './FeedPanel';
 import { BrainPanel } from './BrainPanel';
 import { IntelligencePanel } from './IntelligencePanel';
 import { MemberIntelligencePanel } from './MemberIntelligencePanel';
+import { RootCauseSignalsPanel } from './RootCauseSignalsPanel';
 import { IntelligenceCorePanel } from './IntelligenceCorePanel';
 import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
@@ -179,6 +181,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     movementProfileReviewItems,
     programAssignmentSummaries,
     prescriptionSnapshots,
+    rootCauseSignals,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -201,6 +204,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientMovementProfileReviewQueue(profile.id),
     getClientProgramAssignmentSummariesAction(profile.id),
     listPrescriptionSnapshotsForClientAction(profile.id),
+    getClientRootCauseSignals(profile.id),
   ]);
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
@@ -430,6 +434,13 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               alerts={coachAlerts}
             />
           )}
+
+          {/* Root Cause Signals — the Universal Assessment Intelligence
+              Engine's cross-assessment view: most-supported hypotheses
+              enriched with which assessments back them, cross-assessment
+              correlations, the finding timeline, and finding-driven
+              assessment/reassessment suggestions (Prompt 6). Coach-only. */}
+          {rootCauseSignals && <RootCauseSignalsPanel signals={rootCauseSignals} />}
 
           {/* MEF Wellness Intelligence Core — the durable "who is this
               member as a coaching subject" model: wellness identity

@@ -31,14 +31,29 @@ export type RegistryEntrySeverity = 'none' | 'mild' | 'moderate' | 'significant'
 
 export type RegistryEntryStatus = 'active' | 'resolved' | 'superseded' | 'dismissed';
 
-/** Five real producers now — body assessment and coach intelligence from the original milestone, wearable_daily_metric (see lib/registry/adapters/wearables.ts), food_lens_pattern_comparison (see lib/registry/adapters/foodLens.ts), and movement_session_completed (see lib/registry/adapters/movement.ts). Extend alongside the migration's check constraint as future adapters land. */
+/**
+ * Longitudinal read on one (member, domain, code) finding chain, computed
+ * at write time by comparing a new entry against the active entry it
+ * supersedes (see lib/registry/trendStatus.ts) — distinct from `status`,
+ * which is a lifecycle/audit state (active/resolved/superseded/dismissed).
+ * `trend_status` is the Pattern Timeline's per-finding trend read (Prompt
+ * 6's "new / improving / stable / worsening / resolved"). Null on every
+ * entry written before this concept existed, and on any producer that
+ * doesn't yet compute it — never backfilled/guessed.
+ */
+export type FindingTrendStatus = 'new' | 'improving' | 'stable' | 'worsening' | 'resolved';
+
+/** Nine real producers now — body assessment and coach intelligence from the original milestone, wearable_daily_metric (see lib/registry/adapters/wearables.ts), food_lens_pattern_comparison (see lib/registry/adapters/foodLens.ts), movement_session_completed (see lib/registry/adapters/movement.ts), food_analysis_result, and the three Universal Assessment Intelligence Engine adapters (questionnaire_category_finding, onboarding_baseline_finding, primal_pattern_classification — see lib/registry/adapters/{questionnaireEngine,onboarding,primalPattern}.ts). Extend alongside the migration's check constraint as future adapters land. */
 export type RegistrySourceFeature =
   | 'body_assessment_finding'
   | 'assessment_ai_observation'
   | 'wearable_daily_metric'
   | 'food_lens_pattern_comparison'
   | 'movement_session_completed'
-  | 'food_analysis_result';
+  | 'food_analysis_result'
+  | 'questionnaire_category_finding'
+  | 'onboarding_baseline_finding'
+  | 'primal_pattern_classification';
 
 /** Same {type, id, note?} shape every other engine's evidence-ref type already uses, independently declared per this codebase's established convention. */
 export interface RegistryEvidenceRef {
@@ -63,6 +78,7 @@ export interface RegistryEntry {
   source_feature: RegistrySourceFeature;
   source_record_id: string;
   status: RegistryEntryStatus;
+  trend_status: FindingTrendStatus | null;
   member_visible: boolean;
   coach_context: string | null;
   coach_reviewed_by: string | null;

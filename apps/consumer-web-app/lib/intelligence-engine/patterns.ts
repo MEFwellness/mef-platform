@@ -15,6 +15,7 @@
 import type { WellnessInsight } from '@mef/shared-types-contracts';
 import { areaLabel } from '../intelligence/copy';
 import { buildRegistryPatternInsights } from './registryFindings';
+import { buildCrossAssessmentCorrelations } from './crossAssessmentCorrelations';
 import type { MemberHealthProfile, LongitudinalTrend, PatternInsight, PatternKind } from './types';
 
 const KIND_BY_PATTERN_KEY_PREFIX: [prefix: string, kind: PatternKind][] = [
@@ -148,5 +149,6 @@ export function buildPatternInsights(
     ...(burnout ? [burnout] : []),
     ...plateauPatterns(trends),
     ...buildRegistryPatternInsights(profile),
+    ...buildCrossAssessmentCorrelations(profile, trends),
   ];
 }

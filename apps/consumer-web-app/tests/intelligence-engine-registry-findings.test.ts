@@ -56,6 +56,7 @@ function makeEntry(overrides: Partial<RegistryEntry> = {}): RegistryEntry {
     source_feature: 'body_assessment_finding',
     source_record_id: 'finding-1',
     status: 'active',
+    trend_status: null,
     member_visible: true,
     coach_context: null,
     coach_reviewed_by: null,

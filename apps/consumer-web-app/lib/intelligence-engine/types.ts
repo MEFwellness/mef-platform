@@ -149,7 +149,8 @@ export type PatternKind =
   | 'lifestyle_disruption'
   | 'burnout_signal'
   | 'plateau'
-  | 'body_assessment_finding';
+  | 'body_assessment_finding'
+  | 'cross_assessment_correlation';
 
 /**
  * A single detected pattern, careful never to assert causation — every
