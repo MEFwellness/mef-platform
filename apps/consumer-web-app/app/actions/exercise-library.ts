@@ -1,10 +1,11 @@
 /**
- * Server actions for the Exercise Library — favoriting only. Search/detail
- * reads go through app/api/exercises/route.ts (client-driven, interactive
- * search) or a direct server-side apiClient call (the exercise detail
- * page); favoriting is a first-party write with no interactive round-trip
- * needed, so it's a server action instead, same convention as every other
- * mutation in app/actions/.
+ * Server actions for the Exercise Library — favoriting, recently-viewed
+ * tracking, and exercise completion/notes/feedback (migration 81). Search/
+ * detail reads go through app/api/exercises/route.ts (client-driven,
+ * interactive search) or a direct server-side apiClient call (the exercise
+ * detail page); everything here is a first-party write with no
+ * interactive round-trip needed, same convention as every other mutation
+ * in app/actions/.
  */
 
 'use server';
@@ -16,6 +17,30 @@ import {
   listMyExerciseFavoriteIds,
   removeExerciseFavorite,
 } from '@/lib/exercise-library/favorites';
+import {
+  listMyExerciseCompletions,
+  listExerciseCompletionHistory,
+  recordExerciseCompletion as recordExerciseCompletionRow,
+} from '@/lib/exercise-library/completions';
+import {
+  listMyRecentlyViewedExercises,
+  getMyMostRecentlyViewedExercise,
+  recordExerciseView as recordExerciseViewRow,
+} from '@/lib/exercise-library/recentViews';
+import { computeFavoriteMovementTypes } from '@/lib/movement-profile/favoriteMovementTypes';
+import { getOrCreateMovementProfile, upsertMovementProfileMemberFields } from '@/lib/movement-profile/data';
+import { detectMovementProfileReviewSignals } from '@/lib/movement-profile/reviewDetection';
+import { createMovementProfileReviewItem } from '@/lib/movement-profile/reviewItems';
+import { recordTimelineEvent } from '@/lib/timeline/data';
+import { todaysLocalDate } from '@/lib/time/localDate';
+import type {
+  ExerciseComfortRating,
+  ExerciseCompletionStatus,
+  ExerciseDifficultyRating,
+  ExerciseEnjoymentRating,
+  MemberExerciseCompletion,
+  MemberExerciseRecentView,
+} from '@mef/shared-types-contracts';
 
 async function resolveMemberId(): Promise<{ supabase: ReturnType<typeof createClient>; memberId: string } | null> {
   const supabase = createClient();
@@ -26,9 +51,19 @@ async function resolveMemberId(): Promise<{ supabase: ReturnType<typeof createCl
   return { supabase, memberId: user.id };
 }
 
+/** Same shape as eveningReflection.ts's own resolveContext — timezone-aware "today" for the timeline events this file writes. */
+async function resolveMemberTimezone(
+  supabase: ReturnType<typeof createClient>,
+  memberId: string
+): Promise<string> {
+  const { data } = await supabase.from('profiles').select('timezone').eq('id', memberId).single();
+  return data?.timezone ?? 'America/New_York';
+}
+
 export async function toggleExerciseFavorite(
   externalId: string,
-  nextIsFavorited: boolean
+  nextIsFavorited: boolean,
+  exerciseName?: string
 ): Promise<ActionResult> {
   const context = await resolveMemberId();
   if (!context) return { error: 'Sign in required.' };
@@ -39,6 +74,41 @@ export async function toggleExerciseFavorite(
     : await removeExerciseFavorite(supabase, memberId, 'exercise_api_dev', externalId);
 
   if (!ok) return { error: 'Could not update favorites. Please try again.' };
+
+  // Best-effort side effects — never allowed to turn a successful favorite
+  // toggle into a reported failure, same discipline as every other
+  // recompute-and-record path in this codebase (see app/actions/movement.ts).
+  try {
+    const localDate = todaysLocalDate(await resolveMemberTimezone(supabase, memberId));
+    await recordTimelineEvent(supabase, {
+      memberId,
+      eventType: nextIsFavorited ? 'exercise_favorited' : 'exercise_unfavorited',
+      localDate,
+      title: nextIsFavorited
+        ? `Favorited ${exerciseName ?? 'an exercise'}`
+        : `Removed ${exerciseName ?? 'an exercise'} from favorites`,
+      sourceFeature: 'exercise_library',
+      sourceRecordId: null,
+    });
+
+    const favoriteMovementTypes = await computeFavoriteMovementTypes(supabase, memberId);
+    const profile = await getOrCreateMovementProfile(supabase, memberId);
+    if (profile) {
+      await upsertMovementProfileMemberFields(supabase, memberId, {
+        goals: profile.goals,
+        equipmentAccess: profile.equipment_access,
+        favoriteMovementTypes,
+        mobilityPriorities: profile.mobility_priorities,
+        stabilityPriorities: profile.stability_priorities,
+        strengthPriorities: profile.strength_priorities,
+        assessmentReferences: profile.assessment_references,
+        programHistoryReferences: profile.program_history_references,
+      });
+    }
+  } catch (err) {
+    console.error('toggleExerciseFavorite side effects failed', err);
+  }
+
   return {};
 }
 
@@ -47,4 +117,131 @@ export async function getMyExerciseFavoriteIds(): Promise<string[]> {
   if (!context) return [];
   const ids = await listMyExerciseFavoriteIds(context.supabase, context.memberId, 'exercise_api_dev');
   return Array.from(ids);
+}
+
+export async function recordExerciseView(externalId: string, exerciseName: string): Promise<ActionResult> {
+  const context = await resolveMemberId();
+  if (!context) return { error: 'Sign in required.' };
+
+  const ok = await recordExerciseViewRow(context.supabase, context.memberId, 'exercise_api_dev', externalId, exerciseName);
+  if (!ok) return { error: 'Could not record view.' };
+  return {};
+}
+
+export async function getMyRecentlyViewedExercises(limit = 10): Promise<MemberExerciseRecentView[]> {
+  const context = await resolveMemberId();
+  if (!context) return [];
+  return listMyRecentlyViewedExercises(context.supabase, context.memberId, limit);
+}
+
+export async function getMyResumeExercise(): Promise<MemberExerciseRecentView | null> {
+  const context = await resolveMemberId();
+  if (!context) return null;
+  return getMyMostRecentlyViewedExercise(context.supabase, context.memberId);
+}
+
+export type RecordExerciseCompletionParams = {
+  externalId: string;
+  exerciseName: string;
+  status: ExerciseCompletionStatus;
+  durationSeconds?: number | null;
+  memberNotes?: string | null;
+  difficultyRating?: ExerciseDifficultyRating | null;
+  comfortRating?: ExerciseComfortRating | null;
+  enjoymentRating?: ExerciseEnjoymentRating | null;
+};
+
+export async function recordExerciseCompletion(params: RecordExerciseCompletionParams): Promise<ActionResult> {
+  const context = await resolveMemberId();
+  if (!context) return { error: 'Sign in required.' };
+  const { supabase, memberId } = context;
+
+  // Read this exercise's prior history BEFORE inserting the new row — the
+  // review-detection heuristics need a clean "before" snapshot to compare
+  // the new completion against.
+  const priorHistory = await listExerciseCompletionHistory(
+    supabase,
+    memberId,
+    'exercise_api_dev',
+    params.externalId
+  );
+
+  const completion = await recordExerciseCompletionRow(supabase, {
+    memberId,
+    provider: 'exercise_api_dev',
+    externalId: params.externalId,
+    exerciseName: params.exerciseName,
+    status: params.status,
+    durationSeconds: params.durationSeconds,
+    memberNotes: params.memberNotes,
+    difficultyRating: params.difficultyRating,
+    comfortRating: params.comfortRating,
+    enjoymentRating: params.enjoymentRating,
+  });
+
+  if (!completion) return { error: 'Could not record this exercise. Please try again.' };
+
+  try {
+    const localDate = todaysLocalDate(await resolveMemberTimezone(supabase, memberId));
+    await recordTimelineEvent(supabase, {
+      memberId,
+      eventType: params.status === 'skipped' ? 'exercise_skipped' : 'exercise_completed',
+      localDate,
+      title:
+        params.status === 'skipped'
+          ? `Skipped ${params.exerciseName}`
+          : params.status === 'partial'
+            ? `Partially completed ${params.exerciseName}`
+            : `Completed ${params.exerciseName}`,
+      detail: params.memberNotes ?? null,
+      sourceFeature: 'exercise_library',
+      sourceRecordId: completion.id,
+    });
+  } catch (err) {
+    console.error('recordExerciseCompletion timeline write failed', err);
+  }
+
+  try {
+    const signals = detectMovementProfileReviewSignals(completion, priorHistory);
+    for (const signal of signals) {
+      await createMovementProfileReviewItem(supabase, {
+        memberId,
+        reviewType: signal.reviewType,
+        summary: signal.summary,
+        detail: signal.detail,
+        sourceFeature: 'exercise_library',
+        sourceRecordId: completion.id,
+        evidenceRefs: [{ type: 'member_exercise_completion', id: completion.id }],
+      });
+    }
+  } catch (err) {
+    console.error('recordExerciseCompletion review-detection failed', err);
+  }
+
+  return {};
+}
+
+export async function getMyRecentlyCompletedExercises(limit = 10): Promise<MemberExerciseCompletion[]> {
+  const context = await resolveMemberId();
+  if (!context) return [];
+  const rows = await listMyExerciseCompletions(context.supabase, context.memberId, limit * 4);
+  // One card per exercise, most recent occurrence — the "recently
+  // completed" rail is about which exercises, not a full log (that's
+  // getMyExerciseCompletionHistory below).
+  const seen = new Set<string>();
+  const deduped: MemberExerciseCompletion[] = [];
+  for (const row of rows) {
+    if (row.status === 'skipped') continue;
+    if (seen.has(row.external_id)) continue;
+    seen.add(row.external_id);
+    deduped.push(row);
+    if (deduped.length >= limit) break;
+  }
+  return deduped;
+}
+
+export async function getMyExerciseCompletionHistory(externalId: string): Promise<MemberExerciseCompletion[]> {
+  const context = await resolveMemberId();
+  if (!context) return [];
+  return listExerciseCompletionHistory(context.supabase, context.memberId, 'exercise_api_dev', externalId);
 }

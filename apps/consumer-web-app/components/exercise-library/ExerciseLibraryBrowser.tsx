@@ -5,6 +5,7 @@ import type { ExerciseLibraryExercise } from '@mef/shared-types-contracts';
 import { ExerciseCard } from './ExerciseCard';
 import { ExerciseFilters, EMPTY_EXERCISE_FILTERS, type ExerciseFilterState } from './ExerciseFilters';
 import { StateBanner, ErrorBanner, type ExerciseApiErrorShape } from './StateBanners';
+import { RecentExerciseRails } from './RecentExerciseRails';
 
 const QUICK_SEARCHES = [
   'Squat',
@@ -165,9 +166,12 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
         )}
 
         {!loading && !hasSearched && (
-          <StateBanner tone="empty">
-            Search by name, or tap a quick-search term above, to browse the Exercise Library.
-          </StateBanner>
+          <>
+            <StateBanner tone="empty">
+              Search by name, or tap a quick-search term above, to browse the Exercise Library.
+            </StateBanner>
+            <RecentExerciseRails />
+          </>
         )}
 
         {!loading && !error && results.length > 0 && (

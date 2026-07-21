@@ -18,6 +18,8 @@ import { buildExerciseApiClientFromEnv, ExerciseApiError } from '@/lib/exercise-
 import { getExerciseMetadata } from '@/lib/exercise-library/metadata';
 import { isExerciseFavorited } from '@/lib/exercise-library/favorites';
 import { normalizeExerciseApiExercise } from '@/lib/exercise-library/normalize';
+import { recordExerciseView } from '@/lib/exercise-library/recentViews';
+import { listExerciseCompletionHistory } from '@/lib/exercise-library/completions';
 
 export default async function ExerciseDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -40,13 +42,21 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
     };
   } else {
     try {
-      const [rawExercise, metadata, isFavorited] = await Promise.all([
+      const [rawExercise, metadata, isFavorited, history] = await Promise.all([
         client.getExercise(params.id),
         getExerciseMetadata(supabase, 'exercise_api_dev', params.id),
         isExerciseFavorited(supabase, user.id, 'exercise_api_dev', params.id),
+        listExerciseCompletionHistory(supabase, user.id, 'exercise_api_dev', params.id),
       ]);
       const exercise = normalizeExerciseApiExercise(rawExercise, metadata, isFavorited);
-      content = <ExerciseDetailView exercise={exercise} />;
+      content = <ExerciseDetailView exercise={exercise} history={history} />;
+
+      // Best-effort — "recently viewed" is a nice-to-have, never worth
+      // failing the page load over (same discipline as every other
+      // recompute-and-record side effect in this codebase).
+      recordExerciseView(supabase, user.id, 'exercise_api_dev', params.id, exercise.name).catch(
+        (viewErr) => console.error('[exercise-library] recordExerciseView failed', viewErr)
+      );
     } catch (err) {
       if (err instanceof ExerciseApiError) {
         error = { code: err.code, message: err.message, retryAfterSeconds: err.retryAfterSeconds ?? null };

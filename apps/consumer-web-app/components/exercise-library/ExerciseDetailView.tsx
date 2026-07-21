@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import type { Route } from 'next';
 import Link from 'next/link';
-import type { ExerciseLibraryExercise } from '@mef/shared-types-contracts';
+import type { ExerciseLibraryExercise, MemberExerciseCompletion } from '@mef/shared-types-contracts';
 import { FavoriteButton } from './FavoriteButton';
+import { ExerciseCompletionControls } from './ExerciseCompletionControls';
+import { ExerciseHistoryList } from './ExerciseHistoryList';
 
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
@@ -43,7 +45,13 @@ function DetailOrderedList({ label, items }: { label: string; items: string[] | 
   );
 }
 
-export function ExerciseDetailView({ exercise }: { exercise: ExerciseLibraryExercise }) {
+export function ExerciseDetailView({
+  exercise,
+  history = [],
+}: {
+  exercise: ExerciseLibraryExercise;
+  history?: MemberExerciseCompletion[];
+}) {
   const [imageFailed, setImageFailed] = useState(false);
   const metadata = exercise.metadata;
 
@@ -144,6 +152,10 @@ export function ExerciseDetailView({ exercise }: { exercise: ExerciseLibraryExer
           </div>
         )}
       </div>
+
+      <ExerciseCompletionControls externalId={exercise.externalId} exerciseName={exercise.name} />
+
+      <ExerciseHistoryList history={history} />
     </div>
   );
 }
