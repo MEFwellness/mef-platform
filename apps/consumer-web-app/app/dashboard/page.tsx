@@ -73,6 +73,8 @@ import { FirstCheckinTransition } from '@/components/FirstCheckinTransition';
 import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
 import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
 import { DashboardQuickLinks } from '@/components/DashboardQuickLinks';
+import { AssignedProgramsCard } from '@/components/AssignedProgramsCard';
+import { getMyAssignedWorkoutsAction } from '@/app/actions/coach-programs';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
 import { getTodaysHydrationTotal } from '@/app/actions/events';
@@ -162,6 +164,7 @@ export default async function DashboardPage({
     baseline,
     bodyAssessments,
     questionnaireCatalog,
+    assignedWorkouts,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
@@ -171,7 +174,12 @@ export default async function DashboardPage({
     getMyBaselineAssessment(),
     getMyAssessmentsAction(),
     getMyQuestionnaireCatalog(),
+    getMyAssignedWorkoutsAction(),
   ]);
+  const today = new Date().toISOString().slice(0, 10);
+  const upcomingAssignedWorkouts = assignedWorkouts
+    .filter((w) => w.scheduled_date >= today && w.status !== 'completed' && w.status !== 'skipped')
+    .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
   const movementAnalyzed = bodyAssessments.some((a) => a.completed_at !== null);
   const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
 
@@ -283,6 +291,13 @@ export default async function DashboardPage({
               {/* components/DashboardQuickLinks.tsx.                      */}
               {/* ---------------------------------------------------- */}
               <DashboardQuickLinks />
+
+              {/* ---------------------------------------------------- */}
+              {/* Coach-assigned programs — conditional, only when the    */}
+              {/* coach has actually published something upcoming. See    */}
+              {/* components/AssignedProgramsCard.tsx.                    */}
+              {/* ---------------------------------------------------- */}
+              <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />
 
               {/* ---------------------------------------------------- */}
               {/* Mid-day concern flagging — writes through the           */}

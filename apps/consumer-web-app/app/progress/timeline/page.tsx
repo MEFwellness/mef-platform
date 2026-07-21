@@ -21,6 +21,8 @@ import {
   ShieldCheck,
   Sparkles,
   Flag,
+  ClipboardList,
+  CheckCircle2,
 } from 'lucide-react';
 import type { HealthTimelineEvent } from '@mef/shared-types-contracts';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -49,6 +51,9 @@ const EVENT_ICON = {
   movement_coach_review: ShieldCheck,
   movement_capability_milestone: Sparkles,
   movement_program_completed: Flag,
+  coach_workout_assigned: ClipboardList,
+  coach_workout_completed: CheckCircle2,
+  coach_workout_skipped: XCircle,
 } as const;
 
 type Group =
