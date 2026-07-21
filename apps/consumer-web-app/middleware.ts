@@ -63,6 +63,19 @@ export async function middleware(request: NextRequest) {
     if (isCoach) return NextResponse.redirect(new URL('/coach', request.url));
   }
 
+  // Reserved for the future welcome flow (app/welcome/page.tsx), not yet
+  // linked from anywhere, but protected the same way /onboarding is: a
+  // coach or admin who manually navigates here bounces to their own
+  // dashboard rather than seeing a member-only route. The page itself
+  // handles the eligibility check (not a role, so it belongs there).
+  if (user && path.startsWith('/welcome')) {
+    const isCoach = await hasActiveRole(supabase!, user.id, 'coach');
+    if (isCoach) return NextResponse.redirect(new URL('/coach', request.url));
+
+    const isAdmin = await hasActiveRole(supabase!, user.id, 'platform_administrator');
+    if (isAdmin) return NextResponse.redirect(new URL('/admin', request.url));
+  }
+
   return response;
 }
 

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { hasCompletedConsent } from './actions/consent';
 import { hasActiveRole } from '@/lib/auth/guards';
+import { WELCOME_FLOW_ENABLED, isEligibleForWelcomeFlow } from '@/lib/welcome/eligibility';
 import { redirect } from 'next/navigation';
 
 /**
@@ -23,6 +24,18 @@ export default async function HomePage() {
 
   const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
   if (isAdmin) redirect('/admin');
+
+  // Reserved for the future welcome flow. Inert today because
+  // WELCOME_FLOW_ENABLED is false, so this never runs and every member's
+  // routing below is unchanged. Once a later prompt ships the four-screen
+  // interface and flips that flag, an eligible brand-new member is sent
+  // here first, ahead of the existing consent/onboarding progression;
+  // everyone else (ineligible, or the flag still off) falls through exactly
+  // as before.
+  if (WELCOME_FLOW_ENABLED) {
+    const eligibleForWelcome = await isEligibleForWelcomeFlow(supabase, user.id);
+    if (eligibleForWelcome) redirect('/welcome');
+  }
 
   // Member: preserve the existing consent -> onboarding -> dashboard
   // progression, just without ever rendering a landing page in between.
