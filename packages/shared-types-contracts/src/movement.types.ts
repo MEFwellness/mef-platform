@@ -18,12 +18,15 @@
 /**
  * This is the one system-wide Program Section taxonomy — the single source
  * of truth for Programs, Templates, Root, Coach Builder, analytics, and
- * future recommendations (see exercise-library.types.ts's
- * MefExerciseMetadata.program_section, which reads from this exact type).
- * 'stability' was added additively for the Exercise Library foundation
- * (supabase/migrations/00000000000080_exercise_library.sql) alongside the
- * pre-existing 'preparation' bucket rather than replacing it, so no
- * existing exercise, session, or rule keyed on 'preparation' changes
+ * recommendations (see exercise-library.types.ts's
+ * MefExerciseMetadata.program_section, and prescription-intelligence.types.ts's
+ * PrescriptionBlockType, both of which read from this exact type). 'stability'
+ * was added additively for the Exercise Library foundation
+ * (supabase/migrations/00000000000080_exercise_library.sql), and 'power' was
+ * added additively for the Prescription Intelligence Engine
+ * (supabase/migrations/00000000000083_prescription_intelligence_engine.sql),
+ * each alongside the pre-existing buckets rather than replacing them, so no
+ * existing exercise, session, or rule keyed on an earlier value changes
  * meaning. No second, parallel block taxonomy may be introduced anywhere
  * in this codebase — extend this one instead.
  */
@@ -34,6 +37,7 @@ export type MovementSessionSection =
   | 'activation'
   | 'stability'
   | 'strength'
+  | 'power'
   | 'conditioning'
   | 'recovery';
 
@@ -44,6 +48,7 @@ export const MOVEMENT_SESSION_SECTION_ORDER: MovementSessionSection[] = [
   'activation',
   'stability',
   'strength',
+  'power',
   'conditioning',
   'recovery',
 ];
@@ -55,6 +60,7 @@ export const MOVEMENT_SESSION_SECTION_LABEL: Record<MovementSessionSection, stri
   activation: 'Activation',
   stability: 'Stability',
   strength: 'Strength',
+  power: 'Power',
   conditioning: 'Conditioning',
   recovery: 'Recovery',
 };

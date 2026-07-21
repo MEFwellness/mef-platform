@@ -29,7 +29,10 @@ export type HealthTimelineEventType =
   | 'movement_program_completed'
   | 'coach_workout_assigned'
   | 'coach_workout_completed'
-  | 'coach_workout_skipped';
+  | 'coach_workout_skipped'
+  | 'prescription_generated'
+  | 'prescription_approved'
+  | 'prescription_rejected';
 
 /** Same {type, id, note?} shape every other evidence-ref type in this codebase already uses, independently declared per established convention. */
 export interface HealthTimelineEvidenceRef {

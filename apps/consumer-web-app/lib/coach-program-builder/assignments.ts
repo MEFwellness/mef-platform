@@ -44,6 +44,8 @@ export type CreateAssignmentInput = {
   internalNotes: string | null;
   /** Insert already published (skips the separate publish step) — used by the "assign and publish immediately" flow. */
   publishImmediately: boolean;
+  /** Lineage only — set when this assignment materializes an approved Prescription Intelligence Engine snapshot. */
+  sourcePrescriptionSnapshotId?: string | null;
 };
 
 /** Creates the assignment container plus one frozen coach_assigned_workouts row (with its own frozen sections/exercises) per generated scheduled date. Returns null if no occurrence dates could be generated from the given schedule. */
@@ -101,6 +103,7 @@ export async function createAssignment(
         coach_notes: input.template.coach_notes,
         internal_notes: input.template.internal_notes,
         published_at: publishedAt,
+        source_prescription_snapshot_id: input.sourcePrescriptionSnapshotId ?? null,
       })
       .select('id')
       .single();
@@ -120,6 +123,7 @@ export async function createAssignment(
           name: section.name,
           section_type: section.section_type,
           sequence_index: section.sequence_index,
+          block_reasoning: section.block_reasoning,
         })
         .select('id')
         .single();
@@ -166,6 +170,7 @@ export async function createAssignment(
             coaching_cues: exercise.coaching_cues,
             pain_modification_notes: exercise.pain_modification_notes,
             alternate_exercises: exercise.alternate_exercises,
+            selection_reasoning: exercise.selection_reasoning,
           }))
         );
 

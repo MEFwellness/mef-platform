@@ -105,6 +105,8 @@ export interface CoachProgramTemplateSection {
   name: string;
   section_type: ProgramSectionType;
   sequence_index: number;
+  /** Why this block/section exists — populated only when the section came from the Prescription Intelligence Engine; null for anything a coach built from scratch. */
+  block_reasoning: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +120,8 @@ export interface CoachProgramTemplateExercise extends ExercisePrescriptionFields
   external_id: string;
   exercise_name: string;
   sequence_index: number;
+  /** Why this exercise was selected — populated only when it came from the Prescription Intelligence Engine; null for anything a coach picked by hand. */
+  selection_reasoning: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -188,6 +192,8 @@ export interface CoachAssignedWorkout {
   skipped_at: string | null;
   member_feedback: string | null;
   published_at: string | null;
+  /** Lineage only — the engine run this workout was materialized from, when it came from the Prescription Intelligence Engine; null for anything a coach built from scratch. Never re-read to render this workout. */
+  source_prescription_snapshot_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -200,6 +206,8 @@ export interface CoachAssignedWorkoutSection {
   name: string;
   section_type: ProgramSectionType;
   sequence_index: number;
+  /** Why this block/section exists — member-visible once the workout is published. Null for anything a coach built from scratch. */
+  block_reasoning: string | null;
   created_at: string;
 }
 
@@ -218,6 +226,8 @@ export interface CoachAssignedWorkoutExercise extends ExercisePrescriptionFields
   member_notes: string | null;
   difficulty_rating: 'very_easy' | 'easy' | 'appropriate' | 'difficult' | 'very_difficult' | null;
   comfort_rating: 'comfortable' | 'slight_discomfort' | 'moderate_discomfort' | 'pain' | null;
+  /** Why this exercise was selected — member-visible once the workout is published. Null for anything a coach picked by hand. */
+  selection_reasoning: string | null;
   created_at: string;
 }
 

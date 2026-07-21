@@ -21,15 +21,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MefExerciseMetadata, MemberMovementProfile } from '@mef/shared-types-contracts';
 
-function normalize(value: string): string {
+/** Exported for reuse by lib/prescription-intelligence/exerciseSelection.ts, which matches the same free-text, coach-curated tag vocabulary against Prescription Blocks' required/preferred/excluded movement tags — same matching problem, same normalization rules, no reason to reimplement it. */
+export function normalize(value: string): string {
   return value
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '');
 }
 
-/** True if any word (3+ chars, to skip noise like "of"/"the") from a profile tag appears in any metadata tag, or vice versa. */
-function tagsOverlap(profileTags: string[], metadataTags: string[]): boolean {
+/** True if any word (3+ chars, to skip noise like "of"/"the") from a profile tag appears in any metadata tag, or vice versa. Exported for reuse — see normalize's own comment above. */
+export function tagsOverlap(profileTags: string[], metadataTags: string[]): boolean {
   const metadataWords = new Set(
     metadataTags.flatMap((tag) =>
       normalize(tag)
