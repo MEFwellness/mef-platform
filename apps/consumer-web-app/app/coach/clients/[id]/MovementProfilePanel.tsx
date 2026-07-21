@@ -118,11 +118,19 @@ export function MovementProfilePanel({
   reviewItems: MovementProfileReviewItem[];
 }) {
   const router = useRouter();
-  const [movementLimitations, setMovementLimitations] = useState(profile?.movement_limitations ?? []);
-  const [exerciseRestrictions, setExerciseRestrictions] = useState(profile?.exercise_restrictions ?? []);
+  const [movementLimitations, setMovementLimitations] = useState(
+    profile?.movement_limitations ?? []
+  );
+  const [exerciseRestrictions, setExerciseRestrictions] = useState(
+    profile?.exercise_restrictions ?? []
+  );
   const [contraindications, setContraindications] = useState(profile?.contraindications ?? []);
-  const [medicalRestrictions, setMedicalRestrictions] = useState(profile?.medical_restrictions ?? []);
-  const [correctivePriorities, setCorrectivePriorities] = useState(profile?.corrective_priorities ?? []);
+  const [medicalRestrictions, setMedicalRestrictions] = useState(
+    profile?.medical_restrictions ?? []
+  );
+  const [correctivePriorities, setCorrectivePriorities] = useState(
+    profile?.corrective_priorities ?? []
+  );
   const [exerciseClearance, setExerciseClearance] = useState(profile?.exercise_clearance ?? '');
   const [assessmentInterpretation, setAssessmentInterpretation] = useState(
     profile?.assessment_interpretation ?? ''
@@ -145,7 +153,9 @@ export function MovementProfilePanel({
         medicalRestrictions,
         correctivePriorities,
         exerciseClearance: exerciseClearance.trim() ? exerciseClearance.trim() : null,
-        assessmentInterpretation: assessmentInterpretation.trim() ? assessmentInterpretation.trim() : null,
+        assessmentInterpretation: assessmentInterpretation.trim()
+          ? assessmentInterpretation.trim()
+          : null,
         coachObservations: coachObservations.trim() ? coachObservations.trim() : null,
       });
       if (result.error) {
@@ -202,7 +212,10 @@ export function MovementProfilePanel({
             </p>
             <ReadOnlyTagList label="Goals" values={profile.goals} />
             <ReadOnlyTagList label="Equipment access" values={profile.equipment_access} />
-            <ReadOnlyTagList label="Favorite movement types" values={profile.favorite_movement_types} />
+            <ReadOnlyTagList
+              label="Favorite movement types"
+              values={profile.favorite_movement_types}
+            />
             {profile.goals.length === 0 &&
               profile.equipment_access.length === 0 &&
               profile.favorite_movement_types.length === 0 && (

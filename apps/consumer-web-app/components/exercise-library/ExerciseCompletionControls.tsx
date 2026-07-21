@@ -19,7 +19,11 @@ import type {
   ExerciseEnjoymentRating,
 } from '@mef/shared-types-contracts';
 
-const STATUS_OPTIONS: { value: ExerciseCompletionStatus; label: string; Icon: typeof CheckCircle2 }[] = [
+const STATUS_OPTIONS: {
+  value: ExerciseCompletionStatus;
+  label: string;
+  Icon: typeof CheckCircle2;
+}[] = [
   { value: 'completed', label: 'Completed', Icon: CheckCircle2 },
   { value: 'partial', label: 'Partial', Icon: MinusCircle },
   { value: 'skipped', label: 'Skipped', Icon: XCircle },
@@ -180,7 +184,10 @@ export function ExerciseCompletionControls({
           </div>
 
           <div>
-            <label htmlFor="exercise-notes" className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+            <label
+              htmlFor="exercise-notes"
+              className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]"
+            >
               Notes (optional)
             </label>
             <textarea

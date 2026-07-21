@@ -83,7 +83,9 @@ export function MovementProfileForm({
   return (
     <div className={`${CARD} space-y-5 p-6`}>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Equipment access</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+          Equipment access
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {EQUIPMENT_OPTIONS.map((option) => {
             const active = equipmentAccess.includes(option.value);

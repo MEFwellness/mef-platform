@@ -22,17 +22,10 @@ export type ExerciseCompletionStatus = 'completed' | 'partial' | 'skipped';
 export type ExerciseCompletionSource = 'exercise_library' | 'movement_session' | 'coach_assigned';
 
 export type ExerciseDifficultyRating =
-  | 'very_easy'
-  | 'easy'
-  | 'appropriate'
-  | 'difficult'
-  | 'very_difficult';
+  'very_easy' | 'easy' | 'appropriate' | 'difficult' | 'very_difficult';
 
 export type ExerciseComfortRating =
-  | 'comfortable'
-  | 'slight_discomfort'
-  | 'moderate_discomfort'
-  | 'pain';
+  'comfortable' | 'slight_discomfort' | 'moderate_discomfort' | 'pain';
 
 export type ExerciseEnjoymentRating = 'liked' | 'neutral' | 'did_not_enjoy';
 

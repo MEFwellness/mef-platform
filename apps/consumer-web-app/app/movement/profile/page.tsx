@@ -41,8 +41,8 @@ export default async function MovementProfilePage() {
             Your Movement Profile
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
-            The foundation for how MEF Wellness recommends movement for you — goals, equipment,
-            and priorities you control, plus anything your coach has added.
+            The foundation for how MEF Wellness recommends movement for you — goals, equipment, and
+            priorities you control, plus anything your coach has added.
           </p>
         </div>
 

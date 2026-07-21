@@ -16,7 +16,10 @@ import {
   listExerciseCompletionHistory,
   listClientExerciseCompletions,
 } from '../lib/exercise-library/completions';
-import { recordExerciseView, listMyRecentlyViewedExercises } from '../lib/exercise-library/recentViews';
+import {
+  recordExerciseView,
+  listMyRecentlyViewedExercises,
+} from '../lib/exercise-library/recentViews';
 import {
   getMovementProfile,
   upsertMovementProfileMemberFields,
@@ -82,7 +85,12 @@ describe('member_exercise_completions — insert-own, coach read, append-only', 
     expect(completion).not.toBeNull();
     expect(completion!.status).toBe('completed');
 
-    const history = await listExerciseCompletionHistory(memberClient, memberOneId, 'exercise_api_dev', 'test-ex-1');
+    const history = await listExerciseCompletionHistory(
+      memberClient,
+      memberOneId,
+      'exercise_api_dev',
+      'test-ex-1'
+    );
     expect(history.some((h) => h.id === completion!.id)).toBe(true);
 
     const all = await listMyExerciseCompletions(memberClient, memberOneId, 10);
@@ -91,7 +99,12 @@ describe('member_exercise_completions — insert-own, coach read, append-only', 
 
   it("RLS: an unassigned member (memberTwo) cannot read memberOne's completions", async () => {
     const memberTwoClient = await signInAs(TEST_USERS.memberTwo);
-    const history = await listExerciseCompletionHistory(memberTwoClient, memberOneId, 'exercise_api_dev', 'test-ex-1');
+    const history = await listExerciseCompletionHistory(
+      memberTwoClient,
+      memberOneId,
+      'exercise_api_dev',
+      'test-ex-1'
+    );
     expect(history).toEqual([]);
   }, 30_000);
 

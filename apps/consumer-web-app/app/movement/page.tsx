@@ -94,7 +94,11 @@ export default async function MovementPage() {
               Search exercises, watch demos, and save favorites
             </p>
           </span>
-          <ChevronRight className="h-4 w-4 text-[#1B3A2D]/30" strokeWidth={1.75} aria-hidden="true" />
+          <ChevronRight
+            className="h-4 w-4 text-[#1B3A2D]/30"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
         </Link>
 
         <Link
@@ -106,11 +110,13 @@ export default async function MovementPage() {
           </span>
           <span className="flex-1">
             <p className="text-sm font-semibold text-[#1B3A2D]">Movement Profile</p>
-            <p className="mt-0.5 text-xs text-[#6B7A72]">
-              Your goals, equipment, and priorities
-            </p>
+            <p className="mt-0.5 text-xs text-[#6B7A72]">Your goals, equipment, and priorities</p>
           </span>
-          <ChevronRight className="h-4 w-4 text-[#1B3A2D]/30" strokeWidth={1.75} aria-hidden="true" />
+          <ChevronRight
+            className="h-4 w-4 text-[#1B3A2D]/30"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
         </Link>
 
         <div className="mt-7 space-y-5">

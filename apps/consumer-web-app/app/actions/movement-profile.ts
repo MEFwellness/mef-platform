@@ -31,7 +31,10 @@ import type {
   MovementProfileReviewStatus,
 } from '@mef/shared-types-contracts';
 
-async function resolveMemberId(): Promise<{ supabase: ReturnType<typeof createClient>; memberId: string } | null> {
+async function resolveMemberId(): Promise<{
+  supabase: ReturnType<typeof createClient>;
+  memberId: string;
+} | null> {
   const supabase = createClient();
   const {
     data: { user },
@@ -59,7 +62,9 @@ export type UpdateMyMovementProfileParams = {
 };
 
 /** Only touches the member-controlled columns — favoriteMovementTypes/assessmentReferences/programHistoryReferences are preserved from the existing row, never blanked out by a form that doesn't render them. */
-export async function updateMyMovementProfile(params: UpdateMyMovementProfileParams): Promise<ActionResult> {
+export async function updateMyMovementProfile(
+  params: UpdateMyMovementProfileParams
+): Promise<ActionResult> {
   const context = await resolveMemberId();
   if (!context) return { error: 'Sign in required.' };
   const { supabase, memberId } = context;
@@ -88,17 +93,24 @@ export async function updateMyMovementProfile(params: UpdateMyMovementProfilePar
 // and their write RPC call raises, surfaced below as a generic error.
 // ---------------------------------------------------------------------------
 
-export async function getClientMovementProfile(clientId: string): Promise<MemberMovementProfile | null> {
+export async function getClientMovementProfile(
+  clientId: string
+): Promise<MemberMovementProfile | null> {
   const supabase = createClient();
   return getMovementProfile(supabase, clientId);
 }
 
-export async function getClientExerciseHistory(clientId: string, limit = 30): Promise<MemberExerciseCompletion[]> {
+export async function getClientExerciseHistory(
+  clientId: string,
+  limit = 30
+): Promise<MemberExerciseCompletion[]> {
   const supabase = createClient();
   return listClientExerciseCompletions(supabase, clientId, limit);
 }
 
-export async function getClientMovementProfileReviewQueue(clientId: string): Promise<MovementProfileReviewItem[]> {
+export async function getClientMovementProfileReviewQueue(
+  clientId: string
+): Promise<MovementProfileReviewItem[]> {
   const supabase = createClient();
   return listMovementProfileReviewItemsForClient(supabase, clientId);
 }
@@ -157,7 +169,13 @@ export async function resolveClientMovementProfileReviewItem(
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Not signed in.' };
 
-  const ok = await resolveMovementProfileReviewItem(supabase, itemId, user.id, status, resolutionNotes ?? null);
+  const ok = await resolveMovementProfileReviewItem(
+    supabase,
+    itemId,
+    user.id,
+    status,
+    resolutionNotes ?? null
+  );
   if (!ok) return { error: 'Could not update this review item. Please try again.' };
 
   if (status === 'actioned') {

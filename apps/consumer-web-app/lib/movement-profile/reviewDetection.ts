@@ -94,7 +94,10 @@ export function detectMovementProfileReviewSignals(
       ...priorHistory.slice(0, 2).map((h) => h.difficulty_rating),
     ];
 
-    if (recentDifficulty.length === 3 && recentDifficulty.every((d) => d && EASY_DIFFICULTY.has(d))) {
+    if (
+      recentDifficulty.length === 3 &&
+      recentDifficulty.every((d) => d && EASY_DIFFICULTY.has(d))
+    ) {
       signals.push({
         reviewType: 'possible_progression',
         summary: `Possible progression opportunity on ${name}`,

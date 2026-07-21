@@ -6,7 +6,10 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { ExerciseLibraryProvider, MemberExerciseRecentView } from '@mef/shared-types-contracts';
+import type {
+  ExerciseLibraryProvider,
+  MemberExerciseRecentView,
+} from '@mef/shared-types-contracts';
 
 export async function recordExerciseView(
   supabase: SupabaseClient,

@@ -29,7 +29,10 @@ const EXERCISE_NAME = 'Bird Dog';
 describe('detectMovementProfileReviewSignals', () => {
   it('raises no signals for an uneventful completion with no history', () => {
     const signals = detectMovementProfileReviewSignals(
-      { exercise_name: EXERCISE_NAME, ...completion({ comfort_rating: 'comfortable', difficulty_rating: 'appropriate' }) },
+      {
+        exercise_name: EXERCISE_NAME,
+        ...completion({ comfort_rating: 'comfortable', difficulty_rating: 'appropriate' }),
+      },
       []
     );
     expect(signals).toEqual([]);
@@ -109,7 +112,10 @@ describe('detectMovementProfileReviewSignals', () => {
 
   it('can raise more than one signal from a single completion', () => {
     const signals = detectMovementProfileReviewSignals(
-      { exercise_name: EXERCISE_NAME, ...completion({ status: 'skipped', comfort_rating: 'pain' }) },
+      {
+        exercise_name: EXERCISE_NAME,
+        ...completion({ status: 'skipped', comfort_rating: 'pain' }),
+      },
       [completion({ status: 'skipped' }), completion({ status: 'skipped' })]
     );
     const types = signals.map((s) => s.reviewType);

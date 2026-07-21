@@ -49,7 +49,9 @@ export function MovementProfileCoachSummary({ profile }: { profile: MemberMoveme
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
             Exercise clearance
           </p>
-          <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{profile.exercise_clearance}</p>
+          <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">
+            {profile.exercise_clearance}
+          </p>
         </div>
       )}
 
@@ -58,7 +60,9 @@ export function MovementProfileCoachSummary({ profile }: { profile: MemberMoveme
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
             Coach observations
           </p>
-          <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{profile.coach_observations}</p>
+          <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">
+            {profile.coach_observations}
+          </p>
         </div>
       )}
     </div>

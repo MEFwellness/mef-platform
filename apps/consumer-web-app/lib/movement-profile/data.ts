@@ -11,10 +11,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type {
-  HealthTimelineEvidenceRef,
-  MemberMovementProfile,
-} from '@mef/shared-types-contracts';
+import type { HealthTimelineEvidenceRef, MemberMovementProfile } from '@mef/shared-types-contracts';
 
 export async function getMovementProfile(
   supabase: SupabaseClient,
