@@ -21,3 +21,5 @@ export * from './food-lens-ecosystem.types';
 export * from './scoring.types';
 export * from './events.types';
 export * from './coaching-insights.types';
+export * from './exercise-library.types';
+export * from './movement-profile.types';

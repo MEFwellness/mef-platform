@@ -15,6 +15,12 @@ import {
   Link2,
   Activity,
   Moon,
+  Dumbbell,
+  Heart,
+  XCircle,
+  ShieldCheck,
+  Sparkles,
+  Flag,
 } from 'lucide-react';
 import type { HealthTimelineEvent } from '@mef/shared-types-contracts';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -36,6 +42,13 @@ const EVENT_ICON = {
   wearable_connected: Link2,
   movement_session_completed: Activity,
   evening_reflection_submitted: Moon,
+  exercise_completed: Dumbbell,
+  exercise_favorited: Heart,
+  exercise_unfavorited: Heart,
+  exercise_skipped: XCircle,
+  movement_coach_review: ShieldCheck,
+  movement_capability_milestone: Sparkles,
+  movement_program_completed: Flag,
 } as const;
 
 type Group =

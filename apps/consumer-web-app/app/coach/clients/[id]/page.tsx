@@ -43,6 +43,10 @@ import {
 import { getClientBodyAssessmentsAction } from '@/app/actions/body-assessment';
 import { getClientAssessmentAssignments } from '@/app/actions/assessmentAssignments';
 import {
+  getClientMovementProfile,
+  getClientMovementProfileReviewQueue,
+} from '@/app/actions/movement-profile';
+import {
   listAssessmentRegistryEntries,
   listAssignableAssessments,
 } from '@/lib/assessment-registry/registry';
@@ -63,6 +67,7 @@ import { IntelligenceCorePanel } from './IntelligenceCorePanel';
 import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
 import { AssessmentAssignmentPanel } from './AssessmentAssignmentPanel';
+import { MovementProfilePanel } from './MovementProfilePanel';
 import {
   stressStatus,
   painStatus,
@@ -166,6 +171,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     intelligenceCoreSummary,
     bodyAssessments,
     assessmentAssignments,
+    movementProfile,
+    movementProfileReviewItems,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -184,6 +191,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientIntelligenceCoreSummary(profile.id),
     getClientBodyAssessmentsAction(profile.id),
     getClientAssessmentAssignments(profile.id),
+    getClientMovementProfile(profile.id),
+    getClientMovementProfileReviewQueue(profile.id),
   ]);
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
@@ -438,6 +447,15 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               own dedicated page (captures/video need more room than a
               dashboard panel). */}
           <BodyAssessmentPanel clientId={profile.id} assessments={bodyAssessments} />
+
+          {/* Movement Profile — permanent movement record + Pending Coach
+              Review worklist (Member Exercise Experience & Movement
+              Profile milestone) */}
+          <MovementProfilePanel
+            clientId={profile.id}
+            profile={movementProfile}
+            reviewItems={movementProfileReviewItems}
+          />
 
           {/* Coach assignment minimum interface — Assessment Registry framework */}
           <AssessmentAssignmentPanel

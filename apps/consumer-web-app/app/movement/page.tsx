@@ -12,7 +12,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
-import { Clock, PlayCircle, Activity } from 'lucide-react';
+import { Clock, PlayCircle, Activity, Dumbbell, Compass, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getRecentCheckins } from '@/app/actions/checkin';
 import {
@@ -80,6 +80,44 @@ export default async function MovementPage() {
             Intelligently composed for how you&apos;re doing today — not a fixed plan.
           </p>
         </div>
+
+        <Link
+          href={'/exercises' as Route}
+          className={`${CARD} mt-5 flex items-center gap-4 p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">
+            <Dumbbell className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+          </span>
+          <span className="flex-1">
+            <p className="text-sm font-semibold text-[#1B3A2D]">Exercise Library</p>
+            <p className="mt-0.5 text-xs text-[#6B7A72]">
+              Search exercises, watch demos, and save favorites
+            </p>
+          </span>
+          <ChevronRight
+            className="h-4 w-4 text-[#1B3A2D]/30"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+        </Link>
+
+        <Link
+          href={'/movement/profile' as Route}
+          className={`${CARD} mt-3 flex items-center gap-4 p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">
+            <Compass className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+          </span>
+          <span className="flex-1">
+            <p className="text-sm font-semibold text-[#1B3A2D]">Movement Profile</p>
+            <p className="mt-0.5 text-xs text-[#6B7A72]">Your goals, equipment, and priorities</p>
+          </span>
+          <ChevronRight
+            className="h-4 w-4 text-[#1B3A2D]/30"
+            strokeWidth={1.75}
+            aria-hidden="true"
+          />
+        </Link>
 
         <div className="mt-7 space-y-5">
           {!session ? (
