@@ -112,6 +112,19 @@ export type PrerequisiteRules = {
   recommendationRule: string | null;
 };
 
+/**
+ * How urgently a moderate/significant finding from this assessment
+ * warrants coach attention relative to other assessments — a real,
+ * queryable field for the Universal Assessment Intelligence Engine's
+ * Root Cause Signals / reassessment-suggestion logic (Prompt 6), not a
+ * clinical diagnosis or cert-level distinction. 'high' = Onboarding and
+ * Body Assessment (foundational intake / structural screening reviewed by
+ * a coach); 'moderate' = the two points-scored questionnaires; 'low' =
+ * Primal Pattern (a classification, not a problem-finding instrument) and
+ * every not-yet-built Coming Soon placeholder.
+ */
+export type ClinicalPriority = 'low' | 'moderate' | 'high';
+
 export type CoachRules = {
   approvalRequired: boolean;
   assignmentSupported: boolean;
@@ -163,6 +176,20 @@ export type AssessmentDefinition = {
   membership: MembershipRules;
   program: ProgramRules;
   prerequisites: PrerequisiteRules;
+  /**
+   * Assessment Relationships (Prompt 6) — other assessments this one
+   * naturally connects to (shown as "you might also find useful," never a
+   * fixed required sequence). Distinct from prerequisites.prerequisiteKeys
+   * (a dependency/unlock relationship): this is a peer relationship,
+   * populated by real product judgment about which instruments cover
+   * related ground, same "config in code" discipline as the rest of this
+   * registry. The finding-driven version of "what to take next" lives in
+   * lib/assessment-registry/findingRecommendations.ts, which reads actual
+   * Universal Registry findings rather than this static list — this field
+   * is the fallback/general-purpose relationship, not a replacement.
+   */
+  relatedAssessmentKeys: AssessmentKey[];
+  clinicalPriority: ClinicalPriority;
   coach: CoachRules;
   retake: RetakeRules;
   reassessment: ReassessmentRules;

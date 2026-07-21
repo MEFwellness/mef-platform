@@ -16,7 +16,12 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { BodyAssessment, DailyCheckin, MovementSession } from '@mef/shared-types-contracts';
+import type {
+  BodyAssessment,
+  DailyCheckin,
+  MovementSession,
+  RegistryEntry,
+} from '@mef/shared-types-contracts';
 import { addDaysToLocalDate } from '@/lib/feed/dateMath';
 import { RESILIENCE_LOOKBACK_DAYS, ROOT_WINDOW_DAYS } from './config';
 import type { MealQualityEvent } from './domains';
@@ -149,4 +154,30 @@ export async function fetchBodyAssessmentsForScoring(
     return [];
   }
   return (data ?? []) as BodyAssessment[];
+}
+
+/**
+ * Active Universal Registry findings (migration 40) — the Root Score
+ * Integration input (lib/scoring/findingAdjustments.ts). Queried directly
+ * against registry_entries rather than importing lib/registry/data.ts,
+ * same self-contained-fetcher discipline as every other function in this
+ * file. Current-state only (no date window): a finding's `status`, not its
+ * age, decides whether it still applies to today's score.
+ */
+export async function fetchActiveRegistryFindingsForScoring(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<RegistryEntry[]> {
+  const { data, error } = await supabase
+    .from('registry_entries')
+    .select('*')
+    .eq('member_id', memberId)
+    .eq('status', 'active')
+    .eq('entry_kind', 'finding');
+
+  if (error) {
+    console.error('fetchActiveRegistryFindingsForScoring failed', error);
+    return [];
+  }
+  return (data ?? []) as RegistryEntry[];
 }

@@ -34,6 +34,8 @@ const ONBOARDING: AssessmentDefinition = {
   },
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: ['chek-hlc1-nutrition-lifestyle', 'four-doctors', 'body-assessment'],
+  clinicalPriority: 'high',
   coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
   retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
   reassessment: {
@@ -97,6 +99,8 @@ const CHEK_HLC1: AssessmentDefinition = {
   membership: { minLevel: 'membership', allowedLevels: ['membership', 'holistic_reset'] },
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: ['primal-pattern-diet-type', 'four-doctors'],
+  clinicalPriority: 'moderate',
   coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
   retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
   reassessment: {
@@ -156,6 +160,8 @@ const FOUR_DOCTORS: AssessmentDefinition = {
   },
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: ['body-assessment', 'chek-hlc1-nutrition-lifestyle'],
+  clinicalPriority: 'moderate',
   coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
   retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
   reassessment: {
@@ -214,6 +220,8 @@ const PRIMAL_PATTERN: AssessmentDefinition = {
   },
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: ['chek-hlc1-nutrition-lifestyle'],
+  clinicalPriority: 'low',
   coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
   retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
   reassessment: {
@@ -272,6 +280,8 @@ const BODY_ASSESSMENT: AssessmentDefinition = {
   },
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: ['four-doctors', 'onboarding-health-history'],
+  clinicalPriority: 'high',
   coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: true },
   retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
   reassessment: {
@@ -344,6 +354,11 @@ function comingSoon(config: {
     membership: { minLevel: 'membership', allowedLevels: ['membership', 'holistic_reset'] },
     program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
     prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
+    // No real content exists yet for any Coming Soon placeholder — a
+    // relationship/priority claim would be invented, not real, so every
+    // placeholder gets the same neutral defaults until it actually ships.
+    relatedAssessmentKeys: [],
+    clinicalPriority: 'low',
     coach: { approvalRequired: false, assignmentSupported: false, coachReviewRequired: false },
     retake: { retakeAllowed: false, retakeWaitingPeriodDays: 0 },
     reassessment: { supportsReassessment: false, stages: [], schedule: null },

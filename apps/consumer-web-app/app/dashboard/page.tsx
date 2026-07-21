@@ -84,6 +84,7 @@ import { ConcernFlag } from '@/components/checkin/ConcernFlag';
 import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection';
 import { getMyQuestionnaireCatalog } from '@/app/actions/questionnaireCatalog';
 import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
+import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCard';
 import {
   stressStatus,
   painStatus,
@@ -266,6 +267,14 @@ export default async function DashboardPage({
               {/* components/RootScoreCard.tsx and app/root-score/.         */}
               {/* ---------------------------------------------------- */}
               <RootScoreCard snapshot={rootScoreSnapshot} />
+
+              {/* ---------------------------------------------------- */}
+              {/* What We're Noticing — the Universal Assessment          */}
+              {/* Intelligence Engine's member-safe view over active      */}
+              {/* findings across every assessment (Prompt 6). Renders    */}
+              {/* nothing until the member has real findings to show.     */}
+              {/* ---------------------------------------------------- */}
+              <WhatWereNoticingCard />
 
               {/* ---------------------------------------------------- */}
               {/* Questionnaires — a single summary tile directly below   */}

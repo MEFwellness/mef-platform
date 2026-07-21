@@ -31,6 +31,12 @@ import { insertNotification } from '@/lib/notifications/data';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { listRecentCheckinsForMember } from '@/lib/coaching-engine/data';
 import { getOrCreateTodaysMorningBrief } from '@/lib/coaching-engine/service';
+import { fetchActiveRegistryFindingsForScoring } from '@/lib/scoring/fetchInputs';
+import { evaluateReassessmentTriggers } from '@/lib/reassessment-intelligence/service';
+import {
+  insertFindingTriggeredReassessmentSchedule,
+  listPendingReassessmentAssessmentKeys,
+} from '@/lib/reassessment-intelligence/data';
 import type { WellnessInsight } from '@mef/shared-types-contracts';
 
 export const dynamic = 'force-dynamic';
@@ -167,6 +173,14 @@ async function scanMember(
 
   // ---- Pre-warm today's Morning Brief so it's already waiting ----
   await getOrCreateTodaysMorningBrief(supabase, member.id, today, firstName);
+
+  // ---- Reassessment Intelligence: a worsening finding is a real signal a calendar date alone can't see ----
+  const activeFindings = await fetchActiveRegistryFindingsForScoring(supabase, member.id);
+  const pendingAssessmentKeys = await listPendingReassessmentAssessmentKeys(supabase, member.id);
+  const suggestions = evaluateReassessmentTriggers(activeFindings, pendingAssessmentKeys);
+  for (const suggestion of suggestions) {
+    await insertFindingTriggeredReassessmentSchedule(supabase, member.id, suggestion);
+  }
 }
 
 export async function GET(request: Request) {

@@ -20,6 +20,7 @@ import type { ActionResult } from './auth';
 import { emitAndDispatch } from '@/lib/ai/events';
 import { buildRuleFacts } from '@/lib/ai/rules/facts';
 import { recordTimelineEvent } from '@/lib/timeline/data';
+import { upsertRegistryEntriesFromOnboardingSubmission } from '@/lib/registry/adapters/onboarding';
 
 const ASSESSMENT_VERSION = 1;
 
@@ -132,6 +133,8 @@ export async function submitOnboarding(
           sourceFeature: 'onboarding_submissions',
           sourceRecordId: submissionId,
         });
+
+        await upsertRegistryEntriesFromOnboardingSubmission(supabase, user.id, submissionId);
       }
     }
   } catch (aiError) {

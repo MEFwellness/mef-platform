@@ -79,6 +79,7 @@ export async function upsertRegistryEntriesFromCoachIntelligence(
       coach_context: null,
       coach_reviewed_by: observation.coach_reviewed_by,
       coach_reviewed_at: observation.coach_reviewed_at,
+      trend_status: null,
       recorded_at: observation.updated_at,
     };
 

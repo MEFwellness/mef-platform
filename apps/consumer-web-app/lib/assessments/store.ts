@@ -27,6 +27,7 @@ import {
   findClosestAssessmentOnOrBefore,
   type AssessmentComparison,
 } from './comparison';
+import { upsertRegistryEntriesFromQuestionnaireAttempt } from '../registry/adapters/questionnaireEngine';
 import type {
   AssessmentRecord,
   AssessmentResult,
@@ -37,6 +38,7 @@ import type {
 
 type AssessmentRow = {
   id: string;
+  member_id: string;
   questionnaire_id: string;
   questionnaire_version: number;
   status: 'in_progress' | 'completed';
@@ -316,6 +318,22 @@ export async function completeAssessment(
   );
 
   if (scoresError) throw new Error(`Failed to save category scores: ${scoresError.message}`);
+
+  // Best-effort, non-throwing — same discipline as buildMemberIntelligence's
+  // own persistence step (lib/intelligence-engine/engine.ts): a registry
+  // write failure must never break a completed assessment the member
+  // already has real results for.
+  try {
+    await upsertRegistryEntriesFromQuestionnaireAttempt(
+      supabase,
+      (updated as AssessmentRow).member_id,
+      (updated as AssessmentRow).questionnaire_id,
+      assessmentId,
+      result.categoryScores
+    );
+  } catch (err) {
+    console.error('upsertRegistryEntriesFromQuestionnaireAttempt failed', err);
+  }
 
   return { record: mapRecord(updated as AssessmentRow), categoryScores: result.categoryScores };
 }

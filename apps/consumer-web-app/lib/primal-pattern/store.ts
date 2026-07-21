@@ -27,12 +27,14 @@ import type {
   PrimalPatternQuestionnaire,
   PrimalPatternResult,
 } from './types';
+import { upsertRegistryEntryFromPrimalPatternAttempt } from '../registry/adapters/primalPattern';
 
 const TABLE = 'primal_pattern_assessments';
 const ANSWERS_TABLE = 'primal_pattern_assessment_answers';
 
 type AssessmentRow = {
   id: string;
+  member_id: string;
   questionnaire_id: string;
   questionnaire_version: number;
   status: 'in_progress' | 'completed';
@@ -261,6 +263,19 @@ export async function completePrimalPatternAssessment(
     throw new Error(
       `Failed to complete Primal Pattern assessment: ${updateError?.message ?? 'unknown error'}`
     );
+  }
+
+  try {
+    await upsertRegistryEntryFromPrimalPatternAttempt(
+      supabase,
+      (updated as AssessmentRow).member_id,
+      assessmentId,
+      score.result,
+      score.aCount,
+      score.bCount
+    );
+  } catch (err) {
+    console.error('upsertRegistryEntryFromPrimalPatternAttempt failed', err);
   }
 
   return mapRecord(updated as AssessmentRow);

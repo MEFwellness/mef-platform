@@ -55,8 +55,16 @@ function allMinAnswers(): QuestionnaireAnswers {
 afterAll(async () => {
   // wellness_assessment_answers/wellness_assessment_category_scores cascade-delete
   // with their parent wellness_assessments row (migration 62's `on delete cascade`),
-  // so cleaning up the member's assessments is enough.
+  // so cleaning up the member's assessments covers those. registry_entries does
+  // NOT cascade (source_record_id is a polymorphic pointer, not an FK) — since
+  // completeAssessment() now also writes findings there (Universal Assessment
+  // Intelligence Engine, lib/registry/adapters/questionnaireEngine.ts), this
+  // suite's own completions must be cleaned up explicitly too, or they leak into
+  // any later test (e.g. tests/intelligence-core-integration.test.ts) that reads
+  // this member's active registry findings.
   const service = serviceRoleClient();
+  await service.from('registry_entries').delete().eq('member_id', TEST_USERS.memberOne.id);
+  await service.from('registry_entries').delete().eq('member_id', TEST_USERS.memberTwo.id);
   await service.from('wellness_assessments').delete().eq('member_id', TEST_USERS.memberOne.id);
   await service.from('wellness_assessments').delete().eq('member_id', TEST_USERS.memberTwo.id);
 });

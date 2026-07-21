@@ -15,10 +15,12 @@ import type {
   DomainScore,
   InputCoverageEntry,
   MovementSession,
+  RegistryEntry,
   RootScoreSnapshot,
 } from '@mef/shared-types-contracts';
 import { addDaysToLocalDate } from '@/lib/feed/dateMath';
 import { applySmoothingCap, computeComposite } from './aggregate';
+import { applyFindingAdjustments } from './findingAdjustments';
 import { computeRootConfidence } from './confidence';
 import {
   MOMENTUM_PRIOR_WINDOW_DAYS,
@@ -59,6 +61,14 @@ export type CalculateRootScoreInput = {
   previousSnapshot: { root_score: number | null } | null;
   /** Count of snapshots strictly before localDate — feeds root confidence's history factor. */
   priorSnapshotCount: number;
+  /**
+   * Active Universal Registry findings (Root Score Integration, Prompt 6)
+   * — optional and defaulted to empty so every existing caller/test that
+   * doesn't pass it behaves exactly as before (no adjustment applied).
+   * See lib/scoring/findingAdjustments.ts for how these bound-adjust the
+   * relevant domain(s) before aggregation.
+   */
+  activeRegistryFindings?: RegistryEntry[];
 };
 
 export type CalculatedSnapshot = Omit<
@@ -92,7 +102,10 @@ export function calculateRootScoreSnapshot(input: CalculateRootScoreInput): Calc
     startDate: addDaysToLocalDate(input.localDate, -(ROOT_WINDOW_DAYS - 1)),
     endDate: input.localDate,
   };
-  const domainScores = computeAllDomains(input, rootWindow, firstCheckinDate);
+  const domainScores = applyFindingAdjustments(
+    computeAllDomains(input, rootWindow, firstCheckinDate),
+    input.activeRegistryFindings ?? []
+  );
   const composite = computeComposite(domainScores);
 
   const previousRootScore = input.previousSnapshot?.root_score ?? null;
