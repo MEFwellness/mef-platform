@@ -24,3 +24,4 @@ export * from './coaching-insights.types';
 export * from './exercise-library.types';
 export * from './movement-profile.types';
 export * from './coach-program-builder.types';
+export * from './prescription-intelligence.types';

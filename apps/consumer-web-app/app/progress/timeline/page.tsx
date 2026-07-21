@@ -23,6 +23,7 @@ import {
   Flag,
   ClipboardList,
   CheckCircle2,
+  Brain,
 } from 'lucide-react';
 import type { HealthTimelineEvent } from '@mef/shared-types-contracts';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -54,6 +55,9 @@ const EVENT_ICON = {
   coach_workout_assigned: ClipboardList,
   coach_workout_completed: CheckCircle2,
   coach_workout_skipped: XCircle,
+  prescription_generated: Brain,
+  prescription_approved: CheckCircle2,
+  prescription_rejected: XCircle,
 } as const;
 
 type Group =

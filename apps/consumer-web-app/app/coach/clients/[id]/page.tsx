@@ -47,6 +47,7 @@ import {
   getClientMovementProfileReviewQueue,
 } from '@/app/actions/movement-profile';
 import { getClientProgramAssignmentSummariesAction } from '@/app/actions/coach-programs';
+import { listPrescriptionSnapshotsForClientAction } from '@/app/actions/prescription-intelligence';
 import {
   listAssessmentRegistryEntries,
   listAssignableAssessments,
@@ -70,6 +71,7 @@ import { BodyAssessmentPanel } from './BodyAssessmentPanel';
 import { AssessmentAssignmentPanel } from './AssessmentAssignmentPanel';
 import { MovementProfilePanel } from './MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
+import { PrescriptionIntelligenceCard } from '@/components/prescription-intelligence/PrescriptionIntelligenceCard';
 import {
   stressStatus,
   painStatus,
@@ -176,6 +178,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     movementProfile,
     movementProfileReviewItems,
     programAssignmentSummaries,
+    prescriptionSnapshots,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -197,6 +200,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
     getClientProgramAssignmentSummariesAction(profile.id),
+    listPrescriptionSnapshotsForClientAction(profile.id),
   ]);
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
@@ -465,6 +469,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               links through to the full assignment list and the Program
               Library (Coach Program Builder milestone) */}
           <ClientProgramsSummaryCard clientId={profile.id} summaries={programAssignmentSummaries} />
+
+          {/* Prescription Intelligence Engine — decides today's movement
+              strategy from Movement Profile + readiness + assessment data
+              before selecting a single exercise; coach reviews and
+              approves before anything reaches the member. */}
+          <PrescriptionIntelligenceCard clientId={profile.id} snapshots={prescriptionSnapshots} />
 
           {/* Coach assignment minimum interface — Assessment Registry framework */}
           <AssessmentAssignmentPanel

@@ -75,6 +75,11 @@ export function CoachAssignedWorkoutDetail({
       {workout.sections.map((section) => (
         <section key={section.id} className={`${CARD} p-5`}>
           <p className="text-sm font-semibold text-[#1B3A2D]">{section.name}</p>
+          {section.block_reasoning && (
+            <p className="mt-2 rounded-xl bg-[#EFF6F1] p-3 text-xs text-[#1B3A2D]">
+              {section.block_reasoning}
+            </p>
+          )}
           <div className="mt-3 space-y-2">
             {section.exercises.map((exercise) => (
               <div
@@ -97,6 +102,12 @@ export function CoachAssignedWorkoutDetail({
                     .filter(Boolean)
                     .join(' · ')}
                 </p>
+                {exercise.selection_reasoning && (
+                  <p className="mt-2 text-xs text-[#1B3A2D]">
+                    <span className="font-semibold">Why: </span>
+                    {exercise.selection_reasoning}
+                  </p>
+                )}
                 {(exercise.member_notes ||
                   exercise.difficulty_rating ||
                   exercise.comfort_rating) && (

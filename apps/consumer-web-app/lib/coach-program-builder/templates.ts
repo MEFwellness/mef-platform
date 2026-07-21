@@ -50,12 +50,16 @@ export type TemplateContentExerciseInput = ExercisePrescriptionFields & {
   provider: string;
   externalId: string;
   exerciseName: string;
+  /** Why this exercise was selected — set only when it came from the Prescription Intelligence Engine. */
+  selectionReasoning?: string | null;
 };
 
 export type TemplateContentSectionInput = {
   name: string;
   sectionType: ProgramSectionType;
   exercises: TemplateContentExerciseInput[];
+  /** Why this block/section exists — set only when it came from the Prescription Intelligence Engine. */
+  blockReasoning?: string | null;
 };
 
 function hydrateTemplate(
@@ -270,6 +274,7 @@ export async function replaceTemplateContent(
         name: section.name,
         section_type: section.sectionType,
         sequence_index: index,
+        block_reasoning: section.blockReasoning ?? null,
       }))
     )
     .select('id')
@@ -326,6 +331,7 @@ export async function replaceTemplateContent(
       coaching_cues: exercise.coaching_cues,
       pain_modification_notes: exercise.pain_modification_notes,
       alternate_exercises: exercise.alternate_exercises,
+      selection_reasoning: exercise.selectionReasoning ?? null,
     }));
   });
 
@@ -423,6 +429,7 @@ export async function duplicateTemplate(
   const contentInput: TemplateContentSectionInput[] = source.sections.map((section) => ({
     name: section.name,
     sectionType: section.section_type,
+    blockReasoning: section.block_reasoning,
     exercises: section.exercises.map((exercise) => ({
       provider: exercise.provider,
       externalId: exercise.external_id,
@@ -450,6 +457,7 @@ export async function duplicateTemplate(
       coaching_cues: exercise.coaching_cues,
       pain_modification_notes: exercise.pain_modification_notes,
       alternate_exercises: exercise.alternate_exercises,
+      selectionReasoning: exercise.selection_reasoning,
     })),
   }));
 
