@@ -257,12 +257,12 @@ export function DetectedItemsList({
             value={manualLabel}
             onChange={(e) => setManualLabel(e.target.value)}
             placeholder="e.g. grilled chicken breast"
-            className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+            className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
           />
           <select
             value={manualCategory}
             onChange={(e) => setManualCategory(e.target.value as FoodLensFoodCategory)}
-            className="mt-2 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm capitalize text-[#1B3A2D]"
+            className="mt-2 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base capitalize text-[#1B3A2D]"
           >
             {CATEGORY_OPTIONS.map((c) => (
               <option key={c} value={c}>
@@ -351,12 +351,12 @@ function EditRow({
         type="text"
         value={label}
         onChange={(e) => setLabel(e.target.value)}
-        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
       />
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value as FoodLensFoodCategory)}
-        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm capitalize text-[#1B3A2D]"
+        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base capitalize text-[#1B3A2D]"
       >
         {CATEGORY_OPTIONS.map((c) => (
           <option key={c} value={c}>
@@ -369,7 +369,7 @@ function EditRow({
         value={portionDescription}
         onChange={(e) => setPortionDescription(e.target.value)}
         placeholder="Portion, e.g. about half a cup"
-        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]"
+        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D] placeholder:text-[#9AA79F]"
       />
       <div className="flex gap-2">
         <input
@@ -378,12 +378,12 @@ function EditRow({
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
           placeholder="Amount (optional)"
-          className="w-1/2 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]"
+          className="w-1/2 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D] placeholder:text-[#9AA79F]"
         />
         <select
           value={unit}
           onChange={(e) => setUnit(e.target.value as FoodLensPortionUnit)}
-          className="w-1/2 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+          className="w-1/2 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
         >
           {UNIT_OPTIONS.map((u) => (
             <option key={u} value={u}>
@@ -395,7 +395,7 @@ function EditRow({
       <select
         value={cookingMethod}
         onChange={(e) => setCookingMethod(e.target.value as FoodLensCookingMethod)}
-        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm capitalize text-[#1B3A2D]"
+        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base capitalize text-[#1B3A2D]"
       >
         {COOKING_METHOD_OPTIONS.map((m) => (
           <option key={m} value={m}>

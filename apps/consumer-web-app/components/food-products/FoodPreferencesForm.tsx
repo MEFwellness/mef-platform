@@ -74,7 +74,7 @@ export function FoodPreferencesForm({ initial }: { initial: MemberFoodPreference
             value={allergies}
             onChange={(e) => setAllergies(e.target.value)}
             placeholder="e.g. peanuts, shellfish"
-            className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+            className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
           />
         </div>
         <div>
@@ -86,7 +86,7 @@ export function FoodPreferencesForm({ initial }: { initial: MemberFoodPreference
             value={intolerances}
             onChange={(e) => setIntolerances(e.target.value)}
             placeholder="e.g. lactose, gluten"
-            className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+            className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
           />
         </div>
         <div>
@@ -98,7 +98,7 @@ export function FoodPreferencesForm({ initial }: { initial: MemberFoodPreference
             value={avoidIngredients}
             onChange={(e) => setAvoidIngredients(e.target.value)}
             placeholder="e.g. artificial sweeteners"
-            className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+            className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
           />
         </div>
         <div>
@@ -108,7 +108,7 @@ export function FoodPreferencesForm({ initial }: { initial: MemberFoodPreference
           <select
             value={dietaryPattern}
             onChange={(e) => setDietaryPattern(e.target.value)}
-            className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+            className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
           >
             {DIETARY_PATTERNS.map((opt) => (
               <option key={opt.value} value={opt.value}>

@@ -13,7 +13,7 @@ import type { Route } from 'next';
 import { createManualFoodEntryAction } from '@/app/actions/food-manual';
 
 const INPUT =
-  'w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]';
+  'w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D] placeholder:text-[#9AA79F]';
 const LABEL = 'mb-1.5 block text-sm font-medium text-[#1B3A2D]';
 
 export function ManualFoodEntryForm() {

@@ -23,7 +23,7 @@ import type {
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const INPUT =
-  'w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
+  'w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
 const FIELD_LABEL = 'flex flex-col gap-1 text-xs font-medium text-[#6B7A72]';
 
 const SECTION_TYPE_OPTIONS: { value: ProgramSectionType; label: string }[] = [
@@ -757,7 +757,7 @@ export function ProgramBuilder({
                     sectionType: e.target.value as ProgramSectionType,
                   })
                 }
-                className="rounded-xl border border-[#1B3A2D]/10 bg-[#FAFAF8] px-2.5 py-1.5 text-xs text-[#1B3A2D]"
+                className="rounded-xl border border-[#1B3A2D]/10 bg-[#FAFAF8] px-2.5 py-1.5 text-base text-[#1B3A2D]"
               >
                 {SECTION_TYPE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>

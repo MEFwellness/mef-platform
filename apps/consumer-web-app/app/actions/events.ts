@@ -18,6 +18,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MemberWellnessEvent } from '@mef/shared-types-contracts';
 import {
@@ -30,12 +31,15 @@ import { nowInTimezone, todaysLocalDate } from '@/lib/time/localDate';
 import type { ActionResult } from './auth';
 
 async function requireMemberContext(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  timezoneOverride?: string
 ): Promise<{ memberId: string; timezone: string } | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
+
+  if (timezoneOverride) {
+    return { memberId: user.id, timezone: timezoneOverride };
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -48,10 +52,17 @@ async function requireMemberContext(
 
 // ---- Hydration: a live running counter, not a once-a-day field ----
 
-/** The member's live hydration total for today — always the sum of today's real logged events, never a fabricated or carried-over number. */
-export async function getTodaysHydrationTotal(): Promise<number> {
+/**
+ * The member's live hydration total for today, always the sum of today's
+ * real logged events, never a fabricated or carried-over number.
+ * `timezone` is an optional caller-supplied value (e.g. the Dashboard
+ * already fetched its own profile row), passing it skips this function's
+ * own redundant profiles query for the exact same row; omit it and
+ * behavior is unchanged from before.
+ */
+export async function getTodaysHydrationTotal(timezone?: string): Promise<number> {
   const supabase = createClient();
-  const ctx = await requireMemberContext(supabase);
+  const ctx = await requireMemberContext(supabase, timezone);
   if (!ctx) return 0;
 
   const localDate = todaysLocalDate(ctx.timezone);

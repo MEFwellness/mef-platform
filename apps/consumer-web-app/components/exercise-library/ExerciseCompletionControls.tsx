@@ -196,7 +196,7 @@ export function ExerciseCompletionControls({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Felt unstable on the left side, need lighter resistance…"
               rows={2}
-              className="mt-1.5 w-full resize-none rounded-xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+              className="mt-1.5 w-full resize-none rounded-xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
             />
           </div>
 

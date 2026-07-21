@@ -9,6 +9,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 import { listRegistryEntriesForMember } from '@/lib/registry/data';
 import { suggestAssessmentsFromFindings } from '@/lib/assessment-registry/findingRecommendations';
 import {
@@ -18,9 +19,7 @@ import {
 
 export async function getMyNoticingView(): Promise<MemberNoticingView | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const entries = await listRegistryEntriesForMember(supabase, user.id);

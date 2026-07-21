@@ -67,7 +67,7 @@ export function ConcernFlag() {
             rows={3}
             autoFocus
             placeholder="What's new or worse today?"
-            className="w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
+            className="w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
           />
           {error && (
             <p role="alert" className="text-sm text-red-700">

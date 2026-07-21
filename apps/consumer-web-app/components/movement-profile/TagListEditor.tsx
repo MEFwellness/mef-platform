@@ -60,7 +60,7 @@ export function TagListEditor({
             }
           }}
           placeholder={placeholder}
-          className="w-full flex-1 rounded-full border border-[#1B3A2D]/15 bg-white px-4 py-2 text-sm text-[#1B3A2D] outline-none focus:border-[#1B3A2D]/40"
+          className="w-full flex-1 rounded-full border border-[#1B3A2D]/15 bg-white px-4 py-2 text-base text-[#1B3A2D] outline-none focus:border-[#1B3A2D]/40"
         />
         <button
           type="button"

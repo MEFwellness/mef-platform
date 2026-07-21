@@ -4,7 +4,7 @@ import { hasCompletedConsent } from '../actions/consent';
 import { getOnboardingQuestions } from '../actions/onboarding';
 import { redirect } from 'next/navigation';
 import { ConsentForm } from './ConsentForm';
-import { OnboardingForm } from './OnboardingForm';
+import { OnboardingFlow } from './OnboardingFlow';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const SHELL =
@@ -103,7 +103,7 @@ export default async function OnboardingPage() {
           A few questions so your coach can understand where you&apos;re starting from.
         </p>
         <div className="mt-6">
-          <OnboardingForm questions={questions} />
+          <OnboardingFlow questions={questions} />
         </div>
       </main>
     </div>

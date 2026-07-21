@@ -27,7 +27,11 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
   if (!user) redirect('/login');
 
   const [{ data: profile }, isCoach] = await Promise.all([
-    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+    supabase
+      .from('profiles')
+      .select('display_name, timezone, evening_reflection_reminder_shown_at')
+      .eq('id', user.id)
+      .single(),
     hasActiveRole(supabase, user.id, 'coach'),
   ]);
 
@@ -90,6 +94,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           habits={habits}
           initialHabitLogs={habitLogs}
           isFirstCheckin={isFirstCheckin}
+          eveningReminderAlreadyShown={Boolean(profile?.evening_reflection_reminder_shown_at)}
         />
 
         <section className={`${CARD} mt-5 p-5`}>

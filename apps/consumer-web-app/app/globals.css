@@ -175,23 +175,30 @@
 }
 
 .mef-slider::-webkit-slider-runnable-track {
-  height: 0.5rem;
+  height: 0.625rem;
   border-radius: 9999px;
   background: transparent;
 }
 
 .mef-slider::-moz-range-track {
-  height: 0.5rem;
+  height: 0.625rem;
   border-radius: 9999px;
   background: transparent;
 }
 
+/*
+ * Thumb bumped from 1.75rem to 2rem and the track from 0.5rem to
+ * 0.625rem. A larger touch target was flagged directly (Prompt 2.5,
+ * Issue 3) as part of fixing the sliders feeling imprecise on mobile.
+ * margin-top keeps the thumb vertically centered on the track:
+ * -(thumb-height - track-height) / 2.
+ */
 .mef-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 1.75rem;
-  height: 1.75rem;
-  margin-top: -0.625rem;
+  width: 2rem;
+  height: 2rem;
+  margin-top: -0.6875rem;
   border-radius: 9999px;
   background: #1b3a2d;
   border: 3px solid #ffffff;
@@ -205,8 +212,8 @@
 }
 
 .mef-slider::-moz-range-thumb {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 9999px;
   background: #1b3a2d;
   border: 3px solid #ffffff;

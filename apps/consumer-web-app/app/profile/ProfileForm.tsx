@@ -53,7 +53,7 @@ export function ProfileForm({ displayName, timezone }: Props) {
           type="text"
           required
           defaultValue={displayName}
-          className="mt-1.5 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+          className="mt-1.5 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
         />
       </div>
 
@@ -65,7 +65,7 @@ export function ProfileForm({ displayName, timezone }: Props) {
           id="timezone"
           name="timezone"
           defaultValue={timezone}
-          className="mt-1.5 w-full rounded-2xl border border-[#1B3A2D]/10 bg-white p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+          className="mt-1.5 w-full rounded-2xl border border-[#1B3A2D]/10 bg-white p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
         >
           {timezoneOptions.map((tz) => (
             <option key={tz} value={tz}>

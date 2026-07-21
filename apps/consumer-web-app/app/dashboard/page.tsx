@@ -38,6 +38,7 @@
  */
 
 import Image from 'next/image';
+import { Suspense } from 'react';
 import {
   Moon,
   Activity,
@@ -49,6 +50,7 @@ import {
   Footprints,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 import { redirect } from 'next/navigation';
 import { getTodaysCheckin, getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -99,6 +101,17 @@ import {
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const TRACKER_CARD = `${CARD} flex min-h-[172px] flex-col p-5`;
 
+/** Suspense fallback for WhatWereNoticingCard, shown only for the brief moment its own fetch is still resolving, never a blank gap. */
+function NoticingCardSkeleton() {
+  return (
+    <div className={`${CARD} animate-pulse p-6`}>
+      <div className="h-3 w-40 rounded-full bg-[#1B3A2D]/10" />
+      <div className="mt-4 h-3.5 w-full rounded-full bg-[#1B3A2D]/[0.06]" />
+      <div className="mt-2.5 h-3.5 w-5/6 rounded-full bg-[#1B3A2D]/[0.06]" />
+    </div>
+  );
+}
+
 function stressLabel(level: number | null): string {
   if (level === null) return 'Not logged yet';
   if (level <= 2) return 'Low';
@@ -142,26 +155,26 @@ export default async function DashboardPage({
   searchParams: { firstCheckin?: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
-  // All six of these are independent reads (each of the three action
-  // calls resolves its own user internally and touches none of the
-  // others' data), so batching them removes five serial network round
-  // trips that were previously paid one after another before the page
-  // could render — the single biggest fixable cause of this page feeling
-  // slow to open. Wearable discoverability (Premium Product Pass): a
-  // connected wearable replaces the "unlock" pitch with today's real
-  // recovery numbers; no connection at all also triggers the one-time
-  // welcome modal below.
+  // These seven are independent reads (each action call resolves its own
+  // user internally and touches none of the others' data), so batching
+  // them removes serial network round trips that were previously paid one
+  // after another before the page could render, the single biggest
+  // fixable cause of this page feeling slow to open. Wearable
+  // discoverability (Premium Product Pass): a connected wearable replaces
+  // the "unlock" pitch with today's real recovery numbers; no connection
+  // at all also triggers the one-time welcome modal below.
+  //
+  // getMyCoachingDecision/getMyMorningBrief moved to the second batch
+  // below (they need timezone, which this batch is what resolves) instead
+  // of each independently re-querying profiles for the same row this
+  // batch already reads. See the optional `timezone` param on both.
   const [
     { data: profile },
     isCoach,
     wearableConnections,
-    decision,
-    morningBrief,
     baseline,
     bodyAssessments,
     questionnaireCatalog,
@@ -170,8 +183,6 @@ export default async function DashboardPage({
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
     getMyWearableConnections(),
-    getMyCoachingDecision(),
-    getMyMorningBrief(),
     getMyBaselineAssessment(),
     getMyAssessmentsAction(),
     getMyQuestionnaireCatalog(),
@@ -190,19 +201,28 @@ export default async function DashboardPage({
   const timeContext = buildTimeContext(nowInTz);
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
 
-  // recentCheckins doesn't depend on localDate, so it joins the other two
-  // (which do) in a single batch instead of three more serial round trips.
+  // recentCheckins doesn't depend on localDate, so it joins the rest of
+  // this batch (which does) instead of a separate round trip.
   // rootScoreSnapshot reads today's already-calculated snapshot (or
   // calculates it once, the first time it's asked for today) — see
   // lib/scoring/service.ts; it never recalculates on every render.
-  const [todaysCheckin, recentCheckins, rootScoreSnapshot, hydrationTotal, eveningReflection] =
-    await Promise.all([
-      getTodaysCheckin(localDate),
-      getRecentCheckins(12),
-      getMyRootScore(localDate, timezone),
-      getTodaysHydrationTotal(),
-      getTodaysEveningReflection(),
-    ]);
+  const [
+    todaysCheckin,
+    recentCheckins,
+    rootScoreSnapshot,
+    hydrationTotal,
+    eveningReflection,
+    decision,
+    morningBrief,
+  ] = await Promise.all([
+    getTodaysCheckin(localDate),
+    getRecentCheckins(12),
+    getMyRootScore(localDate, timezone),
+    getTodaysHydrationTotal(timezone),
+    getTodaysEveningReflection(timezone),
+    getMyCoachingDecision(timezone),
+    getMyMorningBrief(timezone, profile?.display_name),
+  ]);
 
   const wellnessIndex = calculateWellnessIndex(inputsFromCheckin(todaysCheckin));
 
@@ -267,14 +287,6 @@ export default async function DashboardPage({
               {/* components/RootScoreCard.tsx and app/root-score/.         */}
               {/* ---------------------------------------------------- */}
               <RootScoreCard snapshot={rootScoreSnapshot} />
-
-              {/* ---------------------------------------------------- */}
-              {/* What We're Noticing — the Universal Assessment          */}
-              {/* Intelligence Engine's member-safe view over active      */}
-              {/* findings across every assessment (Prompt 6). Renders    */}
-              {/* nothing until the member has real findings to show.     */}
-              {/* ---------------------------------------------------- */}
-              <WhatWereNoticingCard />
 
               {/* ---------------------------------------------------- */}
               {/* Questionnaires — a single summary tile directly below   */}
@@ -611,6 +623,24 @@ export default async function DashboardPage({
                   Coming soon
                 </span>
               </div>
+
+              {/* ---------------------------------------------------- */}
+              {/* What We're Noticing. Moved from directly under Root      */}
+              {/* Score (where it used to dominate the Home screen,       */}
+              {/* ahead of anything actionable) down to Insights-access-   */}
+              {/* territory at the bottom, matching "what should I do      */}
+              {/* today" as the Home screen's job, insights as a lower-    */}
+              {/* priority read. Suspense-wrapped so its own fetch          */}
+              {/* (getMyNoticingView) streams in independently instead of   */}
+              {/* blocking every section above it from rendering. It          */}
+              {/* used to be an un-batched await sitting between the two    */}
+              {/* Promise.all groups above, delaying the whole page's       */}
+              {/* first byte. Still renders nothing (not even the           */}
+              {/* skeleton stays up) once real findings resolve to none.    */}
+              {/* ---------------------------------------------------- */}
+              <Suspense fallback={<NoticingCardSkeleton />}>
+                <WhatWereNoticingCard />
+              </Suspense>
             </>
           )}
         </div>

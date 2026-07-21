@@ -7,7 +7,7 @@ import { generatePrescriptionAction } from '@/app/actions/prescription-intellige
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const INPUT =
-  'w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
+  'w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
 
 /** Triggers a new engine run for this member. The engine decides strategy from real Movement Profile / readiness / assessment data — this panel only collects the two inputs that data can't supply on its own (time available today, and an optional goal override). */
 export function PrescriptionGeneratorPanel({ clientId }: { clientId: string }) {

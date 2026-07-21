@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 import { submitOnboarding } from '../actions/onboarding';
@@ -64,8 +64,13 @@ function enumOptionLabel(option: string): string {
 }
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+// text-base (16px), not text-sm. A focused text input/select/textarea
+// under 16px triggers iOS Safari's automatic zoom-on-focus, which is
+// exactly the "page scales unexpectedly while typing" behavior members
+// were seeing. Range inputs (the sliders below) are unaffected by this;
+// this only matters for the boolean <select> and free_text <textarea>.
 const INPUT =
-  'mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
+  'mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
 const INPUT_INVALID = 'border-red-400 focus:border-red-400';
 
 /**
@@ -99,6 +104,14 @@ function isValidAnswer(question: OnboardingQuestion, answer: StoredAnswer | unde
     default:
       return false;
   }
+}
+
+function parseAllowedValues(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map(String);
+  }
+
+  return [];
 }
 
 function NumericSlider({
@@ -153,7 +166,14 @@ function NumericSlider({
         style={{
           backgroundImage: `linear-gradient(to right, ${trackFill} ${percent}%, #EFE9DB ${percent}%)`,
         }}
-        className="mef-slider mt-6 h-2 w-full cursor-pointer touch-manipulation rounded-full"
+        // h-8 (32px), not h-2. The element's own hit box, not just the
+        // thin visual track drawn by the ::-webkit/moz-range-track
+        // pseudo-elements, since a taller invisible touch target is what
+        // actually makes the slider easier to grab and drag accurately on
+        // a phone. touch-manipulation removes the ~300ms tap-delay/
+        // double-tap-zoom gesture detection that otherwise makes a fast
+        // drag start feel like it hesitates before tracking the finger.
+        className="mef-slider mt-6 h-8 w-full cursor-pointer touch-manipulation rounded-full"
       />
       <div className="mt-3 flex justify-between text-xs font-semibold text-[#6B7A72]">
         <span>
@@ -167,57 +187,58 @@ function NumericSlider({
   );
 }
 
-export function OnboardingForm({
-  questions,
-  onSubmitted,
-  submitLabel = 'Submit onboarding',
-}: Props) {
-  const router = useRouter();
-  const [answers, setAnswers] = useState<Record<string, StoredAnswer>>({});
-  const [error, setError] = useState('');
-  const [invalidKey, setInvalidKey] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const fieldRefs = useRef<Record<string, Focusable | null>>({});
+/**
+ * One question's fieldset, memoized so dragging one slider (which fires an
+ * onChange on every pixel of movement) only re-renders the question being
+ * dragged, not every other question on the page. This only works because
+ * `answer` is the one specific value out of the parent's `answers` map.
+ * every sibling question's `answer` prop keeps the exact same object
+ * reference across a re-render (the parent's updateAnswer spreads into a
+ * new object per key, leaving every other key's value untouched), so
+ * React.memo's default shallow comparison correctly bails out for them.
+ * `onAnswerChange` and `registerRef` are stable across renders (see their
+ * useCallback deps in OnboardingForm) for the same reason: an unstable
+ * function prop would defeat the memoization just as surely as an
+ * unstable `answer` would.
+ */
+const QuestionField = memo(function QuestionField({
+  question,
+  answer,
+  invalid,
+  onAnswerChange,
+  registerRef,
+}: {
+  question: OnboardingQuestion;
+  answer: StoredAnswer | undefined;
+  invalid: boolean;
+  onAnswerChange: (questionKey: string, answer: StoredAnswer) => void;
+  registerRef: (questionKey: string, el: Focusable | null) => void;
+}) {
+  const legendId = `${question.question_key}-label`;
+  const errorId = `${question.question_key}-error`;
+  const currentStatus = answer?.status ?? 'answered';
+  const allowedValues = parseAllowedValues(question.allowed_values);
 
-  function updateAnswer(questionKey: string, answer: StoredAnswer) {
-    setAnswers((current) => ({
-      ...current,
-      [questionKey]: answer,
-    }));
-    if (questionKey === invalidKey) {
-      setInvalidKey(null);
-      setError('');
-    }
-  }
+  const setRef = useCallback(
+    (el: Focusable | null) => registerRef(question.question_key, el),
+    [registerRef, question.question_key]
+  );
+  const update = useCallback(
+    (next: StoredAnswer) => onAnswerChange(question.question_key, next),
+    [onAnswerChange, question.question_key]
+  );
 
-  function parseAllowedValues(value: unknown): string[] {
-    if (Array.isArray(value)) {
-      return value.map(String);
-    }
-
-    return [];
-  }
-
-  function renderQuestion(question: OnboardingQuestion, legendId: string) {
-    const current = answers[question.question_key];
-    const allowedValues = parseAllowedValues(question.allowed_values);
-    const invalid = invalidKey === question.question_key;
-    const setRef = (el: Focusable | null) => {
-      fieldRefs.current[question.question_key] = el;
-    };
-
+  function renderControl() {
     if (question.answer_type === 'numeric') {
       return (
         <NumericSlider
           questionKey={question.question_key}
           legendId={legendId}
           value={
-            current?.status === 'answered' && typeof current.value === 'number'
-              ? current.value
-              : null
+            answer?.status === 'answered' && typeof answer.value === 'number' ? answer.value : null
           }
           invalid={invalid}
-          onChange={(value) => updateAnswer(question.question_key, { status: 'answered', value })}
+          onChange={(value) => update({ status: 'answered', value })}
           inputRef={setRef}
         />
       );
@@ -225,7 +246,7 @@ export function OnboardingForm({
 
     if (question.answer_type === 'enum') {
       const selectedValue =
-        current?.status === 'answered' && typeof current.value === 'string' ? current.value : null;
+        answer?.status === 'answered' && typeof answer.value === 'string' ? answer.value : null;
 
       return (
         <div
@@ -243,9 +264,7 @@ export function OnboardingForm({
                 type="button"
                 role="radio"
                 aria-checked={isSelected}
-                onClick={() =>
-                  updateAnswer(question.question_key, { status: 'answered', value: option })
-                }
+                onClick={() => update({ status: 'answered', value: option })}
                 className={`mef-focus-ring flex items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition-colors ${
                   isSelected
                     ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
@@ -267,7 +286,7 @@ export function OnboardingForm({
 
     if (question.answer_type === 'multi_select') {
       const selected =
-        current?.status === 'answered' && Array.isArray(current.value) ? current.value : [];
+        answer?.status === 'answered' && Array.isArray(answer.value) ? answer.value : [];
       const hasNoneOption = allowedValues.includes('none');
 
       const toggleOption = (option: string) => {
@@ -286,7 +305,7 @@ export function OnboardingForm({
           nextValues = [...selected, option];
         }
 
-        updateAnswer(question.question_key, { status: 'answered', value: nextValues });
+        update({ status: 'answered', value: nextValues });
       };
 
       return (
@@ -331,16 +350,11 @@ export function OnboardingForm({
           aria-labelledby={legendId}
           aria-invalid={invalid}
           value={
-            current?.status === 'answered' && typeof current.value === 'boolean'
-              ? String(current.value)
+            answer?.status === 'answered' && typeof answer.value === 'boolean'
+              ? String(answer.value)
               : ''
           }
-          onChange={(event) =>
-            updateAnswer(question.question_key, {
-              status: 'answered',
-              value: event.target.value === 'true',
-            })
-          }
+          onChange={(event) => update({ status: 'answered', value: event.target.value === 'true' })}
           className={`${INPUT} bg-white ${invalid ? INPUT_INVALID : ''}`}
         >
           <option value="">Select an option</option>
@@ -356,19 +370,120 @@ export function OnboardingForm({
         aria-labelledby={legendId}
         aria-invalid={invalid}
         value={
-          current?.status === 'answered' && typeof current.value === 'string' ? current.value : ''
+          answer?.status === 'answered' && typeof answer.value === 'string' ? answer.value : ''
         }
-        onChange={(event) =>
-          updateAnswer(question.question_key, {
-            status: 'answered',
-            value: event.target.value,
-          })
-        }
+        onChange={(event) => update({ status: 'answered', value: event.target.value })}
         rows={3}
         className={`${INPUT} ${invalid ? INPUT_INVALID : ''}`}
       />
     );
   }
+
+  return (
+    <fieldset aria-describedby={invalid ? errorId : undefined}>
+      <legend
+        id={legendId}
+        className="mb-3 block px-0.5 font-[family-name:var(--font-cormorant-garamond)] text-xl font-semibold leading-snug text-[#1B3A2D] md:text-2xl"
+      >
+        {question.prompt_text}
+      </legend>
+
+      <div className={`${CARD} p-5 md:p-6 ${invalid ? 'ring-2 ring-red-400' : ''}`}>
+        {currentStatus === 'answered' ? renderControl() : null}
+
+        {invalid ? (
+          <p id={errorId} role="alert" className="mt-3 text-sm font-medium text-red-700">
+            This question is required.
+          </p>
+        ) : null}
+
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#6B7A72]">
+          {question.allows_not_sure ? (
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name={`${question.question_key}-status`}
+                checked={currentStatus === 'not_sure'}
+                onChange={() => update({ status: 'not_sure' })}
+                className="h-4 w-4 accent-[#F5B700]"
+              />
+              Not sure
+            </label>
+          ) : null}
+
+          {question.allows_not_applicable ? (
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name={`${question.question_key}-status`}
+                checked={currentStatus === 'not_applicable'}
+                onChange={() => update({ status: 'not_applicable' })}
+                className="h-4 w-4 accent-[#F5B700]"
+              />
+              Not applicable
+            </label>
+          ) : null}
+
+          {question.allows_prefer_not_to_answer ? (
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name={`${question.question_key}-status`}
+                checked={currentStatus === 'prefer_not_to_answer'}
+                onChange={() => update({ status: 'prefer_not_to_answer' })}
+                className="h-4 w-4 accent-[#F5B700]"
+              />
+              Prefer not to answer
+            </label>
+          ) : null}
+        </div>
+
+        {currentStatus !== 'answered' ? (
+          <button
+            type="button"
+            onClick={() => update({ status: 'answered' })}
+            className="mt-3 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+          >
+            Answer this question
+          </button>
+        ) : null}
+      </div>
+    </fieldset>
+  );
+});
+
+export function OnboardingForm({
+  questions,
+  onSubmitted,
+  submitLabel = 'Submit onboarding',
+}: Props) {
+  const router = useRouter();
+  const [answers, setAnswers] = useState<Record<string, StoredAnswer>>({});
+  const [error, setError] = useState('');
+  const [invalidKey, setInvalidKey] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const fieldRefs = useRef<Record<string, Focusable | null>>({});
+  // Mirrors invalidKey for updateAnswer's stable callback below. Reading
+  // state directly there would either go stale (empty deps) or force the
+  // callback to change identity on every invalidKey change (breaking the
+  // memoization every QuestionField instance relies on).
+  const invalidKeyRef = useRef<string | null>(null);
+  invalidKeyRef.current = invalidKey;
+
+  const registerRef = useCallback((questionKey: string, el: Focusable | null) => {
+    fieldRefs.current[questionKey] = el;
+  }, []);
+
+  const updateAnswer = useCallback((questionKey: string, answer: StoredAnswer) => {
+    setAnswers((current) => ({
+      ...current,
+      [questionKey]: answer,
+    }));
+    if (questionKey === invalidKeyRef.current) {
+      setInvalidKey(null);
+      setError('');
+    }
+  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -421,100 +536,16 @@ export function OnboardingForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-7" noValidate>
-      {questions.map((question) => {
-        const currentStatus = answers[question.question_key]?.status ?? 'answered';
-        const invalid = invalidKey === question.question_key;
-        const legendId = `${question.question_key}-label`;
-        const errorId = `${question.question_key}-error`;
-
-        return (
-          <fieldset key={question.id} aria-describedby={invalid ? errorId : undefined}>
-            <legend
-              id={legendId}
-              className="mb-3 block px-0.5 font-[family-name:var(--font-cormorant-garamond)] text-xl font-semibold leading-snug text-[#1B3A2D] md:text-2xl"
-            >
-              {question.prompt_text}
-            </legend>
-
-            <div className={`${CARD} p-5 md:p-6 ${invalid ? 'ring-2 ring-red-400' : ''}`}>
-              {currentStatus === 'answered' ? renderQuestion(question, legendId) : null}
-
-              {invalid ? (
-                <p id={errorId} role="alert" className="mt-3 text-sm font-medium text-red-700">
-                  This question is required.
-                </p>
-              ) : null}
-
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#6B7A72]">
-                {question.allows_not_sure ? (
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name={`${question.question_key}-status`}
-                      checked={currentStatus === 'not_sure'}
-                      onChange={() =>
-                        updateAnswer(question.question_key, {
-                          status: 'not_sure',
-                        })
-                      }
-                      className="h-4 w-4 accent-[#F5B700]"
-                    />
-                    Not sure
-                  </label>
-                ) : null}
-
-                {question.allows_not_applicable ? (
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name={`${question.question_key}-status`}
-                      checked={currentStatus === 'not_applicable'}
-                      onChange={() =>
-                        updateAnswer(question.question_key, {
-                          status: 'not_applicable',
-                        })
-                      }
-                      className="h-4 w-4 accent-[#F5B700]"
-                    />
-                    Not applicable
-                  </label>
-                ) : null}
-
-                {question.allows_prefer_not_to_answer ? (
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name={`${question.question_key}-status`}
-                      checked={currentStatus === 'prefer_not_to_answer'}
-                      onChange={() =>
-                        updateAnswer(question.question_key, {
-                          status: 'prefer_not_to_answer',
-                        })
-                      }
-                      className="h-4 w-4 accent-[#F5B700]"
-                    />
-                    Prefer not to answer
-                  </label>
-                ) : null}
-              </div>
-
-              {currentStatus !== 'answered' ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateAnswer(question.question_key, {
-                      status: 'answered',
-                    })
-                  }
-                  className="mt-3 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
-                >
-                  Answer this question
-                </button>
-              ) : null}
-            </div>
-          </fieldset>
-        );
-      })}
+      {questions.map((question) => (
+        <QuestionField
+          key={question.id}
+          question={question}
+          answer={answers[question.question_key]}
+          invalid={invalidKey === question.question_key}
+          onAnswerChange={updateAnswer}
+          registerRef={registerRef}
+        />
+      ))}
 
       {error ? (
         <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">

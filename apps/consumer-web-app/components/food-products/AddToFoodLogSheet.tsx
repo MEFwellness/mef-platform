@@ -100,7 +100,7 @@ export function AddToFoodLogSheet({
             step={0.25}
             value={servings}
             onChange={(e) => setServings(Math.max(0.25, Number(e.target.value) || 1))}
-            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D] outline-none focus:border-[#1B3A2D]/40"
+            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D] outline-none focus:border-[#1B3A2D]/40"
           />
         </label>
         <label className="flex-1">
@@ -108,7 +108,7 @@ export function AddToFoodLogSheet({
           <select
             value={mealCategory}
             onChange={(e) => setMealCategory(e.target.value as MealCategory)}
-            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D] outline-none focus:border-[#1B3A2D]/40"
+            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D] outline-none focus:border-[#1B3A2D]/40"
           >
             {MEAL_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -123,7 +123,7 @@ export function AddToFoodLogSheet({
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D] outline-none focus:border-[#1B3A2D]/40"
+            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D] outline-none focus:border-[#1B3A2D]/40"
           />
         </label>
       </div>

@@ -239,7 +239,7 @@ export function RestaurantEntryFlow() {
           value={restaurantName}
           onChange={(e) => setRestaurantName(e.target.value)}
           placeholder="e.g. Sunrise Grill"
-          className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-sm text-[#1B3A2D]"
+          className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D]"
         />
 
         <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
@@ -250,7 +250,7 @@ export function RestaurantEntryFlow() {
           value={menuItemName}
           onChange={(e) => setMenuItemName(e.target.value)}
           placeholder="e.g. Grilled Salmon Bowl"
-          className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-sm text-[#1B3A2D]"
+          className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D]"
         />
 
         {mode === 'menu_text' && (
@@ -263,7 +263,7 @@ export function RestaurantEntryFlow() {
               onChange={(e) => setRawMenuText(e.target.value)}
               rows={6}
               placeholder="Paste as much of the menu as you have — the item and anything else on the menu."
-              className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-sm text-[#1B3A2D]"
+              className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D]"
             />
           </>
         )}
@@ -308,7 +308,7 @@ export function RestaurantEntryFlow() {
             value={restaurantName}
             onChange={(e) => setRestaurantName(e.target.value)}
             placeholder="e.g. Sunrise Grill"
-            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-sm text-[#1B3A2D]"
+            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D]"
           />
           <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
             Menu item (optional)
@@ -318,7 +318,7 @@ export function RestaurantEntryFlow() {
             value={menuItemName}
             onChange={(e) => setMenuItemName(e.target.value)}
             placeholder="e.g. Grilled Salmon Bowl"
-            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-sm text-[#1B3A2D]"
+            className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D]"
           />
         </div>
 

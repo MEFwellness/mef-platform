@@ -201,7 +201,7 @@ export function EveningReflectionForm({ existing, localDate, timezone, todaysChe
             value={symptomsOrChanges}
             onChange={(event) => setSymptomsOrChanges(event.target.value)}
             rows={3}
-            className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
+            className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
             placeholder="Symptoms, changes, anything worth noting"
           />
         </div>

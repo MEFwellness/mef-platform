@@ -16,6 +16,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveLocalDate } from './checkin';
 import { getCoachingFocusDecision } from '@/lib/brain/service';
 import { computeAdherence, buildAdaptiveNote } from '@/lib/feed/adaptiveDifficulty';
@@ -41,14 +42,18 @@ export type CoachingDecision = CoachingFocusDecision & {
 
 async function currentMemberLocalDate(
   supabase: ReturnType<typeof createClient>,
-  userId: string
+  userId: string,
+  timezoneOverride?: string
 ): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', userId)
-    .single();
-  const timezone = profile?.timezone ?? 'America/New_York';
+  let timezone = timezoneOverride;
+  if (!timezone) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('timezone')
+      .eq('id', userId)
+      .single();
+    timezone = profile?.timezone ?? 'America/New_York';
+  }
   return resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
@@ -100,15 +105,19 @@ async function attachContent(
   };
 }
 
-/** The signed-in member's own full Daily Decision Object. */
-export async function getMyCoachingDecision(): Promise<CoachingDecision | null> {
+/**
+ * The signed-in member's own full Daily Decision Object. `timezone` is an
+ * optional caller-supplied value (e.g. the Dashboard already fetched its
+ * own profile row), passing it skips this function's own redundant
+ * profiles query for the exact same row; omit it and behavior is
+ * unchanged from before.
+ */
+export async function getMyCoachingDecision(timezone?: string): Promise<CoachingDecision | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
-  const localDate = await currentMemberLocalDate(supabase, user.id);
+  const localDate = await currentMemberLocalDate(supabase, user.id, timezone);
   const decision = await getCoachingFocusDecision(supabase, user.id, localDate);
   return attachContent(supabase, user.id, localDate, decision);
 }

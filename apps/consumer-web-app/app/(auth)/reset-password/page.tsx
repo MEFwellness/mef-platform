@@ -31,7 +31,7 @@ export default function ResetPasswordPage() {
             name="email"
             type="email"
             required
-            className="mt-1.5 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+            className="mt-1.5 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
           />
         </div>
         <button
