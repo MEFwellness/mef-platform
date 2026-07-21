@@ -13,13 +13,20 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { ExerciseDetailView } from '@/components/exercise-library/ExerciseDetailView';
-import { ErrorBanner, type ExerciseApiErrorShape } from '@/components/exercise-library/StateBanners';
+import {
+  ErrorBanner,
+  type ExerciseApiErrorShape,
+} from '@/components/exercise-library/StateBanners';
 import { buildExerciseApiClientFromEnv, ExerciseApiError } from '@/lib/exercise-library/apiClient';
 import { getExerciseMetadata } from '@/lib/exercise-library/metadata';
 import { isExerciseFavorited } from '@/lib/exercise-library/favorites';
 import { normalizeExerciseApiExercise } from '@/lib/exercise-library/normalize';
-import { recordExerciseView } from '@/lib/exercise-library/recentViews';
+import {
+  recordExerciseView,
+  listMyRecentlyViewedExercises,
+} from '@/lib/exercise-library/recentViews';
 import { listExerciseCompletionHistory } from '@/lib/exercise-library/completions';
+import { getRelatedExercises } from '@/lib/exercise-library/related';
 
 export default async function ExerciseDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -42,14 +49,37 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
     };
   } else {
     try {
-      const [rawExercise, metadata, isFavorited, history] = await Promise.all([
+      // listMyRecentlyViewedExercises has no dependency on the exercise
+      // being fetched, so it runs in the same round as the vendor call
+      // instead of waiting behind it — only getRelatedExercises has a real
+      // dependency (this exercise's own muscle/category) and stays
+      // sequenced after.
+      const [rawExercise, metadata, isFavorited, history, recentlyViewedRaw] = await Promise.all([
         client.getExercise(params.id),
         getExerciseMetadata(supabase, 'exercise_api_dev', params.id),
         isExerciseFavorited(supabase, user.id, 'exercise_api_dev', params.id),
         listExerciseCompletionHistory(supabase, user.id, 'exercise_api_dev', params.id),
+        listMyRecentlyViewedExercises(supabase, user.id, 6),
       ]);
       const exercise = normalizeExerciseApiExercise(rawExercise, metadata, isFavorited);
-      content = <ExerciseDetailView exercise={exercise} history={history} />;
+
+      const relatedExercises = await getRelatedExercises(client, supabase, user.id, {
+        externalId: exercise.externalId,
+        primaryMuscle: exercise.primaryMuscles[0] ?? null,
+        category: exercise.category,
+      });
+      const recentlyViewed = recentlyViewedRaw.filter(
+        (view) => view.external_id !== exercise.externalId
+      );
+
+      content = (
+        <ExerciseDetailView
+          exercise={exercise}
+          history={history}
+          relatedExercises={relatedExercises}
+          recentlyViewed={recentlyViewed}
+        />
+      );
 
       // Best-effort — "recently viewed" is a nice-to-have, never worth
       // failing the page load over (same discipline as every other
@@ -59,7 +89,11 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
       );
     } catch (err) {
       if (err instanceof ExerciseApiError) {
-        error = { code: err.code, message: err.message, retryAfterSeconds: err.retryAfterSeconds ?? null };
+        error = {
+          code: err.code,
+          message: err.message,
+          retryAfterSeconds: err.retryAfterSeconds ?? null,
+        };
       } else {
         console.error('[exercise-library] detail page failed', err);
         error = {

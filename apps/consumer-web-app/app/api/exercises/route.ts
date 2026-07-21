@@ -11,6 +11,15 @@
  * `resource=muscles|equipment|categories` powers the filter dropdowns;
  * the default (search) resource returns exercises normalized and merged
  * with MEF metadata + the signed-in member's favorite state.
+ *
+ * Results are re-sorted by media availability (video > image > no media)
+ * via rankByMediaAvailability before returning — a stable sort that never
+ * changes relevance order within a tier and never drops a no-media
+ * exercise, only reorders it after the media-having ones. `imageOnly` and
+ * `hideNoMedia` are applied client-of-this-route (same idiom as
+ * `bodyRegion` below) since the vendor API has no concept of "usable
+ * image" the way this app defines it — `hasVideo` alone is still sent to
+ * the vendor as a real search parameter.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -26,6 +35,7 @@ import { listMyExerciseFavoriteIds } from '@/lib/exercise-library/favorites';
 import { normalizeExerciseApiExercise } from '@/lib/exercise-library/normalize';
 import { resolveSearchAlias } from '@/lib/exercise-library/searchAliases';
 import { musclesMatchBodyRegion, type BodyRegion } from '@/lib/exercise-library/bodyRegions';
+import { rankByMediaAvailability } from '@/lib/exercise-library/ranking';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,6 +102,8 @@ export async function GET(request: NextRequest) {
       bodyRegionParam && BODY_REGIONS.includes(bodyRegionParam)
         ? (bodyRegionParam as BodyRegion)
         : null;
+    const imageOnly = params.get('imageOnly') === 'true';
+    const hideNoMedia = params.get('hideNoMedia') === 'true';
 
     const searchParams: ExerciseApiSearchParams = {
       q: rawQuery ? resolveSearchAlias(rawQuery) : undefined,
@@ -130,13 +142,24 @@ export async function GET(request: NextRequest) {
       listMyExerciseFavoriteIds(supabase, user.id, 'exercise_api_dev'),
     ]);
 
-    const data = exercises.map((exercise) =>
+    let data = exercises.map((exercise) =>
       normalizeExerciseApiExercise(
         exercise,
         metadataMap.get(exercise.id) ?? null,
         favoriteIds.has(exercise.id)
       )
     );
+
+    if (imageOnly) {
+      data = data.filter((exercise) => Boolean(exercise.imageUrl));
+      total = null;
+    }
+    if (hideNoMedia) {
+      data = data.filter((exercise) => Boolean(exercise.videoUrl) || Boolean(exercise.imageUrl));
+      total = null;
+    }
+
+    data = rankByMediaAvailability(data);
 
     return NextResponse.json({ data, total, limit: result.limit, offset: result.offset });
   } catch (err) {
