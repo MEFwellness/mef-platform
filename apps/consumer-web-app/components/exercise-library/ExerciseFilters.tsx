@@ -68,7 +68,7 @@ function FilterSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mef-focus-ring rounded-lg border border-[#1B3A2D]/15 bg-white px-2 py-1.5 text-sm text-[#1B3A2D] transition hover:border-[#1B3A2D]/30"
+        className="mef-focus-ring rounded-lg border border-[#1B3A2D]/15 bg-white px-2 py-1.5 text-base text-[#1B3A2D] transition hover:border-[#1B3A2D]/30"
       >
         <option value="">Any</option>
         {options.map((opt) => (

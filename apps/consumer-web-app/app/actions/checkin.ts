@@ -10,6 +10,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 import type { DailyCheckinInput, DailyCheckin, Habit } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
 import { emitAndDispatch } from '@/lib/ai/events';
@@ -47,9 +48,7 @@ export async function resolveLocalDate(
 
 export async function submitDailyCheckin(input: DailyCheckinInput): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user) return { error: 'Not signed in.' };
 
@@ -250,9 +249,7 @@ export async function submitEveningBodyCheckin(
  */
 export async function getTodaysCheckin(localDate: string): Promise<DailyCheckin | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const { data, error } = await supabase
@@ -275,9 +272,7 @@ export async function getTodaysCheckin(localDate: string): Promise<DailyCheckin 
  */
 export async function getRecentCheckins(days: number): Promise<DailyCheckin[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -298,9 +293,7 @@ export async function getRecentCheckins(days: number): Promise<DailyCheckin[]> {
 
 export async function getActiveHabits(): Promise<Habit[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -323,9 +316,7 @@ export async function logHabitCompletion(
   completed: boolean
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const { error } = await supabase
@@ -346,9 +337,7 @@ export async function logHabitCompletion(
  */
 export async function getHabitLogsForDate(localDate: string): Promise<Record<string, boolean>> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return {};
 
   const { data, error } = await supabase
@@ -362,4 +351,25 @@ export async function getHabitLogsForDate(localDate: string): Promise<Record<str
     return {};
   }
   return Object.fromEntries(data.map((log) => [log.habit_id, log.completed]));
+}
+
+/**
+ * Marks the one-time "come back for Evening Reflection" reminder as shown
+ * (profiles.evening_reflection_reminder_shown_at, migration 87) so it
+ * never interrupts a later Morning Readiness check-in. Relies entirely on
+ * member_update_own_profile (id = auth.uid()), same as every other
+ * profiles write in this app. There is no separate authorization check.
+ */
+export async function markEveningReminderShown(): Promise<ActionResult> {
+  const supabase = createClient();
+  const user = await getCachedUser();
+  if (!user) return { error: 'Not signed in.' };
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ evening_reflection_reminder_shown_at: new Date().toISOString() })
+    .eq('id', user.id);
+
+  if (error) return { error: error.message };
+  return {};
 }

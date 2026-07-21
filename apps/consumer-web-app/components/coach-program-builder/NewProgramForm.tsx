@@ -6,7 +6,7 @@ import type { Route } from 'next';
 import { createProgramTemplateAction } from '@/app/actions/coach-programs';
 
 const INPUT =
-  'w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
+  'w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 /** Just enough to create the template row — the full builder (sections, exercises, tags) opens immediately after, at /coach/programs/[id]. */

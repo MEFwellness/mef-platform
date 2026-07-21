@@ -75,7 +75,7 @@ export function AddPantryItemForm({ onAdded }: { onAdded: (item: PantryItemWithP
           onChange={(e) => setName(e.target.value)}
           onFocus={() => setExpanded(true)}
           placeholder="e.g. spinach, eggs, olive oil"
-          className="flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+          className="flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
         />
         <button
           type="submit"
@@ -93,12 +93,12 @@ export function AddPantryItemForm({ onAdded }: { onAdded: (item: PantryItemWithP
             value={quantityText}
             onChange={(e) => setQuantityText(e.target.value)}
             placeholder="Quantity (e.g. 1 bag)"
-            className="min-w-[140px] flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+            className="min-w-[140px] flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
           />
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="min-w-[140px] flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+            className="min-w-[140px] flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
           >
             {CATEGORY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -111,7 +111,7 @@ export function AddPantryItemForm({ onAdded }: { onAdded: (item: PantryItemWithP
             value={expirationDate}
             onChange={(e) => setExpirationDate(e.target.value)}
             aria-label="Expiration date"
-            className="min-w-[140px] flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+            className="min-w-[140px] flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
           />
         </div>
       )}

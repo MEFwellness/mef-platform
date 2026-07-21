@@ -7,30 +7,45 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveLocalDate } from './checkin';
 import type { MorningBrief } from '@mef/shared-types-contracts';
 import { getOrCreateTodaysMorningBrief } from '@/lib/coaching-engine/service';
 
-/** The member's Daily Morning Brief for today, generating it on the spot if the daily cron hasn't pre-warmed it yet for their timezone — same lazy-idempotent pattern getOrCreateTodaysFeed already uses for the Daily Coaching Feed. */
-export async function getMyMorningBrief(): Promise<MorningBrief | null> {
+/**
+ * The member's Daily Morning Brief for today, generating it on the spot if
+ * the daily cron hasn't pre-warmed it yet for their timezone, same lazy-
+ * idempotent pattern getOrCreateTodaysFeed already uses for the Daily
+ * Coaching Feed. `timezone`/`displayName` are optional caller-supplied
+ * values (e.g. the Dashboard already fetched its own profile row),
+ * passing them skips this function's own redundant profiles query for the
+ * exact same row; omit them and behavior is unchanged from before.
+ */
+export async function getMyMorningBrief(
+  timezone?: string,
+  displayName?: string | null
+): Promise<MorningBrief | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, timezone')
-    .eq('id', user.id)
-    .single();
+  let resolvedTimezone = timezone;
+  let resolvedDisplayName = displayName;
+  if (!resolvedTimezone) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('display_name, timezone')
+      .eq('id', user.id)
+      .single();
+    resolvedTimezone = profile?.timezone ?? 'America/New_York';
+    resolvedDisplayName = profile?.display_name;
+  }
 
-  const timezone = profile?.timezone ?? 'America/New_York';
   const localDate = await resolveLocalDate(
-    new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
+    new Date(new Date().toLocaleString('en-US', { timeZone: resolvedTimezone })),
     false
   );
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = resolvedDisplayName?.split(' ')[0] ?? 'there';
 
   return getOrCreateTodaysMorningBrief(supabase, user.id, localDate, firstName);
 }

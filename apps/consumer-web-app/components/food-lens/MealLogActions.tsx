@@ -88,7 +88,7 @@ export function MealLogActions({
         <select
           value={mealCategory}
           onChange={(e) => setMealCategory(e.target.value as MealCategory)}
-          className="rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm capitalize text-[#1B3A2D]"
+          className="rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base capitalize text-[#1B3A2D]"
         >
           {MEAL_CATEGORIES.map((c) => (
             <option key={c} value={c}>
@@ -100,7 +100,7 @@ export function MealLogActions({
           type="datetime-local"
           value={consumedAt}
           onChange={(e) => setConsumedAt(e.target.value)}
-          className="rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+          className="rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
         />
       </div>
 
@@ -122,7 +122,7 @@ export function MealLogActions({
             value={mealName}
             onChange={(e) => setMealName(e.target.value)}
             placeholder="e.g. My usual breakfast"
-            className="flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+            className="flex-1 rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
           />
           <button
             type="button"

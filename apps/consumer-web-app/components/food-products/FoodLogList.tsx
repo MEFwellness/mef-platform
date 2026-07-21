@@ -215,7 +215,7 @@ function EditEntryForm({
         <select
           value={mealCategory}
           onChange={(e) => setMealCategory(e.target.value as MealCategory)}
-          className="rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm capitalize text-[#1B3A2D]"
+          className="rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base capitalize text-[#1B3A2D]"
         >
           {MEAL_CATEGORIES.map((c) => (
             <option key={c} value={c}>
@@ -230,21 +230,21 @@ function EditEntryForm({
           step="0.25"
           value={servings}
           onChange={(e) => setServings(e.target.value)}
-          className="rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+          className="rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
         />
       </div>
       <input
         type="datetime-local"
         value={consumedAt}
         onChange={(e) => setConsumedAt(e.target.value)}
-        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
       />
       <input
         type="text"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         placeholder="Add a note (optional)"
-        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]"
+        className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D] placeholder:text-[#9AA79F]"
       />
       <div className="flex gap-2">
         <button

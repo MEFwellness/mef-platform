@@ -10,6 +10,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { getOrCalculateRootScore, getRootScoreHistory } from '@/lib/scoring/service';
 
@@ -25,9 +26,7 @@ export async function getMyRootScore(
   timezone: string
 ): Promise<RootScoreSnapshot | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   return getOrCalculateRootScore(supabase, user.id, { localDate, timezone });
@@ -36,9 +35,7 @@ export async function getMyRootScore(
 /** Oldest-first snapshot history for the Progress trend chart. */
 export async function getMyRootScoreHistory(days = 90): Promise<RootScoreSnapshot[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   return getRootScoreHistory(supabase, user.id, days);

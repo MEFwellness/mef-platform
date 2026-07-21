@@ -165,7 +165,7 @@ export function PantryItemCard({
               value={quantityText}
               onChange={(e) => setQuantityText(e.target.value)}
               placeholder="e.g. 1 dozen"
-              className="mt-1 w-full rounded-lg border border-[#1B3A2D]/15 px-2.5 py-1.5 text-sm text-[#1B3A2D]"
+              className="mt-1 w-full rounded-lg border border-[#1B3A2D]/15 px-2.5 py-1.5 text-base text-[#1B3A2D]"
             />
           </div>
           <div className="min-w-[140px] flex-1">
@@ -176,7 +176,7 @@ export function PantryItemCard({
               type="date"
               value={expirationDate}
               onChange={(e) => setExpirationDate(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[#1B3A2D]/15 px-2.5 py-1.5 text-sm text-[#1B3A2D]"
+              className="mt-1 w-full rounded-lg border border-[#1B3A2D]/15 px-2.5 py-1.5 text-base text-[#1B3A2D]"
             />
           </div>
           <button

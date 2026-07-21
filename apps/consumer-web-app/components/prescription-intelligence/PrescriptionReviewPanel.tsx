@@ -21,7 +21,7 @@ import type { BlockExerciseDraft } from '@/lib/prescription-intelligence/exercis
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const INPUT =
-  'w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
+  'w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
 
 const SEVERITY_STYLE: Record<string, string> = {
   low: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]',

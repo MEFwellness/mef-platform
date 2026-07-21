@@ -92,7 +92,7 @@ export function PrimalPatternForm({ initial }: { initial: PrimalPatternProfile |
           type="text"
           value={patternLabel}
           onChange={(e) => setPatternLabel(e.target.value)}
-          className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-sm text-[#1B3A2D]"
+          className="mt-1.5 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2 text-base text-[#1B3A2D]"
         />
       </div>
 

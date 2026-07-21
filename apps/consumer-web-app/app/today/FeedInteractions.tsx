@@ -120,7 +120,7 @@ export function FeedInteractions({
               onChange={(event) => setReflection(event.target.value)}
               placeholder="A few words is plenty…"
               rows={2}
-              className="mt-3 w-full resize-none rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-4 text-sm text-[#1B3A2D] transition focus:border-[#F5B700] focus:outline-none"
+              className="mt-3 w-full resize-none rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-4 text-base text-[#1B3A2D] transition focus:border-[#F5B700] focus:outline-none"
             />
             <div className="mt-2 flex justify-end">
               <button

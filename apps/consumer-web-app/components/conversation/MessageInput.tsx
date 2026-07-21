@@ -135,7 +135,7 @@ export function MessageInput({
             autoFocus={autoFocus}
             placeholder={isListening ? 'Listening…' : placeholder}
             aria-label="Message"
-            className="max-h-32 w-full resize-none rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+            className="max-h-32 w-full resize-none rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
           />
           {isListening && (
             <span

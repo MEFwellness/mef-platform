@@ -147,7 +147,7 @@ export function FoodSearch() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search foods you've logged or scanned"
-          className="w-full rounded-full border border-[#1B3A2D]/15 bg-white py-3 pl-11 pr-4 text-sm text-[#1B3A2D] placeholder:text-[#9AA79F]"
+          className="w-full rounded-full border border-[#1B3A2D]/15 bg-white py-3 pl-11 pr-4 text-base text-[#1B3A2D] placeholder:text-[#9AA79F]"
         />
         {isSearching && (
           <Loader2

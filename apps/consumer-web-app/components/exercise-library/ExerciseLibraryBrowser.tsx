@@ -210,7 +210,7 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="Search exercises (e.g. squat, plank, shoulder mobility)"
               aria-label="Search exercises"
-              className="mef-focus-ring w-full rounded-full border border-[#1B3A2D]/15 bg-white py-3 pl-11 pr-11 text-sm text-[#1B3A2D] outline-none transition focus:border-[#1B3A2D]/40"
+              className="mef-focus-ring w-full rounded-full border border-[#1B3A2D]/15 bg-white py-3 pl-11 pr-11 text-base text-[#1B3A2D] outline-none transition focus:border-[#1B3A2D]/40"
             />
             {query && (
               <button

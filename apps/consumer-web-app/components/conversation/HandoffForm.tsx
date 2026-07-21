@@ -89,7 +89,7 @@ export function HandoffForm({
           id="handoff-urgency"
           value={handoffUrgency}
           onChange={(e) => setHandoffUrgency(e.target.value as ConversationHandoffUrgency)}
-          className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-3 py-1.5 text-xs text-[#1B3A2D]"
+          className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-3 py-1.5 text-base text-[#1B3A2D]"
         >
           <option value="low">Low — whenever they can</option>
           <option value="medium">Medium — this week</option>

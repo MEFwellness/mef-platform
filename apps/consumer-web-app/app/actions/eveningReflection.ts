@@ -13,6 +13,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 import type { EnergyPattern, EveningReflection } from '@mef/shared-types-contracts';
 import { recordMemberEvent } from '@/lib/events/service';
 import { recordTimelineEvent } from '@/lib/timeline/data';
@@ -29,12 +30,15 @@ export type EveningReflectionFormInput = {
 };
 
 async function requireMemberTimezone(
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  timezoneOverride?: string
 ): Promise<{ memberId: string; timezone: string } | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
+
+  if (timezoneOverride) {
+    return { memberId: user.id, timezone: timezoneOverride };
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -45,10 +49,19 @@ async function requireMemberTimezone(
   return { memberId: user.id, timezone: profile?.timezone ?? 'America/New_York' };
 }
 
-/** Today's Evening Reflection, or null if it hasn't been submitted yet — powers "resume where you left off" the same way getTodaysCheckin does for the morning flow. */
-export async function getTodaysEveningReflection(): Promise<EveningReflection | null> {
+/**
+ * Today's Evening Reflection, or null if it hasn't been submitted yet,
+ * powers "resume where you left off" the same way getTodaysCheckin does
+ * for the morning flow. `timezone` is an optional caller-supplied value
+ * (e.g. the Dashboard already fetched its own profile row), passing it
+ * skips this function's own redundant profiles query for the exact same
+ * row; omit it and behavior is unchanged from before.
+ */
+export async function getTodaysEveningReflection(
+  timezone?: string
+): Promise<EveningReflection | null> {
   const supabase = createClient();
-  const ctx = await requireMemberTimezone(supabase);
+  const ctx = await requireMemberTimezone(supabase, timezone);
   if (!ctx) return null;
 
   const localDate = todaysLocalDate(ctx.timezone);
