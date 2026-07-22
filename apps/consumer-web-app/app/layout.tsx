@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import { withBrandVersion } from '@/lib/brand';
+import { GuestPreviewMigrator } from './GuestPreviewMigrator';
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ['latin'],
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${cormorantGaramond.variable} ${dmSans.variable}`}>
       <body className={`${dmSans.className} min-h-screen bg-[#FAFAF8] text-[#1B3A2D] antialiased`}>
+        <GuestPreviewMigrator />
         {children}
       </body>
     </html>
