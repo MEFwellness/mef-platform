@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { signIn } from '../../actions/auth';
+import { getFriendlyAuthError } from '@/lib/auth/errors';
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   return (
     <>
@@ -16,9 +18,13 @@ export default function LoginPage() {
       <form
         className="mt-5 space-y-4"
         action={async (formData) => {
+          if (submittingRef.current) return;
+          submittingRef.current = true;
+          setError(null);
           setSubmitting(true);
           const result = await signIn(formData);
-          if (result?.error) setError(result.error);
+          if (result?.error) setError(getFriendlyAuthError(result.error));
+          submittingRef.current = false;
           setSubmitting(false);
         }}
       >

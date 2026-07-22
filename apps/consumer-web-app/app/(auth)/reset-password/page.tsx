@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { requestPasswordReset } from '../../actions/auth';
+import { getFriendlyAuthError } from '@/lib/auth/errors';
 
 export default function ResetPasswordPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   return (
     <>
@@ -16,9 +18,16 @@ export default function ResetPasswordPage() {
       <form
         className="mt-5 space-y-4"
         action={async (formData) => {
+          if (submittingRef.current) return;
+          submittingRef.current = true;
           setSubmitting(true);
           const result = await requestPasswordReset(formData);
-          setMessage(result?.error ?? 'If that email exists, a reset link has been sent.');
+          setMessage(
+            result?.error
+              ? getFriendlyAuthError(result.error)
+              : 'If that email exists, a reset link has been sent.'
+          );
+          submittingRef.current = false;
           setSubmitting(false);
         }}
       >
