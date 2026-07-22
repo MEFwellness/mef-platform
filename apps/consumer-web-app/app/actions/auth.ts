@@ -50,7 +50,25 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   } catch (err) {
     return toActionError(err);
   }
-  redirect('/verify');
+  redirect(`/verify?email=${encodeURIComponent(email)}`);
+}
+
+/** Re-sends the signup confirmation email. Supabase enforces its own resend cooldown. */
+export async function resendVerificationEmail(email: string): Promise<ActionResult> {
+  try {
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+      },
+    });
+    if (error) return { error: error.message };
+    return {};
+  } catch (err) {
+    return toActionError(err);
+  }
 }
 
 export async function signIn(formData: FormData): Promise<ActionResult> {
@@ -82,7 +100,12 @@ export async function requestPasswordReset(formData: FormData): Promise<ActionRe
   try {
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password/confirm`,
+      // Routes through the same code-exchange callback signup already uses
+      // (app/api/auth/callback/route.ts) so the recovery code becomes a real
+      // session before the confirm page calls updateUser() — without this,
+      // Supabase's PKCE-style recovery link lands on reset-password/confirm
+      // with only an unexchanged `?code=`, no session, and updateUser fails.
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?next=/reset-password/confirm`,
     });
     if (error) return { error: error.message };
     return {};
@@ -97,8 +120,8 @@ export async function updatePassword(formData: FormData): Promise<ActionResult> 
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
     if (error) return { error: error.message };
+    return {};
   } catch (err) {
     return toActionError(err);
   }
-  redirect('/login');
 }
