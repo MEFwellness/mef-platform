@@ -64,9 +64,7 @@ export default function ConfirmResetPage() {
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
           Password updated
         </h1>
-        <p className="mt-4 text-sm text-[#6B7A72]">
-          Your password has been successfully updated.
-        </p>
+        <p className="mt-4 text-sm text-[#6B7A72]">Your password has been successfully updated.</p>
         <Link
           href="/login"
           className="mt-6 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110"

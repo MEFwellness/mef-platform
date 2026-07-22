@@ -96,9 +96,9 @@ describe('getFriendlyAuthError', () => {
   });
 
   it('maps a rate-limit message to a friendly cooldown message', () => {
-    expect(getFriendlyAuthError('For security purposes, you can only request this after 57 seconds.')).toMatch(
-      /wait a moment/
-    );
+    expect(
+      getFriendlyAuthError('For security purposes, you can only request this after 57 seconds.')
+    ).toMatch(/wait a moment/);
   });
 
   it('maps a network failure to a friendly connectivity message', () => {

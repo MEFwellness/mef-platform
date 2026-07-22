@@ -97,10 +97,7 @@ function VerifyPageContent() {
       )}
 
       {resendMessage && (
-        <p
-          role="status"
-          className="mt-4 rounded-2xl bg-[#EFF6F1] px-4 py-3 text-sm text-[#1B3A2D]"
-        >
+        <p role="status" className="mt-4 rounded-2xl bg-[#EFF6F1] px-4 py-3 text-sm text-[#1B3A2D]">
           {resendMessage}
         </p>
       )}
