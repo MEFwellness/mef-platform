@@ -19,6 +19,12 @@ const PUBLIC_PATHS = [
   '/reset-password',
   '/api/auth/callback',
   '/api/cron/',
+  // Pre-signup Quick Wellness Check — reached from marketing/campaign
+  // links, not the default login route. Its own page component
+  // (app/wellness-check/page.tsx) redirects an already-signed-in visitor
+  // straight into the app, so this exemption only ever matters for a
+  // genuine guest.
+  '/wellness-check',
 ];
 
 export async function middleware(request: NextRequest) {
