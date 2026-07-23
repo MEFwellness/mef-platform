@@ -1,6 +1,8 @@
 'use server';
 
+import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { getSupabaseEnv } from '@/lib/supabase/env';
 import { hasCompletedConsent } from './consent';
 import { fetchBaselineAssessment, type BaselineAssessment } from '@/lib/onboarding/baseline';
 import {
@@ -43,6 +45,53 @@ export async function getOnboardingQuestions(): Promise<OnboardingQuestion[]> {
 
   if (error) {
     console.error('Failed to load onboarding questions', error);
+    return [];
+  }
+  return data as OnboardingQuestion[];
+}
+
+/**
+ * onboarding_questions/onboarding_assessment_versions RLS requires
+ * auth.role() = 'authenticated' (migration 16), and this app has no
+ * Supabase anonymous auth enabled — so a true guest session can't read the
+ * question list via getOnboardingQuestions()'s normal session client at
+ * all. This bypasses RLS with the service-role key (same pattern as
+ * app/api/cron/wearable-daily/route.ts's serviceRoleClient()), scoped to
+ * exactly this one read-only query — never used for submissions, answers,
+ * or consent, all of which still require a real signed-in session via the
+ * normal client regardless of how the guest got here.
+ */
+function serviceRoleClient() {
+  const { url } = getSupabaseEnv();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY is missing — set it in your hosting provider's " +
+        'project environment variables, then redeploy.'
+    );
+  }
+  return createSupabaseJsClient(url, serviceRoleKey);
+}
+
+export async function getOnboardingQuestionsForGuest(): Promise<OnboardingQuestion[]> {
+  const supabase = serviceRoleClient();
+  const { data: version } = await supabase
+    .from('onboarding_assessment_versions')
+    .select('id')
+    .eq('assessment_version', ASSESSMENT_VERSION)
+    .is('retired_at', null)
+    .single();
+
+  if (!version) return [];
+
+  const { data, error } = await supabase
+    .from('onboarding_questions')
+    .select('*')
+    .eq('assessment_version_id', version.id)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Failed to load onboarding questions for guest', error);
     return [];
   }
   return data as OnboardingQuestion[];

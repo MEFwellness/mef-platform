@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { hasCompletedConsent } from '../actions/consent';
-import { getOnboardingQuestions } from '../actions/onboarding';
-import { redirect } from 'next/navigation';
+import { getOnboardingQuestions, getOnboardingQuestionsForGuest } from '../actions/onboarding';
 import { ConsentForm } from './ConsentForm';
 import { OnboardingFlow } from './OnboardingFlow';
 
@@ -13,12 +12,47 @@ const CONTAINER = 'mx-auto w-full max-w-md px-5 py-10 sm:px-6 md:max-w-2xl md:px
 const HEADING =
   'font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]';
 
+function UnavailableNotice() {
+  return (
+    <div className={SHELL}>
+      <main className={CONTAINER}>
+        <h1 className={HEADING}>We&apos;ll be right with you</h1>
+        <p className="mt-2 text-[15px] text-[#6B7A72]">
+          Your onboarding assessment isn&apos;t available right now. Please try again in a few
+          minutes, or contact support if this continues.
+        </p>
+      </main>
+    </div>
+  );
+}
+
 export default async function OnboardingPage() {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+
+  // No account required — a visitor can take the assessment before
+  // signing up (middleware.ts's PUBLIC_PATHS exempts /onboarding for
+  // exactly this). The question list is fetched via a service-role read
+  // (getOnboardingQuestionsForGuest) since onboarding_questions' RLS
+  // requires an authenticated session and this app has no anonymous auth.
+  // Nothing is written to Postgres in this branch — OnboardingFlow's
+  // guest mode stores answers in localStorage and only ever submits them
+  // for real once the member signs in with a real account (see
+  // OnboardingFlow.tsx's member-mode migration effect).
+  if (!user) {
+    const questions = await getOnboardingQuestionsForGuest();
+    if (questions.length === 0) return <UnavailableNotice />;
+
+    return (
+      <div className={SHELL}>
+        <main className={CONTAINER}>
+          <OnboardingFlow questions={questions} mode="guest" />
+        </main>
+      </div>
+    );
+  }
 
   const consented = await hasCompletedConsent(user.id);
 
@@ -82,23 +116,13 @@ export default async function OnboardingPage() {
   // something the member can fix. Show a calm apology instead of an empty
   // form with a submit button that has nothing to submit.
   if (questions.length === 0) {
-    return (
-      <div className={SHELL}>
-        <main className={CONTAINER}>
-          <h1 className={HEADING}>We&apos;ll be right with you</h1>
-          <p className="mt-2 text-[15px] text-[#6B7A72]">
-            Your onboarding assessment isn&apos;t available right now. Please try again in a few
-            minutes, or contact support if this continues.
-          </p>
-        </main>
-      </div>
-    );
+    return <UnavailableNotice />;
   }
 
   return (
     <div className={SHELL}>
       <main className={CONTAINER}>
-        <OnboardingFlow questions={questions} />
+        <OnboardingFlow questions={questions} mode="member" />
       </main>
     </div>
   );

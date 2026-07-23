@@ -25,6 +25,12 @@ const PUBLIC_PATHS = [
   // straight into the app, so this exemption only ever matters for a
   // genuine guest.
   '/wellness-check',
+  // Onboarding assessment — publicly reachable so a guest can take it
+  // before creating an account; app/onboarding/page.tsx itself branches
+  // on whether a session exists (guest vs. member flow). The other
+  // /onboarding check below only ever fires `if (user && ...)`, so it's
+  // unaffected by this exemption.
+  '/onboarding',
 ];
 
 export async function middleware(request: NextRequest) {

@@ -36,6 +36,16 @@ type Props = {
   onSubmitted?: () => void;
   /** Defaults to "Submit onboarding" — the reassessment flow relabels this without needing a second copy of the form. */
   submitLabel?: string;
+  /**
+   * Guest mode (no signed-in session — see app/onboarding/OnboardingFlow.tsx's
+   * 'guest' mode): skips the submitOnboarding() server call entirely (a
+   * guest has no auth.uid() for RLS to even accept) and hands the built
+   * payload to onGuestSave instead, which OnboardingFlow uses to persist it
+   * to localStorage. Every other line of validation/branching/rendering is
+   * identical to the authenticated path.
+   */
+  guestMode?: boolean;
+  onGuestSave?: (payload: OnboardingAnswerInput[]) => void;
 };
 
 type StoredAnswer = {
@@ -473,6 +483,8 @@ export function OnboardingForm({
   questions,
   onSubmitted,
   submitLabel = 'Submit onboarding',
+  guestMode = false,
+  onGuestSave,
 }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, StoredAnswer>>({});
@@ -615,14 +627,17 @@ export function OnboardingForm({
       };
     });
 
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+    if (guestMode) {
+      onGuestSave?.(payload);
+    } else {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+      const result = await submitOnboarding(timezone, payload);
 
-    const result = await submitOnboarding(timezone, payload);
-
-    if (result.error) {
-      setError(result.error);
-      setSubmitting(false);
-      return;
+      if (result.error) {
+        setError(result.error);
+        setSubmitting(false);
+        return;
+      }
     }
 
     if (onSubmitted) {
