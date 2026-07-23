@@ -44,7 +44,8 @@ export type RootRouterOutcomeView = {
   investigation: RecommendedInvestigationView | null;
 };
 
-const EXPERIMENT_DOMAINS = new Set(['movement', 'recovery', 'nutrition', 'sleep', 'stress', 'breathing', 'hydration']);
+/** Exported for reuse by lib/recommendation-engine/ — which specific recommendations are experiment-eligible, not just whether the member-wide outcome is 'lifestyle_experiment'. */
+export const EXPERIMENT_DOMAINS = new Set(['movement', 'recovery', 'nutrition', 'sleep', 'stress', 'breathing', 'hydration']);
 const REFLECTION_DOMAINS = new Set(['reflection', 'education']);
 
 const MEMBER_MESSAGE: Record<RootRouterOutcome, string> = {

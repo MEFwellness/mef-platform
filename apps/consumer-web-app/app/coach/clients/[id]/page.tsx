@@ -36,6 +36,8 @@ import {
 } from '@/app/actions/intelligence-engine';
 import { getClientRootCauseSignals } from '@/app/actions/rootCauseSignals';
 import { getClientRootMap } from '@/app/actions/rootMap';
+import { getClientRecommendations } from '@/app/actions/recommendations';
+import { getClientLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { getClientIntelligenceCoreSummary } from '@/app/actions/intelligence-core';
 import {
   getClientConversationSessionsAction,
@@ -69,6 +71,7 @@ import { IntelligencePanel } from './IntelligencePanel';
 import { MemberIntelligencePanel } from './MemberIntelligencePanel';
 import { RootCauseSignalsPanel } from './RootCauseSignalsPanel';
 import { RootMapPanel } from './RootMapPanel';
+import { RecommendationsPanel } from './RecommendationsPanel';
 import { IntelligenceCorePanel } from './IntelligenceCorePanel';
 import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
@@ -185,6 +188,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     prescriptionSnapshots,
     rootCauseSignals,
     rootMap,
+    clientRecommendations,
+    clientExperiments,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -209,6 +214,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     listPrescriptionSnapshotsForClientAction(profile.id),
     getClientRootCauseSignals(profile.id),
     getClientRootMap(profile.id),
+    getClientRecommendations(profile.id),
+    getClientLifestyleExperiments(profile.id),
   ]);
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
@@ -450,6 +457,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               per-domain view, extended here with safety flags, pending
               reassessments, and Root Router decision history. Coach-only. */}
           {rootMap && <RootMapPanel rootMap={rootMap} />}
+
+          {/* Recommendations (Prompt 11) — the Recommendation Engine's
+              persisted, explainable suggestions and any Lifestyle
+              Experiments this member has started. Coach-only, read-only. */}
+          <RecommendationsPanel recommendations={clientRecommendations} experiments={clientExperiments} />
 
           {/* MEF Wellness Intelligence Core — the durable "who is this
               member as a coaching subject" model: wellness identity

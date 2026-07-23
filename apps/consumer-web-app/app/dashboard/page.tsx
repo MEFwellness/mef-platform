@@ -88,6 +88,7 @@ import { getMyQuestionnaireCatalog } from '@/app/actions/questionnaireCatalog';
 import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
 import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCard';
 import { RootMapCard } from '@/components/RootMapCard';
+import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
 import {
   stressStatus,
   painStatus,
@@ -654,6 +655,19 @@ export default async function DashboardPage({
               {/* ---------------------------------------------------- */}
               <Suspense fallback={<NoticingCardSkeleton />}>
                 <RootMapCard />
+              </Suspense>
+
+              {/* ---------------------------------------------------- */}
+              {/* Recommendations (Prompt 11) — the Recommendation        */}
+              {/* Engine's persisted, actionable suggestions. Suspense-    */}
+              {/* wrapped for the same reason as Root Map above: its own   */}
+              {/* fetch (getMyRecommendations) shouldn't block the rest    */}
+              {/* of the dashboard. See                                   */}
+              {/* components/dashboard/RecommendationsCard.tsx and         */}
+              {/* app/recommendations/.                                   */}
+              {/* ---------------------------------------------------- */}
+              <Suspense fallback={<NoticingCardSkeleton />}>
+                <RecommendationsCard />
               </Suspense>
             </>
           )}

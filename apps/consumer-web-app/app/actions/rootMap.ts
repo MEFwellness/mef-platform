@@ -17,16 +17,18 @@
  * (matching every other panel on the coach client page).
  */
 
+import type { RegistryEntry } from '@mef/shared-types-contracts';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveLocalDate } from './checkin';
 import { listRegistryEntriesForMember } from '@/lib/registry/data';
 import { getMemberRestrictedTopics } from '@/lib/feed/data';
 import { computeMemberIntelligence, buildMemberIntelligence } from '@/lib/intelligence-engine/engine';
-import { computeDomainConfidence } from '@/lib/investigation-engine/confidence';
+import type { MemberIntelligenceReport } from '@/lib/intelligence-engine/types';
+import { computeDomainConfidence, type DomainConfidence } from '@/lib/investigation-engine/confidence';
 import { COACHING_DOMAINS } from '@/lib/investigation-engine/domains';
-import { decideNextAction } from '@/lib/investigation-engine/rootRouter';
-import { classifyRouterOutcome } from '@/lib/investigation-engine/routerOutcome';
+import { decideNextAction, type RootRouterDecision } from '@/lib/investigation-engine/rootRouter';
+import { classifyRouterOutcome, type RootRouterOutcomeView } from '@/lib/investigation-engine/routerOutcome';
 import { buildRootMap, type RootMapView } from '@/lib/root-map';
 import {
   listPendingReassessments,
@@ -35,7 +37,7 @@ import {
 
 type SupabaseServerClient = ReturnType<typeof createClient>;
 
-async function localDateFor(supabase: SupabaseServerClient, userId: string): Promise<string> {
+export async function localDateFor(supabase: SupabaseServerClient, userId: string): Promise<string> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('timezone')
@@ -48,12 +50,30 @@ async function localDateFor(supabase: SupabaseServerClient, userId: string): Pro
   );
 }
 
-async function assembleRootMap(
+export type RootMapInputs = {
+  activeFindings: RegistryEntry[];
+  restrictedTopics: string[];
+  decision: RootRouterDecision;
+  report: MemberIntelligenceReport;
+  domainConfidences: DomainConfidence[];
+  routerOutcome: RootRouterOutcomeView;
+};
+
+/**
+ * The shared, once-per-request gather step behind both the Root Map and
+ * the Recommendation Engine (app/actions/recommendations.ts) — extracted
+ * so a page rendering both never calls computeMemberIntelligence()/
+ * decideNextAction() twice for the same member/request. Exported
+ * specifically for that reuse; the Root Map's own shape (RootMapView)
+ * stays this file's concern, the Recommendation Engine builds its own
+ * output from the same inputs.
+ */
+export async function gatherRootMapInputs(
   supabase: SupabaseServerClient,
   memberId: string,
   localDate: string,
   coachView: boolean
-): Promise<RootMapView> {
+): Promise<RootMapInputs> {
   const [activeFindings, restrictedTopics, decision, report] = await Promise.all([
     listRegistryEntriesForMember(supabase, memberId, { statusFilter: ['active'] }),
     getMemberRestrictedTopics(supabase, memberId),
@@ -73,12 +93,23 @@ async function assembleRootMap(
     domainConfidences
   );
 
+  return { activeFindings, restrictedTopics, decision, report, domainConfidences, routerOutcome };
+}
+
+async function assembleRootMap(
+  supabase: SupabaseServerClient,
+  memberId: string,
+  localDate: string,
+  coachView: boolean
+): Promise<RootMapView> {
+  const inputs = await gatherRootMapInputs(supabase, memberId, localDate, coachView);
+
   return buildRootMap({
-    activeFindings,
-    patterns: report.patterns,
-    routerOutcome,
-    safetyGated: decision.safetyGated,
-    restrictedTopics,
+    activeFindings: inputs.activeFindings,
+    patterns: inputs.report.patterns,
+    routerOutcome: inputs.routerOutcome,
+    safetyGated: inputs.decision.safetyGated,
+    restrictedTopics: inputs.restrictedTopics,
     coachView,
   });
 }

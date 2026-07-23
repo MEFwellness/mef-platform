@@ -22,7 +22,8 @@ import type {
   RootCauseHypothesis,
 } from './types';
 
-const AREA_DOMAINS: Partial<Record<WellnessMetricKey, RecommendationDomain[]>> = {
+/** Exported for reuse by lib/recommendation-engine/ — the medical-referral routing check maps a wellness-area reference back onto RecommendationDomain via this exact table rather than duplicating it. */
+export const AREA_DOMAINS: Partial<Record<WellnessMetricKey, RecommendationDomain[]>> = {
   sleep: ['sleep'],
   stress: ['stress', 'breathing'],
   energy: ['recovery'],
