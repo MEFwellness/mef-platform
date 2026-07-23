@@ -44,12 +44,14 @@ export function coachHelperFor(question: OnboardingQuestion): string | null {
 }
 
 export const EXPECTATIONS_COPY = {
+  eyebrow: 'Step 1 of 3 · Understand You',
   title: "Let's get to know you",
   purpose:
-    "This helps us understand how your body has been responding to daily life — there's nothing to prepare, just answer honestly.",
+    "In the next few minutes, you'll start to uncover patterns in how your body has been responding to daily life — the beginning of your personalized wellness picture.",
   questionCount: 12,
   minutes: 3,
-  reassurance: 'There are no right or wrong answers here.',
+  observationPromise: 'A personalized wellness observation, just for you',
+  reassurance: "There's no right or wrong answer here — just what's true for you right now.",
   cta: 'Begin',
 };
 
