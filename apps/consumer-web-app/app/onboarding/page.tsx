@@ -98,13 +98,7 @@ export default async function OnboardingPage() {
   return (
     <div className={SHELL}>
       <main className={CONTAINER}>
-        <h1 className={HEADING}>Onboarding assessment</h1>
-        <p className="mt-2 text-[15px] text-[#6B7A72]">
-          A few questions so your coach can understand where you&apos;re starting from.
-        </p>
-        <div className="mt-6">
-          <OnboardingFlow questions={questions} />
-        </div>
+        <OnboardingFlow questions={questions} />
       </main>
     </div>
   );
