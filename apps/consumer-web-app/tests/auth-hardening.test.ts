@@ -124,6 +124,12 @@ describe('getFriendlyAuthError', () => {
     );
   });
 
+  it('never shows the literal "{}" @supabase/auth-js emits for every 5xx', () => {
+    expect(getFriendlyAuthError('{}')).toBe(
+      'The account service is having a temporary problem on our end. Please try again in a few minutes.'
+    );
+  });
+
   it('never leaks the env-misconfiguration message thrown by lib/supabase/env.ts', () => {
     expect(
       getFriendlyAuthError('Supabase is not configured: NEXT_PUBLIC_SUPABASE_URL is missing.')

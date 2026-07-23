@@ -71,6 +71,13 @@ export function getFriendlyAuthError(
   if (message.includes('supabase is not configured')) {
     return 'Unable to connect to the account service. Please try again later.';
   }
+  // Defense in depth: app/actions/auth.ts already substitutes a curated
+  // message before this ever runs, but "{}" is specifically what
+  // @supabase/auth-js's AuthRetryableFetchError carries for every 5xx (see
+  // toResult() there for why) — never show that literal text to a member.
+  if (/^\{.*\}$/.test(rawMessage.trim())) {
+    return 'The account service is having a temporary problem on our end. Please try again in a few minutes.';
+  }
 
   if (options?.includeRawOnFallback) {
     const prefix = options.fallbackPrefix ?? 'Something went wrong';

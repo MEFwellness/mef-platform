@@ -49,6 +49,31 @@ function toActionError(action: string, err: unknown): ActionResult {
 }
 
 /**
+ * Turns a structured Supabase AuthError into the client-facing result.
+ *
+ * For any 5xx, @supabase/auth-js's fetch layer (lib/fetch.js `handleError`)
+ * deliberately never reads the response body — it throws
+ * `AuthRetryableFetchError(JSON.stringify(rawResponse), status)`, and
+ * `JSON.stringify` on a fetch `Response` object (all getters, no own
+ * enumerable properties) always evaluates to the literal string "{}"
+ * regardless of what Supabase's server actually said. So `error.message`
+ * is never anything but "{}" for a 5xx — showing it to a member would be
+ * showing them garbage, and the real cause lives only in Supabase's own
+ * server-side logs, not in anything this client can see. `error.status` is
+ * unaffected (read directly off the real Response, not JSON.stringify'd)
+ * and is the one signal from a 5xx worth keeping.
+ */
+function toResult(error: { message: string; status?: number | undefined }): ActionResult {
+  if (typeof error.status === 'number' && error.status >= 500) {
+    return {
+      error:
+        'The account service is having a temporary problem on our end. Please try again in a few minutes.',
+    };
+  }
+  return { error: error.message };
+}
+
+/**
  * Sign up. No role field accepted from the form, ever — role assignment is
  * exclusively the handle_new_user() database trigger (migration 17), which
  * hardcodes 'member'. This function has no code path that could grant
@@ -72,7 +97,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
     });
     if (error) {
       logAuthFailure('supabase_request', 'signUp', error);
-      return { error: error.message };
+      return toResult(error);
     }
   } catch (err) {
     return toActionError('signUp', err);
@@ -93,7 +118,7 @@ export async function resendVerificationEmail(email: string): Promise<ActionResu
     });
     if (error) {
       logAuthFailure('supabase_request', 'resendVerificationEmail', error);
-      return { error: error.message };
+      return toResult(error);
     }
     return {};
   } catch (err) {
@@ -110,7 +135,7 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       logAuthFailure('supabase_request', 'signIn', error);
-      return { error: error.message };
+      return toResult(error);
     }
   } catch (err) {
     return toActionError('signIn', err);
@@ -142,7 +167,7 @@ export async function requestPasswordReset(formData: FormData): Promise<ActionRe
     });
     if (error) {
       logAuthFailure('supabase_request', 'requestPasswordReset', error);
-      return { error: error.message };
+      return toResult(error);
     }
     return {};
   } catch (err) {
@@ -157,7 +182,7 @@ export async function updatePassword(formData: FormData): Promise<ActionResult> 
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       logAuthFailure('supabase_request', 'updatePassword', error);
-      return { error: error.message };
+      return toResult(error);
     }
     return {};
   } catch (err) {
