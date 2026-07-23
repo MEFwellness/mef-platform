@@ -1,0 +1,878 @@
+{
+  "id": "short-haq",
+  "version": 1,
+  "title": "Short Health Assessment Questionnaire",
+  "source": "MEF Wellness — an original, in-house symptom-frequency check-in authored for this platform. Not derived from, adapted from, or affiliated with any third-party assessment instrument, certification body, or licensed clinical tool.",
+  "notes": "Every question uses the same 4-point frequency scale: 0 = never or rarely, 1 = occasionally, 2 = often, 3 = frequently. Higher scores mean a pattern is showing up more often in a member's own answers, not a diagnosis. The hormonal_balance category's questions 4 and 5 are gated on the hormonal_balance_gender context question (see contextQuestions): a respondent answers 3 shared questions plus one gender-specific pair, or just the 3 shared questions if gender is left unspecified.",
+  "scoring": {
+    "unit": "points",
+    "direction": "higher_is_worse",
+    "categoryScoreFormula": "sum of points of the single option selected per question in the category, counting only questions active for the respondent (see contextQuestions/condition)",
+    "totalScoreFormula": "sum of all category scores",
+    "totalMaxScore": 162,
+    "totalPriorityBands": {
+      "high": { "min": 108, "max": 162 },
+      "moderate": { "min": 54, "max": 107 },
+      "low": { "min": 0, "max": 53 }
+    }
+  },
+  "verification": {
+    "allCategoriesReconciled": true,
+    "categoriesVerified": [
+      "digestive_wellness",
+      "energy_and_fatigue",
+      "sleep_quality",
+      "stress_and_mood",
+      "immune_and_respiratory",
+      "musculoskeletal_comfort",
+      "cardiovascular_and_circulation",
+      "cognitive_clarity",
+      "hormonal_balance"
+    ],
+    "categoriesWithDiscrepancy": [],
+    "detail": "Original, MEF-authored content — there is no external source document to reconcile against. \"Verified\" here means each category's maxScore/priorityBands were checked to equal the sum of its own question maxPoints, exactly as tests/short-haq-engine.test.ts asserts."
+  },
+  "categories": [
+    {
+      "id": "digestive_wellness",
+      "order": 1,
+      "name": "Digestive Wellness",
+      "zones": [],
+      "maxScore": 21,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 14, "max": 21 },
+        "moderate": { "min": 7, "max": 13 },
+        "low": { "min": 0, "max": 6 }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "How often do you feel bloated or uncomfortably full after eating a normal-sized meal?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 2,
+          "text": "How often do you experience heartburn or a burning sensation in your chest after eating?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 3,
+          "text": "How often do you have stomach cramping or sharp abdominal pain?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 4,
+          "text": "How often do your bowel movements feel irregular — too frequent, too infrequent, or unpredictable?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 5,
+          "text": "How often do you notice gas or belching that feels excessive to you?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 6,
+          "text": "How often does a specific food or type of food leave you feeling unwell afterward?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 7,
+          "text": "How often do you feel hungry again within an hour or two of eating a full meal?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        }
+      ]
+    },
+    {
+      "id": "energy_and_fatigue",
+      "order": 2,
+      "name": "Energy & Fatigue",
+      "zones": [],
+      "maxScore": 18,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 12, "max": 18 },
+        "moderate": { "min": 6, "max": 11 },
+        "low": { "min": 0, "max": 5 }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "How often do you feel tired or low-energy in the middle of the afternoon?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 2,
+          "text": "How often do you rely on caffeine or sugar to get through your day?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 3,
+          "text": "How often do you feel physically drained even after a full night's sleep?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 4,
+          "text": "How often does everyday activity — stairs, errands, a short walk — leave you more winded or fatigued than you'd expect?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 5,
+          "text": "How often do you experience a noticeable energy crash after meals?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 6,
+          "text": "How often do you feel like you're running on empty by the end of the day?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        }
+      ]
+    },
+    {
+      "id": "sleep_quality",
+      "order": 3,
+      "name": "Sleep Quality",
+      "zones": [],
+      "maxScore": 18,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 12, "max": 18 },
+        "moderate": { "min": 6, "max": 11 },
+        "low": { "min": 0, "max": 5 }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "How often do you have trouble falling asleep within 30 minutes of going to bed?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 2,
+          "text": "How often do you wake up during the night and have trouble falling back asleep?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 3,
+          "text": "How often do you wake up feeling unrested, even after seven or more hours in bed?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 4,
+          "text": "How often do you need an alarm because your body wouldn't wake up on its own?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 5,
+          "text": "How often does your mind stay busy or racing when you're trying to fall asleep?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 6,
+          "text": "How often do you feel drowsy during the day because of poor sleep the night before?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        }
+      ]
+    },
+    {
+      "id": "stress_and_mood",
+      "order": 4,
+      "name": "Stress & Mood",
+      "zones": [],
+      "maxScore": 21,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 14, "max": 21 },
+        "moderate": { "min": 7, "max": 13 },
+        "low": { "min": 0, "max": 6 }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "How often do you feel overwhelmed by your daily responsibilities?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 2,
+          "text": "How often do small frustrations feel bigger than they probably are?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 3,
+          "text": "How often do you notice tension in your shoulders, jaw, or neck?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 4,
+          "text": "How often does worry or anxious thinking interfere with your focus?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 5,
+          "text": "How often do you feel irritable or short-tempered with people close to you?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 6,
+          "text": "How often do you feel low, flat, or unmotivated for no clear reason?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 7,
+          "text": "How often do you find it hard to relax, even when you have free time?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        }
+      ]
+    },
+    {
+      "id": "immune_and_respiratory",
+      "order": 5,
+      "name": "Immune & Respiratory",
+      "zones": [],
+      "maxScore": 18,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 12, "max": 18 },
+        "moderate": { "min": 6, "max": 11 },
+        "low": { "min": 0, "max": 5 }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "How often do you catch colds or infections that seem to linger longer than they should?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 2,
+          "text": "How often do you experience nasal congestion or sinus pressure?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 3,
+          "text": "How often do you notice a scratchy throat or throat-clearing that isn't tied to a cold?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 4,
+          "text": "How often do you feel short of breath during activities that used to feel easy?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 5,
+          "text": "How often do seasonal changes or specific environments (dust, pollen, pets) trigger noticeable symptoms for you?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 6,
+          "text": "How often do minor cuts or bruises seem to take longer than expected to heal?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        }
+      ]
+    },
+    {
+      "id": "musculoskeletal_comfort",
+      "order": 6,
+      "name": "Musculoskeletal Comfort",
+      "zones": [],
+      "maxScore": 18,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 12, "max": 18 },
+        "moderate": { "min": 6, "max": 11 },
+        "low": { "min": 0, "max": 5 }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "How often do you wake up feeling stiff, before you've even gotten out of bed?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 2,
+          "text": "How often does a specific joint (knee, hip, shoulder, or similar) ache without a clear injury?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 3,
+          "text": "How often do you notice muscle tightness or cramping that isn't related to exercise?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 4,
+          "text": "How often does sitting for long periods leave you sore or stiff afterward?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 5,
+          "text": "How often do you avoid a movement or activity because of discomfort?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 6,
+          "text": "How often do you feel like your posture is contributing to aches by the end of the day?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        }
+      ]
+    },
+    {
+      "id": "cardiovascular_and_circulation",
+      "order": 7,
+      "name": "Cardiovascular & Circulation",
+      "zones": [],
+      "maxScore": 15,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 10, "max": 15 },
+        "moderate": { "min": 5, "max": 9 },
+        "low": { "min": 0, "max": 4 }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "How often do you notice your heart beating quickly, forcefully, or irregularly at rest?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 2,
+          "text": "How often do your hands or feet feel cold, even in a warm room?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 3,
+          "text": "How often do you feel lightheaded or dizzy when standing up quickly?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 4,
+          "text": "How often do your legs or ankles feel swollen by the end of the day?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 5,
+          "text": "How often do you feel unusually breathless or notice your heart pounding during ordinary daily activity?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        }
+      ]
+    },
+    {
+      "id": "cognitive_clarity",
+      "order": 8,
+      "name": "Cognitive Clarity & Focus",
+      "zones": [],
+      "maxScore": 18,
+      "verified": true,
+      "priorityBands": {
+        "high": { "min": 12, "max": 18 },
+        "moderate": { "min": 6, "max": 11 },
+        "low": { "min": 0, "max": 5 }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "How often do you have trouble concentrating on a task for more than a few minutes?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 2,
+          "text": "How often do you walk into a room and forget why you went there?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 3,
+          "text": "How often do you struggle to find the right word in conversation?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 4,
+          "text": "How often do you feel mentally foggy, like your thinking is moving through static?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 5,
+          "text": "How often do you lose track of a conversation or a piece of reading you were just following?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 6,
+          "text": "How often do you feel mentally exhausted after a normal day, even without much physical exertion?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        }
+      ]
+    },
+    {
+      "id": "hormonal_balance",
+      "order": 9,
+      "name": "Hormonal Balance",
+      "zones": [],
+      "maxScore": 15,
+      "verified": true,
+      "amendment": "3 questions are always active (max 9). Questions 4-5 are gender-conditional (see contextQuestions): a respondent who selects Male or Female answers one additional gender-specific pair (max 6 more, 15 total achievable). A respondent who selects 'Prefer not to say' answers only the 3 shared questions (achievable max 9). 7 questions are configured in total (3 shared + 2 male-only + 2 female-only); maxScore/priorityBands reflect the 15-point per-respondent achievable ceiling, matching the convention used by the Four Doctors questionnaire's gender-gated category.",
+      "priorityBands": {
+        "high": { "min": 10, "max": 15 },
+        "moderate": { "min": 5, "max": 9 },
+        "low": { "min": 0, "max": 4 }
+      },
+      "questions": [
+        {
+          "number": 1,
+          "text": "How often do you notice unexplained shifts in your libido or interest in intimacy?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 2,
+          "text": "How often does your body temperature regulation feel \"off\" — unexpected warmth, chills, or sweating?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 3,
+          "text": "How often do you notice changes in your skin, hair, or nails that seem tied to a hormonal shift rather than a product or routine change?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3
+        },
+        {
+          "number": 4,
+          "text": "How often does your menstrual cycle (if applicable) feel irregular, unusually heavy, or unusually painful?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3,
+          "condition": { "contextKey": "hormonal_balance_gender", "equals": ["female"] }
+        },
+        {
+          "number": 5,
+          "text": "How often do you experience hot flashes, night sweats, or other signs of hormonal shift tied to your cycle or life stage?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3,
+          "condition": { "contextKey": "hormonal_balance_gender", "equals": ["female"] }
+        },
+        {
+          "number": 6,
+          "text": "How often do you notice urinary changes — frequency, urgency, or a weaker stream — that aren't tied to how much you've had to drink?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3,
+          "condition": { "contextKey": "hormonal_balance_gender", "equals": ["male"] }
+        },
+        {
+          "number": 7,
+          "text": "How often do you notice a drop in energy, motivation, or recovery that feels more hormonal than just \"a tired week\"?",
+          "type": "frequency",
+          "options": [
+            { "label": "Never or rarely (less than monthly)", "points": 0 },
+            { "label": "Occasionally (a few times a month)", "points": 1 },
+            { "label": "Often (a few times a week)", "points": 2 },
+            { "label": "Frequently (daily or almost daily)", "points": 3 }
+          ],
+          "maxPoints": 3,
+          "condition": { "contextKey": "hormonal_balance_gender", "equals": ["male"] }
+        }
+      ]
+    }
+  ],
+  "contextQuestions": [
+    {
+      "key": "hormonal_balance_gender",
+      "categoryId": "hormonal_balance",
+      "prompt": "A couple of these questions are specific to your body's hormonal patterns. How do you identify?",
+      "options": [
+        { "label": "Male", "value": "male" },
+        { "label": "Female", "value": "female" },
+        { "label": "Prefer not to say", "value": "unspecified" }
+      ],
+      "helperText": "Choosing Prefer not to say simply skips these two questions. We never guess, estimate, or fill in an answer on your behalf, and your score reflects exactly the questions you chose to answer."
+    }
+  ],
+  "masterScoreSheet": {
+    "title": "Short Health Assessment Questionnaire — Score Summary",
+    "columnOrder": [
+      "digestive_wellness",
+      "energy_and_fatigue",
+      "sleep_quality",
+      "stress_and_mood",
+      "immune_and_respiratory",
+      "musculoskeletal_comfort",
+      "cardiovascular_and_circulation",
+      "cognitive_clarity",
+      "hormonal_balance"
+    ],
+    "fields": ["score", "maxScore", "priority"],
+    "administrations": 1
+  }
+}
