@@ -16,8 +16,18 @@ import {
   buildMemberFacingNoticing,
   type MemberNoticingView,
 } from '@/lib/intelligence-engine/memberFacingNoticing';
+import {
+  decideNextAction,
+  describeRecommendation,
+  type RecommendedInvestigationView,
+} from '@/lib/investigation-engine/rootRouter';
 
-export async function getMyNoticingView(): Promise<MemberNoticingView | null> {
+export type MemberNoticingViewWithRecommendation = MemberNoticingView & {
+  /** The Root Router's single next-step pick (Investigation Engine, Prompt 9) — null when nothing is actionable or the member is currently safety-gated. */
+  recommendedInvestigation: RecommendedInvestigationView | null;
+};
+
+export async function getMyNoticingView(): Promise<MemberNoticingViewWithRecommendation | null> {
   const supabase = createClient();
   const user = await getCachedUser();
   if (!user) return null;
@@ -25,6 +35,9 @@ export async function getMyNoticingView(): Promise<MemberNoticingView | null> {
   const entries = await listRegistryEntriesForMember(supabase, user.id);
   const activeFindings = entries.filter((e) => e.status === 'active' && e.entry_kind === 'finding');
   const suggestions = suggestAssessmentsFromFindings(activeFindings);
+  const noticing = buildMemberFacingNoticing(entries, suggestions);
 
-  return buildMemberFacingNoticing(entries, suggestions);
+  const routerDecision = await decideNextAction(supabase, user.id);
+
+  return { ...noticing, recommendedInvestigation: describeRecommendation(routerDecision) };
 }

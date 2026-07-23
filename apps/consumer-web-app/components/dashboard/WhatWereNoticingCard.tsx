@@ -7,6 +7,8 @@
  * looking empty state" posture as the rest of this dashboard.
  */
 
+import Link from 'next/link';
+import type { Route } from 'next';
 import { getMyNoticingView } from '@/app/actions/memberNoticing';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -19,7 +21,8 @@ export async function WhatWereNoticingCard() {
     view.noticing.length > 0 ||
     view.improving.length > 0 ||
     view.worthAttention.length > 0 ||
-    view.nextSteps.length > 0;
+    view.nextSteps.length > 0 ||
+    view.recommendedInvestigation !== null;
   if (!hasAnything) return null;
 
   return (
@@ -80,6 +83,20 @@ export async function WhatWereNoticingCard() {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {view.recommendedInvestigation && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+            Recommended For You
+          </p>
+          <Link
+            href={view.recommendedInvestigation.route as Route}
+            className="mt-2 block text-sm font-medium leading-relaxed text-[#3E5C46] underline underline-offset-2"
+          >
+            {view.recommendedInvestigation.displayName}
+          </Link>
         </div>
       )}
 

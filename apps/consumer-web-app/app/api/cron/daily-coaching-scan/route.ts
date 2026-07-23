@@ -32,9 +32,14 @@ import { recordTimelineEvent } from '@/lib/timeline/data';
 import { listRecentCheckinsForMember } from '@/lib/coaching-engine/data';
 import { getOrCreateTodaysMorningBrief } from '@/lib/coaching-engine/service';
 import { fetchActiveRegistryFindingsForScoring } from '@/lib/scoring/fetchInputs';
-import { evaluateReassessmentTriggers } from '@/lib/reassessment-intelligence/service';
 import {
+  evaluateCalendarReassessmentTriggers,
+  evaluateReassessmentTriggers,
+} from '@/lib/reassessment-intelligence/service';
+import {
+  insertCalendarTriggeredReassessmentSchedule,
   insertFindingTriggeredReassessmentSchedule,
+  listLastCompletedAtByAssessmentKey,
   listPendingReassessmentAssessmentKeys,
 } from '@/lib/reassessment-intelligence/data';
 import type { WellnessInsight } from '@mef/shared-types-contracts';
@@ -180,6 +185,17 @@ async function scanMember(
   const suggestions = evaluateReassessmentTriggers(activeFindings, pendingAssessmentKeys);
   for (const suggestion of suggestions) {
     await insertFindingTriggeredReassessmentSchedule(supabase, member.id, suggestion);
+  }
+
+  // ---- Reassessment Intelligence: the other half — an investigation's own declared calendar cadence (Investigation Engine, lib/investigation-engine/). No live investigation declares one yet; this keeps a future one wired automatically. ----
+  const lastCompletedAtByKey = await listLastCompletedAtByAssessmentKey(supabase, member.id);
+  const calendarSuggestions = evaluateCalendarReassessmentTriggers(
+    new Date(),
+    lastCompletedAtByKey,
+    pendingAssessmentKeys
+  );
+  for (const suggestion of calendarSuggestions) {
+    await insertCalendarTriggeredReassessmentSchedule(supabase, member.id, suggestion);
   }
 }
 
