@@ -23,7 +23,14 @@ export default function LoginPage() {
           setError(null);
           setSubmitting(true);
           const result = await signIn(formData);
-          if (result?.error) setError(getFriendlyAuthError(result.error));
+          if (result?.error) {
+            setError(
+              getFriendlyAuthError(result.error, {
+                includeRawOnFallback: true,
+                fallbackPrefix: 'Sign in failed',
+              })
+            );
+          }
           submittingRef.current = false;
           setSubmitting(false);
         }}

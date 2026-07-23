@@ -54,7 +54,12 @@ export default function SignUpPage() {
     setSubmitting(true);
     const result = await signUp(formData);
     if (result?.error) {
-      setFormError(getFriendlyAuthError(result.error));
+      setFormError(
+        getFriendlyAuthError(result.error, {
+          includeRawOnFallback: true,
+          fallbackPrefix: 'Account creation failed',
+        })
+      );
     }
     submittingRef.current = false;
     setSubmitting(false);

@@ -1,10 +1,29 @@
+export interface FriendlyAuthErrorOptions {
+  /**
+   * When a raw message doesn't match any known case below, the default
+   * behavior hides it behind a fully generic message (kept as the default
+   * so existing callers — login, reset-password, resend — are unaffected).
+   * Signup opts in to this instead: GoTrue's error text is already
+   * safe to show (it's the same text Supabase would have returned straight
+   * to the browser had this been a client-side call), and surfacing it is
+   * strictly more actionable than hiding it, per the account-creation-
+   * failure UX this was added for.
+   */
+  includeRawOnFallback?: boolean;
+  /** Prefix used when includeRawOnFallback applies, e.g. "Account creation failed". */
+  fallbackPrefix?: string;
+}
+
 /**
  * Maps raw Supabase GoTrue error messages to member-friendly copy. Supabase
  * doesn't expose stable error codes through supabase-js on every version in
  * use here, so this matches on the (versioned, but slow-changing) message
  * text GoTrue actually returns rather than an error code.
  */
-export function getFriendlyAuthError(rawMessage: string | undefined | null): string {
+export function getFriendlyAuthError(
+  rawMessage: string | undefined | null,
+  options?: FriendlyAuthErrorOptions
+): string {
   if (!rawMessage) return 'Something went wrong. Please try again.';
   const message = rawMessage.toLowerCase();
 
@@ -33,12 +52,29 @@ export function getFriendlyAuthError(rawMessage: string | undefined | null): str
   ) {
     return 'We recently sent a verification email. Please wait a moment before requesting another one.';
   }
+  // GoTrue returns this when the auth.users row was created successfully but
+  // the outbound email itself failed (e.g. SMTP misconfigured) — the account
+  // exists, so this must read differently from every case above, all of
+  // which mean no account was created.
+  if (message.includes('error sending') && message.includes('email')) {
+    return 'Your account was created, but the confirmation email could not be sent. You can request a new one from the sign-in page.';
+  }
   if (
     message.includes('failed to fetch') ||
     message.includes('fetch failed') ||
     message.includes('network')
   ) {
-    return 'Unable to connect. Please try again.';
+    return 'Unable to connect to the account service. Please try again in a moment.';
+  }
+  // Thrown by lib/supabase/env.ts before any request reaches Supabase — a
+  // deployment/config problem, not something a member did wrong.
+  if (message.includes('supabase is not configured')) {
+    return 'Unable to connect to the account service. Please try again later.';
+  }
+
+  if (options?.includeRawOnFallback) {
+    const prefix = options.fallbackPrefix ?? 'Something went wrong';
+    return `${prefix}: ${rawMessage}`;
   }
 
   return 'Something went wrong. Please try again.';

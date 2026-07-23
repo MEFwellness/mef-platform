@@ -102,7 +102,9 @@ describe('getFriendlyAuthError', () => {
   });
 
   it('maps a network failure to a friendly connectivity message', () => {
-    expect(getFriendlyAuthError('fetch failed')).toBe('Unable to connect. Please try again.');
+    expect(getFriendlyAuthError('fetch failed')).toBe(
+      'Unable to connect to the account service. Please try again in a moment.'
+    );
   });
 
   it('falls back to a generic message for unrecognized errors', () => {
@@ -114,6 +116,36 @@ describe('getFriendlyAuthError', () => {
   it('falls back to a generic message for null/undefined', () => {
     expect(getFriendlyAuthError(undefined)).toBe('Something went wrong. Please try again.');
     expect(getFriendlyAuthError(null)).toBe('Something went wrong. Please try again.');
+  });
+
+  it('distinguishes a post-account-creation email-send failure from every case above', () => {
+    expect(getFriendlyAuthError('Error sending confirmation email')).toMatch(
+      /account was created, but/
+    );
+  });
+
+  it('never leaks the env-misconfiguration message thrown by lib/supabase/env.ts', () => {
+    expect(
+      getFriendlyAuthError('Supabase is not configured: NEXT_PUBLIC_SUPABASE_URL is missing.')
+    ).toBe('Unable to connect to the account service. Please try again later.');
+  });
+
+  it('includes the raw (already-safe) Supabase message on fallback when opted in', () => {
+    expect(
+      getFriendlyAuthError('some unrecognized internal error', {
+        includeRawOnFallback: true,
+        fallbackPrefix: 'Account creation failed',
+      })
+    ).toBe('Account creation failed: some unrecognized internal error');
+  });
+
+  it('opting in to includeRawOnFallback does not affect messages that already match a known case', () => {
+    expect(
+      getFriendlyAuthError('User already registered', {
+        includeRawOnFallback: true,
+        fallbackPrefix: 'Account creation failed',
+      })
+    ).toMatch(/already exists/);
   });
 });
 

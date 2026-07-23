@@ -7,21 +7,45 @@ export interface ActionResult {
   error?: string;
 }
 
+type AuthStage = 'client_init' | 'supabase_request' | 'unexpected';
+
 /**
- * createClient() now throws (see lib/supabase/env.ts) when
- * NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY aren't set,
- * instead of silently constructing a client that only fails later, deep
- * inside a fetch, as an opaque "fetch failed". Every action below used to
- * have no try/catch at all, so that throw would have escaped as an
- * unhandled Server Action error (Next's generic error boundary) instead of
- * the normal inline {error} the login/signup forms already know how to
- * render. This wraps that one failure mode — a genuine misconfiguration —
- * the same way every other Supabase error already surfaces here.
+ * Server-side-only diagnostic log (never sent to the browser — the client
+ * only ever gets the curated message an ActionResult carries). Captures
+ * exactly what's needed to debug a failed auth call from Vercel's function
+ * logs without ever logging the password/token/PII that produced it:
+ * which action, which stage of the request it failed at (before Supabase
+ * was even reached vs. a response Supabase itself returned), plus
+ * Supabase's own message/status/code when available.
  */
-function toActionError(err: unknown): ActionResult {
-  const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-  console.error('Auth action failed:', message);
-  return { error: message };
+function logAuthFailure(stage: AuthStage, action: string, err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  const status = (err as { status?: unknown })?.status;
+  const code = (err as { code?: unknown })?.code;
+  console.error('[auth]', {
+    action,
+    stage,
+    message,
+    status: typeof status === 'number' ? status : undefined,
+    code: typeof code === 'string' ? code : undefined,
+  });
+}
+
+/**
+ * Catches anything thrown *before* or *instead of* a structured Supabase
+ * `{ error }` response — createClient() throwing because
+ * NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY aren't set (see
+ * lib/supabase/env.ts), or the request itself never completing (DNS/network
+ * failure, wrong project host, etc.). Every path that reaches this function
+ * is necessarily pre-account-creation — no user row can exist if the
+ * request never reached Supabase — so it always returns the same safe,
+ * generic "service" message rather than the underlying exception text,
+ * which may name env vars or internals members shouldn't see. The full
+ * detail still goes to logAuthFailure for Vercel's function logs.
+ */
+function toActionError(action: string, err: unknown): ActionResult {
+  logAuthFailure('client_init', action, err);
+  return { error: 'Unable to connect to the account service. Please try again in a moment.' };
 }
 
 /**
@@ -46,9 +70,12 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
         data: { display_name: displayName, timezone },
       },
     });
-    if (error) return { error: error.message };
+    if (error) {
+      logAuthFailure('supabase_request', 'signUp', error);
+      return { error: error.message };
+    }
   } catch (err) {
-    return toActionError(err);
+    return toActionError('signUp', err);
   }
   redirect(`/verify?email=${encodeURIComponent(email)}`);
 }
@@ -64,10 +91,13 @@ export async function resendVerificationEmail(email: string): Promise<ActionResu
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
       },
     });
-    if (error) return { error: error.message };
+    if (error) {
+      logAuthFailure('supabase_request', 'resendVerificationEmail', error);
+      return { error: error.message };
+    }
     return {};
   } catch (err) {
-    return toActionError(err);
+    return toActionError('resendVerificationEmail', err);
   }
 }
 
@@ -78,9 +108,12 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
   try {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
+    if (error) {
+      logAuthFailure('supabase_request', 'signIn', error);
+      return { error: error.message };
+    }
   } catch (err) {
-    return toActionError(err);
+    return toActionError('signIn', err);
   }
   redirect('/');
 }
@@ -90,7 +123,7 @@ export async function signOut(): Promise<void> {
     const supabase = createClient();
     await supabase.auth.signOut();
   } catch (err) {
-    console.error('signOut failed:', err instanceof Error ? err.message : err);
+    logAuthFailure('unexpected', 'signOut', err);
   }
   redirect('/login');
 }
@@ -107,10 +140,13 @@ export async function requestPasswordReset(formData: FormData): Promise<ActionRe
       // with only an unexchanged `?code=`, no session, and updateUser fails.
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?next=/reset-password/confirm`,
     });
-    if (error) return { error: error.message };
+    if (error) {
+      logAuthFailure('supabase_request', 'requestPasswordReset', error);
+      return { error: error.message };
+    }
     return {};
   } catch (err) {
-    return toActionError(err);
+    return toActionError('requestPasswordReset', err);
   }
 }
 
@@ -119,9 +155,12 @@ export async function updatePassword(formData: FormData): Promise<ActionResult> 
   try {
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
-    if (error) return { error: error.message };
+    if (error) {
+      logAuthFailure('supabase_request', 'updatePassword', error);
+      return { error: error.message };
+    }
     return {};
   } catch (err) {
-    return toActionError(err);
+    return toActionError('updatePassword', err);
   }
 }
