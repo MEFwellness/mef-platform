@@ -17,14 +17,15 @@
 import type { Recommendation } from '../intelligence-engine/types';
 import type { RootRouterOutcomeView } from '../investigation-engine/routerOutcome';
 import {
+  adjustedDurationForCategory,
   buildRecommendationKey,
   classifyRecommendation,
   completionTrackingForCategory,
-  durationForCategory,
   reassessmentTriggerForCategory,
   whyThisWasSelected,
 } from './classifier';
-import type { MemberRecommendation } from './types';
+import type { CategoryOutcomeSummary } from './outcomeHistory';
+import type { MemberRecommendation, MemberRecommendationCategory } from './types';
 
 const SAFETY_GATED_EXPLANATION =
   'Your coach is reviewing something with you right now, so new suggestions are paused until that conversation happens.';
@@ -32,18 +33,22 @@ const SAFETY_GATED_EXPLANATION =
 const MEDICAL_REFERRAL_EXPLANATION =
   'This kind of concern is best discussed with a healthcare provider — your coach has been notified to follow up with you directly. This app never diagnoses or recommends changing any medication.';
 
-function toMemberRecommendation(rec: Recommendation, category: ReturnType<typeof classifyRecommendation>): MemberRecommendation {
+function toMemberRecommendation(
+  rec: Recommendation,
+  category: ReturnType<typeof classifyRecommendation>,
+  outcomeSummary: CategoryOutcomeSummary | undefined
+): MemberRecommendation {
   return {
     recommendationId: buildRecommendationKey(rec, category),
     category,
     sourceDomain: rec.domain,
     title: rec.title,
     explanation: rec.detail,
-    whyThisWasSelected: whyThisWasSelected(rec, category),
+    whyThisWasSelected: whyThisWasSelected(rec, category, outcomeSummary),
     supportingFindings: rec.evidence,
     confidence: rec.confidence,
     priority: rec.priority,
-    recommendedDuration: durationForCategory(category),
+    recommendedDuration: adjustedDurationForCategory(category, outcomeSummary),
     reassessmentTrigger: reassessmentTriggerForCategory(category),
     completionTracking: completionTrackingForCategory(category),
     status: 'shown',
@@ -57,6 +62,10 @@ export function buildMemberRecommendations(input: {
   restrictedTopics: string[];
   /** Whether an open/acknowledged intelligence_coach_alerts row of alert_type 'medical_evaluation_recommended' currently exists for this member — read-only signal, this function never emits that alert itself. */
   hasOpenMedicalEvaluationAlert: boolean;
+  /** Prompt 12, Part 4 — this member's real outcome history per category (lib/recommendation-engine/outcomeHistory.ts::summarizeOutcomeHistory), used to explain *why* with real history when it exists and to lighten a category's duration after repeated stopped_early events. Optional so every existing caller/test keeps working unchanged. */
+  outcomeHistory?: ReadonlyMap<MemberRecommendationCategory, CategoryOutcomeSummary>;
+  /** recommendation_key values with an unresolved dismissed/not-helpful event (lib/recommendation-engine/outcomeHistory.ts::hasUnresolvedNegativeEvent) — never re-surfaced without new evidence. A fresh title/category always produces a different key, so this only ever suppresses a literal repeat. */
+  suppressedRecommendationKeys?: ReadonlySet<string>;
 }): MemberRecommendation[] {
   if (input.restrictedTopics.length > 0) {
     return [
@@ -78,13 +87,15 @@ export function buildMemberRecommendations(input: {
     ];
   }
 
-  const mapped = input.recommendations.map((rec) => {
-    const category = classifyRecommendation(rec, {
-      routerOutcome: input.routerOutcome.outcome,
-      isCoachAttentionPriority: input.isCoachAttentionPriority,
-    });
-    return toMemberRecommendation(rec, category);
-  });
+  const mapped = input.recommendations
+    .map((rec) => {
+      const category = classifyRecommendation(rec, {
+        routerOutcome: input.routerOutcome.outcome,
+        isCoachAttentionPriority: input.isCoachAttentionPriority,
+      });
+      return toMemberRecommendation(rec, category, input.outcomeHistory?.get(category));
+    })
+    .filter((rec) => !input.suppressedRecommendationKeys?.has(rec.recommendationId));
 
   if (!input.hasOpenMedicalEvaluationAlert) return mapped;
 

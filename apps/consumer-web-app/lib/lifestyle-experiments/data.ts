@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LifestyleExperiment, LifestyleExperimentOutcome } from './types';
+import { deriveEffectiveStatus, MAX_ACTIVE_EXPERIMENTS } from './lifecycle';
 
 type Row = {
   id: string;
@@ -50,6 +51,18 @@ export async function startLifestyleExperiment(
     durationDays: number;
   }
 ): Promise<LifestyleExperiment | null> {
+  // Defensive re-check (Prompt 12, Part 3 guardrail) — the primary,
+  // user-facing check lives in the action layer
+  // (app/actions/lifestyleExperiments.ts::startMyExperiment), same "app
+  // layer, never RLS" posture migration 91's own comment establishes for
+  // this codebase's cross-row business-rule guardrails. This one exists so
+  // no future caller can bypass the cap by skipping the action layer.
+  const activeCount = await countActiveExperiments(supabase, memberId);
+  if (activeCount >= MAX_ACTIVE_EXPERIMENTS) {
+    console.error('startLifestyleExperiment refused — active experiment cap reached', memberId);
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('lifestyle_experiments')
     .insert({
@@ -94,6 +107,32 @@ export async function closeLifestyleExperiment(
     return false;
   }
   return true;
+}
+
+/** Effective-status-aware count (an 'expired_no_reflection' experiment never counts as active — it stopped tracking, whether or not the member has closed it out yet) — the single count both the cap enforcement and the Root Router's adaptive context read. */
+export async function countActiveExperiments(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('lifestyle_experiments')
+    .select('status, start_date, duration_days')
+    .eq('member_id', memberId)
+    .eq('status', 'active');
+
+  if (error) {
+    console.error('countActiveExperiments failed', error);
+    return 0;
+  }
+
+  const now = new Date();
+  return (data as { status: string; start_date: string; duration_days: number }[]).filter(
+    (row) =>
+      deriveEffectiveStatus(
+        { status: row.status as LifestyleExperiment['status'], startDate: row.start_date, durationDays: row.duration_days },
+        now
+      ) === 'active'
+  ).length;
 }
 
 export async function listMyLifestyleExperiments(

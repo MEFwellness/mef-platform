@@ -11,6 +11,7 @@ import type { RootRouterOutcome } from '../investigation-engine/routerOutcome';
 import { EXPERIMENT_DOMAINS } from '../investigation-engine/routerOutcome';
 import type { Recommendation, RecommendationDomain } from '../intelligence-engine/types';
 import type { MemberRecommendationCategory, RecommendedDuration } from './types';
+import type { CategoryOutcomeSummary } from './outcomeHistory';
 
 const BASE_CATEGORY_BY_DOMAIN: Record<RecommendationDomain, MemberRecommendationCategory> = {
   movement: 'movement_focus',
@@ -81,6 +82,29 @@ export function durationForCategory(category: MemberRecommendationCategory): Rec
   return DURATION_BY_CATEGORY[category];
 }
 
+/**
+ * Recommendation Learning (Prompt 12, Part 4) — "adjust duration or
+ * difficulty" for a category the member has repeatedly stopped early on.
+ * Still a deterministic lookup, never a new scoring system: a `daily`
+ * category with 2+ recorded `stopped_early` events and no offsetting
+ * positive history steps down to the lighter `weekly` cadence, the same
+ * daily->weekly relationship `classifyRecommendation`'s own low-priority
+ * carve-out already establishes for a different reason.
+ */
+const STOPPED_EARLY_THRESHOLD = 2;
+
+export function adjustedDurationForCategory(
+  category: MemberRecommendationCategory,
+  outcomeSummary: CategoryOutcomeSummary | undefined
+): RecommendedDuration {
+  const base = durationForCategory(category);
+  if (!outcomeSummary) return base;
+  if (base !== 'daily') return base;
+  if (outcomeSummary.stoppedEarlyCount < STOPPED_EARLY_THRESHOLD) return base;
+  if (outcomeSummary.positiveCount > outcomeSummary.stoppedEarlyCount) return base;
+  return 'weekly';
+}
+
 /** coach_review and medical_referral_flag are never member-completable actions — a member can't "mark done" a coach follow-up. */
 const NOT_MEMBER_COMPLETABLE = new Set<MemberRecommendationCategory>(['coach_review', 'medical_referral_flag']);
 
@@ -113,8 +137,27 @@ const WHY_OVERRIDE_BY_CATEGORY: Partial<Record<MemberRecommendationCategory, str
     'This kind of concern is best discussed with a healthcare provider, so your coach has been notified to follow up.',
 };
 
-/** A short, templated sentence — never freeform, always traceable to the real `priority` field or a fixed category override. */
-export function whyThisWasSelected(rec: Recommendation, category: MemberRecommendationCategory): string {
+/**
+ * A short, templated sentence — never freeform, always traceable to the
+ * real `priority` field, a fixed category override, or (Prompt 12, Part 4)
+ * this member's own real outcome history for the category, when present.
+ * History always wins over the generic phrasing when it exists, since
+ * "this has worked for you before" is more specific and more useful than
+ * a priority-only explanation — but it's still one of a fixed, templated
+ * set of sentences, never freeform generation.
+ */
+export function whyThisWasSelected(
+  rec: Recommendation,
+  category: MemberRecommendationCategory,
+  outcomeSummary?: CategoryOutcomeSummary
+): string {
+  if (outcomeSummary && outcomeSummary.positiveCount > 0 && outcomeSummary.positiveCount >= outcomeSummary.negativeCount) {
+    return 'This kind of approach has worked well for you before, so it\'s worth trying again here.';
+  }
+  if (outcomeSummary && outcomeSummary.stoppedEarlyCount >= STOPPED_EARLY_THRESHOLD) {
+    return "A lighter version of this, since the daily version hasn't been sticking for you recently.";
+  }
+
   return (
     WHY_OVERRIDE_BY_CATEGORY[category] ??
     `This was suggested because it traces back to ${PRIORITY_PHRASE[rec.priority]} in your recent activity.`

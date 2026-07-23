@@ -8,7 +8,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAssessmentRegistryEntry, listAssessmentRegistryEntries } from '../assessment-registry/registry';
 import type { AssessmentKey } from '../assessment-registry/types';
-import type { CalendarReassessmentSuggestion, ReassessmentSuggestion } from './service';
+import type {
+  CalendarReassessmentSuggestion,
+  ExperimentOutcomeReassessmentSuggestion,
+  ReassessmentSuggestion,
+  RecommendationSequenceReassessmentSuggestion,
+} from './service';
 
 /** Every assessmentKey with an existing pending schedule for this member, regardless of trigger_source — the dedup set evaluateReassessmentTriggers needs. */
 export async function listPendingReassessmentAssessmentKeys(
@@ -178,4 +183,75 @@ export async function insertCalendarTriggeredReassessmentSchedule(
   });
 
   if (error) console.error('insertCalendarTriggeredReassessmentSchedule failed', error);
+}
+
+export async function insertExperimentOutcomeReassessmentSchedule(
+  supabase: SupabaseClient,
+  memberId: string,
+  suggestion: ExperimentOutcomeReassessmentSuggestion
+): Promise<void> {
+  const definition = getAssessmentRegistryEntry(suggestion.assessmentKey);
+  const now = new Date().toISOString();
+
+  const { error } = await supabase.from('reassessment_schedules').insert({
+    member_id: memberId,
+    assessment_definition_id: definition.databaseId,
+    stage: 'experiment_outcome_triggered',
+    due_at: now,
+    status: 'pending',
+    trigger_source: suggestion.triggerSource,
+    trigger_context: suggestion.triggerContext,
+  });
+
+  if (error) console.error('insertExperimentOutcomeReassessmentSchedule failed', error);
+}
+
+export async function insertRecommendationSequenceReassessmentSchedule(
+  supabase: SupabaseClient,
+  memberId: string,
+  suggestion: RecommendationSequenceReassessmentSuggestion
+): Promise<void> {
+  const definition = getAssessmentRegistryEntry(suggestion.assessmentKey);
+  const now = new Date().toISOString();
+
+  const { error } = await supabase.from('reassessment_schedules').insert({
+    member_id: memberId,
+    assessment_definition_id: definition.databaseId,
+    stage: 'recommendation_sequence_triggered',
+    due_at: now,
+    status: 'pending',
+    trigger_source: suggestion.triggerSource,
+    trigger_context: suggestion.triggerContext,
+  });
+
+  if (error) console.error('insertRecommendationSequenceReassessmentSchedule failed', error);
+}
+
+/**
+ * Part 7's coach-requested trigger — writes the already-reserved
+ * 'coach_action' trigger_source (migration 84; never written until now).
+ * `stage` is 'coach_requested' rather than reusing 'finding_triggered' /
+ * 'calendar_cadence' so a coach's explicit ask is always visibly distinct
+ * from an automated evaluator's own suggestion in the schedule list.
+ */
+export async function insertCoachRequestedReassessmentSchedule(
+  supabase: SupabaseClient,
+  memberId: string,
+  assessmentKey: AssessmentKey,
+  reason: string
+): Promise<void> {
+  const definition = getAssessmentRegistryEntry(assessmentKey);
+  const now = new Date().toISOString();
+
+  const { error } = await supabase.from('reassessment_schedules').insert({
+    member_id: memberId,
+    assessment_definition_id: definition.databaseId,
+    stage: 'coach_requested',
+    due_at: now,
+    status: 'pending',
+    trigger_source: 'coach_action',
+    trigger_context: { reason },
+  });
+
+  if (error) console.error('insertCoachRequestedReassessmentSchedule failed', error);
 }

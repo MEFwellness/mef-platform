@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { localDateFor, gatherRootMapInputs } from './rootMap';
 import { listCoachAlertsForMember } from '@/lib/intelligence-engine/data';
+import { recordRecommendationEvent, listRecommendationEventsForMember } from '@/lib/longitudinal-intelligence';
 import {
   buildMemberRecommendations,
   upsertMemberRecommendation,
@@ -20,6 +21,8 @@ import {
   ignoreRecommendation,
   deriveEffectiveStatus,
   describeForMember,
+  summarizeOutcomeHistory,
+  hasUnresolvedNegativeEvent,
   type MemberRecommendationCategory,
   type RecommendationLifecycleStatus,
   type MemberRecommendationRow,
@@ -45,8 +48,29 @@ async function recomputeAndPersist(
   coachView: boolean
 ): Promise<void> {
   try {
-    const inputs = await gatherRootMapInputs(supabase, memberId, localDate, coachView);
-    const medicalFlag = await hasOpenMedicalEvaluationAlert(supabase, memberId);
+    const [inputs, medicalFlag, existingRows, events] = await Promise.all([
+      gatherRootMapInputs(supabase, memberId, localDate, coachView),
+      hasOpenMedicalEvaluationAlert(supabase, memberId),
+      listMemberRecommendations(supabase, memberId),
+      listRecommendationEventsForMember(supabase, memberId),
+    ]);
+
+    // Prompt 12, Part 4 — real outcome history per category, and which
+    // exact recommendation_key values carry an unresolved dismissed/
+    // not-helpful event with no newer row (evidence) since.
+    const categoryByRecommendationId = new Map(existingRows.map((r) => [r.id, r.category]));
+    const outcomeHistory = summarizeOutcomeHistory(events, categoryByRecommendationId);
+
+    const latestRowByKey = new Map<string, MemberRecommendationRow>();
+    for (const row of existingRows) {
+      const current = latestRowByKey.get(row.recommendationId);
+      if (!current || row.createdAt > current.createdAt) latestRowByKey.set(row.recommendationId, row);
+    }
+    const suppressedRecommendationKeys = new Set(
+      [...latestRowByKey.values()]
+        .filter((row) => hasUnresolvedNegativeEvent(row.id, events))
+        .map((row) => row.recommendationId)
+    );
 
     const built = buildMemberRecommendations({
       recommendations: inputs.report.recommendations,
@@ -54,6 +78,8 @@ async function recomputeAndPersist(
       isCoachAttentionPriority: inputs.report.priorities.recommendedCoachAttentionLevel === 'priority',
       restrictedTopics: inputs.restrictedTopics,
       hasOpenMedicalEvaluationAlert: medicalFlag,
+      outcomeHistory,
+      suppressedRecommendationKeys,
     });
 
     for (const rec of built) {
@@ -143,5 +169,6 @@ export async function markRecommendationNotHelpful(rowId: string): Promise<{ err
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await ignoreRecommendation(supabase, rowId, user.id);
+  if (ok) await recordRecommendationEvent(supabase, user.id, rowId, 'marked_not_helpful');
   return ok ? {} : { error: 'Could not update this recommendation.' };
 }

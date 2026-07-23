@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Eye,
   Sparkles,
+  Compass,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -15,6 +16,7 @@ import {
   getMyCoachingInsightsAction,
   type CoachingInsightView,
 } from '@/app/actions/coaching-insights';
+import { getMyLongitudinalPicture } from '@/app/actions/longitudinalIntelligence';
 import { CoachingInsightCard } from '@/components/coaching-insights/CoachingInsightCard';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -40,6 +42,7 @@ export default async function CoachingInsightsPage() {
 
   const { insights, safetyMessage } = await getMyCoachingInsightsAction();
   const byCategory = new Map(insights.map((i) => [i.category, i]));
+  const picture = safetyMessage ? null : await getMyLongitudinalPicture();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -88,7 +91,58 @@ export default async function CoachingInsightsPage() {
             );
           })
         )}
+
+        {picture ? <LongitudinalPictureSection picture={picture} /> : null}
       </main>
     </div>
+  );
+}
+
+function LongitudinalPictureSection({
+  picture,
+}: {
+  picture: Awaited<ReturnType<typeof getMyLongitudinalPicture>>;
+}) {
+  const groups: Array<{ title: string; items: string[] }> = [
+    { title: "What's Changing", items: picture.whatsChanging },
+    { title: "Patterns We're Beginning to Notice", items: picture.emergingPatterns },
+    { title: 'What Seems to Be Helping', items: picture.whatSeemsToBeHelping },
+    { title: "What We're Still Learning", items: picture.stillLearning },
+  ].filter((g) => g.items.length > 0);
+
+  if (groups.length === 0 && !picture.nextBestStep) return null;
+
+  return (
+    <section className={`${CARD} mt-5 p-6`}>
+      <div className="flex items-center gap-2 text-[#6B7A72]">
+        <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden={true} />
+        <p className="text-sm font-semibold uppercase tracking-wider">Your Longitudinal Picture</p>
+      </div>
+      <p className="mt-1 text-xs text-[#6B7A72]">
+        How things have been trending across your check-ins and history — held loosely, never a diagnosis.
+      </p>
+
+      <div className="mt-4 space-y-5">
+        {groups.map((group) => (
+          <div key={group.title}>
+            <p className="text-sm font-semibold text-[#1B3A2D]">{group.title}</p>
+            <ul className="mt-2 space-y-2">
+              {group.items.map((item, i) => (
+                <li key={i} className="text-sm leading-relaxed text-[#1B3A2D]">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
+        {picture.nextBestStep ? (
+          <div className="rounded-2xl bg-[#EFF6F1] p-4">
+            <p className="text-sm font-semibold text-[#1B3A2D]">Your Next Best Step</p>
+            <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{picture.nextBestStep}</p>
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }

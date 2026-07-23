@@ -5,3 +5,4 @@ export * from './builder';
 export * from './describeForMember';
 export * from './lifecycle';
 export * from './data';
+export * from './outcomeHistory';

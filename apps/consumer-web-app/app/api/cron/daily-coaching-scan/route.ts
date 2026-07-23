@@ -34,14 +34,23 @@ import { getOrCreateTodaysMorningBrief } from '@/lib/coaching-engine/service';
 import { fetchActiveRegistryFindingsForScoring } from '@/lib/scoring/fetchInputs';
 import {
   evaluateCalendarReassessmentTriggers,
+  evaluateExperimentOutcomeReassessmentTriggers,
+  evaluateLongitudinalReassessmentTriggers,
   evaluateReassessmentTriggers,
+  evaluateRecommendationSequenceReassessmentTriggers,
 } from '@/lib/reassessment-intelligence/service';
 import {
   insertCalendarTriggeredReassessmentSchedule,
+  insertExperimentOutcomeReassessmentSchedule,
   insertFindingTriggeredReassessmentSchedule,
+  insertRecommendationSequenceReassessmentSchedule,
   listLastCompletedAtByAssessmentKey,
   listPendingReassessmentAssessmentKeys,
 } from '@/lib/reassessment-intelligence/data';
+import { computeLongitudinalSignals } from '@/lib/longitudinal-intelligence';
+import { listMyLifestyleExperiments } from '@/lib/lifestyle-experiments';
+import { listMemberRecommendations } from '@/lib/recommendation-engine';
+import type { RecommendationDomain } from '@/lib/intelligence-engine/types';
 import type { WellnessInsight } from '@mef/shared-types-contracts';
 
 export const dynamic = 'force-dynamic';
@@ -196,6 +205,55 @@ async function scanMember(
   );
   for (const suggestion of calendarSuggestions) {
     await insertCalendarTriggeredReassessmentSchedule(supabase, member.id, suggestion);
+  }
+
+  // ---- Longitudinal Intelligence (Prompt 12): refresh this member's persisted signal states, then let Reassessment Intelligence read the richer result ----
+  const longitudinalSignals = await computeLongitudinalSignals(supabase, member.id, today);
+  const longitudinalSuggestions = evaluateLongitudinalReassessmentTriggers(
+    longitudinalSignals,
+    pendingAssessmentKeys
+  );
+  for (const suggestion of longitudinalSuggestions) {
+    await insertFindingTriggeredReassessmentSchedule(supabase, member.id, suggestion);
+  }
+
+  // ---- Reassessment Intelligence (Prompt 12, Part 7): a closed experiment that didn't fully work, in a domain still showing an active finding ----
+  const [experiments, memberRecommendations] = await Promise.all([
+    listMyLifestyleExperiments(supabase, member.id),
+    listMemberRecommendations(supabase, member.id),
+  ]);
+  const recommendationById = new Map(memberRecommendations.map((r) => [r.id, r]));
+  const closedExperimentSignals = experiments
+    .filter((e) => e.status === 'completed' || e.status === 'abandoned')
+    .map((e) => ({
+      sourceDomain: e.recommendationId ? recommendationById.get(e.recommendationId)?.sourceDomain : undefined,
+      outcome: e.outcome,
+    }))
+    .filter(
+      (e): e is { sourceDomain: NonNullable<typeof e.sourceDomain>; outcome: NonNullable<typeof e.outcome> } =>
+        !!e.sourceDomain && !!e.outcome
+    );
+  const experimentOutcomeSuggestions = evaluateExperimentOutcomeReassessmentTriggers(
+    closedExperimentSignals,
+    activeFindings,
+    pendingAssessmentKeys
+  );
+  for (const suggestion of experimentOutcomeSuggestions) {
+    await insertExperimentOutcomeReassessmentSchedule(supabase, member.id, suggestion);
+  }
+
+  // ---- Reassessment Intelligence (Prompt 12, Part 7): several completed recommendations in the same domain — a real completed sequence worth checking in on ----
+  const completedCountByDomain = new Map<RecommendationDomain, number>();
+  for (const rec of memberRecommendations) {
+    if (rec.status !== 'completed') continue;
+    completedCountByDomain.set(rec.sourceDomain, (completedCountByDomain.get(rec.sourceDomain) ?? 0) + 1);
+  }
+  const recommendationSequenceSuggestions = evaluateRecommendationSequenceReassessmentTriggers(
+    [...completedCountByDomain.entries()].map(([sourceDomain, completedCount]) => ({ sourceDomain, completedCount })),
+    pendingAssessmentKeys
+  );
+  for (const suggestion of recommendationSequenceSuggestions) {
+    await insertRecommendationSequenceReassessmentSchedule(supabase, member.id, suggestion);
   }
 }
 

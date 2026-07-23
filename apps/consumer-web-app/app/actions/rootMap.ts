@@ -24,16 +24,61 @@ import { resolveLocalDate } from './checkin';
 import { listRegistryEntriesForMember } from '@/lib/registry/data';
 import { getMemberRestrictedTopics } from '@/lib/feed/data';
 import { computeMemberIntelligence, buildMemberIntelligence } from '@/lib/intelligence-engine/engine';
-import type { MemberIntelligenceReport } from '@/lib/intelligence-engine/types';
+import type { MemberIntelligenceReport, RecommendationDomain } from '@/lib/intelligence-engine/types';
 import { computeDomainConfidence, type DomainConfidence } from '@/lib/investigation-engine/confidence';
 import { COACHING_DOMAINS } from '@/lib/investigation-engine/domains';
 import { decideNextAction, type RootRouterDecision } from '@/lib/investigation-engine/rootRouter';
-import { classifyRouterOutcome, type RootRouterOutcomeView } from '@/lib/investigation-engine/routerOutcome';
+import {
+  classifyRouterOutcome,
+  type AdaptiveRouterContext,
+  type RootRouterOutcomeView,
+} from '@/lib/investigation-engine/routerOutcome';
 import { buildRootMap, type RootMapView } from '@/lib/root-map';
 import {
   listPendingReassessments,
   type PendingReassessmentRow,
 } from '@/lib/reassessment-intelligence/data';
+import { listMyLifestyleExperiments, deriveEffectiveStatus as deriveExperimentStatus } from '@/lib/lifestyle-experiments';
+import { listMemberRecommendations } from '@/lib/recommendation-engine';
+
+/** How recently a domain must have been dismissed/marked-not-helpful to still suppress that same outcome type at the Root Router level — a coarser, shorter-lived safety net on top of member_recommendations' own permanent per-key dedup protection (upsertMemberRecommendation never reopens an 'ignored' row at all). */
+const ROUTER_DISMISSAL_SUPPRESSION_DAYS = 14;
+
+async function buildAdaptiveRouterContext(
+  supabase: SupabaseServerClient,
+  memberId: string,
+  pendingReassessments: PendingReassessmentRow[]
+): Promise<AdaptiveRouterContext> {
+  const [experiments, allRecommendations] = await Promise.all([
+    listMyLifestyleExperiments(supabase, memberId),
+    listMemberRecommendations(supabase, memberId),
+  ]);
+
+  const now = new Date();
+  const activeExperiments = experiments.filter((e) => deriveExperimentStatus(e, now) === 'active');
+  const recommendationById = new Map(allRecommendations.map((r) => [r.id, r]));
+  const activeExperimentDomains = new Set<RecommendationDomain>();
+  for (const experiment of activeExperiments) {
+    const sourceDomain = experiment.recommendationId
+      ? recommendationById.get(experiment.recommendationId)?.sourceDomain
+      : undefined;
+    if (sourceDomain) activeExperimentDomains.add(sourceDomain);
+  }
+
+  const suppressionCutoff = new Date(now.getTime() - ROUTER_DISMISSAL_SUPPRESSION_DAYS * 24 * 60 * 60 * 1000);
+  const recentlyDismissedDomains = new Set<RecommendationDomain>();
+  for (const rec of allRecommendations) {
+    if (rec.status !== 'ignored' || !rec.ignoredAt) continue;
+    if (new Date(rec.ignoredAt) >= suppressionCutoff) recentlyDismissedDomains.add(rec.sourceDomain);
+  }
+
+  return {
+    activeExperimentCount: activeExperiments.length,
+    activeExperimentDomains,
+    recentlyDismissedDomains,
+    hasCoachRequestedReassessment: pendingReassessments.some((r) => r.triggerSource === 'coach_action'),
+  };
+}
 
 type SupabaseServerClient = ReturnType<typeof createClient>;
 
@@ -57,6 +102,8 @@ export type RootMapInputs = {
   report: MemberIntelligenceReport;
   domainConfidences: DomainConfidence[];
   routerOutcome: RootRouterOutcomeView;
+  pendingReassessments: PendingReassessmentRow[];
+  adaptiveContext: AdaptiveRouterContext;
 };
 
 /**
@@ -67,6 +114,12 @@ export type RootMapInputs = {
  * specifically for that reuse; the Root Map's own shape (RootMapView)
  * stays this file's concern, the Recommendation Engine builds its own
  * output from the same inputs.
+ *
+ * Also gathers the Prompt 12 adaptive-routing context (active experiment
+ * count/domains, recently-dismissed domains, a coach-requested
+ * reassessment) so `classifyRouterOutcome()` can apply the guardrails —
+ * this stays here rather than inside routerOutcome.ts itself so that file
+ * keeps its existing "pure classifier, no I/O" design.
  */
 export async function gatherRootMapInputs(
   supabase: SupabaseServerClient,
@@ -74,26 +127,38 @@ export async function gatherRootMapInputs(
   localDate: string,
   coachView: boolean
 ): Promise<RootMapInputs> {
-  const [activeFindings, restrictedTopics, decision, report] = await Promise.all([
+  const [activeFindings, restrictedTopics, decision, report, pendingReassessments] = await Promise.all([
     listRegistryEntriesForMember(supabase, memberId, { statusFilter: ['active'] }),
     getMemberRestrictedTopics(supabase, memberId),
     decideNextAction(supabase, memberId),
     coachView
       ? buildMemberIntelligence(supabase, memberId, localDate)
       : computeMemberIntelligence(supabase, memberId, localDate),
+    listPendingReassessments(supabase, memberId),
   ]);
 
   const domainConfidences = COACHING_DOMAINS.map((d) =>
     computeDomainConfidence(d.domain, activeFindings)
   );
+  const adaptiveContext = await buildAdaptiveRouterContext(supabase, memberId, pendingReassessments);
   const routerOutcome = classifyRouterOutcome(
     decision,
     report.priorities.recommendedCoachAttentionLevel,
     report.recommendations,
-    domainConfidences
+    domainConfidences,
+    adaptiveContext
   );
 
-  return { activeFindings, restrictedTopics, decision, report, domainConfidences, routerOutcome };
+  return {
+    activeFindings,
+    restrictedTopics,
+    decision,
+    report,
+    domainConfidences,
+    routerOutcome,
+    pendingReassessments,
+    adaptiveContext,
+  };
 }
 
 async function assembleRootMap(
@@ -101,10 +166,10 @@ async function assembleRootMap(
   memberId: string,
   localDate: string,
   coachView: boolean
-): Promise<RootMapView> {
+): Promise<{ view: RootMapView; inputs: RootMapInputs }> {
   const inputs = await gatherRootMapInputs(supabase, memberId, localDate, coachView);
 
-  return buildRootMap({
+  const view = buildRootMap({
     activeFindings: inputs.activeFindings,
     patterns: inputs.report.patterns,
     routerOutcome: inputs.routerOutcome,
@@ -112,6 +177,8 @@ async function assembleRootMap(
     restrictedTopics: inputs.restrictedTopics,
     coachView,
   });
+
+  return { view, inputs };
 }
 
 export async function getMyRootMap(): Promise<RootMapView | null> {
@@ -120,7 +187,8 @@ export async function getMyRootMap(): Promise<RootMapView | null> {
   if (!user) return null;
 
   const localDate = await localDateFor(supabase, user.id);
-  return assembleRootMap(supabase, user.id, localDate, false);
+  const { view } = await assembleRootMap(supabase, user.id, localDate, false);
+  return view;
 }
 
 export type RouterDecisionRow = {
@@ -175,11 +243,10 @@ export async function getClientRootMap(clientId: string): Promise<CoachRootMapVi
   if (!user) return null;
 
   const localDate = await localDateFor(supabase, clientId);
-  const [view, pendingReassessments, recentRouterDecisions] = await Promise.all([
+  const [{ view, inputs }, recentRouterDecisions] = await Promise.all([
     assembleRootMap(supabase, clientId, localDate, true),
-    listPendingReassessments(supabase, clientId),
     listRecentRouterDecisions(supabase, clientId),
   ]);
 
-  return { ...view, pendingReassessments, recentRouterDecisions };
+  return { ...view, pendingReassessments: inputs.pendingReassessments, recentRouterDecisions };
 }
