@@ -17,6 +17,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { getAssessmentDefinition, listAssessmentDefinitions } from '@/lib/assessments/registry';
 import { toPublicSlug } from '@/lib/assessments/publicSlug';
+import { findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
+import { decideNextAction, recordRouterDecision } from '@/lib/investigation-engine/rootRouter';
 import {
   findCategory,
   isQuestionActive,
@@ -175,6 +177,25 @@ export async function getMyTakeAssessmentState(
   const { questionnaire, copy } = getAssessmentDefinition(questionnaireId);
   const supabase = createClient();
   const inProgress = await getOrCreateInProgressAssessment(supabase, memberId, questionnaire);
+
+  // Root Router — member agency logging (Method §7 step 4, Investigation
+  // Engine's rootRouter.ts). Best-effort, non-throwing: a member starting
+  // an assessment must never fail because this log couldn't be written.
+  // Only questionnaireId values that resolve to a real AssessmentKey (the
+  // Assessment Registry's cross-cutting metadata registry, distinct from
+  // this generic engine's own lib/assessments/registry.ts) are loggable —
+  // Body Assessment, onboarding, and Primal Pattern have their own separate
+  // start flows and are intentionally left as a same-shape follow-up.
+  const chosenKey = findAssessmentRegistryEntry(questionnaireId)?.key ?? null;
+  if (chosenKey) {
+    try {
+      const decision = await decideNextAction(supabase, memberId);
+      await recordRouterDecision(supabase, memberId, decision, chosenKey);
+    } catch (err) {
+      console.error('Root Router decision logging failed', err instanceof Error ? err.message : err);
+    }
+  }
+
   return { questionnaire, copy, inProgress };
 }
 

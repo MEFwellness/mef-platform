@@ -87,6 +87,7 @@ import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection'
 import { getMyQuestionnaireCatalog } from '@/app/actions/questionnaireCatalog';
 import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
 import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCard';
+import { RootMapCard } from '@/components/RootMapCard';
 import {
   stressStatus,
   painStatus,
@@ -640,6 +641,19 @@ export default async function DashboardPage({
               {/* ---------------------------------------------------- */}
               <Suspense fallback={<NoticingCardSkeleton />}>
                 <WhatWereNoticingCard />
+              </Suspense>
+
+              {/* ---------------------------------------------------- */}
+              {/* Root Map (Prompt 10) — the plain-language, per-domain    */}
+              {/* view of what Rooted Reset currently understands.         */}
+              {/* Suspense-wrapped for the same reason as What We're       */}
+              {/* Noticing above: its own fetch (getMyRootMap) composes    */}
+              {/* several engines and shouldn't block the rest of the      */}
+              {/* dashboard's first byte. See components/RootMapCard.tsx   */}
+              {/* and app/root-map/.                                       */}
+              {/* ---------------------------------------------------- */}
+              <Suspense fallback={<NoticingCardSkeleton />}>
+                <RootMapCard />
               </Suspense>
             </>
           )}

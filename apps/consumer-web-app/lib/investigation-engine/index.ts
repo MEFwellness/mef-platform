@@ -12,3 +12,4 @@ export * from './registry';
 export * from './unlockEngine';
 export * from './confidence';
 export * from './rootRouter';
+export * from './routerOutcome';

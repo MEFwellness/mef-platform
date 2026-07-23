@@ -35,6 +35,7 @@ import {
   getClientCoachAlerts,
 } from '@/app/actions/intelligence-engine';
 import { getClientRootCauseSignals } from '@/app/actions/rootCauseSignals';
+import { getClientRootMap } from '@/app/actions/rootMap';
 import { getClientIntelligenceCoreSummary } from '@/app/actions/intelligence-core';
 import {
   getClientConversationSessionsAction,
@@ -67,6 +68,7 @@ import { BrainPanel } from './BrainPanel';
 import { IntelligencePanel } from './IntelligencePanel';
 import { MemberIntelligencePanel } from './MemberIntelligencePanel';
 import { RootCauseSignalsPanel } from './RootCauseSignalsPanel';
+import { RootMapPanel } from './RootMapPanel';
 import { IntelligenceCorePanel } from './IntelligenceCorePanel';
 import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
@@ -182,6 +184,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     programAssignmentSummaries,
     prescriptionSnapshots,
     rootCauseSignals,
+    rootMap,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -205,6 +208,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientProgramAssignmentSummariesAction(profile.id),
     listPrescriptionSnapshotsForClientAction(profile.id),
     getClientRootCauseSignals(profile.id),
+    getClientRootMap(profile.id),
   ]);
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
@@ -441,6 +445,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               correlations, the finding timeline, and finding-driven
               assessment/reassessment suggestions (Prompt 6). Coach-only. */}
           {rootCauseSignals && <RootCauseSignalsPanel signals={rootCauseSignals} />}
+
+          {/* Root Map (Prompt 10) — the member-facing plain-language,
+              per-domain view, extended here with safety flags, pending
+              reassessments, and Root Router decision history. Coach-only. */}
+          {rootMap && <RootMapPanel rootMap={rootMap} />}
 
           {/* MEF Wellness Intelligence Core — the durable "who is this
               member as a coaching subject" model: wellness identity
