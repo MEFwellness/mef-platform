@@ -122,6 +122,84 @@ const CATEGORY_FINDING_MAP: Record<string, Record<string, CategoryFindingConfig>
       highBand: [70, 150],
     },
   },
+  // Short Health Assessment Questionnaire (migration 00000000000088) —
+  // went live without a finding vocabulary until now (Focused
+  // Investigation Library §19, Recommendation 3: "Give the Short Health
+  // Assessment Questionnaire a Registry adapter... a real, scoped gap").
+  // Bands below are each category's real moderate/high priorityBands from
+  // lib/assessments/short-haq/questionnaire.json. Three categories
+  // (immune_and_respiratory, cardiovascular_and_circulation,
+  // cognitive_clarity, hormonal_balance) have no dedicated
+  // RegistryDomain value — mapped to the closest existing one
+  // (breathing/movement/stress/hormone respectively) rather than forced
+  // into a false-precision fit; each new, distinct code (never reusing an
+  // existing chek-hlc1/four-doctors code) so this instrument corroborates
+  // rather than silently supersedes those two.
+  'short-haq': {
+    digestive_wellness: {
+      domain: 'nutrition',
+      code: 'digestive_wellness_concern',
+      label: 'Digestive Wellness Concerns',
+      moderateBand: [7, 13],
+      highBand: [14, 21],
+    },
+    energy_and_fatigue: {
+      domain: 'movement',
+      code: 'energy_fatigue_pattern',
+      label: 'Energy & Fatigue Pattern',
+      moderateBand: [6, 11],
+      highBand: [12, 18],
+    },
+    sleep_quality: {
+      domain: 'sleep',
+      code: 'sleep_quality_pattern',
+      label: 'Sleep Quality Pattern',
+      moderateBand: [6, 11],
+      highBand: [12, 18],
+    },
+    stress_and_mood: {
+      domain: 'stress',
+      code: 'stress_and_mood_pattern',
+      label: 'Stress & Mood Pattern',
+      moderateBand: [7, 13],
+      highBand: [14, 21],
+    },
+    immune_and_respiratory: {
+      domain: 'breathing',
+      code: 'immune_respiratory_pattern',
+      label: 'Immune & Respiratory Pattern',
+      moderateBand: [6, 11],
+      highBand: [12, 18],
+    },
+    musculoskeletal_comfort: {
+      domain: 'movement',
+      code: 'musculoskeletal_discomfort_pattern',
+      label: 'Musculoskeletal Discomfort Pattern',
+      moderateBand: [6, 11],
+      highBand: [12, 18],
+    },
+    cardiovascular_and_circulation: {
+      domain: 'movement',
+      code: 'cardiovascular_circulation_pattern',
+      label: 'Cardiovascular & Circulation Pattern',
+      moderateBand: [5, 9],
+      highBand: [10, 15],
+    },
+    cognitive_clarity: {
+      domain: 'stress',
+      code: 'cognitive_clarity_pattern',
+      label: 'Cognitive Clarity Pattern',
+      moderateBand: [6, 11],
+      highBand: [12, 18],
+    },
+    hormonal_balance: {
+      domain: 'hormone',
+      code: 'hormonal_balance_pattern',
+      label: 'Hormonal Balance Pattern',
+      moderateBand: [5, 9],
+      highBand: [10, 15],
+    },
+  },
 };
 
 function confidenceWithinBand(score: number, band: [number, number]): number {

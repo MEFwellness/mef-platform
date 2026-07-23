@@ -6,9 +6,9 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getAssessmentRegistryEntry } from '../assessment-registry/registry';
+import { getAssessmentRegistryEntry, listAssessmentRegistryEntries } from '../assessment-registry/registry';
 import type { AssessmentKey } from '../assessment-registry/types';
-import type { ReassessmentSuggestion } from './service';
+import type { CalendarReassessmentSuggestion, ReassessmentSuggestion } from './service';
 
 /** Every assessmentKey with an existing pending schedule for this member, regardless of trigger_source — the dedup set evaluateReassessmentTriggers needs. */
 export async function listPendingReassessmentAssessmentKeys(
@@ -120,4 +120,62 @@ export async function insertFindingTriggeredReassessmentSchedule(
   });
 
   if (error) console.error('insertFindingTriggeredReassessmentSchedule failed', error);
+}
+
+/**
+ * Every registered investigation's most recent completed-attempt date for
+ * this member, keyed by AssessmentKey — what
+ * `evaluateCalendarReassessmentTriggers` needs to know whether a declared
+ * calendar cadence has elapsed. Reads the same `assessment_status_by_member`
+ * view `lib/assessment-registry/facts.ts` already queries for the same
+ * reason (one small view read, never per-assessment).
+ */
+export async function listLastCompletedAtByAssessmentKey(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<Map<AssessmentKey, string>> {
+  const { data, error } = await supabase
+    .from('assessment_status_by_member')
+    .select('assessment_definition_id, latest_completed_at')
+    .eq('member_id', memberId);
+
+  if (error) {
+    console.error('listLastCompletedAtByAssessmentKey failed', error);
+    return new Map();
+  }
+
+  const keyByDefinitionId = new Map(
+    listAssessmentRegistryEntries().map((entry) => [entry.databaseId, entry.key])
+  );
+
+  const result = new Map<AssessmentKey, string>();
+  for (const row of (data ?? []) as {
+    assessment_definition_id: string;
+    latest_completed_at: string | null;
+  }[]) {
+    const key = keyByDefinitionId.get(row.assessment_definition_id);
+    if (key && row.latest_completed_at) result.set(key, row.latest_completed_at);
+  }
+  return result;
+}
+
+export async function insertCalendarTriggeredReassessmentSchedule(
+  supabase: SupabaseClient,
+  memberId: string,
+  suggestion: CalendarReassessmentSuggestion
+): Promise<void> {
+  const definition = getAssessmentRegistryEntry(suggestion.assessmentKey);
+  const now = new Date().toISOString();
+
+  const { error } = await supabase.from('reassessment_schedules').insert({
+    member_id: memberId,
+    assessment_definition_id: definition.databaseId,
+    stage: 'calendar_cadence',
+    due_at: now,
+    status: 'pending',
+    trigger_source: suggestion.triggerSource,
+    trigger_context: suggestion.triggerContext,
+  });
+
+  if (error) console.error('insertCalendarTriggeredReassessmentSchedule failed', error);
 }

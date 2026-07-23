@@ -16,6 +16,8 @@ import { CHEK_HLC1_QUESTIONNAIRE } from './chek-hlc1';
 import { CHEK_HLC1_COPY } from './chek-hlc1/copy';
 import { FOUR_DOCTORS_QUESTIONNAIRE } from './four-doctors';
 import { FOUR_DOCTORS_COPY } from './four-doctors/copy';
+import { SHORT_HAQ_QUESTIONNAIRE } from './short-haq';
+import { SHORT_HAQ_COPY } from './short-haq/copy';
 
 const REGISTRY: Record<string, AssessmentDefinition> = {
   [CHEK_HLC1_QUESTIONNAIRE.id]: {
@@ -25,6 +27,10 @@ const REGISTRY: Record<string, AssessmentDefinition> = {
   [FOUR_DOCTORS_QUESTIONNAIRE.id]: {
     questionnaire: FOUR_DOCTORS_QUESTIONNAIRE,
     copy: FOUR_DOCTORS_COPY,
+  },
+  [SHORT_HAQ_QUESTIONNAIRE.id]: {
+    questionnaire: SHORT_HAQ_QUESTIONNAIRE,
+    copy: SHORT_HAQ_COPY,
   },
 };
 

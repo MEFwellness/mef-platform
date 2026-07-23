@@ -407,14 +407,65 @@ const READINESS_TO_CHANGE = comingSoon({
   displayOrder: 6,
 });
 
-const SHORT_HAQ = comingSoon({
+const SHORT_HAQ: AssessmentDefinition = {
   databaseId: 'f34fae60-88ba-45d0-8a51-7b7f1776bff4',
   key: 'short-haq',
+  type: 'points_scored_questionnaire',
+
   displayName: 'Short Health Assessment Questionnaire',
-  shortDescription: 'A brief health history check-in.',
+  shortDescription:
+    'A 56-question, 9-category symptom-frequency check-in across digestion, energy, sleep, stress, immunity, movement, circulation, focus, and hormonal balance.',
   category: 'health_history',
+  estimatedMinutes: 12,
+
+  membership: {
+    minLevel: 'free_trial',
+    allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
+  },
+  program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
+  prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: ['onboarding-health-history', 'four-doctors'],
+  clinicalPriority: 'moderate',
+  coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
+  retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
+  reassessment: {
+    supportsReassessment: true,
+    stages: [],
+    schedule: 'Unlimited retakes, no cooldown or expiry — same engine/behavior as CHEK HLC1 and Four Doctors.',
+  },
+  comparison: {
+    supportsSimpleHistory: true,
+    supportsScoreTrend: true,
+    supportsSideBySideComparison: false,
+    supportsQuestionLevelComparison: false,
+  },
+  resultAccess: {
+    memberCanView: true,
+    requiresCoachPublishToView: false,
+    coachCanView: true,
+    adminCanView: true,
+  },
+
+  currentVersion: 1,
+  versionLockingRequired: false,
+
+  isActive: true,
+  implementationStatus: 'live',
+  isComingSoon: false,
+
+  route: '/assessments/short-haq',
+  takeRoute: '/assessments/short-haq/take',
+  resultRoute: '/assessments/short-haq/results/[assessmentId]',
+  componentRef: 'components/assessments/AssessmentTaker.tsx',
+  introCopyRef: 'lib/assessments/short-haq/copy.ts',
+
+  scoringAdapter: 'generic-questionnaire-engine',
+  resultAdapter: 'generic-questionnaire-results',
+  storageAdapter: 'wellness-assessments-tables',
+
   displayOrder: 7,
-});
+  safetyCategory: 'none',
+};
 
 const FINDING_1_LOVE = comingSoon({
   databaseId: '6b792a3c-b2ea-4b3d-b272-1142798641fb',

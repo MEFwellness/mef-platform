@@ -79,12 +79,20 @@ describe('registry catalog', () => {
   });
 
   it('Coming Soon entries never expose a take route and are never live', () => {
-    for (const key of ['readiness-to-change', 'short-haq', 'finding-1-love'] as const) {
+    for (const key of ['readiness-to-change', 'finding-1-love'] as const) {
       const entry = findAssessmentRegistryEntry(key)!;
       expect(entry.isComingSoon).toBe(true);
       expect(entry.takeRoute).toBeNull();
       expect(entry.implementationStatus).not.toBe('live');
     }
+  });
+
+  it('short-haq has shipped: live, takeable, and no longer flagged Coming Soon', () => {
+    const entry = findAssessmentRegistryEntry('short-haq')!;
+    expect(entry.isComingSoon).toBe(false);
+    expect(entry.implementationStatus).toBe('live');
+    expect(entry.takeRoute).toBe('/assessments/short-haq/take');
+    expect(entry.currentVersion).toBe(1);
   });
 
   it('a Coming Soon assessment always reports status coming_soon regardless of facts', () => {
