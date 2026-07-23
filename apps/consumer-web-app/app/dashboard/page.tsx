@@ -89,6 +89,7 @@ import { QuestionnairesHomeCard } from '@/components/questionnaires/Questionnair
 import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCard';
 import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
+import { CoachingMessageCard } from '@/components/dashboard/CoachingMessageCard';
 import {
   stressStatus,
   painStatus,
@@ -655,6 +656,18 @@ export default async function DashboardPage({
               {/* ---------------------------------------------------- */}
               <Suspense fallback={<NoticingCardSkeleton />}>
                 <RootMapCard />
+              </Suspense>
+
+              {/* ---------------------------------------------------- */}
+              {/* Root Coaching Conversation Engine (Prompt 13) — the     */}
+              {/* conversation layer on top of every engine above.        */}
+              {/* Suspense-wrapped for the same reason as the others:      */}
+              {/* its own fetch (getMyCoachingMessage) composes several    */}
+              {/* engines and shouldn't block the rest of the dashboard.   */}
+              {/* See components/dashboard/CoachingMessageCard.tsx.        */}
+              {/* ---------------------------------------------------- */}
+              <Suspense fallback={<NoticingCardSkeleton />}>
+                <CoachingMessageCard />
               </Suspense>
 
               {/* ---------------------------------------------------- */}

@@ -42,6 +42,7 @@ import {
   getClientLongitudinalSignals,
   getClientRecommendationEvents,
 } from '@/app/actions/longitudinalIntelligence';
+import { getClientCoachWorkspaceSummary } from '@/app/actions/rootCoaching';
 import { getClientIntelligenceCoreSummary } from '@/app/actions/intelligence-core';
 import {
   getClientConversationSessionsAction,
@@ -77,6 +78,7 @@ import { RootCauseSignalsPanel } from './RootCauseSignalsPanel';
 import { RootMapPanel } from './RootMapPanel';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { LongitudinalIntelligencePanel } from './LongitudinalIntelligencePanel';
+import { CoachWorkspacePanel } from './CoachWorkspacePanel';
 import { IntelligenceCorePanel } from './IntelligenceCorePanel';
 import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
@@ -197,6 +199,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     clientExperiments,
     clientLongitudinalSignals,
     clientRecommendationEvents,
+    coachWorkspaceSummary,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -225,6 +228,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientLifestyleExperiments(profile.id),
     getClientLongitudinalSignals(profile.id),
     getClientRecommendationEvents(profile.id),
+    getClientCoachWorkspaceSummary(profile.id),
   ]);
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
@@ -489,6 +493,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               assignableAssessments={assignableAssessments}
             />
           )}
+
+          {/* Coach Workspace (Prompt 13) — the Root Coaching Conversation
+              Engine's conversation summary, current priorities, recent
+              coaching themes, and suggested discussion topics/questions.
+              Coach-only; members never see this panel. */}
+          {coachWorkspaceSummary && <CoachWorkspacePanel summary={coachWorkspaceSummary} />}
 
           {/* MEF Wellness Intelligence Core — the durable "who is this
               member as a coaching subject" model: wellness identity
