@@ -43,7 +43,7 @@ export type RegistryEntryStatus = 'active' | 'resolved' | 'superseded' | 'dismis
  */
 export type FindingTrendStatus = 'new' | 'improving' | 'stable' | 'worsening' | 'resolved';
 
-/** Nine real producers now — body assessment and coach intelligence from the original milestone, wearable_daily_metric (see lib/registry/adapters/wearables.ts), food_lens_pattern_comparison (see lib/registry/adapters/foodLens.ts), movement_session_completed (see lib/registry/adapters/movement.ts), food_analysis_result, and the three Universal Assessment Intelligence Engine adapters (questionnaire_category_finding, onboarding_baseline_finding, primal_pattern_classification — see lib/registry/adapters/{questionnaireEngine,onboarding,primalPattern}.ts). Extend alongside the migration's check constraint as future adapters land. */
+/** Ten real producers now — body assessment and coach intelligence from the original milestone, wearable_daily_metric (see lib/registry/adapters/wearables.ts), food_lens_pattern_comparison (see lib/registry/adapters/foodLens.ts), movement_session_completed (see lib/registry/adapters/movement.ts), food_analysis_result, the three Universal Assessment Intelligence Engine adapters (questionnaire_category_finding, onboarding_baseline_finding, primal_pattern_classification — see lib/registry/adapters/{questionnaireEngine,onboarding,primalPattern}.ts), and unified_assessment_finding (the Unified Adaptive Assessment Runtime, migration 99 — see lib/registry/adapters/unifiedAssessment.ts). Extend alongside the migration's check constraint as future adapters land. */
 export type RegistrySourceFeature =
   | 'body_assessment_finding'
   | 'assessment_ai_observation'
@@ -53,7 +53,8 @@ export type RegistrySourceFeature =
   | 'food_analysis_result'
   | 'questionnaire_category_finding'
   | 'onboarding_baseline_finding'
-  | 'primal_pattern_classification';
+  | 'primal_pattern_classification'
+  | 'unified_assessment_finding';
 
 /** Same {type, id, note?} shape every other engine's evidence-ref type already uses, independently declared per this codebase's established convention. */
 export interface RegistryEvidenceRef {

@@ -275,3 +275,32 @@ export interface UnifiedAssessmentQuestion {
   created_at: string;
   updated_at: string;
 }
+
+// Unified Adaptive Assessment Runtime (migration 99) — session/answer
+// storage for the unified_assessment_* content schema. Mirrors
+// AssessmentRecord/wellness_assessment_answers in shape and purpose; see
+// lib/assessment-runtime/ for the pure logic and I/O layer built on these.
+
+export type UnifiedAssessmentSessionStatus = 'in_progress' | 'completed';
+
+export interface UnifiedAssessmentSessionRow {
+  id: string;
+  member_id: string;
+  assessment_definition_id: string;
+  assessment_version: number;
+  status: UnifiedAssessmentSessionStatus;
+  current_section_id: string | null;
+  current_question_id: string | null;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UnifiedAssessmentAnswerRow {
+  id: string;
+  session_id: string;
+  question_id: string;
+  value: unknown;
+  answered_at: string;
+}

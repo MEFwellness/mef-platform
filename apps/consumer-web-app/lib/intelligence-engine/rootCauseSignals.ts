@@ -46,6 +46,7 @@ const SOURCE_FEATURE_LABEL: Record<RegistrySourceFeature, string> = {
   questionnaire_category_finding: 'Questionnaire',
   onboarding_baseline_finding: 'Onboarding Assessment',
   primal_pattern_classification: 'Primal Pattern Diet Type',
+  unified_assessment_finding: 'Assessment',
 };
 
 export type EnrichedRootCauseSignal = {
