@@ -42,12 +42,20 @@ function ruleSatisfied(rule: Rule, answered: AnsweredMap): boolean {
 
 function isEligible(question: AdaptiveQuestion, answered: AnsweredMap): boolean {
   const requires = question.requires;
-  if (!requires || requires.length === 0) return true;
-  return requires.every((rule) => ruleSatisfied(rule, answered));
+  if (requires && requires.length > 0 && !requires.every((rule) => ruleSatisfied(rule, answered))) {
+    return false;
+  }
+
+  const excludes = question.excludes;
+  if (excludes && excludes.some((rule) => ruleSatisfied(rule, answered))) {
+    return false;
+  }
+
+  return true;
 }
 
 function scoreQuestion(question: AdaptiveQuestion, answered: AnsweredMap): number {
-  let score = question.weight;
+  let score = question.weight + (question.priority ?? 0);
   for (const boost of question.boosts ?? []) {
     if (ruleSatisfied(boost, answered)) score += boost.amount;
   }

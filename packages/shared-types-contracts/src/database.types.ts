@@ -199,3 +199,79 @@ export interface CoachNote {
   // reassessment) this note is about. Null for general client notes.
   onboarding_submission_id: string | null;
 }
+
+// Unified Adaptive Assessment Foundation (migration 98). Named
+// UnifiedAssessment* to avoid colliding with the two other, unrelated
+// `AssessmentDefinition` types already in the app
+// (lib/assessments/engine/types.ts and lib/assessment-registry/types.ts).
+// Empty/unused by every existing questionnaire — see
+// lib/assessment-foundation/ for the read layer built on these tables.
+
+export interface UnifiedAssessmentDefinition {
+  id: string;
+  key: string;
+  /** Optional bridge to assessment_definitions.id (migration 70's catalog row), once/if this assessment registers there too. */
+  catalog_definition_id: string | null;
+  title: string;
+  description: string | null;
+  assessment_type: string | null;
+  estimated_completion_time_minutes: number | null;
+  adaptive_enabled: boolean;
+  reassessment_enabled: boolean;
+  safety_enabled: boolean;
+  scoring_profile: unknown | null;
+  version: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UnifiedAssessmentSection {
+  id: string;
+  assessment_definition_id: string;
+  title: string;
+  subtitle: string | null;
+  display_order: number;
+  adaptive_rules: unknown | null;
+  completion_rules: unknown | null;
+  optional: boolean;
+  required: boolean;
+  safety_category: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UnifiedAssessmentQuestion {
+  id: string;
+  question_key: string;
+  assessment_definition_id: string;
+  section_id: string | null;
+  version: number;
+  active: boolean;
+  display_order: number;
+  prompt: string;
+  description: string | null;
+  answer_type: string;
+  answer_options: unknown | null;
+  validation: unknown | null;
+  tags: string[] | null;
+  body_system: string | null;
+  body_region: string | null;
+  concern_category: string | null;
+  educational_tags: string[] | null;
+  coach_tags: string[] | null;
+  related_systems: string[] | null;
+  severity_tags: string[] | null;
+  /** Base selection score — required by lib/adaptive-assessment-engine's AdaptiveQuestion contract. */
+  weight: number;
+  requires: unknown | null;
+  excludes: unknown | null;
+  boosts: unknown | null;
+  priority: number | null;
+  /** Reserved for a future section/flow navigator — not interpreted by the adaptive engine yet. */
+  follow_up_rules: unknown | null;
+  skip_rules: unknown | null;
+  completion_rules: unknown | null;
+  created_at: string;
+  updated_at: string;
+}

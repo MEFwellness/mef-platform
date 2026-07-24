@@ -78,6 +78,48 @@ describe('selectNext', () => {
     const picked = selectNext(bank, {}, [], fixedRandom(0.99));
     expect(picked?.question_key).toBe('winner');
   });
+
+  it('excludes a question whose excludes rule is satisfied, even when it has no requires', () => {
+    const bank = [
+      q('a'),
+      q('b', { excludes: [{ question_key: 'gate', op: 'eq', value: 'yes' }] }),
+    ];
+    const answered: AnsweredMap = { gate: 'yes' };
+    const picked = selectNext(bank, answered, [], fixedRandom(0));
+    expect(picked?.question_key).toBe('a');
+  });
+
+  it('keeps an excludes-gated question eligible until its exclude condition is met', () => {
+    const bank = [q('b', { excludes: [{ question_key: 'gate', op: 'eq', value: 'yes' }] })];
+    const picked = selectNext(bank, {}, [], fixedRandom(0));
+    expect(picked?.question_key).toBe('b');
+  });
+
+  it('rejects a question that satisfies requires but also satisfies excludes', () => {
+    const bank = [
+      q('a', {
+        requires: [{ question_key: 'concern', op: 'eq', value: 'sleep' }],
+        excludes: [{ question_key: 'severity', op: 'eq', value: 'mild' }],
+      }),
+    ];
+    const answered: AnsweredMap = { concern: 'sleep', severity: 'mild' };
+    expect(selectNext(bank, answered, [], fixedRandom(0))).toBeNull();
+  });
+
+  it('treats absent excludes/priority identically to a plain requires/boosts question (no behavior change)', () => {
+    const withoutNewFields = q('a', { weight: 2 });
+    const withNullNewFields = q('a', { weight: 2, excludes: null, priority: null });
+    const answered: AnsweredMap = {};
+    expect(selectNext([withoutNewFields], answered, [], fixedRandom(0))?.question_key).toBe(
+      selectNext([withNullNewFields], answered, [], fixedRandom(0))?.question_key
+    );
+  });
+
+  it('adds priority into the score as a static tiebreak, independent of answered state', () => {
+    const bank = [q('low', { weight: 1 }), q('high', { weight: 1, priority: 5 })];
+    const picked = selectNext(bank, {}, [], fixedRandom(0.99));
+    expect(picked?.question_key).toBe('high');
+  });
 });
 
 describe('selectBatch', () => {
