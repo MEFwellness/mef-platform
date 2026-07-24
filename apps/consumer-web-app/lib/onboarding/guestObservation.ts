@@ -5,7 +5,15 @@ export type GuestObservationTier = 'steady' | 'mixed' | 'stretched';
 export interface GuestObservation {
   tier: GuestObservationTier;
   headline: string;
-  reflection: string[];
+  /**
+   * A single, flowing observation — deliberately one cohesive thought, not
+   * a bulleted list of separate reflections, per the "premium discovery
+   * moment" brief: the member should feel like they received one real
+   * insight, not several thin ones stacked together.
+   */
+  observation: string;
+  /** Brief, educational, coaching-scope explanation of why this pattern is worth tracking over time — never a treatment claim. */
+  whyItMatters: string;
   disclaimer: string;
 }
 
@@ -147,13 +155,26 @@ function findCorrelationText(answers: OnboardingAnswerInput[]): string | null {
   return (concernMatch ?? matching[0])?.text ?? null;
 }
 
-const TIER_REFLECTION: Record<GuestObservationTier, string> = {
+/**
+ * A continuation clause (lowercase start, no leading subject) describing
+ * the member's overall tier — always used as the back half of a sentence
+ * that already opened with something else (a concern mention or a plain
+ * "based on what you've shared so far"), so the full observation reads as
+ * one sentence instead of two abrupt ones stacked together.
+ */
+const TIER_CLAUSE: Record<GuestObservationTier, string> = {
+  steady: 'a lot of this already looks fairly steady — a good foundation to build on.',
+  mixed: 'a few areas look like they could use some attention, alongside some that seem steady.',
+  stretched: 'a few areas seem notably stretched right now — worth paying closer attention to.',
+};
+
+const WHY_IT_MATTERS: Record<GuestObservationTier, string> = {
   steady:
-    'From what you shared, a lot of this looks fairly steady right now — a good foundation to build on.',
+    "Patterns like this are worth tracking even when things feel good — knowing where you're starting from is what makes it possible to notice small shifts before they become bigger ones.",
   mixed:
-    'From what you shared, a few areas look like they could use some attention, alongside some that seem steady.',
+    "Noticing where things stand today gives us a real starting point. Tracking a pattern like this over time — not just once — is how we start to tell what's actually helping.",
   stretched:
-    'From what you shared, a few areas seem notably stretched right now — worth paying attention to.',
+    "Naming a pattern is the first step toward changing it. Paying attention to this over time, not just today, is how real shifts tend to happen.",
 };
 
 /**
@@ -187,16 +208,22 @@ export function buildGuestOnboardingObservation(
 
   const correlationText = findCorrelationText(answers);
   const concernPhrase = findPrimaryConcernPhrase(answers);
-  const reflection = [
-    correlationText ??
-      (concernPhrase ? `You told us ${concernPhrase} is what brought you here today.` : null),
-    TIER_REFLECTION[tier],
-  ].filter((line): line is string => line !== null);
+
+  // One cohesive observation, not a list: prefer a real two-signal
+  // correlation (already a complete thought); otherwise open with what the
+  // member told us mattered to them and land on the tier read; otherwise
+  // just the tier read, framed as its own opening sentence.
+  const observation = correlationText
+    ? correlationText
+    : concernPhrase
+      ? `You told us ${concernPhrase} is what brought you here today — and ${TIER_CLAUSE[tier]}`
+      : `Based on what you've shared so far, ${TIER_CLAUSE[tier]}`;
 
   return {
     tier,
-    headline: "Here's what we're noticing",
-    reflection,
+    headline: "Here's what we're beginning to notice",
+    observation,
+    whyItMatters: WHY_IT_MATTERS[tier],
     disclaimer:
       'This is an early, non-diagnostic reflection based only on what you just shared — not a diagnosis or medical advice.',
   };

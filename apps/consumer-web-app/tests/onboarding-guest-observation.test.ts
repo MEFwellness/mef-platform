@@ -38,11 +38,9 @@ describe('guest onboarding observation (non-diagnostic, client-only)', () => {
     expect(highStress.tier).toBe('stretched');
   });
 
-  it('folds primary_concern into the reflection when answered', () => {
+  it('folds primary_concern into the observation when answered', () => {
     const observation = buildGuestOnboardingObservation([answer('primary_concern', 'digestion')]);
-    expect(observation.reflection.some((line) => line.toLowerCase().includes('digestion'))).toBe(
-      true
-    );
+    expect(observation.observation.toLowerCase()).toContain('digestion');
   });
 
   it('omits the concern sentence when primary_concern is unanswered', () => {
@@ -50,8 +48,23 @@ describe('guest onboarding observation (non-diagnostic, client-only)', () => {
       answer('primary_concern', '', 'not_sure'),
       answer('baseline_stress_level', 2),
     ]);
-    expect(observation.reflection.length).toBeGreaterThan(0);
-    expect(observation.reflection.some((line) => line.includes('brought you here'))).toBe(false);
+    expect(observation.observation.length).toBeGreaterThan(0);
+    expect(observation.observation).not.toMatch(/brought you here/);
+  });
+
+  it('is a single cohesive observation, not a list — always exactly one sentence-flow string', () => {
+    const observation = buildGuestOnboardingObservation([
+      answer('primary_concern', 'stress'),
+      answer('baseline_stress_level', 4),
+    ]);
+    expect(typeof observation.observation).toBe('string');
+    expect(observation.observation.length).toBeGreaterThan(0);
+  });
+
+  it('always includes a non-empty, distinct "why it matters" explanation', () => {
+    const observation = buildGuestOnboardingObservation([answer('baseline_stress_level', 2)]);
+    expect(observation.whyItMatters.length).toBeGreaterThan(0);
+    expect(observation.whyItMatters).not.toBe(observation.observation);
   });
 
   it('disclaims diagnosis rather than asserting one, and never mentions treatment or scoring', () => {
@@ -60,7 +73,7 @@ describe('guest onboarding observation (non-diagnostic, client-only)', () => {
       answer('baseline_stress_level', 4),
     ]);
     const text =
-      `${observation.headline} ${observation.reflection.join(' ')} ${observation.disclaimer}`.toLowerCase();
+      `${observation.headline} ${observation.observation} ${observation.whyItMatters} ${observation.disclaimer}`.toLowerCase();
     // The only permitted "diagnos*" mention is the explicit disclaimer that
     // this is NOT one — never an affirmative diagnostic claim.
     expect(observation.disclaimer).toMatch(/not a diagnosis/i);
@@ -71,7 +84,7 @@ describe('guest onboarding observation (non-diagnostic, client-only)', () => {
   it('falls back to a neutral ("mixed") tier when nothing numeric was answered', () => {
     const observation = buildGuestOnboardingObservation([]);
     expect(observation.tier).toBe('mixed');
-    expect(observation.reflection.length).toBeGreaterThan(0);
+    expect(observation.observation.length).toBeGreaterThan(0);
   });
 
   it('explains a stress + low-energy correlation instead of just restating the concern', () => {
@@ -80,8 +93,8 @@ describe('guest onboarding observation (non-diagnostic, client-only)', () => {
       answer('baseline_stress_level', 4),
       answer('baseline_energy_level', 2),
     ]);
-    expect(observation.reflection[0]).toMatch(/stress/i);
-    expect(observation.reflection[0]).toMatch(/energy/i);
+    expect(observation.observation).toMatch(/stress/i);
+    expect(observation.observation).toMatch(/energy/i);
   });
 
   it('explains a pain + low-movement correlation using the multi_select and enum fields', () => {
@@ -90,8 +103,8 @@ describe('guest onboarding observation (non-diagnostic, client-only)', () => {
       { question_key: 'baseline_pain_areas', question_version: 1, answer_status: 'answered', value: ['lower_back'] },
       answer('baseline_movement_frequency', '0'),
     ]);
-    expect(observation.reflection[0]).toMatch(/discomfort/i);
-    expect(observation.reflection[0]).toMatch(/movement/i);
+    expect(observation.observation).toMatch(/discomfort/i);
+    expect(observation.observation).toMatch(/movement/i);
   });
 
   it('treats a "none" pain answer as no pain, so it does not trigger the pain/movement correlation', () => {
@@ -100,17 +113,15 @@ describe('guest onboarding observation (non-diagnostic, client-only)', () => {
       { question_key: 'baseline_pain_areas', question_version: 1, answer_status: 'answered', value: ['none'] },
       answer('baseline_movement_frequency', '0'),
     ]);
-    expect(observation.reflection.some((line) => line.toLowerCase().includes('discomfort'))).toBe(
-      false
-    );
+    expect(observation.observation.toLowerCase()).not.toContain('discomfort');
   });
 
-  it('never mentions treatment or scoring in a correlation-driven reflection', () => {
+  it('never mentions treatment or scoring in a correlation-driven observation', () => {
     const observation = buildGuestOnboardingObservation([
       answer('baseline_stress_level', 5),
       answer('baseline_digestion', 1),
     ]);
-    const text = observation.reflection.join(' ').toLowerCase();
+    const text = observation.observation.toLowerCase();
     expect(text).not.toMatch(/treat/);
     expect(text).not.toMatch(/\bscore\b/);
   });
