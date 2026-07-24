@@ -44,17 +44,51 @@ export function coachHelperFor(question: OnboardingQuestion): string | null {
   return COACH_HELPER[question.question_key] ?? question.helper_text ?? null;
 }
 
+/**
+ * The premium welcome screen shown once, before the member's first
+ * question (OnboardingIntro.tsx) — the first five seconds of Rooted Reset.
+ * Deliberately outcome-first, not task-first: nothing here talks about
+ * "collecting information" or counts questions as the headline promise
+ * (the adaptive engine — lib/onboarding/adaptivePlan.ts — now varies the
+ * real count by concern anyway, 13-14, so leading with an exact number
+ * would either be wrong or require hedging). ONBOARDING_JOURNEY_STEPS
+ * below carries the "why keep going" narrative instead of a bare
+ * question/time checklist.
+ */
 export const EXPECTATIONS_COPY = {
-  eyebrow: 'Step 1 of 3 · Understand You',
-  title: "Let's get to know you",
+  eyebrow: 'Step 1 of 3',
+  title: 'Welcome to the beginning of your wellness story.',
   purpose:
-    "In the next few minutes, you'll start to uncover patterns in how your body has been responding to daily life — the beginning of your personalized wellness picture.",
-  questionCount: 12,
-  minutes: 3,
-  observationPromise: 'A personalized wellness observation, just for you',
-  reassurance: "There's no right or wrong answer here — just what's true for you right now.",
-  cta: 'Begin',
+    'A great coach starts by listening. This is a short, guided conversation about the patterns behind how you feel, move, and recover — so everything that follows is built around you.',
+  timeCaption: 'Takes about 4 minutes.',
+  cta: "Let's begin",
 };
+
+/**
+ * The journey-psychology stepper inside the welcome card — reframes "12
+ * questions" as three chapters the member is beginning, not completing.
+ * Step 1 is this assessment; steps 2-3 preview what it leads to (the
+ * guest observation screen and, past signup, the ongoing check-in/
+ * reassessment loop) so the page reads as the start of a relationship,
+ * not a form. Names deliberately echo vocabulary already used downstream
+ * (lib/onboarding/journeyPreview.ts's "Wellness Timeline", signup's "the
+ * beginning of your story") so the language stays consistent across the
+ * whole first-five-minutes experience, not just this one screen.
+ */
+export const ONBOARDING_JOURNEY_STEPS = [
+  {
+    title: 'Understand You',
+    body: "A short, guided conversation about what's really going on — no right or wrong answers, just what's true for you.",
+  },
+  {
+    title: 'Your First Observation',
+    body: 'A personalized reflection on the patterns we notice together — honest, non-diagnostic, and just for you.',
+  },
+  {
+    title: 'Your Wellness Story Begins',
+    body: 'Every check-in and reassessment from here builds on what we learn today — your picture gets clearer over time.',
+  },
+] as const;
 
 /**
  * Shown once, right after `primary_concern` is answered — a short,
