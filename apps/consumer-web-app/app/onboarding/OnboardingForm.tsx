@@ -6,13 +6,17 @@ import { Check } from 'lucide-react';
 import { submitOnboarding } from '../actions/onboarding';
 import { SLIDER_ENDPOINT_LABELS, numericRange } from '@/lib/onboarding/scale';
 import { DOMAIN_LABEL } from '@/lib/onboarding/baseline';
-import { coachHelperFor, coachPromptFor } from '@/lib/onboarding/coachCopy';
+import { coachHelperFor, coachPromptFor, ZOOM_OUT_TRANSITION } from '@/lib/onboarding/coachCopy';
+import { reorderOnboardingQuestions, transitionLineFor } from '@/lib/onboarding/branching';
 import {
   PRIMARY_CONCERN_QUESTION_KEY,
-  contextNoteFor,
-  reorderOnboardingQuestions,
-  transitionLineFor,
-} from '@/lib/onboarding/branching';
+  advanceAdaptivePlan,
+  answersToAnsweredMap,
+  estimatedTotalQuestions,
+  initAdaptiveEngineState,
+  isPlanComplete,
+  type AdaptiveEngineState,
+} from '@/lib/onboarding/adaptivePlan';
 import { OnboardingProgress } from './OnboardingProgress';
 import { BranchTransition } from './BranchTransition';
 import type {
@@ -27,6 +31,22 @@ type Step =
 
 type Props = {
   questions: OnboardingQuestion[];
+  /**
+   * 'adaptive' runs the real question-bank engine (lib/onboarding/adaptivePlan.ts)
+   * — a concern deep dive followed by a trimmed shared wellness pass, a
+   * different subset for every member. Used by both /onboarding call sites
+   * (guest and member), which fetch the FULL bank (legacy + concern banks +
+   * shared pool) via getOnboardingAssessmentBank(ForGuest).
+   *
+   * 'fixed' renders exactly the `questions` array it's given, in order,
+   * with no engine involvement — the reassessment flow's mode
+   * (ReassessmentFormShell), which fetches only the 12 legacy questions via
+   * getOnboardingQuestions() and deliberately keeps its original
+   * "same questions as your baseline" behavior unchanged (still gets the
+   * lightweight primary_concern reorder from lib/onboarding/branching.ts,
+   * exactly as it always has).
+   */
+  mode: 'adaptive' | 'fixed';
   /**
    * Called after a successful submit instead of the default
    * router.refresh() — used by the reassessment flow to navigate to the
@@ -229,14 +249,12 @@ const QuestionField = memo(function QuestionField({
   question,
   answer,
   invalid,
-  contextNote,
   onAnswerChange,
   registerRef,
 }: {
   question: OnboardingQuestion;
   answer: StoredAnswer | undefined;
   invalid: boolean;
-  contextNote?: string | null;
   onAnswerChange: (questionKey: string, answer: StoredAnswer) => void;
   registerRef: (questionKey: string, el: Focusable | null) => void;
 }) {
@@ -407,11 +425,6 @@ const QuestionField = memo(function QuestionField({
 
   return (
     <fieldset aria-describedby={invalid ? errorId : undefined}>
-      {contextNote ? (
-        <p className="mb-1.5 px-0.5 text-xs font-semibold uppercase tracking-wider text-[#B8860B]">
-          {contextNote}
-        </p>
-      ) : null}
       <legend
         id={legendId}
         className="mb-1 block px-0.5 font-[family-name:var(--font-cormorant-garamond)] text-xl font-semibold leading-snug text-[#1B3A2D] md:text-2xl"
@@ -487,8 +500,20 @@ const QuestionField = memo(function QuestionField({
   );
 });
 
+function buildInitialSteps(mode: 'adaptive' | 'fixed', questions: OnboardingQuestion[]): Step[] {
+  if (mode === 'fixed') {
+    // Exact original behavior: the lightweight reorder-only branching,
+    // never the full concern-bank engine — see branching.ts's header.
+    return questions.map((question) => ({ type: 'question', question }));
+  }
+
+  const primary = questions.find((q) => q.question_key === PRIMARY_CONCERN_QUESTION_KEY);
+  return primary ? [{ type: 'question', question: primary }] : [];
+}
+
 export function OnboardingForm({
   questions,
+  mode,
   onSubmitted,
   submitLabel = 'Submit onboarding',
   guestMode = false,
@@ -500,6 +525,11 @@ export function OnboardingForm({
   const [invalidKey, setInvalidKey] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  // Only meaningful in 'adaptive' mode: the fixed-mode reorder below is a
+  // pure function of `questions`/primary_concern and never needs to persist
+  // across renders as its own state.
+  const [adaptiveSteps, setAdaptiveSteps] = useState<Step[]>(() => buildInitialSteps(mode, questions));
+  const [engineState, setEngineState] = useState<AdaptiveEngineState | null>(null);
   const fieldRefs = useRef<Record<string, Focusable | null>>({});
   // Mirrors invalidKey for updateAnswer's stable callback below. Reading
   // state directly there would either go stale (empty deps) or force the
@@ -529,31 +559,46 @@ export function OnboardingForm({
       ? primaryConcernAnswer.value
       : null;
 
-  // Reordering (and the one-off transition step it earns) only ever moves
-  // questions the member hasn't reached yet — see reorderOnboardingQuestions,
-  // which pins primary_concern first and is a pure key-preserving permutation
-  // of `questions`, so the final submit payload below stays correct
-  // regardless of which order the member actually saw them in.
-  const orderedQuestions = useMemo(
-    () => reorderOnboardingQuestions(questions, primaryConcernValue),
-    [questions, primaryConcernValue]
+  // Fixed mode's steps are a pure function of `questions`/primary_concern —
+  // computed fresh every render, matching the original single-path
+  // behavior exactly. Adaptive mode's steps are grown incrementally in
+  // goNext() below (each pick can depend on answers given so far), so they
+  // live in state instead.
+  const fixedOrderedQuestions = useMemo(
+    () => (mode === 'fixed' ? reorderOnboardingQuestions(questions, primaryConcernValue) : questions),
+    [mode, questions, primaryConcernValue]
   );
 
   const steps = useMemo<Step[]>(() => {
+    if (mode === 'adaptive') return adaptiveSteps;
+
     const result: Step[] = [];
-    for (const question of orderedQuestions) {
+    for (const question of fixedOrderedQuestions) {
       result.push({ type: 'question', question });
       if (question.question_key === PRIMARY_CONCERN_QUESTION_KEY && primaryConcernValue) {
         result.push({ type: 'transition', line: transitionLineFor(primaryConcernValue) });
       }
     }
     return result;
-  }, [orderedQuestions, primaryConcernValue]);
+  }, [mode, adaptiveSteps, fixedOrderedQuestions, primaryConcernValue]);
+
+  const askedQuestions = useMemo(
+    () =>
+      steps
+        .filter((step): step is Extract<Step, { type: 'question' }> => step.type === 'question')
+        .map((step) => step.question),
+    [steps]
+  );
 
   const clampedStepIndex = Math.min(stepIndex, steps.length - 1);
   const currentStep = steps[clampedStepIndex];
-  const isLastStep = clampedStepIndex === steps.length - 1;
-  const totalQuestionSteps = questions.length;
+  const isAtFrontier = clampedStepIndex === steps.length - 1;
+  const isLastStep =
+    mode === 'fixed'
+      ? isAtFrontier
+      : isAtFrontier && engineState !== null && isPlanComplete(engineState);
+  const totalQuestionSteps =
+    mode === 'fixed' ? fixedOrderedQuestions.length : estimatedTotalQuestions(primaryConcernValue);
 
   const completedQuestionSteps = useMemo(() => {
     let count = 0;
@@ -581,6 +626,51 @@ export function OnboardingForm({
     setStepIndex((i) => Math.max(0, i - 1));
   }
 
+  /**
+   * Appends the next adaptive step(s) once the member has just answered the
+   * step at the frontier (the last one generated so far) — never when
+   * navigating back through already-generated steps, so re-visiting a
+   * question never reshuffles or duplicates what comes after it.
+   */
+  function growAdaptiveSteps(justAnswered: OnboardingQuestion, latestAnswers: Record<string, StoredAnswer>) {
+    if (!isAtFrontier) return;
+
+    if (justAnswered.question_key === PRIMARY_CONCERN_QUESTION_KEY) {
+      const answer = latestAnswers[PRIMARY_CONCERN_QUESTION_KEY];
+      const concernValue =
+        answer?.status === 'answered' && typeof answer.value === 'string' ? answer.value : null;
+
+      const startState = initAdaptiveEngineState(concernValue);
+      const { question: nextQuestion, nextState } = advanceAdaptivePlan(
+        startState,
+        questions,
+        answersToAnsweredMap(latestAnswers)
+      );
+
+      const newSteps: Step[] = [{ type: 'transition', line: transitionLineFor(concernValue) }];
+      if (nextQuestion) newSteps.push({ type: 'question', question: nextQuestion });
+
+      setAdaptiveSteps((current) => [...current, ...newSteps]);
+      setEngineState(nextState);
+      return;
+    }
+
+    if (!engineState) return;
+
+    const { question: nextQuestion, nextState, enteredPhase3 } = advanceAdaptivePlan(
+      engineState,
+      questions,
+      answersToAnsweredMap(latestAnswers)
+    );
+
+    const newSteps: Step[] = [];
+    if (enteredPhase3) newSteps.push({ type: 'transition', line: ZOOM_OUT_TRANSITION });
+    if (nextQuestion) newSteps.push({ type: 'question', question: nextQuestion });
+
+    setAdaptiveSteps((current) => [...current, ...newSteps]);
+    setEngineState(nextState);
+  }
+
   function goNext() {
     if (currentStep?.type !== 'question') {
       setStepIndex((i) => i + 1);
@@ -588,7 +678,8 @@ export function OnboardingForm({
     }
 
     const { question } = currentStep;
-    if (!isValidAnswer(question, answers[question.question_key])) {
+    const currentAnswer = answers[question.question_key];
+    if (!isValidAnswer(question, currentAnswer)) {
       setInvalidKey(question.question_key);
       setError(`This question is required: ${coachPromptFor(question)}`);
       const target = fieldRefs.current[question.question_key];
@@ -599,6 +690,11 @@ export function OnboardingForm({
 
     setInvalidKey(null);
     setError('');
+
+    if (mode === 'adaptive') {
+      growAdaptiveSteps(question, answers);
+    }
+
     setStepIndex((i) => i + 1);
   }
 
@@ -606,7 +702,16 @@ export function OnboardingForm({
     event.preventDefault();
     setError('');
 
-    const missingQuestion = questions.find(
+    // In adaptive mode, the submit button only renders once isLastStep is
+    // true (the plan has genuinely run to completion) — this guard is the
+    // safety net for a native form-submit triggered another way (e.g.
+    // pressing Enter in a text field before reaching the end), so a
+    // partial, still-growing plan can never be submitted early.
+    if (mode === 'adaptive' && !(engineState && isPlanComplete(engineState))) {
+      return;
+    }
+
+    const missingQuestion = askedQuestions.find(
       (question) => !isValidAnswer(question, answers[question.question_key])
     );
 
@@ -622,7 +727,7 @@ export function OnboardingForm({
 
     setSubmitting(true);
 
-    const payload: OnboardingAnswerInput[] = questions.map((question) => {
+    const payload: OnboardingAnswerInput[] = askedQuestions.map((question) => {
       // Non-null: the isValidAnswer check above already guarantees every
       // question has a valid answer before this map runs.
       const answer = answers[question.question_key]!;
@@ -681,7 +786,6 @@ export function OnboardingForm({
               question={currentStep.question}
               answer={answers[currentStep.question.question_key]}
               invalid={invalidKey === currentStep.question.question_key}
-              contextNote={contextNoteFor(primaryConcernValue, currentStep.question.question_key)}
               onAnswerChange={updateAnswer}
               registerRef={registerRef}
             />

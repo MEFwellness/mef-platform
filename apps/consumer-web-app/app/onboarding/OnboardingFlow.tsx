@@ -159,6 +159,7 @@ export function OnboardingFlow({
     return (
       <OnboardingForm
         questions={questions}
+        mode="adaptive"
         guestMode
         onGuestSave={(payload) => {
           saveGuestOnboardingAnswers(payload);
@@ -170,5 +171,5 @@ export function OnboardingFlow({
     );
   }
 
-  return <OnboardingForm questions={questions} onSubmitted={() => setStage('complete')} />;
+  return <OnboardingForm questions={questions} mode="adaptive" onSubmitted={() => setStage('complete')} />;
 }

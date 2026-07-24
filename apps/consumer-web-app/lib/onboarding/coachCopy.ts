@@ -39,8 +39,9 @@ export function coachPromptFor(question: OnboardingQuestion): string {
   return COACH_PROMPT[question.question_key] ?? question.prompt_text;
 }
 
+/** New (post-legacy-12) questions author their helper copy directly on the row (question.helper_text) rather than through this map — COACH_HELPER stays reserved for the original 12. */
 export function coachHelperFor(question: OnboardingQuestion): string | null {
-  return COACH_HELPER[question.question_key] ?? null;
+  return COACH_HELPER[question.question_key] ?? question.helper_text ?? null;
 }
 
 export const EXPECTATIONS_COPY = {
@@ -81,6 +82,18 @@ export const TRANSITION_COPY: Record<string, string> = {
 };
 
 export const DEFAULT_TRANSITION = "Let's build a full picture of where you're starting from.";
+
+/**
+ * Shown once, right after the concern deep-dive (Phase 2 of
+ * lib/onboarding/adaptivePlan.ts) finishes and the assessment moves into
+ * the shared wellness pass (Phase 3) — the "coach zooming out" beat the
+ * product brief asks for. Deliberately one generic line rather than a
+ * per-concern map: the deep dive itself was already personalized, so this
+ * beat's job is just to make the transition feel smooth, not to add more
+ * content to author/maintain.
+ */
+export const ZOOM_OUT_TRANSITION =
+  "Thanks for walking me through that — it's helping me understand you better. Now let's zoom out for a moment and look at the fuller picture.";
 
 /**
  * Shown inline, directly above the one question each concern pulls forward

@@ -18,6 +18,7 @@ export function ReassessmentFormShell({ questions }: { questions: OnboardingQues
   return (
     <OnboardingForm
       questions={questions}
+      mode="fixed"
       submitLabel="Submit reassessment"
       onSubmitted={() => router.push('/profile/reassessments')}
     />

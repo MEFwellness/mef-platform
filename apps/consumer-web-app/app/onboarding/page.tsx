@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { hasCompletedConsent } from '../actions/consent';
-import { getOnboardingQuestions, getOnboardingQuestionsForGuest } from '../actions/onboarding';
+import {
+  getOnboardingAssessmentBank,
+  getOnboardingAssessmentBankForGuest,
+} from '../actions/onboarding';
 import { ConsentForm } from './ConsentForm';
 import { OnboardingFlow } from './OnboardingFlow';
 
@@ -35,14 +38,14 @@ export default async function OnboardingPage() {
   // No account required — a visitor can take the assessment before
   // signing up (middleware.ts's PUBLIC_PATHS exempts /onboarding for
   // exactly this). The question list is fetched via a service-role read
-  // (getOnboardingQuestionsForGuest) since onboarding_questions' RLS
+  // (getOnboardingAssessmentBankForGuest) since onboarding_questions' RLS
   // requires an authenticated session and this app has no anonymous auth.
   // Nothing is written to Postgres in this branch — OnboardingFlow's
   // guest mode stores answers in localStorage and only ever submits them
   // for real once the member signs in with a real account (see
   // OnboardingFlow.tsx's member-mode migration effect).
   if (!user) {
-    const questions = await getOnboardingQuestionsForGuest();
+    const questions = await getOnboardingAssessmentBankForGuest();
     if (questions.length === 0) return <UnavailableNotice />;
 
     return (
@@ -109,9 +112,9 @@ export default async function OnboardingPage() {
     );
   }
 
-  const questions = await getOnboardingQuestions();
+  const questions = await getOnboardingAssessmentBank();
 
-  // getOnboardingQuestions() returns [] both on a real fetch error (logged
+  // getOnboardingAssessmentBank() returns [] both on a real fetch error (logged
   // there) and if reference data is missing — a config problem, never
   // something the member can fix. Show a calm apology instead of an empty
   // form with a submit button that has nothing to submit.

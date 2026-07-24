@@ -18,12 +18,18 @@ function question(overrides: Partial<OnboardingQuestion> = {}): OnboardingQuesti
     question_version: 1,
     display_order: 1,
     prompt_text: 'How would you rate your typical sleep quality?',
+    helper_text: null,
     answer_type: 'numeric',
     allowed_values: null,
     domain: 'sleep',
     allows_not_sure: false,
     allows_not_applicable: false,
     allows_prefer_not_to_answer: false,
+    question_pool: 'legacy',
+    concern: null,
+    weight: 1,
+    requires: null,
+    boosts: null,
     ...overrides,
   };
 }

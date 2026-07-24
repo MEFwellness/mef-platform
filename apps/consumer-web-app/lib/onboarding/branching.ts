@@ -1,13 +1,20 @@
 /**
- * Adaptive question ordering for the live onboarding intake. `primary_concern`
- * is always the first question, so it's the one signal available early
- * enough to reorder anything that follows without adding a new persisted
- * question or touching the submit payload (submit_onboarding keys every
- * answer by question_key, never by position — see app/actions/onboarding.ts).
+ * Reorder-only question ordering, now used exclusively by the reassessment
+ * flow (OnboardingForm's `mode="fixed"`, see app/profile/reassessments) —
+ * "the same questions as your baseline, so your answers can be compared
+ * side by side" (ReassessmentFormShell.tsx's own comment), so reassessment
+ * deliberately keeps its original behavior unchanged rather than picking up
+ * the concern-bank deep dive. Live /onboarding uses the real adaptive engine
+ * instead — see lib/onboarding/adaptivePlan.ts and
+ * lib/adaptive-assessment-engine/. `primary_concern` is always the first
+ * question, so it's the one signal available early enough to reorder
+ * anything that follows without adding a new persisted question or touching
+ * the submit payload (submit_onboarding keys every answer by question_key,
+ * never by position — see app/actions/onboarding.ts).
  *
- * This never skips, drops, or duplicates a question: every member still
- * answers all 12 questions before submitting, just in an order that leans
- * toward what they already told us matters to them.
+ * This never skips, drops, or duplicates a question: every reassessment
+ * still answers all 12 legacy questions, just in an order that leans toward
+ * what the member told us matters to them.
  */
 
 import type { OnboardingQuestion } from '@mef/shared-types-contracts';

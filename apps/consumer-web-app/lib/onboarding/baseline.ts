@@ -50,6 +50,9 @@ export const DOMAIN_ORDER = [
   'movement_energy',
   'nutrition_digestion',
   'pain_structural',
+  'recovery',
+  'lifestyle',
+  'mindset',
 ] as const;
 
 export const DOMAIN_LABEL: Record<string, string> = {
@@ -59,6 +62,9 @@ export const DOMAIN_LABEL: Record<string, string> = {
   movement_energy: 'Movement & Energy',
   nutrition_digestion: 'Nutrition & Digestion',
   pain_structural: 'Pain & Structure',
+  recovery: 'Recovery',
+  lifestyle: 'Lifestyle',
+  mindset: 'Mindset',
 };
 
 function resolveAnswerValue(

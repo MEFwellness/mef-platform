@@ -26,7 +26,48 @@ import { upsertRegistryEntriesFromOnboardingSubmission } from '@/lib/registry/ad
 
 const ASSESSMENT_VERSION = 1;
 
+/**
+ * Exactly the 12 legacy questions (question_pool = 'legacy') — this is the
+ * set the reassessment flow relies on for "the same questions as your
+ * baseline, so your answers can be compared side by side"
+ * (app/profile/reassessments/new/page.tsx). Once concern-bank and
+ * shared-pool rows exist in the same table, this filter is what keeps
+ * reassessment from silently rendering the entire ~160-question adaptive
+ * bank instead of the fixed legacy set it has always shown. Live onboarding
+ * uses getOnboardingAssessmentBank() below instead.
+ */
 export async function getOnboardingQuestions(): Promise<OnboardingQuestion[]> {
+  const supabase = createClient();
+  const { data: version } = await supabase
+    .from('onboarding_assessment_versions')
+    .select('id')
+    .eq('assessment_version', ASSESSMENT_VERSION)
+    .is('retired_at', null)
+    .single();
+
+  if (!version) return [];
+
+  const { data, error } = await supabase
+    .from('onboarding_questions')
+    .select('*')
+    .eq('assessment_version_id', version.id)
+    .eq('question_pool', 'legacy')
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Failed to load onboarding questions', error);
+    return [];
+  }
+  return data as OnboardingQuestion[];
+}
+
+/**
+ * The full adaptive bank — legacy + every concern_bank + shared_pool row —
+ * for the live /onboarding flow only (member and guest). adaptivePlan.ts
+ * selects a personalized subset of this client-side once primary_concern is
+ * answered; see OnboardingForm.tsx's 'adaptive' mode.
+ */
+export async function getOnboardingAssessmentBank(): Promise<OnboardingQuestion[]> {
   const supabase = createClient();
   const { data: version } = await supabase
     .from('onboarding_assessment_versions')
@@ -44,7 +85,7 @@ export async function getOnboardingQuestions(): Promise<OnboardingQuestion[]> {
     .order('display_order', { ascending: true });
 
   if (error) {
-    console.error('Failed to load onboarding questions', error);
+    console.error('Failed to load the onboarding assessment bank', error);
     return [];
   }
   return data as OnboardingQuestion[];
@@ -88,10 +129,36 @@ export async function getOnboardingQuestionsForGuest(): Promise<OnboardingQuesti
     .from('onboarding_questions')
     .select('*')
     .eq('assessment_version_id', version.id)
+    .eq('question_pool', 'legacy')
     .order('display_order', { ascending: true });
 
   if (error) {
     console.error('Failed to load onboarding questions for guest', error);
+    return [];
+  }
+  return data as OnboardingQuestion[];
+}
+
+/** Guest-mode (service-role) equivalent of getOnboardingAssessmentBank() — see its comment for why the two fetch paths are split. */
+export async function getOnboardingAssessmentBankForGuest(): Promise<OnboardingQuestion[]> {
+  const supabase = serviceRoleClient();
+  const { data: version } = await supabase
+    .from('onboarding_assessment_versions')
+    .select('id')
+    .eq('assessment_version', ASSESSMENT_VERSION)
+    .is('retired_at', null)
+    .single();
+
+  if (!version) return [];
+
+  const { data, error } = await supabase
+    .from('onboarding_questions')
+    .select('*')
+    .eq('assessment_version_id', version.id)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    console.error('Failed to load the onboarding assessment bank for guest', error);
     return [];
   }
   return data as OnboardingQuestion[];

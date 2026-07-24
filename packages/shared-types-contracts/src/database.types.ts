@@ -63,6 +63,8 @@ export interface CoachClientAssignment {
   created_at: string;
 }
 
+export type OnboardingQuestionPool = 'legacy' | 'concern_bank' | 'shared_pool';
+
 export interface OnboardingQuestion {
   id: string;
   question_key: string;
@@ -70,12 +72,24 @@ export interface OnboardingQuestion {
   question_version: number;
   display_order: number;
   prompt_text: string;
+  /** Optional short line shown under the prompt in the live flow. Null for the legacy 12 (their helper copy, where any exists, lives in coachCopy.ts's COACH_HELPER instead). */
+  helper_text: string | null;
   answer_type: AnswerType;
   allowed_values: unknown | null;
   domain: string;
   allows_not_sure: boolean;
   allows_not_applicable: boolean;
   allows_prefer_not_to_answer: boolean;
+  /** Which bank this question belongs to — 'legacy' is the original fixed 12, always fetched alone for reassessments. See lib/adaptive-assessment-engine and lib/onboarding/adaptivePlan.ts. */
+  question_pool: OnboardingQuestionPool;
+  /** Set only for question_pool = 'concern_bank' — which primary_concern value this question's bank belongs to. */
+  concern: string | null;
+  /** Base selection score for the adaptive engine. Legacy rows default to 1 (irrelevant — they're never adaptively selected). */
+  weight: number;
+  /** Eligibility gate: [{question_key, op, value}], ALL must hold against already-collected answers. Null/empty = always eligible. */
+  requires: unknown | null;
+  /** Additive personalization: [{question_key, op, value, amount}]. Null/empty = no boosts. */
+  boosts: unknown | null;
 }
 
 export interface OnboardingAnswerInput {
