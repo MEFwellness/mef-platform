@@ -78,11 +78,18 @@ function toResult(error: { message: string; status?: number | undefined }): Acti
  * exclusively the handle_new_user() database trigger (migration 17), which
  * hardcodes 'member'. This function has no code path that could grant
  * anything else, by construction, not just by validation.
+ *
+ * Deliberately does not collect display_name — the signup form only asks
+ * for email/password now (per the "reduce friction" account-creation
+ * brief); handle_new_user() inserts profiles.display_name as null when
+ * it's absent from user_metadata, and the auth callback
+ * (app/api/auth/callback/route.ts) redirects a brand-new member with no
+ * display_name to app/name/page.tsx once, right after their account
+ * actually exists, instead of asking for it before it does.
  */
 export async function signUp(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get('email') ?? '');
   const password = String(formData.get('password') ?? '');
-  const displayName = String(formData.get('displayName') ?? '');
   const timezone = String(formData.get('timezone') ?? 'America/New_York');
 
   try {
@@ -92,7 +99,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
       password,
       options: {
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
-        data: { display_name: displayName, timezone },
+        data: { timezone },
       },
     });
     if (error) {

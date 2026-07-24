@@ -20,8 +20,25 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // Only on the default post-signup-verification landing — never the
+      // password-reset flow, which explicitly passes
+      // next=/reset-password/confirm through this same route (see
+      // requestPasswordReset() in app/actions/auth.ts) — send a brand-new
+      // member who hasn't told us their name yet to do that first. One
+      // extra stop, then straight into the normal routing hub (app/page.tsx),
+      // which is otherwise completely unchanged.
+      if (next === '/' && data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', data.user.id)
+          .single();
+        if (!profile?.display_name) {
+          return NextResponse.redirect(`${origin}/name`);
+        }
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

@@ -6,7 +6,13 @@
  * so a local Supabase instance must be running to execute this file too.
  */
 import { describe, it, expect } from 'vitest';
-import { isValidEmail, checkPasswordStrength, passwordsMatch } from '../lib/auth/validation';
+import {
+  isValidEmail,
+  checkPasswordStrength,
+  passwordsMatch,
+  getPasswordRequirements,
+  getPasswordStrength,
+} from '../lib/auth/validation';
 import { getFriendlyAuthError, extractRetryAfterSeconds } from '../lib/auth/errors';
 import {
   readNextAllowedAt,
@@ -83,6 +89,55 @@ describe('passwordsMatch', () => {
 
   it('returns false when passwords differ', () => {
     expect(passwordsMatch('Secret123', 'Secret124')).toBe(false);
+  });
+});
+
+describe('getPasswordRequirements', () => {
+  it('reports both requirements unmet for an empty password', () => {
+    const requirements = getPasswordRequirements('');
+    expect(requirements.every((r) => !r.met)).toBe(true);
+  });
+
+  it('reports the length requirement met independently of the letter/number requirement', () => {
+    const requirements = getPasswordRequirements('abcdefgh');
+    const length = requirements.find((r) => r.label.includes('8 characters'));
+    const letterNumber = requirements.find((r) => r.label.includes('letter and a number'));
+    expect(length?.met).toBe(true);
+    expect(letterNumber?.met).toBe(false);
+  });
+
+  it('reports both requirements met for a valid password', () => {
+    const requirements = getPasswordRequirements('abcd1234');
+    expect(requirements.every((r) => r.met)).toBe(true);
+  });
+
+  it('never returns more or fewer than 2 requirements', () => {
+    expect(getPasswordRequirements('anything')).toHaveLength(2);
+  });
+});
+
+describe('getPasswordStrength', () => {
+  it('is "weak" for an empty password', () => {
+    expect(getPasswordStrength('')).toBe('weak');
+  });
+
+  it('is "weak" for a short, low-variety password', () => {
+    expect(getPasswordStrength('abc')).toBe('weak');
+  });
+
+  it('is "fair" for a password meeting the minimum length and variety', () => {
+    expect(getPasswordStrength('abcd1234')).toBe('fair');
+  });
+
+  it('is "strong" for a long password with high character variety', () => {
+    expect(getPasswordStrength('Abcdefgh1234!')).toBe('strong');
+  });
+
+  it('is independent of checkPasswordStrength — a "fair" password is still the real validation gate', () => {
+    // getPasswordStrength is a visual cue only; checkPasswordStrength
+    // (unchanged) is the sole thing that actually gates submission.
+    expect(getPasswordStrength('abcd1234')).toBe('fair');
+    expect(checkPasswordStrength('abcd1234').valid).toBe(true);
   });
 });
 
