@@ -1,11 +1,20 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { Check } from 'lucide-react';
 import { signUp } from '../../actions/auth';
 import { isValidEmail, checkPasswordStrength, passwordsMatch } from '@/lib/auth/validation';
 import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { PasswordField } from '@/components/auth/PasswordField';
+import { hasPendingGuestOnboardingData } from '@/lib/onboarding/guestStorage';
+
+const JOURNEY_REASSURANCES = [
+  "Save today's assessment",
+  'Continue building your Wellness Timeline',
+  'Unlock personalized coaching over time',
+  'Watch patterns emerge',
+];
 
 interface FieldErrors {
   email?: string | undefined;
@@ -23,6 +32,16 @@ export default function SignUpPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  // False on the server and on first client render (avoids a hydration
+  // mismatch), flipped true in an effect if a guest's onboarding answers
+  // are waiting in localStorage — see lib/onboarding/guestStorage.ts. A
+  // visitor who lands here directly (no prior assessment) sees the
+  // unchanged, generic form.
+  const [fromOnboarding, setFromOnboarding] = useState(false);
+
+  useEffect(() => {
+    setFromOnboarding(hasPendingGuestOnboardingData());
+  }, []);
 
   function confirmPasswordError(pw: string, confirm: string): string | undefined {
     if (!confirm) return undefined;
@@ -67,9 +86,29 @@ export default function SignUpPage() {
 
   return (
     <>
-      <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
-        Create account
-      </h1>
+      {fromOnboarding ? (
+        <>
+          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
+            Save the beginning of your story
+          </h1>
+          <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">
+            Your reflection is saved on this device for now. Create a free account to carry it
+            forward.
+          </p>
+          <ul className="mt-4 space-y-2">
+            {JOURNEY_REASSURANCES.map((line) => (
+              <li key={line} className="flex items-center gap-2 text-sm text-[#1B3A2D]">
+                <Check className="h-4 w-4 shrink-0 text-[#1B3A2D]/60" strokeWidth={2.5} aria-hidden="true" />
+                {line}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
+          Create account
+        </h1>
+      )}
       <form className="mt-5 space-y-4" action={handleSubmit}>
         <div>
           <label className="text-sm font-medium text-[#1B3A2D]" htmlFor="email">
@@ -185,7 +224,11 @@ export default function SignUpPage() {
           disabled={submitting}
           className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
         >
-          {submitting ? 'Creating account…' : 'Sign up'}
+          {submitting
+            ? 'Saving your story…'
+            : fromOnboarding
+              ? 'Continue my wellness journey'
+              : 'Sign up'}
         </button>
       </form>
       <p className="mt-5 text-center text-sm">

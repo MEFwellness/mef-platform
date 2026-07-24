@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   PRIMARY_CONCERN_PRIORITY,
+  contextNoteFor,
   reorderOnboardingQuestions,
   transitionLineFor,
 } from '../lib/onboarding/branching';
@@ -89,6 +90,37 @@ describe('reorderOnboardingQuestions', () => {
   it('keeps primary_concern first even when its priority list references itself', () => {
     const reordered = reorderOnboardingQuestions(ALL_QUESTIONS, 'pain');
     expect(reordered[0]?.question_key).toBe('primary_concern');
+  });
+
+  it.each(['healthy_aging', 'general_optimization', 'other'])(
+    'now forwards at least one question for concern "%s" (previously a no-op)',
+    (concern) => {
+      const reordered = reorderOnboardingQuestions(ALL_QUESTIONS, concern);
+      expect(reordered[1]?.question_key).toBe(PRIMARY_CONCERN_PRIORITY[concern]?.[0]);
+    }
+  );
+});
+
+describe('contextNoteFor', () => {
+  it('returns null when there is no primary concern yet', () => {
+    expect(contextNoteFor(null, 'baseline_digestion')).toBeNull();
+    expect(contextNoteFor(undefined, 'baseline_digestion')).toBeNull();
+  });
+
+  it('returns null for sleep, which never forwards a question', () => {
+    expect(contextNoteFor('sleep', 'baseline_sleep_quality')).toBeNull();
+  });
+
+  it('returns a note only for the first question a concern forwards', () => {
+    expect(contextNoteFor('stress', 'baseline_digestion')).toEqual(expect.any(String));
+    expect(contextNoteFor('stress', 'baseline_energy_level')).toBeNull();
+  });
+
+  it.each(
+    Object.entries(PRIMARY_CONCERN_PRIORITY).filter(([, keys]) => keys.length > 0)
+  )('returns a non-empty note for concern "%s"', (concern) => {
+    const firstForwarded = PRIMARY_CONCERN_PRIORITY[concern]![0]!;
+    expect(contextNoteFor(concern, firstForwarded)!.length).toBeGreaterThan(0);
   });
 });
 

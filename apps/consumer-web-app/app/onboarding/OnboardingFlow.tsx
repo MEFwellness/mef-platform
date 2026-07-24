@@ -14,7 +14,9 @@ import {
 } from '@/lib/onboarding/guestStorage';
 import type { OnboardingAnswerInput, OnboardingQuestion } from '@mef/shared-types-contracts';
 
-type Stage = 'checking' | 'intro' | 'form' | 'complete' | 'observation';
+type Stage = 'checking' | 'intro' | 'form' | 'reflecting' | 'complete' | 'observation';
+
+const REFLECTING_DELAY_MS = 1100;
 
 /**
  * Runs the /onboarding experience in one of two modes, decided server-side
@@ -53,6 +55,12 @@ export function OnboardingFlow({
 }) {
   const [stage, setStage] = useState<Stage>(mode === 'guest' ? 'intro' : 'checking');
   const [guestPayload, setGuestPayload] = useState<OnboardingAnswerInput[]>([]);
+  // Only true when 'complete' was reached via the silent guest-answer
+  // migration below, not a member completing onboarding directly — lets
+  // OnboardingCompletionScreen keep the momentum from the guest journey
+  // instead of resetting to a generic "you're all set" the instant the
+  // account exists.
+  const [justMigrated, setJustMigrated] = useState(false);
   // Guards against firing submitOnboarding() twice for the same pending
   // payload — without this, React 18 StrictMode's dev-only double-invoke
   // of this effect (mount -> cleanup -> mount again, same ref across both)
@@ -96,7 +104,10 @@ export function OnboardingFlow({
       // the member navigated away mid-request).
       clearGuestOnboardingAnswers();
       markGuestOnboardingMigrated();
-      if (!cancelled) setStage('complete');
+      if (!cancelled) {
+        setJustMigrated(true);
+        setStage('complete');
+      }
     })();
 
     return () => {
@@ -104,12 +115,36 @@ export function OnboardingFlow({
     };
   }, [mode]);
 
+  // A brief, deliberate pause between the last question and the reveal —
+  // long enough to read as "reflecting on what you shared" rather than an
+  // instant, mechanical page swap, short enough to never feel like a real
+  // loading wait (nothing async actually happens here in guest mode).
+  useEffect(() => {
+    if (stage !== 'reflecting') return;
+    const timer = setTimeout(() => setStage('observation'), REFLECTING_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [stage]);
+
   if (stage === 'checking') {
     return null;
   }
 
   if (stage === 'complete') {
-    return <OnboardingCompletionScreen />;
+    return <OnboardingCompletionScreen justMigrated={justMigrated} />;
+  }
+
+  if (stage === 'reflecting') {
+    return (
+      <div
+        role="status"
+        className="mef-animate-in flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center"
+      >
+        <span className="mef-pulse-dot h-3 w-3 rounded-full bg-[#1B3A2D]" aria-hidden="true" />
+        <p className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
+          Reflecting on what you shared...
+        </p>
+      </div>
+    );
   }
 
   if (stage === 'observation') {
@@ -129,7 +164,7 @@ export function OnboardingFlow({
           saveGuestOnboardingAnswers(payload);
           setGuestPayload(payload);
         }}
-        onSubmitted={() => setStage('observation')}
+        onSubmitted={() => setStage('reflecting')}
         submitLabel="See my reflection"
       />
     );

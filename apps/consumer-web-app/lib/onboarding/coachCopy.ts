@@ -81,3 +81,24 @@ export const TRANSITION_COPY: Record<string, string> = {
 };
 
 export const DEFAULT_TRANSITION = "Let's build a full picture of where you're starting from.";
+
+/**
+ * Shown inline, directly above the one question each concern pulls forward
+ * (lib/onboarding/branching.ts's contextNoteFor) — explains *why* this
+ * particular question is coming up next, so the reorder itself reads as
+ * adaptive rather than a silent shuffle. No entry for `sleep`, which never
+ * forwards a question (see the comment on PRIMARY_CONCERN_PRIORITY).
+ */
+export const FORWARDED_CONTEXT_NOTE: Record<string, string> = {
+  pain: "Because pain is on your mind, let's pinpoint where you're feeling it.",
+  energy: "Because energy is what you're after, let's dig into how it's really been.",
+  stress: 'Stress often shows up in the body in surprising ways — like digestion.',
+  weight: 'Weight goals usually connect to movement first — worth touching on now.',
+  digestion: "Since digestion is what's on your mind, let's start right there.",
+  movement: "Let's talk about how you're moving these days, since that's the focus.",
+  performance: 'Performance starts with energy — worth checking in on that first.',
+  healthy_aging: "Movement plays a big role in aging well, so let's cover that next.",
+  habits: 'Since building better habits is the goal, this one gets at what that looks like.',
+  general_optimization: "You're after overall wellness — let's hear what that looks like for you.",
+  other: "Let's hear a bit more, in your own words, about what's going on.",
+};

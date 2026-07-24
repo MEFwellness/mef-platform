@@ -9,6 +9,7 @@ import { DOMAIN_LABEL } from '@/lib/onboarding/baseline';
 import { coachHelperFor, coachPromptFor } from '@/lib/onboarding/coachCopy';
 import {
   PRIMARY_CONCERN_QUESTION_KEY,
+  contextNoteFor,
   reorderOnboardingQuestions,
   transitionLineFor,
 } from '@/lib/onboarding/branching';
@@ -228,12 +229,14 @@ const QuestionField = memo(function QuestionField({
   question,
   answer,
   invalid,
+  contextNote,
   onAnswerChange,
   registerRef,
 }: {
   question: OnboardingQuestion;
   answer: StoredAnswer | undefined;
   invalid: boolean;
+  contextNote?: string | null;
   onAnswerChange: (questionKey: string, answer: StoredAnswer) => void;
   registerRef: (questionKey: string, el: Focusable | null) => void;
 }) {
@@ -404,6 +407,11 @@ const QuestionField = memo(function QuestionField({
 
   return (
     <fieldset aria-describedby={invalid ? errorId : undefined}>
+      {contextNote ? (
+        <p className="mb-1.5 px-0.5 text-xs font-semibold uppercase tracking-wider text-[#B8860B]">
+          {contextNote}
+        </p>
+      ) : null}
       <legend
         id={legendId}
         className="mb-1 block px-0.5 font-[family-name:var(--font-cormorant-garamond)] text-xl font-semibold leading-snug text-[#1B3A2D] md:text-2xl"
@@ -673,6 +681,7 @@ export function OnboardingForm({
               question={currentStep.question}
               answer={answers[currentStep.question.question_key]}
               invalid={invalidKey === currentStep.question.question_key}
+              contextNote={contextNoteFor(primaryConcernValue, currentStep.question.question_key)}
               onAnswerChange={updateAnswer}
               registerRef={registerRef}
             />

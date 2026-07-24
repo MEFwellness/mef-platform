@@ -11,11 +11,18 @@
  */
 
 import type { OnboardingQuestion } from '@mef/shared-types-contracts';
-import { DEFAULT_TRANSITION, TRANSITION_COPY } from './coachCopy';
+import { DEFAULT_TRANSITION, FORWARDED_CONTEXT_NOTE, TRANSITION_COPY } from './coachCopy';
 
 export const PRIMARY_CONCERN_QUESTION_KEY = 'primary_concern';
 
-/** primary_concern value -> question_keys to pull forward, in priority order. */
+/**
+ * primary_concern value -> question_keys to pull forward, in priority order.
+ * `sleep` is deliberately `[]`: baseline_sleep_quality is already
+ * display_order 2 (the question right after primary_concern), so a member
+ * who picks "sleep" already gets the naturally-next question landing on
+ * exactly what they said mattered — reordering here would only push
+ * something else in front of it.
+ */
 export const PRIMARY_CONCERN_PRIORITY: Record<string, string[]> = {
   pain: ['baseline_pain_areas'],
   energy: ['baseline_energy_level', 'baseline_movement_frequency'],
@@ -25,10 +32,10 @@ export const PRIMARY_CONCERN_PRIORITY: Record<string, string[]> = {
   digestion: ['baseline_digestion'],
   movement: ['baseline_movement_frequency'],
   performance: ['baseline_energy_level', 'baseline_movement_frequency'],
-  healthy_aging: [],
+  healthy_aging: ['baseline_movement_frequency'],
   habits: ['baseline_goals'],
-  general_optimization: [],
-  other: [],
+  general_optimization: ['baseline_goals'],
+  other: ['baseline_goals'],
 };
 
 /**
@@ -64,4 +71,22 @@ export function reorderOnboardingQuestions(
 export function transitionLineFor(primaryConcern: string | null | undefined): string {
   if (!primaryConcern) return DEFAULT_TRANSITION;
   return TRANSITION_COPY[primaryConcern] ?? DEFAULT_TRANSITION;
+}
+
+/**
+ * A short "why we're asking this now" line shown inline on the *first*
+ * question a concern pulls forward (not a separate screen, unlike
+ * transitionLineFor/BranchTransition) — this is what makes the reorder
+ * itself read as a coach following the conversation rather than a silent
+ * reshuffle. Returns null for every question except that one, so it's safe
+ * to call unconditionally per rendered question.
+ */
+export function contextNoteFor(
+  primaryConcern: string | null | undefined,
+  questionKey: string
+): string | null {
+  if (!primaryConcern) return null;
+  const firstForwarded = PRIMARY_CONCERN_PRIORITY[primaryConcern]?.[0];
+  if (!firstForwarded || firstForwarded !== questionKey) return null;
+  return FORWARDED_CONTEXT_NOTE[primaryConcern] ?? null;
 }

@@ -12,16 +12,38 @@ const HEADING =
  * of what to do next. Purely presentational: submitOnboarding() already
  * ran and already succeeded by the time this renders, so this component
  * has no data to fetch and nothing to validate.
+ *
+ * `justMigrated` is true only when this is a guest's answers being saved
+ * for the first time after signup (OnboardingFlow's migration effect) —
+ * without it, this screen would reset a member fresh off the guest
+ * observation/journey-preview experience back to a completely generic
+ * "you're all set," undoing the momentum those screens just built.
  */
-export function OnboardingCompletionScreen() {
+export function OnboardingCompletionScreen({
+  justMigrated = false,
+}: {
+  justMigrated?: boolean;
+}) {
   return (
     <div className="text-center">
-      <h1 className={HEADING}>You&apos;re All Set</h1>
+      <h1 className={HEADING}>
+        {justMigrated ? 'Your Story Is Saved' : <>You&apos;re All Set</>}
+      </h1>
       <div className="mt-4 space-y-3 text-[15px] leading-relaxed text-[#6B7A72]">
-        <p>You&apos;ve completed your initial wellness assessment.</p>
-        <p>
-          Your answers will help personalize your experience as you continue using MEF Wellness.
-        </p>
+        {justMigrated ? (
+          <>
+            <p>Today&apos;s reflection is now the first entry in your Wellness Timeline.</p>
+            <p>From here, every check-in adds to the picture we started building together.</p>
+          </>
+        ) : (
+          <>
+            <p>You&apos;ve completed your initial wellness assessment.</p>
+            <p>
+              Your answers will help personalize your experience as you continue using MEF
+              Wellness.
+            </p>
+          </>
+        )}
       </div>
 
       <div className={`${CARD} mt-7 p-6 text-left`}>
