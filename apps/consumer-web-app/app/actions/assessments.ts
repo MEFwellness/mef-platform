@@ -3,7 +3,7 @@
  *
  * The only place a Server/Client Component reaches into the Wellness
  * Assessment System. Auth-guards every call, resolves the questionnaire
- * definition from lib/assessments/registry.ts, and delegates all
+ * definition from lib/assessment-registry/registry.ts, and delegates all
  * persistence to lib/assessments/store.ts — no Supabase query beyond auth
  * lives in this file, same shape as app/actions/scoring.ts.
  *
@@ -15,9 +15,12 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getAssessmentDefinition, listAssessmentDefinitions } from '@/lib/assessments/registry';
+import {
+  findAssessmentRegistryEntry,
+  getAssessmentDefinition,
+  listAssessmentDefinitions,
+} from '@/lib/assessment-registry/registry';
 import { toPublicSlug } from '@/lib/assessments/publicSlug';
-import { findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
 import { decideNextAction, recordRouterDecision } from '@/lib/investigation-engine/rootRouter';
 import {
   findCategory,
@@ -119,8 +122,8 @@ export type QuestionnaireListItem = {
 
 /**
  * Everything the dedicated Questionnaires page needs, for every
- * registered questionnaire — reads lib/assessments/registry.ts, so a
- * future questionnaire (Health Appraisal, Breathing, Stress, Circadian &
+ * registered questionnaire — reads lib/assessment-registry/registry.ts,
+ * so a future questionnaire (Health Appraisal, Breathing, Stress, Circadian &
  * Sleep, Digestive, Hormone, Colon Transit, Right/Left Brain, ...) shows
  * up here automatically the moment it's added to the registry, with zero
  * change to this function or the page that renders it.
@@ -182,9 +185,10 @@ export async function getMyTakeAssessmentState(
   // Engine's rootRouter.ts). Best-effort, non-throwing: a member starting
   // an assessment must never fail because this log couldn't be written.
   // Only questionnaireId values that resolve to a real AssessmentKey (the
-  // Assessment Registry's cross-cutting metadata registry, distinct from
-  // this generic engine's own lib/assessments/registry.ts) are loggable —
-  // Body Assessment, onboarding, and Primal Pattern have their own separate
+  // Assessment Registry's cross-cutting metadata map, ASSESSMENT_REGISTRY,
+  // distinct from this generic engine's own content map,
+  // QUESTIONNAIRE_CONTENT_REGISTRY, in the same file) are loggable — Body
+  // Assessment, onboarding, and Primal Pattern have their own separate
   // start flows and are intentionally left as a same-shape follow-up.
   const chosenKey = findAssessmentRegistryEntry(questionnaireId)?.key ?? null;
   if (chosenKey) {

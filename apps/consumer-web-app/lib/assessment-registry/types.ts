@@ -8,16 +8,17 @@
  * reassessment rules, result-access rules, and UI wiring (route/result
  * route/copy references).
  *
- * This is deliberately NOT a replacement for `lib/assessments/registry.ts`
- * (the reusable questionnaire *engine*'s own registry of
- * questionnaire.json + copy.ts pairs — that keeps working exactly as-is
- * for CHEK HLC1/Four Doctors) and NOT the same thing as `lib/registry/`
- * (the Universal Health Registry of normalized findings/metrics — an
- * unrelated system despite the name overlap). This registry sits one
- * level above all of that: it's where you'd look to answer "what
- * assessments exist, who can take them, and what are the rules around
- * them" without already knowing which of the five underlying systems
- * implements a given one.
+ * `./registry.ts` also holds the reusable questionnaire *engine*'s own
+ * content mapping (questionnaire.json + copy.ts pairs, for the 3
+ * assessments that run on that engine — CHEK HLC1, Four Doctors,
+ * Short-HAQ) — formerly a second file, lib/assessments/registry.ts, now
+ * absorbed into this one so there is a single assessment registry. Not
+ * the same thing as `lib/registry/` (the Universal Health Registry of
+ * normalized findings/metrics — an unrelated system despite the name
+ * overlap). This registry sits one level above all of that: it's where
+ * you'd look to answer "what assessments exist, who can take them, and
+ * what are the rules around them" without already knowing which of the
+ * five underlying systems implements a given one.
  *
  * Every existing assessment's entry below describes its REAL current
  * behavior, not aspirational/future behavior — e.g. every existing

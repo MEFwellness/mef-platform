@@ -9,7 +9,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { getMyAssessmentHistory } from '@/app/actions/assessments';
-import { findAssessmentDefinition } from '@/lib/assessments/registry';
+import { findAssessmentDefinition } from '@/lib/assessment-registry/registry';
 import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';

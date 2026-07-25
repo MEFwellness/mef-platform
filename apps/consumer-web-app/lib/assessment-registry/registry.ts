@@ -13,9 +13,23 @@
  * 00000000000070_assessment_registry_catalog.sql exactly — they are not
  * generated at runtime, so every environment (local, staging, production)
  * resolves the same assessment to the same database id.
+ *
+ * Also home to the questionnaire *content* mapping (Questionnaire + Copy
+ * pairs) for the 3 assessments that run on the reusable generic engine —
+ * absorbed from the former lib/assessments/registry.ts so there is one
+ * assessment registry, not two. See the "Questionnaire content mapping"
+ * section near the bottom of this file. Consolidation only: nothing about
+ * how any of the 9 assessments behaves changed.
  */
 
 import type { AssessmentDefinition, AssessmentKey } from './types';
+import type { AssessmentDefinition as AssessmentContentDefinition } from '../assessments/engine/types';
+import { CHEK_HLC1_QUESTIONNAIRE } from '../assessments/chek-hlc1';
+import { CHEK_HLC1_COPY } from '../assessments/chek-hlc1/copy';
+import { FOUR_DOCTORS_QUESTIONNAIRE } from '../assessments/four-doctors';
+import { FOUR_DOCTORS_COPY } from '../assessments/four-doctors/copy';
+import { SHORT_HAQ_QUESTIONNAIRE } from '../assessments/short-haq';
+import { SHORT_HAQ_COPY } from '../assessments/short-haq/copy';
 
 const ONBOARDING: AssessmentDefinition = {
   databaseId: '6b86f205-a75b-452f-b926-4c5dffc29baa',
@@ -577,4 +591,62 @@ export function listAssignableAssessments(): AssessmentDefinition[] {
   return listAssessmentRegistryEntries().filter(
     (e) => e.implementationStatus === 'live' && e.key !== 'body-assessment'
   );
+}
+
+/**
+ * Questionnaire content mapping — Reusable Assessment Engine.
+ *
+ * Absorbed unchanged from the former lib/assessments/registry.ts. This is
+ * the *only* place that needs a new line when a future generic-engine
+ * questionnaire ships: add a lib/assessments/<questionnaire-id>/ folder
+ * with its own questionnaire.json (source-of-truth data, verified against
+ * its own spec exactly like an existing assessment was) and copy.ts
+ * (results-page presentation content), then register it below. No route,
+ * component, server action, or database migration needs to change —
+ * every UI surface under app/assessments/[questionnaireId]/ and every
+ * function in lib/assessments/store.ts resolves the questionnaire
+ * generically through this map.
+ *
+ * Deliberately a separate map from ASSESSMENT_REGISTRY above, not merged
+ * into it: ASSESSMENT_REGISTRY is keyed by AssessmentKey and covers all 9
+ * assessment systems (Onboarding, Primal Pattern, Body Assessment, WBSA,
+ * Coming Soon placeholders, etc.); this map is keyed by questionnaire.id
+ * and only ever covers the 3 questionnaires that actually run on the
+ * generic engine (lib/assessments/engine/*) — CHEK HLC1, Four Doctors,
+ * and Short-HAQ. The two `AssessmentDefinition` types (this file's own,
+ * imported from ./types, vs. the generic engine's, imported here as
+ * `AssessmentContentDefinition` from ../assessments/engine/types) name
+ * completely different shapes and are not interchangeable.
+ */
+const QUESTIONNAIRE_CONTENT_REGISTRY: Record<string, AssessmentContentDefinition> = {
+  [CHEK_HLC1_QUESTIONNAIRE.id]: {
+    questionnaire: CHEK_HLC1_QUESTIONNAIRE,
+    copy: CHEK_HLC1_COPY,
+  },
+  [FOUR_DOCTORS_QUESTIONNAIRE.id]: {
+    questionnaire: FOUR_DOCTORS_QUESTIONNAIRE,
+    copy: FOUR_DOCTORS_COPY,
+  },
+  [SHORT_HAQ_QUESTIONNAIRE.id]: {
+    questionnaire: SHORT_HAQ_QUESTIONNAIRE,
+    copy: SHORT_HAQ_COPY,
+  },
+};
+
+export function getAssessmentDefinition(questionnaireId: string): AssessmentContentDefinition {
+  const definition = QUESTIONNAIRE_CONTENT_REGISTRY[questionnaireId];
+  if (!definition) {
+    throw new Error(`Unknown questionnaire id: "${questionnaireId}"`);
+  }
+  return definition;
+}
+
+export function findAssessmentDefinition(
+  questionnaireId: string
+): AssessmentContentDefinition | null {
+  return QUESTIONNAIRE_CONTENT_REGISTRY[questionnaireId] ?? null;
+}
+
+export function listAssessmentDefinitions(): AssessmentContentDefinition[] {
+  return Object.values(QUESTIONNAIRE_CONTENT_REGISTRY);
 }

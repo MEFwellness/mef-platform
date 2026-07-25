@@ -9,7 +9,7 @@
  * change — every level generator already operates on the normalized
  * CoachingObservation[] every provider produces, regardless of how many
  * providers exist. Same "one registry file, everything else generic"
- * convention as lib/assessments/registry.ts and
+ * convention as lib/assessment-registry/registry.ts and
  * lib/food-lens/providers/registry.ts.
  */
 

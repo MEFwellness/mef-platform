@@ -13,7 +13,10 @@
 import { describe, it, expect } from 'vitest';
 import { CHEK_HLC1_QUESTIONNAIRE } from '../lib/assessments/chek-hlc1';
 import { FOUR_DOCTORS_QUESTIONNAIRE } from '../lib/assessments/four-doctors';
-import { getAssessmentDefinition, findAssessmentDefinition } from '../lib/assessments/registry';
+import {
+  getAssessmentDefinition,
+  findAssessmentDefinition,
+} from '../lib/assessment-registry/registry';
 import {
   classifyPriority,
   countAnsweredInCategory,

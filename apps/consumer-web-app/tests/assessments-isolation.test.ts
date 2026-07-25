@@ -10,10 +10,13 @@
  *    questionnaire's own config, and every generic assessment component
  *    is scanned for the literal strings a Four Doctors dependency would
  *    have to use ("four-doctors", "four_doctors", "FOUR_DOCTORS",
- *    "dr_quiet_gender"). Only `lib/assessments/registry.ts` — the single
- *    legitimate wiring point documented in its own header comment — is
- *    allowed to reference it. This is stronger than a behavioral test: it
- *    catches accidental coupling even before it would show up in output.
+ *    "dr_quiet_gender"). The single legitimate wiring point —
+ *    `lib/assessment-registry/registry.ts`'s questionnaire content
+ *    mapping (absorbed from the former lib/assessments/registry.ts) —
+ *    lives outside the scanned directory set entirely, so the scan
+ *    should find zero references anywhere within it. This is stronger
+ *    than a behavioral test: it catches accidental coupling even before
+ *    it would show up in output.
  *
  * 2. Registry-minus-Four-Doctors lifecycle — the real registry, with the
  *    'four-doctors' entry filtered out (simulating its removal), still
@@ -30,7 +33,7 @@ import { join, relative } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { CHEK_HLC1_QUESTIONNAIRE } from '../lib/assessments/chek-hlc1';
 import { CHEK_HLC1_COPY } from '../lib/assessments/chek-hlc1/copy';
-import { listAssessmentDefinitions } from '../lib/assessments/registry';
+import { listAssessmentDefinitions } from '../lib/assessment-registry/registry';
 import {
   classifyPriority,
   isQuestionnaireComplete,
@@ -45,9 +48,14 @@ import type { CategoryAnswers, QuestionnaireAnswers } from '../lib/assessments/e
 
 const FOUR_DOCTORS_MARKERS = /four[-_]doctors|FOUR_DOCTORS|dr_quiet_gender/i;
 
-/** Files allowed to reference Four Doctors — the one legitimate wiring point, plus test files that intentionally exercise it. */
+/**
+ * Files allowed to reference Four Doctors — test files that intentionally
+ * exercise it. The one legitimate production wiring point,
+ * `lib/assessment-registry/registry.ts`, isn't listed here because it
+ * lives outside the scanned directory set (see scanDirs below) and so
+ * never appears in `files` — nothing needs to allow-list it.
+ */
 const ALLOWED_TO_REFERENCE_FOUR_DOCTORS = new Set([
-  'lib/assessments/registry.ts',
   'tests/assessments-engine.test.ts',
   'tests/assessments-insights.test.ts',
   'tests/assessments-lifecycle-integration.test.ts',
@@ -112,13 +120,16 @@ describe('Four Doctors isolation — static source scan', () => {
     expect(offenders, JSON.stringify(offenders, null, 2)).toEqual([]);
   });
 
-  it('registry.ts is the only production file wired to Four Doctors, and only via its documented registry entry', () => {
-    const registrySource = readFileSync(join(root, 'lib/assessments/registry.ts'), 'utf8');
-    expect(registrySource).toMatch(/four-doctors/);
-    // Everything else in the production file set (excluding tests) has zero references.
-    const productionOffenders = files.filter(
-      (f) => f !== 'lib/assessments/registry.ts' && !f.startsWith('tests/')
+  it('lib/assessment-registry/registry.ts is the only file wired to Four Doctors, and only via its documented registry entry', () => {
+    const registrySource = readFileSync(
+      join(root, 'lib/assessment-registry/registry.ts'),
+      'utf8'
     );
+    expect(registrySource).toMatch(/four-doctors/);
+    // Every file in the scanned production set (excluding tests) has zero references — the
+    // legitimate wiring point lives outside the scanned directories entirely (see scanDirs above),
+    // so no exclusion is needed here the way lib/assessments/registry.ts once required.
+    const productionOffenders = files.filter((f) => !f.startsWith('tests/'));
     for (const file of productionOffenders) {
       const content = readFileSync(join(root, file), 'utf8');
       expect(content, file).not.toMatch(FOUR_DOCTORS_MARKERS);

@@ -21,7 +21,7 @@ import { FOUR_DOCTORS_QUESTIONNAIRE } from '../lib/assessments/four-doctors';
 import { flattenQuestions } from '../lib/assessments/engine/navigation';
 import { isQuestionActive, scoreQuestionnaire } from '../lib/assessments/engine/scoring';
 import { deriveQuestionnaireStatus } from '../lib/assessments/presentation';
-import { listAssessmentDefinitions } from '../lib/assessments/registry';
+import { listAssessmentDefinitions } from '../lib/assessment-registry/registry';
 import type { AssessmentContext, QuestionnaireAnswers } from '../lib/assessments/engine/types';
 import {
   completeAssessment,

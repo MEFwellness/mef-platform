@@ -4,7 +4,8 @@
  * Nothing in this file (or engine/scoring.ts) knows about any specific
  * questionnaire. A questionnaire is just data conforming to these shapes,
  * shipped as a config file under lib/assessments/<questionnaire-id>/ and
- * wired up once in lib/assessments/registry.ts. Adding a future
+ * wired up once in the content mapping in
+ * lib/assessment-registry/registry.ts. Adding a future
  * questionnaire (a different intake instrument, a new assessment
  * category, whatever comes next) means adding a new folder with a
  * questionnaire.json + copy.ts and one registry entry, never touching

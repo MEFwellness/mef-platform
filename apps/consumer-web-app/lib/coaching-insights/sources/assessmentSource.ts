@@ -15,9 +15,10 @@
  * expose (packages/shared-types-contracts/src's NutritionIntelligenceProfile
  * is a summary, not a row). Questionnaires go through
  * lib/assessments/store.ts's already-questionnaire-agnostic
- * listCompletedAssessments, iterated once per lib/assessments/registry.ts
- * entry — a future questionnaire needs zero changes here, same as it needs
- * zero changes anywhere else in lib/assessments/.
+ * listCompletedAssessments, iterated once per
+ * lib/assessment-registry/registry.ts content entry — a future
+ * questionnaire needs zero changes here, same as it needs zero changes
+ * anywhere else in lib/assessments/.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -26,7 +27,7 @@ import {
   PRIMAL_PATTERN_QUESTIONNAIRE_ID,
 } from '@/lib/primal-pattern/questionnaire';
 import { listCompletedPrimalPatternAssessments } from '@/lib/primal-pattern/store';
-import { listAssessmentDefinitions } from '@/lib/assessments/registry';
+import { listAssessmentDefinitions } from '@/lib/assessment-registry/registry';
 import { listCompletedAssessments } from '@/lib/assessments/store';
 import type { CoachingDataSourceProvider, CoachingDateRange, CoachingObservation } from '../types';
 

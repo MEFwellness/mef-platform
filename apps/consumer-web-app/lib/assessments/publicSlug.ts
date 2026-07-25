@@ -1,7 +1,7 @@
 /**
  * Public URL slug for a questionnaire, decoupled from its stable internal
- * id (the REGISTRY key in lib/assessments/registry.ts and the
- * wellness_assessments.questionnaire_id value already stored for every
+ * id (the content-mapping key in lib/assessment-registry/registry.ts and
+ * the wellness_assessments.questionnaire_id value already stored for every
  * existing completed/in-progress attempt — neither may ever change once
  * data exists against it).
  *

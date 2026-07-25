@@ -9,7 +9,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { SHORT_HAQ_QUESTIONNAIRE } from '../lib/assessments/short-haq';
-import { getAssessmentDefinition, findAssessmentDefinition } from '../lib/assessments/registry';
+import {
+  getAssessmentDefinition,
+  findAssessmentDefinition,
+} from '../lib/assessment-registry/registry';
 import {
   classifyPriority,
   findCategory,
