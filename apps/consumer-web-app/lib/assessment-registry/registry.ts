@@ -476,6 +476,78 @@ const FINDING_1_LOVE = comingSoon({
   displayOrder: 8,
 });
 
+/**
+ * Whole-Body Systems Assessment — the first real content on the Unified
+ * Adaptive Assessment Foundation/Runtime (migrations 98-100), rather than
+ * the older generic questionnaire engine every other live points-scored
+ * assessment above uses. `databaseId` matches migration 100's
+ * assessment_definitions insert exactly, which in turn is the
+ * catalog_definition_id every WBSA unified_assessment_definitions row
+ * bridges back to (migration 101).
+ *
+ * Gated to paid tiers only at launch (membership + holistic_reset, no
+ * free_trial) — a deliberate product decision for this deep, 16-body-
+ * system instrument, not a technical default. Not program-gated, no
+ * prerequisites: WBSA stands alone as a whole-body check-in any paid
+ * member can take when they choose to.
+ */
+const WBSA: AssessmentDefinition = {
+  databaseId: 'bfb52589-7566-4347-95aa-03d696a1041e',
+  key: 'wbsa',
+  type: 'intake_questionnaire',
+
+  displayName: 'Whole-Body Systems Assessment',
+  shortDescription:
+    'A whole-body check-in across 16 connected functional systems — digestion, energy, immune, circulation, hormones, mood, and more — to help surface patterns worth a closer look.',
+  category: 'whole_body_systems',
+  estimatedMinutes: 20,
+
+  membership: { minLevel: 'membership', allowedLevels: ['membership', 'holistic_reset'] },
+  program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
+  prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: ['onboarding-health-history', 'four-doctors', 'chek-hlc1-nutrition-lifestyle'],
+  clinicalPriority: 'moderate',
+  coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
+  retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
+  reassessment: {
+    supportsReassessment: true,
+    stages: ['baseline', 'reassessment'],
+    schedule: 'Member-initiated retake, no fixed cadence — same as every other live assessment today.',
+  },
+  comparison: {
+    supportsSimpleHistory: true,
+    supportsScoreTrend: false,
+    supportsSideBySideComparison: true,
+    supportsQuestionLevelComparison: false,
+  },
+  resultAccess: {
+    memberCanView: true,
+    requiresCoachPublishToView: false,
+    coachCanView: true,
+    adminCanView: true,
+  },
+
+  currentVersion: 1,
+  versionLockingRequired: false,
+
+  isActive: true,
+  implementationStatus: 'live',
+  isComingSoon: false,
+
+  route: '/assessments/wbsa',
+  takeRoute: '/assessments/wbsa/take',
+  resultRoute: '/assessments/wbsa/results/[sessionId]',
+  componentRef: 'components/wbsa/WbsaTaker.tsx',
+  introCopyRef: 'lib/wbsa/copy.ts',
+
+  scoringAdapter: 'unified-runtime-findings',
+  resultAdapter: 'wbsa-system-pattern-results',
+  storageAdapter: 'unified-assessment-runtime-tables',
+
+  displayOrder: 9,
+  safetyCategory: 'clinical_intake',
+};
+
 const ASSESSMENT_REGISTRY: Record<AssessmentKey, AssessmentDefinition> = {
   'onboarding-health-history': ONBOARDING,
   'chek-hlc1-nutrition-lifestyle': CHEK_HLC1,
@@ -485,6 +557,7 @@ const ASSESSMENT_REGISTRY: Record<AssessmentKey, AssessmentDefinition> = {
   'readiness-to-change': READINESS_TO_CHANGE,
   'short-haq': SHORT_HAQ,
   'finding-1-love': FINDING_1_LOVE,
+  wbsa: WBSA,
 };
 
 export function getAssessmentRegistryEntry(key: AssessmentKey): AssessmentDefinition {

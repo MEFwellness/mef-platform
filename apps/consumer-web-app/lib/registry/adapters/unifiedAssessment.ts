@@ -41,6 +41,14 @@ const VALID_DOMAINS = new Set<RegistryDomain>([
   'wearable',
   'lab',
   'hormone',
+  // Added for WBSA (migration 100) — see RegistryDomain's own comment.
+  'digestive',
+  'metabolic',
+  'immune',
+  'circulatory',
+  'renal',
+  'neurological',
+  'dermatological',
 ]);
 
 function isRegistryDomain(value: string): value is RegistryDomain {

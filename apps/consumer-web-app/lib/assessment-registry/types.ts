@@ -41,7 +41,9 @@ export type AssessmentKey =
   /** Coming Soon — catalog row only (00000000000078), no question content, no route. */
   | 'readiness-to-change'
   | 'short-haq'
-  | 'finding-1-love';
+  | 'finding-1-love'
+  /** Whole-Body Systems Assessment — the first real assessment on the Unified Adaptive Assessment Runtime (migrations 98-100). */
+  | 'wbsa';
 
 export type AssessmentType =
   /** Structured Q&A, scored, single-select-with-points (the reusable engine's own model). */
@@ -75,20 +77,23 @@ export type ScoringAdapterId =
   | 'generic-questionnaire-engine'
   | 'primal-pattern-engine'
   | 'onboarding-comparator'
-  | 'body-assessment-geometric-screening';
+  | 'body-assessment-geometric-screening'
+  | 'unified-runtime-findings';
 
 export type ResultAdapterId =
   | 'generic-questionnaire-results'
   | 'four-doctors-premium-results'
   | 'primal-pattern-results'
   | 'onboarding-baseline-reassessment'
-  | 'body-assessment-coach-review';
+  | 'body-assessment-coach-review'
+  | 'wbsa-system-pattern-results';
 
 export type StorageAdapterId =
   | 'wellness-assessments-tables'
   | 'primal-pattern-tables'
   | 'onboarding-tables'
-  | 'body-assessment-tables';
+  | 'body-assessment-tables'
+  | 'unified-assessment-runtime-tables';
 
 export type MembershipRules = {
   minLevel: MembershipKey;

@@ -235,6 +235,57 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     commonlyUnlocksNextKeys: [],
   },
 
+  wbsa: {
+    key: 'wbsa',
+    // Broadest live instrument by body-system count (16 sections). Only
+    // the 7 physical/body-oriented Coaching Domains apply — WBSA's content
+    // brief is explicitly body-system, not identity/purpose/relationships/
+    // environment, so those four are correctly left out rather than forced.
+    coachingDomains: [
+      'stress_nervous_system',
+      'sleep_circadian_rhythm',
+      'movement_physical_capacity',
+      'recovery_energy_regulation',
+      'pain_structural_integrity',
+      'nutrition_metabolic_health',
+      'digestion_gut_health',
+    ],
+    category: 'multi_domain_screener',
+    primaryObjective:
+      'A whole-body check-in across 16 connected functional systems — digestive, metabolic, immune, respiratory, circulatory, renal, thyroid, adrenal, reproductive, neurological, musculoskeletal, dermatological, nutrient, and recovery patterns.',
+    whyItExists:
+      'The first real content on the Unified Adaptive Assessment Runtime; gives the Root Router the widest simultaneous body-system signal of any live instrument.',
+    unlockTriggers: [{ kind: 'member_initiated' }],
+    requiredPriorInvestigationKeys: ['onboarding-health-history'],
+    optionalPriorInvestigationKeys: [],
+    hypothesesInvestigated: [
+      'Which of the sixteen body systems shows the strongest concentration of reported patterns for this member',
+    ],
+    confidenceContributionDomains: [
+      'stress_nervous_system',
+      'sleep_circadian_rhythm',
+      'movement_physical_capacity',
+      'recovery_energy_regulation',
+      'pain_structural_integrity',
+      'nutrition_metabolic_health',
+      'digestion_gut_health',
+    ],
+    rootModelContribution: {
+      // Immune/circulatory/renal/neurological/dermatological have no
+      // dedicated Coaching Domain above (same gap Short HAQ's comment
+      // already flags for immune/cardiovascular/cognitive) — listed here
+      // because the registry domains themselves are real and populated,
+      // even where no Coaching Domain rollup exists for them yet.
+      registryDomains: [
+        'digestive', 'metabolic', 'immune', 'breathing', 'circulatory', 'renal',
+        'stress', 'hormone', 'neurological', 'movement', 'dermatological', 'nutrition', 'sleep',
+      ],
+      shape: 'priority_classification',
+    },
+    reassessmentCadence: { kind: 'member_initiated' },
+    commonlyUnlocksNextKeys: [],
+  },
+
   // --- Coming Soon placeholders — minimal, honest stubs (Investigation
   // Library §12's phased rollout defers real content design for these). ---
 

@@ -15,6 +15,16 @@
 
 export type RegistryEntryKind = 'finding' | 'metric';
 
+/**
+ * The last 7 values were added for WBSA (migration 100) — whole-body
+ * systems with no honest fit among the original 10 (immune, circulatory,
+ * renal, thyroid/metabolic, neurological, and skin patterns; digestive
+ * overlaps with but is distinct from 'nutrition'). Root Score's
+ * SCORE_DOMAIN_BY_REGISTRY_DOMAIN (lib/scoring/findingAdjustments.ts) and
+ * Investigation Engine's DOMAIN_ROUTES (lib/assessment-registry/
+ * findingRecommendations.ts) do not map every one of these yet — see
+ * those files' own comments for exactly which are covered.
+ */
 export type RegistryDomain =
   | 'posture'
   | 'movement'
@@ -25,7 +35,14 @@ export type RegistryDomain =
   | 'nutrition'
   | 'wearable'
   | 'lab'
-  | 'hormone';
+  | 'hormone'
+  | 'digestive'
+  | 'metabolic'
+  | 'immune'
+  | 'circulatory'
+  | 'renal'
+  | 'neurological'
+  | 'dermatological';
 
 export type RegistryEntrySeverity = 'none' | 'mild' | 'moderate' | 'significant' | 'unknown';
 

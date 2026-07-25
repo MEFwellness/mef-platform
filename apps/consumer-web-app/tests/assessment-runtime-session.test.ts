@@ -52,6 +52,7 @@ function question(overrides: Partial<UnifiedAssessmentQuestion> = {}): UnifiedAs
     coach_tags: null,
     related_systems: null,
     severity_tags: null,
+    allows_prefer_not_to_answer: false,
     weight: 1,
     requires: null,
     excludes: null,

@@ -1,6 +1,7 @@
 import type { ComparisonTrend } from '@mef/shared-types-contracts';
 import type { ComparisonMetric } from '../onboarding/comparison';
 import type { ComparisonDirection as QuestionnaireEngineDirection } from '../assessments/comparison';
+import type { WbsaComparisonTrend } from '../wbsa/comparison';
 import type { ComparisonDirection } from './types';
 
 /**
@@ -53,6 +54,20 @@ export function fromQuestionnaireEngineDirection(direction: QuestionnaireEngineD
     case 'regressed':
       return 'worsened';
     case 'unchanged':
+      return 'unchanged';
+    case 'unknown':
+      return null;
+  }
+}
+
+/** lib/wbsa/comparison.ts's WbsaComparisonTrend (the Unified Adaptive Assessment Runtime's first real content). Same "cannot recover new/resolved from a trend value alone" limitation as fromBodyAssessmentTrend. */
+export function fromWbsaDirection(trend: WbsaComparisonTrend): ComparisonDirection | null {
+  switch (trend) {
+    case 'improved':
+      return 'improved';
+    case 'declined':
+      return 'worsened';
+    case 'stable':
       return 'unchanged';
     case 'unknown':
       return null;

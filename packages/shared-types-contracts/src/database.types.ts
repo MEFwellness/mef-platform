@@ -262,6 +262,8 @@ export interface UnifiedAssessmentQuestion {
   coach_tags: string[] | null;
   related_systems: string[] | null;
   severity_tags: string[] | null;
+  /** Added for WBSA (migration 100) — mirrors onboarding_questions.allows_prefer_not_to_answer. */
+  allows_prefer_not_to_answer: boolean;
   /** Base selection score — required by lib/adaptive-assessment-engine's AdaptiveQuestion contract. */
   weight: number;
   requires: unknown | null;

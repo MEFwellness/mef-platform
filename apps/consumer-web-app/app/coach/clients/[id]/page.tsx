@@ -50,6 +50,7 @@ import {
   getSessionHandoffsAction,
 } from '@/app/actions/conversation-coach';
 import { getClientBodyAssessmentsAction } from '@/app/actions/body-assessment';
+import { getClientWbsaSessionsAction } from '@/app/actions/wbsa';
 import { getClientAssessmentAssignments } from '@/app/actions/assessmentAssignments';
 import {
   getClientMovementProfile,
@@ -82,6 +83,7 @@ import { CoachWorkspacePanel } from './CoachWorkspacePanel';
 import { IntelligenceCorePanel } from './IntelligenceCorePanel';
 import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
+import { WbsaPanel } from './WbsaPanel';
 import { AssessmentAssignmentPanel } from './AssessmentAssignmentPanel';
 import { MovementProfilePanel } from './MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
@@ -188,6 +190,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     coachAlerts,
     intelligenceCoreSummary,
     bodyAssessments,
+    wbsaSessions,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -217,6 +220,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientCoachAlerts(profile.id),
     getClientIntelligenceCoreSummary(profile.id),
     getClientBodyAssessmentsAction(profile.id),
+    getClientWbsaSessionsAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -524,6 +528,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               own dedicated page (captures/video need more room than a
               dashboard panel). */}
           <BodyAssessmentPanel clientId={profile.id} assessments={bodyAssessments} />
+
+          {/* WBSA — Whole-Body Systems Assessment, the first real content
+              on the Unified Adaptive Assessment Runtime. Same "counts and
+              flags only in the list, full detail on its own page" split as
+              Body Assessment above. */}
+          <WbsaPanel clientId={profile.id} sessions={wbsaSessions} />
 
           {/* Movement Profile — permanent movement record + Pending Coach
               Review worklist (Member Exercise Experience & Movement

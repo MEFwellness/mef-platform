@@ -78,6 +78,7 @@ describe('registry.ts INVESTIGATION_METADATA', () => {
         'readiness-to-change',
         'short-haq',
         'finding-1-love',
+        'wbsa',
       ].sort()
     );
   });

@@ -27,7 +27,21 @@ const SEVERITY_PENALTY: Record<'mild' | 'moderate' | 'significant', number> = {
 
 const MAX_ADJUSTMENT_PER_DOMAIN = 10;
 
-/** Registry findings map onto Root Score domains by real domain overlap — posture/movement/breathing findings affect Movement, sleep findings affect Recovery, stress/nutrition map directly. Onboarding/questionnaire pain findings are registered under 'movement' (lib/registry/adapters/onboarding.ts), so they land here too. */
+/**
+ * Registry findings map onto Root Score domains by real domain overlap —
+ * posture/movement/breathing findings affect Movement, sleep findings
+ * affect Recovery, stress/nutrition map directly. Onboarding/questionnaire
+ * pain findings are registered under 'movement' (lib/registry/adapters/
+ * onboarding.ts), so they land here too.
+ *
+ * WBSA (migration 100) added 7 new registry domains; only 'digestive' and
+ * 'metabolic' have an honest existing ScoreDomainKey to adjust ('nutrition'
+ * — both are nutrition-adjacent whole-body patterns). 'immune',
+ * 'circulatory', 'renal', 'neurological', and 'dermatological' have no
+ * corresponding ScoreDomainKey today and are deliberately left unmapped —
+ * the same kind of partial coverage 'wearable'/'lab' already have, not a
+ * WBSA-specific gap to silently paper over.
+ */
 const SCORE_DOMAIN_BY_REGISTRY_DOMAIN: Partial<Record<RegistryEntry['domain'], ScoreDomainKey>> = {
   posture: 'movement',
   movement: 'movement',
@@ -35,6 +49,8 @@ const SCORE_DOMAIN_BY_REGISTRY_DOMAIN: Partial<Record<RegistryEntry['domain'], S
   sleep: 'recovery',
   stress: 'stress',
   nutrition: 'nutrition',
+  digestive: 'nutrition',
+  metabolic: 'nutrition',
 };
 
 function penaltyFor(finding: RegistryEntry): number {

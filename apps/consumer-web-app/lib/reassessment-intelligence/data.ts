@@ -38,6 +38,7 @@ export async function listPendingReassessmentAssessmentKeys(
     'four-doctors',
     'primal-pattern-diet-type',
     'body-assessment',
+    'wbsa',
   ] as AssessmentKey[]) {
     idByKey.set(getAssessmentRegistryEntry(key).databaseId, key);
   }
@@ -81,6 +82,7 @@ export async function listPendingReassessments(
     'four-doctors',
     'primal-pattern-diet-type',
     'body-assessment',
+    'wbsa',
   ];
   const keyById = new Map(keys.map((key) => [getAssessmentRegistryEntry(key).databaseId, key]));
 

@@ -24,7 +24,8 @@ export type SafetySourceFeature =
   | 'wellness_intelligence'
   | 'conversation_coach'
   | 'body_assessment'
-  | 'member_wellness_event';
+  | 'member_wellness_event'
+  | 'unified_assessment';
 
 export type SafetyEscalationAction =
   'none' | 'notify_coach' | 'coach_review_queue' | 'urgent_follow_up';

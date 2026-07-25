@@ -8,6 +8,7 @@ export type {
   SessionAnswers,
   SessionStatus,
 } from './types';
+export { PREFER_NOT_TO_ANSWER } from './types';
 
 export type { Condition, ConditionOp, AndCondition, OrCondition, LeafCondition } from './conditions';
 export { evaluateCondition, parseCondition, parseConditionList } from './conditions';
@@ -30,4 +31,10 @@ export {
   questionAnsweredEvent,
 } from './session';
 
-export { completeSession, findInProgressSession, persistAnswer, startOrResumeSession } from './data';
+export {
+  completeSession,
+  findInProgressSession,
+  getSessionById,
+  persistAnswer,
+  startOrResumeSession,
+} from './data';

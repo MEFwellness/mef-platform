@@ -2,6 +2,19 @@ import type { UnifiedAssessmentQuestion, UnifiedAssessmentSection } from '@mef/s
 
 export type AnswerValue = string | number | boolean | string[];
 
+/**
+ * Shared sentinel written as an AnswerValue when a member taps "Prefer not
+ * to answer" on a question with allows_prefer_not_to_answer=true (added to
+ * unified_assessment_questions in migration 100). Deliberately just a
+ * value, not a schema/logic change: it satisfies `answers[key] !==
+ * undefined` (still counts as answered for completeness/progress) and
+ * never matches any FindingRule in findings.ts (boolean_true/
+ * numeric_threshold/value_in all fail against a string that isn't a real
+ * answer), so a skipped question correctly produces no finding with zero
+ * changes to session.ts/findings.ts.
+ */
+export const PREFER_NOT_TO_ANSWER = '__prefer_not_to_answer__' as const;
+
 /** question_key -> the value the member has entered for it. */
 export type SessionAnswers = Record<string, AnswerValue>;
 

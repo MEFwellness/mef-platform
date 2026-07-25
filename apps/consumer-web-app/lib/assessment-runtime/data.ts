@@ -107,6 +107,31 @@ export async function findInProgressSession(
 }
 
 /**
+ * Loads any session by id regardless of status — what a results screen or
+ * coach detail view needs for a *completed* session, which
+ * findInProgressSession's own status filter deliberately excludes. Access
+ * control is the caller's job (RLS plus, for member-facing pages, an
+ * explicit memberId check on the returned session), same trust boundary
+ * as every other function in this file.
+ */
+export async function getSessionById(
+  supabase: SupabaseClient,
+  sessionId: string
+): Promise<AssessmentSession | null> {
+  const { data: row, error } = await supabase
+    .from('unified_assessment_sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (error || !row) return null;
+
+  const content = await loadContent(supabase, (row as SessionRow).assessment_definition_id);
+  const answers = await fetchAnswers(supabase, sessionId, content.questions);
+  return assembleSession(row as SessionRow, content, answers);
+}
+
+/**
  * Start or resume — the same idempotent entry point, backed by migration
  * 99's partial unique index so a member can never end up with two open
  * drafts of the same assessment definition. Returns null only if the
