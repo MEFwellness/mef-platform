@@ -50,7 +50,22 @@ function ChangePill({ change }: { change: number | null }) {
   );
 }
 
-function HeroChrome({ firstName, children }: { firstName: string; children: React.ReactNode }) {
+function HeroChrome({
+  firstName,
+  compact = false,
+  children,
+}: {
+  firstName: string;
+  /**
+   * Before a member's first check-in, the hero has only a greeting to
+   * show — FirstCheckInWelcome (app/dashboard/page.tsx) carries the rest
+   * of the welcome moment right below it. A hero sized for a full score
+   * display would push that card's "Complete your first check-in" CTA
+   * below the fold, so this state uses a much shorter band instead.
+   */
+  compact?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <section className="relative w-full overflow-hidden">
       <div className="absolute inset-0">
@@ -68,7 +83,11 @@ function HeroChrome({ firstName, children }: { firstName: string; children: Reac
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/45" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[440px] w-full max-w-md flex-col px-5 pb-10 pt-8 sm:px-6 sm:pt-10 md:min-h-[500px] md:max-w-5xl md:px-10 md:pb-14 md:pl-28">
+      <div
+        className={`relative z-10 mx-auto flex w-full max-w-md flex-col px-5 sm:px-6 md:max-w-5xl md:px-10 md:pl-28 ${
+          compact ? 'pb-5 pt-7 sm:pt-8 md:pb-6' : 'min-h-[440px] pb-10 pt-8 sm:pt-10 md:min-h-[500px] md:pb-14'
+        }`}
+      >
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3 rounded-2xl bg-black/25 py-1.5 pl-1.5 pr-3 backdrop-blur-sm">
             <Image
@@ -92,7 +111,7 @@ function HeroChrome({ firstName, children }: { firstName: string; children: Reac
           </div>
         </header>
 
-        <div className="mt-auto pt-10">{children}</div>
+        <div className={compact ? 'pt-5' : 'mt-auto pt-10'}>{children}</div>
       </div>
     </section>
   );
@@ -119,8 +138,8 @@ export function HomeHero({
 }) {
   if (!hasCheckins) {
     return (
-      <HeroChrome firstName={firstName}>
-        <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#FAFAF8] md:text-[2.75rem]">
+      <HeroChrome firstName={firstName} compact>
+        <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#FAFAF8] md:text-4xl">
           {greetingWord}, {firstName}
         </h1>
       </HeroChrome>

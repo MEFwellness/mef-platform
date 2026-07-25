@@ -222,16 +222,19 @@ export default async function DashboardPage({
         hasCheckins={hasCheckins}
       />
 
-      <main className="mx-auto w-full max-w-md px-5 pb-28 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-32 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         {!hasCheckins ? (
           /* Premium UX Milestone 2: before a member's first completed
            check-in, Root has nothing real to personalize yet — one
            welcome moment with a single CTA replaces what would
            otherwise be an empty brief, an empty wearable pitch, an
            empty wellness index, seven "Not logged yet" tracker cards,
-           and an empty trend chart all stacked on top of each other. */
-          <div className="pt-8">
-            <FirstCheckInWelcome firstName={firstName} />
+           and an empty trend chart all stacked on top of each other.
+           A short gap here (not the zones' generous spacing below) —
+           the hero above is already compact in this state, sized so
+           this card's CTA sits within the first screen. */
+          <div className="pt-4">
+            <FirstCheckInWelcome />
           </div>
         ) : (
           <div className="space-y-14 pt-10 md:space-y-20 md:pt-14">

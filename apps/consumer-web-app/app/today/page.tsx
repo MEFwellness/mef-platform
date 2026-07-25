@@ -214,7 +214,7 @@ export default async function TodayPage() {
              either, so this replaces what would otherwise be its own
              pile of empty cards here too. */
           <div className="mt-6">
-            <FirstCheckInWelcome firstName={firstName} />
+            <FirstCheckInWelcome />
           </div>
         ) : (
           <>
