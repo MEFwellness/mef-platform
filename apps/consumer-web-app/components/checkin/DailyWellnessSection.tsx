@@ -8,6 +8,12 @@
  * lib/wellness/morningReadiness.ts and lib/wellness/dailyWellnessScore.ts
  * for the eligibility rules this component only ever displays, never
  * re-derives.
+ *
+ * Home dashboard redesign: flat tinted panel (the app's existing pale
+ * green background tone, no white/shadow) rather than a white card — the
+ * "Today" zone alternates card/panel/grid treatments so no two
+ * consecutive sections look identical, and this compact score summary
+ * doesn't need full card emphasis next to Root's Daily Brief above it.
  */
 
 import Link from 'next/link';
@@ -26,7 +32,7 @@ import {
 } from '@/lib/wellness/dailyWellnessScore';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const PANEL = 'rounded-[28px] bg-[#EFF6F1]';
 
 export function DailyWellnessSection({
   checkin,
@@ -45,7 +51,7 @@ export function DailyWellnessSection({
   if (!morningEligible && !dailyEligible) return null;
 
   return (
-    <div className={`${CARD} p-6`}>
+    <div className={`${PANEL} p-6`}>
       <p className="text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40">
         Today&apos;s Wellness
       </p>

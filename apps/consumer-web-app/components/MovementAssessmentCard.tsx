@@ -6,6 +6,23 @@ import type { BodyAssessment } from '@mef/shared-types-contracts';
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 /**
+ * Home dashboard redesign — "image-backed card" treatment, opted into by
+ * app/dashboard/page.tsx only (`variant="imageBacked"`); Today
+ * (app/today/page.tsx) keeps the original plain white `card` variant
+ * unchanged. No photo asset of a person mid-movement-capture exists in
+ * this repo, so this is a CSS-only stand-in for one: a deep-green-to-
+ * black diagonal gradient with a soft radial glow and a faint oversized
+ * silhouette icon standing in for photographic depth, rather than
+ * fabricating or sourcing a stock photo. Cream/white text throughout,
+ * matching how real image-backed sections are lit elsewhere on the
+ * redesigned dashboard (the hero, the Unlock Smarter Coaching panel).
+ */
+const IMAGE_BACKED =
+  'relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#0F241C] via-[#1B3A2D] to-[#2A4A3A] text-[#FAFAF8]';
+
+type Variant = 'card' | 'imageBacked';
+
+/**
  * Premium UX Milestone 4 (corrected) — the Guided Posture & Movement
  * Assessment (app/assessment/*, "Body Assessment" in code) is the next
  * major step after a member's first Daily Check-In, NOT the Comprehensive
@@ -20,29 +37,42 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
  */
 export function MovementAssessmentCard({
   assessments,
+  variant = 'card',
   className = '',
 }: {
   assessments: BodyAssessment[];
+  variant?: Variant;
   className?: string;
 }) {
   const analyzed = assessments.find((a) => a.completed_at !== null);
   const submitted = assessments.find((a) => a.status !== 'in_progress');
+  const imageBacked = variant === 'imageBacked';
+  const shell = imageBacked ? IMAGE_BACKED : CARD;
+  const labelTone = imageBacked ? 'text-[#FAFAF8]/70' : 'text-[#6B7A72]';
+  const bodyTone = imageBacked ? 'text-[#FAFAF8]' : 'text-[#1B3A2D]';
 
   if (analyzed) {
     return (
-      <section className={`${CARD} p-6 ${className}`}>
-        <div className="flex items-center gap-2 text-[#6B7A72]">
+      <section className={`${shell} relative overflow-hidden p-6 ${className}`}>
+        {imageBacked && (
+          <PersonStanding
+            className="pointer-events-none absolute -bottom-6 -right-6 h-32 w-32 text-white/10"
+            strokeWidth={1}
+            aria-hidden="true"
+          />
+        )}
+        <div className={`relative flex items-center gap-2 ${labelTone}`}>
           <CheckCircle2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">
             Movement Assessment Complete
           </p>
         </div>
-        <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">
+        <p className={`relative mt-3 text-sm leading-relaxed ${bodyTone}`}>
           Your personalized corrective exercise recommendations are now available.
         </p>
         <Link
           href={`/assessment/${analyzed.id}` as Route}
-          className="mt-3 inline-flex items-center text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
+          className={`mef-press relative mt-3 inline-flex items-center text-sm font-medium underline underline-offset-2 ${bodyTone}`}
         >
           View your results
         </Link>
@@ -52,14 +82,21 @@ export function MovementAssessmentCard({
 
   if (submitted) {
     return (
-      <section className={`${CARD} p-6 ${className}`}>
-        <div className="flex items-center gap-2 text-[#6B7A72]">
+      <section className={`${shell} relative overflow-hidden p-6 ${className}`}>
+        {imageBacked && (
+          <Hourglass
+            className="pointer-events-none absolute -bottom-6 -right-6 h-32 w-32 text-white/10"
+            strokeWidth={1}
+            aria-hidden="true"
+          />
+        )}
+        <div className={`relative flex items-center gap-2 ${labelTone}`}>
           <Hourglass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">
             Movement Assessment Submitted
           </p>
         </div>
-        <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">
+        <p className={`relative mt-3 text-sm leading-relaxed ${bodyTone}`}>
           Root is reviewing your posture and movement patterns — your personalized corrective
           exercise recommendations will appear here soon.
         </p>
@@ -67,8 +104,42 @@ export function MovementAssessmentCard({
     );
   }
 
+  if (imageBacked) {
+    return (
+      <section className={`${shell} p-8 text-center sm:p-10 ${className}`}>
+        <div
+          className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#F5B700]/15 blur-2xl"
+          aria-hidden="true"
+        />
+        <PersonStanding
+          className="pointer-events-none absolute -bottom-10 -left-10 h-56 w-56 text-white/[0.06]"
+          strokeWidth={1}
+          aria-hidden="true"
+        />
+        <div className="relative mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5B700]/20">
+          <PersonStanding className="h-5 w-5 text-[#F5B700]" strokeWidth={1.75} aria-hidden="true" />
+        </div>
+        <h2 className="relative mt-5 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#FAFAF8] md:text-3xl">
+          Guided Posture &amp; Movement Assessment
+        </h2>
+        <p className="relative mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#FAFAF8]/75">
+          Build your personalized movement blueprint.
+        </p>
+        <p className="relative mt-4 text-xs font-medium uppercase tracking-wider text-[#FAFAF8]/60">
+          Estimated time: 5–10 minutes
+        </p>
+        <Link
+          href={'/assessment' as Route}
+          className="mef-press relative mt-6 inline-flex items-center justify-center rounded-full bg-[#F5B700] px-7 py-3.5 text-sm font-semibold text-[#1B3A2D] shadow-[0_10px_24px_-6px_rgba(0,0,0,0.35)] transition hover:brightness-105"
+        >
+          Start Assessment
+        </Link>
+      </section>
+    );
+  }
+
   return (
-    <section className={`${CARD} relative overflow-hidden p-8 text-center sm:p-10 ${className}`}>
+    <section className={`${shell} relative overflow-hidden p-8 text-center sm:p-10 ${className}`}>
       <div
         className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#F5B700]/10"
         aria-hidden="true"

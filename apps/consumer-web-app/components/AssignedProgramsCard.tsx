@@ -2,8 +2,6 @@ import Link from 'next/link';
 import { Dumbbell, ChevronRight } from 'lucide-react';
 import type { CoachAssignedWorkout } from '@mef/shared-types-contracts';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 /**
  * Surfaces a member's coach-assigned workouts (Coach Program Builder
  * milestone) without adding a fourth DashboardQuickLinks card or a
@@ -12,6 +10,11 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
  * there's something to act on" posture as ConnectWearableCard and the
  * coach dashboard's own Safety Review Queue link — a member with no
  * assigned programs never sees an empty-state card taking up space.
+ *
+ * Home dashboard redesign: a plain divider row, no card — sits in the
+ * "Today" zone between Root's Daily Brief (a white card) and the Daily
+ * Wellness panel, so the zone doesn't repeat the same treatment twice in
+ * a row.
  */
 export function AssignedProgramsCard({
   upcomingWorkouts,
@@ -24,7 +27,7 @@ export function AssignedProgramsCard({
   return (
     <Link
       href="/programs"
-      className={`${CARD} flex items-center justify-between p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+      className="mef-press flex items-center justify-between gap-3 border-b border-[#1B3A2D]/8 py-4 transition hover:bg-[#1B3A2D]/[0.02]"
     >
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">

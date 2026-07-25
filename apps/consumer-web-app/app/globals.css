@@ -468,3 +468,40 @@
     animation: none !important;
   }
 }
+
+/*
+ * Home dashboard redesign (app/dashboard/page.tsx) — shared primitives
+ * used across the new hero/carousel/scroll-reveal treatment.
+ */
+
+/* Horizontal quick-action / carousel strips: scrollable but without a
+   visible scrollbar track, since this is a premium touch surface, not a
+   desktop file browser. */
+.mef-scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.mef-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* A restrained press state for the redesign's buttons/links/tiles — a
+   small scale-down on :active, not a color change, so it reads as
+   physical feedback rather than a state change. */
+.mef-press {
+  transition:
+    transform 150ms ease-out,
+    background-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+
+.mef-press:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-press:active {
+    transform: none;
+  }
+}
