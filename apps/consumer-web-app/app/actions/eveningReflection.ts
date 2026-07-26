@@ -19,6 +19,9 @@ import { recordMemberEvent } from '@/lib/events/service';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { evaluateConcern } from '@/lib/safety/service';
 import { todaysLocalDate } from '@/lib/time/localDate';
+import { recordForecastsFromEveningReflection } from '@/lib/energy-forecast/service';
+import { getForecastForDate } from '@/lib/energy-forecast/data';
+import { addDaysToLocalDate } from '@/lib/feed/dateMath';
 import type { ActionResult } from './auth';
 
 export type EveningReflectionFormInput = {
@@ -27,6 +30,16 @@ export type EveningReflectionFormInput = {
   energyPattern: EnergyPattern | null;
   symptomsOrChanges: string | null;
   recovery: number | null;
+  /**
+   * Forecast & Calibration Loop — her one-time prediction of tomorrow's
+   * energy, asked at the end of this form. Null when she skips it: no
+   * forecast is ever substituted, that night simply has none. See
+   * lib/energy-forecast/. Never re-askable once a forecast exists for the
+   * resulting date — recordForecastsFromEveningReflection is a no-op if
+   * one is already on file, even if this value is non-null again on a
+   * same-day resubmission.
+   */
+  predictedEnergyLevel: number | null;
 };
 
 async function requireMemberTimezone(
@@ -156,5 +169,32 @@ export async function submitEveningReflection(
     console.error('Safety classification failed for submitEveningReflection', safetyError);
   }
 
+  // Forecast & Calibration Loop — her forecast (if given) and Root's own
+  // (attempted regardless, once it has a genuine basis). Best-effort, same
+  // discipline as every other side-effect block here: never allowed to
+  // affect the result already returned to the member.
+  try {
+    await recordForecastsFromEveningReflection(supabase, ctx.memberId, localDate, input.predictedEnergyLevel);
+  } catch (forecastError) {
+    console.error('Forecast recording failed for submitEveningReflection', forecastError);
+  }
+
   return {};
+}
+
+/**
+ * Whether she's already made a forecast for tomorrow (tomorrow relative
+ * to today's Evening Reflection) — so the form can show it as an
+ * already-locked record instead of a second, silently-ignored prompt.
+ * Only ever reads energy_forecasts.predicted_energy_level, never the
+ * fields that only exist once tomorrow's check-in has scored it.
+ */
+export async function getTomorrowsForecastPrediction(): Promise<number | null> {
+  const supabase = createClient();
+  const ctx = await requireMemberTimezone(supabase);
+  if (!ctx) return null;
+
+  const localDate = todaysLocalDate(ctx.timezone);
+  const forecast = await getForecastForDate(supabase, ctx.memberId, addDaysToLocalDate(localDate, 1));
+  return forecast?.predicted_energy_level ?? null;
 }

@@ -1,10 +1,33 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { CONSENT_ITEMS } from '@/lib/consent/copy';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
 
 const TEST_HABIT_DATE = '2018-05-05';
+// A distinctive, far-past date — this describe block's own fixture, not
+// reliant on any other test file (or ambient dev-database state) having
+// already created a daily_checkins row for member.one.
+const COACH_VISIBLE_CHECKIN_DATE = '2017-01-01';
 
 describe('coach access (coach_read_assigned_* RLS + is_active_coach_for)', () => {
+  beforeAll(async () => {
+    const service = serviceRoleClient();
+    await service.from('daily_checkins').insert({
+      user_id: TEST_USERS.memberOne.id,
+      timezone: 'America/New_York',
+      local_date: COACH_VISIBLE_CHECKIN_DATE,
+      mood_level: 3,
+    });
+  });
+
+  afterAll(async () => {
+    const service = serviceRoleClient();
+    await service
+      .from('daily_checkins')
+      .delete()
+      .eq('user_id', TEST_USERS.memberOne.id)
+      .eq('local_date', COACH_VISIBLE_CHECKIN_DATE);
+  });
+
   it("a coach can read their actively-assigned client's check-ins", async () => {
     // Seed data: coach.one is actively assigned to member.one.
     const coach = await signInAs(TEST_USERS.coachOne);

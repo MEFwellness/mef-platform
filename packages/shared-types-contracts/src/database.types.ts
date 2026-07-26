@@ -306,3 +306,32 @@ export interface UnifiedAssessmentAnswerRow {
   value: unknown;
   answered_at: string;
 }
+
+// Forecast & Calibration Loop (migration 111). See
+// apps/consumer-web-app/lib/energy-forecast/. Both tables are permanent
+// records once inserted — see each table's own immutability trigger.
+
+export interface EnergyForecast {
+  id: string;
+  member_id: string;
+  forecast_date: string; // YYYY-MM-DD — the date being forecast
+  made_from_local_date: string; // the evening reflection this was made from
+  predicted_energy_level: number; // 1-5, same scale as daily_checkins.energy_level
+  created_at: string;
+  actual_energy_level: number | null;
+  gap: number | null; // actual - predicted, null until scored
+  scored_at: string | null;
+}
+
+export interface RootEnergyForecast {
+  id: string;
+  member_id: string;
+  forecast_date: string;
+  predicted_energy_level: number;
+  method: string;
+  basis_observation_count: number;
+  created_at: string;
+  actual_energy_level: number | null;
+  gap: number | null;
+  scored_at: string | null;
+}

@@ -49,6 +49,14 @@ const RATING_LABELS = ['Rough', 'Below average', 'Okay', 'Good', 'Great'] as con
 const STRESS_LABELS = ['Very calm', 'Calm', 'Moderate', 'High', 'Overwhelmed'] as const;
 const RECOVERY_LABELS = ['Depleted', 'Low', 'Some', 'Good', 'Fully recovered'] as const;
 const DIGESTION_MEANING = ['Poor', 'Somewhat off', 'Fair', 'Good', 'Excellent'] as const;
+/**
+ * Forecast & Calibration Loop — the one new question this form adds, per
+ * the task's explicit scope ("beyond adding the forecast question to the
+ * end of Evening Reflection"). Same words as the morning check-in's own
+ * energy question (CheckinForm.tsx's ENERGY_MEANING) so a prediction and
+ * its later grade always read in the same vocabulary.
+ */
+const FORECAST_ENERGY_MEANING = ['Exhausted', 'Low', 'Moderate', 'Good', 'High'] as const;
 const MOVEMENT_LEVELS = [
   { value: 'none', label: 'None' },
   { value: 'light', label: 'Light' },
@@ -112,6 +120,15 @@ type Props = {
   localFollowUps: DriverProbeQuestion[];
   /** Today's previously-saved answers for storage='probe_answer' questions, keyed by question_key. */
   initialProbeAnswers: Record<string, unknown>;
+  /**
+   * Forecast & Calibration Loop — her forecast for tomorrow, if she (or an
+   * earlier visit to this same form, today) already made one. Once
+   * non-null the question renders as a locked record rather than a
+   * selectable one: a forecast is permanent the moment it's made, so this
+   * form must never look like it can be changed after the fact. Null
+   * means she hasn't forecast yet — the question is still open.
+   */
+  existingForecastLevel: number | null;
 };
 
 export function EveningReflectionForm({
@@ -122,6 +139,7 @@ export function EveningReflectionForm({
   rotatingProbes,
   localFollowUps,
   initialProbeAnswers,
+  existingForecastLevel,
 }: Props) {
   const digestionQuestion =
     rotatingProbes.find((q) => q.questionKey === 'checkin_probe.digestion_rating') ?? null;
@@ -179,6 +197,11 @@ export function EveningReflectionForm({
   const [movementToday, setMovementToday] = useState<
     (typeof MOVEMENT_LEVELS)[number]['value'] | null
   >(todaysCheckin?.movement_today ?? null);
+  // Forecast & Calibration Loop — always starts unset, never prefilled
+  // from existingForecastLevel: once a forecast exists it renders as a
+  // locked readback (below), not an editable control, so there is no
+  // "current value" to seed a selectable input with.
+  const [predictedEnergyLevel, setPredictedEnergyLevel] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
 
@@ -190,6 +213,7 @@ export function EveningReflectionForm({
       energyPattern,
       symptomsOrChanges: symptomsOrChanges.trim() ? symptomsOrChanges.trim() : null,
       recovery,
+      predictedEnergyLevel: existingForecastLevel === null ? predictedEnergyLevel : null,
     };
 
     startTransition(async () => {
@@ -331,6 +355,55 @@ export function EveningReflectionForm({
           ))}
         </div>
       )}
+
+      <div className={SECTION_CARD}>
+        <div>
+          <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
+            Predict tomorrow
+          </p>
+          <p className="text-[13px] text-[#6B7A72]">
+            {existingForecastLevel === null
+              ? "No wrong answer — tomorrow's check-in will tell you how close you were."
+              : "You've already made this prediction. It's locked in until tomorrow grades it."}
+          </p>
+        </div>
+        {existingForecastLevel === null ? (
+          <div>
+            <p className="text-[13px] leading-relaxed text-[#6B7A72]">
+              How do you think your energy will be tomorrow morning?
+            </p>
+            <div
+              className="mt-3 flex flex-wrap gap-2"
+              role="group"
+              aria-label="How do you think your energy will be tomorrow morning?"
+            >
+              {FORECAST_ENERGY_MEANING.map((word, i) => {
+                const value = i + 1;
+                const isSelected = predictedEnergyLevel === value;
+                return (
+                  <button
+                    key={word}
+                    type="button"
+                    onClick={() => setPredictedEnergyLevel(value)}
+                    aria-pressed={isSelected}
+                    className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                      isSelected
+                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                    }`}
+                  >
+                    {word}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <p className="rounded-2xl bg-[#1B3A2D]/[0.04] px-4 py-3 text-sm font-medium text-[#1B3A2D]">
+            Your prediction: {FORECAST_ENERGY_MEANING[existingForecastLevel - 1]}
+          </p>
+        )}
+      </div>
 
       {error && (
         <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">

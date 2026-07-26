@@ -8,7 +8,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getTodaysEveningReflection } from '@/app/actions/eveningReflection';
+import { getTodaysEveningReflection, getTomorrowsForecastPrediction } from '@/app/actions/eveningReflection';
 import { getTodaysCheckin } from '@/app/actions/checkin';
 import {
   getTodaysCheckinPlanAction,
@@ -37,14 +37,16 @@ export default async function EveningReflectionPage() {
   const timezone = profile?.timezone ?? 'America/New_York';
   const localDate = todaysLocalDate(timezone);
 
-  const [isCoach, existing, todaysCheckin, checkinPlan, localFollowUps, initialProbeAnswers] = await Promise.all([
-    hasActiveRole(supabase, user.id, 'coach'),
-    getTodaysEveningReflection(),
-    getTodaysCheckin(localDate),
-    getTodaysCheckinPlanAction(localDate),
-    getLocalFollowUpQuestionsAction('evening'),
-    getProbeAnswersForDateAction(localDate),
-  ]);
+  const [isCoach, existing, todaysCheckin, checkinPlan, localFollowUps, initialProbeAnswers, existingForecastLevel] =
+    await Promise.all([
+      hasActiveRole(supabase, user.id, 'coach'),
+      getTodaysEveningReflection(),
+      getTodaysCheckin(localDate),
+      getTodaysCheckinPlanAction(localDate),
+      getLocalFollowUpQuestionsAction('evening'),
+      getProbeAnswersForDateAction(localDate),
+      getTomorrowsForecastPrediction(),
+    ]);
   const rotatingProbes = (checkinPlan?.rotatingProbes ?? []).filter((p) => p.screen === 'evening');
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
@@ -73,6 +75,7 @@ export default async function EveningReflectionPage() {
           rotatingProbes={rotatingProbes}
           localFollowUps={localFollowUps}
           initialProbeAnswers={initialProbeAnswers}
+          existingForecastLevel={existingForecastLevel}
         />
       </main>
 

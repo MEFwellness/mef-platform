@@ -1,0 +1,230 @@
+/**
+ * Forecast & Calibration Loop — orchestration. Two entry points:
+ *   - recordForecastsFromEveningReflection: called once from
+ *     submitEveningReflection, writes her forecast (if she gave one) and
+ *     attempts Root's (always, independent of her choice).
+ *   - buildEndingScreenView: called from the ending screen
+ *     (app/checkin/result), scores whichever forecasts are outstanding
+ *     for the day just submitted and returns the view model.
+ */
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { addDaysToLocalDate, daysBetweenLocalDates } from '../feed/dateMath';
+import { MIN_SPAN_DAYS } from '../correlation-engine/evidence';
+import { ACCURACY_TOLERANCE, ROOT_FORECAST_MIN_HISTORY_DAYS } from './constants';
+import { computeRootForecast } from './rootForecast';
+import { scoreForecast, accuracyPercent, meetsCalibrationThreshold } from './scoring';
+import { describeGap, describeRootGap, describeRootNotReady, describeTimeline, ROOT_NO_ATTEMPT_SENTENCE } from './copy';
+import { energyLevelLabel, moodLabel, stressLabel, sleepQualityLabel, painLabel } from './scaleLabels';
+import {
+  getForecastForDate,
+  getRootForecastForDate,
+  insertForecastIfAbsent,
+  insertRootForecastIfAbsent,
+  scoreForecastOnce,
+  scoreRootForecastOnce,
+  listScoredForecasts,
+  listScoredRootForecasts,
+  listRecentEnergyLevels,
+  hasEarnedFinding,
+} from './data';
+import { listRecentCheckinsForMember } from '../coaching-engine/data';
+import type { DailyCheckin, EnergyForecast, RootEnergyForecast } from '@mef/shared-types-contracts';
+import type {
+  CalibrationPoint,
+  CalibrationView,
+  EndingScreenView,
+  ReadbackView,
+  RootStatusView,
+  ScoredForecastView,
+  TimelineView,
+} from './types';
+
+/**
+ * Called from submitEveningReflection. `predictedEnergyLevel` is null
+ * when she skipped the question — in that case her forecast is simply
+ * never written (no default substituted), but Root still attempts its
+ * own, independent of her choice.
+ */
+export async function recordForecastsFromEveningReflection(
+  supabase: SupabaseClient,
+  memberId: string,
+  eveningLocalDate: string,
+  predictedEnergyLevel: number | null
+): Promise<void> {
+  const forecastDate = addDaysToLocalDate(eveningLocalDate, 1);
+
+  if (predictedEnergyLevel !== null) {
+    await insertForecastIfAbsent(supabase, memberId, forecastDate, eveningLocalDate, predictedEnergyLevel);
+  }
+
+  const history = await listRecentEnergyLevels(supabase, memberId, eveningLocalDate);
+  const basis = computeRootForecast(history);
+  if (basis) {
+    await insertRootForecastIfAbsent(
+      supabase,
+      memberId,
+      forecastDate,
+      basis.predictedEnergyLevel,
+      basis.basisObservationCount
+    );
+  }
+}
+
+function toScoredView(predictedLevel: number, actualLevel: number, gap: number, forRoot: boolean): ScoredForecastView {
+  return {
+    predictedLevel,
+    predictedLabel: energyLevelLabel(predictedLevel),
+    actualLevel,
+    actualLabel: energyLevelLabel(actualLevel),
+    gap,
+    sentence: forRoot ? describeRootGap(predictedLevel, actualLevel, gap) : describeGap(predictedLevel, actualLevel, gap),
+  };
+}
+
+async function resolveRootStatus(
+  supabase: SupabaseClient,
+  memberId: string,
+  localDate: string,
+  todaysEnergyLevel: number
+): Promise<RootStatusView> {
+  const rootRow = await getRootForecastForDate(supabase, memberId, localDate);
+
+  if (rootRow) {
+    let gap = rootRow.gap;
+    if (!rootRow.scored_at) {
+      const score = scoreForecast(rootRow.predicted_energy_level, todaysEnergyLevel);
+      gap = score.gap;
+      await scoreRootForecastOnce(supabase, memberId, localDate, todaysEnergyLevel);
+    }
+    return { kind: 'scored', forecast: toScoredView(rootRow.predicted_energy_level, todaysEnergyLevel, gap!, true) };
+  }
+
+  // No row — either Root never had a genuine basis, or she skipped
+  // Evening Reflection that night so Root never got a chance. History is
+  // checked as of the night before, mirroring what Root could have known.
+  const historyAsOfLastNight = await listRecentEnergyLevels(supabase, memberId, addDaysToLocalDate(localDate, -1));
+  const basis = computeRootForecast(historyAsOfLastNight);
+
+  if (!basis) {
+    return {
+      kind: 'not_ready',
+      basisObservationCount: historyAsOfLastNight.length,
+      minRequired: ROOT_FORECAST_MIN_HISTORY_DAYS,
+      sentence: describeRootNotReady(historyAsOfLastNight.length, ROOT_FORECAST_MIN_HISTORY_DAYS),
+    };
+  }
+
+  return { kind: 'no_attempt', sentence: ROOT_NO_ATTEMPT_SENTENCE };
+}
+
+function buildReadback(checkin: DailyCheckin): ReadbackView {
+  return {
+    moodLabel: checkin.mood_level != null ? moodLabel(checkin.mood_level) : null,
+    energyLabel: checkin.energy_level != null ? energyLevelLabel(checkin.energy_level) : null,
+    stressLabel: checkin.stress_level != null ? stressLabel(checkin.stress_level) : null,
+    sleepQualityLabel: checkin.sleep_quality != null ? sleepQualityLabel(checkin.sleep_quality) : null,
+    painLabel: checkin.pain_discomfort_level != null ? painLabel(checkin.pain_discomfort_level) : null,
+  };
+}
+
+async function buildTimeline(supabase: SupabaseClient, memberId: string, localDate: string): Promise<TimelineView> {
+  const checkins = await listRecentCheckinsForMember(supabase, memberId, localDate, 400);
+  const checkinCount = checkins.length;
+  const daysSinceFirstCheckin = checkinCount > 0 ? daysBetweenLocalDates(checkins[0]!.local_date, localDate) : null;
+
+  return {
+    checkinCount,
+    daysSinceFirstCheckin,
+    targetDays: MIN_SPAN_DAYS,
+    sentence: describeTimeline(checkinCount, daysSinceFirstCheckin, MIN_SPAN_DAYS),
+  };
+}
+
+function buildCalibrationSeries(her: EnergyForecast[], root: RootEnergyForecast[]): CalibrationPoint[] {
+  const dates = [...new Set([...her.map((f) => f.forecast_date), ...root.map((f) => f.forecast_date)])].sort();
+  const herByDate = new Map(her.map((f) => [f.forecast_date, f]));
+  const rootByDate = new Map(root.map((f) => [f.forecast_date, f]));
+
+  let herHits = 0;
+  let herTotal = 0;
+  let rootHits = 0;
+  let rootTotal = 0;
+  const points: CalibrationPoint[] = [];
+
+  for (const date of dates) {
+    const hf = herByDate.get(date);
+    if (hf && hf.gap !== null) {
+      herTotal += 1;
+      if (Math.abs(hf.gap) <= ACCURACY_TOLERANCE) herHits += 1;
+    }
+    const rf = rootByDate.get(date);
+    if (rf && rf.gap !== null) {
+      rootTotal += 1;
+      if (Math.abs(rf.gap) <= ACCURACY_TOLERANCE) rootHits += 1;
+    }
+    points.push({
+      date,
+      herAccuracyPct: herTotal > 0 ? Math.round((herHits / herTotal) * 100) : 0,
+      rootAccuracyPct: rootTotal > 0 ? Math.round((rootHits / rootTotal) * 100) : 0,
+    });
+  }
+  return points;
+}
+
+/**
+ * The ending screen's full view model, for the day just submitted
+ * (`localDate` — the check-in's own local_date, not necessarily "today"
+ * if she logged for yesterday). Scores any outstanding forecast for this
+ * date as a side effect; safe to call repeatedly (see scoreForecastOnce's
+ * own idempotency).
+ */
+export async function buildEndingScreenView(
+  supabase: SupabaseClient,
+  memberId: string,
+  localDate: string,
+  todaysCheckin: DailyCheckin
+): Promise<EndingScreenView> {
+  const todaysEnergyLevel = todaysCheckin.energy_level!;
+
+  const herForecastRow = await getForecastForDate(supabase, memberId, localDate);
+
+  if (!herForecastRow) {
+    const [readback, timeline, rootStatus] = await Promise.all([
+      Promise.resolve(buildReadback(todaysCheckin)),
+      buildTimeline(supabase, memberId, localDate),
+      resolveRootStatus(supabase, memberId, localDate, todaysEnergyLevel),
+    ]);
+    return { kind: 'no_forecast', readback, timeline, rootStatus };
+  }
+
+  let gap = herForecastRow.gap;
+  if (!herForecastRow.scored_at) {
+    const score = scoreForecast(herForecastRow.predicted_energy_level, todaysEnergyLevel);
+    gap = score.gap;
+    await scoreForecastOnce(supabase, memberId, localDate, todaysEnergyLevel);
+  }
+  const her = toScoredView(herForecastRow.predicted_energy_level, todaysEnergyLevel, gap!, false);
+
+  const [rootStatus, handoffToCase] = await Promise.all([
+    resolveRootStatus(supabase, memberId, localDate, todaysEnergyLevel),
+    hasEarnedFinding(supabase, memberId),
+  ]);
+
+  let calibration: CalibrationView | null = null;
+  if (!handoffToCase) {
+    const [herScored, rootScored] = await Promise.all([
+      listScoredForecasts(supabase, memberId),
+      listScoredRootForecasts(supabase, memberId),
+    ]);
+    if (meetsCalibrationThreshold(herScored.length) && meetsCalibrationThreshold(rootScored.length)) {
+      calibration = {
+        scoredCount: herScored.length,
+        herAccuracyPct: accuracyPercent(herScored.map((f) => f.gap!)),
+        rootAccuracyPct: accuracyPercent(rootScored.map((f) => f.gap!)),
+        series: buildCalibrationSeries(herScored, rootScored),
+      };
+    }
+  }
+
+  return { kind: 'scored', her, rootStatus, calibration, handoffToCase };
+}

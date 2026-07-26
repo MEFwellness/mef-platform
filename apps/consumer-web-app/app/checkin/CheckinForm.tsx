@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Route } from 'next';
 import {
   Smile,
   Moon,
@@ -420,15 +421,30 @@ export function CheckinForm({
       return;
     }
 
-    router.push(isFirstCheckin ? '/dashboard?firstCheckin=1' : '/dashboard');
+    router.push(resultHref() as Route);
     router.refresh();
   }
 
   async function acknowledgeEveningReminder() {
     setShowEveningReminder(false);
     await markEveningReminderShown();
-    router.push(isFirstCheckin ? '/dashboard?firstCheckin=1' : '/dashboard');
+    router.push(resultHref() as Route);
     router.refresh();
+  }
+
+  /**
+   * Forecast & Calibration Loop (Part 4) — the ending screen's own route,
+   * same slot every day, replacing the old direct-to-dashboard redirect.
+   * `date` is passed explicitly (rather than the result page recomputing
+   * "today") so logging for yesterday still grades the right day's
+   * forecast. `firstCheckin` is forwarded unchanged so the existing
+   * Milestone 4 first-check-in transition still fires from /dashboard
+   * once she continues past this screen — untouched, just one hop later.
+   */
+  function resultHref(): string {
+    const params = new URLSearchParams({ date: localDate });
+    if (isFirstCheckin) params.set('firstCheckin', '1');
+    return `/checkin/result?${params.toString()}`;
   }
 
   async function toggleHabit(habitId: string, completed: boolean) {
