@@ -5,7 +5,24 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Driver, DriverGoalWeight, MemberDriverState, DriverState } from './types';
+import type { Driver, DriverDomain, DriverGoalWeight, MemberDriverState, DriverState } from './types';
+
+type DriverDomainRow = { key: string; label: string; sort_order: number };
+
+/** Every driver domain (driver_domains, migration 106) — reference data, not member data. */
+export async function listDriverDomains(supabase: SupabaseClient): Promise<DriverDomain[]> {
+  const { data, error } = await supabase.from('driver_domains').select('*').order('sort_order');
+
+  if (error) {
+    console.error('listDriverDomains failed', error);
+    return [];
+  }
+  return (data as DriverDomainRow[]).map((row) => ({
+    key: row.key,
+    label: row.label,
+    sortOrder: row.sort_order,
+  }));
+}
 
 type DriverRow = {
   id: string;

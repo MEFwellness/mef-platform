@@ -36,6 +36,7 @@ import {
 } from '@/app/actions/intelligence-engine';
 import { getClientRootCauseSignals } from '@/app/actions/rootCauseSignals';
 import { getClientRootMap } from '@/app/actions/rootMap';
+import { getClientCaseViewAction } from '@/app/actions/caseView';
 import { getClientRecommendations } from '@/app/actions/recommendations';
 import { getClientLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import {
@@ -77,6 +78,7 @@ import { IntelligencePanel } from './IntelligencePanel';
 import { MemberIntelligencePanel } from './MemberIntelligencePanel';
 import { RootCauseSignalsPanel } from './RootCauseSignalsPanel';
 import { RootMapPanel } from './RootMapPanel';
+import { CaseViewPanel } from './CaseViewPanel';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { LongitudinalIntelligencePanel } from './LongitudinalIntelligencePanel';
 import { CoachWorkspacePanel } from './CoachWorkspacePanel';
@@ -203,6 +205,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     clientLongitudinalSignals,
     clientRecommendationEvents,
     coachWorkspaceSummary,
+    clientCaseView,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -233,6 +236,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientLongitudinalSignals(profile.id),
     getClientRecommendationEvents(profile.id),
     getClientCoachWorkspaceSummary(profile.id),
+    getClientCaseViewAction(profile.id),
   ]);
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
@@ -474,6 +478,13 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               per-domain view, extended here with safety flags, pending
               reassessments, and Root Router decision history. Coach-only. */}
           {rootMap && <RootMapPanel rootMap={rootMap} />}
+
+          {/* Case View — the member's own goal/driver/correlation case
+              view, extended here with the raw numbers behind each
+              finding (observation count, span, rho, split-window
+              agreement). Same builder as the member sees, nothing
+              computed here. Coach-only. */}
+          <CaseViewPanel caseView={clientCaseView} localDate={summary.todaysLocalDate} />
 
           {/* Recommendations (Prompt 11) — the Recommendation Engine's
               persisted, explainable suggestions and any Lifestyle

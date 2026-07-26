@@ -63,6 +63,19 @@ export default async function CoachingInsightsPage() {
           always grounded in what you&apos;ve actually logged, never a guess.
         </p>
 
+        <Link
+          href={'/case' as Route}
+          className={`${CARD} mt-5 flex items-center justify-between gap-3 p-5 transition hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]`}
+        >
+          <div>
+            <p className="text-sm font-semibold text-[#1B3A2D]">Your Case</p>
+            <p className="mt-0.5 text-xs text-[#6B7A72]">
+              What you came here for, what&apos;s being investigated, and how it&apos;s changing
+            </p>
+          </div>
+          <ChevronLeft className="h-4 w-4 rotate-180 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
         {safetyMessage ? (
           <section className={`${CARD} mt-6 p-6`}>
             <p className="text-sm leading-relaxed text-[#1B3A2D]">{safetyMessage}</p>
