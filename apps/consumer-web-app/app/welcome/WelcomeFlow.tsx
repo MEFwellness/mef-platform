@@ -438,11 +438,11 @@ const STORY_PARAGRAPH =
   'Our goal is to understand how your movement, sleep, stress, nutrition, pain, energy, and daily habits work together so we can personalize your experience over time.';
 
 function PageStory({ onAdvance, onBack, onSkip, reducedMotion }: CinematicPageProps) {
-  const msPerChar = 60;
+  const msPerChar = 45;
   const typewriterMs = STORY_TEXT.length * msPerChar;
-  const pauseMs = 2000;
+  const pauseMs = 1500;
   const paragraphMs = 700;
-  const holdMs = 5000;
+  const holdMs = 4000;
   const totalMs = typewriterMs + pauseMs + paragraphMs + holdMs;
 
   const [charCount, setCharCount] = useState(reducedMotion ? STORY_TEXT.length : 0);
@@ -496,8 +496,8 @@ function PageStory({ onAdvance, onBack, onSkip, reducedMotion }: CinematicPagePr
 }
 
 function PageConnected({ onAdvance, onBack, onSkip, reducedMotion }: CinematicPageProps) {
-  const revealMs = 1500;
-  const holdMs = 3000;
+  const revealMs = 1200;
+  const holdMs = 2000;
   const totalMs = revealMs + holdMs;
 
   return (
@@ -528,7 +528,7 @@ function PageBenefitCard({
   reducedMotion,
 }: CinematicPageProps & { card: (typeof HEALTH_CARDS)[number] }) {
   const revealMs = 600;
-  const holdMs = 3000;
+  const holdMs = 2000;
   const totalMs = revealMs + holdMs;
   const { Icon, label } = card;
 

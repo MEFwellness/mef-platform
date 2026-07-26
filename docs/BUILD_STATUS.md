@@ -287,3 +287,17 @@ Zero browser console errors across all 5 scenarios. Not deployed as of this entr
 Small follow-up to the back-navigation work above. In `CinematicPage` (`app/welcome/WelcomeFlow.tsx`), the back arrow moved from `absolute bottom-0 left-0` to `absolute left-0 top-0` — the same corner-alignment approach as Skip's `absolute right-0 top-0`, so both now sit at identical height (`top-0` on both). The icon grew from `h-5 w-5` to `h-7 w-7` and its color changed from `text-[#6B7A72]/70` (faint grey) to `text-[#1B3A2D]` (the brand deep green, full opacity). Its `stopPropagation` on `pointerdown`/`click` (excluding it from the tap-to-advance area) and its absence on Page 1 (`onBack` is never passed to `PageLogoWelcome`) were both untouched — this was a pure styling/position change, no behavior changed.
 
 **Verified**: `npm run typecheck` clean; `eslint` clean; full `vitest run` — 165 files / 1759/1759 passing; `npm run build` — compiled successfully. Manually verified in a real browser (Playwright, local dev server + local Supabase, `member.one@example.test`) at exactly 375×667: Page 1 still has zero back-arrow elements in the DOM; on Page 2, the back arrow's and Skip's bounding boxes both measured `y: 68` (identical height); the arrow's rendered color measured `rgb(27, 58, 45)` (exact match for `#1B3A2D`); tapping the arrow returned to Page 1 without also triggering tap-to-advance (confirming the exclusion still holds). Zero browser console errors. Not deployed as of this entry.
+
+---
+
+## Welcome intro: pages 2-7 sped up (2026-07-26)
+
+Timing-only follow-up in `app/welcome/WelcomeFlow.tsx`. Page 1 (`PageLogoWelcome`) was explicitly out of scope and untouched.
+
+- **Page 2** (`PageStory`): `msPerChar` 60→45 (typewriter for "Every person has a unique story." now ~1440ms instead of ~1920ms), `pauseMs` 2000→1500, `holdMs` 5000→4000. `paragraphMs` (700ms) untouched, as not mentioned. Page total: ~9.6s → ~7.6s.
+- **Page 3** (`PageConnected`): `revealMs` 1500→1200, `holdMs` 3000→2000. Page total: ~4.5s → ~3.2s.
+- **Pages 4-7** (`PageBenefitCard`): `holdMs` 3000→2000 each (`revealMs`, 600ms, untouched). Page total: ~3.6s → ~2.6s each.
+
+Every entrance animation itself (typewriter, `mef-scale-fade-in` reveals) is unchanged — only the delay/pause/hold numbers around them moved, per "a pacing change, not a removal."
+
+**Verified**: `npm run typecheck` clean; `eslint` clean; full `vitest run` — 165 files / 1759/1759 passing; `npm run build` — compiled successfully. Manually driven in a real browser (Playwright, local dev server + local Supabase, `member.one@example.test`) at exactly 375×667: tapped through Page 1 (untouched, not re-measured here) and measured each subsequent page's actual auto-advance time — Page 2 at 7849ms, Page 3 at 2808ms, Page 4 at 2810ms, Page 5 at 2311ms — all within normal timer/render jitter of the new ~7.6s/~3.2s/~2.6s/~2.6s targets. Zero browser console errors. Not deployed as of this entry.
