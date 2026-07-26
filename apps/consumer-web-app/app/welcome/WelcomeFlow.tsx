@@ -327,9 +327,9 @@ function CinematicPage({
             handleBack();
           }}
           aria-label="Back"
-          className="mef-focus-ring absolute bottom-0 left-0 z-10 rounded-full p-2 text-[#6B7A72]/70"
+          className="mef-focus-ring absolute left-0 top-0 z-10 rounded-full p-2 text-[#1B3A2D]"
         >
-          <ArrowLeft className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+          <ArrowLeft className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" />
         </button>
       )}
 

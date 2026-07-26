@@ -279,3 +279,11 @@ Two changes to `app/welcome/WelcomeFlow.tsx`'s cinematic intro (the 9-page seque
 5. **Reduced motion**: Page 1 showed the cream background, logo, headline, and a Continue button all immediately (no `.mef-hero-bg-fade` element in the DOM at all); Page 2 showed both a "Back" text link and a "Continue" button with no visual collision; tapping Back correctly returned to Page 1.
 
 Zero browser console errors across all 5 scenarios. Not deployed as of this entry.
+
+---
+
+## Welcome intro: back arrow restyled (2026-07-26)
+
+Small follow-up to the back-navigation work above. In `CinematicPage` (`app/welcome/WelcomeFlow.tsx`), the back arrow moved from `absolute bottom-0 left-0` to `absolute left-0 top-0` — the same corner-alignment approach as Skip's `absolute right-0 top-0`, so both now sit at identical height (`top-0` on both). The icon grew from `h-5 w-5` to `h-7 w-7` and its color changed from `text-[#6B7A72]/70` (faint grey) to `text-[#1B3A2D]` (the brand deep green, full opacity). Its `stopPropagation` on `pointerdown`/`click` (excluding it from the tap-to-advance area) and its absence on Page 1 (`onBack` is never passed to `PageLogoWelcome`) were both untouched — this was a pure styling/position change, no behavior changed.
+
+**Verified**: `npm run typecheck` clean; `eslint` clean; full `vitest run` — 165 files / 1759/1759 passing; `npm run build` — compiled successfully. Manually verified in a real browser (Playwright, local dev server + local Supabase, `member.one@example.test`) at exactly 375×667: Page 1 still has zero back-arrow elements in the DOM; on Page 2, the back arrow's and Skip's bounding boxes both measured `y: 68` (identical height); the arrow's rendered color measured `rgb(27, 58, 45)` (exact match for `#1B3A2D`); tapping the arrow returned to Page 1 without also triggering tap-to-advance (confirming the exclusion still holds). Zero browser console errors. Not deployed as of this entry.
