@@ -83,15 +83,37 @@ function HeroChrome({
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/45" />
       </div>
 
+      {/* `relative` (no z-index) is enough to paint this above the
+          absolute image/gradient layers above — both are positioned
+          elements, so plain DOM order (this div comes after them) already
+          puts it on top; a z-index isn't needed for that. It matters that
+          one ISN'T added here: any z-index would make this div establish
+          its own stacking context, which would trap AvatarLink's
+          ProfileSheet (a fixed, deeply-nested descendant) inside it —
+          confirmed by an actual regression where the bottom nav and the
+          floating chat button painted on top of the (correctly
+          positioned) profile sheet instead of under it, because the
+          sheet's z-50 was only ever being compared against other things
+          inside this div's stacking context, never against the nav's
+          z-20 at the page's root level. */}
       <div
-        className={`relative z-10 mx-auto flex w-full max-w-md flex-col px-5 sm:px-6 md:max-w-5xl md:px-10 md:pl-28 ${
+        className={`relative mx-auto flex w-full max-w-md flex-col px-5 sm:px-6 md:max-w-5xl md:px-10 md:pl-28 ${
           compact
             ? 'min-h-[32vh] pb-6 pt-7 sm:pt-8 md:min-h-[250px] md:pb-8'
             : 'min-h-[440px] pb-10 pt-8 sm:pt-10 md:min-h-[500px] md:pb-14'
         }`}
       >
         <header className="flex items-center justify-between">
-          <div className="flex items-center gap-3 rounded-2xl bg-black/25 py-1.5 pl-1.5 pr-3 backdrop-blur-sm">
+          {/* Solid tint only — no backdrop-blur here. backdrop-filter (like
+              transform/filter) creates a new containing block for
+              position:fixed descendants, so with it, AvatarLink's
+              ProfileSheet (a fixed bottom sheet) would size and position
+              itself against this small header chip instead of the
+              viewport, then get clipped by this section's overflow-hidden.
+              Confirmed by that exact regression — see git history. A plain
+              semi-transparent tint gives the same corner legibility
+              against the photo without creating a containing block. */}
+          <div className="flex items-center gap-3 rounded-2xl bg-black/40 py-1.5 pl-1.5 pr-3">
             <Image
               src="/images/rooted-reset-logo.png"
               alt="Rooted Reset"
@@ -108,7 +130,7 @@ function HeroChrome({
               </span>
             </div>
           </div>
-          <div className="rounded-full bg-black/25 p-1 backdrop-blur-sm">
+          <div className="rounded-full bg-black/40 p-1">
             <AvatarLink firstName={firstName} />
           </div>
         </header>
