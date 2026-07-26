@@ -20,7 +20,7 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
-import { Activity, UtensilsCrossed, BarChart2, MessageCircleWarning } from 'lucide-react';
+import { Activity, UtensilsCrossed, BarChart2, Compass, MessageCircleWarning } from 'lucide-react';
 import { useState } from 'react';
 import { ConcernFlag } from '@/components/checkin/ConcernFlag';
 
@@ -28,6 +28,7 @@ const CHIP =
   'mef-press inline-flex shrink-0 snap-start items-center gap-2 whitespace-nowrap rounded-full bg-[#1B3A2D]/[0.06] px-4 py-2.5 text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.1]';
 
 const LINKS: { label: string; href: Route; Icon: typeof Activity }[] = [
+  { label: 'Your Case', href: '/case', Icon: Compass },
   { label: 'Movement', href: '/movement', Icon: Activity },
   { label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed },
   { label: 'Progress', href: '/progress', Icon: BarChart2 },

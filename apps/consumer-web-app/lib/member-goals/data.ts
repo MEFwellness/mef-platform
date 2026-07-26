@@ -9,7 +9,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type MemberGoalSource = 'welcome_flow' | 'onboarding_confirmation';
+/** 'onboarding_backfill': inserted once by migration 108 for members who completed onboarding before the welcome flow existed and therefore had no other row here. */
+export type MemberGoalSource = 'welcome_flow' | 'onboarding_confirmation' | 'onboarding_backfill';
 
 export type MemberGoalSelection = {
   id: string;

@@ -65,15 +65,18 @@ export default async function CoachingInsightsPage() {
 
         <Link
           href={'/case' as Route}
-          className={`${CARD} mt-5 flex items-center justify-between gap-3 p-5 transition hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]`}
+          className="mt-5 flex items-center gap-4 rounded-[28px] bg-[#1B3A2D] p-5 shadow-[0_8px_32px_-8px_rgba(27,58,45,0.35)] transition hover:brightness-110"
         >
-          <div>
-            <p className="text-sm font-semibold text-[#1B3A2D]">Your Case</p>
-            <p className="mt-0.5 text-xs text-[#6B7A72]">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10">
+            <Compass className="h-5 w-5 text-[#F5B700]" strokeWidth={1.75} aria-hidden="true" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[15px] font-semibold text-white">Your Case</p>
+            <p className="mt-0.5 text-xs text-white/70">
               What you came here for, what&apos;s being investigated, and how it&apos;s changing
             </p>
           </div>
-          <ChevronLeft className="h-4 w-4 rotate-180 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+          <ChevronLeft className="h-4 w-4 rotate-180 text-white/70" strokeWidth={1.75} aria-hidden="true" />
         </Link>
 
         {safetyMessage ? (
