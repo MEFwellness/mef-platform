@@ -73,6 +73,16 @@ export interface CameraTiltReading {
   beta: number;
 }
 
+/**
+ * Whether a capture's roll/pitch reading came from a real DeviceOrientation
+ * sensor or from the member manually attesting the phone was level (see
+ * ManualLevelBubble.tsx) because no sensor reading was ever available —
+ * migration 103. A coach reviewing measurements should be able to tell
+ * "sensor-verified" setup from "member self-reported" setup, since the
+ * latter is inherently lower-confidence.
+ */
+export type CaptureOrientationSource = 'sensor' | 'manual_fallback';
+
 /** Session summary of the live capture-validation pipeline for one step — how many frames failed each validation category, and how many confirmed second-person events occurred, while positioning for this capture. A lightweight summary, not a full per-frame event log. */
 export interface CaptureValidationSummary {
   categoryFailureCounts: Record<string, number>;
@@ -97,6 +107,23 @@ export interface BodyAssessmentCapture {
   camera_tilt: CameraTiltReading | null;
   /** Null for captures made before this column existed, or for movement/video steps that don't run the validation pipeline (migration 51). */
   validation_summary: CaptureValidationSummary | null;
+  /**
+   * Camera-setup reproducibility fields (migration 103) — populated only
+   * for standing-photo captures (front/left_side/right_side/back), the
+   * only ones the reproducibility gate (lib/body-assessment/cameraTilt.ts +
+   * poseValidation.ts) runs on. Null for movement/video captures and for
+   * any capture made before this column existed.
+   */
+  /** Roll (left-right tilt) in degrees at the moment of capture, 0 = level. Null when orientation_source is 'manual_fallback' (no numeric sensor reading exists to store). */
+  roll_degrees: number | null;
+  /** Pitch (forward-back lean) in degrees of deviation from vertical at capture time, 0 = phone standing perfectly vertical. Null when orientation_source is 'manual_fallback'. */
+  pitch_degrees: number | null;
+  /** Normalized [0,1] vertical position of the hip-landmark midpoint in the frame at capture time — the hip-height reproducibility gate's measured value. */
+  hip_mid_y_ratio: number | null;
+  /** Normalized [0,1] share of the frame's height the subject's body spanned at capture time — the frame-fill reproducibility gate's measured value. */
+  subject_frame_height_ratio: number | null;
+  /** Whether roll_degrees/pitch_degrees came from a real device-orientation sensor reading or the member manually attesting a level phone (ManualLevelBubble.tsx). Null for movement/video captures and pre-migration-103 rows. */
+  orientation_source: CaptureOrientationSource | null;
   captured_at: string;
   created_at: string;
 }

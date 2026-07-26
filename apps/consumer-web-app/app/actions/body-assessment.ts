@@ -32,6 +32,7 @@ import type {
   BodyAssessmentCapture,
   CameraTiltReading,
   CaptureDeviceInfo,
+  CaptureOrientationSource,
   CaptureValidationSummary,
   FindingSeverity,
   FindingSide,
@@ -62,6 +63,7 @@ import {
   getAssessment,
   getCapture,
   getFinding,
+  getMostRecentCaptureWithSetup,
   getNote,
   insertAssessment,
   insertCapture,
@@ -139,6 +141,12 @@ export type RecordCaptureInput = {
   cameraTilt?: CameraTiltReading;
   /** Optional — the live capture-validation pipeline's session summary for this step (migration 51). Same backward-compatibility note as deviceInfo. */
   validationSummary?: CaptureValidationSummary;
+  /** Optional — camera-setup reproducibility fields (migration 103), populated only for a validated standing-photo capture. Same backward-compatibility note as deviceInfo. rollDegrees/pitchDegrees are omitted when orientationSource is 'manual_fallback'. */
+  rollDegrees?: number;
+  pitchDegrees?: number;
+  hipMidYRatio?: number;
+  subjectFrameHeightRatio?: number;
+  orientationSource?: CaptureOrientationSource;
 };
 
 /** Called after the browser has already uploaded the capture's bytes directly to Supabase Storage (see components/body-assessment/CameraCapture.tsx) — this only records the metadata row. captureId must be the same id buildCaptureUploadPathAction generated the storage path from. */
@@ -166,9 +174,44 @@ export async function recordCaptureAction(
     deviceInfo: input.deviceInfo ?? null,
     cameraTilt: input.cameraTilt ?? null,
     validationSummary: input.validationSummary ?? null,
+    rollDegrees: input.rollDegrees ?? null,
+    pitchDegrees: input.pitchDegrees ?? null,
+    hipMidYRatio: input.hipMidYRatio ?? null,
+    subjectFrameHeightRatio: input.subjectFrameHeightRatio ?? null,
+    orientationSource: input.orientationSource ?? null,
   });
   if (!capture) return { error: 'Could not save capture.' };
   return { capture };
+}
+
+export type CaptureSetupTarget = {
+  rollDegrees: number | null;
+  pitchDegrees: number | null;
+  hipMidYRatio: number | null;
+  subjectFrameHeightRatio: number | null;
+};
+
+/**
+ * The member's most recent accepted standing-photo capture of one exact
+ * view — the "guided replication" target CameraCapture.tsx's
+ * SetupReplicationPanel guides a re-assessment's live setup to match. Null
+ * when this is the member's first-ever capture of this view (nothing to
+ * replicate yet) or the view is a movement/video step (no reproducibility
+ * gate runs there in the first place).
+ */
+export async function getMostRecentCaptureSetupAction(
+  captureType: BodyAssessmentCaptureType
+): Promise<CaptureSetupTarget | null> {
+  const ctx = await requireMember();
+  if (!ctx) return null;
+  const capture = await getMostRecentCaptureWithSetup(ctx.supabase, ctx.userId, captureType);
+  if (!capture) return null;
+  return {
+    rollDegrees: capture.roll_degrees,
+    pitchDegrees: capture.pitch_degrees,
+    hipMidYRatio: capture.hip_mid_y_ratio,
+    subjectFrameHeightRatio: capture.subject_frame_height_ratio,
+  };
 }
 
 export type RecordLandmarkSetInput = {

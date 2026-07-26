@@ -6,13 +6,15 @@ describe('evaluateCameraTilt', () => {
     expect(evaluateCameraTilt(null).ok).toBe(true);
   });
 
-  it('passes when the phone is level', () => {
+  it('passes when the phone is level, within the +/-1 degree reproducibility tolerance', () => {
     expect(evaluateCameraTilt(0).ok).toBe(true);
-    expect(evaluateCameraTilt(5).ok).toBe(true);
-    expect(evaluateCameraTilt(-5).ok).toBe(true);
+    expect(evaluateCameraTilt(0.5).ok).toBe(true);
+    expect(evaluateCameraTilt(-0.9).ok).toBe(true);
   });
 
-  it('fails when the phone is tilted well past the screening bound, in either direction', () => {
+  it('fails when roll is even slightly past the +/-1 degree tolerance, in either direction', () => {
+    expect(evaluateCameraTilt(1.1).ok).toBe(false);
+    expect(evaluateCameraTilt(-1.1).ok).toBe(false);
     expect(evaluateCameraTilt(20).ok).toBe(false);
     expect(evaluateCameraTilt(-20).ok).toBe(false);
   });
@@ -26,13 +28,15 @@ describe('evaluateCameraTilt', () => {
     expect(evaluateCameraTilt(0).ok).toBe(true);
   });
 
-  it('passes a phone standing vertical (beta near 90) or propped at a reasonable angle', () => {
+  it('passes a phone within +/-2 degrees of perfectly vertical (beta near 90)', () => {
     expect(evaluateCameraTilt(0, 90).ok).toBe(true);
-    expect(evaluateCameraTilt(0, 60).ok).toBe(true);
-    expect(evaluateCameraTilt(0, 120).ok).toBe(true);
+    expect(evaluateCameraTilt(0, 88.5).ok).toBe(true);
+    expect(evaluateCameraTilt(0, 91.9).ok).toBe(true);
   });
 
-  it('fails when the phone is propped or laid at an extreme forward/backward angle', () => {
+  it('fails when pitch is past the +/-2 degree vertical tolerance, in either direction', () => {
+    expect(evaluateCameraTilt(0, 87.5).ok).toBe(false);
+    expect(evaluateCameraTilt(0, 92.5).ok).toBe(false);
     expect(evaluateCameraTilt(0, 20).ok).toBe(false);
     expect(evaluateCameraTilt(0, 170).ok).toBe(false);
   });

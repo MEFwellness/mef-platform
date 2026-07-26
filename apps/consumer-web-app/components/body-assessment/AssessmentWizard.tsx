@@ -16,7 +16,7 @@
  * action only computes the path and records metadata afterward.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ShieldCheck,
@@ -28,6 +28,7 @@ import {
   RotateCcw,
   Trash2,
   Loader2,
+  Compass,
 } from 'lucide-react';
 import type { BodyAssessmentType } from '@mef/shared-types-contracts';
 import {
@@ -43,9 +44,14 @@ import {
   recordPostureFindingsAction,
   deleteCaptureAction,
   submitAssessmentAction,
+  getMostRecentCaptureSetupAction,
+  type CaptureSetupTarget,
 } from '@/app/actions/body-assessment';
 import { CameraCapture, type CapturedMedia } from './CameraCapture';
-import { requestDeviceTiltPermission } from '@/hooks/useDeviceTilt';
+import {
+  requestDeviceTiltPermission,
+  type OrientationPermissionStatus,
+} from '@/hooks/useDeviceTilt';
 import { POSE_MODEL_VERSION } from '@/hooks/usePoseLandmarker';
 import { primeBrowserSpeechSynthesis } from '@/lib/speech/browserTextToSpeech';
 import { POSTURE_THRESHOLDS_VERSION } from '@/lib/body-assessment/postureMeasurements';
@@ -130,6 +136,31 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
   const [records, setRecords] = useState<CaptureRecord[]>([]);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  /** The outcome of the camera_positioning prep screen's explicit motion-sensor permission request — passed to CameraCapture so it knows whether to wait for a live sensor reading or go straight to the manual bubble-level fallback. */
+  const [orientationPermission, setOrientationPermission] =
+    useState<OrientationPermissionStatus>('pending');
+  /** The setup (roll/pitch/hip position/frame fill) to guide the current capture step's live reading toward, fetched fresh whenever the capture step changes — null for movement/video steps and for a member's first-ever capture of a given view. */
+  const [replicationTarget, setReplicationTarget] = useState<CaptureSetupTarget | null>(null);
+
+  // Fetch this step's guided-replication target fresh whenever the capture
+  // step changes — only standing-photo steps (front/left_side/right_side/
+  // back) ran the reproducibility gate in the first place, so a movement/
+  // video step never has (or needs) a target.
+  useEffect(() => {
+    if (phase !== 'capture') return;
+    const step = typeConfig.captureSteps[captureIndex];
+    if (!step || step.mediaType === 'video') {
+      setReplicationTarget(null);
+      return;
+    }
+    let cancelled = false;
+    getMostRecentCaptureSetupAction(step.captureType).then((target) => {
+      if (!cancelled) setReplicationTarget(target);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, captureIndex, typeConfig.captureSteps]);
 
   async function ensureAssessment(): Promise<string | null> {
     if (assessmentId) return assessmentId;
@@ -177,6 +208,13 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
         ...(media.deviceInfo ? { deviceInfo: media.deviceInfo } : {}),
         ...(media.cameraTilt ? { cameraTilt: media.cameraTilt } : {}),
         ...(media.validationSummary ? { validationSummary: media.validationSummary } : {}),
+        ...(media.rollDegrees !== undefined ? { rollDegrees: media.rollDegrees } : {}),
+        ...(media.pitchDegrees !== undefined ? { pitchDegrees: media.pitchDegrees } : {}),
+        ...(media.hipMidYRatio !== undefined ? { hipMidYRatio: media.hipMidYRatio } : {}),
+        ...(media.subjectFrameHeightRatio !== undefined
+          ? { subjectFrameHeightRatio: media.subjectFrameHeightRatio }
+          : {}),
+        ...(media.orientationSource ? { orientationSource: media.orientationSource } : {}),
       });
       if (result.error) throw new Error(result.error);
 
@@ -285,15 +323,16 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
         <button
           type="button"
           onClick={() => {
-            // Fire-and-forget: iOS Safari's device-orientation permission
-            // prompt, and the speechSynthesis mobile-autoplay unlock, both
-            // only work from within a genuine user-gesture handler like
+            // Fire-and-forget: the speechSynthesis mobile-autoplay unlock
+            // only works from within a genuine user-gesture handler like
             // this one — the camera step itself is reached several taps
-            // later, too late for either requirement. See
+            // later, too late for that requirement. See
             // primeBrowserSpeechSynthesis()'s docblock; CameraCapture's
             // voice guidance still detects and recovers from a blocked
-            // state on its own if this priming attempt doesn't hold.
-            void requestDeviceTiltPermission();
+            // state on its own if this priming attempt doesn't hold. The
+            // device-orientation permission request itself now happens
+            // explicitly on the camera_positioning prep screen below, with
+            // a plain-language explanation, rather than silently here.
             primeBrowserSpeechSynthesis();
             setPhase('intro');
           }}
@@ -322,6 +361,42 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
             </p>
           ))}
         </div>
+
+        {step.key === 'camera_positioning' && (
+          <div className="mt-4 rounded-2xl bg-[#FAFAF8] p-4">
+            <div className="flex items-start gap-2.5">
+              <Compass className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-[13px] leading-relaxed text-[#6B7A72]">
+                Every angle we measure depends on your phone being in the exact same position every
+                time, so we ask for access to your phone&apos;s motion sensors — this lets us
+                confirm it&apos;s level and at the right height before each photo, so your results
+                are truly comparable over time.
+              </p>
+            </div>
+            {orientationPermission === 'pending' ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  const result = await requestDeviceTiltPermission();
+                  setOrientationPermission(result);
+                }}
+                className="mt-3 w-full rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-medium text-white hover:brightness-110"
+              >
+                Allow motion &amp; orientation access
+              </button>
+            ) : (
+              <p className="mt-3 text-[13px] font-medium text-[#1B3A2D]">
+                {orientationPermission === 'granted' &&
+                  'Motion access enabled — we’ll guide you to hold the phone steady.'}
+                {orientationPermission === 'not_required' &&
+                  'Your browser shares motion data automatically — we’ll guide you to hold the phone steady.'}
+                {(orientationPermission === 'denied' || orientationPermission === 'unavailable') &&
+                  'No problem — we’ll show you an on-screen level guide to confirm by hand instead.'}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="mt-6 flex items-center justify-between">
           <div className="flex gap-1.5">
             {INTRO_STEPS.map((s, i) => (
@@ -365,7 +440,12 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
             <p className="text-sm text-[#6B7A72]">Saving your capture…</p>
           </div>
         ) : (
-          <CameraCapture step={step} onCaptured={(media) => handleCaptured(step, media)} />
+          <CameraCapture
+            step={step}
+            onCaptured={(media) => handleCaptured(step, media)}
+            replicationTarget={replicationTarget}
+            orientationPermission={orientationPermission}
+          />
         )}
         {errorMessage && <p className="mt-3 text-sm text-red-700">{errorMessage}</p>}
       </div>

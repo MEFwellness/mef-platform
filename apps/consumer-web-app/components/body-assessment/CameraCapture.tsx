@@ -33,16 +33,26 @@ import {
   Ear,
 } from 'lucide-react';
 import type { CaptureStepConfig } from '@/lib/body-assessment/assessmentTypes';
-import type { BodyLandmarkPoint } from '@mef/shared-types-contracts';
+import type { BodyLandmarkPoint, CaptureOrientationSource } from '@mef/shared-types-contracts';
 import { usePoseLandmarker } from '@/hooks/usePoseLandmarker';
 import { useGuidedVoice } from '@/hooks/useGuidedVoice';
-import { useDeviceTilt } from '@/hooks/useDeviceTilt';
+import { useDeviceTilt, type OrientationPermissionStatus } from '@/hooks/useDeviceTilt';
 import {
   validatePoseFrame,
   evaluateMultiPersonCandidate,
   type PoseValidationResult,
 } from '@/lib/body-assessment/poseValidation';
-import { evaluateCameraTilt } from '@/lib/body-assessment/cameraTilt';
+import {
+  evaluateCameraTilt,
+  ROLL_TOLERANCE_DEGREES,
+  PITCH_TOLERANCE_DEGREES,
+} from '@/lib/body-assessment/cameraTilt';
+import { ManualLevelBubble } from './ManualLevelBubble';
+import {
+  SetupReplicationPanel,
+  type ReplicationSetupValues,
+  type ReplicationMatchState,
+} from './SetupReplicationPanel';
 import {
   computeFrameQualityStats,
   evaluateFrameQuality,
@@ -104,11 +114,30 @@ export type CapturedMedia = {
   deviceInfo?: { userAgent: string; platform: string; screenSize: string; pixelRatio: string };
   /** How many frames failed each validation category, and how many confirmed multi-person events occurred, during this step's positioning — a session summary, not a full per-frame log. */
   validationSummary?: { categoryFailureCounts: Record<string, number>; multiPersonEvents: number };
+  /**
+   * Camera-setup reproducibility fields (migration 103) — present only for
+   * a validated standing-photo capture, same gating as landmarks/
+   * postureEstimates above. rollDegrees/pitchDegrees are omitted (not just
+   * null) when orientationSource is 'manual_fallback', since there is no
+   * real sensor number to persist in that case.
+   */
+  rollDegrees?: number;
+  pitchDegrees?: number;
+  hipMidYRatio?: number;
+  subjectFrameHeightRatio?: number;
+  orientationSource?: CaptureOrientationSource;
 };
+
+/** The member's most recent accepted capture of this exact view, if any — fetched by AssessmentWizard.tsx via getMostRecentCaptureSetupAction and passed down so this step's live setup can be guided to replicate it. Null/undefined when no prior capture of this view exists yet (first-ever capture) or the step doesn't require standing. */
+export type ReplicationTarget = ReplicationSetupValues;
 
 type Props = {
   step: CaptureStepConfig;
   onCaptured: (media: CapturedMedia) => void;
+  /** The setup to replicate for a truly comparable before/after — see ReplicationTarget above. */
+  replicationTarget?: ReplicationTarget | null;
+  /** Whether the member granted/has motion-sensor access (from the prep-screen permission request) — determines whether this step waits for a live sensor reading or goes straight to the manual bubble-level fallback. Defaults to 'pending' (waits briefly, then falls back) when omitted. */
+  orientationPermission?: OrientationPermissionStatus;
 };
 
 type CameraPhase =
@@ -134,6 +163,12 @@ const PERSON_LOST_LONG_MS = 3000;
 const PERSON_LOST_RELEASE_MS = 200;
 /** A single failing frame in the middle of an already-stable hold is absorbed without resetting accumulated stability — MediaPipe has occasional single-frame misses even for a genuinely still, correctly-positioned member; only a failure that persists past this counts as a real interruption. */
 const STABILITY_GRACE_MS = 400;
+
+/** How long to wait for a first real DeviceOrientationEvent before concluding this device/browser genuinely isn't going to supply one and switching to the manual bubble-level fallback — covers the case where permission wasn't required (so no upfront prep-screen signal either way) but no motion hardware actually exists (e.g. a desktop browser). */
+const ORIENTATION_SENSOR_GRACE_MS = 2000;
+/** Guided-replication match tolerances — tighter than the absolute reproducibility gate's own bands (10%/10%) for hip position and frame fill, since matching a SPECIFIC prior capture (not just "anywhere in the broad acceptable range") is what makes before/after comparison valid. Roll/pitch reuse the same absolute tolerances, since both captures were already independently held within them. */
+const REPLICATION_HIP_TOLERANCE = 0.02;
+const REPLICATION_FRAME_FILL_TOLERANCE = 0.03;
 
 const NOT_READY_STATUSES = new Set([
   'no_person',
@@ -216,7 +251,12 @@ function SilhouetteGuide({ wide, tone }: { wide: boolean; tone: OverlayTone }) {
   );
 }
 
-export function CameraCapture({ step, onCaptured }: Props) {
+export function CameraCapture({
+  step,
+  onCaptured,
+  replicationTarget = null,
+  orientationPermission = 'pending',
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -286,6 +326,11 @@ export function CameraCapture({ step, onCaptured }: Props) {
     ok: true,
     message: '',
   });
+  /** True once ORIENTATION_SENSOR_GRACE_MS has elapsed with no sensor reading (or immediately, when the prep-screen permission request already came back denied/unavailable) — the signal to show ManualLevelBubble instead of waiting on evaluateCameraTilt(). */
+  const [manualFallbackActive, setManualFallbackActive] = useState(false);
+  /** The member's explicit attestation that they've manually leveled the phone, via ManualLevelBubble — stands in for evaluateCameraTilt()'s `ok` while manualFallbackActive. */
+  const [manualLevelConfirmed, setManualLevelConfirmed] = useState(false);
+  const orientationSensorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isVideo = step.mediaType === 'video';
   const requiresStanding = !isVideo;
@@ -299,7 +344,81 @@ export function CameraCapture({ step, onCaptured }: Props) {
     loadError: poseLoadError,
   } = usePoseLandmarker(videoRef, poseActive);
   const guidedVoice = useGuidedVoice('assessment-guidance');
-  const { gamma: tiltGamma, beta: tiltBeta } = useDeviceTilt(poseActive);
+  const { gamma: tiltGamma, beta: tiltBeta, hasReading: tiltHasReading } = useDeviceTilt(poseActive);
+
+  // Decide whether sensor-based tilt gating is realistically ever going to
+  // work for this step: an upfront denied/unavailable permission result
+  // means immediately, otherwise give the sensor ORIENTATION_SENSOR_GRACE_MS
+  // to prove itself before concluding it isn't coming (covers "permission
+  // not required" browsers/devices with no actual motion hardware).
+  useEffect(() => {
+    if (!poseActive || !requiresStanding) return;
+    if (tiltHasReading) {
+      setManualFallbackActive(false);
+      return;
+    }
+    if (orientationPermission === 'denied' || orientationPermission === 'unavailable') {
+      setManualFallbackActive(true);
+      return;
+    }
+    orientationSensorTimeoutRef.current = setTimeout(() => {
+      setManualFallbackActive(true);
+    }, ORIENTATION_SENSOR_GRACE_MS);
+    return () => {
+      if (orientationSensorTimeoutRef.current) clearTimeout(orientationSensorTimeoutRef.current);
+    };
+  }, [poseActive, requiresStanding, tiltHasReading, orientationPermission]);
+
+  /** Roll/pitch in the same degrees-of-deviation-from-target convention migration 103 persists — pitch as deviation from vertical (0 = perfectly vertical), not raw beta. */
+  const rollDegrees = tiltGamma;
+  const pitchDegrees = tiltBeta !== null ? tiltBeta - 90 : null;
+
+  const tilt = manualFallbackActive
+    ? {
+        ok: manualLevelConfirmed,
+        message: manualLevelConfirmed ? '' : 'Confirm your phone is level and steady.',
+      }
+    : evaluateCameraTilt(tiltGamma, tiltBeta);
+
+  function withinReplicationTolerance(
+    live: number | null,
+    target: number | null,
+    tolerance: number
+  ): boolean | null {
+    if (target === null) return null;
+    if (live === null) return false;
+    return Math.abs(live - target) <= tolerance;
+  }
+
+  const liveHipMidYRatio = validation.metrics?.hipMid.y ?? null;
+  const liveFrameHeightRatio = validation.metrics?.bodySpan ?? null;
+
+  const replicationMatch: ReplicationMatchState = {
+    roll: replicationTarget
+      ? withinReplicationTolerance(rollDegrees, replicationTarget.rollDegrees, ROLL_TOLERANCE_DEGREES)
+      : null,
+    pitch: replicationTarget
+      ? withinReplicationTolerance(pitchDegrees, replicationTarget.pitchDegrees, PITCH_TOLERANCE_DEGREES)
+      : null,
+    hip: replicationTarget
+      ? withinReplicationTolerance(
+          liveHipMidYRatio,
+          replicationTarget.hipMidYRatio,
+          REPLICATION_HIP_TOLERANCE
+        )
+      : null,
+    frameFill: replicationTarget
+      ? withinReplicationTolerance(
+          liveFrameHeightRatio,
+          replicationTarget.subjectFrameHeightRatio,
+          REPLICATION_FRAME_FILL_TOLERANCE
+        )
+      : null,
+  };
+  /** Only the hip/frame-fill matches are ever actually required (every stored target always has those two); roll/pitch matches are informational extras layered on top of the absolute tilt gate, which already re-verifies both every frame. `true` (nothing to match) when no replicationTarget was supplied at all. */
+  const replicationMatched = replicationTarget
+    ? replicationMatch.hip === true && replicationMatch.frameFill === true
+    : true;
 
   useEffect(() => {
     let cancelled = false;
@@ -367,6 +486,9 @@ export function CameraCapture({ step, onCaptured }: Props) {
     validationFailureCountsRef.current = {};
     multiPersonEventCountRef.current = 0;
     wasMultiPersonConfirmedRef.current = false;
+    setManualFallbackActive(false);
+    setManualLevelConfirmed(false);
+    if (orientationSensorTimeoutRef.current) clearTimeout(orientationSensorTimeoutRef.current);
     if (autoCaptureTimeoutRef.current) clearTimeout(autoCaptureTimeoutRef.current);
   }, [step]);
 
@@ -492,6 +614,12 @@ export function CameraCapture({ step, onCaptured }: Props) {
               }
             : undefined;
 
+        const orientationSource: CaptureOrientationSource = manualFallbackActive
+          ? 'manual_fallback'
+          : 'sensor';
+        const hipMidYRatio = finalValidation.metrics?.hipMid.y;
+        const subjectFrameHeightRatio = finalValidation.metrics?.bodySpan;
+
         setFrozenValidation(finalValidation);
         setPendingMedia({
           blob,
@@ -504,6 +632,14 @@ export function CameraCapture({ step, onCaptured }: Props) {
             ? { cameraTilt: { gamma: tiltGamma, beta: tiltBeta } }
             : {}),
           ...(deviceInfo ? { deviceInfo } : {}),
+          // Camera-setup reproducibility fields (migration 103). roll/pitch
+          // are only ever the real sensor numbers — never populated in the
+          // manual_fallback case, since there's no sensor reading to store.
+          ...(!manualFallbackActive && rollDegrees !== null ? { rollDegrees } : {}),
+          ...(!manualFallbackActive && pitchDegrees !== null ? { pitchDegrees } : {}),
+          ...(hipMidYRatio !== undefined ? { hipMidYRatio } : {}),
+          ...(subjectFrameHeightRatio !== undefined ? { subjectFrameHeightRatio } : {}),
+          orientationSource,
           validationSummary: {
             categoryFailureCounts: validationFailureCountsRef.current,
             multiPersonEvents: multiPersonEventCountRef.current,
@@ -582,9 +718,16 @@ export function CameraCapture({ step, onCaptured }: Props) {
       ? now - personLostStateRef.current.activeSince
       : 0;
 
-    const tilt = evaluateCameraTilt(tiltGamma, tiltBeta);
+    // `tilt` (component-level, above) already accounts for the manual
+    // bubble-level fallback; `replicationMatched` gates on the prior
+    // capture's exact setup when one exists (see ReplicationTarget).
     const locked =
-      result.ok && tilt.ok && frameQuality.ok && !multiPersonConfirmed && !multiPersonPending;
+      result.ok &&
+      tilt.ok &&
+      frameQuality.ok &&
+      !multiPersonConfirmed &&
+      !multiPersonPending &&
+      replicationMatched;
 
     if (locked && !wasLockedRef.current) triggerHaptic(HAPTIC_PATTERNS.lockAcquired);
     wasLockedRef.current = locked;
@@ -768,6 +911,8 @@ export function CameraCapture({ step, onCaptured }: Props) {
     tiltGamma,
     tiltBeta,
     frameQuality,
+    tilt,
+    replicationMatched,
   ]);
 
   // Passive hip-line-angle sampling during a tracksPelvicDrop recording —
@@ -902,8 +1047,8 @@ export function CameraCapture({ step, onCaptured }: Props) {
     );
   }
 
-  const tilt = evaluateCameraTilt(tiltGamma, tiltBeta);
-  const overallOk = validation.ok && tilt.ok && frameQuality.ok && !continuityOverride;
+  const overallOk =
+    validation.ok && tilt.ok && frameQuality.ok && !continuityOverride && replicationMatched;
   const notReady =
     NOT_READY_STATUSES.has(validation.status) ||
     (continuityOverride !== null && NOT_READY_STATUSES.has(continuityOverride.key));
@@ -1192,6 +1337,27 @@ export function CameraCapture({ step, onCaptured }: Props) {
           <div className="absolute inset-x-0 bottom-0 bg-amber-500/90 p-2">
             <p className="text-center text-xs font-medium text-white">{poseLoadError}</p>
           </div>
+        )}
+
+        {requiresStanding && phase === 'ready' && manualFallbackActive && (
+          <ManualLevelBubble
+            confirmed={manualLevelConfirmed}
+            onConfirm={() => setManualLevelConfirmed(true)}
+          />
+        )}
+
+        {requiresStanding && phase === 'ready' && replicationTarget && (
+          <SetupReplicationPanel
+            target={replicationTarget}
+            live={{
+              rollDegrees: manualFallbackActive ? null : rollDegrees,
+              pitchDegrees: manualFallbackActive ? null : pitchDegrees,
+              hipMidYRatio: liveHipMidYRatio,
+              subjectFrameHeightRatio: liveFrameHeightRatio,
+            }}
+            match={replicationMatch}
+            allMatched={replicationMatched}
+          />
         )}
       </div>
 

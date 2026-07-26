@@ -243,14 +243,15 @@ describe('validatePoseFrame', () => {
   it('detects sitting: hip-to-ankle vertical span compressed relative to standing', () => {
     // A front view can't see the thigh bending backward in depth, so the
     // reliable front-view signal is compression: hips drop much closer to
-    // knee/ankle height than a standing leg span would allow.
+    // knee/ankle height than a standing leg span would allow. Only the hip
+    // is moved (knee/ankle/head stay at the base fixture's values) so
+    // bodySpan stays within the frame-fill reproducibility band (0.8-0.9)
+    // and this test isolates the sitting/posture-state check specifically,
+    // rather than tripping the (now much tighter) frame-fill or hip-height
+    // checks first.
     const sitting = makePose({
-      leftHip: { y: 0.6 },
-      rightHip: { y: 0.6 },
-      leftKnee: { y: 0.62 },
-      rightKnee: { y: 0.62 },
-      leftAnkle: { y: 0.75 },
-      rightAnkle: { y: 0.75 },
+      leftHip: { y: 0.75 },
+      rightHip: { y: 0.75 },
     });
     const result = validatePoseFrame([sitting], FRONT);
     expect(result.status).toBe('not_standing');
@@ -373,47 +374,66 @@ describe('validatePoseFrame', () => {
   });
 });
 
-describe('camera height (camera_position)', () => {
-  it('reports camera_position ("Raise the phone") when the body sits low in the frame', () => {
+describe('camera height (camera_position) — reproducibility gate', () => {
+  it('reports camera_position ("Raise the phone") when the hip midpoint sits below the middle-10% band', () => {
+    // Only the hip is moved (everything else stays at the base fixture's
+    // values, including bodySpan-defining head/ankle positions) so this
+    // isolates the hip-height check specifically. 0.60 is comfortably past
+    // the 0.55 upper bound and still passes every posture-state check
+    // (sitting/crouching/lean) ahead of it in the pipeline.
     const low = makePose({
-      nose: { y: 0.52 },
-      leftEye: { y: 0.52 },
-      rightEye: { y: 0.52 },
-      leftEar: { y: 0.52 },
-      rightEar: { y: 0.52 },
-      leftShoulder: { y: 0.58 },
-      rightShoulder: { y: 0.58 },
-      leftHip: { y: 0.72 },
-      rightHip: { y: 0.72 },
-      leftKnee: { y: 0.85 },
-      rightKnee: { y: 0.85 },
-      leftAnkle: { y: 0.95 },
-      rightAnkle: { y: 0.95 },
+      leftHip: { y: 0.6 },
+      rightHip: { y: 0.6 },
     });
     const result = validatePoseFrame([low], FRONT);
     expect(result.status).toBe('camera_position');
     expect(result.message).toMatch(/Raise/);
   });
 
-  it('reports camera_position ("Lower the phone") when the body sits high in the frame', () => {
+  it('reports camera_position ("Lower the phone") when the hip midpoint sits above the middle-10% band', () => {
     const high = makePose({
-      nose: { y: 0.06 },
-      leftEye: { y: 0.06 },
-      rightEye: { y: 0.06 },
-      leftEar: { y: 0.06 },
-      rightEar: { y: 0.06 },
-      leftShoulder: { y: 0.15 },
-      rightShoulder: { y: 0.15 },
-      leftHip: { y: 0.32 },
-      rightHip: { y: 0.32 },
-      leftKnee: { y: 0.42 },
-      rightKnee: { y: 0.42 },
-      leftAnkle: { y: 0.5 },
-      rightAnkle: { y: 0.5 },
+      leftHip: { y: 0.35 },
+      rightHip: { y: 0.35 },
     });
     const result = validatePoseFrame([high], FRONT);
     expect(result.status).toBe('camera_position');
     expect(result.message).toMatch(/Lower/);
+  });
+
+  it('passes when the hip midpoint sits inside the middle-10% band', () => {
+    const result = validatePoseFrame([makePose()], FRONT);
+    expect(result.status).toBe('ready');
+  });
+});
+
+describe('frame-fill (too_close / too_far) — reproducibility gate', () => {
+  it('reports too_close when the subject fills more than 90% of the frame height', () => {
+    const close = makePose({
+      nose: { y: 0.05 },
+      leftEye: { y: 0.05 },
+      rightEye: { y: 0.05 },
+      leftAnkle: { y: 0.96 },
+      rightAnkle: { y: 0.96 },
+    });
+    const result = validatePoseFrame([close], FRONT);
+    expect(result.status).toBe('too_close');
+  });
+
+  it('reports too_far when the subject fills less than 80% of the frame height', () => {
+    const far = makePose({
+      nose: { y: 0.3 },
+      leftEye: { y: 0.3 },
+      rightEye: { y: 0.3 },
+      leftAnkle: { y: 0.85 },
+      rightAnkle: { y: 0.85 },
+    });
+    const result = validatePoseFrame([far], FRONT);
+    expect(result.status).toBe('too_far');
+  });
+
+  it('passes when the subject fills 80-90% of the frame height (the base fixture)', () => {
+    const result = validatePoseFrame([makePose()], FRONT);
+    expect(result.status).toBe('ready');
   });
 });
 

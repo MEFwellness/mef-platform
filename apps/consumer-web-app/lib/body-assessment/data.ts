@@ -29,6 +29,7 @@ import type {
   BodyLandmarkSet,
   CameraTiltReading,
   CaptureDeviceInfo,
+  CaptureOrientationSource,
   CaptureValidationSummary,
   ComparisonTrend,
   FindingEvidenceRef,
@@ -169,6 +170,12 @@ export type CaptureInput = {
   cameraTilt?: CameraTiltReading | null;
   /** Optional — the live capture-validation pipeline's session summary for this step (migration 51). Same backward-compatibility note as deviceInfo. */
   validationSummary?: CaptureValidationSummary | null;
+  /** Optional — camera-setup reproducibility fields (migration 103), populated only for a validated standing-photo capture. Same backward-compatibility note as deviceInfo. */
+  rollDegrees?: number | null;
+  pitchDegrees?: number | null;
+  hipMidYRatio?: number | null;
+  subjectFrameHeightRatio?: number | null;
+  orientationSource?: CaptureOrientationSource | null;
 };
 
 export async function insertCapture(
@@ -184,6 +191,11 @@ export async function insertCapture(
   const deviceInfo = input.deviceInfo ?? null;
   const cameraTilt = input.cameraTilt ?? null;
   const validationSummary = input.validationSummary ?? null;
+  const rollDegrees = input.rollDegrees ?? null;
+  const pitchDegrees = input.pitchDegrees ?? null;
+  const hipMidYRatio = input.hipMidYRatio ?? null;
+  const subjectFrameHeightRatio = input.subjectFrameHeightRatio ?? null;
+  const orientationSource = input.orientationSource ?? null;
 
   const { error } = await supabase.from('body_assessment_captures').insert({
     id,
@@ -200,6 +212,11 @@ export async function insertCapture(
     device_info: deviceInfo,
     camera_tilt: cameraTilt,
     validation_summary: validationSummary,
+    roll_degrees: rollDegrees,
+    pitch_degrees: pitchDegrees,
+    hip_mid_y_ratio: hipMidYRatio,
+    subject_frame_height_ratio: subjectFrameHeightRatio,
+    orientation_source: orientationSource,
     captured_at: now,
   });
 
@@ -223,6 +240,11 @@ export async function insertCapture(
     device_info: deviceInfo,
     camera_tilt: cameraTilt,
     validation_summary: validationSummary,
+    roll_degrees: rollDegrees,
+    pitch_degrees: pitchDegrees,
+    hip_mid_y_ratio: hipMidYRatio,
+    subject_frame_height_ratio: subjectFrameHeightRatio,
+    orientation_source: orientationSource,
     captured_at: now,
     created_at: now,
   };
@@ -273,6 +295,43 @@ export async function listCaptures(
     return [];
   }
   return data as BodyAssessmentCapture[];
+}
+
+/**
+ * The member's most recent standing-photo capture of one exact view
+ * (front/left_side/right_side/back), across their ENTIRE capture history
+ * (not scoped to one assessment_id, unlike listCaptures above) — backs the
+ * guided-replication feature (CameraCapture.tsx's SetupReplicationPanel):
+ * a re-assessment's camera setup is guided to match whatever setup that
+ * prior capture actually used. Filtered on hip_mid_y_ratio not being null
+ * since that column is only ever populated for a capture that ran the
+ * reproducibility gate (migration 103) — movement/video captures and any
+ * capture made before that migration existed are excluded automatically.
+ * No assessment_type filter: capture_type 'front' is reused across several
+ * assessment types (see assessmentTypes.ts), and the physical camera setup
+ * a reproducibility target represents is about the VIEW, not which
+ * assessment happened to be running when it was captured.
+ */
+export async function getMostRecentCaptureWithSetup(
+  supabase: SupabaseClient,
+  memberId: string,
+  captureType: BodyAssessmentCaptureType
+): Promise<BodyAssessmentCapture | null> {
+  const { data, error } = await supabase
+    .from('body_assessment_captures')
+    .select('*')
+    .eq('member_id', memberId)
+    .eq('capture_type', captureType)
+    .not('hip_mid_y_ratio', 'is', null)
+    .order('captured_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('getMostRecentCaptureWithSetup failed', error);
+    return null;
+  }
+  return data as BodyAssessmentCapture | null;
 }
 
 // ---- body_landmark_sets ----

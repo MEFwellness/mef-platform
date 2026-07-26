@@ -39,6 +39,20 @@
  * measurement literature, and none should be read as a diagnostic cutoff.
  * See postureMeasurements.ts's docblock for the same caveat applied to
  * the estimates this app actually stores/reports.
+ *
+ * CAMERA-SETUP REPRODUCIBILITY: the frame-fill (SUBJECT_FRAME_HEIGHT_MIN/
+ * MAX) and hip-height (HIP_MID_TARGET_MIN/MAX) checks below were
+ * originally a coarse "not absurdly close/far or high/low" screen and are
+ * now a precise repeatability gate — capture is blocked unless the subject
+ * fills 80-90% of the frame height AND the hip-landmark midpoint sits in
+ * the middle 10% of the frame vertically, alongside cameraTilt.ts's
+ * roll/pitch tolerance (checked separately, since device orientation is
+ * not a landmark signal — see that file's docblock for why they stay
+ * separate modules). All four conditions are ANDed together by
+ * CameraCapture.tsx's `locked` boolean, which is the actual capture gate;
+ * message-priority ordering between a tilt failure and a hip-height/
+ * frame-fill failure is unchanged in this pass (that's the existing
+ * spoken-guidance pipeline, out of scope here).
  */
 
 import { toCoreLandmarks, type CorePoseLandmarks, type RawPoseLandmark } from './poseTypes';
@@ -298,6 +312,22 @@ const SHOULDER_ROTATION_DEPTH_RATIO_MAX = 0.5;
 /** How far the confident subject's hip midpoint may jump between two consecutive mid-hold frames, normalized by bodySpan, before it reads as a different person rather than natural sway — generous on purpose, since a real standing person's hips do drift a little frame to frame. */
 const SUBJECT_JUMP_RATIO_MAX = 0.4;
 
+/**
+ * Camera-setup reproducibility bounds (tightened from the original coarse
+ * "not absurdly close/far" screen — 0.35-0.92 — to a precise repeatability
+ * requirement). Every angle postureMeasurements.ts computes assumes the
+ * subject fills roughly the same fraction of the frame at every capture of
+ * the same view; these two numbers plus cameraTilt.ts's roll/pitch
+ * tolerance and the hip-height band below are the actual measured values
+ * persisted to body_assessment_captures (migration 103) alongside every
+ * standing-photo capture.
+ */
+const SUBJECT_FRAME_HEIGHT_MIN = 0.8;
+const SUBJECT_FRAME_HEIGHT_MAX = 0.9;
+/** The hip-landmark midpoint's normalized-y must land in this middle-10%-of-frame band — "camera at roughly hip height." Tightened from the old head+ankle-based verticalCenter proxy's much wider 0.38-0.62 band. */
+const HIP_MID_TARGET_MIN = 0.45;
+const HIP_MID_TARGET_MAX = 0.55;
+
 function averageVisibility(points: RawPoseLandmark[]): number {
   const scores = points.map((p) => p.visibility ?? 1);
   return scores.reduce((sum, v) => sum + v, 0) / scores.length;
@@ -502,11 +532,15 @@ export function validatePoseFrame(
     return fail('not_standing', 'Please stand upright.', metrics, core, subject.points);
   }
 
-  // Distance: how much of the frame height the body occupies.
-  if (metrics.bodySpan > 0.92) {
+  // Distance: how much of the frame height the body occupies — a
+  // reproducibility requirement (SUBJECT_FRAME_HEIGHT_MIN/MAX below), not
+  // just a coarse "not absurdly close/far" screen: every capture of the
+  // same view needs to fill roughly the same fraction of the frame for
+  // before-and-after angles to actually be comparable.
+  if (metrics.bodySpan > SUBJECT_FRAME_HEIGHT_MAX) {
     return fail('too_close', 'Step farther away.', metrics, core, subject.points);
   }
-  if (metrics.bodySpan < 0.35) {
+  if (metrics.bodySpan < SUBJECT_FRAME_HEIGHT_MIN) {
     return fail('too_far', 'Move closer.', metrics, core, subject.points);
   }
 
@@ -521,20 +555,6 @@ export function validatePoseFrame(
   }
   if (centerX > 0.65) {
     return fail('off_center', 'Move slightly to your right.', metrics, core, subject.points);
-  }
-
-  // Camera height: the body's vertical position within the frame, once
-  // distance and horizontal centering already pass. A phone propped too
-  // high (aimed down) crowds the body toward the top of the frame; too low
-  // (aimed up) crowds it toward the bottom — distinct from off_center
-  // (which is purely horizontal) and from not_full_body's hard edge-clip
-  // bounds above, which only catch the extreme case.
-  const verticalCenter = (headTop + metrics.ankleMid.y) / 2;
-  if (verticalCenter > 0.62) {
-    return fail('camera_position', 'Raise the phone a little.', metrics, core, subject.points);
-  }
-  if (verticalCenter < 0.38) {
-    return fail('camera_position', 'Lower the phone slightly.', metrics, core, subject.points);
   }
 
   // Orientation: front/back need a wide shoulder line; side views need a narrow one.
@@ -653,6 +673,35 @@ export function validatePoseFrame(
     return fail(
       'excessive_lean',
       'Please stand up straight without leaning.',
+      metrics,
+      core,
+      subject.points
+    );
+  }
+
+  // Camera height: a reproducibility requirement, checked only once every
+  // more-fundamental posture-state check above (sitting/crouching/lying/
+  // leaning) has already passed — there's no meaningful "camera at hip
+  // height" verdict to give someone who isn't standing normally in the
+  // first place. The hip-landmark midpoint (not the old head+ankle
+  // vertical-center proxy) is the direct, reproducibility-grade signal:
+  // the same physical camera height should put the member's actual hips at
+  // the same place in the frame every time, independent of that member's
+  // own height/proportions. A phone propped too high (aimed down) puts the
+  // hips low in the frame; too low (aimed up) puts them high.
+  if (metrics.hipMid.y > HIP_MID_TARGET_MAX) {
+    return fail(
+      'camera_position',
+      'Raise the phone so it lines up with your hips.',
+      metrics,
+      core,
+      subject.points
+    );
+  }
+  if (metrics.hipMid.y < HIP_MID_TARGET_MIN) {
+    return fail(
+      'camera_position',
+      'Lower the phone so it lines up with your hips.',
       metrics,
       core,
       subject.points

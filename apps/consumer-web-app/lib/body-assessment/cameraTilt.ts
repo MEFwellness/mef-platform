@@ -8,38 +8,57 @@
  *
  * DeviceOrientationEvent's `gamma` is left-right roll (-90..90, 0 =
  * level) when the phone is held upright in portrait — the natural signal
- * for "the phone is tilted sideways in its stand," which is what "camera
- * not heavily tilted" means for a standing posture photo.
+ * for "the phone is tilted sideways in its stand."
  *
  * `beta` is front-back tilt (0 = flat on a table screen-up, 90 = phone
- * standing perfectly vertical facing the member). This app DOES gate on
- * it, deliberately loosely: a phone propped noticeably forward or
- * backward introduces real perspective foreshortening (the top or bottom
- * of the body reads closer to the camera than it is), which quietly
- * corrupts every vertical-angle measurement poseMetrics.ts computes —
- * worse than a body simply being off-center, since nothing about the
- * photo itself looks obviously wrong. The threshold stays generous
- * (members prop phones at a range of reasonable angles) — this rejects
- * only a phone lying nearly flat or leaning hard in either direction, not
- * ordinary stand/case propping.
+ * standing perfectly vertical facing the member).
+ *
+ * ============================================================
+ * REPRODUCIBILITY GATE (tightened from the original coarse screening bound)
+ * ============================================================
+ * This used to be a loose "reject only an obviously unusable shot" check
+ * (+/-12 degrees roll, +/-40 degrees pitch). Every angle
+ * postureMeasurements.ts computes assumes the camera was in the SAME
+ * physical position every time a member is captured — a phone tilted even
+ * a few degrees differently between two assessments introduces real
+ * perspective distortion that has nothing to do with the member's actual
+ * posture changing, and silently corrupts before/after comparison. So this
+ * is now a precise repeatability requirement, not a coarse usability
+ * screen: capture is blocked unless the phone reads within +/-1 degree of
+ * level (roll) and +/-2 degrees of vertical (pitch). This is deliberately
+ * strict — members are expected to prop the phone on a stand rather than
+ * hand-hold it for a standing-photo capture.
+ *
+ * These are still UX/engineering screening bounds chosen for repeatability
+ * purposes, not derived from any measurement standard — same caveat as
+ * every threshold in poseValidation.ts and postureMeasurements.ts.
  */
 
 export type TiltCheckResult = { ok: boolean; message: string };
 
-/** Degrees of roll before we consider the phone meaningfully tilted sideways — a UX screening bound, not derived from any measurement standard. */
-const MAX_ROLL_DEGREES = 12;
-/** `beta` reads ~90 when the phone stands vertical; degrees of deviation from that before forward/backward lean is considered heavy enough to distort the shot. Deliberately generous — see docblock above. */
-const MAX_FORWARD_TILT_DEVIATION_DEGREES = 40;
+/** Degrees of roll (gamma) tolerated from perfectly level before capture is blocked. */
+export const ROLL_TOLERANCE_DEGREES = 1;
+/** Degrees `beta` may deviate from 90 (perfectly vertical) before capture is blocked. */
+export const PITCH_TOLERANCE_DEGREES = 2;
 
 export function evaluateCameraTilt(
   gammaDegrees: number | null,
   betaDegrees: number | null = null
 ): TiltCheckResult {
-  if (gammaDegrees !== null && Math.abs(gammaDegrees) > MAX_ROLL_DEGREES) {
-    return { ok: false, message: 'Please hold your phone upright and level.' };
+  if (gammaDegrees !== null && Math.abs(gammaDegrees) > ROLL_TOLERANCE_DEGREES) {
+    return {
+      ok: false,
+      message: 'Level your phone — even a slight tilt affects the measurement.',
+    };
   }
-  if (betaDegrees !== null && Math.abs(betaDegrees - 90) > MAX_FORWARD_TILT_DEVIATION_DEGREES) {
-    return { ok: false, message: 'Prop your phone more upright, facing you directly.' };
+  if (
+    betaDegrees !== null &&
+    Math.abs(betaDegrees - 90) > PITCH_TOLERANCE_DEGREES
+  ) {
+    return {
+      ok: false,
+      message: 'Aim your phone straight ahead — not tilted up or down.',
+    };
   }
   return { ok: true, message: '' };
 }
