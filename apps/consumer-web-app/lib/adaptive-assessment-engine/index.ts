@@ -8,4 +8,4 @@ export type {
   Rule,
   RuleOp,
 } from './types';
-export { selectNext, selectBatch } from './select';
+export { selectNext, selectBatch, ruleSatisfied } from './select';

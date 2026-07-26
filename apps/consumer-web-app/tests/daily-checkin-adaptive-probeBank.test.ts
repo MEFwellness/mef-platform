@@ -17,6 +17,7 @@ function question(overrides: Partial<DriverProbeQuestion> = {}): DriverProbeQues
     excludes: [],
     priority: 0,
     active: true,
+    screen: 'morning',
     ...overrides,
   };
 }

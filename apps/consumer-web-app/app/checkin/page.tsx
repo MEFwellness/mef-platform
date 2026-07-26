@@ -8,7 +8,11 @@ import {
   getRecentCheckins,
   resolveLocalDate,
 } from '@/app/actions/checkin';
-import { getTodaysCheckinPlanAction } from '@/app/actions/dailyCheckinPlan';
+import {
+  getTodaysCheckinPlanAction,
+  getLocalFollowUpQuestionsAction,
+  getProbeAnswersForDateAction,
+} from '@/app/actions/dailyCheckinPlan';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
@@ -44,14 +48,17 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
   const hoursSinceMidnight = nowInTz.getHours() + nowInTz.getMinutes() / 60;
   const canLogYesterday = hoursSinceMidnight < 6;
 
-  const [existingCheckin, habits, habitLogs, priorCheckins, checkinPlan] = await Promise.all([
-    getTodaysCheckin(localDate),
-    getActiveHabits(),
-    getHabitLogsForDate(localDate),
-    getRecentCheckins(1),
-    getTodaysCheckinPlanAction(localDate),
-  ]);
-  const rotatingProbeKeys = checkinPlan?.rotatingProbes.map((p) => p.questionKey) ?? [];
+  const [existingCheckin, habits, habitLogs, priorCheckins, checkinPlan, localFollowUps, initialProbeAnswers] =
+    await Promise.all([
+      getTodaysCheckin(localDate),
+      getActiveHabits(),
+      getHabitLogsForDate(localDate),
+      getRecentCheckins(1),
+      getTodaysCheckinPlanAction(localDate),
+      getLocalFollowUpQuestionsAction('morning'),
+      getProbeAnswersForDateAction(localDate),
+    ]);
+  const rotatingProbes = (checkinPlan?.rotatingProbes ?? []).filter((p) => p.screen === 'morning');
   // True only when this member has never completed any check-in before —
   // drives the Milestone 4 first-check-in transition on Dashboard, not
   // just "haven't logged today yet."
@@ -98,7 +105,9 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           initialHabitLogs={habitLogs}
           isFirstCheckin={isFirstCheckin}
           eveningReminderAlreadyShown={Boolean(profile?.evening_reflection_reminder_shown_at)}
-          rotatingProbeKeys={rotatingProbeKeys}
+          rotatingProbes={rotatingProbes}
+          localFollowUps={localFollowUps}
+          initialProbeAnswers={initialProbeAnswers}
         />
 
         <section className={`${CARD} mt-5 p-5`}>

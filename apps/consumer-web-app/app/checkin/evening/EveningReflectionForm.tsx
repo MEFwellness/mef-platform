@@ -24,14 +24,23 @@
  * reads them keeps working unchanged.
  */
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   submitEveningReflection,
   type EveningReflectionFormInput,
 } from '@/app/actions/eveningReflection';
 import { submitEveningBodyCheckin } from '@/app/actions/checkin';
+import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
+import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
+import type { DriverProbeQuestion } from '@/lib/daily-checkin-adaptive/types';
+import { DriverProbeField, type ProbeAnswerValue } from '@/components/checkin/DriverProbeField';
 import type { DailyCheckin, EnergyPattern, EveningReflection } from '@mef/shared-types-contracts';
+
+const SPECIALLY_HANDLED_QUESTION_KEYS = new Set([
+  'checkin_probe.digestion_rating',
+  'checkin_probe.movement_today',
+]);
 
 const SECTION_CARD =
   'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] space-y-6 p-7';
@@ -97,8 +106,12 @@ type Props = {
   localDate: string;
   timezone: string;
   todaysCheckin: DailyCheckin | null;
-  /** This day's driver-probe question_keys chosen by the adaptive picker (lib/daily-checkin-adaptive/) — governs whether digestion/movement render today. */
-  rotatingProbeKeys: string[];
+  /** This day's driver-probe questions chosen by the adaptive picker (lib/daily-checkin-adaptive/), already filtered to this screen (screen = 'evening', migration 109) — governs whether digestion/movement/other driver-probe questions render today. */
+  rotatingProbes: DriverProbeQuestion[];
+  /** Every active local-follow-up question (driver_id null) for this screen — see CheckinForm.tsx's identical prop for the full rationale. */
+  localFollowUps: DriverProbeQuestion[];
+  /** Today's previously-saved answers for storage='probe_answer' questions, keyed by question_key. */
+  initialProbeAnswers: Record<string, unknown>;
 };
 
 export function EveningReflectionForm({
@@ -106,10 +119,48 @@ export function EveningReflectionForm({
   localDate,
   timezone,
   todaysCheckin,
-  rotatingProbeKeys,
+  rotatingProbes,
+  localFollowUps,
+  initialProbeAnswers,
 }: Props) {
-  const showDigestionRating = rotatingProbeKeys.includes('checkin_probe.digestion_rating');
-  const showMovementToday = rotatingProbeKeys.includes('checkin_probe.movement_today');
+  const digestionQuestion =
+    rotatingProbes.find((q) => q.questionKey === 'checkin_probe.digestion_rating') ?? null;
+  const movementQuestion =
+    rotatingProbes.find((q) => q.questionKey === 'checkin_probe.movement_today') ?? null;
+  const genericRotatingProbes = rotatingProbes.filter((q) => !SPECIALLY_HANDLED_QUESTION_KEYS.has(q.questionKey));
+
+  const [probeAnswers, setProbeAnswers] = useState<Record<string, ProbeAnswerValue>>(() => {
+    const initial: Record<string, ProbeAnswerValue> = {};
+    for (const [key, value] of Object.entries(initialProbeAnswers)) {
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        initial[key] = value;
+      }
+    }
+    return initial;
+  });
+
+  function setProbeAnswer(questionKey: string, value: ProbeAnswerValue) {
+    setProbeAnswers((prev) => ({ ...prev, [questionKey]: value }));
+  }
+
+  useEffect(() => {
+    setProbeAnswers((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const question of localFollowUps) {
+        if (question.questionKey in next && !isLocalFollowUpEligible(question, prev)) {
+          delete next[question.questionKey];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [probeAnswers, localFollowUps]);
+
+  const eligibleLocalFollowUps = localFollowUps.filter((question) =>
+    isLocalFollowUpEligible(question, probeAnswers)
+  );
+
   const router = useRouter();
   const [overallDayRating, setOverallDayRating] = useState<number | null>(
     existing?.overall_day_rating ?? null
@@ -145,6 +196,9 @@ export function EveningReflectionForm({
       const [reflectionResult, bodyResult] = await Promise.all([
         submitEveningReflection(input),
         submitEveningBodyCheckin(localDate, timezone, movementToday, digestionRating),
+        ...Object.entries(probeAnswers).map(([questionKey, value]) =>
+          submitProbeAnswerAction(localDate, questionKey, value)
+        ),
       ]);
       if (reflectionResult.error) {
         setError(reflectionResult.error);
@@ -217,7 +271,7 @@ export function EveningReflectionForm({
         </div>
       </div>
 
-      {(showDigestionRating || showMovementToday) && (
+      {(digestionQuestion || movementQuestion || genericRotatingProbes.length > 0 || eligibleLocalFollowUps.length > 0) && (
         <div className={SECTION_CARD}>
           <div>
             <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
@@ -227,7 +281,7 @@ export function EveningReflectionForm({
               Easier to answer honestly now that the day is done
             </p>
           </div>
-          {showDigestionRating && (
+          {digestionQuestion && (
             <ScaleQuestion
               question="How was your digestion today?"
               labels={DIGESTION_MEANING}
@@ -235,7 +289,7 @@ export function EveningReflectionForm({
               onChange={setDigestionRating}
             />
           )}
-          {showMovementToday && (
+          {movementQuestion && (
             <div>
               <p className="text-[13px] leading-relaxed text-[#6B7A72]">
                 How much did you move your body today overall?
@@ -259,6 +313,22 @@ export function EveningReflectionForm({
               </div>
             </div>
           )}
+          {genericRotatingProbes.map((question) => (
+            <DriverProbeField
+              key={question.questionKey}
+              question={question}
+              value={probeAnswers[question.questionKey] ?? null}
+              onChange={(value) => setProbeAnswer(question.questionKey, value)}
+            />
+          ))}
+          {eligibleLocalFollowUps.map((question) => (
+            <DriverProbeField
+              key={question.questionKey}
+              question={question}
+              value={probeAnswers[question.questionKey] ?? null}
+              onChange={(value) => setProbeAnswer(question.questionKey, value)}
+            />
+          ))}
         </div>
       )}
 

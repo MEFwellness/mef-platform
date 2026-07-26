@@ -10,8 +10,12 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { getTodaysCheckinPlan } from '@/lib/daily-checkin-adaptive/plan';
-import { upsertProbeAnswer, listProbeAnswersForDate } from '@/lib/daily-checkin-adaptive/data';
-import type { TodaysCheckinPlan } from '@/lib/daily-checkin-adaptive/types';
+import {
+  upsertProbeAnswer,
+  listProbeAnswersForDate,
+  listActiveDriverProbeQuestions,
+} from '@/lib/daily-checkin-adaptive/data';
+import type { DriverProbeQuestion, ProbeScreen, TodaysCheckinPlan } from '@/lib/daily-checkin-adaptive/types';
 import type { ActionResult } from './auth';
 
 export async function getTodaysCheckinPlanAction(localDate: string): Promise<TodaysCheckinPlan | null> {
@@ -43,4 +47,23 @@ export async function getProbeAnswersForDateAction(localDate: string): Promise<R
 
   const answers = await listProbeAnswersForDate(supabase, user.id, localDate);
   return Object.fromEntries(answers);
+}
+
+/**
+ * Every active local-follow-up row (driver_id null — e.g.
+ * checkin_probe.what_kept_you_up) for one check-in screen. These are
+ * never part of a day's rotating plan (probeBank.ts excludes null
+ * driver_id from the bank entirely) — a local follow-up's visibility is
+ * decided client-side, live, against whatever the member has already
+ * answered in the current check-in (see
+ * lib/daily-checkin-adaptive/localFollowUps.ts), so the form needs the
+ * full row list up front rather than a daily-selected subset.
+ */
+export async function getLocalFollowUpQuestionsAction(screen: ProbeScreen): Promise<DriverProbeQuestion[]> {
+  const supabase = createClient();
+  const user = await getCachedUser();
+  if (!user) return [];
+
+  const questions = await listActiveDriverProbeQuestions(supabase);
+  return questions.filter((q) => q.driverId === null && q.screen === screen);
 }

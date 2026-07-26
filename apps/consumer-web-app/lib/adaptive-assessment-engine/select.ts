@@ -11,7 +11,8 @@ function toArray(value: AnswerValue | AnswerValue[]): AnswerValue[] {
   return Array.isArray(value) ? value : [value];
 }
 
-function ruleSatisfied(rule: Rule, answered: AnsweredMap): boolean {
+/** Exported so any caller with its own AnsweredMap (e.g. the check-in screens' client-side local-follow-up visibility, which needs this evaluated against today's not-yet-submitted answers rather than a server-side plan) can reuse the exact same Rule semantics instead of re-implementing them. */
+export function ruleSatisfied(rule: Rule, answered: AnsweredMap): boolean {
   const actual = answered[rule.question_key];
   if (actual === undefined || actual === null) return false;
 

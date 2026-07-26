@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -19,14 +19,24 @@ import {
 } from '@/app/actions/checkin';
 import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
 import { PAIN_FOLLOWUP_THRESHOLD } from '@/lib/daily-checkin-adaptive/constants';
+import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
+import type { DriverProbeQuestion } from '@/lib/daily-checkin-adaptive/types';
 import { getTodaysHydrationTotal } from '@/app/actions/events';
 import { EveningReminderModal } from '@/components/checkin/EveningReminderModal';
+import { DriverProbeField, type ProbeAnswerValue } from '@/components/checkin/DriverProbeField';
 import type {
   BowelMovementStatus,
   DailyCheckin,
   DailyCheckinInput,
   Habit,
 } from '@mef/shared-types-contracts';
+
+const SPECIALLY_HANDLED_QUESTION_KEYS = new Set([
+  'checkin_probe.night_waking_count',
+  'checkin_probe.night_sweats',
+  'checkin_probe.bowel_movement_status',
+  'checkin_probe.morning_soreness',
+]);
 
 type Props = {
   localDate: string;
@@ -49,14 +59,25 @@ type Props = {
    */
   eveningReminderAlreadyShown: boolean;
   /**
-   * This day's driver-probe question_keys chosen by the adaptive picker
-   * (lib/daily-checkin-adaptive/) — governs which of the optional
-   * sleep-timing / night-waking / night-sweats / bowel-status questions
-   * render today. The fixed core above (mood, sleep quality, sleep
-   * duration, energy, stress, pain) is never gated by this — it always
-   * renders regardless of what's in this list.
+   * This day's driver-probe questions chosen by the adaptive picker
+   * (lib/daily-checkin-adaptive/), already filtered to this screen
+   * (screen = 'morning', migration 109) — governs which optional
+   * sleep-timing / night-waking / night-sweats / bowel-status / other
+   * driver-probe questions render today. The fixed core above (mood,
+   * sleep quality, sleep duration, energy, stress, pain) is never gated
+   * by this — it always renders regardless of what's in this list.
    */
-  rotatingProbeKeys: string[];
+  rotatingProbes: DriverProbeQuestion[];
+  /**
+   * Every active local-follow-up question (driver_id null) for this
+   * screen — e.g. "What kept you up?" — never part of the daily rotating
+   * plan (excluded from the adaptive bank entirely), shown instead once
+   * its own `requires` rule is satisfied by an answer entered elsewhere
+   * in this same check-in (lib/daily-checkin-adaptive/localFollowUps.ts).
+   */
+  localFollowUps: DriverProbeQuestion[];
+  /** Today's previously-saved answers for storage='probe_answer' questions (daily_checkin_probe_answers), keyed by question_key — hydrates the generic probe fields when re-opening an already-answered check-in. */
+  initialProbeAnswers: Record<string, unknown>;
 };
 
 const PAIN_LOCATION_OPTIONS = [
@@ -83,13 +104,6 @@ const PAIN_AGGRAVATING_FACTOR_OPTIONS = [
 ] as const;
 
 const SLEEP_DURATIONS = ['<5h', '5-6h', '6-7h', '7-8h', '8h+'] as const;
-const NIGHT_WAKING_OPTIONS = [0, 1, 2, 3, 4, 5] as const;
-const BOWEL_MOVEMENT_OPTIONS: { value: BowelMovementStatus; label: string }[] = [
-  { value: 'normal', label: 'Normal' },
-  { value: 'constipated', label: 'Constipated' },
-  { value: 'loose', label: 'Loose' },
-  { value: 'none', label: 'None' },
-];
 
 /** The "replace numbers with meaning" word sets, per Premium UX Milestone 4 — the 1-5 (or 0-5) integer stored on the row never changes, only what the member sees while choosing it. */
 const MOOD_MEANING = ['Very Low', 'Low', 'Okay', 'Good', 'Excellent'] as const;
@@ -184,11 +198,60 @@ export function CheckinForm({
   initialHabitLogs,
   isFirstCheckin,
   eveningReminderAlreadyShown,
-  rotatingProbeKeys,
+  rotatingProbes,
+  localFollowUps,
+  initialProbeAnswers,
 }: Props) {
-  const showNightWakingCount = rotatingProbeKeys.includes('checkin_probe.night_waking_count');
-  const showNightSweats = rotatingProbeKeys.includes('checkin_probe.night_sweats');
-  const showBowelMovementStatus = rotatingProbeKeys.includes('checkin_probe.bowel_movement_status');
+  const nightWakingQuestion =
+    rotatingProbes.find((q) => q.questionKey === 'checkin_probe.night_waking_count') ?? null;
+  const nightSweatsQuestion =
+    rotatingProbes.find((q) => q.questionKey === 'checkin_probe.night_sweats') ?? null;
+  const bowelMovementQuestion =
+    rotatingProbes.find((q) => q.questionKey === 'checkin_probe.bowel_movement_status') ?? null;
+  // Every rotating probe this screen renders generically — the new driver
+  // questions (migration 109) plus any future one, minus the four keys
+  // above (each has its own dedicated state/submit wiring into a real
+  // daily_checkins column, kept exactly as it was) and morning_soreness
+  // (already rendered unconditionally below; migration 109 only tags that
+  // existing field as MOV-5 evidence, it doesn't add a second field for it).
+  const genericRotatingProbes = rotatingProbes.filter((q) => !SPECIALLY_HANDLED_QUESTION_KEYS.has(q.questionKey));
+
+  const [probeAnswers, setProbeAnswers] = useState<Record<string, ProbeAnswerValue>>(() => {
+    const initial: Record<string, ProbeAnswerValue> = {};
+    for (const [key, value] of Object.entries(initialProbeAnswers)) {
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        initial[key] = value;
+      }
+    }
+    return initial;
+  });
+
+  function setProbeAnswer(questionKey: string, value: ProbeAnswerValue) {
+    setProbeAnswers((prev) => ({ ...prev, [questionKey]: value }));
+  }
+
+  // A local follow-up whose `requires` no longer holds (e.g. the member
+  // lowered an answer back below its trigger) has its stored answer
+  // cleared too — the same discipline the pre-existing pain follow-ups
+  // already apply by hand (see painLevel's onChange below).
+  useEffect(() => {
+    setProbeAnswers((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const question of localFollowUps) {
+        if (question.questionKey in next && !isLocalFollowUpEligible(question, prev)) {
+          delete next[question.questionKey];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [probeAnswers, localFollowUps]);
+
+  const eligibleLocalFollowUps = localFollowUps.filter((question) =>
+    isLocalFollowUpEligible(question, probeAnswers)
+  );
+
   const router = useRouter();
   const [showEveningReminder, setShowEveningReminder] = useState(false);
   const [moodLevel, setMoodLevel] = useState<number | null>(existingCheckin?.mood_level ?? null);
@@ -335,6 +398,14 @@ export function CheckinForm({
         painAggravatingFactor
       );
     }
+    // Every generic driver-probe/local-follow-up answer (migration 109) —
+    // the same submitProbeAnswerAction the two pain follow-ups above
+    // already use, just looped over N question_keys instead of 2.
+    await Promise.all(
+      Object.entries(probeAnswers).map(([questionKey, value]) =>
+        submitProbeAnswerAction(localDate, questionKey, value)
+      )
+    );
 
     setSubmitting(false);
 
@@ -481,55 +552,20 @@ export function CheckinForm({
             </label>
           </div>
 
-          {showNightWakingCount && (
-            <div>
-              <p className="text-[13px] leading-relaxed text-[#6B7A72]">
-                How many times did you wake up during the night?
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {NIGHT_WAKING_OPTIONS.map((count) => (
-                  <button
-                    key={count}
-                    type="button"
-                    onClick={() => setNightWakingCount(count)}
-                    aria-pressed={nightWakingCount === count}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                      nightWakingCount === count
-                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                    }`}
-                  >
-                    {count === 5 ? '5+' : count}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {nightWakingQuestion && (
+            <DriverProbeField
+              question={nightWakingQuestion}
+              value={nightWakingCount}
+              onChange={(value) => setNightWakingCount(value as number)}
+            />
           )}
 
-          {showNightSweats && (
-            <div>
-              <p className="text-[13px] leading-relaxed text-[#6B7A72]">Any night sweats?</p>
-              <div className="mt-3 flex gap-2">
-                {[
-                  { value: true, label: 'Yes' },
-                  { value: false, label: 'No' },
-                ].map((option) => (
-                  <button
-                    key={String(option.value)}
-                    type="button"
-                    onClick={() => setNightSweats(option.value)}
-                    aria-pressed={nightSweats === option.value}
-                    className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                      nightSweats === option.value
-                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {nightSweatsQuestion && (
+            <DriverProbeField
+              question={nightSweatsQuestion}
+              value={nightSweats}
+              onChange={(value) => setNightSweats(value as boolean)}
+            />
           )}
 
           <MeaningScale
@@ -539,28 +575,31 @@ export function CheckinForm({
             onChange={setMorningSoreness}
           />
 
-          {showBowelMovementStatus && (
-            <div>
-              <p className="text-[13px] leading-relaxed text-[#6B7A72]">Bowel movement status</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {BOWEL_MOVEMENT_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setBowelMovementStatus(option.value)}
-                    aria-pressed={bowelMovementStatus === option.value}
-                    className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                      bowelMovementStatus === option.value
-                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {bowelMovementQuestion && (
+            <DriverProbeField
+              question={bowelMovementQuestion}
+              value={bowelMovementStatus}
+              onChange={(value) => setBowelMovementStatus(value as BowelMovementStatus)}
+            />
           )}
+
+          {genericRotatingProbes.map((question) => (
+            <DriverProbeField
+              key={question.questionKey}
+              question={question}
+              value={probeAnswers[question.questionKey] ?? null}
+              onChange={(value) => setProbeAnswer(question.questionKey, value)}
+            />
+          ))}
+
+          {eligibleLocalFollowUps.map((question) => (
+            <DriverProbeField
+              key={question.questionKey}
+              question={question}
+              value={probeAnswers[question.questionKey] ?? null}
+              onChange={(value) => setProbeAnswer(question.questionKey, value)}
+            />
+          ))}
         </div>
 
         <div
