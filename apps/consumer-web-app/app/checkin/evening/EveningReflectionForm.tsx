@@ -13,6 +13,11 @@
  * question, the same one Morning Readiness used to ask too early to
  * answer honestly.
  *
+ * Daily Check-In redesign — "one section per screen ... using its own
+ * grouping" (task requirement 1): 3 screens (How your day went / Your
+ * body / Anything else), its own grouping since Evening Reflection's
+ * content doesn't map onto Morning Readiness's 4 screens at all.
+ *
  * No field here is required — see submitEveningReflection's own
  * behavior: whatever is left blank is stored as null (unknown), never
  * defaulted to a value that would silently lower a score. See
@@ -24,8 +29,9 @@
  * reads them keeps working unchanged.
  */
 
-import { useEffect, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { HeartPulse, MessageCircle, Sunset } from 'lucide-react';
 import {
   submitEveningReflection,
   type EveningReflectionFormInput,
@@ -33,17 +39,19 @@ import {
 import { submitEveningBodyCheckin } from '@/app/actions/checkin';
 import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
 import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
+import { eveningScreenForQuestion, type EveningScreenKey } from '@/lib/daily-checkin-adaptive/screenGrouping';
 import type { DriverProbeQuestion } from '@/lib/daily-checkin-adaptive/types';
 import { DriverProbeField, type ProbeAnswerValue } from '@/components/checkin/DriverProbeField';
+import { CheckinWizard, StaggerItem } from '@/components/checkin/CheckinWizard';
+import { SegmentedControl } from '@/components/checkin/scales/SegmentedControl';
+import { useScreenAutoAdvance } from '@/hooks/useScreenAutoAdvance';
 import type { DailyCheckin, EnergyPattern, EveningReflection } from '@mef/shared-types-contracts';
+import type { LucideIcon } from 'lucide-react';
 
 const SPECIALLY_HANDLED_QUESTION_KEYS = new Set([
   'checkin_probe.digestion_rating',
   'checkin_probe.movement_today',
 ]);
-
-const SECTION_CARD =
-  'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] space-y-6 p-7';
 
 const RATING_LABELS = ['Rough', 'Below average', 'Okay', 'Good', 'Great'] as const;
 const STRESS_LABELS = ['Very calm', 'Calm', 'Moderate', 'High', 'Overwhelmed'] as const;
@@ -70,40 +78,19 @@ const ENERGY_PATTERNS: { value: EnergyPattern; label: string }[] = [
   { value: 'improved', label: 'Improved through the day' },
 ];
 
-function ScaleQuestion({
-  question,
-  labels,
-  value,
-  onChange,
-}: {
-  question: string;
-  labels: readonly string[];
-  value: number | null;
-  onChange: (value: number) => void;
-}) {
+const SCREEN_COUNT = 3;
+
+function SectionHeader({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: string; subtitle: string }) {
   return (
-    <div>
-      <p className="text-[13px] leading-relaxed text-[#6B7A72]">{question}</p>
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={question}>
-        {labels.map((label, i) => {
-          const optionValue = i + 1;
-          const isSelected = value === optionValue;
-          return (
-            <button
-              key={label}
-              type="button"
-              onClick={() => onChange(optionValue)}
-              aria-pressed={isSelected}
-              className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                isSelected
-                  ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                  : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">
+        <Icon className="h-4 w-4 text-[#1B3A2D]/70" strokeWidth={1.75} aria-hidden="true" />
+      </div>
+      <div>
+        <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
+          {title}
+        </p>
+        <p className="text-[13px] text-[#6B7A72]">{subtitle}</p>
       </div>
     </div>
   );
@@ -145,7 +132,15 @@ export function EveningReflectionForm({
     rotatingProbes.find((q) => q.questionKey === 'checkin_probe.digestion_rating') ?? null;
   const movementQuestion =
     rotatingProbes.find((q) => q.questionKey === 'checkin_probe.movement_today') ?? null;
-  const genericRotatingProbes = rotatingProbes.filter((q) => !SPECIALLY_HANDLED_QUESTION_KEYS.has(q.questionKey));
+
+  const probesByScreen = useMemo(() => {
+    const groups: Record<EveningScreenKey, DriverProbeQuestion[]> = { day: [], body: [], other: [] };
+    for (const question of rotatingProbes) {
+      if (SPECIALLY_HANDLED_QUESTION_KEYS.has(question.questionKey)) continue;
+      groups[eveningScreenForQuestion(question)].push(question);
+    }
+    return groups;
+  }, [rotatingProbes]);
 
   const [probeAnswers, setProbeAnswers] = useState<Record<string, ProbeAnswerValue>>(() => {
     const initial: Record<string, ProbeAnswerValue> = {};
@@ -161,25 +156,21 @@ export function EveningReflectionForm({
     setProbeAnswers((prev) => ({ ...prev, [questionKey]: value }));
   }
 
-  useEffect(() => {
-    setProbeAnswers((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const question of localFollowUps) {
-        if (question.questionKey in next && !isLocalFollowUpEligible(question, prev)) {
-          delete next[question.questionKey];
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [probeAnswers, localFollowUps]);
-
   const eligibleLocalFollowUps = localFollowUps.filter((question) =>
     isLocalFollowUpEligible(question, probeAnswers)
   );
+  const localFollowUpsByScreen = useMemo(() => {
+    const groups: Record<EveningScreenKey, DriverProbeQuestion[]> = { day: [], body: [], other: [] };
+    for (const question of eligibleLocalFollowUps) {
+      groups[eveningScreenForQuestion(question)].push(question);
+    }
+    return groups;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eligibleLocalFollowUps.map((q) => q.questionKey).join(',')]);
 
   const router = useRouter();
+  const [screenIndex, setScreenIndex] = useState(0);
+  const [furthestScreenIndex, setFurthestScreenIndex] = useState(0);
   const [overallDayRating, setOverallDayRating] = useState<number | null>(
     existing?.overall_day_rating ?? null
   );
@@ -204,6 +195,22 @@ export function EveningReflectionForm({
   const [predictedEnergyLevel, setPredictedEnergyLevel] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
+
+  function goToScreen(index: number) {
+    const clamped = Math.max(0, Math.min(index, SCREEN_COUNT - 1));
+    setScreenIndex(clamped);
+    setFurthestScreenIndex((prev) => Math.max(prev, clamped));
+  }
+  const goNext = () => goToScreen(screenIndex + 1);
+  const goBack = () => goToScreen(screenIndex - 1);
+
+  const screen0Complete =
+    overallDayRating !== null && daytimeStress !== null && energyPattern !== null && recovery !== null;
+  const screen1Complete =
+    (!digestionQuestion || digestionRating !== null) && (!movementQuestion || movementToday !== null);
+
+  useScreenAutoAdvance(screen0Complete, () => screenIndex === 0 && goNext());
+  useScreenAutoAdvance(screen1Complete, () => screenIndex === 1 && goNext());
 
   function handleSubmit() {
     setError('');
@@ -238,187 +245,180 @@ export function EveningReflectionForm({
   }
 
   return (
-    <div className="mt-6 space-y-6">
-      <div className={SECTION_CARD}>
-        <ScaleQuestion
-          question="Overall, how was your day?"
-          labels={RATING_LABELS}
-          value={overallDayRating}
-          onChange={setOverallDayRating}
-        />
-        <ScaleQuestion
-          question="How much stress did you carry through the day?"
-          labels={STRESS_LABELS}
-          value={daytimeStress}
-          onChange={setDaytimeStress}
-        />
-        <div>
-          <p className="text-[13px] leading-relaxed text-[#6B7A72]">
-            How did your energy move through the day?
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {ENERGY_PATTERNS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setEnergyPattern(option.value)}
-                aria-pressed={energyPattern === option.value}
-                className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                  energyPattern === option.value
-                    ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                }`}
-              >
-                {option.label}
-              </button>
+    <div className="mt-6">
+      <CheckinWizard
+        screenCount={SCREEN_COUNT}
+        screenIndex={screenIndex}
+        furthestScreenIndex={furthestScreenIndex}
+        onBack={goBack}
+        onSelectScreen={goToScreen}
+      >
+        {screenIndex === 0 && (
+          <div key="evening-screen-0" className="space-y-6">
+            <StaggerItem index={0}>
+              <SectionHeader icon={Sunset} title="How your day went" subtitle="Overall shape of the day" />
+            </StaggerItem>
+            <StaggerItem index={1}>
+              <SegmentedControl
+                question="Overall, how was your day?"
+                options={RATING_LABELS.map((label, i) => ({ value: i + 1, label }))}
+                value={overallDayRating}
+                onChange={setOverallDayRating}
+              />
+            </StaggerItem>
+            <StaggerItem index={2}>
+              <SegmentedControl
+                question="How much stress did you carry through the day?"
+                options={STRESS_LABELS.map((label, i) => ({ value: i + 1, label }))}
+                value={daytimeStress}
+                onChange={setDaytimeStress}
+              />
+            </StaggerItem>
+            <StaggerItem index={3}>
+              <SegmentedControl
+                question="How did your energy move through the day?"
+                options={ENERGY_PATTERNS}
+                value={energyPattern}
+                onChange={setEnergyPattern}
+              />
+            </StaggerItem>
+            <StaggerItem index={4}>
+              <SegmentedControl
+                question="How recovered do you feel heading into tonight?"
+                options={RECOVERY_LABELS.map((label, i) => ({ value: i + 1, label }))}
+                value={recovery}
+                onChange={setRecovery}
+              />
+            </StaggerItem>
+            {[...probesByScreen.day, ...localFollowUpsByScreen.day].map((question, index) => (
+              <StaggerItem key={question.questionKey} index={5 + index}>
+                <DriverProbeField
+                  question={question}
+                  value={probeAnswers[question.questionKey] ?? null}
+                  onChange={(value) => setProbeAnswer(question.questionKey, value)}
+                />
+              </StaggerItem>
             ))}
           </div>
-        </div>
-        <ScaleQuestion
-          question="How recovered do you feel heading into tonight?"
-          labels={RECOVERY_LABELS}
-          value={recovery}
-          onChange={setRecovery}
-        />
-        <div>
-          <label className="text-[13px] leading-relaxed text-[#6B7A72]" htmlFor="symptoms">
-            Anything new or changed today? (optional)
-          </label>
-          <textarea
-            id="symptoms"
-            value={symptomsOrChanges}
-            onChange={(event) => setSymptomsOrChanges(event.target.value)}
-            rows={3}
-            className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
-            placeholder="Symptoms, changes, anything worth noting"
-          />
-        </div>
-      </div>
-
-      {(digestionQuestion || movementQuestion || genericRotatingProbes.length > 0 || eligibleLocalFollowUps.length > 0) && (
-        <div className={SECTION_CARD}>
-          <div>
-            <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
-              Digestion &amp; movement
-            </p>
-            <p className="text-[13px] text-[#6B7A72]">
-              Easier to answer honestly now that the day is done
-            </p>
-          </div>
-          {digestionQuestion && (
-            <ScaleQuestion
-              question="How was your digestion today?"
-              labels={DIGESTION_MEANING}
-              value={digestionRating}
-              onChange={setDigestionRating}
-            />
-          )}
-          {movementQuestion && (
-            <div>
-              <p className="text-[13px] leading-relaxed text-[#6B7A72]">
-                How much did you move your body today overall?
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {MOVEMENT_LEVELS.map((level) => (
-                  <button
-                    key={level.value}
-                    type="button"
-                    onClick={() => setMovementToday(level.value)}
-                    aria-pressed={movementToday === level.value}
-                    className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                      movementToday === level.value
-                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                    }`}
-                  >
-                    {level.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {genericRotatingProbes.map((question) => (
-            <DriverProbeField
-              key={question.questionKey}
-              question={question}
-              value={probeAnswers[question.questionKey] ?? null}
-              onChange={(value) => setProbeAnswer(question.questionKey, value)}
-            />
-          ))}
-          {eligibleLocalFollowUps.map((question) => (
-            <DriverProbeField
-              key={question.questionKey}
-              question={question}
-              value={probeAnswers[question.questionKey] ?? null}
-              onChange={(value) => setProbeAnswer(question.questionKey, value)}
-            />
-          ))}
-        </div>
-      )}
-
-      <div className={SECTION_CARD}>
-        <div>
-          <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
-            Predict tomorrow
-          </p>
-          <p className="text-[13px] text-[#6B7A72]">
-            {existingForecastLevel === null
-              ? "No wrong answer — tomorrow's check-in will tell you how close you were."
-              : "You've already made this prediction. It's locked in until tomorrow grades it."}
-          </p>
-        </div>
-        {existingForecastLevel === null ? (
-          <div>
-            <p className="text-[13px] leading-relaxed text-[#6B7A72]">
-              How do you think your energy will be tomorrow morning?
-            </p>
-            <div
-              className="mt-3 flex flex-wrap gap-2"
-              role="group"
-              aria-label="How do you think your energy will be tomorrow morning?"
-            >
-              {FORECAST_ENERGY_MEANING.map((word, i) => {
-                const value = i + 1;
-                const isSelected = predictedEnergyLevel === value;
-                return (
-                  <button
-                    key={word}
-                    type="button"
-                    onClick={() => setPredictedEnergyLevel(value)}
-                    aria-pressed={isSelected}
-                    className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                      isSelected
-                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                    }`}
-                  >
-                    {word}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <p className="rounded-2xl bg-[#1B3A2D]/[0.04] px-4 py-3 text-sm font-medium text-[#1B3A2D]">
-            Your prediction: {FORECAST_ENERGY_MEANING[existingForecastLevel - 1]}
-          </p>
         )}
-      </div>
 
-      {error && (
-        <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </p>
-      )}
+        {screenIndex === 1 && (
+          <div key="evening-screen-1" className="space-y-6">
+            <StaggerItem index={0}>
+              <SectionHeader
+                icon={HeartPulse}
+                title="Your body"
+                subtitle="Easier to answer honestly now that the day is done"
+              />
+            </StaggerItem>
+            {digestionQuestion && (
+              <StaggerItem index={1}>
+                <SegmentedControl
+                  question="How was your digestion today?"
+                  options={DIGESTION_MEANING.map((label, i) => ({ value: i + 1, label }))}
+                  value={digestionRating}
+                  onChange={setDigestionRating}
+                />
+              </StaggerItem>
+            )}
+            {movementQuestion && (
+              <StaggerItem index={2}>
+                <SegmentedControl
+                  question="How much did you move your body today overall?"
+                  options={MOVEMENT_LEVELS}
+                  value={movementToday}
+                  onChange={setMovementToday}
+                />
+              </StaggerItem>
+            )}
+            {[...probesByScreen.body, ...localFollowUpsByScreen.body].map((question, index) => (
+              <StaggerItem key={question.questionKey} index={3 + index}>
+                <DriverProbeField
+                  question={question}
+                  value={probeAnswers[question.questionKey] ?? null}
+                  onChange={(value) => setProbeAnswer(question.questionKey, value)}
+                />
+              </StaggerItem>
+            ))}
+          </div>
+        )}
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={isPending}
-        className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition-all duration-200 ease-out hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
-      >
-        {isPending ? 'Saving…' : existing ? 'Update Evening Reflection' : 'Save Evening Reflection'}
-      </button>
+        {screenIndex === 2 && (
+          <div key="evening-screen-2" className="space-y-6">
+            <StaggerItem index={0}>
+              <SectionHeader icon={MessageCircle} title="Anything else" subtitle="Optional, then predict tomorrow" />
+            </StaggerItem>
+
+            {[...probesByScreen.other, ...localFollowUpsByScreen.other].map((question, index) => (
+              <StaggerItem key={question.questionKey} index={1 + index}>
+                <DriverProbeField
+                  question={question}
+                  value={probeAnswers[question.questionKey] ?? null}
+                  onChange={(value) => setProbeAnswer(question.questionKey, value)}
+                />
+              </StaggerItem>
+            ))}
+
+            <StaggerItem index={2}>
+              <div>
+                <label className="text-[13px] leading-relaxed text-[#6B7A72]" htmlFor="symptoms">
+                  Anything new or changed today? (optional)
+                </label>
+                <textarea
+                  id="symptoms"
+                  value={symptomsOrChanges}
+                  onChange={(event) => setSymptomsOrChanges(event.target.value)}
+                  rows={3}
+                  className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
+                  placeholder="Symptoms, changes, anything worth noting"
+                />
+              </div>
+            </StaggerItem>
+
+            <StaggerItem index={3}>
+              <div>
+                <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
+                  Predict tomorrow
+                </p>
+                <p className="text-[13px] text-[#6B7A72]">
+                  {existingForecastLevel === null
+                    ? "No wrong answer — tomorrow's check-in will tell you how close you were."
+                    : "You've already made this prediction. It's locked in until tomorrow grades it."}
+                </p>
+                {existingForecastLevel === null ? (
+                  <div className="mt-3">
+                    <SegmentedControl
+                      question="How do you think your energy will be tomorrow morning?"
+                      options={FORECAST_ENERGY_MEANING.map((label, i) => ({ value: i + 1, label }))}
+                      value={predictedEnergyLevel}
+                      onChange={setPredictedEnergyLevel}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-3 rounded-2xl bg-[#1B3A2D]/[0.04] px-4 py-3 text-sm font-medium text-[#1B3A2D]">
+                    Your prediction: {FORECAST_ENERGY_MEANING[existingForecastLevel - 1]}
+                  </p>
+                )}
+              </div>
+            </StaggerItem>
+
+            {error && (
+              <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isPending}
+              className="mef-press flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition-all duration-200 ease-out hover:brightness-110 disabled:opacity-60"
+            >
+              {isPending ? 'Saving…' : existing ? 'Update Evening Reflection' : 'Save Evening Reflection'}
+            </button>
+          </div>
+        )}
+      </CheckinWizard>
     </div>
   );
 }

@@ -15,23 +15,28 @@ const HEADING =
   'font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-[2.5rem]';
 const DISPLAY_HEADING =
   'font-[family-name:var(--font-cormorant-garamond)] text-4xl uppercase leading-tight tracking-wide text-[#1B3A2D] md:text-6xl';
-const BODY = 'mt-4 space-y-3 text-[15px] leading-relaxed text-[#6B7A72]';
 const PRIMARY_BUTTON =
   'mt-10 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60';
 const ERROR_BANNER = 'mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700';
 
 /**
- * 10 steps total: 7 timed cinematic pages (logo/welcome, story, "your
+ * 9 steps total: 7 timed cinematic pages (logo/welcome, story, "your
  * health is connected", 4 benefit cards — no buttons, auto-advance),
- * goal selection, an optional "which one matters most" follow-up (skipped
- * entirely when only one goal is picked), then the existing final screen.
- * GOAL_SELECTION_STEP is exported so app/welcome/page.tsx can send a
- * returning member straight there instead of replaying the intro.
+ * goal selection, then an optional "which one matters most" follow-up
+ * (skipped entirely when only one goal is picked). Selecting a primary
+ * goal (or auto-promoting a lone selection) finishes the flow directly —
+ * there is no longer a separate closing screen; the "Let's Begin With
+ * Today" screen this used to end on was folded into the check-in itself
+ * (see app/checkin/CheckinForm.tsx's isFirstCheckin intro copy) so a
+ * brand-new member sees it exactly once, at her first real check-in,
+ * rather than as a welcome-flow page she taps through before ever
+ * reaching one. GOAL_SELECTION_STEP is exported so app/welcome/page.tsx
+ * can send a returning member straight there instead of replaying the
+ * intro.
  */
 export const GOAL_SELECTION_STEP = 8;
 const PRIMARY_GOAL_STEP = 9;
-const FINAL_STEP = 10;
-const TOTAL_STEPS = 10;
+const TOTAL_STEPS = 9;
 
 const HEALTH_CARDS = [
   { Icon: Activity, label: 'Understand your current health' },
@@ -97,9 +102,10 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
 
   /**
    * Goal selection -> (if more than one goal) "which one matters most" ->
-   * final screen. A single selection is auto-promoted to primary and the
-   * follow-up screen is skipped entirely, per the request — she already
-   * answered it by only picking one.
+   * finish. A single selection is auto-promoted to primary and both the
+   * follow-up screen AND the old closing screen are skipped entirely —
+   * she already answered "which one matters" by only picking one, and
+   * there's nothing left to show before finishing.
    */
   function goNext() {
     if (step === GOAL_SELECTION_STEP) {
@@ -109,8 +115,9 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
       }
       setError('');
       if (goals.length === 1) {
-        setPrimaryGoal(goals[0] as WelcomeGoalKey);
-        setStep(FINAL_STEP);
+        const onlyGoal = goals[0] as WelcomeGoalKey;
+        setPrimaryGoal(onlyGoal);
+        void handleFinish(onlyGoal);
         return;
       }
       setStep(PRIMARY_GOAL_STEP);
@@ -123,7 +130,7 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
         return;
       }
       setError('');
-      setStep(FINAL_STEP);
+      void handleFinish(primaryGoal);
       return;
     }
 
@@ -133,25 +140,27 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
 
   /**
    * Used by every backward-navigation control in the flow: the "Back" text
-   * link on Pages 8-10, and the small back arrow / swipe-right on Pages
+   * link on Pages 8-9, and the small back arrow / swipe-right on Pages
    * 2-7 (passed down as `onBack`). Floors at 1 defensively, though nothing
    * ever actually calls it while on Page 1 — Page 1 renders no back
-   * control of any kind. Skips back over the primary-goal step when it was
-   * itself skipped going forward (a single-goal selection), so Back from
-   * the final screen never lands on a step that was never shown.
+   * control of any kind.
    */
   function goBackOne() {
     setError('');
-    setStep((current) => {
-      if (current === FINAL_STEP && goals.length === 1) return GOAL_SELECTION_STEP;
-      return Math.max(current - 1, 1);
-    });
+    setStep((current) => Math.max(current - 1, 1));
   }
 
-  async function handleFinish() {
+  /**
+   * `resolvedPrimaryGoal` is passed explicitly rather than read from the
+   * `primaryGoal` state variable, since the single-goal auto-promote path
+   * calls this in the same tick as `setPrimaryGoal` — React hasn't
+   * re-rendered yet at that point, so the `primaryGoal` closure here would
+   * still read its old (null) value without this.
+   */
+  async function handleFinish(resolvedPrimaryGoal: WelcomeGoalKey | null) {
     setSubmitting(true);
     setError('');
-    const result = await completeWelcomeFlow(goals, otherText || null, primaryGoal);
+    const result = await completeWelcomeFlow(goals, otherText || null, resolvedPrimaryGoal);
     // Only reached on failure: success redirects from inside the action.
     if (result?.error) {
       setError(result.error);
@@ -175,9 +184,7 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
 
         <div
           key={step}
-          className={`mt-8 flex flex-1 flex-col ${
-            step === FINAL_STEP || step === PRIMARY_GOAL_STEP ? 'mef-animate-in' : ''
-          }`}
+          className={`mt-8 flex flex-1 flex-col ${step === PRIMARY_GOAL_STEP ? 'mef-animate-in' : ''}`}
         >
           {/* Pages 1-7 are timed cinematic pages (own entrance sequence,
               auto-advance, tap-anywhere, swipe, Skip, and — from Page 2 on
@@ -225,6 +232,7 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
               onOtherTextChange={setOtherText}
               onNext={goNext}
               error={error}
+              submitting={submitting}
             />
           )}
           {step === PRIMARY_GOAL_STEP && (
@@ -234,14 +242,12 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
               onSelect={setPrimaryGoal}
               onNext={goNext}
               error={error}
+              submitting={submitting}
             />
-          )}
-          {step === FINAL_STEP && (
-            <PageFinal onFinish={handleFinish} submitting={submitting} error={error} />
           )}
         </div>
 
-        {(step === GOAL_SELECTION_STEP || step === PRIMARY_GOAL_STEP || step === FINAL_STEP) && (
+        {(step === GOAL_SELECTION_STEP || step === PRIMARY_GOAL_STEP) && (
           <button
             type="button"
             onClick={goBackOne}
@@ -611,6 +617,7 @@ function PageGoalSelection({
   onOtherTextChange,
   onNext,
   error,
+  submitting,
 }: {
   goals: string[];
   otherText: string;
@@ -618,6 +625,7 @@ function PageGoalSelection({
   onOtherTextChange: (value: string) => void;
   onNext: () => void;
   error: string;
+  submitting: boolean;
 }) {
   const showOtherField = goals.includes(SOMETHING_ELSE_KEY);
 
@@ -685,8 +693,13 @@ function PageGoalSelection({
         </p>
       )}
 
-      <button type="button" onClick={onNext} className={`mef-focus-ring ${PRIMARY_BUTTON}`}>
-        Continue
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={submitting}
+        className={`mef-focus-ring ${PRIMARY_BUTTON}`}
+      >
+        {submitting ? 'Saving...' : 'Continue'}
       </button>
     </div>
   );
@@ -705,12 +718,14 @@ function PagePrimaryGoal({
   onSelect,
   onNext,
   error,
+  submitting,
 }: {
   goals: string[];
   primaryGoal: WelcomeGoalKey | null;
   onSelect: (key: WelcomeGoalKey) => void;
   onNext: () => void;
   error: string;
+  submitting: boolean;
 }) {
   const selectedGoals = WELCOME_GOALS.filter((goal) => goals.includes(goal.key));
 
@@ -758,48 +773,13 @@ function PagePrimaryGoal({
         </p>
       )}
 
-      <button type="button" onClick={onNext} className={`mef-focus-ring ${PRIMARY_BUTTON}`}>
-        Continue
-      </button>
-    </div>
-  );
-}
-
-function PageFinal({
-  onFinish,
-  submitting,
-  error,
-}: {
-  onFinish: () => void;
-  submitting: boolean;
-  error: string;
-}) {
-  return (
-    <div className="flex flex-1 flex-col justify-center">
-      <h1 className={HEADING}>Let&apos;s Begin With Today</h1>
-      <div className={BODY}>
-        <p>Your first check-in helps establish your starting point.</p>
-        <p>There are no perfect answers.</p>
-        <p>Simply answer honestly based on how you feel today.</p>
-        <p>
-          As you continue using MEF Wellness, your check-ins, questionnaires, movement information,
-          and daily habits will help create a more personalized experience.
-        </p>
-      </div>
-
-      {error && (
-        <p role="alert" className={ERROR_BANNER}>
-          {error}
-        </p>
-      )}
-
       <button
         type="button"
-        onClick={onFinish}
+        onClick={onNext}
         disabled={submitting}
         className={`mef-focus-ring ${PRIMARY_BUTTON}`}
       >
-        {submitting ? 'Saving...' : 'Start My First Check-In'}
+        {submitting ? 'Saving...' : 'Continue'}
       </button>
     </div>
   );

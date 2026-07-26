@@ -10,7 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { FIXED_CORE_QUESTION_KEYS } from '../daily-checkin-adaptive/constants';
-import type { DriverProbeQuestion, ProbeOption, ProbeResponseType, ProbeScreen } from '../daily-checkin-adaptive/types';
+import type { DisplayStyle, DriverProbeQuestion, ProbeOption, ProbeResponseType, ProbeScreen } from '../daily-checkin-adaptive/types';
 import type { CreateQuestionInput, QuestionWithStats, RevisionEntry, UpdateQuestionInput, UpdateQuestionResult } from './types';
 import { isValidQuestionKey } from './slug';
 
@@ -38,6 +38,7 @@ type QuestionRow = {
   priority: number;
   active: boolean;
   screen: ProbeScreen;
+  display_style: DisplayStyle | null;
 };
 
 function fromRow(row: QuestionRow): DriverProbeQuestion {
@@ -55,6 +56,7 @@ function fromRow(row: QuestionRow): DriverProbeQuestion {
     priority: row.priority,
     active: row.active,
     screen: row.screen,
+    displayStyle: row.display_style ?? null,
   };
 }
 

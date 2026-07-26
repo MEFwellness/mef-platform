@@ -51,6 +51,36 @@
 }
 
 /*
+ * Daily Check-In redesign (app/checkin, app/checkin/evening) — each
+ * wizard screen's own content (heading, then each question) enters on a
+ * short staggered delay via CheckinWizard.tsx's StaggerItem. Distinct
+ * from `.mef-animate-in` (500ms, used for whole-card entrances
+ * elsewhere) since this task calls for a quicker ~400ms per item.
+ * Degrades to a plain opacity fade (reusing `mef-fade-in`'s keyframe)
+ * under prefers-reduced-motion rather than no animation at all.
+ */
+@keyframes mef-checkin-stagger {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mef-checkin-stagger {
+  animation: mef-checkin-stagger 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-checkin-stagger {
+    animation: mef-fade-in 0.3s ease-out both !important;
+  }
+}
+
+/*
  * Welcome flow entrance sequence (app/welcome/WelcomeFlow.tsx) — each of
  * Screens 1-3's own elements (logo, headline, cards, tiles, button) animates
  * in on its own delay, applied inline via `style={{ animationDelay }}`, so

@@ -17,6 +17,7 @@ function followUp(overrides: Partial<DriverProbeQuestion> = {}): DriverProbeQues
     priority: 0,
     active: true,
     screen: 'morning',
+    displayStyle: null,
     ...overrides,
   };
 }

@@ -1,18 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
-import {
-  Smile,
-  Moon,
-  Sunrise,
-  HeartPulse,
-  MessageCircle,
-  CheckCircle2,
-  type LucideIcon,
-} from 'lucide-react';
+import { Smile, Moon, HeartPulse, MessageCircle, CheckCircle2, type LucideIcon } from 'lucide-react';
 import {
   submitDailyCheckin,
   logHabitCompletion,
@@ -21,10 +13,21 @@ import {
 import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
 import { PAIN_FOLLOWUP_THRESHOLD } from '@/lib/daily-checkin-adaptive/constants';
 import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
+import { morningScreenForQuestion, type MorningScreenKey } from '@/lib/daily-checkin-adaptive/screenGrouping';
 import type { DriverProbeQuestion } from '@/lib/daily-checkin-adaptive/types';
 import { getTodaysHydrationTotal } from '@/app/actions/events';
 import { EveningReminderModal } from '@/components/checkin/EveningReminderModal';
 import { DriverProbeField, type ProbeAnswerValue } from '@/components/checkin/DriverProbeField';
+import { CheckinWizard, StaggerItem } from '@/components/checkin/CheckinWizard';
+import { FiveFacesScale } from '@/components/checkin/scales/FiveFacesScale';
+import { VerticalFillScale } from '@/components/checkin/scales/VerticalFillScale';
+import { TighteningShapeScale } from '@/components/checkin/scales/TighteningShapeScale';
+import { FiveMoonsScale } from '@/components/checkin/scales/FiveMoonsScale';
+import { SegmentedControl } from '@/components/checkin/scales/SegmentedControl';
+import { PillRow } from '@/components/checkin/scales/PillRow';
+import { BedtimeWakeArc } from '@/components/checkin/BedtimeWakeArc';
+import { BodyOutlineTap } from '@/components/checkin/BodyOutlineTap';
+import { useScreenAutoAdvance } from '@/hooks/useScreenAutoAdvance';
 import type {
   BowelMovementStatus,
   DailyCheckin,
@@ -32,11 +35,21 @@ import type {
   Habit,
 } from '@mef/shared-types-contracts';
 
+// Handled by a dedicated component/state elsewhere in this screen rather
+// than the generic DriverProbeField loop — night_waking_count/night_sweats
+// write to their own daily_checkins columns via dedicated state (as
+// before migration 109), bowel_movement_status renders under "Your body"
+// (digestion), morning_soreness is a fixed-core-style field with its own
+// SegmentedControl, and the two pain follow-ups render through
+// BodyOutlineTap/a dedicated pill row instead of the generic renderer so
+// they can share state with the pain severity question above them.
 const SPECIALLY_HANDLED_QUESTION_KEYS = new Set([
   'checkin_probe.night_waking_count',
   'checkin_probe.night_sweats',
   'checkin_probe.bowel_movement_status',
   'checkin_probe.morning_soreness',
+  'checkin_probe.pain_location',
+  'checkin_probe.pain_aggravating_factor',
 ]);
 
 type Props = {
@@ -50,7 +63,9 @@ type Props = {
    * one. Drives the post-save redirect to the Milestone 4 first-check-in
    * transition (`/dashboard?firstCheckin=1`) rather than a plain dashboard
    * redirect — computed by the server page from a real history read, not
-   * guessed here.
+   * guessed here. Also drives the one-time intro copy at the top of
+   * Screen 1 (the "Let's Begin With Today" welcome-flow screen this
+   * replaces — see WelcomeFlow.tsx).
    */
   isFirstCheckin: boolean;
   /**
@@ -81,19 +96,6 @@ type Props = {
   initialProbeAnswers: Record<string, unknown>;
 };
 
-const PAIN_LOCATION_OPTIONS = [
-  { value: 'neck', label: 'Neck' },
-  { value: 'shoulders', label: 'Shoulders' },
-  { value: 'upper_back', label: 'Upper back' },
-  { value: 'lower_back', label: 'Lower back' },
-  { value: 'hips', label: 'Hips' },
-  { value: 'knees', label: 'Knees' },
-  { value: 'feet_or_ankles', label: 'Feet or ankles' },
-  { value: 'hands_or_wrists', label: 'Hands or wrists' },
-  { value: 'widespread', label: 'Widespread' },
-  { value: 'other', label: 'Other' },
-] as const;
-
 const PAIN_AGGRAVATING_FACTOR_OPTIONS = [
   { value: 'sitting', label: 'Sitting' },
   { value: 'standing', label: 'Standing' },
@@ -121,8 +123,7 @@ const PAIN_MEANING = [
 ] as const;
 const SORENESS_MEANING = ['None', 'Mild', 'Moderate', 'Noticeable', 'Significant'] as const;
 
-const SECTION_CARD =
-  'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-shadow duration-300 hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]';
+const SCREEN_COUNT = 4;
 
 function SectionHeader({
   icon: Icon,
@@ -148,49 +149,6 @@ function SectionHeader({
   );
 }
 
-/** A single "how much" rating, presented as its meaning rather than a bare number — the selected word is what the member reads back, the integer underneath is exactly what was scored before. */
-function MeaningScale({
-  question,
-  meanings,
-  value,
-  onChange,
-  min = 1,
-}: {
-  question: string;
-  meanings: readonly string[];
-  value: number | null;
-  onChange: (value: number) => void;
-  min?: number;
-}) {
-  const options = meanings.map((word, i) => ({ value: min + i, word }));
-
-  return (
-    <div>
-      <p className="text-[13px] leading-relaxed text-[#6B7A72]">{question}</p>
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={question}>
-        {options.map((option) => {
-          const isSelected = value === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onChange(option.value)}
-              aria-pressed={isSelected}
-              className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                isSelected
-                  ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                  : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-              }`}
-            >
-              {option.word}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function CheckinForm({
   localDate,
   timezone,
@@ -209,13 +167,20 @@ export function CheckinForm({
     rotatingProbes.find((q) => q.questionKey === 'checkin_probe.night_sweats') ?? null;
   const bowelMovementQuestion =
     rotatingProbes.find((q) => q.questionKey === 'checkin_probe.bowel_movement_status') ?? null;
-  // Every rotating probe this screen renders generically — the new driver
-  // questions (migration 109) plus any future one, minus the four keys
-  // above (each has its own dedicated state/submit wiring into a real
-  // daily_checkins column, kept exactly as it was) and morning_soreness
-  // (already rendered unconditionally below; migration 109 only tags that
-  // existing field as MOV-5 evidence, it doesn't add a second field for it).
-  const genericRotatingProbes = rotatingProbes.filter((q) => !SPECIALLY_HANDLED_QUESTION_KEYS.has(q.questionKey));
+
+  // Every rotating probe this screen renders generically, grouped by
+  // which of the 4 wizard screens matches its driver's domain (task
+  // requirement 1: "rotating probe questions ... slot into whichever
+  // screen matches their driver domain") — minus the keys handled by a
+  // dedicated component/state above.
+  const probesByScreen = useMemo(() => {
+    const groups: Record<MorningScreenKey, DriverProbeQuestion[]> = { feeling: [], night: [], body: [], other: [] };
+    for (const question of rotatingProbes) {
+      if (SPECIALLY_HANDLED_QUESTION_KEYS.has(question.questionKey)) continue;
+      groups[morningScreenForQuestion(question)].push(question);
+    }
+    return groups;
+  }, [rotatingProbes]);
 
   const [probeAnswers, setProbeAnswers] = useState<Record<string, ProbeAnswerValue>>(() => {
     const initial: Record<string, ProbeAnswerValue> = {};
@@ -234,26 +199,26 @@ export function CheckinForm({
   // A local follow-up whose `requires` no longer holds (e.g. the member
   // lowered an answer back below its trigger) has its stored answer
   // cleared too — the same discipline the pre-existing pain follow-ups
-  // already apply by hand (see painLevel's onChange below).
-  useEffect(() => {
-    setProbeAnswers((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const question of localFollowUps) {
-        if (question.questionKey in next && !isLocalFollowUpEligible(question, prev)) {
-          delete next[question.questionKey];
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [probeAnswers, localFollowUps]);
-
-  const eligibleLocalFollowUps = localFollowUps.filter((question) =>
-    isLocalFollowUpEligible(question, probeAnswers)
+  // already apply by hand (see painLevel's onChange below). Recomputed
+  // straight from state rather than an effect, so it never lags a render
+  // behind the answer that changed it.
+  const eligibleLocalFollowUps = localFollowUps.filter(
+    (question) =>
+      !SPECIALLY_HANDLED_QUESTION_KEYS.has(question.questionKey) &&
+      isLocalFollowUpEligible(question, probeAnswers)
   );
+  const localFollowUpsByScreen = useMemo(() => {
+    const groups: Record<MorningScreenKey, DriverProbeQuestion[]> = { feeling: [], night: [], body: [], other: [] };
+    for (const question of eligibleLocalFollowUps) {
+      groups[morningScreenForQuestion(question)].push(question);
+    }
+    return groups;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eligibleLocalFollowUps.map((q) => q.questionKey).join(',')]);
 
   const router = useRouter();
+  const [screenIndex, setScreenIndex] = useState(0);
+  const [furthestScreenIndex, setFurthestScreenIndex] = useState(0);
   const [showEveningReminder, setShowEveningReminder] = useState(false);
   const [moodLevel, setMoodLevel] = useState<number | null>(existingCheckin?.mood_level ?? null);
   const [sleepQuality, setSleepQuality] = useState<number | null>(
@@ -304,36 +269,35 @@ export function CheckinForm({
     existingCheckin?.bowel_movement_status ?? null
   );
 
-  // Premium UX Milestone 4, "better progress feedback" — a calm sense of
-  // motion through the check-in rather than a blocking wizard. Habits and
-  // the fully-optional reflection notes are deliberately excluded from the
-  // denominator: their presence/size varies per member and per day, so
-  // counting them would make the same effort look like a different amount
-  // of "progress" from one day to the next.
-  const { completedSections, totalSections } = useMemo(() => {
-    const readinessDone =
-      actualBedtime !== '' &&
-      actualWakeTime !== '' &&
-      moodLevel !== null &&
-      energyLevel !== null &&
-      stressLevel !== null;
-    const sleepDone = sleepQuality !== null && sleepDuration !== null;
-    const bodyDone = painLevel !== null && bowelMovementStatus !== null;
-    return {
-      completedSections: [readinessDone, sleepDone, bodyDone].filter(Boolean).length,
-      totalSections: 3,
-    };
-  }, [
-    actualBedtime,
-    actualWakeTime,
-    moodLevel,
-    energyLevel,
-    stressLevel,
-    sleepQuality,
-    sleepDuration,
-    painLevel,
-    bowelMovementStatus,
-  ]);
+  function goToScreen(index: number) {
+    const clamped = Math.max(0, Math.min(index, SCREEN_COUNT - 1));
+    setScreenIndex(clamped);
+    setFurthestScreenIndex((prev) => Math.max(prev, clamped));
+  }
+  const goNext = () => goToScreen(screenIndex + 1);
+  const goBack = () => goToScreen(screenIndex - 1);
+
+  const screen0Complete = moodLevel !== null && energyLevel !== null && stressLevel !== null;
+  const screen1Complete =
+    sleepQuality !== null && sleepDuration !== null && actualBedtime !== '' && actualWakeTime !== '';
+  const screen2Complete = useMemo(() => {
+    if (morningSoreness === null || painLevel === null) return false;
+    if (painLevel >= PAIN_FOLLOWUP_THRESHOLD && (painLocation === null || painAggravatingFactor === null)) {
+      return false;
+    }
+    if (bowelMovementQuestion && bowelMovementStatus === null) return false;
+    return true;
+  }, [morningSoreness, painLevel, painLocation, painAggravatingFactor, bowelMovementQuestion, bowelMovementStatus]);
+
+  // Each hook watches only that screen's OWN field-completeness, never
+  // multiplied by whether that screen is currently on-screen: these
+  // fields can only change while their own screen is showing anyway (no
+  // other screen renders their controls), so gating on screenIndex too
+  // would falsely read a pre-filled reopen (existingCheckin) as "just
+  // completed" the moment the member's later screen comes into view.
+  useScreenAutoAdvance(screen0Complete, () => screenIndex === 0 && goNext());
+  useScreenAutoAdvance(screen1Complete, () => screenIndex === 1 && goNext());
+  useScreenAutoAdvance(screen2Complete, () => screenIndex === 2 && goNext());
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -341,8 +305,10 @@ export function CheckinForm({
 
     // Required for a valid Morning Readiness day (see
     // lib/wellness/morningReadiness.ts's isMorningReadinessEligible, which
-    // this list matches exactly) — everything else on this form is
-    // optional-but-encouraged.
+    // this list matches exactly) — belt-and-suspenders: the wizard's own
+    // auto-advance gating already guarantees these are set by the time
+    // Screen 4 is reachable, but this check stays as the same safety net
+    // it always was.
     if (
       actualBedtime === '' ||
       actualWakeTime === '' ||
@@ -456,315 +422,306 @@ export function CheckinForm({
     }
   }
 
-  const progressLabel =
-    completedSections === totalSections
-      ? 'All set — ready to save'
-      : `${totalSections - completedSections} section${totalSections - completedSections === 1 ? '' : 's'} left`;
-
   return (
     <>
-      <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-        {/* Progress feedback, subtle, never blocking submission. */}
-        <div className="flex items-center gap-3">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#1B3A2D]/[0.07]">
-            <div
-              className="h-full rounded-full bg-[#1B3A2D] transition-all duration-500 ease-out"
-              style={{ width: `${(completedSections / totalSections) * 100}%` }}
-            />
-          </div>
-          <p className="shrink-0 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
-            {progressLabel}
-          </p>
-        </div>
-
-        <div className={`${SECTION_CARD} mef-animate-in space-y-6 p-7`}>
-          <SectionHeader
-            icon={Smile}
-            title="How you're feeling"
-            subtitle="A quick emotional and physical read on this morning"
-          />
-          <MeaningScale
-            question="How are you feeling emotionally this morning?"
-            meanings={MOOD_MEANING}
-            value={moodLevel}
-            onChange={setMoodLevel}
-          />
-          <MeaningScale
-            question="How energized do you feel this morning?"
-            meanings={ENERGY_MEANING}
-            value={energyLevel}
-            onChange={setEnergyLevel}
-          />
-          <MeaningScale
-            question="How much stress are you carrying as you wake up?"
-            meanings={STRESS_MEANING}
-            value={stressLevel}
-            onChange={setStressLevel}
-          />
-        </div>
-
-        <div
-          className={`${SECTION_CARD} mef-animate-in space-y-6 p-7`}
-          style={{ animationDelay: '60ms' }}
+      <form onSubmit={handleSubmit} className="mt-6">
+        <CheckinWizard
+          screenCount={SCREEN_COUNT}
+          screenIndex={screenIndex}
+          furthestScreenIndex={furthestScreenIndex}
+          onBack={goBack}
+          onSelectScreen={goToScreen}
         >
-          <SectionHeader icon={Moon} title="Sleep" subtitle="How last night set up today" />
-          <MeaningScale
-            question="How restorative was your sleep?"
-            meanings={SLEEP_QUALITY_MEANING}
-            value={sleepQuality}
-            onChange={setSleepQuality}
-          />
-          <div>
-            <p className="text-[13px] leading-relaxed text-[#6B7A72]">
-              About how many hours did you sleep?
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {SLEEP_DURATIONS.map((duration) => (
-                <button
-                  key={duration}
-                  type="button"
-                  onClick={() => setSleepDuration(duration)}
-                  aria-pressed={sleepDuration === duration}
-                  className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                    sleepDuration === duration
-                      ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                      : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                  }`}
-                >
-                  {duration}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div
-          className={`${SECTION_CARD} mef-animate-in space-y-6 p-7`}
-          style={{ animationDelay: '120ms' }}
-        >
-          <SectionHeader
-            icon={Sunrise}
-            title="Morning Readiness"
-            subtitle="Bedtime, wake time, and how the night actually went"
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <label className="block">
-              <span className="text-[13px] leading-relaxed text-[#6B7A72]">Bedtime</span>
-              <input
-                type="time"
-                value={actualBedtime}
-                onChange={(event) => setActualBedtime(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 px-3 py-2.5 text-base text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
-              />
-            </label>
-            <label className="block">
-              <span className="text-[13px] leading-relaxed text-[#6B7A72]">Wake time</span>
-              <input
-                type="time"
-                value={actualWakeTime}
-                onChange={(event) => setActualWakeTime(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 px-3 py-2.5 text-base text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
-              />
-            </label>
-          </div>
-
-          {nightWakingQuestion && (
-            <DriverProbeField
-              question={nightWakingQuestion}
-              value={nightWakingCount}
-              onChange={(value) => setNightWakingCount(value as number)}
-            />
-          )}
-
-          {nightSweatsQuestion && (
-            <DriverProbeField
-              question={nightSweatsQuestion}
-              value={nightSweats}
-              onChange={(value) => setNightSweats(value as boolean)}
-            />
-          )}
-
-          <MeaningScale
-            question="How sore does your body feel this morning?"
-            meanings={SORENESS_MEANING}
-            value={morningSoreness}
-            onChange={setMorningSoreness}
-          />
-
-          {bowelMovementQuestion && (
-            <DriverProbeField
-              question={bowelMovementQuestion}
-              value={bowelMovementStatus}
-              onChange={(value) => setBowelMovementStatus(value as BowelMovementStatus)}
-            />
-          )}
-
-          {genericRotatingProbes.map((question) => (
-            <DriverProbeField
-              key={question.questionKey}
-              question={question}
-              value={probeAnswers[question.questionKey] ?? null}
-              onChange={(value) => setProbeAnswer(question.questionKey, value)}
-            />
-          ))}
-
-          {eligibleLocalFollowUps.map((question) => (
-            <DriverProbeField
-              key={question.questionKey}
-              question={question}
-              value={probeAnswers[question.questionKey] ?? null}
-              onChange={(value) => setProbeAnswer(question.questionKey, value)}
-            />
-          ))}
-        </div>
-
-        <div
-          className={`${SECTION_CARD} mef-animate-in space-y-6 p-7`}
-          style={{ animationDelay: '180ms' }}
-        >
-          <SectionHeader
-            icon={HeartPulse}
-            title="How your body feels"
-            subtitle="Any pain or discomfort as you start the day"
-          />
-          <MeaningScale
-            question="Are you noticing any pain or physical discomfort?"
-            meanings={PAIN_MEANING}
-            value={painLevel}
-            onChange={(value) => {
-              setPainLevel(value);
-              if (value < PAIN_FOLLOWUP_THRESHOLD) {
-                setPainLocation(null);
-                setPainAggravatingFactor(null);
-              }
-            }}
-            min={0}
-          />
-
-          {painLevel !== null && painLevel >= PAIN_FOLLOWUP_THRESHOLD && (
-            <div>
-              <p className="text-[13px] leading-relaxed text-[#6B7A72]">Where is it, mainly?</p>
-              <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Where is it, mainly?">
-                {PAIN_LOCATION_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setPainLocation(option.value)}
-                    aria-pressed={painLocation === option.value}
-                    className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                      painLocation === option.value
-                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {painLevel !== null && painLevel >= PAIN_FOLLOWUP_THRESHOLD && painLocation !== null && (
-            <div>
-              <p className="text-[13px] leading-relaxed text-[#6B7A72]">What tends to make it worse?</p>
-              <div
-                className="mt-3 flex flex-wrap gap-2"
-                role="group"
-                aria-label="What tends to make it worse?"
-              >
-                {PAIN_AGGRAVATING_FACTOR_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setPainAggravatingFactor(option.value)}
-                    aria-pressed={painAggravatingFactor === option.value}
-                    className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                      painAggravatingFactor === option.value
-                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {habits.length > 0 && (
-          <div className={`${SECTION_CARD} mef-animate-in p-7`} style={{ animationDelay: '240ms' }}>
-            <SectionHeader
-              icon={CheckCircle2}
-              title="Today's habits"
-              subtitle="Mark off what you've already done"
-            />
-            <div className="mt-4 space-y-2">
-              {habits.map((habit) => (
-                <label
-                  key={habit.id}
-                  className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition-all duration-200 ease-out ${
-                    habitStatus[habit.id]
-                      ? 'border-[#1B3A2D]/15 bg-[#1B3A2D]/[0.04] text-[#1B3A2D]'
-                      : 'border-[#1B3A2D]/10 text-[#1B3A2D]'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={habitStatus[habit.id] ?? false}
-                    onChange={(event) => toggleHabit(habit.id, event.target.checked)}
-                    className="h-4 w-4 accent-[#F5B700]"
+          {screenIndex === 0 && (
+            <div key="screen-0" className="space-y-6">
+              <StaggerItem index={0}>
+                <SectionHeader
+                  icon={Smile}
+                  title="How you're feeling"
+                  subtitle="A quick emotional and physical read on this morning"
+                />
+              </StaggerItem>
+              {isFirstCheckin && (
+                <StaggerItem index={1}>
+                  <div>
+                    <p className="text-[15px] font-medium text-[#1B3A2D]">
+                      Your first check-in sets your starting point.
+                    </p>
+                    <p className="mt-1 text-[13px] text-[#6B7A72]">
+                      There are no perfect answers. Just answer honestly.
+                    </p>
+                  </div>
+                </StaggerItem>
+              )}
+              <StaggerItem index={2}>
+                <FiveFacesScale
+                  question="How are you feeling emotionally this morning?"
+                  labels={MOOD_MEANING}
+                  value={moodLevel}
+                  onChange={setMoodLevel}
+                />
+              </StaggerItem>
+              <StaggerItem index={3}>
+                <VerticalFillScale
+                  question="How energized do you feel this morning?"
+                  labels={ENERGY_MEANING}
+                  value={energyLevel}
+                  onChange={setEnergyLevel}
+                />
+              </StaggerItem>
+              <StaggerItem index={4}>
+                <TighteningShapeScale
+                  question="How much stress are you carrying as you wake up?"
+                  labels={STRESS_MEANING}
+                  value={stressLevel}
+                  onChange={setStressLevel}
+                />
+              </StaggerItem>
+              {[...probesByScreen.feeling, ...localFollowUpsByScreen.feeling].map((question, index) => (
+                <StaggerItem key={question.questionKey} index={5 + index}>
+                  <DriverProbeField
+                    question={question}
+                    value={probeAnswers[question.questionKey] ?? null}
+                    onChange={(value) => setProbeAnswer(question.questionKey, value)}
                   />
-                  {habit.title}
-                </label>
+                </StaggerItem>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        <div className={`${SECTION_CARD} mef-animate-in p-7`} style={{ animationDelay: '300ms' }}>
-          <SectionHeader
-            icon={MessageCircle}
-            title="Anything else?"
-            subtitle="Entirely optional, share as much or as little as you'd like"
-          />
-          <label className="mt-4 flex items-start gap-3 text-sm text-[#1B3A2D]">
-            <input
-              type="checkbox"
-              checked={concern}
-              onChange={(event) => setConcern(event.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-[#F5B700]"
-            />
-            I have a new or worsening concern I want my coach to know about
-          </label>
-          <div className="mt-4">
-            <label className="text-[13px] leading-relaxed text-[#6B7A72]" htmlFor="notes">
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              value={notes ?? ''}
-              onChange={(event) => setNotes(event.target.value)}
-              rows={3}
-              className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
-              placeholder="Anything else worth noting today?"
-            />
-          </div>
-        </div>
+          {screenIndex === 1 && (
+            <div key="screen-1" className="space-y-6">
+              <StaggerItem index={0}>
+                <SectionHeader icon={Moon} title="Your night" subtitle="How last night set up today" />
+              </StaggerItem>
+              <StaggerItem index={1}>
+                <FiveMoonsScale
+                  question="How restorative was your sleep?"
+                  labels={SLEEP_QUALITY_MEANING}
+                  value={sleepQuality}
+                  onChange={setSleepQuality}
+                />
+              </StaggerItem>
+              <StaggerItem index={2}>
+                <SegmentedControl
+                  question="About how many hours did you sleep?"
+                  options={SLEEP_DURATIONS.map((d) => ({ value: d, label: d }))}
+                  value={sleepDuration}
+                  onChange={setSleepDuration}
+                />
+              </StaggerItem>
+              <StaggerItem index={3}>
+                <BedtimeWakeArc
+                  bedtime={actualBedtime}
+                  wakeTime={actualWakeTime}
+                  onChange={(bedtime, wake) => {
+                    setActualBedtime(bedtime);
+                    setActualWakeTime(wake);
+                  }}
+                />
+              </StaggerItem>
+              {nightWakingQuestion && (
+                <StaggerItem index={4}>
+                  <DriverProbeField
+                    question={nightWakingQuestion}
+                    value={nightWakingCount}
+                    onChange={(value) => setNightWakingCount(value as number)}
+                  />
+                </StaggerItem>
+              )}
+              {nightSweatsQuestion && (
+                <StaggerItem index={5}>
+                  <DriverProbeField
+                    question={nightSweatsQuestion}
+                    value={nightSweats}
+                    onChange={(value) => setNightSweats(value as boolean)}
+                  />
+                </StaggerItem>
+              )}
+              {[...probesByScreen.night, ...localFollowUpsByScreen.night].map((question, index) => (
+                <StaggerItem key={question.questionKey} index={6 + index}>
+                  <DriverProbeField
+                    question={question}
+                    value={probeAnswers[question.questionKey] ?? null}
+                    onChange={(value) => setProbeAnswer(question.questionKey, value)}
+                  />
+                </StaggerItem>
+              ))}
+            </div>
+          )}
 
-        {error && (
-          <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </p>
-        )}
+          {screenIndex === 2 && (
+            <div key="screen-2" className="space-y-6">
+              <StaggerItem index={0}>
+                <SectionHeader
+                  icon={HeartPulse}
+                  title="Your body"
+                  subtitle="Soreness, pain, and digestion"
+                />
+              </StaggerItem>
+              <StaggerItem index={1}>
+                <SegmentedControl
+                  question="How sore does your body feel this morning?"
+                  options={SORENESS_MEANING.map((word, i) => ({ value: i + 1, label: word }))}
+                  value={morningSoreness}
+                  onChange={setMorningSoreness}
+                />
+              </StaggerItem>
+              <StaggerItem index={2}>
+                <SegmentedControl
+                  question="Are you noticing any pain or physical discomfort?"
+                  options={PAIN_MEANING.map((word, i) => ({ value: i, label: word }))}
+                  value={painLevel}
+                  onChange={(value) => {
+                    setPainLevel(value);
+                    if (value < PAIN_FOLLOWUP_THRESHOLD) {
+                      setPainLocation(null);
+                      setPainAggravatingFactor(null);
+                    }
+                  }}
+                />
+              </StaggerItem>
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition-all duration-200 ease-out hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
-        >
-          {submitting ? 'Saving…' : existingCheckin ? 'Update check-in' : 'Save check-in'}
-        </button>
+              {painLevel !== null && painLevel >= PAIN_FOLLOWUP_THRESHOLD && (
+                <StaggerItem index={3}>
+                  <BodyOutlineTap
+                    question="Where is it, mainly?"
+                    value={painLocation}
+                    onChange={setPainLocation}
+                  />
+                </StaggerItem>
+              )}
+
+              {painLevel !== null && painLevel >= PAIN_FOLLOWUP_THRESHOLD && painLocation !== null && (
+                <StaggerItem index={4}>
+                  <PillRow
+                    question="What tends to make it worse?"
+                    options={PAIN_AGGRAVATING_FACTOR_OPTIONS}
+                    value={painAggravatingFactor}
+                    onChange={setPainAggravatingFactor}
+                  />
+                </StaggerItem>
+              )}
+
+              {bowelMovementQuestion && (
+                <StaggerItem index={5}>
+                  <DriverProbeField
+                    question={bowelMovementQuestion}
+                    value={bowelMovementStatus}
+                    onChange={(value) => setBowelMovementStatus(value as BowelMovementStatus)}
+                  />
+                </StaggerItem>
+              )}
+
+              {[...probesByScreen.body, ...localFollowUpsByScreen.body].map((question, index) => (
+                <StaggerItem key={question.questionKey} index={6 + index}>
+                  <DriverProbeField
+                    question={question}
+                    value={probeAnswers[question.questionKey] ?? null}
+                    onChange={(value) => setProbeAnswer(question.questionKey, value)}
+                  />
+                </StaggerItem>
+              ))}
+            </div>
+          )}
+
+          {screenIndex === 3 && (
+            <div key="screen-3" className="space-y-6">
+              <StaggerItem index={0}>
+                <SectionHeader
+                  icon={MessageCircle}
+                  title="Anything else"
+                  subtitle="Entirely optional, share as much or as little as you'd like"
+                />
+              </StaggerItem>
+
+              {[...probesByScreen.other, ...localFollowUpsByScreen.other].map(
+                (question, index) => (
+                  <StaggerItem key={question.questionKey} index={1 + index}>
+                    <DriverProbeField
+                      question={question}
+                      value={probeAnswers[question.questionKey] ?? null}
+                      onChange={(value) => setProbeAnswer(question.questionKey, value)}
+                    />
+                  </StaggerItem>
+                )
+              )}
+
+              {habits.length > 0 && (
+                <StaggerItem index={2}>
+                  <div>
+                    <SectionHeader
+                      icon={CheckCircle2}
+                      title="Today's habits"
+                      subtitle="Mark off what you've already done"
+                    />
+                    <div className="mt-4 space-y-2">
+                      {habits.map((habit) => (
+                        <label
+                          key={habit.id}
+                          className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition-all duration-200 ease-out ${
+                            habitStatus[habit.id]
+                              ? 'border-[#1B3A2D]/15 bg-[#1B3A2D]/[0.04] text-[#1B3A2D]'
+                              : 'border-[#1B3A2D]/10 text-[#1B3A2D]'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={habitStatus[habit.id] ?? false}
+                            onChange={(event) => toggleHabit(habit.id, event.target.checked)}
+                            className="h-4 w-4 accent-[#F5B700]"
+                          />
+                          {habit.title}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </StaggerItem>
+              )}
+
+              <StaggerItem index={3}>
+                <div>
+                  <label className="flex items-start gap-3 text-sm text-[#1B3A2D]">
+                    <input
+                      type="checkbox"
+                      checked={concern}
+                      onChange={(event) => setConcern(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[#F5B700]"
+                    />
+                    I have a new or worsening concern I want my coach to know about
+                  </label>
+                  <div className="mt-4">
+                    <label className="text-[13px] leading-relaxed text-[#6B7A72]" htmlFor="notes">
+                      Notes
+                    </label>
+                    <textarea
+                      id="notes"
+                      value={notes ?? ''}
+                      onChange={(event) => setNotes(event.target.value)}
+                      rows={3}
+                      className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] transition-colors duration-150 focus:border-[#F5B700] focus:outline-none"
+                      placeholder="Anything else worth noting today?"
+                    />
+                  </div>
+                </div>
+              </StaggerItem>
+
+              {error && (
+                <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="mef-press flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition-all duration-200 ease-out hover:brightness-110 disabled:opacity-60"
+              >
+                {submitting ? 'Saving…' : existingCheckin ? 'Update check-in' : 'Save check-in'}
+              </button>
+            </div>
+          )}
+        </CheckinWizard>
       </form>
       {showEveningReminder && <EveningReminderModal onAcknowledge={acknowledgeEveningReminder} />}
     </>

@@ -16,8 +16,6 @@ import {
   getProbeAnswersForDateAction,
 } from '@/app/actions/dailyCheckinPlan';
 import { todaysLocalDate } from '@/lib/time/localDate';
-import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
 import { CheckInModeSwitch } from '@/components/checkin/CheckInModeSwitch';
 import { EveningReflectionForm } from './EveningReflectionForm';
@@ -37,9 +35,8 @@ export default async function EveningReflectionPage() {
   const timezone = profile?.timezone ?? 'America/New_York';
   const localDate = todaysLocalDate(timezone);
 
-  const [isCoach, existing, todaysCheckin, checkinPlan, localFollowUps, initialProbeAnswers, existingForecastLevel] =
+  const [existing, todaysCheckin, checkinPlan, localFollowUps, initialProbeAnswers, existingForecastLevel] =
     await Promise.all([
-      hasActiveRole(supabase, user.id, 'coach'),
       getTodaysEveningReflection(),
       getTodaysCheckin(localDate),
       getTodaysCheckinPlanAction(localDate),
@@ -52,8 +49,8 @@ export default async function EveningReflectionPage() {
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
+    <div className="min-h-screen bg-gradient-to-b from-[#1B3A2D]/[0.09] via-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <main className="mx-auto w-full max-w-md px-5 pb-12 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pl-28">
         <div className="flex items-start justify-between gap-3">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
             Evening Reflection
@@ -78,8 +75,6 @@ export default async function EveningReflectionPage() {
           existingForecastLevel={existingForecastLevel}
         />
       </main>
-
-      <BottomNav isCoach={isCoach} />
     </div>
   );
 }

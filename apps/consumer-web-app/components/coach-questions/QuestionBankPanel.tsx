@@ -190,6 +190,7 @@ export function QuestionBankPanel({
                       priority: 0,
                       active: true,
                       screen: input.screen,
+                      displayStyle: null,
                       askedCount: 0,
                       answeredCount: 0,
                     },

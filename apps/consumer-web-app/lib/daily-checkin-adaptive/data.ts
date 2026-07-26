@@ -6,7 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Rule } from '../adaptive-assessment-engine/types';
-import type { DriverProbeQuestion, ProbeOption, ProbeResponseType, ProbeScreen, ProbeStorage } from './types';
+import type { DisplayStyle, DriverProbeQuestion, ProbeOption, ProbeResponseType, ProbeScreen, ProbeStorage } from './types';
 
 type DriverProbeQuestionRow = {
   question_key: string;
@@ -22,6 +22,7 @@ type DriverProbeQuestionRow = {
   priority: number;
   active: boolean;
   screen: ProbeScreen;
+  display_style: DisplayStyle | null;
 };
 
 function fromRow(row: DriverProbeQuestionRow): DriverProbeQuestion {
@@ -39,6 +40,7 @@ function fromRow(row: DriverProbeQuestionRow): DriverProbeQuestion {
     priority: row.priority,
     active: row.active,
     screen: row.screen,
+    displayStyle: row.display_style ?? null,
   };
 }
 
