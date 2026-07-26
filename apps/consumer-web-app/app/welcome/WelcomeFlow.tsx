@@ -77,7 +77,13 @@ export function WelcomeFlow() {
       <main className={CONTAINER}>
         <Progress step={step} />
 
-        <div key={step} className="mef-animate-in mt-8 flex flex-1 flex-col">
+        <div
+          key={step}
+          className={`mt-8 flex flex-1 flex-col ${step === 4 ? 'mef-animate-in' : ''}`}
+        >
+          {/* Screens 1-3 sequence their own child elements below instead of
+              fading in as one block, so the wrapper skips `mef-animate-in`
+              for them to avoid animating twice. Screen 4 is unchanged. */}
           {step === 1 && <ScreenOne onNext={goNext} />}
           {step === 2 && <ScreenTwo onNext={goNext} />}
           {step === 3 && (
@@ -135,7 +141,7 @@ function Progress({ step }: { step: number }) {
 function ScreenOne({ onNext }: { onNext: () => void }) {
   return (
     <div className="flex flex-1 flex-col justify-center text-center">
-      <div className="mx-auto mb-2">
+      <div className="mef-scale-settle mx-auto mb-2">
         <Image
           src="/images/rooted-reset-logo.png"
           alt="Rooted Reset by MEF Wellness"
@@ -144,15 +150,22 @@ function ScreenOne({ onNext }: { onNext: () => void }) {
           style={{ objectFit: 'contain', borderRadius: '10px' }}
         />
       </div>
-      <h1 className={HEADING}>Welcome to MEF Wellness</h1>
-      <div className={BODY}>
+      <h1 className={`mef-animate-in ${HEADING}`} style={{ animationDelay: '150ms' }}>
+        Welcome to MEF Wellness
+      </h1>
+      <div className={`mef-fade-in ${BODY}`} style={{ animationDelay: '300ms' }}>
         <p>Every person has a unique story.</p>
         <p>
           Our goal is to understand how your movement, sleep, stress, nutrition, pain, energy, and
           daily habits work together so we can personalize your experience over time.
         </p>
       </div>
-      <button type="button" onClick={onNext} className={`mef-focus-ring ${PRIMARY_BUTTON}`}>
+      <button
+        type="button"
+        onClick={onNext}
+        className={`mef-focus-ring mef-fade-in ${PRIMARY_BUTTON}`}
+        style={{ animationDelay: '450ms' }}
+      >
         Get Started
       </button>
     </div>
@@ -160,28 +173,29 @@ function ScreenOne({ onNext }: { onNext: () => void }) {
 }
 
 function ScreenTwo({ onNext }: { onNext: () => void }) {
+  const lastCardDelay = 150 + (HEALTH_CARDS.length - 1) * 150;
+
   return (
     <div className="flex flex-1 flex-col">
-      <h1 className={HEADING}>Your health is connected</h1>
-      <div className={BODY}>
-        <p>Many health concerns do not exist in isolation.</p>
-        <p>
-          MEF Wellness helps you understand how different areas of your health may influence one
-          another so you can make more informed decisions about your wellness.
-        </p>
-      </div>
+      <h1 className={`mef-animate-in ${HEADING}`}>Your health is connected</h1>
       <div className="mt-8 grid grid-cols-2 gap-3">
-        {HEALTH_CARDS.map(({ Icon, label }) => (
+        {HEALTH_CARDS.map(({ Icon, label }, index) => (
           <div
             key={label}
-            className="rounded-2xl bg-white p-4 text-center shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]"
+            className="mef-animate-in rounded-2xl bg-white p-4 text-center shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]"
+            style={{ animationDelay: `${150 + index * 150}ms` }}
           >
             <Icon className="mx-auto h-6 w-6 text-[#1B3A2D]" strokeWidth={1.5} aria-hidden="true" />
             <p className="mt-2 text-xs font-semibold leading-snug text-[#1B3A2D]">{label}</p>
           </div>
         ))}
       </div>
-      <button type="button" onClick={onNext} className={`mef-focus-ring ${PRIMARY_BUTTON}`}>
+      <button
+        type="button"
+        onClick={onNext}
+        className={`mef-focus-ring mef-fade-in ${PRIMARY_BUTTON}`}
+        style={{ animationDelay: `${lastCardDelay + 150}ms` }}
+      >
         Continue
       </button>
     </div>
@@ -207,8 +221,11 @@ function ScreenThree({
 
   return (
     <div className="flex flex-1 flex-col">
-      <h1 className={HEADING}>What brought you here today?</h1>
-      <p className="mt-3 text-[15px] leading-relaxed text-[#6B7A72]">
+      <h1 className={`mef-fade-in ${HEADING}`}>What brought you here today?</h1>
+      <p
+        className="mef-fade-in mt-3 text-[15px] leading-relaxed text-[#6B7A72]"
+        style={{ animationDelay: '150ms' }}
+      >
         Select every area you would like help with.
       </p>
 
@@ -217,7 +234,7 @@ function ScreenThree({
         aria-label="Areas you would like help with"
         className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-3"
       >
-        {WELCOME_GOALS.map(({ key, label }) => {
+        {WELCOME_GOALS.map(({ key, label }, index) => {
           const isSelected = goals.includes(key);
           return (
             <button
@@ -225,11 +242,12 @@ function ScreenThree({
               type="button"
               aria-pressed={isSelected}
               onClick={() => onToggleGoal(key)}
-              className={`mef-focus-ring flex items-center justify-between gap-2 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition-colors ${
+              className={`mef-focus-ring mef-animate-in flex items-center justify-between gap-2 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition-colors ${
                 isSelected
                   ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                   : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
               }`}
+              style={{ animationDelay: `${300 + Math.min(index, 7) * 70}ms` }}
             >
               {label}
               {isSelected && (
