@@ -9,6 +9,7 @@ import {
   ClipboardList,
   ShieldAlert,
   Dumbbell,
+  ListChecks,
   ChevronRight,
 } from 'lucide-react';
 import { listAssignedClients } from '@/app/actions/coach';
@@ -157,6 +158,23 @@ export default async function CoachPage() {
           <div className="flex items-center gap-2 text-[#854D0E]">
             <Dumbbell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Program Library</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
+        {/* ---------------------------------------------------- */}
+        {/* Question Bank — manage the daily check-in's driver_probe_ */}
+        {/* questions (migrations 106/109/110). Always shown, same    */}
+        {/* "reached from the coach dashboard" convention as Program  */}
+        {/* Library above, not a new nav tab.                         */}
+        {/* ---------------------------------------------------- */}
+        <Link
+          href="/coach/questions"
+          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:opacity-90`}
+        >
+          <div className="flex items-center gap-2 text-[#854D0E]">
+            <ListChecks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Question Bank</p>
           </div>
           <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
         </Link>
