@@ -82,14 +82,10 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
 const TRACKER_CARD = `${CARD} flex min-h-[172px] flex-col p-5`;
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
 
-/** Suspense fallback for WhatWereNoticingCard, shown only for the brief moment its own fetch is still resolving, never a blank gap. */
-function NoticingCardSkeleton() {
+/** Suspense fallback for each "What Root Is Noticing" carousel tile, shaped like the real tile so the row doesn't jump once its own fetch resolves. */
+function NoticingTileSkeleton() {
   return (
-    <div className={`${CARD} animate-pulse p-6`}>
-      <div className="h-3 w-40 rounded-full bg-[#1B3A2D]/10" />
-      <div className="mt-4 h-3.5 w-full rounded-full bg-[#1B3A2D]/[0.06]" />
-      <div className="mt-2.5 h-3.5 w-5/6 rounded-full bg-[#1B3A2D]/[0.06]" />
-    </div>
+    <div className="aspect-[3/4] w-[172px] shrink-0 animate-pulse rounded-[24px] bg-[#1B3A2D]/10" />
   );
 }
 
@@ -446,18 +442,27 @@ export default async function DashboardPage({
             </RevealOnScroll>
 
             {/* ==================================================== */}
-            {/* Your Path — Questionnaires (plain row + progress bar),  */}
-            {/* Guided Posture & Movement Assessment (image-backed      */}
-            {/* card), Personalized Insights (white card).              */}
+            {/* Your Path — Guided Posture & Movement Assessment        */}
+            {/* (image-backed card), Questionnaires (plain row +        */}
+            {/* progress bar), Personalized Insights (white card, or     */}
+            {/* nothing yet). Movement goes first and Questionnaires     */}
+            {/* last-if-Comprehensive-is-absent on purpose: Comprehensive */}
+            {/* (white) is conditional and can be null, and the zone      */}
+            {/* right after this one is now an image-backed carousel —   */}
+            {/* ending on image-backed here too (if Movement were last)   */}
+            {/* would repeat that treatment back to back. With Movement   */}
+            {/* first, this zone always ends on Comprehensive (white) or  */}
+            {/* Questionnaires (row), never image-backed, regardless of   */}
+            {/* which cards are present.                                 */}
             {/* ==================================================== */}
             <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>Your Path</p>
               <div className="mt-4 space-y-4">
+                <MovementAssessmentCard assessments={bodyAssessments} variant="imageBacked" />
                 <QuestionnairesHomeCard
                   completedCount={questionnaireCatalog.completedCount}
                   totalCount={questionnaireCatalog.totalCount}
                 />
-                <MovementAssessmentCard assessments={bodyAssessments} variant="imageBacked" />
                 <ComprehensiveAssessmentCard
                   baseline={baseline}
                   movementCompleted={movementAnalyzed}
@@ -467,27 +472,32 @@ export default async function DashboardPage({
 
             {/* ==================================================== */}
             {/* What Root Is Noticing — What We're Noticing, Your Root  */}
-            {/* Map, From Root, and Recommended For You, grouped inside */}
-            {/* one tinted panel instead of four separate white cards   */}
-            {/* scattered down the page. Each keeps its own Suspense     */}
-            {/* boundary and independent fetch — only the outer          */}
-            {/* presentation is shared. Renders nothing extra when all   */}
-            {/* four have nothing to say; the panel itself always        */}
-            {/* renders (it has no data of its own to be empty about).   */}
+            {/* Map, From Root, and Recommended For You, as a            */}
+            {/* horizontal carousel of image-backed vertical cards        */}
+            {/* (components/dashboard/NoticingTile.tsx), matching the     */}
+            {/* rest of the redesign's image-card language instead of     */}
+            {/* the tinted panel of stacked white cards this zone used     */}
+            {/* to be. Each card keeps its own Suspense boundary and       */}
+            {/* independent fetch; a card that has nothing to say just     */}
+            {/* isn't in the row (no gap, no placeholder). Tapping a card  */}
+            {/* either navigates to its existing destination (Root Map,   */}
+            {/* Recommendations) or opens a bottom sheet with the full     */}
+            {/* original content (What We're Noticing, From Root — both   */}
+            {/* previously had no dedicated destination page).             */}
             {/* ==================================================== */}
             <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>What Root Is Noticing</p>
-              <div className="mt-4 space-y-3 rounded-[32px] bg-[#EFF6F1] p-4 sm:p-5">
-                <Suspense fallback={<NoticingCardSkeleton />}>
+              <div className="mef-scrollbar-hidden mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-5 pb-1">
+                <Suspense fallback={<NoticingTileSkeleton />}>
                   <WhatWereNoticingCard />
                 </Suspense>
-                <Suspense fallback={<NoticingCardSkeleton />}>
+                <Suspense fallback={<NoticingTileSkeleton />}>
                   <RootMapCard />
                 </Suspense>
-                <Suspense fallback={<NoticingCardSkeleton />}>
+                <Suspense fallback={<NoticingTileSkeleton />}>
                   <CoachingMessageCard />
                 </Suspense>
-                <Suspense fallback={<NoticingCardSkeleton />}>
+                <Suspense fallback={<NoticingTileSkeleton />}>
                   <RecommendationsCard />
                 </Suspense>
               </div>

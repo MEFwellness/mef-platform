@@ -5,13 +5,23 @@
  * coaching language only. Renders nothing (not even an empty-state) when
  * the member has no active findings yet, same "never show a broken-
  * looking empty state" posture as the rest of this dashboard.
+ *
+ * Home dashboard redesign: now an image-backed carousel tile
+ * (components/dashboard/NoticingTile.tsx) instead of a stacked white
+ * card. There's no dedicated destination page for this exact composite
+ * view, so tapping the tile opens a bottom sheet with the full original
+ * content below — every section, every item, the same recommendation
+ * link — completely unchanged, just relocated out of the always-visible
+ * card face and behind a tap. The card face's headline is a <=6-word
+ * derivation (lib/dashboard/toHeadline.ts) of whichever real sentence
+ * would have led the old card; never new wording.
  */
 
 import Link from 'next/link';
 import type { Route } from 'next';
 import { getMyNoticingView } from '@/app/actions/memberNoticing';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { NoticingTile } from './NoticingTile';
+import { toHeadline } from '@/lib/dashboard/toHeadline';
 
 export async function WhatWereNoticingCard() {
   const view = await getMyNoticingView();
@@ -25,14 +35,23 @@ export async function WhatWereNoticingCard() {
     view.recommendedInvestigation !== null;
   if (!hasAnything) return null;
 
-  return (
-    <div className={`${CARD} p-6`}>
-      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-        What We&apos;re Noticing
-      </p>
+  const leadSentence =
+    view.noticing[0] ??
+    view.improving[0] ??
+    view.worthAttention[0] ??
+    view.nextSteps[0] ??
+    view.recommendedInvestigation?.displayName ??
+    'New patterns worth reviewing';
 
+  return (
+    <NoticingTile
+      imageSrc="/images/card-noticing.jpg"
+      kicker="What We're Noticing"
+      headline={toHeadline(leadSentence)}
+      sheetTitle="What We're Noticing"
+    >
       {view.noticing.length > 0 && (
-        <ul className="mt-3 space-y-2.5">
+        <ul className="space-y-2.5">
           {view.noticing.map((item, i) => (
             <li key={i} className="text-[15px] leading-relaxed text-[#1B3A2D]">
               {item}
@@ -103,6 +122,6 @@ export async function WhatWereNoticingCard() {
       {view.educationalNotes.length > 0 && (
         <p className="mt-4 text-xs italic text-[#6B7A72]">{view.educationalNotes[0]}</p>
       )}
-    </div>
+    </NoticingTile>
   );
 }

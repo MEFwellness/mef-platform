@@ -5,25 +5,38 @@
  * (getMyCoachingMessage) streams in independently via the Suspense boundary
  * the dashboard wraps it in. Renders nothing when Root has nothing to say
  * today — never a forced or random message.
+ *
+ * Home dashboard redesign: now an image-backed carousel tile
+ * (components/dashboard/NoticingTile.tsx). This card used to be a "tap to
+ * reveal more" inline expand (CoachingMessageCardBody.tsx, now unused and
+ * removed) — dashboardLine always visible, tapping "Tell me more" swapped
+ * in the fuller coachingCard in place. There's no dedicated destination
+ * page for this message, so the same reveal now happens in a bottom sheet
+ * instead of inline, per the redesign's "inline expand -> sheet or
+ * existing destination" rule. Headline is a <=6-word derivation
+ * (lib/dashboard/toHeadline.ts) of dashboardLine; never new wording.
  */
 
-import { Sparkles } from 'lucide-react';
 import { getMyCoachingMessage } from '@/app/actions/rootCoaching';
-import { CoachingMessageCardBody } from './CoachingMessageCardBody';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { NoticingTile } from './NoticingTile';
+import { toHeadline } from '@/lib/dashboard/toHeadline';
 
 export async function CoachingMessageCard() {
   const message = await getMyCoachingMessage();
   if (!message) return null;
 
+  const hasMore = message.coachingCard.trim() !== message.dashboardLine.trim();
+
   return (
-    <section className={`${CARD} p-6`}>
-      <div className="flex items-center gap-2 text-[#6B7A72]">
-        <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        <p className="text-sm font-semibold uppercase tracking-wider">From Root</p>
-      </div>
-      <CoachingMessageCardBody dashboardLine={message.dashboardLine} coachingCard={message.coachingCard} />
-    </section>
+    <NoticingTile
+      imageSrc="/images/card-fromroot.jpg"
+      kicker="From Root"
+      headline={toHeadline(message.dashboardLine)}
+      sheetTitle="From Root"
+    >
+      <p className="text-[15px] leading-relaxed text-[#1B3A2D]">
+        {hasMore ? message.coachingCard : message.dashboardLine}
+      </p>
+    </NoticingTile>
   );
 }
