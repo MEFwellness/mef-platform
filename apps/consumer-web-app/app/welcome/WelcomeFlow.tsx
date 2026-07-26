@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Activity, ArrowLeft, Check, ClipboardList, Compass, TrendingUp } from 'lucide-react';
 import { completeWelcomeFlow, markWelcomeIntroSeen } from '../actions/welcome';
 import { WELCOME_GOALS, SOMETHING_ELSE_KEY } from '@/lib/welcome/goals';
+import type { WelcomeGoalKey } from '@/lib/welcome/goals';
 
 const SHELL =
   'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
@@ -20,16 +21,17 @@ const PRIMARY_BUTTON =
 const ERROR_BANNER = 'mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700';
 
 /**
- * 9 pages total: 7 timed cinematic pages (logo/welcome, story, "your health
- * is connected", 4 benefit cards — no buttons, auto-advance) followed by 2
- * interactive pages (goal selection, then the existing final screen) that
- * behave exactly as the flow always has. GOAL_SELECTION_STEP is exported so
- * app/welcome/page.tsx can send a returning member straight there instead
- * of replaying the intro.
+ * 10 steps total: 7 timed cinematic pages (logo/welcome, story, "your
+ * health is connected", 4 benefit cards — no buttons, auto-advance),
+ * goal selection, an optional "which one matters most" follow-up (skipped
+ * entirely when only one goal is picked), then the existing final screen.
+ * GOAL_SELECTION_STEP is exported so app/welcome/page.tsx can send a
+ * returning member straight there instead of replaying the intro.
  */
 export const GOAL_SELECTION_STEP = 8;
-const FINAL_STEP = 9;
-const TOTAL_STEPS = 9;
+const PRIMARY_GOAL_STEP = 9;
+const FINAL_STEP = 10;
+const TOTAL_STEPS = 10;
 
 const HEALTH_CARDS = [
   { Icon: Activity, label: 'Understand your current health' },
@@ -62,6 +64,7 @@ function useReducedMotion(): boolean {
 export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
   const [step, setStep] = useState(initialStep);
   const [goals, setGoals] = useState<string[]>([]);
+  const [primaryGoal, setPrimaryGoal] = useState<WelcomeGoalKey | null>(null);
   const [otherText, setOtherText] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -79,6 +82,8 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
     setGoals((current) =>
       current.includes(key) ? current.filter((goal) => goal !== key) : [...current, key]
     );
+    // A goal dropped from the selection can no longer be the primary one.
+    setPrimaryGoal((current) => (current === key ? null : current));
   }
 
   function advance() {
@@ -90,31 +95,63 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
     setStep(GOAL_SELECTION_STEP);
   }
 
+  /**
+   * Goal selection -> (if more than one goal) "which one matters most" ->
+   * final screen. A single selection is auto-promoted to primary and the
+   * follow-up screen is skipped entirely, per the request — she already
+   * answered it by only picking one.
+   */
   function goNext() {
-    if (step === GOAL_SELECTION_STEP && goals.length === 0) {
-      setError('Please select at least one area to continue.');
+    if (step === GOAL_SELECTION_STEP) {
+      if (goals.length === 0) {
+        setError('Please select at least one area to continue.');
+        return;
+      }
+      setError('');
+      if (goals.length === 1) {
+        setPrimaryGoal(goals[0] as WelcomeGoalKey);
+        setStep(FINAL_STEP);
+        return;
+      }
+      setStep(PRIMARY_GOAL_STEP);
       return;
     }
+
+    if (step === PRIMARY_GOAL_STEP) {
+      if (!primaryGoal) {
+        setError('Please choose which one matters most right now.');
+        return;
+      }
+      setError('');
+      setStep(FINAL_STEP);
+      return;
+    }
+
     setError('');
     setStep((current) => Math.min(current + 1, TOTAL_STEPS));
   }
 
   /**
    * Used by every backward-navigation control in the flow: the "Back" text
-   * link on Pages 8-9, and the small back arrow / swipe-right on Pages
+   * link on Pages 8-10, and the small back arrow / swipe-right on Pages
    * 2-7 (passed down as `onBack`). Floors at 1 defensively, though nothing
    * ever actually calls it while on Page 1 — Page 1 renders no back
-   * control of any kind.
+   * control of any kind. Skips back over the primary-goal step when it was
+   * itself skipped going forward (a single-goal selection), so Back from
+   * the final screen never lands on a step that was never shown.
    */
   function goBackOne() {
     setError('');
-    setStep((current) => Math.max(current - 1, 1));
+    setStep((current) => {
+      if (current === FINAL_STEP && goals.length === 1) return GOAL_SELECTION_STEP;
+      return Math.max(current - 1, 1);
+    });
   }
 
   async function handleFinish() {
     setSubmitting(true);
     setError('');
-    const result = await completeWelcomeFlow(goals, otherText || null);
+    const result = await completeWelcomeFlow(goals, otherText || null, primaryGoal);
     // Only reached on failure: success redirects from inside the action.
     if (result?.error) {
       setError(result.error);
@@ -138,14 +175,17 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
 
         <div
           key={step}
-          className={`mt-8 flex flex-1 flex-col ${step === FINAL_STEP ? 'mef-animate-in' : ''}`}
+          className={`mt-8 flex flex-1 flex-col ${
+            step === FINAL_STEP || step === PRIMARY_GOAL_STEP ? 'mef-animate-in' : ''
+          }`}
         >
           {/* Pages 1-7 are timed cinematic pages (own entrance sequence,
               auto-advance, tap-anywhere, swipe, Skip, and — from Page 2 on
-              — a back control) rendered via CinematicPage. Pages 8-9 are
-              unchanged, interactive, button-driven screens, so the wrapper
-              only applies mef-animate-in for Page 9 to avoid double-
-              animating Page 8's own internal staggered sequence. */}
+              — a back control) rendered via CinematicPage. Pages 8-10 are
+              unchanged/simple, interactive, button-driven screens — the
+              wrapper applies mef-animate-in to every one of them except
+              goal selection itself, which has its own internal staggered
+              sequence that would otherwise double-animate. */}
           {step === 1 && (
             <PageLogoWelcome onAdvance={advance} onSkip={skipToGoals} reducedMotion={reducedMotion} />
           )}
@@ -187,12 +227,21 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
               error={error}
             />
           )}
+          {step === PRIMARY_GOAL_STEP && (
+            <PagePrimaryGoal
+              goals={goals}
+              primaryGoal={primaryGoal}
+              onSelect={setPrimaryGoal}
+              onNext={goNext}
+              error={error}
+            />
+          )}
           {step === FINAL_STEP && (
             <PageFinal onFinish={handleFinish} submitting={submitting} error={error} />
           )}
         </div>
 
-        {(step === GOAL_SELECTION_STEP || step === FINAL_STEP) && (
+        {(step === GOAL_SELECTION_STEP || step === PRIMARY_GOAL_STEP || step === FINAL_STEP) && (
           <button
             type="button"
             onClick={goBackOne}
@@ -629,6 +678,79 @@ function PageGoalSelection({
           />
         </div>
       )}
+
+      {error && (
+        <p role="alert" className={ERROR_BANNER}>
+          {error}
+        </p>
+      )}
+
+      <button type="button" onClick={onNext} className={`mef-focus-ring ${PRIMARY_BUTTON}`}>
+        Continue
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Shown only when more than one goal was selected on the prior screen —
+ * WelcomeFlow's goNext() auto-promotes a single selection and skips this
+ * screen entirely, since a lone pick already answers "which one matters
+ * most." Options are limited to the goals she just picked (never the full
+ * WELCOME_GOALS list), per the request.
+ */
+function PagePrimaryGoal({
+  goals,
+  primaryGoal,
+  onSelect,
+  onNext,
+  error,
+}: {
+  goals: string[];
+  primaryGoal: WelcomeGoalKey | null;
+  onSelect: (key: WelcomeGoalKey) => void;
+  onNext: () => void;
+  error: string;
+}) {
+  const selectedGoals = WELCOME_GOALS.filter((goal) => goals.includes(goal.key));
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <h1 className={`mef-fade-in ${HEADING}`}>
+        Which one, if it changed, would matter most right now?
+      </h1>
+      <p
+        className="mef-fade-in mt-3 text-[15px] leading-relaxed text-[#6B7A72]"
+        style={{ animationDelay: '150ms' }}
+      >
+        Choose the one you&apos;d want to focus on first.
+      </p>
+
+      <div role="radiogroup" aria-label="Which area matters most right now" className="mt-6 flex flex-col gap-2.5">
+        {selectedGoals.map(({ key, label }, index) => {
+          const isSelected = primaryGoal === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              onClick={() => onSelect(key)}
+              className={`mef-focus-ring mef-animate-in flex items-center justify-between gap-2 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition-colors ${
+                isSelected
+                  ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
+                  : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
+              }`}
+              style={{ animationDelay: `${300 + index * 70}ms` }}
+            >
+              {label}
+              {isSelected && (
+                <Check className="h-4 w-4 shrink-0" strokeWidth={3} aria-hidden="true" />
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       {error && (
         <p role="alert" className={ERROR_BANNER}>

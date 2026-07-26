@@ -1,9 +1,10 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 import { submitOnboarding } from '../actions/onboarding';
+import { recordPrimaryGoalChange } from '../actions/welcome';
 import { SLIDER_ENDPOINT_LABELS, numericRange } from '@/lib/onboarding/scale';
 import { DOMAIN_LABEL } from '@/lib/onboarding/baseline';
 import { coachHelperFor, coachPromptFor, ZOOM_OUT_TRANSITION } from '@/lib/onboarding/coachCopy';
@@ -17,6 +18,8 @@ import {
   isPlanComplete,
   type AdaptiveEngineState,
 } from '@/lib/onboarding/adaptivePlan';
+import { WELCOME_GOALS, WELCOME_GOAL_TO_PRIMARY_CONCERN } from '@/lib/welcome/goals';
+import type { WelcomeGoalKey } from '@/lib/welcome/goals';
 import { OnboardingProgress } from './OnboardingProgress';
 import { BranchTransition } from './BranchTransition';
 import type {
@@ -67,6 +70,15 @@ type Props = {
    */
   guestMode?: boolean;
   onGuestSave?: (payload: OnboardingAnswerInput[]) => void;
+  /**
+   * From the welcome flow's goal screen (member mode only). When set, the
+   * `primary_concern` question renders as a "You said X matters most.
+   * Still true?" confirmation instead of the cold enum picker — see
+   * PrimaryConcernConfirmControl below. `primaryConcernValue` continues
+   * to drive lib/onboarding/adaptivePlan.ts exactly as it always has;
+   * only how that answer gets recorded changes.
+   */
+  knownPrimaryGoal?: { goals: string[]; primaryGoalKey: string } | null;
 };
 
 type StoredAnswer = {
@@ -251,12 +263,29 @@ const QuestionField = memo(function QuestionField({
   invalid,
   onAnswerChange,
   registerRef,
+  promptOverride,
+  renderOverride,
 }: {
   question: OnboardingQuestion;
   answer: StoredAnswer | undefined;
   invalid: boolean;
   onAnswerChange: (questionKey: string, answer: StoredAnswer) => void;
   registerRef: (questionKey: string, el: Focusable | null) => void;
+  /**
+   * Replaces the legend text (normally coachPromptFor(question)) — used by
+   * the primary_concern "still true?" confirmation so its wording reflects
+   * what the member already told us, not the question's cold-ask prompt.
+   */
+  promptOverride?: string;
+  /**
+   * Replaces the answer_type-driven control (NumericSlider/enum
+   * radiogroup/etc.) with custom content, while every other part of this
+   * fieldset — the legend, card, invalid ring, and the not_sure/
+   * not_applicable/prefer_not_to_answer opt-out row below — stays exactly
+   * as it is for every other question. Only used by the primary_concern
+   * confirmation screen today.
+   */
+  renderOverride?: () => ReactNode;
 }) {
   const legendId = `${question.question_key}-label`;
   const errorId = `${question.question_key}-error`;
@@ -273,6 +302,10 @@ const QuestionField = memo(function QuestionField({
   );
 
   function renderControl() {
+    if (renderOverride) {
+      return renderOverride();
+    }
+
     if (question.answer_type === 'numeric') {
       return (
         <NumericSlider
@@ -429,10 +462,10 @@ const QuestionField = memo(function QuestionField({
         id={legendId}
         className="mb-1 block px-0.5 font-[family-name:var(--font-cormorant-garamond)] text-xl font-semibold leading-snug text-[#1B3A2D] md:text-2xl"
       >
-        {coachPromptFor(question)}
+        {promptOverride ?? coachPromptFor(question)}
       </legend>
 
-      {coachHelperFor(question) ? (
+      {!renderOverride && coachHelperFor(question) ? (
         <p className="mb-3 px-0.5 text-sm text-[#6B7A72]">{coachHelperFor(question)}</p>
       ) : null}
 
@@ -500,6 +533,91 @@ const QuestionField = memo(function QuestionField({
   );
 });
 
+/**
+ * The `primary_concern` question's control when knownPrimaryGoal is set
+ * (see QuestionField's renderOverride). Two phases: 'confirm' (the
+ * default — "Still true?" with a yes/change choice) and 'change' (a
+ * single-select limited to the goals she picked on the welcome flow, per
+ * the same "limited to the goals she just picked" constraint the welcome
+ * flow's own follow-up screen uses). Whichever resolves calls onResolve
+ * with the chosen welcome-goal key and whether it differs from the
+ * original — the caller maps that to a real `primary_concern` value and
+ * records a history row only when it actually changed.
+ */
+function PrimaryConcernConfirmControl({
+  knownGoal,
+  onResolve,
+}: {
+  knownGoal: { goals: string[]; primaryGoalKey: string };
+  onResolve: (goalKey: string, changed: boolean) => void;
+}) {
+  const [phase, setPhase] = useState<'confirm' | 'change'>('confirm');
+  const primaryLabel =
+    WELCOME_GOALS.find((goal) => goal.key === knownGoal.primaryGoalKey)?.label ??
+    knownGoal.primaryGoalKey;
+  const otherOptions = WELCOME_GOALS.filter(
+    (goal) => knownGoal.goals.includes(goal.key) && goal.key !== knownGoal.primaryGoalKey
+  );
+
+  if (phase === 'confirm') {
+    return (
+      <div>
+        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">
+          You said <span className="font-semibold">{primaryLabel.toLowerCase()}</span> matters
+          most right now.
+        </p>
+        <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => onResolve(knownGoal.primaryGoalKey, false)}
+            className="mef-focus-ring flex-1 rounded-2xl border border-[#1B3A2D] bg-[#1B3A2D] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+          >
+            Still true
+          </button>
+          {otherOptions.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPhase('change')}
+              className="mef-focus-ring flex-1 rounded-2xl border border-[#1B3A2D]/12 bg-white px-4 py-3 text-sm font-semibold text-[#1B3A2D]/70 transition hover:border-[#1B3A2D]/30"
+            >
+              Something changed
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+        Which matters most now?
+      </p>
+      <div role="radiogroup" aria-label="Which area matters most now" className="mt-2 flex flex-col gap-2">
+        {otherOptions.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={false}
+            onClick={() => onResolve(key, true)}
+            className="mef-focus-ring flex items-center justify-between gap-2 rounded-2xl border border-[#1B3A2D]/12 bg-white px-4 py-3 text-left text-sm font-semibold text-[#1B3A2D]/70 transition-colors hover:border-[#1B3A2D]/30"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => setPhase('confirm')}
+        className="mt-3 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+      >
+        Never mind, {primaryLabel.toLowerCase()} is right
+      </button>
+    </div>
+  );
+}
+
 function buildInitialSteps(mode: 'adaptive' | 'fixed', questions: OnboardingQuestion[]): Step[] {
   if (mode === 'fixed') {
     // Exact original behavior: the lightweight reorder-only branching,
@@ -518,6 +636,7 @@ export function OnboardingForm({
   submitLabel = 'Submit onboarding',
   guestMode = false,
   onGuestSave,
+  knownPrimaryGoal = null,
 }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, StoredAnswer>>({});
@@ -782,13 +901,37 @@ export function OnboardingForm({
           <BranchTransition line={currentStep.line} onContinue={goNext} />
         ) : (
           <>
-            <QuestionField
-              question={currentStep.question}
-              answer={answers[currentStep.question.question_key]}
-              invalid={invalidKey === currentStep.question.question_key}
-              onAnswerChange={updateAnswer}
-              registerRef={registerRef}
-            />
+            {currentStep.question.question_key === PRIMARY_CONCERN_QUESTION_KEY &&
+            knownPrimaryGoal ? (
+              <QuestionField
+                question={currentStep.question}
+                answer={answers[currentStep.question.question_key]}
+                invalid={invalidKey === currentStep.question.question_key}
+                onAnswerChange={updateAnswer}
+                registerRef={registerRef}
+                promptOverride="Does that still feel right?"
+                renderOverride={() => (
+                  <PrimaryConcernConfirmControl
+                    knownGoal={knownPrimaryGoal}
+                    onResolve={(goalKey, changed) => {
+                      updateAnswer(PRIMARY_CONCERN_QUESTION_KEY, {
+                        status: 'answered',
+                        value: WELCOME_GOAL_TO_PRIMARY_CONCERN[goalKey as WelcomeGoalKey],
+                      });
+                      if (changed && !guestMode) void recordPrimaryGoalChange(goalKey);
+                    }}
+                  />
+                )}
+              />
+            ) : (
+              <QuestionField
+                question={currentStep.question}
+                answer={answers[currentStep.question.question_key]}
+                invalid={invalidKey === currentStep.question.question_key}
+                onAnswerChange={updateAnswer}
+                registerRef={registerRef}
+              />
+            )}
 
             {error ? (
               <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">

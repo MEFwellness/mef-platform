@@ -1,7 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { anonClient, signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
 import { isEligibleForWelcomeFlow, WELCOME_FLOW_ENABLED } from '../lib/welcome/eligibility';
-import { isValidGoalSelection } from '../lib/welcome/goals';
+import { isValidGoalSelection, WELCOME_GOALS, WELCOME_GOAL_TO_PRIMARY_CONCERN } from '../lib/welcome/goals';
+import { CONCERN_CONFIG } from '../lib/onboarding/adaptivePlan';
 
 /**
  * These mutate memberOne/memberTwo/coachOne/adminOne's welcome_flow_*
@@ -178,6 +179,32 @@ describe('welcome flow foundation', () => {
       expect(isValidGoalSelection('reduce_pain')).toBe(false);
       expect(isValidGoalSelection(null)).toBe(false);
       expect(isValidGoalSelection(undefined)).toBe(false);
+    });
+  });
+
+  describe('WELCOME_GOAL_TO_PRIMARY_CONCERN', () => {
+    it('has a mapping for every welcome goal, and only for real welcome goals', () => {
+      const goalKeys = WELCOME_GOALS.map((goal) => goal.key);
+      expect(Object.keys(WELCOME_GOAL_TO_PRIMARY_CONCERN).sort()).toEqual([...goalKeys].sort());
+    });
+
+    it('maps every welcome goal onto a concern value the adaptive engine actually recognizes', () => {
+      // CONCERN_CONFIG (lib/onboarding/adaptivePlan.ts) is keyed by every
+      // value onboarding_questions allows for primary_concern — if a
+      // mapped value weren't a real key here, the confirmation screen
+      // would silently hand the untouched adaptive engine a concern it
+      // falls back to GENERAL_CONFIG for, instead of the member's real
+      // answer.
+      for (const [goalKey, concernValue] of Object.entries(WELCOME_GOAL_TO_PRIMARY_CONCERN)) {
+        expect(
+          Object.prototype.hasOwnProperty.call(CONCERN_CONFIG, concernValue),
+          `${goalKey} -> '${concernValue}' is not a key adaptivePlan.ts's CONCERN_CONFIG recognizes`
+        ).toBe(true);
+      }
+    });
+
+    it("maps 'something_else' onto 'other', preserving intent when no closer concern fits", () => {
+      expect(WELCOME_GOAL_TO_PRIMARY_CONCERN.something_else).toBe('other');
     });
   });
 

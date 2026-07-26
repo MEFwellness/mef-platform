@@ -5,6 +5,7 @@ import {
   getOnboardingAssessmentBank,
   getOnboardingAssessmentBankForGuest,
 } from '../actions/onboarding';
+import { fetchLatestMemberGoalSelection } from '@/lib/member-goals/data';
 import { ConsentForm } from './ConsentForm';
 import { OnboardingFlow } from './OnboardingFlow';
 
@@ -122,10 +123,23 @@ export default async function OnboardingPage() {
     return <UnavailableNotice />;
   }
 
+  // The welcome flow's goal screen may already have told us what matters
+  // most (member_goal_selections, migration 104) — if so, the
+  // `primary_concern` question is confirmed rather than asked cold (see
+  // OnboardingForm.tsx's knownPrimaryGoal prop). Members who backfilled
+  // with no primary ever chosen, or who never went through the welcome
+  // flow at all, get `null` here and see the original cold-ask question,
+  // unchanged.
+  const latestGoalSelection = await fetchLatestMemberGoalSelection(supabase, user.id);
+  const knownPrimaryGoal =
+    latestGoalSelection?.primaryGoal != null
+      ? { goals: latestGoalSelection.goals, primaryGoalKey: latestGoalSelection.primaryGoal }
+      : null;
+
   return (
     <div className={SHELL}>
       <main className={CONTAINER}>
-        <OnboardingFlow questions={questions} mode="member" />
+        <OnboardingFlow questions={questions} mode="member" knownPrimaryGoal={knownPrimaryGoal} />
       </main>
     </div>
   );

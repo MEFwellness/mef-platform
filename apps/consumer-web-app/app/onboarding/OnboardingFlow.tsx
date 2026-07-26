@@ -49,9 +49,17 @@ const REFLECTING_DELAY_MS = 1100;
 export function OnboardingFlow({
   questions,
   mode,
+  knownPrimaryGoal = null,
 }: {
   questions: OnboardingQuestion[];
   mode: 'guest' | 'member';
+  /**
+   * From the welcome flow's goal screen (member mode only — see
+   * app/onboarding/page.tsx). When set, the form confirms this instead of
+   * asking `primary_concern` cold. Never passed in guest mode: a guest
+   * has no profile for the welcome flow to have run against.
+   */
+  knownPrimaryGoal?: { goals: string[]; primaryGoalKey: string } | null;
 }) {
   const [stage, setStage] = useState<Stage>(mode === 'guest' ? 'intro' : 'checking');
   const [guestPayload, setGuestPayload] = useState<OnboardingAnswerInput[]>([]);
@@ -171,5 +179,12 @@ export function OnboardingFlow({
     );
   }
 
-  return <OnboardingForm questions={questions} mode="adaptive" onSubmitted={() => setStage('complete')} />;
+  return (
+    <OnboardingForm
+      questions={questions}
+      mode="adaptive"
+      knownPrimaryGoal={knownPrimaryGoal}
+      onSubmitted={() => setStage('complete')}
+    />
+  );
 }

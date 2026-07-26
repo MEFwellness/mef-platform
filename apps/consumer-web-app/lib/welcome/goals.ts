@@ -1,12 +1,18 @@
 /**
  * Fixed option list for the welcome flow's "What brought you here today?"
- * screen. Deliberately separate from the onboarding_questions
- * "primary_concern" question (single-select, answered later as part of the
- * onboarding assessment): this is a different, multi-select screen shown
- * once before onboarding even starts, so it needs its own storage
- * (profiles.welcome_flow_goals, migration 86) rather than reusing
- * onboarding_answers, which requires an onboarding_submissions row that
- * doesn't exist yet at this point in the flow.
+ * screen. Structurally separate from the onboarding_questions
+ * "primary_concern" question (still its own single-select question,
+ * answered later as part of the onboarding assessment, since it needs its
+ * own onboarding_answers row keyed to a real onboarding_submissions
+ * question/answer pair that doesn't exist yet at this point in the flow)
+ * — but no longer asked cold. lib/member-goals/data.ts persists this
+ * screen's answer (plus the "which one matters most" follow-up) as a
+ * proper history record, and the onboarding questionnaire confirms it
+ * instead of re-asking, translating the confirmed goal into a
+ * `primary_concern` value via WELCOME_GOAL_TO_PRIMARY_CONCERN below. See
+ * profiles.welcome_flow_goals (migration 86, still written for backward
+ * compatibility) and member_goal_selections (migration 104, the real
+ * consumer-facing record).
  */
 export const WELCOME_GOALS = [
   { key: 'reduce_pain', label: 'Reduce pain or discomfort' },
@@ -38,3 +44,31 @@ export function isValidGoalSelection(goals: unknown): goals is string[] {
     goals.every((goal) => typeof goal === 'string' && WELCOME_GOAL_KEYS.includes(goal))
   );
 }
+
+/**
+ * Translates a welcome-goal key into the value the onboarding
+ * questionnaire's `primary_concern` question actually stores (see
+ * supabase/migrations/00000000000068_onboarding_goals_expansion.sql for
+ * its 12-value allowed_values list). The two vocabularies aren't 1:1 —
+ * WELCOME_GOALS has 13 keys, primary_concern has 12 — so a couple of
+ * goals intentionally collapse onto the same concern (e.g. both
+ * `strength_fitness` and `sports_golf_performance` -> 'performance').
+ * This is the one place that mapping lives; the onboarding adaptive
+ * engine (lib/onboarding/adaptivePlan.ts) never sees a welcome-goal key,
+ * only the mapped concern value, so its own selection logic is untouched.
+ */
+export const WELCOME_GOAL_TO_PRIMARY_CONCERN: Record<WelcomeGoalKey, string> = {
+  reduce_pain: 'pain',
+  improve_posture_movement: 'movement',
+  increase_energy: 'energy',
+  sleep_better: 'sleep',
+  reduce_stress: 'stress',
+  improve_digestion: 'digestion',
+  body_composition: 'weight',
+  strength_fitness: 'performance',
+  sports_golf_performance: 'performance',
+  healthier_habits: 'habits',
+  understand_my_body: 'general_optimization',
+  work_with_coach: 'general_optimization',
+  something_else: 'other',
+};
