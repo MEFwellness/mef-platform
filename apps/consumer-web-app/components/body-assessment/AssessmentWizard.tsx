@@ -29,6 +29,7 @@ import {
   Trash2,
   Loader2,
   Compass,
+  Volume2,
 } from 'lucide-react';
 import type { BodyAssessmentType } from '@mef/shared-types-contracts';
 import {
@@ -55,6 +56,7 @@ import {
   requestDeviceTiltPermission,
   type OrientationPermissionStatus,
 } from '@/hooks/useDeviceTilt';
+import { useGuidedVoice } from '@/hooks/useGuidedVoice';
 import { POSE_MODEL_VERSION } from '@/hooks/usePoseLandmarker';
 import { primeBrowserSpeechSynthesis } from '@/lib/speech/browserTextToSpeech';
 import { POSTURE_THRESHOLDS_VERSION } from '@/lib/body-assessment/postureMeasurements';
@@ -131,6 +133,17 @@ function extensionFor(mediaType: 'image' | 'video'): string {
 export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAssessmentType }) {
   const router = useRouter();
   const typeConfig = getAssessmentTypeConfig(assessmentType);
+  /**
+   * Same id CameraCapture.tsx's own useGuidedVoice instance uses — sharing
+   * the id (and the underlying playbackRegistry/browser provider) means a
+   * confirmation spoken here from this prep screen and the camera step's
+   * own guidance never talk over each other. The member stands too far
+   * from the phone to read on-screen text once the camera step starts, so
+   * this is a real, audible, tap-triggered check — not just priming — done
+   * early enough that a silent phone (volume down, silent switch) gets
+   * caught here rather than discovered mid-assessment.
+   */
+  const guidedVoice = useGuidedVoice('assessment-guidance');
 
   const [phase, setPhase] = useState<Phase>('welcome');
   const [introIndex, setIntroIndex] = useState(0);
@@ -450,6 +463,51 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
             </p>
           ))}
         </div>
+
+        {step.key === 'preparation' && (
+          <div className="mt-4 rounded-2xl bg-[#FAFAF8] p-4">
+            <div className="flex items-start gap-2.5">
+              <Volume2
+                className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+              <p className="text-[13px] leading-relaxed text-[#6B7A72]">
+                You&apos;ll be standing well back from the phone once the photos begin, too far to
+                read on-screen text — so we guide you mostly out loud. Tap below to turn on voice
+                guidance and confirm you can hear it now, before you&apos;re across the room.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                guidedVoice.speak(
+                  "Voice guidance is ready. You'll hear spoken directions throughout your photos."
+                )
+              }
+              className="mt-3 w-full rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-medium text-white hover:brightness-110"
+            >
+              {guidedVoice.status === 'unlocked' ? 'Play voice guidance again' : 'Enable voice guidance'}
+            </button>
+            {guidedVoice.status === 'unlocked' && (
+              <p className="mt-3 text-[13px] font-medium text-[#1B3A2D]">
+                Voice guidance is working — you should have just heard it.
+              </p>
+            )}
+            {guidedVoice.status === 'blocked' && (
+              <p className="mt-3 text-[13px] font-medium text-[#1B3A2D]">
+                We couldn&apos;t confirm audio played — check your volume and silent/mute switch,
+                then tap the button again. You can still follow the on-screen text either way.
+              </p>
+            )}
+            {guidedVoice.status === 'unavailable' && (
+              <p className="mt-3 text-[13px] font-medium text-[#1B3A2D]">
+                Voice guidance isn&apos;t available on this browser — follow the on-screen text
+                instead.
+              </p>
+            )}
+          </div>
+        )}
 
         {step.key === 'camera_positioning' && (
           <div className="mt-4 rounded-2xl bg-[#FAFAF8] p-4">

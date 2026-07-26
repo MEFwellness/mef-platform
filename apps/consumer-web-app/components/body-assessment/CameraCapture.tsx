@@ -347,6 +347,10 @@ export function CameraCapture({
   const stepEnteredAtRef = useRef<number>(Date.now());
   /** True once STUCK_THRESHOLD_MS has passed with no successful capture on this step — replaces the normal small on-screen cue with one large, plain statement of the single condition currently blocking capture (see StuckGuidance.tsx). */
   const [stuckModeActive, setStuckModeActive] = useState(false);
+  /** The most recent frame's single blocking-condition message (whatever the main validation effect below most recently spoke/displayed) — read by the stuck-detector interval so it can speak the current reason without needing to be recreated every frame. */
+  const latestBlockingMessageRef = useRef<string>('');
+  /** Guards the stuck-mode speak() call to fire exactly once per rising edge, not every 1s tick for as long as stuck mode stays active. */
+  const wasStuckSpokenRef = useRef(false);
 
   const isVideo = step.mediaType === 'video';
   const requiresStanding = !isVideo;
@@ -389,6 +393,15 @@ export function CameraCapture({
   const rollDegrees = tiltGamma;
   const pitchDegrees = tiltBeta !== null ? tiltBeta - 90 : null;
 
+  // A fresh object every render (a new literal or a new evaluateCameraTilt()
+  // return value) — NEVER put `tilt` itself in an effect's dependency array
+  // below. That was a real, shipped bug: the reference changes every
+  // render, so an effect depending on `tilt` re-fires after every render
+  // its own setState calls cause, including the pose-validation effect,
+  // which re-triggered guidedVoice.speak() in a tight loop fast enough that
+  // each call canceled the previous utterance before any audio could
+  // finish playing — the voice guidance code path ran, but nothing was ever
+  // audible. Depend on tilt.ok/tilt.message (stable primitives) instead.
   const tilt = manualFallbackActive
     ? {
         ok: manualLevelConfirmed,
@@ -509,6 +522,8 @@ export function CameraCapture({
     distanceZoneStateRef.current = INITIAL_DISTANCE_ZONE_STATE;
     stepEnteredAtRef.current = Date.now();
     setStuckModeActive(false);
+    wasStuckSpokenRef.current = false;
+    latestBlockingMessageRef.current = '';
   }, [step]);
 
   // Stuck detector: ticks independently of the pose-detection loop (a
@@ -517,14 +532,48 @@ export function CameraCapture({
   // capture is caught regardless of what the live per-frame status is
   // doing. Only meaningful for standing-photo steps still in 'ready' —
   // once capture actually fires (autoCaptureTriggered) there's nothing
-  // left to be stuck on.
+  // left to be stuck on. Audio is the PRIMARY channel here (the member is
+  // standing too far away to read small text) — the moment stuck mode is
+  // entered, the current blocking condition is SPOKEN, once, via a direct
+  // guidedVoice.speak() call (bypassing the normal per-frame pacing
+  // machine, since this is a one-time escalation, not a routine correction
+  // cue); latestBlockingMessageRef holds whatever the main validation
+  // effect below most recently determined was wrong, so this reads the
+  // freshest value without needing to be recreated every frame.
   useEffect(() => {
     if (phase !== 'ready' || !requiresStanding || autoCaptureTriggered) return;
     const interval = setInterval(() => {
-      if (Date.now() - stepEnteredAtRef.current >= STUCK_THRESHOLD_MS) setStuckModeActive(true);
+      if (Date.now() - stepEnteredAtRef.current >= STUCK_THRESHOLD_MS) {
+        if (!wasStuckSpokenRef.current) {
+          wasStuckSpokenRef.current = true;
+          // Routed through the same isSpeaking bookkeeping the normal
+          // per-frame guidance uses (markSpeechStarted/markSpeechEnded) so
+          // that pipeline sees this utterance as in-progress and won't
+          // immediately cancel it with a routine correction the moment its
+          // own next frame runs — guidedVoice.speak() always cancels
+          // whatever is currently playing.
+          guidanceMemoryRef.current = markSpeechStarted(guidanceMemoryRef.current);
+          guidedVoice.speak(
+            latestBlockingMessageRef.current || 'Adjust your position to continue.',
+            () => {
+              guidanceMemoryRef.current = markSpeechEnded(
+                guidanceMemoryRef.current,
+                'stuck',
+                Date.now()
+              );
+            }
+          );
+        }
+        setStuckModeActive(true);
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, [phase, requiresStanding, autoCaptureTriggered]);
+    // guidedVoice itself is a fresh object every render (useGuidedVoice
+    // doesn't memoize the returned object, only its individual functions) —
+    // depend on guidedVoice.speak specifically (stable via useCallback),
+    // never the whole object, or this interval gets torn down and rebuilt
+    // on every render instead of ticking once a second.
+  }, [phase, requiresStanding, autoCaptureTriggered, guidedVoice.speak]);
 
   // Speak the fixed setup script once per step, one line at a time,
   // cancelling before each new line (useGuidedVoice's speak() always does
@@ -828,6 +877,8 @@ export function CameraCapture({
       activeRule = multiPersonPending ? 'uncertain' : 'stable';
     }
 
+    if (effectiveMessage) latestBlockingMessageRef.current = effectiveMessage;
+
     setContinuityOverride(
       multiPersonConfirmed ||
         effectiveKey === 'tracking_lost_brief' ||
@@ -965,7 +1016,8 @@ export function CameraCapture({
     tiltGamma,
     tiltBeta,
     frameQuality,
-    tilt,
+    tilt.ok,
+    tilt.message,
     replicationMatched,
   ]);
 
@@ -1380,7 +1432,11 @@ export function CameraCapture({
           <button
             type="button"
             onClick={handleEnableVoiceTap}
-            className="absolute inset-x-4 top-24 z-20 flex items-center justify-center gap-2 rounded-2xl bg-[#1B3A2D] px-4 py-3 text-sm font-semibold text-white shadow-lg"
+            // z-50 — audio is the PRIMARY guidance channel here (the member
+            // stands too far back to read on-screen text), so this recovery
+            // tap must stay reachable above every other overlay, including
+            // StuckGuidance's full-frame z-30 panel once 20s have passed.
+            className="absolute inset-x-4 top-24 z-50 flex items-center justify-center gap-2 rounded-2xl bg-[#1B3A2D] px-4 py-3 text-sm font-semibold text-white shadow-lg"
           >
             <Ear className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
             Tap once to enable voice guidance
@@ -1388,7 +1444,7 @@ export function CameraCapture({
         )}
 
         {requiresStanding && phase === 'ready' && guidedVoice.status === 'unavailable' && (
-          <div className="absolute inset-x-4 top-24 z-20 rounded-2xl bg-black/60 px-4 py-2.5 text-center text-xs font-medium text-white">
+          <div className="absolute inset-x-4 top-24 z-50 rounded-2xl bg-black/60 px-4 py-2.5 text-center text-xs font-medium text-white">
             Voice guidance isn&apos;t available on this browser — follow the on-screen instructions.
           </div>
         )}
