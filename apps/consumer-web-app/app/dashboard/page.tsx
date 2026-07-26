@@ -233,20 +233,23 @@ export default async function DashboardPage({
            A short gap here (not the zones' generous spacing below) —
            the hero above is already compact in this state, sized so
            this card's CTA sits within the first screen. */
-          <div className="pt-4">
+          <div className="pt-3">
             <FirstCheckInWelcome />
           </div>
         ) : (
-          <div className="space-y-14 pt-10 md:space-y-20 md:pt-14">
+          <div className="pt-8 md:pt-10">
             {/* ==================================================== */}
             {/* Quick Actions — Movement, Food Lens, Progress, and      */}
             {/* Flag a Concern, as one horizontal carousel replacing    */}
             {/* three stacked link-cards + a fourth standalone card.    */}
-            {/* See components/dashboard/QuickActionsCarousel.tsx.      */}
+            {/* Compact pill chips now (not cards), so this zone's own  */}
+            {/* footprint and the gap after it are both tighter than    */}
+            {/* the rest of the page's zone spacing. See                */}
+            {/* components/dashboard/QuickActionsCarousel.tsx.          */}
             {/* ==================================================== */}
             <RevealOnScroll>
               <p className={ZONE_LABEL}>Quick Actions</p>
-              <div className="mt-4">
+              <div className="mt-3">
                 <QuickActionsCarousel />
               </div>
             </RevealOnScroll>
@@ -259,7 +262,7 @@ export default async function DashboardPage({
             {/* treatment (card / row / tinted panel / grid) so         */}
             {/* nothing repeats back to back.                           */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={60}>
+            <RevealOnScroll delayMs={60} className="mt-8 md:mt-10">
               <p className={ZONE_LABEL}>Today</p>
               <div className="mt-4 space-y-4">
                 {morningBrief && (
@@ -447,7 +450,7 @@ export default async function DashboardPage({
             {/* Guided Posture & Movement Assessment (image-backed      */}
             {/* card), Personalized Insights (white card).              */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={0}>
+            <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>Your Path</p>
               <div className="mt-4 space-y-4">
                 <QuestionnairesHomeCard
@@ -472,7 +475,7 @@ export default async function DashboardPage({
             {/* four have nothing to say; the panel itself always        */}
             {/* renders (it has no data of its own to be empty about).   */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={60}>
+            <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>What Root Is Noticing</p>
               <div className="mt-4 space-y-3 rounded-[32px] bg-[#EFF6F1] p-4 sm:p-5">
                 <Suspense fallback={<NoticingCardSkeleton />}>
@@ -496,7 +499,7 @@ export default async function DashboardPage({
             {/* (a wrapper around the unmodified, coach-shared            */}
             {/* EnergyTrendChart — see that wrapper's own comment).       */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={0}>
+            <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>Trends</p>
               <section className={`${CARD} mt-4 p-6`}>
                 <div className="flex items-center justify-between">
@@ -521,7 +524,7 @@ export default async function DashboardPage({
             {/* until then. See                                          */}
             {/* components/wearables/ConnectWearableCard.tsx.            */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={60}>
+            <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>Coming Up</p>
               <div className="mt-4 space-y-4">
                 <div className="flex items-center justify-between gap-3 border-b border-[#1B3A2D]/8 py-4">

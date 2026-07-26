@@ -85,7 +85,9 @@ function HeroChrome({
 
       <div
         className={`relative z-10 mx-auto flex w-full max-w-md flex-col px-5 sm:px-6 md:max-w-5xl md:px-10 md:pl-28 ${
-          compact ? 'pb-5 pt-7 sm:pt-8 md:pb-6' : 'min-h-[440px] pb-10 pt-8 sm:pt-10 md:min-h-[500px] md:pb-14'
+          compact
+            ? 'min-h-[32vh] pb-6 pt-7 sm:pt-8 md:min-h-[250px] md:pb-8'
+            : 'min-h-[440px] pb-10 pt-8 sm:pt-10 md:min-h-[500px] md:pb-14'
         }`}
       >
         <header className="flex items-center justify-between">
@@ -111,7 +113,7 @@ function HeroChrome({
           </div>
         </header>
 
-        <div className={compact ? 'pt-5' : 'mt-auto pt-10'}>{children}</div>
+        <div className={compact ? 'mt-auto pt-8' : 'mt-auto pt-10'}>{children}</div>
       </div>
     </section>
   );
