@@ -66,6 +66,7 @@ function profile(overrides: Partial<MemberHealthProfile> = {}): MemberHealthProf
     coachNotesCount: 0,
     daysSinceLastReassessmentOrBaseline: null,
     registryEntries: [],
+    correlationSignals: [],
     ...overrides,
   };
 }

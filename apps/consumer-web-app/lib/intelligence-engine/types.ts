@@ -40,6 +40,7 @@ import type { WellnessMetricKey } from '../wellness/wellness-index';
 import type { MetricStatus } from '../wellness/status';
 import type { CoachingFocusDecision } from '../brain/types';
 import type { StreakInsight } from '../feed/streakIntelligence';
+import type { LongitudinalSignal } from '../longitudinal-intelligence/types';
 import type { AdherenceInfo } from '../feed/adaptiveDifficulty';
 import type { ComparisonMetric, ProgressSummary } from '../onboarding/comparison';
 import type { PriorityIntelligence } from '../intelligence/types';
@@ -97,6 +98,15 @@ export type MemberHealthProfile = {
    * gather sees everything the assigned coach can see.
    */
   registryEntries: RegistryEntry[];
+  /**
+   * This member's persisted correlation signals (member_pattern_states,
+   * signal_kind: 'correlation_finding') — already computed and tiered by
+   * the scheduled lib/correlation-engine/, never recomputed here.
+   * correlationPatterns.ts turns the earned (tier 2+) subset into
+   * PatternInsight rows, replacing the old crossAssessmentCorrelations.ts
+   * rule-based version.
+   */
+  correlationSignals: LongitudinalSignal[];
 };
 
 export type LongitudinalWindowKey =

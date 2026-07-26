@@ -32,6 +32,7 @@ import { computeAdherence } from '../feed/adaptiveDifficulty';
 import { getCoachingFocusDecision } from '../brain/service';
 import { daysBetweenLocalDates } from '../feed/dateMath';
 import { listRegistryEntriesForMember } from '../registry/data';
+import { listMemberPatternStates } from '../longitudinal-intelligence/data';
 import type { MemberHealthProfile } from './types';
 
 const HISTORY_WINDOW_DAYS = 95; // covers last_90_days with a small buffer, same window lib/intelligence/service.ts uses
@@ -116,6 +117,7 @@ export async function gatherMemberHealthProfile(
     openSafetyReviewCount,
     coachNotesCount,
     registryEntries,
+    patternStates,
   ] = await Promise.all([
     fetchHistoryCheckins(supabase, memberId, asOfLocalDate),
     fetchBaselineAssessment(supabase, memberId),
@@ -128,7 +130,12 @@ export async function gatherMemberHealthProfile(
     fetchOpenSafetyReviewCount(supabase, memberId),
     fetchCoachNotesCount(supabase, memberId),
     listRegistryEntriesForMember(supabase, memberId, { statusFilter: ['active'] }),
+    listMemberPatternStates(supabase, memberId),
   ]);
+
+  const correlationSignals = [...patternStates.values()].filter(
+    (signal) => signal.signalKind === 'correlation_finding'
+  );
 
   const pastFeedItems = feedHistory.filter((item) => item.local_date < asOfLocalDate);
   const feedHistoryPairs: FeedHistoryPair[] = await Promise.all(
@@ -164,5 +171,6 @@ export async function gatherMemberHealthProfile(
       asOfLocalDate
     ),
     registryEntries,
+    correlationSignals,
   };
 }

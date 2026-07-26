@@ -10,7 +10,9 @@
  *                            source(s) back each one
  *   - correlations           the cross_assessment_correlation-kind
  *                            PatternInsight[] already folded into
- *                            report.patterns (crossAssessmentCorrelations.ts)
+ *                            report.patterns (correlationPatterns.ts, fed by
+ *                            the scheduled lib/correlation-engine/ via
+ *                            member_pattern_states — see profile.ts)
  *   - findingTimeline        lib/registry/timeline.ts over the member's
  *                            whole registry_entries history
  *   - suggestedAssessments   lib/assessment-registry/findingRecommendations.ts

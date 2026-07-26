@@ -36,6 +36,7 @@ function makeProfile(registryEntries: RegistryEntry[]): MemberHealthProfile {
     coachNotesCount: 0,
     daysSinceLastReassessmentOrBaseline: null,
     registryEntries,
+    correlationSignals: [],
   };
 }
 

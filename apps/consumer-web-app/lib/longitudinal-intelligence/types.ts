@@ -24,7 +24,8 @@ export type SignalKind =
   | 'registry_finding'
   | 'checkin_metric'
   | 'experiment_outcome'
-  | 'recommendation_outcome';
+  | 'recommendation_outcome'
+  | 'correlation_finding';
 
 /** member_pattern_states row shape (migration 93), pure data — see data.ts for persistence. */
 export type LongitudinalSignal = {
