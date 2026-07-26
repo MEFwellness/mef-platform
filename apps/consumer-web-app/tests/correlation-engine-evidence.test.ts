@@ -138,3 +138,50 @@ describe('evaluatePair — split-window stability (requirement 5)', () => {
     expect(typeof result!.splitWindowAgreement).toBe('boolean');
   });
 });
+
+describe('evaluatePair — heavy missing days (requirement 7, under real sparsity)', () => {
+  it('finds only the genuinely-paired days across a long, heavily-gapped window, and still gates/computes correctly', () => {
+    // 70-day calendar window, a real underlying relationship (outcome ===
+    // driver on any day both are logged), but a deterministic seeded PRNG
+    // drops ~60% of days entirely and gives another slice a value on only
+    // one side (a partial log) — the shape a member who checks in a
+    // couple of times a week produces over ~10 weeks. Fixed seed so this
+    // test is reproducible, not flaky.
+    let rngState = 42;
+    function rng(): number {
+      rngState = (rngState * 1103515245 + 12345) & 0x7fffffff;
+      return rngState / 0x7fffffff;
+    }
+
+    const fullPattern = cyclicPattern(70);
+    const outcome: DailySeries = new Map();
+    const driver: DailySeries = new Map();
+    let bothPresent = 0;
+    for (let i = 0; i < 70; i++) {
+      const date = addDays('2026-01-01', i);
+      if (rng() < 0.4) {
+        outcome.set(date, fullPattern[i]!);
+        driver.set(date, fullPattern[i]!);
+        bothPresent++;
+      } else if (rng() < 0.5) {
+        // Only one side logged that day — must never be paired, never interpolated.
+        driver.set(date, fullPattern[i]!);
+      }
+    }
+
+    // Sanity-check the fixture itself actually exercises sparsity, not a
+    // near-complete series — otherwise this isn't testing what it claims to.
+    expect(bothPresent).toBeGreaterThanOrEqual(21);
+    expect(bothPresent).toBeLessThan(35); // well under half of the 70-day window
+
+    const result = evaluatePair(outcome, driver);
+    expect(result).not.toBeNull();
+    expect(result!.observationCount).toBe(bothPresent);
+    expect(result!.direction).toBe('positive');
+    expect(result!.rho).toBeCloseTo(1, 5);
+    // Span reflects the full spread the real observations fall across
+    // (up to 69), not just the count of observations (26) — confirms span
+    // is computed from actual dates, not assumed from the pair count.
+    expect(result!.spanDays).toBeGreaterThan(bothPresent);
+  });
+});
