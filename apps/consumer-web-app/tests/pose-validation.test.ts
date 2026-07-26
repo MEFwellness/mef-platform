@@ -10,6 +10,8 @@ import { describe, it, expect } from 'vitest';
 import {
   validatePoseFrame,
   evaluateMultiPersonCandidate,
+  stepDistanceZone,
+  INITIAL_DISTANCE_ZONE_STATE,
   type PoseValidationOptions,
 } from '../lib/body-assessment/poseValidation';
 import {
@@ -419,20 +421,51 @@ describe('frame-fill (too_close / too_far) — reproducibility gate', () => {
     expect(result.status).toBe('too_close');
   });
 
-  it('reports too_far when the subject fills less than 80% of the frame height', () => {
+  it('reports too_far when the subject fills less than 65% of the frame height', () => {
+    // A uniform scale-down toward the hip (which stays at the base
+    // fixture's 0.5, keeping the hip-height check passing so this
+    // isolates the distance check) — the physically-correct way to
+    // simulate "standing farther away," rather than moving only the head
+    // (which wouldn't actually change bodySpan if the shoulder ends up
+    // higher in the frame than the moved head, per bodySpan's
+    // min(headTop, shoulderMid.y) formula).
     const far = makePose({
-      nose: { y: 0.3 },
-      leftEye: { y: 0.3 },
-      rightEye: { y: 0.3 },
-      leftAnkle: { y: 0.85 },
-      rightAnkle: { y: 0.85 },
+      nose: { y: 0.28 },
+      leftEye: { y: 0.28 },
+      rightEye: { y: 0.28 },
+      leftShoulder: { y: 0.35 },
+      rightShoulder: { y: 0.35 },
+      leftKnee: { y: 0.65 },
+      rightKnee: { y: 0.65 },
+      leftAnkle: { y: 0.8 },
+      rightAnkle: { y: 0.8 },
     });
     const result = validatePoseFrame([far], FRONT);
     expect(result.status).toBe('too_far');
   });
 
-  it('passes when the subject fills 80-90% of the frame height (the base fixture)', () => {
+  it('passes when the subject fills 65-90% of the frame height (the base fixture)', () => {
     const result = validatePoseFrame([makePose()], FRONT);
+    expect(result.status).toBe('ready');
+  });
+
+  it('passes a bodySpan of ~0.70 with the hip at the edge of its allowed band — the exact previously-impossible combination', () => {
+    // Reconstructs the reported bug's real geometry: hip at 0.55 (the
+    // allowed band's own edge, not dead center), body filling ~70% of the
+    // frame. Under the OLD 0.8 floor this bodySpan alone would already
+    // have failed "too_far" — the member would have had to move closer,
+    // which (at this hip position) pushes the ankle toward the
+    // not_full_body clip line, producing the reported alternation. Under
+    // the widened 0.65 floor, this exact position is valid on its own.
+    const previouslyImpossible = makePose({
+      leftHip: { y: 0.55 },
+      rightHip: { y: 0.55 },
+      leftKnee: { y: 0.68 },
+      rightKnee: { y: 0.68 },
+      leftAnkle: { y: 0.81 },
+      rightAnkle: { y: 0.81 },
+    });
+    const result = validatePoseFrame([previouslyImpossible], FRONT);
     expect(result.status).toBe('ready');
   });
 });
@@ -557,5 +590,59 @@ describe('evaluateMultiPersonCandidate', () => {
     const result = evaluateMultiPersonCandidate([subject, distinctButDim], core, metrics);
     expect(result.candidateDetected).toBe(false);
     expect(result.reason).toBe('low_confidence_other');
+  });
+});
+
+describe('stepDistanceZone — too_close/too_far hysteresis', () => {
+  const T0 = 1_000_000;
+
+  it('enters a failure zone immediately from ok (a new problem should surface right away)', () => {
+    const result = stepDistanceZone(INITIAL_DISTANCE_ZONE_STATE, 0.95, T0);
+    expect(result.zone).toBe('too_close');
+    expect(result.since).toBe(T0);
+  });
+
+  it('clears a failure zone back to ok immediately (relief needs no delay)', () => {
+    const closeState = stepDistanceZone(INITIAL_DISTANCE_ZONE_STATE, 0.95, T0);
+    const cleared = stepDistanceZone(closeState, 0.8, T0 + 100);
+    expect(cleared.zone).toBe('ok');
+  });
+
+  it('holds the previous message on a too_close -> too_far reversal within the cooldown window, absent a genuine crossing', () => {
+    const closeState = stepDistanceZone(INITIAL_DISTANCE_ZONE_STATE, 0.95, T0);
+    expect(closeState.zone).toBe('too_close');
+    // Reads too_far, but only barely past the floor (0.65) — well within
+    // the deadband — and only 1s after entering too_close.
+    const reversed = stepDistanceZone(closeState, 0.63, T0 + 1000);
+    expect(reversed.zone).toBe('too_close');
+  });
+
+  it('honors a too_close -> too_far reversal within the cooldown window when the floor is genuinely crossed by a real margin', () => {
+    const closeState = stepDistanceZone(INITIAL_DISTANCE_ZONE_STATE, 0.95, T0);
+    // Well past SUBJECT_FRAME_HEIGHT_MIN (0.65) minus the deadband (0.05) —
+    // a decisive, real move, not boundary noise.
+    const reversed = stepDistanceZone(closeState, 0.55, T0 + 1000);
+    expect(reversed.zone).toBe('too_far');
+  });
+
+  it('honors a too_close -> too_far reversal once the cooldown window has elapsed, even without a genuine crossing', () => {
+    const closeState = stepDistanceZone(INITIAL_DISTANCE_ZONE_STATE, 0.95, T0);
+    const reversed = stepDistanceZone(closeState, 0.63, T0 + 3500);
+    expect(reversed.zone).toBe('too_far');
+  });
+
+  it('applies the same reversal protection symmetrically for too_far -> too_close', () => {
+    const farState = stepDistanceZone(INITIAL_DISTANCE_ZONE_STATE, 0.5, T0);
+    expect(farState.zone).toBe('too_far');
+    const heldBack = stepDistanceZone(farState, 0.91, T0 + 1000);
+    expect(heldBack.zone).toBe('too_far');
+    const genuine = stepDistanceZone(farState, 0.97, T0 + 1000);
+    expect(genuine.zone).toBe('too_close');
+  });
+
+  it('holds the last known zone when no bodySpan reading is available', () => {
+    const closeState = stepDistanceZone(INITIAL_DISTANCE_ZONE_STATE, 0.95, T0);
+    const held = stepDistanceZone(closeState, null, T0 + 500);
+    expect(held).toBe(closeState);
   });
 });

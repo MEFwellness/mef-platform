@@ -43,16 +43,40 @@
  * CAMERA-SETUP REPRODUCIBILITY: the frame-fill (SUBJECT_FRAME_HEIGHT_MIN/
  * MAX) and hip-height (HIP_MID_TARGET_MIN/MAX) checks below were
  * originally a coarse "not absurdly close/far or high/low" screen and are
- * now a precise repeatability gate — capture is blocked unless the subject
- * fills 80-90% of the frame height AND the hip-landmark midpoint sits in
- * the middle 10% of the frame vertically, alongside cameraTilt.ts's
- * roll/pitch tolerance (checked separately, since device orientation is
- * not a landmark signal — see that file's docblock for why they stay
- * separate modules). All four conditions are ANDed together by
- * CameraCapture.tsx's `locked` boolean, which is the actual capture gate;
- * message-priority ordering between a tilt failure and a hip-height/
- * frame-fill failure is unchanged in this pass (that's the existing
- * spoken-guidance pipeline, out of scope here).
+ * now a precise repeatability gate, alongside cameraTilt.ts's roll/pitch
+ * tolerance (checked separately, since device orientation is not a
+ * landmark signal — see that file's docblock for why they stay separate
+ * modules). All conditions are ANDed together by CameraCapture.tsx's
+ * `locked` boolean, which is the actual capture gate.
+ *
+ * DIAGNOSED BUG (real-phone testing) — "Step back until your entire body
+ * is visible" alternating indefinitely with "Move closer," no distance
+ * satisfying both: not_full_body's hard clip bound (feet must not pass
+ * ankleMid.y > 0.97) and the old too_far floor (bodySpan >= 0.8) were
+ * simultaneously satisfiable ONLY when the hip-landmark midpoint sits near
+ * the exact center of its allowed [0.45, 0.55] band. A member's hips are
+ * roughly at the vertical middle of their standing height, but the
+ * ankle-to-hip portion of a landmark-based bodySpan runs slightly LARGER
+ * than the hip-to-eye-line portion (legs read longer than the head/eye
+ * span in this landmark set) — so whenever the camera's real aim put the
+ * member's hips at the edge of the allowed band rather than dead center
+ * (e.g. hipMid.y = 0.55, a normal, passing reading), the maximum bodySpan
+ * achievable before the ankle clips past 0.97 works out to roughly:
+ *   ankleMid.y = hipMid.y + (ankle-to-hip fraction) * bodySpan <= 0.97
+ *   0.55 + 0.55 * bodySpan <= 0.97  =>  bodySpan <= ~0.76
+ * That ~0.76 ceiling was BELOW the old 0.8 floor "too_far" required —
+ * there was no bodySpan value that satisfied both a real hip position and
+ * the frame-fill floor at once, so the member could only ever be told to
+ * step back (clipped) or move closer (too far), never both satisfied.
+ * Widening the floor to 0.65 (SUBJECT_FRAME_HEIGHT_MIN below) restores a
+ * real, non-empty valid range (~0.65-0.76) at every hip position within
+ * the allowed band, including that worst-case edge — verified by the same
+ * calculation above with the new floor. "Entire body in frame"
+ * (not_full_body) remains the one HARD requirement, checked first and
+ * never suppressed; frame-fill is the SOFT target — see stepDistanceZone
+ * below, which additionally smooths transient too_close<->too_far
+ * flip-flopping right at that (now real) boundary, but deliberately never
+ * touches not_full_body's own hard bound.
  */
 
 import { toCoreLandmarks, type CorePoseLandmarks, type RawPoseLandmark } from './poseTypes';
@@ -313,16 +337,18 @@ const SHOULDER_ROTATION_DEPTH_RATIO_MAX = 0.5;
 const SUBJECT_JUMP_RATIO_MAX = 0.4;
 
 /**
- * Camera-setup reproducibility bounds (tightened from the original coarse
- * "not absurdly close/far" screen — 0.35-0.92 — to a precise repeatability
- * requirement). Every angle postureMeasurements.ts computes assumes the
- * subject fills roughly the same fraction of the frame at every capture of
- * the same view; these two numbers plus cameraTilt.ts's roll/pitch
- * tolerance and the hip-height band below are the actual measured values
- * persisted to body_assessment_captures (migration 103) alongside every
- * standing-photo capture.
+ * Camera-setup reproducibility bounds. SUBJECT_FRAME_HEIGHT_MIN was 0.8
+ * (and, before that, 0.35) — widened to 0.65 after real-phone testing
+ * showed 0.8 left no valid distance for members whose hips landed near
+ * the edge of the allowed hip-height band (see this file's top docblock
+ * for the full calculation). 0.65-0.9 is still a real reproducibility
+ * target — every angle postureMeasurements.ts computes assumes the subject
+ * fills roughly the same fraction of the frame at every capture of the
+ * same view — just wide enough to always leave genuine room alongside the
+ * hard not_full_body clip bound and the hip-height band, instead of
+ * fighting them.
  */
-const SUBJECT_FRAME_HEIGHT_MIN = 0.8;
+const SUBJECT_FRAME_HEIGHT_MIN = 0.65;
 const SUBJECT_FRAME_HEIGHT_MAX = 0.9;
 /** The hip-landmark midpoint's normalized-y must land in this middle-10%-of-frame band — "camera at roughly hip height." Tightened from the old head+ankle-based verticalCenter proxy's much wider 0.38-0.62 band. */
 const HIP_MID_TARGET_MIN = 0.45;
@@ -725,6 +751,67 @@ export function validatePoseFrame(
   }
 
   return ready(metrics, core, subject.points);
+}
+
+export type DistanceZone = 'ok' | 'too_close' | 'too_far';
+
+export type DistanceZoneState = {
+  zone: DistanceZone;
+  /** ms epoch this zone was entered — the anchor for the reversal cooldown below. */
+  since: number;
+};
+
+export const INITIAL_DISTANCE_ZONE_STATE: DistanceZoneState = { zone: 'ok', since: 0 };
+
+/** Once inside a failure zone, the frame-fill reading must clear the boundary by this much before a REVERSAL to the opposite failure zone is honored — "moves meaningfully past the boundary," not just touches it. Only relevant to the too_close<->too_far reversal case below; entering a failure from 'ok' (a genuinely new problem) is always immediate. */
+const DISTANCE_DEADBAND = 0.05;
+/** A too_close<->too_far reversal within this window is held at the PREVIOUS zone's message unless DISTANCE_DEADBAND was genuinely cleared — "never issue 'move closer' within a few seconds of 'step back' unless the far boundary was genuinely crossed." Deliberately does NOT apply to not_full_body (the hard requirement), which is never smoothed or suppressed — only the soft too_close/too_far pair oscillates in a way that's ever worth holding back. */
+const DISTANCE_REVERSAL_COOLDOWN_MS = 3000;
+
+/**
+ * Stateful smoothing over validatePoseFrame's too_close/too_far verdicts —
+ * deliberately NOT folded into validatePoseFrame itself (which stays a
+ * pure, memory-free per-frame classifier, same discipline as every other
+ * check in this file) so it can be unit-tested as its own small state
+ * machine, the same way temporalSignal.ts's confirm/release hysteresis is
+ * tested independently of the checks that feed it. CameraCapture.tsx owns
+ * the ref holding this state across frames and calls this once per
+ * detection frame with the latest bodySpan.
+ *
+ * Only ever asked to resolve a distance READING — never overrides
+ * not_full_body, which is checked earlier in validatePoseFrame and (being
+ * the one hard requirement here) is always shown immediately, never held
+ * back by this smoothing.
+ */
+export function stepDistanceZone(
+  state: DistanceZoneState,
+  bodySpan: number | null,
+  now: number
+): DistanceZoneState {
+  if (bodySpan === null) return state;
+
+  const rawZone: DistanceZone =
+    bodySpan > SUBJECT_FRAME_HEIGHT_MAX
+      ? 'too_close'
+      : bodySpan < SUBJECT_FRAME_HEIGHT_MIN
+        ? 'too_far'
+        : 'ok';
+
+  if (rawZone === state.zone) return state;
+
+  const isReversal =
+    (state.zone === 'too_close' && rawZone === 'too_far') ||
+    (state.zone === 'too_far' && rawZone === 'too_close');
+
+  if (isReversal && now - state.since < DISTANCE_REVERSAL_COOLDOWN_MS) {
+    const genuinelyCrossed =
+      rawZone === 'too_far'
+        ? bodySpan < SUBJECT_FRAME_HEIGHT_MIN - DISTANCE_DEADBAND
+        : bodySpan > SUBJECT_FRAME_HEIGHT_MAX + DISTANCE_DEADBAND;
+    if (!genuinelyCrossed) return state;
+  }
+
+  return { zone: rawZone, since: now };
 }
 
 export type MultiPersonCandidateReason =

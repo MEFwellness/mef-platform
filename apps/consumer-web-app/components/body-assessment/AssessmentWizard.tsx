@@ -45,6 +45,9 @@ import {
   deleteCaptureAction,
   submitAssessmentAction,
   getMostRecentCaptureSetupAction,
+  getMyAssessmentsAction,
+  getAssessmentDetailAction,
+  getSignedCaptureUrlAction,
   type CaptureSetupTarget,
 } from '@/app/actions/body-assessment';
 import { CameraCapture, type CapturedMedia } from './CameraCapture';
@@ -141,6 +144,71 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
     useState<OrientationPermissionStatus>('pending');
   /** The setup (roll/pitch/hip position/frame fill) to guide the current capture step's live reading toward, fetched fresh whenever the capture step changes — null for movement/video steps and for a member's first-ever capture of a given view. */
   const [replicationTarget, setReplicationTarget] = useState<CaptureSetupTarget | null>(null);
+  /** True only while checking for a resumable in-progress assessment on mount — kept brief and unrendered (a blank beat) rather than flashing the welcome screen and then jumping away from it a moment later. */
+  const [checkingResume, setCheckingResume] = useState(true);
+
+  // On mount, check for an assessment of this exact type the member already
+  // started but never submitted (e.g. exited mid-flow via the camera
+  // screen's close button — see CameraCapture.tsx's onExit) and resume it
+  // rather than starting a brand-new one: same assessmentId, already-
+  // captured steps skipped, landing on the first uncaptured step (or
+  // Review, if every step is already captured). This is what keeps an
+  // abandoned assessment from becoming an orphaned, ever-accumulating
+  // 'in_progress' row every time the member starts this assessment type
+  // again — there is always at most one in-progress row per type, either
+  // continued here or left for a coach/future pass to see, never silently
+  // duplicated.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const existing = await getMyAssessmentsAction(assessmentType);
+      const inProgress = existing.find((a) => a.status === 'in_progress');
+      if (!inProgress) {
+        if (!cancelled) setCheckingResume(false);
+        return;
+      }
+      const detail = await getAssessmentDetailAction(inProgress.id);
+      if (cancelled) return;
+      if (!detail) {
+        setCheckingResume(false);
+        return;
+      }
+
+      const resumedRecords: CaptureRecord[] = [];
+      for (const capture of detail.captures) {
+        const matchedStep = typeConfig.captureSteps.find(
+          (s) => s.captureType === capture.capture_type
+        );
+        if (!matchedStep) continue;
+        const url = await getSignedCaptureUrlAction(capture.storage_path);
+        if (cancelled) return;
+        if (url) resumedRecords.push({ captureId: capture.id, step: matchedStep, previewUrl: url });
+      }
+
+      const capturedTypes = new Set(resumedRecords.map((r) => r.step.captureType));
+      const nextIndex = typeConfig.captureSteps.findIndex(
+        (s) => !capturedTypes.has(s.captureType)
+      );
+
+      setAssessmentId(inProgress.id);
+      setRecords(resumedRecords);
+      if (nextIndex === -1) {
+        setPhase('review');
+      } else {
+        setCaptureIndex(nextIndex);
+        setPhase('capture');
+      }
+      setCheckingResume(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally runs once on mount only — assessmentType/typeConfig are
+    // fixed for the lifetime of this component instance (a prop), and
+    // re-running this on every render would fight the wizard's own state
+    // transitions once resume (or a fresh start) has already happened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch this step's guided-replication target fresh whenever the capture
   // step changes — only standing-photo steps (front/left_side/right_side/
@@ -308,6 +376,27 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
     router.push(`/assessment/${assessmentId}`);
   }
 
+  /**
+   * The camera screen's visible close control, and the fallback destination
+   * if the browser/hardware back button is used mid-flow — same target as
+   * this page's own header "Back" link (app/assessment/new/page.tsx), so
+   * every way out of this screen lands somewhere consistent. Deliberately
+   * does NOT touch the in-progress assessment row: the resume effect above
+   * is what keeps returning here from leaving a stuck/duplicated record,
+   * not anything done at exit time.
+   */
+  function handleExit() {
+    router.push('/assessment');
+  }
+
+  if (checkingResume) {
+    return (
+      <div className={`${CARD} flex flex-col items-center gap-3 p-10 text-center`}>
+        <Loader2 className="h-6 w-6 animate-spin text-[#1B3A2D]" aria-hidden="true" />
+      </div>
+    );
+  }
+
   // ---- Welcome ----
   if (phase === 'welcome') {
     return (
@@ -445,6 +534,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
             onCaptured={(media) => handleCaptured(step, media)}
             replicationTarget={replicationTarget}
             orientationPermission={orientationPermission}
+            onExit={handleExit}
           />
         )}
         {errorMessage && <p className="mt-3 text-sm text-red-700">{errorMessage}</p>}

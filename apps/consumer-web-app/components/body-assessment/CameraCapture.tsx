@@ -31,6 +31,7 @@ import {
   Volume2,
   VolumeX,
   Ear,
+  X,
 } from 'lucide-react';
 import type { CaptureStepConfig } from '@/lib/body-assessment/assessmentTypes';
 import type { BodyLandmarkPoint, CaptureOrientationSource } from '@mef/shared-types-contracts';
@@ -40,7 +41,10 @@ import { useDeviceTilt, type OrientationPermissionStatus } from '@/hooks/useDevi
 import {
   validatePoseFrame,
   evaluateMultiPersonCandidate,
+  stepDistanceZone,
+  INITIAL_DISTANCE_ZONE_STATE,
   type PoseValidationResult,
+  type DistanceZoneState,
 } from '@/lib/body-assessment/poseValidation';
 import {
   evaluateCameraTilt,
@@ -98,6 +102,7 @@ import { CaptureCountdownNumeral } from './CaptureCountdownNumeral';
 import { CaptureFlash } from './CaptureFlash';
 import { ScanSweep } from './ScanSweep';
 import { InitializationOverlay, type InitializationStage } from './InitializationOverlay';
+import { StuckGuidance } from './StuckGuidance';
 
 export type CapturedMedia = {
   blob: Blob;
@@ -138,6 +143,8 @@ type Props = {
   replicationTarget?: ReplicationTarget | null;
   /** Whether the member granted/has motion-sensor access (from the prep-screen permission request) — determines whether this step waits for a live sensor reading or goes straight to the manual bubble-level fallback. Defaults to 'pending' (waits briefly, then falls back) when omitted. */
   orientationPermission?: OrientationPermissionStatus;
+  /** Called when the member taps the visible close control on the camera screen — the caller (AssessmentWizard.tsx) is responsible for actually navigating away. This component stops and releases its own camera stream itself, synchronously, before calling this — never waits on unmount to release the camera. */
+  onExit: () => void;
 };
 
 type CameraPhase =
@@ -166,6 +173,8 @@ const STABILITY_GRACE_MS = 400;
 
 /** How long to wait for a first real DeviceOrientationEvent before concluding this device/browser genuinely isn't going to supply one and switching to the manual bubble-level fallback — covers the case where permission wasn't required (so no upfront prep-screen signal either way) but no motion hardware actually exists (e.g. a desktop browser). */
 const ORIENTATION_SENSOR_GRACE_MS = 2000;
+/** How long a standing-photo step can go without a successful capture before the stuck detector takes over — the member is standing across the room and can't read small rotating text; past this, show ONE large plain-language statement of whatever's currently blocking capture instead. */
+const STUCK_THRESHOLD_MS = 20000;
 /** Guided-replication match tolerances — tighter than the absolute reproducibility gate's own bands (10%/10%) for hip position and frame fill, since matching a SPECIFIC prior capture (not just "anywhere in the broad acceptable range") is what makes before/after comparison valid. Roll/pitch reuse the same absolute tolerances, since both captures were already independently held within them. */
 const REPLICATION_HIP_TOLERANCE = 0.02;
 const REPLICATION_FRAME_FILL_TOLERANCE = 0.03;
@@ -256,6 +265,7 @@ export function CameraCapture({
   onCaptured,
   replicationTarget = null,
   orientationPermission = 'pending',
+  onExit,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -278,7 +288,7 @@ export function CameraCapture({
   const [frozenValidation, setFrozenValidation] = useState<PoseValidationResult | null>(null);
   /** Non-null only during the final visible 3-2-1 before the shutter fires — see COUNTDOWN_MS. */
   const [countdownRemainingMs, setCountdownRemainingMs] = useState<number | null>(null);
-  /** Mirrors the temporally-confirmed multi-person/tracking-loss verdict computed inside the validation effect, so render (status chip, screen line, silhouette tone) can reflect it too — validation.status alone only ever reflects a single frame's opinion on the CHOSEN subject, never the separate continuity layer. */
+  /** Mirrors the temporally-confirmed multi-person/tracking-loss verdict, AND the distance-zone-smoothed too_close/too_far message (see stepDistanceZone), computed inside the validation effect, so render (status chip, screen line, silhouette tone) can reflect it too — validation.status/message alone only ever reflects a single frame's raw, unsmoothed opinion. */
   const [continuityOverride, setContinuityOverride] = useState<{
     key: string;
     message: string;
@@ -331,6 +341,12 @@ export function CameraCapture({
   /** The member's explicit attestation that they've manually leveled the phone, via ManualLevelBubble — stands in for evaluateCameraTilt()'s `ok` while manualFallbackActive. */
   const [manualLevelConfirmed, setManualLevelConfirmed] = useState(false);
   const orientationSensorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Smooths validatePoseFrame's raw too_close/too_far verdict — see poseValidation.ts's stepDistanceZone docblock for why this lives as cross-frame state here rather than inside that (deliberately memory-free) function. */
+  const distanceZoneStateRef = useRef<DistanceZoneState>(INITIAL_DISTANCE_ZONE_STATE);
+  /** When this capture step became active — the anchor for the 20s stuck detector below. */
+  const stepEnteredAtRef = useRef<number>(Date.now());
+  /** True once STUCK_THRESHOLD_MS has passed with no successful capture on this step — replaces the normal small on-screen cue with one large, plain statement of the single condition currently blocking capture (see StuckGuidance.tsx). */
+  const [stuckModeActive, setStuckModeActive] = useState(false);
 
   const isVideo = step.mediaType === 'video';
   const requiresStanding = !isVideo;
@@ -490,7 +506,25 @@ export function CameraCapture({
     setManualLevelConfirmed(false);
     if (orientationSensorTimeoutRef.current) clearTimeout(orientationSensorTimeoutRef.current);
     if (autoCaptureTimeoutRef.current) clearTimeout(autoCaptureTimeoutRef.current);
+    distanceZoneStateRef.current = INITIAL_DISTANCE_ZONE_STATE;
+    stepEnteredAtRef.current = Date.now();
+    setStuckModeActive(false);
   }, [step]);
+
+  // Stuck detector: ticks independently of the pose-detection loop (a
+  // person standing still with nothing changing may not even generate new
+  // detection frames worth re-rendering on) so 20s of no successful
+  // capture is caught regardless of what the live per-frame status is
+  // doing. Only meaningful for standing-photo steps still in 'ready' —
+  // once capture actually fires (autoCaptureTriggered) there's nothing
+  // left to be stuck on.
+  useEffect(() => {
+    if (phase !== 'ready' || !requiresStanding || autoCaptureTriggered) return;
+    const interval = setInterval(() => {
+      if (Date.now() - stepEnteredAtRef.current >= STUCK_THRESHOLD_MS) setStuckModeActive(true);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [phase, requiresStanding, autoCaptureTriggered]);
 
   // Speak the fixed setup script once per step, one line at a time,
   // cancelling before each new line (useGuidedVoice's speak() always does
@@ -682,6 +716,12 @@ export function CameraCapture({
 
     const now = Date.now();
 
+    distanceZoneStateRef.current = stepDistanceZone(
+      distanceZoneStateRef.current,
+      result.metrics?.bodySpan ?? null,
+      now
+    );
+
     // Multi-person: a single frame's spatial-separation-aware opinion
     // (evaluateMultiPersonCandidate), fed through confirm/release
     // hysteresis — never act on one frame alone. See both functions'
@@ -760,6 +800,17 @@ export function CameraCapture({
         } else {
           activeRule = 'uncertain'; // within the initial grace window — stay silent, not yet worth mentioning
         }
+      } else if (result.status === 'too_close' || result.status === 'too_far') {
+        // Smoothed through stepDistanceZone rather than result.status
+        // directly — a too_close<->too_far reversal within the last few
+        // seconds is held at the PREVIOUS zone's message unless the
+        // opposite boundary was genuinely (by a real margin) crossed. This
+        // never applies to not_full_body (the hard requirement, handled in
+        // the branch below, always immediate) — only this soft pair.
+        const zone = distanceZoneStateRef.current.zone;
+        effectiveKey = zone === 'ok' ? result.status : zone;
+        effectiveMessage = zone === 'too_close' ? 'Step farther away.' : 'Move closer.';
+        activeRule = 'low_confidence';
       } else {
         effectiveKey = result.status;
         effectiveMessage = result.message;
@@ -780,7 +831,9 @@ export function CameraCapture({
     setContinuityOverride(
       multiPersonConfirmed ||
         effectiveKey === 'tracking_lost_brief' ||
-        effectiveKey === 'tracking_lost_long'
+        effectiveKey === 'tracking_lost_long' ||
+        effectiveKey === 'too_close' ||
+        effectiveKey === 'too_far'
         ? { key: effectiveKey!, message: effectiveMessage }
         : null
     );
@@ -794,6 +847,7 @@ export function CameraCapture({
           pending: multiPersonPending,
         },
         personLost: { confirmed: personLostConfirmed, elapsedMs: personLostElapsedMs },
+        distanceZone: distanceZoneStateRef.current.zone,
         tiltOk: tilt.ok,
         frameQuality: { status: frameQuality.status, ok: frameQuality.ok },
         locked,
@@ -1014,6 +1068,25 @@ export function CameraCapture({
     setPhase('ready');
   }
 
+  /**
+   * The visible close control's handler — stops and releases the camera
+   * stream and any in-progress recording SYNCHRONOUSLY, right here, rather
+   * than relying on this component's unmount cleanup to eventually run.
+   * onExit() (AssessmentWizard.tsx) is what actually navigates away; by the
+   * time it's called, the camera hardware is already off regardless of
+   * how that navigation unfolds.
+   */
+  function handleExit() {
+    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+      recorderRef.current.onstop = null;
+      recorderRef.current.stop();
+    }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    onExit();
+  }
+
   function useThisMedia() {
     if (pendingMedia) onCaptured(pendingMedia);
   }
@@ -1025,6 +1098,13 @@ export function CameraCapture({
           Your browser doesn&apos;t support camera capture. Please try again on a phone or a browser
           with camera support.
         </p>
+        <button
+          type="button"
+          onClick={handleExit}
+          className="mt-4 rounded-full border border-[#1B3A2D]/15 px-5 py-2 text-sm font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.04]"
+        >
+          Exit assessment
+        </button>
       </div>
     );
   }
@@ -1036,13 +1116,22 @@ export function CameraCapture({
           We need camera access to guide you through this assessment. Please allow camera access in
           your browser settings and try again.
         </p>
-        <button
-          type="button"
-          onClick={() => setFacingMode((m) => m)}
-          className="mt-4 rounded-full bg-[#1B3A2D] px-5 py-2 text-sm font-medium text-white hover:brightness-110"
-        >
-          Try again
-        </button>
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setFacingMode((m) => m)}
+            className="rounded-full bg-[#1B3A2D] px-5 py-2 text-sm font-medium text-white hover:brightness-110"
+          >
+            Try again
+          </button>
+          <button
+            type="button"
+            onClick={handleExit}
+            className="rounded-full border border-[#1B3A2D]/15 px-5 py-2 text-sm font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.04]"
+          >
+            Exit assessment
+          </button>
+        </div>
       </div>
     );
   }
@@ -1242,8 +1331,26 @@ export function CameraCapture({
 
         {initializationStage && <InitializationOverlay stage={initializationStage} />}
 
+        {/* Visible close control — always present, every phase, every capture
+            type (photo AND movement/video). handleExit stops the camera
+            stream synchronously before calling onExit(), so the member is
+            never trapped here regardless of what else is on screen. */}
+        <button
+          type="button"
+          onClick={handleExit}
+          title="Exit assessment"
+          aria-label="Exit assessment"
+          className="absolute left-4 top-4 z-40 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+        >
+          <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+        </button>
+
+        {stuckModeActive && requiresStanding && phase === 'ready' && !overallOk && (
+          <StuckGuidance message={currentScreenLine || 'Adjust your position to continue.'} />
+        )}
+
         {statusChip && (phase === 'ready' || phase === 'recording') && (
-          <div className="absolute left-4 top-4 z-10">
+          <div className="absolute left-16 top-4 z-10">
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                 statusChip.tone === 'success'
