@@ -7,11 +7,15 @@
  * what it says. RootScoreCard.tsx itself is now unused (it was
  * dashboard-only) and has been removed.
  *
- * The photo (public/images/home-hero.jpg) is framed with object-position
- * biased toward the lower-right so the tree line stays in frame rather
- * than empty sky, and a two-layer dark gradient (stronger left/top) keeps
- * the cream header and score text legible regardless of where the photo's
- * own light source falls at a given viewport width.
+ * The photo switches with time of day — public/images/home-hero-day.jpg
+ * for morning/afternoon, public/images/home-hero-evening.jpg for evening —
+ * on the exact same hour boundary lib/feed/timeContext.ts's greetingForHour
+ * already uses for "Good morning"/"Good afternoon"/"Good evening", via the
+ * greetingWord this component already receives (see heroImageForGreeting
+ * below), so the two can never drift out of sync. Both are framed with the
+ * same object-position biased toward the lower-right, and the same
+ * two-layer dark gradient (stronger left/top) keeps the cream header and
+ * score text legible regardless of which photo or light source is showing.
  */
 
 import Image from 'next/image';
@@ -34,6 +38,14 @@ const TREND_TINT: Record<'good' | 'attention' | 'poor', string> = {
   poor: 'text-red-300',
 };
 
+const HERO_IMAGE_DAY = '/images/home-hero-day.jpg';
+const HERO_IMAGE_EVENING = '/images/home-hero-evening.jpg';
+
+/** Same "Good morning" / "Good afternoon" / "Good evening" boundary as lib/feed/timeContext.ts's greetingForHour — reuses the already-computed word instead of recomputing the hour, so the image can't disagree with the greeting. */
+function heroImageForGreeting(greetingWord: string): string {
+  return greetingWord === 'Good evening' ? HERO_IMAGE_EVENING : HERO_IMAGE_DAY;
+}
+
 function ChangePill({ change }: { change: number | null }) {
   if (change === null) return null;
   const status = change > 0 ? 'good' : change < 0 ? 'poor' : 'attention';
@@ -52,10 +64,12 @@ function ChangePill({ change }: { change: number | null }) {
 
 function HeroChrome({
   firstName,
+  heroImage,
   compact = false,
   children,
 }: {
   firstName: string;
+  heroImage: string;
   /**
    * Before a member's first check-in, the hero has only a greeting to
    * show — FirstCheckInWelcome (app/dashboard/page.tsx) carries the rest
@@ -70,7 +84,7 @@ function HeroChrome({
     <section className="relative w-full overflow-hidden">
       <div className="absolute inset-0">
         <Image
-          src="/images/home-hero.jpg"
+          src={heroImage}
           alt=""
           fill
           priority
@@ -160,9 +174,11 @@ export function HomeHero({
    */
   hasCheckins: boolean;
 }) {
+  const heroImage = heroImageForGreeting(greetingWord);
+
   if (!hasCheckins) {
     return (
-      <HeroChrome firstName={firstName} compact>
+      <HeroChrome firstName={firstName} heroImage={heroImage} compact>
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#FAFAF8] md:text-4xl">
           {greetingWord}, {firstName}
         </h1>
@@ -172,7 +188,7 @@ export function HomeHero({
 
   if (!snapshot || snapshot.root_score === null) {
     return (
-      <HeroChrome firstName={firstName}>
+      <HeroChrome firstName={firstName} heroImage={heroImage}>
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#FAFAF8] md:text-[2.75rem]">
           {greetingWord}, {firstName}
         </h1>
@@ -195,7 +211,7 @@ export function HomeHero({
   }
 
   return (
-    <HeroChrome firstName={firstName}>
+    <HeroChrome firstName={firstName} heroImage={heroImage}>
       <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#FAFAF8] md:text-[2.75rem]">
         {greetingWord}, {firstName}
       </h1>
