@@ -3,6 +3,25 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTodaysCheckinPlan } from '../lib/daily-checkin-adaptive/plan';
 import { FIXED_CORE_QUESTION_KEYS, MAX_DAILY_QUESTIONS, ROTATING_PROBE_TARGET_COUNT } from '../lib/daily-checkin-adaptive/constants';
 
+/**
+ * Hardcoded independently of FIXED_CORE_QUESTION_KEYS on purpose — every
+ * other test in this file (and in daily-checkin-adaptive-probeBank.test.ts)
+ * imports that constant and would keep passing even if a future edit to
+ * constants.ts silently dropped one of the six required metrics, since
+ * both sides of those comparisons would change together. This literal
+ * list is what actually pins the requirement down: pain, energy, sleep
+ * quality, sleep duration, stress, and mood must always be part of a
+ * day's question set, full stop.
+ */
+const REQUIRED_CORE_METRICS = [
+  'checkin.pain',
+  'checkin.energy',
+  'checkin.sleep_quality',
+  'checkin.sleep_duration',
+  'checkin.stress',
+  'checkin.mood',
+] as const;
+
 type TableResponse = { data: unknown; error: unknown };
 
 /**
@@ -176,5 +195,51 @@ describe('getTodaysCheckinPlan — fixed core is never touched by the adaptive l
     const plan = await getTodaysCheckinPlan(supabase, 'member-1', '2026-07-26', () => 0);
     expect(plan.fixedCoreQuestionKeys).toEqual(FIXED_CORE_QUESTION_KEYS);
     expect(plan.rotatingProbes.map((p) => p.questionKey)).toEqual(['checkin_probe.digestion_rating']);
+  });
+});
+
+describe('the six required core metrics — checked against hardcoded values, not the constant under test', () => {
+  it('FIXED_CORE_QUESTION_KEYS is exactly these six metrics, no more, no fewer', () => {
+    expect([...FIXED_CORE_QUESTION_KEYS].sort()).toEqual([...REQUIRED_CORE_METRICS].sort());
+  });
+
+  it('a freshly computed plan includes all six, by literal name', async () => {
+    const supabase = fakeSupabase(freshComputationResponses());
+    const plan = await getTodaysCheckinPlan(supabase, 'member-1', '2026-07-26', () => 0);
+    for (const metric of REQUIRED_CORE_METRICS) {
+      expect(plan.fixedCoreQuestionKeys).toContain(metric);
+    }
+  });
+
+  it('a reconstructed same-day plan still includes all six, by literal name', async () => {
+    const responses = freshComputationResponses();
+    responses.member_daily_probe_selections = {
+      data: [{ question_key: 'checkin_probe.digestion_rating', kind: 'rotating_probe' }],
+      error: null,
+    };
+    const supabase = fakeSupabase(responses);
+    const plan = await getTodaysCheckinPlan(supabase, 'member-1', '2026-07-26', () => 0);
+    for (const metric of REQUIRED_CORE_METRICS) {
+      expect(plan.fixedCoreQuestionKeys).toContain(metric);
+    }
+  });
+
+  it('every core metric survives even when every driver is ruled out', async () => {
+    const responses = freshComputationResponses();
+    responses.member_driver_states = {
+      data: [
+        { member_id: 'member-1', driver_id: 'SLP-2', state: 'ruled_out', evidence_summary: {}, updated_at: '2026-07-01T00:00:00.000Z' },
+        { member_id: 'member-1', driver_id: 'SLP-6', state: 'ruled_out', evidence_summary: {}, updated_at: '2026-07-01T00:00:00.000Z' },
+        { member_id: 'member-1', driver_id: 'DIG-1', state: 'ruled_out', evidence_summary: {}, updated_at: '2026-07-01T00:00:00.000Z' },
+        { member_id: 'member-1', driver_id: 'DIG-2', state: 'ruled_out', evidence_summary: {}, updated_at: '2026-07-01T00:00:00.000Z' },
+        { member_id: 'member-1', driver_id: 'MOV-2', state: 'ruled_out', evidence_summary: {}, updated_at: '2026-07-01T00:00:00.000Z' },
+      ],
+      error: null,
+    };
+    const supabase = fakeSupabase(responses);
+    const plan = await getTodaysCheckinPlan(supabase, 'member-1', '2026-07-26', () => 0);
+    for (const metric of REQUIRED_CORE_METRICS) {
+      expect(plan.fixedCoreQuestionKeys).toContain(metric);
+    }
   });
 });
