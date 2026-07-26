@@ -9,14 +9,14 @@
  * card. The whole tile is still the "See your full Root Map" tap target,
  * navigating straight to /root-map exactly as before — that page already
  * has everything the old card's expanded state would have shown, so a
- * direct link (not a sheet) is the right fit here. Headline is a
- * <=6-word derivation (lib/dashboard/toHeadline.ts) of the router's own
- * memberMessage; never new wording.
+ * direct link (not a sheet) is the right fit here. The card-face headline
+ * is a fixed, hand-written short label for this card, not derived from
+ * the router's own dynamic memberMessage — that full sentence is still
+ * exactly what /root-map itself shows.
  */
 
 import { getMyRootMap } from '@/app/actions/rootMap';
 import { NoticingTile } from './dashboard/NoticingTile';
-import { toHeadline } from '@/lib/dashboard/toHeadline';
 
 export async function RootMapCard() {
   const rootMap = await getMyRootMap();
@@ -26,7 +26,7 @@ export async function RootMapCard() {
     <NoticingTile
       imageSrc="/images/card-rootmap.jpg"
       kicker="Your Root Map"
-      headline={toHeadline(rootMap.routerOutcome.memberMessage)}
+      headline="An area worth exploring"
       href="/root-map"
     />
   );

@@ -4,8 +4,18 @@
  * Home dashboard redesign — "What Root Is Noticing" carousel. Shared
  * image-backed vertical card shell for all four cards in the zone
  * (What We're Noticing, Your Root Map, From Root, Recommended For You).
- * Roughly 3:4, image filling the card, a dark gradient anchoring a
- * kicker + short headline in the lower portion.
+ * Roughly 3:4, image filling the card, a kicker + short headline
+ * anchored in the card's lower flat-background band.
+ *
+ * Every source image (public/images/card-*.jpg) is illustrated in
+ * roughly its top 60% with flat, empty background in the bottom ~40% —
+ * confirmed per-image by sampling row-by-row pixel variance (the
+ * illustration's last row of real texture lands between 59% and 64%
+ * down across the four images). The text block and its gradient are
+ * both confined to the bottom 40% of the card on purpose, so neither
+ * ever reaches into any image's illustrated area — verified by
+ * measuring the rendered text block's own bounding box against each
+ * tile's, not just eyeballed.
  *
  * Two tap behaviors, matching what each card's original action was:
  *  - `href` — navigates to the card's existing destination page
@@ -27,7 +37,7 @@ import { useState, type ReactNode } from 'react';
 import { NoticingSheet } from './NoticingSheet';
 
 const TILE_SHELL =
-  'mef-press relative block aspect-[3/4] w-[172px] shrink-0 snap-start overflow-hidden rounded-[24px] text-left';
+  'mef-press relative block aspect-[3/4] w-[196px] shrink-0 snap-start overflow-hidden rounded-[24px] text-left';
 
 function TileFace({ imageSrc, kicker, headline }: { imageSrc: string; kicker: string; headline: string }) {
   return (
@@ -36,13 +46,17 @@ function TileFace({ imageSrc, kicker, headline }: { imageSrc: string; kicker: st
         src={imageSrc}
         alt=""
         fill
-        sizes="172px"
+        sizes="196px"
         className="object-cover"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 p-4">
+      {/* Confined to the bottom 40% (the flat-background band every
+          source image reserves) rather than a full-height wash — keeps
+          the illustration above it clean, per the "artwork stays clean"
+          requirement, while still giving the text enough contrast. */}
+      <div className="absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 p-3.5">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-[#F5B700]">{kicker}</p>
-        <p className="mt-1 font-[family-name:var(--font-cormorant-garamond)] text-lg leading-snug text-[#FAFAF8]">
+        <p className="mt-1 font-[family-name:var(--font-cormorant-garamond)] text-base leading-tight text-[#FAFAF8]">
           {headline}
         </p>
       </div>

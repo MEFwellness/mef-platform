@@ -12,16 +12,16 @@
  * view, so tapping the tile opens a bottom sheet with the full original
  * content below — every section, every item, the same recommendation
  * link — completely unchanged, just relocated out of the always-visible
- * card face and behind a tap. The card face's headline is a <=6-word
- * derivation (lib/dashboard/toHeadline.ts) of whichever real sentence
- * would have led the old card; never new wording.
+ * card face and behind a tap. The card-face headline is a fixed,
+ * hand-written short label for this card (not derived from whichever
+ * dynamic sentence happens to lead that day) — the full dynamic content
+ * is what the sheet is for.
  */
 
 import Link from 'next/link';
 import type { Route } from 'next';
 import { getMyNoticingView } from '@/app/actions/memberNoticing';
 import { NoticingTile } from './NoticingTile';
-import { toHeadline } from '@/lib/dashboard/toHeadline';
 
 export async function WhatWereNoticingCard() {
   const view = await getMyNoticingView();
@@ -35,19 +35,11 @@ export async function WhatWereNoticingCard() {
     view.recommendedInvestigation !== null;
   if (!hasAnything) return null;
 
-  const leadSentence =
-    view.noticing[0] ??
-    view.improving[0] ??
-    view.worthAttention[0] ??
-    view.nextSteps[0] ??
-    view.recommendedInvestigation?.displayName ??
-    'New patterns worth reviewing';
-
   return (
     <NoticingTile
       imageSrc="/images/card-noticing.jpg"
       kicker="What We're Noticing"
-      headline={toHeadline(leadSentence)}
+      headline="Four Doctors Assessment"
       sheetTitle="What We're Noticing"
     >
       {view.noticing.length > 0 && (

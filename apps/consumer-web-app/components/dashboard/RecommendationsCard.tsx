@@ -12,14 +12,13 @@
  * target, navigating straight to /recommendations exactly as before —
  * that page already lists every active recommendation this card used to
  * preview inline, so nothing is lost, just reached with one tap instead
- * of shown up front. Headline is a <=6-word derivation
- * (lib/dashboard/toHeadline.ts) of the top active recommendation's own
- * title; never new wording.
+ * of shown up front. The card-face headline is a fixed, hand-written
+ * short label for this card, not derived from whichever recommendation
+ * happens to be first that day.
  */
 
 import { getMyRecommendations } from '@/app/actions/recommendations';
 import { NoticingTile } from './NoticingTile';
-import { toHeadline } from '@/lib/dashboard/toHeadline';
 
 export async function RecommendationsCard() {
   const recommendations = await getMyRecommendations();
@@ -30,7 +29,7 @@ export async function RecommendationsCard() {
     <NoticingTile
       imageSrc="/images/card-habit.jpg"
       kicker="Recommended For You"
-      headline={toHeadline(active[0]!.title)}
+      headline="Today's focus: Consistency"
       href="/recommendations"
     />
   );

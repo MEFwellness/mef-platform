@@ -13,13 +13,14 @@
  * in the fuller coachingCard in place. There's no dedicated destination
  * page for this message, so the same reveal now happens in a bottom sheet
  * instead of inline, per the redesign's "inline expand -> sheet or
- * existing destination" rule. Headline is a <=6-word derivation
- * (lib/dashboard/toHeadline.ts) of dashboardLine; never new wording.
+ * existing destination" rule. The card-face headline is a fixed,
+ * hand-written short label for this card, not derived from the day's
+ * actual dashboardLine — that full dynamic message is exactly what the
+ * sheet body below still shows.
  */
 
 import { getMyCoachingMessage } from '@/app/actions/rootCoaching';
 import { NoticingTile } from './NoticingTile';
-import { toHeadline } from '@/lib/dashboard/toHeadline';
 
 export async function CoachingMessageCard() {
   const message = await getMyCoachingMessage();
@@ -31,7 +32,7 @@ export async function CoachingMessageCard() {
     <NoticingTile
       imageSrc="/images/card-fromroot.jpg"
       kicker="From Root"
-      headline={toHeadline(message.dashboardLine)}
+      headline="More context could help"
       sheetTitle="From Root"
     >
       <p className="text-[15px] leading-relaxed text-[#1B3A2D]">
