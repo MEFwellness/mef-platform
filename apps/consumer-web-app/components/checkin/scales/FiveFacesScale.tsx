@@ -1,30 +1,10 @@
 'use client';
 
-/**
- * Mood — "five faces along a warm-to-cool gradient." The gradient is
- * built entirely from the two locked brand colors (warm gold at the low
- * end, forest green at the high end, cream as the midpoint) rather than
- * introducing new hues, so it reads as warm-to-cool while staying inside
- * the same palette used everywhere else in the app.
- */
+/** Mood — "five faces along its hue ramp": cool muted -> warm gold, the same two-stop family every scale in this redesign uses, never a red/green good-bad axis. */
 
-import { selectWithFeedback, SCALE_LABEL } from './shared';
-
-const GOLD = [196, 160, 80] as const; // #C4A050
-const CREAM = [245, 240, 228] as const; // #F5F0E4
-const GREEN = [27, 58, 45] as const; // #1B3A2D
-
-function lerp(a: number, b: number, t: number): number {
-  return Math.round(a + (b - a) * t);
-}
-
-/** 5 steps, warm (gold) -> cream -> cool (green), matching MOOD_MEANING's Very Low..Excellent order. */
-function faceBackground(index: number): string {
-  const t = index / 4; // 0, 0.25, 0.5, 0.75, 1
-  const [from, to, localT] = t <= 0.5 ? [GOLD, CREAM, t / 0.5] : [CREAM, GREEN, (t - 0.5) / 0.5];
-  const [r, g, b] = [lerp(from[0], to[0], localT), lerp(from[1], to[1], localT), lerp(from[2], to[2], localT)];
-  return `rgb(${r}, ${g}, ${b})`;
-}
+import { triggerHaptic } from '@/lib/haptics';
+import { MOOD_RAMP, rampColorAt } from '@/lib/checkin-color-ramps';
+import { SCALE_LABEL } from './shared';
 
 function FaceIcon({ index, isDark }: { index: number; isDark: boolean }) {
   const curve = -6 + index * 3; // frown (-6) through smile (+6)
@@ -64,24 +44,30 @@ export function FiveFacesScale({
         {labels.map((word, index) => {
           const optionValue = index + 1;
           const isSelected = value === optionValue;
+          const fill = rampColorAt(MOOD_RAMP.from, MOOD_RAMP.to, index, labels.length);
           return (
             <button
               key={word}
               type="button"
-              onClick={() => selectWithFeedback(onChange, optionValue)}
+              onClick={() => {
+                triggerHaptic();
+                onChange(optionValue);
+              }}
               aria-pressed={isSelected}
               aria-label={word}
               title={word}
               className={`mef-press flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl border py-2.5 transition-all duration-200 ease-out ${
                 isSelected
                   ? 'scale-105 border-transparent shadow-[0_4px_16px_-4px_rgba(27,58,45,0.35)]'
-                  : 'border-[#1B3A2D]/10 bg-white hover:scale-[1.03]'
+                  : 'border-[#1B3A2D]/10 bg-white'
               }`}
-              style={isSelected ? { backgroundColor: faceBackground(index) } : undefined}
+              style={isSelected ? { backgroundColor: fill } : undefined}
             >
               <FaceIcon index={index} isDark={isSelected && index >= 2} />
               <span
-                className={`truncate text-[10px] font-medium ${isSelected && index >= 2 ? 'text-white' : isSelected ? 'text-[#1B3A2D]' : 'text-[#6B7A72]'}`}
+                className={`whitespace-normal break-words text-center text-[10px] font-medium leading-tight ${
+                  isSelected && index >= 2 ? 'text-white' : isSelected ? 'text-[#1B3A2D]' : 'text-[#6B7A72]'
+                }`}
               >
                 {word}
               </span>

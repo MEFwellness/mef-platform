@@ -1,18 +1,18 @@
 'use client';
 
 /**
- * Bedtime + wake time — "a single circular arc the member drags to set
- * her sleep window, replacing the two empty text inputs entirely. Show
- * the resulting duration in the centre of the arc." Writes the exact
- * same `actual_bedtime`/`actual_wake_time` "HH:MM" strings the two
- * native <input type="time"> fields it replaces already wrote, so
- * nothing downstream (submitDailyCheckin, lib/wellness/*) changes.
- *
- * The dial reads clockwise from midnight at the top (0:00) through noon
- * at the bottom (12:00) back to midnight — a full 24-hour face, since a
- * bedtime/wake window almost always crosses midnight. Dragging either
- * handle snaps to 5-minute increments (fine enough to feel precise,
- * coarse enough to hit reliably with a finger on a ~260px dial).
+ * "Your night," built as ONE object rather than four separate questions
+ * (task's explicit instruction) — a circular sleep dial she drags to
+ * set bedtime and wake time (duration shown in the centre, and derived
+ * into the existing `sleep_duration` bucket field so nothing downstream
+ * breaks — see deriveDurationBucket), a static dusk/night/dawn sky
+ * behind the dial so dragging the handles through different times of
+ * night visibly passes through different sky color, night wake-ups as
+ * notches tapped directly onto the arc instead of a separate row of
+ * numbers, and sleep quality (still its own explicit tap, since it's a
+ * protected core question — see FiveMoonsScale above this component)
+ * coloring the arc's own stroke: dim/muted for a low rating, clear and
+ * luminous for a high one.
  */
 
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
@@ -20,9 +20,24 @@ import { triggerHaptic } from '@/lib/haptics';
 
 const SIZE = 240;
 const CENTER = SIZE / 2;
-const RADIUS = 96;
+const RADIUS = 92;
 const MINUTES_PER_DAY = 24 * 60;
 const SNAP_MINUTES = 5;
+/** How many candidate wake-up notch positions are offered along the sleep window — enough granularity to feel real without becoming fiddly to tap. */
+const NOTCH_COUNT = 6;
+const MAX_NIGHT_WAKINGS = 5;
+
+export type SleepDurationBucket = '<5h' | '5-6h' | '6-7h' | '7-8h' | '8h+';
+
+/** Derives the existing sleep_duration bucket field straight from the arc's own bedtime/wake gesture — the separate "About how many hours did you sleep?" question this replaces asked the same thing a second time. */
+export function deriveDurationBucket(totalMinutes: number): SleepDurationBucket {
+  const hours = totalMinutes / 60;
+  if (hours < 5) return '<5h';
+  if (hours < 6) return '5-6h';
+  if (hours < 7) return '6-7h';
+  if (hours < 8) return '7-8h';
+  return '8h+';
+}
 
 function parseTimeToMinutes(value: string): number | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(value);
@@ -49,7 +64,6 @@ function formatMinutesForDisplay(totalMinutes: number): string {
   return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
-/** Angle (degrees, clockwise from top = 0:00) for a given minutes-of-day value. */
 function angleForMinutes(minutes: number): number {
   return (minutes / MINUTES_PER_DAY) * 360;
 }
@@ -59,7 +73,6 @@ function pointOnCircle(angleDegrees: number, radius: number): { x: number; y: nu
   return { x: CENTER + radius * Math.cos(angleRad), y: CENTER + radius * Math.sin(angleRad) };
 }
 
-/** Inverse of angleForMinutes — pointer (x,y) relative to the SVG's own coordinate space -> minutes-of-day, snapped. */
 function minutesForPoint(x: number, y: number): number {
   const dx = x - CENTER;
   const dy = y - CENTER;
@@ -69,7 +82,6 @@ function minutesForPoint(x: number, y: number): number {
   return Math.round(rawMinutes / SNAP_MINUTES) * SNAP_MINUTES;
 }
 
-/** Sleep duration = wake - bedtime, wrapping forward across midnight (a wake time "before" bedtime on the 24h face means it happened the following morning). */
 function durationMinutes(bedtime: number, wake: number): number {
   const raw = wake - bedtime;
   return raw <= 0 ? raw + MINUTES_PER_DAY : raw;
@@ -82,19 +94,39 @@ function formatDuration(totalMinutes: number): string {
   return `${hours}h ${minutes}m`;
 }
 
-const DEFAULT_BEDTIME_MINUTES = 22 * 60 + 30; // 10:30 PM
-const DEFAULT_WAKE_MINUTES = 6 * 60 + 30; // 6:30 AM
+const DEFAULT_BEDTIME_MINUTES = 22 * 60 + 30;
+const DEFAULT_WAKE_MINUTES = 6 * 60 + 30;
+
+/**
+ * Static 24-hour sky, dusk -> night -> dawn -> day -> dusk, laid out as
+ * a conic gradient matching the dial's own clockwise-from-midnight
+ * orientation. Dragging a handle through evening/night/early-morning
+ * visibly passes through this backdrop rather than the sky itself
+ * animating — the same effect, simpler and steadier to render.
+ */
+const SKY_GRADIENT =
+  'conic-gradient(from 0deg, #0F1F18 0%, #14251D 18%, #F0DDB0 27%, #FAF6EC 40%, #FAF6EC 60%, #D98A52 72%, #B85C3E 80%, #241A16 90%, #0F1F18 100%)';
 
 type Handle = 'bedtime' | 'wake';
 
-export function BedtimeWakeArc({
+export function SleepArc({
   bedtime,
   wakeTime,
-  onChange,
+  nightWakingCount,
+  sleepQuality,
+  notchesEnabled,
+  onTimesChange,
+  onNightWakingChange,
 }: {
   bedtime: string;
   wakeTime: string;
-  onChange: (bedtime: string, wakeTime: string) => void;
+  nightWakingCount: number | null;
+  /** 1-5, or null before she's answered — dims/mutes the arc's own stroke until a real quality value exists. */
+  sleepQuality: number | null;
+  /** False on days the adaptive picker didn't select night_waking_count into today's plan — the notches simply don't render rather than asking a question that isn't part of today's rotation. */
+  notchesEnabled: boolean;
+  onTimesChange: (bedtime: string, wakeTime: string, durationBucket: SleepDurationBucket) => void;
+  onNightWakingChange: (count: number) => void;
 }) {
   const bedtimeMinutes = parseTimeToMinutes(bedtime) ?? DEFAULT_BEDTIME_MINUTES;
   const wakeMinutes = parseTimeToMinutes(wakeTime) ?? DEFAULT_WAKE_MINUTES;
@@ -111,13 +143,15 @@ export function BedtimeWakeArc({
       const x = ((clientX - rect.left) / rect.width) * SIZE;
       const y = ((clientY - rect.top) / rect.height) * SIZE;
       const minutes = minutesForPoint(x, y);
-      if (handle === 'bedtime') {
-        onChange(formatMinutesToTimeValue(minutes), wakeTime || formatMinutesToTimeValue(DEFAULT_WAKE_MINUTES));
-      } else {
-        onChange(bedtime || formatMinutesToTimeValue(DEFAULT_BEDTIME_MINUTES), formatMinutesToTimeValue(minutes));
-      }
+      const nextBedtime = handle === 'bedtime' ? minutes : bedtimeMinutes;
+      const nextWake = handle === 'wake' ? minutes : wakeMinutes;
+      onTimesChange(
+        formatMinutesToTimeValue(nextBedtime),
+        formatMinutesToTimeValue(nextWake),
+        deriveDurationBucket(durationMinutes(nextBedtime, nextWake))
+      );
     },
-    [bedtime, wakeTime, onChange]
+    [bedtimeMinutes, wakeMinutes, onTimesChange]
   );
 
   function startDrag(handle: Handle, event: ReactPointerEvent<SVGCircleElement>) {
@@ -146,9 +180,14 @@ export function BedtimeWakeArc({
     else return;
     event.preventDefault();
     const current = handle === 'bedtime' ? bedtimeMinutes : wakeMinutes;
-    const next = formatMinutesToTimeValue(current + delta);
-    if (handle === 'bedtime') onChange(next, wakeTime || formatMinutesToTimeValue(DEFAULT_WAKE_MINUTES));
-    else onChange(bedtime || formatMinutesToTimeValue(DEFAULT_BEDTIME_MINUTES), next);
+    const next = current + delta;
+    const nextBedtime = handle === 'bedtime' ? next : bedtimeMinutes;
+    const nextWake = handle === 'wake' ? next : wakeMinutes;
+    onTimesChange(
+      formatMinutesToTimeValue(nextBedtime),
+      formatMinutesToTimeValue(nextWake),
+      deriveDurationBucket(durationMinutes(nextBedtime, nextWake))
+    );
   }
 
   const bedtimeAngle = angleForMinutes(bedtimeMinutes);
@@ -158,17 +197,40 @@ export function BedtimeWakeArc({
   const sweepMinutes = durationMinutes(bedtimeMinutes, wakeMinutes);
   const largeArcFlag = sweepMinutes / MINUTES_PER_DAY > 0.5 ? 1 : 0;
 
+  // Sleep quality colors the arc: dim/desaturated at low ratings, a
+  // brighter, slightly glowing stroke at high ones. Neutral (mid-gray)
+  // until she's actually answered, so the arc doesn't imply a rating
+  // she hasn't given yet.
+  const qualityT = sleepQuality !== null ? (sleepQuality - 1) / 4 : 0.5;
+  const arcOpacity = 0.55 + qualityT * 0.45;
+  const arcGlow = sleepQuality !== null && sleepQuality >= 4 ? 'drop-shadow(0 0 6px rgba(196,160,80,0.55))' : 'none';
+
+  const notches = Array.from({ length: NOTCH_COUNT }, (_, i) => {
+    const t = (i + 1) / (NOTCH_COUNT + 1);
+    const minutesAlong = bedtimeMinutes + sweepMinutes * t;
+    return pointOnCircle(angleForMinutes(minutesAlong), RADIUS);
+  });
+
   return (
     <div>
-      <span className="text-[13px] leading-relaxed text-[#6B7A72]">Bedtime &amp; wake time</span>
+      <span className="text-[13px] leading-relaxed text-[#6B7A72]">
+        Drag to set your bedtime and wake time.
+        {notchesEnabled ? ' Tap the notches for any wake-ups.' : ''}
+      </span>
       <div className="mt-3 flex flex-col items-center">
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${SIZE} ${SIZE}`}
-          className="h-60 w-60 max-w-full touch-none select-none"
-          role="group"
-          aria-label="Drag to set your bedtime and wake time"
-        >
+        <div className="relative h-60 w-60 max-w-full">
+          <div
+            className="absolute inset-0 rounded-full"
+            aria-hidden="true"
+            style={{ background: SKY_GRADIENT, opacity: 0.16 }}
+          />
+          <svg
+            ref={svgRef}
+            viewBox={`0 0 ${SIZE} ${SIZE}`}
+            className="absolute inset-0 h-full w-full touch-none select-none"
+            role="group"
+            aria-label="Drag to set your bedtime and wake time"
+          >
           <circle cx={CENTER} cy={CENTER} r={RADIUS} fill="none" stroke="#1B3A2D" strokeOpacity={0.08} strokeWidth={14} />
           {hasValues && (
             <path
@@ -177,11 +239,11 @@ export function BedtimeWakeArc({
               stroke="#1B3A2D"
               strokeWidth={14}
               strokeLinecap="round"
-              opacity={0.85}
+              opacity={arcOpacity}
+              style={{ filter: arcGlow, transition: 'opacity 0.3s ease-out' }}
             />
           )}
 
-          {/* Quarter-hour tick marks (midnight, 6am, noon, 6pm) for orientation. */}
           {[0, 90, 180, 270].map((tickAngle) => {
             const outer = pointOnCircle(tickAngle, RADIUS + 14);
             const inner = pointOnCircle(tickAngle, RADIUS + 8);
@@ -199,6 +261,43 @@ export function BedtimeWakeArc({
               />
             );
           })}
+
+          {hasValues &&
+            notchesEnabled &&
+            notches.map((point, index) => {
+              const filled = nightWakingCount !== null && index < nightWakingCount;
+              return (
+                <circle
+                  key={index}
+                  cx={point.x}
+                  cy={point.y}
+                  r={filled ? 6 : 4.5}
+                  fill={filled ? '#C4A050' : '#FFFFFF'}
+                  stroke="#1B3A2D"
+                  strokeOpacity={0.35}
+                  strokeWidth={1.5}
+                  className="cursor-pointer transition-all duration-150 ease-out"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${index + 1} wake-up${index === 0 ? '' : 's'}`}
+                  aria-pressed={filled}
+                  onClick={() => {
+                    triggerHaptic();
+                    // Tapping a filled notch that's the current top count clears back to the one before it (correcting a mis-tap); tapping any notch otherwise sets the count up to that position.
+                    const nextCount = nightWakingCount === index + 1 ? index : index + 1;
+                    onNightWakingChange(Math.min(nextCount, MAX_NIGHT_WAKINGS));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      triggerHaptic();
+                      const nextCount = nightWakingCount === index + 1 ? index : index + 1;
+                      onNightWakingChange(Math.min(nextCount, MAX_NIGHT_WAKINGS));
+                    }
+                  }}
+                />
+              );
+            })}
 
           <circle
             cx={bedtimePoint.x}
@@ -235,13 +334,20 @@ export function BedtimeWakeArc({
             onKeyDown={(e) => onKeyDown('wake', e)}
           />
 
-          <text x={CENTER} y={CENTER - 6} textAnchor="middle" className="fill-[#1B3A2D] text-[22px] font-semibold" style={{ fontFamily: 'var(--font-cormorant-garamond)' }}>
+          <text
+            x={CENTER}
+            y={CENTER - 6}
+            textAnchor="middle"
+            className="fill-[#1B3A2D] text-[22px] font-semibold"
+            style={{ fontFamily: 'var(--font-cormorant-garamond)' }}
+          >
             {hasValues ? formatDuration(sweepMinutes) : 'Drag to set'}
           </text>
           <text x={CENTER} y={CENTER + 16} textAnchor="middle" className="fill-[#6B7A72] text-[10px]">
             asleep
           </text>
-        </svg>
+          </svg>
+        </div>
 
         <div className="mt-2 flex w-full max-w-xs items-center justify-between text-[12px] font-medium">
           <span className="flex items-center gap-1.5 text-[#1B3A2D]">

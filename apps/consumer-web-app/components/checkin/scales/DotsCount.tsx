@@ -1,8 +1,9 @@
 'use client';
 
-/** "count" — dots that fill left to right, tapping a dot sets the count to its position (a 0-based count question's first dot is 0, matching how a rating widget's first star still means "one"). */
+/** "count" — dots that fill left to right, tapping a dot sets the count to its position. Unified selected fill (solid forest green) matches every other generic control. */
 
-import { selectWithFeedback, SCALE_LABEL } from './shared';
+import { triggerHaptic } from '@/lib/haptics';
+import { SCALE_LABEL } from './shared';
 
 export function DotsCount({
   question,
@@ -26,7 +27,10 @@ export function DotsCount({
             <button
               key={optionValue}
               type="button"
-              onClick={() => selectWithFeedback(onChange, optionValue)}
+              onClick={() => {
+                triggerHaptic();
+                onChange(optionValue);
+              }}
               aria-pressed={isSelected}
               aria-label={String(optionValue)}
               className="mef-press flex min-w-0 flex-1 flex-col items-center gap-1"

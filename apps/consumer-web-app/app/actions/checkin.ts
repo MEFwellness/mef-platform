@@ -20,7 +20,28 @@ import { recordSafetyRestrictionNarrative } from '@/lib/narrative/service';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { getOrCalculateRootScore } from '@/lib/scoring/service';
 import { recordMemberEvent } from '@/lib/events/service';
+import { resolveAssignedCoach } from '@/lib/safety/data';
 import { getTodaysHydrationTotal } from './events';
+
+/**
+ * Daily Check-In redesign v2 — "the new/worsening concern control
+ * reaches a human being ... show the coach's avatar beside it." First
+ * name only (reusing resolveAssignedCoach, the same lookup
+ * safety/handoff code already uses), so a member with no assigned coach
+ * yet gets a null, not a made-up name.
+ */
+export async function getMyCoachFirstName(): Promise<string | null> {
+  const supabase = createClient();
+  const user = await getCachedUser();
+  if (!user) return null;
+
+  const coachId = await resolveAssignedCoach(supabase, user.id);
+  if (!coachId) return null;
+
+  const { data } = await supabase.from('profiles').select('display_name').eq('id', coachId).maybeSingle();
+  const displayName = (data as { display_name: string | null } | null)?.display_name;
+  return displayName?.split(' ')[0] ?? null;
+}
 
 // ---- Time helpers ----
 

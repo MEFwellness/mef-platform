@@ -42,6 +42,6 @@ describe('the check-in\'s own first-time intro replaces it', () => {
   it("CheckinForm.tsx shows the two intro lines only when isFirstCheckin", () => {
     expect(CHECKIN_FORM_SOURCE.includes('Your first check-in sets your starting point.')).toBe(true);
     expect(CHECKIN_FORM_SOURCE.includes('There are no perfect answers. Just answer honestly.')).toBe(true);
-    expect(CHECKIN_FORM_SOURCE.includes('{isFirstCheckin &&')).toBe(true);
+    expect(CHECKIN_FORM_SOURCE.includes('index === 0 && isFirstCheckin &&')).toBe(true);
   });
 });

@@ -9,7 +9,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getTodaysEveningReflection, getTomorrowsForecastPrediction } from '@/app/actions/eveningReflection';
-import { getTodaysCheckin } from '@/app/actions/checkin';
+import { getTodaysCheckin, getRecentCheckins } from '@/app/actions/checkin';
 import {
   getTodaysCheckinPlanAction,
   getLocalFollowUpQuestionsAction,
@@ -35,7 +35,7 @@ export default async function EveningReflectionPage() {
   const timezone = profile?.timezone ?? 'America/New_York';
   const localDate = todaysLocalDate(timezone);
 
-  const [existing, todaysCheckin, checkinPlan, localFollowUps, initialProbeAnswers, existingForecastLevel] =
+  const [existing, todaysCheckin, checkinPlan, localFollowUps, initialProbeAnswers, existingForecastLevel, priorCheckins] =
     await Promise.all([
       getTodaysEveningReflection(),
       getTodaysCheckin(localDate),
@@ -43,21 +43,26 @@ export default async function EveningReflectionPage() {
       getLocalFollowUpQuestionsAction('evening'),
       getProbeAnswersForDateAction(localDate),
       getTomorrowsForecastPrediction(),
+      getRecentCheckins(1),
     ]);
   const rotatingProbes = (checkinPlan?.rotatingProbes ?? []).filter((p) => p.screen === 'evening');
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  // Same "never touched any check-in before" signal the morning page
+  // computes — cinematic mode applies here too on the rare chance her
+  // very first-ever check-in happens to be an evening one.
+  const isFirstCheckin = existing === null && priorCheckins.length === 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1B3A2D]/[0.09] via-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <main className="mx-auto w-full max-w-md px-5 pb-12 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-12 pt-5 sm:px-6 md:max-w-2xl md:px-10 md:pl-28">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-[2.5rem]">
             Evening Reflection
           </h1>
           <AvatarLink firstName={firstName} />
         </div>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="mt-1.5 text-[15px] leading-relaxed text-[#6B7A72]">
           {existing
             ? "You've already reflected on today. Update anything below."
             : 'A short close to the day. Available any time, morning or night. Your Morning Readiness never depends on this.'}
@@ -73,6 +78,7 @@ export default async function EveningReflectionPage() {
           localFollowUps={localFollowUps}
           initialProbeAnswers={initialProbeAnswers}
           existingForecastLevel={existingForecastLevel}
+          isFirstCheckin={isFirstCheckin}
         />
       </main>
     </div>

@@ -1,14 +1,14 @@
 'use client';
 
-/** Energy — "a vertical fill that rises with the level," pale sage -> saturated green. Five bars of increasing height (30%/48%/66%/84%/100%), each its own tap target. */
+/** Evening's "How recovered do you feel?" — a vertical fill rising with the level, dim -> luminous ramp. Same visual family as VerticalFillScale, its own ramp. */
 
 import { triggerHaptic } from '@/lib/haptics';
-import { ENERGY_RAMP, rampColorAt } from '@/lib/checkin-color-ramps';
+import { RECOVERY_RAMP, rampColorAt } from '@/lib/checkin-color-ramps';
 import { SCALE_LABEL } from './shared';
 
 const FILL_HEIGHTS = ['30%', '48%', '66%', '84%', '100%'] as const;
 
-export function VerticalFillScale({
+export function RecoveryFill({
   question,
   labels,
   value,
@@ -26,7 +26,7 @@ export function VerticalFillScale({
         {labels.map((word, index) => {
           const optionValue = index + 1;
           const isSelected = value === optionValue;
-          const fill = rampColorAt(ENERGY_RAMP.from, ENERGY_RAMP.to, index, labels.length);
+          const fill = rampColorAt(RECOVERY_RAMP.from, RECOVERY_RAMP.to, index, labels.length);
           return (
             <button
               key={word}

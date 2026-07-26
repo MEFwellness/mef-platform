@@ -1,9 +1,10 @@
 'use client';
 
-/** Sleep quality — "five moons that fill." Tapping a moon fills it and every moon before it, the same cumulative-rating convention a star rating uses. */
+/** Sleep quality — "five moons that fill." Tapping a moon fills it and every moon before it. Its selected value also colors the sleep arc (dim/muted for a low rating, clear/luminous for a high one) via onChange, wired by the caller. */
 
 import { Moon } from 'lucide-react';
-import { selectWithFeedback, SCALE_LABEL } from './shared';
+import { triggerHaptic } from '@/lib/haptics';
+import { SCALE_LABEL } from './shared';
 
 export function FiveMoonsScale({
   question,
@@ -28,7 +29,10 @@ export function FiveMoonsScale({
             <button
               key={word}
               type="button"
-              onClick={() => selectWithFeedback(onChange, optionValue)}
+              onClick={() => {
+                triggerHaptic();
+                onChange(optionValue);
+              }}
               aria-pressed={isSelected}
               aria-label={word}
               title={word}
@@ -42,7 +46,11 @@ export function FiveMoonsScale({
                 strokeOpacity={isFilled ? 1 : 0.4}
                 aria-hidden="true"
               />
-              <span className={`truncate text-[10px] font-medium ${isSelected ? 'text-[#1B3A2D]' : 'text-[#6B7A72]'}`}>
+              <span
+                className={`whitespace-normal break-words text-center text-[10px] font-medium leading-tight ${
+                  isSelected ? 'text-[#1B3A2D]' : 'text-[#6B7A72]'
+                }`}
+              >
                 {word}
               </span>
             </button>

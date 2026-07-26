@@ -7,6 +7,7 @@ import {
   getHabitLogsForDate,
   getRecentCheckins,
   resolveLocalDate,
+  getMyCoachFirstName,
 } from '@/app/actions/checkin';
 import {
   getTodaysCheckinPlanAction,
@@ -38,7 +39,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
   const hoursSinceMidnight = nowInTz.getHours() + nowInTz.getMinutes() / 60;
   const canLogYesterday = hoursSinceMidnight < 6;
 
-  const [existingCheckin, habits, habitLogs, priorCheckins, checkinPlan, localFollowUps, initialProbeAnswers] =
+  const [existingCheckin, habits, habitLogs, priorCheckins, checkinPlan, localFollowUps, initialProbeAnswers, coachFirstName] =
     await Promise.all([
       getTodaysCheckin(localDate),
       getActiveHabits(),
@@ -47,6 +48,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
       getTodaysCheckinPlanAction(localDate),
       getLocalFollowUpQuestionsAction('morning'),
       getProbeAnswersForDateAction(localDate),
+      getMyCoachFirstName(),
     ]);
   const rotatingProbes = (checkinPlan?.rotatingProbes ?? []).filter((p) => p.screen === 'morning');
   // True only when this member has never completed any check-in before —
@@ -56,10 +58,10 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FBF1DE] via-[#F5F0E4] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <main className="mx-auto w-full max-w-md px-5 pb-12 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-12 pt-5 sm:px-6 md:max-w-2xl md:px-10 md:pl-28">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-[2.5rem]">
               {requestedYesterday ? "Yesterday's Morning Readiness" : 'Morning Readiness'}
             </h1>
             {!requestedYesterday && canLogYesterday && (
@@ -81,7 +83,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           </div>
           <AvatarLink firstName={firstName} />
         </div>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="mt-1.5 text-[15px] leading-relaxed text-[#6B7A72]">
           {existingCheckin
             ? "You've already logged this day. Update anything below."
             : 'A few gentle questions so Root understands how today actually feels. Takes about a minute.'}
@@ -99,6 +101,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           rotatingProbes={rotatingProbes}
           localFollowUps={localFollowUps}
           initialProbeAnswers={initialProbeAnswers}
+          coachFirstName={coachFirstName}
         />
       </main>
     </div>

@@ -2,31 +2,42 @@ import { useEffect, useRef } from 'react';
 
 /**
  * Daily Check-In redesign — "tapping an answer fills the selection
- * visibly (~250ms), then auto-advances" (task requirement 1). Fires
- * `onAdvance` once, ~250ms after `isComplete` flips from false to true —
- * never on every keystroke/tap while already complete (editing an answer
- * on a screen you've already finished re-arms the advance rather than
- * firing repeatedly), and never while incomplete. `onAdvance` is read
- * through a ref so a new function identity each render doesn't cancel an
- * already-scheduled advance.
+ * visibly (~250ms), then auto-advances." Fires `onAdvance` once, ~250ms
+ * after the CURRENT screen's completeness flips from false to true —
+ * never on mount (reopening/landing on an already-complete screen must
+ * not read as "just completed it"), never while already complete when
+ * the screen was first shown, and never for a screen other than the one
+ * currently displayed.
+ *
+ * Takes `screenIndex` explicitly (rather than being called once per
+ * screen) because the number of wizard screens varies — cinematic mode
+ * has one screen per question, section mode groups several — and the
+ * Rules of Hooks forbid a variable number of hook calls. Every time
+ * `screenIndex` itself changes, the "was it already complete" baseline
+ * is reseeded to whatever the new screen's current completeness is,
+ * rather than carried over from the previous screen.
  */
-export function useScreenAutoAdvance(isComplete: boolean, onAdvance: () => void, delayMs = 250): void {
+export function useScreenAutoAdvance(
+  isComplete: boolean,
+  screenIndex: number,
+  onAdvance: () => void,
+  delayMs = 250
+): void {
   const advanceRef = useRef(onAdvance);
   advanceRef.current = onAdvance;
-  // Seeded with the CURRENT value, not `false` — reopening an
-  // already-answered check-in (existingCheckin prefills every field, so
-  // isComplete can be true on the very first render) must not read as a
-  // false->true "just completed it" transition and auto-advance through
-  // every screen the instant the page loads.
-  const wasComplete = useRef(isComplete);
+  const baseline = useRef({ index: screenIndex, wasComplete: isComplete });
 
   useEffect(() => {
-    if (isComplete && !wasComplete.current) {
-      wasComplete.current = true;
+    if (baseline.current.index !== screenIndex) {
+      baseline.current = { index: screenIndex, wasComplete: isComplete };
+      return undefined;
+    }
+    if (isComplete && !baseline.current.wasComplete) {
+      baseline.current.wasComplete = true;
       const timer = setTimeout(() => advanceRef.current(), delayMs);
       return () => clearTimeout(timer);
     }
-    if (!isComplete) wasComplete.current = false;
+    if (!isComplete) baseline.current.wasComplete = false;
     return undefined;
-  }, [isComplete, delayMs]);
+  }, [isComplete, screenIndex, delayMs]);
 }

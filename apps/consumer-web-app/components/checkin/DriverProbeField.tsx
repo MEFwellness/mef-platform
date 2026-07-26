@@ -2,21 +2,22 @@
 
 /**
  * Generic renderer for a driver_probe_questions row (migration 106/109) —
- * draws the right visual treatment from a question's
- * responseType/displayStyle instead of each question needing its own
- * hand-built block in the check-in screens. Daily Check-In redesign
- * (migration 112): the treatment itself now comes from
- * resolveDisplayStyle (responseType, with an optional displayStyle
- * override) rather than always being the same pill row — a coach-added
- * question with no displayStyle set still renders a sensible default.
+ * draws the right visual treatment from a question's responseType,
+ * never a hand-built block per question. Daily Check-In redesign v2:
+ * single_select's row-vs-stacked-rows choice is now driven purely by
+ * label length (MAX_INLINE_LABEL_LENGTH) rather than a displayStyle
+ * override — "never truncate" is a hard rule, not a style preference a
+ * coach-set override should be able to opt out of. displayStyle (migration
+ * 112) still resolves the count/scale/boolean defaults, for any future
+ * bespoke treatment a coach-set override might request.
  */
 
 import type { DriverProbeQuestion, ProbeOption } from '@/lib/daily-checkin-adaptive/types';
-import { resolveDisplayStyle } from '@/lib/daily-checkin-adaptive/displayStyle';
 import { BooleanPills } from './scales/BooleanPills';
 import { DotsCount } from './scales/DotsCount';
-import { SegmentedControl } from './scales/SegmentedControl';
-import { PillRow } from './scales/PillRow';
+import { ShortOptionRow } from './scales/ShortOptionRow';
+import { StackedOptionRows } from './scales/StackedOptionRows';
+import { MAX_INLINE_LABEL_LENGTH } from './scales/shared';
 
 export type ProbeAnswerValue = string | number | boolean;
 
@@ -33,6 +34,18 @@ function optionLabel(option: Exclude<ProbeOption, number>): string {
     .join(' ');
 }
 
+/**
+ * The "never truncate" rule (task requirement 3), as a pure decision:
+ * any option over MAX_INLINE_LABEL_LENGTH forces the whole question onto
+ * full-width stacked rows rather than a single-line segment that would
+ * otherwise clip, shrink, or ellipsize. Exported so this exact decision
+ * is unit-testable without a rendering harness (this repo's vitest.config
+ * runs a plain 'node' environment, no jsdom/RTL).
+ */
+export function resolveSingleSelectLayout(options: readonly { label: string }[]): 'row' | 'stacked' {
+  return options.some((option) => option.label.length > MAX_INLINE_LABEL_LENGTH) ? 'stacked' : 'row';
+}
+
 export function DriverProbeField({
   question,
   value,
@@ -42,8 +55,6 @@ export function DriverProbeField({
   value: ProbeAnswerValue | null;
   onChange: (value: ProbeAnswerValue) => void;
 }) {
-  const displayStyle = resolveDisplayStyle(question);
-
   if (question.responseType === 'boolean') {
     return (
       <BooleanPills
@@ -69,7 +80,7 @@ export function DriverProbeField({
   if (question.responseType === 'scale') {
     const numericOptions = question.options.map((option) => (typeof option === 'number' ? option : Number(option)));
     return (
-      <SegmentedControl
+      <ShortOptionRow
         question={question.prompt}
         options={numericOptions.map((n) => ({ value: n, label: String(n) }))}
         value={typeof value === 'number' ? value : null}
@@ -78,27 +89,16 @@ export function DriverProbeField({
     );
   }
 
-  // single_select — 'pill_row' is the only style this responseType
-  // resolves to today (see displayStyle.ts), but the switch stays
-  // explicit rather than an unconditional fallthrough so a future
-  // single_select-specific treatment has an obvious place to slot in.
+  // single_select — row-vs-stacked is decided purely by label length so
+  // no option is ever truncated, regardless of displayStyle.
   if (question.responseType === 'single_select') {
     const options = question.options.map((option) => {
       const opt = option as Exclude<ProbeOption, number>;
       return { value: optionValue(opt), label: optionLabel(opt) };
     });
-    if (displayStyle === 'segmented') {
-      return (
-        <SegmentedControl
-          question={question.prompt}
-          options={options}
-          value={typeof value === 'string' ? value : null}
-          onChange={onChange}
-        />
-      );
-    }
+    const Row = resolveSingleSelectLayout(options) === 'stacked' ? StackedOptionRows : ShortOptionRow;
     return (
-      <PillRow
+      <Row
         question={question.prompt}
         options={options}
         value={typeof value === 'string' ? value : null}
