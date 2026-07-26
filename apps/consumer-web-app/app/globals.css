@@ -155,6 +155,65 @@
 }
 
 /*
+ * Page 1 title card (app/welcome/WelcomeFlow.tsx's PageLogoWelcome) — a
+ * slower, more deliberate entrance than `mef-scale-settle` above, which
+ * this page no longer uses: a gentle deceleration curve
+ * (cubic-bezier(0.16, 1, 0.3, 1), no overshoot/bounce) rather than a snappy
+ * spring, over ~2s instead of ~0.6-1.2s. The logo starts noticeably larger
+ * than its final size with a soft warm glow (an animated `drop-shadow`,
+ * not a static one, so it fades out together with the scale-down) and
+ * settles to size 1 with no glow. `mef-hero-bg-fade` is the page's opening
+ * deep-green background — a fixed, full-viewport layer (see WelcomeFlow's
+ * own render, not this page's component) whose opacity animates from 1 to
+ * 0 on a delay so it stays solid through the first part of the logo
+ * animation and only fades away "as the logo settles," revealing the
+ * ordinary cream background underneath. Both are skipped entirely (not
+ * just animation:none) under reduced motion — see WelcomeFlow.tsx — so
+ * this media query is belt-and-suspenders, not the only guard.
+ */
+@keyframes mef-title-logo-in {
+  0% {
+    opacity: 0;
+    transform: scale(2.4);
+    filter: drop-shadow(0 0 36px rgba(245, 183, 0, 0.65));
+  }
+  55% {
+    opacity: 1;
+    filter: drop-shadow(0 0 22px rgba(245, 183, 0, 0.4));
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(245, 183, 0, 0));
+  }
+}
+
+.mef-title-logo-in {
+  animation: mef-title-logo-in 2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes mef-hero-bg-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.mef-hero-bg-fade {
+  background-color: #0b1f16;
+  animation: mef-hero-bg-fade 0.8s ease-out 1.2s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-title-logo-in,
+  .mef-hero-bg-fade {
+    animation: none !important;
+  }
+}
+
+/*
  * Keyboard focus ring (components/assessments/QuestionCard.tsx,
  * ContextQuestionCard.tsx, AssessmentTaker.tsx). A plain custom-property
  * class rather than stacked `focus-visible:outline-*` Tailwind v4

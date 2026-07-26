@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import Image from 'next/image';
-import { Activity, Check, ClipboardList, Compass, TrendingUp } from 'lucide-react';
+import { Activity, ArrowLeft, Check, ClipboardList, Compass, TrendingUp } from 'lucide-react';
 import { completeWelcomeFlow, markWelcomeIntroSeen } from '../actions/welcome';
 import { WELCOME_GOALS, SOMETHING_ELSE_KEY } from '@/lib/welcome/goals';
 
 const SHELL =
   'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
 const CONTAINER =
-  'mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-8 sm:px-6 md:max-w-2xl md:px-10';
+  'relative mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-8 sm:px-6 md:max-w-2xl md:px-10';
 const HEADING =
   'font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-[2.5rem]';
 const DISPLAY_HEADING =
@@ -99,9 +99,16 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
     setStep((current) => Math.min(current + 1, TOTAL_STEPS));
   }
 
-  function goBack() {
+  /**
+   * Used by every backward-navigation control in the flow: the "Back" text
+   * link on Pages 8-9, and the small back arrow / swipe-right on Pages
+   * 2-7 (passed down as `onBack`). Floors at 1 defensively, though nothing
+   * ever actually calls it while on Page 1 — Page 1 renders no back
+   * control of any kind.
+   */
+  function goBackOne() {
     setError('');
-    setStep((current) => Math.max(current - 1, GOAL_SELECTION_STEP));
+    setStep((current) => Math.max(current - 1, 1));
   }
 
   async function handleFinish() {
@@ -117,6 +124,15 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
 
   return (
     <div className={SHELL}>
+      {/* Page 1's deep-green title-card background. A sibling of <main>,
+          not nested inside PageLogoWelcome, so it can cover the entire
+          viewport (including the progress bar) rather than just the page's
+          own content area. <main>'s own `relative` (see CONTAINER) is what
+          lets it paint above this fixed layer — same DOM-order-among-
+          positioned-siblings mechanism as HomeHero.tsx's hero chrome. */}
+      {step === 1 && !reducedMotion && (
+        <div aria-hidden="true" className="mef-hero-bg-fade pointer-events-none fixed inset-0" />
+      )}
       <main className={CONTAINER}>
         <Progress step={step} />
 
@@ -125,18 +141,29 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
           className={`mt-8 flex flex-1 flex-col ${step === FINAL_STEP ? 'mef-animate-in' : ''}`}
         >
           {/* Pages 1-7 are timed cinematic pages (own entrance sequence,
-              auto-advance, tap-anywhere, Skip) rendered via CinematicPage.
-              Pages 8-9 are unchanged, interactive, button-driven screens, so
-              the wrapper only applies mef-animate-in for Page 9 to avoid
-              double-animating Page 8's own internal staggered sequence. */}
+              auto-advance, tap-anywhere, swipe, Skip, and — from Page 2 on
+              — a back control) rendered via CinematicPage. Pages 8-9 are
+              unchanged, interactive, button-driven screens, so the wrapper
+              only applies mef-animate-in for Page 9 to avoid double-
+              animating Page 8's own internal staggered sequence. */}
           {step === 1 && (
             <PageLogoWelcome onAdvance={advance} onSkip={skipToGoals} reducedMotion={reducedMotion} />
           )}
           {step === 2 && (
-            <PageStory onAdvance={advance} onSkip={skipToGoals} reducedMotion={reducedMotion} />
+            <PageStory
+              onAdvance={advance}
+              onBack={goBackOne}
+              onSkip={skipToGoals}
+              reducedMotion={reducedMotion}
+            />
           )}
           {step === 3 && (
-            <PageConnected onAdvance={advance} onSkip={skipToGoals} reducedMotion={reducedMotion} />
+            <PageConnected
+              onAdvance={advance}
+              onBack={goBackOne}
+              onSkip={skipToGoals}
+              reducedMotion={reducedMotion}
+            />
           )}
           {step >= 4 && step <= 7 && (
             // step is runtime-guarded to 4-7 above, so index 0-3 is always
@@ -145,6 +172,7 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
             <PageBenefitCard
               card={HEALTH_CARDS[step - 4]!}
               onAdvance={advance}
+              onBack={goBackOne}
               onSkip={skipToGoals}
               reducedMotion={reducedMotion}
             />
@@ -164,10 +192,10 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
           )}
         </div>
 
-        {step === FINAL_STEP && (
+        {(step === GOAL_SELECTION_STEP || step === FINAL_STEP) && (
           <button
             type="button"
-            onClick={goBack}
+            onClick={goBackOne}
             className="mef-focus-ring mt-6 self-start rounded-full px-2 py-2 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
           >
             Back
@@ -201,34 +229,52 @@ function Progress({ step }: { step: number }) {
   );
 }
 
+/** Horizontal drag distance, in px, before a pointer gesture counts as a swipe rather than a tap. */
+const SWIPE_THRESHOLD_PX = 50;
+
 /**
  * Shared shell for the 7 timed cinematic pages: arms an auto-advance timer
- * (skipped entirely under reduced motion), makes the whole page a tap
- * target that advances immediately, and renders the required Skip control.
- * Under reduced motion it instead renders a visible Continue button and
- * never auto-advances, per the "show everything immediately, tap through
- * manually" requirement. `advancedRef` guards against a tap and the timer
- * both firing (or Skip and a tap both firing).
+ * (skipped entirely under reduced motion), makes the whole page a
+ * tap-or-swipe target, and renders the required Skip control plus — from
+ * Page 2 on, when `onBack` is passed — a small back arrow. A single
+ * pointerdown/pointerup pair (not a plain onClick) drives tap-to-advance
+ * *and* swipe detection together: a short drag is a tap (advance), a long
+ * enough horizontal drag is a swipe (right = back, left = advance),
+ * whichever direction wins. Under reduced motion, none of that pointer
+ * handling is attached at all — a visible Continue button (and, when
+ * `onBack` exists, a "Back" link above it) replaces it entirely, per the
+ * "show everything immediately, navigate manually" requirement.
+ * `advancedRef` guards against two triggers firing for the same gesture
+ * (e.g. the timer and a tap), and against back/advance both firing.
  */
 function CinematicPage({
   durationMs,
   onAdvance,
+  onBack,
   onSkip,
   reducedMotion,
   children,
 }: {
   durationMs: number;
   onAdvance: () => void;
+  onBack?: (() => void) | undefined;
   onSkip: () => void;
   reducedMotion: boolean;
   children: ReactNode;
 }) {
   const advancedRef = useRef(false);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
   function handleAdvance() {
     if (advancedRef.current) return;
     advancedRef.current = true;
     onAdvance();
+  }
+
+  function handleBack() {
+    if (advancedRef.current || !onBack) return;
+    advancedRef.current = true;
+    onBack();
   }
 
   useEffect(() => {
@@ -241,13 +287,55 @@ function CinematicPage({
     return () => clearTimeout(timer);
   }, [reducedMotion, durationMs, onAdvance]);
 
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (!start) return;
+
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+
+    if (Math.abs(dx) > SWIPE_THRESHOLD_PX && Math.abs(dx) > Math.abs(dy)) {
+      if (dx > 0) {
+        handleBack();
+      } else {
+        handleAdvance();
+      }
+      return;
+    }
+
+    // Not a swipe — a plain tap anywhere else still advances.
+    handleAdvance();
+  }
+
   return (
     <div
       className={`relative flex flex-1 flex-col ${reducedMotion ? '' : 'cursor-pointer'}`}
-      onClick={reducedMotion ? undefined : handleAdvance}
+      onPointerDown={reducedMotion ? undefined : handlePointerDown}
+      onPointerUp={reducedMotion ? undefined : handlePointerUp}
     >
+      {!reducedMotion && onBack && (
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            handleBack();
+          }}
+          aria-label="Back"
+          className="mef-focus-ring absolute bottom-0 left-0 z-10 rounded-full p-2 text-[#6B7A72]/70"
+        >
+          <ArrowLeft className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      )}
+
       <button
         type="button"
+        onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
           onSkip();
@@ -260,16 +348,24 @@ function CinematicPage({
       {children}
 
       {reducedMotion && (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            handleAdvance();
-          }}
-          className={`mef-focus-ring ${PRIMARY_BUTTON}`}
-        >
-          Continue
-        </button>
+        <>
+          {onBack && (
+            <button
+              type="button"
+              onClick={() => handleBack()}
+              className="mef-focus-ring mt-10 self-start rounded-full px-2 py-2 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+            >
+              Back
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => handleAdvance()}
+            className={`mef-focus-ring ${PRIMARY_BUTTON} ${onBack ? '!mt-4' : ''}`}
+          >
+            Continue
+          </button>
+        </>
       )}
     </div>
   );
@@ -277,15 +373,29 @@ function CinematicPage({
 
 type CinematicPageProps = {
   onAdvance: () => void;
+  onBack?: (() => void) | undefined;
   onSkip: () => void;
   reducedMotion: boolean;
 };
 
+/**
+ * The title card. No `onBack` (Page 1 never renders a back control of any
+ * kind) — plain `CinematicPageProps` minus that field would still let a
+ * caller pass one by mistake, so this destructures only what it uses.
+ * Timing: logo 2000ms (the background fade, mef-hero-bg-fade in
+ * globals.css, is timed to land inside the back half of that same window —
+ * see WelcomeFlow's own render for the fixed background layer itself, not
+ * here), then headline 1000ms, then a 2000ms hold — 5000ms total, at the
+ * upper end of the requested "roughly 4-5 seconds" (a straight 2s + 1s +
+ * literal 3s hold would have landed at 6s; shortened the hold instead of
+ * the more specifically-numbered logo/headline durations, confirmed with
+ * the user).
+ */
 function PageLogoWelcome({ onAdvance, onSkip, reducedMotion }: CinematicPageProps) {
-  const logoMs = 1200;
-  const headlineDelay = 1200;
-  const headlineMs = 800;
-  const holdMs = 3000;
+  const logoMs = 2000;
+  const headlineDelay = 2000;
+  const headlineMs = 1000;
+  const holdMs = 2000;
   const totalMs = headlineDelay + headlineMs + holdMs;
 
   return (
@@ -297,7 +407,7 @@ function PageLogoWelcome({ onAdvance, onSkip, reducedMotion }: CinematicPageProp
     >
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <div
-          className={`mb-4 ${reducedMotion ? '' : 'mef-scale-settle'}`}
+          className={`mb-4 ${reducedMotion ? '' : 'mef-title-logo-in'}`}
           style={reducedMotion ? undefined : { animationDuration: `${logoMs}ms` }}
         >
           <Image
@@ -327,7 +437,7 @@ const STORY_TEXT = 'Every person has a unique story.';
 const STORY_PARAGRAPH =
   'Our goal is to understand how your movement, sleep, stress, nutrition, pain, energy, and daily habits work together so we can personalize your experience over time.';
 
-function PageStory({ onAdvance, onSkip, reducedMotion }: CinematicPageProps) {
+function PageStory({ onAdvance, onBack, onSkip, reducedMotion }: CinematicPageProps) {
   const msPerChar = 60;
   const typewriterMs = STORY_TEXT.length * msPerChar;
   const pauseMs = 2000;
@@ -359,6 +469,7 @@ function PageStory({ onAdvance, onSkip, reducedMotion }: CinematicPageProps) {
     <CinematicPage
       durationMs={totalMs}
       onAdvance={onAdvance}
+      onBack={onBack}
       onSkip={onSkip}
       reducedMotion={reducedMotion}
     >
@@ -384,7 +495,7 @@ function PageStory({ onAdvance, onSkip, reducedMotion }: CinematicPageProps) {
   );
 }
 
-function PageConnected({ onAdvance, onSkip, reducedMotion }: CinematicPageProps) {
+function PageConnected({ onAdvance, onBack, onSkip, reducedMotion }: CinematicPageProps) {
   const revealMs = 1500;
   const holdMs = 3000;
   const totalMs = revealMs + holdMs;
@@ -393,6 +504,7 @@ function PageConnected({ onAdvance, onSkip, reducedMotion }: CinematicPageProps)
     <CinematicPage
       durationMs={totalMs}
       onAdvance={onAdvance}
+      onBack={onBack}
       onSkip={onSkip}
       reducedMotion={reducedMotion}
     >
@@ -411,6 +523,7 @@ function PageConnected({ onAdvance, onSkip, reducedMotion }: CinematicPageProps)
 function PageBenefitCard({
   card,
   onAdvance,
+  onBack,
   onSkip,
   reducedMotion,
 }: CinematicPageProps & { card: (typeof HEALTH_CARDS)[number] }) {
@@ -423,6 +536,7 @@ function PageBenefitCard({
     <CinematicPage
       durationMs={totalMs}
       onAdvance={onAdvance}
+      onBack={onBack}
       onSkip={onSkip}
       reducedMotion={reducedMotion}
     >
