@@ -17,6 +17,8 @@ import {
   logHabitCompletion,
   markEveningReminderShown,
 } from '@/app/actions/checkin';
+import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
+import { PAIN_FOLLOWUP_THRESHOLD } from '@/lib/daily-checkin-adaptive/constants';
 import { getTodaysHydrationTotal } from '@/app/actions/events';
 import { EveningReminderModal } from '@/components/checkin/EveningReminderModal';
 import type {
@@ -46,7 +48,39 @@ type Props = {
    * of navigating straight to the dashboard, once, ever, per member.
    */
   eveningReminderAlreadyShown: boolean;
+  /**
+   * This day's driver-probe question_keys chosen by the adaptive picker
+   * (lib/daily-checkin-adaptive/) — governs which of the optional
+   * sleep-timing / night-waking / night-sweats / bowel-status questions
+   * render today. The fixed core above (mood, sleep quality, sleep
+   * duration, energy, stress, pain) is never gated by this — it always
+   * renders regardless of what's in this list.
+   */
+  rotatingProbeKeys: string[];
 };
+
+const PAIN_LOCATION_OPTIONS = [
+  { value: 'neck', label: 'Neck' },
+  { value: 'shoulders', label: 'Shoulders' },
+  { value: 'upper_back', label: 'Upper back' },
+  { value: 'lower_back', label: 'Lower back' },
+  { value: 'hips', label: 'Hips' },
+  { value: 'knees', label: 'Knees' },
+  { value: 'feet_or_ankles', label: 'Feet or ankles' },
+  { value: 'hands_or_wrists', label: 'Hands or wrists' },
+  { value: 'widespread', label: 'Widespread' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+const PAIN_AGGRAVATING_FACTOR_OPTIONS = [
+  { value: 'sitting', label: 'Sitting' },
+  { value: 'standing', label: 'Standing' },
+  { value: 'movement', label: 'Movement' },
+  { value: 'bending_or_lifting', label: 'Bending or lifting' },
+  { value: 'first_thing_in_the_morning', label: 'First thing in the morning' },
+  { value: 'by_end_of_day', label: 'By end of day' },
+  { value: 'not_sure', label: 'Not sure' },
+] as const;
 
 const SLEEP_DURATIONS = ['<5h', '5-6h', '6-7h', '7-8h', '8h+'] as const;
 const NIGHT_WAKING_OPTIONS = [0, 1, 2, 3, 4, 5] as const;
@@ -150,7 +184,11 @@ export function CheckinForm({
   initialHabitLogs,
   isFirstCheckin,
   eveningReminderAlreadyShown,
+  rotatingProbeKeys,
 }: Props) {
+  const showNightWakingCount = rotatingProbeKeys.includes('checkin_probe.night_waking_count');
+  const showNightSweats = rotatingProbeKeys.includes('checkin_probe.night_sweats');
+  const showBowelMovementStatus = rotatingProbeKeys.includes('checkin_probe.bowel_movement_status');
   const router = useRouter();
   const [showEveningReminder, setShowEveningReminder] = useState(false);
   const [moodLevel, setMoodLevel] = useState<number | null>(existingCheckin?.mood_level ?? null);
@@ -169,6 +207,13 @@ export function CheckinForm({
   const [painLevel, setPainLevel] = useState<number | null>(
     existingCheckin?.pain_discomfort_level ?? null
   );
+  // Local follow-ups to the pain question (requirement 5) — level 2 only
+  // ever appears once level 1 has an answer, and both disappear again if
+  // pain is edited back down below the threshold. Persisted separately
+  // (daily_checkin_probe_answers) since neither has a dedicated
+  // daily_checkins column.
+  const [painLocation, setPainLocation] = useState<string | null>(null);
+  const [painAggravatingFactor, setPainAggravatingFactor] = useState<string | null>(null);
   const [concern, setConcern] = useState(existingCheckin?.new_or_worsening_concern ?? false);
   const [notes, setNotes] = useState(existingCheckin?.optional_notes ?? '');
   const [habitStatus, setHabitStatus] = useState<Record<string, boolean>>(initialHabitLogs);
@@ -279,6 +324,18 @@ export function CheckinForm({
     };
 
     const result = await submitDailyCheckin(input);
+
+    if (painLocation) {
+      await submitProbeAnswerAction(localDate, 'checkin_probe.pain_location', painLocation);
+    }
+    if (painAggravatingFactor) {
+      await submitProbeAnswerAction(
+        localDate,
+        'checkin_probe.pain_aggravating_factor',
+        painAggravatingFactor
+      );
+    }
+
     setSubmitting(false);
 
     if (result.error) {
@@ -424,52 +481,56 @@ export function CheckinForm({
             </label>
           </div>
 
-          <div>
-            <p className="text-[13px] leading-relaxed text-[#6B7A72]">
-              How many times did you wake up during the night?
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {NIGHT_WAKING_OPTIONS.map((count) => (
-                <button
-                  key={count}
-                  type="button"
-                  onClick={() => setNightWakingCount(count)}
-                  aria-pressed={nightWakingCount === count}
-                  className={`flex h-10 w-10 items-center justify-center rounded-full border text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                    nightWakingCount === count
-                      ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                      : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                  }`}
-                >
-                  {count === 5 ? '5+' : count}
-                </button>
-              ))}
+          {showNightWakingCount && (
+            <div>
+              <p className="text-[13px] leading-relaxed text-[#6B7A72]">
+                How many times did you wake up during the night?
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {NIGHT_WAKING_OPTIONS.map((count) => (
+                  <button
+                    key={count}
+                    type="button"
+                    onClick={() => setNightWakingCount(count)}
+                    aria-pressed={nightWakingCount === count}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full border text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                      nightWakingCount === count
+                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                    }`}
+                  >
+                    {count === 5 ? '5+' : count}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div>
-            <p className="text-[13px] leading-relaxed text-[#6B7A72]">Any night sweats?</p>
-            <div className="mt-3 flex gap-2">
-              {[
-                { value: true, label: 'Yes' },
-                { value: false, label: 'No' },
-              ].map((option) => (
-                <button
-                  key={String(option.value)}
-                  type="button"
-                  onClick={() => setNightSweats(option.value)}
-                  aria-pressed={nightSweats === option.value}
-                  className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                    nightSweats === option.value
-                      ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                      : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
+          {showNightSweats && (
+            <div>
+              <p className="text-[13px] leading-relaxed text-[#6B7A72]">Any night sweats?</p>
+              <div className="mt-3 flex gap-2">
+                {[
+                  { value: true, label: 'Yes' },
+                  { value: false, label: 'No' },
+                ].map((option) => (
+                  <button
+                    key={String(option.value)}
+                    type="button"
+                    onClick={() => setNightSweats(option.value)}
+                    aria-pressed={nightSweats === option.value}
+                    className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                      nightSweats === option.value
+                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <MeaningScale
             question="How sore does your body feel this morning?"
@@ -478,26 +539,28 @@ export function CheckinForm({
             onChange={setMorningSoreness}
           />
 
-          <div>
-            <p className="text-[13px] leading-relaxed text-[#6B7A72]">Bowel movement status</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {BOWEL_MOVEMENT_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setBowelMovementStatus(option.value)}
-                  aria-pressed={bowelMovementStatus === option.value}
-                  className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                    bowelMovementStatus === option.value
-                      ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                      : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
+          {showBowelMovementStatus && (
+            <div>
+              <p className="text-[13px] leading-relaxed text-[#6B7A72]">Bowel movement status</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {BOWEL_MOVEMENT_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setBowelMovementStatus(option.value)}
+                    aria-pressed={bowelMovementStatus === option.value}
+                    className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                      bowelMovementStatus === option.value
+                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div
@@ -513,9 +576,65 @@ export function CheckinForm({
             question="Are you noticing any pain or physical discomfort?"
             meanings={PAIN_MEANING}
             value={painLevel}
-            onChange={setPainLevel}
+            onChange={(value) => {
+              setPainLevel(value);
+              if (value < PAIN_FOLLOWUP_THRESHOLD) {
+                setPainLocation(null);
+                setPainAggravatingFactor(null);
+              }
+            }}
             min={0}
           />
+
+          {painLevel !== null && painLevel >= PAIN_FOLLOWUP_THRESHOLD && (
+            <div>
+              <p className="text-[13px] leading-relaxed text-[#6B7A72]">Where is it, mainly?</p>
+              <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Where is it, mainly?">
+                {PAIN_LOCATION_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPainLocation(option.value)}
+                    aria-pressed={painLocation === option.value}
+                    className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                      painLocation === option.value
+                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {painLevel !== null && painLevel >= PAIN_FOLLOWUP_THRESHOLD && painLocation !== null && (
+            <div>
+              <p className="text-[13px] leading-relaxed text-[#6B7A72]">What tends to make it worse?</p>
+              <div
+                className="mt-3 flex flex-wrap gap-2"
+                role="group"
+                aria-label="What tends to make it worse?"
+              >
+                {PAIN_AGGRAVATING_FACTOR_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPainAggravatingFactor(option.value)}
+                    aria-pressed={painAggravatingFactor === option.value}
+                    className={`rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                      painAggravatingFactor === option.value
+                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {habits.length > 0 && (

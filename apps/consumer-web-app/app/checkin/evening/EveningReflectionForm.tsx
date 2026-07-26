@@ -97,9 +97,19 @@ type Props = {
   localDate: string;
   timezone: string;
   todaysCheckin: DailyCheckin | null;
+  /** This day's driver-probe question_keys chosen by the adaptive picker (lib/daily-checkin-adaptive/) — governs whether digestion/movement render today. */
+  rotatingProbeKeys: string[];
 };
 
-export function EveningReflectionForm({ existing, localDate, timezone, todaysCheckin }: Props) {
+export function EveningReflectionForm({
+  existing,
+  localDate,
+  timezone,
+  todaysCheckin,
+  rotatingProbeKeys,
+}: Props) {
+  const showDigestionRating = rotatingProbeKeys.includes('checkin_probe.digestion_rating');
+  const showMovementToday = rotatingProbeKeys.includes('checkin_probe.movement_today');
   const router = useRouter();
   const [overallDayRating, setOverallDayRating] = useState<number | null>(
     existing?.overall_day_rating ?? null
@@ -207,44 +217,50 @@ export function EveningReflectionForm({ existing, localDate, timezone, todaysChe
         </div>
       </div>
 
-      <div className={SECTION_CARD}>
-        <div>
-          <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
-            Digestion &amp; movement
-          </p>
-          <p className="text-[13px] text-[#6B7A72]">
-            Easier to answer honestly now that the day is done
-          </p>
-        </div>
-        <ScaleQuestion
-          question="How was your digestion today?"
-          labels={DIGESTION_MEANING}
-          value={digestionRating}
-          onChange={setDigestionRating}
-        />
-        <div>
-          <p className="text-[13px] leading-relaxed text-[#6B7A72]">
-            How much did you move your body today overall?
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {MOVEMENT_LEVELS.map((level) => (
-              <button
-                key={level.value}
-                type="button"
-                onClick={() => setMovementToday(level.value)}
-                aria-pressed={movementToday === level.value}
-                className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
-                  movementToday === level.value
-                    ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                    : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-                }`}
-              >
-                {level.label}
-              </button>
-            ))}
+      {(showDigestionRating || showMovementToday) && (
+        <div className={SECTION_CARD}>
+          <div>
+            <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
+              Digestion &amp; movement
+            </p>
+            <p className="text-[13px] text-[#6B7A72]">
+              Easier to answer honestly now that the day is done
+            </p>
           </div>
+          {showDigestionRating && (
+            <ScaleQuestion
+              question="How was your digestion today?"
+              labels={DIGESTION_MEANING}
+              value={digestionRating}
+              onChange={setDigestionRating}
+            />
+          )}
+          {showMovementToday && (
+            <div>
+              <p className="text-[13px] leading-relaxed text-[#6B7A72]">
+                How much did you move your body today overall?
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {MOVEMENT_LEVELS.map((level) => (
+                  <button
+                    key={level.value}
+                    type="button"
+                    onClick={() => setMovementToday(level.value)}
+                    aria-pressed={movementToday === level.value}
+                    className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all duration-200 ease-out active:scale-95 ${
+                      movementToday === level.value
+                        ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+                        : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+                    }`}
+                  >
+                    {level.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {error && (
         <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
