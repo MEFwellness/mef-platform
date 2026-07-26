@@ -17,6 +17,7 @@ import {
   type CoachingInsightView,
 } from '@/app/actions/coaching-insights';
 import { getMyLongitudinalPicture } from '@/app/actions/longitudinalIntelligence';
+import type { LongitudinalPictureItem } from '@/lib/longitudinal-intelligence/picture';
 import { CoachingInsightCard } from '@/components/coaching-insights/CoachingInsightCard';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -43,6 +44,13 @@ export default async function CoachingInsightsPage() {
   const { insights, safetyMessage } = await getMyCoachingInsightsAction();
   const byCategory = new Map(insights.map((i) => [i.category, i]));
   const picture = safetyMessage ? null : await getMyLongitudinalPicture();
+  const pictureHasContent = picture
+    ? picture.whatsChanging.length > 0 ||
+      picture.emergingPatterns.length > 0 ||
+      picture.whatSeemsToBeHelping.length > 0 ||
+      picture.stillLearning.length > 0 ||
+      picture.nextBestStep !== null
+    : false;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -83,7 +91,7 @@ export default async function CoachingInsightsPage() {
           <section className={`${CARD} mt-6 p-6`}>
             <p className="text-sm leading-relaxed text-[#1B3A2D]">{safetyMessage}</p>
           </section>
-        ) : insights.length === 0 ? (
+        ) : insights.length === 0 && !pictureHasContent ? (
           <section className={`${CARD} mt-6 p-6`}>
             <p className="text-sm leading-relaxed text-[#1B3A2D]">
               Nothing to share yet — keep logging your check-ins and meals, and Root will have real
@@ -119,7 +127,7 @@ function LongitudinalPictureSection({
 }: {
   picture: Awaited<ReturnType<typeof getMyLongitudinalPicture>>;
 }) {
-  const groups: Array<{ title: string; items: string[] }> = [
+  const groups: Array<{ title: string; items: LongitudinalPictureItem[] }> = [
     { title: "What's Changing", items: picture.whatsChanging },
     { title: "Patterns We're Beginning to Notice", items: picture.emergingPatterns },
     { title: 'What Seems to Be Helping', items: picture.whatSeemsToBeHelping },
@@ -145,7 +153,7 @@ function LongitudinalPictureSection({
             <ul className="mt-2 space-y-2">
               {group.items.map((item, i) => (
                 <li key={i} className="text-sm leading-relaxed text-[#1B3A2D]">
-                  {item}
+                  <span className="font-semibold">{item.subject}</span> — {item.sentence}
                 </li>
               ))}
             </ul>
@@ -155,7 +163,15 @@ function LongitudinalPictureSection({
         {picture.nextBestStep ? (
           <div className="rounded-2xl bg-[#EFF6F1] p-4">
             <p className="text-sm font-semibold text-[#1B3A2D]">Your Next Best Step</p>
-            <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{picture.nextBestStep}</p>
+            <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">{picture.nextBestStep.message}</p>
+            {picture.nextBestStep.investigation ? (
+              <Link
+                href={picture.nextBestStep.investigation.route as Route}
+                className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
+              >
+                {picture.nextBestStep.investigation.displayName}
+              </Link>
+            ) : null}
           </div>
         ) : null}
       </div>

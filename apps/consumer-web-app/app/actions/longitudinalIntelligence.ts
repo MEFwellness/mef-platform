@@ -24,7 +24,6 @@ import { localDateFor } from './rootMap';
 import { getMyRootMap } from './rootMap';
 import {
   computeLongitudinalSignals,
-  describeSignalForMember,
   listRecommendationEventsForMember,
   type LongitudinalSignal,
   type RecommendationEvent,
@@ -32,16 +31,26 @@ import {
 import { listMyLifestyleExperiments } from '@/lib/lifestyle-experiments';
 import { insertCoachRequestedReassessmentSchedule } from '@/lib/reassessment-intelligence/data';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
+import { describeSignalAsPictureItem, nextBestStepView, type LongitudinalPictureItem, type NextBestStepView } from '@/lib/longitudinal-intelligence/picture';
 
 export type LongitudinalPictureView = {
-  whatsChanging: string[];
-  emergingPatterns: string[];
-  whatSeemsToBeHelping: string[];
-  stillLearning: string[];
-  nextBestStep: string | null;
+  whatsChanging: LongitudinalPictureItem[];
+  emergingPatterns: LongitudinalPictureItem[];
+  whatSeemsToBeHelping: LongitudinalPictureItem[];
+  stillLearning: LongitudinalPictureItem[];
+  nextBestStep: NextBestStepView | null;
 };
 
 const MAX_ITEMS_PER_SECTION = 3;
+
+function toNamedItems(signals: LongitudinalSignal[]): LongitudinalPictureItem[] {
+  const items: LongitudinalPictureItem[] = [];
+  for (const s of signals) {
+    const item = describeSignalAsPictureItem(s);
+    if (item) items.push(item);
+  }
+  return items;
+}
 
 export async function getMyLongitudinalPicture(): Promise<LongitudinalPictureView> {
   const empty: LongitudinalPictureView = {
@@ -65,32 +74,34 @@ export async function getMyLongitudinalPicture(): Promise<LongitudinalPictureVie
 
   if (rootMap?.safetyGated) return empty;
 
-  const whatsChanging = signals
-    .filter((s) => (s.state === 'worsening' || s.state === 'improving') && s.tier !== null && s.tier >= 2)
-    .slice(0, MAX_ITEMS_PER_SECTION)
-    .map(describeSignalForMember);
+  const whatsChanging = toNamedItems(
+    signals.filter((s) => (s.state === 'worsening' || s.state === 'improving') && s.tier !== null && s.tier >= 2)
+  ).slice(0, MAX_ITEMS_PER_SECTION);
 
-  const emergingPatterns = signals
-    .filter((s) => s.state === 'one_time_observation' || s.state === 'repeated_signal' || s.state === 'emerging_pattern')
-    .slice(0, MAX_ITEMS_PER_SECTION)
-    .map(describeSignalForMember);
+  const emergingPatterns = toNamedItems(
+    signals.filter(
+      (s) => s.state === 'one_time_observation' || s.state === 'repeated_signal' || s.state === 'emerging_pattern'
+    )
+  ).slice(0, MAX_ITEMS_PER_SECTION);
 
-  const whatSeemsToBeHelping = experiments
+  const whatSeemsToBeHelping: LongitudinalPictureItem[] = experiments
     .filter((e) => e.outcome === 'worked' || e.outcome === 'partially_worked')
     .slice(0, MAX_ITEMS_PER_SECTION)
-    .map((e) => `${e.title} — ${e.outcome === 'worked' ? 'this has been working well' : 'this has helped somewhat'}.`);
+    .map((e) => ({
+      subject: e.title,
+      sentence: e.outcome === 'worked' ? 'This has been working well.' : 'This has helped somewhat.',
+    }));
 
-  const stillLearning = signals
-    .filter((s) => s.state === 'insufficient_data' || s.state === 'stale')
-    .slice(0, 2)
-    .map(describeSignalForMember);
+  const stillLearning = toNamedItems(
+    signals.filter((s) => s.state === 'insufficient_data' || s.state === 'stale')
+  ).slice(0, 2);
 
   return {
     whatsChanging,
     emergingPatterns,
     whatSeemsToBeHelping,
     stillLearning,
-    nextBestStep: rootMap?.routerOutcome.memberMessage ?? null,
+    nextBestStep: rootMap ? nextBestStepView(rootMap.routerOutcome) : null,
   };
 }
 

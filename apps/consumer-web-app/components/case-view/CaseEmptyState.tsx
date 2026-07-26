@@ -1,4 +1,5 @@
 import type { CaseEmptyStateView } from '@/lib/case-view/types';
+import { buildStillBuildingSentence } from '@/lib/case-view/emptyState';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -24,11 +25,7 @@ export function CaseEmptyState({ emptyState }: { emptyState: CaseEmptyStateView 
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">Still building your case</p>
         <p className="mt-2 text-[15px] leading-relaxed text-[#1B3A2D]">
-          {checkinCount === 0
-            ? "You haven't logged a check-in yet — this fills in once you have."
-            : `${checkinCount} check-in${checkinCount === 1 ? '' : 's'} so far${
-                daysSinceFirstCheckin !== null ? `, over ${daysSinceFirstCheckin} day${daysSinceFirstCheckin === 1 ? '' : 's'}` : ''
-              }. Most people don't see a real finding for their first few weeks — that's expected, not a problem.`}
+          {buildStillBuildingSentence(checkinCount, daysSinceFirstCheckin)}
         </p>
       </div>
 

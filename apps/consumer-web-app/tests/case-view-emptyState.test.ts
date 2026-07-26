@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCaseEmptyState, buildStillGatheringRows } from '../lib/case-view/emptyState';
+import { buildCaseEmptyState, buildStillBuildingSentence, buildStillGatheringRows } from '../lib/case-view/emptyState';
 import { MIN_PAIRED_OBSERVATIONS, MIN_SPAN_DAYS } from '../lib/correlation-engine/evidence';
 import type { CandidatePair } from '../lib/correlation-engine/types';
 import type { DailyCheckin } from '@mef/shared-types-contracts';
@@ -64,5 +64,38 @@ describe('buildCaseEmptyState', () => {
     const state = buildCaseEmptyState([], new Map(), '2026-07-15');
     expect(state.checkinCount).toBe(0);
     expect(state.daysSinceFirstCheckin).toBeNull();
+  });
+});
+
+describe('buildStillBuildingSentence', () => {
+  it('leads with elapsed time so a low count over a long span reads as an honest statement, not a mismatch', () => {
+    const sentence = buildStillBuildingSentence(1, 9);
+    expect(sentence).toBe(
+      "It's been 9 days since you started, and you've logged 1 check-in so far. Most people don't see a real finding for their first few weeks — that's expected, not a problem."
+    );
+  });
+
+  it('never invents or rounds either number — uses them exactly as given', () => {
+    expect(buildStillBuildingSentence(3, 21)).toContain('21 days');
+    expect(buildStillBuildingSentence(3, 21)).toContain('3 check-ins');
+  });
+
+  it('handles the zero-check-in case with no day count at all', () => {
+    expect(buildStillBuildingSentence(0, null)).toBe(
+      "You haven't logged a check-in yet — this fills in once you have."
+    );
+  });
+
+  it('handles day zero (checked in today) without saying "0 days"', () => {
+    const sentence = buildStillBuildingSentence(1, 0);
+    expect(sentence).not.toContain('0 day');
+    expect(sentence).toContain('You started today');
+  });
+
+  it('uses singular "day"/"check-in" only when the count is exactly 1', () => {
+    expect(buildStillBuildingSentence(1, 1)).toContain('1 day since');
+    expect(buildStillBuildingSentence(1, 1)).toContain('1 check-in so far');
+    expect(buildStillBuildingSentence(2, 2)).toContain('2 days since');
+    expect(buildStillBuildingSentence(2, 2)).toContain('2 check-ins so far');
   });
 });

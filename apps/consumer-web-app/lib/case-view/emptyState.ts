@@ -65,3 +65,33 @@ export function buildCaseEmptyState(
     stillGathering: stillGathering.slice().sort((a, b) => b.observationCount - a.observationCount),
   };
 }
+
+/**
+ * The still-building-your-case sentence (requirement 6). A low count next
+ * to a long span (e.g. "1 check-in so far, over 9 days") previously read
+ * like a broken template rather than an honest fact — this leads with how
+ * long she's been here, then states the count, so the same real numbers
+ * read as a plain statement instead of a mismatch. Never invents or rounds
+ * either number.
+ */
+export function buildStillBuildingSentence(checkinCount: number, daysSinceFirstCheckin: number | null): string {
+  const encouragement =
+    "Most people don't see a real finding for their first few weeks — that's expected, not a problem.";
+
+  if (checkinCount === 0) {
+    return "You haven't logged a check-in yet — this fills in once you have.";
+  }
+
+  const checkinPhrase = `${checkinCount} check-in${checkinCount === 1 ? '' : 's'} so far`;
+
+  if (daysSinceFirstCheckin === null) {
+    return `You've logged ${checkinPhrase}. ${encouragement}`;
+  }
+
+  const sincePhrase =
+    daysSinceFirstCheckin === 0
+      ? 'You started today'
+      : `It's been ${daysSinceFirstCheckin} day${daysSinceFirstCheckin === 1 ? '' : 's'} since you started`;
+
+  return `${sincePhrase}, and you've logged ${checkinPhrase}. ${encouragement}`;
+}
