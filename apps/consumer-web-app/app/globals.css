@@ -97,6 +97,64 @@
 }
 
 /*
+ * Cinematic welcome intro (Pages 1-7 of app/welcome/WelcomeFlow.tsx) —
+ * timed, auto-advancing pages layered on top of the entrance vocabulary
+ * above. `mef-scale-fade-in` is the shared "scales and fades in together"
+ * reveal (the Story paragraph, the "Your health is connected" display
+ * heading, and each benefit card) — duration varies per use via an inline
+ * `style={{ animationDuration }}` override, same convention as
+ * `mef-scale-settle`'s per-use delay overrides. `mef-typewriter-caret` is
+ * the blinking cursor shown only while the Page 2 typewriter text is still
+ * revealing (removed from the DOM entirely once done or under reduced
+ * motion, so the `@media` rule below is belt-and-suspenders, not the only
+ * guard).
+ */
+@keyframes mef-scale-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.mef-scale-fade-in {
+  animation: mef-scale-fade-in 0.7s ease-out both;
+}
+
+@keyframes mef-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.mef-typewriter-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: mef-caret-blink 1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-scale-fade-in {
+    animation: none !important;
+  }
+  .mef-typewriter-caret {
+    display: none;
+  }
+}
+
+/*
  * Keyboard focus ring (components/assessments/QuestionCard.tsx,
  * ContextQuestionCard.tsx, AssessmentTaker.tsx). A plain custom-property
  * class rather than stacked `focus-visible:outline-*` Tailwind v4

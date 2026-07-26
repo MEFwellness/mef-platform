@@ -43,3 +43,32 @@ export async function completeWelcomeFlow(
 
   redirect('/');
 }
+
+/**
+ * Marks the cinematic intro pages (logo/welcome through the four benefit
+ * cards) as seen, so a returning or interrupted member lands directly on
+ * "What brought you here today?" instead of rewatching the intro. Fired
+ * once the member reaches that page, whether by watching the full sequence
+ * or tapping Skip. Idempotent (only ever sets the timestamp once) so it's
+ * safe to call on every visit to that page, not just the first.
+ */
+export async function markWelcomeIntroSeen(): Promise<void> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('welcome_intro_seen_at')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (profile?.welcome_intro_seen_at) return;
+
+  await supabase
+    .from('profiles')
+    .update({ welcome_intro_seen_at: new Date().toISOString() })
+    .eq('id', user.id);
+}
