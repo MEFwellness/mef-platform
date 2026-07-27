@@ -226,6 +226,15 @@ async function captureCheckinFlows(browser, account, state) {
     await walkCheckinWizard(page, { prefix: 'checkin-morning', state });
 
     await page.waitForURL(/\/checkin\/result/, { timeout: 15000 });
+    // This route is reached via the wizard's client-side router.push, not a
+    // fresh page.goto — waitForURL resolves as soon as the URL changes,
+    // well before the async server component's real content streams in
+    // behind app/checkin/loading.tsx's skeleton. Confirmed directly
+    // (scripts/screenshots — see docs/BUILD_STATUS.md): the real content
+    // is normally visible under a second later, but a fixed short delay
+    // was catching the skeleton every time. Wait for the actual heading
+    // instead of a fixed timeout.
+    await page.getByRole('heading', { name: "Today's forecast" }).waitFor({ timeout: 10000 });
     await shot(page, `checkin-result-${state}.png`, { screen: 'checkin result', state });
     await page.getByRole('link', { name: 'Continue' }).click();
   } catch (e) {

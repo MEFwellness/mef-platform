@@ -37,6 +37,23 @@ export async function shot(page, file, { screen, state, note } = {}) {
     VIEWPORT_NAME === 'mobile' ? file : file.replace(/\.png$/, `-${VIEWPORT_NAME}.png`);
   const filePath = path.join(OUTPUT_DIR, suffixedFile);
   await page.waitForTimeout(250); // let the entrance transition/settle finish
+
+  // Confirmed directly (see docs/BUILD_STATUS.md): Playwright's
+  // fullPage:true screenshot bakes in position:sticky/fixed elements at
+  // whatever position they'd render at the CURRENT scroll offset, not
+  // scroll-independently. Capturing from the top (the only scroll
+  // position this tool ever visits before this fix) made the check-in
+  // wizard's sticky Continue button look like it was still overlapping
+  // real content on every screen taller than one viewport — even after
+  // the real overlap bug was fixed and verified via actual scroll +
+  // bounding-box measurement. Scrolling to the true bottom immediately
+  // before capturing makes every sticky/fixed element bake in at its real
+  // final position instead, with no effect on pages that don't have one
+  // (fullPage still captures the complete scrollable area regardless of
+  // scroll position for ordinary content).
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.waitForTimeout(100);
+
   await page.screenshot({ path: filePath, fullPage: true });
   index.push({ file: suffixedFile, screen: screen || file, state: state || '', note: note || '' });
   console.log(`captured ${suffixedFile}`);

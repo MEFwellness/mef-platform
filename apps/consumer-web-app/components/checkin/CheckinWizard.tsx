@@ -166,9 +166,29 @@ export function CheckinWizard({
         </div>
       </div>
 
+      {/*
+       * `pb-[...]` below reserves real scroll room after the last question
+       * so the sticky Continue button can never end up sitting on top of
+       * unread/untappable content. Once a screen's content is taller than
+       * the viewport, the button sticks at `bottom-4` for the entire
+       * remaining scroll range — and since it's the last element with
+       * nothing after it, without this padding max scroll would land
+       * exactly where the button covers the tail end of the real content,
+       * with no further scrolling possible to reveal it (confirmed via
+       * screenshots on every section-mode screen and the pain-location
+       * screen — see docs/UX_AUDIT_DAILY_LOOP.md). Sized generously:
+       * button height (~52px for `py-3.5` + `text-base`) + its own
+       * `bottom-4` (16px) offset + breathing room, plus
+       * `env(safe-area-inset-bottom)` for the home indicator on notched
+       * phones, since the button's own 16px offset doesn't already
+       * account for that. On screens short enough to already fit above
+       * the fold, this just adds a little extra space below the last
+       * question — the button was never at risk there and stays exactly
+       * as reachable as before.
+       */}
       <div
         key={displayIndex}
-        className={`mt-6 ${phase === 'exiting' ? 'mef-screen-exit' : phase === 'entering' ? 'mef-screen-enter' : ''}`}
+        className={`mt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] ${phase === 'exiting' ? 'mef-screen-exit' : phase === 'entering' ? 'mef-screen-enter' : ''}`}
       >
         {renderScreen(displayIndex)}
       </div>

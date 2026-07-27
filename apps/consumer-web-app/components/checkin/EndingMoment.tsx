@@ -18,24 +18,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { lerpColor, type RGB } from '@/lib/checkin-color-ramps';
+import { blendEndingColors, type RGB } from '@/lib/checkin-color-ramps';
 
 export type EndingMomentValue = { ramp: { from: RGB; to: RGB }; value: number; max: number };
-
-function blendValues(values: EndingMomentValue[]): string | null {
-  if (values.length === 0) return null;
-  const colors = values.map((v) => {
-    const t = v.max <= 1 ? 1 : (v.value - 1) / (v.max - 1);
-    return lerpColor(v.ramp.from, v.ramp.to, Math.max(0, Math.min(1, t)));
-  });
-  const rgbs = colors.map((c) => c.match(/\d+/g)!.map(Number) as [number, number, number]);
-  const avg = rgbs.reduce(
-    (acc, [r, g, b]) => [acc[0] + r, acc[1] + g, acc[2] + b],
-    [0, 0, 0]
-  );
-  const n = rgbs.length;
-  return `rgb(${Math.round(avg[0] / n)}, ${Math.round(avg[1] / n)}, ${Math.round(avg[2] / n)})`;
-}
 
 export function EndingMoment({
   values,
@@ -52,16 +37,26 @@ export function EndingMoment({
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const blended = blendValues(values);
+  const blendedRgb = blendEndingColors(values);
+  const blended = blendedRgb ? `rgb(${blendedRgb[0]}, ${blendedRgb[1]}, ${blendedRgb[2]})` : null;
 
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center px-4 text-center">
       {blended ? (
         <>
+          {/*
+           * The color stays fully opaque out to 45% of the circle's radius
+           * (previously it started fading immediately from the center and
+           * was fully transparent by 75%, which — combined with a blend
+           * that was already close to washed-out — made the reveal nearly
+           * imperceptible against the page background). It still fades out
+           * completely by the edge, so this stays a soft glow, not a hard
+           * disc.
+           */}
           <div
             className={`h-40 w-40 rounded-full transition-all duration-[1400ms] ease-out ${visible ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`}
             style={{
-              background: `radial-gradient(circle, ${blended} 0%, rgba(250,246,236,0) 75%)`,
+              background: `radial-gradient(circle, ${blended} 0%, ${blended} 45%, rgba(250,246,236,0) 90%)`,
             }}
             aria-hidden="true"
           />
