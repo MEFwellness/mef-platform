@@ -11,7 +11,7 @@
  * intake" step anywhere in this app anymore.
  */
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Droplet } from 'lucide-react';
 import { logHydrationChange } from '@/app/actions/events';
 import { STATUS_STYLES, waterStatus } from '@/lib/wellness/status';
@@ -19,9 +19,21 @@ import { STATUS_STYLES, waterStatus } from '@/lib/wellness/status';
 const TRACKER_CARD =
   'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] flex min-h-[172px] flex-col p-5';
 
-export function HydrationTracker({ initialTotal }: { initialTotal: number }) {
+export function HydrationTracker({
+  initialTotal,
+  onTotalChange,
+}: {
+  initialTotal: number;
+  /** Today page redesign — lets a client-side parent (TodayZones) know the live total without owning or duplicating this component's own state; fires on every change, purely a notification, never gates the tap handlers below. */
+  onTotalChange?: (total: number) => void;
+}) {
   const [total, setTotal] = useState(initialTotal);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    onTotalChange?.(total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total]);
 
   function adjust(delta: 1 | -1) {
     setTotal((current) => Math.max(0, current + delta)); // optimistic

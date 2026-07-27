@@ -30,7 +30,6 @@ import {
   Droplet,
   Footprints,
   Watch,
-  ArrowRight,
 } from 'lucide-react';
 import type { FourDoctorsCategory } from '@mef/shared-types-contracts';
 import { getFeedHistory } from '@/app/actions/feed';
@@ -40,15 +39,11 @@ import {
   resolveLocalDate,
   getActiveHabits,
   getHabitLogsForDate,
+  getTotalCheckinCount,
+  getTotalMovementLoggedDaysCount,
 } from '@/app/actions/checkin';
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
-import { getMyBaselineAssessment } from '@/app/actions/onboarding';
-import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
 import { getTodaysHydrationTotal, getTodaysMovementLevel } from '@/app/actions/events';
-import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
-import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
-import { HydrationTracker } from '@/components/checkin/HydrationTracker';
-import { MovementLevelTracker } from '@/components/checkin/MovementLevelTracker';
 import { waterStatus, digestionStatus, STATUS_STYLES } from '@/lib/wellness/status';
 import type { CoachingMode } from '@/lib/brain/types';
 import { buildCoachNote, buildBonusChallenge, parseSelectionReason } from '@/lib/feed/copy';
@@ -65,8 +60,7 @@ import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
 import { buildTodayEntryContext } from '@/lib/conversation-coach/entryContext';
 import { getMyNotifications } from '@/app/actions/notifications';
 import { FeedInteractions } from './FeedInteractions';
-import { CoachMessages } from './CoachMessages';
-import { TodayHabits } from './TodayHabits';
+import { TodayZones } from './TodayZones';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -133,29 +127,17 @@ export default async function TodayPage() {
   // getRecentCheckins and getActiveHabits don't depend on the
   // profile/timezone lookups below, so they join this first batch
   // instead of paying their own, separate round trips afterward.
-  const [
-    isCoach,
-    { data: profile },
-    decision,
-    history,
-    notifications,
-    recentCheckins,
-    habits,
-    baseline,
-    bodyAssessments,
-  ] = await Promise.all([
-    hasActiveRole(supabase, user.id, 'coach'),
-    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
-    getMyCoachingDecision(),
-    getFeedHistory(),
-    getMyNotifications(5),
-    // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
-    getRecentCheckins(30),
-    getActiveHabits(),
-    getMyBaselineAssessment(),
-    getMyAssessmentsAction(),
-  ]);
-  const movementAnalyzed = bodyAssessments.some((a) => a.completed_at !== null);
+  const [isCoach, { data: profile }, decision, history, notifications, recentCheckins, habits] =
+    await Promise.all([
+      hasActiveRole(supabase, user.id, 'coach'),
+      supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+      getMyCoachingDecision(),
+      getFeedHistory(),
+      getMyNotifications(5),
+      // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
+      getRecentCheckins(30),
+      getActiveHabits(),
+    ]);
 
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const timezone = profile?.timezone ?? 'America/New_York';
@@ -164,12 +146,16 @@ export default async function TodayPage() {
   const GreetingIcon = timeContext.hour < 12 ? Sunrise : timeContext.hour < 18 ? Sun : Moon;
 
   const localDate = await resolveLocalDate(nowInTz, false);
-  const [todaysCheckin, habitLogs, hydrationTotal, movementLevel] = await Promise.all([
-    getTodaysCheckin(localDate),
-    getHabitLogsForDate(localDate),
-    getTodaysHydrationTotal(),
-    getTodaysMovementLevel(),
-  ]);
+  const [todaysCheckin, habitLogs, hydrationTotal, movementLevel, totalCheckins, totalMovementDays] =
+    await Promise.all([
+      getTodaysCheckin(localDate),
+      getHabitLogsForDate(localDate),
+      getTodaysHydrationTotal(),
+      getTodaysMovementLevel(),
+      // Accomplished zone's cumulative totals — all-time, never a windowed read like getRecentCheckins above.
+      getTotalCheckinCount(),
+      getTotalMovementLoggedDaysCount(),
+    ]);
 
   let sectionIndex = 0;
   const modeBadge = decision ? MODE_BADGE[decision.mode] : null;
@@ -222,116 +208,20 @@ export default async function TodayPage() {
           </div>
         ) : (
           <>
-            {/* Check-In Progress — moved here from Dashboard (Milestone 2):
-                Dashboard answers "how am I doing," Today answers "what
-                should I do today," and finishing today's check-in is
-                squarely a today action. */}
-            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-              <section className={`${CARD} p-7`}>
-                <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-                  Check-In Progress
-                </p>
-                {todaysCheckin ? (
-                  <>
-                    <h2 className="mt-3 text-xl font-semibold leading-snug tracking-tight text-[#1B3A2D]">
-                      You&apos;ve checked in today
-                    </h2>
-                    <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                      Thanks for logging today. Come back tomorrow to keep your trend going.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="mt-3 text-xl font-semibold leading-snug tracking-tight text-[#1B3A2D]">
-                      You haven&apos;t checked in yet today
-                    </h2>
-                    <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                      A quick check-in shapes today&apos;s coaching and keeps your trends accurate.
-                    </p>
-                  </>
-                )}
-              </section>
-
-              {/* UX audit fix (batch 1, item 5): this whole element is the
-                  card AND the tappable link — but a flat solid-green card
-                  with plain text inside it doesn't visually read as "the
-                  page's one primary action" the way a real button does.
-                  The card itself stays dark green (its own identity); the
-                  cream pill below is the actual button surface, giving it
-                  the contrast a primary CTA needs without introducing any
-                  color outside the locked palette (forest green + cream). */}
-              <Link
-                href={'/checkin' as Route}
-                className="flex flex-col justify-between gap-4 rounded-[28px] bg-[#1B3A2D] p-6 text-left text-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
-              >
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-white/70">
-                    Takes about a minute
-                  </p>
-                  <p className="mt-1.5 text-lg font-semibold">
-                    {todaysCheckin ? "Update today's check-in" : "Complete today's check-in"}
-                  </p>
-                </div>
-                <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#F5F0E4] px-4 py-2 text-sm font-semibold text-[#1B3A2D]">
-                  {todaysCheckin ? 'Update check-in' : 'Start check-in'}
-                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-                </span>
-              </Link>
-            </div>
-
-            {/* Quick Log — water and movement leave the check-in entirely
-                (task requirement 4): loggable here any time, rather than
-                asked as check-in questions. Both still write to the same
-                daily_checkins columns (water_cups, movement_today) every
-                downstream reader already uses.
-
-                UX fix (batch 3, item 4): side by side even on mobile —
-                identified in the prior batch as the best remaining way to
-                shorten the page. Both cards are already compact, roughly-
-                square widgets (an icon/label row, a number or a handful of
-                pills, a one-line status caption) that don't need full
-                mobile width to stay comfortably tappable; a plain
-                unconditional grid-cols-2 replaces the mobile-only
-                grid-cols-1 override, removing close to a full extra
-                screen's worth of stacked height on the SE. */}
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5">
-              <HydrationTracker initialTotal={hydrationTotal} />
-              <MovementLevelTracker initialLevel={movementLevel} />
-            </div>
-
             {/* Evening Reflection — optional depth, entered deliberately
                 (task requirement 2), never a second required ritual. No
-                streak/missed-day language here on purpose. */}
+                streak/missed-day language here on purpose. Not one of the
+                Forward Zone's named quick actions (check-in/water/
+                movement), so it isn't folded into TodayZones below — it
+                stays its own low-emphasis link, same copy/behavior as
+                before. */}
             <Link
               href={'/checkin/evening' as Route}
-              className="mt-4 flex items-center justify-between rounded-2xl border border-[#1B3A2D]/10 px-5 py-3.5 text-sm text-[#1B3A2D] transition hover:border-[#1B3A2D]/25"
+              className="mt-6 flex items-center justify-between rounded-2xl border border-[#1B3A2D]/10 px-5 py-3.5 text-sm text-[#1B3A2D] transition hover:border-[#1B3A2D]/25"
             >
               <span className="font-medium">Evening Reflection</span>
               <span className="text-xs text-[#6B7A72]">Optional · a short close to the day</span>
             </Link>
-
-            {/* Guided Posture & Movement Assessment — Premium UX
-                Milestone 4: the actual next step after a first Daily
-                Check-In. Stays prominent here (never buried in Profile)
-                until completed, then auto-replaces itself with a real,
-                data-backed status. */}
-            <div className="mt-6">
-              <MovementAssessmentCard assessments={bodyAssessments} />
-            </div>
-
-            {/* Comprehensive Health Assessment — now a secondary
-                recommendation surfaced only after the movement
-                assessment above is done (or immediately, once a
-                baseline already exists). */}
-            <div className="mt-6">
-              <ComprehensiveAssessmentCard
-                baseline={baseline}
-                movementCompleted={movementAnalyzed}
-              />
-            </div>
-
-            {/* Today's Habits — read-only status; logged from the check-in. */}
-            <TodayHabits habits={habits} habitLogs={habitLogs} />
 
             {/* Today's Recommendations (renamed from "Today's Coaching
                 Brief," Milestone 2) — recovery/movement/stress/sleep lines
@@ -442,15 +332,25 @@ export default async function TodayPage() {
               </div>
             </section>
 
-            <CoachMessages notifications={notifications} />
-
             {!decision || !decision.feedItem || !decision.content ? (
-              <section className={`${CARD} mt-6 p-8`}>
-                <p className="text-base text-[#1B3A2D]">Nothing here yet.</p>
-                <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-                  Your coaching lesson for today hasn&apos;t been prepared yet — check back shortly.
-                </p>
-              </section>
+              <>
+                <section className={`${CARD} mt-6 p-8`}>
+                  <p className="text-base text-[#1B3A2D]">Nothing here yet.</p>
+                  <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
+                    Your coaching lesson for today hasn&apos;t been prepared yet — check back shortly.
+                  </p>
+                </section>
+                <TodayZones
+                  todaysCheckinDone={Boolean(todaysCheckin)}
+                  hydrationInitialTotal={hydrationTotal}
+                  movementInitialLevel={movementLevel}
+                  habits={habits}
+                  habitLogs={habitLogs}
+                  notifications={notifications}
+                  totalCheckins={totalCheckins}
+                  totalMovementDays={totalMovementDays}
+                />
+              </>
             ) : (
               <div className="mt-6 space-y-5">
                 {(() => {
@@ -532,6 +432,17 @@ export default async function TodayPage() {
                           </p>
                         </div>
                       </section>
+
+                      <TodayZones
+                        todaysCheckinDone={Boolean(todaysCheckin)}
+                        hydrationInitialTotal={hydrationTotal}
+                        movementInitialLevel={movementLevel}
+                        habits={habits}
+                        habitLogs={habitLogs}
+                        notifications={notifications}
+                        totalCheckins={totalCheckins}
+                        totalMovementDays={totalMovementDays}
+                      />
 
                       {/* Today's Lesson */}
                       <section

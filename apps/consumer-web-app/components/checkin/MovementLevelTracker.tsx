@@ -10,7 +10,7 @@
  * wrote to, never a new/parallel field.
  */
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Footprints, Check } from 'lucide-react';
 import { logMovementLevel } from '@/app/actions/events';
 import type { DailyCheckinInput } from '@mef/shared-types-contracts';
@@ -18,7 +18,7 @@ import type { DailyCheckinInput } from '@mef/shared-types-contracts';
 const TRACKER_CARD =
   'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] flex min-h-[172px] flex-col p-5';
 
-type MovementLevel = NonNullable<DailyCheckinInput['movement_today']>;
+export type MovementLevel = NonNullable<DailyCheckinInput['movement_today']>;
 
 const LEVELS: { value: MovementLevel; label: string }[] = [
   { value: 'none', label: 'None' },
@@ -27,10 +27,22 @@ const LEVELS: { value: MovementLevel; label: string }[] = [
   { value: 'full_session', label: 'Full session' },
 ];
 
-export function MovementLevelTracker({ initialLevel }: { initialLevel: MovementLevel | null }) {
+export function MovementLevelTracker({
+  initialLevel,
+  onLevelChange,
+}: {
+  initialLevel: MovementLevel | null;
+  /** Today page redesign — same notification-only pattern as HydrationTracker's onTotalChange; never gates the tap handlers below. */
+  onLevelChange?: (level: MovementLevel | null) => void;
+}) {
   const [level, setLevel] = useState<MovementLevel | null>(initialLevel);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    onLevelChange?.(level);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [level]);
 
   function pick(next: MovementLevel) {
     const previous = level;

@@ -372,6 +372,58 @@ export async function getRecentCheckins(days: number): Promise<DailyCheckin[]> {
   return (data as DailyCheckin[]).reverse(); // oldest first, for left-to-right chart bars
 }
 
+/**
+ * Today page redesign — cumulative, all-time totals for the Accomplished
+ * zone. These must never decrease and are never shown as a fraction, so a
+ * plain row count (not a windowed read like getRecentCheckins) is exactly
+ * what's needed. daily_checkins_current already dedupes to one row per
+ * local_date per user (see its view definition), so "total check-ins" and
+ * "total days logged" are the same number in this schema — reported as a
+ * single "check-ins logged" total rather than two identical-looking stats.
+ */
+export async function getTotalCheckinCount(): Promise<number> {
+  const supabase = createClient();
+  const user = await getCachedUser();
+  if (!user) return 0;
+
+  const { count, error } = await supabase
+    .from('daily_checkins_current')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id);
+
+  if (error) {
+    console.error('getTotalCheckinCount failed', error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+/**
+ * Days movement was logged, all-time — reuses the same movement_today
+ * column the Today page's own MovementLevelTracker already writes to
+ * (rather than the separate member_wellness_events movement_logged event
+ * stream, which is a different, unrelated movement-logging feature not
+ * connected to this tracker — counting that one here would show a number
+ * that doesn't match what logging on this page actually does).
+ */
+export async function getTotalMovementLoggedDaysCount(): Promise<number> {
+  const supabase = createClient();
+  const user = await getCachedUser();
+  if (!user) return 0;
+
+  const { count, error } = await supabase
+    .from('daily_checkins_current')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .not('movement_today', 'is', null);
+
+  if (error) {
+    console.error('getTotalMovementLoggedDaysCount failed', error);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 // ---- Habits (used by the check-in form's habit checklist, if present) ----
 
 export async function getActiveHabits(): Promise<Habit[]> {
