@@ -1025,3 +1025,80 @@ Scope: exactly these three items. Nav, the sleep bedtime/wake dial, the Home/Tod
 **Not verified**: real mobile Safari/WebKit rendering (headless Chromium throughout, matching every prior entry in this file). The `live` target against `app.mefwellness.com` was not exercised pre-deploy (no production test account, unchanged from every prior entry). The "wobble" and "reversed scroll" checks were driven via synthetic `mouse.wheel` steps in headless Chromium, not a physical trackpad/touchscreen — the underlying mechanism (a single-threshold `IntersectionObserver`) is the same regardless of input device, but real-device scroll-momentum/inertia behavior specifically wasn't tested.
 
 **Deployed and confirmed live**: pushed to `origin/main` (`github.com/MEFwellness/mef-platform`, commit `396bcfb`); the push triggered Vercel's GitHub-integration auto-deploy. Pre/post-deploy checks via `npx vercel`: repo `MEFwellness/mef-platform` ✓, branch `main` ✓, Vercel project `mef-wellness/mef-platform` ✓, target `production` ✓ (not Preview). `npx vercel inspect` on the new deployment (`dpl_96NeTGmMFpyanNPK5AZHshr1de8j`) confirms its build log shows `Cloning github.com/MEFwellness/mef-platform (Branch: main, Commit: 396bcfb)`, status `Ready`, Aliases list includes `https://app.mefwellness.com` directly. `curl -I https://app.mefwellness.com` confirms the domain responds `HTTP/2 307`, served by Vercel. Not verified beyond that: no logged-in browser session against the production URL itself — all verification above ran against the local dev server + local Supabase.
+
+---
+
+## Four UX fixes — batch 3: "Predict tomorrow" overlap, wearable-modal timing, subhead contrast, quick-log cards side by side (2026-07-27)
+
+Scope: exactly these four items. Nav, the sleep bedtime/wake dial, the Home/Today empty states, "Today's Lesson," the "Why You're Seeing This"/"Ask your coach why" pattern, the Energy Trend chart, the correlation engine, the trend engine, the three-tier language system, and the adaptive question picker were all left untouched — confirmed via `git diff --stat` showing only the files named below and their tests.
+
+### 1. "Predict tomorrow" overlapping labels — root-caused and fixed at the shared component
+
+**Confirmed live before touching anything**, per this file's own repeated lesson about not trusting a screenshot alone: logged in as `member.two`, drove to the evening reflection's forecast screen at 375px width, and measured real button bounding boxes. "Exhausted" (98.9px wide) visibly overlapped "Low" (starting at x=88.6) by 30px; "Moderate" overlapped "Good" by 25px — a real, reproducible bug, not a capture artifact.
+
+**Root cause**: `TapBleedTile` (`components/checkin/scales/shared.tsx`), the one shared selected-state control `ShortOptionRow` and `StackedOptionRows` both render through, only applied `w-full` to its `fullWidth` variant. `ShortOptionRow` always wraps each tile in a `min-w-0 flex-1` column, but without `w-full` the `<button>` itself sized to its own text content rather than filling that column — invisible for short one-word labels, but a 9-character word like "Exhausted" rendered at its full natural width and visually spilled into the next tile once 5 options were packed into one row (the forecast question's own case: 5 options, not the 2-4 most `ShortOptionRow` questions use).
+
+**Fix**: added `w-full` unconditionally to `TapBleedTile`, confirmed safe for its only other caller (`StackedOptionRows` already passes `fullWidth` on every tile, so it already had `w-full`). The existing `whitespace-normal break-words` on the label span now does its job — text wraps inside its own column instead of overflowing. Re-measured live after the fix: a consistent 8px gap (the row's own `gap-2`) between every pair of tiles, not overlap; "Exhausted" and "Moderate" now wrap onto 2-3 lines within their own tile.
+
+**Audit, as asked**: queried `driver_probe_questions` directly (not guesswork) for every `single_select` question and cross-referenced against `resolveSingleSelectLayout`'s length-based row/stacked decision. The only evening-screen (`screen = 'evening'`) single_select question is `checkin_probe.movement_today` — its longest label ("Full Session", 12 chars) already exceeds `MAX_INLINE_LABEL_LENGTH`, so it renders via `StackedOptionRows`, never `ShortOptionRow`, and was never at risk. Three morning-screen questions (`room_temperature_comfort`, `session_intensity`, `emotional_load_today`) do render via the row layout with 3-4 options up to 10 chars — out of this item's "evening flow" scope to audit further, but now covered by the same fix regardless, since both paths render through the one shared `TapBleedTile`.
+
+**New tests** (`tests/checkin-option-tile-full-width.test.ts`): static source scan confirming `w-full` is unconditional (not inside the `fullWidth` ternary), `StackedOptionRows` is unaffected, and the wrap-not-truncate label span is intact.
+
+### 2. Wearable-connect modal — retimed to surface after the first glance, not on top of it
+
+**Which component, resolved first**: the task named it "the 'Unlock smarter coaching' modal," but that exact title belongs to `ConnectWearableCard` (`variant="dashboard"`) — a full-bleed inline *panel* in the page's normal scroll flow, not a modal, with no dismiss button at all. The component that actually behaves like an interrupting, dismissible overlay (`role="dialog"`, `fixed inset-0 z-50`, localStorage-backed one-time dismissal) is `WearableWelcomeModal.tsx`, titled "Get the Most From Root." Every behavioral detail in the task (interrupts the first thing she came to look at, must stay dismissible, dismissal must stick) matches only `WearableWelcomeModal`; retimed that one and left `ConnectWearableCard`/`ProviderLogos` completely untouched, trivially satisfying "don't change the copy or the three provider options" since that file was never opened.
+
+**Mechanism chosen: scroll position, not a flat delay** — "surfaces after that first glance" is a behavioral condition (has she actually looked past the hero and started reading), not a fixed amount of time an arbitrary reader needs, so a scroll trigger ties the reveal to real engagement rather than a guess. Reveals once `window.scrollY` passes 55% of one viewport height (past the hero greeting, not so far she has to hunt for it), reusing a plain scroll listener rather than a new abstraction. A 4-second fallback timer covers the member who reads without scrolling at all, so the pitch still surfaces in the same session rather than silently never showing.
+
+**Verified live**, 8 real checks via Playwright against `member.one` with real seeded check-in history: no modal at 1.5s with no scroll; modal appears immediately once scrolled past the threshold (copy confirmed unchanged: "Get the Most From Root"); dismiss via "Maybe Later" removes it immediately; reload + scroll after dismissal shows no modal (**sticks**, confirmed); a fresh session with zero scrolling shows no modal at 1s but does at ~4.8s (**fallback timer fires**); `member.two` (no check-ins yet, the explicit "first-time member" case the task asked to check) sees no modal at 2.2s *or* after scrolling *or* past the fallback window — the pre-existing `hasCheckins` suppression gate in `app/dashboard/page.tsx` (untouched) still fully suppresses it, so a first-timer's experience is unchanged, not worse.
+
+**New tests** (`tests/wearable-welcome-modal-timing.test.ts`): static source scan confirming the scroll-threshold gate, the bounded fallback timer with cleanup, the once-only reveal guard, byte-identical dismissal/copy/button logic, and that the dashboard page's suppression gate is untouched.
+
+### 3. Subhead contrast — measured live, failed AA, darkened within the palette
+
+**Measured on real rendered screens, not palette values on paper**, per the task's own instruction: since most screens using this style sit on a `bg-gradient-to-b` (not a flat cream fill), the real on-screen color behind the text varies by scroll position — so a Playwright script sampled the actual background pixel directly behind the text (via a real screenshot decoded with `sharp`, not DOM `background-color`) on 5 representative real screens, plus `getComputedStyle` for the real text color.
+
+| Screen | Real sampled background | Ratio (before, `#6B7A72`) |
+|---|---|---|
+| `/checkin` | rgb(240,232,214) | 3.70:1 — FAIL |
+| `/questionnaires` | rgb(240,246,242) | 4.12:1 — FAIL |
+| `/membership` | rgb(242,247,243) | 4.16:1 — FAIL |
+| `/connections` | rgb(240,246,242) | 4.12:1 — FAIL |
+| `/checkin/evening` | rgb(225,228,222) | 3.52:1 — FAIL |
+
+All five fail WCAG AA (4.5:1 for this 15px/400-weight text — well under the "large text" 24px/18.66px-bold threshold that would only need 3:1).
+
+**Fix**: darkened by blending 35% toward the locked palette's own forest green (`#1B3A2D`, not an unrelated hue) — `#6B7A72` → `#4F645A`. Re-measured live on the same 5 screens after the change: 5.21:1 / 5.80:1 / 5.87:1 / 5.80:1 / 4.95:1 — all pass, worst case (`/checkin/evening`) still clears with a real margin, not just barely.
+
+**Applied everywhere, not screen by screen**: grepped for the exact style string (`text-[15px] leading-relaxed text-[#6B7A72]`) across the whole `app/` and `components/` tree — found in 19 files (onboarding, welcome, food-lens, membership, connections, conversation, body-assessment, both check-in flows, and a few report list items sharing the identical style) — and replaced the color in every one, verified by a second grep confirming zero remaining matches of the old pattern.
+
+**New tests** (`tests/subhead-contrast-ratio.test.ts`): real WCAG relative-luminance math (not just string matching) proving the old color fails and the new color passes against all 5 real measured backgrounds, that the new color is a genuine blend toward forest green rather than an arbitrary pick, and that all 19 known files carry the new value.
+
+### 4. Water/Movement quick-log cards — side by side on mobile
+
+**Fix**: `app/today/page.tsx`'s quick-log grid changed from `grid-cols-1 md:grid-cols-2` to an unconditional `grid-cols-2` (with a slightly tighter `gap-3 sm:gap-5` in place of a flat `gap-5`, to give each column a little more room at the narrowest widths) — exactly the change this file's own prior entry identified as "the single best remaining way to shorten the page."
+
+**No content lost, still comfortably tappable — verified live at 375px (iPhone SE)**: both cards render side by side with zero horizontal overflow (checked every element's right edge against the 375px viewport directly, not eyeballed). Tap targets are byte-identical to before the change — the water ±1 buttons are still their fixed `h-8 w-8` (32×32px), the movement pills still their original `px-3.5 py-1.5` padding — neither shrinks to fit the narrower column; the movement pills' existing `flex-wrap` instead reflows from 2 rows to 4 (one level stacked per option) since the narrower ~121px inner column can no longer fit two pills side by side. This is a real, honest trade-off worth stating plainly: the Movement card grows taller as a result, which ate into the expected savings (see below).
+
+**Today's scroll length to "Was this helpful?", measured before and after via `git stash`** (isolating just this one file's change, not a guess from memory):
+
+| Viewport | Before | After | Change |
+|---|---|---|---|
+| iPhone SE (375×667) | 6.26 screens | 6.18 screens | −0.08 screens (~53px) |
+| iPhone 14 (390×844) | 4.83 screens | 4.77 screens | −0.06 screens (~51px) |
+
+**Reported plainly, not oversold**: this is a real but modest saving, smaller than the naive "~172px card height" estimate from the prior entry. The reason, confirmed by direct inspection rather than assumed: putting the cards side by side halves each column's width, which is exactly what makes the Movement card's 4 pills wrap to more rows than before (2-per-row at full width → mostly 1-per-row at half width) — so the combined section's height is now bounded by the *taller* of the two cards rather than by two stacked ~172px cards, largely offsetting the horizontal-layout savings. No further padding/sizing changes were made to chase a bigger number, since the task's actual requirements (side by side, no content lost, comfortably tappable, honestly measured) were already met.
+
+**New tests** (`tests/today-quicklog-side-by-side.test.ts`): static source scan confirming the grid is unconditionally 2-column (and specifically the quick-log grid, not the unrelated Check-In Progress grid earlier on the same page), both trackers still render in order, and neither component's tap-target dimensions or option set changed.
+
+### Verification
+
+`npm run typecheck` clean (both workspaces). `npm run lint` — 0 errors, same 30 pre-existing warnings baseline, none in any touched/new file. Full `vitest run` — **225 files / 2315/2315 passing** (28 new tests across the four new files above). One `npm run test` run mid-session hit the same session-contamination pattern documented in every prior entry in this file (this session's own interactive Playwright driving wrote real rows for `member.one` today) — confirmed via `npx supabase db reset` followed by a clean full rerun, zero failures. `npm run build` (`--workspace=apps/consumer-web-app`) — compiled successfully, all routes generated including `/today`, `/dashboard`, `/checkin`, and `/checkin/evening`, exit code 0. No new/modified files under `supabase/migrations/` — no schema change, nothing to push.
+
+**Test-DB hygiene**: synthetic `daily_checkins` rows were inserted directly for `member.one` (via `docker exec ... psql`, not the app) twice during this session — once to verify the wearable modal's scroll-trigger against a real populated Home page, once to verify the quick-log grid against a real populated Today page. Both were deleted immediately after their respective verification, followed by a full `supabase db reset` before the final test run to guarantee zero contamination.
+
+**A real environment bug found and fixed along the way, unrelated to any of the four items**: the dev server's `.next` directory had been corrupted by an `npm run build` from the prior session (documented pattern in this file — a running dev server and a production build sharing one `.next` directory corrupts the dev server's asset serving, 404s on every JS/CSS chunk). Diagnosed via direct request-failure logging (not guessed), fixed by stopping the dev server, clearing `.next`, and restarting — required before any of this session's own live verification could run at all.
+
+**Not verified**: real mobile Safari/WebKit rendering (headless Chromium throughout, matching every prior entry in this file). The `live` target against `app.mefwellness.com` was not exercised pre-deploy (no production test account, unchanged from every prior entry). Real touch/trackpad scroll momentum for the wearable modal's scroll trigger wasn't tested (synthetic `mouse.wheel` steps in headless Chromium, same caveat as the prior entry's Energy Trend chart verification).
+
+**Deployed and confirmed live**: pushed to `origin/main` (`github.com/MEFwellness/mef-platform`, commit `54afd46`); the push triggered Vercel's GitHub-integration auto-deploy. Pre/post-deploy checks via `npx vercel`: repo `MEFwellness/mef-platform` ✓, branch `main` ✓, Vercel project `mef-wellness/mef-platform` ✓, target `production` ✓ (not Preview). `npx vercel inspect` on the new deployment confirms its build log shows `Cloning github.com/MEFwellness/mef-platform (Branch: main, Commit: 54afd46)`, status `Ready`, Aliases list includes `https://app.mefwellness.com` directly. `curl -I https://app.mefwellness.com` confirms the domain responds `HTTP/2 307`, served by Vercel. Not verified beyond that: no logged-in browser session against the production URL itself — all verification above ran against the local dev server + local Supabase.
