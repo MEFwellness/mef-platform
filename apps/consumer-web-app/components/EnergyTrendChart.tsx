@@ -6,6 +6,18 @@ import { energyStatus, STATUS_STYLES } from '@/lib/wellness/status';
 
 type Props = {
   checkins: DailyCheckin[]; // oldest first
+  /**
+   * Vertical bars dropping from each point to the baseline, animation
+   * task (2026-07-27): opt-in, defaults false. This component is also
+   * used unchanged by app/progress/page.tsx and the coach client view
+   * (app/coach/clients/[id]/page.tsx) — the task's own request is
+   * scoped to "the chart on the Home screen," so bars are wired on only
+   * from components/dashboard/AnimatedEnergyTrendChart.tsx (Home).
+   * Reusing this one shared component with a flag, rather than forking
+   * it, per the task's "reuse existing systems" instruction; Progress
+   * and the coach view keep today's exact line-only rendering.
+   */
+  showBars?: boolean;
 };
 
 const PAD_X = 5; // percent inset on each side — keeps marker circles fully inside the chart
@@ -72,7 +84,24 @@ export function energyPoint(energyLevel: number | null, index: number, count: nu
   return { x, y };
 }
 
-export function EnergyTrendChart({ checkins }: Props) {
+/**
+ * Bar width (viewBox units, 0-100 scale) for the vertical-bars animation
+ * task: scales with point spacing so bars read as one coherent bar chart
+ * at any day count, clamped at both ends. At 3 points, spacing is huge
+ * (~45 units) — clamped to a 10-unit max so bars stay clearly separated
+ * blocks under the line rather than dominating slabs. At 30 points,
+ * spacing shrinks to ~3.1 units — clamped to a 1.2-unit floor so bars
+ * stay real, visible slivers instead of thinning to nothing. Pulled out
+ * standalone, same discipline as energyPoint above, so the two named
+ * extremes (3-point, 30-point) have real unit coverage instead of only
+ * a screenshot's word on it.
+ */
+export function energyBarWidth(count: number): number {
+  const spacing = (100 - 2 * PAD_X) / Math.max(count - 1, 1);
+  return Math.min(Math.max(spacing * 0.55, 1.2), 10);
+}
+
+export function EnergyTrendChart({ checkins, showBars = false }: Props) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   if (checkins.length === 0) {
@@ -128,6 +157,29 @@ export function EnergyTrendChart({ checkins }: Props) {
               />
             );
           })}
+
+          {/* Vertical bars, animation task: magnitude at a glance, kept
+              subordinate to the line (low, fixed opacity, no per-status
+              color — the dots alone still encode energy level) and
+              rendered before the area fill/line/dots so they sit
+              furthest back. Real bars, not decoration: height is exactly
+              baseline-to-point, same geometry the line already plots. */}
+          {showBars &&
+            points.map((p) => {
+              const barWidth = energyBarWidth(checkins.length);
+              return (
+                <rect
+                  key={`bar-${p.checkin.id}`}
+                  x={p.x - barWidth / 2}
+                  y={p.y}
+                  width={barWidth}
+                  height={Math.max(baseline - p.y, 0)}
+                  rx={Math.min(barWidth * 0.3, 1.5)}
+                  fill="#1B3A2D"
+                  fillOpacity={0.14}
+                />
+              );
+            })}
 
           <path d={areaPath} fill="url(#energyAreaFill)" stroke="none" />
           <path

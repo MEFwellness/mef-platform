@@ -203,6 +203,60 @@
 }
 
 /*
+ * Mood scale (FiveFacesScale.tsx) — "the selected face comes alive
+ * briefly" on tap, animation-only addition on top of the existing
+ * accent-only selected state (gold ring/icon/label, untouched here).
+ * `mef-mood-face-pop` is the same overshoot-easing "spring settle"
+ * technique as `mef-scale-settle` above, just without the opacity fade
+ * (the face is already visible — this is a bounce, not an entrance) and
+ * a shorter duration (a tap response, not a cutscene). `mef-mood-face-draw`
+ * is the mouth path "drawing into place" via the pathLength=1 trick
+ * (stroke-dasharray/dashoffset normalized to 1 regardless of the curve's
+ * real geometry, so it works identically for every one of the five
+ * frown-to-smile curves without per-curve length math). Both play once
+ * per genuine selection change (gated in FiveFacesScale.tsx itself, not
+ * here) and are skipped entirely under reduced motion, same as every
+ * other animation in this file.
+ */
+@keyframes mef-mood-face-pop {
+  0% {
+    transform: scale(0.55);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.mef-mood-face-pop {
+  animation: mef-mood-face-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: center;
+}
+
+@keyframes mef-mood-face-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.mef-mood-face-draw {
+  stroke-dasharray: 1;
+  animation: mef-mood-face-draw 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-mood-face-pop,
+  .mef-mood-face-draw {
+    animation: none !important;
+  }
+}
+
+/*
  * Cinematic welcome intro (Pages 1-7 of app/welcome/WelcomeFlow.tsx) —
  * timed, auto-advancing pages layered on top of the entrance vocabulary
  * above. `mef-scale-fade-in` is the shared "scales and fades in together"

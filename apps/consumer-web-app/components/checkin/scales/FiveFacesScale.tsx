@@ -25,19 +25,47 @@
  * own comment warns about. MOOD_RAMP itself is untouched in
  * lib/checkin-color-ramps.ts — still used by the check-in ending
  * screen's "Today, in one color" blend, out of scope here.
+ *
+ * Animation follow-up: the selected face now "comes alive" briefly on a
+ * genuine new selection — a spring scale-up (`mef-mood-face-pop`,
+ * app/globals.css) settling back to size, with the mouth curve itself
+ * drawing into place (`mef-mood-face-draw`, a stroke-dashoffset reveal
+ * using the `pathLength=1` trick so it works identically for all five
+ * curves without per-curve length math). Motion only — none of the
+ * selected state's own styling (gold ring, gold icon color, bold label)
+ * changed. Fires only on an actual value change (tracked via a
+ * previous-value ref in FiveFacesScale below), never on initial mount
+ * with an already-answered value, so revisiting a completed screen
+ * doesn't replay it. Skipped entirely under prefers-reduced-motion,
+ * which still leaves the selected state (ring/icon/label) exactly as
+ * before. The existing `triggerHaptic()` call on tap (below) already
+ * covers this task's "light haptic on selection" requirement — untouched.
  */
 
+import { useEffect, useRef, useState } from 'react';
 import { triggerHaptic } from '@/lib/haptics';
 import { SCALE_LABEL } from './shared';
 
 const MOOD_ACCENT = '#C4A050';
 const MIN_ACCENT_OPACITY = 0.3;
 
-function FaceIcon({ index, isSelected }: { index: number; isSelected: boolean }) {
+function FaceIcon({
+  index,
+  isSelected,
+  animate,
+}: {
+  index: number;
+  isSelected: boolean;
+  animate: boolean;
+}) {
   const curve = -6 + index * 3; // frown (-6) through smile (+6)
   const stroke = isSelected ? MOOD_ACCENT : '#1B3A2D';
   return (
-    <svg viewBox="0 0 32 32" className="h-6 w-6" aria-hidden="true">
+    <svg
+      viewBox="0 0 32 32"
+      className={`h-6 w-6 ${animate ? 'mef-mood-face-pop' : ''}`}
+      aria-hidden="true"
+    >
       <circle cx="16" cy="16" r="13" fill="none" stroke={stroke} strokeWidth="2" opacity={0.85} />
       <circle cx="11.5" cy="13" r="1.5" fill={stroke} opacity={0.85} />
       <circle cx="20.5" cy="13" r="1.5" fill={stroke} opacity={0.85} />
@@ -48,6 +76,8 @@ function FaceIcon({ index, isSelected }: { index: number; isSelected: boolean })
         strokeWidth="2"
         strokeLinecap="round"
         opacity={0.85}
+        pathLength={animate ? 1 : undefined}
+        className={animate ? 'mef-mood-face-draw' : ''}
       />
     </svg>
   );
@@ -64,6 +94,24 @@ export function FiveFacesScale({
   value: number | null;
   onChange: (value: number) => void;
 }) {
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }, []);
+
+  // Tracks the value that just changed TO (not the value already present
+  // at mount) so the pop/draw animation fires only on a genuine new
+  // selection — never when this screen is simply revisited with an
+  // already-answered value.
+  const previousValueRef = useRef(value);
+  const [justSelectedValue, setJustSelectedValue] = useState<number | null>(null);
+  useEffect(() => {
+    if (previousValueRef.current !== value && value !== null) {
+      setJustSelectedValue(value);
+    }
+    previousValueRef.current = value;
+  }, [value]);
+
   return (
     <div>
       <p className={SCALE_LABEL}>{question}</p>
@@ -71,6 +119,7 @@ export function FiveFacesScale({
         {labels.map((word, index) => {
           const optionValue = index + 1;
           const isSelected = value === optionValue;
+          const animate = !reducedMotion && isSelected && justSelectedValue === optionValue;
           // Magnitude via intensity, not hue: every option's accent dot is
           // the same gold, just fainter at the low end and fuller at the
           // high end — the same solution used on the stress scale.
@@ -93,7 +142,7 @@ export function FiveFacesScale({
                   : 'border-[#1B3A2D]/10'
               }`}
             >
-              <FaceIcon index={index} isSelected={isSelected} />
+              <FaceIcon index={index} isSelected={isSelected} animate={animate} />
               <span
                 className={`whitespace-normal break-words text-center text-[10px] leading-tight ${
                   isSelected ? 'font-bold text-[#1B3A2D]' : 'font-medium text-[#6B7A72]'
