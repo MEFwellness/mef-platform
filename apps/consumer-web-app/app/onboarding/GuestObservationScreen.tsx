@@ -67,7 +67,7 @@ export function GuestObservationScreen({ answers }: { answers: OnboardingAnswerI
         </div>
 
         <p
-          className="mef-animate-in mt-6 text-[15px] leading-relaxed text-[#6B7A72]"
+          className="mef-animate-in mt-6 text-[15px] leading-relaxed text-[#4F645A]"
           style={{ animationDelay: '160ms' }}
         >
           This is only the beginning of what we can see together.
@@ -100,7 +100,7 @@ export function GuestObservationScreen({ answers }: { answers: OnboardingAnswerI
         You&apos;ve only scratched the surface
       </h1>
       <p
-        className="mef-animate-in mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#6B7A72]"
+        className="mef-animate-in mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#4F645A]"
         style={{ animationDelay: '80ms' }}
       >
         Today&apos;s reflection is the first entry in something ongoing. Here&apos;s what Rooted
@@ -125,14 +125,14 @@ export function GuestObservationScreen({ answers }: { answers: OnboardingAnswerI
       </div>
 
       <p
-        className="mef-animate-in mx-auto mt-6 max-w-md text-[15px] leading-relaxed text-[#6B7A72]"
+        className="mef-animate-in mx-auto mt-6 max-w-md text-[15px] leading-relaxed text-[#4F645A]"
         style={{ animationDelay: '200ms' }}
       >
         {journey.closing}
       </p>
 
       <p
-        className="mef-animate-in mt-7 text-[15px] leading-relaxed text-[#6B7A72]"
+        className="mef-animate-in mt-7 text-[15px] leading-relaxed text-[#4F645A]"
         style={{ animationDelay: '240ms' }}
       >
         Create your free account to save today&apos;s reflection and continue building your

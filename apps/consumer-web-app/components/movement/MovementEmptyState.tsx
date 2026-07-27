@@ -29,7 +29,7 @@ export function MovementEmptyState({ firstName }: { firstName: string }) {
       <h2 className="relative mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-4xl">
         Your movement, intelligently designed
       </h2>
-      <p className="relative mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
+      <p className="relative mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#4F645A]">
         {firstName}, Root builds each session from your check-ins, recovery, and assessment results
         — not a fixed workout plan. Complete your first check-in and your first personalized session
         appears here.

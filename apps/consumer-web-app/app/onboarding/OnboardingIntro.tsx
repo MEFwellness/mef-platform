@@ -52,7 +52,7 @@ export function OnboardingIntro({ onStart }: { onStart: () => void }) {
           {EXPECTATIONS_COPY.eyebrow}
         </span>
         <h1 className={`${HEADING} mt-4 max-w-[19rem] md:max-w-sm`}>{EXPECTATIONS_COPY.title}</h1>
-        <p className="mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#4F645A]">
           {EXPECTATIONS_COPY.purpose}
         </p>
       </div>

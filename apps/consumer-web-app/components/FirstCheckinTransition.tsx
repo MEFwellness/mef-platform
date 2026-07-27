@@ -88,15 +88,15 @@ export function FirstCheckinTransition({
           Well done, {firstName}
         </h2>
         {!hasMovementAssessment && (
-          <p className="relative mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
+          <p className="relative mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#4F645A]">
             Now let&apos;s understand how your body moves.
           </p>
         )}
-        <p className="relative mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="relative mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-[#4F645A]">
           Your Daily Check-In tells us how you feel.
         </p>
         {!hasMovementAssessment && (
-          <p className="relative mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-[#6B7A72]">
+          <p className="relative mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-[#4F645A]">
             Your Guided Posture &amp; Movement Assessment helps us identify movement imbalances,
             posture patterns, and areas that may be contributing to discomfort or poor performance —
             the foundation for your personalized corrective exercise program.

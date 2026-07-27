@@ -128,7 +128,7 @@ export default async function WeeklyNutritionReportPage() {
                 </p>
                 <ul className="mt-3 space-y-2.5">
                   {report.report.patternsWorthNoticing.map((item, i) => (
-                    <li key={i} className="text-[15px] leading-relaxed text-[#6B7A72]">
+                    <li key={i} className="text-[15px] leading-relaxed text-[#4F645A]">
                       {item}
                     </li>
                   ))}
@@ -190,7 +190,7 @@ export default async function WeeklyNutritionReportPage() {
             </div>
             <ul className="mt-3 space-y-2.5">
               {thirtyDayPatterns.observations.map((item, i) => (
-                <li key={i} className="text-[15px] leading-relaxed text-[#6B7A72]">
+                <li key={i} className="text-[15px] leading-relaxed text-[#4F645A]">
                   {item}
                 </li>
               ))}

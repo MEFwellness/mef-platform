@@ -537,7 +537,7 @@ function PageStory({ onAdvance, onBack, onSkip, reducedMotion }: CinematicPagePr
         </p>
         {showParagraph && (
           <p
-            className={`mt-6 max-w-sm text-[15px] leading-relaxed text-[#6B7A72] ${
+            className={`mt-6 max-w-sm text-[15px] leading-relaxed text-[#4F645A] ${
               reducedMotion ? '' : 'mef-scale-fade-in'
             }`}
             style={reducedMotion ? undefined : { animationDuration: `${paragraphMs}ms` }}
@@ -633,7 +633,7 @@ function PageGoalSelection({
     <div className="flex flex-1 flex-col">
       <h1 className={`mef-fade-in ${HEADING}`}>What brought you here today?</h1>
       <p
-        className="mef-fade-in mt-3 text-[15px] leading-relaxed text-[#6B7A72]"
+        className="mef-fade-in mt-3 text-[15px] leading-relaxed text-[#4F645A]"
         style={{ animationDelay: '150ms' }}
       >
         Select every area you would like help with.
@@ -735,7 +735,7 @@ function PagePrimaryGoal({
         Which one, if it changed, would matter most right now?
       </h1>
       <p
-        className="mef-fade-in mt-3 text-[15px] leading-relaxed text-[#6B7A72]"
+        className="mef-fade-in mt-3 text-[15px] leading-relaxed text-[#4F645A]"
         style={{ animationDelay: '150ms' }}
       >
         Choose the one you&apos;d want to focus on first.

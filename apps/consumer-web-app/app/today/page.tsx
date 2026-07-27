@@ -283,8 +283,18 @@ export default async function TodayPage() {
                 (task requirement 4): loggable here any time, rather than
                 asked as check-in questions. Both still write to the same
                 daily_checkins columns (water_cups, movement_today) every
-                downstream reader already uses. */}
-            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+                downstream reader already uses.
+
+                UX fix (batch 3, item 4): side by side even on mobile —
+                identified in the prior batch as the best remaining way to
+                shorten the page. Both cards are already compact, roughly-
+                square widgets (an icon/label row, a number or a handful of
+                pills, a one-line status caption) that don't need full
+                mobile width to stay comfortably tappable; a plain
+                unconditional grid-cols-2 replaces the mobile-only
+                grid-cols-1 override, removing close to a full extra
+                screen's worth of stacked height on the SE. */}
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5">
               <HydrationTracker initialTotal={hydrationTotal} />
               <MovementLevelTracker initialLevel={movementLevel} />
             </div>

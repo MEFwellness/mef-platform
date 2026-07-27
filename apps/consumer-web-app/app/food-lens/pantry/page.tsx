@@ -34,7 +34,7 @@ export default async function PantryPage() {
         <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
           Your pantry
         </h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="mt-2 text-[15px] leading-relaxed text-[#4F645A]">
           What you have on hand, what&apos;s about to expire, and simple combinations Root notices
           from what&apos;s actually here right now.
         </p>

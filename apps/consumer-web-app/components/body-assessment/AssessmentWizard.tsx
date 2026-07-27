@@ -418,7 +418,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
         <h2 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
           {typeConfig.label} Assessment
         </h2>
-        <p className="mt-3 text-[15px] leading-relaxed text-[#6B7A72]">{typeConfig.description}</p>
+        <p className="mt-3 text-[15px] leading-relaxed text-[#4F645A]">{typeConfig.description}</p>
         <p className="mt-2 text-xs text-[#9AA79F]">
           About {typeConfig.estimatedMinutes} minute{typeConfig.estimatedMinutes === 1 ? '' : 's'}
         </p>
@@ -458,7 +458,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
         </h2>
         <div className="mt-3 space-y-2">
           {step.body.map((line) => (
-            <p key={line} className="text-[15px] leading-relaxed text-[#6B7A72]">
+            <p key={line} className="text-[15px] leading-relaxed text-[#4F645A]">
               {line}
             </p>
           ))}

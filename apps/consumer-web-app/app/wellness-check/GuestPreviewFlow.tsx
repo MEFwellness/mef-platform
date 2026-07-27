@@ -22,7 +22,7 @@ const CONTAINER =
   'mx-auto flex min-h-screen w-full max-w-md flex-col px-5 py-8 sm:px-6 md:max-w-2xl md:px-10';
 const HEADING =
   'font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-[2.5rem]';
-const BODY = 'mt-4 space-y-3 text-[15px] leading-relaxed text-[#6B7A72]';
+const BODY = 'mt-4 space-y-3 text-[15px] leading-relaxed text-[#4F645A]';
 const PRIMARY_BUTTON =
   'mef-focus-ring mt-10 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60';
 const SECONDARY_BUTTON =

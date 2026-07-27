@@ -59,7 +59,7 @@ export default async function BodyAssessmentPage() {
         <h1 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
           Guided posture &amp; movement
         </h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="mt-2 text-[15px] leading-relaxed text-[#4F645A]">
           A premium, camera-guided assessment your coach uses to track posture and movement over
           time. Photos and videos are stored privately and reviewed by your assigned coach only.
         </p>

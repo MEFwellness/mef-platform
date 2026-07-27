@@ -154,7 +154,7 @@ export function MovementAssessmentCard({
       <h2 className="relative mt-5 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#1B3A2D] md:text-3xl">
         Guided Posture &amp; Movement Assessment
       </h2>
-      <p className="relative mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#6B7A72]">
+      <p className="relative mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#4F645A]">
         Build your personalized movement blueprint.
       </p>
       <p className="relative mt-4 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">

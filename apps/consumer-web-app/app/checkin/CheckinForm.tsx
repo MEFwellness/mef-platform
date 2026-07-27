@@ -741,7 +741,7 @@ export function CheckinForm({
               <div className="space-y-6">
                 {index === 0 && (
                   <div className="mef-checkin-stagger">
-                    <p className="text-[15px] leading-relaxed text-[#6B7A72]">
+                    <p className="text-[15px] leading-relaxed text-[#4F645A]">
                       {existingCheckin
                         ? "You've already logged this day. Update anything below."
                         : 'A few gentle questions so Root understands how today actually feels. Takes about a minute.'}

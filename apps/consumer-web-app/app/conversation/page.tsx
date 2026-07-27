@@ -71,7 +71,7 @@ export default async function CoachingConversationPage({
         <p className="mt-1 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
           Your MEF Wellness Coach
         </p>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="mt-2 text-[15px] leading-relaxed text-[#4F645A]">
           Built around your history. Focused on your future.
         </p>
 

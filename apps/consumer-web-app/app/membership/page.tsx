@@ -36,7 +36,7 @@ export default async function MembershipPage() {
         <h1 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
           Your Rooted Reset membership
         </h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="mt-2 text-[15px] leading-relaxed text-[#4F645A]">
           Signed in as <span className="text-[#1B3A2D]">{user.email}</span>.
         </p>
 

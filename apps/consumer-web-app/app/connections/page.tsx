@@ -28,7 +28,7 @@ export default async function ConnectionsPage() {
         <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
           Connected Devices
         </h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="mt-2 text-[15px] leading-relaxed text-[#4F645A]">
           Connect a wearable so your coach can see your sleep, recovery, and activity alongside
           everything you already share.
         </p>

@@ -409,7 +409,7 @@ export function EveningReflectionForm({
               <div className="space-y-6">
                 {index === 0 && (
                   <div className="mef-checkin-stagger">
-                    <p className="text-[15px] leading-relaxed text-[#6B7A72]">
+                    <p className="text-[15px] leading-relaxed text-[#4F645A]">
                       {existing
                         ? "You've already reflected on today. Update anything below."
                         : 'A short close to the day. Available any time, morning or night. Your Morning Readiness never depends on this.'}

@@ -29,7 +29,7 @@ export function OnboardingCompletionScreen({
       <h1 className={HEADING}>
         {justMigrated ? 'Your Story Is Saved' : <>You&apos;re All Set</>}
       </h1>
-      <div className="mt-4 space-y-3 text-[15px] leading-relaxed text-[#6B7A72]">
+      <div className="mt-4 space-y-3 text-[15px] leading-relaxed text-[#4F645A]">
         {justMigrated ? (
           <>
             <p>Today&apos;s reflection is now the first entry in your Wellness Timeline.</p>
@@ -70,7 +70,7 @@ export function OnboardingCompletionScreen({
             Evening Reflection helps us understand how your day actually unfolded.
           </p>
         </div>
-        <p className="mt-4 text-[15px] leading-relaxed text-[#6B7A72]">
+        <p className="mt-4 text-[15px] leading-relaxed text-[#4F645A]">
           Together they create a clearer picture of your health over time.
         </p>
       </div>
