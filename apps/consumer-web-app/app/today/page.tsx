@@ -30,6 +30,7 @@ import {
   Droplet,
   Footprints,
   Watch,
+  ArrowRight,
 } from 'lucide-react';
 import type { FourDoctorsCategory } from '@mef/shared-types-contracts';
 import { getFeedHistory } from '@/app/actions/feed';
@@ -251,9 +252,17 @@ export default async function TodayPage() {
                 )}
               </section>
 
+              {/* UX audit fix (batch 1, item 5): this whole element is the
+                  card AND the tappable link — but a flat solid-green card
+                  with plain text inside it doesn't visually read as "the
+                  page's one primary action" the way a real button does.
+                  The card itself stays dark green (its own identity); the
+                  cream pill below is the actual button surface, giving it
+                  the contrast a primary CTA needs without introducing any
+                  color outside the locked palette (forest green + cream). */}
               <Link
                 href={'/checkin' as Route}
-                className="flex items-center justify-between rounded-[28px] bg-[#1B3A2D] p-6 text-left text-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+                className="flex flex-col justify-between gap-4 rounded-[28px] bg-[#1B3A2D] p-6 text-left text-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
               >
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wider text-white/70">
@@ -263,6 +272,10 @@ export default async function TodayPage() {
                     {todaysCheckin ? "Update today's check-in" : "Complete today's check-in"}
                   </p>
                 </div>
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#F5F0E4] px-4 py-2 text-sm font-semibold text-[#1B3A2D]">
+                  {todaysCheckin ? 'Update check-in' : 'Start check-in'}
+                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                </span>
               </Link>
             </div>
 
@@ -390,7 +403,12 @@ export default async function TodayPage() {
                     aria-hidden="true"
                   />
                   <p
-                    className={`text-sm leading-relaxed ${STATUS_STYLES[waterStatus(hydrationTotal)].text}`}
+                    className={`text-sm leading-relaxed ${
+                      /* UX audit fix (batch 1, item 3): 0 cups so far today
+                         is neutral, not a failure — see HydrationTracker.tsx's
+                         matching fix for the full explanation. */
+                      STATUS_STYLES[hydrationTotal === 0 ? 'no-data' : waterStatus(hydrationTotal)].text
+                    }`}
                   >
                     {hydrationTotal > 0
                       ? `${hydrationTotal} of 8 cups of water today.`
@@ -461,7 +479,17 @@ export default async function TodayPage() {
 
                   return (
                     <>
-                      {/* A Note from Root — the emotional centerpiece */}
+                      {/* Today's Focus — merged with "A Note from Root" (UX
+                          audit batch 1, item 4): the two cards used to sit
+                          back-to-back making the same point about movement
+                          in different words. focus_text and coachNote are
+                          both templated from the same underlying reason/
+                          category for today's lesson (see lib/feed/copy.ts's
+                          buildFocusText/buildCoachNote — "never a second
+                          copy... a warmer, complementary lead-in"), so they
+                          can never actually disagree; merging is safe. The
+                          focus itself leads, Root's note carries beneath it
+                          as the reasoning. */}
                       <section
                         className={`${CARD} mef-animate-in relative overflow-hidden p-7`}
                         style={stagger(sectionIndex++)}
@@ -471,30 +499,28 @@ export default async function TodayPage() {
                           aria-hidden="true"
                         />
                         <div className="relative flex items-center gap-2 text-[#6B7A72]">
-                          <GreetingIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                          <ListChecks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                           <p className="text-sm font-semibold uppercase tracking-wider">
-                            A Note from Root
+                            Today&apos;s Focus
                           </p>
                         </div>
                         <p className="relative mt-3 text-lg leading-relaxed text-[#1B3A2D]">
-                          {coachNote}
-                        </p>
-                        <p className="relative mt-4 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
-                          — Root
-                        </p>
-                      </section>
-
-                      {/* Today's Focus */}
-                      <section
-                        className={`${CARD} mef-animate-in p-7`}
-                        style={stagger(sectionIndex++)}
-                      >
-                        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-                          Today&apos;s Focus
-                        </p>
-                        <p className="mt-3 text-lg leading-relaxed text-[#1B3A2D]">
                           {today.feedItem.focus_text}
                         </p>
+                        <div className="relative mt-5 border-t border-[#1B3A2D]/5 pt-4">
+                          <div className="flex items-center gap-2 text-[#6B7A72]">
+                            <GreetingIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                            <p className="text-xs font-semibold uppercase tracking-wider">
+                              A Note from Root
+                            </p>
+                          </div>
+                          <p className="mt-2 text-sm italic leading-relaxed text-[#1B3A2D]/85">
+                            {coachNote}
+                          </p>
+                          <p className="mt-2 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
+                            — Root
+                          </p>
+                        </div>
                       </section>
 
                       {/* Today's Lesson */}

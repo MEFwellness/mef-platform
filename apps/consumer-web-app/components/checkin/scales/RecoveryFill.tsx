@@ -2,27 +2,39 @@
 
 /**
  * Evening's "How recovered do you feel?" — a vertical fill rising with
- * the level, dim -> luminous ramp. Same visual family as
- * VerticalFillScale, its own ramp.
+ * the level.
  *
  * 2026-07-27 audit fix: found during the Energy/Stress contrast pass —
  * this component shared the identical low-contrast selected state (a
  * 4%-opacity card tint, a small muted-color internal bar). Fixed with
  * the same treatment: a solid, always-legible card fill using
  * RECOVERY_RAMP's own saturated (luminous gold) end regardless of
- * level, an animated white fill bar growing to the selected height, and
- * the true per-index ramp color kept as a visible accent rather than
- * discarded.
+ * level, and an animated white fill bar growing to the selected height.
+ *
+ * 2026-07-27 UX audit fix (batch 1, item 2): the small accent dot below
+ * each label used to be RECOVERY_RAMP's own per-index interpolated
+ * color — dim gray-green at the low end, luminous gold at the high end.
+ * Same problem the stress scale had (see CompressingRings.tsx): a
+ * dim-to-bright hue ramp still reads as an implied "worse to better"
+ * axis. Fixed the same way — one fixed on-palette hue (RECOVERY_RAMP's
+ * own gold "to" endpoint) for every option, magnitude conveyed only by
+ * the dot's opacity (fainter at the low end) and by the bar's own
+ * height (already real, unaffected). RECOVERY_RAMP itself is untouched
+ * in lib/checkin-color-ramps.ts — still used for this component's fixed
+ * solid selected-card fill above, and by the check-in ending screen's
+ * color blend, out of scope here.
  */
 
 import { useEffect, useState } from 'react';
 import { triggerHaptic } from '@/lib/haptics';
-import { RECOVERY_RAMP, rampColorAt } from '@/lib/checkin-color-ramps';
+import { RECOVERY_RAMP } from '@/lib/checkin-color-ramps';
 import { SCALE_LABEL } from './shared';
 
 const FILL_HEIGHTS = ['30%', '48%', '66%', '84%', '100%'] as const;
 
 const RECOVERY_SOLID = `rgb(${RECOVERY_RAMP.to[0]}, ${RECOVERY_RAMP.to[1]}, ${RECOVERY_RAMP.to[2]})`;
+const RECOVERY_ACCENT = RECOVERY_SOLID;
+const MIN_ACCENT_OPACITY = 0.3;
 
 function RecoveryBar({ index, isSelected }: { index: number; isSelected: boolean }) {
   const [grown, setGrown] = useState(false);
@@ -67,7 +79,11 @@ export function RecoveryFill({
         {labels.map((word, index) => {
           const optionValue = index + 1;
           const isSelected = value === optionValue;
-          const accent = rampColorAt(RECOVERY_RAMP.from, RECOVERY_RAMP.to, index, labels.length);
+          // Magnitude via intensity, not hue: every option's accent dot is
+          // the same gold, just fainter at the low end and fuller at the
+          // high end — the same solution used on the stress scale.
+          const accentOpacity =
+            labels.length <= 1 ? 1 : MIN_ACCENT_OPACITY + (index / (labels.length - 1)) * (1 - MIN_ACCENT_OPACITY);
           return (
             <button
               key={word}
@@ -97,7 +113,10 @@ export function RecoveryFill({
               <span
                 aria-hidden="true"
                 className="h-1 w-4 rounded-full"
-                style={{ backgroundColor: isSelected ? '#FFFFFF' : accent, opacity: isSelected ? 0.6 : 1 }}
+                style={{
+                  backgroundColor: isSelected ? '#FFFFFF' : RECOVERY_ACCENT,
+                  opacity: isSelected ? 0.6 : accentOpacity,
+                }}
               />
             </button>
           );

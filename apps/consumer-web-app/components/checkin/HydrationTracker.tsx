@@ -33,7 +33,16 @@ export function HydrationTracker({ initialTotal }: { initialTotal: number }) {
     });
   }
 
-  const status = waterStatus(total);
+  // UX audit fix (batch 1, item 3): 0 cups logged so far today is a
+  // neutral, expected state, not a failure — waterStatus() alone
+  // classifies 0 as 'poor' (red), the same red this app otherwise
+  // reserves for real alarm/high-severity states. waterStatus() itself
+  // is untouched (lib/wellness/status.ts) since it's also read by the
+  // coach dashboard and the Wellness Index score, where a genuinely
+  // completed day with 0 cups is a real, different signal than "hasn't
+  // gotten to it yet" — this override is local to this live, still-
+  // accumulating tracker only.
+  const status = total === 0 ? 'no-data' : waterStatus(total);
 
   return (
     <div className={TRACKER_CARD}>

@@ -38,36 +38,54 @@ const ENERGY = source('components/checkin/scales/VerticalFillScale.tsx');
 const STRESS = source('components/checkin/scales/CompressingRings.tsx');
 const RECOVERY = source('components/checkin/scales/RecoveryFill.tsx');
 
-describe.each([
-  ['Energy (VerticalFillScale.tsx)', ENERGY, 'ENERGY_SOLID', ENERGY_RAMP],
-  ['Recovery (RecoveryFill.tsx)', RECOVERY, 'RECOVERY_SOLID', RECOVERY_RAMP],
-] as const)('%s: selected state is a fixed, always-solid card fill', (_label, src, solidConstName, ramp) => {
-  it(`defines a ${solidConstName} constant built from the ramp's own saturated ("to") endpoint`, () => {
-    expect(src).toContain(`const ${solidConstName} = \`rgb(${'$'}{`);
+describe('Energy (VerticalFillScale.tsx): selected state is a fixed, always-solid card fill', () => {
+  it(`defines an ENERGY_SOLID constant built from the ramp's own saturated ("to") endpoint`, () => {
+    expect(ENERGY).toContain(`const ENERGY_SOLID = \`rgb(${'$'}{`);
   });
 
   it('the selected card background uses that fixed constant, not the per-index interpolated rampColorAt(...) result', () => {
     // The old bug: `backgroundColor: isSelected ? fill : ...` where `fill`
     // was `rampColorAt(...)` -- pale at low indices, unreadable as a card
     // background. The fix must reference the fixed solid constant instead.
-    expect(src).toMatch(new RegExp(`backgroundColor:\\s*${solidConstName}`));
+    expect(ENERGY).toMatch(/backgroundColor:\s*ENERGY_SOLID/);
   });
 
   it('still computes a per-index ramp color and uses it as a visible accent (the ramp is not discarded, just no longer the background)', () => {
-    expect(src).toContain('rampColorAt(');
-    expect(src).toContain('accent');
+    expect(ENERGY).toContain('rampColorAt(');
+    expect(ENERGY).toContain('accent');
   });
 
   it("the ramp's saturated ('to') end used as the solid card fill is not itself near-white (would fail to fix the contrast bug)", () => {
-    // White text is rendered on top of this fill when selected -- a
-    // near-white background would reintroduce the exact legibility
-    // problem this fix exists to close, regardless of which direction
-    // this particular ramp runs (Energy/Stress go pale->saturated;
-    // Recovery deliberately goes dim->luminous gold, so "darker than
-    // its own 'from'" isn't a universal property -- "not near-white" is).
-    const [r, g, b] = ramp.to;
+    const [r, g, b] = ENERGY_RAMP.to;
     const isNearWhite = r > 200 && g > 200 && b > 200;
     expect(isNearWhite).toBe(false);
+  });
+});
+
+describe('Recovery (RecoveryFill.tsx): one on-palette hue for the accent dot, magnitude via opacity only (UX audit item 2)', () => {
+  it('defines a RECOVERY_SOLID constant built from the ramp\'s own saturated ("to") endpoint, used for the fixed selected-card fill', () => {
+    expect(RECOVERY).toContain(`const RECOVERY_SOLID = \`rgb(${'$'}{`);
+    expect(RECOVERY).toMatch(/backgroundColor:\s*RECOVERY_SOLID/);
+  });
+
+  it("the ramp's saturated ('to') end used as the solid card fill is not itself near-white (would fail to fix the contrast bug)", () => {
+    const [r, g, b] = RECOVERY_RAMP.to;
+    const isNearWhite = r > 200 && g > 200 && b > 200;
+    expect(isNearWhite).toBe(false);
+  });
+
+  it('no longer uses the per-index interpolated rampColorAt(...) result for the accent dot — the dim->luminous ramp implied a worse/better axis', () => {
+    expect(RECOVERY).not.toContain('rampColorAt(');
+  });
+
+  it('the accent dot is a single fixed RECOVERY_ACCENT hue for every option', () => {
+    expect(RECOVERY).toContain('const RECOVERY_ACCENT = RECOVERY_SOLID;');
+    expect(RECOVERY).toMatch(/backgroundColor:\s*isSelected \? '#FFFFFF' : RECOVERY_ACCENT/);
+  });
+
+  it('magnitude is conveyed by a computed opacity that varies with index, not by a per-index color', () => {
+    expect(RECOVERY).toContain('accentOpacity');
+    expect(RECOVERY).toMatch(/MIN_ACCENT_OPACITY \+ \(index/);
   });
 });
 

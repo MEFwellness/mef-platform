@@ -39,20 +39,33 @@ describe('sleep quality genuinely stores one value, replacing on change (not app
   });
 });
 
-describe('FiveMoonsScale — the selected moon now sits in an unmistakable container, not just a cumulative fill', () => {
-  it('isSelected (not isFilled) drives a real solid-fill container, the same shape mood/energy/stress already use', () => {
+describe('FiveMoonsScale — the selected moon sits in an unmistakable container, not just a cumulative fill', () => {
+  it('isSelected (not isFilled) drives a distinct ring/scale/label treatment', () => {
     expect(MOONS).toContain('isSelected');
-    expect(MOONS).toMatch(/isSelected\s*\?\s*'scale-105 border-transparent shadow/);
-    expect(MOONS).toContain('backgroundColor: SLEEP_QUALITY_SOLID');
+    expect(MOONS).toMatch(/isSelected\s*\?\s*'scale-105 border-\[#C4A050\] shadow/);
   });
 
   it('the cumulative fill (magnitude) is preserved independently of the selected-container treatment', () => {
     expect(MOONS).toContain('isFilled = value !== null && optionValue <= value');
-    expect(MOONS).toContain("fill={isSelected ? '#FFFFFF' : isFilled ? '#C4A050' : 'none'}");
   });
 
   it('only one moon can ever be the selected container at a time (isSelected is an equality check against a single value)', () => {
     expect(MOONS).toContain('const isSelected = value === optionValue;');
+  });
+});
+
+describe('FiveMoonsScale — UX audit fix (batch 1, item 1): gold is an accent, never a whole filled card surface', () => {
+  it('the card background never changes color — no backgroundColor style is set on the button at all', () => {
+    expect(MOONS).not.toMatch(/style=\{isSelected/);
+    expect(MOONS).not.toContain('backgroundColor: SLEEP_QUALITY_SOLID');
+  });
+
+  it('gold appears only as a ring border around the selected card', () => {
+    expect(MOONS).toMatch(/isSelected\s*\?\s*'scale-105 border-\[#C4A050\]/);
+  });
+
+  it('the selected moon gets a bold, dark-green label — a filled-but-unselected moon stays gray/medium-weight', () => {
+    expect(MOONS).toMatch(/isSelected\s*\?\s*'font-bold text-\[#1B3A2D\]'\s*:\s*'font-medium text-\[#6B7A72\]'/);
   });
 });
 
