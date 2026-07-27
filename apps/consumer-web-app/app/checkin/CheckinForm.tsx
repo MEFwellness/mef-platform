@@ -636,8 +636,30 @@ export function CheckinForm({
    * whatever's currently filled as a draft (no validation, completion_seconds
    * always null — this is not a timed completion) and returns her to Home,
    * where she came from.
+   *
+   * 2026-07-27 fix — the actual cause of "needs four or five taps": this
+   * function is `async` and does several sequential awaited server round
+   * trips (getTodaysHydrationTotal, saveDailyCheckinDraft, then each probe
+   * answer) before router.push ever fires. The button itself gave zero
+   * visual feedback while that was in flight, so a real tap registered
+   * every time — it just hadn't *finished* yet — and each additional tap
+   * fired this whole async chain again concurrently, competing for the
+   * same network/DB connections and making the eventual navigation even
+   * slower, which read as "the button doesn't work" rather than "the
+   * button is still working." `exitingRef` is a synchronous guard (a
+   * `useState` alone isn't enough — its update is not visible until the
+   * next render, and a second tap can land before that commit) that makes
+   * every tap after the first a no-op; `exiting` state disables the
+   * button and swaps its label to "Saving…" so the first tap gives
+   * immediate, honest feedback instead of looking dead.
    */
+  const exitingRef = useRef(false);
+  const [exiting, setExiting] = useState(false);
+
   async function saveProgressAndExit() {
+    if (exitingRef.current) return;
+    exitingRef.current = true;
+    setExiting(true);
     const input = await buildCurrentInput(null);
     await saveDailyCheckinDraft(input);
     await submitProbeAndFollowUpAnswers();
@@ -693,6 +715,8 @@ export function CheckinForm({
           onBack={goBack}
           onSelectScreen={goToScreenClamped}
           onExit={saveProgressAndExit}
+          exitDisabled={exiting}
+          exitLabel={exiting ? 'Saving…' : 'Home'}
           onContinue={handleContinue}
           continueLabel={isLastScreen ? (submitting ? 'Saving…' : existingCheckin ? 'Update check-in' : 'Save check-in') : 'Continue'}
           continueDisabled={isLastScreen ? submitting : !screenComplete}

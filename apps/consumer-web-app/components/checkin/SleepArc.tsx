@@ -29,6 +29,29 @@
  * confirm" starting point, distinct from the plain default shown when
  * there's no history at all (see DEFAULT_BEDTIME_MINUTES below, which
  * intentionally never gets written as an answer on its own).
+ *
+ * 2026-07-27 fixes (three, none touching what the arc writes):
+ * (a) investigated a reported "Bedtime 8:35 AM, Wake 12:45 AM, 16h 10m
+ *     asleep" screenshot for a handle-mapping bug. Traced the geometry by
+ *     hand: pointOnCircle/minutesForPoint are exact inverses of each
+ *     other, the dark handle is always bedtime, onDragMove never swaps
+ *     handle identity, and durationMinutes wraps forward exactly as
+ *     formatDuration displays. No mapping bug found -- the printed
+ *     numbers are exactly what durationMinutes(515, 45) produces (515
+ *     minutes = 8:35, 45 minutes = 0:45, forward wrap gives 970 = 16h10m),
+ *     a real, physically-possible output of two handles genuinely
+ *     dragged into that relationship, not a computation error. (b) below
+ *     is the actual remedy for that case, not a math fix.
+ * (b) a quiet, non-blocking sanity note appears under the dial when the
+ *     resulting window is implausible (over ~14h or under ~2h) rather
+ *     than silently recording an obvious mis-drag. isImplausibleSleepWindow
+ *     is exported standalone for testing.
+ * (c) the quarter labels ("12 AM"/"6 AM"/"12 PM"/"6 PM") were clipped on
+ *     all four sides -- the ring's own radius (92) plus the label offset
+ *     (+27) put label text at radius 119 inside a 240-unit viewBox whose
+ *     half-width is 120, under 1px of margin for actual glyphs. The ring
+ *     is resized smaller (75) and every offset derived from it, so label
+ *     text now sits at radius 95 -- a real 25px margin at every width.
  */
 
 import { useCallback, useId, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
@@ -39,6 +62,7 @@ import {
   durationMinutes,
   formatMinutesForDisplay,
   formatMinutesToTimeValue,
+  isImplausibleSleepWindow,
   parseTimeToMinutes,
   type SleepDurationBucket,
 } from '@/lib/daily-checkin-adaptive/sleepMath';
@@ -48,8 +72,18 @@ export { deriveDurationBucket };
 
 const SIZE = 240;
 const CENTER = SIZE / 2;
-const RADIUS = 92;
+/**
+ * 2026-07-27 label-clipping fix: was 92, which put the quarter-label
+ * text (drawn at RADIUS + 27) at radius 119 inside this 240-unit
+ * viewBox -- whose half-width is only 120, leaving under 1px of margin
+ * for actual glyphs. 75 puts that same label text at radius 95, a real
+ * 25px margin to the edge at every supported screen width.
+ */
+const RADIUS = 75;
 const SNAP_MINUTES = 5;
+/** Outside this range, the resulting sleep window is almost certainly a mis-drag rather than a real answer (task 3b) -- not enforced, just flagged with a quiet inline note. */
+const PLAUSIBLE_MIN_MINUTES = 2 * 60;
+const PLAUSIBLE_MAX_MINUTES = 14 * 60;
 /** How many candidate wake-up notch positions are offered along the sleep window — enough granularity to feel real without becoming fiddly to tap. */
 const NOTCH_COUNT = 6;
 const MAX_NIGHT_WAKINGS = 5;
@@ -273,9 +307,9 @@ export function SleepArc({
               dial reads as the 24-hour clock it actually is instead of
               being misread as a 12-hour one. */}
           {QUARTER_LABELS.map(({ angle, label }) => {
-            const outer = pointOnCircle(angle, RADIUS + 14);
-            const inner = pointOnCircle(angle, RADIUS + 8);
-            const textPoint = pointOnCircle(angle, RADIUS + 27);
+            const outer = pointOnCircle(angle, RADIUS + 12);
+            const inner = pointOnCircle(angle, RADIUS + 7);
+            const textPoint = pointOnCircle(angle, RADIUS + 20);
             return (
               <g key={angle}>
                 <line
@@ -302,8 +336,8 @@ export function SleepArc({
             );
           })}
           {MINOR_TICK_ANGLES.map((tickAngle) => {
-            const outer = pointOnCircle(tickAngle, RADIUS + 10);
-            const inner = pointOnCircle(tickAngle, RADIUS + 7);
+            const outer = pointOnCircle(tickAngle, RADIUS + 9);
+            const inner = pointOnCircle(tickAngle, RADIUS + 6);
             return (
               <line
                 key={tickAngle}
@@ -448,6 +482,19 @@ export function SleepArc({
             />
           </label>
         </div>
+
+        {/*
+         * Sleep dial sanity guard (task 3b): never blocks -- "some people
+         * genuinely sleep oddly" -- just a quiet inline note when the
+         * resulting window is implausible, so an obvious mis-drag doesn't
+         * silently enter the data unchallenged.
+         */}
+        {hasValues && isImplausibleSleepWindow(sweepMinutes, PLAUSIBLE_MIN_MINUTES, PLAUSIBLE_MAX_MINUTES) && (
+          <p role="note" className="mt-2 max-w-xs text-center text-[12px] leading-relaxed text-[#7C5443]">
+            That&apos;s a {formatDuration(sweepMinutes)} window between bedtime and wake — worth a quick check that
+            the handles are set the way you meant?
+          </p>
+        )}
       </div>
     </div>
   );

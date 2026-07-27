@@ -55,9 +55,10 @@ describe('CheckinWizard — the shared shell both check-ins render through', () 
     const backBlock = WIZARD.slice(backBlockStart - 200, backBlockEnd);
 
     expect(exitBlock).not.toEqual(backBlock);
-    // The exit control reads as a plain outline circle (border, no fill);
+    // The exit control (2026-07-27: a word-labelled "Home" pill, not an
+    // icon-only circle) reads as a plain bordered pill with no fill;
     // the back chevron is the tinted solid pill the redesign already used.
-    expect(exitBlock).toContain('border-[#1B3A2D]/15');
+    expect(exitBlock).toContain('border-[#1B3A2D]/20');
     expect(backBlock).toContain('bg-[#1B3A2D]/[0.06]');
   });
 });

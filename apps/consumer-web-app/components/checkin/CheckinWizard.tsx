@@ -2,12 +2,15 @@
 
 /**
  * Shared shell for both check-in wizards. Owns:
- * - the persistent exit control (top-left X) — leaves the check-in
- *   entirely, distinct from the back chevron below it (task requirement
- *   1: "both exist, both visually distinguishable" — the X sits in its
- *   own slot on every screen, a plain outline circle; the chevron is the
- *   solid tinted pill inline with the progress track, only once
- *   screenIndex > 0);
+ * - the persistent Home control (top-left) — leaves the check-in
+ *   entirely, distinct from the back chevron next to it. Reads as the
+ *   word "Home", not an icon-only glyph, per the 2026-07-27 fix: the
+ *   prior icon-only X required several taps before it registered — see
+ *   this file's `onExit` doc below for the actual diagnosed cause and
+ *   the fix (a synchronous, single-fire guard owned by the caller).
+ *   Distinct tap target from the back chevron at every width: fixed
+ *   height (44pt, `h-11`), never overlapping since both sit in a flex
+ *   row with the progress track absorbing the remaining space;
  * - the progress indicator: one continuous track whose fill travels
  *   smoothly to each screen's position (never jumps between
  *   independent per-dot bars), with tick marks at each screen boundary
@@ -35,7 +38,7 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft, X } from 'lucide-react';
+import { ChevronLeft, Home } from 'lucide-react';
 
 const EXIT_MS = 180;
 const ENTER_MS = 320;
@@ -47,6 +50,8 @@ export function CheckinWizard({
   onBack,
   onSelectScreen,
   onExit,
+  exitDisabled,
+  exitLabel = 'Home',
   onContinue,
   continueLabel,
   continueDisabled,
@@ -59,6 +64,18 @@ export function CheckinWizard({
   onSelectScreen: (index: number) => void;
   /** Leaves the check-in entirely (saving whatever's been answered so far) — always present, distinct from onBack. */
   onExit: () => void;
+  /**
+   * True while a save-and-exit is already in flight. The caller (not this
+   * component) owns the guard: `onExit` must synchronously flip a ref/state
+   * to true on the very first invocation and ignore every call after, since
+   * that's what actually fixes "several taps before it registers" — see
+   * `saveProgressAndExit` in CheckinForm.tsx/EveningReflectionForm.tsx. This
+   * component only reflects that state visually (disabled + label change)
+   * so a second, third, fourth tap looks and feels like nothing rather than
+   * silently queuing up more work.
+   */
+  exitDisabled?: boolean;
+  exitLabel?: string;
   /** The persistent Continue control's action — advances a screen, or performs the real submit on the last one. */
   onContinue: () => void;
   continueLabel: string;
@@ -97,10 +114,12 @@ export function CheckinWizard({
         <button
           type="button"
           onClick={onExit}
-          aria-label="Exit check-in and save progress"
-          className="mef-press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#1B3A2D]/15 text-[#1B3A2D]/60"
+          disabled={exitDisabled}
+          aria-label="Save progress and return to Home"
+          className="mef-press flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[#1B3A2D]/20 px-4 text-[13px] font-semibold text-[#1B3A2D] transition-opacity duration-150 disabled:opacity-50"
         >
-          <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+          <Home className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+          {exitLabel}
         </button>
         {screenIndex > 0 ? (
           <button

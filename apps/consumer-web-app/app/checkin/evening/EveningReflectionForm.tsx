@@ -320,8 +320,25 @@ export function EveningReflectionForm({
     });
   }
 
-  /** Navigation fix (task requirement 1) — same discipline as CheckinForm's saveProgressAndExit: saves whatever's filled as a draft (no forecast commit, no "completed" side effects) and returns her to Home. */
+  /**
+   * Navigation fix (task requirement 1) — same discipline as CheckinForm's
+   * saveProgressAndExit: saves whatever's filled as a draft (no forecast
+   * commit, no "completed" side effects) and returns her to Home.
+   *
+   * 2026-07-27 fix — same guard as the morning form: `exitingRef` makes
+   * every tap after the first a no-op (a `useState` alone commits too
+   * late to block a fast second tap), and `exiting` disables the button
+   * and swaps its label to "Saving…" so a real tap gives immediate
+   * feedback instead of looking unresponsive while the sequential
+   * awaited server round trips below are still in flight.
+   */
+  const exitingRef = useRef(false);
+  const [exiting, setExiting] = useState(false);
+
   async function saveProgressAndExit() {
+    if (exitingRef.current) return;
+    exitingRef.current = true;
+    setExiting(true);
     await saveEveningReflectionDraft({
       overallDayRating,
       daytimeStress,
@@ -377,6 +394,8 @@ export function EveningReflectionForm({
           onBack={goBack}
           onSelectScreen={goToScreenClamped}
           onExit={saveProgressAndExit}
+          exitDisabled={exiting}
+          exitLabel={exiting ? 'Saving…' : 'Home'}
           onContinue={handleContinue}
           continueLabel={isLastScreen ? (isPending ? 'Saving…' : existing ? 'Update Evening Reflection' : 'Save Evening Reflection') : 'Continue'}
           continueDisabled={isLastScreen ? isPending : !screenComplete}

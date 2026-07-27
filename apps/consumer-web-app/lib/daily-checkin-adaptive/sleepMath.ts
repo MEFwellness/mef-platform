@@ -61,6 +61,11 @@ export function durationMinutes(bedtime: number, wake: number): number {
   return raw <= 0 ? raw + MINUTES_PER_DAY : raw;
 }
 
+/** Sleep dial sanity guard (task 3b): a window over ~14h or under ~2h is almost certainly a mis-drag (two handles landed in an implausible relationship, not a real answer) rather than being blocked outright, it just gets flagged with a quiet inline note — "some people genuinely sleep oddly," per the task's own wording. Pure and directly testable without a rendering harness. */
+export function isImplausibleSleepWindow(totalMinutes: number, minPlausible = 120, maxPlausible = 840): boolean {
+  return totalMinutes < minPlausible || totalMinutes > maxPlausible;
+}
+
 /**
  * The median of a set of times-of-day, correctly handling wraparound —
  * a plain arithmetic mean of e.g. 23:30 and 00:30 would land on noon,
