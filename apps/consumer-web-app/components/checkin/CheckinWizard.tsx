@@ -15,13 +15,13 @@
  *   visit has gotten to;
  * - the back affordance;
  * - the persistent Continue control — always rendered, on every screen,
- *   never only the last one. Auto-advance (useScreenAutoAdvance) glides
- *   to the next screen on its own once a screen "settles" (required
- *   units answered and nothing visible has changed for ~700ms), but
- *   Continue is never just a fallback for the edge cases that mechanism
- *   misses — it's the always-available, always-functional manual path,
- *   for anyone who wants to move faster than the pause or for the rare
- *   case settle-detection doesn't fire;
+ *   never only the last one, and the ONLY way a screen ever advances.
+ *   There is no auto-advance: answering a question, completing a
+ *   screen's required fields, or revealing a follow-up never moves the
+ *   screen on its own. A prior auto-advance mechanism
+ *   (useScreenAutoAdvance) was removed entirely — two systems racing to
+ *   control the same transition was what caused screens to jump and
+ *   controls to stop responding;
  * - the screen-to-screen transition: outgoing content fades up and out,
  *   then incoming content fades in from below — never a hard swap, no
  *   flash of white, since the exiting/entering screen is rendered via

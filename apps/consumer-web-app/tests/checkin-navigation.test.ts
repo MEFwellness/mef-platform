@@ -65,9 +65,9 @@ describe('CheckinWizard — the shared shell both check-ins render through', () 
 describe.each([
   ['Morning (CheckinForm.tsx)', MORNING_FORM],
   ['Evening (EveningReflectionForm.tsx)', EVENING_FORM],
-])('%s wires the persistent controls, not just auto-advance', (_label, formSource) => {
-  it('still uses useScreenAutoAdvance as a convenience layer, not the only path forward', () => {
-    expect(formSource).toContain('useScreenAutoAdvance(');
+])('%s wires the persistent controls, with no auto-advance mechanism at all', (_label, formSource) => {
+  it('never imports or calls the removed useScreenAutoAdvance hook — Continue is the only way a screen advances', () => {
+    expect(formSource).not.toContain('useScreenAutoAdvance');
   });
 
   it('passes onExit/onContinue/continueLabel/continueDisabled into CheckinWizard', () => {
@@ -112,5 +112,45 @@ describe('resuming after an exit never discards answers (task requirement 1)', (
   it('CheckinForm seeds pain follow-up state from initialProbeAnswers, not always null', () => {
     expect(MORNING_FORM).toContain("initialProbeAnswers['checkin_probe.pain_location']");
     expect(MORNING_FORM).toContain("initialProbeAnswers['checkin_probe.pain_aggravating_factor']");
+  });
+});
+
+describe('stability fix (2026-07-27): auto-advance is gone entirely, Continue is the ONLY way a screen moves', () => {
+  it('the removed hook file no longer exists', () => {
+    expect(() => source('hooks/useScreenAutoAdvance.ts')).toThrow();
+  });
+
+  it('nothing in the repo still imports useScreenAutoAdvance', () => {
+    expect(WIZARD).not.toContain('useScreenAutoAdvance(');
+    expect(MORNING_FORM).not.toContain('useScreenAutoAdvance');
+    expect(EVENING_FORM).not.toContain('useScreenAutoAdvance');
+  });
+
+  it.each([
+    ['Morning (CheckinForm.tsx)', MORNING_FORM],
+    ['Evening (EveningReflectionForm.tsx)', EVENING_FORM],
+  ])('%s never calls goNext/goToScreenClamped/setScreenIndex from a useEffect — only from a real click handler', (_label, formSource) => {
+    // Every useEffect block in the form (there may be zero) must not
+    // reference the screen-advancing functions. This is what "answering a
+    // question must never move the screen" and "revealing a follow-up
+    // must never move the screen" reduce to at the source level: the only
+    // callers of goNext/goToScreenClamped/setScreenIndex are goBack,
+    // handleContinue, and the wizard's own onSelectScreen prop — all of
+    // which only ever fire in response to a tap, never a data/effect change.
+    const effectBlocks = [...formSource.matchAll(/useEffect\(\s*\(\)\s*=>\s*\{([\s\S]*?)\}\s*,/g)].map((m) => m[1]);
+    for (const block of effectBlocks) {
+      expect(block).not.toMatch(/goNext\(|goToScreenClamped\(|setScreenIndex\(/);
+    }
+  });
+
+  it('CheckinWizard never calls onContinue itself — it only wires it to the Continue button\'s onClick', () => {
+    // onContinue is a prop; CheckinWizard's own two effects (the
+    // exit/enter transition timer, and its unmount cleanup) only ever
+    // touch local displayIndex/phase/timers state, never the parent's
+    // navigation callbacks. If this ever contains "onContinue(" as a
+    // real invocation (as opposed to `onClick={onContinue}`, a bare
+    // reference), something is calling it automatically again.
+    expect(WIZARD).not.toContain('onContinue(');
+    expect(WIZARD).toContain('onClick={onContinue}');
   });
 });

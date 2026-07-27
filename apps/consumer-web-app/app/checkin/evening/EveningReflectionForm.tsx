@@ -36,7 +36,6 @@ import { ShortOptionRow } from '@/components/checkin/scales/ShortOptionRow';
 import { EndingMoment } from '@/components/checkin/EndingMoment';
 import { TemperatureOverlay, computeWarmth } from '@/components/checkin/TemperatureOverlay';
 import { MOOD_RAMP, STRESS_RAMP, RECOVERY_RAMP } from '@/lib/checkin-color-ramps';
-import { useScreenAutoAdvance } from '@/hooks/useScreenAutoAdvance';
 import type { EnergyPattern, EveningReflection } from '@mef/shared-types-contracts';
 import type { LucideIcon } from 'lucide-react';
 
@@ -292,8 +291,6 @@ export function EveningReflectionForm({
   function goBack() {
     goToScreenClamped(clampedIndex - 1);
   }
-
-  useScreenAutoAdvance(currentScreen, clampedIndex, goNext);
 
   const warmth = computeWarmth({ mood: overallDayRating, energy: null, stress: daytimeStress, recovery });
 

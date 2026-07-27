@@ -27,7 +27,6 @@ import { ConcernToCoach } from '@/components/checkin/ConcernToCoach';
 import { EndingMoment } from '@/components/checkin/EndingMoment';
 import { TemperatureOverlay, computeWarmth } from '@/components/checkin/TemperatureOverlay';
 import { MOOD_RAMP, ENERGY_RAMP, STRESS_RAMP } from '@/lib/checkin-color-ramps';
-import { useScreenAutoAdvance } from '@/hooks/useScreenAutoAdvance';
 import type {
   BowelMovementStatus,
   DailyCheckin,
@@ -567,8 +566,6 @@ export function CheckinForm({
     setScreenIndex(clamped);
     setFurthestScreenIndex((prev) => Math.max(prev, clamped));
   }
-
-  useScreenAutoAdvance(currentScreen, clampedIndex, goNext);
 
   const warmth = computeWarmth({ mood: moodLevel, energy: energyLevel, stress: stressLevel });
 
