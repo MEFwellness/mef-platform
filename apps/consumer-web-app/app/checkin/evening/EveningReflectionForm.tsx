@@ -293,7 +293,7 @@ export function EveningReflectionForm({
     goToScreenClamped(clampedIndex - 1);
   }
 
-  useScreenAutoAdvance(screenComplete, clampedIndex, goNext);
+  useScreenAutoAdvance(currentScreen, clampedIndex, goNext);
 
   const warmth = computeWarmth({ mood: overallDayRating, energy: null, stress: daytimeStress, recovery });
 

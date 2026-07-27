@@ -14,9 +14,13 @@ import {
   getLocalFollowUpQuestionsAction,
   getProbeAnswersForDateAction,
 } from '@/app/actions/dailyCheckinPlan';
+import { typicalSleepTimes } from '@/lib/daily-checkin-adaptive/sleepHistory';
 import { AvatarLink } from '@/components/AvatarLink';
 import { CheckInModeSwitch } from '@/components/checkin/CheckInModeSwitch';
 import { CheckinForm } from './CheckinForm';
+
+/** How many recent days feed the sleep dial's "typical bedtime/wake" pre-fill — same window RECENCY_CAP_DAYS already uses elsewhere in this feature for "how overdue" weighting, reused here for consistency rather than a new arbitrary number. */
+const SLEEP_HISTORY_WINDOW_DAYS = 14;
 
 export default async function CheckinPage({ searchParams }: { searchParams: { date?: string } }) {
   const supabase = createClient();
@@ -44,7 +48,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
       getTodaysCheckin(localDate),
       getActiveHabits(),
       getHabitLogsForDate(localDate),
-      getRecentCheckins(1),
+      getRecentCheckins(SLEEP_HISTORY_WINDOW_DAYS),
       getTodaysCheckinPlanAction(localDate),
       getLocalFollowUpQuestionsAction('morning'),
       getProbeAnswersForDateAction(localDate),
@@ -53,8 +57,17 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
   const rotatingProbes = (checkinPlan?.rotatingProbes ?? []).filter((p) => p.screen === 'morning');
   // True only when this member has never completed any check-in before —
   // drives the Milestone 4 first-check-in transition on Dashboard, not
-  // just "haven't logged today yet."
+  // just "haven't logged today yet." priorCheckins now fetches
+  // SLEEP_HISTORY_WINDOW_DAYS worth of rows (reused below for the sleep
+  // dial's typical-time pre-fill) rather than a dedicated 1-row query —
+  // an empty result means the same thing either way.
   const isFirstCheckin = existingCheckin === null && priorCheckins.length === 0;
+  // Sleep dial pre-fill (task 3c): "seed both handles from her recent
+  // check-ins' typical bedtime and wake time." Only ever used as the
+  // *initial* state for a fresh (not-yet-answered-today) check-in —
+  // CheckinForm falls back to it solely when existingCheckin has no
+  // bedtime/wake of its own yet, never overriding a real answer.
+  const typicalSleep = typicalSleepTimes(priorCheckins);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FBF1DE] via-[#F5F0E4] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -101,6 +114,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           localFollowUps={localFollowUps}
           initialProbeAnswers={initialProbeAnswers}
           coachFirstName={coachFirstName}
+          typicalSleep={typicalSleep}
         />
       </main>
     </div>

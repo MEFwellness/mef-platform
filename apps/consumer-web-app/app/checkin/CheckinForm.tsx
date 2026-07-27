@@ -11,6 +11,7 @@ import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollo
 import { morningScreenForQuestion, type MorningScreenKey } from '@/lib/daily-checkin-adaptive/screenGrouping';
 import { groupUnitsIntoScreens, isScreenComplete, type CheckinUnit } from '@/lib/daily-checkin-adaptive/wizardUnits';
 import type { DriverProbeQuestion } from '@/lib/daily-checkin-adaptive/types';
+import type { TypicalSleepTimes } from '@/lib/daily-checkin-adaptive/sleepHistory';
 import { getTodaysHydrationTotal } from '@/app/actions/events';
 import { DriverProbeField, type ProbeAnswerValue } from '@/components/checkin/DriverProbeField';
 import { CheckinWizard } from '@/components/checkin/CheckinWizard';
@@ -56,6 +57,8 @@ type Props = {
   localFollowUps: DriverProbeQuestion[];
   initialProbeAnswers: Record<string, unknown>;
   coachFirstName: string | null;
+  /** Sleep dial pre-fill (task 3c) — her recent check-ins' typical bedtime/wake, or all-null with no history. Only ever used as this component's *initial* state; never re-applied once she's touched the dial. */
+  typicalSleep: TypicalSleepTimes;
 };
 
 const PAIN_AGGRAVATING_FACTOR_OPTIONS = [
@@ -111,6 +114,7 @@ export function CheckinForm({
   localFollowUps,
   initialProbeAnswers,
   coachFirstName,
+  typicalSleep,
 }: Props) {
   const nightWakingQuestion =
     rotatingProbes.find((q) => q.questionKey === 'checkin_probe.night_waking_count') ?? null;
@@ -150,7 +154,7 @@ export function CheckinForm({
   const [moodLevel, setMoodLevel] = useState<number | null>(existingCheckin?.mood_level ?? null);
   const [sleepQuality, setSleepQuality] = useState<number | null>(existingCheckin?.sleep_quality ?? null);
   const [sleepDuration, setSleepDuration] = useState<DailyCheckin['sleep_duration']>(
-    existingCheckin?.sleep_duration ?? null
+    existingCheckin?.sleep_duration ?? typicalSleep.durationBucket
   );
   const [energyLevel, setEnergyLevel] = useState<number | null>(existingCheckin?.energy_level ?? null);
   const [stressLevel, setStressLevel] = useState<number | null>(existingCheckin?.stress_level ?? null);
@@ -181,8 +185,21 @@ export function CheckinForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const [actualBedtime, setActualBedtime] = useState(existingCheckin?.actual_bedtime ?? '');
-  const [actualWakeTime, setActualWakeTime] = useState(existingCheckin?.actual_wake_time ?? '');
+  // Sleep dial pre-fill (task 3c): "seed both handles from her recent
+  // check-ins' typical bedtime and wake time" — applied only as this
+  // state's initial value, and only when today's row (if any) has no
+  // bedtime/wake of its own yet. With no history at all, typicalSleep's
+  // fields are null and this falls through to '' exactly as before —
+  // the arc's own DEFAULT_BEDTIME_MINUTES/DEFAULT_WAKE_MINUTES constants
+  // still show a plain visual default in that case, without this state
+  // (and therefore the night screen's answered/required check) ever
+  // treating an invented default as something she actually confirmed.
+  const [actualBedtime, setActualBedtime] = useState(
+    existingCheckin?.actual_bedtime ?? typicalSleep.bedtime ?? ''
+  );
+  const [actualWakeTime, setActualWakeTime] = useState(
+    existingCheckin?.actual_wake_time ?? typicalSleep.wakeTime ?? ''
+  );
   const [nightWakingCount, setNightWakingCount] = useState<number | null>(
     existingCheckin?.night_waking_count ?? null
   );
@@ -551,7 +568,7 @@ export function CheckinForm({
     setFurthestScreenIndex((prev) => Math.max(prev, clamped));
   }
 
-  useScreenAutoAdvance(screenComplete, clampedIndex, goNext);
+  useScreenAutoAdvance(currentScreen, clampedIndex, goNext);
 
   const warmth = computeWarmth({ mood: moodLevel, energy: energyLevel, stress: stressLevel });
 

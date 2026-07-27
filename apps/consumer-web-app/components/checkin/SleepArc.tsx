@@ -13,56 +13,46 @@
  * protected core question — see FiveMoonsScale above this component)
  * coloring the arc's own stroke: dim/muted for a low rating, clear and
  * luminous for a high one.
+ *
+ * Sleep dial readability fix: a 24-hour dial reads to most people as a
+ * 12-hour clock face, so 6 AM at the "3 o'clock" position is genuinely
+ * ambiguous by sight — three changes address this without touching what
+ * the arc actually writes: (1) tapping the printed "Bedtime"/"Wake"
+ * label opens the phone's native time picker (a real <input type="time">,
+ * linked via a <label>, not a custom modal) as an unambiguous alternate
+ * entry method — dragging still works; (2) the dial is labeled at its
+ * four quarters (12 AM/6 AM/12 PM/6 PM) with minor hourly ticks between,
+ * and the printed time now tracks the drag live via local preview state
+ * rather than only updating on release; (3) both handles pre-fill from
+ * her recent check-ins' typical bedtime/wake (sleepHistory.ts) when
+ * there's no answer yet today — a real, evidence-based "glance and
+ * confirm" starting point, distinct from the plain default shown when
+ * there's no history at all (see DEFAULT_BEDTIME_MINUTES below, which
+ * intentionally never gets written as an answer on its own).
  */
 
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useId, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { triggerHaptic } from '@/lib/haptics';
+import {
+  MINUTES_PER_DAY,
+  deriveDurationBucket,
+  durationMinutes,
+  formatMinutesForDisplay,
+  formatMinutesToTimeValue,
+  parseTimeToMinutes,
+  type SleepDurationBucket,
+} from '@/lib/daily-checkin-adaptive/sleepMath';
+
+export type { SleepDurationBucket };
+export { deriveDurationBucket };
 
 const SIZE = 240;
 const CENTER = SIZE / 2;
 const RADIUS = 92;
-const MINUTES_PER_DAY = 24 * 60;
 const SNAP_MINUTES = 5;
 /** How many candidate wake-up notch positions are offered along the sleep window — enough granularity to feel real without becoming fiddly to tap. */
 const NOTCH_COUNT = 6;
 const MAX_NIGHT_WAKINGS = 5;
-
-export type SleepDurationBucket = '<5h' | '5-6h' | '6-7h' | '7-8h' | '8h+';
-
-/** Derives the existing sleep_duration bucket field straight from the arc's own bedtime/wake gesture — the separate "About how many hours did you sleep?" question this replaces asked the same thing a second time. */
-export function deriveDurationBucket(totalMinutes: number): SleepDurationBucket {
-  const hours = totalMinutes / 60;
-  if (hours < 5) return '<5h';
-  if (hours < 6) return '5-6h';
-  if (hours < 7) return '6-7h';
-  if (hours < 8) return '7-8h';
-  return '8h+';
-}
-
-function parseTimeToMinutes(value: string): number | null {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value);
-  if (!match) return null;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
-  return hours * 60 + minutes;
-}
-
-function formatMinutesToTimeValue(totalMinutes: number): string {
-  const normalized = ((totalMinutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-  const hours = Math.floor(normalized / 60);
-  const minutes = normalized % 60;
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
-
-function formatMinutesForDisplay(totalMinutes: number): string {
-  const normalized = ((totalMinutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-  const hours24 = Math.floor(normalized / 60);
-  const minutes = normalized % 60;
-  const period = hours24 < 12 ? 'AM' : 'PM';
-  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
-  return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`;
-}
 
 function angleForMinutes(minutes: number): number {
   return (minutes / MINUTES_PER_DAY) * 360;
@@ -82,10 +72,16 @@ function minutesForPoint(x: number, y: number): number {
   return Math.round(rawMinutes / SNAP_MINUTES) * SNAP_MINUTES;
 }
 
-function durationMinutes(bedtime: number, wake: number): number {
-  const raw = wake - bedtime;
-  return raw <= 0 ? raw + MINUTES_PER_DAY : raw;
-}
+/** The dial's four labeled quarters — 12 AM at top, 6 AM at right, 12 PM at bottom, 6 PM at left, matching angleForMinutes' own clockwise-from-midnight orientation exactly (so the labels are never at odds with where a given time actually renders). */
+const QUARTER_LABELS = [
+  { angle: 0, label: '12 AM' },
+  { angle: 90, label: '6 AM' },
+  { angle: 180, label: '12 PM' },
+  { angle: 270, label: '6 PM' },
+] as const;
+
+/** Minor hourly ticks between the four labeled quarters — every hour except the four already carrying a label. */
+const MINOR_TICK_ANGLES = Array.from({ length: 24 }, (_, hour) => hour * 15).filter((angle) => angle % 90 !== 0);
 
 function formatDuration(totalMinutes: number): string {
   const hours = Math.floor(totalMinutes / 60);
@@ -128,12 +124,21 @@ export function SleepArc({
   onTimesChange: (bedtime: string, wakeTime: string, durationBucket: SleepDurationBucket) => void;
   onNightWakingChange: (count: number) => void;
 }) {
-  const bedtimeMinutes = parseTimeToMinutes(bedtime) ?? DEFAULT_BEDTIME_MINUTES;
-  const wakeMinutes = parseTimeToMinutes(wakeTime) ?? DEFAULT_WAKE_MINUTES;
+  const committedBedtimeMinutes = parseTimeToMinutes(bedtime) ?? DEFAULT_BEDTIME_MINUTES;
+  const committedWakeMinutes = parseTimeToMinutes(wakeTime) ?? DEFAULT_WAKE_MINUTES;
   const hasValues = bedtime !== '' && wakeTime !== '';
 
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragging, setDragging] = useState<Handle | null>(null);
+  // Sleep dial readability fix: the printed time and the arc itself now
+  // track the pointer via this local preview rather than waiting on the
+  // parent's own (potentially heavier) re-render round-trip through
+  // onTimesChange — "make the printed time update live while a handle is
+  // being dragged, not only on release."
+  const [dragPreview, setDragPreview] = useState<{ handle: Handle; minutes: number } | null>(null);
+
+  const bedtimeMinutes = dragPreview?.handle === 'bedtime' ? dragPreview.minutes : committedBedtimeMinutes;
+  const wakeMinutes = dragPreview?.handle === 'wake' ? dragPreview.minutes : committedWakeMinutes;
 
   const updateFromPointer = useCallback(
     (handle: Handle, clientX: number, clientY: number) => {
@@ -143,15 +148,16 @@ export function SleepArc({
       const x = ((clientX - rect.left) / rect.width) * SIZE;
       const y = ((clientY - rect.top) / rect.height) * SIZE;
       const minutes = minutesForPoint(x, y);
-      const nextBedtime = handle === 'bedtime' ? minutes : bedtimeMinutes;
-      const nextWake = handle === 'wake' ? minutes : wakeMinutes;
+      setDragPreview({ handle, minutes });
+      const nextBedtime = handle === 'bedtime' ? minutes : committedBedtimeMinutes;
+      const nextWake = handle === 'wake' ? minutes : committedWakeMinutes;
       onTimesChange(
         formatMinutesToTimeValue(nextBedtime),
         formatMinutesToTimeValue(nextWake),
         deriveDurationBucket(durationMinutes(nextBedtime, nextWake))
       );
     },
-    [bedtimeMinutes, wakeMinutes, onTimesChange]
+    [committedBedtimeMinutes, committedWakeMinutes, onTimesChange]
   );
 
   function startDrag(handle: Handle, event: ReactPointerEvent<SVGCircleElement>) {
@@ -169,6 +175,7 @@ export function SleepArc({
   function endDrag(event: ReactPointerEvent<SVGCircleElement>) {
     if (dragging) triggerHaptic();
     setDragging(null);
+    setDragPreview(null);
     event.currentTarget.releasePointerCapture(event.pointerId);
   }
 
@@ -179,16 +186,33 @@ export function SleepArc({
     else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') delta = -step;
     else return;
     event.preventDefault();
-    const current = handle === 'bedtime' ? bedtimeMinutes : wakeMinutes;
+    const current = handle === 'bedtime' ? committedBedtimeMinutes : committedWakeMinutes;
     const next = current + delta;
-    const nextBedtime = handle === 'bedtime' ? next : bedtimeMinutes;
-    const nextWake = handle === 'wake' ? next : wakeMinutes;
+    const nextBedtime = handle === 'bedtime' ? next : committedBedtimeMinutes;
+    const nextWake = handle === 'wake' ? next : committedWakeMinutes;
     onTimesChange(
       formatMinutesToTimeValue(nextBedtime),
       formatMinutesToTimeValue(nextWake),
       deriveDurationBucket(durationMinutes(nextBedtime, nextWake))
     );
   }
+
+  /** The tap-to-open native time picker (task 3a) — a real <input type="time">, linked via <label>, so tapping the printed "Bedtime"/"Wake" text opens the phone's own picker with zero ambiguity. Writes through the exact same onTimesChange contract dragging uses, so both entry methods land on the same bedtime/wake-time fields and the same derived duration bucket. */
+  function applyDirectTime(handle: Handle, hhmm: string) {
+    const minutes = parseTimeToMinutes(hhmm);
+    if (minutes === null) return;
+    const nextBedtime = handle === 'bedtime' ? minutes : committedBedtimeMinutes;
+    const nextWake = handle === 'wake' ? minutes : committedWakeMinutes;
+    triggerHaptic();
+    onTimesChange(
+      formatMinutesToTimeValue(nextBedtime),
+      formatMinutesToTimeValue(nextWake),
+      deriveDurationBucket(durationMinutes(nextBedtime, nextWake))
+    );
+  }
+
+  const bedtimeInputId = useId();
+  const wakeInputId = useId();
 
   const bedtimeAngle = angleForMinutes(bedtimeMinutes);
   const wakeAngle = angleForMinutes(wakeMinutes);
@@ -214,7 +238,7 @@ export function SleepArc({
   return (
     <div>
       <span className="text-[13px] leading-relaxed text-[#6B7A72]">
-        Drag to set your bedtime and wake time.
+        Drag to set your bedtime and wake time, or tap either time below to enter it directly.
         {notchesEnabled ? ' Tap the notches for any wake-ups.' : ''}
       </span>
       <div className="mt-3 flex flex-col items-center">
@@ -244,9 +268,42 @@ export function SleepArc({
             />
           )}
 
-          {[0, 90, 180, 270].map((tickAngle) => {
-            const outer = pointOnCircle(tickAngle, RADIUS + 14);
-            const inner = pointOnCircle(tickAngle, RADIUS + 8);
+          {/* Sleep dial readability fix (task 3b): labeled quarters — 12 AM
+              at top, 6 AM at right, 12 PM at bottom, 6 PM at left — so the
+              dial reads as the 24-hour clock it actually is instead of
+              being misread as a 12-hour one. */}
+          {QUARTER_LABELS.map(({ angle, label }) => {
+            const outer = pointOnCircle(angle, RADIUS + 14);
+            const inner = pointOnCircle(angle, RADIUS + 8);
+            const textPoint = pointOnCircle(angle, RADIUS + 27);
+            return (
+              <g key={angle}>
+                <line
+                  x1={inner.x}
+                  y1={inner.y}
+                  x2={outer.x}
+                  y2={outer.y}
+                  stroke="#1B3A2D"
+                  strokeOpacity={0.3}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                />
+                <text
+                  x={textPoint.x}
+                  y={textPoint.y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="fill-[#1B3A2D] text-[9px] font-semibold uppercase tracking-wide"
+                  opacity={0.55}
+                >
+                  {label}
+                </text>
+              </g>
+            );
+          })}
+          {MINOR_TICK_ANGLES.map((tickAngle) => {
+            const outer = pointOnCircle(tickAngle, RADIUS + 10);
+            const inner = pointOnCircle(tickAngle, RADIUS + 7);
             return (
               <line
                 key={tickAngle}
@@ -255,8 +312,8 @@ export function SleepArc({
                 x2={outer.x}
                 y2={outer.y}
                 stroke="#1B3A2D"
-                strokeOpacity={0.3}
-                strokeWidth={2}
+                strokeOpacity={0.15}
+                strokeWidth={1}
                 strokeLinecap="round"
               />
             );
@@ -350,14 +407,46 @@ export function SleepArc({
         </div>
 
         <div className="mt-2 flex w-full max-w-xs items-center justify-between text-[12px] font-medium">
-          <span className="flex items-center gap-1.5 text-[#1B3A2D]">
+          {/*
+           * Sleep dial readability fix (task 3a): tapping either label
+           * opens the phone's own native time picker — a real
+           * <input type="time">, linked via <label htmlFor>, so the tap
+           * target is the entire visible pill and the browser handles
+           * opening the picker itself (no custom modal to build or
+           * maintain). Dragging the arc keeps working exactly as before;
+           * this is an added entry method, writing through the same
+           * onTimesChange contract, never a second bedtime/wake field.
+           */}
+          <label
+            htmlFor={bedtimeInputId}
+            className="mef-press flex cursor-pointer items-center gap-1.5 rounded-full px-1 py-0.5 text-[#1B3A2D]"
+          >
             <span className="h-2 w-2 rounded-full bg-[#1B3A2D]" aria-hidden="true" />
             Bedtime {formatMinutesForDisplay(bedtimeMinutes)}
-          </span>
-          <span className="flex items-center gap-1.5 text-[#1B3A2D]">
+            <input
+              id={bedtimeInputId}
+              type="time"
+              className="sr-only"
+              value={formatMinutesToTimeValue(committedBedtimeMinutes)}
+              onChange={(event) => event.target.value && applyDirectTime('bedtime', event.target.value)}
+              aria-label="Set bedtime with your device's time picker"
+            />
+          </label>
+          <label
+            htmlFor={wakeInputId}
+            className="mef-press flex cursor-pointer items-center gap-1.5 rounded-full px-1 py-0.5 text-[#1B3A2D]"
+          >
             <span className="h-2 w-2 rounded-full bg-[#C4A050]" aria-hidden="true" />
             Wake {formatMinutesForDisplay(wakeMinutes)}
-          </span>
+            <input
+              id={wakeInputId}
+              type="time"
+              className="sr-only"
+              value={formatMinutesToTimeValue(committedWakeMinutes)}
+              onChange={(event) => event.target.value && applyDirectTime('wake', event.target.value)}
+              aria-label="Set wake time with your device's time picker"
+            />
+          </label>
         </div>
       </div>
     </div>

@@ -15,13 +15,13 @@
  *   visit has gotten to;
  * - the back affordance;
  * - the persistent Continue control — always rendered, on every screen,
- *   never only the last one. Auto-advance (useScreenAutoAdvance) is a
- *   convenience layered on top by the caller; this button is the
- *   guaranteed manual path forward, since a screen whose required units
- *   are already satisfied on mount (a reopened check-in, or a screen
- *   with no required units at all) never fires the auto-advance
- *   false->true transition and would otherwise strand her there with no
- *   way to continue;
+ *   never only the last one. Auto-advance (useScreenAutoAdvance) glides
+ *   to the next screen on its own once a screen "settles" (required
+ *   units answered and nothing visible has changed for ~700ms), but
+ *   Continue is never just a fallback for the edge cases that mechanism
+ *   misses — it's the always-available, always-functional manual path,
+ *   for anyone who wants to move faster than the pause or for the rare
+ *   case settle-detection doesn't fire;
  * - the screen-to-screen transition: outgoing content fades up and out,
  *   then incoming content fades in from below — never a hard swap, no
  *   flash of white, since the exiting/entering screen is rendered via
