@@ -16,7 +16,6 @@ import {
 } from '@/app/actions/dailyCheckinPlan';
 import { typicalSleepTimes } from '@/lib/daily-checkin-adaptive/sleepHistory';
 import { AvatarLink } from '@/components/AvatarLink';
-import { CheckInModeSwitch } from '@/components/checkin/CheckInModeSwitch';
 import { CheckinForm } from './CheckinForm';
 
 /** How many recent days feed the sleep dial's "typical bedtime/wake" pre-fill — same window RECENCY_CAP_DAYS already uses elsewhere in this feature for "how overdue" weighting, reused here for consistency rather than a new arbitrary number. */
@@ -96,12 +95,6 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           </div>
           <AvatarLink firstName={firstName} />
         </div>
-        <p className="mt-1.5 text-[15px] leading-relaxed text-[#6B7A72]">
-          {existingCheckin
-            ? "You've already logged this day. Update anything below."
-            : 'A few gentle questions so Root understands how today actually feels. Takes about a minute.'}
-        </p>
-        <CheckInModeSwitch active="morning" />
 
         <CheckinForm
           localDate={localDate}

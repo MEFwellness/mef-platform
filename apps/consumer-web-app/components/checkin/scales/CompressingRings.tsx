@@ -4,24 +4,40 @@
  * Stress (morning) / daytime stress (evening, shared component) —
  * concentric rings that light up from the centre outward as stress
  * rises: one ring lit at the calmest level, all five at the most
- * stressed. Open sage -> deep clay ramp (never red, never green — kept
- * a distinct hue family from Energy on purpose, so a high-stress answer
- * never reads as something the app is rewarding).
+ * stressed.
  *
- * 2026-07-27 contrast fix: the selected card used to be a 4%-opacity
- * tint with faint rings drawn at a fixed tightness pattern — often
- * unreadable against the page background. The selected card now always
- * fills solid with STRESS_RAMP's own saturated end (deep clay), never
- * the interpolated per-index color as a *background* (which is pale at
- * the calm end and would reintroduce the same contrast failure). Rings
- * are now a real count — level N lights exactly N of 5 concentric
- * rings, white against the clay card, revealed one at a time from the
- * centre outward via a staggered transition.
+ * 2026-07-27 UX audit fix: this used to run a two-hue ramp (open sage ->
+ * deep clay/rust) meant to keep Stress visually distinct from Energy's
+ * green. That backfired — "Calm" rendered green-ish and "Overwhelmed"
+ * rendered a brownish-red, which reads as a green-to-red good/bad axis
+ * even though neither endpoint is a literal red or green. A member can
+ * infer which answer the app "approves of" from that alone, which biases
+ * self-report and corrupts the data the correlation engine depends on.
+ * The rust/brown endpoint also wasn't one of the three locked brand
+ * colors in the first place. Fixed: one on-palette hue (warm gold, the
+ * same accent already used by Recovery/Sleep-quality/Mood's own warm
+ * end) for every option, at every level — magnitude is conveyed only by
+ * how many of the 5 rings are lit (already a real count) and by the
+ * small accent dot's opacity, never by which hue is shown. No answer
+ * looks more approved-of than another.
+ *
+ * Deliberately not forest green: in section mode, Mood/Energy/Stress
+ * render together on one screen, and Energy's own selected fill is
+ * already solid forest green — reusing it here would make two
+ * simultaneously-visible selected cards read as the same answer.
+ *
+ * 2026-07-27 contrast fix (earlier pass, still in effect): the selected
+ * card used to be a 4%-opacity tint with faint rings drawn at a fixed
+ * tightness pattern — often unreadable against the page background. The
+ * selected card now always fills solid, never a pale interpolated
+ * per-index color as a *background* (which would reintroduce the same
+ * contrast failure). Rings are a real count — level N lights exactly N
+ * of 5 concentric rings, white against the solid card, revealed one at a
+ * time from the centre outward via a staggered transition.
  */
 
 import { useEffect, useState } from 'react';
 import { triggerHaptic } from '@/lib/haptics';
-import { STRESS_RAMP, rampColorAt } from '@/lib/checkin-color-ramps';
 import { SCALE_LABEL } from './shared';
 
 const RING_COUNT = 5;
@@ -29,7 +45,9 @@ const RING_COUNT = 5;
 const RING_RADII = [3, 6, 9, 12, 15];
 const STAGGER_MS = 90;
 
-const STRESS_SOLID = `rgb(${STRESS_RAMP.to[0]}, ${STRESS_RAMP.to[1]}, ${STRESS_RAMP.to[2]})`;
+/** The one on-palette hue every option uses — warm gold, #C4A050. Never varies by index; only the accent dot's opacity and the lit-ring count vary, to convey magnitude without implying judgement. */
+const STRESS_SOLID = '#C4A050';
+const MIN_ACCENT_OPACITY = 0.3;
 
 function RingStack({ litCount, isSelected }: { litCount: number; isSelected: boolean }) {
   // Rings reveal one at a time, centre outward, only once this option
@@ -90,7 +108,11 @@ export function CompressingRings({
           const optionValue = index + 1;
           const isSelected = value === optionValue;
           const litCount = Math.round(((index + 1) / labels.length) * RING_COUNT) || 1;
-          const accent = rampColorAt(STRESS_RAMP.from, STRESS_RAMP.to, index, labels.length);
+          // Magnitude via intensity, not hue: every option's accent dot is
+          // the same gold, just fainter at the calm end and fuller at the
+          // stressed end.
+          const accentOpacity =
+            labels.length <= 1 ? 1 : MIN_ACCENT_OPACITY + (index / (labels.length - 1)) * (1 - MIN_ACCENT_OPACITY);
           return (
             <button
               key={word}
@@ -104,7 +126,7 @@ export function CompressingRings({
               title={word}
               className={`mef-press flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-2xl border py-2.5 transition-all duration-200 ease-out ${
                 isSelected
-                  ? 'scale-105 border-transparent shadow-[0_4px_16px_-4px_rgba(124,84,67,0.45)]'
+                  ? 'scale-105 border-transparent shadow-[0_4px_16px_-4px_rgba(196,160,80,0.45)]'
                   : 'border-[#1B3A2D]/10 bg-white'
               }`}
               style={isSelected ? { backgroundColor: STRESS_SOLID } : undefined}
@@ -120,7 +142,7 @@ export function CompressingRings({
               <span
                 aria-hidden="true"
                 className="h-1 w-4 rounded-full"
-                style={{ backgroundColor: isSelected ? '#FFFFFF' : accent, opacity: isSelected ? 0.6 : 1 }}
+                style={{ backgroundColor: isSelected ? '#FFFFFF' : STRESS_SOLID, opacity: isSelected ? 0.6 : accentOpacity }}
               />
             </button>
           );

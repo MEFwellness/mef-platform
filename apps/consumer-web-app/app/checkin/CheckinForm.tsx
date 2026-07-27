@@ -15,6 +15,7 @@ import type { TypicalSleepTimes } from '@/lib/daily-checkin-adaptive/sleepHistor
 import { getTodaysHydrationTotal } from '@/app/actions/events';
 import { DriverProbeField, type ProbeAnswerValue } from '@/components/checkin/DriverProbeField';
 import { CheckinWizard } from '@/components/checkin/CheckinWizard';
+import { CheckInModeSwitch } from '@/components/checkin/CheckInModeSwitch';
 import { FiveFacesScale } from '@/components/checkin/scales/FiveFacesScale';
 import { VerticalFillScale } from '@/components/checkin/scales/VerticalFillScale';
 import { CompressingRings } from '@/components/checkin/scales/CompressingRings';
@@ -738,6 +739,16 @@ export function CheckinForm({
             const showSectionHeading = mode === 'section' || screen[0]?.key === units.find((u) => u.section === section)?.key;
             return (
               <div className="space-y-6">
+                {index === 0 && (
+                  <div className="mef-checkin-stagger">
+                    <p className="text-[15px] leading-relaxed text-[#6B7A72]">
+                      {existingCheckin
+                        ? "You've already logged this day. Update anything below."
+                        : 'A few gentle questions so Root understands how today actually feels. Takes about a minute.'}
+                    </p>
+                    <CheckInModeSwitch active="morning" />
+                  </div>
+                )}
                 {showSectionHeading && (
                   <div className="mef-checkin-stagger">
                     <SectionHeader

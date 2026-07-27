@@ -28,6 +28,7 @@ import { groupUnitsIntoScreens, isScreenComplete, type CheckinUnit } from '@/lib
 import type { DriverProbeQuestion } from '@/lib/daily-checkin-adaptive/types';
 import { DriverProbeField, type ProbeAnswerValue } from '@/components/checkin/DriverProbeField';
 import { CheckinWizard } from '@/components/checkin/CheckinWizard';
+import { CheckInModeSwitch } from '@/components/checkin/CheckInModeSwitch';
 import { SunPathArc } from '@/components/checkin/scales/SunPathArc';
 import { CompressingRings } from '@/components/checkin/scales/CompressingRings';
 import { EnergyPatternLines } from '@/components/checkin/scales/EnergyPatternLines';
@@ -406,6 +407,16 @@ export function EveningReflectionForm({
               mode === 'section' || screen[0]?.key === units.find((u) => u.section === section)?.key;
             return (
               <div className="space-y-6">
+                {index === 0 && (
+                  <div className="mef-checkin-stagger">
+                    <p className="text-[15px] leading-relaxed text-[#6B7A72]">
+                      {existing
+                        ? "You've already reflected on today. Update anything below."
+                        : 'A short close to the day. Available any time, morning or night. Your Morning Readiness never depends on this.'}
+                    </p>
+                    <CheckInModeSwitch active="evening" />
+                  </div>
+                )}
                 {showSectionHeading && (
                   <div className="mef-checkin-stagger">
                     <SectionHeader

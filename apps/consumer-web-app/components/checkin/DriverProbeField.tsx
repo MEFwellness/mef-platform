@@ -21,6 +21,25 @@ import { MAX_INLINE_LABEL_LENGTH } from './scales/shared';
 
 export type ProbeAnswerValue = string | number | boolean;
 
+/**
+ * UX audit fix: every other five-point scale in either flow labels both
+ * ends in words (mood, energy, stress, sleep quality, pain severity) —
+ * a bare 1-5 `scale`-type probe question had none, since its options are
+ * stored as plain numbers (the coach question-bank editor's own number-
+ * list input has no field for endpoint wording — see
+ * QuestionEditorForm.tsx's `parseNumberOptions`, which would silently
+ * discard anything embedded in `options` on the next coach edit anyway).
+ * Rather than fight that editor's data model, endpoint anchors for known
+ * questions live here, keyed by questionKey — a coach-authored `scale`
+ * question with no entry here still renders exactly as before (bare
+ * numbers), so this is additive, not a behavior change for the other two
+ * scale-type questions (`morning_soreness`/`digestion_rating` are both
+ * specially-handled elsewhere and never reach this component anyway).
+ */
+export const SCALE_ANCHOR_LABELS: Record<string, { low: string; high: string }> = {
+  'checkin_probe.morning_grogginess': { low: 'Not groggy', high: 'Very groggy' },
+};
+
 function optionValue(option: Exclude<ProbeOption, number>): string {
   return typeof option === 'string' ? option : option.value;
 }
@@ -79,13 +98,22 @@ export function DriverProbeField({
 
   if (question.responseType === 'scale') {
     const numericOptions = question.options.map((option) => (typeof option === 'number' ? option : Number(option)));
+    const anchors = SCALE_ANCHOR_LABELS[question.questionKey];
     return (
-      <ShortOptionRow
-        question={question.prompt}
-        options={numericOptions.map((n) => ({ value: n, label: String(n) }))}
-        value={typeof value === 'number' ? value : null}
-        onChange={onChange}
-      />
+      <div>
+        <ShortOptionRow
+          question={question.prompt}
+          options={numericOptions.map((n) => ({ value: n, label: String(n) }))}
+          value={typeof value === 'number' ? value : null}
+          onChange={onChange}
+        />
+        {anchors && (
+          <div className="mt-1.5 flex justify-between text-[11px] text-[#6B7A72]">
+            <span>{anchors.low}</span>
+            <span>{anchors.high}</span>
+          </div>
+        )}
+      </div>
     );
   }
 

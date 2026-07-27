@@ -9,11 +9,26 @@
  * color as a background) rather than literally rendering pixels. The
  * actual visible contrast is verified live via Playwright, reported
  * separately.
+ *
+ * UX audit pass (2026-07-27, later same day): the "Energy and Stress
+ * must be different hue families" constraint below was the ORIGINAL
+ * cause of the bug this file's second describe block now guards
+ * against — Stress was deliberately given its own clay/rust ramp so it
+ * wouldn't collide with Energy's green, and that clay/rust endpoint is
+ * exactly what a real UX audit flagged as an unintended green-to-red
+ * good/bad axis (see docs/UX_AUDIT_DAILY_LOOP.md item 7). Stress no
+ * longer uses STRESS_RAMP at all — see CompressingRings.tsx's own
+ * updated header comment. STRESS_RAMP itself is untouched in
+ * lib/checkin-color-ramps.ts (still used by the check-in ending
+ * screen's color blend, out of scope for that fix), so the old
+ * "distinct hue families" test is removed rather than rewritten: the
+ * property it asserted no longer describes anything CompressingRings
+ * actually renders.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { ENERGY_RAMP, STRESS_RAMP, RECOVERY_RAMP } from '../lib/checkin-color-ramps';
+import { ENERGY_RAMP, RECOVERY_RAMP } from '../lib/checkin-color-ramps';
 
 function source(relativePath: string): string {
   return readFileSync(path.resolve(__dirname, '..', relativePath), 'utf-8');
@@ -23,24 +38,8 @@ const ENERGY = source('components/checkin/scales/VerticalFillScale.tsx');
 const STRESS = source('components/checkin/scales/CompressingRings.tsx');
 const RECOVERY = source('components/checkin/scales/RecoveryFill.tsx');
 
-describe('Energy and Stress ramps are genuinely distinct colors (the hard "do not make both green" constraint)', () => {
-  it('ENERGY_RAMP.to and STRESS_RAMP.to are different RGB triples', () => {
-    expect(ENERGY_RAMP.to).not.toEqual(STRESS_RAMP.to);
-  });
-
-  it('ENERGY_RAMP.to is a green (G channel dominant) and STRESS_RAMP.to is a clay/brown (R channel dominant), not both green', () => {
-    const [er, eg, eb] = ENERGY_RAMP.to;
-    const [sr, sg, sb] = STRESS_RAMP.to;
-    expect(eg).toBeGreaterThanOrEqual(er);
-    expect(eg).toBeGreaterThanOrEqual(eb);
-    expect(sr).toBeGreaterThan(sg);
-    expect(sr).toBeGreaterThan(sb);
-  });
-});
-
 describe.each([
   ['Energy (VerticalFillScale.tsx)', ENERGY, 'ENERGY_SOLID', ENERGY_RAMP],
-  ['Stress (CompressingRings.tsx)', STRESS, 'STRESS_SOLID', STRESS_RAMP],
   ['Recovery (RecoveryFill.tsx)', RECOVERY, 'RECOVERY_SOLID', RECOVERY_RAMP],
 ] as const)('%s: selected state is a fixed, always-solid card fill', (_label, src, solidConstName, ramp) => {
   it(`defines a ${solidConstName} constant built from the ramp's own saturated ("to") endpoint`, () => {
@@ -89,5 +88,34 @@ describe('the selected-state animation is real, not just an instant color swap',
   it('Stress lights exactly N rings for level N (a real count, not a fixed-tightness pattern)', () => {
     expect(STRESS).toContain('litCount');
     expect(STRESS).not.toContain('ringRadii'); // the old fixed-3-rings-always function is gone
+  });
+});
+
+describe('Stress (CompressingRings.tsx): one on-palette hue for every option, magnitude via intensity/ring-density only, never hue (UX audit item 7)', () => {
+  const LOCKED_PALETTE = ['#1B3A2D', '#C4A050', '#F5F0E4'];
+
+  it('no longer imports or references STRESS_RAMP/rampColorAt — the two-hue-family ramp is gone, not just hidden', () => {
+    expect(STRESS).not.toContain('STRESS_RAMP');
+    expect(STRESS).not.toContain('rampColorAt');
+  });
+
+  it('defines a single fixed STRESS_SOLID hex constant, not a template built from ramp channels', () => {
+    expect(STRESS).toMatch(/const STRESS_SOLID = '#[0-9A-Fa-f]{6}'/);
+  });
+
+  it('STRESS_SOLID is one of the three locked brand colors', () => {
+    const match = STRESS.match(/const STRESS_SOLID = '(#[0-9A-Fa-f]{6})'/);
+    expect(match).not.toBeNull();
+    expect(LOCKED_PALETTE).toContain(match![1]!.toUpperCase());
+  });
+
+  it('both the selected card fill and the unselected accent dot reference the same STRESS_SOLID constant — no second color anywhere', () => {
+    expect(STRESS).toMatch(/backgroundColor:\s*STRESS_SOLID/);
+    expect(STRESS).toMatch(/backgroundColor:\s*isSelected \? '#FFFFFF' : STRESS_SOLID/);
+  });
+
+  it('magnitude is conveyed by a computed opacity that varies with index, not by a per-index color', () => {
+    expect(STRESS).toContain('accentOpacity');
+    expect(STRESS).toMatch(/MIN_ACCENT_OPACITY \+ \(index/);
   });
 });

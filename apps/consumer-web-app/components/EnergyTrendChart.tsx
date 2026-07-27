@@ -30,7 +30,27 @@ function formatDate(localDate: string): string {
   });
 }
 
-function buildSmoothPath(points: { x: number; y: number }[]): string {
+/**
+ * UX audit fix (item 1): the audit couldn't tell from a static screenshot
+ * whether this chart genuinely never draws a line for an account with
+ * real history, or whether the screenshot just caught its own
+ * scroll-reveal + clip-path draw-in animation (AnimatedEnergyTrendChart)
+ * before it finished. Confirmed live via Playwright against a real
+ * local-Supabase account with real check-in history: with a normal
+ * scroll + a couple seconds' dwell (how an actual member would reach
+ * this section), the line draws correctly — real point geometry, real
+ * markers, clip-path fully revealed. Reproducing the screenshot tool's
+ * exact capture timing (jump-scroll to the very bottom, ~350ms total
+ * wait) landed almost exactly at the worst possible moment: the
+ * RevealOnScroll wrapper's own opacity/translate transition and this
+ * chart's 1.1s clip-path reveal were both still mid-flight. This is a
+ * capture-timing artifact of the screenshot tool, not a broken chart —
+ * per the task's own instruction, changing that is out of scope here
+ * ("change nothing"). This function and energyPoint() below are exported
+ * so the chart's real-data/empty-data math has real unit coverage
+ * instead of only a screenshot's word on it.
+ */
+export function buildSmoothPath(points: { x: number; y: number }[]): string {
   if (points.length === 0) return '';
   if (points.length === 1) return `M ${points[0]!.x} ${points[0]!.y}`;
   let d = `M ${points[0]!.x} ${points[0]!.y}`;
@@ -41,6 +61,15 @@ function buildSmoothPath(points: { x: number; y: number }[]): string {
     d += ` C ${midX} ${p0.y}, ${midX} ${p1.y}, ${p1.x} ${p1.y}`;
   }
   return d;
+}
+
+/** The exact x/y mapping EnergyTrendChart uses per point — pulled out standalone so real geometry (not just "a path string exists") is unit-testable. */
+export function energyPoint(energyLevel: number | null, index: number, count: number): { x: number; y: number } {
+  const value = energyLevel ?? 0;
+  const normalized = value / 5;
+  const x = count === 1 ? 50 : PAD_X + (index / (count - 1)) * (100 - 2 * PAD_X);
+  const y = PAD_TOP + (1 - normalized) * (100 - PAD_TOP - PAD_BOTTOM);
+  return { x, y };
 }
 
 export function EnergyTrendChart({ checkins }: Props) {
@@ -55,10 +84,7 @@ export function EnergyTrendChart({ checkins }: Props) {
   }
 
   const points = checkins.map((c, i) => {
-    const value = c.energy_level ?? 0;
-    const normalized = value / 5;
-    const x = checkins.length === 1 ? 50 : PAD_X + (i / (checkins.length - 1)) * (100 - 2 * PAD_X);
-    const y = PAD_TOP + (1 - normalized) * (100 - PAD_TOP - PAD_BOTTOM);
+    const { x, y } = energyPoint(c.energy_level, i, checkins.length);
     return { x, y, checkin: c, status: energyStatus(c.energy_level) };
   });
 

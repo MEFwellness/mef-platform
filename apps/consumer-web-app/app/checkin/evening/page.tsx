@@ -17,7 +17,6 @@ import {
 } from '@/app/actions/dailyCheckinPlan';
 import { todaysLocalDate } from '@/lib/time/localDate';
 import { AvatarLink } from '@/components/AvatarLink';
-import { CheckInModeSwitch } from '@/components/checkin/CheckInModeSwitch';
 import { EveningReflectionForm } from './EveningReflectionForm';
 
 export default async function EveningReflectionPage() {
@@ -61,12 +60,6 @@ export default async function EveningReflectionPage() {
           </h1>
           <AvatarLink firstName={firstName} />
         </div>
-        <p className="mt-1.5 text-[15px] leading-relaxed text-[#6B7A72]">
-          {existing
-            ? "You've already reflected on today. Update anything below."
-            : 'A short close to the day. Available any time, morning or night. Your Morning Readiness never depends on this.'}
-        </p>
-        <CheckInModeSwitch active="evening" />
 
         <EveningReflectionForm
           existing={existing}
