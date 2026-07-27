@@ -357,8 +357,20 @@ export function CheckinForm({
           severityValue={severity}
           onSeverityChange={(value) => {
             setSeverity(value);
+            // 2026-07-27 fix: this used to also clear painLocation here,
+            // which reset the "Where is it, mainly?" answer any time
+            // severity dropped below PAIN_FOLLOWUP_THRESHOLD — reproducible
+            // by tapping a location, then a low severity level, and
+            // watching the location deselect. Location and severity are
+            // two independent answers now (this is exactly what the
+            // 2026-07-26 redesign made them); location must never be
+            // cleared by a severity change in either direction. Only the
+            // pain-aggravating-factor follow-up's own answer is cleared
+            // here, since that follow-up genuinely stops being asked (and
+            // disappears from the screen) once severity drops below the
+            // threshold — clearing its own now-orphaned answer is not the
+            // same bug as clearing a sibling question's answer.
             if (value < PAIN_FOLLOWUP_THRESHOLD) {
-              setPainLocation(null);
               setPainAggravatingFactor(null);
             }
           }}

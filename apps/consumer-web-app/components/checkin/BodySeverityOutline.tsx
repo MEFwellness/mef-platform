@@ -21,6 +21,20 @@
  * task applied to Energy/Stress. locationValue/onLocationChange/
  * severityValue/onSeverityChange/severityLabels are unchanged, so
  * every existing field this writes to is untouched.
+ *
+ * 2026-07-27 fixes (two):
+ * (a) a leftover instructional line from the removed silhouette ("Where
+ *     is it? Tap a spot below...") duplicated StackedOptionRows' own
+ *     "Where is it, mainly?" question right above it, and still
+ *     referenced "tap a spot" — meaningless once the silhouette was
+ *     gone. Deleted; one clear question remains.
+ * (b) location and severity were not actually independent — the caller
+ *     (CheckinForm.tsx's onSeverityChange) was clearing painLocation
+ *     whenever severity dropped below PAIN_FOLLOWUP_THRESHOLD, so
+ *     tapping a location then a low severity level silently cleared the
+ *     location. Fixed at the call site, not in this component (this
+ *     component never owned or reset either value itself) — see
+ *     CheckinForm.tsx's own comment on `onSeverityChange`.
  */
 
 import { useEffect, useState } from 'react';
@@ -104,17 +118,12 @@ export function BodySeverityOutline({
 }) {
   return (
     <div>
-      <p className="text-[13px] leading-relaxed text-[#6B7A72]">
-        Where is it? Tap a spot below, then set how much it bothers you.
-      </p>
-      <div className="mt-3">
-        <StackedOptionRows
-          question="Where is it, mainly?"
-          options={HOTSPOT_OPTIONS}
-          value={locationValue}
-          onChange={onLocationChange}
-        />
-      </div>
+      <StackedOptionRows
+        question="Where is it, mainly?"
+        options={HOTSPOT_OPTIONS}
+        value={locationValue}
+        onChange={onLocationChange}
+      />
 
       {locationValue && (
         <div className="mt-5">
