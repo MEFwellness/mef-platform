@@ -1,14 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { Smile, Moon, HeartPulse, MessageCircle, CheckCircle2, type LucideIcon } from 'lucide-react';
-import {
-  submitDailyCheckin,
-  logHabitCompletion,
-  markEveningReminderShown,
-} from '@/app/actions/checkin';
+import { submitDailyCheckin, saveDailyCheckinDraft, logHabitCompletion } from '@/app/actions/checkin';
 import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
 import { PAIN_FOLLOWUP_THRESHOLD } from '@/lib/daily-checkin-adaptive/constants';
 import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
@@ -16,7 +12,6 @@ import { morningScreenForQuestion, type MorningScreenKey } from '@/lib/daily-che
 import { groupUnitsIntoScreens, isScreenComplete, type CheckinUnit } from '@/lib/daily-checkin-adaptive/wizardUnits';
 import type { DriverProbeQuestion } from '@/lib/daily-checkin-adaptive/types';
 import { getTodaysHydrationTotal } from '@/app/actions/events';
-import { EveningReminderModal } from '@/components/checkin/EveningReminderModal';
 import { DriverProbeField, type ProbeAnswerValue } from '@/components/checkin/DriverProbeField';
 import { CheckinWizard } from '@/components/checkin/CheckinWizard';
 import { FiveFacesScale } from '@/components/checkin/scales/FiveFacesScale';
@@ -44,6 +39,7 @@ const SPECIALLY_HANDLED_QUESTION_KEYS = new Set([
   'checkin_probe.night_sweats',
   'checkin_probe.bowel_movement_status',
   'checkin_probe.morning_soreness',
+  'checkin_probe.digestion_rating',
   'checkin_probe.pain_location',
   'checkin_probe.pain_aggravating_factor',
 ]);
@@ -56,7 +52,6 @@ type Props = {
   initialHabitLogs: Record<string, boolean>;
   /** True only on this member's very first check-in ever — switches the whole flow into cinematic (one question per screen, full ceremony) mode and shows the one-time intro above the first question. */
   isFirstCheckin: boolean;
-  eveningReminderAlreadyShown: boolean;
   rotatingProbes: DriverProbeQuestion[];
   localFollowUps: DriverProbeQuestion[];
   initialProbeAnswers: Record<string, unknown>;
@@ -112,7 +107,6 @@ export function CheckinForm({
   habits,
   initialHabitLogs,
   isFirstCheckin,
-  eveningReminderAlreadyShown,
   rotatingProbes,
   localFollowUps,
   initialProbeAnswers,
@@ -124,6 +118,8 @@ export function CheckinForm({
     rotatingProbes.find((q) => q.questionKey === 'checkin_probe.night_sweats') ?? null;
   const bowelMovementQuestion =
     rotatingProbes.find((q) => q.questionKey === 'checkin_probe.bowel_movement_status') ?? null;
+  const digestionQuestion =
+    rotatingProbes.find((q) => q.questionKey === 'checkin_probe.digestion_rating') ?? null;
 
   const genericRotatingProbes = rotatingProbes.filter((q) => !SPECIALLY_HANDLED_QUESTION_KEYS.has(q.questionKey));
 
@@ -141,16 +137,15 @@ export function CheckinForm({
     setProbeAnswers((prev) => ({ ...prev, [questionKey]: value }));
   }
 
-  const eligibleLocalFollowUps = localFollowUps.filter(
-    (question) =>
-      !SPECIALLY_HANDLED_QUESTION_KEYS.has(question.questionKey) &&
-      isLocalFollowUpEligible(question, probeAnswers)
-  );
-
   const router = useRouter();
+  // Elapsed-time instrumentation (task requirement 3): captured once, at
+  // this component's first render — as close to "first screen render" as
+  // this app gets without a rendering harness — and read only at
+  // submission. A draft (exit) save never reads this; only a genuine
+  // final submission is timed.
+  const startTimeRef = useRef<number>(Date.now());
   const [screenIndex, setScreenIndex] = useState(0);
   const [furthestScreenIndex, setFurthestScreenIndex] = useState(0);
-  const [showEveningReminder, setShowEveningReminder] = useState(false);
   const [showEnding, setShowEnding] = useState(false);
   const [moodLevel, setMoodLevel] = useState<number | null>(existingCheckin?.mood_level ?? null);
   const [sleepQuality, setSleepQuality] = useState<number | null>(existingCheckin?.sleep_quality ?? null);
@@ -165,8 +160,20 @@ export function CheckinForm({
   );
   const painLevel = severity;
   const morningSoreness = severity === null ? null : Math.max(severity, 1);
-  const [painLocation, setPainLocation] = useState<string | null>(null);
-  const [painAggravatingFactor, setPainAggravatingFactor] = useState<string | null>(null);
+  // Resuming after an exit must never discard answers (task requirement
+  // 1) — these two live in daily_checkin_probe_answers, so they arrive
+  // through initialProbeAnswers like any other generic probe answer,
+  // never seeded before this pass.
+  const [painLocation, setPainLocation] = useState<string | null>(
+    typeof initialProbeAnswers['checkin_probe.pain_location'] === 'string'
+      ? (initialProbeAnswers['checkin_probe.pain_location'] as string)
+      : null
+  );
+  const [painAggravatingFactor, setPainAggravatingFactor] = useState<string | null>(
+    typeof initialProbeAnswers['checkin_probe.pain_aggravating_factor'] === 'string'
+      ? (initialProbeAnswers['checkin_probe.pain_aggravating_factor'] as string)
+      : null
+  );
   const [concern, setConcern] = useState(existingCheckin?.new_or_worsening_concern ?? false);
   const [notes, setNotes] = useState(existingCheckin?.optional_notes ?? '');
   const [nothingToAdd, setNothingToAdd] = useState(false);
@@ -182,6 +189,29 @@ export function CheckinForm({
   const [nightSweats, setNightSweats] = useState<boolean | null>(existingCheckin?.night_sweats ?? null);
   const [bowelMovementStatus, setBowelMovementStatus] = useState<BowelMovementStatus | null>(
     existingCheckin?.bowel_movement_status ?? null
+  );
+  const [digestionRating, setDigestionRating] = useState<number | null>(
+    existingCheckin?.digestion_rating ?? null
+  );
+
+  // A follow-up's `requires` may reference a specially-handled field (e.g.
+  // digestive_symptom_type requires checkin_probe.digestion_rating <= 2,
+  // and digestion_rating writes to its own dailyCheckinsColumn state, not
+  // probeAnswers) — merge in the specially-handled answers so eligibility
+  // sees the real current value without also duplicating it into
+  // probeAnswers (and, downstream, into a second submitProbeAnswerAction write).
+  const answeredIncludingSpecialFields = useMemo(
+    () => ({
+      ...probeAnswers,
+      ...(digestionRating !== null ? { 'checkin_probe.digestion_rating': digestionRating } : {}),
+    }),
+    [probeAnswers, digestionRating]
+  );
+
+  const eligibleLocalFollowUps = localFollowUps.filter(
+    (question) =>
+      !SPECIALLY_HANDLED_QUESTION_KEYS.has(question.questionKey) &&
+      isLocalFollowUpEligible(question, answeredIncludingSpecialFields)
   );
 
   const mode = isFirstCheckin ? ('cinematic' as const) : ('section' as const);
@@ -374,6 +404,29 @@ export function CheckinForm({
       });
     }
 
+    // Folded back from Evening Reflection into the morning rotation
+    // (migration 113, task requirement 2) — daily_checkins_column
+    // storage, same reason night_waking_count/bowel_movement_status/etc.
+    // above are specially handled rather than routed through
+    // genericRotatingProbes: its answer must land in a real
+    // daily_checkins column via submitDailyCheckin, not the generic
+    // probe_answer table.
+    if (digestionQuestion) {
+      list.push({
+        key: digestionQuestion.questionKey,
+        section: 'body',
+        required: false,
+        answered: digestionRating !== null,
+        render: () => (
+          <DriverProbeField
+            question={digestionQuestion}
+            value={digestionRating}
+            onChange={(value) => setDigestionRating(typeof value === 'number' ? value : null)}
+          />
+        ),
+      });
+    }
+
     if (habits.length > 0) {
       list.push({
         key: 'habits',
@@ -471,6 +524,7 @@ export function CheckinForm({
     painLocation,
     painAggravatingFactor,
     bowelMovementStatus,
+    digestionRating,
     concern,
     notes,
     nothingToAdd,
@@ -501,15 +555,9 @@ export function CheckinForm({
 
   const warmth = computeWarmth({ mood: moodLevel, energy: energyLevel, stress: stressLevel });
 
-  async function performSave() {
-    setError('');
-    if (actualBedtime === '' || actualWakeTime === '' || moodLevel === null || energyLevel === null || stressLevel === null) {
-      setError('Please add your bedtime, wake time, mood, energy, and stress before saving.');
-      return;
-    }
-    setSubmitting(true);
-
-    const input: DailyCheckinInput = {
+  /** Every field currently entered, as a DailyCheckinInput — shared by the real submit (completion_seconds set, validated first) and the exit-triggered draft save (completion_seconds always null, never validated: whatever's filled is saved as-is). */
+  async function buildCurrentInput(completionSeconds: number | null): Promise<DailyCheckinInput> {
+    return {
       timezone,
       local_date: localDate,
       mood_level: moodLevel,
@@ -518,7 +566,7 @@ export function CheckinForm({
       energy_level: energyLevel,
       stress_level: stressLevel,
       water_cups: await getTodaysHydrationTotal(),
-      digestion_rating: existingCheckin?.digestion_rating ?? null,
+      digestion_rating: digestionRating,
       pain_discomfort_level: painLevel,
       movement_today: existingCheckin?.movement_today ?? null,
       new_or_worsening_concern: concern,
@@ -529,10 +577,11 @@ export function CheckinForm({
       night_sweats: nightSweats,
       morning_soreness: morningSoreness,
       bowel_movement_status: bowelMovementStatus,
+      completion_seconds: completionSeconds,
     };
+  }
 
-    const result = await submitDailyCheckin(input);
-
+  async function submitProbeAndFollowUpAnswers() {
     if (painLocation) {
       await submitProbeAnswerAction(localDate, 'checkin_probe.pain_location', painLocation);
     }
@@ -542,6 +591,20 @@ export function CheckinForm({
     await Promise.all(
       Object.entries(probeAnswers).map(([questionKey, value]) => submitProbeAnswerAction(localDate, questionKey, value))
     );
+  }
+
+  async function performSave() {
+    setError('');
+    if (actualBedtime === '' || actualWakeTime === '' || moodLevel === null || energyLevel === null || stressLevel === null) {
+      setError('Please add your bedtime, wake time, mood, energy, and stress before saving.');
+      return;
+    }
+    setSubmitting(true);
+
+    const completionSeconds = Math.max(0, Math.round((Date.now() - startTimeRef.current) / 1000));
+    const input = await buildCurrentInput(completionSeconds);
+    const result = await submitDailyCheckin(input);
+    await submitProbeAndFollowUpAnswers();
 
     setSubmitting(false);
 
@@ -550,18 +613,29 @@ export function CheckinForm({
       return;
     }
 
-    if (!eveningReminderAlreadyShown) {
-      setShowEveningReminder(true);
-      return;
-    }
-
     setShowEnding(true);
   }
 
-  async function acknowledgeEveningReminder() {
-    setShowEveningReminder(false);
-    await markEveningReminderShown();
-    setShowEnding(true);
+  /**
+   * Navigation fix (task requirement 1): "exiting mid-check-in saves
+   * progress and resumes on return. Never discard answers." Saves
+   * whatever's currently filled as a draft (no validation, completion_seconds
+   * always null — this is not a timed completion) and returns her to Home,
+   * where she came from.
+   */
+  async function saveProgressAndExit() {
+    const input = await buildCurrentInput(null);
+    await saveDailyCheckinDraft(input);
+    await submitProbeAndFollowUpAnswers();
+    router.push('/dashboard' as Route);
+  }
+
+  function handleContinue() {
+    if (clampedIndex === screenCount - 1) {
+      performSave();
+      return;
+    }
+    goNext();
   }
 
   function continueToResult() {
@@ -604,6 +678,10 @@ export function CheckinForm({
           furthestScreenIndex={Math.min(furthestScreenIndex, screenCount - 1)}
           onBack={goBack}
           onSelectScreen={goToScreenClamped}
+          onExit={saveProgressAndExit}
+          onContinue={handleContinue}
+          continueLabel={isLastScreen ? (submitting ? 'Saving…' : existingCheckin ? 'Update check-in' : 'Save check-in') : 'Continue'}
+          continueDisabled={isLastScreen ? submitting : !screenComplete}
           renderScreen={(index) => {
             const screen = screens[index] ?? [];
             const section = sectionKeyForScreen(index);
@@ -630,29 +708,16 @@ export function CheckinForm({
                     {unit.render()}
                   </div>
                 ))}
-                {isLastScreen && index === screenCount - 1 && (
-                  <>
-                    {error && (
-                      <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {error}
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={performSave}
-                      disabled={submitting}
-                      className="mef-press flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition-all duration-200 ease-out hover:brightness-110 disabled:opacity-60"
-                    >
-                      {submitting ? 'Saving…' : existingCheckin ? 'Update check-in' : 'Save check-in'}
-                    </button>
-                  </>
+                {isLastScreen && index === screenCount - 1 && error && (
+                  <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                  </p>
                 )}
               </div>
             );
           }}
         />
       </div>
-      {showEveningReminder && <EveningReminderModal onAcknowledge={acknowledgeEveningReminder} />}
     </>
   );
 }

@@ -67,12 +67,10 @@ export async function resolveLocalDate(
 
 // ---- Check-in read/write ----
 
-export async function submitDailyCheckin(input: DailyCheckinInput): Promise<ActionResult> {
-  const supabase = createClient();
-  const user = await getCachedUser();
-
-  if (!user) return { error: 'Not signed in.' };
-
+async function insertCheckinRow(
+  supabase: ReturnType<typeof createClient>,
+  input: DailyCheckinInput
+): Promise<{ id: string | null; error: string | null }> {
   const { data: newCheckinId, error } = await supabase.rpc('submit_daily_checkin', {
     p_timezone: input.timezone,
     p_local_date: input.local_date,
@@ -93,9 +91,22 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
     p_night_sweats: input.night_sweats,
     p_morning_soreness: input.morning_soreness,
     p_bowel_movement_status: input.bowel_movement_status,
+    p_completion_seconds: input.completion_seconds,
   });
 
-  if (error) return { error: error.message };
+  if (error) return { id: null, error: error.message };
+  return { id: newCheckinId as string, error: null };
+}
+
+export async function submitDailyCheckin(input: DailyCheckinInput): Promise<ActionResult> {
+  const supabase = createClient();
+  const user = await getCachedUser();
+
+  if (!user) return { error: 'Not signed in.' };
+
+  const { id: newCheckinId, error } = await insertCheckinRow(supabase, input);
+
+  if (error) return { error };
 
   // Member Wellness Event Stream — a completed Morning Readiness check-in
   // is one of the five standardized events every check-in-adjacent
@@ -213,22 +224,72 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
 }
 
 /**
- * Digestion and movement are asked at the end of the day, not first thing
- * in the morning (Premium UX polish milestone) — a member can only
- * honestly answer "how much did I move today" and "how did digestion
- * feel today" once the day has actually happened. Both fields still live
- * on the same daily_checkins row Morning Readiness writes to (unchanged
- * schema, unchanged scoring: lib/wellness/wellness-index.ts and the
- * coaching-insights sources that read them are untouched), so this
- * fetches today's existing row (if Morning Readiness was already
- * submitted) and resubmits it through the exact same submitDailyCheckin
- * path with only these two fields overridden — every other field, and
- * every side effect (events, AI facts, Root Score), stays identical to a
- * normal check-in save. If Morning Readiness was never submitted today,
- * this still creates a valid row: only new_or_worsening_concern is
- * required at the database level, everything else the member never got
- * to (mood, sleep, and so on) is simply null, same as any partially
- * answered day.
+ * Navigation fix (task requirement 1): "exiting mid-check-in saves
+ * progress and resumes on return. Never discard answers." Writes a real
+ * versioned row via the exact same RPC submitDailyCheckin uses (whatever
+ * fields are filled so far, null for the rest — the RPC already allows
+ * this, only new_or_worsening_concern is non-nullable at the database
+ * level), but deliberately skips every "this check-in genuinely
+ * happened" side effect that function fires: no
+ * morning_readiness_recorded event, no AI event/facts dispatch, no Root
+ * Score recalculation. An exit is not a completion, and firing those
+ * would tell the rest of the app (streaks, coaching dispatch, Root Score)
+ * that today's check-in finished when it didn't. Safety screening is the
+ * one exception kept — a concerning note typed before exiting is still
+ * screened, since that discipline is never skipped anywhere else in this
+ * app either. completion_seconds is always null on a draft; only a real
+ * final submission is timed.
+ */
+export async function saveDailyCheckinDraft(
+  input: Omit<DailyCheckinInput, 'completion_seconds'>
+): Promise<ActionResult> {
+  const supabase = createClient();
+  const user = await getCachedUser();
+  if (!user) return { error: 'Not signed in.' };
+
+  const { error } = await insertCheckinRow(supabase, { ...input, completion_seconds: null });
+  if (error) return { error };
+
+  try {
+    if (input.optional_notes || input.new_or_worsening_concern) {
+      await evaluateConcern(supabase, {
+        memberId: user.id,
+        sourceFeature: 'daily_checkin',
+        sourceRecordType: 'daily_checkin',
+        text: input.optional_notes,
+        newOrWorseningConcern: input.new_or_worsening_concern,
+      });
+    }
+  } catch (safetyError) {
+    console.error('Safety classification failed for saveDailyCheckinDraft', safetyError);
+  }
+
+  return {};
+}
+
+/**
+ * Movement leaves the check-in entirely (task requirement 4) — it's now a
+ * quick tap on the Today screen (components/checkin/MovementLevelTracker.tsx),
+ * loggable any time, not asked in either check-in form. digestion_rating
+ * moved the other direction (folded back into the morning rotation pool,
+ * migration 113) so this function no longer sets it directly; callers
+ * always pass the member's own existing value through unchanged so a
+ * movement tap can never clobber an already-answered digestion question.
+ * movement_today still lives on the same daily_checkins row Morning
+ * Readiness writes to (unchanged schema, unchanged scoring:
+ * lib/wellness/wellness-index.ts and the coaching-insights sources that
+ * read it are untouched), so this fetches today's existing row (if
+ * Morning Readiness was already submitted) and resubmits it through the
+ * exact same submitDailyCheckin path with only movement_today overridden
+ * — every other field, and every side effect (events, AI facts, Root
+ * Score), stays identical to a normal check-in save. If Morning Readiness
+ * was never submitted today, this still creates a valid row: only
+ * new_or_worsening_concern is required at the database level, everything
+ * else the member never got to (mood, sleep, and so on) is simply null,
+ * same as any partially answered day. water_cups is re-read live on every
+ * call (never a stale carried-over number), which is also what makes a
+ * Today water tap survive an in-between check-in submission unclobbered
+ * (requirement 4's "must not be overwritten").
  */
 export async function submitEveningBodyCheckin(
   localDate: string,
@@ -258,6 +319,7 @@ export async function submitEveningBodyCheckin(
     night_sweats: existing?.night_sweats ?? null,
     morning_soreness: existing?.morning_soreness ?? null,
     bowel_movement_status: existing?.bowel_movement_status ?? null,
+    completion_seconds: existing?.completion_seconds ?? null,
   };
 
   return submitDailyCheckin(input);
@@ -374,23 +436,3 @@ export async function getHabitLogsForDate(localDate: string): Promise<Record<str
   return Object.fromEntries(data.map((log) => [log.habit_id, log.completed]));
 }
 
-/**
- * Marks the one-time "come back for Evening Reflection" reminder as shown
- * (profiles.evening_reflection_reminder_shown_at, migration 87) so it
- * never interrupts a later Morning Readiness check-in. Relies entirely on
- * member_update_own_profile (id = auth.uid()), same as every other
- * profiles write in this app. There is no separate authorization check.
- */
-export async function markEveningReminderShown(): Promise<ActionResult> {
-  const supabase = createClient();
-  const user = await getCachedUser();
-  if (!user) return { error: 'Not signed in.' };
-
-  const { error } = await supabase
-    .from('profiles')
-    .update({ evening_reflection_reminder_shown_at: new Date().toISOString() })
-    .eq('id', user.id);
-
-  if (error) return { error: error.message };
-  return {};
-}

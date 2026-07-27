@@ -9,7 +9,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getTodaysEveningReflection, getTomorrowsForecastPrediction } from '@/app/actions/eveningReflection';
-import { getTodaysCheckin, getRecentCheckins } from '@/app/actions/checkin';
+import { getRecentCheckins } from '@/app/actions/checkin';
 import {
   getTodaysCheckinPlanAction,
   getLocalFollowUpQuestionsAction,
@@ -35,10 +35,9 @@ export default async function EveningReflectionPage() {
   const timezone = profile?.timezone ?? 'America/New_York';
   const localDate = todaysLocalDate(timezone);
 
-  const [existing, todaysCheckin, checkinPlan, localFollowUps, initialProbeAnswers, existingForecastLevel, priorCheckins] =
+  const [existing, checkinPlan, localFollowUps, initialProbeAnswers, existingForecastLevel, priorCheckins] =
     await Promise.all([
       getTodaysEveningReflection(),
-      getTodaysCheckin(localDate),
       getTodaysCheckinPlanAction(localDate),
       getLocalFollowUpQuestionsAction('evening'),
       getProbeAnswersForDateAction(localDate),
@@ -72,8 +71,6 @@ export default async function EveningReflectionPage() {
         <EveningReflectionForm
           existing={existing}
           localDate={localDate}
-          timezone={timezone}
-          todaysCheckin={todaysCheckin}
           rotatingProbes={rotatingProbes}
           localFollowUps={localFollowUps}
           initialProbeAnswers={initialProbeAnswers}

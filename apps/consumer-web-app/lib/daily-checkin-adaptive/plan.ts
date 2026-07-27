@@ -8,7 +8,6 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { selectBatch } from '../adaptive-assessment-engine/select';
 import { fetchLatestMemberGoalSelection } from '../member-goals/data';
 import { listDriverGoalWeights, listMemberDriverStates } from '../driver-library/data';
 import type { DriverState } from '../driver-library/types';
@@ -19,7 +18,7 @@ import {
   listActiveDriverProbeQuestions,
   recordPlanSelections,
 } from './data';
-import { buildProbeBank } from './probeBank';
+import { buildProbeBank, followUpParentKeys, selectRotatingProbesWithBudget } from './probeBank';
 import type { DriverProbeQuestion, TodaysCheckinPlan } from './types';
 import { wearableSuppliedQuestionKeys } from './wearableSupply';
 
@@ -53,7 +52,7 @@ async function computeFreshPlan(
     todayLocalDate: localDate,
   });
 
-  const picks = selectBatch(bank, {}, [], ROTATING_PROBE_TARGET_COUNT, random);
+  const picks = selectRotatingProbesWithBudget(bank, followUpParentKeys(questions), ROTATING_PROBE_TARGET_COUNT, random);
   const questionsByKey = new Map(questions.map((q) => [q.questionKey, q]));
   const rotatingProbes = picks
     .map((pick) => questionsByKey.get(pick.question_key))

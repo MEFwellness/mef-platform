@@ -5,6 +5,7 @@
  */
 
 import type { AdaptiveQuestion } from '../adaptive-assessment-engine/types';
+import { selectNext } from '../adaptive-assessment-engine/select';
 import type { DriverState } from '../driver-library/types';
 import type { DriverGoalWeight } from '../driver-library/types';
 import { goalWeightScoreForDriver } from '../driver-library/weighting';
@@ -79,4 +80,55 @@ export function buildProbeBank(inputs: ProbeBankInputs): AdaptiveQuestion[] {
   }
 
   return bank;
+}
+
+/**
+ * Every question_key that some active local follow-up (driver_id null,
+ * non-empty `requires`) is gated on — i.e. a rotating probe whose key
+ * appears here might, depending on today's answer, reveal one more
+ * question beyond itself. Used only to price a pick against the daily
+ * budget (see selectRotatingProbesWithBudget below), never to change
+ * which questions are eligible.
+ */
+export function followUpParentKeys(questions: readonly DriverProbeQuestion[]): Set<string> {
+  const keys = new Set<string>();
+  for (const question of questions) {
+    if (question.driverId !== null || question.requires.length === 0) continue;
+    for (const rule of question.requires) keys.add(rule.question_key);
+  }
+  return keys;
+}
+
+/**
+ * 60-second-ceiling pass (task requirement 3): "follow-up probes still
+ * fire, but count toward the daily ceiling rather than sitting outside
+ * it." Spends `budget` as units rather than picks — a probe with no known
+ * local follow-up costs 1 unit, a probe that IS a known follow-up parent
+ * costs 2 (itself + a reserved unit for the follow-up it might reveal),
+ * so the day's *possible* total (rotating probes + any follow-up that
+ * actually triggers) never exceeds MAX_DAILY_QUESTIONS, regardless of
+ * whether today's answer happens to trigger it. Stops once the bank runs
+ * dry or spending one more unit would go negative.
+ */
+export function selectRotatingProbesWithBudget<T extends AdaptiveQuestion>(
+  bank: readonly T[],
+  parentKeysWithFollowUp: ReadonlySet<string>,
+  budget: number,
+  random: () => number = Math.random
+): T[] {
+  const picks: T[] = [];
+  const exclude = new Set<string>();
+  let remaining = budget;
+
+  while (remaining > 0) {
+    const next = selectNext(bank, {}, exclude, random);
+    if (!next) break;
+    const cost = parentKeysWithFollowUp.has(next.question_key) ? 2 : 1;
+    if (cost > remaining) break;
+    picks.push(next);
+    exclude.add(next.question_key);
+    remaining -= cost;
+  }
+
+  return picks;
 }

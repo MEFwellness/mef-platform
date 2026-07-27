@@ -40,6 +40,8 @@ export type EveningReflectionFormInput = {
    * same-day resubmission.
    */
   predictedEnergyLevel: number | null;
+  /** Elapsed seconds from the wizard's first screen render to submission. Null on a draft (exit-triggered) save — see saveEveningReflectionDraft. */
+  completion_seconds: number | null;
 };
 
 async function requireMemberTimezone(
@@ -92,20 +94,13 @@ export async function getTodaysEveningReflection(
   return data as EveningReflection | null;
 }
 
-/**
- * Available at any time of day — no hour lock, no gate. Upserts on
- * (member_id, local_date) so re-opening and re-saving the same day's
- * reflection updates it in place rather than creating a duplicate.
- */
-export async function submitEveningReflection(
-  input: EveningReflectionFormInput
-): Promise<ActionResult> {
-  const supabase = createClient();
-  const ctx = await requireMemberTimezone(supabase);
-  if (!ctx) return { error: 'Not signed in.' };
-
-  const localDate = todaysLocalDate(ctx.timezone);
-
+async function upsertEveningReflectionRow(
+  supabase: ReturnType<typeof createClient>,
+  ctx: { memberId: string; timezone: string },
+  localDate: string,
+  input: EveningReflectionFormInput,
+  completionSeconds: number | null
+): Promise<{ reflection: EveningReflection | null; error: string | null }> {
   const { data: saved, error } = await supabase
     .from('evening_reflections')
     .upsert(
@@ -120,6 +115,7 @@ export async function submitEveningReflection(
           ? input.symptomsOrChanges.trim()
           : null,
         recovery: input.recovery,
+        completion_seconds: completionSeconds,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'member_id,local_date' }
@@ -127,10 +123,26 @@ export async function submitEveningReflection(
     .select('*')
     .single();
 
-  if (error || !saved)
-    return { error: error?.message ?? 'Failed to save your Evening Reflection.' };
+  if (error || !saved) return { reflection: null, error: error?.message ?? 'Failed to save your Evening Reflection.' };
+  return { reflection: saved as EveningReflection, error: null };
+}
 
-  const reflection = saved as EveningReflection;
+/**
+ * Available at any time of day — no hour lock, no gate. Upserts on
+ * (member_id, local_date) so re-opening and re-saving the same day's
+ * reflection updates it in place rather than creating a duplicate.
+ */
+export async function submitEveningReflection(
+  input: EveningReflectionFormInput
+): Promise<ActionResult> {
+  const supabase = createClient();
+  const ctx = await requireMemberTimezone(supabase);
+  if (!ctx) return { error: 'Not signed in.' };
+
+  const localDate = todaysLocalDate(ctx.timezone);
+
+  const { reflection, error } = await upsertEveningReflectionRow(supabase, ctx, localDate, input, input.completion_seconds);
+  if (error || !reflection) return { error: error ?? 'Failed to save your Evening Reflection.' };
 
   try {
     await recordMemberEvent(supabase, {
@@ -177,6 +189,55 @@ export async function submitEveningReflection(
     await recordForecastsFromEveningReflection(supabase, ctx.memberId, localDate, input.predictedEnergyLevel);
   } catch (forecastError) {
     console.error('Forecast recording failed for submitEveningReflection', forecastError);
+  }
+
+  return {};
+}
+
+/**
+ * Navigation fix (task requirement 1): "exiting mid-check-in saves
+ * progress and resumes on return." Upserts whatever's currently filled
+ * (completion_seconds always null — a draft is never a timed
+ * completion), but — unlike submitEveningReflection — deliberately skips
+ * the "this genuinely happened" side effects: no evening_reflection_recorded
+ * event, no "Completed an Evening Reflection" timeline entry, and no
+ * forecast recording. The forecast omission matters most: her tomorrow's-
+ * energy prediction is enforced immutable once set (migration 111's own
+ * BEFORE UPDATE trigger), so committing it from a mid-exit draft could
+ * permanently lock in a half-made guess she never meant to finalize.
+ * Safety screening of symptoms_or_changes is the one side effect kept —
+ * never skipped anywhere else in this app either.
+ */
+export async function saveEveningReflectionDraft(
+  input: Omit<EveningReflectionFormInput, 'predictedEnergyLevel' | 'completion_seconds'>
+): Promise<ActionResult> {
+  const supabase = createClient();
+  const ctx = await requireMemberTimezone(supabase);
+  if (!ctx) return { error: 'Not signed in.' };
+
+  const localDate = todaysLocalDate(ctx.timezone);
+
+  const { reflection, error } = await upsertEveningReflectionRow(
+    supabase,
+    ctx,
+    localDate,
+    { ...input, predictedEnergyLevel: null, completion_seconds: null },
+    null
+  );
+  if (error || !reflection) return { error: error ?? 'Failed to save your Evening Reflection.' };
+
+  try {
+    if (input.symptomsOrChanges?.trim()) {
+      await evaluateConcern(supabase, {
+        memberId: ctx.memberId,
+        sourceFeature: 'member_wellness_event',
+        sourceRecordType: 'evening_reflections',
+        sourceRecordId: reflection.id,
+        text: input.symptomsOrChanges,
+      });
+    }
+  } catch (safetyError) {
+    console.error('Safety classification failed for saveEveningReflectionDraft', safetyError);
   }
 
   return {};

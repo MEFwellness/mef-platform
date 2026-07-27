@@ -154,6 +154,8 @@ export interface DailyCheckinInput {
   night_sweats: boolean | null;
   morning_soreness: number | null; // 1-5
   bowel_movement_status: BowelMovementStatus | null;
+  /** Elapsed seconds from the check-in wizard's first screen render to submission. Null/undefined on a draft (exit-triggered) save or any row predating this column. Optional (rather than required like every other field here) so the many existing test fixtures across other subsystems that build a DailyCheckin/DailyCheckinInput literal without it don't all need updating for a field they don't care about. */
+  completion_seconds?: number | null;
 }
 
 export interface DailyCheckin extends DailyCheckinInput {

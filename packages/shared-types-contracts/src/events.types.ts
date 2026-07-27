@@ -75,6 +75,8 @@ export interface EveningReflectionInput {
   energy_pattern: EnergyPattern | null;
   symptoms_or_changes: string | null;
   recovery: number | null;
+  /** Elapsed seconds from the wizard's first screen render to submission. Null/undefined on a draft (exit-triggered) save or any row predating this column. Optional so existing test fixtures elsewhere that build an EveningReflection literal don't all need updating. */
+  completion_seconds?: number | null;
 }
 
 export interface EveningReflection extends EveningReflectionInput {

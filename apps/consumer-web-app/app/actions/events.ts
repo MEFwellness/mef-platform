@@ -28,7 +28,9 @@ import {
 } from '@/lib/events/service';
 import { evaluateConcern } from '@/lib/safety/service';
 import { nowInTimezone, todaysLocalDate } from '@/lib/time/localDate';
+import { getTodaysCheckin, submitEveningBodyCheckin } from './checkin';
 import type { ActionResult } from './auth';
+import type { DailyCheckinInput } from '@mef/shared-types-contracts';
 
 async function requireMemberContext(
   supabase: SupabaseClient,
@@ -146,6 +148,44 @@ export async function getTodaysMovementEvents(): Promise<MemberWellnessEvent[]> 
   const localDate = todaysLocalDate(ctx.timezone);
   const events = await listMemberEventsForDate(supabase, ctx.memberId, localDate);
   return events.filter((e) => e.event_type === 'movement_logged');
+}
+
+// ---- Movement level: the daily_checkins.movement_today quick tap ----
+
+/**
+ * Water and movement leave the check-in entirely (task requirement 4) —
+ * "How much did you move your body today overall?" is now a Today-screen
+ * quick tap, loggable any time, rather than an Evening-only question.
+ * Distinct from logMovementEvent above (which logs discrete walk/stretch/
+ * workout occurrences into the event stream): this writes the same
+ * none/light/moderate/full_session self-rating daily_checkins.movement_today
+ * already stored, via the exact same resubmission path Evening Reflection
+ * used to use for it (submitEveningBodyCheckin — preserves every other
+ * field on today's row, including whatever digestion_rating value the
+ * morning rotation already captured, so a movement tap can never clobber
+ * it or any other answer).
+ */
+export async function logMovementLevel(
+  level: NonNullable<DailyCheckinInput['movement_today']>
+): Promise<ActionResult> {
+  const supabase = createClient();
+  const ctx = await requireMemberContext(supabase);
+  if (!ctx) return { error: 'Not signed in.' };
+
+  const localDate = todaysLocalDate(ctx.timezone);
+  const existing = await getTodaysCheckin(localDate);
+  return submitEveningBodyCheckin(localDate, ctx.timezone, level, existing?.digestion_rating ?? null);
+}
+
+/** Today's movement_today self-rating, if any check-in row exists for today yet — prefills the Today quick tap so re-opening it shows what's already logged instead of resetting. */
+export async function getTodaysMovementLevel(): Promise<DailyCheckinInput['movement_today']> {
+  const supabase = createClient();
+  const ctx = await requireMemberContext(supabase);
+  if (!ctx) return null;
+
+  const localDate = todaysLocalDate(ctx.timezone);
+  const existing = await getTodaysCheckin(localDate);
+  return existing?.movement_today ?? null;
 }
 
 // ---- Mid-day concern flagging ----

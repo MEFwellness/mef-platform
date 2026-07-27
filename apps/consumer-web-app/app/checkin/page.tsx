@@ -27,7 +27,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('display_name, timezone, evening_reflection_reminder_shown_at')
+    .select('display_name, timezone')
     .eq('id', user.id)
     .single();
 
@@ -97,7 +97,6 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
           habits={habits}
           initialHabitLogs={habitLogs}
           isFirstCheckin={isFirstCheckin}
-          eveningReminderAlreadyShown={Boolean(profile?.evening_reflection_reminder_shown_at)}
           rotatingProbes={rotatingProbes}
           localFollowUps={localFollowUps}
           initialProbeAnswers={initialProbeAnswers}

@@ -3,21 +3,24 @@
 /**
  * Evening Reflection — the five things that can't be reliably counted
  * automatically (overall day rating, daytime stress, energy pattern,
- * symptoms/changes, recovery), plus digestion and overall movement,
- * which only became an honest question to ask once the day has actually
- * happened. Its own section grouping (How your day went / Your body /
- * Anything else), sharing the exact same wizard shell, unit model, hero
- * color ramps, and cinematic/section mode toggle as the morning form.
+ * symptoms/changes, recovery). Digestion and movement — the two questions
+ * this form used to also carry — moved elsewhere (task requirements 2 and
+ * 4): digestion_rating folded back into the morning rotation pool so it
+ * keeps a live evidence source for members who never open Evening, and
+ * movement_today became a Today-screen quick tap, loggable any time.
+ * Its own section grouping (How your day went / Anything else), sharing
+ * the exact same wizard shell, unit model, hero color ramps, and
+ * cinematic/section mode toggle as the morning form.
  */
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { HeartPulse, MessageCircle, Sunset } from 'lucide-react';
+import { MessageCircle, Sunset } from 'lucide-react';
 import {
   submitEveningReflection,
+  saveEveningReflectionDraft,
   type EveningReflectionFormInput,
 } from '@/app/actions/eveningReflection';
-import { submitEveningBodyCheckin } from '@/app/actions/checkin';
 import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
 import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
 import { eveningScreenForQuestion, type EveningScreenKey } from '@/lib/daily-checkin-adaptive/screenGrouping';
@@ -30,30 +33,17 @@ import { CompressingRings } from '@/components/checkin/scales/CompressingRings';
 import { EnergyPatternLines } from '@/components/checkin/scales/EnergyPatternLines';
 import { RecoveryFill } from '@/components/checkin/scales/RecoveryFill';
 import { ShortOptionRow } from '@/components/checkin/scales/ShortOptionRow';
-import { StackedOptionRows } from '@/components/checkin/scales/StackedOptionRows';
 import { EndingMoment } from '@/components/checkin/EndingMoment';
 import { TemperatureOverlay, computeWarmth } from '@/components/checkin/TemperatureOverlay';
 import { MOOD_RAMP, STRESS_RAMP, RECOVERY_RAMP } from '@/lib/checkin-color-ramps';
 import { useScreenAutoAdvance } from '@/hooks/useScreenAutoAdvance';
-import type { DailyCheckin, EnergyPattern, EveningReflection } from '@mef/shared-types-contracts';
+import type { EnergyPattern, EveningReflection } from '@mef/shared-types-contracts';
 import type { LucideIcon } from 'lucide-react';
-
-const SPECIALLY_HANDLED_QUESTION_KEYS = new Set([
-  'checkin_probe.digestion_rating',
-  'checkin_probe.movement_today',
-]);
 
 const STRESS_LABELS = ['Very calm', 'Calm', 'Moderate', 'High', 'Overwhelmed'] as const;
 const RATING_LABELS = ['Rough', 'Below average', 'Okay', 'Good', 'Great'] as const;
 const RECOVERY_LABELS = ['Depleted', 'Low', 'Some', 'Good', 'Fully recovered'] as const;
-const DIGESTION_MEANING = ['Poor', 'Somewhat off', 'Fair', 'Good', 'Excellent'] as const;
 const FORECAST_ENERGY_MEANING = ['Exhausted', 'Low', 'Moderate', 'Good', 'High'] as const;
-const MOVEMENT_LEVELS = [
-  { value: 'none', label: 'None' },
-  { value: 'light', label: 'Light' },
-  { value: 'moderate', label: 'Moderate' },
-  { value: 'full_session', label: 'Full session' },
-] as const;
 
 const SECTION_ORDER: EveningScreenKey[] = ['day', 'body', 'other'];
 
@@ -73,17 +63,20 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: LucideIcon; titl
   );
 }
 
+// 'body' has no fixed content of its own anymore (digestion/movement
+// moved elsewhere) but stays in the type/order — groupUnitsIntoScreens
+// already drops a section with zero units, and a future evening-scoped
+// driver probe (a coach could still author one) would need somewhere to
+// land without a code change.
 const SECTION_HEADINGS: Record<EveningScreenKey, { icon: LucideIcon; title: string; subtitle: string }> = {
   day: { icon: Sunset, title: 'How your day went', subtitle: 'Overall shape of the day' },
-  body: { icon: HeartPulse, title: 'Your body', subtitle: 'Easier to answer honestly now that the day is done' },
+  body: { icon: MessageCircle, title: 'Your body', subtitle: 'Easier to answer honestly now that the day is done' },
   other: { icon: MessageCircle, title: 'Anything else', subtitle: 'Optional, then predict tomorrow' },
 };
 
 type Props = {
   existing: EveningReflection | null;
   localDate: string;
-  timezone: string;
-  todaysCheckin: DailyCheckin | null;
   rotatingProbes: DriverProbeQuestion[];
   localFollowUps: DriverProbeQuestion[];
   initialProbeAnswers: Record<string, unknown>;
@@ -95,21 +88,12 @@ type Props = {
 export function EveningReflectionForm({
   existing,
   localDate,
-  timezone,
-  todaysCheckin,
   rotatingProbes,
   localFollowUps,
   initialProbeAnswers,
   existingForecastLevel,
   isFirstCheckin,
 }: Props) {
-  const digestionQuestion =
-    rotatingProbes.find((q) => q.questionKey === 'checkin_probe.digestion_rating') ?? null;
-  const movementQuestion =
-    rotatingProbes.find((q) => q.questionKey === 'checkin_probe.movement_today') ?? null;
-
-  const genericRotatingProbes = rotatingProbes.filter((q) => !SPECIALLY_HANDLED_QUESTION_KEYS.has(q.questionKey));
-
   const [probeAnswers, setProbeAnswers] = useState<Record<string, ProbeAnswerValue>>(() => {
     const initial: Record<string, ProbeAnswerValue> = {};
     for (const [key, value] of Object.entries(initialProbeAnswers)) {
@@ -129,6 +113,10 @@ export function EveningReflectionForm({
   );
 
   const router = useRouter();
+  // Elapsed-time instrumentation (task requirement 3), same approach as
+  // CheckinForm — captured once at first render, read only at a genuine
+  // final submission, never on a draft/exit save.
+  const startTimeRef = useRef<number>(Date.now());
   const [screenIndex, setScreenIndex] = useState(0);
   const [showEnding, setShowEnding] = useState(false);
   const [furthestScreenIndex, setFurthestScreenIndex] = useState(0);
@@ -137,10 +125,6 @@ export function EveningReflectionForm({
   const [energyPattern, setEnergyPattern] = useState<EnergyPattern | null>(existing?.energy_pattern ?? null);
   const [symptomsOrChanges, setSymptomsOrChanges] = useState(existing?.symptoms_or_changes ?? '');
   const [recovery, setRecovery] = useState<number | null>(existing?.recovery ?? null);
-  const [digestionRating, setDigestionRating] = useState<number | null>(todaysCheckin?.digestion_rating ?? null);
-  const [movementToday, setMovementToday] = useState<(typeof MOVEMENT_LEVELS)[number]['value'] | null>(
-    todaysCheckin?.movement_today ?? null
-  );
   const [predictedEnergyLevel, setPredictedEnergyLevel] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
@@ -206,7 +190,7 @@ export function EveningReflectionForm({
       },
     ];
 
-    for (const question of [...genericRotatingProbes, ...eligibleLocalFollowUps]) {
+    for (const question of [...rotatingProbes, ...eligibleLocalFollowUps]) {
       list.push({
         key: question.questionKey,
         section: eveningScreenForQuestion(question),
@@ -217,40 +201,6 @@ export function EveningReflectionForm({
             question={question}
             value={probeAnswers[question.questionKey] ?? null}
             onChange={(value) => setProbeAnswer(question.questionKey, value)}
-          />
-        ),
-      });
-    }
-
-    if (digestionQuestion) {
-      list.push({
-        key: digestionQuestion.questionKey,
-        section: 'body',
-        required: false,
-        answered: digestionRating !== null,
-        render: () => (
-          <StackedOptionRows
-            question="How was your digestion today?"
-            options={DIGESTION_MEANING.map((label, i) => ({ value: i + 1, label }))}
-            value={digestionRating}
-            onChange={setDigestionRating}
-          />
-        ),
-      });
-    }
-
-    if (movementQuestion) {
-      list.push({
-        key: movementQuestion.questionKey,
-        section: 'body',
-        required: false,
-        answered: movementToday !== null,
-        render: () => (
-          <StackedOptionRows
-            question="How much did you move your body today overall?"
-            options={MOVEMENT_LEVELS}
-            value={movementToday}
-            onChange={setMovementToday}
           />
         ),
       });
@@ -318,8 +268,6 @@ export function EveningReflectionForm({
     daytimeStress,
     energyPattern,
     recovery,
-    digestionRating,
-    movementToday,
     symptomsOrChanges,
     predictedEnergyLevel,
     probeAnswers,
@@ -331,6 +279,7 @@ export function EveningReflectionForm({
   const clampedIndex = Math.min(screenIndex, screenCount - 1);
   const currentScreen = screens[clampedIndex] ?? [];
   const screenComplete = isScreenComplete(currentScreen);
+  const isLastScreen = clampedIndex === screenCount - 1;
 
   function goToScreenClamped(index: number) {
     const clamped = Math.max(0, Math.min(index, screenCount - 1));
@@ -350,6 +299,7 @@ export function EveningReflectionForm({
 
   function handleSubmit() {
     setError('');
+    const completionSeconds = Math.max(0, Math.round((Date.now() - startTimeRef.current) / 1000));
     const input: EveningReflectionFormInput = {
       overallDayRating,
       daytimeStress,
@@ -357,24 +307,43 @@ export function EveningReflectionForm({
       symptomsOrChanges: symptomsOrChanges.trim() ? symptomsOrChanges.trim() : null,
       recovery,
       predictedEnergyLevel: existingForecastLevel === null ? predictedEnergyLevel : null,
+      completion_seconds: completionSeconds,
     };
 
     startTransition(async () => {
-      const [reflectionResult, bodyResult] = await Promise.all([
+      const [reflectionResult] = await Promise.all([
         submitEveningReflection(input),
-        submitEveningBodyCheckin(localDate, timezone, movementToday, digestionRating),
         ...Object.entries(probeAnswers).map(([questionKey, value]) => submitProbeAnswerAction(localDate, questionKey, value)),
       ]);
       if (reflectionResult.error) {
         setError(reflectionResult.error);
         return;
       }
-      if (bodyResult.error) {
-        setError(bodyResult.error);
-        return;
-      }
       setShowEnding(true);
     });
+  }
+
+  /** Navigation fix (task requirement 1) — same discipline as CheckinForm's saveProgressAndExit: saves whatever's filled as a draft (no forecast commit, no "completed" side effects) and returns her to Home. */
+  async function saveProgressAndExit() {
+    await saveEveningReflectionDraft({
+      overallDayRating,
+      daytimeStress,
+      energyPattern,
+      symptomsOrChanges: symptomsOrChanges.trim() ? symptomsOrChanges.trim() : null,
+      recovery,
+    });
+    await Promise.all(
+      Object.entries(probeAnswers).map(([questionKey, value]) => submitProbeAnswerAction(localDate, questionKey, value))
+    );
+    router.push('/dashboard');
+  }
+
+  function handleContinue() {
+    if (isLastScreen) {
+      handleSubmit();
+      return;
+    }
+    goNext();
   }
 
   if (showEnding) {
@@ -395,7 +364,6 @@ export function EveningReflectionForm({
     );
   }
 
-  const isLastScreen = clampedIndex === screenCount - 1;
   const sectionKeyForScreen = (index: number): EveningScreenKey => {
     const unit = screens[index]?.[0];
     return (unit?.section as EveningScreenKey) ?? 'other';
@@ -411,6 +379,10 @@ export function EveningReflectionForm({
           furthestScreenIndex={Math.min(furthestScreenIndex, screenCount - 1)}
           onBack={goBack}
           onSelectScreen={goToScreenClamped}
+          onExit={saveProgressAndExit}
+          onContinue={handleContinue}
+          continueLabel={isLastScreen ? (isPending ? 'Saving…' : existing ? 'Update Evening Reflection' : 'Save Evening Reflection') : 'Continue'}
+          continueDisabled={isLastScreen ? isPending : !screenComplete}
           renderScreen={(index) => {
             const screen = screens[index] ?? [];
             const section = sectionKeyForScreen(index);
@@ -438,22 +410,10 @@ export function EveningReflectionForm({
                     {unit.render()}
                   </div>
                 ))}
-                {isLastScreen && index === screenCount - 1 && (
-                  <>
-                    {error && (
-                      <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {error}
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={isPending}
-                      className="mef-press flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition-all duration-200 ease-out hover:brightness-110 disabled:opacity-60"
-                    >
-                      {isPending ? 'Saving…' : existing ? 'Update Evening Reflection' : 'Save Evening Reflection'}
-                    </button>
-                  </>
+                {isLastScreen && index === screenCount - 1 && error && (
+                  <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                  </p>
                 )}
               </div>
             );

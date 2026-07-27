@@ -43,9 +43,11 @@ import {
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
-import { getTodaysHydrationTotal } from '@/app/actions/events';
+import { getTodaysHydrationTotal, getTodaysMovementLevel } from '@/app/actions/events';
 import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
 import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
+import { HydrationTracker } from '@/components/checkin/HydrationTracker';
+import { MovementLevelTracker } from '@/components/checkin/MovementLevelTracker';
 import { waterStatus, digestionStatus, STATUS_STYLES } from '@/lib/wellness/status';
 import type { CoachingMode } from '@/lib/brain/types';
 import { buildCoachNote, buildBonusChallenge, parseSelectionReason } from '@/lib/feed/copy';
@@ -161,10 +163,11 @@ export default async function TodayPage() {
   const GreetingIcon = timeContext.hour < 12 ? Sunrise : timeContext.hour < 18 ? Sun : Moon;
 
   const localDate = await resolveLocalDate(nowInTz, false);
-  const [todaysCheckin, habitLogs, hydrationTotal] = await Promise.all([
+  const [todaysCheckin, habitLogs, hydrationTotal, movementLevel] = await Promise.all([
     getTodaysCheckin(localDate),
     getHabitLogsForDate(localDate),
     getTodaysHydrationTotal(),
+    getTodaysMovementLevel(),
   ]);
 
   let sectionIndex = 0;
@@ -262,6 +265,27 @@ export default async function TodayPage() {
                 </div>
               </Link>
             </div>
+
+            {/* Quick Log — water and movement leave the check-in entirely
+                (task requirement 4): loggable here any time, rather than
+                asked as check-in questions. Both still write to the same
+                daily_checkins columns (water_cups, movement_today) every
+                downstream reader already uses. */}
+            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+              <HydrationTracker initialTotal={hydrationTotal} />
+              <MovementLevelTracker initialLevel={movementLevel} />
+            </div>
+
+            {/* Evening Reflection — optional depth, entered deliberately
+                (task requirement 2), never a second required ritual. No
+                streak/missed-day language here on purpose. */}
+            <Link
+              href={'/checkin/evening' as Route}
+              className="mt-4 flex items-center justify-between rounded-2xl border border-[#1B3A2D]/10 px-5 py-3.5 text-sm text-[#1B3A2D] transition hover:border-[#1B3A2D]/25"
+            >
+              <span className="font-medium">Evening Reflection</span>
+              <span className="text-xs text-[#6B7A72]">Optional · a short close to the day</span>
+            </Link>
 
             {/* Guided Posture & Movement Assessment — Premium UX
                 Milestone 4: the actual next step after a first Daily
@@ -370,7 +394,7 @@ export default async function TodayPage() {
                   >
                     {hydrationTotal > 0
                       ? `${hydrationTotal} of 8 cups of water today.`
-                      : 'Log water as you drink it from your dashboard.'}
+                      : 'Log water as you drink it, any time today.'}
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
