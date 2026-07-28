@@ -107,7 +107,7 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/exercises" label="Exercise Library" />
 
         <div className="mt-6">{error ? <ErrorBanner error={error} /> : content}</div>

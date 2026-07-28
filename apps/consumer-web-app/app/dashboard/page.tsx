@@ -218,7 +218,7 @@ export default async function DashboardPage({
         hasCheckins={hasCheckins}
       />
 
-      <main className="mx-auto w-full max-w-md px-5 pb-32 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         {!hasCheckins ? (
           /* Premium UX Milestone 2: before a member's first completed
            check-in, Root has nothing real to personalize yet — one

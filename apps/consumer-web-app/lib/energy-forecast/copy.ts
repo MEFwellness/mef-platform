@@ -42,6 +42,11 @@ export function describeRootNotReady(basisObservationCount: number, minRequired:
   return `Root isn't ready to make a call yet — it has ${basisObservationCount} of the ${minRequired} days of history it needs before predicting.`;
 }
 
+/** Root has enough history but declined to guess because it's too erratic — an abstention, never silently rounded into a forecast. */
+export function describeRootTooVolatile(basisObservationCount: number): string {
+  return `Root sat this one out — your last ${basisObservationCount} energy answers have been swinging too much for a single call to mean anything.`;
+}
+
 export const ROOT_NO_ATTEMPT_SENTENCE =
   "Root didn't make a prediction for today — there was no Evening Reflection last night to base one on.";
 

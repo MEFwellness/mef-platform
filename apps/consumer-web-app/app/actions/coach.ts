@@ -42,7 +42,20 @@ export async function listAssignedClients(): Promise<Profile[]> {
   if (assignmentError || !assignments || assignments.length === 0) return [];
 
   const clientIds = assignments.map((a) => a.client_id);
-  const { data: profiles, error } = await supabase.from('profiles').select('*').in('id', clientIds);
+
+  // A test client should never leak into a real coach's caseload, even
+  // though assignment itself should already prevent that -- this is the
+  // belt-and-suspenders layer. The one deliberate exception: a coach who
+  // is themself a seeded is_test account (the production QA fixture) DOES
+  // still see their own assigned test member, since that pairing is the
+  // whole point of the fixture, not a leak.
+  const { data: viewerProfile } = await supabase.from('profiles').select('is_test').eq('id', user.id).single();
+
+  let query = supabase.from('profiles').select('*').in('id', clientIds);
+  if (!viewerProfile?.is_test) {
+    query = query.eq('is_test', false);
+  }
+  const { data: profiles, error } = await query;
 
   if (error) {
     console.error('listAssignedClients failed', error);

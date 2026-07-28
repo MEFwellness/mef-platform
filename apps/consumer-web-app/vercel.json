@@ -17,6 +17,10 @@
     {
       "path": "/api/cron/driver-state-engine",
       "schedule": "30 14 * * *"
+    },
+    {
+      "path": "/api/cron/forecast-grading",
+      "schedule": "0 15 * * *"
     }
   ]
 }

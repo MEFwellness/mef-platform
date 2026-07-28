@@ -14,7 +14,13 @@
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
-import { recordForecastsFromEveningReflection, buildEndingScreenView } from '../lib/energy-forecast/service';
+import {
+  recordForecastsFromEveningReflection,
+  buildEndingScreenView,
+  backfillOutstandingForecastsForMember,
+} from '../lib/energy-forecast/service';
+import { getEnergyDriverBasis } from '../lib/energy-forecast/data';
+import { runCorrelationEngineForMember } from '../lib/correlation-engine/service';
 import { MIN_SCORED_FORECASTS_FOR_CALIBRATION } from '../lib/energy-forecast/constants';
 import type { DailyCheckin } from '@mef/shared-types-contracts';
 
@@ -281,5 +287,169 @@ describe('the ending screen never shows calibration (percentages or chart) from 
       expect(view.calibration!.scoredCount).toBe(MIN_SCORED_FORECASTS_FOR_CALIBRATION);
       expect(view.calibration!.series.length).toBeGreaterThanOrEqual(3);
     }
+  });
+
+  it('shows calibration alongside the case-view handoff — one no longer replaces the other', async () => {
+    const service = serviceRoleClient();
+    for (let i = 1; i <= MIN_SCORED_FORECASTS_FOR_CALIBRATION; i++) {
+      await seedScoredPair(service, addDays(today, -i));
+    }
+    await service.from('energy_forecasts').insert({
+      member_id: memberId,
+      forecast_date: today,
+      made_from_local_date: addDays(today, -1),
+      predicted_energy_level: 3,
+    });
+    await service.from('root_energy_forecasts').insert({
+      member_id: memberId,
+      forecast_date: today,
+      predicted_energy_level: 3,
+      basis_observation_count: 5,
+    });
+    // A real earned finding, exactly the shape hasEarnedFinding() reads.
+    await service.from('member_pattern_states').insert({
+      member_id: memberId,
+      signal_key: 'correlation::pain_stress',
+      signal_kind: 'correlation_finding',
+      signal_label: 'Pain and stress',
+      state: 'repeated_signal',
+      tier: 2,
+      occurrence_count: 3,
+      confidence: 0.6,
+      first_observed_at: new Date().toISOString(),
+      last_observed_at: new Date().toISOString(),
+      evidence_summary: { direction: 'positive', lag: 'same_day', rho: 0.5, observationCount: 25, splitWindowAgreement: true },
+    });
+
+    const view = await buildEndingScreenView(service, memberId, today, makeFakeCheckin(today, 3));
+    expect(view.kind).toBe('scored');
+    if (view.kind === 'scored') {
+      expect(view.handoffToCase).toBe(true);
+      expect(view.calibration).not.toBeNull();
+    }
+  });
+});
+
+describe('getEnergyDriverBasis — Root nudges its forecast using a genuinely earned driver relationship', () => {
+  const START = '2021-06-01';
+  const NUM_DAYS = 30;
+  const AS_OF = '2021-07-01';
+
+  function addD(days: number): string {
+    const d = new Date(`${START}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  async function cleanupDriverBasis() {
+    const service = serviceRoleClient();
+    await service.from('daily_checkins').delete().eq('user_id', memberId).gte('local_date', START).lte('local_date', AS_OF);
+    await service.from('member_correlation_findings').delete().eq('member_id', memberId);
+    await service.from('member_pattern_states').delete().eq('member_id', memberId).like('signal_key', 'correlation::%');
+  }
+
+  beforeAll(cleanupDriverBasis);
+  afterEach(cleanupDriverBasis);
+  afterAll(cleanupDriverBasis);
+
+  it('returns null with no earned finding yet', async () => {
+    const service = serviceRoleClient();
+    const basis = await getEnergyDriverBasis(service, memberId, AS_OF);
+    expect(basis).toBeNull();
+  });
+
+  it('returns a real driver basis once the correlation engine has genuinely earned one for checkin.energy', async () => {
+    const service = serviceRoleClient();
+    // Stress (checkin.stress) rises and falls opposite energy — a real,
+    // strong, negative same-day relationship, over the real minimum span
+    // the engine itself requires before it will call anything earned.
+    const rows = Array.from({ length: NUM_DAYS }, (_, i) => {
+      const cycle = i % 5;
+      return {
+        user_id: memberId,
+        timezone: 'America/New_York',
+        local_date: addD(i),
+        stress_level: cycle + 1,
+        energy_level: 5 - cycle,
+      };
+    });
+    const { error } = await service.from('daily_checkins').insert(rows);
+    expect(error).toBeNull();
+
+    await runCorrelationEngineForMember(service, memberId, AS_OF);
+
+    const basis = await getEnergyDriverBasis(service, memberId, AS_OF);
+    expect(basis).not.toBeNull();
+    expect(basis!.direction).toBe('negative');
+    expect(basis!.values.length).toBeGreaterThan(0);
+  });
+});
+
+describe('backfillOutstandingForecastsForMember — grading safety net + backfill for pre-existing forecasts', () => {
+  const BACKFILL_START = '2022-01-01';
+
+  function addB(days: number): string {
+    const d = new Date(`${BACKFILL_START}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  async function cleanupBackfill() {
+    const service = serviceRoleClient();
+    await service.from('energy_forecasts').delete().eq('member_id', memberId).gte('forecast_date', BACKFILL_START);
+    await service.from('root_energy_forecasts').delete().eq('member_id', memberId).gte('forecast_date', BACKFILL_START);
+    await service.from('daily_checkins').delete().eq('user_id', memberId).gte('local_date', BACKFILL_START);
+  }
+
+  beforeAll(cleanupBackfill);
+  afterEach(cleanupBackfill);
+  afterAll(cleanupBackfill);
+
+  it('grades an outstanding forecast once the real next-day check-in exists, and leaves ones with no actual yet untouched', async () => {
+    const service = serviceRoleClient();
+    const gradeable = addB(1);
+    const stillWaiting = addB(2);
+    const asOf = addB(10);
+
+    await service.from('energy_forecasts').insert([
+      { member_id: memberId, forecast_date: gradeable, made_from_local_date: addB(0), predicted_energy_level: 3 },
+      { member_id: memberId, forecast_date: stillWaiting, made_from_local_date: addB(1), predicted_energy_level: 3 },
+    ]);
+    await service.from('root_energy_forecasts').insert([
+      { member_id: memberId, forecast_date: gradeable, predicted_energy_level: 3, basis_observation_count: 5 },
+      { member_id: memberId, forecast_date: stillWaiting, predicted_energy_level: 3, basis_observation_count: 5 },
+    ]);
+    // Only the first forecast date has a real check-in — the second is
+    // genuinely still awaiting her actual answer.
+    await service
+      .from('daily_checkins')
+      .insert({ user_id: memberId, timezone: 'America/New_York', local_date: gradeable, energy_level: 4 });
+
+    const result = await backfillOutstandingForecastsForMember(service, memberId, asOf);
+    expect(result.herScored).toBe(1);
+    expect(result.rootScored).toBe(1);
+
+    const { data: graded } = await service
+      .from('energy_forecasts')
+      .select('actual_energy_level, gap, scored_at')
+      .eq('member_id', memberId)
+      .eq('forecast_date', gradeable)
+      .single();
+    expect(graded!.actual_energy_level).toBe(4);
+    expect(graded!.gap).toBe(1);
+    expect(graded!.scored_at).not.toBeNull();
+
+    const { data: stillUnscored } = await service
+      .from('energy_forecasts')
+      .select('scored_at')
+      .eq('member_id', memberId)
+      .eq('forecast_date', stillWaiting)
+      .single();
+    expect(stillUnscored!.scored_at).toBeNull();
+
+    // Idempotent: a second run doesn't re-score (or error on) the one already graded.
+    const second = await backfillOutstandingForecastsForMember(service, memberId, asOf);
+    expect(second.herScored).toBe(0);
+    expect(second.rootScored).toBe(0);
   });
 });

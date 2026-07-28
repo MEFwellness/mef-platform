@@ -13,7 +13,14 @@ import { MIN_SPAN_DAYS } from '../correlation-engine/evidence';
 import { ACCURACY_TOLERANCE, ROOT_FORECAST_MIN_HISTORY_DAYS } from './constants';
 import { computeRootForecast } from './rootForecast';
 import { scoreForecast, accuracyPercent, meetsCalibrationThreshold } from './scoring';
-import { describeGap, describeRootGap, describeRootNotReady, describeTimeline, ROOT_NO_ATTEMPT_SENTENCE } from './copy';
+import {
+  describeGap,
+  describeRootGap,
+  describeRootNotReady,
+  describeRootTooVolatile,
+  describeTimeline,
+  ROOT_NO_ATTEMPT_SENTENCE,
+} from './copy';
 import { energyLevelLabel, moodLabel, stressLabel, sleepQualityLabel, painLabel } from './scaleLabels';
 import {
   getForecastForDate,
@@ -25,6 +32,10 @@ import {
   listScoredForecasts,
   listScoredRootForecasts,
   listRecentEnergyLevels,
+  listUnscoredForecasts,
+  listUnscoredRootForecasts,
+  getActualEnergyLevelForDate,
+  getEnergyDriverBasis,
   hasEarnedFinding,
 } from './data';
 import { listRecentCheckinsForMember } from '../coaching-engine/data';
@@ -57,15 +68,19 @@ export async function recordForecastsFromEveningReflection(
     await insertForecastIfAbsent(supabase, memberId, forecastDate, eveningLocalDate, predictedEnergyLevel);
   }
 
-  const history = await listRecentEnergyLevels(supabase, memberId, eveningLocalDate);
-  const basis = computeRootForecast(history);
-  if (basis) {
+  const [history, driverNudge] = await Promise.all([
+    listRecentEnergyLevels(supabase, memberId, eveningLocalDate),
+    getEnergyDriverBasis(supabase, memberId, eveningLocalDate),
+  ]);
+  const result = computeRootForecast(history, driverNudge);
+  if (result.kind === 'forecast') {
     await insertRootForecastIfAbsent(
       supabase,
       memberId,
       forecastDate,
-      basis.predictedEnergyLevel,
-      basis.basisObservationCount
+      result.predictedEnergyLevel,
+      result.basisObservationCount,
+      result.method
     );
   }
 }
@@ -99,22 +114,76 @@ async function resolveRootStatus(
     return { kind: 'scored', forecast: toScoredView(rootRow.predicted_energy_level, todaysEnergyLevel, gap!, true) };
   }
 
-  // No row — either Root never had a genuine basis, or she skipped
-  // Evening Reflection that night so Root never got a chance. History is
-  // checked as of the night before, mirroring what Root could have known.
-  const historyAsOfLastNight = await listRecentEnergyLevels(supabase, memberId, addDaysToLocalDate(localDate, -1));
-  const basis = computeRootForecast(historyAsOfLastNight);
+  // No row — either Root never had a genuine basis, it abstained as too
+  // erratic to call, or she skipped Evening Reflection that night so Root
+  // never got a chance. History is checked as of the night before,
+  // mirroring what Root could have known.
+  const nightBefore = addDaysToLocalDate(localDate, -1);
+  const historyAsOfLastNight = await listRecentEnergyLevels(supabase, memberId, nightBefore);
+  const driverNudge = await getEnergyDriverBasis(supabase, memberId, nightBefore);
+  const result = computeRootForecast(historyAsOfLastNight, driverNudge);
 
-  if (!basis) {
+  if (result.kind === 'insufficient_history') {
     return {
       kind: 'not_ready',
-      basisObservationCount: historyAsOfLastNight.length,
+      basisObservationCount: result.basisObservationCount,
       minRequired: ROOT_FORECAST_MIN_HISTORY_DAYS,
-      sentence: describeRootNotReady(historyAsOfLastNight.length, ROOT_FORECAST_MIN_HISTORY_DAYS),
+      sentence: describeRootNotReady(result.basisObservationCount, ROOT_FORECAST_MIN_HISTORY_DAYS),
     };
   }
 
+  if (result.kind === 'too_volatile') {
+    return {
+      kind: 'too_volatile',
+      basisObservationCount: result.basisObservationCount,
+      sentence: describeRootTooVolatile(result.basisObservationCount),
+    };
+  }
+
+  // result.kind === 'forecast' but no row exists — Root had a genuine
+  // basis, it just never got written (no Evening Reflection that night).
   return { kind: 'no_attempt', sentence: ROOT_NO_ATTEMPT_SENTENCE };
+}
+
+/**
+ * Grades every one of a member's outstanding (unscored, past-dated)
+ * forecasts against her real check-in history — the safety net for
+ * predictions that were made but never graded because she never
+ * revisited /checkin/result for that date (grading there is otherwise
+ * purely view-triggered). Also the mechanism that backfills accounts
+ * that already had forecasts stored before this cron existed. Idempotent
+ * via scoreForecastOnce/scoreRootForecastOnce's own `.is('scored_at',
+ * null)` guard, so running it twice for the same member is harmless.
+ */
+export async function backfillOutstandingForecastsForMember(
+  supabase: SupabaseClient,
+  memberId: string,
+  asOfLocalDate: string
+): Promise<{ herScored: number; rootScored: number }> {
+  const [herOutstanding, rootOutstanding] = await Promise.all([
+    listUnscoredForecasts(supabase, memberId, asOfLocalDate),
+    listUnscoredRootForecasts(supabase, memberId, asOfLocalDate),
+  ]);
+
+  let herScored = 0;
+  for (const row of herOutstanding) {
+    const actual = await getActualEnergyLevelForDate(supabase, memberId, row.forecast_date);
+    if (actual != null) {
+      await scoreForecastOnce(supabase, memberId, row.forecast_date, actual);
+      herScored += 1;
+    }
+  }
+
+  let rootScored = 0;
+  for (const row of rootOutstanding) {
+    const actual = await getActualEnergyLevelForDate(supabase, memberId, row.forecast_date);
+    if (actual != null) {
+      await scoreRootForecastOnce(supabase, memberId, row.forecast_date, actual);
+      rootScored += 1;
+    }
+  }
+
+  return { herScored, rootScored };
 }
 
 function buildReadback(checkin: DailyCheckin): ReadbackView {
@@ -210,20 +279,23 @@ export async function buildEndingScreenView(
     hasEarnedFinding(supabase, memberId),
   ]);
 
+  // Calibration (her/Root accuracy over time) is a distinct claim from
+  // Case View's driver findings — one is "how well do predictions land,"
+  // the other is "which drivers are earned" — so it renders independently
+  // of handoffToCase now; the two sections can both show at once rather
+  // than the calibration section being replaced by the case-view link.
   let calibration: CalibrationView | null = null;
-  if (!handoffToCase) {
-    const [herScored, rootScored] = await Promise.all([
-      listScoredForecasts(supabase, memberId),
-      listScoredRootForecasts(supabase, memberId),
-    ]);
-    if (meetsCalibrationThreshold(herScored.length) && meetsCalibrationThreshold(rootScored.length)) {
-      calibration = {
-        scoredCount: herScored.length,
-        herAccuracyPct: accuracyPercent(herScored.map((f) => f.gap!)),
-        rootAccuracyPct: accuracyPercent(rootScored.map((f) => f.gap!)),
-        series: buildCalibrationSeries(herScored, rootScored),
-      };
-    }
+  const [herScored, rootScored] = await Promise.all([
+    listScoredForecasts(supabase, memberId),
+    listScoredRootForecasts(supabase, memberId),
+  ]);
+  if (meetsCalibrationThreshold(herScored.length) && meetsCalibrationThreshold(rootScored.length)) {
+    calibration = {
+      scoredCount: herScored.length,
+      herAccuracyPct: accuracyPercent(herScored.map((f) => f.gap!)),
+      rootAccuracyPct: accuracyPercent(rootScored.map((f) => f.gap!)),
+      series: buildCalibrationSeries(herScored, rootScored),
+    };
   }
 
   return { kind: 'scored', her, rootStatus, calibration, handoffToCase };

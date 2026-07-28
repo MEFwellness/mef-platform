@@ -12,9 +12,14 @@ import type { CoachClientAssignment, Profile } from '@mef/shared-types-contracts
  * from the database's own answer.
  */
 
+/** Excludes is_test accounts (production QA fixtures) — an admin's "every user" view must never count or list a seeded test account as a real member. */
 export async function listUsers(): Promise<Profile[]> {
   const supabase = createClient();
-  const { data, error } = await supabase.from('profiles').select('*').order('created_at');
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('is_test', false)
+    .order('created_at');
   if (error) {
     console.error('listUsers failed — likely not platform_administrator', error);
     return [];
@@ -82,12 +87,23 @@ export async function listActiveCoachUserIds(): Promise<string[]> {
   return data.map((row) => row.user_id);
 }
 
+/** Excludes any assignment touching an is_test account (either side) — the admin's real assignment history shouldn't be cluttered by a seeded test coach/member pairing. */
 export async function listAssignmentHistory(): Promise<CoachClientAssignment[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  const { data: testProfiles } = await supabase.from('profiles').select('id').eq('is_test', true);
+  const testIds = (testProfiles ?? []).map((p) => p.id as string);
+
+  let query = supabase
     .from('coach_client_assignments')
     .select('*')
     .order('created_at', { ascending: false });
+
+  if (testIds.length > 0) {
+    const literalList = `(${testIds.join(',')})`;
+    query = query.not('coach_id', 'in', literalList).not('client_id', 'in', literalList);
+  }
+
+  const { data, error } = await query;
   if (error) {
     console.error('listAssignmentHistory failed', error);
     return [];

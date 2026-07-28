@@ -31,3 +31,16 @@ export const MIN_SCORED_FORECASTS_FOR_CALIBRATION = 5;
 
 /** A scored forecast counts as "accurate" when it lands within this many points of the real answer, on the 1-5 scale. */
 export const ACCURACY_TOLERANCE = 1;
+
+/**
+ * Population standard deviation ceiling, on the 1-5 scale, above which
+ * Root's recent history is too erratic to have a stable center to call —
+ * same discipline as ROOT_FORECAST_MIN_HISTORY_DAYS, just gating on shape
+ * instead of count. A history that alternates between 1 and 5 has a
+ * population stddev of 2; one that alternates between adjacent points
+ * (e.g. 2,3,2,3) is close to 0.5. 1.4 sits between "normal day-to-day
+ * variation" and "no real center," chosen so a genuinely bouncing history
+ * abstains rather than reporting a mean that isn't a real prediction of
+ * anything.
+ */
+export const ROOT_FORECAST_MAX_VOLATILITY = 1.4;

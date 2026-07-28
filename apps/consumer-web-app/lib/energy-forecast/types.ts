@@ -11,6 +11,7 @@ export type ScoredForecastView = {
 
 export type RootStatusView =
   | { kind: 'not_ready'; basisObservationCount: number; minRequired: number; sentence: string }
+  | { kind: 'too_volatile'; basisObservationCount: number; sentence: string }
   | { kind: 'no_attempt'; sentence: string }
   | { kind: 'scored'; forecast: ScoredForecastView };
 

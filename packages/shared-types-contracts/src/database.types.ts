@@ -27,6 +27,8 @@ export interface Profile {
   timezone: string;
   created_at: string;
   deleted_at: string | null;
+  /** True only for seeded QA/test accounts (migration 114) — never a real member. */
+  is_test: boolean;
 }
 
 export interface UserRole {

@@ -828,3 +828,35 @@
     transform: none;
   }
 }
+
+/*
+ * Shared safe-area clearance tokens — the single source of truth for two
+ * systemic layout faults found across the app (not page-specific): content
+ * hidden under the bottom nav / floating gold Check-In button, and content
+ * hidden under the status bar / notch. Every page's `<main>` should use
+ * these two classes instead of typing `pt-8`/`pb-28`-style literals by
+ * hand, so a future clearance fix only ever has to change one place.
+ *
+ * Both are additive, not replacements: the base rem value is exactly the
+ * spacing every page already used before this fix (2rem top, 7rem bottom —
+ * the app's own dominant convention, confirmed by grepping every `<main>`
+ * wrapper), so a device with a zero safe-area inset (every real device
+ * tested in this environment — see BUILD_STATUS.md's repeated note that
+ * headless Chromium always reports `env(safe-area-inset-*)` as 0) renders
+ * pixel-identical to before. `env(safe-area-inset-*)` only ever adds on
+ * top, exactly the technique CheckinWizard.tsx's own Continue-button fix
+ * already used for the bottom inset — this reuses that technique, not its
+ * specific 7rem constant (which was sized for that button, not this nav).
+ */
+.pt-safe-header {
+  padding-top: calc(2rem + env(safe-area-inset-top));
+}
+
+/* Only for pages that render <BottomNav /> — clears both the nav bar's own
+   row and the gold Check-In button's overhang above it (measured live: the
+   button's top sits ~88px above an iPhone SE's viewport bottom), plus
+   whatever real home-indicator inset the device reports. Pages without a
+   bottom nav have no fixed element to clear and keep their own padding. */
+.pb-safe-nav {
+  padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+}

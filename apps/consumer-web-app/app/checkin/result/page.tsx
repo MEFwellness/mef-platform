@@ -65,7 +65,7 @@ export default async function CheckinResultPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <div className="flex items-start justify-between gap-3">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
             Today&apos;s forecast
@@ -135,7 +135,7 @@ export default async function CheckinResultPage({
                 <RootStatusCard status={view.rootStatus} />
               </div>
 
-              {view.handoffToCase ? (
+              {view.handoffToCase && (
                 <Link
                   href={'/case' as Route}
                   className={`${CARD} mef-animate-in block transition-shadow duration-300 hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]`}
@@ -144,25 +144,29 @@ export default async function CheckinResultPage({
                   <p className="text-sm font-semibold text-[#1B3A2D]">Your patterns are showing up now</p>
                   <p className="mt-1 text-sm text-[#6B7A72]">See the full picture in your case →</p>
                 </Link>
-              ) : (
-                view.calibration && (
-                  <div className={`${CARD} mef-animate-in`} style={{ animationDelay: '120ms' }}>
-                    <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
-                      Calibration over time
-                    </p>
-                    <div className="mt-3 flex gap-8">
-                      <div>
-                        <p className="text-2xl font-semibold text-[#1B3A2D]">{view.calibration.herAccuracyPct}%</p>
-                        <p className="text-[13px] text-[#6B7A72]">You, within a point</p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-semibold text-[#B08900]">{view.calibration.rootAccuracyPct}%</p>
-                        <p className="text-[13px] text-[#6B7A72]">Root, within a point</p>
-                      </div>
+              )}
+
+              {view.calibration && (
+                <div className={`${CARD} mef-animate-in`} style={{ animationDelay: view.handoffToCase ? '180ms' : '120ms' }}>
+                  <p className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-tight text-[#1B3A2D]">
+                    Calibration over time
+                  </p>
+                  <p className="mt-1 text-[13px] leading-snug text-[#6B7A72]">
+                    Within a point counts as a hit — the scale only has five steps, so exact and one-off are both a real
+                    read; anything further off is a miss.
+                  </p>
+                  <div className="mt-3 flex gap-8">
+                    <div>
+                      <p className="text-2xl font-semibold text-[#1B3A2D]">{view.calibration.herAccuracyPct}%</p>
+                      <p className="text-[13px] text-[#6B7A72]">You, within a point</p>
                     </div>
-                    <ForecastCalibrationChart series={view.calibration.series} />
+                    <div>
+                      <p className="text-2xl font-semibold text-[#B08900]">{view.calibration.rootAccuracyPct}%</p>
+                      <p className="text-[13px] text-[#6B7A72]">Root, within a point</p>
+                    </div>
                   </div>
-                )
+                  <ForecastCalibrationChart series={view.calibration.series} />
+                </div>
               )}
             </>
           )}

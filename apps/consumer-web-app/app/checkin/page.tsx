@@ -70,7 +70,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FBF1DE] via-[#F5F0E4] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <main className="mx-auto w-full max-w-md px-5 pb-12 pt-5 sm:px-6 md:max-w-2xl md:px-10 md:pl-28">
+      <main className="mx-auto w-full max-w-md px-5 pb-12 pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pl-28">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-[2.5rem]">
