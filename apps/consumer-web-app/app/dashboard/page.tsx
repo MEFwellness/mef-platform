@@ -213,7 +213,7 @@ export default async function DashboardPage({
     morningBrief,
   ] = await Promise.all([
     getTodaysCheckin(localDate),
-    getRecentCheckins(12),
+    getRecentCheckins(30),
     getMyRootScore(localDate, timezone),
     getTodaysHydrationTotal(timezone),
     getTodaysEveningReflection(timezone),
@@ -529,16 +529,11 @@ export default async function DashboardPage({
             <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>Trends</p>
               <section className={`${CARD} mt-4 p-6`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[#6B7A72]">
-                    <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                    <p className="text-sm font-semibold uppercase tracking-wider">Energy Trend</p>
-                  </div>
-                  <span className="text-xs text-[#6B7A72]">
-                    {recentCheckins.length > 0 ? `Last ${recentCheckins.length} check-ins` : ''}
-                  </span>
+                <div className="flex items-center gap-2 text-[#6B7A72]">
+                  <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <p className="text-sm font-semibold uppercase tracking-wider">Energy Trend</p>
                 </div>
-                <AnimatedEnergyTrendChart checkins={recentCheckins} />
+                <AnimatedEnergyTrendChart checkins={recentCheckins} todayLocalDate={localDate} />
               </section>
             </RevealOnScroll>
 

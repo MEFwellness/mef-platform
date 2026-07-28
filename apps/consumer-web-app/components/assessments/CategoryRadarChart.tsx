@@ -5,7 +5,7 @@
  * member reads a small, tucked-in polygon as "several areas need
  * attention" at a glance, the way an Oura/WHOOP recovery wheel reads.
  * Pure SVG, no charting dependency, consistent with every other chart in
- * this app (see components/RootScoreTrendChart.tsx).
+ * this app (see components/TrendChart.tsx).
  */
 
 'use client';

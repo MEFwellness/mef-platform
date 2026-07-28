@@ -20,6 +20,22 @@
  * same discipline as the other animation/scale tests in this suite. The
  * real no-flicker/no-replay-while-visible/reduced-motion behavior is
  * verified live via Playwright, reported separately.
+ *
+ * Trend-chart range-selector task (2026-07-28): ScrollDrawIn gained an
+ * optional `resetKey` prop so switching the 1-week/2-week/1-month range
+ * pills re-animates the chart without needing a scroll crossing —
+ * assertions for that addition are in their own describe block below. The
+ * "not a plain mount-time requestAnimationFrame" assertion is updated: rAF
+ * now legitimately appears, but only inside the resetKey effect (to
+ * re-trigger the CSS transition), never as a substitute for the
+ * IntersectionObserver-driven scroll reveal itself.
+ *
+ * AnimatedEnergyTrendChart.tsx no longer renders EnergyTrendChart or
+ * ScrollDrawIn directly — it was rebuilt onto the shared
+ * components/TrendChartCard.tsx (which itself wraps components/TrendChart.tsx
+ * in ScrollDrawIn). The assertions checking its wiring are updated to
+ * match; ScrollDrawIn's own mechanism (this file's main subject) is
+ * unchanged.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -35,9 +51,8 @@ const REVEAL_ON_SCROLL = source('components/dashboard/RevealOnScroll.tsx');
 const DASHBOARD_PAGE = source('app/dashboard/page.tsx');
 
 describe('ScrollDrawIn: replays on every scroll into view, not just once on mount', () => {
-  it('uses its own IntersectionObserver, not a plain mount-time requestAnimationFrame', () => {
+  it('uses its own IntersectionObserver for the scroll reveal — not a plain mount-time trigger', () => {
     expect(SCROLL_DRAW_IN).toContain('new IntersectionObserver(');
-    expect(SCROLL_DRAW_IN).not.toContain('requestAnimationFrame(');
   });
 
   it('resets to not-drawn when the card is no longer intersecting (the "scrolls out of view" reset)', () => {
@@ -91,15 +106,25 @@ describe('ScrollDrawIn: replays on every scroll into view, not just once on moun
   });
 });
 
-describe('AnimatedEnergyTrendChart: delegates to ScrollDrawIn instead of duplicating the mechanism', () => {
+describe('AnimatedEnergyTrendChart: delegates to the shared TrendChartCard (which itself delegates to ScrollDrawIn) instead of duplicating any mechanism', () => {
   it('no longer contains its own IntersectionObserver/threshold logic', () => {
     expect(ANIMATED_CHART).not.toContain('new IntersectionObserver(');
     expect(ANIMATED_CHART).not.toContain('REPLAY_THRESHOLD');
   });
 
-  it('renders EnergyTrendChart with showBars, wrapped in the shared ScrollDrawIn', () => {
-    expect(ANIMATED_CHART).toContain('<ScrollDrawIn>');
-    expect(ANIMATED_CHART).toMatch(/<EnergyTrendChart checkins={checkins} showBars \/>/);
+  it('no longer imports or renders components/EnergyTrendChart.tsx or components/ScrollDrawIn.tsx directly — both concerns now live in the shared TrendChartCard', () => {
+    expect(ANIMATED_CHART).not.toContain("from '@/components/EnergyTrendChart'");
+    expect(ANIMATED_CHART).not.toContain("from '@/components/ScrollDrawIn'");
+    expect(ANIMATED_CHART).not.toMatch(/<EnergyTrendChart[\s/]/);
+    expect(ANIMATED_CHART).not.toMatch(/<ScrollDrawIn[\s>]/);
+    expect(ANIMATED_CHART).toContain("import { TrendChartCard } from '@/components/TrendChartCard'");
+  });
+
+  it('renders TrendChartCard configured for energy\'s real 1-5 scale, built from real check-in points', () => {
+    expect(ANIMATED_CHART).toContain('<TrendChartCard');
+    expect(ANIMATED_CHART).toContain('const ENERGY_MIN = 1');
+    expect(ANIMATED_CHART).toContain('const ENERGY_MAX = 5');
+    expect(ANIMATED_CHART).toContain('c.energy_level');
   });
 
   it('Home behavior is unchanged from the member\'s point of view: still exported by the same name, from the same file, still what app/dashboard/page.tsx imports', () => {
@@ -107,6 +132,29 @@ describe('AnimatedEnergyTrendChart: delegates to ScrollDrawIn instead of duplica
     expect(DASHBOARD_PAGE).toContain(
       "import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart'"
     );
+  });
+});
+
+describe('ScrollDrawIn: resetKey lets a content change (e.g. a range switch) replay the wipe without a scroll crossing', () => {
+  it('accepts an optional resetKey prop — a no-op for any caller that omits it', () => {
+    expect(SCROLL_DRAW_IN).toMatch(/resetKey\?:\s*string \| number/);
+  });
+
+  it('skips the replay entirely on first render — only a real change triggers it', () => {
+    expect(SCROLL_DRAW_IN).toContain('isFirstRender');
+  });
+
+  it('closes then reopens the clip-path via requestAnimationFrame when resetKey changes, so the CSS transition genuinely restarts', () => {
+    const effectIdx = SCROLL_DRAW_IN.indexOf('resetKey === undefined');
+    expect(effectIdx).toBeGreaterThan(-1);
+    const nearby = SCROLL_DRAW_IN.slice(effectIdx, effectIdx + 300);
+    expect(nearby).toContain('setDrawn(false)');
+    expect(nearby).toContain('requestAnimationFrame(() => setDrawn(true))');
+  });
+
+  it('the resetKey effect bails out under reduced motion, same as the scroll-triggered path', () => {
+    const effectIdx = SCROLL_DRAW_IN.indexOf('resetKey === undefined');
+    expect(SCROLL_DRAW_IN.slice(effectIdx, effectIdx + 60)).toContain('reducedMotion');
   });
 });
 

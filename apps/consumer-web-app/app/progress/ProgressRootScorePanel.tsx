@@ -91,7 +91,13 @@ function TrendUnlockProgress({ history }: { history: RootScoreSnapshot[] }) {
   );
 }
 
-export function ProgressRootScorePanel({ history }: { history: RootScoreSnapshot[] }) {
+export function ProgressRootScorePanel({
+  history,
+  todayLocalDate,
+}: {
+  history: RootScoreSnapshot[];
+  todayLocalDate: string;
+}) {
   const latest = history.length > 0 ? history[history.length - 1]! : null;
 
   return (
@@ -121,7 +127,7 @@ export function ProgressRootScorePanel({ history }: { history: RootScoreSnapshot
           </p>
 
           {hasEnoughSnapshotsForTrend(history) ? (
-            <AnimatedRootScoreTrendChart snapshots={history} />
+            <AnimatedRootScoreTrendChart snapshots={history} todayLocalDate={todayLocalDate} />
           ) : (
             <TrendUnlockProgress history={history} />
           )}

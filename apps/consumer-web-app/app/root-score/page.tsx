@@ -200,7 +200,7 @@ export default async function RootScorePage() {
                 <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Root Score Trend</p>
               </div>
-              <AnimatedRootScoreTrendChart snapshots={history} />
+              <AnimatedRootScoreTrendChart snapshots={history} todayLocalDate={localDate} />
             </section>
 
             {/* Momentum + Resilience */}

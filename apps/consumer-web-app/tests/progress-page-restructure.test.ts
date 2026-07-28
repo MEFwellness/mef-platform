@@ -77,12 +77,12 @@ describe('minimum-data floor — Trends card (MetricTrendChart.hasEnoughDataForT
 });
 
 describe('minimum-data floor — Root Score trend (ProgressRootScorePanel.hasEnoughSnapshotsForTrend)', () => {
-  // The real threshold is MIN_SCORED_SNAPSHOTS_FOR_TREND, imported from
-  // components/RootScoreTrendChart.tsx — that component's own line-drawing
-  // math cannot plot a line through fewer than 2 points, and
-  // app/root-score/page.tsx's own call site relies on exactly this gate
-  // with no additional wrapper condition, confirming it's the one real
-  // requirement anywhere in the app, not a number invented for this page.
+  // The real threshold is MIN_SCORED_SNAPSHOTS_FOR_TREND, from
+  // lib/scoring/rootScoreTrendConfig.ts — ProgressRootScorePanel's own
+  // page-level gate on whether to show the Root Score trend chart card at
+  // all (below it, the shared components/AnimatedRootScoreTrendChart.tsx
+  // chart has its own separate, honest per-range empty/single-point
+  // handling once it does render).
   it('a brand-new member with one calculation does not get a trend chart', () => {
     expect(hasEnoughSnapshotsForTrend([snapshot('2026-01-01', 62)])).toBe(false);
   });

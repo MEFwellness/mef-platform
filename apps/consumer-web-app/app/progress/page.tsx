@@ -32,7 +32,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { History as HistoryIcon, ArrowRight, ScanFace, ClipboardList } from 'lucide-react';
-import { getRecentCheckins } from '@/app/actions/checkin';
+import { getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
 import { getMyWellnessPatterns } from '@/app/actions/wellness-intelligence';
 import {
   getMyWellnessIdentityHighlights,
@@ -103,7 +103,7 @@ export default async function ProgressPage() {
     coachingInsights,
   ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
-    supabase.from('profiles').select('display_name').eq('id', user.id).single(),
+    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     getRecentCheckins(30),
     getMyWellnessPatterns(),
     getMyWellnessIdentityHighlights(),
@@ -118,6 +118,9 @@ export default async function ProgressPage() {
     getMyCoachingInsightsAction(),
   ]);
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const timezone = profile?.timezone ?? 'America/New_York';
+  const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
+  const localDate = await resolveLocalDate(nowInTz, false);
   const streak = calculateStreak(recentCheckins);
   const history = [...recentCheckins].reverse(); // most recent first for the list
   const averageEnergy =
@@ -158,7 +161,7 @@ export default async function ProgressPage() {
         </div>
 
         {/* Root Score — biggest, most prominent card on the page. */}
-        <ProgressRootScorePanel history={rootScoreHistory} />
+        <ProgressRootScorePanel history={rootScoreHistory} todayLocalDate={localDate} />
 
         {/* Where You Are Right Now — paired directly beneath the score
             so its interpretive line reads as commentary on the number. */}

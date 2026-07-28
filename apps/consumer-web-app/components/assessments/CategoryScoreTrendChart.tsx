@@ -3,9 +3,10 @@
 /**
  * Historical score trend for one category (or the overall total) across a
  * member's completed assessments. Same index-based-spacing, real-points-
- * only approach as components/RootScoreTrendChart.tsx: points are spaced
- * evenly by their position in the list, not by calendar date, so a gap
- * between assessments is simply absent rather than interpolated across.
+ * only approach the Root Score/Energy trend charts (components/TrendChart.tsx)
+ * use: points are spaced evenly by their position in the list, not by
+ * calendar date, so a gap between assessments is simply absent rather
+ * than interpolated across.
  *
  * Plotted as (1 - score/maxScore) rather than the raw score, so "the line
  * goes up" reads as "getting better" everywhere in this feature — the

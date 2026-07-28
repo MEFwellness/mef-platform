@@ -29,13 +29,26 @@
  * element it's watching is clipped to nothing. The outer `containerRef`
  * div is always the chart's real, unclipped bounding box; the clip-path
  * lives on the inner div only, which wraps whatever `children` is passed.
+ *
+ * `resetKey` (added for the trend-chart range selector task, 2026-07-28):
+ * optional, and a no-op for every existing caller that doesn't pass it —
+ * when it changes, the wipe replays immediately regardless of scroll
+ * position, so switching between the 1-week/2-week/1-month range pills
+ * re-animates the chart the same way scrolling it back into view does.
+ * Skipped entirely under reduced motion, same as the scroll-triggered path.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 const REPLAY_THRESHOLD = 0.3;
 
-export function ScrollDrawIn({ children }: { children: ReactNode }) {
+export function ScrollDrawIn({
+  children,
+  resetKey,
+}: {
+  children: ReactNode;
+  resetKey?: string | number;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [drawn, setDrawn] = useState(false);
@@ -71,6 +84,23 @@ export function ScrollDrawIn({ children }: { children: ReactNode }) {
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+
+  // Content changed (e.g. a new time range was picked) — replay the wipe
+  // in place, without waiting for another scroll crossing. Skipped on the
+  // very first render (resetKey's initial value isn't a "change") and
+  // entirely under reduced motion.
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (resetKey === undefined || reducedMotion) return;
+    setDrawn(false);
+    const frame = requestAnimationFrame(() => setDrawn(true));
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
 
   return (
     <div ref={containerRef}>
