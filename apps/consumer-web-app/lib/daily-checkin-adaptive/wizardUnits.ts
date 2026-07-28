@@ -17,6 +17,7 @@
  */
 
 import type { ReactNode } from 'react';
+import type { DriverProbeQuestion } from './types';
 
 export type CheckinMode = 'cinematic' | 'section';
 
@@ -46,4 +47,42 @@ export function groupUnitsIntoScreens(
 /** A screen (array of units) is "complete" for auto-advance purposes once every REQUIRED unit on it is answered — optional units (rotating probes, notes, concern) never block moving on, in either mode. */
 export function isScreenComplete(screen: readonly CheckinUnit[]): boolean {
   return screen.every((unit) => !unit.required || unit.answered);
+}
+
+/**
+ * Every follow-up must render directly beneath the question that
+ * triggered it (2026-07-28 fix) — both CheckinForm.tsx and
+ * EveningReflectionForm.tsx used to build the rotating-probe question
+ * list and the local-follow-up question list as two separate arrays,
+ * concatenated (or pushed in two loops), so EVERY follow-up landed after
+ * EVERY rotating probe on the screen regardless of which probe actually
+ * triggered it. This orders `probes` with each probe's own eligible
+ * follow-ups spliced in immediately after it — a follow-up's parent is
+ * its own `requires[0].question_key` (the same convention
+ * screenGrouping.ts's parentDomainOf() already reads to route a
+ * follow-up's screen). A follow-up whose parent isn't among `probes` at
+ * all (shouldn't happen — a follow-up is only ever eligible once its
+ * parent has actually been answered today, which requires the parent to
+ * have been rendered today) is appended at the end rather than silently
+ * dropped.
+ */
+export function interleaveFollowUps(
+  probes: readonly DriverProbeQuestion[],
+  followUps: readonly DriverProbeQuestion[]
+): DriverProbeQuestion[] {
+  const ordered: DriverProbeQuestion[] = [];
+  const matchedKeys = new Set<string>();
+
+  for (const probe of probes) {
+    ordered.push(probe);
+    for (const followUp of followUps) {
+      if (followUp.requires[0]?.question_key !== probe.questionKey) continue;
+      ordered.push(followUp);
+      matchedKeys.add(followUp.questionKey);
+    }
+  }
+  for (const followUp of followUps) {
+    if (!matchedKeys.has(followUp.questionKey)) ordered.push(followUp);
+  }
+  return ordered;
 }

@@ -47,6 +47,18 @@
  * render together exactly as before. Wearable segments are untouched —
  * they still render MetricTrendChart directly, governed only by its own
  * unmodified 5-point floor.
+ *
+ * Weekly-average chart (2026-07-28): check-in segments now render
+ * WeeklyAverageTrendChart (one point per week) instead of MetricTrendChart
+ * (one dot per day) — that daily-dot chart packed 30 overlapping points
+ * into an unreadable blob with no Y labels. MetricTrendChart itself is
+ * untouched and still renders for wearable segments below, matching the
+ * task's explicit scope limit (Home's Energy Trend card and the coach
+ * client view also keep the daily-dot chart, since they use
+ * MetricTrendChart's sibling components, not this file). A plain-English
+ * direction sentence sits above the new chart, reusing
+ * lib/intelligence/trendEngine.ts's classifyMetricTrend (see
+ * directionSentence.ts) rather than a second trend detector.
  */
 
 import Link from 'next/link';
@@ -54,6 +66,8 @@ import { useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 import type { DailyCheckin, WearableDailyMetric } from '@mef/shared-types-contracts';
 import { MetricTrendChart, type TrendPoint } from './MetricTrendChart';
+import { WeeklyAverageTrendChart } from './WeeklyAverageTrendChart';
+import { directionSentenceForSegment } from './directionSentence';
 import {
   MetricDistributionCard,
   hasEnoughForDistribution,
@@ -123,12 +137,17 @@ function wearablePoints(history: WearableDailyMetric[]): TrendPoint[] {
 
 export function TrendsPanel({
   checkins,
+  checkinsForTrendSentence,
+  asOfLocalDate,
   readinessHistory,
   sleepHistory,
   stepsHistory,
   stressHistory,
 }: {
-  checkins: DailyCheckin[]; // oldest first
+  checkins: DailyCheckin[]; // oldest first, last 30 recorded days
+  /** Oldest first, ~60 days — wide enough for classifyMetricTrend's last-30-vs-previous-30 comparison. Only ever read, never persisted. */
+  checkinsForTrendSentence: DailyCheckin[];
+  asOfLocalDate: string;
   readinessHistory: WearableDailyMetric[];
   sleepHistory: WearableDailyMetric[];
   stepsHistory: WearableDailyMetric[];
@@ -333,14 +352,23 @@ export function TrendsPanel({
       {active.group === 'checkin' && active.levelLabel ? (
         hasEnoughForDistribution(active.points) ? (
           <>
-            <MetricTrendChart
+            {(() => {
+              const sentence = directionSentenceForSegment(
+                active.key,
+                checkinsForTrendSentence,
+                asOfLocalDate
+              );
+              return sentence ? (
+                <p className="mt-4 text-sm leading-relaxed text-[#1B3A2D]">{sentence}</p>
+              ) : null;
+            })()}
+            <WeeklyAverageTrendChart
               points={active.points}
               min={active.min}
               max={active.max}
-              unit={active.unit}
               label={active.label}
-              emptyStateCopy={active.emptyStateCopy}
-              animated
+              levelLabel={active.levelLabel}
+              resetKey={active.key}
             />
             <MetricDistributionCard
               points={active.points}

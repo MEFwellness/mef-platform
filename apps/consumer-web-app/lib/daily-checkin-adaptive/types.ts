@@ -1,6 +1,12 @@
 import type { Rule } from '../adaptive-assessment-engine/types';
 
-export type ProbeResponseType = 'scale' | 'single_select' | 'time_pair' | 'count' | 'boolean';
+export type ProbeResponseType =
+  | 'scale'
+  | 'single_select'
+  | 'multi_select'
+  | 'time_pair'
+  | 'count'
+  | 'boolean';
 export type ProbeStorage = 'daily_checkins_column' | 'probe_answer';
 export type ProbeScreen = 'morning' | 'evening';
 

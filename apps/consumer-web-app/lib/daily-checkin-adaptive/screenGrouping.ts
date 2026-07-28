@@ -52,6 +52,7 @@ const PARENT_KEY_DOMAIN_HINTS: Record<string, string> = {
   'checkin_probe.last_meal_timing': 'FUE',
   'checkin_probe.meals_skipped_today': 'FUE',
   'checkin_probe.alcohol_present': 'FUE',
+  'checkin_probe.desk_hours_today': 'MEC',
   'checkin_probe.medication_or_supplement_change': 'CTX',
   'checkin_probe.emotional_load_today': 'STR',
   'checkin_probe.digestion_rating': 'DIG',

@@ -330,6 +330,83 @@ describe('the ending screen never shows calibration (percentages or chart) from 
   });
 });
 
+describe('a revised check-in answer never leaves the forecast card disagreeing with itself (off-by-one fix, 2026-07-28)', () => {
+  const date = addDays(FAR_PAST_START, 200);
+
+  beforeAll(cleanup);
+  afterEach(cleanup);
+  afterAll(cleanup);
+
+  it('her forecast: after "Update check-in" revises the answer, the printed gap matches what the labels say, not the frozen first score', async () => {
+    const service = serviceRoleClient();
+    await service.from('energy_forecasts').insert({
+      member_id: memberId,
+      forecast_date: date,
+      made_from_local_date: addDays(date, -1),
+      predicted_energy_level: 1, // Exhausted
+    });
+
+    // First visit to /checkin/result: scores against energy_level 2 (Low) — one real step, gap 1.
+    const firstView = await buildEndingScreenView(service, memberId, date, makeFakeCheckin(date, 2));
+    expect(firstView.kind).toBe('scored');
+    if (firstView.kind === 'scored') {
+      expect(firstView.her.predictedLabel).toBe('Exhausted');
+      expect(firstView.her.actualLabel).toBe('Low');
+      expect(firstView.her.gap).toBe(1);
+    }
+
+    // She uses "Update check-in" and revises today's energy answer down to
+    // 1 (Exhausted) — now an exact match against her own prediction.
+    const secondView = await buildEndingScreenView(service, memberId, date, makeFakeCheckin(date, 1));
+    expect(secondView.kind).toBe('scored');
+    if (secondView.kind === 'scored') {
+      expect(secondView.her.predictedLabel).toBe('Exhausted');
+      expect(secondView.her.actualLabel).toBe('Exhausted');
+      // Before the fix this stayed frozen at the first score (1), showing
+      // "1 point higher" under two identical "Exhausted" labels.
+      expect(secondView.her.gap).toBe(0);
+      expect(secondView.her.sentence).toMatch(/exactly/i);
+    }
+
+    // The permanent record itself is untouched since the first scoring —
+    // this fix changes what's DISPLAYED, not the frozen historical row
+    // calibration accuracy reads from.
+    const { data: row } = await service
+      .from('energy_forecasts')
+      .select('gap, actual_energy_level')
+      .eq('member_id', memberId)
+      .eq('forecast_date', date)
+      .single();
+    expect(row!.actual_energy_level).toBe(2);
+    expect(row!.gap).toBe(1);
+  });
+
+  it("Root's forecast: resolveRootStatus has the same fix — revisiting after an edited answer recomputes the gap fresh", async () => {
+    const service = serviceRoleClient();
+    await service.from('root_energy_forecasts').insert({
+      member_id: memberId,
+      forecast_date: date,
+      predicted_energy_level: 2, // Low
+      basis_observation_count: 5,
+    });
+
+    const firstView = await buildEndingScreenView(service, memberId, date, makeFakeCheckin(date, 2));
+    expect(firstView.rootStatus.kind).toBe('scored');
+    if (firstView.rootStatus.kind === 'scored') {
+      expect(firstView.rootStatus.forecast.actualLabel).toBe('Low');
+      expect(firstView.rootStatus.forecast.gap).toBe(0); // exact match on first view
+    }
+
+    const secondView = await buildEndingScreenView(service, memberId, date, makeFakeCheckin(date, 3));
+    expect(secondView.rootStatus.kind).toBe('scored');
+    if (secondView.rootStatus.kind === 'scored') {
+      expect(secondView.rootStatus.forecast.actualLabel).toBe('Moderate');
+      // Fresh: 3 - 2 = 1, not the frozen first score of 0.
+      expect(secondView.rootStatus.forecast.gap).toBe(1);
+    }
+  });
+});
+
 describe('getEnergyDriverBasis — Root nudges its forecast using a genuinely earned driver relationship', () => {
   const START = '2021-06-01';
   const NUM_DAYS = 30;

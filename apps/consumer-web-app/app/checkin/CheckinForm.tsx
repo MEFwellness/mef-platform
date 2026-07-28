@@ -9,7 +9,12 @@ import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
 import { PAIN_FOLLOWUP_THRESHOLD } from '@/lib/daily-checkin-adaptive/constants';
 import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
 import { morningScreenForQuestion, type MorningScreenKey } from '@/lib/daily-checkin-adaptive/screenGrouping';
-import { groupUnitsIntoScreens, isScreenComplete, type CheckinUnit } from '@/lib/daily-checkin-adaptive/wizardUnits';
+import {
+  groupUnitsIntoScreens,
+  isScreenComplete,
+  interleaveFollowUps,
+  type CheckinUnit,
+} from '@/lib/daily-checkin-adaptive/wizardUnits';
 import type { DriverProbeQuestion } from '@/lib/daily-checkin-adaptive/types';
 import type { TypicalSleepTimes } from '@/lib/daily-checkin-adaptive/sleepHistory';
 import { getTodaysHydrationTotal } from '@/app/actions/events';
@@ -130,8 +135,13 @@ export function CheckinForm({
   const [probeAnswers, setProbeAnswers] = useState<Record<string, ProbeAnswerValue>>(() => {
     const initial: Record<string, ProbeAnswerValue> = {};
     for (const [key, value] of Object.entries(initialProbeAnswers)) {
-      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        initial[key] = value;
+      if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean' ||
+        (Array.isArray(value) && value.every((v) => typeof v === 'string'))
+      ) {
+        initial[key] = value as ProbeAnswerValue;
       }
     }
     return initial;
@@ -315,35 +325,25 @@ export function CheckinForm({
       },
     ];
 
-    for (const question of genericRotatingProbes) {
-      list.push({
-        key: question.questionKey,
-        section: morningScreenForQuestion(question),
-        required: false,
-        answered: question.questionKey in probeAnswers,
-        render: () => (
-          <DriverProbeField
-            question={question}
-            value={probeAnswers[question.questionKey] ?? null}
-            onChange={(value) => setProbeAnswer(question.questionKey, value)}
-          />
-        ),
-      });
-    }
-    for (const question of eligibleLocalFollowUps) {
-      list.push({
-        key: question.questionKey,
-        section: morningScreenForQuestion(question),
-        required: false,
-        answered: question.questionKey in probeAnswers,
-        render: () => (
-          <DriverProbeField
-            question={question}
-            value={probeAnswers[question.questionKey] ?? null}
-            onChange={(value) => setProbeAnswer(question.questionKey, value)}
-          />
-        ),
-      });
+    // Every follow-up must render directly beneath the question that
+    // triggered it (2026-07-28 fix) — see interleaveFollowUps' own doc
+    // comment for why this used to fail (two separate loops/arrays).
+    const probeUnit = (question: DriverProbeQuestion): CheckinUnit => ({
+      key: question.questionKey,
+      section: morningScreenForQuestion(question),
+      required: false,
+      answered: question.questionKey in probeAnswers,
+      render: () => (
+        <DriverProbeField
+          question={question}
+          value={probeAnswers[question.questionKey] ?? null}
+          onChange={(value) => setProbeAnswer(question.questionKey, value)}
+        />
+      ),
+    });
+
+    for (const question of interleaveFollowUps(genericRotatingProbes, eligibleLocalFollowUps)) {
+      list.push(probeUnit(question));
     }
 
     list.push({

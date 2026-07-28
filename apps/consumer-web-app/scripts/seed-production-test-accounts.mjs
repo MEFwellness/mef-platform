@@ -14,7 +14,10 @@
  * threshold, and enough graded forecasts to show both accuracy rates):
  *   - populated   — 40 days of check-in history + ~35 days of scored
  *                   forecasts (her and Root both), realistic misses, not
- *                   suspiciously perfect.
+ *                   suspiciously perfect, + a matching 40-day Root Score
+ *                   snapshot history (item 5, 2026-07-28 follow-up — see
+ *                   seedRootScoreHistory's own doc comment for why this
+ *                   needed a separate fix from the check-in rows above).
  *   - belowThreshold — 4 days of check-in history + 3 scored forecasts
  *                      (under MIN_SCORED_FORECASTS_FOR_CALIBRATION = 5).
  *   - empty       — zero check-ins, zero forecasts, a genuine day-one account.
@@ -39,6 +42,11 @@
  * duplicates — safe to re-run.
  */
 import { createClient } from '@supabase/supabase-js';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -359,6 +367,34 @@ async function seedForecastHistory(memberId, dates, energyByDate, numForecastDay
   );
 }
 
+/**
+ * Root Score history matching the seeded check-in history (item 5,
+ * daily-loop follow-up batch): root_score_snapshots is precomputed and
+ * stored per day (lib/scoring/data.ts), never derived live from
+ * daily_checkins — inserting daily_checkins rows directly (above) leaves
+ * it empty, since only a real page load or check-in submission through
+ * the app ever computes a snapshot, and only ever for "today." Shells out
+ * to scripts/backfill-root-score-history.ts (via `npx tsx`, see that
+ * file's own header comment for why this can't be a plain .mjs import)
+ * so the real app scoring service — not a second, duplicated
+ * implementation — computes one snapshot per seeded day, oldest to
+ * newest, so momentum/resilience build up the same way they would from
+ * genuine daily use.
+ */
+function seedRootScoreHistory(memberId, dates) {
+  if (dates.length === 0) {
+    console.log('  no Root Score history seeded (brand-new member state)');
+    return;
+  }
+  const startDate = dates[0];
+  const endDate = dates[dates.length - 1];
+  execFileSync(
+    'npx',
+    ['tsx', 'scripts/backfill-root-score-history.ts', memberId, startDate, endDate, TIMEZONE],
+    { cwd: path.resolve(__dirname, '..'), stdio: 'inherit', env: process.env }
+  );
+}
+
 async function main() {
   console.log(`Seeding production test accounts against ${SUPABASE_URL}\n`);
 
@@ -369,6 +405,7 @@ async function main() {
     await markAsTest(memberId, `member:${config.key}`);
     const { dates, energyByDate } = await seedCheckinHistory(memberId, config.checkinDays, i * 1000);
     await seedForecastHistory(memberId, dates, energyByDate, config.forecastDays, i * 1000);
+    seedRootScoreHistory(memberId, dates);
     memberIds[config.key] = memberId;
     console.log('');
   }

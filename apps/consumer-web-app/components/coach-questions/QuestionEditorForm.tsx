@@ -18,7 +18,8 @@ const RESPONSE_TYPES: { value: ProbeResponseType; label: string }[] = [
   { value: 'boolean', label: 'Yes / No' },
   { value: 'scale', label: 'Scale (numbers)' },
   { value: 'count', label: 'Count (numbers)' },
-  { value: 'single_select', label: 'Multiple choice' },
+  { value: 'single_select', label: 'Multiple choice (pick one)' },
+  { value: 'multi_select', label: 'Multiple choice (pick any)' },
 ];
 
 const INPUT_CLASS =
@@ -91,7 +92,9 @@ export function QuestionEditorForm({
     initial.responseType === 'scale' || initial.responseType === 'count' ? optionsToText(initial.options) : ''
   );
   const [selectOptionsText, setSelectOptionsText] = useState(
-    initial.responseType === 'single_select' ? selectOptionsToText(initial.options) : ''
+    initial.responseType === 'single_select' || initial.responseType === 'multi_select'
+      ? selectOptionsToText(initial.options)
+      : ''
   );
   const [keyManuallyEdited, setKeyManuallyEdited] = useState(mode === 'edit');
   const [questionKey, setQuestionKey] = useState(initial.questionKey ?? slugifyPrompt(initial.prompt));
@@ -115,7 +118,7 @@ export function QuestionEditorForm({
 
   function currentOptions(): ProbeOption[] {
     if (responseType === 'scale' || responseType === 'count') return parseNumberOptions(numberOptionsText);
-    if (responseType === 'single_select') return parseSelectOptions(selectOptionsText);
+    if (responseType === 'single_select' || responseType === 'multi_select') return parseSelectOptions(selectOptionsText);
     return [];
   }
 
@@ -136,7 +139,7 @@ export function QuestionEditorForm({
       setError('Add at least one number, e.g. "1, 2, 3, 4, 5".');
       return;
     }
-    if (responseType === 'single_select' && options.length < 2) {
+    if ((responseType === 'single_select' || responseType === 'multi_select') && options.length < 2) {
       setError('Add at least two choices, one per line.');
       return;
     }
@@ -268,7 +271,7 @@ export function QuestionEditorForm({
         </div>
       )}
 
-      {responseType === 'single_select' && (
+      {(responseType === 'single_select' || responseType === 'multi_select') && (
         <div>
           <label className={LABEL_CLASS} htmlFor="select-options">
             Choices — one per line, as &quot;value: what the member sees&quot;

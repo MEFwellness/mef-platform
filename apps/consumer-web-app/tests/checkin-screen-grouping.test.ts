@@ -65,6 +65,13 @@ describe('morningScreenForQuestion — every morning-eligible domain routes some
   it('a local follow-up with no requires and no driver falls back to "other"', () => {
     expect(morningScreenForQuestion(question({ driverId: null, requires: [] }))).toBe('other');
   });
+  it('got_up_hourly (parent: checkin_probe.desk_hours_today) routes to "body", not "other" (2026-07-28 fix)', () => {
+    const gotUpHourly = question({
+      driverId: null,
+      requires: [{ question_key: 'checkin_probe.desk_hours_today', op: 'in', value: ['4_to_6h', 'over_6h'] }],
+    });
+    expect(morningScreenForQuestion(gotUpHourly)).toBe('body');
+  });
 });
 
 describe('eveningScreenForQuestion — every evening-eligible domain routes somewhere real', () => {

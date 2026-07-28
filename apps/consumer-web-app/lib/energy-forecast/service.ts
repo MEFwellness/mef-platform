@@ -96,6 +96,42 @@ function toScoredView(predictedLevel: number, actualLevel: number, gap: number, 
   };
 }
 
+/**
+ * Off-by-one fix (2026-07-28): both cards on "Today's forecast" could
+ * show a gap one point off from what their own labels said — e.g.
+ * "predicted Exhausted, came in Low" (a genuine one-step gap) captioned
+ * as "2 points higher," or two identical "Low" labels captioned as
+ * "1 point higher" instead of an exact match. `scoreForecast` itself
+ * (actual - predicted) was never wrong. The real defect: once a forecast
+ * is scored, its `gap` column is frozen by DB trigger (by design, so
+ * historical calibration accuracy never retroactively changes) — but
+ * `todaysEnergyLevel` is re-read fresh on every visit to this screen. A
+ * member can reach /checkin/result again for the same day by using
+ * "Update check-in" to revise an already-submitted answer; the labels
+ * then reflect her NEW answer while the frozen `gap` still reflects the
+ * OLD one, so the visible labels and the printed gap silently disagreed.
+ * Both buildEndingScreenView (her forecast) and resolveRootStatus
+ * (Root's) had this exact same pattern independently — this one function
+ * is now the only place either builds a scored view, so both are fixed
+ * by the one change: the frozen `gap` column still gets written once
+ * (untouched — it's what calibration history reads), but the NUMBER
+ * SHOWN is always recomputed fresh against the same actualLevel the
+ * labels use, so they can never disagree.
+ */
+async function resolveScoredView(
+  predictedLevel: number,
+  actualLevel: number,
+  alreadyScored: boolean,
+  persistOnce: () => Promise<void>,
+  forRoot: boolean
+): Promise<ScoredForecastView> {
+  if (!alreadyScored) {
+    await persistOnce();
+  }
+  const { gap } = scoreForecast(predictedLevel, actualLevel);
+  return toScoredView(predictedLevel, actualLevel, gap, forRoot);
+}
+
 async function resolveRootStatus(
   supabase: SupabaseClient,
   memberId: string,
@@ -105,13 +141,14 @@ async function resolveRootStatus(
   const rootRow = await getRootForecastForDate(supabase, memberId, localDate);
 
   if (rootRow) {
-    let gap = rootRow.gap;
-    if (!rootRow.scored_at) {
-      const score = scoreForecast(rootRow.predicted_energy_level, todaysEnergyLevel);
-      gap = score.gap;
-      await scoreRootForecastOnce(supabase, memberId, localDate, todaysEnergyLevel);
-    }
-    return { kind: 'scored', forecast: toScoredView(rootRow.predicted_energy_level, todaysEnergyLevel, gap!, true) };
+    const forecast = await resolveScoredView(
+      rootRow.predicted_energy_level,
+      todaysEnergyLevel,
+      rootRow.scored_at !== null,
+      () => scoreRootForecastOnce(supabase, memberId, localDate, todaysEnergyLevel),
+      true
+    );
+    return { kind: 'scored', forecast };
   }
 
   // No row — either Root never had a genuine basis, it abstained as too
@@ -266,13 +303,13 @@ export async function buildEndingScreenView(
     return { kind: 'no_forecast', readback, timeline, rootStatus };
   }
 
-  let gap = herForecastRow.gap;
-  if (!herForecastRow.scored_at) {
-    const score = scoreForecast(herForecastRow.predicted_energy_level, todaysEnergyLevel);
-    gap = score.gap;
-    await scoreForecastOnce(supabase, memberId, localDate, todaysEnergyLevel);
-  }
-  const her = toScoredView(herForecastRow.predicted_energy_level, todaysEnergyLevel, gap!, false);
+  const her = await resolveScoredView(
+    herForecastRow.predicted_energy_level,
+    todaysEnergyLevel,
+    herForecastRow.scored_at !== null,
+    () => scoreForecastOnce(supabase, memberId, localDate, todaysEnergyLevel),
+    false
+  );
 
   const [rootStatus, handoffToCase] = await Promise.all([
     resolveRootStatus(supabase, memberId, localDate, todaysEnergyLevel),

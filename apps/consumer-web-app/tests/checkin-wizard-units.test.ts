@@ -9,7 +9,33 @@
  * only, "full ceremony... each question revealing on its own").
  */
 import { describe, it, expect } from 'vitest';
-import { groupUnitsIntoScreens, isScreenComplete, type CheckinUnit } from '../lib/daily-checkin-adaptive/wizardUnits';
+import {
+  groupUnitsIntoScreens,
+  isScreenComplete,
+  interleaveFollowUps,
+  type CheckinUnit,
+} from '../lib/daily-checkin-adaptive/wizardUnits';
+import type { DriverProbeQuestion } from '../lib/daily-checkin-adaptive/types';
+
+function probeQuestion(overrides: Partial<DriverProbeQuestion> = {}): DriverProbeQuestion {
+  return {
+    questionKey: 'checkin_probe.example',
+    driverId: 'FUE-1',
+    prompt: 'Example?',
+    responseType: 'boolean',
+    options: [],
+    storage: 'probe_answer',
+    dailyCheckinsColumn: null,
+    wearableMetricCode: null,
+    requires: [],
+    excludes: [],
+    priority: 0,
+    active: true,
+    screen: 'morning',
+    displayStyle: null,
+    ...overrides,
+  };
+}
 
 function unit(overrides: Partial<CheckinUnit> = {}): CheckinUnit {
   return {
@@ -67,6 +93,82 @@ describe('groupUnitsIntoScreens — cinematic mode', () => {
     const section = groupUnitsIntoScreens(units, 'section', ['feeling', 'night', 'body', 'other']);
     expect(cinematic).toEqual([[units[0]]]);
     expect(section).toEqual([[units[0]]]);
+  });
+});
+
+describe('interleaveFollowUps — a follow-up renders directly beneath the question that triggered it', () => {
+  it('splices a single follow-up in immediately after its own parent, not after every probe', () => {
+    const bedtimeLater = probeQuestion({ questionKey: 'checkin_probe.bedtime_later_than_wanted' });
+    const eveningCraving = probeQuestion({ questionKey: 'checkin_probe.cravings_today' });
+    const whatKeptYouUp = probeQuestion({
+      questionKey: 'checkin_probe.what_kept_you_up',
+      driverId: null,
+      requires: [{ question_key: 'checkin_probe.bedtime_later_than_wanted', op: 'eq', value: true }],
+    });
+
+    const ordered = interleaveFollowUps([bedtimeLater, eveningCraving], [whatKeptYouUp]);
+    expect(ordered.map((q) => q.questionKey)).toEqual([
+      'checkin_probe.bedtime_later_than_wanted',
+      'checkin_probe.what_kept_you_up',
+      'checkin_probe.cravings_today',
+    ]);
+  });
+
+  it('a parent probe with two follow-ups gets both immediately after it, in the follow-ups\' own order', () => {
+    const digestion = probeQuestion({ questionKey: 'checkin_probe.digestion_rating' });
+    const other = probeQuestion({ questionKey: 'checkin_probe.other_probe' });
+    const followUpA = probeQuestion({
+      questionKey: 'checkin_probe.follow_a',
+      driverId: null,
+      requires: [{ question_key: 'checkin_probe.digestion_rating', op: 'lte', value: 2 }],
+    });
+    const followUpB = probeQuestion({
+      questionKey: 'checkin_probe.follow_b',
+      driverId: null,
+      requires: [{ question_key: 'checkin_probe.digestion_rating', op: 'lte', value: 2 }],
+    });
+
+    const ordered = interleaveFollowUps([digestion, other], [followUpA, followUpB]);
+    expect(ordered.map((q) => q.questionKey)).toEqual([
+      'checkin_probe.digestion_rating',
+      'checkin_probe.follow_a',
+      'checkin_probe.follow_b',
+      'checkin_probe.other_probe',
+    ]);
+  });
+
+  it('a follow-up whose parent is NOT among the probes (should not happen in practice) still renders, appended at the end rather than dropped', () => {
+    const someProbe = probeQuestion({ questionKey: 'checkin_probe.some_probe' });
+    const orphanFollowUp = probeQuestion({
+      questionKey: 'checkin_probe.orphan_follow_up',
+      driverId: null,
+      requires: [{ question_key: 'checkin_probe.never_rendered_today', op: 'eq', value: true }],
+    });
+
+    const ordered = interleaveFollowUps([someProbe], [orphanFollowUp]);
+    expect(ordered.map((q) => q.questionKey)).toEqual([
+      'checkin_probe.some_probe',
+      'checkin_probe.orphan_follow_up',
+    ]);
+  });
+
+  it('reproduces the reported bug scenario: a craving follow-up and a pain-adjacent probe never separate a probe from its own follow-up', () => {
+    const deskHours = probeQuestion({ questionKey: 'checkin_probe.desk_hours_today', driverId: 'MEC-1' });
+    const cravings = probeQuestion({ questionKey: 'checkin_probe.cravings_today', driverId: 'FUE-4' });
+    const gotUpHourly = probeQuestion({
+      questionKey: 'checkin_probe.got_up_hourly',
+      driverId: null,
+      requires: [{ question_key: 'checkin_probe.desk_hours_today', op: 'in', value: ['4_to_6h', 'over_6h'] }],
+    });
+
+    const ordered = interleaveFollowUps([deskHours, cravings], [gotUpHourly]);
+    const deskIndex = ordered.findIndex((q) => q.questionKey === 'checkin_probe.desk_hours_today');
+    const followUpIndex = ordered.findIndex((q) => q.questionKey === 'checkin_probe.got_up_hourly');
+    expect(followUpIndex).toBe(deskIndex + 1);
+  });
+
+  it('no probes, no follow-ups -> empty', () => {
+    expect(interleaveFollowUps([], [])).toEqual([]);
   });
 });
 

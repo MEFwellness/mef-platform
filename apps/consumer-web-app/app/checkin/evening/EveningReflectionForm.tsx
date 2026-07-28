@@ -24,7 +24,12 @@ import {
 import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
 import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
 import { eveningScreenForQuestion, type EveningScreenKey } from '@/lib/daily-checkin-adaptive/screenGrouping';
-import { groupUnitsIntoScreens, isScreenComplete, type CheckinUnit } from '@/lib/daily-checkin-adaptive/wizardUnits';
+import {
+  groupUnitsIntoScreens,
+  isScreenComplete,
+  interleaveFollowUps,
+  type CheckinUnit,
+} from '@/lib/daily-checkin-adaptive/wizardUnits';
 import type { DriverProbeQuestion } from '@/lib/daily-checkin-adaptive/types';
 import { DriverProbeField, type ProbeAnswerValue } from '@/components/checkin/DriverProbeField';
 import { CheckinWizard } from '@/components/checkin/CheckinWizard';
@@ -97,8 +102,13 @@ export function EveningReflectionForm({
   const [probeAnswers, setProbeAnswers] = useState<Record<string, ProbeAnswerValue>>(() => {
     const initial: Record<string, ProbeAnswerValue> = {};
     for (const [key, value] of Object.entries(initialProbeAnswers)) {
-      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        initial[key] = value;
+      if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean' ||
+        (Array.isArray(value) && value.every((v) => typeof v === 'string'))
+      ) {
+        initial[key] = value as ProbeAnswerValue;
       }
     }
     return initial;
@@ -190,20 +200,28 @@ export function EveningReflectionForm({
       },
     ];
 
-    for (const question of [...rotatingProbes, ...eligibleLocalFollowUps]) {
-      list.push({
-        key: question.questionKey,
-        section: eveningScreenForQuestion(question),
-        required: false,
-        answered: question.questionKey in probeAnswers,
-        render: () => (
-          <DriverProbeField
-            question={question}
-            value={probeAnswers[question.questionKey] ?? null}
-            onChange={(value) => setProbeAnswer(question.questionKey, value)}
-          />
-        ),
-      });
+    // Same interleaving fix as CheckinForm.tsx (2026-07-28) — see
+    // interleaveFollowUps' own doc comment. No local follow-up is
+    // currently seeded on the 'evening' screen (migration 113 folded them
+    // all onto 'morning'), so this had no visible symptom today, but the
+    // same two-groups-concatenated shape was here and would have
+    // misplaced the first evening-screen follow-up ever added.
+    const probeUnit = (question: DriverProbeQuestion): CheckinUnit => ({
+      key: question.questionKey,
+      section: eveningScreenForQuestion(question),
+      required: false,
+      answered: question.questionKey in probeAnswers,
+      render: () => (
+        <DriverProbeField
+          question={question}
+          value={probeAnswers[question.questionKey] ?? null}
+          onChange={(value) => setProbeAnswer(question.questionKey, value)}
+        />
+      ),
+    });
+
+    for (const question of interleaveFollowUps(rotatingProbes, eligibleLocalFollowUps)) {
+      list.push(probeUnit(question));
     }
 
     list.push({

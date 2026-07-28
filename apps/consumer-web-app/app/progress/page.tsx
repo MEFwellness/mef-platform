@@ -89,6 +89,7 @@ export default async function ProgressPage() {
     isCoach,
     { data: profile },
     recentCheckins,
+    checkinsForTrendSentence,
     wellnessPatterns,
     wellnessIdentity,
     wellnessStory,
@@ -104,6 +105,12 @@ export default async function ProgressPage() {
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     getRecentCheckins(30),
+    // Wide enough for the Trends section's direction sentence, which
+    // reuses classifyMetricTrend's last-30-vs-previous-30-day comparison
+    // (see directionSentence.ts) — a separate, read-only fetch so the
+    // 30-day window every other Trends/distribution calculation relies on
+    // stays exactly as it was.
+    getRecentCheckins(60),
     getMyWellnessPatterns(),
     getMyWellnessIdentityHighlights(),
     getMyWellnessStorySummary(),
@@ -177,6 +184,8 @@ export default async function ProgressPage() {
             the check-in and any connected wearable actually capture. */}
         <TrendsPanel
           checkins={recentCheckins}
+          checkinsForTrendSentence={checkinsForTrendSentence}
+          asOfLocalDate={localDate}
           readinessHistory={readinessHistory}
           sleepHistory={sleepHistory}
           stepsHistory={stepsHistory}

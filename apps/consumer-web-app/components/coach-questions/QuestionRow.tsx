@@ -18,7 +18,8 @@ const RESPONSE_TYPE_LABEL: Record<string, string> = {
   boolean: 'Yes / No',
   scale: 'Scale',
   count: 'Count',
-  single_select: 'Multiple choice',
+  single_select: 'Multiple choice (pick one)',
+  multi_select: 'Multiple choice (pick any)',
   time_pair: 'Time',
 };
 

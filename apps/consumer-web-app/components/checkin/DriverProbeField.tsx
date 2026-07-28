@@ -17,9 +17,10 @@ import { BooleanPills } from './scales/BooleanPills';
 import { DotsCount } from './scales/DotsCount';
 import { ShortOptionRow } from './scales/ShortOptionRow';
 import { StackedOptionRows } from './scales/StackedOptionRows';
+import { MultiOptionRows } from './scales/MultiOptionRows';
 import { MAX_INLINE_LABEL_LENGTH } from './scales/shared';
 
-export type ProbeAnswerValue = string | number | boolean;
+export type ProbeAnswerValue = string | number | boolean | string[];
 
 /**
  * UX audit fix: every other five-point scale in either flow labels both
@@ -130,6 +131,21 @@ export function DriverProbeField({
         question={question.prompt}
         options={options}
         value={typeof value === 'string' ? value : null}
+        onChange={onChange}
+      />
+    );
+  }
+
+  if (question.responseType === 'multi_select') {
+    const options = question.options.map((option) => {
+      const opt = option as Exclude<ProbeOption, number>;
+      return { value: optionValue(opt), label: optionLabel(opt) };
+    });
+    return (
+      <MultiOptionRows
+        question={question.prompt}
+        options={options}
+        value={Array.isArray(value) ? value : []}
         onChange={onChange}
       />
     );

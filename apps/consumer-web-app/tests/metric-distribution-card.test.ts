@@ -230,8 +230,12 @@ describe('Wiring: distribution card sits below the line chart, check-in segments
     expect(TRENDS_PANEL).toContain('<MetricDistributionCard');
   });
 
-  it('MetricTrendChart (the untouched line chart) renders before MetricDistributionCard, not after', () => {
-    const chartIdx = TRENDS_PANEL.indexOf('<MetricTrendChart');
+  it('WeeklyAverageTrendChart (the check-in segments\' chart, 2026-07-28) renders before MetricDistributionCard, not after', () => {
+    // MetricTrendChart itself moved to check-in segments' sibling — the
+    // wearable branch, further down this same file (see the "wearable
+    // segments are completely unaffected" test below) — so the check-in
+    // branch's own chart is WeeklyAverageTrendChart now, not MetricTrendChart.
+    const chartIdx = TRENDS_PANEL.indexOf('<WeeklyAverageTrendChart');
     const distIdx = TRENDS_PANEL.indexOf('<MetricDistributionCard');
     expect(chartIdx).toBeGreaterThan(-1);
     expect(distIdx).toBeGreaterThan(chartIdx);
@@ -379,10 +383,10 @@ describe('Fix: collapse the two stacked "not enough check-ins" messages into one
     expect(belowThresholdBlock).toMatch(/MIN_DAYS_FOR_DISTRIBUTION/);
   });
 
-  it('above the threshold, both the real chart and the real distribution card render together, unchanged from before this fix', () => {
+  it('above the threshold, both the real chart and the real distribution card render together, unchanged from before this fix (chart is now WeeklyAverageTrendChart, 2026-07-28)', () => {
     const checkinBranchStart = TRENDS_PANEL.indexOf("active.group === 'checkin'");
-    const aboveThresholdBlock = TRENDS_PANEL.slice(checkinBranchStart, checkinBranchStart + 500);
-    expect(aboveThresholdBlock).toContain('<MetricTrendChart');
+    const aboveThresholdBlock = TRENDS_PANEL.slice(checkinBranchStart, checkinBranchStart + 900);
+    expect(aboveThresholdBlock).toContain('<WeeklyAverageTrendChart');
     expect(aboveThresholdBlock).toContain('<MetricDistributionCard');
   });
 

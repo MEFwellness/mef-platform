@@ -12,6 +12,7 @@ import type { DisplayStyle, DriverProbeQuestion } from './types';
 const DEFAULT_BY_RESPONSE_TYPE: Record<DriverProbeQuestion['responseType'], DisplayStyle> = {
   scale: 'segmented',
   single_select: 'pill_row',
+  multi_select: 'pill_row',
   boolean: 'boolean_pills',
   count: 'dots',
   // No driver_probe_questions row uses time_pair today (the bedtime/wake

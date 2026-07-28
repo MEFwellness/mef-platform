@@ -5,6 +5,7 @@ describe('resolveDisplayStyle', () => {
   it('falls back to a sensible default per responseType when displayStyle is unset (null)', () => {
     expect(resolveDisplayStyle({ responseType: 'scale', displayStyle: null })).toBe('segmented');
     expect(resolveDisplayStyle({ responseType: 'single_select', displayStyle: null })).toBe('pill_row');
+    expect(resolveDisplayStyle({ responseType: 'multi_select', displayStyle: null })).toBe('pill_row');
     expect(resolveDisplayStyle({ responseType: 'boolean', displayStyle: null })).toBe('boolean_pills');
     expect(resolveDisplayStyle({ responseType: 'count', displayStyle: null })).toBe('dots');
     expect(resolveDisplayStyle({ responseType: 'time_pair', displayStyle: null })).toBe('segmented');
