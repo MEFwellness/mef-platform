@@ -33,7 +33,8 @@ import {
   type AdaptiveRouterContext,
   type RootRouterOutcomeView,
 } from '@/lib/investigation-engine/routerOutcome';
-import { buildRootMap, type RootMapView } from '@/lib/root-map';
+import { buildRootMap, fetchDomainCoverage, type DomainCoverage, type RootMapView } from '@/lib/root-map';
+import type { CoachingDomain } from '@/lib/investigation-engine/domains';
 import {
   listPendingReassessments,
   type PendingReassessmentRow,
@@ -181,14 +182,22 @@ async function assembleRootMap(
   return { view, inputs };
 }
 
-export async function getMyRootMap(): Promise<RootMapView | null> {
+/** Member-only extension of RootMapView — a real per-domain coverage count (Root Map redesign, 2026-07-28, Part 3), computed only for the member's own page. The coach view (getClientRootMap) doesn't carry this; RootMapPanel.tsx/RootMapDomainCard.tsx are unchanged. */
+export type MemberRootMapView = RootMapView & {
+  coverageByDomain: Partial<Record<CoachingDomain, DomainCoverage>>;
+};
+
+export async function getMyRootMap(): Promise<MemberRootMapView | null> {
   const supabase = createClient();
   const user = await getCachedUser();
   if (!user) return null;
 
   const localDate = await localDateFor(supabase, user.id);
-  const { view } = await assembleRootMap(supabase, user.id, localDate, false);
-  return view;
+  const [{ view }, coverageByDomain] = await Promise.all([
+    assembleRootMap(supabase, user.id, localDate, false),
+    fetchDomainCoverage(supabase, user.id, localDate),
+  ]);
+  return { ...view, coverageByDomain };
 }
 
 export type RouterDecisionRow = {

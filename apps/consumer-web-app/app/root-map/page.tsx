@@ -6,6 +6,15 @@
  * Model and Router §16 closing recommendation 6). Reads only from
  * app/actions/rootMap.ts (lib/root-map/) — never calculates anything
  * itself, same discipline as app/root-score/page.tsx.
+ *
+ * Redesigned 2026-07-28: a twelve-segment ring map at the top
+ * (components/root-map/RootMapRing.tsx), three real-state groups instead
+ * of twelve identical flat cards (lib/root-map/grouping.ts), and a named
+ * "What We're Noticing Overall" recommendation (lib/root-map/topArea.ts)
+ * instead of an unnamed "a specific area." Purely a presentation change —
+ * the underlying builder (lib/root-map/builder.ts), the coach view
+ * (RootMapPanel.tsx), and RootMapDomainCard.tsx (still used by the coach
+ * view) are untouched.
  */
 
 import Link from 'next/link';
@@ -16,12 +25,19 @@ import { createClient } from '@/lib/supabase/server';
 import { getMyRootMap } from '@/app/actions/rootMap';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
-import { RootMapDomainCard } from '@/components/RootMapDomainCard';
+import { groupRootMapDomains, resolveNamedAreaRecommendation } from '@/lib/root-map';
+import { RootMapRing } from '@/components/root-map/RootMapRing';
+import { RootMapFindingCard } from '@/components/root-map/RootMapFindingCard';
+import { RootMapBuildingRow } from '@/components/root-map/RootMapBuildingRow';
+import { RootMapNotCoveredSection } from '@/components/root-map/RootMapNotCoveredSection';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 const SAFETY_STATEMENT =
   'Your Root Map is a wellness coaching guide built from your own check-ins, activity, and assessments — it is not a medical diagnosis, a clinical measurement, or a prediction about your health. Working hypotheses only, held loosely, and always something to confirm or correct with your coach.';
+
+const NOTHING_STANDS_OUT_YET =
+  "Nothing specific has stood out yet — keep checking in and we'll name it here as soon as it does.";
 
 export default async function RootMapPage() {
   const supabase = createClient();
@@ -34,6 +50,11 @@ export default async function RootMapPage() {
     getMyRootMap(),
     hasActiveRole(supabase, user.id, 'coach'),
   ]);
+
+  const groups = rootMap ? groupRootMapDomains(rootMap.domains) : null;
+  const namedArea = rootMap ? resolveNamedAreaRecommendation(rootMap.routerOutcome, rootMap.domains) : null;
+  const showGenericRecommendation =
+    rootMap?.routerOutcome.outcome !== 'focused_investigation' && !!rootMap?.routerOutcome.investigation;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -51,7 +72,7 @@ export default async function RootMapPage() {
           <p className="text-sm font-semibold uppercase tracking-wider">Your Root Map</p>
         </div>
 
-        {!rootMap ? (
+        {!rootMap || !groups ? (
           <section className={`${CARD} mef-animate-in mt-3 p-7`}>
             <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
               Building your Root Map
@@ -64,13 +85,43 @@ export default async function RootMapPage() {
         ) : (
           <>
             <section className={`${CARD} mef-animate-in mt-3 p-7`}>
+              <RootMapRing
+                domains={rootMap.domains.map((d) => ({
+                  domain: d.domain,
+                  label: d.label,
+                  whatWeUnderstand: d.whatWeUnderstand,
+                }))}
+                coverageByDomain={rootMap.coverageByDomain}
+              />
+              <p className="mt-3 text-center text-xs text-[#6B7A72]">
+                Tap a segment to jump to that dimension.
+              </p>
+            </section>
+
+            <section className={`${CARD} mef-animate-in mt-5 p-7`}>
               <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
                 What We&apos;re Noticing Overall
               </h1>
-              <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">
-                {rootMap.routerOutcome.memberMessage}
-              </p>
-              {rootMap.routerOutcome.investigation && (
+              {namedArea ? (
+                <>
+                  <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">
+                    {namedArea.areaLabel} looks like a specific area worth exploring further.
+                  </p>
+                  <Link
+                    href={namedArea.investigation.route as Route}
+                    className="mt-4 inline-block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+                  >
+                    {namedArea.investigation.displayName}
+                  </Link>
+                </>
+              ) : (
+                <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">
+                  {rootMap.routerOutcome.outcome === 'focused_investigation'
+                    ? NOTHING_STANDS_OUT_YET
+                    : rootMap.routerOutcome.memberMessage}
+                </p>
+              )}
+              {showGenericRecommendation && rootMap.routerOutcome.investigation && (
                 <Link
                   href={rootMap.routerOutcome.investigation.route as Route}
                   className="mt-4 inline-block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
@@ -80,10 +131,47 @@ export default async function RootMapPage() {
               )}
             </section>
 
-            <div className="mt-5 space-y-5">
-              {rootMap.domains.map((domain) => (
-                <RootMapDomainCard key={domain.domain} domain={domain} />
-              ))}
+            <div className="mt-6">
+              <p className="px-1 text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                What We&apos;re Seeing
+              </p>
+              <div className="mt-3 space-y-5">
+                {groups.seeing.length > 0 ? (
+                  groups.seeing.map((domain) => (
+                    <RootMapFindingCard
+                      key={domain.domain}
+                      domain={domain}
+                      coverage={rootMap.coverageByDomain[domain.domain] ?? null}
+                    />
+                  ))
+                ) : (
+                  <p className="px-1 text-sm leading-relaxed text-[#6B7A72]">
+                    Nothing has risen to a clear pattern yet — as you check in and complete
+                    assessments, real findings will start appearing here.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {groups.building.length > 0 && (
+              <div className="mt-6">
+                <p className="px-1 text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                  Building
+                </p>
+                <div className="mt-3 space-y-2">
+                  {groups.building.map((domain) => (
+                    <RootMapBuildingRow
+                      key={domain.domain}
+                      domain={domain}
+                      coverage={rootMap.coverageByDomain[domain.domain] ?? null}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6">
+              <RootMapNotCoveredSection domains={groups.notCovered} />
             </div>
 
             <section className="mt-5 flex items-start gap-3 px-1">

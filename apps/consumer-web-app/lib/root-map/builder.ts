@@ -32,6 +32,7 @@ import type { CoachingPriorityLevel } from '../investigation-engine/types';
 import type { PatternInsight } from '../intelligence-engine/types';
 import type { RootRouterOutcomeView } from '../investigation-engine/routerOutcome';
 import type { RootMapDomainView, RootMapStage, RootMapView } from './types';
+import { MEMBER_DOMAIN_DESCRIPTIONS } from './memberCopy';
 
 const GATHERING_INFO_MESSAGE =
   "Rooted Reset is still gathering information here — as you complete assessments and check-ins, this section will fill in.";
@@ -155,6 +156,7 @@ function buildDomainView(
     domain,
     label: info.label,
     definition: info.definition,
+    memberDescription: MEMBER_DOMAIN_DESCRIPTIONS[domain],
     isUninstrumented: info.isUninstrumented,
     stage,
     confidence,

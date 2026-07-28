@@ -30,6 +30,8 @@ export type RootMapDomainView = {
   domain: CoachingDomain;
   label: string;
   definition: string;
+  /** Second-person, member-facing rewrite of `definition` — see memberCopy.ts. The coach-facing card keeps reading `definition`; only the member Root Map page reads this. */
+  memberDescription: string;
   isUninstrumented: boolean;
   stage: RootMapStage;
   confidence: DomainConfidence;
