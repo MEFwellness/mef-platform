@@ -23,12 +23,28 @@
  * Story" rework: an ordinary day's value isn't a genuine concern, and
  * red implied an alarm that wasn't real. Every dot on this page is now a
  * flat forest green, matching the Root Score chart.
+ *
+ * Distribution card task (2026-07-28): each check-in segment (not
+ * wearable — a wearable metric is continuous, not a small fixed set of
+ * levels) now also renders MetricDistributionCard directly below the line
+ * chart, answering "what does a typical day look like" instead of "how
+ * has this moved over time." `levelLabel` carries each metric's real
+ * word scale (or, for Digestion, the plain numbers — see that
+ * component's own doc comment for why no word scale exists for it).
  */
 
 import { useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 import type { DailyCheckin, WearableDailyMetric } from '@mef/shared-types-contracts';
 import { MetricTrendChart, type TrendPoint } from './MetricTrendChart';
+import { MetricDistributionCard } from './MetricDistributionCard';
+import {
+  energyLevelLabel,
+  moodLabel,
+  stressLabel,
+  sleepQualityLabel,
+  painLabel,
+} from '@/lib/energy-forecast/scaleLabels';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -41,6 +57,8 @@ type Segment = {
   max: number;
   unit: string;
   emptyStateCopy: string;
+  /** Only present for check-in segments — the real word scale (or plain numbers) her check-in itself uses for this metric's levels. */
+  levelLabel?: (level: number) => string;
 };
 
 export function hasWearableData(
@@ -104,6 +122,7 @@ export function TrendsPanel({
       max: 5,
       unit: '/5',
       emptyStateCopy: 'Your energy pattern needs a few more check-ins before a trend can appear.',
+      levelLabel: energyLevelLabel,
     },
     {
       key: 'mood',
@@ -114,6 +133,7 @@ export function TrendsPanel({
       max: 5,
       unit: '/5',
       emptyStateCopy: 'Your mood pattern needs a few more check-ins before a trend can appear.',
+      levelLabel: moodLabel,
     },
     {
       key: 'stress',
@@ -124,6 +144,7 @@ export function TrendsPanel({
       max: 5,
       unit: '/5',
       emptyStateCopy: 'Your stress pattern needs a few more check-ins before a trend can appear.',
+      levelLabel: stressLabel,
     },
     {
       key: 'sleep_quality',
@@ -135,6 +156,7 @@ export function TrendsPanel({
       unit: '/5',
       emptyStateCopy:
         'Your sleep quality pattern needs a few more check-ins before a trend can appear.',
+      levelLabel: sleepQualityLabel,
     },
     {
       key: 'digestion',
@@ -146,6 +168,10 @@ export function TrendsPanel({
       unit: '/5',
       emptyStateCopy:
         'Your digestion pattern needs a few more check-ins before a trend can appear.',
+      // No real word scale exists for digestion anywhere in the check-in
+      // UI (components/checkin/DriverProbeField.tsx renders it as a bare
+      // numbered row) — plain numbers are the honest "same labels she saw."
+      levelLabel: (level: number) => String(level),
     },
     {
       key: 'pain',
@@ -156,6 +182,7 @@ export function TrendsPanel({
       max: 5,
       unit: '/5',
       emptyStateCopy: 'Your pain pattern needs a few more check-ins before a trend can appear.',
+      levelLabel: painLabel,
     },
   ];
 
@@ -289,6 +316,17 @@ export function TrendsPanel({
         emptyStateCopy={active.emptyStateCopy}
         animated
       />
+
+      {active.group === 'checkin' && active.levelLabel && (
+        <MetricDistributionCard
+          points={active.points}
+          min={active.min}
+          max={active.max}
+          levelLabel={active.levelLabel}
+          metricLabel={active.label}
+          resetKey={active.key}
+        />
+      )}
     </section>
   );
 }

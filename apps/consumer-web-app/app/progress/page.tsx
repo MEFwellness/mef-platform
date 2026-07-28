@@ -57,7 +57,6 @@ import { ProgressRootScorePanel } from './ProgressRootScorePanel';
 import { CoachingInsightsPanel } from './CoachingInsightsPanel';
 import { TrendsPanel } from './TrendsPanel';
 import { ConsistencyPanel } from './ConsistencyPanel';
-import { calculateStreak } from './streak';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
@@ -121,7 +120,6 @@ export default async function ProgressPage() {
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const localDate = await resolveLocalDate(nowInTz, false);
-  const streak = calculateStreak(recentCheckins);
   const history = [...recentCheckins].reverse(); // most recent first for the list
   const averageEnergy =
     recentCheckins.length > 0
@@ -185,13 +183,11 @@ export default async function ProgressPage() {
           stressHistory={stressHistory}
         />
 
-        {/* Consistency — streak / check-ins / avg energy as one
-            three-up stat row instead of three full-width cards. */}
-        <ConsistencyPanel
-          streak={streak}
-          checkinCount={recentCheckins.length}
-          averageEnergy={averageEnergy}
-        />
+        {/* Consistency — Avg Energy only now; Streak and Check-ins were
+            removed (distribution card task, 2026-07-28) after confirming
+            both appear elsewhere in the app. See ConsistencyPanel.tsx's
+            own doc comment for the full accounting. */}
+        <ConsistencyPanel averageEnergy={averageEnergy} />
 
         {/* Assessment block: From Your Assessments + Baseline vs. Latest
             Comparison, grouped together since both read assessment data. */}

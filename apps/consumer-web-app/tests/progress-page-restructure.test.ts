@@ -2,9 +2,12 @@
  * Progress page restructure ("Your Wellness Story") — real unit tests for
  * the pure logic behind the new section structure: the minimum-data floor
  * (fewer than 5 real points is not a trend) applied to both the unified
- * Trends card and the Root Score trend chart, the Consistency card's
- * streak calculation, and the Trends card's wearable-segment-group
- * visibility rule. Not component-rendering tests — SSR component tests
+ * Trends card and the Root Score trend chart, and the Trends card's
+ * wearable-segment-group visibility rule. The Consistency card's former
+ * streak calculation (app/progress/streak.ts) was deleted in the
+ * distribution-card task (2026-07-28) along with its dedicated tests here
+ * — see app/progress/ConsistencyPanel.tsx's own doc comment. Not
+ * component-rendering tests — SSR component tests
  * don't work in this repo (React Server Components can't be rendered by
  * vitest's node environment) — so this covers the same behavior the way
  * every other page in this app's test suite does: by testing the
@@ -18,7 +21,6 @@ import {
 } from '@/app/progress/ProgressRootScorePanel';
 import { MIN_SCORED_SNAPSHOTS_FOR_TREND } from '@/lib/scoring/rootScoreTrendConfig';
 import { hasWearableData, dynamicBounds } from '@/app/progress/TrendsPanel';
-import { calculateStreak } from '@/app/progress/streak';
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import type { WearableDailyMetric } from '@mef/shared-types-contracts';
 
@@ -157,25 +159,5 @@ describe('Trends card — dynamic chart bounds for wearable metrics (TrendsPanel
     expect(Number.isFinite(bounds.min)).toBe(true);
     expect(Number.isFinite(bounds.max)).toBe(true);
     expect(bounds.max).toBeGreaterThan(bounds.min);
-  });
-});
-
-describe('Consistency card — streak calculation (page.calculateStreak)', () => {
-  it('no check-ins yet is a zero streak, not an error', () => {
-    expect(calculateStreak([])).toBe(0);
-  });
-
-  it('consecutive days count as a real streak', () => {
-    const checkins = ['2026-01-01', '2026-01-02', '2026-01-03'].map((local_date) => ({
-      local_date,
-    }));
-    expect(calculateStreak(checkins)).toBe(3);
-  });
-
-  it('a gap breaks the streak at the most recent run', () => {
-    const checkins = ['2026-01-01', '2026-01-05', '2026-01-06'].map((local_date) => ({
-      local_date,
-    }));
-    expect(calculateStreak(checkins)).toBe(2);
   });
 });
