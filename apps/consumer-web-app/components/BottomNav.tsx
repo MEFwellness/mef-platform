@@ -1,21 +1,18 @@
 'use client';
 
 /**
- * Primary navigation. The fixed bottom bar is deliberately minimal — Home
- * on the left, the large centered Check-In action, and Today on the
- * right. Every other primary surface (Movement, Food Lens, Progress) is
- * reached from Dashboard quick-access cards instead (see
- * components/DashboardQuickLinks.tsx), and Root is reached through the
- * floating "Ask Root" launcher (FloatingCoachLauncher.tsx) — never a
- * bottom-nav tab. This is an explicit, deliberate scope: three items,
- * nothing more, not a redesign to fit more tabs in.
+ * Primary navigation. Member bar: Home, Food Lens (left) — Check-In
+ * (center) — Progress, Today (right), two evenly-weighted tabs on each
+ * side of the center button. Coach accounts render a separate, unchanged
+ * layout (Home, Coach | Check-In | Today) — see `isCoach` below. Root is
+ * reached through the floating "Ask Root" launcher
+ * (FloatingCoachLauncher.tsx) — never a bottom-nav tab.
  *
  * Mobile alignment: two independent `flex-1` halves (left items, right
  * items) with the Check-In button as a fixed-width sibling between them,
  * so Check-In's midpoint always lands on the bar's exact horizontal
- * center regardless of viewport width. With exactly one item per half for
- * a member, the bar reads as three clearly separated, evenly-weighted
- * targets — Home, Check-In, Today — with no crowding at any phone width.
+ * center regardless of viewport width. Each half renders its items as
+ * equal-width grid columns, so two items per side stay symmetrical.
  *
  * Brand color discipline: inactive items read in muted gray; the active
  * item gets a soft gold pill behind the icon while its text/icon stay
@@ -25,18 +22,28 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Plus, Users } from 'lucide-react';
+import { Home, Sparkles, Plus, Users, UtensilsCrossed, BarChart2 } from 'lucide-react';
 
 type NavItem = { label: string; href: string; Icon: typeof Home };
 
-const LEFT_ITEMS: NavItem[] = [{ label: 'Home', href: '/dashboard', Icon: Home }];
+const MEMBER_LEFT_ITEMS: NavItem[] = [
+  { label: 'Home', href: '/dashboard', Icon: Home },
+  { label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed },
+];
 
-const RIGHT_ITEMS: NavItem[] = [{ label: 'Today', href: '/today', Icon: Sparkles }];
+const MEMBER_RIGHT_ITEMS: NavItem[] = [
+  { label: 'Progress', href: '/progress', Icon: BarChart2 },
+  { label: 'Today', href: '/today', Icon: Sparkles },
+];
+
+const COACH_LEFT_ITEMS: NavItem[] = [{ label: 'Home', href: '/dashboard', Icon: Home }];
+
+const COACH_RIGHT_ITEMS: NavItem[] = [{ label: 'Today', href: '/today', Icon: Sparkles }];
 
 const MORNING_HREF = '/checkin';
 const EVENING_HREF = '/checkin/evening';
 
-/** Appended after Home for coach accounts only — a distinct role-gated surface, not part of the three-item member nav this bar is otherwise scoped to. */
+/** Appended after Home for coach accounts only — a distinct role-gated surface. */
 const COACH_NAV_ITEM: NavItem = { label: 'Coach', href: '/coach', Icon: Users };
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
@@ -45,7 +52,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href as Route}
       aria-current={active ? 'page' : undefined}
-      className={`flex min-w-0 min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 text-center text-[10px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:min-h-0 md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
+      className={`flex min-w-0 min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 text-center text-[9px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:min-h-0 md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
         active
           ? 'bg-[#F5B700]/[0.16] text-[#1B3A2D]'
           : 'text-[#6B7A72] hover:bg-[#1B3A2D]/[0.04] hover:text-[#1B3A2D]'
@@ -71,7 +78,8 @@ type Props = {
 
 export function BottomNav({ isCoach = false }: Props) {
   const pathname = usePathname();
-  const leftItems = isCoach ? [...LEFT_ITEMS, COACH_NAV_ITEM] : LEFT_ITEMS;
+  const leftItems = isCoach ? [...COACH_LEFT_ITEMS, COACH_NAV_ITEM] : MEMBER_LEFT_ITEMS;
+  const rightItems = isCoach ? COACH_RIGHT_ITEMS : MEMBER_RIGHT_ITEMS;
   const checkInActive = pathname === MORNING_HREF || pathname === EVENING_HREF;
 
   // One required check-in a day (task requirement 2): the primary nav
@@ -115,16 +123,16 @@ export function BottomNav({ isCoach = false }: Props) {
         >
           <Plus className="h-7 w-7" strokeWidth={2.25} aria-hidden="true" />
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-[#1B3A2D] md:text-[11px]">
+        <span className="text-[9px] font-bold uppercase tracking-wide text-[#1B3A2D] md:text-[11px]">
           Check-In
         </span>
       </Link>
 
       <div
         className="grid min-w-0 flex-1 items-start gap-0.5 px-1 md:contents"
-        style={{ gridTemplateColumns: `repeat(${RIGHT_ITEMS.length}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${rightItems.length}, minmax(0, 1fr))` }}
       >
-        {RIGHT_ITEMS.map((item) => (
+        {rightItems.map((item) => (
           <NavLink key={item.label} item={item} active={pathname === item.href} />
         ))}
       </div>

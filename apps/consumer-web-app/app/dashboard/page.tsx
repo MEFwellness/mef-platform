@@ -89,6 +89,13 @@ function NoticingTileSkeleton() {
   );
 }
 
+function formatCompletedStatus(completedAt: string): string {
+  const days = Math.floor((Date.now() - new Date(completedAt).getTime()) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return 'Completed today';
+  if (days === 1) return 'Completed yesterday';
+  return `Completed ${days} days ago`;
+}
+
 function stressLabel(level: number | null): string {
   if (level === null) return 'Not logged yet';
   if (level <= 2) return 'Low';
@@ -172,6 +179,19 @@ export default async function DashboardPage({
   const movementAnalyzed = bodyAssessments.some((a) => a.completed_at !== null);
   const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
 
+  // Quick Actions status lines — real data already fetched above, never a
+  // new query. bodyAssessments is ordered newest-first (see
+  // lib/body-assessment/data.ts), so the first completed one is the most
+  // recent.
+  const caseStatus =
+    questionnaireCatalog.totalCount > 0
+      ? `${questionnaireCatalog.completedCount} of ${questionnaireCatalog.totalCount} complete`
+      : null;
+  const latestAnalyzedAssessment = bodyAssessments.find((a) => a.completed_at !== null);
+  const movementActionStatus = latestAnalyzedAssessment
+    ? formatCompletedStatus(latestAnalyzedAssessment.completed_at!)
+    : null;
+
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const localDate = await resolveLocalDate(nowInTz, false);
@@ -235,16 +255,15 @@ export default async function DashboardPage({
         ) : (
           <div className="pt-8 md:pt-10">
             {/* ==================================================== */}
-            {/* Quick Actions — Case, Movement, Food Lens, Progress,    */}
-            {/* and Flag a Concern, as a fixed icon grid (4 per row,    */}
-            {/* max 2 rows). No horizontal scrolling — every action is  */}
-            {/* always visible, none buried past a scroll edge. See     */}
-            {/* components/dashboard/QuickActionsGrid.tsx.              */}
+            {/* Quick Actions — Case and Movement, as two capsule       */}
+            {/* pills. Food Lens and Progress moved to the bottom nav;  */}
+            {/* Flag a Concern moved out of Quick Actions entirely.     */}
+            {/* See components/dashboard/QuickActionsGrid.tsx.          */}
             {/* ==================================================== */}
             <RevealOnScroll>
               <p className={ZONE_LABEL}>Quick Actions</p>
               <div className="mt-3">
-                <QuickActionsGrid />
+                <QuickActionsGrid caseStatus={caseStatus} movementStatus={movementActionStatus} />
               </div>
             </RevealOnScroll>
 
