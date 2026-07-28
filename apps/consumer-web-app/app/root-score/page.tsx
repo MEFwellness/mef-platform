@@ -29,10 +29,10 @@ import { resolveLocalDate } from '@/app/actions/checkin';
 import { getMyRootScore, getMyRootScoreHistory } from '@/app/actions/scoring';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
-import { scoreToStatus, scoreLabel } from '@/lib/wellness/wellness-index';
+import { scoreLabel } from '@/lib/wellness/wellness-index';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { RootScoreDomainRow } from '@/components/RootScoreDomainRow';
-import { RootScoreTrendChart } from '@/components/RootScoreTrendChart';
+import { AnimatedRootScoreTrendChart } from '@/components/AnimatedRootScoreTrendChart';
 import { DOMAIN_ORDER } from '@/lib/scoring/config';
 import { SAFETY_STATEMENT } from '@/lib/scoring/copy';
 import type {
@@ -102,7 +102,6 @@ export default async function RootScorePage() {
   ]);
 
   const isBuilding = !snapshot || snapshot.root_score === null;
-  const status = !isBuilding ? scoreToStatus(snapshot!.root_score!) : 'no-data';
   const orderedDomains = snapshot
     ? [...snapshot.domain_scores].sort(
         (a, b) => DOMAIN_ORDER.indexOf(a.domain) - DOMAIN_ORDER.indexOf(b.domain)
@@ -161,9 +160,7 @@ export default async function RootScorePage() {
             <section className={`${CARD} mef-animate-in mt-3 p-7`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-baseline gap-3">
-                  <span
-                    className={`font-[family-name:var(--font-cormorant-garamond)] text-6xl leading-none ${STATUS_STYLES[status].text}`}
-                  >
+                  <span className="font-[family-name:var(--font-cormorant-garamond)] text-6xl leading-none text-[#1B3A2D]">
                     {snapshot!.root_score}
                   </span>
                   <span className="text-lg text-[#6B7A72]">/ 100</span>
@@ -203,7 +200,7 @@ export default async function RootScorePage() {
                 <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Root Score Trend</p>
               </div>
-              <RootScoreTrendChart snapshots={history} />
+              <AnimatedRootScoreTrendChart snapshots={history} />
             </section>
 
             {/* Momentum + Resilience */}

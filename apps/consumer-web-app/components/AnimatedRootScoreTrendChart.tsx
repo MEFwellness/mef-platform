@@ -1,24 +1,33 @@
 'use client';
 
 /**
- * "Your Wellness Story" rework: this used to wrap the plain
- * RootScoreTrendChart in components/ScrollDrawIn.tsx. That mechanism
- * replays its wipe every time the chart scrolls back into view — correct
- * for Home's Energy Trend chart, but this task explicitly requires the
- * Root Score trend chart to animate once per page view, not on every
- * scroll pass, and to sequence the dots fading in only after the line
- * finishes drawing. Neither is possible from outside an opaque
- * ScrollDrawIn wrapper, so the animation now lives directly inside
- * RootScoreTrendChart itself (via its own `animated` prop and
- * components/useChartRevealOnce.ts) — this wrapper just opts in.
- * app/root-score/'s own call site does not pass `animated` and is
- * completely unaffected; this wrapper is only used from
- * app/progress/ProgressRootScorePanel.tsx.
+ * Same wrapper pattern as components/dashboard/AnimatedEnergyTrendChart.tsx
+ * (Home's Energy Trend chart): components/ScrollDrawIn.tsx around the
+ * plain chart, `showBars` on. Used by both Root Score charts on the
+ * member platform — app/progress/ProgressRootScorePanel.tsx and
+ * app/root-score/page.tsx — so all three trend charts (Home's Energy
+ * Trend, Progress's Root Score, and the Root Score detail page's Root
+ * Score Trend) now share the exact same chart component family and
+ * animation mechanism, not three different configurations.
+ *
+ * A prior task gave this its own bespoke animation (a custom `animated`
+ * prop on RootScoreTrendChart + components/useChartRevealOnce.ts, firing
+ * once per page view instead of replaying like Home). That was reverted
+ * here: this task explicitly asks both Root Score charts to animate
+ * *exactly* as Home's chart does, and Home's chart genuinely replays its
+ * draw-in every time it scrolls back into view (verified live) — "once
+ * per page view" was this app's prior deviation from Home, not something
+ * Home itself does.
  */
 
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { RootScoreTrendChart } from '@/components/RootScoreTrendChart';
+import { ScrollDrawIn } from '@/components/ScrollDrawIn';
 
 export function AnimatedRootScoreTrendChart({ snapshots }: { snapshots: RootScoreSnapshot[] }) {
-  return <RootScoreTrendChart snapshots={snapshots} showBars animated />;
+  return (
+    <ScrollDrawIn>
+      <RootScoreTrendChart snapshots={snapshots} showBars />
+    </ScrollDrawIn>
+  );
 }

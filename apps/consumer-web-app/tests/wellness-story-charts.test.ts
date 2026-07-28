@@ -1,43 +1,37 @@
 /**
- * Follow-up task (2026-07-27): "Your Wellness Story" (the member-facing
- * title of app/progress/page.tsx — already touched once by commit
- * fa5a451, which flipped on `showBars` for this page's Energy Trend
- * chart) gets the full Home treatment on BOTH of its charts — Energy
- * Trend (bars already on, animation added here) and Root Score (neither
- * existed before this task, both built here).
+ * Root Score charts — unified onto the exact same chart component and
+ * animation Home's Energy Trend chart uses (task: "Make both Root Score
+ * charts use the same animated chart treatment as the Energy Trend chart
+ * on Home").
  *
- * Progress restructure (2026-07-28): the standalone, full-width Energy
- * Trend card (and AnimatedEnergyTrendChart, the Home-style wrapper it
- * used) was retired from this page in favor of a single unified Trends
- * card with a segmented control across every metric the check-in and any
- * connected wearable actually capture — Energy is now one segment among
- * several, rendered by the new generic app/progress/MetricTrendChart.tsx
- * rather than the bespoke energy-only chart. That component still reuses
- * EnergyTrendChart's pure geometry helpers (buildSmoothPath,
- * energyBarWidth) instead of re-deriving them, so nothing here got
- * rebuilt twice — the assertions below were updated to match the new,
- * intentional wiring instead of the old one.
+ * History, briefly, because this file's assertions changed direction
+ * more than once: an earlier task gave the Progress page's Root Score
+ * chart its own bespoke `animated` prop + components/useChartRevealOnce.ts
+ * (a once-per-page-view mechanism, deliberately different from Home's
+ * ScrollDrawIn, because that task explicitly asked for different
+ * timing). This task asks for the opposite — animate *exactly* as Home
+ * does — and investigation found Home's real mechanism
+ * (components/ScrollDrawIn.tsx) genuinely replays its draw-in every time
+ * the chart scrolls back into view (verified live via Playwright:
+ * scrolling the Home Energy Trend chart away and back re-clips it to
+ * nearly zero width and redraws it). So the bespoke mechanism was
+ * reverted: components/RootScoreTrendChart.tsx is a plain, unanimated
+ * chart again (matching components/EnergyTrendChart.tsx's own lack of
+ * internal animation logic), and components/AnimatedRootScoreTrendChart.tsx
+ * wraps it in the same ScrollDrawIn Home uses. Both Root Score charts
+ * (app/progress/ProgressRootScorePanel.tsx and app/root-score/page.tsx)
+ * now render through that one wrapper, matching Home's Energy Trend
+ * chart's real component and configuration exactly.
  *
- * "Your Wellness Story" rework (2026-07-28, same day): two further
- * changes to this same chart. (1) Dot color used to be driven by
- * `scoreToStatus`/DOT_FILL (good/attention/poor -> green/amber/red) —
- * removed; an ordinary day's Root Score dipping into "attention" or
- * "poor" territory isn't a genuine concern, and red implied an alarm
- * that wasn't real. Every dot is now a flat forest green `#1B3A2D`,
- * matching the Energy Trend segment on the same page. (2) The
- * scroll-triggered draw-in moved from an outer ScrollDrawIn wrapper
- * (components/AnimatedRootScoreTrendChart.tsx) to living directly inside
- * RootScoreTrendChart itself via a new `animated` prop and
- * components/useChartRevealOnce.ts — needed because this task requires
- * the animation to fire once per page view (not replay on every scroll
- * pass, which is what ScrollDrawIn deliberately does for Home) and to
- * sequence the dots fading in only after the line finishes, neither of
- * which is possible from outside an opaque wrapper.
+ * components/useChartRevealOnce.ts itself is untouched — it's still a
+ * real, separate dependency of app/progress/MetricTrendChart.tsx (the
+ * Trends card's per-metric charts, out of scope for this task), so it
+ * isn't deleted, just no longer used by the Root Score charts.
  *
  * No component-rendering harness exists in this repo (plain 'node'
  * vitest environment), so this is a static scan of the fixed source; the
- * real replay/reduced-motion/bar-count-at-90-days behavior is verified
- * live via Playwright, reported separately.
+ * real replay/reduced-motion/line-vs-dots-only behavior is verified live
+ * via Playwright, reported separately.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -54,6 +48,7 @@ const METRIC_TREND_CHART = source('app/progress/MetricTrendChart.tsx');
 const PANEL = source('app/progress/ProgressRootScorePanel.tsx');
 const ROOT_SCORE_CHART = source('components/RootScoreTrendChart.tsx');
 const ANIMATED_ROOT_SCORE_CHART = source('components/AnimatedRootScoreTrendChart.tsx');
+const ANIMATED_ENERGY_CHART = source('components/dashboard/AnimatedEnergyTrendChart.tsx');
 const ROOT_SCORE_PAGE = source('app/root-score/page.tsx');
 const COACH_CLIENT_PAGE = source('app/coach/clients/[id]/page.tsx');
 const SCORING_ACTIONS = source('app/actions/scoring.ts');
@@ -70,7 +65,7 @@ describe('Energy Trend on Progress: retired as its own card, now a segment of th
     expect(TRENDS_PANEL).toContain("useState('energy')");
   });
 
-  it('the new generic MetricTrendChart reuses EnergyTrendChart\'s pure geometry helpers instead of re-deriving them', () => {
+  it('the generic MetricTrendChart reuses EnergyTrendChart\'s pure geometry helpers instead of re-deriving them', () => {
     expect(METRIC_TREND_CHART).toContain(
       "import { buildSmoothPath, energyBarWidth } from '@/components/EnergyTrendChart'"
     );
@@ -78,12 +73,22 @@ describe('Energy Trend on Progress: retired as its own card, now a segment of th
   });
 });
 
-describe('Root Score chart: gains showBars (opt-in, default false) — nothing built twice', () => {
-  it('showBars defaults to false, same pattern as EnergyTrendChart', () => {
-    expect(ROOT_SCORE_CHART).toContain('showBars = false');
+describe('RootScoreTrendChart: same component family as EnergyTrendChart, not a duplicate', () => {
+  it('reuses buildSmoothPath AND energyBarWidth from EnergyTrendChart — no local copy of either', () => {
+    expect(ROOT_SCORE_CHART).toContain(
+      "import { buildSmoothPath, energyBarWidth } from '@/components/EnergyTrendChart'"
+    );
+    expect(ROOT_SCORE_CHART).not.toMatch(/function buildSmoothPath/);
+    expect(ROOT_SCORE_CHART).not.toMatch(/function \w*[Bb]arWidth/);
   });
 
-  it('bar rects are gated on showBars, rendered before the area/line so they sit furthest back', () => {
+  it('renders a real connecting line between data points — the same <path d={linePath}> approach as EnergyTrendChart, not dots alone', () => {
+    expect(ROOT_SCORE_CHART).toContain('const linePath = buildSmoothPath(');
+    expect(ROOT_SCORE_CHART).toMatch(/<path\s+d=\{linePath\}/);
+  });
+
+  it('showBars defaults to false and gates real bar rects, same pattern as EnergyTrendChart', () => {
+    expect(ROOT_SCORE_CHART).toContain('showBars = false');
     expect(ROOT_SCORE_CHART).toMatch(/showBars\s*&&\s*\n?\s*points\.map/);
     const barsIdx = ROOT_SCORE_CHART.indexOf('showBars &&');
     const areaIdx = ROOT_SCORE_CHART.indexOf('<path d={areaPath}');
@@ -91,34 +96,24 @@ describe('Root Score chart: gains showBars (opt-in, default false) — nothing b
     expect(areaIdx).toBeGreaterThan(barsIdx);
   });
 
-  it('reuses energyBarWidth from EnergyTrendChart instead of re-deriving the width formula', () => {
-    expect(ROOT_SCORE_CHART).toContain(
-      "import { energyBarWidth } from '@/components/EnergyTrendChart'"
-    );
-    expect(ROOT_SCORE_CHART).not.toMatch(/function \w*[Bb]arWidth/);
-  });
-
-  it('bars use a single fixed on-palette color/opacity, same as the dots — no per-status color anywhere in this chart', () => {
-    const barsBlockStart = ROOT_SCORE_CHART.indexOf('showBars &&');
-    const barsBlockEnd = ROOT_SCORE_CHART.indexOf('<path d={areaPath}', barsBlockStart);
-    const barsBlock = ROOT_SCORE_CHART.slice(barsBlockStart, barsBlockEnd);
-    expect(barsBlock).toContain('fill="#1B3A2D"');
-    expect(barsBlock).toContain('fillOpacity={0.14}');
-    expect(barsBlock).not.toContain('DOT_FILL');
-  });
-
   it('bar height is exactly the distance from baseline to the point (real magnitude, not decorative)', () => {
     expect(ROOT_SCORE_CHART).toContain('height={Math.max(baseline - p.y, 0)}');
   });
 
-  it('"Your Wellness Story" rework: the DOT_FILL status-color map is gone — every dot is a flat forest green, not driven by score value', () => {
+  it('every dot is a flat forest green — no DOT_FILL status-color map, no red anywhere in this chart', () => {
     expect(ROOT_SCORE_CHART).not.toContain('DOT_FILL');
     expect(ROOT_SCORE_CHART).not.toContain("from '@/lib/wellness/wellness-index'");
-    expect(ROOT_SCORE_CHART).not.toContain('#EF4444'); // red — no longer used for ordinary data points
-    expect(ROOT_SCORE_CHART).toContain('bg-[#1B3A2D]'); // the dot marker's own flat fill
+    expect(ROOT_SCORE_CHART).not.toContain('#EF4444');
+    expect(ROOT_SCORE_CHART).toContain('bg-[#1B3A2D]');
   });
 
-  it('the real minimum this chart requires to draw a line is a named constant imported from a boundary-neutral module, not a bare literal or a local declaration', () => {
+  it('no internal animation logic — plain chart, matching EnergyTrendChart\'s own lack of animation; all animation lives in the external wrapper', () => {
+    expect(ROOT_SCORE_CHART).not.toContain("from '@/components/useChartRevealOnce'");
+    expect(ROOT_SCORE_CHART).not.toMatch(/animated\??:\s*boolean/);
+    expect(ROOT_SCORE_CHART).not.toContain('style={{\n              clipPath');
+  });
+
+  it('the real minimum this chart requires to draw a line is imported from a boundary-neutral module, not a bare literal or a local declaration', () => {
     expect(ROOT_SCORE_CHART).toContain(
       "import { MIN_SCORED_SNAPSHOTS_FOR_TREND } from '@/lib/scoring/rootScoreTrendConfig'"
     );
@@ -126,67 +121,95 @@ describe('Root Score chart: gains showBars (opt-in, default false) — nothing b
     expect(ROOT_SCORE_CHART).not.toContain('export const MIN_SCORED_SNAPSHOTS_FOR_TREND');
   });
 
-  it('ProgressRootScorePanel (a Server Component) imports the same constant from that boundary-neutral module — NOT from RootScoreTrendChart.tsx itself, which has \'use client\' and would hand it a client-reference placeholder instead of the real number', () => {
+  it('ProgressRootScorePanel (a Server Component) imports that same constant from the boundary-neutral module — NOT from RootScoreTrendChart.tsx itself, which has \'use client\' and would hand it a client-reference placeholder instead of the real number', () => {
     expect(PANEL).toContain(
       "import { MIN_SCORED_SNAPSHOTS_FOR_TREND } from '@/lib/scoring/rootScoreTrendConfig'"
     );
-    expect(PANEL).not.toContain("MIN_SCORED_SNAPSHOTS_FOR_TREND } from '@/components/RootScoreTrendChart'");
+    expect(PANEL).not.toContain(
+      "MIN_SCORED_SNAPSHOTS_FOR_TREND } from '@/components/RootScoreTrendChart'"
+    );
   });
 
-  it('the config module itself has no \'use client\' directive and no React import — it is plain, boundary-neutral data', () => {
+  it('the config module itself has no \'use client\' directive — plain, boundary-neutral data', () => {
     const configSrc = source('lib/scoring/rootScoreTrendConfig.ts');
     expect(configSrc).toContain('export const MIN_SCORED_SNAPSHOTS_FOR_TREND = 2');
     expect(configSrc.trimStart().startsWith("'use client'")).toBe(false);
   });
 });
 
-describe('AnimatedRootScoreTrendChart: "Your Wellness Story" rework — animation now lives inside RootScoreTrendChart itself', () => {
-  it('opts into the chart\'s own `animated` prop instead of wrapping it in ScrollDrawIn', () => {
-    expect(ANIMATED_ROOT_SCORE_CHART).toContain(
-      '<RootScoreTrendChart snapshots={snapshots} showBars animated />'
+describe('AnimatedRootScoreTrendChart: wraps the plain chart in the exact same ScrollDrawIn Home uses', () => {
+  it('matches AnimatedEnergyTrendChart\'s own wrapper shape — ScrollDrawIn around the plain chart, showBars on', () => {
+    expect(ANIMATED_ROOT_SCORE_CHART).toContain('<ScrollDrawIn>');
+    expect(ANIMATED_ROOT_SCORE_CHART).toMatch(
+      /<RootScoreTrendChart snapshots={snapshots} showBars \/>/
     );
-    expect(ANIMATED_ROOT_SCORE_CHART).not.toContain('<ScrollDrawIn>');
-    expect(ANIMATED_ROOT_SCORE_CHART).not.toContain("from '@/components/ScrollDrawIn'");
+    expect(ANIMATED_ROOT_SCORE_CHART).toContain("from '@/components/ScrollDrawIn'");
   });
 
-  it('does not define its own IntersectionObserver — proof it reuses RootScoreTrendChart\'s internal hook instead of writing a second mechanism', () => {
+  it('does not define its own IntersectionObserver — proof it reuses the one shared mechanism instead of writing a second one', () => {
     expect(ANIMATED_ROOT_SCORE_CHART).not.toContain('IntersectionObserver');
+  });
+
+  it('same wrapper shape as Home\'s AnimatedEnergyTrendChart — ScrollDrawIn is the only thing both files import for animation', () => {
+    expect(ANIMATED_ENERGY_CHART).toContain('<ScrollDrawIn>');
+    expect(ANIMATED_ENERGY_CHART).toContain("from '@/components/ScrollDrawIn'");
   });
 });
 
-describe('useChartRevealOnce: a deliberately different mechanism from ScrollDrawIn, not a copy of it', () => {
-  const REVEAL_HOOK = source('components/useChartRevealOnce.ts');
+describe('ScrollDrawIn: the one real animation mechanism, unchanged, now used by all three trend charts', () => {
   const SCROLL_DRAW_IN = source('components/ScrollDrawIn.tsx');
 
-  it('fires once per page view — disconnects its observer on first reveal rather than resetting on scroll-out', () => {
-    expect(REVEAL_HOOK).toContain('observer.disconnect()');
-    expect(REVEAL_HOOK).not.toContain('isIntersecting && current');
-  });
-
-  it('respects prefers-reduced-motion, same as ScrollDrawIn', () => {
-    expect(REVEAL_HOOK).toContain("prefers-reduced-motion: reduce");
-  });
-
-  it('ScrollDrawIn itself is untouched — Home\'s replay-on-every-scroll behavior is still intact', () => {
+  it('replays on every scroll pass by design — resets to closed the moment the chart scrolls out of view', () => {
     expect(SCROLL_DRAW_IN).toContain('REPLAY_THRESHOLD');
     expect(SCROLL_DRAW_IN).toContain('if (!entry.isIntersecting && current) return false;');
   });
+
+  it('respects prefers-reduced-motion — skips straight to fully revealed', () => {
+    expect(SCROLL_DRAW_IN).toContain('prefers-reduced-motion: reduce');
+  });
+
+  it('a 1.1s ease-out clip-path transition — the one real duration/easing every trend chart on the member platform now shares', () => {
+    expect(SCROLL_DRAW_IN).toContain("clip-path 1.1s ease-out");
+  });
 });
 
-describe('Progress page wiring: both charts animated, via the panel and the page itself', () => {
-  it('ProgressRootScorePanel renders AnimatedRootScoreTrendChart, not the plain chart', () => {
+describe('useChartRevealOnce: untouched, still a real (separate) dependency of the Trends card — not deleted, not reused by Root Score anymore', () => {
+  it('still exists and still fires once per page view — MetricTrendChart.tsx (Trends segments) still depends on this exact behavior', () => {
+    const REVEAL_HOOK = source('components/useChartRevealOnce.ts');
+    expect(REVEAL_HOOK).toContain('observer.disconnect()');
+    expect(METRIC_TREND_CHART).toContain(
+      "import { useChartRevealOnce } from '@/components/useChartRevealOnce'"
+    );
+  });
+});
+
+describe('Progress page wiring: Root Score chart animated via the panel', () => {
+  it('ProgressRootScorePanel renders AnimatedRootScoreTrendChart, not the plain chart directly', () => {
     expect(PANEL).toContain('<AnimatedRootScoreTrendChart');
     expect(PANEL).not.toMatch(/<RootScoreTrendChart[\s/]/);
   });
 });
 
-describe('Scope: root-score detail page and the coach client view are untouched', () => {
-  it('app/root-score/ still renders the plain RootScoreTrendChart directly — no bars, no animation added there', () => {
-    expect(ROOT_SCORE_PAGE).toContain('<RootScoreTrendChart snapshots={history} />');
-    expect(ROOT_SCORE_PAGE).not.toContain('AnimatedRootScoreTrendChart');
-    expect(ROOT_SCORE_PAGE).not.toContain('showBars');
+describe('Root Score detail page: now animated too, unifying with Progress — the score number is forest green, not score-driven', () => {
+  it('renders through AnimatedRootScoreTrendChart, not the plain chart — the same component Progress uses', () => {
+    expect(ROOT_SCORE_PAGE).toContain('<AnimatedRootScoreTrendChart snapshots={history} />');
+    expect(ROOT_SCORE_PAGE).not.toMatch(/<RootScoreTrendChart[\s/]/);
   });
 
+  it('the big score number is a fixed forest green, not driven by scoreToStatus — no UI element on this page renders an ordinary value in red', () => {
+    expect(ROOT_SCORE_PAGE).toContain(
+      'className="font-[family-name:var(--font-cormorant-garamond)] text-6xl leading-none text-[#1B3A2D]"'
+    );
+    expect(ROOT_SCORE_PAGE).not.toContain('scoreToStatus');
+  });
+
+  it('the change badge (up/down/steady since last calculation) is untouched — a real directional signal, not an ordinary value, out of this task\'s scope', () => {
+    expect(ROOT_SCORE_PAGE).toContain('function ChangeBadge');
+    expect(ROOT_SCORE_PAGE).toContain("STATUS_STYLES[status].bg");
+  });
+});
+
+describe('Scope: the coach client view is untouched', () => {
   it('the coach client view still renders the plain EnergyTrendChart with showBars only — no animation added there', () => {
     expect(COACH_CLIENT_PAGE).toContain('<EnergyTrendChart checkins={chartCheckins} showBars />');
     expect(COACH_CLIENT_PAGE).not.toContain('AnimatedEnergyTrendChart');
