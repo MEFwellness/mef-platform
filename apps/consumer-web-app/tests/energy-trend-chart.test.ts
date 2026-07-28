@@ -160,41 +160,47 @@ describe('EnergyTrendChart — bars are an opt-in prop (showBars), default false
 /**
  * Follow-up task (2026-07-27): the scope decision to keep Progress and
  * the coach client view line-only was reversed — all three surfaces
- * (Home, Progress, coach) now pass `showBars` to this one shared
- * component, so bars/gray/width-rule stay in sync automatically. No
- * fork, no second chart implementation, no new component.
+ * (Home, Progress, coach) render bars through this one shared component,
+ * so bars/gray/width-rule stay in sync automatically. No fork, no second
+ * chart implementation, no new component.
+ *
+ * A second follow-up task (2026-07-27, same day) then gave Progress's
+ * Energy Trend chart the Home-only scroll-replay draw-in too (via the
+ * shared AnimatedEnergyTrendChart, reused as-is — see
+ * wellness-story-charts.test.ts for that change's own coverage). The
+ * coach client view was NOT part of that follow-up and still renders the
+ * plain, unanimated EnergyTrendChart directly, bars only — the
+ * assertions below are updated to match that real, current split rather
+ * than the "neither gets animation" snapshot of the first follow-up.
  */
-describe('Bars are now enabled on all three surfaces via the one shared component', () => {
+describe('Bars are enabled on all three surfaces via the one shared component', () => {
   const PROGRESS_PAGE = source('app/progress/page.tsx');
   const COACH_CLIENT_PAGE = source('app/coach/clients/[id]/page.tsx');
   const DASHBOARD_PAGE = source('app/dashboard/page.tsx');
   const ANIMATED_CHART = source('components/dashboard/AnimatedEnergyTrendChart.tsx');
 
-  it('Progress passes showBars to EnergyTrendChart', () => {
-    const idx = PROGRESS_PAGE.indexOf('<EnergyTrendChart');
-    const tagEnd = PROGRESS_PAGE.indexOf('/>', idx);
-    expect(PROGRESS_PAGE.slice(idx, tagEnd)).toContain('showBars');
-  });
-
-  it('the coach client view passes showBars to EnergyTrendChart', () => {
-    const idx = COACH_CLIENT_PAGE.indexOf('<EnergyTrendChart');
-    const tagEnd = COACH_CLIENT_PAGE.indexOf('/>', idx);
-    expect(COACH_CLIENT_PAGE.slice(idx, tagEnd)).toContain('showBars');
-  });
-
-  it('Home still renders through AnimatedEnergyTrendChart (unchanged), which already always passes showBars', () => {
-    expect(DASHBOARD_PAGE).toContain('<AnimatedEnergyTrendChart');
+  it('Progress renders through AnimatedEnergyTrendChart, which always passes showBars', () => {
+    expect(PROGRESS_PAGE).toContain('<AnimatedEnergyTrendChart');
     expect(ANIMATED_CHART).toContain('<EnergyTrendChart checkins={checkins} showBars />');
   });
 
-  it('there is still exactly one component implementing the bars — no forked/duplicated chart file exists', () => {
+  it('the coach client view passes showBars directly to the plain EnergyTrendChart (no animation wrapper)', () => {
+    const idx = COACH_CLIENT_PAGE.indexOf('<EnergyTrendChart');
+    const tagEnd = COACH_CLIENT_PAGE.indexOf('/>', idx);
+    expect(COACH_CLIENT_PAGE.slice(idx, tagEnd)).toContain('showBars');
+    expect(COACH_CLIENT_PAGE).not.toContain('AnimatedEnergyTrendChart');
+  });
+
+  it('Home still renders through AnimatedEnergyTrendChart (unchanged) too', () => {
+    expect(DASHBOARD_PAGE).toContain('<AnimatedEnergyTrendChart');
+  });
+
+  it('there is still exactly one component implementing the Energy Trend bars — no forked/duplicated chart file exists', () => {
     expect(PROGRESS_PAGE).not.toMatch(/energyBarWidth|<rect/);
     expect(COACH_CLIENT_PAGE).not.toMatch(/energyBarWidth|<rect/);
   });
 
-  it('Progress and the coach view do not gain the Home-only scroll-replay draw-in — bars only, per the task\'s own instruction', () => {
-    expect(PROGRESS_PAGE).not.toContain('AnimatedEnergyTrendChart');
-    expect(PROGRESS_PAGE).not.toContain('IntersectionObserver');
+  it('the coach view does not gain the scroll-replay draw-in — that follow-up task was scoped to Progress only', () => {
     expect(COACH_CLIENT_PAGE).not.toContain('AnimatedEnergyTrendChart');
     expect(COACH_CLIENT_PAGE).not.toContain('IntersectionObserver');
   });

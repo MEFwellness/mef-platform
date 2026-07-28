@@ -28,7 +28,7 @@ import { AvatarLink } from '@/components/AvatarLink';
 import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { RootQuickLink } from '@/components/RootQuickLink';
-import { EnergyTrendChart } from '@/components/EnergyTrendChart';
+import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { buildProgressEntryContext } from '@/lib/conversation-coach/entryContext';
 import { WellnessPatternsPanel } from './WellnessPatternsPanel';
@@ -190,7 +190,7 @@ export default async function ProgressPage() {
               {recentCheckins.length > 0 ? `Last ${recentCheckins.length} check-ins` : ''}
             </span>
           </div>
-          <EnergyTrendChart checkins={recentCheckins} showBars />
+          <AnimatedEnergyTrendChart checkins={recentCheckins} />
         </section>
 
         <WearableTrendsPanel

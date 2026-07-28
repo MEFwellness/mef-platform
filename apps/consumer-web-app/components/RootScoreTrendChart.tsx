@@ -7,16 +7,30 @@
  * gap where no snapshot was calculated is simply absent rather than
  * interpolated across. Shared by app/root-score/ and app/progress/ so
  * both surfaces read the same history the same way.
+ *
+ * 2026-07-27 follow-up task ("Your Wellness Story" gets the Home
+ * treatment): gained the same opt-in `showBars` prop as EnergyTrendChart,
+ * default false — app/root-score/'s own call site is untouched (still no
+ * bars, no animation), only app/progress/ (via the new
+ * AnimatedRootScoreTrendChart wrapper) opts in, matching how showBars
+ * itself was rolled out to Progress and the coach view without touching
+ * every caller. energyBarWidth is reused directly from EnergyTrendChart
+ * rather than re-derived here — it's pure point-spacing math (PAD_X is
+ * identical in both charts), not anything energy-specific, so duplicating
+ * it would just be two copies of the same formula to keep in sync by hand.
  */
 
 import { useState } from 'react';
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { scoreToStatus } from '@/lib/wellness/wellness-index';
 import { STATUS_STYLES } from '@/lib/wellness/status';
+import { energyBarWidth } from '@/components/EnergyTrendChart';
 
 type Props = {
   /** Oldest first. */
   snapshots: RootScoreSnapshot[];
+  /** Vertical bars behind the line/dots — see EnergyTrendChart's own showBars doc comment for the full history. Opt-in, defaults false. */
+  showBars?: boolean;
 };
 
 const PAD_X = 5;
@@ -51,7 +65,7 @@ function buildSmoothPath(points: { x: number; y: number }[]): string {
   return d;
 }
 
-export function RootScoreTrendChart({ snapshots }: Props) {
+export function RootScoreTrendChart({ snapshots, showBars = false }: Props) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const withScores = snapshots.filter(
@@ -114,6 +128,29 @@ export function RootScoreTrendChart({ snapshots }: Props) {
               />
             );
           })}
+
+          {/* Vertical bars, same treatment as EnergyTrendChart: subtle,
+              fixed on-palette color/opacity, no per-status color (the
+              dots alone still encode Root Score status), rendered before
+              the area fill/line/dots so they sit furthest back. Real
+              bars, not decoration: height is exactly baseline-to-point,
+              same geometry the line already plots. */}
+          {showBars &&
+            points.map((p) => {
+              const barWidth = energyBarWidth(withScores.length);
+              return (
+                <rect
+                  key={`bar-${p.snapshot.id}`}
+                  x={p.x - barWidth / 2}
+                  y={p.y}
+                  width={barWidth}
+                  height={Math.max(baseline - p.y, 0)}
+                  rx={Math.min(barWidth * 0.3, 1.5)}
+                  fill="#1B3A2D"
+                  fillOpacity={0.14}
+                />
+              );
+            })}
 
           <path d={areaPath} fill="url(#rootScoreAreaFill)" stroke="none" />
           <path

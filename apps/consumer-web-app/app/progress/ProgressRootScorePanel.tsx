@@ -9,7 +9,7 @@
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
-import { RootScoreTrendChart } from '@/components/RootScoreTrendChart';
+import { AnimatedRootScoreTrendChart } from '@/components/AnimatedRootScoreTrendChart';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -52,7 +52,7 @@ export function ProgressRootScorePanel({ history }: { history: RootScoreSnapshot
             {latest.root_score}
             <span className="text-base font-normal text-[#6B7A72]"> / 100</span>
           </p>
-          <RootScoreTrendChart snapshots={history} />
+          <AnimatedRootScoreTrendChart snapshots={history} />
 
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div>
