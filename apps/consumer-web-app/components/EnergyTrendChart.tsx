@@ -8,14 +8,20 @@ type Props = {
   checkins: DailyCheckin[]; // oldest first
   /**
    * Vertical bars dropping from each point to the baseline, animation
-   * task (2026-07-27): opt-in, defaults false. This component is also
-   * used unchanged by app/progress/page.tsx and the coach client view
-   * (app/coach/clients/[id]/page.tsx) — the task's own request is
-   * scoped to "the chart on the Home screen," so bars are wired on only
-   * from components/dashboard/AnimatedEnergyTrendChart.tsx (Home).
-   * Reusing this one shared component with a flag, rather than forking
-   * it, per the task's "reuse existing systems" instruction; Progress
-   * and the coach view keep today's exact line-only rendering.
+   * task (2026-07-27): opt-in, defaults false. Originally wired on only
+   * from components/dashboard/AnimatedEnergyTrendChart.tsx (Home), since
+   * that first task was explicitly scoped to "the chart on the Home
+   * screen" — Progress (app/progress/page.tsx) and the coach client view
+   * (app/coach/clients/[id]/page.tsx) kept line-only rendering.
+   *
+   * Follow-up task (2026-07-27): that scope decision was reversed — all
+   * three surfaces now pass `showBars`, so bars, gray color, and the
+   * auto-adjusting width rule (energyBarWidth below) stay in sync across
+   * Home, Progress, and the coach view through this one shared prop,
+   * with no forking. Progress and the coach view do NOT get Home's
+   * separate scroll-replay draw-in (AnimatedEnergyTrendChart is Home-
+   * only) — that animation wasn't asked for here and wasn't present on
+   * either surface before, so it stays that way; this is bars only.
    */
   showBars?: boolean;
 };

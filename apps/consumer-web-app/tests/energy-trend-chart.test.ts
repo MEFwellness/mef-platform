@@ -18,7 +18,11 @@ import { buildSmoothPath, energyPoint, energyBarWidth } from '../components/Ener
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const src = readFileSync(path.resolve(__dirname, '..', 'components/EnergyTrendChart.tsx'), 'utf-8');
+function source(relativePath: string): string {
+  return readFileSync(path.resolve(__dirname, '..', relativePath), 'utf-8');
+}
+
+const src = source('components/EnergyTrendChart.tsx');
 
 describe('energyPoint — real geometry per check-in', () => {
   it('a 5/5 (High) energy level maps near the top of the chart (small y)', () => {
@@ -124,8 +128,8 @@ describe('energyBarWidth — bar width scales with point spacing, clamped at bot
   });
 });
 
-describe('EnergyTrendChart — bars are opt-in (showBars), off by default for Progress/coach callers', () => {
-  it('showBars defaults to false in the component signature', () => {
+describe('EnergyTrendChart — bars are an opt-in prop (showBars), default false, at the one shared component', () => {
+  it('showBars defaults to false in the component signature — a caller must opt in explicitly', () => {
     expect(src).toContain('showBars = false');
   });
 
@@ -150,5 +154,78 @@ describe('EnergyTrendChart — bars are opt-in (showBars), off by default for Pr
     expect(src).toContain("attention: '#F59E0B'");
     expect(src).toContain("poor: '#EF4444'");
     expect(src).toContain("'no-data': '#EFE9DB'");
+  });
+});
+
+/**
+ * Follow-up task (2026-07-27): the scope decision to keep Progress and
+ * the coach client view line-only was reversed — all three surfaces
+ * (Home, Progress, coach) now pass `showBars` to this one shared
+ * component, so bars/gray/width-rule stay in sync automatically. No
+ * fork, no second chart implementation, no new component.
+ */
+describe('Bars are now enabled on all three surfaces via the one shared component', () => {
+  const PROGRESS_PAGE = source('app/progress/page.tsx');
+  const COACH_CLIENT_PAGE = source('app/coach/clients/[id]/page.tsx');
+  const DASHBOARD_PAGE = source('app/dashboard/page.tsx');
+  const ANIMATED_CHART = source('components/dashboard/AnimatedEnergyTrendChart.tsx');
+
+  it('Progress passes showBars to EnergyTrendChart', () => {
+    const idx = PROGRESS_PAGE.indexOf('<EnergyTrendChart');
+    const tagEnd = PROGRESS_PAGE.indexOf('/>', idx);
+    expect(PROGRESS_PAGE.slice(idx, tagEnd)).toContain('showBars');
+  });
+
+  it('the coach client view passes showBars to EnergyTrendChart', () => {
+    const idx = COACH_CLIENT_PAGE.indexOf('<EnergyTrendChart');
+    const tagEnd = COACH_CLIENT_PAGE.indexOf('/>', idx);
+    expect(COACH_CLIENT_PAGE.slice(idx, tagEnd)).toContain('showBars');
+  });
+
+  it('Home still renders through AnimatedEnergyTrendChart (unchanged), which already always passes showBars', () => {
+    expect(DASHBOARD_PAGE).toContain('<AnimatedEnergyTrendChart');
+    expect(ANIMATED_CHART).toContain('<EnergyTrendChart checkins={checkins} showBars />');
+  });
+
+  it('there is still exactly one component implementing the bars — no forked/duplicated chart file exists', () => {
+    expect(PROGRESS_PAGE).not.toMatch(/energyBarWidth|<rect/);
+    expect(COACH_CLIENT_PAGE).not.toMatch(/energyBarWidth|<rect/);
+  });
+
+  it('Progress and the coach view do not gain the Home-only scroll-replay draw-in — bars only, per the task\'s own instruction', () => {
+    expect(PROGRESS_PAGE).not.toContain('AnimatedEnergyTrendChart');
+    expect(PROGRESS_PAGE).not.toContain('IntersectionObserver');
+    expect(COACH_CLIENT_PAGE).not.toContain('AnimatedEnergyTrendChart');
+    expect(COACH_CLIENT_PAGE).not.toContain('IntersectionObserver');
+  });
+});
+
+/**
+ * Follow-up task (2026-07-27): Progress and the coach view can hold much
+ * denser real histories than the extremes named in the original
+ * 3-point/30-point task (see energyBarWidth's own tests above, which
+ * already cover exactly those two named extremes and a 1-90 sweep). This
+ * confirms the two real, current fetch caps that produce those
+ * densities in practice, so the "verify at the real densities each
+ * surface actually produces" instruction is checked against the actual
+ * call sites, not just the pure function in isolation.
+ */
+describe('Real per-surface densities are within the already-verified 1-90 range', () => {
+  it('Progress fetches up to 30 check-ins (getRecentCheckins(30)) — the same upper extreme energyBarWidth is tested against', () => {
+    const src2 = source('app/progress/page.tsx');
+    expect(src2).toContain('getRecentCheckins(30)');
+  });
+
+  it('the coach client view fetches up to 14 check-ins (getClientCheckins\' own .limit(14))', () => {
+    const src2 = source('app/actions/coach.ts');
+    expect(src2).toContain('.limit(14)');
+  });
+
+  it('energyBarWidth is well-defined and clamped for both real caps, not just the round numbers 3/30', () => {
+    for (const count of [14, 30]) {
+      const width = energyBarWidth(count);
+      expect(width).toBeGreaterThanOrEqual(1.2);
+      expect(width).toBeLessThanOrEqual(10);
+    }
   });
 });

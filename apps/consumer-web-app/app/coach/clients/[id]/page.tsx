@@ -417,7 +417,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                 {chartCheckins.length > 0 ? `Last ${chartCheckins.length} check-ins` : ''}
               </span>
             </div>
-            <EnergyTrendChart checkins={chartCheckins} />
+            <EnergyTrendChart checkins={chartCheckins} showBars />
           </section>
 
           {/* Coaching Insights — automatically detected patterns, real data only */}

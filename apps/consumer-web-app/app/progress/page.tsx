@@ -190,7 +190,7 @@ export default async function ProgressPage() {
               {recentCheckins.length > 0 ? `Last ${recentCheckins.length} check-ins` : ''}
             </span>
           </div>
-          <EnergyTrendChart checkins={recentCheckins} />
+          <EnergyTrendChart checkins={recentCheckins} showBars />
         </section>
 
         <WearableTrendsPanel
