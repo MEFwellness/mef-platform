@@ -27,11 +27,18 @@ const RESILIENCE_LABEL: Record<RootScoreSnapshot['resilience_state'], string> = 
   strained: 'Strained',
 };
 
+const MIN_SNAPSHOTS_FOR_TREND = 5;
+
+/** Whether enough real (non-null) Root Score calculations exist to draw a trend line, rather than just showing the current number. Exported standalone so the minimum-data floor has real unit coverage. */
+export function hasEnoughSnapshotsForTrend(history: RootScoreSnapshot[]): boolean {
+  return history.filter((s) => s.root_score !== null).length >= MIN_SNAPSHOTS_FOR_TREND;
+}
+
 export function ProgressRootScorePanel({ history }: { history: RootScoreSnapshot[] }) {
   const latest = history.length > 0 ? history[history.length - 1]! : null;
 
   return (
-    <section className={`${CARD} mt-5 p-6`}>
+    <section className={`${CARD} mt-5 p-7`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -48,11 +55,23 @@ export function ProgressRootScorePanel({ history }: { history: RootScoreSnapshot
 
       {latest && latest.root_score !== null ? (
         <>
-          <p className="mt-3 text-3xl font-semibold text-[#1B3A2D]">
+          <p className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-5xl leading-none text-[#1B3A2D]">
             {latest.root_score}
-            <span className="text-base font-normal text-[#6B7A72]"> / 100</span>
+            <span className="text-lg font-[family-name:var(--font-dm-sans)] font-normal text-[#6B7A72]">
+              {' '}
+              / 100
+            </span>
           </p>
-          <AnimatedRootScoreTrendChart snapshots={history} />
+
+          {hasEnoughSnapshotsForTrend(history) ? (
+            <AnimatedRootScoreTrendChart snapshots={history} />
+          ) : (
+            <div className="mt-4 rounded-2xl bg-[#F3F6F4] p-4 text-center">
+              <p className="text-sm leading-relaxed text-[#1B3A2D]/70">
+                A trend needs a few more calculations before it can appear here.
+              </p>
+            </div>
+          )}
 
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div>

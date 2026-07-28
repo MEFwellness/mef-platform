@@ -172,16 +172,27 @@ describe('EnergyTrendChart — bars are an opt-in prop (showBars), default false
  * plain, unanimated EnergyTrendChart directly, bars only — the
  * assertions below are updated to match that real, current split rather
  * than the "neither gets animation" snapshot of the first follow-up.
+ *
+ * Progress restructure (2026-07-28): Progress's standalone Energy Trend
+ * card (and its use of AnimatedEnergyTrendChart) was retired in favor of
+ * a single unified Trends card with a segmented control — Energy is now
+ * one segment among several, drawn by the new generic
+ * app/progress/MetricTrendChart.tsx (bars included, same energyBarWidth
+ * formula, no animation wrapper). Home and the coach client view are
+ * untouched — the assertion for Progress below was updated to match;
+ * everything else in this describe block still holds.
  */
 describe('Bars are enabled on all three surfaces via the one shared component', () => {
   const PROGRESS_PAGE = source('app/progress/page.tsx');
+  const TRENDS_PANEL = source('app/progress/TrendsPanel.tsx');
+  const METRIC_TREND_CHART = source('app/progress/MetricTrendChart.tsx');
   const COACH_CLIENT_PAGE = source('app/coach/clients/[id]/page.tsx');
   const DASHBOARD_PAGE = source('app/dashboard/page.tsx');
-  const ANIMATED_CHART = source('components/dashboard/AnimatedEnergyTrendChart.tsx');
 
-  it('Progress renders through AnimatedEnergyTrendChart, which always passes showBars', () => {
-    expect(PROGRESS_PAGE).toContain('<AnimatedEnergyTrendChart');
-    expect(ANIMATED_CHART).toContain('<EnergyTrendChart checkins={checkins} showBars />');
+  it('Progress renders Energy through the unified TrendsPanel, whose MetricTrendChart always draws bars', () => {
+    expect(PROGRESS_PAGE).toContain('<TrendsPanel');
+    expect(TRENDS_PANEL).toContain("key: 'energy'");
+    expect(METRIC_TREND_CHART).toContain('energyBarWidth(withValues.length)');
   });
 
   it('the coach client view passes showBars directly to the plain EnergyTrendChart (no animation wrapper)', () => {

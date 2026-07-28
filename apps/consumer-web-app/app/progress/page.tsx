@@ -1,17 +1,34 @@
+/**
+ * "Your Wellness Story" — Progress page restructure (2026-07-28).
+ *
+ * New order: Root Score (biggest, most prominent card) -> Where You Are
+ * Right Now (WellnessStoryPanel, paired directly beneath the score) ->
+ * one interpretive block (Coaching Insights promoted to a content card
+ * with its suggested-question chips, then Wellness Patterns, then
+ * Wellness Identity) -> Trends (one card, a segmented control across
+ * every metric the daily check-in and any connected wearable actually
+ * capture, instead of one full-width card per metric) -> Consistency
+ * (streak/check-ins/avg energy collapsed into a three-up stat row) ->
+ * History -> the assessment block (From Your Assessments + Baseline vs.
+ * Latest Comparison) -> Explore (Health Timeline / Assessments /
+ * Questionnaires as nav rows under one small header).
+ *
+ * The old "Talk to Root" section is gone — its three chips now live
+ * inside the Coaching Insights card, in context with the insight they're
+ * about. The floating chat launcher remains the one chat entry point.
+ *
+ * Every section keeps reading the exact data it always read; only the
+ * grouping, order, and per-card visual treatment changed. Card
+ * treatments deliberately vary (shadowed white / tinted / bordered /
+ * plain) so no two adjacent sections look identical, matching the same
+ * rotating-treatment approach already used on the Home dashboard.
+ */
+
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
-import {
-  TrendingUp,
-  Flame,
-  MessageCircle,
-  History as HistoryIcon,
-  ArrowRight,
-  ScanFace,
-  ClipboardList,
-  Lightbulb,
-} from 'lucide-react';
+import { History as HistoryIcon, ArrowRight, ScanFace, ClipboardList } from 'lucide-react';
 import { getRecentCheckins } from '@/app/actions/checkin';
 import { getMyWellnessPatterns } from '@/app/actions/wellness-intelligence';
 import {
@@ -22,22 +39,25 @@ import { getMyHealthProfileSummary } from '@/app/actions/health-profile';
 import { getMyProgressComparison } from '@/app/actions/onboarding';
 import { getMyWearableMetricHistory } from '@/app/actions/wearables';
 import { getMyRootScoreHistory } from '@/app/actions/scoring';
+import { getMyCoachingInsightsAction } from '@/app/actions/coaching-insights';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
 import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
-import { RootQuickLink } from '@/components/RootQuickLink';
-import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { buildProgressEntryContext } from '@/lib/conversation-coach/entryContext';
 import { WellnessPatternsPanel } from './WellnessPatternsPanel';
 import { WellnessIdentityPanel } from './WellnessIdentityPanel';
 import { WellnessStoryPanel } from './WellnessStoryPanel';
-import { WearableTrendsPanel } from './WearableTrendsPanel';
 import { ProgressRootScorePanel } from './ProgressRootScorePanel';
+import { CoachingInsightsPanel } from './CoachingInsightsPanel';
+import { TrendsPanel } from './TrendsPanel';
+import { ConsistencyPanel } from './ConsistencyPanel';
+import { calculateStreak } from './streak';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
 
 const SEVERITY_LABEL: Record<string, string> = {
   significant: 'significant',
@@ -46,23 +66,6 @@ const SEVERITY_LABEL: Record<string, string> = {
   unknown: 'unclassified',
   none: 'resolved',
 };
-
-function calculateStreak(checkinsOldestFirst: { local_date: string }[]): number {
-  if (checkinsOldestFirst.length === 0) return 0;
-
-  let streak = 1;
-  for (let i = checkinsOldestFirst.length - 1; i > 0; i--) {
-    const current = new Date(checkinsOldestFirst[i]!.local_date);
-    const previous = new Date(checkinsOldestFirst[i - 1]!.local_date);
-    const dayDiff = Math.round((current.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24));
-    if (dayDiff === 1) {
-      streak += 1;
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
 
 function formatDate(localDate: string): string {
   const [year, month, day] = localDate.split('-').map(Number);
@@ -94,6 +97,7 @@ export default async function ProgressPage() {
     stepsHistory,
     stressHistory,
     rootScoreHistory,
+    coachingInsights,
   ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
@@ -103,21 +107,28 @@ export default async function ProgressPage() {
     getMyWellnessStorySummary(),
     getMyHealthProfileSummary(),
     getMyProgressComparison(),
-    getMyWearableMetricHistory('readiness_score', 14),
-    getMyWearableMetricHistory('sleep_duration_minutes', 7),
-    getMyWearableMetricHistory('steps', 7),
-    getMyWearableMetricHistory('stress_score', 7),
+    getMyWearableMetricHistory('readiness_score', 30),
+    getMyWearableMetricHistory('sleep_duration_minutes', 30),
+    getMyWearableMetricHistory('steps', 30),
+    getMyWearableMetricHistory('stress_score', 30),
     getMyRootScoreHistory(90),
+    getMyCoachingInsightsAction(),
   ]);
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const streak = calculateStreak(recentCheckins);
   const history = [...recentCheckins].reverse(); // most recent first for the list
+  const averageEnergy =
+    recentCheckins.length > 0
+      ? recentCheckins.reduce((sum, c) => sum + (c.energy_level ?? 0), 0) / recentCheckins.length
+      : null;
 
   const activeFindingSeverities = healthProfileSummary
     ? Object.entries(healthProfileSummary.activeRegistryFindingsBySeverity).filter(
         ([, count]) => count > 0
       )
     : [];
+
+  const entryContext = buildProgressEntryContext(wellnessPatterns);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -130,76 +141,69 @@ export default async function ProgressPage() {
           </h1>
           <AvatarLink firstName={firstName} />
         </div>
-        <p className="mt-2 text-[15px] text-[#6B7A72]">
-          Your health journey so far — trends, strengths, and what to focus on next.
-        </p>
 
-        <div className="mt-7 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <section className={`${CARD} p-6`}>
-            <div className="flex items-center gap-2 text-[#6B7A72]">
-              <Flame className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              <p className="text-sm font-semibold uppercase tracking-wider">Current streak</p>
-            </div>
-            {streak > 0 ? (
-              <p className="mt-3 text-3xl font-semibold text-[#1B3A2D]">
-                {streak}{' '}
-                <span className="text-base font-normal text-[#6B7A72]">
-                  day{streak === 1 ? '' : 's'}
-                </span>
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-[#6B7A72]">Check in today to start a streak.</p>
-            )}
-          </section>
-
-          <section className={`${CARD} p-6`}>
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-              Check-ins logged
-            </p>
-            <p className="mt-3 text-3xl font-semibold text-[#1B3A2D]">{recentCheckins.length}</p>
-            <p className="mt-1 text-sm text-[#6B7A72]">In the last 30 recorded days</p>
-          </section>
-
-          <section className={`${CARD} p-6`}>
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-              Average energy
-            </p>
-            {recentCheckins.length > 0 ? (
-              <p className="mt-3 text-3xl font-semibold text-[#1B3A2D]">
-                {(
-                  recentCheckins.reduce((sum, c) => sum + (c.energy_level ?? 0), 0) /
-                  recentCheckins.length
-                ).toFixed(1)}
-                <span className="text-base font-normal text-[#6B7A72]"> / 5</span>
-              </p>
-            ) : (
-              <p className="mt-3 text-sm text-[#6B7A72]">Not enough data yet</p>
-            )}
-          </section>
-        </div>
-
+        {/* Root Score — biggest, most prominent card on the page. */}
         <ProgressRootScorePanel history={rootScoreHistory} />
 
-        <section className={`${CARD} mt-5 p-6`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[#6B7A72]">
-              <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              <p className="text-sm font-semibold uppercase tracking-wider">Energy trend</p>
-            </div>
-            <span className="text-xs text-[#6B7A72]">
-              {recentCheckins.length > 0 ? `Last ${recentCheckins.length} check-ins` : ''}
-            </span>
-          </div>
-          <AnimatedEnergyTrendChart checkins={recentCheckins} />
-        </section>
+        {/* Where You Are Right Now — paired directly beneath the score
+            so its interpretive line reads as commentary on the number. */}
+        {wellnessStory && <WellnessStoryPanel summary={wellnessStory} />}
 
-        <WearableTrendsPanel
+        {/* One interpretive block: Coaching Insights (promoted to a
+            content card, its chips moved here from the old "Talk to
+            Root" section), then Wellness Patterns, then Wellness
+            Identity. */}
+        <CoachingInsightsPanel insights={coachingInsights.insights} entryContext={entryContext} />
+        <WellnessPatternsPanel insights={wellnessPatterns} />
+        <WellnessIdentityPanel highlights={wellnessIdentity} />
+
+        {/* Trends — one card, a segmented control across every metric
+            the check-in and any connected wearable actually capture. */}
+        <TrendsPanel
+          checkins={recentCheckins}
           readinessHistory={readinessHistory}
           sleepHistory={sleepHistory}
           stepsHistory={stepsHistory}
           stressHistory={stressHistory}
         />
 
+        {/* Consistency — streak / check-ins / avg energy as one
+            three-up stat row instead of three full-width cards. */}
+        <ConsistencyPanel
+          streak={streak}
+          checkinCount={recentCheckins.length}
+          averageEnergy={averageEnergy}
+        />
+
+        <section className="mt-5 rounded-[28px] bg-[#FAFAF8] p-6">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">History</p>
+          {history.length > 0 ? (
+            <div className="mt-3 divide-y divide-[#1B3A2D]/5">
+              {history.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-4 py-3 text-sm">
+                  <span className="w-28 shrink-0 font-medium text-[#1B3A2D]">
+                    {formatDate(c.local_date)}
+                  </span>
+                  <span className="flex-1 text-[#6B7A72]">
+                    Mood {c.mood_level ?? '—'} · Energy {c.energy_level ?? '—'} · Stress{' '}
+                    {c.stress_level ?? '—'}
+                    {c.sleep_duration ? ` · Sleep ${c.sleep_duration}` : ''}
+                  </span>
+                  {c.checkin_version > 1 && (
+                    <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs text-[#1B3A2D]">
+                      edited
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-[#6B7A72]">No check-ins logged yet.</p>
+          )}
+        </section>
+
+        {/* Assessment block: From Your Assessments + Baseline vs. Latest
+            Comparison, grouped together since both read assessment data. */}
         {healthProfileSummary && activeFindingSeverities.length > 0 && (
           <section className={`${CARD} mef-animate-in mt-5 p-6`}>
             <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
@@ -220,31 +224,22 @@ export default async function ProgressPage() {
           </section>
         )}
 
-        {wellnessStory && <WellnessStoryPanel summary={wellnessStory} />}
+        <div className="mt-5">
+          <AssessmentComparisonView
+            metrics={progressComparison.metrics}
+            summary={progressComparison.summary}
+            hasLatest={Boolean(progressComparison.latest)}
+          />
+        </div>
 
-        <WellnessPatternsPanel insights={wellnessPatterns} />
-        <WellnessIdentityPanel highlights={wellnessIdentity} />
-
-        <Link
-          href={'/insights' as Route}
-          className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
-        >
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Lightbulb className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Coaching Insights</p>
-          </div>
-          <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
-
-        <AssessmentComparisonView
-          metrics={progressComparison.metrics}
-          summary={progressComparison.summary}
-          hasLatest={Boolean(progressComparison.latest)}
-        />
+        {/* Explore — Health Timeline, Assessments, Questionnaires as
+            plain nav rows beneath one small section header, distinct
+            from the card blocks above. */}
+        <p className={`${ZONE_LABEL} mt-8`}>Explore</p>
 
         <Link
           href="/progress/timeline"
-          className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
+          className={`${CARD} mef-animate-in mt-3 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
         >
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <HistoryIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -253,18 +248,9 @@ export default async function ProgressPage() {
           <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
         </Link>
 
-        {/* Two separate, equal-weight, full-width stacked cards — same
-            pattern as every other card on this page, no grid/breakpoint
-            logic that could collapse or hide either one on any viewport.
-            Assessments (posture/movement, Body Assessment at /assessment)
-            is unchanged from before; Questionnaires (self-reported wellness
-            questionnaires, starting with the Nutrition & Lifestyle
-            Questionnaire) is its own dedicated area at /questionnaires, not a card inside
-            Assessments. Both moved here from the bottom nav (Premium UX
-            Milestone 1) rather than getting their own permanent tabs. */}
         <Link
           href="/assessment"
-          className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
+          className={`${CARD} mef-animate-in mt-3 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
         >
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -275,7 +261,7 @@ export default async function ProgressPage() {
 
         <Link
           href={'/questionnaires' as Route}
-          className={`${CARD} mef-animate-in mt-5 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
+          className={`${CARD} mef-animate-in mt-3 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
         >
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -283,68 +269,11 @@ export default async function ProgressPage() {
           </div>
           <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
         </Link>
-
-        <section className={`${CARD} mt-5 p-6`}>
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <MessageCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Talk to Root</p>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <RootQuickLink
-              entryPoint="progress_pattern"
-              entryContext={buildProgressEntryContext(wellnessPatterns)}
-            >
-              Help me understand this pattern
-            </RootQuickLink>
-            <RootQuickLink
-              entryPoint="progress_improved"
-              entryContext={buildProgressEntryContext(wellnessPatterns)}
-            >
-              What has improved?
-            </RootQuickLink>
-            <RootQuickLink
-              entryPoint="progress_focus"
-              entryContext={buildProgressEntryContext(wellnessPatterns)}
-            >
-              What should I focus on?
-            </RootQuickLink>
-          </div>
-        </section>
-
-        <section className={`${CARD} mt-5 p-6`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">History</p>
-          {history.length > 0 ? (
-            <div className="mt-3 divide-y divide-[#1B3A2D]/5">
-              {history.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-4 py-3 text-sm">
-                  <span className="w-28 shrink-0 font-medium text-[#1B3A2D]">
-                    {formatDate(c.local_date)}
-                  </span>
-                  <span className="flex-1 text-[#6B7A72]">
-                    Mood {c.mood_level ?? '—'} · Energy {c.energy_level ?? '—'} · Stress{' '}
-                    {c.stress_level ?? '—'}
-                    {c.sleep_duration ? ` · Sleep ${c.sleep_duration}` : ''}
-                  </span>
-                  {c.checkin_version > 1 && (
-                    <span className="shrink-0 rounded-full bg-[#EFF6F1] px-2 py-0.5 text-xs text-[#1B3A2D]">
-                      edited
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-[#6B7A72]">No check-ins logged yet.</p>
-          )}
-        </section>
       </main>
 
       <BottomNav isCoach={isCoach} />
 
-      <FloatingCoachLauncher
-        entryPoint="progress_pattern"
-        entryContext={buildProgressEntryContext(wellnessPatterns)}
-      />
+      <FloatingCoachLauncher entryPoint="progress_pattern" entryContext={entryContext} />
     </div>
   );
 }

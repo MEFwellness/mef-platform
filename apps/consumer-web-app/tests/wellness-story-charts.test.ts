@@ -6,6 +6,18 @@
  * Trend (bars already on, animation added here) and Root Score (neither
  * existed before this task, both built here).
  *
+ * Progress restructure (2026-07-28): the standalone, full-width Energy
+ * Trend card (and AnimatedEnergyTrendChart, the Home-style wrapper it
+ * used) was retired from this page in favor of a single unified Trends
+ * card with a segmented control across every metric the check-in and any
+ * connected wearable actually capture — Energy is now one segment among
+ * several, rendered by the new generic app/progress/MetricTrendChart.tsx
+ * rather than the bespoke energy-only chart. That component still reuses
+ * EnergyTrendChart's pure geometry helpers (buildSmoothPath,
+ * energyBarWidth) instead of re-deriving them, so nothing here got
+ * rebuilt twice — the assertions below were updated to match the new,
+ * intentional wiring instead of the old one.
+ *
  * No component-rendering harness exists in this repo (plain 'node'
  * vitest environment), so this is a static scan of the fixed source; the
  * real replay/reduced-motion/bar-count-at-90-days behavior is verified
@@ -21,6 +33,8 @@ function source(relativePath: string): string {
 }
 
 const PROGRESS_PAGE = source('app/progress/page.tsx');
+const TRENDS_PANEL = source('app/progress/TrendsPanel.tsx');
+const METRIC_TREND_CHART = source('app/progress/MetricTrendChart.tsx');
 const PANEL = source('app/progress/ProgressRootScorePanel.tsx');
 const ROOT_SCORE_CHART = source('components/RootScoreTrendChart.tsx');
 const ANIMATED_ROOT_SCORE_CHART = source('components/AnimatedRootScoreTrendChart.tsx');
@@ -28,16 +42,23 @@ const ROOT_SCORE_PAGE = source('app/root-score/page.tsx');
 const COACH_CLIENT_PAGE = source('app/coach/clients/[id]/page.tsx');
 const SCORING_ACTIONS = source('app/actions/scoring.ts');
 
-describe('Energy Trend on Progress: already had bars (fa5a469/fa5a451), now also animated', () => {
-  it('Progress renders AnimatedEnergyTrendChart, not the plain EnergyTrendChart directly', () => {
-    expect(PROGRESS_PAGE).toContain('<AnimatedEnergyTrendChart');
-    expect(PROGRESS_PAGE).not.toMatch(/<EnergyTrendChart[\s/]/);
+describe('Energy Trend on Progress: retired as its own card, now a segment of the unified Trends card', () => {
+  it('Progress no longer renders the old standalone AnimatedEnergyTrendChart — it renders the unified TrendsPanel instead', () => {
+    expect(PROGRESS_PAGE).toContain('<TrendsPanel');
+    expect(PROGRESS_PAGE).not.toContain('AnimatedEnergyTrendChart');
   });
 
-  it('imports the exact same wrapper Home uses — no second animated-chart implementation for Energy Trend', () => {
-    expect(PROGRESS_PAGE).toContain(
-      "import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart'"
+  it('TrendsPanel defines an Energy segment, defaulted to active, reading the same energy_level field the old chart read', () => {
+    expect(TRENDS_PANEL).toContain("key: 'energy'");
+    expect(TRENDS_PANEL).toContain("checkinPoints(checkins, 'energy_level')");
+    expect(TRENDS_PANEL).toContain("useState('energy')");
+  });
+
+  it('the new generic MetricTrendChart reuses EnergyTrendChart\'s pure geometry helpers instead of re-deriving them', () => {
+    expect(METRIC_TREND_CHART).toContain(
+      "import { buildSmoothPath, energyBarWidth } from '@/components/EnergyTrendChart'"
     );
+    expect(METRIC_TREND_CHART).not.toMatch(/function buildSmoothPath/);
   });
 });
 

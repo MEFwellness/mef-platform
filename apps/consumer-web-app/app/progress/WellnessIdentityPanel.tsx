@@ -1,8 +1,6 @@
 import { Fingerprint } from 'lucide-react';
 import type { MemberWellnessHighlight } from '@/lib/intelligence-core/types';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 /**
  * "Your Wellness Identity" (Milestone 9) — the member-facing surface for
  * the Wellness Intelligence Core's identity observations. Same restraint
@@ -11,12 +9,17 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
  * high-confidence, positive-framed handful via
  * lib/intelligence-core/memberView.ts — this component only ever renders
  * plain statements, never confidence, evidence, or domain codes.
+ *
+ * Bordered rather than shadowed (Progress restructure, visual-variety
+ * requirement) since this sits directly beneath WellnessPatternsPanel,
+ * which uses the shadowed white treatment — two adjacent cards
+ * shouldn't look identical.
  */
 export function WellnessIdentityPanel({ highlights }: { highlights: MemberWellnessHighlight[] }) {
   if (highlights.length === 0) return null;
 
   return (
-    <section className={`${CARD} mt-5 p-6`}>
+    <section className="mt-5 rounded-[28px] border border-[#1B3A2D]/10 bg-white p-6">
       <div className="flex items-center gap-2 text-[#6B7A72]">
         <Fingerprint className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Your Wellness Identity</p>
