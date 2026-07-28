@@ -225,9 +225,8 @@ describe('Wiring: distribution card sits below the line chart, check-in segments
   const TRENDS_PANEL = source('app/progress/TrendsPanel.tsx');
 
   it('imports and renders MetricDistributionCard', () => {
-    expect(TRENDS_PANEL).toContain(
-      "import { MetricDistributionCard } from './MetricDistributionCard'"
-    );
+    expect(TRENDS_PANEL).toContain('MetricDistributionCard');
+    expect(TRENDS_PANEL).toContain("from './MetricDistributionCard'");
     expect(TRENDS_PANEL).toContain('<MetricDistributionCard');
   });
 
@@ -239,7 +238,7 @@ describe('Wiring: distribution card sits below the line chart, check-in segments
   });
 
   it('gated on group === \'checkin\' — a wearable segment (continuous, not a small level set) never renders it', () => {
-    expect(TRENDS_PANEL).toMatch(/active\.group === 'checkin' && active\.levelLabel &&/);
+    expect(TRENDS_PANEL).toMatch(/active\.group === 'checkin' && active\.levelLabel \? \(/);
   });
 
   it('passes resetKey so switching metric pills re-triggers the sweep-in, the same pattern TrendChartCard already uses for its range pills', () => {
@@ -330,5 +329,76 @@ describe('Removed: the Streak/Check-ins/Avg Energy stats card below Trends — A
     expect(usages.sort()).toEqual(
       ['./app/progress/ConsistencyPanel.tsx', './app/progress/page.tsx'].sort()
     );
+  });
+});
+
+describe('Fix: collapse the two stacked "not enough check-ins" messages into one (2026-07-28 follow-up)', () => {
+  const TRENDS_PANEL = source('app/progress/TrendsPanel.tsx');
+  const DISTRIBUTION_CARD = source('app/progress/MetricDistributionCard.tsx');
+
+  it('MetricDistributionCard no longer renders its own thin-data message — that branch is gone entirely, not just unreachable', () => {
+    expect(DISTRIBUTION_CARD).not.toContain('This view appears once you have');
+    expect(DISTRIBUTION_CARD).not.toMatch(/if \(!hasEnoughForDistribution\(points\)\)/);
+  });
+
+  it('MetricDistributionCard still exports the real threshold/count helpers — TrendsPanel now does the gating with them instead', () => {
+    expect(DISTRIBUTION_CARD).toContain('export function recordedValues');
+    expect(DISTRIBUTION_CARD).toContain('export function hasEnoughForDistribution');
+    expect(DISTRIBUTION_CARD).toContain('export const MIN_DAYS_FOR_DISTRIBUTION = 7');
+  });
+
+  it('TrendsPanel imports the threshold helpers to decide what to render for check-in segments', () => {
+    expect(TRENDS_PANEL).toContain('hasEnoughForDistribution');
+    expect(TRENDS_PANEL).toContain('recordedValues');
+    expect(TRENDS_PANEL).toContain("from './MetricDistributionCard'");
+  });
+
+  it('below the threshold, a check-in segment renders neither MetricTrendChart nor MetricDistributionCard — only one combined message', () => {
+    // Locate the check-in branch's below-threshold JSX and confirm neither
+    // real component appears inside it, only the combined gray box.
+    const checkinBranchStart = TRENDS_PANEL.indexOf("active.group === 'checkin'");
+    expect(checkinBranchStart).toBeGreaterThan(-1);
+    const belowThresholdElse = TRENDS_PANEL.indexOf(') : (', checkinBranchStart);
+    const belowThresholdBlock = TRENDS_PANEL.slice(belowThresholdElse, belowThresholdElse + 700);
+    expect(belowThresholdBlock).not.toContain('<MetricTrendChart');
+    expect(belowThresholdBlock).not.toContain('<MetricDistributionCard');
+    expect(belowThresholdBlock).toContain('bg-[#F3F6F4]');
+  });
+
+  it('the combined message reuses the exact same gray-box styling MetricTrendChart\'s own empty state already used, so it visually reads as "the existing gray box"', () => {
+    const METRIC_TREND_CHART = source('app/progress/MetricTrendChart.tsx');
+    expect(METRIC_TREND_CHART).toContain('mt-4 rounded-2xl bg-[#F3F6F4] p-5 text-center');
+    expect(TRENDS_PANEL).toContain('mt-4 rounded-2xl bg-[#F3F6F4] p-5 text-center');
+  });
+
+  it('the combined message states the real recorded-day count and that the view appears at 7 — the wording the card used to say, now absorbed', () => {
+    const checkinBranchStart = TRENDS_PANEL.indexOf("active.group === 'checkin'");
+    const belowThresholdElse = TRENDS_PANEL.indexOf(') : (', checkinBranchStart);
+    const belowThresholdBlock = TRENDS_PANEL.slice(belowThresholdElse, belowThresholdElse + 700);
+    expect(belowThresholdBlock).toContain('recordedCount');
+    expect(belowThresholdBlock).toMatch(/MIN_DAYS_FOR_DISTRIBUTION/);
+  });
+
+  it('above the threshold, both the real chart and the real distribution card render together, unchanged from before this fix', () => {
+    const checkinBranchStart = TRENDS_PANEL.indexOf("active.group === 'checkin'");
+    const aboveThresholdBlock = TRENDS_PANEL.slice(checkinBranchStart, checkinBranchStart + 500);
+    expect(aboveThresholdBlock).toContain('<MetricTrendChart');
+    expect(aboveThresholdBlock).toContain('<MetricDistributionCard');
+  });
+
+  it('wearable segments are completely unaffected — the outer ternary\'s else branch (there are only two groups, so no explicit \'wearable\' check is needed) still renders the plain MetricTrendChart directly, no combined-message gating', () => {
+    const checkinBranchStart = TRENDS_PANEL.indexOf("active.group === 'checkin'");
+    // The final ") : (" before the closing </section> is the outer ternary's
+    // else branch — the one reached whenever the segment is NOT check-in.
+    const lastElseIdx = TRENDS_PANEL.lastIndexOf(') : (');
+    expect(lastElseIdx).toBeGreaterThan(checkinBranchStart);
+    const wearableBlock = TRENDS_PANEL.slice(lastElseIdx, lastElseIdx + 300);
+    expect(wearableBlock).toContain('<MetricTrendChart');
+    expect(wearableBlock).not.toContain('<MetricDistributionCard');
+  });
+
+  it('MetricTrendChart.tsx itself is untouched by this fix — the gating lives in TrendsPanel, not inside the chart component', () => {
+    const METRIC_TREND_CHART = source('app/progress/MetricTrendChart.tsx');
+    expect(METRIC_TREND_CHART).toContain('const MIN_POINTS_FOR_TREND = 5');
   });
 });

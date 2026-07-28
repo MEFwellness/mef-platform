@@ -27,6 +27,19 @@
  * today (components/checkin/DriverProbeField.tsx renders it as a bare
  * numbered row with no SCALE_ANCHOR_LABELS entry) — so its level labels
  * here are the plain numbers she saw, not invented words.
+ *
+ * Below-threshold gating fix (2026-07-28 follow-up): this component used
+ * to render its own dark-green "not enough data yet" message whenever
+ * hasEnoughForDistribution(points) was false — which, whenever the
+ * check-in segment also fell below MetricTrendChart's own separate
+ * 5-point floor, stacked directly underneath that chart's own gray "not
+ * enough data yet" box, showing two separate messages for one real fact.
+ * That branch is gone. TrendsPanel.tsx now checks hasEnoughForDistribution
+ * itself *before* ever rendering this component at all — below the
+ * threshold, neither this component nor MetricTrendChart render; a single
+ * combined message (styled like MetricTrendChart's own gray box) covers
+ * both. This component can now assume its caller has already confirmed
+ * enough real data exists.
  */
 
 import { ScrollDrawIn } from '@/components/ScrollDrawIn';
@@ -105,32 +118,13 @@ type Props = {
   resetKey: string;
 };
 
+/**
+ * Assumes the caller (TrendsPanel.tsx) has already confirmed
+ * hasEnoughForDistribution(points) is true — this component no longer
+ * has its own below-threshold rendering branch, so it should never be
+ * mounted with insufficient data. See this file's own doc comment for why.
+ */
 export function MetricDistributionCard({ points, min, max, levelLabel, metricLabel, resetKey }: Props) {
-  const total = recordedValues(points).length;
-
-  if (!hasEnoughForDistribution(points)) {
-    return (
-      <section className="mt-4 rounded-2xl p-5" style={{ backgroundColor: CARD_BG }}>
-        <p
-          className="text-xs font-semibold uppercase tracking-wider"
-          style={{ color: CREAM, opacity: 0.75 }}
-        >
-          {metricLabel}
-        </p>
-        <h3
-          className="mt-1 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight"
-          style={{ color: CREAM }}
-        >
-          What a typical day looks like for you
-        </h3>
-        <p className="mt-3 text-sm leading-relaxed" style={{ color: CREAM, opacity: 0.85 }}>
-          You have {total} recorded day{total === 1 ? '' : 's'} for {metricLabel.toLowerCase()} in the
-          last 30 days. This view appears once you have {MIN_DAYS_FOR_DISTRIBUTION}.
-        </p>
-      </section>
-    );
-  }
-
   const levels = computeDistribution(points, min, max, levelLabel);
   const modalIndex = modalLevelIndex(levels);
 

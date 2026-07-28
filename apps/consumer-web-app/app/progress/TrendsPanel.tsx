@@ -31,13 +31,35 @@
  * has this moved over time." `levelLabel` carries each metric's real
  * word scale (or, for Digestion, the plain numbers — see that
  * component's own doc comment for why no word scale exists for it).
+ *
+ * Collapsed-message follow-up (2026-07-28): MetricTrendChart's own
+ * 5-point floor and MetricDistributionCard's 7-point floor used to fire
+ * independently, so a check-in segment between "less than 5" and "less
+ * than 7" real values could show MetricTrendChart's gray "not enough
+ * data" box *and* MetricDistributionCard's own dark-green "not enough
+ * data" message stacked directly underneath it — two messages for one
+ * real fact. For check-in segments, this file now decides up front
+ * whether there's enough data for the distribution card's own 7-point
+ * floor (the stricter of the two) and, below it, renders neither real
+ * component — just one combined message, styled identically to
+ * MetricTrendChart's own gray box, stating the real recorded-day count
+ * and that both views appear at 7. Above the floor, both components
+ * render together exactly as before. Wearable segments are untouched —
+ * they still render MetricTrendChart directly, governed only by its own
+ * unmodified 5-point floor.
  */
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 import type { DailyCheckin, WearableDailyMetric } from '@mef/shared-types-contracts';
 import { MetricTrendChart, type TrendPoint } from './MetricTrendChart';
-import { MetricDistributionCard } from './MetricDistributionCard';
+import {
+  MetricDistributionCard,
+  hasEnoughForDistribution,
+  recordedValues,
+  MIN_DAYS_FOR_DISTRIBUTION,
+} from './MetricDistributionCard';
 import {
   energyLevelLabel,
   moodLabel,
@@ -250,6 +272,7 @@ export function TrendsPanel({
   const allSegments = [...checkinSegments, ...wearableSegments];
   const [activeKey, setActiveKey] = useState('energy');
   const active = allSegments.find((s) => s.key === activeKey) ?? checkinSegments[0]!;
+  const recordedCount = recordedValues(active.points).length;
 
   return (
     <section className={`${CARD} mt-5 p-6`}>
@@ -307,24 +330,51 @@ export function TrendsPanel({
         )}
       </div>
 
-      <MetricTrendChart
-        points={active.points}
-        min={active.min}
-        max={active.max}
-        unit={active.unit}
-        label={active.label}
-        emptyStateCopy={active.emptyStateCopy}
-        animated
-      />
-
-      {active.group === 'checkin' && active.levelLabel && (
-        <MetricDistributionCard
+      {active.group === 'checkin' && active.levelLabel ? (
+        hasEnoughForDistribution(active.points) ? (
+          <>
+            <MetricTrendChart
+              points={active.points}
+              min={active.min}
+              max={active.max}
+              unit={active.unit}
+              label={active.label}
+              emptyStateCopy={active.emptyStateCopy}
+              animated
+            />
+            <MetricDistributionCard
+              points={active.points}
+              min={active.min}
+              max={active.max}
+              levelLabel={active.levelLabel}
+              metricLabel={active.label}
+              resetKey={active.key}
+            />
+          </>
+        ) : (
+          <div className="mt-4 rounded-2xl bg-[#F3F6F4] p-5 text-center">
+            <p className="text-sm leading-relaxed text-[#1B3A2D]/70">
+              You have {recordedCount} recorded {recordedCount === 1 ? 'day' : 'days'} for{' '}
+              {active.label.toLowerCase()} in the last 30 days. Your trend and typical-day view
+              appear once you have {MIN_DAYS_FOR_DISTRIBUTION}.
+            </p>
+            <Link
+              href="/checkin"
+              className="mt-3 inline-block text-sm font-medium text-[#1B3A2D] hover:underline"
+            >
+              Go to today&apos;s check-in
+            </Link>
+          </div>
+        )
+      ) : (
+        <MetricTrendChart
           points={active.points}
           min={active.min}
           max={active.max}
-          levelLabel={active.levelLabel}
-          metricLabel={active.label}
-          resetKey={active.key}
+          unit={active.unit}
+          label={active.label}
+          emptyStateCopy={active.emptyStateCopy}
+          animated
         />
       )}
     </section>
