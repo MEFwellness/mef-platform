@@ -2,18 +2,19 @@
  * Weekly-average trend chart (2026-07-28): the Progress page's Trends
  * section replaces its one-dot-per-day chart with one point per week —
  * real unit tests for the pure bucketing math (buildWeeklyBuckets) and
- * the direction-sentence reuse of lib/intelligence/trendEngine.ts's
- * classifyMetricTrend, plus static-source checks confirming the scope
- * limit held: MetricTrendChart.tsx (daily-dot) is untouched and still
- * powers wearable segments on this page, Home's Energy Trend card, and
- * the coach client view. No component-rendering harness exists in this
- * repo (plain 'node' vitest environment), same standing limitation every
+ * the chart-window direction sentence (chartWindowDirectionSentence,
+ * 2026-07-28 follow-up — see directionSentence.ts's own doc comment for
+ * why this no longer reuses the trend engine's month-over-month
+ * comparison), plus static-source checks confirming the scope limit
+ * held: MetricTrendChart.tsx (daily-dot) is untouched and still powers
+ * wearable segments on this page, Home's Energy Trend card, and the
+ * coach client view. No component-rendering harness exists in this repo
+ * (plain 'node' vitest environment), same standing limitation every
  * other chart test file in this suite states.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import type { DailyCheckin } from '@mef/shared-types-contracts';
 import {
   buildWeeklyBuckets,
   countQualifyingWeeks,
@@ -22,7 +23,7 @@ import {
   MIN_QUALIFYING_WEEKS,
 } from '../app/progress/WeeklyAverageTrendChart';
 import type { TrendPoint } from '../app/progress/MetricTrendChart';
-import { directionSentenceForSegment } from '../app/progress/directionSentence';
+import { chartWindowDirectionSentence, STEADY_CHANGE_THRESHOLD } from '../app/progress/directionSentence';
 import { addDaysToLocalDate } from '../lib/feed/dateMath';
 
 function source(relativePath: string): string {
@@ -127,72 +128,98 @@ describe('countQualifyingWeeks / hasEnoughForWeeklyChart', () => {
   });
 });
 
-function checkin(overrides: Partial<DailyCheckin> = {}): DailyCheckin {
-  return {
-    id: overrides.id ?? overrides.local_date ?? 'c1',
-    user_id: 'u1',
-    timezone: 'America/New_York',
-    local_date: '2026-01-01',
-    recorded_at: '2026-01-01T08:00:00.000Z',
-    checkin_version: 1,
-    edited_at: null,
-    sleep_observation_period_start: null,
-    sleep_observation_period_end: null,
-    created_at: '2026-01-01T08:00:00.000Z',
-    mood_level: 4,
-    sleep_quality: 4,
-    sleep_duration: '7-8h',
-    energy_level: 4,
-    stress_level: 2,
-    water_cups: 8,
-    digestion_rating: 4,
-    pain_discomfort_level: 0,
-    movement_today: 'full_session',
-    new_or_worsening_concern: false,
-    optional_notes: null,
-    actual_bedtime: null,
-    actual_wake_time: null,
-    night_waking_count: null,
-    night_sweats: null,
-    morning_soreness: null,
-    bowel_movement_status: null,
-    ...overrides,
-  };
+/** One point per week, oldest first, from an array of weekly averages (each week gets exactly 3 identical daily values so it always qualifies). */
+function weeklyPoints(weekAverages: number[]): TrendPoint[] {
+  const pts: TrendPoint[] = [];
+  const totalWeeks = weekAverages.length;
+  weekAverages.forEach((value, weekIndex) => {
+    const daysAgo = (totalWeeks - 1 - weekIndex) * 7;
+    pts.push(...dailyPoints(daysAgo, 3, value));
+  });
+  return pts;
 }
 
-const AS_OF = '2026-07-28';
-function daysWindow(daysAgoFromAsOf: number, count: number): string[] {
-  const dates: string[] = [];
-  for (let i = count - 1; i >= 0; i--) {
-    dates.push(addDaysToLocalDate(AS_OF, -(daysAgoFromAsOf + i)));
-  }
-  return dates;
-}
-
-describe('directionSentenceForSegment', () => {
-  it('returns null for insufficient history (fewer than 10 samples in each 30-day window) rather than fabricating a sentence', () => {
-    const fewDays = daysWindow(0, 5).map((local_date) => checkin({ local_date, digestion_rating: 2 }));
-    expect(directionSentenceForSegment('digestion', fewDays, AS_OF)).toBeNull();
+describe('chartWindowDirectionSentence', () => {
+  it('the exact reported Pain case: month-over-month says worsening, but the plotted weeks (Mild-moderate -> Mild -> Mild-moderate -> None) are genuinely improving — the chart-window sentence must agree with the chart, not the month-over-month figure', () => {
+    const points = weeklyPoints([2, 1, 2, 0]); // Mild-moderate, Mild, Mild-moderate, None
+    const sentence = chartWindowDirectionSentence(points, 'pain', 'Pain');
+    expect(sentence).not.toBeNull();
+    expect(sentence).not.toMatch(/upward|downward/i);
+    expect(sentence!.toLowerCase()).toContain('easing'); // first (2) -> last (0): less pain, described as improvement
   });
 
-  it('reuses classifyMetricTrend verbatim: a sustained decline produces the exact "trending downward" sentence', () => {
-    const goodPrev30 = daysWindow(30, 30).map((local_date) => checkin({ local_date, digestion_rating: 5 }));
-    const poorLast30 = daysWindow(0, 30).map((local_date) => checkin({ local_date, digestion_rating: 1 }));
-    const sentence = directionSentenceForSegment('digestion', [...goodPrev30, ...poorLast30], AS_OF);
-    expect(sentence).toBe(
-      'Digestion has been trending downward over the last month compared to the month before.'
-    );
+  it('fewer than 2 plotted weeks -> no sentence at all', () => {
+    const onePlottedWeek = weeklyPoints([3]);
+    expect(chartWindowDirectionSentence(onePlottedWeek, 'pain', 'Pain')).toBeNull();
+    expect(chartWindowDirectionSentence([], 'pain', 'Pain')).toBeNull();
   });
 
-  it('maps the Trends "sleep_quality" segment key to the trend engine\'s "sleep" area', () => {
-    const goodPrev30 = daysWindow(30, 30).map((local_date) => checkin({ local_date, sleep_quality: 5 }));
-    const poorLast30 = daysWindow(0, 30).map((local_date) => checkin({ local_date, sleep_quality: 1 }));
-    const sentence = directionSentenceForSegment('sleep_quality', [...goodPrev30, ...poorLast30], AS_OF);
-    expect(sentence).toContain('Sleep');
+  it('a thin-data week skipped at the START of the range is not treated as the first endpoint', () => {
+    // Oldest week (days 21-23 ago): only 1 real check-in -> doesn't qualify, must not
+    // be used as the "first" point. Two real, non-overlapping qualifying weeks follow
+    // it, both averaging 1 -> if the thin week is correctly skipped, the real
+    // endpoints (1 and 1) are identical -> steady. If it were wrongly used as the
+    // first endpoint (value 5), this would instead describe a real decline (5 -> 1).
+    const thinOldestWeek = dailyPoints(21, 1, 5); // one lone day, 21 days ago
+    const realWeekA = dailyPoints(14, 3, 1); // days 14-16 ago
+    const realWeekB = dailyPoints(7, 3, 1); // days 7-9 ago
+    const points = [...thinOldestWeek, ...realWeekA, ...realWeekB];
+    const sentence = chartWindowDirectionSentence(points, 'pain', 'Pain');
+    expect(sentence).toContain('held steady');
+  });
+
+  it('a thin-data week skipped at the END of the range is not treated as the last endpoint', () => {
+    // Newest week (today only): 1 real check-in -> doesn't qualify, must not be used
+    // as the "last" point. Two real, non-overlapping qualifying weeks precede it,
+    // both averaging 1 -> steady if the thin week is correctly excluded.
+    const realWeekA = dailyPoints(14, 3, 1); // days 14-16 ago
+    const realWeekB = dailyPoints(7, 3, 1); // days 7-9 ago
+    const thinNewestWeek = dailyPoints(0, 1, 5); // one lone day, today
+    const points = [...realWeekA, ...realWeekB, ...thinNewestWeek];
+    const sentence = chartWindowDirectionSentence(points, 'pain', 'Pain');
+    expect(sentence).toContain('held steady');
+  });
+
+  it(`a change smaller than the ${STEADY_CHANGE_THRESHOLD}-point steady threshold reads as holding steady, not a forced direction`, () => {
+    const points = weeklyPoints([2, 2.2]); // delta 0.2, well under the 0.5 threshold
+    const buckets = buildWeeklyBuckets(points);
+    const sentence = chartWindowDirectionSentence(points, 'pain', 'Pain');
+    expect(sentence).toBe(`Pain has held steady from ${buckets[0]!.rangeLabel} to ${buckets[1]!.rangeLabel}.`);
+  });
+
+  it('a change at or above the steady threshold is a real direction, not steady', () => {
+    const points = weeklyPoints([2, 2.5]); // delta exactly 0.5
+    const sentence = chartWindowDirectionSentence(points, 'pain', 'Pain');
+    expect(sentence).not.toContain('held steady');
+  });
+
+  it('higher-is-better metric (Energy): an increase reads as improvement, never "upward"', () => {
+    const points = weeklyPoints([2, 4]); // Low -> Good, a real rise
+    const sentence = chartWindowDirectionSentence(points, 'energy', 'Energy');
+    expect(sentence).not.toMatch(/upward|downward/i);
+    expect(sentence!.toLowerCase()).toContain('increasing');
+  });
+
+  it('higher-is-worse metric (Stress): a rise reads as worsening ("increasing"), a fall reads as "easing"/"calmer" territory, never "upward"', () => {
+    const worse = chartWindowDirectionSentence(weeklyPoints([1, 4]), 'stress', 'Stress');
+    expect(worse).not.toMatch(/upward|downward/i);
+    expect(worse!.toLowerCase()).toContain('increasing');
+
+    const better = chartWindowDirectionSentence(weeklyPoints([4, 1]), 'stress', 'Stress');
+    expect(better).not.toMatch(/upward|downward/i);
+    expect(better!.toLowerCase()).toContain('easing');
+  });
+
+  it('names the window using the same week-range labels the chart itself uses', () => {
+    const points = weeklyPoints([1, 3]);
+    const buckets = buildWeeklyBuckets(points);
+    const sentence = chartWindowDirectionSentence(points, 'energy', 'Energy');
+    expect(sentence).toContain(buckets[0]!.rangeLabel);
+    expect(sentence).toContain(buckets[buckets.length - 1]!.rangeLabel);
   });
 
   it('an unrecognized segment key (e.g. a wearable metric) returns null rather than throwing', () => {
-    expect(directionSentenceForSegment('readiness', [], AS_OF)).toBeNull();
+    expect(chartWindowDirectionSentence(weeklyPoints([1, 3]), 'readiness', 'Readiness')).toBeNull();
   });
 });
 

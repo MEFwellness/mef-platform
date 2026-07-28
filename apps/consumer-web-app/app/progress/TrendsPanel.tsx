@@ -56,9 +56,18 @@
  * task's explicit scope limit (Home's Energy Trend card and the coach
  * client view also keep the daily-dot chart, since they use
  * MetricTrendChart's sibling components, not this file). A plain-English
- * direction sentence sits above the new chart, reusing
- * lib/intelligence/trendEngine.ts's classifyMetricTrend (see
- * directionSentence.ts) rather than a second trend detector.
+ * direction sentence sits above the new chart.
+ *
+ * Chart-window sentence fix (2026-07-28 follow-up): that sentence used to
+ * reuse the trend engine's month-over-month classifyMetricTrend, which
+ * isn't drawn on this chart at all and could flatly contradict it (see
+ * directionSentence.ts's own doc comment for the exact Pain case that
+ * surfaced this). It now calls chartWindowDirectionSentence, computed
+ * from the same buildWeeklyBuckets(active.points) the chart itself plots
+ * — same input, same weeks, so it can't disagree with the line beneath
+ * it. The month-over-month version is untouched and still feeds the
+ * insight cards above (WellnessPatternsPanel) — a different, wider
+ * comparison for a different part of the page.
  */
 
 import Link from 'next/link';
@@ -67,7 +76,7 @@ import { TrendingUp } from 'lucide-react';
 import type { DailyCheckin, WearableDailyMetric } from '@mef/shared-types-contracts';
 import { MetricTrendChart, type TrendPoint } from './MetricTrendChart';
 import { WeeklyAverageTrendChart } from './WeeklyAverageTrendChart';
-import { directionSentenceForSegment } from './directionSentence';
+import { chartWindowDirectionSentence } from './directionSentence';
 import {
   MetricDistributionCard,
   hasEnoughForDistribution,
@@ -137,17 +146,12 @@ function wearablePoints(history: WearableDailyMetric[]): TrendPoint[] {
 
 export function TrendsPanel({
   checkins,
-  checkinsForTrendSentence,
-  asOfLocalDate,
   readinessHistory,
   sleepHistory,
   stepsHistory,
   stressHistory,
 }: {
   checkins: DailyCheckin[]; // oldest first, last 30 recorded days
-  /** Oldest first, ~60 days — wide enough for classifyMetricTrend's last-30-vs-previous-30 comparison. Only ever read, never persisted. */
-  checkinsForTrendSentence: DailyCheckin[];
-  asOfLocalDate: string;
   readinessHistory: WearableDailyMetric[];
   sleepHistory: WearableDailyMetric[];
   stepsHistory: WearableDailyMetric[];
@@ -353,11 +357,7 @@ export function TrendsPanel({
         hasEnoughForDistribution(active.points) ? (
           <>
             {(() => {
-              const sentence = directionSentenceForSegment(
-                active.key,
-                checkinsForTrendSentence,
-                asOfLocalDate
-              );
+              const sentence = chartWindowDirectionSentence(active.points, active.key, active.label);
               return sentence ? (
                 <p className="mt-4 text-sm leading-relaxed text-[#1B3A2D]">{sentence}</p>
               ) : null;

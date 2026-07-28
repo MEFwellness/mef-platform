@@ -113,3 +113,34 @@ export function movementStatus(
   if (level === 'light') return 'attention';
   return 'poor'; // none
 }
+
+/**
+ * Polarity for the Progress page's Trends section (2026-07-28 follow-up):
+ * whether a HIGHER raw value is better or worse for a given metric — the
+ * fact this file's own header comment already states in prose ("stress
+ * and pain are inverse... everything else here is direct") but never
+ * exposed as a reusable value. Derived from each metric's own classifier
+ * above (checking what a near-top-of-scale value reports) rather than
+ * hand-copied, so it can never silently drift from the real thresholds if
+ * they change — one source of truth, not two. Used by
+ * app/progress/directionSentence.ts so the Trends section's direction
+ * sentence can say "less pain"/"calmer" instead of a misleading "trending
+ * upward" for a metric where higher is worse.
+ */
+export type MetricPolarity = 'higher_is_better' | 'higher_is_worse';
+
+function polarityFromStatus(statusAtHighEnd: MetricStatus): MetricPolarity {
+  return statusAtHighEnd === 'good' ? 'higher_is_better' : 'higher_is_worse';
+}
+
+export const TRENDS_METRIC_POLARITY: Record<
+  'energy' | 'mood' | 'stress' | 'sleep_quality' | 'digestion' | 'pain',
+  MetricPolarity
+> = {
+  energy: polarityFromStatus(energyStatus(5)),
+  mood: polarityFromStatus(moodStatus(5)),
+  stress: polarityFromStatus(stressStatus(5)),
+  sleep_quality: polarityFromStatus(sleepQualityStatus(5)),
+  digestion: polarityFromStatus(digestionStatus(5)),
+  pain: polarityFromStatus(painStatus(5)),
+};
