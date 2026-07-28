@@ -12,7 +12,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import { hasEnoughDataForTrend, type TrendPoint } from '@/app/progress/MetricTrendChart';
-import { hasEnoughSnapshotsForTrend } from '@/app/progress/ProgressRootScorePanel';
+import {
+  hasEnoughSnapshotsForTrend,
+  countScoredSnapshots,
+} from '@/app/progress/ProgressRootScorePanel';
+import { MIN_SCORED_SNAPSHOTS_FOR_TREND } from '@/lib/scoring/rootScoreTrendConfig';
 import { hasWearableData, dynamicBounds } from '@/app/progress/TrendsPanel';
 import { calculateStreak } from '@/app/progress/streak';
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
@@ -73,17 +77,18 @@ describe('minimum-data floor — Trends card (MetricTrendChart.hasEnoughDataForT
 });
 
 describe('minimum-data floor — Root Score trend (ProgressRootScorePanel.hasEnoughSnapshotsForTrend)', () => {
+  // The real threshold is MIN_SCORED_SNAPSHOTS_FOR_TREND, imported from
+  // components/RootScoreTrendChart.tsx — that component's own line-drawing
+  // math cannot plot a line through fewer than 2 points, and
+  // app/root-score/page.tsx's own call site relies on exactly this gate
+  // with no additional wrapper condition, confirming it's the one real
+  // requirement anywhere in the app, not a number invented for this page.
   it('a brand-new member with one calculation does not get a trend chart', () => {
     expect(hasEnoughSnapshotsForTrend([snapshot('2026-01-01', 62)])).toBe(false);
   });
 
-  it('4 real calculations still falls short of the 5-point floor', () => {
-    const history = [1, 2, 3, 4].map((n) => snapshot(`2026-01-0${n}`, 60 + n));
-    expect(hasEnoughSnapshotsForTrend(history)).toBe(false);
-  });
-
-  it('5 real calculations clears the floor', () => {
-    const history = [1, 2, 3, 4, 5].map((n) => snapshot(`2026-01-0${n}`, 60 + n));
+  it('2 real calculations clears the floor', () => {
+    const history = [1, 2].map((n) => snapshot(`2026-01-0${n}`, 60 + n));
     expect(hasEnoughSnapshotsForTrend(history)).toBe(true);
   });
 
@@ -91,11 +96,37 @@ describe('minimum-data floor — Root Score trend (ProgressRootScorePanel.hasEno
     const history = [
       snapshot('2026-01-01', 60),
       snapshot('2026-01-02', null),
-      snapshot('2026-01-03', 61),
-      snapshot('2026-01-04', null),
-      snapshot('2026-01-05', 62),
+      snapshot('2026-01-03', null),
     ];
-    expect(hasEnoughSnapshotsForTrend(history)).toBe(false); // only 3 real scores
+    expect(hasEnoughSnapshotsForTrend(history)).toBe(false); // only 1 real score
+  });
+});
+
+describe('Root Score card — progress-to-unlock state (ProgressRootScorePanel.countScoredSnapshots)', () => {
+  it('the real threshold is imported, not a locally invented number', () => {
+    expect(MIN_SCORED_SNAPSHOTS_FOR_TREND).toBe(2);
+  });
+
+  it('counts only real (non-null) calculations, same rule hasEnoughSnapshotsForTrend uses', () => {
+    const history = [
+      snapshot('2026-01-01', 55),
+      snapshot('2026-01-02', null),
+      snapshot('2026-01-03', 58),
+    ];
+    expect(countScoredSnapshots(history)).toBe(2);
+  });
+
+  it('zero real calculations is zero, not an error', () => {
+    expect(countScoredSnapshots([])).toBe(0);
+  });
+
+  it('crossing the real threshold flips hasEnoughSnapshotsForTrend from false to true', () => {
+    const below = [snapshot('2026-01-01', 55)];
+    const atThreshold = [snapshot('2026-01-01', 55), snapshot('2026-01-02', 57)];
+    expect(countScoredSnapshots(below)).toBeLessThan(MIN_SCORED_SNAPSHOTS_FOR_TREND);
+    expect(hasEnoughSnapshotsForTrend(below)).toBe(false);
+    expect(countScoredSnapshots(atThreshold)).toBe(MIN_SCORED_SNAPSHOTS_FOR_TREND);
+    expect(hasEnoughSnapshotsForTrend(atThreshold)).toBe(true);
   });
 });
 

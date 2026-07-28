@@ -9,9 +9,12 @@
  * every metric the daily check-in and any connected wearable actually
  * capture, instead of one full-width card per metric) -> Consistency
  * (streak/check-ins/avg energy collapsed into a three-up stat row) ->
- * History -> the assessment block (From Your Assessments + Baseline vs.
- * Latest Comparison) -> Explore (Health Timeline / Assessments /
- * Questionnaires as nav rows under one small header).
+ * the assessment block (From Your Assessments + Baseline vs. Latest
+ * Comparison) -> Explore (Health Timeline / Assessments / Questionnaires
+ * as nav rows under one small header) -> History, at the very bottom
+ * ("Your Wellness Story" rework: a log of past check-ins reads as an
+ * appendix, not part of the page's narrative, and previously interrupted
+ * that narrative by sitting in the middle of it).
  *
  * The old "Talk to Root" section is gone — its three chips now live
  * inside the Coaching Insights card, in context with the insight they're
@@ -132,6 +135,18 @@ export default async function ProgressPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      {/* Status-bar scrim: fixed and opaque, pinned to exactly the
+          device's safe-area-inset-top zone regardless of scroll
+          position. Without this, page content (this page has no fixed
+          header of its own) scrolls straight through that zone with
+          nothing behind it, colliding with the iOS clock/battery
+          indicator. Matches the page's own top gradient color so it's
+          invisible as a seam at rest. */}
+      <div
+        className="fixed inset-x-0 top-0 z-40 bg-[#EFF6F1]"
+        style={{ height: 'env(safe-area-inset-top)' }}
+        aria-hidden="true"
+      />
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/dashboard" label="Back to Home" />
 
@@ -174,33 +189,6 @@ export default async function ProgressPage() {
           checkinCount={recentCheckins.length}
           averageEnergy={averageEnergy}
         />
-
-        <section className="mt-5 rounded-[28px] bg-[#FAFAF8] p-6">
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">History</p>
-          {history.length > 0 ? (
-            <div className="mt-3 divide-y divide-[#1B3A2D]/5">
-              {history.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-4 py-3 text-sm">
-                  <span className="w-28 shrink-0 font-medium text-[#1B3A2D]">
-                    {formatDate(c.local_date)}
-                  </span>
-                  <span className="flex-1 text-[#6B7A72]">
-                    Mood {c.mood_level ?? '—'} · Energy {c.energy_level ?? '—'} · Stress{' '}
-                    {c.stress_level ?? '—'}
-                    {c.sleep_duration ? ` · Sleep ${c.sleep_duration}` : ''}
-                  </span>
-                  {c.checkin_version > 1 && (
-                    <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs text-[#1B3A2D]">
-                      edited
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-[#6B7A72]">No check-ins logged yet.</p>
-          )}
-        </section>
 
         {/* Assessment block: From Your Assessments + Baseline vs. Latest
             Comparison, grouped together since both read assessment data. */}
@@ -269,6 +257,38 @@ export default async function ProgressPage() {
           </div>
           <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
         </Link>
+
+        {/* History — moved to the very bottom of the page (below Explore):
+            a log of past check-ins reads as an appendix/reference, not
+            part of the page's main narrative arc, and used to interrupt
+            that arc by sitting in the middle of it. Position change only —
+            same content, same "edited" badge, same styling. */}
+        <section className="mt-8 rounded-[28px] bg-[#FAFAF8] p-6">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">History</p>
+          {history.length > 0 ? (
+            <div className="mt-3 divide-y divide-[#1B3A2D]/5">
+              {history.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-4 py-3 text-sm">
+                  <span className="w-28 shrink-0 font-medium text-[#1B3A2D]">
+                    {formatDate(c.local_date)}
+                  </span>
+                  <span className="flex-1 text-[#6B7A72]">
+                    Mood {c.mood_level ?? '—'} · Energy {c.energy_level ?? '—'} · Stress{' '}
+                    {c.stress_level ?? '—'}
+                    {c.sleep_duration ? ` · Sleep ${c.sleep_duration}` : ''}
+                  </span>
+                  {c.checkin_version > 1 && (
+                    <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs text-[#1B3A2D]">
+                      edited
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-[#6B7A72]">No check-ins logged yet.</p>
+          )}
+        </section>
       </main>
 
       <BottomNav isCoach={isCoach} />

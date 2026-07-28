@@ -17,22 +17,17 @@
  *
  * Each segment reuses the same MetricTrendChart, which applies its own
  * minimum-data floor (5 real points) before drawing a line — no new
- * scoring logic, just the existing status.ts classifiers and normalized
- * rendering.
+ * scoring logic, just normalized rendering. Segments used to carry a
+ * per-metric `statusFor` classifier that colored each dot good/attention/
+ * poor (green/amber/red) — removed page-wide in the "Your Wellness
+ * Story" rework: an ordinary day's value isn't a genuine concern, and
+ * red implied an alarm that wasn't real. Every dot on this page is now a
+ * flat forest green, matching the Root Score chart.
  */
 
 import { useState } from 'react';
 import { TrendingUp } from 'lucide-react';
 import type { DailyCheckin, WearableDailyMetric } from '@mef/shared-types-contracts';
-import {
-  energyStatus,
-  moodStatus,
-  stressStatus,
-  sleepQualityStatus,
-  digestionStatus,
-  painStatus,
-  type MetricStatus,
-} from '@/lib/wellness/status';
 import { MetricTrendChart, type TrendPoint } from './MetricTrendChart';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -46,14 +41,7 @@ type Segment = {
   max: number;
   unit: string;
   emptyStateCopy: string;
-  statusFor?: (value: number) => MetricStatus;
 };
-
-function readinessStatus(value: number): MetricStatus {
-  if (value >= 70) return 'good';
-  if (value >= 50) return 'attention';
-  return 'poor';
-}
 
 export function hasWearableData(
   readinessHistory: WearableDailyMetric[],
@@ -116,7 +104,6 @@ export function TrendsPanel({
       max: 5,
       unit: '/5',
       emptyStateCopy: 'Your energy pattern needs a few more check-ins before a trend can appear.',
-      statusFor: energyStatus as (v: number) => MetricStatus,
     },
     {
       key: 'mood',
@@ -127,7 +114,6 @@ export function TrendsPanel({
       max: 5,
       unit: '/5',
       emptyStateCopy: 'Your mood pattern needs a few more check-ins before a trend can appear.',
-      statusFor: moodStatus as (v: number) => MetricStatus,
     },
     {
       key: 'stress',
@@ -138,7 +124,6 @@ export function TrendsPanel({
       max: 5,
       unit: '/5',
       emptyStateCopy: 'Your stress pattern needs a few more check-ins before a trend can appear.',
-      statusFor: stressStatus as (v: number) => MetricStatus,
     },
     {
       key: 'sleep_quality',
@@ -150,7 +135,6 @@ export function TrendsPanel({
       unit: '/5',
       emptyStateCopy:
         'Your sleep quality pattern needs a few more check-ins before a trend can appear.',
-      statusFor: sleepQualityStatus as (v: number) => MetricStatus,
     },
     {
       key: 'digestion',
@@ -162,7 +146,6 @@ export function TrendsPanel({
       unit: '/5',
       emptyStateCopy:
         'Your digestion pattern needs a few more check-ins before a trend can appear.',
-      statusFor: digestionStatus as (v: number) => MetricStatus,
     },
     {
       key: 'pain',
@@ -173,7 +156,6 @@ export function TrendsPanel({
       max: 5,
       unit: '/5',
       emptyStateCopy: 'Your pain pattern needs a few more check-ins before a trend can appear.',
-      statusFor: painStatus as (v: number) => MetricStatus,
     },
   ];
 
@@ -201,7 +183,6 @@ export function TrendsPanel({
           unit: '',
           emptyStateCopy:
             'Your readiness pattern needs a few more recorded days before a trend can appear.',
-          statusFor: readinessStatus,
         },
         {
           key: 'wearable_sleep',
@@ -306,7 +287,7 @@ export function TrendsPanel({
         unit={active.unit}
         label={active.label}
         emptyStateCopy={active.emptyStateCopy}
-        statusFor={active.statusFor}
+        animated
       />
     </section>
   );

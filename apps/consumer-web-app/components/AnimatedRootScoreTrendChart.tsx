@@ -1,24 +1,24 @@
 'use client';
 
 /**
- * 2026-07-27 follow-up task ("Your Wellness Story" gets the Home
- * treatment): the Progress page's Root Score chart gets the exact same
- * scroll-triggered draw-in as Home's Energy Trend chart, via the shared
- * components/ScrollDrawIn.tsx (see that file for the full behavior and
- * the zero-width-never-intersects trap it avoids) — not a second
- * implementation. app/root-score/'s own call site keeps rendering the
- * plain RootScoreTrendChart directly (no animation, no bars); this
- * wrapper is only used from app/progress/ProgressRootScorePanel.tsx.
+ * "Your Wellness Story" rework: this used to wrap the plain
+ * RootScoreTrendChart in components/ScrollDrawIn.tsx. That mechanism
+ * replays its wipe every time the chart scrolls back into view — correct
+ * for Home's Energy Trend chart, but this task explicitly requires the
+ * Root Score trend chart to animate once per page view, not on every
+ * scroll pass, and to sequence the dots fading in only after the line
+ * finishes drawing. Neither is possible from outside an opaque
+ * ScrollDrawIn wrapper, so the animation now lives directly inside
+ * RootScoreTrendChart itself (via its own `animated` prop and
+ * components/useChartRevealOnce.ts) — this wrapper just opts in.
+ * app/root-score/'s own call site does not pass `animated` and is
+ * completely unaffected; this wrapper is only used from
+ * app/progress/ProgressRootScorePanel.tsx.
  */
 
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { RootScoreTrendChart } from '@/components/RootScoreTrendChart';
-import { ScrollDrawIn } from '@/components/ScrollDrawIn';
 
 export function AnimatedRootScoreTrendChart({ snapshots }: { snapshots: RootScoreSnapshot[] }) {
-  return (
-    <ScrollDrawIn>
-      <RootScoreTrendChart snapshots={snapshots} showBars />
-    </ScrollDrawIn>
-  );
+  return <RootScoreTrendChart snapshots={snapshots} showBars animated />;
 }

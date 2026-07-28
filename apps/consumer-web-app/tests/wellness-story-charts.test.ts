@@ -18,6 +18,22 @@
  * rebuilt twice — the assertions below were updated to match the new,
  * intentional wiring instead of the old one.
  *
+ * "Your Wellness Story" rework (2026-07-28, same day): two further
+ * changes to this same chart. (1) Dot color used to be driven by
+ * `scoreToStatus`/DOT_FILL (good/attention/poor -> green/amber/red) —
+ * removed; an ordinary day's Root Score dipping into "attention" or
+ * "poor" territory isn't a genuine concern, and red implied an alarm
+ * that wasn't real. Every dot is now a flat forest green `#1B3A2D`,
+ * matching the Energy Trend segment on the same page. (2) The
+ * scroll-triggered draw-in moved from an outer ScrollDrawIn wrapper
+ * (components/AnimatedRootScoreTrendChart.tsx) to living directly inside
+ * RootScoreTrendChart itself via a new `animated` prop and
+ * components/useChartRevealOnce.ts — needed because this task requires
+ * the animation to fire once per page view (not replay on every scroll
+ * pass, which is what ScrollDrawIn deliberately does for Home) and to
+ * sequence the dots fading in only after the line finishes, neither of
+ * which is possible from outside an opaque wrapper.
+ *
  * No component-rendering harness exists in this repo (plain 'node'
  * vitest environment), so this is a static scan of the fixed source; the
  * real replay/reduced-motion/bar-count-at-90-days behavior is verified
@@ -82,7 +98,7 @@ describe('Root Score chart: gains showBars (opt-in, default false) — nothing b
     expect(ROOT_SCORE_CHART).not.toMatch(/function \w*[Bb]arWidth/);
   });
 
-  it('bars use a single fixed on-palette color/opacity — never a per-status color, so the dots alone still encode Root Score status', () => {
+  it('bars use a single fixed on-palette color/opacity, same as the dots — no per-status color anywhere in this chart', () => {
     const barsBlockStart = ROOT_SCORE_CHART.indexOf('showBars &&');
     const barsBlockEnd = ROOT_SCORE_CHART.indexOf('<path d={areaPath}', barsBlockStart);
     const barsBlock = ROOT_SCORE_CHART.slice(barsBlockStart, barsBlockEnd);
@@ -95,29 +111,65 @@ describe('Root Score chart: gains showBars (opt-in, default false) — nothing b
     expect(ROOT_SCORE_CHART).toContain('height={Math.max(baseline - p.y, 0)}');
   });
 
-  it('the DOT_FILL status-color map (encodes Root Score status on the dots) is completely unchanged', () => {
-    expect(ROOT_SCORE_CHART).toContain("good: '#16A34A'");
-    expect(ROOT_SCORE_CHART).toContain("attention: '#F59E0B'");
-    expect(ROOT_SCORE_CHART).toContain("poor: '#EF4444'");
-    expect(ROOT_SCORE_CHART).toContain("'no-data': '#EFE9DB'");
+  it('"Your Wellness Story" rework: the DOT_FILL status-color map is gone — every dot is a flat forest green, not driven by score value', () => {
+    expect(ROOT_SCORE_CHART).not.toContain('DOT_FILL');
+    expect(ROOT_SCORE_CHART).not.toContain("from '@/lib/wellness/wellness-index'");
+    expect(ROOT_SCORE_CHART).not.toContain('#EF4444'); // red — no longer used for ordinary data points
+    expect(ROOT_SCORE_CHART).toContain('bg-[#1B3A2D]'); // the dot marker's own flat fill
+  });
+
+  it('the real minimum this chart requires to draw a line is a named constant imported from a boundary-neutral module, not a bare literal or a local declaration', () => {
+    expect(ROOT_SCORE_CHART).toContain(
+      "import { MIN_SCORED_SNAPSHOTS_FOR_TREND } from '@/lib/scoring/rootScoreTrendConfig'"
+    );
+    expect(ROOT_SCORE_CHART).toContain('withScores.length < MIN_SCORED_SNAPSHOTS_FOR_TREND');
+    expect(ROOT_SCORE_CHART).not.toContain('export const MIN_SCORED_SNAPSHOTS_FOR_TREND');
+  });
+
+  it('ProgressRootScorePanel (a Server Component) imports the same constant from that boundary-neutral module — NOT from RootScoreTrendChart.tsx itself, which has \'use client\' and would hand it a client-reference placeholder instead of the real number', () => {
+    expect(PANEL).toContain(
+      "import { MIN_SCORED_SNAPSHOTS_FOR_TREND } from '@/lib/scoring/rootScoreTrendConfig'"
+    );
+    expect(PANEL).not.toContain("MIN_SCORED_SNAPSHOTS_FOR_TREND } from '@/components/RootScoreTrendChart'");
+  });
+
+  it('the config module itself has no \'use client\' directive and no React import — it is plain, boundary-neutral data', () => {
+    const configSrc = source('lib/scoring/rootScoreTrendConfig.ts');
+    expect(configSrc).toContain('export const MIN_SCORED_SNAPSHOTS_FOR_TREND = 2');
+    expect(configSrc.trimStart().startsWith("'use client'")).toBe(false);
   });
 });
 
-describe('AnimatedRootScoreTrendChart: reuses the shared ScrollDrawIn, not a second observer', () => {
-  it('wraps RootScoreTrendChart (with showBars) in ScrollDrawIn', () => {
-    expect(ANIMATED_ROOT_SCORE_CHART).toContain('<ScrollDrawIn>');
-    expect(ANIMATED_ROOT_SCORE_CHART).toMatch(
-      /<RootScoreTrendChart snapshots={snapshots} showBars \/>/
+describe('AnimatedRootScoreTrendChart: "Your Wellness Story" rework — animation now lives inside RootScoreTrendChart itself', () => {
+  it('opts into the chart\'s own `animated` prop instead of wrapping it in ScrollDrawIn', () => {
+    expect(ANIMATED_ROOT_SCORE_CHART).toContain(
+      '<RootScoreTrendChart snapshots={snapshots} showBars animated />'
     );
+    expect(ANIMATED_ROOT_SCORE_CHART).not.toContain('<ScrollDrawIn>');
+    expect(ANIMATED_ROOT_SCORE_CHART).not.toContain("from '@/components/ScrollDrawIn'");
   });
 
-  it('does not define its own IntersectionObserver/threshold — proof it reuses the shared mechanism instead of writing a second one', () => {
+  it('does not define its own IntersectionObserver — proof it reuses RootScoreTrendChart\'s internal hook instead of writing a second mechanism', () => {
     expect(ANIMATED_ROOT_SCORE_CHART).not.toContain('IntersectionObserver');
-    expect(ANIMATED_ROOT_SCORE_CHART).not.toContain('REPLAY_THRESHOLD');
+  });
+});
+
+describe('useChartRevealOnce: a deliberately different mechanism from ScrollDrawIn, not a copy of it', () => {
+  const REVEAL_HOOK = source('components/useChartRevealOnce.ts');
+  const SCROLL_DRAW_IN = source('components/ScrollDrawIn.tsx');
+
+  it('fires once per page view — disconnects its observer on first reveal rather than resetting on scroll-out', () => {
+    expect(REVEAL_HOOK).toContain('observer.disconnect()');
+    expect(REVEAL_HOOK).not.toContain('isIntersecting && current');
   });
 
-  it('imports ScrollDrawIn from the shared top-level location, not a copy under components/dashboard/', () => {
-    expect(ANIMATED_ROOT_SCORE_CHART).toContain("from '@/components/ScrollDrawIn'");
+  it('respects prefers-reduced-motion, same as ScrollDrawIn', () => {
+    expect(REVEAL_HOOK).toContain("prefers-reduced-motion: reduce");
+  });
+
+  it('ScrollDrawIn itself is untouched — Home\'s replay-on-every-scroll behavior is still intact', () => {
+    expect(SCROLL_DRAW_IN).toContain('REPLAY_THRESHOLD');
+    expect(SCROLL_DRAW_IN).toContain('if (!entry.isIntersecting && current) return false;');
   });
 });
 
