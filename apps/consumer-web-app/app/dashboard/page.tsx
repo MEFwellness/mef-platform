@@ -64,7 +64,7 @@ import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
 import { CoachingMessageCard } from '@/components/dashboard/CoachingMessageCard';
 import { HomeHero } from '@/components/dashboard/HomeHero';
-import { QuickActionsCarousel } from '@/components/dashboard/QuickActionsCarousel';
+import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
 import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
 import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart';
 import {
@@ -235,18 +235,16 @@ export default async function DashboardPage({
         ) : (
           <div className="pt-8 md:pt-10">
             {/* ==================================================== */}
-            {/* Quick Actions — Movement, Food Lens, Progress, and      */}
-            {/* Flag a Concern, as one horizontal carousel replacing    */}
-            {/* three stacked link-cards + a fourth standalone card.    */}
-            {/* Compact pill chips now (not cards), so this zone's own  */}
-            {/* footprint and the gap after it are both tighter than    */}
-            {/* the rest of the page's zone spacing. See                */}
-            {/* components/dashboard/QuickActionsCarousel.tsx.          */}
+            {/* Quick Actions — Case, Movement, Food Lens, Progress,    */}
+            {/* and Flag a Concern, as a fixed icon grid (4 per row,    */}
+            {/* max 2 rows). No horizontal scrolling — every action is  */}
+            {/* always visible, none buried past a scroll edge. See     */}
+            {/* components/dashboard/QuickActionsGrid.tsx.              */}
             {/* ==================================================== */}
             <RevealOnScroll>
               <p className={ZONE_LABEL}>Quick Actions</p>
               <div className="mt-3">
-                <QuickActionsCarousel />
+                <QuickActionsGrid />
               </div>
             </RevealOnScroll>
 

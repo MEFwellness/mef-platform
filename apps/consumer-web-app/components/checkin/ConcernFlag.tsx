@@ -10,10 +10,10 @@
  *
  * Home dashboard redesign: this used to be its own always-visible white
  * card with an internal open/closed toggle button. It's now one of the
- * four Quick Actions carousel tiles (components/dashboard/
- * QuickActionsCarousel.tsx), which owns the open/closed state and renders
- * this as a plain reveal panel underneath the carousel instead — same
- * copy, same submit behavior, different trigger location.
+ * Quick Actions grid tiles (components/dashboard/QuickActionsGrid.tsx),
+ * which owns the open/closed state and renders this as a plain reveal
+ * panel underneath the grid instead — same copy, same submit behavior,
+ * different trigger location.
  */
 
 import { useState, useTransition } from 'react';
