@@ -126,6 +126,13 @@ describe('(a)/(b) the discomfort gate owns the whole section — nothing renders
     expect(block).toContain('if (hasDiscomfort !== null) {');
     expect(block).not.toContain('if (painLocation.length > 0) {');
   });
+
+  it('the real root cause of that same live bug: probeAnswers\' own initializer must never copy in a specially-handled key, or the generic resubmit loop silently overwrites a fresh specially-handled answer back to its stale initial value', () => {
+    const start = MORNING_FORM.indexOf('const [probeAnswers, setProbeAnswers] = useState');
+    const end = MORNING_FORM.indexOf('});', start);
+    const block = MORNING_FORM.slice(start, end);
+    expect(block).toContain('if (SPECIALLY_HANDLED_QUESTION_KEYS.has(key)) continue;');
+  });
 });
 
 describe('(c) no conditional follow-up renders without its parent — the digestion ordering fix', () => {

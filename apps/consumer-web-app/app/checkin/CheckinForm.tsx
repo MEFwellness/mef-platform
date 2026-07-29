@@ -132,9 +132,26 @@ export function CheckinForm({
 
   const genericRotatingProbes = rotatingProbes.filter((q) => !SPECIALLY_HANDLED_QUESTION_KEYS.has(q.questionKey));
 
+  // Root-cause fix (2026-07-29, found live): a specially-handled key
+  // (pain_location, pain_aggravating_factor, bowel_movement_status,
+  // night_waking_count, night_sweats, digestion_rating) must never also
+  // live in this generic map -- its OWN state (painLocation,
+  // bowelMovementStatus, etc.) is the single source of truth, submitted
+  // through its own explicit call in submitProbeAndFollowUpAnswers.
+  // Without this filter, a specially-handled key present in
+  // initialProbeAnswers on page load got copied in here too (it matches
+  // the same value-shape check) and then sat untouched forever, since
+  // nothing in the UI ever calls setProbeAnswer for a specially-handled
+  // key -- but submitProbeAndFollowUpAnswers' own generic loop below
+  // re-submits every key in this map on every save, silently
+  // overwriting a genuinely-changed specially-handled answer back to
+  // whatever it was when the page first loaded. Confirmed live: editing
+  // pain_location on a day that already had one stored appeared to
+  // succeed, then reverted to the old value on the very next page load.
   const [probeAnswers, setProbeAnswers] = useState<Record<string, ProbeAnswerValue>>(() => {
     const initial: Record<string, ProbeAnswerValue> = {};
     for (const [key, value] of Object.entries(initialProbeAnswers)) {
+      if (SPECIALLY_HANDLED_QUESTION_KEYS.has(key)) continue;
       if (
         typeof value === 'string' ||
         typeof value === 'number' ||
