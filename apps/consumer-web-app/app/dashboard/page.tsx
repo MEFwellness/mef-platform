@@ -66,6 +66,7 @@ import { CoachingMessageCard } from '@/components/dashboard/CoachingMessageCard'
 import { HomeHero } from '@/components/dashboard/HomeHero';
 import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
 import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
+import { ScrollCarousel } from '@/components/carousel/ScrollCarousel';
 import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart';
 import {
   stressStatus,
@@ -504,19 +505,21 @@ export default async function DashboardPage({
             {/* ==================================================== */}
             <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>What Root Is Noticing</p>
-              <div className="mef-scrollbar-hidden mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-5 pb-1">
-                <Suspense fallback={<NoticingTileSkeleton />}>
-                  <WhatWereNoticingCard />
-                </Suspense>
-                <Suspense fallback={<NoticingTileSkeleton />}>
-                  <RootMapCard />
-                </Suspense>
-                <Suspense fallback={<NoticingTileSkeleton />}>
-                  <CoachingMessageCard />
-                </Suspense>
-                <Suspense fallback={<NoticingTileSkeleton />}>
-                  <RecommendationsCard />
-                </Suspense>
+              <div className="mt-4">
+                <ScrollCarousel>
+                  <Suspense fallback={<NoticingTileSkeleton />}>
+                    <WhatWereNoticingCard />
+                  </Suspense>
+                  <Suspense fallback={<NoticingTileSkeleton />}>
+                    <RootMapCard />
+                  </Suspense>
+                  <Suspense fallback={<NoticingTileSkeleton />}>
+                    <CoachingMessageCard />
+                  </Suspense>
+                  <Suspense fallback={<NoticingTileSkeleton />}>
+                    <RecommendationsCard />
+                  </Suspense>
+                </ScrollCarousel>
               </div>
             </RevealOnScroll>
 

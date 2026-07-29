@@ -13,6 +13,11 @@ const SOURCE = readFileSync(
   path.resolve(__dirname, '../components/root-map/RootMapRing.tsx'),
   'utf-8'
 );
+// Strips the file's own leading doc comment before scanning for the
+// PRESENCE/ABSENCE of an old approach's name — the doc comment explains a
+// fix by naming the old behavior it replaced, which would otherwise make a
+// naive "not.toMatch" assertion fail on prose rather than real code.
+const CODE_ONLY = SOURCE.replace(/\/\*\*[\s\S]*?\*\/\s*/, '');
 
 function domain(overrides: Partial<RingDomain> = {}): RingDomain {
   return {
@@ -120,5 +125,64 @@ describe('RootMapRing source shape — identification + hit-target guards', () =
     // actual class string, not the file's prose (which references the old
     // approach by name while explaining why it changed).
     expect(SOURCE).not.toMatch(/className="h-auto w-full -rotate-90"/);
+  });
+});
+
+describe('RootMapRing focus outline — real keyboard focus stays visible, tap does not', () => {
+  // Confirmed live: a plain `outline-none` + `focus-visible:outline-*`
+  // combo does NOT work on this element in Tailwind v4 — `outline-none`
+  // sets the `--tw-outline-style` custom property to `none`, and that
+  // property is what `outline-style` reads via var() for EVERY state on
+  // the same element, including :focus-visible, since Tailwind v4's
+  // outline utilities are custom-property-backed rather than setting
+  // `outline-style` directly. Verified via the compiled CSS and a real
+  // keyboard Tab press before landing on this fix (`outlineStyle` stayed
+  // 'none' even while `:focus-visible` genuinely matched). Scoping the
+  // suppression to `:not(:focus-visible)` was the fix — this guards
+  // against reverting to the broken unconditional form.
+  it('does not use an unconditional outline-none (the broken Tailwind v4 form)', () => {
+    expect(CODE_ONLY).not.toMatch(/className="cursor-pointer outline-none focus-visible:outline/);
+  });
+
+  it('scopes the outline suppression to non-focus-visible state', () => {
+    expect(SOURCE).toMatch(/\[&:not\(:focus-visible\)\]:outline-none/);
+    expect(SOURCE).toMatch(/focus-visible:outline-\[#F5B700\]/);
+  });
+});
+
+describe('RootMapRing scroll alignment — the "still lands wrong" fix', () => {
+  // The first fix (block: 'center') was reported as still broken.
+  // Reproduced live with isolated per-segment taps (fresh page load each
+  // time, no cross-tap interference): `block: 'center'` cannot create
+  // scroll room that doesn't exist, so a domain whose section sits near
+  // the very end of the page (the four `isUninstrumented` domains'
+  // compact list items, plus their close neighbors) clamped to
+  // max-scroll instead of centering, landing on whatever card was
+  // nearest the clamped viewport center — not the tapped domain.
+  // `block: 'start'` doesn't have this failure mode. Verified live for
+  // all twelve segments individually after the fix: every one lands on
+  // its own real section, on-screen, clear of the header and bottom nav.
+  it('scrolls with block: "start", not "center"', () => {
+    expect(CODE_ONLY).toMatch(/block: 'start'/);
+    expect(CODE_ONLY).not.toMatch(/block: 'center'/);
+  });
+});
+
+describe('RootMapRing numbering — the WebKit clipping fix', () => {
+  // Only 4 of 12 numbers rendered on a real iPhone (Safari/WebKit),
+  // though headless Chromium always showed all 12 — confirmed directly
+  // with Playwright's `webkit` engine (the real Safari rendering engine):
+  // `dominantBaseline="middle"` support is inconsistent there, and the
+  // resulting position pushed 8 of 12 labels' bounding boxes outside the
+  // SVG's own clipping bounds. Fixed with the standard cross-browser-safe
+  // `dy` offset instead, plus a small viewBox margin for real clearance.
+  it('centers labels with a dy offset, not dominantBaseline', () => {
+    expect(SOURCE).toMatch(/dy="0\.35em"/);
+    expect(CODE_ONLY).not.toMatch(/dominantBaseline/);
+  });
+
+  it('expands the viewBox with a margin so labels have real clearance', () => {
+    expect(SOURCE).toMatch(/VIEWBOX_MARGIN/);
+    expect(SOURCE).toMatch(/viewBox=\{`\$\{-VIEWBOX_MARGIN\}/);
   });
 });

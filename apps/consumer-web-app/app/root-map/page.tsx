@@ -20,11 +20,12 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
-import { ChevronLeft, Compass, ShieldCheck } from 'lucide-react';
+import { Compass, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getMyRootMap } from '@/app/actions/rootMap';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
+import { BackButton } from '@/components/BackButton';
 import { groupRootMapDomains, resolveNamedAreaRecommendation } from '@/lib/root-map';
 import { RootMapRing } from '@/components/root-map/RootMapRing';
 import { RootMapFindingCard } from '@/components/root-map/RootMapFindingCard';
@@ -59,13 +60,7 @@ export default async function RootMapPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-1 text-sm font-medium text-[#6B7A72] hover:text-[#1B3A2D]"
-        >
-          <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          Back to Dashboard
-        </Link>
+        <BackButton fallbackHref="/dashboard" label="Back to Dashboard" />
 
         <div className="mt-4 flex items-center gap-2 text-[#6B7A72]">
           <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />

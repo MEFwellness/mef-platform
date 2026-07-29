@@ -15,6 +15,20 @@
  * same `href`-based navigation RootMapCard.tsx already uses — the tile
  * itself no longer renders any of the content, only decides whether the
  * card should appear at all.
+ *
+ * Headline fix: this was hardcoded to "Four Doctors Assessment" — a
+ * single named assessment — even though `getMyNoticingView()` pulls from
+ * ANY active, member-visible registry finding regardless of source
+ * (onboarding baseline, body assessment, questionnaire category, food
+ * lens pattern, wearable, primal pattern, unified assessment — see
+ * `registry_entries_source_feature_check`), not specifically the Four
+ * Doctors assessment. There was no dynamic selection logic to fix — it
+ * was a flat string literal picking one source name out of many possible
+ * ones. Replaced with a fixed, honest, source-agnostic phrase that
+ * doesn't claim a specific origin, matching the sibling cards' own
+ * headline voice (`RootMapCard`'s "An area worth exploring",
+ * `CoachingMessageCard`'s "More context could help" — short, generic,
+ * never naming an internal system).
  */
 
 import { getMyNoticingView } from '@/app/actions/memberNoticing';
@@ -35,7 +49,7 @@ export async function WhatWereNoticingCard() {
     <NoticingTile
       imageSrc="/images/card-noticing.jpg"
       kicker="What We're Noticing"
-      headline="Four Doctors Assessment"
+      headline="A few things stand out"
       href="/noticing"
     />
   );

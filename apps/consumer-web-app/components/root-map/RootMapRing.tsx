@@ -57,6 +57,53 @@
  * of that `<g>`, never rotated, computed directly in the same "12
  * o'clock, clockwise" frame instead of needing a second counter-rotation
  * to stay upright.
+ *
+ * Three more bugs found and fixed here, all confirmed live before
+ * changing anything (real Chromium + Playwright's `webkit` engine, the
+ * actual Safari rendering engine, not just headless Chromium):
+ *
+ * 3. Tapping a segment focused it and drew the browser's own default
+ *    focus ring — an axis-aligned blue rectangle boxing the whole wedge,
+ *    since SVG focus outlines are always axis-aligned regardless of the
+ *    element's real shape. Fixed the same way every other focusable
+ *    control in this app already handles it (see the legend buttons just
+ *    below): suppress the plain `:focus` outline, restore a gold
+ *    `:focus-visible` one sized to the app's own accent color — visible
+ *    for keyboard users, gone for a mouse/touch tap.
+ *
+ * 4. `scrollToDomain` used `block: 'center'`. For a domain whose card
+ *    sits near the very end of the page (confirmed live: the four
+ *    `isUninstrumented` domains render as small inline list items in the
+ *    very last section, `RootMapNotCoveredSection.tsx`), the browser
+ *    cannot scroll far enough to center something that close to the
+ *    document's own end — it clamps to max-scroll instead, which lands
+ *    on whatever real card happens to be nearest the viewport's center at
+ *    that clamped position, not the tapped domain. Reproduced live for
+ *    all twelve segments individually (fresh page load per tap, no
+ *    cross-tap interference): the four uninstrumented domains and two
+ *    domains near them all landed on the wrong card. `block: 'start'`
+ *    doesn't have this failure mode — it only needs the target's own top
+ *    edge at the viewport's top, which is achievable even for the very
+ *    last element on the page. Every anchor already carries `scroll-mt-24`
+ *    (`RootMapFindingCard.tsx`/`RootMapBuildingRow.tsx`/
+ *    `RootMapNotCoveredSection.tsx`) for exactly this alignment — that
+ *    class only meaningfully does anything for `start`/`nearest`
+ *    alignment, a leftover clue that `start` was the original intent.
+ *
+ * 5. Only 4 of 12 numbers rendered on a real iPhone (Safari/WebKit),
+ *    though all 12 were always present in Chromium. Root cause: text
+ *    vertical-centering via `dominantBaseline="middle"` is inconsistently
+ *    supported in WebKit; the actual rendered position it produces can
+ *    land a label's bounding box outside the SVG's own clipping bounds
+ *    when the label sits close to the viewBox edge (the four numbers at
+ *    the ring's cardinal-adjacent positions, closest to the box's own
+ *    edges, were exactly the ones that survived — the ones near a
+ *    corner, the position with the most real clearance). Confirmed
+ *    directly with Playwright's `webkit` engine: 8 of 12 labels measured
+ *    `insideSvgBounds: false`. Fixed with the standard, WebKit-safe
+ *    technique — a numeric `dy` offset instead of `dominantBaseline` —
+ *    plus a small viewBox margin so every label has real clearance
+ *    regardless of a browser's own baseline math.
  */
 
 import { useChartRevealOnce } from '@/components/useChartRevealOnce';
@@ -67,6 +114,7 @@ import { domainAnchorId } from '@/lib/root-map/anchors';
 const DEEP_GREEN = '#1B3A2D';
 const GOLD = '#F5B700';
 const TRACK = 'rgba(27,58,45,0.08)';
+const VIEWBOX_MARGIN = 16;
 
 /**
  * Only what the ring actually needs to draw and label itself — never the
@@ -147,7 +195,7 @@ export function RootMapRing({
   function scrollToDomain(domain: string) {
     document
       .getElementById(domainAnchorId(domain))
-      ?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+      ?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
   }
 
   const revealed = drawn || reducedMotion;
@@ -156,7 +204,7 @@ export function RootMapRing({
     <div ref={ref} className="mx-auto w-full" style={{ maxWidth: size }}>
       <div className="relative mx-auto" style={{ maxWidth: size }}>
         <svg
-          viewBox={`0 0 ${size} ${size}`}
+          viewBox={`${-VIEWBOX_MARGIN} ${-VIEWBOX_MARGIN} ${size + 2 * VIEWBOX_MARGIN} ${size + 2 * VIEWBOX_MARGIN}`}
           className="h-auto w-full"
           role="img"
           aria-label="Your Root Map — twelve dimensions, filling in as you record more data. Tap a segment, or its name in the key below, to jump to that dimension."
@@ -204,7 +252,18 @@ export function RootMapRing({
               key={domain.domain}
               d={wedgePath(cx, cy, wedgeOuterRadius, index * slotDeg, (index + 1) * slotDeg)}
               fill="transparent"
-              className="cursor-pointer"
+              // Not `outline-none` (unconditional): Tailwind v4's outline
+              // utilities are backed by a `--tw-outline-style` custom
+              // property, which is inherited/persisted per-element
+              // regardless of pseudo-class — an unconditional `outline-none`
+              // pins that variable to `none` permanently on this element,
+              // so `focus-visible:outline` (which only *reads* the variable)
+              // stayed `none` even while truly focus-visible. Confirmed live
+              // via the compiled CSS and a real keyboard Tab before landing
+              // on this fix. Scoping the suppression to `:not(:focus-visible)`
+              // leaves the variable at its real default (`solid`) exactly
+              // when `:focus-visible` is what's actually active.
+              className="cursor-pointer [&:not(:focus-visible)]:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
               role="button"
               tabIndex={0}
               aria-label={`Jump to ${domain.label}`}
@@ -225,8 +284,8 @@ export function RootMapRing({
                 key={domain.domain}
                 x={mid.x}
                 y={mid.y}
+                dy="0.35em"
                 textAnchor="middle"
-                dominantBaseline="middle"
                 fontSize={size * 0.042}
                 fontWeight={600}
                 fill="#6B7A72"
