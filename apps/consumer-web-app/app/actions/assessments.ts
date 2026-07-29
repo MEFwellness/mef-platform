@@ -56,6 +56,8 @@ import {
   saveContext,
   type ComparisonMode,
 } from '@/lib/assessments/store';
+import { localDateFor } from './rootMap';
+import { recomputeMyRecommendations } from './recommendations';
 
 async function requireMemberId(): Promise<string | null> {
   const supabase = createClient();
@@ -286,7 +288,17 @@ export async function completeMyAssessment(
 
   const { questionnaire } = getAssessmentDefinition(questionnaireId);
   const supabase = createClient();
-  return completeAssessment(supabase, questionnaire, assessmentId);
+  const result = await completeAssessment(supabase, questionnaire, assessmentId);
+
+  // Recommendation Engine — a completed questionnaire is one of the
+  // events that materially changes what it would recommend.
+  // recomputeMyRecommendations already swallows its own errors, same
+  // best-effort discipline as every other post-completion recompute in
+  // this app; never allowed to affect the result already returned above.
+  const localDate = await localDateFor(supabase, memberId);
+  await recomputeMyRecommendations(supabase, memberId, localDate, 'questionnaire_completed');
+
+  return result;
 }
 
 export type AssessmentResultView = {

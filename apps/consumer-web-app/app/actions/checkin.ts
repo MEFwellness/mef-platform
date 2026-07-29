@@ -22,6 +22,7 @@ import { getOrCalculateRootScore } from '@/lib/scoring/service';
 import { recordMemberEvent } from '@/lib/events/service';
 import { resolveAssignedCoach } from '@/lib/safety/data';
 import { getTodaysHydrationTotal } from './events';
+import { recomputeMyRecommendations } from './recommendations';
 
 /**
  * Daily Check-In redesign v2 — "the new/worsening concern control
@@ -219,6 +220,13 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
   } catch (scoringError) {
     console.error('Root Score recalculation failed for submitDailyCheckin', scoringError);
   }
+
+  // Recommendation Engine — a completed check-in is one of the events that
+  // materially changes what it would recommend, so refresh the stored
+  // result now rather than leaving it to the next page read to discover
+  // it's stale. recomputeMyRecommendations already swallows its own
+  // errors, same best-effort discipline as the Root Score call above.
+  await recomputeMyRecommendations(supabase, user.id, input.local_date, 'check_in');
 
   return {};
 }

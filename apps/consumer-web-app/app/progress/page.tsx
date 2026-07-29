@@ -27,17 +27,14 @@
  * rotating-treatment approach already used on the Home dashboard.
  */
 
+import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { History as HistoryIcon, ArrowRight, ScanFace, ClipboardList } from 'lucide-react';
 import { getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
-import { getMyWellnessPatterns } from '@/app/actions/wellness-intelligence';
-import {
-  getMyWellnessIdentityHighlights,
-  getMyWellnessStorySummary,
-} from '@/app/actions/intelligence-core';
+import { getMyWellnessIdentityHighlights } from '@/app/actions/intelligence-core';
 import { getMyHealthProfileSummary } from '@/app/actions/health-profile';
 import { getMyProgressComparison } from '@/app/actions/onboarding';
 import { getMyWearableMetricHistory } from '@/app/actions/wearables';
@@ -50,13 +47,14 @@ import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { buildProgressEntryContext } from '@/lib/conversation-coach/entryContext';
-import { WellnessPatternsPanel } from './WellnessPatternsPanel';
 import { WellnessIdentityPanel } from './WellnessIdentityPanel';
-import { WellnessStoryPanel } from './WellnessStoryPanel';
 import { ProgressRootScorePanel } from './ProgressRootScorePanel';
 import { CoachingInsightsPanel } from './CoachingInsightsPanel';
 import { TrendsPanel } from './TrendsPanel';
 import { ConsistencyPanel } from './ConsistencyPanel';
+import { WellnessStorySection, WellnessStorySectionSkeleton } from './WellnessStorySection';
+import { WellnessPatternsSection, WellnessPatternsSectionSkeleton } from './WellnessPatternsSection';
+import { RecommendationsSection, RecommendationsSectionSkeleton } from './RecommendationsSection';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
@@ -85,13 +83,21 @@ export default async function ProgressPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // getMyWellnessStorySummary and getMyWellnessPatterns recompute their
+  // own engines live on every call (recalculateIntelligenceCore /
+  // recalculateWellnessIntelligence — by design, not touched here) and are
+  // the slowest things this page does. Deliberately not in this batch:
+  // each streams in independently via its own Suspense boundary below
+  // (WellnessStorySection / WellnessPatternsSection) so the rest of this
+  // page — everything in this Promise.all, all of it fast — never waits
+  // on them. Same reasoning for RecommendationsSection, which reads a
+  // precomputed result and is normally fast, but still gets its own
+  // boundary for the rare live-compute path (a member's first-ever visit).
   const [
     isCoach,
     { data: profile },
     recentCheckins,
-    wellnessPatterns,
     wellnessIdentity,
-    wellnessStory,
     healthProfileSummary,
     progressComparison,
     readinessHistory,
@@ -104,9 +110,7 @@ export default async function ProgressPage() {
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     getRecentCheckins(30),
-    getMyWellnessPatterns(),
     getMyWellnessIdentityHighlights(),
-    getMyWellnessStorySummary(),
     getMyHealthProfileSummary(),
     getMyProgressComparison(),
     getMyWearableMetricHistory('readiness_score', 30),
@@ -132,7 +136,16 @@ export default async function ProgressPage() {
       )
     : [];
 
-  const entryContext = buildProgressEntryContext(wellnessPatterns);
+  // Previously built from wellnessPatterns (the same data
+  // WellnessPatternsSection now streams in independently below) — kept
+  // fast and synchronous here on purpose: computing this from the same
+  // slow recalculateWellnessIntelligence call would block this page's
+  // entire top-level render on the one thing this task moved out of the
+  // critical path. Never member-visible UI text — only the invisible
+  // context the coach chat launcher sends itself when opened — so a
+  // slightly less specific default until the member's next reload doesn't
+  // change anything this page displays.
+  const entryContext = buildProgressEntryContext([]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -162,16 +175,35 @@ export default async function ProgressPage() {
         <ProgressRootScorePanel history={rootScoreHistory} todayLocalDate={localDate} />
 
         {/* Where You Are Right Now — paired directly beneath the score
-            so its interpretive line reads as commentary on the number. */}
-        {wellnessStory && <WellnessStoryPanel summary={wellnessStory} />}
+            so its interpretive line reads as commentary on the number.
+            Own Suspense boundary: recalculateIntelligenceCore is the
+            slowest thing this page does, so it streams in independently
+            instead of holding up everything below. */}
+        <Suspense fallback={<WellnessStorySectionSkeleton />}>
+          <WellnessStorySection />
+        </Suspense>
 
         {/* One interpretive block: Coaching Insights (promoted to a
             content card, its chips moved here from the old "Talk to
             Root" section), then Wellness Patterns, then Wellness
-            Identity. */}
+            Identity. Wellness Patterns gets its own Suspense boundary for
+            the same reason as Wellness Story above
+            (recalculateWellnessIntelligence). */}
         <CoachingInsightsPanel insights={coachingInsights.insights} entryContext={entryContext} />
-        <WellnessPatternsPanel insights={wellnessPatterns} />
+        <Suspense fallback={<WellnessPatternsSectionSkeleton />}>
+          <WellnessPatternsSection />
+        </Suspense>
         <WellnessIdentityPanel highlights={wellnessIdentity} />
+
+        {/* Recommendations — reads the Recommendation Engine's precomputed
+            result (member_recommendation_computations) instead of
+            computing it live on this page's render path; the same stored
+            result and staleness rule the Dashboard and /recommendations
+            read from. Own Suspense boundary for the rare live-compute
+            path (a member's first-ever visit with nothing stored yet). */}
+        <Suspense fallback={<RecommendationsSectionSkeleton />}>
+          <RecommendationsSection />
+        </Suspense>
 
         {/* Trends — one card, a segmented control across every metric
             the check-in and any connected wearable actually capture. */}

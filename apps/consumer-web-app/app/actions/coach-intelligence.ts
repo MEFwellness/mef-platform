@@ -27,6 +27,7 @@ import {
 } from '@/lib/coach-intelligence/data';
 import { insertNotification } from '@/lib/notifications/data';
 import { onAssessmentPublished } from '@/lib/health-profile/orchestration';
+import { recomputeMyRecommendations } from './recommendations';
 import type {
   AssessmentAiAnalysis,
   AssessmentAiObservation,
@@ -214,6 +215,13 @@ export async function publishAiAnalysisReportAction(input: {
   } catch (err) {
     console.error('onAssessmentPublished failed for publishAiAnalysisReportAction', err);
   }
+
+  // Recommendation Engine — a published assessment report is one of the
+  // events that materially changes what it would recommend (new registry
+  // findings from the cascade above). recomputeMyRecommendations already
+  // swallows its own errors, same best-effort discipline as
+  // onAssessmentPublished itself.
+  await recomputeMyRecommendations(supabase, input.memberId, now.slice(0, 10), 'assessment_published');
 
   return {};
 }

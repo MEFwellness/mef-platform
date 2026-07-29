@@ -219,3 +219,80 @@ export async function ignoreRecommendation(
     ignored_reason: reason ?? null,
   });
 }
+
+export type RecommendationComputationTrigger =
+  | 'check_in'
+  | 'assessment_published'
+  | 'questionnaire_completed'
+  | 'manual';
+
+export type RecommendationComputationState = {
+  computedAt: string;
+  trigger: RecommendationComputationTrigger;
+};
+
+/**
+ * When (and why) this member's full recommendation set was last
+ * recomputed — member_recommendation_computations (migration 116), one
+ * row per member. Distinct from member_recommendations' own per-row
+ * created_at/updated_at, which get touched by unrelated member actions
+ * (marking a row done/not helpful) and can't answer this question on
+ * their own. `null` means never computed for this member — the caller's
+ * signal to compute live rather than treat as merely "stale".
+ */
+export async function getRecommendationComputationState(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<RecommendationComputationState | null> {
+  const { data, error } = await supabase
+    .from('member_recommendation_computations')
+    .select('computed_at, trigger')
+    .eq('member_id', memberId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('getRecommendationComputationState failed', error);
+    return null;
+  }
+  if (!data) return null;
+  return { computedAt: data.computed_at as string, trigger: data.trigger as RecommendationComputationTrigger };
+}
+
+/** The member's most recent check-in's real recorded-at timestamp — the staleness signal for member_recommendation_computations (a completed check-in is always this system's own "at minimum" recompute trigger; see recomputeAndPersist's caller in app/actions/checkin.ts). `null` when the member has never checked in. */
+export async function getLatestCheckinRecordedAt(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('daily_checkins_current')
+    .select('recorded_at')
+    .eq('user_id', memberId)
+    .order('local_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('getLatestCheckinRecordedAt failed', error);
+    return null;
+  }
+  return (data?.recorded_at as string | undefined) ?? null;
+}
+
+/** Marks "the recommendation engine just ran, in full, for this member" — called once at the end of a successful recomputeAndPersist, never on individual row edits (mark done/not helpful). */
+export async function markRecommendationsComputed(
+  supabase: SupabaseClient,
+  memberId: string,
+  trigger: RecommendationComputationTrigger
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('member_recommendation_computations').upsert(
+    {
+      member_id: memberId,
+      computed_at: now,
+      trigger,
+      updated_at: now,
+    },
+    { onConflict: 'member_id' }
+  );
+  if (error) console.error('markRecommendationsComputed failed', error);
+}

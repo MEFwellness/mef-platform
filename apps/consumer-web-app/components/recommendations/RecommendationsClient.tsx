@@ -19,6 +19,7 @@ import {
   abandonMyExperiment,
 } from '@/app/actions/lifestyleExperiments';
 import type { LifestyleExperiment, LifestyleExperimentOutcome } from '@/lib/lifestyle-experiments';
+import { useRecommendationsFreshness } from '@/hooks/useRecommendationsFreshness';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const DURATIONS = [7, 14, 21, 28] as const;
@@ -180,12 +181,15 @@ function ReflectForm({ experiment }: { experiment: LifestyleExperiment }) {
 }
 
 export function RecommendationsClient({
-  recommendations,
+  recommendations: initialRecommendations,
+  isStale,
   experiments,
 }: {
   recommendations: MemberRecommendationView[];
+  isStale: boolean;
   experiments: LifestyleExperiment[];
 }) {
+  const recommendations = useRecommendationsFreshness(initialRecommendations, isStale);
   const [startingRowId, setStartingRowId] = useState<string | null>(null);
   const active = recommendations.filter((r) => r.status === 'shown');
 

@@ -11,7 +11,7 @@
 import { redirect } from 'next/navigation';
 import { Compass, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { getMyRecommendations } from '@/app/actions/recommendations';
+import { getMyRecommendationsWithFreshness } from '@/app/actions/recommendations';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
@@ -28,8 +28,8 @@ export default async function RecommendationsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [recommendations, experiments, isCoach] = await Promise.all([
-    getMyRecommendations(),
+  const [{ recommendations, isStale }, experiments, isCoach] = await Promise.all([
+    getMyRecommendationsWithFreshness(),
     getMyLifestyleExperiments(),
     hasActiveRole(supabase, user.id, 'coach'),
   ]);
@@ -44,7 +44,11 @@ export default async function RecommendationsPage() {
           <p className="text-sm font-semibold uppercase tracking-wider">Recommendations</p>
         </div>
 
-        <RecommendationsClient recommendations={recommendations} experiments={experiments} />
+        <RecommendationsClient
+          recommendations={recommendations}
+          isStale={isStale}
+          experiments={experiments}
+        />
 
         <section className="mt-5 flex items-start gap-3 px-1">
           <ShieldCheck
