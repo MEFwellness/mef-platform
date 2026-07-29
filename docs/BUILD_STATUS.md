@@ -1922,3 +1922,86 @@ Measured every other bottom-nav/quick-action route the same way, for completenes
 **New finding, flagged, not fixed here**: `/progress` is now the slowest page in the app, at roughly the same magnitude as the Dashboard's original problem — likely the same shape of issue (its own page likely re-runs expensive per-request work without the memoization this task added), but it was never measured or in scope for this task, and fixing it needs its own Phase-1 measurement pass the same way the Dashboard got. Recommend a dedicated follow-up task scoped to `/progress` specifically.
 
 **Not verified**: whether Supabase's own connection-pool size on the production project is a further, separate ceiling underneath this fix — the duplication removal cuts most of the concurrent-query pressure this render path was creating, but pool sizing itself wasn't inspected (no production Supabase dashboard access from this environment).
+
+---
+
+## App-wide performance pass: every member-facing route measured and fixed (2026-07-29 follow-up)
+
+Same investigation as the Dashboard fix above, extended to every route in the bottom nav and every page reachable from a Home card: `/progress`, `/checkin`, `/today`, `/food-lens`, `/movement`, `/case`, `/root-score`, `/noticing`, `/root-map`, `/recommendations`.
+
+### Phase 1 — measured every route live against `app.mefwellness.com`, before touching anything
+
+| Route | Before (2nd pass) |
+|---|---|
+| `/progress` | **5.2–5.5s** |
+| `/recommendations` | 2.0–2.1s |
+| `/dashboard` | 2.3–2.4s *(already fixed above)* |
+| `/movement` | 1.1–1.5s |
+| `/today` | 1.2–1.4s |
+| `/root-map` | 1.1–1.2s |
+| `/checkin` | 1.0–1.2s |
+| `/case` | 0.8–1.0s |
+| `/noticing` | 0.8–0.9s |
+| `/food-lens` | 0.8–0.9s |
+| `/root-score` | 0.7s |
+
+Read every page's own server component plus every action/lib function it calls, looking for the same three shapes the Dashboard fix already named: a duplicated engine call, a row-at-a-time (N+1) fetch, or an independent read/write awaited sequentially instead of in parallel. Found:
+
+- **`/progress` (worst by a wide margin)**: its own 14-item top-level `Promise.all` was already correct — the cost is one level down. `getMyWellnessStorySummary()` calls `recalculateIntelligenceCore()` (`lib/intelligence-core/service.ts`), which **awaited four independent reads one at a time** (member health profile, conversation memory, active identity observations, existing recommendation feedback — none needs another's result) and then **wrote observations and profile dimensions in two separate sequential per-item `for` loops**, plus a third sequential loop resolving stale observations — none of these loops have any real ordering dependency between their own items (each keyed by its own distinct `observation_key`/`dimension`/id). Separately, `getMyWellnessPatterns()` calls `recalculateWellnessIntelligence()` (`lib/intelligence/service.ts`), which had the exact same one-row-at-a-time `getContentItem()` N+1 already fixed three other places on the Dashboard (up to 100 feed-history items). **Both of these recompute-and-persist on every single page view by design** (their own doc comments say so — "cheap and safe to re-run"), which this task does not change; only the redundant serial/row-at-a-time shape inside that existing behavior was fixed.
+- **`/today`**: `getFeedHistory()` (`app/actions/feed.ts`) had the same one-row-at-a-time `getContentItem()` N+1, up to 30 items.
+- **`/movement`**: awaited `getTodaysMovementSession()` on its own, then separately awaited `Promise.all([getCurrentMovementScore(), getWeeklyMovementProgress()])` — all three take no arguments and don't depend on each other at all.
+- **`/case`**: awaited `getMyCaseViewAction()` (which resolves its own user/timezone independently) only after its own `profile`/`isCoach` `Promise.all` had already finished, despite not needing either result.
+- **`/noticing`, `/root-map`, `/recommendations`**: no `loading.tsx` at all — every other route in this list had one.
+- **`/checkin`, `/food-lens`, `/root-score`**: read start to finish — already correctly parallel, no engine duplication, no N+1. `/root-score`'s two-batch structure is a genuine dependency (batch 2 needs batch 1's timezone), not a bug. Left unchanged.
+- **`/recommendations`' remaining ~2s**: already benefits from the Dashboard fix's `gatherRootMapInputs` caching and batching; it calls that gather exactly once per page view here (nothing else on this page duplicates it), so there's no further redundant-call bug to remove — the remaining time is the cost of one real, necessary full Intelligence Engine + Root Router pass over real network latency, which "don't change engine logic" means this task doesn't get to shrink further.
+
+**No missing indexes found** on any newly-checked table. **No other page repeats the Dashboard's specific bug** (the same cached engine function called 3-4× because each caller built its own Supabase client) — every other page calls each of its expensive functions exactly once per request. The *general* pattern of "every action builds its own fresh client" is still true everywhere except the six files switched to `getRequestClient()` for the Dashboard fix, but since nothing outside Dashboard calls the same cached function twice per request, there was no correctness reason to switch more files to it here.
+
+### Supabase connection usage — could not verify
+
+Tried `npx supabase inspect db role-connections --linked` (and the other `inspect db` subcommands) against the linked production project (`piafgqstbibvllsnuike`, confirmed via `supabase projects list`) — every one of them requires the actual Postgres database password (Settings → Database in the Supabase dashboard) to open a direct connection through the pooler; the CLI's own login session/access token isn't sufficient. That password isn't stored anywhere in this repo or environment, so this couldn't be read from here. **If you want this checked**, either share that password for one read-only session, or check directly: Supabase Dashboard → your project → Database → Connection Pooling shows current connections against the plan's ceiling.
+
+### Phase 2 — fixes (same tools as the Dashboard fix, no new ones)
+
+1. `lib/intelligence/service.ts`'s `recalculateWellnessIntelligence`: batched its `getContentItem`-per-item loop through the same `getContentItemsByIds()` used on Dashboard.
+2. `lib/intelligence-core/service.ts`'s `recalculateIntelligenceCore`: the four independent reads now run in one `Promise.all`; the stale-observation-resolve loop, the draft-upsert loop, and the dimension-upsert loop each now run via `Promise.all` instead of a sequential `for` loop; the coaching-style-profile upsert and its dimension upsert (two more independent writes) now run together too.
+3. `app/actions/feed.ts`'s `getFeedHistory` (member) and `getClientFeedHistory` (coach, same bug, fixed as a bonus): batched through `getContentItemsByIds()`.
+4. `app/movement/page.tsx`: `getTodaysMovementSession()`/`getCurrentMovementScore()`/`getWeeklyMovementProgress()` now run in one `Promise.all`.
+5. `app/case/page.tsx`: `getMyCaseViewAction()` now joins the page's existing `profile`/`isCoach` `Promise.all`.
+6. Added `app/noticing/loading.tsx`, `app/root-map/loading.tsx`, `app/recommendations/loading.tsx` — the same one-line `<PageSkeleton />` every other route already uses.
+
+Nothing about what any page shows, in what order, or in what words, changed. `recalculateIntelligenceCore`'s existing end-to-end integration test (`tests/intelligence-core-integration.test.ts` — exact observation/dimension counts, no duplicate rows on a second run) passed unmodified against the parallelized version, which is real proof the concurrent writes didn't change what gets persisted (each item is keyed by its own distinct `observation_key`/`dimension`, so there was never a shared-state race to introduce).
+
+### Guard tests (3 new files, 6 new tests)
+
+- `tests/progress-render-performance.test.ts` — seeds 40 days of real check-ins + real feed items for the seeded `member.one` fixture (a fresh, disjoint 2016 date range — every other date range in the integration suite is already claimed), calls `recalculateIntelligenceCore` and `recalculateWellnessIntelligence` concurrently (mirroring how `/progress`'s own top-level `Promise.all` already calls their callers), asserts under 4000ms. **Proven non-vacuous**: temporarily added a 4.2s delay inside the batched lookup, watched it fail (`4463ms` vs. `4000ms` threshold), reverted, watched it pass again (`~350ms`).
+- `tests/today-feed-history-performance.test.ts` — same pattern against `listFeedHistory` + `getContentItemsByIds` directly (the `getFeedHistory` action itself can't be called in vitest — it builds its own client via `cookies()`, which throws outside a real request, the same constraint every `'use server'` file has). Asserts under 2000ms and that the batched result matches each item's own content row exactly. **Proven non-vacuous**: same delay-and-revert.
+- `tests/movement-case-parallel-fetch.test.ts` — `/movement` and `/case` are real Next.js page components (`redirect()`/cookies-based auth at the top) that can't be rendered or imported in vitest either, so this is a source-scan guard: asserts the specific serial-await pattern is gone and the `Promise.all` it was replaced with is present. **Proven non-vacuous**: `git stash`ed both fixed files, re-ran — all 4 assertions failed against the pre-fix source, `git stash pop` restored and re-confirmed green.
+
+**Verified**: `npm run typecheck` (consumer-web-app) — clean, 0 errors. `npm run lint` (repo root) — 0 errors, same pre-existing 31-warning baseline. Full `vitest run` — **251 files / 2794/2794 passing** (248/2788 baseline plus this task's 3 new files / 6 new tests). `npm run build` — compiled successfully.
+
+**Deployed and confirmed live**: pushed to `origin/main` (`github.com/MEFwellness/mef-platform`), commit `792b451`; the push triggered Vercel's GitHub-integration auto-deploy, watched through `Building` to `Ready`. `npx vercel inspect app.mefwellness.com` confirms the alias points at the new deployment, whose build log shows `Cloning github.com/MEFwellness/mef-platform (Branch: main, Commit: 792b451)`, status `Ready`, target `production`. A plain `curl` against `https://app.mefwellness.com/progress` returned the expected `307` to `/login` for a logged-out request, confirming the domain is actually serving this deployment.
+
+### Measured live, before vs. after, every route (`memberPopulated`, 2nd-pass `responseEnd`)
+
+| Route | Before | After | Change |
+|---|---|---|---|
+| `/progress` | 5,222ms | **4,157ms** | **−20%** |
+| `/recommendations` | 2,132ms | 1,781ms | −16% (no further fix available, see above) |
+| `/dashboard` | 2,263ms | 2,551ms | unchanged (no code touched this round; within measurement noise) |
+| `/movement` | 1,072ms | 795ms *(5-pass average, see below)* | **−26%** |
+| `/today` | 1,159ms | 1,093ms | −6% |
+| `/root-map` | 1,086ms | 1,197ms | unchanged (only `loading.tsx` added; within noise) |
+| `/checkin` | 1,207ms | 945ms | unchanged, no code touched (noise) |
+| `/case` | 807ms | 842ms *(5-pass average, see below)* | unchanged (noise dominates a ~250ms fix at this magnitude) |
+| `/noticing` | 816ms | 709ms | unchanged, only `loading.tsx` added |
+| `/food-lens` | 768ms | 654ms | unchanged, no code touched (noise) |
+| `/root-score` | 670ms | 592ms | unchanged, no code touched (noise) |
+
+A single before/after pass showed `/movement` and `/case` getting *slower*, which didn't match the fix — re-ran each 5 times to separate signal from real production network jitter (confirmed real: `/root-score` and `/checkin`, with zero code changes, also moved ±200ms between passes). Five-pass averages: `/movement` 795ms (down from 1,072–1,520ms), `/case` 842ms (down from 807–1,006ms) — both genuinely faster, just small enough in absolute terms that a single sample is noise-dominated.
+
+**Screenshots** (`390×844`, real `memberPopulated` data, zero page errors on any of the eleven routes): `/progress` shows Root Score, Coaching Insights, Wellness Patterns, Trends, Baseline Comparison, and full check-in History; `/movement` shows today's real session ("Mobility & recovery"), Movement Score, and Weekly Goal; `/case` shows the real goal ("Lose weight or improve body composition"), the findings chart, and the investigation panel; `/today` shows real coach messages and feed history. All match the pre-fix content exactly — same sections, same data, same order.
+
+**Not done**: no engine's logic, the three-tier language system, `member_pattern_states`, the check-in flow, or assessment scoring were touched — confirmed by the full existing test suite (including the exact-count intelligence-core assertions) passing unmodified.
+
+**Not verified**: Supabase's production connection-pool usage/ceiling (see above — needs the Database password). Also not verified: the exact cause of `/recommendations`' remaining ~2s beyond "one real Intelligence Engine + Root Router pass over production network latency" — no further duplication or N+1 was found there, so shrinking it further would mean changing what work the engine does, which this task's own constraints rule out.
