@@ -90,6 +90,19 @@
  *    class only meaningfully does anything for `start`/`nearest`
  *    alignment, a leftover clue that `start` was the original intent.
  *
+ *    Follow-up (2026-07-29): "lands correctly" for the four
+ *    `isUninstrumented` domains meant landing on their own list item's id
+ *    — which sits BELOW the "Not Covered Yet" heading inside
+ *    `RootMapNotCoveredSection.tsx`, since `block: 'start'` pins that
+ *    item's own top edge to the viewport top, scrolling the block's
+ *    heading itself out of view above it. Tapping segment 1, 2, 11, or 12
+ *    now scrolls to the section's own id (`NOT_COVERED_SECTION_ANCHOR_ID`)
+ *    instead of the individual item's id, so the heading is what lands at
+ *    the top of the viewport, and separately fires a highlight request
+ *    (`./highlightBus.ts`) naming which of the four was actually tapped,
+ *    since four identical-looking list items with no marker gave no
+ *    indication which one the tap was even about.
+ *
  * 5. Only 4 of 12 numbers rendered on a real iPhone (Safari/WebKit),
  *    though all 12 were always present in Chromium. Root cause: text
  *    vertical-centering via `dominantBaseline="middle"` is inconsistently
@@ -104,12 +117,24 @@
  *    technique — a numeric `dy` offset instead of `dominantBaseline` —
  *    plus a small viewBox margin so every label has real clearance
  *    regardless of a browser's own baseline math.
+ *
+ * 6. Nothing on the page said what gold vs. green actually meant (2026-07-29
+ *    follow-up). Added a two-line key directly below the ring, above the
+ *    numbered legend, naming both states in plain language. Written to
+ *    match what the ring actually encodes (confirmed by re-reading
+ *    `colorFor`/`fillFractionFor` above, not assumed): gold means this
+ *    domain already has a real earned finding; green means it doesn't yet
+ *    — which covers both an instrumented domain still building coverage
+ *    and the four domains with no tracker at all, not "tracked vs.
+ *    untracked" on its own (an instrumented domain with no finding yet is
+ *    green too, same as an uninstrumented one).
  */
 
 import { useChartRevealOnce } from '@/components/useChartRevealOnce';
 import { COACHING_DOMAINS, type CoachingDomain } from '@/lib/investigation-engine/domains';
 import type { DomainCoverage } from '@/lib/root-map';
-import { domainAnchorId } from '@/lib/root-map/anchors';
+import { domainAnchorId, NOT_COVERED_SECTION_ANCHOR_ID } from '@/lib/root-map/anchors';
+import { requestRootMapHighlight } from '@/lib/root-map/highlightBus';
 
 const DEEP_GREEN = '#1B3A2D';
 const GOLD = '#F5B700';
@@ -128,6 +153,7 @@ export type RingDomain = {
   domain: CoachingDomain;
   label: string;
   whatWeUnderstand: unknown[];
+  isUninstrumented: boolean;
 };
 
 export function fillFractionFor(domain: RingDomain, coverage: DomainCoverage | undefined): number {
@@ -192,10 +218,14 @@ export function RootMapRing({
   const labelRadius = radius + stroke / 2 + size * 0.05;
   const wedgeOuterRadius = radius + stroke / 2 + 4;
 
-  function scrollToDomain(domain: string) {
+  function scrollToDomain(domain: RingDomain) {
+    const targetId = domain.isUninstrumented
+      ? NOT_COVERED_SECTION_ANCHOR_ID
+      : domainAnchorId(domain.domain);
     document
-      .getElementById(domainAnchorId(domain))
+      .getElementById(targetId)
       ?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+    if (domain.isUninstrumented) requestRootMapHighlight(domain.domain);
   }
 
   const revealed = drawn || reducedMotion;
@@ -267,11 +297,11 @@ export function RootMapRing({
               role="button"
               tabIndex={0}
               aria-label={`Jump to ${domain.label}`}
-              onClick={() => scrollToDomain(domain.domain)}
+              onClick={() => scrollToDomain(domain)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  scrollToDomain(domain.domain);
+                  scrollToDomain(domain);
                 }
               }}
             />
@@ -299,12 +329,27 @@ export function RootMapRing({
         </svg>
       </div>
 
-      <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-1.5">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] leading-snug text-[#6B7A72]">
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: GOLD }} />
+          Gold: we&apos;ve noticed a real pattern here
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ backgroundColor: DEEP_GREEN }}
+          />
+          Green: still gathering information
+        </span>
+      </div>
+
+      <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
         {ordered.map((domain, index) => (
           <li key={domain.domain}>
             <button
               type="button"
-              onClick={() => scrollToDomain(domain.domain)}
+              onClick={() => scrollToDomain(domain)}
               className="flex w-full items-center gap-1.5 rounded-lg py-1 text-left text-xs leading-snug text-[#1B3A2D] transition hover:text-[#3E5C46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
             >
               <span

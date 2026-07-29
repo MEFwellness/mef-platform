@@ -85,6 +85,7 @@ export default async function RootMapPage() {
                   domain: d.domain,
                   label: d.label,
                   whatWeUnderstand: d.whatWeUnderstand,
+                  isUninstrumented: d.isUninstrumented,
                 }))}
                 coverageByDomain={rootMap.coverageByDomain}
               />

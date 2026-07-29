@@ -7,9 +7,12 @@
  * expected to render.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   computeDomainCoverage,
   computeAllDomainCoverage,
+  computeNutritionCoverage,
   formatCoverageLabel,
   COVERAGE_WINDOW_DAYS,
   type CheckinCoverageRow,
@@ -30,6 +33,10 @@ function row(overrides: Partial<CheckinCoverageRow> = {}): CheckinCoverageRow {
 
 describe('computeDomainCoverage', () => {
   it('returns null (never a zero) for a domain with no trackable per-day source at all', () => {
+    // nutrition_metabolic_health genuinely has no daily_checkins_current
+    // column (unchanged by the 2026-07-29 fix below) — its real coverage
+    // now comes from a different source entirely, see
+    // computeNutritionCoverage/fetchNutritionCoverage.
     expect(computeDomainCoverage('nutrition_metabolic_health', [row({ sleep_quality: 4 })])).toBeNull();
     expect(computeDomainCoverage('identity_self_concept', [row({ sleep_quality: 4 })])).toBeNull();
     expect(computeDomainCoverage('purpose_motivation', [])).toBeNull();
@@ -68,5 +75,47 @@ describe('computeDomainCoverage', () => {
 describe('formatCoverageLabel', () => {
   it('matches the exact "N of M days logged" phrasing CaseEmptyState.tsx already uses', () => {
     expect(formatCoverageLabel({ count: 4, windowDays: 21 })).toBe('4 of 21 days logged');
+  });
+});
+
+describe('computeNutritionCoverage (2026-07-29) — the real, previously-unwired FUE probe-answer source', () => {
+  // Nutrition & Metabolic Health had no badge on any test account, but not
+  // because of a bug or a genuine zero: daily_checkin_probe_answers
+  // (migration 106/109) already collects real per-day "Fuel and nutrition"
+  // evidence (last meal timing, hydration, cravings, protein, etc.) — that
+  // table simply predates this coverage module and was never read by it.
+  it('is a real zero, not null, when the member has genuinely never answered a nutrition probe', () => {
+    expect(computeNutritionCoverage([])).toEqual({ count: 0, windowDays: COVERAGE_WINDOW_DAYS });
+  });
+
+  it('counts distinct days, not distinct answers — a day with several nutrition probes answered still counts once', () => {
+    expect(
+      computeNutritionCoverage(['2026-07-01', '2026-07-01', '2026-07-01', '2026-07-02'])
+    ).toEqual({ count: 2, windowDays: COVERAGE_WINDOW_DAYS });
+  });
+
+  it('matches the same "N of 21 days logged" phrasing every other domain uses', () => {
+    expect(formatCoverageLabel(computeNutritionCoverage(['2026-07-01', '2026-07-02', '2026-07-03']))).toBe(
+      '3 of 21 days logged'
+    );
+  });
+});
+
+describe('fetchDomainCoverage source shape — reuses the real question bank, never a second hardcoded FUE list', () => {
+  // A coach can add/retire "Fuel and nutrition" probe questions from
+  // /coach/questions with no deploy (migration 110). If this file kept its
+  // own separate, hardcoded list of FUE question keys, that list would
+  // silently drift out of sync with the coach's actual edits. Confirmed by
+  // source scan that it reads the live reference data instead.
+  const SOURCE = readFileSync(path.resolve(__dirname, '../lib/root-map/coverage.ts'), 'utf-8');
+
+  it('reads driver/probe-question reference data rather than a hardcoded question-key list', () => {
+    expect(SOURCE).toMatch(/listActiveDrivers/);
+    expect(SOURCE).toMatch(/listActiveDriverProbeQuestions/);
+    expect(SOURCE).not.toMatch(/checkin_probe\.last_meal_timing/);
+  });
+
+  it('merges nutrition coverage into the same map fetchDomainCoverage returns for every other domain', () => {
+    expect(SOURCE).toMatch(/result\.nutrition_metabolic_health = nutritionCoverage/);
   });
 });

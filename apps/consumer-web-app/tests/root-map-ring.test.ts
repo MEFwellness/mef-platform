@@ -24,6 +24,7 @@ function domain(overrides: Partial<RingDomain> = {}): RingDomain {
     domain: 'movement_physical_capacity',
     label: 'Movement & Physical Capacity',
     whatWeUnderstand: [],
+    isUninstrumented: false,
     ...overrides,
   };
 }
@@ -115,8 +116,8 @@ describe('RootMapRing source shape — identification + hit-target guards', () =
   });
 
   it('renders an ordered, tappable legend below the ring', () => {
-    expect(SOURCE).toMatch(/<ul className="mt-4 grid/);
-    expect(SOURCE).toMatch(/onClick=\{\(\) => scrollToDomain\(domain\.domain\)\}/);
+    expect(SOURCE).toMatch(/<ul className="mt-3 grid/);
+    expect(SOURCE).toMatch(/onClick=\{\(\) => scrollToDomain\(domain\)\}/);
   });
 
   it('rotates the ring via an SVG group transform, not a CSS -rotate-90 class', () => {
@@ -184,5 +185,42 @@ describe('RootMapRing numbering — the WebKit clipping fix', () => {
   it('expands the viewBox with a margin so labels have real clearance', () => {
     expect(SOURCE).toMatch(/VIEWBOX_MARGIN/);
     expect(SOURCE).toMatch(/viewBox=\{`\$\{-VIEWBOX_MARGIN\}/);
+  });
+});
+
+describe('RootMapRing color key — explains gold vs. green in plain language (2026-07-29)', () => {
+  // Reported: nothing on the page said what the two colors meant. Added a
+  // short key directly below the ring, above the numbered legend, worded to
+  // match what colorFor/fillFractionFor actually encode (a real earned
+  // finding vs. not yet), not a guess at "tracked vs. untracked."
+  it('renders both color states in plain language, above the numbered legend', () => {
+    const keyIndex = SOURCE.indexOf('we&apos;ve noticed a real pattern');
+    const legendIndex = SOURCE.indexOf('<ul className="mt-3 grid');
+    expect(keyIndex).toBeGreaterThan(-1);
+    expect(SOURCE).toMatch(/still gathering information/);
+    expect(legendIndex).toBeGreaterThan(-1);
+    expect(keyIndex).toBeLessThan(legendIndex);
+  });
+});
+
+describe('RootMapRing scroll routing — uninstrumented domains land on the shared block, not their own item (2026-07-29)', () => {
+  // Tapping segment 1, 2, 11, or 12 used to land on that domain's own list
+  // item inside RootMapNotCoveredSection.tsx — which sits BELOW that
+  // section's own "Not Covered Yet" heading, so the heading itself scrolled
+  // out of view above the landed position. Uninstrumented domains now
+  // target the section's own id instead, and fire a highlight request
+  // naming which one was tapped (four identical-looking items otherwise
+  // give no indication which the tap was even about).
+  it('branches scrollToDomain on isUninstrumented, targeting the shared section id for those four', () => {
+    expect(CODE_ONLY).toMatch(/domain\.isUninstrumented\s*\n?\s*\?\s*NOT_COVERED_SECTION_ANCHOR_ID/);
+  });
+
+  it('requests a highlight only for an uninstrumented domain', () => {
+    expect(CODE_ONLY).toMatch(/if \(domain\.isUninstrumented\) requestRootMapHighlight\(domain\.domain\)/);
+  });
+
+  it('imports the highlight bus and shared section anchor rather than redefining them', () => {
+    expect(SOURCE).toMatch(/from '@\/lib\/root-map\/highlightBus'/);
+    expect(SOURCE).toMatch(/NOT_COVERED_SECTION_ANCHOR_ID/);
   });
 });
