@@ -27,7 +27,7 @@
 
 import { Suspense } from 'react';
 import { Moon, Activity, Bone, Calendar, Smile, Utensils, Footprints, TrendingUp } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { redirect } from 'next/navigation';
 import { getTodaysCheckin, getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
@@ -139,7 +139,7 @@ export default async function DashboardPage({
 }: {
   searchParams: { firstCheckin?: string };
 }) {
-  const supabase = createClient();
+  const supabase = getRequestClient();
   const user = await getCachedUser();
   if (!user) redirect('/login');
 

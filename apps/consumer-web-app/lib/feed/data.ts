@@ -58,6 +58,33 @@ export async function getContentItem(
   return data as MefContentItem | null;
 }
 
+/**
+ * Batched sibling of getContentItem — the Coaching Brain, the Intelligence
+ * Engine's Member Health Profile, and the Morning Brief's continuity
+ * sentence each build up to 30-100 (feedItem, content) pairs from feed
+ * history, and previously looked up each content_item_id with its own
+ * `.eq('id', x).maybeSingle()` round trip (an N+1 fetch over what's really
+ * one bounded set of ids). One `.in('id', ids)` query returns the exact
+ * same rows; callers key into the returned Map instead of awaiting a
+ * fresh query per item — `undefined` (treated as `null`) for the same
+ * cases getContentItem would have returned null (a missing/deleted id).
+ */
+export async function getContentItemsByIds(
+  supabase: SupabaseClient,
+  contentItemIds: string[]
+): Promise<Map<string, MefContentItem>> {
+  const uniqueIds = [...new Set(contentItemIds)];
+  if (uniqueIds.length === 0) return new Map();
+
+  const { data, error } = await supabase.from('mef_content_items').select('*').in('id', uniqueIds);
+
+  if (error) {
+    console.error('getContentItemsByIds failed', error);
+    return new Map();
+  }
+  return new Map((data as MefContentItem[]).map((item) => [item.id, item]));
+}
+
 export async function getFeedItemForDate(
   supabase: SupabaseClient,
   memberId: string,

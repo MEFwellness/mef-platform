@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getSupabaseEnv } from './env';
+import { requestCache } from '../reactRequestCache';
 
 /**
  * Server-side Supabase client, used in Server Components and Server
@@ -37,3 +38,20 @@ export function createClient() {
     },
   });
 }
+
+/**
+ * Request-memoized variant of createClient(), for the handful of call
+ * sites (the Dashboard's carousel of independently-fetching cards —
+ * WhatWereNoticingCard/RootMapCard/CoachingMessageCard/RecommendationsCard
+ * — and the actions they call into) where reusing one client instance is
+ * what makes the *downstream* request-memoized engine entry points
+ * (getCoachingFocusDecision, computeMemberIntelligence, decideNextAction,
+ * gatherRootMapInputs) actually dedupe: React's cache() keys on argument
+ * identity, so two calls with the same memberId/localDate but two
+ * separately-constructed SupabaseClient objects are two different cache
+ * entries. A brand-new client per call was never expensive on its own
+ * (cookies() is synchronous, local) — the cost this avoids is entirely in
+ * what it unblocks downstream, which is why plain createClient() (above)
+ * stays the default for every other call site in the app.
+ */
+export const getRequestClient = requestCache(() => createClient());

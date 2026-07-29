@@ -13,7 +13,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { localDateFor, gatherRootMapInputs } from './rootMap';
 import { computeLongitudinalSignals, listRecommendationEventsForMember } from '@/lib/longitudinal-intelligence';
@@ -100,7 +100,7 @@ async function gatherAndPlan(
  * either duplicating the row or silently going blank.
  */
 export async function getMyCoachingMessage(): Promise<CoachingMessageView | null> {
-  const supabase = createClient();
+  const supabase = getRequestClient();
   const user = await getCachedUser();
   if (!user) return null;
 

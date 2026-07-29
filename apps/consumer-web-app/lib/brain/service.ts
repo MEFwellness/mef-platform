@@ -31,7 +31,7 @@ import {
 import { buildCoachInsight } from '../feed/continuity';
 import { dayOfWeekFromLocalDate } from '../feed/timeContext';
 import { daysBetweenLocalDates } from '../feed/dateMath';
-import { listFeedHistory, getContentItem, getMemberRestrictedTopics } from '../feed/data';
+import { listFeedHistory, getContentItemsByIds, getMemberRestrictedTopics } from '../feed/data';
 import { listNarrativeItems } from '../narrative/data';
 import { listInsightsForMember } from '../intelligence/data';
 import { WELLNESS_METRIC_AREAS } from '../intelligence/types';
@@ -41,6 +41,7 @@ import { listRegistryEntriesForMember } from '../registry/data';
 import { buildWearableSnapshot } from '../wearables/snapshot';
 import type { CoachingFocusDecision, CoachingSignals } from './types';
 import type { WellnessMetricKey } from '../wellness/wellness-index';
+import { requestCache } from '../reactRequestCache';
 
 const RECENT_CHECKIN_WINDOW_DAYS = 30;
 
@@ -125,12 +126,14 @@ async function assembleContext(
   ]);
 
   const pastFeedItems = feedHistory.filter((item) => item.local_date < localDate);
-  const historyPairs: FeedHistoryPair[] = await Promise.all(
-    pastFeedItems.map(async (feedItem) => ({
-      feedItem,
-      content: await getContentItem(supabase, feedItem.content_item_id),
-    }))
+  const contentById = await getContentItemsByIds(
+    supabase,
+    pastFeedItems.map((item) => item.content_item_id)
   );
+  const historyPairs: FeedHistoryPair[] = pastFeedItems.map((feedItem) => ({
+    feedItem,
+    content: contentById.get(feedItem.content_item_id) ?? null,
+  }));
 
   const latestCheckin = checkinsOldestFirst[checkinsOldestFirst.length - 1] ?? null;
   const todaysCheckin = latestCheckin?.local_date === localDate ? latestCheckin : null;
@@ -182,24 +185,36 @@ export async function gatherCoachingSignals(
  * decision.ts) because it needs the raw Member Coaching Memory shape,
  * which is an I/O-layer concern — decision.ts stays a pure function of
  * CoachingSignals alone.
+ *
+ * Request-memoized (see lib/reactRequestCache.ts): on a single Dashboard
+ * load this is reached independently from getMyCoachingDecision, from
+ * getOrCreateTodaysMorningBrief (on a cache-miss morning brief), and from
+ * gatherMemberHealthProfile (itself called 3x by the Root
+ * Map/Recommendations/From Root cards) — up to five calls for the same
+ * (memberId, localDate) without this, each redoing assembleContext's own
+ * six reads plus its feed-history N+1. `supabase` must be the
+ * request-memoized client (getRequestClient, lib/supabase/server.ts) for
+ * the memoization to actually collapse those calls.
  */
-export async function getCoachingFocusDecision(
-  supabase: SupabaseClient,
-  memberId: string,
-  localDate: string
-): Promise<CoachingFocusDecision> {
-  const { signals, feedMemory, memberVisibleNarrative } = await assembleContext(
-    supabase,
-    memberId,
-    localDate
-  );
-  const decision = buildCoachingDecision(signals);
+export const getCoachingFocusDecision = requestCache(
+  async (
+    supabase: SupabaseClient,
+    memberId: string,
+    localDate: string
+  ): Promise<CoachingFocusDecision> => {
+    const { signals, feedMemory, memberVisibleNarrative } = await assembleContext(
+      supabase,
+      memberId,
+      localDate
+    );
+    const decision = buildCoachingDecision(signals);
 
-  const coachInsight = buildCoachInsight({
-    memory: feedMemory,
-    wellnessInsights: signals.insights,
-    narrativeItems: memberVisibleNarrative,
-  });
+    const coachInsight = buildCoachInsight({
+      memory: feedMemory,
+      wellnessInsights: signals.insights,
+      narrativeItems: memberVisibleNarrative,
+    });
 
-  return { ...decision, coachInsight };
-}
+    return { ...decision, coachInsight };
+  }
+);

@@ -8,7 +8,7 @@
  * action makes no additional visibility decision of its own.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { listRegistryEntriesForMember } from '@/lib/registry/data';
 import {
@@ -27,7 +27,7 @@ export type MemberNoticingViewWithRecommendation = MemberNoticingView & {
 };
 
 export async function getMyNoticingView(): Promise<MemberNoticingViewWithRecommendation | null> {
-  const supabase = createClient();
+  const supabase = getRequestClient();
   const user = await getCachedUser();
   if (!user) return null;
 

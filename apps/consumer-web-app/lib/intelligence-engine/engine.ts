@@ -68,6 +68,7 @@ import { buildMemberSummary } from './summary';
 import { buildCoachAlertDrafts } from './alerts';
 import { insertProfileSnapshot, upsertCoachAlert } from './data';
 import type { CoachingPriorities, MemberHealthProfile, MemberIntelligenceReport } from './types';
+import { requestCache } from '../reactRequestCache';
 
 type AttentionLevel = CoachingPriorities['recommendedCoachAttentionLevel'];
 
@@ -152,14 +153,27 @@ export function computeIntelligenceFromProfile(
   };
 }
 
-export async function computeMemberIntelligence(
-  supabase: SupabaseClient,
-  memberId: string,
-  asOfLocalDate: string
-): Promise<MemberIntelligenceReport> {
-  const profile = await gatherMemberHealthProfile(supabase, memberId, asOfLocalDate);
-  return computeIntelligenceFromProfile(profile);
-}
+/**
+ * Request-memoized (see lib/reactRequestCache.ts): the Dashboard's Root
+ * Map/Recommendations/From Root cards each independently call this (via
+ * gatherRootMapInputs, app/actions/rootMap.ts) for the same member/date on
+ * the same page load — without this, gatherMemberHealthProfile's own
+ * dozen-plus reads (and its own N+1 feed-content fan-out) ran three times
+ * over. `supabase` must be the request-memoized client (getRequestClient,
+ * lib/supabase/server.ts) for the memoization to actually collapse those
+ * calls — cache() keys on argument identity, and a fresh client per call
+ * defeats it.
+ */
+export const computeMemberIntelligence = requestCache(
+  async (
+    supabase: SupabaseClient,
+    memberId: string,
+    asOfLocalDate: string
+  ): Promise<MemberIntelligenceReport> => {
+    const profile = await gatherMemberHealthProfile(supabase, memberId, asOfLocalDate);
+    return computeIntelligenceFromProfile(profile);
+  }
+);
 
 export async function buildMemberIntelligence(
   supabase: SupabaseClient,

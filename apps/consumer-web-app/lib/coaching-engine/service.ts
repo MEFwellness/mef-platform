@@ -17,7 +17,7 @@ import type { MorningBrief, WellnessInsight } from '@mef/shared-types-contracts'
 import { getCoachingFocusDecision } from '../brain/service';
 import { currentStreakLength } from '../ai/agents/accountability';
 import { listInsightsForMember } from '../intelligence/data';
-import { listFeedHistory, getContentItem } from '../feed/data';
+import { listFeedHistory, getContentItemsByIds } from '../feed/data';
 import { buildFeedMemory, type FeedHistoryPair } from '../feed/memory';
 import { buildContinuitySentence } from '../feed/continuity';
 import { composeMorningBrief } from './morningBrief';
@@ -50,12 +50,14 @@ async function fetchContinuitySentence(
 ): Promise<string | null> {
   const feedHistory = await listFeedHistory(supabase, memberId, FEED_HISTORY_WINDOW_DAYS);
   const pastItems = feedHistory.filter((item) => item.local_date < localDate);
-  const historyPairs: FeedHistoryPair[] = await Promise.all(
-    pastItems.map(async (feedItem) => ({
-      feedItem,
-      content: await getContentItem(supabase, feedItem.content_item_id),
-    }))
+  const contentById = await getContentItemsByIds(
+    supabase,
+    pastItems.map((item) => item.content_item_id)
   );
+  const historyPairs: FeedHistoryPair[] = pastItems.map((feedItem) => ({
+    feedItem,
+    content: contentById.get(feedItem.content_item_id) ?? null,
+  }));
   return buildContinuitySentence(buildFeedMemory(historyPairs, localDate));
 }
 

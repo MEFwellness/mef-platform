@@ -18,7 +18,7 @@
  */
 
 import type { RegistryEntry } from '@mef/shared-types-contracts';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveLocalDate } from './checkin';
 import { listRegistryEntriesForMember } from '@/lib/registry/data';
@@ -41,6 +41,7 @@ import {
 } from '@/lib/reassessment-intelligence/data';
 import { listMyLifestyleExperiments, deriveEffectiveStatus as deriveExperimentStatus } from '@/lib/lifestyle-experiments';
 import { listMemberRecommendations } from '@/lib/recommendation-engine';
+import { requestCache } from '@/lib/reactRequestCache';
 
 /** How recently a domain must have been dismissed/marked-not-helpful to still suppress that same outcome type at the Root Router level — a coarser, shorter-lived safety net on top of member_recommendations' own permanent per-key dedup protection (upsertMemberRecommendation never reopens an 'ignored' row at all). */
 const ROUTER_DISMISSAL_SUPPRESSION_DAYS = 14;
@@ -108,13 +109,21 @@ export type RootMapInputs = {
 };
 
 /**
- * The shared, once-per-request gather step behind both the Root Map and
- * the Recommendation Engine (app/actions/recommendations.ts) — extracted
- * so a page rendering both never calls computeMemberIntelligence()/
- * decideNextAction() twice for the same member/request. Exported
- * specifically for that reuse; the Root Map's own shape (RootMapView)
- * stays this file's concern, the Recommendation Engine builds its own
- * output from the same inputs.
+ * The shared, once-per-request gather step behind the Root Map, the
+ * Recommendation Engine (app/actions/recommendations.ts), and the Root
+ * Coaching Conversation Engine (app/actions/rootCoaching.ts) — so a page
+ * rendering more than one of these never calls
+ * computeMemberIntelligence()/decideNextAction() twice for the same
+ * member/request. That's now actually enforced by wrapping this in
+ * requestCache() (lib/reactRequestCache.ts): the Dashboard renders three
+ * independent Suspense-boundary cards that each call into this
+ * (RootMapCard, RecommendationsCard, CoachingMessageCard), each with its
+ * own `const supabase = ...` at the top of its own action — without both
+ * this cache() and `supabase` being the shared request-scoped client
+ * (getRequestClient, lib/supabase/server.ts), those three calls silently
+ * re-ran the entire gather step (and everything nested inside it) three
+ * times over, which is what the original 8-second Dashboard load was
+ * mostly spending its time on.
  *
  * Also gathers the Prompt 12 adaptive-routing context (active experiment
  * count/domains, recently-dismissed domains, a coach-requested
@@ -122,45 +131,47 @@ export type RootMapInputs = {
  * this stays here rather than inside routerOutcome.ts itself so that file
  * keeps its existing "pure classifier, no I/O" design.
  */
-export async function gatherRootMapInputs(
-  supabase: SupabaseServerClient,
-  memberId: string,
-  localDate: string,
-  coachView: boolean
-): Promise<RootMapInputs> {
-  const [activeFindings, restrictedTopics, decision, report, pendingReassessments] = await Promise.all([
-    listRegistryEntriesForMember(supabase, memberId, { statusFilter: ['active'] }),
-    getMemberRestrictedTopics(supabase, memberId),
-    decideNextAction(supabase, memberId),
-    coachView
-      ? buildMemberIntelligence(supabase, memberId, localDate)
-      : computeMemberIntelligence(supabase, memberId, localDate),
-    listPendingReassessments(supabase, memberId),
-  ]);
+export const gatherRootMapInputs = requestCache(
+  async (
+    supabase: SupabaseServerClient,
+    memberId: string,
+    localDate: string,
+    coachView: boolean
+  ): Promise<RootMapInputs> => {
+    const [activeFindings, restrictedTopics, decision, report, pendingReassessments] = await Promise.all([
+      listRegistryEntriesForMember(supabase, memberId, { statusFilter: ['active'] }),
+      getMemberRestrictedTopics(supabase, memberId),
+      decideNextAction(supabase, memberId),
+      coachView
+        ? buildMemberIntelligence(supabase, memberId, localDate)
+        : computeMemberIntelligence(supabase, memberId, localDate),
+      listPendingReassessments(supabase, memberId),
+    ]);
 
-  const domainConfidences = COACHING_DOMAINS.map((d) =>
-    computeDomainConfidence(d.domain, activeFindings)
-  );
-  const adaptiveContext = await buildAdaptiveRouterContext(supabase, memberId, pendingReassessments);
-  const routerOutcome = classifyRouterOutcome(
-    decision,
-    report.priorities.recommendedCoachAttentionLevel,
-    report.recommendations,
-    domainConfidences,
-    adaptiveContext
-  );
+    const domainConfidences = COACHING_DOMAINS.map((d) =>
+      computeDomainConfidence(d.domain, activeFindings)
+    );
+    const adaptiveContext = await buildAdaptiveRouterContext(supabase, memberId, pendingReassessments);
+    const routerOutcome = classifyRouterOutcome(
+      decision,
+      report.priorities.recommendedCoachAttentionLevel,
+      report.recommendations,
+      domainConfidences,
+      adaptiveContext
+    );
 
-  return {
-    activeFindings,
-    restrictedTopics,
-    decision,
-    report,
-    domainConfidences,
-    routerOutcome,
-    pendingReassessments,
-    adaptiveContext,
-  };
-}
+    return {
+      activeFindings,
+      restrictedTopics,
+      decision,
+      report,
+      domainConfidences,
+      routerOutcome,
+      pendingReassessments,
+      adaptiveContext,
+    };
+  }
+);
 
 async function assembleRootMap(
   supabase: SupabaseServerClient,
@@ -188,7 +199,7 @@ export type MemberRootMapView = RootMapView & {
 };
 
 export async function getMyRootMap(): Promise<MemberRootMapView | null> {
-  const supabase = createClient();
+  const supabase = getRequestClient();
   const user = await getCachedUser();
   if (!user) return null;
 

@@ -27,6 +27,7 @@ import {
 } from '../assessment-registry/findingRecommendations';
 import { listRegistryEntriesForMember } from '../registry/data';
 import type { AssessmentKey } from '../assessment-registry/types';
+import { requestCache } from '../reactRequestCache';
 
 export type RootRouterDecision = {
   /** Step 1 — true when the member has any currently open safety restriction. */
@@ -50,37 +51,52 @@ export type RecommendedInvestigationView = {
  * the member actually did, since that can only be known after this
  * decision has already been shown to them. Step 5 (coach override) is
  * handled inside `pickRecommendation()` itself — nothing to add here.
+ *
+ * Request-memoized (see lib/reactRequestCache.ts): the Dashboard's "What
+ * We're Noticing" card calls this directly, and its "Root Map"/
+ * "Recommendations"/"From Root" cards each independently reach it again
+ * through gatherRootMapInputs() — four calls for the same
+ * (supabase, memberId) per page load without this, all doing the exact
+ * same three reads. `supabase` must be the request-memoized client (see
+ * getRequestClient in lib/supabase/server.ts) for the memoization to
+ * actually collapse those calls; a fresh client per call defeats it, since
+ * cache() keys on argument identity.
  */
-export async function decideNextAction(
-  supabase: SupabaseClient,
-  memberId: string
-): Promise<RootRouterDecision> {
-  // Step 1 — safety gate. An open restriction means the Router defers
-  // entirely to the coach-review flow rather than recommending anything
-  // new in the interim (Investigation Library §11, worked example 3).
-  const restrictedTopics = await getMemberRestrictedTopics(supabase, memberId);
-  if (restrictedTopics.length > 0) {
-    return {
-      safetyGated: true,
-      recommendation: { key: null, reason: 'upgrade_invitation' },
-      findingBasedSuggestions: [],
-    };
+export const decideNextAction = requestCache(
+  async (supabase: SupabaseClient, memberId: string): Promise<RootRouterDecision> => {
+    // Step 1 — safety gate. An open restriction means the Router defers
+    // entirely to the coach-review flow rather than recommending anything
+    // new in the interim (Investigation Library §11, worked example 3).
+    const restrictedTopics = await getMemberRestrictedTopics(supabase, memberId);
+    if (restrictedTopics.length > 0) {
+      return {
+        safetyGated: true,
+        recommendation: { key: null, reason: 'upgrade_invitation' },
+        findingBasedSuggestions: [],
+      };
+    }
+
+    // Steps 2 and 3 are independent of each other (both only depend on the
+    // step-1 gate above having passed), so they run concurrently rather
+    // than as two sequential round trips.
+    const [factsByKey, entries] = await Promise.all([
+      getMemberAssessmentFacts(supabase, memberId),
+      listRegistryEntriesForMember(supabase, memberId),
+    ]);
+
+    // Step 2 — status/eligibility-ranked "what's next" (coach-assigned
+    // wins internally, satisfying step 5 too).
+    const recommendation = pickRecommendation(factsByKey);
+
+    // Step 3 — finding-driven "what else might help," independent of step 2.
+    const activeFindings = entries.filter((e) => e.status === 'active' && e.entry_kind === 'finding');
+    const findingBasedSuggestions = suggestAssessmentsFromFindings(activeFindings, {
+      excludeAssessmentKeys: recommendation.key ? [recommendation.key] : [],
+    });
+
+    return { safetyGated: false, recommendation, findingBasedSuggestions };
   }
-
-  // Step 2 — status/eligibility-ranked "what's next" (coach-assigned wins
-  // internally, satisfying step 5 too).
-  const factsByKey = await getMemberAssessmentFacts(supabase, memberId);
-  const recommendation = pickRecommendation(factsByKey);
-
-  // Step 3 — finding-driven "what else might help," independent of step 2.
-  const entries = await listRegistryEntriesForMember(supabase, memberId);
-  const activeFindings = entries.filter((e) => e.status === 'active' && e.entry_kind === 'finding');
-  const findingBasedSuggestions = suggestAssessmentsFromFindings(activeFindings, {
-    excludeAssessmentKeys: recommendation.key ? [recommendation.key] : [],
-  });
-
-  return { safetyGated: false, recommendation, findingBasedSuggestions };
-}
+);
 
 /**
  * Step 4 — member agency (Method §7). Logs what the Router would have

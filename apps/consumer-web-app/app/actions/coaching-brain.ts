@@ -15,7 +15,7 @@
  * report, or chat surface calls the exact same functions.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveLocalDate } from './checkin';
 import { getCoachingFocusDecision } from '@/lib/brain/service';
@@ -113,7 +113,7 @@ async function attachContent(
  * unchanged from before.
  */
 export async function getMyCoachingDecision(timezone?: string): Promise<CoachingDecision | null> {
-  const supabase = createClient();
+  const supabase = getRequestClient();
   const user = await getCachedUser();
   if (!user) return null;
 

@@ -6,7 +6,7 @@
  * as the real authorization boundary, null for unauthenticated reads.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveLocalDate } from './checkin';
 import type { MorningBrief } from '@mef/shared-types-contracts';
@@ -25,7 +25,7 @@ export async function getMyMorningBrief(
   timezone?: string,
   displayName?: string | null
 ): Promise<MorningBrief | null> {
-  const supabase = createClient();
+  const supabase = getRequestClient();
   const user = await getCachedUser();
   if (!user) return null;
 

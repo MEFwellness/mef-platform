@@ -25,7 +25,7 @@ import { fetchLatestReassessment } from '../onboarding/reassessment';
 import { buildComparison, buildProgressSummary } from '../onboarding/comparison';
 import { listNarrativeItems } from '../narrative/data';
 import { listInsightsForMember } from '../intelligence/data';
-import { getMemberRestrictedTopics, listFeedHistory, getContentItem } from '../feed/data';
+import { getMemberRestrictedTopics, listFeedHistory, getContentItemsByIds } from '../feed/data';
 import type { FeedHistoryPair } from '../feed/memory';
 import { computeStreakInsight } from '../feed/streakIntelligence';
 import { computeAdherence } from '../feed/adaptiveDifficulty';
@@ -138,12 +138,14 @@ export async function gatherMemberHealthProfile(
   );
 
   const pastFeedItems = feedHistory.filter((item) => item.local_date < asOfLocalDate);
-  const feedHistoryPairs: FeedHistoryPair[] = await Promise.all(
-    pastFeedItems.map(async (feedItem) => ({
-      feedItem,
-      content: await getContentItem(supabase, feedItem.content_item_id),
-    }))
+  const contentById = await getContentItemsByIds(
+    supabase,
+    pastFeedItems.map((item) => item.content_item_id)
   );
+  const feedHistoryPairs: FeedHistoryPair[] = pastFeedItems.map((feedItem) => ({
+    feedItem,
+    content: contentById.get(feedItem.content_item_id) ?? null,
+  }));
 
   const comparison = buildComparison(baseline, latestReassessment);
   const progressSummary = buildProgressSummary(comparison);

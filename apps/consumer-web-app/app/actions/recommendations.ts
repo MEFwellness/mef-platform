@@ -8,7 +8,7 @@
  * `decideNextAction()` twice for the same request.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { localDateFor, gatherRootMapInputs } from './rootMap';
 import { listCoachAlertsForMember } from '@/lib/intelligence-engine/data';
@@ -82,9 +82,9 @@ async function recomputeAndPersist(
       suppressedRecommendationKeys,
     });
 
-    for (const rec of built) {
-      await upsertMemberRecommendation(supabase, memberId, rec);
-    }
+    // Independent rows (each keyed by its own recommendation_key) — no
+    // reason for these to wait on each other one at a time.
+    await Promise.all(built.map((rec) => upsertMemberRecommendation(supabase, memberId, rec)));
   } catch (err) {
     console.error('recomputeAndPersist (recommendations) failed', err instanceof Error ? err.message : err);
   }
@@ -115,7 +115,7 @@ function toView(row: MemberRecommendationRow, asOfDate: Date): MemberRecommendat
 }
 
 export async function getMyRecommendations(): Promise<MemberRecommendationView[]> {
-  const supabase = createClient();
+  const supabase = getRequestClient();
   const user = await getCachedUser();
   if (!user) return [];
 
