@@ -9,6 +9,12 @@
  * source scan; the real independent-in-either-order and
  * persists-across-back-and-forward behavior is confirmed live via
  * Playwright, reported separately.
+ *
+ * 2026-07-29 addendum: the "Any discomfort today?" gate legitimately
+ * resets severity/location when she flips the gate itself (a real
+ * top-level answer changing, not a sibling question silently reaching
+ * into another's state) — a different, intentional exception from the
+ * pain-aggravating-factor one below, not a regression of this fix.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -31,8 +37,8 @@ describe('fix 2a: the duplicate leftover-silhouette prompt is gone', () => {
     expect(renderedBody).not.toMatch(/tap a spot/i);
   });
 
-  it('exactly one "Where is it" question is rendered (StackedOptionRows\' own "Where is it, mainly?")', () => {
-    const matches = renderedBody.match(/Where is it/g) ?? [];
+  it('exactly one location question is rendered (MultiSelectChipGrid\'s own "Where is the discomfort, mainly?", 2026-07-29 wording)', () => {
+    const matches = renderedBody.match(/Where is the discomfort/g) ?? [];
     expect(matches.length).toBe(1);
   });
 });
@@ -59,7 +65,7 @@ describe('fix 2b: severity no longer clears location -- the actual bug, isolated
   });
 
   it('onLocationChange is a plain pass-through, never conditioned on the current severity value', () => {
-    const start = MORNING_FORM.indexOf('onLocationChange={(location) => setPainLocation(location)}');
+    const start = MORNING_FORM.indexOf('onLocationChange={(locations) => setPainLocation(locations)}');
     expect(start).toBeGreaterThan(-1);
   });
 });

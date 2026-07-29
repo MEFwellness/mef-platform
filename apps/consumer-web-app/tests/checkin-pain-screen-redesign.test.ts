@@ -6,6 +6,14 @@
  * location and severity values must continue writing to the same
  * existing fields." Static source scan, same convention as this
  * feature's other tests (no rendering harness in this repo).
+ *
+ * 2026-07-29 update: the single-select full-width-rows treatment this
+ * file originally pinned is superseded by a multi-select chip grid (a
+ * real day can hurt in more than one place) — see
+ * tests/checkin-discomfort-gate.test.ts for the new contract. The
+ * silhouette-removal and severity-tile assertions below are unaffected
+ * and still hold; only the location-list and prop-contract assertions
+ * are updated in place.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -31,10 +39,10 @@ describe('the body silhouette is gone entirely', () => {
   });
 });
 
-describe('location is one list of full-width tappable rows, Widespread/Other included, not separate buttons', () => {
-  it('reuses the shared StackedOptionRows component (the same treatment every other long-label option set uses), not a bespoke duplicate', () => {
-    expect(PAIN_SCREEN).toContain("import { StackedOptionRows } from './scales/StackedOptionRows'");
-    expect(PAIN_SCREEN).toContain('<StackedOptionRows');
+describe('location is a two-column multi-select chip grid, Widespread/Other included, not separate buttons', () => {
+  it('reuses the shared MultiSelectChipGrid component, not a bespoke duplicate', () => {
+    expect(PAIN_SCREEN).toContain("import { MultiSelectChipGrid } from './scales/MultiSelectChipGrid'");
+    expect(PAIN_SCREEN).toContain('<MultiSelectChipGrid');
   });
 
   it('the location options array is one combined list containing every hotspot plus widespread and other', () => {
@@ -54,9 +62,9 @@ describe('location is one list of full-width tappable rows, Widespread/Other inc
     ]) {
       expect(arrayText).toContain(`value: '${value}'`);
     }
-    // Exactly one array feeds the rendered list -- widespread/other are
+    // Exactly one array feeds the rendered grid -- widespread/other are
     // not a second, separately-rendered button row.
-    expect(PAIN_SCREEN.match(/<StackedOptionRows/g)?.length).toBe(1);
+    expect(PAIN_SCREEN.match(/<MultiSelectChipGrid/g)?.length).toBe(1);
   });
 });
 
@@ -78,9 +86,9 @@ describe('severity levels are visibly tappable buttons, not a progress bar', () 
 });
 
 describe('location/severity still write to the exact same existing fields (no schema change)', () => {
-  it('BodySeverityOutline\'s prop contract is unchanged: locationValue/onLocationChange/severityValue/onSeverityChange/severityLabels', () => {
-    expect(PAIN_SCREEN).toContain('locationValue: string | null');
-    expect(PAIN_SCREEN).toContain('onLocationChange: (value: string) => void');
+  it('BodySeverityOutline\'s prop contract keeps the same five prop names — locationValue/onLocationChange are now array-shaped (2026-07-29 multi-select redesign), severityValue/onSeverityChange/severityLabels unchanged', () => {
+    expect(PAIN_SCREEN).toContain('locationValue: readonly string[]');
+    expect(PAIN_SCREEN).toContain('onLocationChange: (value: string[]) => void');
     expect(PAIN_SCREEN).toContain('severityValue: number | null');
     expect(PAIN_SCREEN).toContain('onSeverityChange: (value: number) => void');
     expect(PAIN_SCREEN).toContain('severityLabels: readonly string[]');

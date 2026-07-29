@@ -35,12 +35,24 @@
  *     location. Fixed at the call site, not in this component (this
  *     component never owned or reset either value itself) — see
  *     CheckinForm.tsx's own comment on `onSeverityChange`.
+ *
+ * 2026-07-29 redesign: location is now a multi-select (a real day can
+ * hurt in more than one place) rendered as a compact two-column chip
+ * grid instead of the single-select StackedOptionRows list — the whole
+ * ten-option set fits on screen without scrolling. "Widespread" stays
+ * mutually exclusive with individual locations (MultiSelectChipGrid's
+ * `exclusiveValue`, the same rule MultiOptionRows already established
+ * for the craving question's "none"). This whole component now only
+ * ever renders once CheckinForm's own "Any discomfort today?" gate is
+ * answered yes — locationValue/onLocationChange/severityValue/
+ * onSeverityChange/severityLabels keep the same names, just
+ * locationValue/onLocationChange are now array-shaped.
  */
 
 import { useEffect, useState } from 'react';
 import { triggerHaptic } from '@/lib/haptics';
 import { SEVERITY_RAMP, rampColorAt } from '@/lib/checkin-color-ramps';
-import { StackedOptionRows } from './scales/StackedOptionRows';
+import { MultiSelectChipGrid } from './scales/MultiSelectChipGrid';
 
 const HOTSPOT_OPTIONS = [
   { value: 'neck', label: 'Neck' },
@@ -109,8 +121,8 @@ export function BodySeverityOutline({
   onSeverityChange,
   severityLabels,
 }: {
-  locationValue: string | null;
-  onLocationChange: (value: string) => void;
+  locationValue: readonly string[];
+  onLocationChange: (value: string[]) => void;
   severityValue: number | null;
   onSeverityChange: (value: number) => void;
   /** Index 0 = "None"/no severity, through the top of the scale — the same word set CheckinForm's PAIN_MEANING already uses. */
@@ -118,14 +130,15 @@ export function BodySeverityOutline({
 }) {
   return (
     <div>
-      <StackedOptionRows
-        question="Where is it, mainly?"
+      <MultiSelectChipGrid
+        question="Where is the discomfort, mainly?"
         options={HOTSPOT_OPTIONS}
         value={locationValue}
         onChange={onLocationChange}
+        exclusiveValue="widespread"
       />
 
-      {locationValue && (
+      {locationValue.length > 0 && (
         <div className="mt-5">
           <p className="text-[13px] leading-relaxed text-[#6B7A72]">How much does it bother you?</p>
           <div className="mt-3 flex w-full gap-1.5" role="group" aria-label="How much does it bother you?">

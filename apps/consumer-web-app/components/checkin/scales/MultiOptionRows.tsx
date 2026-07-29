@@ -14,6 +14,12 @@
  * multi_select question with a "none of these" option gets the same
  * behavior for free, matching the onboarding adaptive engine's own
  * multi_select "none" convention (app/onboarding/OnboardingForm.tsx).
+ *
+ * 2026-07-29: generalized to an overridable `exclusiveValue` (default
+ * still 'none', so every existing caller's behavior is byte-identical)
+ * so the body-location chip grid (components/checkin/scales/
+ * MultiSelectChipGrid.tsx) can reuse this exact same toggle logic for
+ * its own "Widespread" exclusivity rather than re-implementing it.
  */
 
 import { SCALE_LABEL, TapBleedTile } from './shared';
@@ -22,18 +28,19 @@ const NONE_VALUE = 'none';
 
 export function toggleMultiSelectValue<T extends string | number>(
   current: readonly T[],
-  option: T
+  option: T,
+  exclusiveValue: string = NONE_VALUE
 ): T[] {
-  const optionIsNone = String(option).toLowerCase() === NONE_VALUE;
+  const optionIsExclusive = String(option).toLowerCase() === exclusiveValue.toLowerCase();
   const isSelected = current.includes(option);
 
   if (isSelected) {
     return current.filter((v) => v !== option);
   }
-  if (optionIsNone) {
+  if (optionIsExclusive) {
     return [option];
   }
-  return [...current.filter((v) => String(v).toLowerCase() !== NONE_VALUE), option];
+  return [...current.filter((v) => String(v).toLowerCase() !== exclusiveValue.toLowerCase()), option];
 }
 
 export function MultiOptionRows<T extends string | number>({

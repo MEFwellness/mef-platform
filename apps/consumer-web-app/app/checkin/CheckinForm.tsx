@@ -178,16 +178,40 @@ export function CheckinForm({
   // 1) — these two live in daily_checkin_probe_answers, so they arrive
   // through initialProbeAnswers like any other generic probe answer,
   // never seeded before this pass.
-  const [painLocation, setPainLocation] = useState<string | null>(
-    typeof initialProbeAnswers['checkin_probe.pain_location'] === 'string'
-      ? (initialProbeAnswers['checkin_probe.pain_location'] as string)
-      : null
-  );
+  const [painLocation, setPainLocation] = useState<string[]>(() => {
+    const stored = initialProbeAnswers['checkin_probe.pain_location'];
+    // Existing stored single answers (recorded before this multi-select
+    // redesign) read as a set of one — never discarded.
+    if (Array.isArray(stored)) return stored.filter((v): v is string => typeof v === 'string');
+    if (typeof stored === 'string') return [stored];
+    return [];
+  });
   const [painAggravatingFactor, setPainAggravatingFactor] = useState<string | null>(
     typeof initialProbeAnswers['checkin_probe.pain_aggravating_factor'] === 'string'
       ? (initialProbeAnswers['checkin_probe.pain_aggravating_factor'] as string)
       : null
   );
+  /**
+   * "Any discomfort today?" gate (2026-07-29 redesign) — location,
+   * severity, and the "what makes it worse" follow-up only ever render
+   * once this is answered yes. Answering no writes severity 0 (the
+   * exact value picking "None" already wrote under the old
+   * always-shown flow) and an empty location set, so
+   * pain_discomfort_level/morning_soreness still get a real value every
+   * day exactly as before — root-map coverage, scoring, and every other
+   * downstream reader of those two columns sees no difference between
+   * "answered no" and the old "answered None." Derived once from
+   * history, never re-derived: a location already on file means she
+   * must have said yes (the old flow could never set severity without
+   * picking one first); a recorded severity with an empty location set
+   * means she said no under this new flow; neither on file means she
+   * hasn't reached this section yet today.
+   */
+  const [hasDiscomfort, setHasDiscomfort] = useState<boolean | null>(() => {
+    if (painLocation.length > 0) return true;
+    if (existingCheckin && existingCheckin.pain_discomfort_level !== null) return false;
+    return null;
+  });
   const [concern, setConcern] = useState(existingCheckin?.new_or_worsening_concern ?? false);
   const [notes, setNotes] = useState(existingCheckin?.optional_notes ?? '');
   const [nothingToAdd, setNothingToAdd] = useState(false);
@@ -325,6 +349,40 @@ export function CheckinForm({
       },
     ];
 
+    // Folded back from Evening Reflection into the morning rotation
+    // (migration 113, task requirement 2) — daily_checkins_column
+    // storage, same reason night_waking_count/bowel_movement_status/etc.
+    // below are specially handled rather than routed through
+    // genericRotatingProbes: its answer must land in a real
+    // daily_checkins column via submitDailyCheckin, not the generic
+    // probe_answer table.
+    //
+    // 2026-07-29 UX-audit fix: this used to be pushed *after* the
+    // interleaveFollowUps loop below, which put its own local follow-up
+    // (checkin_probe.digestive_symptom_type, requires digestion_rating
+    // <= 2 — unmatched by that loop since digestion_rating is
+    // specially-handled and never in `genericRotatingProbes`) ahead of
+    // this, its own parent question, on the "body" screen — a
+    // detached-follow-up bug of the same shape the pain-location gate
+    // fixes elsewhere on this same screen. Pushing it here, before that
+    // loop runs, means the parent always renders above any follow-up it
+    // triggers.
+    if (digestionQuestion) {
+      list.push({
+        key: digestionQuestion.questionKey,
+        section: 'body',
+        required: false,
+        answered: digestionRating !== null,
+        render: () => (
+          <DriverProbeField
+            question={digestionQuestion}
+            value={digestionRating}
+            onChange={(value) => setDigestionRating(typeof value === 'number' ? value : null)}
+          />
+        ),
+      });
+    }
+
     // Every follow-up must render directly beneath the question that
     // triggered it (2026-07-28 fix) — see interleaveFollowUps' own doc
     // comment for why this used to fail (two separate loops/arrays).
@@ -346,72 +404,117 @@ export function CheckinForm({
       list.push(probeUnit(question));
     }
 
+    // "Any discomfort today?" gate (2026-07-29 redesign) — the fixed
+    // core pain question. Its own small heading keeps this block
+    // visually separate from whatever rotating "body"-domain probe
+    // happens to land just above it on this screen, so the gate never
+    // reads as a follow-up to an unrelated question (the exact bug this
+    // redesign fixes). Location, severity, and the "what makes it
+    // worse" follow-up (below) only ever render once this is yes.
     list.push({
-      key: 'body-severity',
+      key: 'discomfort-gate',
       section: 'body',
       required: true,
-      answered: severity !== null && (severity < PAIN_FOLLOWUP_THRESHOLD || painLocation !== null),
+      answered: hasDiscomfort !== null,
       render: () => (
-        <BodySeverityOutline
-          locationValue={painLocation}
-          onLocationChange={(location) => setPainLocation(location)}
-          severityValue={severity}
-          onSeverityChange={(value) => {
-            setSeverity(value);
-            // 2026-07-27 fix: this used to also clear painLocation here,
-            // which reset the "Where is it, mainly?" answer any time
-            // severity dropped below PAIN_FOLLOWUP_THRESHOLD — reproducible
-            // by tapping a location, then a low severity level, and
-            // watching the location deselect. Location and severity are
-            // two independent answers now (this is exactly what the
-            // 2026-07-26 redesign made them); location must never be
-            // cleared by a severity change in either direction. Only the
-            // pain-aggravating-factor follow-up's own answer is cleared
-            // here, since that follow-up genuinely stops being asked (and
-            // disappears from the screen) once severity drops below the
-            // threshold — clearing its own now-orphaned answer is not the
-            // same bug as clearing a sibling question's answer.
-            if (value < PAIN_FOLLOWUP_THRESHOLD) {
-              setPainAggravatingFactor(null);
-            }
-          }}
-          severityLabels={SEVERITY_MEANING}
-        />
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#1B3A2D]/45">Discomfort</p>
+          <div className="mt-2">
+            <BooleanPills
+              question="Any discomfort today?"
+              value={hasDiscomfort}
+              onChange={(value) => {
+                if (!value) {
+                  // No discomfort: write the exact same values picking
+                  // "None" under the old always-shown flow used to write,
+                  // so pain_discomfort_level/morning_soreness still get a
+                  // real value every day — no downstream reader (root-map
+                  // coverage, scoring) sees a difference.
+                  setSeverity(0);
+                  setPainLocation([]);
+                  setPainAggravatingFactor(null);
+                } else if (hasDiscomfort === false) {
+                  // Coming back from a prior "no" this same session — let
+                  // her actually answer rather than keeping the
+                  // auto-filled none/empty-location values.
+                  setSeverity(null);
+                  setPainLocation([]);
+                }
+                setHasDiscomfort(value);
+              }}
+            />
+          </div>
+        </div>
       ),
     });
 
-    if (painLevel !== null && painLevel >= PAIN_FOLLOWUP_THRESHOLD && painLocation !== null) {
+    if (hasDiscomfort) {
       list.push({
-        key: 'pain-aggravating-factor',
+        key: 'body-severity',
         section: 'body',
-        required: false,
-        answered: painAggravatingFactor !== null,
+        required: true,
+        answered: painLocation.length > 0 && severity !== null,
         render: () => (
-          <div>
-            <p className="text-[13px] leading-relaxed text-[#6B7A72]">What tends to make it worse?</p>
-            <div className="mt-3 flex flex-col gap-2" role="group" aria-label="What tends to make it worse?">
-              {PAIN_AGGRAVATING_FACTOR_OPTIONS.map((option) => {
-                const isSelected = painAggravatingFactor === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setPainAggravatingFactor(option.value)}
-                    aria-pressed={isSelected}
-                    className={`mef-press w-full rounded-2xl border px-4 py-3.5 text-left text-[14px] font-medium transition-all duration-200 ease-out ${
-                      isSelected
-                        ? 'border-transparent bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.4)]'
-                        : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D]/75'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <BodySeverityOutline
+            locationValue={painLocation}
+            onLocationChange={(locations) => setPainLocation(locations)}
+            severityValue={severity}
+            onSeverityChange={(value) => {
+              setSeverity(value);
+              // 2026-07-27 fix: this used to also clear painLocation here,
+              // which reset the location answer any time severity dropped
+              // below PAIN_FOLLOWUP_THRESHOLD — reproducible by tapping a
+              // location, then a low severity level, and watching the
+              // location deselect. Location and severity are independent
+              // answers; location must never be cleared by a severity
+              // change in either direction. Only the pain-aggravating-
+              // factor follow-up's own answer is cleared here, since that
+              // follow-up genuinely stops being asked (and disappears from
+              // the screen) once severity drops below the threshold —
+              // clearing its own now-orphaned answer is not the same bug
+              // as clearing a sibling question's answer.
+              if (value < PAIN_FOLLOWUP_THRESHOLD) {
+                setPainAggravatingFactor(null);
+              }
+            }}
+            severityLabels={SEVERITY_MEANING}
+          />
         ),
       });
+
+      if (painLevel !== null && painLevel >= PAIN_FOLLOWUP_THRESHOLD && painLocation.length > 0) {
+        list.push({
+          key: 'pain-aggravating-factor',
+          section: 'body',
+          required: false,
+          answered: painAggravatingFactor !== null,
+          render: () => (
+            <div>
+              <p className="text-[13px] leading-relaxed text-[#6B7A72]">What tends to make it worse?</p>
+              <div className="mt-3 flex flex-col gap-2" role="group" aria-label="What tends to make it worse?">
+                {PAIN_AGGRAVATING_FACTOR_OPTIONS.map((option) => {
+                  const isSelected = painAggravatingFactor === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setPainAggravatingFactor(option.value)}
+                      aria-pressed={isSelected}
+                      className={`mef-press w-full rounded-2xl border px-4 py-3.5 text-left text-[14px] font-medium transition-all duration-200 ease-out ${
+                        isSelected
+                          ? 'border-transparent bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.4)]'
+                          : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D]/75'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ),
+        });
+      }
     }
 
     if (bowelMovementQuestion) {
@@ -428,29 +531,6 @@ export function CheckinForm({
             )}
             value={bowelMovementStatus}
             onChange={(value) => setBowelMovementStatus(value as BowelMovementStatus)}
-          />
-        ),
-      });
-    }
-
-    // Folded back from Evening Reflection into the morning rotation
-    // (migration 113, task requirement 2) — daily_checkins_column
-    // storage, same reason night_waking_count/bowel_movement_status/etc.
-    // above are specially handled rather than routed through
-    // genericRotatingProbes: its answer must land in a real
-    // daily_checkins column via submitDailyCheckin, not the generic
-    // probe_answer table.
-    if (digestionQuestion) {
-      list.push({
-        key: digestionQuestion.questionKey,
-        section: 'body',
-        required: false,
-        answered: digestionRating !== null,
-        render: () => (
-          <DriverProbeField
-            question={digestionQuestion}
-            value={digestionRating}
-            onChange={(value) => setDigestionRating(typeof value === 'number' ? value : null)}
           />
         ),
       });
@@ -549,6 +629,7 @@ export function CheckinForm({
     actualWakeTime,
     nightWakingCount,
     nightSweats,
+    hasDiscomfort,
     severity,
     painLocation,
     painAggravatingFactor,
@@ -609,7 +690,7 @@ export function CheckinForm({
   }
 
   async function submitProbeAndFollowUpAnswers() {
-    if (painLocation) {
+    if (painLocation.length > 0) {
       await submitProbeAnswerAction(localDate, 'checkin_probe.pain_location', painLocation);
     }
     if (painAggravatingFactor) {
