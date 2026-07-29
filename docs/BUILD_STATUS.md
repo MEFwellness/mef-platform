@@ -1903,4 +1903,22 @@ Separately, and more directly: verified the *actual* cache() deduplication in th
 
 **Not done**: no engine's logic, the three-tier language system, `member_pattern_states`, the check-in flow, or assessment scoring were touched — confirmed by the fact every existing test (including the ones that pin exact engine output) still passes unmodified.
 
-**Not verified**: the exact production number this becomes on `app.mefwellness.com` — no Vercel CLI/log access in this non-interactive environment to run `vercel inspect`/redeploy/re-measure against the live domain from within this session. The fix is committed and ready to deploy; the user should re-run the same Chrome DevTools measurement against `/dashboard` after deploying to get the real before/after. Also not verified: whether Supabase's own connection-pool size on the production project is a further, separate ceiling — the duplication fix removes most of the concurrent-query pressure this render path was creating, but pool sizing itself wasn't inspected (no production Supabase dashboard access from this environment).
+**Deployed and confirmed live**: verified the deploy target both before and after. Before: production was serving the prior commit `dcf6ff5` (deployment `dpl_FSSFJdVsGQUEtNW1v9ZumV9wYvFd`, status `Ready`, target `production`). Pushed to `origin/main` (`github.com/MEFwellness/mef-platform`, commit `9c59959`); the push triggered Vercel's GitHub-integration auto-deploy, watched through `Building` to `Ready`. After: repo `MEFwellness/mef-platform` ✓, branch `main` ✓, Vercel project `mef-platform` ✓, target `production` ✓ (not Preview). `npx vercel inspect app.mefwellness.com` confirms the alias points at deployment `dpl_BcFQR55XfvJTBdLcS1SMEoVtj5pL`, whose build log shows `Cloning github.com/MEFwellness/mef-platform (Branch: main, Commit: 9c59959)`, status `Ready`.
+
+**Measured live on `app.mefwellness.com`** (Playwright, real `memberPopulated` production account, real network — this is the number that actually matters, not the local approximation above): `/dashboard` document load, two consecutive passes after login: **2.5s and 3.4s** (`nav.responseEnd`), down from the original **8.00s** — a 57–69% reduction. Screenshotted the resulting page (`390×844`): hero, Root Score (58/100), Quick Actions, Today's Daily Brief, sleep/stress/digestion trend lines, and the coaching recommendation all rendered correctly with real data, zero page errors. Same content, same order, nothing missing.
+
+Measured every other bottom-nav/quick-action route the same way, for completeness (asked for in the task, not part of this fix's own scope):
+
+| Route | Pass 1 | Pass 2 |
+|---|---|---|
+| `/case` | 1.15s | 1.59s |
+| `/checkin` | 1.09s | 0.75s |
+| `/today` | 1.46s | 1.34s |
+| `/food-lens` | 0.65s | 0.91s |
+| `/movement` | 0.91s | 1.21s |
+| `/progress` | **7.23s** | **6.28s** |
+| `/root-score` | 0.90s | 0.89s |
+
+**New finding, flagged, not fixed here**: `/progress` is now the slowest page in the app, at roughly the same magnitude as the Dashboard's original problem — likely the same shape of issue (its own page likely re-runs expensive per-request work without the memoization this task added), but it was never measured or in scope for this task, and fixing it needs its own Phase-1 measurement pass the same way the Dashboard got. Recommend a dedicated follow-up task scoped to `/progress` specifically.
+
+**Not verified**: whether Supabase's own connection-pool size on the production project is a further, separate ceiling underneath this fix — the duplication removal cuts most of the concurrent-query pressure this render path was creating, but pool sizing itself wasn't inspected (no production Supabase dashboard access from this environment).
