@@ -55,10 +55,12 @@ export default async function MovementPage() {
   const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
   const hasEverCheckedIn = recentCheckins.length > 0;
 
-  const session = hasEverCheckedIn ? await getTodaysMovementSession() : null;
-  const [movementScore, weeklyGoal] = hasEverCheckedIn
-    ? await Promise.all([getCurrentMovementScore(), getWeeklyMovementProgress()])
-    : [null, null];
+  // All three are independent of each other (none takes the others'
+  // result as input) — one Promise.all instead of session waiting on its
+  // own round trip before score/weeklyGoal even start.
+  const [session, movementScore, weeklyGoal] = hasEverCheckedIn
+    ? await Promise.all([getTodaysMovementSession(), getCurrentMovementScore(), getWeeklyMovementProgress()])
+    : [null, null, null];
 
   const recoveryStyles = session ? RECOVERY_STATUS_STYLES[session.recovery_status] : null;
 

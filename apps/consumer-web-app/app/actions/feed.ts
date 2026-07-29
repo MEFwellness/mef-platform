@@ -17,6 +17,7 @@ import {
 import {
   listFeedHistory,
   getContentItem,
+  getContentItemsByIds,
   listPublishedContent,
   getFeedItemById,
 } from '@/lib/feed/data';
@@ -73,12 +74,14 @@ export async function getFeedHistory(): Promise<
     (item) => item.local_date !== localDate
   );
 
-  return Promise.all(
-    items.map(async (feedItem) => ({
-      feedItem,
-      content: await getContentItem(supabase, feedItem.content_item_id),
-    }))
+  const contentById = await getContentItemsByIds(
+    supabase,
+    items.map((item) => item.content_item_id)
   );
+  return items.map((feedItem) => ({
+    feedItem,
+    content: contentById.get(feedItem.content_item_id) ?? null,
+  }));
 }
 
 export async function markTodaysFeedOpened(feedItemId: string): Promise<void> {
@@ -164,12 +167,14 @@ export async function getClientFeedHistory(
 ): Promise<{ feedItem: DailyFeedItem; content: MefContentItem | null }[]> {
   const supabase = createClient();
   const items = await listFeedHistory(supabase, clientId, 30);
-  return Promise.all(
-    items.map(async (feedItem) => ({
-      feedItem,
-      content: await getContentItem(supabase, feedItem.content_item_id),
-    }))
+  const contentById = await getContentItemsByIds(
+    supabase,
+    items.map((item) => item.content_item_id)
   );
+  return items.map((feedItem) => ({
+    feedItem,
+    content: contentById.get(feedItem.content_item_id) ?? null,
+  }));
 }
 
 export async function listContentLibraryForCoach(): Promise<MefContentItem[]> {

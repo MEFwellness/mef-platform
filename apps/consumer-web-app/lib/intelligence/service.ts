@@ -26,7 +26,7 @@ import type {
 import { fetchBaselineAssessment } from '../onboarding/baseline';
 import { fetchLatestReassessment } from '../onboarding/reassessment';
 import { buildComparison, buildProgressSummary } from '../onboarding/comparison';
-import { listFeedHistory, getContentItem, getMemberRestrictedTopics } from '../feed/data';
+import { listFeedHistory, getContentItemsByIds, getMemberRestrictedTopics } from '../feed/data';
 import type { FeedHistoryPair } from '../feed/memory';
 import { classifyAllMetricTrends } from './trendEngine';
 import {
@@ -169,12 +169,14 @@ export async function recalculateWellnessIntelligence(
     ]);
 
     const pastFeedItems = feedHistory.filter((item) => item.local_date <= asOfLocalDate);
-    const feedHistoryPairs: FeedHistoryPair[] = await Promise.all(
-      pastFeedItems.map(async (feedItem) => ({
-        feedItem,
-        content: await getContentItem(supabase, feedItem.content_item_id),
-      }))
+    const contentById = await getContentItemsByIds(
+      supabase,
+      pastFeedItems.map((item) => item.content_item_id)
     );
+    const feedHistoryPairs: FeedHistoryPair[] = pastFeedItems.map((feedItem) => ({
+      feedItem,
+      content: contentById.get(feedItem.content_item_id) ?? null,
+    }));
 
     // ---- Trends ----
     const trendDrafts = classifyAllMetricTrends(

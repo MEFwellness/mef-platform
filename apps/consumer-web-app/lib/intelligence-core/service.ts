@@ -148,9 +148,7 @@ async function resolveStaleObservations(
   currentKeys: Set<string>
 ): Promise<void> {
   const stale = activeObservations.filter((o) => !currentKeys.has(o.observation_key));
-  for (const observation of stale) {
-    await resolveIdentityObservation(supabase, observation.id);
-  }
+  await Promise.all(stale.map((observation) => resolveIdentityObservation(supabase, observation.id)));
 }
 
 export async function recalculateIntelligenceCore(
@@ -159,31 +157,38 @@ export async function recalculateIntelligenceCore(
   asOfLocalDate: string
 ): Promise<void> {
   try {
-    const profile = await gatherMemberHealthProfile(supabase, memberId, asOfLocalDate);
+    // Four independent reads — none needs another's result, so they no
+    // longer wait on each other one at a time (conversationMemory/
+    // activeObservations/existingFeedback previously each waited for the
+    // full member health profile gather to finish first, despite not
+    // reading anything from it).
+    const [profile, conversationMemory, activeObservations, existingFeedback] = await Promise.all([
+      gatherMemberHealthProfile(supabase, memberId, asOfLocalDate),
+      listActiveMemory(supabase, memberId),
+      listIdentityObservationsForMember(supabase, memberId, { statusFilter: ['active'] }),
+      listRecommendationFeedback(supabase, memberId),
+    ]);
     const report = computeIntelligenceFromProfile(profile);
-    const conversationMemory = await listActiveMemory(supabase, memberId);
 
     const drafts = deriveAllIdentityObservationDrafts(profile, report, conversationMemory).map(
       (draft) => applySafetyGate(draft, profile.restrictedTopics)
     );
 
-    const activeObservations = await listIdentityObservationsForMember(supabase, memberId, {
-      statusFilter: ['active'],
-    });
+    // Stale-resolution and the fresh-draft upserts below operate on
+    // disjoint rows (stale = keys NOT present in this round's drafts), so
+    // there's no ordering dependency between them, only within each.
     await resolveStaleObservations(
       supabase,
       memberId,
       activeObservations,
       new Set(drafts.map((d) => d.observationKey))
     );
-    for (const draft of drafts) {
-      await upsertObservation(supabase, memberId, draft);
-    }
+    await Promise.all(drafts.map((draft) => upsertObservation(supabase, memberId, draft)));
 
     const dimensions = computeAllProfileDimensions(profile, report);
-    for (const dimension of dimensions) {
-      await upsertProfileDimension(supabase, memberId, dimension);
-    }
+    await Promise.all(
+      dimensions.map((dimension) => upsertProfileDimension(supabase, memberId, dimension))
+    );
 
     const timeCommitmentDraft =
       drafts.find((d) => d.observationKey === 'time_commitment_short_content_preference') ?? null;
@@ -193,10 +198,11 @@ export async function recalculateIntelligenceCore(
       conversationMemory,
       timeCommitmentDraft
     );
-    await upsertCoachingStyleProfile(supabase, memberId, style);
-    await upsertProfileDimension(supabase, memberId, computeCoachingStyleDimension(style));
+    await Promise.all([
+      upsertCoachingStyleProfile(supabase, memberId, style),
+      upsertProfileDimension(supabase, memberId, computeCoachingStyleDimension(style)),
+    ]);
 
-    const existingFeedback = await listRecommendationFeedback(supabase, memberId);
     const { feedbackUpdates } = guardRecommendations(report.recommendations, existingFeedback);
     await upsertRecommendationFeedback(supabase, memberId, feedbackUpdates);
   } catch (err) {

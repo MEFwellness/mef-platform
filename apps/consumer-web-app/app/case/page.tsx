@@ -30,13 +30,15 @@ export default async function CaseViewPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: profile }, isCoach] = await Promise.all([
+  // getMyCaseViewAction() resolves its own user/timezone independently —
+  // it doesn't need this page's own profile/isCoach reads, so it joins
+  // the same Promise.all instead of waiting for them to finish first.
+  const [{ data: profile }, isCoach, caseView] = await Promise.all([
     supabase.from('profiles').select('timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
+    getMyCaseViewAction(),
   ]);
   const localDate = todaysLocalDate(profile?.timezone ?? 'America/New_York');
-
-  const caseView = await getMyCaseViewAction();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
