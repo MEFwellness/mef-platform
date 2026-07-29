@@ -690,7 +690,19 @@ export function CheckinForm({
   }
 
   async function submitProbeAndFollowUpAnswers() {
-    if (painLocation.length > 0) {
+    // hasDiscomfort !== null (not painLocation.length > 0) is the real
+    // guard: the gate is required on the "body" screen, so by the time
+    // a genuine submit reaches here it's always answered. Writing
+    // whenever it's answered — even an empty array — means flipping the
+    // gate from yes+a location to no actually overwrites the stored
+    // answer with "no locations" instead of silently leaving a stale
+    // location in daily_checkin_probe_answers (confirmed live: without
+    // this, resuming the same day's check-in after a yes-then-no flip
+    // re-read the old location and re-derived the gate back to yes). A
+    // draft-exit before ever reaching the gate (hasDiscomfort still
+    // null) still skips the write entirely, preserving history exactly
+    // as the old `if (painLocation)` guard did.
+    if (hasDiscomfort !== null) {
       await submitProbeAnswerAction(localDate, 'checkin_probe.pain_location', painLocation);
     }
     if (painAggravatingFactor) {

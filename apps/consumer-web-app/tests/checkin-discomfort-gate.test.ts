@@ -114,6 +114,18 @@ describe('(a)/(b) the discomfort gate owns the whole section — nothing renders
     expect(bodySeverityIndex).toBeLessThan(bowelIndex);
     expect(aggravatingIndex).toBeLessThan(bowelIndex);
   });
+
+  it('flipping the gate from yes to no actually overwrites a previously-stored location instead of leaving it stale — found live against a real production account (yes+Neck, then no, then resumed still showed Neck) before this guard existed', () => {
+    const start = MORNING_FORM.indexOf('async function submitProbeAndFollowUpAnswers() {');
+    const end = MORNING_FORM.indexOf('\n  }', start);
+    const block = MORNING_FORM.slice(start, end);
+    // Must gate on whether the section was answered at all this
+    // session (hasDiscomfort !== null), not on whether the array is
+    // non-empty -- the latter would skip writing "no locations" and
+    // leave a stale prior answer in daily_checkin_probe_answers.
+    expect(block).toContain('if (hasDiscomfort !== null) {');
+    expect(block).not.toContain('if (painLocation.length > 0) {');
+  });
 });
 
 describe('(c) no conditional follow-up renders without its parent — the digestion ordering fix', () => {
