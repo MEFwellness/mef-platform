@@ -2,17 +2,25 @@
  * Member Experience — "What We're Noticing" (Prompt 6). Members never see
  * diagnostic language, internal questionnaire names, or severity/priority
  * jargon — this reshapes the same active, member-visible registry
- * findings and finding-based suggestions the coach's Root Cause Signals
- * panel uses into four plain, wellness-coaching-scope sections. Every
- * source finding was already gated member_visible=true and status='active'
- * by RLS/the adapter that wrote it (migration 40's own
- * member_read_own_registry_entries policy already filters this — this
- * module doesn't re-check visibility, it trusts what it's given, same as
- * every other member-facing reshape in this codebase).
+ * findings the coach's Root Cause Signals panel uses into plain,
+ * wellness-coaching-scope sections. Every source finding was already
+ * gated member_visible=true and status='active' by RLS/the adapter that
+ * wrote it (migration 40's own member_read_own_registry_entries policy
+ * already filters this — this module doesn't re-check visibility, it
+ * trusts what it's given, same as every other member-facing reshape in
+ * this codebase).
+ *
+ * There is no `nextSteps` field here on purpose. An earlier version
+ * mapped `FindingBasedSuggestion.reason` (findingRecommendations.ts) into
+ * a "Suggested Next Steps" list — but `reason` is only ever the WHY
+ * ("Based on stress and lifestyle balance noticed recently."), never a
+ * real action; no step/title/link was ever computed anywhere in that
+ * pipeline. The member-visible action is `recommendedInvestigation`
+ * (app/actions/memberNoticing.ts, sourced from the Root Router), which
+ * already carries a real display name and route.
  */
 
 import type { RegistryDomain, RegistryEntry } from '@mef/shared-types-contracts';
-import type { FindingBasedSuggestion } from '../assessment-registry/findingRecommendations';
 
 const EDUCATIONAL_NOTE_BY_DOMAIN: Partial<Record<RegistryDomain, string>> = {
   sleep:
@@ -32,16 +40,12 @@ export type MemberNoticingView = {
   noticing: string[];
   improving: string[];
   worthAttention: string[];
-  nextSteps: string[];
   educationalNotes: string[];
 };
 
 const ATTENTION_SEVERITIES = new Set(['moderate', 'significant']);
 
-export function buildMemberFacingNoticing(
-  memberVisibleFindings: RegistryEntry[],
-  suggestions: FindingBasedSuggestion[]
-): MemberNoticingView {
+export function buildMemberFacingNoticing(memberVisibleFindings: RegistryEntry[]): MemberNoticingView {
   const active = memberVisibleFindings.filter(
     (f) => f.status === 'active' && f.member_visible && f.severity && f.severity !== 'none'
   );
@@ -56,12 +60,10 @@ export function buildMemberFacingNoticing(
     .filter((f) => f.severity && ATTENTION_SEVERITIES.has(f.severity))
     .map((f) => f.label);
 
-  const nextSteps = suggestions.map((s) => s.reason);
-
   const touchedDomains = new Set(active.map((f) => f.domain));
   const educationalNotes = [...touchedDomains]
     .map((domain) => EDUCATIONAL_NOTE_BY_DOMAIN[domain])
     .filter((note): note is string => Boolean(note));
 
-  return { noticing, improving, worthAttention, nextSteps, educationalNotes };
+  return { noticing, improving, worthAttention, educationalNotes };
 }

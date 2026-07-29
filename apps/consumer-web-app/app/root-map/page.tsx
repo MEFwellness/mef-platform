@@ -94,7 +94,7 @@ export default async function RootMapPage() {
                 coverageByDomain={rootMap.coverageByDomain}
               />
               <p className="mt-3 text-center text-xs text-[#6B7A72]">
-                Tap a segment to jump to that dimension.
+                Tap a segment or a name in the key to jump to that dimension.
               </p>
             </section>
 

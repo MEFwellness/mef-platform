@@ -860,3 +860,17 @@
 .pb-safe-nav {
   padding-bottom: calc(7rem + env(safe-area-inset-bottom));
 }
+
+/* For content that can end directly under the floating "Ask Root" round
+   button (FloatingCoachLauncher.tsx) — its own footprint is
+   `bottom: calc(5rem + safe-area-inset-bottom)` plus a 3.5rem (h-14)
+   height, i.e. its top edge sits ~8.5rem above the viewport bottom on the
+   right side; `.pb-safe-nav`'s 7rem clears the bottom nav/Check-In button
+   but not this, since the chat button sits higher and only over the
+   right ~56px column. A 1rem gap on top of that so text doesn't just
+   graze the button's edge. Exceeds `.pb-safe-nav`'s own clearance, so a
+   page/sheet rendering both the launcher and BottomNav only needs this
+   one class. */
+.pb-safe-chat {
+  padding-bottom: calc(9rem + env(safe-area-inset-bottom));
+}

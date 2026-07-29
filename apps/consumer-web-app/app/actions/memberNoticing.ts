@@ -11,7 +11,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { listRegistryEntriesForMember } from '@/lib/registry/data';
-import { suggestAssessmentsFromFindings } from '@/lib/assessment-registry/findingRecommendations';
 import {
   buildMemberFacingNoticing,
   type MemberNoticingView,
@@ -33,9 +32,7 @@ export async function getMyNoticingView(): Promise<MemberNoticingViewWithRecomme
   if (!user) return null;
 
   const entries = await listRegistryEntriesForMember(supabase, user.id);
-  const activeFindings = entries.filter((e) => e.status === 'active' && e.entry_kind === 'finding');
-  const suggestions = suggestAssessmentsFromFindings(activeFindings);
-  const noticing = buildMemberFacingNoticing(entries, suggestions);
+  const noticing = buildMemberFacingNoticing(entries);
 
   const routerDecision = await decideNextAction(supabase, user.id);
 

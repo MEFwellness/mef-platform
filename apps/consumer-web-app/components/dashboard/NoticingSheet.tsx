@@ -2,21 +2,34 @@
 
 /**
  * Home dashboard redesign — "What Root Is Noticing" carousel. Shared
- * bottom-sheet shell for the two cards whose original content had no
- * dedicated destination page (What We're Noticing, From Root) — tapping
- * the card opens this instead of navigating, per the redesign's
- * requirement that every previously-inline action stay fully reachable.
- * Same bottom-sheet mechanics as ProfileSheet.tsx/FloatingCoachPanel's
- * wrapper (backdrop fade, translate-up entrance, safe-area padding,
- * Escape to close) so this reads as the same system, not a new one.
+ * bottom-sheet shell for cards whose content has no dedicated destination
+ * page (currently just "From Root") — tapping the card opens this instead
+ * of navigating, per the redesign's requirement that every previously-
+ * inline action stay fully reachable. Same bottom-sheet mechanics as
+ * ProfileSheet.tsx/FloatingCoachPanel's wrapper (backdrop fade,
+ * translate-up entrance, safe-area padding, Escape to close) so this
+ * reads as the same system, not a new one.
  *
- * Deliberately rendered as a sibling of its trigger (via NoticingTile),
- * never nested inside anything with backdrop-filter/filter/transform or
- * its own z-index — that exact combination previously clipped/misordered
- * the profile menu when it was nested inside the hero's scrim wrapper.
+ * Rendered via a portal into `document.body`, not as a sibling of its
+ * trigger — a previous version relied on being a plain DOM sibling
+ * ("never nested inside anything with transform/filter/its own z-index"),
+ * but its trigger (NoticingTile, inside the dashboard's "What Root Is
+ * Noticing" zone) is itself wrapped in RevealOnScroll.tsx, whose entrance
+ * animation sets `transform: translateY(...)` on that wrapper. A
+ * `transform` value other than `none` establishes a new stacking context
+ * per spec even at rest (`translate-y-0` is still a non-`none` transform)
+ * — so this sheet's own z-50 was only ever being compared against
+ * elements *inside* that wrapper, not page-wide. FloatingCoachLauncher's
+ * "Ask Root" button (z-40, but never inside a transformed ancestor) then
+ * painted and received taps on top of this sheet's content instead of
+ * under it — confirmed live: tapping where the sheet visually showed
+ * "Recommended For You" instead opened the Ask Root chat panel. A portal
+ * sidesteps the whole class of bug (this or any future transformed
+ * ancestor) by never being inside that subtree at all.
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
@@ -49,9 +62,9 @@ export function NoticingSheet({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <>
       <div
         className={`fixed inset-0 z-40 bg-[#1B3A2D]/20 backdrop-blur-[1px] transition-opacity duration-200 ${
@@ -85,8 +98,13 @@ export function NoticingSheet({
           </button>
         </div>
 
-        <div className="overflow-y-auto px-5 pb-5">{children}</div>
+        {/* pb-safe-chat, not pb-5: this sheet can coexist on-screen with
+            FloatingCoachLauncher's floating button (both live on the
+            Dashboard) — see the module doc for the stacking bug this
+            already caused once. */}
+        <div className="overflow-y-auto px-5 pb-safe-chat">{children}</div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

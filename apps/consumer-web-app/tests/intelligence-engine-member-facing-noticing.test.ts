@@ -35,57 +35,56 @@ function finding(overrides: Partial<RegistryEntry> = {}): RegistryEntry {
 
 describe('buildMemberFacingNoticing', () => {
   it('surfaces an active, member-visible finding under "noticing"', () => {
-    const result = buildMemberFacingNoticing([finding()], []);
+    const result = buildMemberFacingNoticing([finding()]);
     expect(result.noticing).toEqual(['Sleep quality has been poor recently.']);
   });
 
   it('excludes a coach-only (member_visible=false) finding entirely', () => {
-    const result = buildMemberFacingNoticing([finding({ member_visible: false })], []);
+    const result = buildMemberFacingNoticing([finding({ member_visible: false })]);
     expect(result.noticing).toHaveLength(0);
     expect(result.improving).toHaveLength(0);
   });
 
   it('surfaces an improving-trend finding under "improving"', () => {
-    const result = buildMemberFacingNoticing([finding({ trend_status: 'improving' })], []);
+    const result = buildMemberFacingNoticing([finding({ trend_status: 'improving' })]);
     expect(result.improving[0]).toContain('improving');
   });
 
   it('surfaces a resolved (severity: none) finding under "improving"', () => {
-    const result = buildMemberFacingNoticing([finding({ severity: 'none' })], []);
+    const result = buildMemberFacingNoticing([finding({ severity: 'none' })]);
     expect(result.improving).toHaveLength(1);
   });
 
   it('puts moderate/significant findings under "worthAttention"', () => {
-    const result = buildMemberFacingNoticing([finding({ severity: 'significant' })], []);
+    const result = buildMemberFacingNoticing([finding({ severity: 'significant' })]);
     expect(result.worthAttention).toEqual(['Poor Sleep Quality']);
   });
 
   it('does not put mild findings under "worthAttention"', () => {
-    const result = buildMemberFacingNoticing([finding({ severity: 'mild' })], []);
+    const result = buildMemberFacingNoticing([finding({ severity: 'mild' })]);
     expect(result.worthAttention).toHaveLength(0);
   });
 
-  it('carries suggestion reasons through as next steps', () => {
-    const result = buildMemberFacingNoticing(
-      [finding()],
-      [
-        {
-          assessmentKey: 'four-doctors',
-          reason: 'Based on sleep patterns noticed recently.',
-          supportingFindingCodes: ['poor_sleep_quality'],
-        },
-      ]
-    );
-    expect(result.nextSteps).toEqual(['Based on sleep patterns noticed recently.']);
+  // Guard for the "Suggested Next Steps" bug (confirmed live on
+  // app.mefwellness.com): the view used to carry a `nextSteps` field built
+  // from FindingBasedSuggestion.reason — only ever the WHY ("Based on
+  // stress and lifestyle balance noticed recently."), never an actual
+  // step, because no step/title/link was ever computed anywhere in that
+  // pipeline. There is no fix that "restores" a step that was never
+  // computed, so the field itself is gone — this pins that down instead
+  // of leaving a heading with only reasoning text under it.
+  it('has no nextSteps field at all — there was never a real step behind it', () => {
+    const result = buildMemberFacingNoticing([finding({ severity: 'significant' })]);
+    expect(result).not.toHaveProperty('nextSteps');
   });
 
   it('includes an educational note for a touched domain', () => {
-    const result = buildMemberFacingNoticing([finding()], []);
+    const result = buildMemberFacingNoticing([finding()]);
     expect(result.educationalNotes.length).toBeGreaterThan(0);
   });
 
   it('returns all-empty when there are no findings', () => {
-    const result = buildMemberFacingNoticing([], []);
+    const result = buildMemberFacingNoticing([]);
     expect(result.noticing).toHaveLength(0);
     expect(result.improving).toHaveLength(0);
     expect(result.worthAttention).toHaveLength(0);
