@@ -28,7 +28,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
     );
   }
 
-  const result = await resolveYourMoveVideoUrl(supabase, 'exercise_api_dev', params.id);
+  const result = await resolveYourMoveVideoUrl(supabase, params.id);
 
   switch (result.status) {
     case 'ok':

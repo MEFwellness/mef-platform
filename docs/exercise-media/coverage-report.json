@@ -1,10 +1,9 @@
 {
   "summary": {
-    "generatedAt": "2026-07-30T03:20:23.213Z",
-    "totalExercises": 2199,
-    "videoCount": 265,
-    "imageCount": 3,
-    "cuesCount": 1931,
+    "generatedAt": "2026-07-30T04:36:01.696Z",
+    "totalExercises": 857,
+    "videoCount": 856,
+    "cuesCount": 1,
     "uncoveredCount": 0,
     "guardTestAPasses": true
   },

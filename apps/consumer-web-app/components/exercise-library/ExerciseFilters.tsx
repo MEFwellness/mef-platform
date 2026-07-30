@@ -8,11 +8,6 @@ export type ExerciseFilterState = {
   bodyRegion: string;
   equipment: string;
   level: string;
-  force: string;
-  mechanic: string;
-  hasVideo: boolean;
-  imageOnly: boolean;
-  hideNoMedia: boolean;
 };
 
 export const EMPTY_EXERCISE_FILTERS: ExerciseFilterState = {
@@ -21,35 +16,14 @@ export const EMPTY_EXERCISE_FILTERS: ExerciseFilterState = {
   bodyRegion: '',
   equipment: '',
   level: '',
-  force: '',
-  mechanic: '',
-  hasVideo: false,
-  imageOnly: false,
-  hideNoMedia: false,
 };
 
 /** Number of filters a member has actually set — drives the active-filter count badge. Search text is intentionally excluded; this counts refinements, not the query itself. */
 export function countActiveFilters(filters: ExerciseFilterState): number {
-  return Object.values(filters).filter((v) => v !== '' && v !== false).length;
+  return Object.values(filters).filter((v) => v !== '').length;
 }
 
-const CATEGORY_OPTIONS = [
-  'strength',
-  'yoga',
-  'mobility',
-  'physical_therapy',
-  'stretching',
-  'pilates',
-  'calisthenics',
-  'plyometrics',
-  'conditioning',
-  'olympic_weightlifting',
-  'powerlifting',
-  'strongman',
-];
 const LEVEL_OPTIONS = ['beginner', 'intermediate', 'advanced'];
-const FORCE_OPTIONS = ['push', 'pull', 'static'];
-const MECHANIC_OPTIONS = ['compound', 'isolation'];
 
 function FilterSelect({
   label,
@@ -81,39 +55,16 @@ function FilterSelect({
   );
 }
 
-function MediaToggle({
-  label,
-  active,
-  onToggle,
-}: {
-  label: string;
-  active: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={active}
-      className={`mef-focus-ring min-h-10 rounded-full border px-3.5 py-2 text-xs font-medium transition ${
-        active
-          ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
-          : 'border-[#1B3A2D]/15 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/40'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
 export function ExerciseFilters({
   filters,
   onChange,
+  categoryOptions,
   muscleOptions,
   equipmentOptions,
 }: {
   filters: ExerciseFilterState;
   onChange: (next: ExerciseFilterState) => void;
+  categoryOptions: string[];
   muscleOptions: string[];
   equipmentOptions: string[];
 }) {
@@ -124,45 +75,27 @@ export function ExerciseFilters({
   return (
     <div className="rounded-[20px] bg-white/70 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <MediaToggle
-          label="Video Only"
-          active={filters.hasVideo}
-          onToggle={() => onChange({ ...filters, hasVideo: !filters.hasVideo })}
-        />
-        <MediaToggle
-          label="Image Only"
-          active={filters.imageOnly}
-          onToggle={() => onChange({ ...filters, imageOnly: !filters.imageOnly })}
-        />
-        <MediaToggle
-          label="Hide No Media"
-          active={filters.hideNoMedia}
-          onToggle={() => onChange({ ...filters, hideNoMedia: !filters.hideNoMedia })}
-        />
-
-        <div className="ml-auto flex items-center gap-2">
-          {activeCount > 0 && (
-            <span className="rounded-full bg-[#F5B700]/20 px-2.5 py-1 text-xs font-semibold text-[#1B3A2D]">
-              {activeCount} active
-            </span>
-          )}
-          {activeCount > 0 && (
-            <button
-              type="button"
-              onClick={() => onChange(EMPTY_EXERCISE_FILTERS)}
-              className="mef-focus-ring rounded-full px-2.5 py-1 text-xs font-semibold text-[#6B7A72] underline-offset-2 transition hover:text-[#1B3A2D] hover:underline"
-            >
-              Clear All
-            </button>
-          )}
-        </div>
+        {activeCount > 0 && (
+          <span className="rounded-full bg-[#F5B700]/20 px-2.5 py-1 text-xs font-semibold text-[#1B3A2D]">
+            {activeCount} active
+          </span>
+        )}
+        {activeCount > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange(EMPTY_EXERCISE_FILTERS)}
+            className="mef-focus-ring rounded-full px-2.5 py-1 text-xs font-semibold text-[#6B7A72] underline-offset-2 transition hover:text-[#1B3A2D] hover:underline"
+          >
+            Clear All
+          </button>
+        )}
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         <FilterSelect
           label="Category"
           value={filters.category}
-          options={toOptions(CATEGORY_OPTIONS)}
+          options={toOptions(categoryOptions)}
           onChange={(v) => onChange({ ...filters, category: v })}
         />
         <FilterSelect
@@ -188,18 +121,6 @@ export function ExerciseFilters({
           value={filters.level}
           options={toOptions(LEVEL_OPTIONS)}
           onChange={(v) => onChange({ ...filters, level: v })}
-        />
-        <FilterSelect
-          label="Force"
-          value={filters.force}
-          options={toOptions(FORCE_OPTIONS)}
-          onChange={(v) => onChange({ ...filters, force: v })}
-        />
-        <FilterSelect
-          label="Mechanic"
-          value={filters.mechanic}
-          options={toOptions(MECHANIC_OPTIONS)}
-          onChange={(v) => onChange({ ...filters, mechanic: v })}
         />
       </div>
     </div>

@@ -1,22 +1,22 @@
 /**
  * Data access for exercise_extracted_posters (migration 118) — mid-movement
- * frames extracted from a video (either source) and stored in the
- * `exercise-media` public Supabase Storage bucket. Pure functions taking a
- * SupabaseClient, same shape as every other exercise-library data.ts file.
+ * frames extracted from a Your Move video and stored in the
+ * `exercise-media` public Supabase Storage bucket. Every row is Your
+ * Move-sourced now that Your Move is the sole catalog (migration 119) —
+ * this whole table is the poster half of the Your Move purge manifest
+ * (see removeYourMoveExtractedPosters below); the mapping half lives
+ * directly on exercise_catalog (its video_url/video_url_expires_at cache
+ * — see catalog.ts).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import type { ExerciseExtractedPoster, ExerciseLibraryProvider, ExerciseVideoSource } from '@mef/shared-types-contracts';
+import type { ExerciseExtractedPoster } from '@mef/shared-types-contracts';
 
 export const EXERCISE_MEDIA_BUCKET = 'exercise-media';
 
-export function posterStoragePath(source: ExerciseVideoSource, externalId: string): string {
-  return `posters/${source}/${externalId}.jpg`;
-}
-
-export function licenseImageStoragePath(externalId: string): string {
-  return `open-license/${externalId}.jpg`;
+export function posterStoragePath(externalId: string): string {
+  return `posters/your_move/${externalId}.jpg`;
 }
 
 /**
@@ -24,8 +24,7 @@ export function licenseImageStoragePath(externalId: string): string {
  * trip and no Supabase client required (Supabase's own getPublicUrl is
  * pure string construction, never a network call, so this stays a pure
  * function usable from normalize.ts without threading a client through
- * it). Same rendering path ExerciseAPI.dev's own CDN image URLs already
- * use — a plain <img src>.
+ * it).
  */
 export function toPublicMediaUrl(storagePath: string): string {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ?? '';
@@ -34,16 +33,11 @@ export function toPublicMediaUrl(storagePath: string): string {
 
 export async function getExtractedPosterMap(
   supabase: SupabaseClient,
-  provider: ExerciseLibraryProvider,
   externalIds: string[]
 ): Promise<Map<string, ExerciseExtractedPoster>> {
   if (externalIds.length === 0) return new Map();
 
-  const { data, error } = await supabase
-    .from('exercise_extracted_posters')
-    .select('*')
-    .eq('provider', provider)
-    .in('external_id', externalIds);
+  const { data, error } = await supabase.from('exercise_extracted_posters').select('*').in('external_id', externalIds);
   if (error) {
     console.error('getExtractedPosterMap failed', error);
     return new Map();
@@ -55,13 +49,11 @@ export async function getExtractedPosterMap(
 
 export async function getExtractedPoster(
   supabase: SupabaseClient,
-  provider: ExerciseLibraryProvider,
   externalId: string
 ): Promise<ExerciseExtractedPoster | null> {
   const { data, error } = await supabase
     .from('exercise_extracted_posters')
     .select('*')
-    .eq('provider', provider)
     .eq('external_id', externalId)
     .maybeSingle();
   if (error) {
@@ -74,19 +66,14 @@ export async function getExtractedPoster(
 /** Written by the Phase 2 frame-extraction script (service-role client) — never by request-time application code. */
 export async function upsertExtractedPoster(
   supabase: SupabaseClient,
-  input: {
-    provider: ExerciseLibraryProvider;
-    externalId: string;
-    source: ExerciseVideoSource;
-    storagePath: string;
-  }
+  input: { externalId: string; storagePath: string }
 ): Promise<boolean> {
   const { error } = await supabase.from('exercise_extracted_posters').upsert(
     {
       id: randomUUID(),
-      provider: input.provider,
+      provider: 'your_move',
       external_id: input.externalId,
-      source: input.source,
+      source: 'your_move',
       storage_path: input.storagePath,
     },
     { onConflict: 'provider,external_id' }
@@ -98,14 +85,11 @@ export async function upsertExtractedPoster(
   return true;
 }
 
-/** The your_move half of the purge manifest's poster assets — every storage path here, plus the your_move_exercise_links rows (see links.ts), is everything a Your Move cancellation must remove. */
+/** Every row is a Your Move-derived poster asset — this is the whole purge manifest's poster half, callable by scripts/exercise-media/purge-your-move-media.ts if the subscription ever lapses. Returns storage paths so the caller can also delete the underlying storage objects. */
 export async function removeYourMoveExtractedPosters(
   supabase: SupabaseClient
 ): Promise<{ removed: number; storagePaths: string[] }> {
-  const { data, error } = await supabase
-    .from('exercise_extracted_posters')
-    .select('id, storage_path')
-    .eq('source', 'your_move');
+  const { data, error } = await supabase.from('exercise_extracted_posters').select('id, storage_path');
   if (error) {
     console.error('removeYourMoveExtractedPosters: list failed', error);
     return { removed: 0, storagePaths: [] };

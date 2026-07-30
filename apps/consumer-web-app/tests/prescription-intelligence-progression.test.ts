@@ -25,6 +25,7 @@ function completion(overrides: Partial<MemberExerciseCompletion> = {}): MemberEx
     provider: 'exercise_api_dev',
     external_id: 'ex-1',
     exercise_name: 'Bird Dog',
+    is_legacy: false,
     status: 'completed',
     duration_seconds: null,
     completion_source: 'coach_assigned',

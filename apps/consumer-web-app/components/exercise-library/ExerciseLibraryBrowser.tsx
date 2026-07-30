@@ -69,11 +69,6 @@ function buildSearchParams(
   if (filters.bodyRegion) params.set('bodyRegion', filters.bodyRegion);
   if (filters.equipment) params.set('equipment', filters.equipment);
   if (filters.level) params.set('level', filters.level);
-  if (filters.force) params.set('force', filters.force);
-  if (filters.mechanic) params.set('mechanic', filters.mechanic);
-  if (filters.hasVideo) params.set('hasVideo', 'true');
-  if (filters.imageOnly) params.set('imageOnly', 'true');
-  if (filters.hideNoMedia) params.set('hideNoMedia', 'true');
   params.set('limit', String(PAGE_SIZE));
   params.set('offset', String(offset));
   return params;
@@ -82,6 +77,7 @@ function buildSearchParams(
 export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: string }) {
   const [query, setQuery] = useState(initialQuery);
   const [filters, setFilters] = useState<ExerciseFilterState>(EMPTY_EXERCISE_FILTERS);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [muscleOptions, setMuscleOptions] = useState<string[]>([]);
   const [equipmentOptions, setEquipmentOptions] = useState<string[]>([]);
 
@@ -103,6 +99,9 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
   }, []);
 
   useEffect(() => {
+    fetchJson('/api/exercises?resource=categories')
+      .then(({ ok, body }) => ok && setCategoryOptions(extractNameList(body)))
+      .catch(() => undefined);
     fetchJson('/api/exercises?resource=muscles')
       .then(({ ok, body }) => ok && setMuscleOptions(extractNameList(body)))
       .catch(() => undefined);
@@ -113,8 +112,7 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
 
   const searchParamsKey = useMemo(() => JSON.stringify({ query, filters }), [query, filters]);
 
-  const hasAnyCriteria =
-    Boolean(query.trim()) || Object.values(filters).some((v) => v !== '' && v !== false);
+  const hasAnyCriteria = Boolean(query.trim()) || Object.values(filters).some((v) => v !== '');
 
   useEffect(() => {
     const requestId = ++requestIdRef.current;
@@ -289,6 +287,7 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
         <ExerciseFilters
           filters={filters}
           onChange={setFilters}
+          categoryOptions={categoryOptions}
           muscleOptions={muscleOptions}
           equipmentOptions={equipmentOptions}
         />

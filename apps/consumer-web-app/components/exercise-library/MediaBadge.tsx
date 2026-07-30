@@ -1,4 +1,4 @@
-import { PlayCircle, ImageIcon, NotebookText, Dumbbell } from 'lucide-react';
+import { PlayCircle, NotebookText, Dumbbell } from 'lucide-react';
 import { getExerciseMediaTier, type ExerciseMediaTier } from '@/lib/exercise-library/ranking';
 
 const BADGE_COPY: Record<
@@ -9,11 +9,6 @@ const BADGE_COPY: Record<
     label: 'Video',
     Icon: PlayCircle,
     className: 'bg-[#1B3A2D] text-white',
-  },
-  image: {
-    label: 'Image',
-    Icon: ImageIcon,
-    className: 'bg-white text-[#1B3A2D]',
   },
   cues: {
     label: 'Cues',
@@ -32,7 +27,7 @@ export function MediaBadge({
   exercise,
   className = '',
 }: {
-  exercise: { hasVideo: boolean; imageUrl: string | null; cues: string[] };
+  exercise: { hasVideo: boolean; cues: string[] };
   className?: string;
 }) {
   const tier = getExerciseMediaTier(exercise);
@@ -49,25 +44,18 @@ export function MediaBadge({
 }
 
 /**
- * The card-surface fallback for an exercise with neither video nor image —
- * renders its coaching cues right where media would appear (Phase 4),
- * never a "No preview available" dumbbell icon. `cues` is expected to be
- * non-empty by the time this renders (the media backfill's whole premise
- * is that every exercise has video, image, or cues) — the empty-cues
- * branch below is a defensive last resort, not a state the real catalog
- * should ever reach.
+ * The card-surface fallback for an exercise with no video — renders its
+ * coaching cues right where media would appear. Every exercise_catalog
+ * row gets a generated cue row (see scripts/exercise-media/
+ * generate-your-move-cues.ts, run over the whole Your Move catalog), so
+ * `cues` is expected to be non-empty by the time this renders; the
+ * empty-cues branch below is a plain, unlabeled background — never the
+ * old dumbbell "No preview available" placeholder — since that state
+ * should not occur against the real catalog.
  */
 export function CuesPlaceholder({ cues, compact = false }: { cues: string[]; compact?: boolean }) {
   if (cues.length === 0) {
-    return (
-      <div
-        className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#EFF6F1] to-[#E4EEE7] text-[#6B7A72]"
-        aria-hidden="true"
-      >
-        <Dumbbell className={compact ? 'h-6 w-6' : 'h-10 w-10'} strokeWidth={1.25} />
-        {!compact && <p className="text-xs font-medium">No preview available</p>}
-      </div>
-    );
+    return <div className="h-full w-full bg-gradient-to-br from-[#EFF6F1] to-[#E4EEE7]" aria-hidden="true" />;
   }
 
   return (

@@ -1,10 +1,11 @@
 /**
- * Exercise Library — shared types for the tables added in
- * supabase/migrations/00000000000080_exercise_library.sql:
- * mef_exercise_metadata, member_exercise_favorites, movement_programs, and
- * movement_program_versions. Same convention as movement.types.ts /
+ * Exercise Library — shared types. Your Move (exercise-api.ymove.app) is
+ * the sole exercise catalog (supabase/migrations/00000000000119_your_move_
+ * sole_catalog.sql) — exercise_catalog, mef_exercise_metadata,
+ * member_exercise_favorites, movement_programs, and movement_program_versions
+ * (originally added in migration 80). Same convention as movement.types.ts /
  * food-lens-ecosystem.types.ts: hand-authored, row/type contracts only —
- * logic lives in apps/consumer-web-app/lib/exercise-library/.
+ * logic lives in apps/consumer-web-app/lib/exercise-library/ and lib/your-move/.
  *
  * MefExerciseMetadata.program_section reuses MovementSessionSection
  * (movement.types.ts) rather than defining its own taxonomy — see that
@@ -14,16 +15,64 @@
 
 import type { MovementSessionSection } from './movement.types';
 
-/** Which content source an exercise or a piece of MEF metadata came from — the field that keeps the library swappable, same role as MovementExerciseSource (movement.types.ts). */
-export type ExerciseLibraryProvider = 'exercise_api_dev';
+/**
+ * Which content source an exercise or a piece of MEF metadata came from.
+ * 'your_move' is the only value ever written for a new row — 'exercise_api_dev'
+ * survives solely as a legacy marker on pre-existing member data (assigned
+ * workouts, favorites, completion/view history, coach program and
+ * prescription rows) whose exercise no longer resolves in the live catalog;
+ * see is_legacy on those row types below. Nothing in this codebase ever
+ * calls out to ExerciseAPI.dev again.
+ */
+export type ExerciseLibraryProvider = 'your_move' | 'exercise_api_dev';
 
 export type MefExerciseDifficulty = 'beginner' | 'intermediate' | 'advanced';
 
 /**
- * The MEF metadata layer that sits on top of an exercise content provider.
- * Every field is optional/empty by default — a row only exists for
- * exercises MEF has actually curated; an exercise with no row still works
- * in the library, just without MEF's own tagging layered on top.
+ * A row in exercise_catalog (migration 119) — the sole Exercise Library
+ * catalog, populated from Your Move's browse endpoint (quota-free) by
+ * scripts/exercise-media/fetch-your-move-catalog.ts. video_url/
+ * video_url_expires_at are a short-lived (~10min) fetch-at-play-time
+ * cache, never long-term storage of Your Move's 48h pre-signed URL — a
+ * null or expired value means "fetch fresh from Your Move," the normal,
+ * expected state.
+ */
+export interface ExerciseCatalogRow {
+  id: string;
+  provider: 'your_move';
+  external_id: string;
+
+  name: string;
+  slug: string | null;
+  description: string | null;
+  instructions: string[];
+  exercise_tips: string[];
+
+  primary_muscle: string | null;
+  secondary_muscles: string[];
+  equipment: string | null;
+  category: string | null;
+  difficulty: MefExerciseDifficulty | null;
+  exercise_type: string[];
+
+  has_video: boolean;
+  has_video_white: boolean;
+  has_video_gym: boolean;
+
+  video_url: string | null;
+  video_url_expires_at: string | null;
+
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * The MEF metadata layer that sits on top of the exercise_catalog. Every
+ * field is optional/empty by default — a row only exists for exercises MEF
+ * has actually curated, or for which coaching_cues have been generated
+ * (Phase 4, see cueGeneration.ts) as a video-fallback layer; an exercise
+ * with no row still works in the library, just without MEF's own tagging
+ * layered on top.
  */
 export interface MefExerciseMetadata {
   id: string;
@@ -62,52 +111,19 @@ export interface MemberExerciseFavorite {
   member_id: string;
   provider: ExerciseLibraryProvider;
   external_id: string;
+  /** True when this favorite has no confident Your Move match — the exercise no longer resolves in exercise_catalog, so legacy_exercise_name is the only remaining display source. */
+  is_legacy: boolean;
+  legacy_exercise_name: string | null;
   created_at: string;
 }
 
-/** Which media source is actually behind an exercise's video, if any — drives whether playback fetches a fresh URL from Your Move at tap time or uses ExerciseAPI.dev's own (non-expiring) URL directly. */
-export type ExerciseVideoSource = 'your_move' | 'exercise_api_dev';
-
-/**
- * A row in your_move_exercise_links (migration 118) — the our-id -> Your
- * Move-id mapping. video_url/video_url_expires_at are a short-lived
- * fetch-at-play-time cache, never long-term storage of the vendor's
- * pre-signed URL (see Your Move's 48h expiry terms) — a null or expired
- * value means "fetch fresh from Your Move," the normal, expected state.
- */
-export interface YourMoveExerciseLink {
-  id: string;
-  provider: ExerciseLibraryProvider;
-  external_id: string;
-  your_move_exercise_id: string;
-  match_confidence: 'confident';
-  match_reasoning: string | null;
-  video_url: string | null;
-  video_url_expires_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/** A row in exercise_extracted_posters (migration 118) — a mid-movement frame extracted from either source's video and stored in our own Supabase storage. Only source='your_move' rows belong in the purge manifest. */
+/** A row in exercise_extracted_posters (migration 118) — a mid-movement frame extracted from a Your Move video and stored in our own Supabase storage. Tracked here so it can be purged if the Your Move subscription ever lapses. */
 export interface ExerciseExtractedPoster {
   id: string;
-  provider: ExerciseLibraryProvider;
+  provider: 'your_move';
   external_id: string;
-  source: ExerciseVideoSource;
+  source: 'your_move';
   storage_path: string;
-  created_at: string;
-}
-
-/** A row in exercise_open_license_images (migration 118) — also the license manifest: every open-license image this app stores must have a provable commercial-use license recorded here. */
-export interface ExerciseOpenLicenseImage {
-  id: string;
-  provider: ExerciseLibraryProvider;
-  external_id: string;
-  storage_path: string;
-  source_url: string;
-  source_provider: 'wikimedia_commons' | 'pexels' | 'unsplash' | 'other_open_license';
-  license_type: string;
-  attribution: string | null;
   created_at: string;
 }
 
@@ -135,47 +151,32 @@ export interface MovementProgramVersion {
 
 /**
  * The hydrated shape the Exercise Library UI actually renders — one
- * provider exercise, optionally joined with its MEF metadata row and the
- * signed-in member's favorite state. Nothing here assumes a specific
- * provider's wire shape beyond the normalized fields every provider must
- * supply; see apps/consumer-web-app/lib/exercise-library/normalize.ts.
+ * exercise_catalog row, optionally joined with its MEF metadata row and
+ * the signed-in member's favorite state.
  *
  * Media fields, in the order a card/detail view checks them:
- *   1. hasVideo/videoSource — true means tap-to-play is available.
- *      videoUrl itself is NEVER eagerly populated for a your_move source
- *      (fetched fresh at play time, per Your Move's 48h URL-expiry terms);
- *      it IS eagerly populated for exercise_api_dev (that vendor's URLs
- *      don't expire). posterUrl is the cover image shown behind the play
- *      button either way — an extracted mid-movement frame we store
- *      ourselves, never the vendor's own thumbnail/still.
- *   2. imageUrl — a Phase 3 open-license image, only set when there is no
- *      video from either source.
- *   3. cues — Phase 4 short coaching cues, only set when there is neither
- *      video nor image. An exercise with none of the three is the one
- *      state that must never occur once the media backfill is complete.
+ *   1. hasVideo — true means tap-to-play is available. videoUrl is NEVER
+ *      eagerly populated (fetched fresh at play time, per Your Move's 48h
+ *      URL-expiry terms). posterUrl is the cover image shown behind the
+ *      play button — an extracted mid-movement frame we store ourselves.
+ *   2. cues — short coaching cues generated from Your Move's own
+ *      instructions, shown whenever there is no video, AND as the graceful
+ *      fallback if a video tap-to-play fetch fails (e.g. the trial API key
+ *      not covering every exercise) — never a broken player.
  */
 export interface ExerciseLibraryExercise {
-  provider: ExerciseLibraryProvider;
+  provider: 'your_move';
   externalId: string;
   name: string;
   category: string | null;
   level: MefExerciseDifficulty | null;
-  mechanic: 'compound' | 'isolation' | null;
-  force: 'push' | 'pull' | 'static' | null;
   equipment: string | null;
-  primaryMuscles: string[];
+  primaryMuscle: string | null;
   secondaryMuscles: string[];
   instructions: string[];
   exerciseTips: string[];
-  commonMistakes: string[];
-  safetyInfo: string | null;
-  overview: string | null;
-  variations: string[];
-  videoUrl: string | null;
   hasVideo: boolean;
-  videoSource: ExerciseVideoSource | null;
   posterUrl: string | null;
-  imageUrl: string | null;
   cues: string[];
   metadata: MefExerciseMetadata | null;
   isFavorited: boolean;

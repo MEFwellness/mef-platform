@@ -1,0 +1,30 @@
+{
+  "migratedAt": "2026-07-30T00:00:00.000Z",
+  "note": "Real production migration result (migration 00000000000120_your_move_catalog_data.sql), confirmed via direct read-only query after applying. member_exercise_favorites, member_exercise_completions, coach_program_template_exercises, coach_assigned_workout_exercises, and prescription_block_exercises were all empty (0 rows) in production before this migration ran — nothing to remap there.",
+  "totals": {
+    "remapped": 1,
+    "legacyFlagged": 7,
+    "deleted": 1775,
+    "mergedIntoExistingYourMoveRow": 156
+  },
+  "byTable": {
+    "mef_exercise_metadata": {
+      "startingLegacyRows": 1931,
+      "confidentMatches": 156,
+      "mergedIntoExistingYourMoveRow": 156,
+      "deletedAsPureCueArtifacts": 1775,
+      "endingState": "857 rows, all provider='your_move'; 0 remaining provider='exercise_api_dev'"
+    },
+    "member_exercise_recent_views": {
+      "startingLegacyRows": 8,
+      "remapped": 1,
+      "legacyFlagged": 7,
+      "endingState": "1 row provider='your_move' is_legacy=false; 7 rows provider='exercise_api_dev' is_legacy=true, exercise_name preserved verbatim"
+    },
+    "member_exercise_favorites": { "startingLegacyRows": 0 },
+    "member_exercise_completions": { "startingLegacyRows": 0 },
+    "coach_program_template_exercises": { "startingLegacyRows": 0 },
+    "coach_assigned_workout_exercises": { "startingLegacyRows": 0 },
+    "prescription_block_exercises": { "startingLegacyRows": 0 }
+  }
+}

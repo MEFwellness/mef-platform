@@ -1,10 +1,8 @@
 /**
- * Exercise detail — fetched server-side directly through apiClient.ts
- * (no client-side round trip through app/api/exercises needed for a page
- * load), merged with MEF metadata and the member's favorite state before
- * render. Every failure mode (API unavailable, not found, rate limited,
- * network error) renders an inline state instead of throwing — a bad
- * exercise id or a momentary vendor outage should never crash this page.
+ * Exercise detail — read entirely from our own database (exercise_catalog
+ * + mef_exercise_metadata), never a live vendor call, merged with the
+ * member's favorite state before render. A missing exercise id renders an
+ * inline "not found" state instead of throwing.
  */
 
 import { redirect } from 'next/navigation';
@@ -13,23 +11,15 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { ExerciseDetailView } from '@/components/exercise-library/ExerciseDetailView';
-import {
-  ErrorBanner,
-  type ExerciseApiErrorShape,
-} from '@/components/exercise-library/StateBanners';
-import { buildExerciseApiClientFromEnv, ExerciseApiError } from '@/lib/exercise-library/apiClient';
+import { ErrorBanner, type ExerciseApiErrorShape } from '@/components/exercise-library/StateBanners';
+import { getExerciseByExternalId } from '@/lib/your-move/catalog';
 import { getExerciseMetadata } from '@/lib/exercise-library/metadata';
 import { isExerciseFavorited } from '@/lib/exercise-library/favorites';
-import { normalizeExerciseApiExercise } from '@/lib/exercise-library/normalize';
-import {
-  recordExerciseView,
-  listMyRecentlyViewedExercises,
-} from '@/lib/exercise-library/recentViews';
+import { normalizeExerciseCatalogRow } from '@/lib/exercise-library/normalize';
+import { recordExerciseView, listMyRecentlyViewedExercises } from '@/lib/exercise-library/recentViews';
 import { listExerciseCompletionHistory } from '@/lib/exercise-library/completions';
 import { getRelatedExercises } from '@/lib/exercise-library/related';
-import { getYourMoveLink } from '@/lib/your-move/links';
 import { getExtractedPoster } from '@/lib/your-move/posters';
-import { getOpenLicenseImage } from '@/lib/exercise-library/openLicenseImages';
 
 export default async function ExerciseDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -43,56 +33,32 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
   let error: ExerciseApiErrorShape | null = null;
   let content: React.ReactNode = null;
 
-  const client = buildExerciseApiClientFromEnv();
-  if (!client) {
-    error = {
-      code: 'NOT_CONFIGURED',
-      message: 'The Exercise Library is temporarily unavailable.',
-      retryAfterSeconds: null,
-    };
-  } else {
-    try {
-      // listMyRecentlyViewedExercises has no dependency on the exercise
-      // being fetched, so it runs in the same round as the vendor call
-      // instead of waiting behind it — only getRelatedExercises has a real
-      // dependency (this exercise's own muscle/category) and stays
-      // sequenced after.
-      const [
-        rawExercise,
-        metadata,
-        isFavorited,
-        history,
-        recentlyViewedRaw,
-        yourMoveLink,
-        extractedPoster,
-        openLicenseImage,
-      ] = await Promise.all([
-        client.getExercise(params.id),
-        getExerciseMetadata(supabase, 'exercise_api_dev', params.id),
-        isExerciseFavorited(supabase, user.id, 'exercise_api_dev', params.id),
-        listExerciseCompletionHistory(supabase, user.id, 'exercise_api_dev', params.id),
-        listMyRecentlyViewedExercises(supabase, user.id, 6),
-        getYourMoveLink(supabase, 'exercise_api_dev', params.id),
-        getExtractedPoster(supabase, 'exercise_api_dev', params.id),
-        getOpenLicenseImage(supabase, 'exercise_api_dev', params.id),
-      ]);
-      const exercise = normalizeExerciseApiExercise(
-        rawExercise,
-        metadata,
-        isFavorited,
-        yourMoveLink,
-        extractedPoster,
-        openLicenseImage?.storage_path ?? null
-      );
+  try {
+    // listMyRecentlyViewedExercises has no dependency on the exercise
+    // being fetched, so it runs in the same round as the catalog lookup
+    // instead of waiting behind it — only getRelatedExercises has a real
+    // dependency (this exercise's own muscle/category) and stays
+    // sequenced after.
+    const [rawExercise, metadata, isFavorited, history, recentlyViewedRaw, extractedPoster] = await Promise.all([
+      getExerciseByExternalId(supabase, params.id),
+      getExerciseMetadata(supabase, 'your_move', params.id),
+      isExerciseFavorited(supabase, user.id, 'your_move', params.id),
+      listExerciseCompletionHistory(supabase, user.id, 'your_move', params.id),
+      listMyRecentlyViewedExercises(supabase, user.id, 6),
+      getExtractedPoster(supabase, params.id),
+    ]);
 
-      const relatedExercises = await getRelatedExercises(client, supabase, user.id, {
+    if (!rawExercise) {
+      error = { code: 'NOT_FOUND', message: 'Exercise not found', retryAfterSeconds: null };
+    } else {
+      const exercise = normalizeExerciseCatalogRow(rawExercise, metadata, isFavorited, extractedPoster);
+
+      const relatedExercises = await getRelatedExercises(supabase, user.id, {
         externalId: exercise.externalId,
-        primaryMuscle: exercise.primaryMuscles[0] ?? null,
+        primaryMuscle: exercise.primaryMuscle,
         category: exercise.category,
       });
-      const recentlyViewed = recentlyViewedRaw.filter(
-        (view) => view.external_id !== exercise.externalId
-      );
+      const recentlyViewed = recentlyViewedRaw.filter((view) => view.external_id !== exercise.externalId);
 
       content = (
         <ExerciseDetailView
@@ -104,27 +70,14 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
       );
 
       // Best-effort — "recently viewed" is a nice-to-have, never worth
-      // failing the page load over (same discipline as every other
-      // recompute-and-record side effect in this codebase).
-      recordExerciseView(supabase, user.id, 'exercise_api_dev', params.id, exercise.name).catch(
-        (viewErr) => console.error('[exercise-library] recordExerciseView failed', viewErr)
+      // failing the page load over.
+      recordExerciseView(supabase, user.id, 'your_move', params.id, exercise.name).catch((viewErr) =>
+        console.error('[exercise-library] recordExerciseView failed', viewErr)
       );
-    } catch (err) {
-      if (err instanceof ExerciseApiError) {
-        error = {
-          code: err.code,
-          message: err.message,
-          retryAfterSeconds: err.retryAfterSeconds ?? null,
-        };
-      } else {
-        console.error('[exercise-library] detail page failed', err);
-        error = {
-          code: 'INTERNAL_ERROR',
-          message: 'Something went wrong loading this exercise.',
-          retryAfterSeconds: null,
-        };
-      }
     }
+  } catch (err) {
+    console.error('[exercise-library] detail page failed', err);
+    error = { code: 'INTERNAL_ERROR', message: 'Something went wrong loading this exercise.', retryAfterSeconds: null };
   }
 
   return (

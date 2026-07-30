@@ -1,30 +1,25 @@
 /**
  * Proves the Your Move cancellation-compliance purge is real, not
- * vacuous: seeds a your_move_exercise_links row, a source='your_move'
- * extracted poster (+ its actual storage object), AND a source=
- * 'exercise_api_dev' extracted poster (+ its object) that must survive.
- * Runs the real purge script's exported function against the real local
- * Supabase instance — no mocks — then asserts the your_move-derived rows
- * and storage object are gone and the exercise_api_dev one is untouched.
+ * vacuous: seeds a real exercise_catalog row with a cached video_url, an
+ * extracted poster row (+ its actual storage object). Runs the real purge
+ * script's exported function against the real local Supabase instance —
+ * no mocks — then asserts the poster row/object are gone and the cached
+ * video URL is cleared, while the catalog row's own metadata (name,
+ * instructions, etc. — our own data, not Your Move's proprietary media)
+ * survives untouched.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { serviceRoleClient } from './setup/test-clients';
-import { upsertYourMoveLink, getYourMoveLink } from '../lib/your-move/links';
 import { upsertExtractedPoster, getExtractedPoster, EXERCISE_MEDIA_BUCKET } from '../lib/your-move/posters';
 import { purgeYourMoveMedia } from '../scripts/exercise-media/purge-your-move-media';
 
-const TEST_EXTERNAL_ID_YOUR_MOVE = `test-purge-ym-${Date.now()}`;
-const TEST_EXTERNAL_ID_API_DEV = `test-purge-api-${Date.now()}`;
-const YOUR_MOVE_POSTER_PATH = `posters/your_move/${TEST_EXTERNAL_ID_YOUR_MOVE}.jpg`;
-const API_DEV_POSTER_PATH = `posters/exercise_api_dev/${TEST_EXTERNAL_ID_API_DEV}.jpg`;
+const TEST_EXTERNAL_ID = `test-purge-${Date.now()}`;
+const POSTER_PATH = `posters/your_move/${TEST_EXTERNAL_ID}.jpg`;
 
 async function cleanup(supabase: ReturnType<typeof serviceRoleClient>) {
-  await supabase.from('your_move_exercise_links').delete().eq('external_id', TEST_EXTERNAL_ID_YOUR_MOVE);
-  await supabase
-    .from('exercise_extracted_posters')
-    .delete()
-    .in('external_id', [TEST_EXTERNAL_ID_YOUR_MOVE, TEST_EXTERNAL_ID_API_DEV]);
-  await supabase.storage.from(EXERCISE_MEDIA_BUCKET).remove([YOUR_MOVE_POSTER_PATH, API_DEV_POSTER_PATH]);
+  await supabase.from('exercise_extracted_posters').delete().eq('external_id', TEST_EXTERNAL_ID);
+  await supabase.from('exercise_catalog').delete().eq('external_id', TEST_EXTERNAL_ID);
+  await supabase.storage.from(EXERCISE_MEDIA_BUCKET).remove([POSTER_PATH]);
 }
 
 describe('purgeYourMoveMedia', () => {
@@ -32,65 +27,54 @@ describe('purgeYourMoveMedia', () => {
     await cleanup(serviceRoleClient());
   });
 
-  it('removes every your_move-derived row and storage object, and leaves exercise_api_dev-derived ones untouched', async () => {
+  it('removes every extracted poster row + storage object and clears cached video URLs, while leaving catalog metadata intact', async () => {
     const supabase = serviceRoleClient();
     const fakeJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
 
-    await upsertYourMoveLink(supabase, {
-      provider: 'exercise_api_dev',
-      externalId: TEST_EXTERNAL_ID_YOUR_MOVE,
-      yourMoveExerciseId: 'ym-fake-id',
-      matchReasoning: 'test fixture',
+    const { error: insertError } = await supabase.from('exercise_catalog').insert({
+      provider: 'your_move',
+      external_id: TEST_EXTERNAL_ID,
+      name: 'Test Purge Exercise',
+      has_video: true,
+      video_url: 'https://vz-fake.b-cdn.net/fake/play_720p.mp4',
+      video_url_expires_at: new Date(Date.now() + 60_000).toISOString(),
     });
-    await supabase.storage
-      .from(EXERCISE_MEDIA_BUCKET)
-      .upload(YOUR_MOVE_POSTER_PATH, fakeJpeg, { contentType: 'image/jpeg', upsert: true });
-    await upsertExtractedPoster(supabase, {
-      provider: 'exercise_api_dev',
-      externalId: TEST_EXTERNAL_ID_YOUR_MOVE,
-      source: 'your_move',
-      storagePath: YOUR_MOVE_POSTER_PATH,
-    });
+    expect(insertError).toBeNull();
 
-    await supabase.storage
-      .from(EXERCISE_MEDIA_BUCKET)
-      .upload(API_DEV_POSTER_PATH, fakeJpeg, { contentType: 'image/jpeg', upsert: true });
-    await upsertExtractedPoster(supabase, {
-      provider: 'exercise_api_dev',
-      externalId: TEST_EXTERNAL_ID_API_DEV,
-      source: 'exercise_api_dev',
-      storagePath: API_DEV_POSTER_PATH,
+    await supabase.storage.from(EXERCISE_MEDIA_BUCKET).upload(POSTER_PATH, fakeJpeg, {
+      contentType: 'image/jpeg',
+      upsert: true,
     });
+    await upsertExtractedPoster(supabase, { externalId: TEST_EXTERNAL_ID, storagePath: POSTER_PATH });
 
     // Sanity check the fixtures actually exist before purging — otherwise
     // a no-op purge would trivially "pass."
-    expect(await getYourMoveLink(supabase, 'exercise_api_dev', TEST_EXTERNAL_ID_YOUR_MOVE)).not.toBeNull();
-    expect(
-      await getExtractedPoster(supabase, 'exercise_api_dev', TEST_EXTERNAL_ID_YOUR_MOVE)
-    ).not.toBeNull();
-    expect(
-      await getExtractedPoster(supabase, 'exercise_api_dev', TEST_EXTERNAL_ID_API_DEV)
-    ).not.toBeNull();
+    expect(await getExtractedPoster(supabase, TEST_EXTERNAL_ID)).not.toBeNull();
+    const { data: beforeCatalog } = await supabase
+      .from('exercise_catalog')
+      .select('video_url')
+      .eq('external_id', TEST_EXTERNAL_ID)
+      .single();
+    expect(beforeCatalog?.video_url).not.toBeNull();
 
     await purgeYourMoveMedia(supabase);
 
-    expect(await getYourMoveLink(supabase, 'exercise_api_dev', TEST_EXTERNAL_ID_YOUR_MOVE)).toBeNull();
-    expect(
-      await getExtractedPoster(supabase, 'exercise_api_dev', TEST_EXTERNAL_ID_YOUR_MOVE)
-    ).toBeNull();
+    expect(await getExtractedPoster(supabase, TEST_EXTERNAL_ID)).toBeNull();
 
-    const { data: yourMoveObjectStillThere } = await supabase.storage
+    const { data: objectStillThere } = await supabase.storage
       .from(EXERCISE_MEDIA_BUCKET)
-      .list('posters/your_move', { search: TEST_EXTERNAL_ID_YOUR_MOVE });
-    expect(yourMoveObjectStillThere).toEqual([]);
+      .list('posters/your_move', { search: TEST_EXTERNAL_ID });
+    expect(objectStillThere).toEqual([]);
 
-    // exercise_api_dev-derived poster must survive — it has nothing to do
-    // with Your Move and needs no manifest entry.
-    const survivingPoster = await getExtractedPoster(supabase, 'exercise_api_dev', TEST_EXTERNAL_ID_API_DEV);
-    expect(survivingPoster).not.toBeNull();
-    const { data: apiDevObjectStillThere } = await supabase.storage
-      .from(EXERCISE_MEDIA_BUCKET)
-      .list('posters/exercise_api_dev', { search: TEST_EXTERNAL_ID_API_DEV });
-    expect(apiDevObjectStillThere).toHaveLength(1);
+    const { data: afterCatalog } = await supabase
+      .from('exercise_catalog')
+      .select('name, video_url, video_url_expires_at')
+      .eq('external_id', TEST_EXTERNAL_ID)
+      .single();
+    // Our own catalog metadata is not Your Move's proprietary media —
+    // never purged — but the cached video URL is cleared.
+    expect(afterCatalog?.name).toBe('Test Purge Exercise');
+    expect(afterCatalog?.video_url).toBeNull();
+    expect(afterCatalog?.video_url_expires_at).toBeNull();
   });
 });

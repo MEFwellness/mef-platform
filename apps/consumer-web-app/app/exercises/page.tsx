@@ -1,11 +1,12 @@
 /**
  * The permanent Exercise Library — search, browse, and favorite exercises
- * sourced from ExerciseAPI.dev. Foundation for future Programs, coach
- * prescriptions, member exercise history, Root recommendations, and
- * movement progression (see supabase/migrations/00000000000080_
- * exercise_library.sql). Reached from the Movement dashboard, not a new
- * BottomNav tab or DashboardQuickLinks card — see BottomNav.tsx's own doc
- * comment on why that bar stays scoped to exactly three items.
+ * sourced from Your Move (exercise-api.ymove.app), the sole exercise
+ * catalog (see supabase/migrations/00000000000119_your_move_sole_catalog.sql).
+ * Foundation for future Programs, coach prescriptions, member exercise
+ * history, Root recommendations, and movement progression. Reached from
+ * the Movement dashboard, not a new BottomNav tab or DashboardQuickLinks
+ * card — see BottomNav.tsx's own doc comment on why that bar stays scoped
+ * to exactly three items.
  */
 
 import { redirect } from 'next/navigation';

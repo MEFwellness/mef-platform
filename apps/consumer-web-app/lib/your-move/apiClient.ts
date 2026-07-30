@@ -1,9 +1,9 @@
 /**
- * Server-only client for Your Move's Exercise API (exercise-api.ymove.app),
- * the PRIMARY video layer for the Exercise Library — ExerciseAPI.dev
- * (lib/exercise-library/apiClient.ts) stays the catalog source; wherever
- * Your Move has a confident match, its video wins (see
- * your_move_exercise_links, migration 118).
+ * Server-only client for Your Move's Exercise API (exercise-api.ymove.app)
+ * — the SOLE Exercise Library catalog source (migration 119; ExerciseAPI.dev
+ * has been removed entirely). Browse mode populates exercise_catalog ahead
+ * of time (scripts/exercise-media/fetch-your-move-catalog.ts); this client
+ * is never called live from a browse/search request.
  *
  * Two hard constraints from Your Move's own terms, enforced here:
  *
@@ -11,7 +11,8 @@
  *    client NEVER persists one — `getExercise` returns it to the caller for
  *    immediate use (fetch-at-play-time) or for one-shot poster extraction;
  *    any caching of the returned URL happens at the call site with an
- *    explicit short TTL (see lib/your-move/videoUrlCache.ts), never here.
+ *    explicit short TTL (see lib/your-move/catalog.ts's cacheVideoUrl),
+ *    never here.
  *
  * 2. Browse (`listExercises`) always sends `includeVideos=false` — matching,
  *    auditing, and pagination must never request video fields, since doing

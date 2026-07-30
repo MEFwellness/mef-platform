@@ -7,16 +7,14 @@
  * same matching problem), searching mef_exercise_metadata (migration 80)
  * by program_section, then scoring candidates by overlap with the block's
  * required/preferred movement tags, then hydrating the top picks' real
- * names from the Exercise Library provider (same
- * buildExerciseApiClientFromEnv + getExercise pattern
- * app/actions/coach-programs.ts already uses) — mef_exercise_metadata
- * itself has no name column, only ExerciseAPI.dev does.
+ * names from exercise_catalog (migration 119, the sole Exercise Library
+ * catalog) — mef_exercise_metadata itself has no name column.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MefExerciseMetadata } from '@mef/shared-types-contracts';
 import { normalize, tagsOverlap } from '../coach-program-builder/recommendations';
-import { buildExerciseApiClientFromEnv } from '../exercise-library/apiClient';
+import { getExercisesByExternalIds } from '../your-move/catalog';
 import type { PrescriptionFacts } from './facts';
 import type { StrategyBlockDraft } from './strategy';
 
@@ -240,36 +238,32 @@ export async function selectExercisesForBlock(
 
   if (picked.length === 0) return [];
 
-  const client = buildExerciseApiClientFromEnv();
-  if (!client) {
-    console.error('selectExercisesForBlock: exercise API client not configured');
-    return [];
-  }
+  const catalogMap = await getExercisesByExternalIds(
+    supabase,
+    picked.map(({ metadata }) => metadata.external_id)
+  );
 
   const defaults = DEFAULT_PRESCRIPTION[block.blockType];
-  const hydrated = await Promise.all(
-    picked.map(async ({ metadata, reasons }): Promise<BlockExerciseDraft | null> => {
-      try {
-        const raw = await client.getExercise(metadata.external_id);
-        const reasonText =
-          reasons.length > 0
-            ? `Selected because it ${reasons.join(' and ')}.`
-            : `Selected as a ${block.difficulty} ${block.blockType} exercise compatible with the equipment on file.`;
-        return {
-          provider: metadata.provider,
-          externalId: metadata.external_id,
-          exerciseName: raw.name,
-          ...defaults,
-          selectionReasoning: reasonText,
-          correctivePurpose: metadata.corrective_focus[0] ?? null,
-          confidence: reasons.length > 0 ? 0.7 : 0.4,
-        };
-      } catch (err) {
-        console.error('selectExercisesForBlock: failed to hydrate', metadata.external_id, err);
-        return null;
-      }
-    })
-  );
+  const hydrated = picked.map(({ metadata, reasons }): BlockExerciseDraft | null => {
+    const catalogRow = catalogMap.get(metadata.external_id);
+    if (!catalogRow) {
+      console.error('selectExercisesForBlock: no catalog row for', metadata.external_id);
+      return null;
+    }
+    const reasonText =
+      reasons.length > 0
+        ? `Selected because it ${reasons.join(' and ')}.`
+        : `Selected as a ${block.difficulty} ${block.blockType} exercise compatible with the equipment on file.`;
+    return {
+      provider: metadata.provider,
+      externalId: metadata.external_id,
+      exerciseName: catalogRow.name,
+      ...defaults,
+      selectionReasoning: reasonText,
+      correctivePurpose: metadata.corrective_focus[0] ?? null,
+      confidence: reasons.length > 0 ? 0.7 : 0.4,
+    };
+  });
 
   return hydrated.filter((d): d is BlockExerciseDraft => d !== null);
 }

@@ -27,7 +27,7 @@ export function ExerciseCard({
 }) {
   const difficulty = exercise.level ? DIFFICULTY_LABEL[exercise.level] : null;
   const facts = [
-    exercise.primaryMuscles[0]?.replace(/_/g, ' '),
+    exercise.primaryMuscle?.replace(/_/g, ' '),
     exercise.equipment,
     difficulty,
   ].filter(Boolean) as string[];
@@ -56,15 +56,6 @@ export function ExerciseCard({
               <PlayCircle className="h-10 w-10 text-white drop-shadow" strokeWidth={1.5} />
             </div>
           </>
-        ) : exercise.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- remote CDN images from ExerciseAPI.dev, or our own re-hosted open-license image; no next.config remote-pattern configured for a third-party content vendor's own CDN
-          <img
-            src={exercise.imageUrl}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-          />
         ) : (
           <CuesPlaceholder cues={exercise.cues} />
         )}
@@ -88,11 +79,6 @@ export function ExerciseCard({
         </p>
         {facts.length > 0 && (
           <p className="mt-auto truncate text-xs text-[#6B7A72]">{facts.join(' · ')}</p>
-        )}
-        {exercise.force && (
-          <span className="w-fit rounded-full bg-[#EFF6F1] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#1B3A2D]/70">
-            {exercise.force}
-          </span>
         )}
       </div>
     </Link>

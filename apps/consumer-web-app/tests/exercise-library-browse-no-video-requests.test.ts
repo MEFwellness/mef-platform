@@ -2,11 +2,11 @@
  * Guard test (e): the browse grid must make zero Your Move video-field
  * requests — browsing/searching/scrolling the Exercise Library should
  * never spend Your Move quota. app/api/exercises/route.ts (the only route
- * the browser talks to for search/browse) gets all of its Your Move data
- * from OUR OWN database (getYourMoveLinkMap/getExtractedPosterMap — rows
- * written ahead of time by the offline scripts), never from a live Your
- * Move HTTP call. This is proven structurally: the route's source must
- * never reference YourMoveApiClient, buildYourMoveApiClientFromEnv,
+ * the browser talks to for search/browse) reads exclusively from OUR OWN
+ * database (searchExerciseCatalog/getExtractedPosterMap — exercise_catalog
+ * populated ahead of time by the offline fetch script), never from a live
+ * Your Move HTTP call. This is proven structurally: the route's source
+ * must never reference YourMoveApiClient, buildYourMoveApiClientFromEnv,
  * listExercises, or getExercise (the two methods capable of making an
  * actual Your Move request) — only the read-only DB helpers.
  */
@@ -27,10 +27,11 @@ describe('guard test (e): browse route never triggers a Your Move HTTP request',
     expect(source).not.toMatch(/YourMoveApiClient/);
     expect(source).not.toMatch(/buildYourMoveApiClientFromEnv/);
     expect(source).not.toMatch(/\.listExercises\(/);
+    expect(source).not.toMatch(/\.getExercise\(/);
   });
 
-  it('does use the DB-only Your Move link/poster lookups (proves the test isn\'t vacuously passing on an empty/broken file)', () => {
-    expect(source).toMatch(/getYourMoveLinkMap/);
+  it("does use the DB-only catalog search/poster lookups (proves the test isn't vacuously passing on an empty/broken file)", () => {
+    expect(source).toMatch(/searchExerciseCatalog/);
     expect(source).toMatch(/getExtractedPosterMap/);
   });
 });

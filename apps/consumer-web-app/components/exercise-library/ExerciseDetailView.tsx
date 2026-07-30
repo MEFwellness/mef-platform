@@ -106,14 +106,27 @@ function ShareButton({ exerciseName }: { exerciseName: string }) {
  * strictly on tap, never on mount. Shows the extracted poster with a play
  * button until tapped; only then calls /api/exercises/[id]/video-url
  * (which itself only hits Your Move's metered endpoint on a cache miss)
- * and swaps in a real <video> with the fresh, short-lived URL. For
- * exercise_api_dev-sourced video (videoSource !== 'your_move'), videoUrl
- * is already eagerly present and this component isn't used — see the
- * caller below.
+ * and swaps in a real <video> with the fresh, short-lived URL.
+ *
+ * The trial API key only serves a subset of Your Move's catalog — a fetch
+ * failure here (network error, not-yet-covered exercise, anything) falls
+ * back to rendering this exercise's generated cues in place of the
+ * player, never a broken player or a bare error message. Once a
+ * full-access key replaces the trial key, fetches for those exercises
+ * simply start succeeding — no code change required for this to
+ * self-heal.
  */
-function TapToPlayVideo({ externalId, posterUrl }: { externalId: string; posterUrl: string | null }) {
+function TapToPlayVideo({
+  externalId,
+  posterUrl,
+  cues,
+}: {
+  externalId: string;
+  posterUrl: string | null;
+  cues: string[];
+}) {
   const [state, setState] = useState<
-    { status: 'idle' } | { status: 'loading' } | { status: 'ready'; videoUrl: string } | { status: 'error'; message: string }
+    { status: 'idle' } | { status: 'loading' } | { status: 'ready'; videoUrl: string } | { status: 'error' }
   >({ status: 'idle' });
 
   async function handlePlay() {
@@ -122,15 +135,12 @@ function TapToPlayVideo({ externalId, posterUrl }: { externalId: string; posterU
       const response = await fetch(`/api/exercises/${encodeURIComponent(externalId)}/video-url`);
       const json = await response.json();
       if (!response.ok || !json.videoUrl) {
-        setState({
-          status: 'error',
-          message: json?.error?.message ?? 'This video is unavailable right now.',
-        });
+        setState({ status: 'error' });
         return;
       }
       setState({ status: 'ready', videoUrl: json.videoUrl });
     } catch {
-      setState({ status: 'error', message: 'This video is unavailable right now.' });
+      setState({ status: 'error' });
     }
   }
 
@@ -145,6 +155,17 @@ function TapToPlayVideo({ externalId, posterUrl }: { externalId: string; posterU
         preload="metadata"
         className="max-h-96 w-full bg-black object-contain"
       />
+    );
+  }
+
+  // Graceful, no-broken-player fallback — the video genuinely isn't
+  // available right now, so show the same coaching cues a no-video
+  // exercise would show, instead of a dead play button or an error banner.
+  if (state.status === 'error') {
+    return (
+      <div className="h-56">
+        <CuesPlaceholder cues={cues} />
+      </div>
     );
   }
 
@@ -165,9 +186,6 @@ function TapToPlayVideo({ externalId, posterUrl }: { externalId: string; posterU
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20">
         <PlayCircle className="h-14 w-14 text-white drop-shadow" strokeWidth={1.25} />
         {state.status === 'loading' && <p className="text-xs font-medium text-white">Loading…</p>}
-        {state.status === 'error' && (
-          <p className="max-w-[80%] text-center text-xs font-medium text-white">{state.message}</p>
-        )}
       </div>
     </button>
   );
@@ -200,10 +218,9 @@ export function ExerciseDetailView({
   relatedExercises?: ExerciseLibraryExercise[];
   recentlyViewed?: MemberExerciseRecentView[];
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
   const metadata = exercise.metadata;
 
-  const regressions = metadata?.regressions.length ? metadata.regressions : exercise.variations;
+  const regressions = metadata?.regressions.length ? metadata.regressions : [];
   const progressions = metadata?.progressions.length ? metadata.progressions : [];
 
   return (
@@ -223,34 +240,15 @@ export function ExerciseDetailView({
       </div>
 
       <p className="text-xs text-[#6B7A72]">
-        {[exercise.category, exercise.level, exercise.mechanic, exercise.force]
-          .filter(Boolean)
-          .join(' · ') || 'No category metadata returned'}
+        {[exercise.category, exercise.level].filter(Boolean).join(' · ') || 'No category metadata returned'}
       </p>
 
       <div className="relative overflow-hidden rounded-2xl border border-[#1B3A2D]/10 bg-white shadow-sm">
         <div className="absolute left-3 top-3 z-10">
           <MediaBadge exercise={exercise} />
         </div>
-        {exercise.videoSource === 'exercise_api_dev' && exercise.videoUrl ? (
-          <video
-            key={exercise.videoUrl}
-            src={exercise.videoUrl}
-            controls
-            playsInline
-            preload="metadata"
-            className="max-h-96 w-full bg-black object-contain"
-          />
-        ) : exercise.videoSource === 'your_move' ? (
-          <TapToPlayVideo externalId={exercise.externalId} posterUrl={exercise.posterUrl} />
-        ) : exercise.imageUrl && !imageFailed ? (
-          // eslint-disable-next-line @next/next/no-img-element -- remote CDN images from ExerciseAPI.dev, or our own re-hosted open-license image; no next.config remote-pattern configured for a third-party content vendor's own CDN
-          <img
-            src={exercise.imageUrl}
-            alt={exercise.name}
-            onError={() => setImageFailed(true)}
-            className="max-h-96 w-full object-contain"
-          />
+        {exercise.hasVideo ? (
+          <TapToPlayVideo externalId={exercise.externalId} posterUrl={exercise.posterUrl} cues={exercise.cues} />
         ) : (
           <div className="h-56">
             <CuesPlaceholder cues={exercise.cues} />
@@ -260,19 +258,14 @@ export function ExerciseDetailView({
 
       <div className="space-y-4 rounded-2xl border border-[#1B3A2D]/10 bg-white p-5">
         <DetailField label="Equipment" value={exercise.equipment ?? 'None / bodyweight'} />
-        <DetailList label="Primary muscles" items={exercise.primaryMuscles} />
+        <DetailList label="Primary muscle" items={exercise.primaryMuscle ? [exercise.primaryMuscle] : undefined} />
         <DetailList label="Secondary muscles" items={exercise.secondaryMuscles} />
-        {exercise.overview && <DetailField label="Overview" value={exercise.overview} />}
         <DetailOrderedList label="Instructions" items={exercise.instructions} />
         <DetailList label="Form tips" items={exercise.exerciseTips} />
         <DetailList
           label="Coaching cues"
           items={metadata?.coaching_cues.length ? metadata.coaching_cues : undefined}
         />
-        <DetailList label="Common mistakes" items={exercise.commonMistakes} />
-        {exercise.safetyInfo && (
-          <DetailField label="Safety information" value={exercise.safetyInfo} />
-        )}
         {metadata?.contraindications.length ? (
           <DetailList label="Contraindications" items={metadata.contraindications} />
         ) : null}

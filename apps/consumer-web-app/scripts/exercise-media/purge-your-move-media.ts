@@ -1,28 +1,31 @@
 #!/usr/bin/env npx tsx
 /**
  * The single documented command that removes every Your Move-derived
- * asset this app stores, per Your Move's cancellation-compliance
- * requirement — run this if the subscription ever lapses.
+ * asset this app is only licensed to keep while the subscription is
+ * active — run this if the Your Move subscription ever lapses.
  *
  * Removes, in order:
- *   1. Every row in your_move_exercise_links (the our-id -> Your Move-id
- *      mapping, plus its short-lived cached video_url — see migration
- *      118). ExerciseAPI.dev-sourced video for the same exercises is
- *      completely unaffected (separate rows, separate source).
- *   2. Every exercise_extracted_posters row with source='your_move', and
- *      the actual storage object at each row's storage_path in the
- *      `exercise-media` bucket. source='exercise_api_dev' rows are left
- *      alone — those posters were extracted from a video this app has an
- *      independent, permanent right to use.
+ *   1. Every exercise_extracted_posters row (all are source='your_move'
+ *      now that Your Move is the sole catalog), and the actual storage
+ *      object at each row's storage_path in the `exercise-media` bucket —
+ *      these are frames extracted from Your Move's own video, the one
+ *      asset type genuinely licensed only for the life of the
+ *      subscription.
+ *   2. Clears exercise_catalog's cached video_url/video_url_expires_at on
+ *      every row — a ~10min fetch-at-play cache, not a real asset, but
+ *      cleared anyway so no stale playable URL survives past
+ *      cancellation.
  *
- * Nothing else in this app reads or writes Your Move data — this is a
- * complete purge, not a best-effort one.
+ * Deliberately does NOT delete exercise_catalog's own rows (name,
+ * instructions, muscles, category, etc.) — that catalog metadata was
+ * fetched via Your Move's quota-free browse endpoint and is this app's own
+ * stored data, not vendor-proprietary media; only the video-derived assets
+ * above are purge-eligible.
  *
  * Usage: SEED_SUPABASE_URL=... SEED_SUPABASE_SERVICE_ROLE_KEY=... \
  *   npx tsx scripts/exercise-media/purge-your-move-media.ts
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { removeAllYourMoveLinks } from '../../lib/your-move/links';
 import { removeYourMoveExtractedPosters, EXERCISE_MEDIA_BUCKET } from '../../lib/your-move/posters';
 
 function requiredEnv(name: string): string {
@@ -32,7 +35,6 @@ function requiredEnv(name: string): string {
 }
 
 export async function purgeYourMoveMedia(supabase: SupabaseClient) {
-  const { removed: linksRemoved } = await removeAllYourMoveLinks(supabase);
   const { removed: postersRemoved, storagePaths } = await removeYourMoveExtractedPosters(supabase);
 
   let storageObjectsRemoved = 0;
@@ -45,7 +47,13 @@ export async function purgeYourMoveMedia(supabase: SupabaseClient) {
     }
   }
 
-  return { linksRemoved, postersRemoved, storageObjectsRemoved };
+  const { error: cacheClearError } = await supabase
+    .from('exercise_catalog')
+    .update({ video_url: null, video_url_expires_at: null })
+    .not('video_url', 'is', null);
+  if (cacheClearError) console.error('Clearing cached video URLs failed', cacheClearError);
+
+  return { postersRemoved, storageObjectsRemoved };
 }
 
 async function main() {

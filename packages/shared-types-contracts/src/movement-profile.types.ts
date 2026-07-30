@@ -36,6 +36,8 @@ export interface MemberExerciseCompletion {
   provider: ExerciseLibraryProvider;
   external_id: string;
   exercise_name: string;
+  /** True when this row's exercise reference has no confident Your Move match (migration 119) — exercise_name is the only remaining display source; never delete the row. */
+  is_legacy: boolean;
   status: ExerciseCompletionStatus;
   duration_seconds: number | null;
   completion_source: ExerciseCompletionSource;
@@ -54,6 +56,8 @@ export interface MemberExerciseRecentView {
   provider: ExerciseLibraryProvider;
   external_id: string;
   exercise_name: string;
+  /** True when this row's exercise reference has no confident Your Move match (migration 119) — exercise_name is the only remaining display source. */
+  is_legacy: boolean;
   viewed_at: string;
 }
 

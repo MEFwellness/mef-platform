@@ -146,7 +146,7 @@ export function ExercisePickerModal({
                   <p className="truncate text-sm font-medium text-[#1B3A2D]">{exercise.name}</p>
                   <p className="mt-0.5 truncate text-xs text-[#6B7A72]">
                     {[
-                      exercise.primaryMuscles[0]?.replace(/_/g, ' '),
+                      exercise.primaryMuscle?.replace(/_/g, ' '),
                       exercise.equipment,
                       exercise.level,
                     ]

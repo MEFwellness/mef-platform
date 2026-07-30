@@ -1,29 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeExerciseApiExercise } from '../lib/exercise-library/normalize';
+import { normalizeExerciseCatalogRow } from '../lib/exercise-library/normalize';
 import { toPublicMediaUrl } from '../lib/your-move/posters';
-import type { ExerciseApiExercise } from '../lib/exercise-library/apiClient';
-import type {
-  MefExerciseMetadata,
-  YourMoveExerciseLink,
-  ExerciseExtractedPoster,
-} from '@mef/shared-types-contracts';
+import type { ExerciseCatalogRow, MefExerciseMetadata, ExerciseExtractedPoster } from '@mef/shared-types-contracts';
 
-function baseExercise(overrides: Partial<ExerciseApiExercise> = {}): ExerciseApiExercise {
+function baseExercise(overrides: Partial<ExerciseCatalogRow> = {}): ExerciseCatalogRow {
   return {
-    id: 'Test_Exercise',
+    id: 'row-1',
+    provider: 'your_move',
+    external_id: 'test-exercise',
     name: 'Test Exercise',
-    ...overrides,
-  };
-}
-
-function yourMoveLink(overrides: Partial<YourMoveExerciseLink> = {}): YourMoveExerciseLink {
-  return {
-    id: 'link-1',
-    provider: 'exercise_api_dev',
-    external_id: 'Test_Exercise',
-    your_move_exercise_id: 'ym-123',
-    match_confidence: 'confident',
-    match_reasoning: 'exact movement match',
+    slug: 'test-exercise',
+    description: null,
+    instructions: [],
+    exercise_tips: [],
+    primary_muscle: 'glutes',
+    secondary_muscles: [],
+    equipment: 'bodyweight',
+    category: 'strength',
+    difficulty: 'beginner',
+    exercise_type: [],
+    has_video: false,
+    has_video_white: false,
+    has_video_gym: false,
     video_url: null,
     video_url_expires_at: null,
     created_at: new Date().toISOString(),
@@ -35,10 +33,10 @@ function yourMoveLink(overrides: Partial<YourMoveExerciseLink> = {}): YourMoveEx
 function extractedPoster(overrides: Partial<ExerciseExtractedPoster> = {}): ExerciseExtractedPoster {
   return {
     id: 'poster-1',
-    provider: 'exercise_api_dev',
-    external_id: 'Test_Exercise',
+    provider: 'your_move',
+    external_id: 'test-exercise',
     source: 'your_move',
-    storage_path: 'posters/your_move/Test_Exercise.jpg',
+    storage_path: 'posters/your_move/test-exercise.jpg',
     created_at: new Date().toISOString(),
     ...overrides,
   };
@@ -47,8 +45,8 @@ function extractedPoster(overrides: Partial<ExerciseExtractedPoster> = {}): Exer
 function metadataWithCues(cues: string[]): MefExerciseMetadata {
   return {
     id: 'meta-1',
-    provider: 'exercise_api_dev',
-    external_id: 'Test_Exercise',
+    provider: 'your_move',
+    external_id: 'test-exercise',
     program_section: null,
     movement_category: null,
     body_region: [],
@@ -72,92 +70,40 @@ function metadataWithCues(cues: string[]): MefExerciseMetadata {
   };
 }
 
-describe('normalizeExerciseApiExercise — media fields', () => {
-  it('has no video/image/cues, and imageUrl null, for a plain exercise with none of the three', () => {
-    const normalized = normalizeExerciseApiExercise(baseExercise(), null, false);
+describe('normalizeExerciseCatalogRow — media fields', () => {
+  it('has no video and no cues for a plain exercise with neither', () => {
+    const normalized = normalizeExerciseCatalogRow(baseExercise(), null, false);
     expect(normalized.hasVideo).toBe(false);
-    expect(normalized.videoSource).toBeNull();
-    expect(normalized.videoUrl).toBeNull();
-    expect(normalized.imageUrl).toBeNull();
+    expect(normalized.posterUrl).toBeNull();
     expect(normalized.cues).toEqual([]);
   });
 
-  it('never populates imageUrl from ExerciseAPI.dev images — that vendor field is a dead relative path (see the function’s own doc comment)', () => {
-    const normalized = normalizeExerciseApiExercise(
-      baseExercise({ images: ['Test_Exercise/0.jpg'] }),
-      null,
-      false
-    );
-    expect(normalized.imageUrl).toBeNull();
-  });
-
-  it('eagerly maps videoUrl from ExerciseAPI.dev when there is no Your Move link — that vendor’s URLs do not expire', () => {
-    const normalized = normalizeExerciseApiExercise(
-      baseExercise({ videos: [{ url: 'https://cdn.exerciseapi.dev/v1/Test_Exercise.mp4' }] }),
-      null,
-      false
-    );
+  it('hasVideo reflects the catalog row, never an eagerly-populated videoUrl (fetched fresh at play time)', () => {
+    const normalized = normalizeExerciseCatalogRow(baseExercise({ has_video: true }), null, false);
     expect(normalized.hasVideo).toBe(true);
-    expect(normalized.videoSource).toBe('exercise_api_dev');
-    expect(normalized.videoUrl).toBe('https://cdn.exerciseapi.dev/v1/Test_Exercise.mp4');
-  });
-
-  it('Your Move dominance: a link present wins even when ExerciseAPI.dev also has a video, and videoUrl stays null (fetch-at-play-time, never eager)', () => {
-    const normalized = normalizeExerciseApiExercise(
-      baseExercise({ videos: [{ url: 'https://cdn.exerciseapi.dev/v1/Test_Exercise.mp4' }] }),
-      null,
-      false,
-      yourMoveLink()
-    );
-    expect(normalized.hasVideo).toBe(true);
-    expect(normalized.videoSource).toBe('your_move');
-    expect(normalized.videoUrl).toBeNull();
+    expect((normalized as unknown as { videoUrl?: unknown }).videoUrl).toBeUndefined();
   });
 
   it('resolves posterUrl from an extracted poster to a public exercise-media URL', () => {
-    const normalized = normalizeExerciseApiExercise(
-      baseExercise(),
-      null,
-      false,
-      yourMoveLink(),
-      extractedPoster()
-    );
-    expect(normalized.posterUrl).toBe(toPublicMediaUrl('posters/your_move/Test_Exercise.jpg'));
+    const normalized = normalizeExerciseCatalogRow(baseExercise({ has_video: true }), null, false, extractedPoster());
+    expect(normalized.posterUrl).toBe(toPublicMediaUrl('posters/your_move/test-exercise.jpg'));
   });
 
-  it('falls back to an open-license image only when there is no video from either source', () => {
-    const normalized = normalizeExerciseApiExercise(baseExercise(), null, false, null, null, 'open-license/Test_Exercise.jpg');
-    expect(normalized.hasVideo).toBe(false);
-    expect(normalized.imageUrl).toBe(toPublicMediaUrl('open-license/Test_Exercise.jpg'));
-  });
-
-  it('never sets imageUrl from an open-license row when a video exists (video always wins over the Phase 3 fallback)', () => {
-    const normalized = normalizeExerciseApiExercise(
-      baseExercise({ videos: [{ url: 'https://cdn.exerciseapi.dev/v1/Test_Exercise.mp4' }] }),
-      null,
-      false,
-      null,
-      null,
-      'open-license/Test_Exercise.jpg'
-    );
-    expect(normalized.imageUrl).toBeNull();
-  });
-
-  it('falls back to metadata.coaching_cues only when there is neither video nor image', () => {
+  it('falls back to metadata.coaching_cues only when there is no video', () => {
     const cues = ['Stand tall, feet hip-width', 'Drive through the heels', 'Feel it in the glutes'];
-    const normalized = normalizeExerciseApiExercise(baseExercise(), metadataWithCues(cues), false);
+    const normalized = normalizeExerciseCatalogRow(baseExercise(), metadataWithCues(cues), false);
     expect(normalized.hasVideo).toBe(false);
-    expect(normalized.imageUrl).toBeNull();
     expect(normalized.cues).toEqual(cues);
   });
 
-  it('never surfaces cues when a video or image already covers the exercise', () => {
+  it('never surfaces cues when the exercise has video — cues are read as a runtime fallback (tap-to-play failure), not returned eagerly here', () => {
     const cues = ['Stand tall, feet hip-width'];
-    const normalized = normalizeExerciseApiExercise(
-      baseExercise({ videos: [{ url: 'https://cdn.exerciseapi.dev/v1/Test_Exercise.mp4' }] }),
-      metadataWithCues(cues),
-      false
-    );
+    const normalized = normalizeExerciseCatalogRow(baseExercise({ has_video: true }), metadataWithCues(cues), false);
     expect(normalized.cues).toEqual([]);
+  });
+
+  it('carries isFavorited through unchanged', () => {
+    expect(normalizeExerciseCatalogRow(baseExercise(), null, true).isFavorited).toBe(true);
+    expect(normalizeExerciseCatalogRow(baseExercise(), null, false).isFavorited).toBe(false);
   });
 });

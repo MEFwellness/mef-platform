@@ -2,8 +2,8 @@
  * Server actions for the Exercise Library — favoriting, recently-viewed
  * tracking, and exercise completion/notes/feedback (migration 81). Search/
  * detail reads go through app/api/exercises/route.ts (client-driven,
- * interactive search) or a direct server-side apiClient call (the exercise
- * detail page); everything here is a first-party write with no
+ * interactive search) or a direct server-side exercise_catalog read (the
+ * exercise detail page); everything here is a first-party write with no
  * interactive round-trip needed, same convention as every other mutation
  * in app/actions/.
  */
@@ -29,9 +29,9 @@ import {
   getMyMostRecentlyViewedExercise,
   recordExerciseView as recordExerciseViewRow,
 } from '@/lib/exercise-library/recentViews';
-import { buildExerciseApiClientFromEnv } from '@/lib/exercise-library/apiClient';
+import { searchExerciseCatalog, getExercisesByExternalIds } from '@/lib/your-move/catalog';
 import { getExerciseMetadataMap } from '@/lib/exercise-library/metadata';
-import { normalizeExerciseApiExercise } from '@/lib/exercise-library/normalize';
+import { normalizeExerciseCatalogRow } from '@/lib/exercise-library/normalize';
 import { computeFavoriteMovementTypes } from '@/lib/movement-profile/favoriteMovementTypes';
 import {
   getOrCreateMovementProfile,
@@ -82,8 +82,8 @@ export async function toggleExerciseFavorite(
 
   const { supabase, memberId } = context;
   const ok = nextIsFavorited
-    ? await addExerciseFavorite(supabase, memberId, 'exercise_api_dev', externalId)
-    : await removeExerciseFavorite(supabase, memberId, 'exercise_api_dev', externalId);
+    ? await addExerciseFavorite(supabase, memberId, 'your_move', externalId)
+    : await removeExerciseFavorite(supabase, memberId, 'your_move', externalId);
 
   if (!ok) return { error: 'Could not update favorites. Please try again.' };
 
@@ -130,7 +130,7 @@ export async function getMyExerciseFavoriteIds(): Promise<string[]> {
   const ids = await listMyExerciseFavoriteIds(
     context.supabase,
     context.memberId,
-    'exercise_api_dev'
+    'your_move'
   );
   return Array.from(ids);
 }
@@ -145,7 +145,7 @@ export async function recordExerciseView(
   const ok = await recordExerciseViewRow(
     context.supabase,
     context.memberId,
-    'exercise_api_dev',
+    'your_move',
     externalId,
     exerciseName
   );
@@ -191,13 +191,13 @@ export async function recordExerciseCompletion(
   const priorHistory = await listExerciseCompletionHistory(
     supabase,
     memberId,
-    'exercise_api_dev',
+    'your_move',
     params.externalId
   );
 
   const completion = await recordExerciseCompletionRow(supabase, {
     memberId,
-    provider: 'exercise_api_dev',
+    provider: 'your_move',
     externalId: params.externalId,
     exerciseName: params.exerciseName,
     status: params.status,
@@ -279,54 +279,44 @@ export async function getMyExerciseCompletionHistory(
   return listExerciseCompletionHistory(
     context.supabase,
     context.memberId,
-    'exercise_api_dev',
+    'your_move',
     externalId
   );
 }
 
 /**
- * Full favorite exercises, hydrated with vendor data — powers the "Favorites"
- * rail on the Resume Experience. `member_exercise_favorites` only stores
- * provider+external_id (see its own type), so each favorited id is
- * re-fetched from ExerciseAPI.dev rather than adding an exercise_name
- * column purely for display; bounded to `limit` (rail-sized, never the
- * member's full favorites list) so this never turns into an unbounded
- * fan-out of vendor calls.
+ * Full favorite exercises, hydrated from exercise_catalog — powers the
+ * "Favorites" rail on the Resume Experience. `member_exercise_favorites`
+ * only stores provider+external_id (see its own type), so each favorited
+ * id is re-fetched from our own catalog rather than adding an
+ * exercise_name column purely for display; bounded to `limit` (rail-sized,
+ * never the member's full favorites list). Legacy favorites (no confident
+ * Your Move match, see migration 119) have no live catalog row to
+ * hydrate — they're skipped here, not surfaced as broken cards; the
+ * member's favorite is never deleted, just not re-visitable from this rail.
  */
 export async function getMyFavoriteExercises(limit = 10): Promise<ExerciseLibraryExercise[]> {
   const context = await resolveMemberId();
   if (!context) return [];
   const { supabase, memberId } = context;
 
-  const favorites = (await listMyExerciseFavorites(supabase, memberId)).slice(0, limit);
+  const favorites = (await listMyExerciseFavorites(supabase, memberId))
+    .filter((f) => !f.is_legacy)
+    .slice(0, limit);
   if (favorites.length === 0) return [];
 
-  const client = buildExerciseApiClientFromEnv();
-  if (!client) return [];
+  const externalIds = favorites.map((f) => f.external_id);
+  const [catalogMap, metadataMap] = await Promise.all([
+    getExercisesByExternalIds(supabase, externalIds),
+    getExerciseMetadataMap(supabase, 'your_move', externalIds),
+  ]);
 
-  const metadataMap = await getExerciseMetadataMap(
-    supabase,
-    'exercise_api_dev',
-    favorites.map((f) => f.external_id)
-  );
+  const exercises = favorites
+    .map((favorite) => catalogMap.get(favorite.external_id))
+    .filter((row): row is NonNullable<typeof row> => Boolean(row))
+    .map((row) => normalizeExerciseCatalogRow(row, metadataMap.get(row.external_id) ?? null, true));
 
-  const exercises = await Promise.all(
-    favorites.map(async (favorite) => {
-      try {
-        const raw = await client.getExercise(favorite.external_id);
-        return normalizeExerciseApiExercise(
-          raw,
-          metadataMap.get(favorite.external_id) ?? null,
-          true
-        );
-      } catch (err) {
-        console.error('getMyFavoriteExercises: failed to load', favorite.external_id, err);
-        return null;
-      }
-    })
-  );
-
-  return exercises.filter((e): e is ExerciseLibraryExercise => e !== null);
+  return exercises;
 }
 
 /**
@@ -341,9 +331,6 @@ export async function getSuggestedNextExercise(): Promise<ExerciseLibraryExercis
   if (!context) return null;
   const { supabase, memberId } = context;
 
-  const client = buildExerciseApiClientFromEnv();
-  if (!client) return null;
-
   try {
     const [recentCompletions, profile] = await Promise.all([
       listMyExerciseCompletions(supabase, memberId, 20),
@@ -352,19 +339,19 @@ export async function getSuggestedNextExercise(): Promise<ExerciseLibraryExercis
     const recentIds = new Set(recentCompletions.map((c) => c.external_id));
     const preferredCategory = profile?.favorite_movement_types?.[0];
 
-    const result = await client.searchExercises({
+    const result = await searchExerciseCatalog(supabase, {
       category: preferredCategory || undefined,
       random: true,
       limit: 5,
     });
-    const pick = result.data.find((e) => !recentIds.has(e.id)) ?? result.data[0];
+    const pick = result.data.find((e) => !recentIds.has(e.external_id)) ?? result.data[0];
     if (!pick) return null;
 
     const [metadata, isFavorited] = await Promise.all([
-      getExerciseMetadataMap(supabase, 'exercise_api_dev', [pick.id]),
-      isExerciseFavorited(supabase, memberId, 'exercise_api_dev', pick.id),
+      getExerciseMetadataMap(supabase, 'your_move', [pick.external_id]),
+      isExerciseFavorited(supabase, memberId, 'your_move', pick.external_id),
     ]);
-    return normalizeExerciseApiExercise(pick, metadata.get(pick.id) ?? null, isFavorited);
+    return normalizeExerciseCatalogRow(pick, metadata.get(pick.external_id) ?? null, isFavorited);
   } catch (err) {
     console.error('getSuggestedNextExercise failed', err);
     return null;

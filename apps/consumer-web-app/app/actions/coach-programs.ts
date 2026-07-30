@@ -41,7 +41,7 @@ import {
 } from '@/lib/coach-program-builder/assignments';
 import { getRecommendedExerciseMetadataForMember } from '@/lib/coach-program-builder/recommendations';
 import { getMovementProfile } from '@/lib/movement-profile/data';
-import { buildExerciseApiClientFromEnv } from '@/lib/exercise-library/apiClient';
+import { getExercisesByExternalIds } from '@/lib/your-move/catalog';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { todaysLocalDate } from '@/lib/time/localDate';
 import type {
@@ -196,8 +196,8 @@ export async function duplicateProgramTemplateAction(
 
 /**
  * Hydrates recommended mef_exercise_metadata rows with a display name from
- * ExerciseAPI.dev — the metadata table itself has no name column (see its
- * own migration header), same "fetch the vendor's own name for display"
+ * exercise_catalog — the metadata table itself has no name column (see its
+ * own migration header), same "fetch the catalog's own name for display"
  * pattern as getMyFavoriteExercises (app/actions/exercise-library.ts).
  * Bounded to a small recommendation set, never a full catalog fan-out.
  */
@@ -210,31 +210,23 @@ export async function getRecommendedExercisesForClientAction(
   const recommended = await getRecommendedExerciseMetadataForMember(context.supabase, profile);
   if (recommended.length === 0) return [];
 
-  const client = buildExerciseApiClientFromEnv();
-  if (!client) return [];
-
-  const hydrated = await Promise.all(
-    recommended.map(async (metadata): Promise<RecommendedExercise | null> => {
-      try {
-        const raw = await client.getExercise(metadata.external_id);
-        return {
-          provider: metadata.provider,
-          externalId: metadata.external_id,
-          name: raw.name,
-          matchReasons: metadata.matchReasons,
-        };
-      } catch (err) {
-        console.error(
-          'getRecommendedExercisesForClientAction: failed to load',
-          metadata.external_id,
-          err
-        );
-        return null;
-      }
-    })
+  const catalogMap = await getExercisesByExternalIds(
+    context.supabase,
+    recommended.map((metadata) => metadata.external_id)
   );
 
-  return hydrated.filter((e): e is RecommendedExercise => e !== null);
+  return recommended
+    .map((metadata): RecommendedExercise | null => {
+      const catalogRow = catalogMap.get(metadata.external_id);
+      if (!catalogRow) return null;
+      return {
+        provider: metadata.provider,
+        externalId: metadata.external_id,
+        name: catalogRow.name,
+        matchReasons: metadata.matchReasons,
+      };
+    })
+    .filter((e): e is RecommendedExercise => e !== null);
 }
 
 // ---------------------------------------------------------------------------
