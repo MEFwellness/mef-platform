@@ -26,3 +26,4 @@ export * from './movement-profile.types';
 export * from './coach-program-builder.types';
 export * from './prescription-intelligence.types';
 export * from './your-move-generation.types';
+export * from './lead-capture.types';

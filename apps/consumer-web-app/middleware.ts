@@ -31,6 +31,19 @@ const PUBLIC_PATHS = [
   // /onboarding check below only ever fires `if (user && ...)`, so it's
   // unaffected by this exemption.
   '/onboarding',
+  // Lead Capture Agent (app/api/lead-capture/route.ts) — a public,
+  // unauthenticated, cross-origin-callable API for the embeddable widget
+  // (public/lead-widget.js) used on external Leadpages landing pages.
+  // Anonymous prospects have no session cookie at all, and a
+  // cross-origin fetch wouldn't carry one even if they did; without this
+  // exemption every request was being 307-redirected to /login before
+  // ever reaching the route's own CORS/rate-limit handling. The route's
+  // own auth boundary is its origin allowlist + rate limit, not a
+  // session — see lib/lead-capture/cors.ts. /lead-widget-test is the
+  // same-origin manual test harness page for this widget (not linked
+  // from anywhere in the member-facing app).
+  '/api/lead-capture',
+  '/lead-widget-test',
 ];
 
 export async function middleware(request: NextRequest) {
@@ -98,7 +111,11 @@ export const config = {
   // unauthenticated request for any of them (e.g. the logo on /login, or
   // a browser's manifest fetch for install-eligibility) was being
   // redirected to /login instead of served, silently breaking both.
+  // lead-widget.js is the Lead Capture Agent's embeddable widget script
+  // (public/lead-widget.js) — a <script src> load from an external
+  // Leadpages page is always unauthenticated, so it needs the same
+  // exclusion as every other public/ static asset here.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|lead-widget\\.js|icons/|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)',
   ],
 };

@@ -118,7 +118,8 @@ export type NotificationType =
   | 'assessment_report_published'
   | 'proactive_coach_message'
   | 'morning_brief_ready'
-  | 'weekly_summary';
+  | 'weekly_summary'
+  | 'new_lead_captured';
 
 export interface Notification {
   id: string;
