@@ -1,0 +1,23 @@
+-- Forces PostgREST to reload its schema cache.
+--
+-- Root cause of the live "Sorry, something went wrong" / 500 on
+-- /api/lead-capture after migration 123 was applied to production: the
+-- Postgres tables/columns from migration 123 (lead_conversations,
+-- lead_messages, captured_leads, including pattern_name) were created
+-- successfully — `supabase db push` reported the remote database up to
+-- date — but PostgREST (Supabase's REST API layer, what
+-- @supabase/supabase-js actually talks to) caches the schema in memory and
+-- had not picked up the new tables/columns yet, causing every insert to
+-- fail with PGRST204 ("Could not find the 'pattern_name' column ... in
+-- the schema cache") even though the column genuinely exists in Postgres.
+--
+-- `supabase db push --db-url` runs migrations over a plain Postgres
+-- connection, which does not itself guarantee PostgREST's cache reloads
+-- promptly the way applying schema changes through Supabase's own
+-- dashboard/API paths does. This migration is a deliberate no-op at the
+-- schema level — its only purpose is the NOTIFY, which every Supabase
+-- project's PostgREST instance listens for and reloads its cache on
+-- receipt of. Safe to run any number of times; add another one of these
+-- (or reuse this pattern) if this class of staleness ever recurs after a
+-- future `--db-url` push.
+notify pgrst, 'reload schema';

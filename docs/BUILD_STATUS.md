@@ -2422,3 +2422,32 @@ Migration 123 — now including `follow_up_4` and both `pattern_name` columns �
 ### New doc
 
 `docs/LEAD_AGENT_VOICE.md` — the full voice standard (banned phrases, tone rules), the pattern-name table with assignment rules, and 6 full example conversations (Pain/Energy/Sleep/Stress, plus a dedicated hot-lead-ending example and a dedicated softer-lead-ending example) showing the buttons offered at each turn and the two-part insight structure end to end. `docs/LEAD_WIDGET_SNIPPET.md` (the coach-facing embed instructions) was updated to describe the proactive pop-up and button-first flow instead of the old 3-question, buttons-only-at-the-start version.
+
+## Lead Capture Agent live 500 fixed: PostgREST schema cache, not a migration/code bug (2026-07-30)
+
+After the user applied migration 123 to production (`supabase db push --db-url` reported "Remote database is up to date"), `app.mefwellness.com/lead-widget-test` still failed immediately with "Sorry, something went wrong on our end" and every `POST /api/lead-capture` returned `{"error":"Could not start conversation"}` (500).
+
+### Diagnosis (against production, not local)
+
+Called the live endpoint directly (`curl -X POST https://app.mefwellness.com/api/lead-capture -d '{}'`) — confirmed the 500 and the generic error body. `npx vercel logs https://app.mefwellness.com` (streamed live while re-triggering the request) surfaced the real underlying error, which the widget's generic catch-all message had been hiding:
+
+```
+createLeadConversation failed {
+  code: 'PGRST204',
+  message: "Could not find the 'pattern_name' column of 'lead_conversations' in the schema cache"
+}
+```
+
+`PGRST204` is PostgREST's own error for "this column isn't in my in-memory schema cache" — a different thing from "this column doesn't exist in Postgres." Since the user had just confirmed the migration was fully applied (and this was the *first-ever* application of migration 123 to production — brand-new tables, not just a new column on an existing one), the Postgres side was correct; PostgREST's cached reflection of the schema simply hadn't picked up the new tables/columns yet. `supabase db push --db-url` runs migrations over a plain Postgres connection, which doesn't reliably trigger PostgREST's automatic cache reload the way Supabase's own dashboard/API-driven paths do — a known class of issue, not specific to this feature.
+
+Checked the other 3 items on the diagnostic list before concluding, to rule out real alternatives: `npx vercel env ls production` confirmed `LEAD_QUIZ_GUIDE_URL`, `LEAD_DISCOVERY_CALL_URL`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, and `SUPABASE_SERVICE_ROLE_KEY` are all present in the **Production** environment specifically (not just Preview) — none of these were the cause. `LEAD_WIDGET_ALLOWED_ORIGINS` is still not set in either environment, but that's irrelevant to this bug (the test page is same-origin, and `getSelfOrigin()` always allows same-origin regardless of that var) — flagged separately below since it's still a real gap for embedding on an actual external Leadpages domain. The migration file itself (`supabase/migrations/00000000000123_lead_capture_agent.sql`) was re-checked line by line — no typo, no wrong table name, `pattern_name` defined correctly inline on both `lead_conversations` and `captured_leads`.
+
+### The fix
+
+`supabase/migrations/00000000000124_reload_postgrest_schema_cache.sql` — a deliberate no-op at the schema level; its only content is `notify pgrst, 'reload schema';`, which every Supabase project's PostgREST instance listens for and reloads its cache on receipt of. This rides the exact same `supabase db push --db-url` command the user already knows and has credentials for, rather than requiring a separate trip to the SQL Editor or a Dashboard button — one more push fixes both the cache *and* leaves a template in the migration history for if this class of staleness ever recurs after a future `--db-url` push. No application code changed — there was no code bug to fix.
+
+### Verified
+
+Applied locally via `supabase db reset` (124 applies cleanly after 123). `npm run typecheck` clean, `npm run lint` — 0 errors, same 65 pre-existing warnings, `vitest run` — 279/280 files passing (same pre-existing `correlation-engine-integration.test.ts` flake, 31 vs 30, unrelated), `npm run build` — compiled successfully. Pushed to `origin/main`; confirmed via `vercel inspect` that the new Production deployment is aliased to `app.mefwellness.com`.
+
+**Still needs the user to run one command**: `supabase db push --db-url "<production-db-url-with-password>"` to apply migration 124 and send the `NOTIFY`. This is the one action only the user can do (same password-only-they-hold constraint as every prior production migration in this doc) — once it's run, `/lead-widget-test` should work immediately, no redeploy needed since this only touches Supabase, not Vercel.
