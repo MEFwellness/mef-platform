@@ -23,6 +23,12 @@
  * the small corner bubble, which stays reopenable — reopening before the
  * visitor has answered anything shows a different, practitioner-voice
  * line acknowledging the return, rather than repeating the same opener.
+ *
+ * Exposes `window.MEFLeadWidget.open()` once mounted — a same-origin host
+ * page's own CTA buttons (e.g. app/start) can call this to open the exact
+ * same panel/conversation rather than building a second chat UI. Not used
+ * by, and has no effect on, the widget's own bubble/proactive-popup/
+ * dismissal behavior described above.
  */
 (function () {
   'use strict';
@@ -326,6 +332,12 @@
     });
 
     scheduleProactivePopup(openPanel);
+
+    // Public hook so a same-origin host page (e.g. app/start) can drive its
+    // own CTA buttons into this exact same panel/conversation instead of
+    // duplicating the chat UI. Purely additive — nothing above reads this,
+    // so the bubble-tap/proactive-popup/reopen behavior is unchanged.
+    window.MEFLeadWidget = { open: openPanel };
   }
 
   /**

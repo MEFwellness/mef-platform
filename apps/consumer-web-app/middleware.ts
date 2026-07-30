@@ -44,6 +44,11 @@ const PUBLIC_PATHS = [
   // from anywhere in the member-facing app).
   '/api/lead-capture',
   '/lead-widget-test',
+  // Public prospect landing page — same widget/endpoint as above, native
+  // to our own domain instead of embedded on external Leadpages. Anonymous
+  // visitors must always reach it, logged-in visitors are simply shown the
+  // same standalone page (no redirect either way).
+  '/start',
 ];
 
 export async function middleware(request: NextRequest) {
