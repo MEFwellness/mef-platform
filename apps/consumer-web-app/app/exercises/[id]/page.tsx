@@ -27,6 +27,9 @@ import {
 } from '@/lib/exercise-library/recentViews';
 import { listExerciseCompletionHistory } from '@/lib/exercise-library/completions';
 import { getRelatedExercises } from '@/lib/exercise-library/related';
+import { getYourMoveLink } from '@/lib/your-move/links';
+import { getExtractedPoster } from '@/lib/your-move/posters';
+import { getOpenLicenseImage } from '@/lib/exercise-library/openLicenseImages';
 
 export default async function ExerciseDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -54,14 +57,33 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
       // instead of waiting behind it — only getRelatedExercises has a real
       // dependency (this exercise's own muscle/category) and stays
       // sequenced after.
-      const [rawExercise, metadata, isFavorited, history, recentlyViewedRaw] = await Promise.all([
+      const [
+        rawExercise,
+        metadata,
+        isFavorited,
+        history,
+        recentlyViewedRaw,
+        yourMoveLink,
+        extractedPoster,
+        openLicenseImage,
+      ] = await Promise.all([
         client.getExercise(params.id),
         getExerciseMetadata(supabase, 'exercise_api_dev', params.id),
         isExerciseFavorited(supabase, user.id, 'exercise_api_dev', params.id),
         listExerciseCompletionHistory(supabase, user.id, 'exercise_api_dev', params.id),
         listMyRecentlyViewedExercises(supabase, user.id, 6),
+        getYourMoveLink(supabase, 'exercise_api_dev', params.id),
+        getExtractedPoster(supabase, 'exercise_api_dev', params.id),
+        getOpenLicenseImage(supabase, 'exercise_api_dev', params.id),
       ]);
-      const exercise = normalizeExerciseApiExercise(rawExercise, metadata, isFavorited);
+      const exercise = normalizeExerciseApiExercise(
+        rawExercise,
+        metadata,
+        isFavorited,
+        yourMoveLink,
+        extractedPoster,
+        openLicenseImage?.storage_path ?? null
+      );
 
       const relatedExercises = await getRelatedExercises(client, supabase, user.id, {
         externalId: exercise.externalId,

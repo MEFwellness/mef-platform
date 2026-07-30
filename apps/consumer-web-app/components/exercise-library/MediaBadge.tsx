@@ -1,4 +1,4 @@
-import { PlayCircle, ImageIcon, Dumbbell } from 'lucide-react';
+import { PlayCircle, ImageIcon, NotebookText, Dumbbell } from 'lucide-react';
 import { getExerciseMediaTier, type ExerciseMediaTier } from '@/lib/exercise-library/ranking';
 
 const BADGE_COPY: Record<
@@ -15,6 +15,11 @@ const BADGE_COPY: Record<
     Icon: ImageIcon,
     className: 'bg-white text-[#1B3A2D]',
   },
+  cues: {
+    label: 'Cues',
+    Icon: NotebookText,
+    className: 'bg-white text-[#1B3A2D]',
+  },
   none: {
     label: 'No Media',
     Icon: Dumbbell,
@@ -27,7 +32,7 @@ export function MediaBadge({
   exercise,
   className = '',
 }: {
-  exercise: { videoUrl: string | null; imageUrl: string | null };
+  exercise: { hasVideo: boolean; imageUrl: string | null; cues: string[] };
   className?: string;
 }) {
   const tier = getExerciseMediaTier(exercise);
@@ -43,15 +48,38 @@ export function MediaBadge({
   );
 }
 
-/** The elegant "no preview available" placeholder — never a broken `<img>` icon. Shared by the card grid and (at a larger scale) the detail page. */
-export function MediaPlaceholder({ compact = false }: { compact?: boolean }) {
+/**
+ * The card-surface fallback for an exercise with neither video nor image —
+ * renders its coaching cues right where media would appear (Phase 4),
+ * never a "No preview available" dumbbell icon. `cues` is expected to be
+ * non-empty by the time this renders (the media backfill's whole premise
+ * is that every exercise has video, image, or cues) — the empty-cues
+ * branch below is a defensive last resort, not a state the real catalog
+ * should ever reach.
+ */
+export function CuesPlaceholder({ cues, compact = false }: { cues: string[]; compact?: boolean }) {
+  if (cues.length === 0) {
+    return (
+      <div
+        className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#EFF6F1] to-[#E4EEE7] text-[#6B7A72]"
+        aria-hidden="true"
+      >
+        <Dumbbell className={compact ? 'h-6 w-6' : 'h-10 w-10'} strokeWidth={1.25} />
+        {!compact && <p className="text-xs font-medium">No preview available</p>}
+      </div>
+    );
+  }
+
   return (
-    <div
-      className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#EFF6F1] to-[#E4EEE7] text-[#6B7A72]"
-      aria-hidden="true"
-    >
-      <Dumbbell className={compact ? 'h-6 w-6' : 'h-10 w-10'} strokeWidth={1.25} />
-      {!compact && <p className="text-xs font-medium">No preview available</p>}
+    <div className="flex h-full w-full flex-col justify-center gap-1.5 bg-gradient-to-br from-[#EFF6F1] to-[#E4EEE7] px-4 py-3 text-[#1B3A2D]">
+      {cues.slice(0, compact ? 1 : 3).map((cue, i) => (
+        <p
+          key={i}
+          className={compact ? 'line-clamp-2 text-[11px] leading-snug' : 'line-clamp-2 text-xs leading-snug'}
+        >
+          {cue}
+        </p>
+      ))}
     </div>
   );
 }

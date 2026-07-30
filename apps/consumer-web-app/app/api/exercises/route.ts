@@ -10,16 +10,19 @@
  *
  * `resource=muscles|equipment|categories` powers the filter dropdowns;
  * the default (search) resource returns exercises normalized and merged
- * with MEF metadata + the signed-in member's favorite state.
+ * with MEF metadata, the Your Move media link/extracted poster/open-license
+ * image (all browse-mode-safe: this route never requests Your Move video
+ * fields, see lib/your-move/apiClient.ts), and the signed-in member's
+ * favorite state.
  *
- * Results are re-sorted by media availability (video > image > no media)
- * via rankByMediaAvailability before returning — a stable sort that never
- * changes relevance order within a tier and never drops a no-media
- * exercise, only reorders it after the media-having ones. `imageOnly` and
- * `hideNoMedia` are applied client-of-this-route (same idiom as
- * `bodyRegion` below) since the vendor API has no concept of "usable
- * image" the way this app defines it — `hasVideo` alone is still sent to
- * the vendor as a real search parameter.
+ * Results are re-sorted by media availability (video > image > cues > no
+ * media) via rankByMediaAvailability before returning — a stable sort that
+ * never changes relevance order within a tier and never drops a no-media
+ * exercise, only reorders it after the media/cues-having ones. `hasVideo`,
+ * `imageOnly`, and `hideNoMedia` are all applied client-of-this-route (same
+ * idiom as `bodyRegion` below), NOT sent to the vendor — since Your Move
+ * can supply video the vendor doesn't know about, only this route's merged
+ * `hasVideo` (ExerciseAPI.dev's raw flag OR a Your Move link) is accurate.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -36,6 +39,9 @@ import { normalizeExerciseApiExercise } from '@/lib/exercise-library/normalize';
 import { resolveSearchAlias } from '@/lib/exercise-library/searchAliases';
 import { musclesMatchBodyRegion, type BodyRegion } from '@/lib/exercise-library/bodyRegions';
 import { rankByMediaAvailability } from '@/lib/exercise-library/ranking';
+import { getYourMoveLinkMap } from '@/lib/your-move/links';
+import { getExtractedPosterMap } from '@/lib/your-move/posters';
+import { getOpenLicenseImageMap } from '@/lib/exercise-library/openLicenseImages';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +110,13 @@ export async function GET(request: NextRequest) {
         : null;
     const imageOnly = params.get('imageOnly') === 'true';
     const hideNoMedia = params.get('hideNoMedia') === 'true';
+    // hasVideo is applied client-of-this-route (like imageOnly/hideNoMedia
+    // below), NOT sent to the vendor as a search param anymore. The vendor
+    // only knows about its own videos — since Your Move now wins whenever
+    // it has a match, an exercise can have real video (hasVideo=true in
+    // this app's merged sense) while ExerciseAPI.dev's own hasVideo flag
+    // says false, and the vendor-side filter would wrongly exclude it.
+    const hasVideoOnly = params.get('hasVideo') === 'true';
 
     const searchParams: ExerciseApiSearchParams = {
       q: rawQuery ? resolveSearchAlias(rawQuery) : undefined,
@@ -113,7 +126,6 @@ export async function GET(request: NextRequest) {
       level: params.get('level') ?? undefined,
       force: params.get('force') ?? undefined,
       mechanic: params.get('mechanic') ?? undefined,
-      hasVideo: params.has('hasVideo') ? params.get('hasVideo') === 'true' : undefined,
       limit: params.has('limit') ? Number(params.get('limit')) : 30,
       offset: params.has('offset') ? Number(params.get('offset')) : 0,
     };
@@ -137,25 +149,38 @@ export async function GET(request: NextRequest) {
     }
 
     const externalIds = exercises.map((e) => e.id);
-    const [metadataMap, favoriteIds] = await Promise.all([
-      getExerciseMetadataMap(supabase, 'exercise_api_dev', externalIds),
-      listMyExerciseFavoriteIds(supabase, user.id, 'exercise_api_dev'),
-    ]);
+    const [metadataMap, favoriteIds, yourMoveLinkMap, posterMap, openLicenseImageMap] =
+      await Promise.all([
+        getExerciseMetadataMap(supabase, 'exercise_api_dev', externalIds),
+        listMyExerciseFavoriteIds(supabase, user.id, 'exercise_api_dev'),
+        getYourMoveLinkMap(supabase, 'exercise_api_dev', externalIds),
+        getExtractedPosterMap(supabase, 'exercise_api_dev', externalIds),
+        getOpenLicenseImageMap(supabase, 'exercise_api_dev', externalIds),
+      ]);
 
     let data = exercises.map((exercise) =>
       normalizeExerciseApiExercise(
         exercise,
         metadataMap.get(exercise.id) ?? null,
-        favoriteIds.has(exercise.id)
+        favoriteIds.has(exercise.id),
+        yourMoveLinkMap.get(exercise.id) ?? null,
+        posterMap.get(exercise.id) ?? null,
+        openLicenseImageMap.get(exercise.id)?.storage_path ?? null
       )
     );
 
+    if (hasVideoOnly) {
+      data = data.filter((exercise) => exercise.hasVideo);
+      total = null;
+    }
     if (imageOnly) {
-      data = data.filter((exercise) => Boolean(exercise.imageUrl));
+      data = data.filter((exercise) => !exercise.hasVideo && Boolean(exercise.imageUrl));
       total = null;
     }
     if (hideNoMedia) {
-      data = data.filter((exercise) => Boolean(exercise.videoUrl) || Boolean(exercise.imageUrl));
+      data = data.filter(
+        (exercise) => exercise.hasVideo || Boolean(exercise.imageUrl) || exercise.cues.length > 0
+      );
       total = null;
     }
 

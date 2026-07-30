@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { Share2, Check } from 'lucide-react';
+import { Share2, Check, PlayCircle } from 'lucide-react';
 import type {
   ExerciseLibraryExercise,
   MemberExerciseCompletion,
@@ -12,7 +12,7 @@ import type {
 import { FavoriteButton } from './FavoriteButton';
 import { ExerciseCompletionControls } from './ExerciseCompletionControls';
 import { ExerciseHistoryList } from './ExerciseHistoryList';
-import { MediaBadge, MediaPlaceholder } from './MediaBadge';
+import { MediaBadge, CuesPlaceholder } from './MediaBadge';
 
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
@@ -101,6 +101,78 @@ function ShareButton({ exerciseName }: { exerciseName: string }) {
   );
 }
 
+/**
+ * The one place in this app allowed to trigger a Your Move video fetch —
+ * strictly on tap, never on mount. Shows the extracted poster with a play
+ * button until tapped; only then calls /api/exercises/[id]/video-url
+ * (which itself only hits Your Move's metered endpoint on a cache miss)
+ * and swaps in a real <video> with the fresh, short-lived URL. For
+ * exercise_api_dev-sourced video (videoSource !== 'your_move'), videoUrl
+ * is already eagerly present and this component isn't used — see the
+ * caller below.
+ */
+function TapToPlayVideo({ externalId, posterUrl }: { externalId: string; posterUrl: string | null }) {
+  const [state, setState] = useState<
+    { status: 'idle' } | { status: 'loading' } | { status: 'ready'; videoUrl: string } | { status: 'error'; message: string }
+  >({ status: 'idle' });
+
+  async function handlePlay() {
+    setState({ status: 'loading' });
+    try {
+      const response = await fetch(`/api/exercises/${encodeURIComponent(externalId)}/video-url`);
+      const json = await response.json();
+      if (!response.ok || !json.videoUrl) {
+        setState({
+          status: 'error',
+          message: json?.error?.message ?? 'This video is unavailable right now.',
+        });
+        return;
+      }
+      setState({ status: 'ready', videoUrl: json.videoUrl });
+    } catch {
+      setState({ status: 'error', message: 'This video is unavailable right now.' });
+    }
+  }
+
+  if (state.status === 'ready') {
+    return (
+      <video
+        key={state.videoUrl}
+        src={state.videoUrl}
+        controls
+        autoPlay
+        playsInline
+        preload="metadata"
+        className="max-h-96 w-full bg-black object-contain"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handlePlay}
+      disabled={state.status === 'loading'}
+      aria-label="Play exercise video"
+      className="relative block h-56 w-full"
+    >
+      {posterUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- our own extracted-frame poster, stored in the exercise-media Supabase bucket
+        <img src={posterUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="h-full w-full bg-[#EFF6F1]" />
+      )}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20">
+        <PlayCircle className="h-14 w-14 text-white drop-shadow" strokeWidth={1.25} />
+        {state.status === 'loading' && <p className="text-xs font-medium text-white">Loading…</p>}
+        {state.status === 'error' && (
+          <p className="max-w-[80%] text-center text-xs font-medium text-white">{state.message}</p>
+        )}
+      </div>
+    </button>
+  );
+}
+
 function RelatedChip({ exercise }: { exercise: ExerciseLibraryExercise }) {
   return (
     <Link
@@ -160,7 +232,7 @@ export function ExerciseDetailView({
         <div className="absolute left-3 top-3 z-10">
           <MediaBadge exercise={exercise} />
         </div>
-        {exercise.videoUrl ? (
+        {exercise.videoSource === 'exercise_api_dev' && exercise.videoUrl ? (
           <video
             key={exercise.videoUrl}
             src={exercise.videoUrl}
@@ -169,8 +241,10 @@ export function ExerciseDetailView({
             preload="metadata"
             className="max-h-96 w-full bg-black object-contain"
           />
+        ) : exercise.videoSource === 'your_move' ? (
+          <TapToPlayVideo externalId={exercise.externalId} posterUrl={exercise.posterUrl} />
         ) : exercise.imageUrl && !imageFailed ? (
-          // eslint-disable-next-line @next/next/no-img-element -- remote CDN images from ExerciseAPI.dev; no next.config remote-pattern configured for a third-party content vendor's own CDN
+          // eslint-disable-next-line @next/next/no-img-element -- remote CDN images from ExerciseAPI.dev, or our own re-hosted open-license image; no next.config remote-pattern configured for a third-party content vendor's own CDN
           <img
             src={exercise.imageUrl}
             alt={exercise.name}
@@ -179,7 +253,7 @@ export function ExerciseDetailView({
           />
         ) : (
           <div className="h-56">
-            <MediaPlaceholder />
+            <CuesPlaceholder cues={exercise.cues} />
           </div>
         )}
       </div>

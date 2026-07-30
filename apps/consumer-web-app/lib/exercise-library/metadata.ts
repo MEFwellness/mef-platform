@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import type { ExerciseLibraryProvider, MefExerciseMetadata } from '@mef/shared-types-contracts';
 
 export async function getExerciseMetadata(
@@ -46,4 +47,36 @@ export async function getExerciseMetadataMap(
 
   const rows = (data as MefExerciseMetadata[]) ?? [];
   return new Map(rows.map((row) => [row.external_id, row]));
+}
+
+/**
+ * Written by the Phase 4 cue-generation script (scripts/exercise-media/
+ * write-cues.ts, service-role client) — never by request-time application
+ * code. Only touches coaching_cues; an existing row's other curated
+ * fields (program_section, contraindications, etc.) are left exactly as
+ * they are, and a brand-new row for a previously-uncurated exercise gets
+ * every other column's schema default.
+ */
+export async function upsertExerciseMetadataCues(
+  supabase: SupabaseClient,
+  provider: ExerciseLibraryProvider,
+  externalId: string,
+  coachingCues: string[]
+): Promise<boolean> {
+  const existing = await getExerciseMetadata(supabase, provider, externalId);
+  const { error } = await supabase.from('mef_exercise_metadata').upsert(
+    {
+      id: existing?.id ?? randomUUID(),
+      provider,
+      external_id: externalId,
+      coaching_cues: coachingCues,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'provider,external_id' }
+  );
+  if (error) {
+    console.error('upsertExerciseMetadataCues failed', error);
+    return false;
+  }
+  return true;
 }

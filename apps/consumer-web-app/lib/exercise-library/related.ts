@@ -13,6 +13,9 @@ import type { ExerciseApiClient } from './apiClient';
 import { getExerciseMetadataMap } from './metadata';
 import { listMyExerciseFavoriteIds } from './favorites';
 import { normalizeExerciseApiExercise } from './normalize';
+import { getYourMoveLinkMap } from '../your-move/links';
+import { getExtractedPosterMap } from '../your-move/posters';
+import { getOpenLicenseImageMap } from './openLicenseImages';
 
 export async function getRelatedExercises(
   client: ExerciseApiClient,
@@ -33,16 +36,23 @@ export async function getRelatedExercises(
     if (candidates.length === 0) return [];
 
     const externalIds = candidates.map((e) => e.id);
-    const [metadataMap, favoriteIds] = await Promise.all([
-      getExerciseMetadataMap(supabase, 'exercise_api_dev', externalIds),
-      listMyExerciseFavoriteIds(supabase, memberId, 'exercise_api_dev'),
-    ]);
+    const [metadataMap, favoriteIds, yourMoveLinkMap, posterMap, openLicenseImageMap] =
+      await Promise.all([
+        getExerciseMetadataMap(supabase, 'exercise_api_dev', externalIds),
+        listMyExerciseFavoriteIds(supabase, memberId, 'exercise_api_dev'),
+        getYourMoveLinkMap(supabase, 'exercise_api_dev', externalIds),
+        getExtractedPosterMap(supabase, 'exercise_api_dev', externalIds),
+        getOpenLicenseImageMap(supabase, 'exercise_api_dev', externalIds),
+      ]);
 
     return candidates.map((exercise) =>
       normalizeExerciseApiExercise(
         exercise,
         metadataMap.get(exercise.id) ?? null,
-        favoriteIds.has(exercise.id)
+        favoriteIds.has(exercise.id),
+        yourMoveLinkMap.get(exercise.id) ?? null,
+        posterMap.get(exercise.id) ?? null,
+        openLicenseImageMap.get(exercise.id)?.storage_path ?? null
       )
     );
   } catch (err) {

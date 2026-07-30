@@ -1,37 +1,46 @@
 import { describe, it, expect } from 'vitest';
 import { getExerciseMediaTier, rankByMediaAvailability } from '../lib/exercise-library/ranking';
 
-type Media = { videoUrl: string | null; imageUrl: string | null };
+type Media = { hasVideo: boolean; imageUrl: string | null; cues: string[] };
 
 function withMedia(name: string, media: Media): Media & { name: string } {
   return { name, ...media };
 }
 
 describe('getExerciseMediaTier', () => {
-  it('returns "video" when a videoUrl is present, regardless of imageUrl', () => {
-    expect(getExerciseMediaTier({ videoUrl: 'https://x/video.mp4', imageUrl: null })).toBe('video');
-    expect(
-      getExerciseMediaTier({ videoUrl: 'https://x/video.mp4', imageUrl: 'https://x/img.jpg' })
-    ).toBe('video');
+  it('returns "video" when hasVideo is true, regardless of imageUrl/cues — hasVideo, not videoUrl, since Your Move video is fetched at play time and has no eager URL', () => {
+    expect(getExerciseMediaTier({ hasVideo: true, imageUrl: null, cues: [] })).toBe('video');
+    expect(getExerciseMediaTier({ hasVideo: true, imageUrl: 'https://x/img.jpg', cues: ['a'] })).toBe(
+      'video'
+    );
   });
 
   it('returns "image" when only imageUrl is present', () => {
-    expect(getExerciseMediaTier({ videoUrl: null, imageUrl: 'https://x/img.jpg' })).toBe('image');
+    expect(getExerciseMediaTier({ hasVideo: false, imageUrl: 'https://x/img.jpg', cues: [] })).toBe(
+      'image'
+    );
   });
 
-  it('returns "none" when neither is present', () => {
-    expect(getExerciseMediaTier({ videoUrl: null, imageUrl: null })).toBe('none');
+  it('returns "cues" when only cues are present', () => {
+    expect(getExerciseMediaTier({ hasVideo: false, imageUrl: null, cues: ['Stand tall'] })).toBe(
+      'cues'
+    );
+  });
+
+  it('returns "none" when none of the three is present', () => {
+    expect(getExerciseMediaTier({ hasVideo: false, imageUrl: null, cues: [] })).toBe('none');
   });
 });
 
 describe('rankByMediaAvailability', () => {
-  it('groups video > image > no-media without hiding any exercise', () => {
+  it('groups video > image > cues > no-media without hiding any exercise', () => {
     const input = [
-      withMedia('no-media-1', { videoUrl: null, imageUrl: null }),
-      withMedia('video-1', { videoUrl: 'v1', imageUrl: null }),
-      withMedia('image-1', { videoUrl: null, imageUrl: 'i1' }),
-      withMedia('no-media-2', { videoUrl: null, imageUrl: null }),
-      withMedia('video-2', { videoUrl: 'v2', imageUrl: null }),
+      withMedia('no-media-1', { hasVideo: false, imageUrl: null, cues: [] }),
+      withMedia('video-1', { hasVideo: true, imageUrl: null, cues: [] }),
+      withMedia('cues-1', { hasVideo: false, imageUrl: null, cues: ['a'] }),
+      withMedia('image-1', { hasVideo: false, imageUrl: 'i1', cues: [] }),
+      withMedia('no-media-2', { hasVideo: false, imageUrl: null, cues: [] }),
+      withMedia('video-2', { hasVideo: true, imageUrl: null, cues: [] }),
     ];
 
     const ranked = rankByMediaAvailability(input);
@@ -41,6 +50,7 @@ describe('rankByMediaAvailability', () => {
       'video-1',
       'video-2',
       'image-1',
+      'cues-1',
       'no-media-1',
       'no-media-2',
     ]);
@@ -48,10 +58,10 @@ describe('rankByMediaAvailability', () => {
 
   it('is a stable sort — preserves original relevance order within each media tier', () => {
     const input = [
-      withMedia('video-b', { videoUrl: 'v', imageUrl: null }),
-      withMedia('video-a', { videoUrl: 'v', imageUrl: null }),
-      withMedia('none-b', { videoUrl: null, imageUrl: null }),
-      withMedia('none-a', { videoUrl: null, imageUrl: null }),
+      withMedia('video-b', { hasVideo: true, imageUrl: null, cues: [] }),
+      withMedia('video-a', { hasVideo: true, imageUrl: null, cues: [] }),
+      withMedia('none-b', { hasVideo: false, imageUrl: null, cues: [] }),
+      withMedia('none-a', { hasVideo: false, imageUrl: null, cues: [] }),
     ];
 
     const ranked = rankByMediaAvailability(input);
@@ -62,7 +72,7 @@ describe('rankByMediaAvailability', () => {
   });
 
   it('does not mutate the input array', () => {
-    const input = [withMedia('a', { videoUrl: null, imageUrl: null })];
+    const input = [withMedia('a', { hasVideo: false, imageUrl: null, cues: [] })];
     const ranked = rankByMediaAvailability(input);
     expect(ranked).not.toBe(input);
   });

@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
+import { PlayCircle } from 'lucide-react';
 import type { ExerciseLibraryExercise } from '@mef/shared-types-contracts';
 import { FavoriteButton } from './FavoriteButton';
-import { MediaBadge, MediaPlaceholder } from './MediaBadge';
+import { MediaBadge, CuesPlaceholder } from './MediaBadge';
 import { HighlightMatch } from './HighlightMatch';
 
 const DIFFICULTY_LABEL: Record<string, string> = {
@@ -38,8 +39,25 @@ export function ExerciseCard({
       style={{ animationDelay: `${animationDelayMs}ms` }}
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#EFF6F1]">
-        {exercise.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- remote CDN images from ExerciseAPI.dev; no next.config remote-pattern configured for a third-party content vendor's own CDN
+        {exercise.hasVideo ? (
+          <>
+            {exercise.posterUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- our own extracted-frame poster, stored in the exercise-media Supabase bucket, never the vendor's own CDN
+              <img
+                src={exercise.posterUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              />
+            )}
+            {/* Tap-to-play affordance only — the grid never renders a <video> element or requests a video URL, so browsing never touches Your Move's metered endpoint. */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10">
+              <PlayCircle className="h-10 w-10 text-white drop-shadow" strokeWidth={1.5} />
+            </div>
+          </>
+        ) : exercise.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- remote CDN images from ExerciseAPI.dev, or our own re-hosted open-license image; no next.config remote-pattern configured for a third-party content vendor's own CDN
           <img
             src={exercise.imageUrl}
             alt=""
@@ -48,7 +66,7 @@ export function ExerciseCard({
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
-          <MediaPlaceholder />
+          <CuesPlaceholder cues={exercise.cues} />
         )}
 
         <div className="absolute left-2 top-2">

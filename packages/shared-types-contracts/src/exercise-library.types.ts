@@ -65,6 +65,52 @@ export interface MemberExerciseFavorite {
   created_at: string;
 }
 
+/** Which media source is actually behind an exercise's video, if any — drives whether playback fetches a fresh URL from Your Move at tap time or uses ExerciseAPI.dev's own (non-expiring) URL directly. */
+export type ExerciseVideoSource = 'your_move' | 'exercise_api_dev';
+
+/**
+ * A row in your_move_exercise_links (migration 118) — the our-id -> Your
+ * Move-id mapping. video_url/video_url_expires_at are a short-lived
+ * fetch-at-play-time cache, never long-term storage of the vendor's
+ * pre-signed URL (see Your Move's 48h expiry terms) — a null or expired
+ * value means "fetch fresh from Your Move," the normal, expected state.
+ */
+export interface YourMoveExerciseLink {
+  id: string;
+  provider: ExerciseLibraryProvider;
+  external_id: string;
+  your_move_exercise_id: string;
+  match_confidence: 'confident';
+  match_reasoning: string | null;
+  video_url: string | null;
+  video_url_expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A row in exercise_extracted_posters (migration 118) — a mid-movement frame extracted from either source's video and stored in our own Supabase storage. Only source='your_move' rows belong in the purge manifest. */
+export interface ExerciseExtractedPoster {
+  id: string;
+  provider: ExerciseLibraryProvider;
+  external_id: string;
+  source: ExerciseVideoSource;
+  storage_path: string;
+  created_at: string;
+}
+
+/** A row in exercise_open_license_images (migration 118) — also the license manifest: every open-license image this app stores must have a provable commercial-use license recorded here. */
+export interface ExerciseOpenLicenseImage {
+  id: string;
+  provider: ExerciseLibraryProvider;
+  external_id: string;
+  storage_path: string;
+  source_url: string;
+  source_provider: 'wikimedia_commons' | 'pexels' | 'unsplash' | 'other_open_license';
+  license_type: string;
+  attribution: string | null;
+  created_at: string;
+}
+
 export type MovementProgramVersionStatus = 'draft' | 'published' | 'archived';
 
 /** Program Version Foundation only — no Program Builder reads or writes these yet. */
@@ -93,6 +139,20 @@ export interface MovementProgramVersion {
  * signed-in member's favorite state. Nothing here assumes a specific
  * provider's wire shape beyond the normalized fields every provider must
  * supply; see apps/consumer-web-app/lib/exercise-library/normalize.ts.
+ *
+ * Media fields, in the order a card/detail view checks them:
+ *   1. hasVideo/videoSource — true means tap-to-play is available.
+ *      videoUrl itself is NEVER eagerly populated for a your_move source
+ *      (fetched fresh at play time, per Your Move's 48h URL-expiry terms);
+ *      it IS eagerly populated for exercise_api_dev (that vendor's URLs
+ *      don't expire). posterUrl is the cover image shown behind the play
+ *      button either way — an extracted mid-movement frame we store
+ *      ourselves, never the vendor's own thumbnail/still.
+ *   2. imageUrl — a Phase 3 open-license image, only set when there is no
+ *      video from either source.
+ *   3. cues — Phase 4 short coaching cues, only set when there is neither
+ *      video nor image. An exercise with none of the three is the one
+ *      state that must never occur once the media backfill is complete.
  */
 export interface ExerciseLibraryExercise {
   provider: ExerciseLibraryProvider;
@@ -112,7 +172,11 @@ export interface ExerciseLibraryExercise {
   overview: string | null;
   variations: string[];
   videoUrl: string | null;
+  hasVideo: boolean;
+  videoSource: ExerciseVideoSource | null;
+  posterUrl: string | null;
   imageUrl: string | null;
+  cues: string[];
   metadata: MefExerciseMetadata | null;
   isFavorited: boolean;
 }
