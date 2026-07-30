@@ -11,6 +11,7 @@ import {
   Dumbbell,
   ListChecks,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { listAssignedClients } from '@/app/actions/coach';
 import { listCoachReviewQueue } from '@/app/actions/safety';
@@ -158,6 +159,22 @@ export default async function CoachPage() {
           <div className="flex items-center gap-2 text-[#854D0E]">
             <Dumbbell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Program Library</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
+        {/* ---------------------------------------------------- */}
+        {/* Generate — Your Move-powered workout/program drafts.    */}
+        {/* Coach-only; always shown, same "reached from the coach   */}
+        {/* dashboard" convention as Program Library above.           */}
+        {/* ---------------------------------------------------- */}
+        <Link
+          href="/coach/generate"
+          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:opacity-90`}
+        >
+          <div className="flex items-center gap-2 text-[#854D0E]">
+            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Generate</p>
           </div>
           <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
         </Link>

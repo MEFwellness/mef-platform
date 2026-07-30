@@ -105,6 +105,84 @@ export type YourMoveListResult = {
   browseMode: boolean;
 };
 
+/**
+ * The exercise shape embedded in a generate response — a strict subset of
+ * YourMoveExercise's fields (no importantPoints, secondaryMuscles,
+ * exerciseType, or any has_video-family/video-family field). Confirmed against the
+ * live endpoint: every embedded exercise carries `videoExcludedReason:
+ * "browse_mode"`, i.e. this is exactly browse-mode-shaped data, free of
+ * charge, same as listExercises — never assume "no video field" here
+ * means "no video," only that this call didn't request one.
+ */
+export type YourMoveGeneratedExercise = {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string | null;
+  instructions?: string[] | null;
+  muscleGroup: string;
+  equipment: string;
+  difficulty?: string | null;
+  videoExcludedReason?: string;
+};
+
+export type YourMoveGeneratedExerciseEntry = {
+  exercise: YourMoveGeneratedExercise;
+  sets: number;
+  reps: string;
+  restSeconds: number;
+  order?: number;
+};
+
+export type YourMoveGeneratedWorkout = {
+  name: string;
+  muscleGroup: string;
+  muscleGroups: string[];
+  muscleGroupsRequested: string[];
+  difficulty: string;
+  estimatedMinutes: number;
+  exerciseCount: number;
+  exercises: YourMoveGeneratedExerciseEntry[];
+  warmup: YourMoveGeneratedExerciseEntry[];
+  cooldown: YourMoveGeneratedExerciseEntry[];
+};
+
+export type YourMoveGenerateWorkoutParams = {
+  /** One or more muscle groups — joined with a comma, matching the vendor's own multi-value convention (confirmed live: `muscleGroup=chest,back`). */
+  muscleGroups: string[];
+  equipment?: string | undefined;
+  difficulty?: string | undefined;
+};
+
+export type YourMoveGeneratedProgramDay = {
+  day: number;
+  name: string;
+  muscleGroup: string;
+  muscleGroups: string[];
+  exercises: YourMoveGeneratedExerciseEntry[];
+  warmup: YourMoveGeneratedExerciseEntry[];
+  cooldown: YourMoveGeneratedExerciseEntry[];
+};
+
+export type YourMoveGeneratedProgram = {
+  name: string;
+  goal: string;
+  difficulty: string;
+  daysPerWeek: number;
+  /** The vendor's own reported week count for this template — confirmed live to always come back 4 regardless of what's requested; the vendor generates one repeating week and expects the caller to replicate it, per its own `notes` field below. Never trust this over the coach's actually-requested week count. */
+  weeks: number;
+  split: string;
+  weeklySchedule: YourMoveGeneratedProgramDay[];
+  notes?: string;
+};
+
+export type YourMoveGenerateProgramParams = {
+  goal: string;
+  /** Not honored by the vendor (confirmed live — output is always a fixed one-week template regardless of this value); sent anyway in case that changes, but callers must replicate weeklySchedule themselves for the coach's requested week count. */
+  weeks?: number | undefined;
+  difficulty?: string | undefined;
+};
+
 export type YourMoveUsage = {
   plan: string;
   status: string;
@@ -267,6 +345,41 @@ export class YourMoveApiClient {
   async getUsage(): Promise<YourMoveUsage> {
     const result = await request<{ data: YourMoveUsage }>('/usage', this.apiKey, this.timeoutMs);
     return result.data;
+  }
+
+  /**
+   * Single-session workout generation — coach-facing only (see
+   * app/actions/your-move-generation.ts for the caller-side coach gate;
+   * this client has no notion of roles). Confirmed live: every embedded
+   * exercise is browse-mode-shaped (no video fields, no quota spent) —
+   * same free-of-charge status as listExercises, verified against a real
+   * account's /usage before and after.
+   */
+  generateWorkout(params: YourMoveGenerateWorkoutParams): Promise<YourMoveGeneratedWorkout> {
+    const search = new URLSearchParams();
+    search.set('muscleGroup', params.muscleGroups.join(','));
+    if (params.equipment) search.set('equipment', params.equipment);
+    if (params.difficulty) search.set('difficulty', params.difficulty);
+
+    return request<{ data: YourMoveGeneratedWorkout }>(
+      `/workouts/generate?${search.toString()}`,
+      this.apiKey,
+      this.timeoutMs
+    ).then((result) => result.data);
+  }
+
+  /** Multi-day program generation — same quota-free, coach-facing-only posture as generateWorkout. */
+  generateProgram(params: YourMoveGenerateProgramParams): Promise<YourMoveGeneratedProgram> {
+    const search = new URLSearchParams();
+    search.set('goal', params.goal);
+    if (params.weeks) search.set('weeks', String(params.weeks));
+    if (params.difficulty) search.set('difficulty', params.difficulty);
+
+    return request<{ data: YourMoveGeneratedProgram }>(
+      `/programs/generate?${search.toString()}`,
+      this.apiKey,
+      this.timeoutMs
+    ).then((result) => result.data);
   }
 }
 
