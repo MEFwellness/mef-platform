@@ -13,6 +13,7 @@ import { FavoriteButton } from './FavoriteButton';
 import { ExerciseCompletionControls } from './ExerciseCompletionControls';
 import { ExerciseHistoryList } from './ExerciseHistoryList';
 import { MediaBadge, CuesPlaceholder } from './MediaBadge';
+import { VideoPosterPlaceholder } from './VideoPosterPlaceholder';
 
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
@@ -118,10 +119,16 @@ function ShareButton({ exerciseName }: { exerciseName: string }) {
  */
 function TapToPlayVideo({
   externalId,
+  name,
+  primaryMuscle,
+  category,
   posterUrl,
   cues,
 }: {
   externalId: string;
+  name: string;
+  primaryMuscle: string | null;
+  category: string | null;
   posterUrl: string | null;
   cues: string[];
 }) {
@@ -181,7 +188,7 @@ function TapToPlayVideo({
         // eslint-disable-next-line @next/next/no-img-element -- our own extracted-frame poster, stored in the exercise-media Supabase bucket
         <img src={posterUrl} alt="" className="h-full w-full object-cover" />
       ) : (
-        <div className="h-full w-full bg-[#EFF6F1]" />
+        <VideoPosterPlaceholder exercise={{ name, primaryMuscle, category }} />
       )}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20">
         <PlayCircle className="h-14 w-14 text-white drop-shadow" strokeWidth={1.25} />
@@ -248,7 +255,14 @@ export function ExerciseDetailView({
           <MediaBadge exercise={exercise} />
         </div>
         {exercise.hasVideo ? (
-          <TapToPlayVideo externalId={exercise.externalId} posterUrl={exercise.posterUrl} cues={exercise.cues} />
+          <TapToPlayVideo
+            externalId={exercise.externalId}
+            name={exercise.name}
+            primaryMuscle={exercise.primaryMuscle}
+            category={exercise.category}
+            posterUrl={exercise.posterUrl}
+            cues={exercise.cues}
+          />
         ) : (
           <div className="h-56">
             <CuesPlaceholder cues={exercise.cues} />

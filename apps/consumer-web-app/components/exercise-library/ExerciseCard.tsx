@@ -6,6 +6,7 @@ import { PlayCircle } from 'lucide-react';
 import type { ExerciseLibraryExercise } from '@mef/shared-types-contracts';
 import { FavoriteButton } from './FavoriteButton';
 import { MediaBadge, CuesPlaceholder } from './MediaBadge';
+import { VideoPosterPlaceholder } from './VideoPosterPlaceholder';
 import { HighlightMatch } from './HighlightMatch';
 
 const DIFFICULTY_LABEL: Record<string, string> = {
@@ -41,7 +42,7 @@ export function ExerciseCard({
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#EFF6F1]">
         {exercise.hasVideo ? (
           <>
-            {exercise.posterUrl && (
+            {exercise.posterUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- our own extracted-frame poster, stored in the exercise-media Supabase bucket, never the vendor's own CDN
               <img
                 src={exercise.posterUrl}
@@ -50,6 +51,11 @@ export function ExerciseCard({
                 decoding="async"
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
               />
+            ) : (
+              // Poster extraction hasn't run for this exercise yet — branded
+              // placeholder instead of a blank gray box. Disappears on its
+              // own, per-exercise, the moment posterUrl is populated.
+              <VideoPosterPlaceholder exercise={exercise} />
             )}
             {/* Tap-to-play affordance only — the grid never renders a <video> element or requests a video URL, so browsing never touches Your Move's metered endpoint. */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10">
