@@ -2,16 +2,27 @@
  * MEF Wellness Lead Capture Agent — embeddable widget.
  *
  * Self-contained: one <script src="https://<this-app-domain>/lead-widget.js">
- * tag renders a floating chat bubble (bottom-right) and its chat panel.
- * Everything (styles, DOM, API calls) lives inside a Shadow DOM so it
- * never collides with — or is broken by — whatever CSS already exists on
- * the Leadpages page it's dropped into.
+ * tag renders a floating chat bubble (bottom-right) plus its chat panel —
+ * a bottom-right card on desktop, a bottom-sheet on narrow/mobile screens
+ * (max-width: 480px). Everything (styles, DOM, API calls) lives inside a
+ * Shadow DOM so it never collides with — or is broken by — whatever CSS
+ * already exists on the Leadpages page it's dropped into.
  *
  * Talks to POST <this-app-domain>/api/lead-capture (app/api/lead-capture/
  * route.ts) — the app's own public Lead Capture API. The API origin is
  * inferred from this script's own <script src>, so a future update to the
  * agent (prompt, flow, styling of this file) never requires touching the
  * Leadpages page again.
+ *
+ * Proactive pop-up: on page load, a timer (8s) and a scroll listener
+ * (25% of scrollable height) race — whichever fires first opens the panel
+ * automatically, straight to the first question and its quick-reply
+ * buttons, same as a manual bubble tap would. It fires at most once per
+ * browser session (sessionStorage-backed) and never once the visitor has
+ * opened the widget themselves. Dismissing it (the X) always collapses to
+ * the small corner bubble, which stays reopenable — reopening before the
+ * visitor has answered anything shows a different, practitioner-voice
+ * line acknowledging the return, rather than repeating the same opener.
  */
 (function () {
   'use strict';
@@ -19,6 +30,10 @@
   var CURRENT_SCRIPT = document.currentScript;
   var API_ORIGIN = CURRENT_SCRIPT ? new URL(CURRENT_SCRIPT.src).origin : '';
   var STORAGE_KEY = 'mef_lead_conversation_id';
+  var AUTOPOP_KEY = 'mef_lead_autopopped';
+
+  /** Mirrors fallback.ts's REOPEN_MESSAGE exactly — shown client-side only, since reopening an un-engaged conversation is not itself a new turn against the API. */
+  var REOPEN_MESSAGE = "Still thinking about something? Tell me what's been going on.";
 
   var COLORS = {
     forest: '#1B3A2D',
@@ -30,7 +45,25 @@
     conversationId: null,
     open: false,
     sending: false,
+    engaged: false, // true once the visitor has sent any real answer (button tap or typed message)
+    pendingReopenLine: false, // set on close if not yet engaged; consumed on the next open
   };
+
+  function safeSessionGet(key) {
+    try {
+      return sessionStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function safeSessionSet(key, value) {
+    try {
+      sessionStorage.setItem(key, value);
+    } catch (e) {
+      /* sessionStorage unavailable (private mode etc.) — proactive pop-up may re-fire on reload, which is an acceptable degradation */
+    }
+  }
 
   function el(tag, attrs, children) {
     var node = document.createElement(tag);
@@ -63,28 +96,39 @@
       '.mef-panel {\n' +
       '  position: fixed; bottom: 92px; right: 20px; width: 340px; max-width: calc(100vw - 32px);\n' +
       '  height: 480px; max-height: calc(100vh - 140px); background: ' + COLORS.cream + ';\n' +
-      '  border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); display: none; flex-direction: column;\n' +
+      '  border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); display: flex; flex-direction: column;\n' +
       '  overflow: hidden; z-index: 2147483000; border: 1px solid rgba(27,58,45,0.15);\n' +
+      '  opacity: 0; pointer-events: none; transform: translateY(16px) scale(0.98);\n' +
+      '  transition: opacity 0.22s ease, transform 0.22s ease;\n' +
       '}\n' +
-      '.mef-panel.mef-open { display: flex; }\n' +
+      '.mef-panel.mef-open { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }\n' +
+      '@media (max-width: 480px) {\n' +
+      '  .mef-panel {\n' +
+      '    left: 0; right: 0; bottom: 0; width: 100%; max-width: 100%;\n' +
+      '    height: auto; max-height: 75vh; border-radius: 20px 20px 0 0;\n' +
+      '    transform: translateY(100%);\n' +
+      '  }\n' +
+      '  .mef-panel.mef-open { transform: translateY(0); }\n' +
+      '}\n' +
       '.mef-header {\n' +
       '  background: ' + COLORS.forest + '; color: ' + COLORS.cream + '; padding: 14px 16px;\n' +
-      '  display: flex; align-items: center; justify-content: space-between;\n' +
+      '  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;\n' +
       '}\n' +
       '.mef-header-title { font-weight: 700; font-size: 15px; }\n' +
       '.mef-header-sub { font-size: 11px; opacity: 0.75; margin-top: 2px; }\n' +
-      '.mef-close { cursor: pointer; background: none; border: none; color: ' + COLORS.cream + '; font-size: 20px; line-height: 1; padding: 4px; }\n' +
-      '.mef-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }\n' +
+      '.mef-close { cursor: pointer; background: none; border: none; color: ' + COLORS.cream + '; font-size: 22px; line-height: 1; padding: 6px; }\n' +
+      '.mef-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; min-height: 120px; }\n' +
       '.mef-msg { max-width: 82%; padding: 9px 13px; border-radius: 14px; font-size: 13.5px; line-height: 1.4; }\n' +
       '.mef-msg-agent { align-self: flex-start; background: #ffffff; color: ' + COLORS.forest + '; border-bottom-left-radius: 4px; }\n' +
       '.mef-msg-lead { align-self: flex-end; background: ' + COLORS.forest + '; color: #ffffff; border-bottom-right-radius: 4px; }\n' +
-      '.mef-quick-replies { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px 10px; }\n' +
+      '.mef-quick-replies { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px 10px; flex-shrink: 0; }\n' +
       '.mef-quick-reply {\n' +
       '  border: 1.5px solid ' + COLORS.gold + '; color: ' + COLORS.forest + '; background: #ffffff;\n' +
-      '  border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;\n' +
+      '  border-radius: 999px; padding: 11px 16px; min-height: 40px; display: flex; align-items: center;\n' +
+      '  font-size: 13.5px; font-weight: 600; cursor: pointer; font-family: inherit; line-height: 1.2;\n' +
       '}\n' +
       '.mef-quick-reply:hover { background: ' + COLORS.gold + '; color: #ffffff; }\n' +
-      '.mef-inputbar { display: flex; gap: 8px; padding: 10px; border-top: 1px solid rgba(27,58,45,0.12); background: #ffffff; }\n' +
+      '.mef-inputbar { display: flex; gap: 8px; padding: 10px; border-top: 1px solid rgba(27,58,45,0.12); background: #ffffff; flex-shrink: 0; }\n' +
       '.mef-input {\n' +
       '  flex: 1; border: 1.5px solid rgba(27,58,45,0.2); border-radius: 999px; padding: 9px 14px;\n' +
       '  font-size: 13.5px; font-family: inherit; outline: none; color: ' + COLORS.forest + ';\n' +
@@ -169,7 +213,7 @@
       (options || []).forEach(function (label) {
         var btn = el('button', { class: 'mef-quick-reply', text: label });
         btn.addEventListener('click', function () {
-          quickReplies.innerHTML = '';
+          state.engaged = true;
           sendTurn({ quickReply: label });
         });
         quickReplies.appendChild(btn);
@@ -195,6 +239,7 @@
     function sendTurn(payload) {
       if (state.sending) return;
       setSending(true);
+      quickReplies.innerHTML = '';
 
       var body = Object.assign({}, payload, {
         conversationId: state.conversationId,
@@ -221,11 +266,7 @@
             return;
           }
           state.conversationId = data.conversationId;
-          try {
-            sessionStorage.setItem(STORAGE_KEY, data.conversationId);
-          } catch (e) {
-            /* sessionStorage unavailable (private mode etc.) — conversation just won't resume on reload */
-          }
+          safeSessionSet(STORAGE_KEY, data.conversationId);
           addMessage('agent', data.reply);
           setQuickReplies(data.quickReplies);
         })
@@ -237,15 +278,10 @@
     }
 
     function startConversation() {
-      var existingId = null;
-      try {
-        existingId = sessionStorage.getItem(STORAGE_KEY);
-      } catch (e) {
-        /* ignore */
-      }
+      var existingId = safeSessionGet(STORAGE_KEY);
       if (existingId) {
         state.conversationId = existingId;
-        addMessage('agent', "Welcome back! Pick up where we left off, or type a new message.");
+        addMessage('agent', REOPEN_MESSAGE);
         return;
       }
       sendTurn({});
@@ -254,13 +290,19 @@
     function openPanel() {
       state.open = true;
       panel.classList.add('mef-open');
-      if (messages.children.length === 0) startConversation();
+      if (messages.children.length === 0) {
+        startConversation();
+      } else if (state.pendingReopenLine && !state.engaged) {
+        addMessage('agent', REOPEN_MESSAGE);
+      }
+      state.pendingReopenLine = false;
       input.focus();
     }
 
     function closePanel() {
       state.open = false;
       panel.classList.remove('mef-open');
+      if (!state.engaged) state.pendingReopenLine = true;
     }
 
     bubble.addEventListener('click', function () {
@@ -273,6 +315,7 @@
       var value = input.value.trim();
       if (!value) return;
       input.value = '';
+      state.engaged = true;
       addMessage('lead', value);
       sendTurn({ message: value });
     }
@@ -281,6 +324,42 @@
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') submitInput();
     });
+
+    scheduleProactivePopup(openPanel);
+  }
+
+  /**
+   * Races an 8-second timer against a 25%-of-page-scroll threshold —
+   * whichever fires first opens the panel automatically, straight to the
+   * first question and its buttons. Fires at most once per browser
+   * session (sessionStorage-backed, so a reload within the same session
+   * doesn't re-trigger it), and never once the visitor has opened the
+   * widget on their own first (checked at fire time, not just schedule
+   * time, since either trigger could fire well after a manual open).
+   */
+  function scheduleProactivePopup(openPanelFn) {
+    if (safeSessionGet(AUTOPOP_KEY)) return;
+
+    var fired = false;
+    var timer = null;
+
+    function trigger() {
+      if (fired || state.open || state.conversationId) return;
+      fired = true;
+      safeSessionSet(AUTOPOP_KEY, '1');
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('scroll', onScroll);
+      openPanelFn();
+    }
+
+    function onScroll() {
+      var scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      if (scrollable <= 0) return;
+      if (window.scrollY / scrollable >= 0.25) trigger();
+    }
+
+    timer = setTimeout(trigger, 8000);
+    window.addEventListener('scroll', onScroll, { passive: true });
   }
 
   if (document.readyState === 'loading') {

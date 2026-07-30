@@ -28,11 +28,12 @@ describe('lead-capture flow — classifyTopic', () => {
 });
 
 describe('lead-capture flow — nextStage', () => {
-  it('advances linearly through the follow-up stages', () => {
+  it('advances linearly through the four button-first follow-up stages', () => {
     expect(nextStage('opening')).toBe('follow_up_1');
     expect(nextStage('follow_up_1')).toBe('follow_up_2');
     expect(nextStage('follow_up_2')).toBe('follow_up_3');
-    expect(nextStage('follow_up_3')).toBe('insight_capture');
+    expect(nextStage('follow_up_3')).toBe('follow_up_4');
+    expect(nextStage('follow_up_4')).toBe('insight_capture');
   });
 
   it('insight_capture advances to routed, and routed is terminal', () => {

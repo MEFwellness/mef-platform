@@ -30,6 +30,7 @@ create table lead_conversations (
       'follow_up_1',
       'follow_up_2',
       'follow_up_3',
+      'follow_up_4',
       'insight_capture',
       'routed'
     )
@@ -37,6 +38,24 @@ create table lead_conversations (
   retry_count int not null default 0,
   lead_temperature text check (lead_temperature in ('hot', 'warm')),
   routed_to text check (routed_to in ('discovery_call', 'quiz_guide')),
+  -- Assigned once the follow-up questions are answered (lib/lead-capture/
+  -- pattern.ts's determinePatternName), before the insight+email-ask turn
+  -- is sent — the two-part insight names this same pattern in both its
+  -- opening (loop-opening) and closing (completion) messages, and it's
+  -- copied onto captured_leads below so it shows up in the coach
+  -- notification too.
+  pattern_name text check (
+    pattern_name in (
+      'recovery_deficit',
+      'compensation_pattern',
+      'overload_pattern',
+      'fuel_timing_pattern',
+      'depletion_pattern',
+      'wind_down_deficit',
+      'rhythm_disruption',
+      'stress_loading_pattern'
+    )
+  ),
   -- Landing page the widget was embedded on (document.referrer), for
   -- attribution — not required, purely informational.
   source_url text,
@@ -67,6 +86,22 @@ create table captured_leads (
   topic text check (topic in ('pain', 'energy', 'sleep', 'stress', 'general')),
   lead_temperature text check (lead_temperature in ('hot', 'warm')),
   routed_to text check (routed_to in ('discovery_call', 'quiz_guide')),
+  -- Copied from lead_conversations.pattern_name at capture time, so the
+  -- coach can see the assigned pattern directly on the lead record (and in
+  -- the notification built from it) without a join back to the
+  -- conversation.
+  pattern_name text check (
+    pattern_name in (
+      'recovery_deficit',
+      'compensation_pattern',
+      'overload_pattern',
+      'fuel_timing_pattern',
+      'depletion_pattern',
+      'wind_down_deficit',
+      'rhythm_disruption',
+      'stress_loading_pattern'
+    )
+  ),
   -- Set once the coach-notification insert (lib/lead-capture/notify.ts)
   -- succeeds, so a retried/duplicate notification attempt is avoidable.
   notified_at timestamptz,

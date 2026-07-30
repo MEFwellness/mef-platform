@@ -49,7 +49,7 @@ describe('lead-capture data — conversations', () => {
     expect(fetched?.id).toBe(conversation!.id);
   });
 
-  it('updates topic/stage/retryCount/leadTemperature/routedTo/status', async () => {
+  it('updates topic/stage/retryCount/leadTemperature/routedTo/patternName/status', async () => {
     const supabase = serviceRoleClient();
     const conversation = await createLeadConversation(supabase, null);
     createdConversationIds.push(conversation!.id);
@@ -60,6 +60,7 @@ describe('lead-capture data — conversations', () => {
       retryCount: 1,
       leadTemperature: 'hot',
       routedTo: 'discovery_call',
+      patternName: 'recovery_deficit',
       status: 'completed',
     });
     expect(ok).toBe(true);
@@ -70,6 +71,7 @@ describe('lead-capture data — conversations', () => {
     expect(fetched?.retry_count).toBe(1);
     expect(fetched?.lead_temperature).toBe('hot');
     expect(fetched?.routed_to).toBe('discovery_call');
+    expect(fetched?.pattern_name).toBe('recovery_deficit');
     expect(fetched?.status).toBe('completed');
   });
 });
@@ -118,9 +120,11 @@ describe('lead-capture data — captured leads', () => {
       topic: 'pain',
       leadTemperature: 'hot',
       routedTo: 'discovery_call',
+      patternName: 'compensation_pattern',
     });
     expect(lead).not.toBeNull();
     expect(lead!.notified_at).toBeNull();
+    expect(lead!.pattern_name).toBe('compensation_pattern');
 
     const marked = await markCapturedLeadNotified(supabase, lead!.id);
     expect(marked).toBe(true);

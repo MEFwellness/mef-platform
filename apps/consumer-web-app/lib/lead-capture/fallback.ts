@@ -2,72 +2,139 @@
  * Deterministic templated copy used whenever the LLM provider is
  * unconfigured or a call fails — a prospect must never see a broken
  * widget. Mirrors lib/conversation-coach/fallback.ts's role for Root.
- * Topic-specific but not personalized to the lead's own answers (that
- * personalization only exists on the real LLM path); still observational,
- * non-diagnostic, and on-brand.
+ * Topic-specific but not personalized to the lead's own answers beyond the
+ * pattern name (that deeper personalization only exists on the real LLM
+ * path); still observational, non-diagnostic, and on-brand — see
+ * docs/LEAD_AGENT_VOICE.md for the voice standard this follows.
+ *
+ * The pattern name itself is never a fallback concern: pattern.ts is a
+ * plain deterministic function, not an LLM call, so it's assigned
+ * correctly whether or not the LLM is configured.
  */
 
-import type { LeadConversationStage, LeadTopic, LeadRoutingDestination } from '@mef/shared-types-contracts';
+import type { LeadConversationStage, LeadTopic, LeadRoutingDestination, LeadPatternName } from '@mef/shared-types-contracts';
 import { getDiscoveryCallUrl, getQuizGuideUrl } from './env';
 
 /** Static — always the same regardless of LLM availability, so the opening turn never needs a provider call at all. */
-export const OPENING_MESSAGE = "Hey! What's been bothering you most lately?";
+export const OPENING_MESSAGE = "What's been bothering you most lately?";
 export const QUICK_REPLY_OPTIONS = ['Pain', 'Energy', 'Sleep', 'Stress'] as const;
 
+/** Shown when the widget reopens after being dismissed before the visitor answered anything — acknowledges the return without referencing the close. */
+export const REOPEN_MESSAGE = "Still thinking about something? Tell me what's been going on.";
+
 const FOLLOW_UP_1: Record<LeadTopic, string> = {
-  pain: "Got it. Where's the pain, and how long has it been going on?",
-  energy: "Thanks for sharing that. When during the day does your energy dip the most, and how long has this been happening?",
-  sleep: "Thanks for sharing that. Is it trouble falling asleep, staying asleep, or waking up tired — and how long has that been going on?",
-  stress: "Thanks for sharing that. What's been driving the stress most lately, and how long has it been building?",
-  general: "Thanks for sharing that. How long has this been going on for you?",
+  pain: 'Where does it show up most — one spot, or does it move around?',
+  energy: 'When does it hit hardest — morning, mid-afternoon, or by evening?',
+  sleep: "What's the main issue — falling asleep, staying asleep, or waking up already tired?",
+  stress: 'Where do you feel it most — a racing mind, tension in the body, or a shorter fuse than usual?',
+  general: 'Is this mostly physical, mostly mental, or a bit of both?',
 };
 
 const FOLLOW_UP_2: Record<LeadTopic, string> = {
-  pain: "Have you tried anything for it so far — stretching, a doctor, rest?",
-  energy: "Have you tried anything to turn it around — caffeine, more sleep, supplements?",
-  sleep: "Have you tried anything so far — a wind-down routine, cutting screens, melatonin?",
-  stress: "Have you tried anything to manage it so far?",
-  general: "Have you tried anything to address it so far?",
+  pain: 'How long has this been going on?',
+  energy: 'How long has this been going on?',
+  sleep: 'How long has this been going on?',
+  stress: 'How long has this been building?',
+  general: 'How long has this been going on?',
 };
 
 const FOLLOW_UP_3: Record<LeadTopic, string> = {
-  pain: "What would it mean for you to have this resolved — what's the goal?",
-  energy: "What would having real, steady energy let you do again?",
-  sleep: "What would a real night of sleep change for you day to day?",
-  stress: "What would feeling less stressed free you up to focus on?",
-  general: "What's the outcome you're hoping for?",
+  pain: 'Have you tried anything for it so far — stretching, a doctor, rest?',
+  energy: 'Have you tried anything to turn it around — more caffeine, more sleep, supplements?',
+  sleep: 'Have you tried anything so far — a wind-down routine, cutting screens, melatonin?',
+  stress: 'Have you tried anything to manage it — meditation, exercise, talking it out?',
+  general: 'Have you tried anything to address it so far?',
 };
 
-const INSIGHT_CAPTURE: Record<LeadTopic, string> = {
-  pain: "In our experience, pain that lingers like this is often less about the spot that hurts and more about how the body's been compensating around sleep, movement, and stress load — worth looking at together. Want me to send you a short summary of what we covered?",
-  energy: "Energy dips like this usually trace back to a mix of sleep quality, nutrition timing, and stress load rather than any one cause — worth looking at together. Want me to send you a short summary of what we covered?",
-  sleep: "Sleep trouble like this is often connected to stress, movement, and daily rhythm more than sleep itself — worth looking at together. Want me to send you a short summary of what we covered?",
-  stress: "Stress that builds like this is usually tangled up with sleep, movement, and recovery, not just what's on your plate — worth looking at together. Want me to send you a short summary of what we covered?",
-  general: "What you're describing usually connects back to a few root-cause fundamentals — sleep, movement, nutrition, and stress — more than any single symptom. Want me to send you a short summary of what we covered?",
+const FOLLOW_UP_4: Record<LeadTopic, string> = {
+  pain: 'What would getting past this let you do again?',
+  energy: 'What would steady energy free you up to do?',
+  sleep: 'What would a real night of sleep change for you day to day?',
+  stress: 'What would feeling less stressed free up room for?',
+  general: "What's the outcome you're actually after?",
 };
 
-export function buildFallbackFollowUp(stage: LeadConversationStage, topic: LeadTopic): string {
+export function buildFallbackFollowUp(
+  stage: Exclude<LeadConversationStage, 'opening' | 'insight_capture' | 'routed'>,
+  topic: LeadTopic
+): string {
   if (stage === 'follow_up_1') return FOLLOW_UP_1[topic];
   if (stage === 'follow_up_2') return FOLLOW_UP_2[topic];
-  return FOLLOW_UP_3[topic];
+  if (stage === 'follow_up_3') return FOLLOW_UP_3[topic];
+  return FOLLOW_UP_4[topic];
 }
 
-export function buildFallbackInsightAndCapture(topic: LeadTopic): string {
-  return `${INSIGHT_CAPTURE[topic]} What's your first name and best email?`;
+/**
+ * PART ONE of the insight, per pattern name — connects the idea, names the
+ * pattern using its exact label, and deliberately stops short of the full
+ * explanation to open the loop. Keyed by pattern rather than topic since
+ * the pattern label already carries the relevant meaning, and the same
+ * pattern can arise from more than one topic.
+ */
+const PATTERN_INSIGHT_PART1: Record<LeadPatternName, string> = {
+  recovery_deficit:
+    'What you\'ve described reads less like one isolated issue and more like a recovery deficit — the body not fully bouncing back between stress, sleep, and daily demand. There\'s more to it than that.',
+  compensation_pattern:
+    "The way this keeps coming back reads like a compensation pattern — one area quietly picking up the slack for something else in the system. There's more to it than that.",
+  overload_pattern:
+    "Showing up broadly like this usually isn't about one spot — it looks like an overload pattern, the whole system carrying more than it can currently recover from. There's more to it than that.",
+  fuel_timing_pattern:
+    "That dip lines up with a fuel timing pattern — energy tracking more with when and how you eat than with how much you sleep. There's more to it than that.",
+  depletion_pattern:
+    "Energy that stays low all day points more to a depletion pattern — the body running on a deficit it hasn't been able to close. There's more to it than that.",
+  wind_down_deficit:
+    "That specific trouble points to a wind-down deficit — a nervous system that isn't getting a real signal to downshift at night. There's more to it than that.",
+  rhythm_disruption:
+    "Sleep that doesn't hold or doesn't restore points to a rhythm disruption — the body's internal clock and its recovery cycle pulling in different directions. There's more to it than that.",
+  stress_loading_pattern:
+    "What's building here reads like a stress-loading pattern — stress accumulating faster than it's being discharged. There's more to it than that.",
+};
+
+const EMAIL_ASK = 'Want the complete breakdown of this sent over? First name and best email works.';
+
+export function buildFallbackInsightPart1(patternName: LeadPatternName): string {
+  return `${PATTERN_INSIGHT_PART1[patternName]} ${EMAIL_ASK}`;
 }
 
-export const EMAIL_RETRY_MESSAGE =
-  "I didn't quite catch a valid email there — mind sending your first name and email again?";
+/**
+ * PART TWO — the payoff, sent only after email capture (or the retry cap
+ * is hit). Never includes a link or call to action; buildRoutingMessage
+ * below is appended after this by the route handler.
+ */
+const PATTERN_INSIGHT_PART2: Record<LeadPatternName, string> = {
+  recovery_deficit:
+    'A recovery deficit usually comes down to load outpacing actual recovery time — the first thing worth protecting is one full, uninterrupted sleep cycle before changing anything else.',
+  compensation_pattern:
+    "A compensation pattern usually comes down to how movement or stress load gets redistributed around the original spot — the first step is finding what it's compensating for, not treating the spot itself.",
+  overload_pattern:
+    'An overload pattern usually comes down to total load — physical, mental, or both — outrunning recovery. The first step is finding what to subtract before adding anything new.',
+  fuel_timing_pattern:
+    'A fuel timing pattern usually comes down to blood sugar swings from meal timing and composition — the first thing to try is anchoring protein earlier in the day rather than reaching for more caffeine.',
+  depletion_pattern:
+    'A depletion pattern usually comes down to sleep, stress, and nutrition all drawing from the same tank at once — the first step is rebuilding one of those, usually sleep, before touching the others.',
+  wind_down_deficit:
+    'A wind-down deficit usually comes down to stimulation running too close to bedtime — light, screens, or unresolved stress. The first step is a real buffer window before sleep, not just an earlier bedtime.',
+  rhythm_disruption:
+    "A rhythm disruption usually comes down to inconsistent timing — meals, light, movement — more than the raw number of hours slept. The first step is anchoring a consistent wake time.",
+  stress_loading_pattern:
+    'A stress-loading pattern usually comes down to load without a real release valve — the first step is one deliberate discharge point in the day, not removing the stressor itself.',
+};
+
+export function buildFallbackInsightPart2(patternName: LeadPatternName): string {
+  return PATTERN_INSIGHT_PART2[patternName];
+}
+
+export const EMAIL_RETRY_MESSAGE = "That doesn't quite look like a full email — mind sending it again along with your first name?";
 
 export function buildRoutingMessage(
   firstName: string | null,
   destination: LeadRoutingDestination
 ): string {
-  const greeting = firstName ? `Thanks, ${firstName}!` : 'Thanks!';
+  const lead = firstName ? `${firstName} — ` : '';
   if (destination === 'discovery_call') {
-    return `${greeting} Since this sounds like something worth digging into together, here's the link to book your Discovery Assessment: ${getDiscoveryCallUrl()}`;
+    return `${lead}this is worth a real conversation. Here's the link to book your Discovery Assessment: ${getDiscoveryCallUrl()}`;
   }
-  return `${greeting} Here's a quick next step to start getting some answers: ${getQuizGuideUrl()}`;
+  return `${lead}here's a good next step to start getting some real answers: ${getQuizGuideUrl()}`;
 }
 
-export const CLOSING_MESSAGE = "You're all set — reach back out any time!";
+export const CLOSING_MESSAGE = "You're set. Reach back out any time.";

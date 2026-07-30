@@ -14,7 +14,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { insertNotification } from '@/lib/notifications/data';
-import type { LeadTopic, LeadTemperature } from '@mef/shared-types-contracts';
+import { PATTERN_LABELS } from './pattern';
+import type { LeadTopic, LeadTemperature, LeadPatternName } from '@mef/shared-types-contracts';
 
 async function listActiveCoachUserIds(supabase: SupabaseClient): Promise<string[]> {
   const { data, error } = await supabase
@@ -37,6 +38,7 @@ export async function notifyCoachesOfNewLead(
     email: string;
     topic: LeadTopic | null;
     leadTemperature: LeadTemperature | null;
+    patternName: LeadPatternName | null;
     capturedLeadId: string;
   }
 ): Promise<void> {
@@ -49,8 +51,11 @@ export async function notifyCoachesOfNewLead(
   const name = lead.firstName ?? 'A new lead';
   const topicLabel = lead.topic ?? 'general';
   const temperatureLabel = lead.leadTemperature === 'hot' ? 'Hot' : 'Warm';
+  const patternLabel = lead.patternName ? PATTERN_LABELS[lead.patternName] : null;
   const title = `${temperatureLabel} lead: ${name} (${topicLabel})`;
-  const body = `${name} (${lead.email}) came in through the Lead Capture Agent about ${topicLabel}.`;
+  const body = patternLabel
+    ? `${name} (${lead.email}) came in through the Lead Capture Agent about ${topicLabel} — assigned pattern: ${patternLabel}.`
+    : `${name} (${lead.email}) came in through the Lead Capture Agent about ${topicLabel}.`;
 
   await Promise.all(
     coachIds.map((coachId) =>

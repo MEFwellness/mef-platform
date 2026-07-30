@@ -28,15 +28,30 @@ again after pasting this once.
    outline.
 2. Tapping it opens a chat panel with a cream background, asking: **"What's
    been bothering you most lately?"** with four tappable buttons — Pain,
-   Energy, Sleep, Stress.
-3. The agent asks 3 short follow-up questions (where/how long, what they've
-   tried, what their goal is).
-4. It offers one short, useful observation connecting their answers, then asks
-   for their first name and email so it can "send a summary."
-5. Based on their answers, it sends either:
+   Energy, Sleep, Stress. Typing instead of tapping always works too.
+3. If nobody has tapped the bubble yet, it invites itself in — after about 8
+   seconds, or as soon as the visitor scrolls a quarter of the way down the
+   page, whichever happens first. It slides up gently (a bottom-sheet on
+   phones, a card in the bottom-right corner on desktop), never covers the
+   whole screen, and is easy to dismiss with the X. It won't invite itself in
+   twice in the same visit — closing it just collapses it back to the small
+   corner bubble, always tappable again.
+4. The agent asks 4 short follow-up questions (where it shows up, how long,
+   what they've tried, what their goal is) — every question comes with 3-5
+   quick-reply buttons for the most common answers.
+5. It shares one real observation connecting their answers and gives their
+   pattern a plain-language name (like "a recovery deficit" or "a stress-
+   loading pattern") — then offers to send the full breakdown, and asks for
+   their first name and email to do it.
+6. Once they give their email, it finishes the thought with the fuller
+   explanation, then based on their answers sends either:
    - A **Discovery Assessment booking link** (for a high-intent lead — pain +
      sounds ready to act), or
    - A **quiz/free guide link** (for every other, softer lead).
+
+See `docs/LEAD_AGENT_VOICE.md` for the full voice standard, the complete set
+of pattern names and how each is assigned, and six full example
+conversations.
 
 Every conversation and every captured name/email is saved automatically, and
 you (the coach) get an in-app notification the moment someone gives their

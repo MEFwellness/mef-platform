@@ -15,6 +15,7 @@ export type LeadConversationStage =
   | 'follow_up_1'
   | 'follow_up_2'
   | 'follow_up_3'
+  | 'follow_up_4'
   | 'insight_capture'
   | 'routed';
 
@@ -26,6 +27,21 @@ export type LeadRoutingDestination = 'discovery_call' | 'quiz_guide';
 
 export type LeadMessageRole = 'lead' | 'agent';
 
+/**
+ * A small, consistent set of observational (never diagnostic) pattern
+ * labels assigned by lib/lead-capture/pattern.ts from the visitor's own
+ * follow-up answers. Named and defined in docs/LEAD_AGENT_VOICE.md.
+ */
+export type LeadPatternName =
+  | 'recovery_deficit'
+  | 'compensation_pattern'
+  | 'overload_pattern'
+  | 'fuel_timing_pattern'
+  | 'depletion_pattern'
+  | 'wind_down_deficit'
+  | 'rhythm_disruption'
+  | 'stress_loading_pattern';
+
 export interface LeadConversation {
   id: string;
   session_token: string;
@@ -34,6 +50,7 @@ export interface LeadConversation {
   retry_count: number;
   lead_temperature: LeadTemperature | null;
   routed_to: LeadRoutingDestination | null;
+  pattern_name: LeadPatternName | null;
   source_url: string | null;
   status: LeadConversationStatus;
   started_at: string;
@@ -58,6 +75,7 @@ export interface CapturedLead {
   topic: LeadTopic | null;
   lead_temperature: LeadTemperature | null;
   routed_to: LeadRoutingDestination | null;
+  pattern_name: LeadPatternName | null;
   notified_at: string | null;
   created_at: string;
 }

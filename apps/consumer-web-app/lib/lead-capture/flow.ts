@@ -4,9 +4,12 @@
  * unit-testable. The route handler (app/api/lead-capture/route.ts) is the
  * only caller; it wires these decisions to persistence and the LLM call.
  *
- * Flow: opening (quick replies) -> 3 short follow-ups -> one root-cause
- * insight combined with the email ask -> email/name capture (up to 2
- * retries) -> routed to the Discovery Assessment or the quiz/guide.
+ * Flow: opening (quick replies) -> 4 short, button-first follow-ups (where
+ * / how long / what they've tried / their goal) -> a two-part insight —
+ * part one names the visitor's pattern (pattern.ts) and combines it with
+ * the email ask, part two is the payoff delivered only after email capture
+ * -> email/name capture (up to 2 retries) -> routed to the Discovery
+ * Assessment or the quiz/guide.
  */
 
 import type { LeadConversationStage, LeadTopic, LeadTemperature, LeadRoutingDestination } from '@mef/shared-types-contracts';
@@ -51,6 +54,8 @@ export function nextStage(current: LeadConversationStage): LeadConversationStage
     case 'follow_up_2':
       return 'follow_up_3';
     case 'follow_up_3':
+      return 'follow_up_4';
+    case 'follow_up_4':
       return 'insight_capture';
     case 'insight_capture':
       return 'routed';

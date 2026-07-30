@@ -17,6 +17,7 @@ import type {
   LeadTopic,
   LeadTemperature,
   LeadRoutingDestination,
+  LeadPatternName,
   CapturedLead,
 } from '@mef/shared-types-contracts';
 
@@ -36,6 +37,7 @@ export async function createLeadConversation(
     retry_count: 0,
     lead_temperature: null,
     routed_to: null,
+    pattern_name: null,
     source_url: sourceUrl,
     status: 'active',
     started_at: now,
@@ -55,6 +57,7 @@ export async function createLeadConversation(
     retry_count: 0,
     lead_temperature: null,
     routed_to: null,
+    pattern_name: null,
     source_url: sourceUrl,
     status: 'active',
     started_at: now,
@@ -90,6 +93,7 @@ export async function updateLeadConversation(
     retryCount: number;
     leadTemperature: LeadTemperature;
     routedTo: LeadRoutingDestination;
+    patternName: LeadPatternName;
     status: 'active' | 'completed' | 'abandoned';
   }>
 ): Promise<boolean> {
@@ -99,6 +103,7 @@ export async function updateLeadConversation(
   if (patch.retryCount !== undefined) update.retry_count = patch.retryCount;
   if (patch.leadTemperature !== undefined) update.lead_temperature = patch.leadTemperature;
   if (patch.routedTo !== undefined) update.routed_to = patch.routedTo;
+  if (patch.patternName !== undefined) update.pattern_name = patch.patternName;
   if (patch.status !== undefined) update.status = patch.status;
 
   const { error } = await supabase.from('lead_conversations').update(update).eq('id', conversationId);
@@ -167,6 +172,7 @@ export async function insertCapturedLead(
     topic: LeadTopic | null;
     leadTemperature: LeadTemperature | null;
     routedTo: LeadRoutingDestination | null;
+    patternName: LeadPatternName | null;
   }
 ): Promise<CapturedLead | null> {
   const { data, error } = await supabase
@@ -178,6 +184,7 @@ export async function insertCapturedLead(
       topic: input.topic,
       lead_temperature: input.leadTemperature,
       routed_to: input.routedTo,
+      pattern_name: input.patternName,
     })
     .select('*')
     .single();

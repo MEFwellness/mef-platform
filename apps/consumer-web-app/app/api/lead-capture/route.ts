@@ -14,9 +14,14 @@
  *
  * The LLM (or its deterministic fallback, lib/lead-capture/fallback.ts)
  * only ever generates the reply text for the current turn — which stage
- * comes next, when an email is actually captured, and where a lead is
- * routed are all decided deterministically by lib/lead-capture/flow.ts,
- * never left to model output.
+ * comes next, when an email is actually captured, which pattern name
+ * applies, and where a lead is routed are all decided deterministically by
+ * lib/lead-capture/flow.ts and lib/lead-capture/pattern.ts, never left to
+ * model output. The quick-reply buttons offered at each stage
+ * (lib/lead-capture/quickReplies.ts) are the same kind of deterministic
+ * data — the widget always keeps its free-text input usable regardless of
+ * what buttons are offered, and a typed answer is treated identically to a
+ * tapped one everywhere in this route.
  */
 
 import { NextResponse } from 'next/server';
@@ -32,6 +37,8 @@ import {
   determineRoutingDestination,
   shouldRetryEmailCapture,
 } from '@/lib/lead-capture/flow';
+import { determinePatternName } from '@/lib/lead-capture/pattern';
+import { getQuickReplies } from '@/lib/lead-capture/quickReplies';
 import {
   createLeadConversation,
   getLeadConversationBySessionToken,
@@ -42,7 +49,11 @@ import {
   markCapturedLeadNotified,
 } from '@/lib/lead-capture/data';
 import { notifyCoachesOfNewLead } from '@/lib/lead-capture/notify';
-import { generateFollowUpReply, generateInsightAndCaptureReply } from '@/lib/lead-capture/reply';
+import {
+  generateFollowUpReply,
+  generateInsightPart1Reply,
+  generateInsightPart2Reply,
+} from '@/lib/lead-capture/reply';
 import {
   OPENING_MESSAGE,
   QUICK_REPLY_OPTIONS,
@@ -171,35 +182,65 @@ export async function POST(request: Request) {
     const reply = await generateFollowUpReply('follow_up_1', topic, history);
     await insertLeadMessage(supabase, conversation.id, 'agent', reply);
     return NextResponse.json(
-      { conversationId: conversation.session_token, reply, stage: 'follow_up_1', done: false },
+      {
+        conversationId: conversation.session_token,
+        reply,
+        quickReplies: getQuickReplies('follow_up_1', topic),
+        stage: 'follow_up_1',
+        done: false,
+      },
       { headers }
     );
   }
 
-  if (stage === 'follow_up_1' || stage === 'follow_up_2' || stage === 'follow_up_3') {
+  if (
+    stage === 'follow_up_1' ||
+    stage === 'follow_up_2' ||
+    stage === 'follow_up_3' ||
+    stage === 'follow_up_4'
+  ) {
     const topic = conversation.topic ?? 'general';
     const advancedStage = nextStage(stage);
-    await updateLeadConversation(supabase, conversation.id, { stage: advancedStage });
     const history = await listLeadMessages(supabase, conversation.id);
 
-    const reply =
-      advancedStage === 'insight_capture'
-        ? await generateInsightAndCaptureReply(topic, history)
-        : await generateFollowUpReply(
-            advancedStage as 'follow_up_2' | 'follow_up_3',
-            topic,
-            history
-          );
+    // Advancing into insight_capture: the visitor has now answered all
+    // four follow-ups, so the pattern can be assigned. The lead's own
+    // messages, in order, are [topic pick, where/when, how long, tried,
+    // goal] — positions 1 and 3 are what pattern.ts's rules need. This is
+    // safe because nothing before insight_capture ever loops or retries.
+    if (advancedStage === 'insight_capture') {
+      const leadAnswers = history.filter((m) => m.role === 'lead').map((m) => m.content);
+      const patternName = determinePatternName(topic, leadAnswers[1] ?? '', leadAnswers[3] ?? '');
+      await updateLeadConversation(supabase, conversation.id, { stage: advancedStage, patternName });
+      const reply = await generateInsightPart1Reply(topic, patternName, history);
+      await insertLeadMessage(supabase, conversation.id, 'agent', reply);
+      return NextResponse.json(
+        { conversationId: conversation.session_token, reply, stage: advancedStage, done: false },
+        { headers }
+      );
+    }
 
+    await updateLeadConversation(supabase, conversation.id, { stage: advancedStage });
+    const reply = await generateFollowUpReply(
+      advancedStage as Exclude<LeadConversationStage, 'opening' | 'insight_capture' | 'routed'>,
+      topic,
+      history
+    );
     await insertLeadMessage(supabase, conversation.id, 'agent', reply);
     return NextResponse.json(
-      { conversationId: conversation.session_token, reply, stage: advancedStage, done: false },
+      {
+        conversationId: conversation.session_token,
+        reply,
+        quickReplies: getQuickReplies(advancedStage, topic),
+        stage: advancedStage,
+        done: false,
+      },
       { headers }
     );
   }
 
   // stage === 'insight_capture': the incoming message should contain a
-  // first name + email in response to the previous turn's ask.
+  // first name + email in response to PART ONE's ask.
   const { name, email } = extractNameAndEmail(incoming);
 
   if (!email) {
@@ -221,6 +262,19 @@ export async function POST(request: Request) {
   const leadMessageContents = history.filter((m) => m.role === 'lead').map((m) => m.content);
   const temperature = determineLeadTemperature(topic, leadMessageContents);
   const routedTo = determineRoutingDestination(temperature);
+  // pattern_name was assigned on the follow_up_4 -> insight_capture
+  // transition above; the on-the-fly fallback only matters for a
+  // conversation that somehow skipped that step.
+  const patternName =
+    conversation.pattern_name ?? determinePatternName(topic, leadMessageContents[1] ?? '', leadMessageContents[3] ?? '');
+
+  // PART TWO of the insight — the payoff — is only ever generated here,
+  // after email capture (or the retry cap is hit), never before. The
+  // deterministic routing line + link (buildRoutingMessage) is appended
+  // after it rather than left to the model, so the link is always correct.
+  const insightPart2 = await generateInsightPart2Reply(topic, patternName, history);
+  const routingLine = buildRoutingMessage(name, routedTo);
+  const reply = `${insightPart2} ${routingLine}`;
 
   if (email) {
     const capturedLead = await insertCapturedLead(supabase, {
@@ -230,6 +284,7 @@ export async function POST(request: Request) {
       topic,
       leadTemperature: temperature,
       routedTo,
+      patternName,
     });
     if (capturedLead) {
       await notifyCoachesOfNewLead(supabase, {
@@ -237,6 +292,7 @@ export async function POST(request: Request) {
         email,
         topic,
         leadTemperature: temperature,
+        patternName,
         capturedLeadId: capturedLead.id,
       });
       await markCapturedLeadNotified(supabase, capturedLead.id);
@@ -250,7 +306,6 @@ export async function POST(request: Request) {
     routedTo,
   });
 
-  const reply = buildRoutingMessage(name, routedTo);
   await insertLeadMessage(supabase, conversation.id, 'agent', reply);
 
   return NextResponse.json(
