@@ -1,0 +1,244 @@
+{
+  "generatedAt": "2026-07-30T11:18:52.999Z",
+  "catalogRowsScanned": 857,
+  "duplicateGroupsFound": 29,
+  "groupsMerged": 28,
+  "discardedCatalogRows": 32,
+  "flaggedForManualReview": [
+    {
+      "reason": "Same \"(1)\" vendor collision-marker pattern as every other group, but instructions describe two different movements — not auto-merged, name corrected instead.",
+      "externalId": "948e5256-8830-43b3-a28a-ddcb050373ed",
+      "correctedName": "Kettlebell Turkish Get-Up"
+    }
+  ],
+  "groups": [
+    {
+      "normalizedName": "barbell deadlift",
+      "keeperExternalId": "7d31d648-432b-4edd-97bc-afc2a3e9e59a",
+      "keeperName": "Barbell Deadlift",
+      "discardExternalIds": [
+        "2fb79823-a759-4ceb-8b16-a26ab3cfb440"
+      ]
+    },
+    {
+      "normalizedName": "barbell sumo squat",
+      "keeperExternalId": "c8f3362d-fb00-481e-b428-e0b17f4ae681",
+      "keeperName": "Barbell Sumo Squat",
+      "discardExternalIds": [
+        "1ffaf9e8-fe94-44e8-a20b-012ea58eba46"
+      ]
+    },
+    {
+      "normalizedName": "bench dips",
+      "keeperExternalId": "48b2c98e-b82f-49aa-b847-b871a69e1b95",
+      "keeperName": "Bench Dips",
+      "discardExternalIds": [
+        "79084f10-c317-4c40-ae0c-45d0b760298d"
+      ]
+    },
+    {
+      "normalizedName": "cable hip abduction",
+      "keeperExternalId": "8503592c-a179-456b-9417-5fb5e84fad1a",
+      "keeperName": "Cable Hip Abduction",
+      "discardExternalIds": [
+        "86a5f361-6b81-4ab7-a769-c32ca56d5ae4"
+      ]
+    },
+    {
+      "normalizedName": "cable tricep pushdown",
+      "keeperExternalId": "207924a2-ae75-4371-be43-49c3cc62b4e1",
+      "keeperName": "Cable Tricep Pushdown",
+      "discardExternalIds": [
+        "ab522399-6b5e-4a37-aa7a-47d2ec862631"
+      ]
+    },
+    {
+      "normalizedName": "close grip lat pulldown",
+      "keeperExternalId": "1e99855d-fbf5-433e-9273-6f4e318a6ffe",
+      "keeperName": "Close Grip Lat Pulldown",
+      "discardExternalIds": [
+        "10a31695-e218-4819-b7d3-b67b1b5ac79d"
+      ]
+    },
+    {
+      "normalizedName": "dumbbell pullover",
+      "keeperExternalId": "c90444fe-fd21-40d1-923f-5adba83e35bc",
+      "keeperName": "Dumbbell Pullover",
+      "discardExternalIds": [
+        "f6d6ac54-751d-416e-8c9d-bc4b675cd505"
+      ]
+    },
+    {
+      "normalizedName": "dumbbell wrist curls",
+      "keeperExternalId": "6891aa71-6e1f-4ea4-b9ac-f38ea207216a",
+      "keeperName": "Dumbbell wrist curls",
+      "discardExternalIds": [
+        "9a8e40b3-446f-4362-9df4-461931927889"
+      ]
+    },
+    {
+      "normalizedName": "glute kickback",
+      "keeperExternalId": "4d9ad82c-1799-4340-b973-c269c901d0e5",
+      "keeperName": "Glute Kickback",
+      "discardExternalIds": [
+        "bc2f34f4-07e6-4001-9dfe-8724be0d9d7e"
+      ]
+    },
+    {
+      "normalizedName": "kettlebell farmer carry",
+      "keeperExternalId": "98543b7d-bf77-48b2-b0e1-f17ae61e3fc2",
+      "keeperName": "Kettlebell Farmer Carry",
+      "discardExternalIds": [
+        "fa5618bb-f1c9-4911-aa11-f971d99b9fc2"
+      ]
+    },
+    {
+      "normalizedName": "kettlebell thruster",
+      "keeperExternalId": "9fd5a38f-6dc0-40dd-898f-c5ec90cec9c3",
+      "keeperName": "Kettlebell Thruster",
+      "discardExternalIds": [
+        "d8fcf6e7-3746-4f01-a943-fe45aed0fd31"
+      ]
+    },
+    {
+      "normalizedName": "leg press",
+      "keeperExternalId": "bcd8c3d9-5c9b-4a97-8b30-0e85de2488ff",
+      "keeperName": "Leg Press",
+      "discardExternalIds": [
+        "844b8994-0c7a-477d-ab48-91b2d8ef75b0"
+      ]
+    },
+    {
+      "normalizedName": "leg extension",
+      "keeperExternalId": "3941270c-ad35-40bf-9906-e9c6d24ba777",
+      "keeperName": "Leg Extension",
+      "discardExternalIds": [
+        "753a6d81-dbea-453c-8daf-c8b56f366409"
+      ]
+    },
+    {
+      "normalizedName": "leg press calf raise",
+      "keeperExternalId": "952c06b0-359b-4e38-adfd-c352723ab865",
+      "keeperName": "Leg Press Calf Raise",
+      "discardExternalIds": [
+        "68814908-0678-4931-af0e-0fced0d2022a"
+      ]
+    },
+    {
+      "normalizedName": "seated leg curl",
+      "keeperExternalId": "a097abc2-16ac-413a-86e4-444a7ce1fa43",
+      "keeperName": "Seated Leg Curl",
+      "discardExternalIds": [
+        "4a8661d9-eef7-44c6-896b-9ea08b81ac17",
+        "851015b9-546b-425d-81f3-ac6b7493a784"
+      ]
+    },
+    {
+      "normalizedName": "mountain climbers",
+      "keeperExternalId": "4dd34460-26de-41b4-ba9f-66bcf4ed8e63",
+      "keeperName": "Mountain Climbers",
+      "discardExternalIds": [
+        "6c8af30b-31f1-4c84-b394-b4293607cf4f",
+        "7a21c59b-ee5d-4f55-867f-31ca24c8003b",
+        "8085b2a3-fc64-478c-b93a-bf86dab46fc0"
+      ]
+    },
+    {
+      "normalizedName": "oblique crunches",
+      "keeperExternalId": "85d78505-04b8-4cf6-b277-c215eeb462a7",
+      "keeperName": "Oblique Crunches",
+      "discardExternalIds": [
+        "93e53831-f499-4d0b-b266-120445c24555"
+      ]
+    },
+    {
+      "normalizedName": "one arm kettlebell snatch from ground",
+      "keeperExternalId": "4fcd55ed-a563-4f9f-b43c-4b4ea35e5cc4",
+      "keeperName": "One-Arm Kettlebell Snatch from ground",
+      "discardExternalIds": [
+        "79b0e11d-db13-4542-a7ac-7f666485f1fa"
+      ]
+    },
+    {
+      "normalizedName": "plank",
+      "keeperExternalId": "61410917-4fb1-41f8-86d5-16dc88fe380b",
+      "keeperName": "Plank",
+      "discardExternalIds": [
+        "7e35442f-7c48-4d32-8e18-2761542f9b17"
+      ]
+    },
+    {
+      "normalizedName": "push ups",
+      "keeperExternalId": "b41a30a8-8a02-4101-a0a9-589efdbf786b",
+      "keeperName": "Push ups",
+      "discardExternalIds": [
+        "61654261-7fa6-4bd5-9cf1-04ab8c638e4f"
+      ]
+    },
+    {
+      "normalizedName": "push up wide",
+      "keeperExternalId": "cbedc7e1-a023-41fb-938e-f62e0ffdb7d2",
+      "keeperName": "Push Up Wide",
+      "discardExternalIds": [
+        "67f7b774-4b0f-4252-b5df-2555e9f5d0c8"
+      ]
+    },
+    {
+      "normalizedName": "single arm lat pulldown",
+      "keeperExternalId": "fc11f2e5-3fcd-4682-bb4b-10c33951335a",
+      "keeperName": "Single Arm Lat Pulldown",
+      "discardExternalIds": [
+        "c70ad438-dc0a-4933-8c68-81a09c6adaeb"
+      ]
+    },
+    {
+      "normalizedName": "side hurdel jumps to mountain climbers",
+      "keeperExternalId": "061b3246-322a-41ed-a589-73fb9478651c",
+      "keeperName": "Side hurdel jumps to mountain climbers",
+      "discardExternalIds": [
+        "3798bfae-4ad3-404c-969d-0eeb2fcbdd56"
+      ]
+    },
+    {
+      "normalizedName": "smith machine bent over row",
+      "keeperExternalId": "7afd4594-47c0-4061-97ec-6cf5f5b9ddfe",
+      "keeperName": "Smith Machine Bent Over Row",
+      "discardExternalIds": [
+        "2b207100-576f-4029-848e-f71bb05df885"
+      ]
+    },
+    {
+      "normalizedName": "smith machine lunge",
+      "keeperExternalId": "913dc03f-d923-43c5-9e7f-461c26770ee1",
+      "keeperName": "Smith Machine Lunge",
+      "discardExternalIds": [
+        "90421a51-69d9-4f27-9076-847dff2d882a"
+      ]
+    },
+    {
+      "normalizedName": "smith machine sumo squat",
+      "keeperExternalId": "252e37ea-e936-42a4-ba76-d7ce35e1baa6",
+      "keeperName": "Smith Machine Sumo Squat",
+      "discardExternalIds": [
+        "e656576b-39d4-4623-a93d-c455bd640b01",
+        "f7c6095d-b060-48e6-81be-461e81a578a7"
+      ]
+    },
+    {
+      "normalizedName": "squats to knee",
+      "keeperExternalId": "5efb3847-ecf2-4dba-9bc0-cce91af31eac",
+      "keeperName": "Squats to knee(1)",
+      "discardExternalIds": [
+        "83a25d92-34c9-43cd-aeac-6af796aa9c6b"
+      ]
+    },
+    {
+      "normalizedName": "walking lunges",
+      "keeperExternalId": "620b30ac-bc0d-4b48-bec7-b685cf57f883",
+      "keeperName": "Walking Lunges",
+      "discardExternalIds": [
+        "726c2b68-3da5-4dc7-a588-c8d3dd90d516"
+      ]
+    }
+  ]
+}
