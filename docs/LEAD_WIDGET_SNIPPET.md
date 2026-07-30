@@ -27,8 +27,8 @@ again after pasting this once.
 1. A round chat bubble appears bottom-right, in your forest green with a gold
    outline.
 2. Tapping it opens a chat panel with a cream background, asking: **"What's
-   been bothering you most lately?"** with four tappable buttons — Pain,
-   Energy, Sleep, Stress. Typing instead of tapping always works too.
+   been bothering you most lately?"** with five tappable buttons — Pain,
+   Energy, Sleep, Stress, Weight. Typing instead of tapping always works too.
 3. If nobody has tapped the bubble yet, it invites itself in — after about 8
    seconds, or as soon as the visitor scrolls a quarter of the way down the
    page, whichever happens first. It slides up gently (a bottom-sheet on

@@ -20,6 +20,8 @@ export const PATTERN_LABELS: Record<LeadPatternName, string> = {
   wind_down_deficit: 'a wind-down deficit',
   rhythm_disruption: 'a rhythm disruption',
   stress_loading_pattern: 'a stress-loading pattern',
+  stress_storage_pattern: 'a stress-storage pattern',
+  metabolic_adaptation_pattern: 'a metabolic adaptation pattern',
 };
 
 const ALL_OVER_PATTERN = /all over|everywhere|all day|all of it|everything|every part/i;
@@ -27,6 +29,8 @@ const NOTHING_TRIED_PATTERN = /nothing|haven'?t tried|not really|no\b|not yet/i;
 const AFTERNOON_PATTERN = /afternoon|midday|lunch/i;
 const ALL_DAY_ENERGY_PATTERN = /all day|constant|never really/i;
 const FALLING_ASLEEP_PATTERN = /falling asleep|fall asleep|drift off|can'?t (fall|get to) sleep/i;
+const LIFE_CHANGE_PATTERN = /life change|stress|hormonal|hormone|menopause|postpartum|big change/i;
+const SLOW_DESPITE_EFFORT_PATTERN = /slow|plateau|despite effort|stuck/i;
 
 /**
  * `whereOrWhenAnswer` is the lead's reply to follow_up_1 (where it shows up
@@ -61,6 +65,10 @@ export function determinePatternName(
     case 'stress':
       if (isAllOver) return 'overload_pattern';
       return 'stress_loading_pattern';
+    case 'weight':
+      if (LIFE_CHANGE_PATTERN.test(where)) return 'stress_storage_pattern';
+      if (SLOW_DESPITE_EFFORT_PATTERN.test(where) && !triedNothing) return 'metabolic_adaptation_pattern';
+      return 'fuel_timing_pattern';
     case 'general':
     default:
       return 'overload_pattern';

@@ -43,6 +43,11 @@ them:**
 - Never invent a fact about the visitor they haven't told you, never mention
   being an AI/bot, never repeat a question already asked in the
   conversation.
+- For the Weight topic specifically: never prescribe a diet, a calorie
+  target, or an exercise plan, and never mention calories, macros, or a
+  specific number. Weight is read as a signal from the same connected
+  system as sleep, stress, and energy — never framed as a personal failing.
+  Shame-free, root-cause language only.
 
 ## The button-first flow
 
@@ -64,11 +69,24 @@ quickReplies.ts`):
 | `follow_up_3` | What they've tried | Stretching/Foam Rolling, Doctor Or PT, Rest, Nothing Yet |
 | `follow_up_4` | Their goal | Train/Move Freely Again, Sleep Through The Night, Not Think About It, Keep Up With Life |
 
-Energy, Sleep, Stress, and General each get their own topic-appropriate set
-for `follow_up_1`, `follow_up_3`, and `follow_up_4` — see
-`quickReplies.ts` for the full table. The insight-and-email turn has no
+Energy, Sleep, Stress, Weight, and General each get their own
+topic-appropriate set for `follow_up_1`, `follow_up_3`, and `follow_up_4` —
+see `quickReplies.ts` for the full table. The insight-and-email turn has no
 buttons at all: an email address isn't a multiple-choice answer, so that
 turn relies on the (always-visible) free-text input alone.
+
+Weight's own buttons, root-cause angle rather than diet-culture:
+
+| Stage | Question focus | Buttons |
+|---|---|---|
+| `follow_up_1` | What's changed most | Cravings/Appetite, Slow Despite Effort, Since A Big Life Change, Energy Crashes |
+| `follow_up_3` | What they've tried | Cutting Calories, More Cardio, Tracking Everything, Nothing Yet |
+| `follow_up_4` | Their goal | Feel Comfortable Again, More Energy Day To Day, Steady Not Yo-Yo, Just Some Answers |
+
+The Weight follow-ups never ask for or reference a calorie count, a diet
+plan, or a number on the scale — they ask about appetite, energy, stress,
+sleep, and effort, the same connected-system inputs every other topic asks
+about.
 
 ## The pattern names
 
@@ -89,6 +107,14 @@ or typed free text.
 | **a wind-down deficit** | Sleep trouble specifically with falling asleep | The nervous system isn't getting a real signal to downshift at night |
 | **a rhythm disruption** | Sleep trouble that isn't specifically about falling asleep (staying asleep, waking tired, etc.) | The body's internal clock and its recovery cycle are pulling in different directions |
 | **a stress-loading pattern** | Stress that isn't described as "all of it" | Stress accumulating faster than it's being discharged |
+| **a stress-storage pattern** | Weight change that started with a big life change (stress, hormonal shift, menopause, postpartum) | Cortisol and nervous-system load driving how the body holds onto weight — not a willpower problem |
+| **a metabolic adaptation pattern** | Weight that's slow to shift despite real, already-tried effort (cutting calories, more cardio, tracking) | The body recalibrating around under-fueling or over-exercising rather than releasing weight |
+
+Weight that's driven by cravings/appetite or energy crashes — or that's
+"slow despite effort" with nothing actually tried yet — is assigned **a fuel
+timing pattern** (the same label Energy uses for its afternoon-dip case):
+the mechanism (blood sugar swings, meal timing) is genuinely the same one,
+so it reuses the existing label rather than adding a near-duplicate.
 
 The assigned pattern name is stored on both `lead_conversations.pattern_name`
 and `captured_leads.pattern_name` (migration 123), and is included in the
@@ -118,9 +144,9 @@ a practitioner-voice transition into the routing link —
 
 ---
 
-## Six example conversations
+## Seven example conversations
 
-All six use the deterministic fallback wording (no LLM configured) — the
+All seven use the deterministic fallback wording (no LLM configured) — the
 same copy every visitor sees when `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL`
 aren't set, and a reasonable proxy for what the real model produces when
 they are. `[buttons: ...]` marks what's offered alongside the always-visible
@@ -129,7 +155,7 @@ text input at that turn.
 ### 1. Pain — ends hot (Discovery Assessment)
 
 > **Agent:** What's been bothering you most lately?
-> `[buttons: Pain, Energy, Sleep, Stress]`
+> `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(taps)* Pain
 >
 > **Agent:** Where does it show up most — one spot, or does it move around?
@@ -168,7 +194,7 @@ assigned pattern: a compensation pattern."
 ### 2. Energy — ends warm (quiz/guide)
 
 > **Agent:** What's been bothering you most lately?
-> `[buttons: Pain, Energy, Sleep, Stress]`
+> `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(taps)* Energy
 >
 > **Agent:** When does it hit hardest — morning, mid-afternoon, or by evening?
@@ -202,7 +228,7 @@ assigned pattern: a compensation pattern."
 ### 3. Sleep — ends warm (quiz/guide)
 
 > **Agent:** What's been bothering you most lately?
-> `[buttons: Pain, Energy, Sleep, Stress]`
+> `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(types)* I can't stay asleep past 3am most nights
 >
 > **Agent:** What's the main issue — falling asleep, staying asleep, or waking up already tired?
@@ -236,7 +262,7 @@ assigned pattern: a compensation pattern."
 ### 4. Stress — ends warm (quiz/guide)
 
 > **Agent:** What's been bothering you most lately?
-> `[buttons: Pain, Energy, Sleep, Stress]`
+> `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(taps)* Stress
 >
 > **Agent:** Where do you feel it most — a racing mind, tension in the body, or a shorter fuse than usual?
@@ -270,7 +296,7 @@ assigned pattern: a compensation pattern."
 ### 5. Hot-lead ending — a second Pain example, different pattern
 
 > **Agent:** What's been bothering you most lately?
-> `[buttons: Pain, Energy, Sleep, Stress]`
+> `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(taps)* Pain
 >
 > **Agent:** Where does it show up most — one spot, or does it move around?
@@ -310,7 +336,7 @@ warm lead.*
 ### 6. Softer-lead ending — General topic, no readiness signal, declines email once
 
 > **Agent:** What's been bothering you most lately?
-> `[buttons: Pain, Energy, Sleep, Stress]`
+> `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(types)* honestly not totally sure, just feel kind of off
 >
 > **Agent:** Is this mostly physical, mostly mental, or a bit of both?
@@ -350,3 +376,45 @@ warm lead.*
 routes them to the quiz/guide link rather than trapping them in a loop — no
 `captured_leads` row is written, but the conversation still ends on a useful
 note.*
+
+### 7. Weight — ends warm (quiz/guide), shame-free root-cause framing
+
+> **Agent:** What's been bothering you most lately?
+> `[buttons: Pain, Energy, Sleep, Stress, Weight]`
+> **Visitor:** *(taps)* Weight
+>
+> **Agent:** What's changed most — cravings and appetite, energy crashes, or the scale barely moving no matter what you do?
+> `[buttons: Cravings/Appetite, Slow Despite Effort, Since A Big Life Change, Energy Crashes]`
+> **Visitor:** *(taps)* Since A Big Life Change
+>
+> **Agent:** How long has this been the story?
+> `[buttons: Weeks, Months, Years, As Long As I Can Remember]`
+> **Visitor:** *(taps)* Months
+>
+> **Agent:** What have you already tried — cutting calories, more cardio, tracking everything?
+> `[buttons: Cutting Calories, More Cardio, Tracking Everything, Nothing Yet]`
+> **Visitor:** *(types)* honestly nothing yet, just been hoping it evens out
+>
+> **Agent:** What would you actually want out of this — steady energy, feeling comfortable again, or just an end to the yo-yo?
+> `[buttons: Feel Comfortable Again, More Energy Day To Day, Steady Not Yo-Yo, Just Some Answers]`
+> **Visitor:** *(taps)* Just Some Answers
+>
+> **Agent (PART ONE):** That timing lines up with a stress-storage pattern
+> — the body holding onto weight as part of a stress response, not a
+> willpower problem. There's more to it than that. Want the complete
+> breakdown of this sent over? First name and best email works.
+> *(no buttons — free text only)*
+> **Visitor:** *(types)* Alex, alex@example.com
+>
+> **Agent (PART TWO + routing):** A stress-storage pattern usually comes
+> down to cortisol and nervous-system load driving how the body holds onto
+> weight — the first step is addressing the stress load itself, not
+> cutting further. Alex — here's a good next step to start getting some
+> real answers: `https://mefwellness.com/quiz`
+
+*Coach notification:* "Warm lead: Alex (weight)" — body: "Alex
+(alex@example.com) came in through the Lead Capture Agent about weight —
+assigned pattern: a stress-storage pattern." Notice what never appears
+anywhere in this exchange: a calorie number, a diet plan, or any framing of
+weight as a personal failing — only the same connected-system logic every
+other topic gets.

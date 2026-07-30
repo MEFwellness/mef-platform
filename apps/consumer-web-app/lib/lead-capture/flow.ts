@@ -21,12 +21,13 @@ const TOPIC_KEYWORDS: Record<Exclude<LeadTopic, 'general'>, string[]> = {
   energy: ['energy', 'tired', 'fatigue', 'exhaust', 'sluggish'],
   sleep: ['sleep', 'insomnia', 'awake', 'rest'],
   stress: ['stress', 'anxious', 'anxiety', 'overwhelm', 'burnt out', 'burnout'],
+  weight: ['weight', 'pounds', 'lbs', 'scale', 'losing weight', 'gaining weight', 'body fat'],
 };
 
 /** Maps a quick-reply tap or free-typed opening message to a topic. Falls back to 'general' rather than guessing wrong. */
 export function classifyTopic(input: string): LeadTopic {
   const normalized = input.trim().toLowerCase();
-  for (const topic of ['pain', 'energy', 'sleep', 'stress'] as const) {
+  for (const topic of ['pain', 'energy', 'sleep', 'stress', 'weight'] as const) {
     if (normalized === topic) return topic;
   }
   for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS) as [

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { getQuickReplies } from '../lib/lead-capture/quickReplies';
 import type { LeadTopic } from '@mef/shared-types-contracts';
 
-const TOPICS: LeadTopic[] = ['pain', 'energy', 'sleep', 'stress', 'general'];
+const TOPICS: LeadTopic[] = ['pain', 'energy', 'sleep', 'stress', 'weight', 'general'];
 
 describe('lead-capture quickReplies — getQuickReplies', () => {
   it('returns 3-5 buttons for every topic at every follow-up stage', () => {
@@ -26,6 +26,7 @@ describe('lead-capture quickReplies — getQuickReplies', () => {
   it('follow_up_1 is topic-specific', () => {
     expect(getQuickReplies('follow_up_1', 'pain')).toContain('Lower Back');
     expect(getQuickReplies('follow_up_1', 'sleep')).toContain('Falling Asleep');
+    expect(getQuickReplies('follow_up_1', 'weight')).toContain('Cravings/Appetite');
   });
 
   it('returns null for stages with no buttons (opening, insight_capture, routed)', () => {

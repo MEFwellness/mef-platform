@@ -17,7 +17,7 @@ import { getDiscoveryCallUrl, getQuizGuideUrl } from './env';
 
 /** Static — always the same regardless of LLM availability, so the opening turn never needs a provider call at all. */
 export const OPENING_MESSAGE = "What's been bothering you most lately?";
-export const QUICK_REPLY_OPTIONS = ['Pain', 'Energy', 'Sleep', 'Stress'] as const;
+export const QUICK_REPLY_OPTIONS = ['Pain', 'Energy', 'Sleep', 'Stress', 'Weight'] as const;
 
 /** Shown when the widget reopens after being dismissed before the visitor answered anything — acknowledges the return without referencing the close. */
 export const REOPEN_MESSAGE = "Still thinking about something? Tell me what's been going on.";
@@ -27,6 +27,7 @@ const FOLLOW_UP_1: Record<LeadTopic, string> = {
   energy: 'When does it hit hardest — morning, mid-afternoon, or by evening?',
   sleep: "What's the main issue — falling asleep, staying asleep, or waking up already tired?",
   stress: 'Where do you feel it most — a racing mind, tension in the body, or a shorter fuse than usual?',
+  weight: "What's changed most — cravings and appetite, energy crashes, or the scale barely moving no matter what you do?",
   general: 'Is this mostly physical, mostly mental, or a bit of both?',
 };
 
@@ -35,6 +36,7 @@ const FOLLOW_UP_2: Record<LeadTopic, string> = {
   energy: 'How long has this been going on?',
   sleep: 'How long has this been going on?',
   stress: 'How long has this been building?',
+  weight: 'How long has this been the story?',
   general: 'How long has this been going on?',
 };
 
@@ -43,6 +45,7 @@ const FOLLOW_UP_3: Record<LeadTopic, string> = {
   energy: 'Have you tried anything to turn it around — more caffeine, more sleep, supplements?',
   sleep: 'Have you tried anything so far — a wind-down routine, cutting screens, melatonin?',
   stress: 'Have you tried anything to manage it — meditation, exercise, talking it out?',
+  weight: "What have you already tried — cutting calories, more cardio, tracking everything?",
   general: 'Have you tried anything to address it so far?',
 };
 
@@ -51,6 +54,7 @@ const FOLLOW_UP_4: Record<LeadTopic, string> = {
   energy: 'What would steady energy free you up to do?',
   sleep: 'What would a real night of sleep change for you day to day?',
   stress: 'What would feeling less stressed free up room for?',
+  weight: 'What would you actually want out of this — steady energy, feeling comfortable again, or just an end to the yo-yo?',
   general: "What's the outcome you're actually after?",
 };
 
@@ -88,6 +92,10 @@ const PATTERN_INSIGHT_PART1: Record<LeadPatternName, string> = {
     "Sleep that doesn't hold or doesn't restore points to a rhythm disruption — the body's internal clock and its recovery cycle pulling in different directions. There's more to it than that.",
   stress_loading_pattern:
     "What's building here reads like a stress-loading pattern — stress accumulating faster than it's being discharged. There's more to it than that.",
+  stress_storage_pattern:
+    "That timing lines up with a stress-storage pattern — the body holding onto weight as part of a stress response, not a willpower problem. There's more to it than that.",
+  metabolic_adaptation_pattern:
+    "Staying stuck despite real effort points to a metabolic adaptation pattern — the body recalibrating around under-fueling or over-exercising rather than releasing weight. There's more to it than that.",
 };
 
 const EMAIL_ASK = 'Want the complete breakdown of this sent over? First name and best email works.';
@@ -118,6 +126,10 @@ const PATTERN_INSIGHT_PART2: Record<LeadPatternName, string> = {
     "A rhythm disruption usually comes down to inconsistent timing — meals, light, movement — more than the raw number of hours slept. The first step is anchoring a consistent wake time.",
   stress_loading_pattern:
     'A stress-loading pattern usually comes down to load without a real release valve — the first step is one deliberate discharge point in the day, not removing the stressor itself.',
+  stress_storage_pattern:
+    'A stress-storage pattern usually comes down to cortisol and nervous-system load driving how the body holds onto weight — the first step is addressing the stress load itself, not cutting further.',
+  metabolic_adaptation_pattern:
+    'A metabolic adaptation pattern usually comes down to the body defending itself after too much restriction or output for too long — the first step is rebuilding enough fuel and recovery for the body to feel safe releasing weight again.',
 };
 
 export function buildFallbackInsightPart2(patternName: LeadPatternName): string {

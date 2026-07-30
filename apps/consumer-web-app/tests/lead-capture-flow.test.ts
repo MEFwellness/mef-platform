@@ -20,6 +20,11 @@ describe('lead-capture flow — classifyTopic', () => {
     expect(classifyTopic("I'm exhausted by 2pm every day")).toBe('energy');
     expect(classifyTopic("I can't stay asleep past 3am")).toBe('sleep');
     expect(classifyTopic('Work has me completely overwhelmed')).toBe('stress');
+    expect(classifyTopic("I've gained 15 pounds and can't figure out why")).toBe('weight');
+  });
+
+  it('matches "Weight" as a 5th exact quick-reply value', () => {
+    expect(classifyTopic('Weight')).toBe('weight');
   });
 
   it('falls back to general when nothing matches, rather than guessing wrong', () => {

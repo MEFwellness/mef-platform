@@ -37,7 +37,8 @@ Voice rules you must always follow:
 - Never invent a specific fact about the visitor that they haven't told you.
 - Never mention that you are an AI, a language model, or a bot.
 - Do not repeat a question that has already been asked in this conversation.
-- Be inclusive and welcoming of every kind of visitor, regardless of age, ability, or background.`;
+- Be inclusive and welcoming of every kind of visitor, regardless of age, ability, or background.
+- If the visitor's concern is weight: never prescribe a diet, a calorie target, or an exercise plan, and never mention calories, macros, or a specific number on the scale. Weight is a signal from the same connected system as sleep, stress, and energy — not a personal failing. Shame-free, root-cause framing only.`;
 
 function transcript(messages: LeadMessage[]): string {
   return messages
@@ -50,6 +51,7 @@ const TOPIC_LABEL: Record<LeadTopic, string> = {
   energy: 'low energy',
   sleep: 'sleep',
   stress: 'stress',
+  weight: 'weight',
   general: 'how they have been feeling',
 };
 

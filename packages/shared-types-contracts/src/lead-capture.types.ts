@@ -8,7 +8,7 @@
  * touches the member-facing Conversation Coach's tables.
  */
 
-export type LeadTopic = 'pain' | 'energy' | 'sleep' | 'stress' | 'general';
+export type LeadTopic = 'pain' | 'energy' | 'sleep' | 'stress' | 'weight' | 'general';
 
 export type LeadConversationStage =
   | 'opening'
@@ -40,7 +40,9 @@ export type LeadPatternName =
   | 'depletion_pattern'
   | 'wind_down_deficit'
   | 'rhythm_disruption'
-  | 'stress_loading_pattern';
+  | 'stress_loading_pattern'
+  | 'stress_storage_pattern'
+  | 'metabolic_adaptation_pattern';
 
 export interface LeadConversation {
   id: string;

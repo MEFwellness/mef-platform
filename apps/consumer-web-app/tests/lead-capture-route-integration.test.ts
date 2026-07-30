@@ -91,12 +91,12 @@ async function getConversationDbId(sessionToken: string): Promise<string> {
 }
 
 describe('lead-capture route — opening turn', () => {
-  it('starts a new conversation with the static opening message and four quick replies', async () => {
+  it('starts a new conversation with the static opening message and five quick replies', async () => {
     const { status, json } = await postJson({}, { ip: '10.0.0.1' });
     expect(status).toBe(200);
     expect(json.stage).toBe('opening');
     expect(json.reply).toMatch(/bothering you most lately/i);
-    expect(json.quickReplies).toEqual(['Pain', 'Energy', 'Sleep', 'Stress']);
+    expect(json.quickReplies).toEqual(['Pain', 'Energy', 'Sleep', 'Stress', 'Weight']);
     createdConversationIds.push(json.conversationId);
   });
 });
@@ -236,6 +236,49 @@ describe('lead-capture route — warm lead (no readiness signal) routes to quiz/
     expect(lead.routed_to).toBe('quiz_guide');
     // "Staying Asleep" isn't the falling-asleep-specific case -> a rhythm disruption.
     expect(lead.pattern_name).toBe('rhythm_disruption');
+  });
+});
+
+describe('lead-capture route — weight topic (5th topic, shame-free root-cause framing)', () => {
+  it('walks a weight-topic lead through all four follow-ups with weight-specific buttons and routes it', async () => {
+    const ip = '10.0.0.9';
+    const conversationId = await startConversation(ip);
+
+    const step1 = await postJson({ conversationId, quickReply: 'Weight' }, { ip });
+    expect(step1.json.stage).toBe('follow_up_1');
+    expect(step1.json.quickReplies).toContain('Since A Big Life Change');
+
+    const step2 = await postJson({ conversationId, message: 'Since A Big Life Change' }, { ip });
+    expect(step2.json.stage).toBe('follow_up_2');
+
+    const step3 = await postJson({ conversationId, message: 'Months' }, { ip });
+    expect(step3.json.stage).toBe('follow_up_3');
+    expect(step3.json.quickReplies).toContain('Cutting Calories');
+
+    const step4 = await postJson({ conversationId, message: 'Nothing Yet' }, { ip });
+    expect(step4.json.stage).toBe('follow_up_4');
+    expect(step4.json.quickReplies).toContain('Feel Comfortable Again');
+
+    const step5 = await postJson({ conversationId, message: 'Just some answers' }, { ip });
+    expect(step5.json.stage).toBe('insight_capture');
+    // Shame-free, root-cause language only — never a calorie/diet prescription.
+    expect(step5.json.reply.toLowerCase()).not.toMatch(/calorie|carbs?\b|macros?\b|diet plan/);
+    expect(step5.json.reply).toMatch(/stress-storage pattern/);
+
+    const step6 = await postJson({ conversationId, message: 'Robin robin@example.test' }, { ip });
+    expect(step6.json.stage).toBe('routed');
+    expect(step6.json.routing.destination).toBe('quiz_guide');
+    expect(step6.json.reply.toLowerCase()).not.toMatch(/calorie|carbs?\b|macros?\b|diet plan/);
+
+    const supabase = serviceRoleClient();
+    const { data: lead } = await supabase
+      .from('captured_leads')
+      .select('*')
+      .eq('conversation_id', await getConversationDbId(conversationId))
+      .single();
+    expect(lead.topic).toBe('weight');
+    // "Since A Big Life Change" -> a stress-storage pattern per pattern.ts's rules.
+    expect(lead.pattern_name).toBe('stress_storage_pattern');
   });
 });
 

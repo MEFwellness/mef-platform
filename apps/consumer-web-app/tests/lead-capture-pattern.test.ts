@@ -48,6 +48,28 @@ describe('lead-capture pattern — determinePatternName', () => {
     expect(determinePatternName('general', 'Physical', 'Not Sure')).toBe('overload_pattern');
   });
 
+  it('weight: a big life change is a stress-storage pattern', () => {
+    expect(determinePatternName('weight', 'Since A Big Life Change', 'Nothing Yet')).toBe('stress_storage_pattern');
+    expect(determinePatternName('weight', 'started after a lot of stress at work', 'Nothing Yet')).toBe(
+      'stress_storage_pattern'
+    );
+  });
+
+  it('weight: stuck despite real effort is a metabolic adaptation pattern', () => {
+    expect(determinePatternName('weight', 'Slow Despite Effort', 'Cutting Calories')).toBe(
+      'metabolic_adaptation_pattern'
+    );
+  });
+
+  it('weight: stuck despite effort but nothing actually tried yet falls back to fuel timing', () => {
+    expect(determinePatternName('weight', 'Slow Despite Effort', 'Nothing Yet')).toBe('fuel_timing_pattern');
+  });
+
+  it('weight: cravings/appetite or energy crashes default to a fuel timing pattern', () => {
+    expect(determinePatternName('weight', 'Cravings/Appetite', 'Tracking Everything')).toBe('fuel_timing_pattern');
+    expect(determinePatternName('weight', 'Energy Crashes', 'More Cardio')).toBe('fuel_timing_pattern');
+  });
+
   it('a typed free-text answer is classified the same way a matching button label would be', () => {
     const viaButton = determinePatternName('pain', 'All Over', 'Nothing Yet');
     const viaTyping = determinePatternName('pain', "it's pretty much everywhere at this point", "haven't tried anything");

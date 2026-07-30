@@ -20,6 +20,7 @@ const FOLLOW_UP_1_BY_TOPIC: Record<LeadTopic, string[]> = {
   energy: ['Morning', 'Mid-Afternoon', 'By Evening', 'All Day'],
   sleep: ['Falling Asleep', 'Staying Asleep', 'Waking Up Tired', 'All Of It'],
   stress: ['Mind Racing', 'Body Tension', 'Short Fuse', 'All Of It'],
+  weight: ['Cravings/Appetite', 'Slow Despite Effort', 'Since A Big Life Change', 'Energy Crashes'],
   general: ['Physical', 'Mental', 'Sleep', 'Not Sure'],
 };
 
@@ -30,6 +31,7 @@ const FOLLOW_UP_3_BY_TOPIC: Record<LeadTopic, string[]> = {
   energy: ['More Caffeine', 'More Sleep', 'Supplements', 'Nothing Yet'],
   sleep: ['Wind-Down Routine', 'Cutting Screens', 'Melatonin', 'Nothing Yet'],
   stress: ['Meditation/Breathing', 'Exercise', 'Talking It Out', 'Nothing Yet'],
+  weight: ['Cutting Calories', 'More Cardio', 'Tracking Everything', 'Nothing Yet'],
   general: ['A Few Things', 'Saw A Doctor', 'Not Sure', 'Nothing Yet'],
 };
 
@@ -38,6 +40,7 @@ const FOLLOW_UP_4_BY_TOPIC: Record<LeadTopic, string[]> = {
   energy: ['Get Through Workdays', 'Show Up For Family', 'Work Out Again', 'Just Feel Like Myself'],
   sleep: ['Sharper Focus', 'Better Mood', 'Energy For Workouts', 'Just Feeling Human Again'],
   stress: ['Better Sleep', 'More Patience', 'More Focus', 'Just Some Breathing Room'],
+  weight: ['Feel Comfortable Again', 'More Energy Day To Day', 'Steady Not Yo-Yo', 'Just Some Answers'],
   general: ['Feel Normal Again', 'More Energy', 'Better Sleep', 'Just Some Answers'],
 };
 
