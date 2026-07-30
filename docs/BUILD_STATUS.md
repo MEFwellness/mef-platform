@@ -2556,3 +2556,32 @@ A new public, no-login route (`app/start/page.tsx` + `app/start/StartPageClient.
 **Verified locally with Playwright** (dev server + local Supabase, real `POST /api/lead-capture`, no mocking): (1) 390×844 mobile viewport — `/start` returned 200 with zero `nav` elements on the page (no member chrome); the hero CTA opened the real shadow-DOM widget panel showing the same opening question and 5 topic quick-replies as `/lead-widget-test`; tapping "Pain" produced the real follow-up question ("Where does it show up most...") from the actual agent flow; closing the panel collapsed it back to the bubble. (2) A fresh browser context confirmed the proactive pop-up still fires automatically within ~8s showing the same opener, and reopening after a dismissal-without-answering showed the exact "Still thinking about something?" reopen line. Zero console/page errors in either run. Directly queried local Supabase afterward and confirmed real `lead_conversations` rows with `source_url: 'http://localhost:3000/start'` — proving the page is wired to the genuine endpoint, not a mock. All test data cleaned up afterward.
 
 No database migration was needed for this feature — it only adds a page, an additive widget hook, and a middleware exemption, nothing schema-related.
+
+## Your Move Pro API key swap + plan verification (2026-07-30)
+
+Swapped the Your Move Exercise API key from the trial key to the new Pro key, and scouted what the paid plan actually unlocks. No application code changed — this is purely a credential rotation plus a verification pass.
+
+### Key locations
+
+`YMOVE_API_KEY` (read by `lib/your-move/apiClient.ts`) lives in exactly two places, both environment variables, never the repo: `apps/consumer-web-app/.env.local` (local dev — found already updated to the new Pro key before this session started) and Vercel's `mef-platform` project env vars for **Production** and **Preview** (found still on the old trial key; removed and re-added with the new key via `vercel env rm` / `vercel env add`). Confirmed both `.env.local` files that reference this var are `.gitignore`d and were never committed.
+
+### Redeploy
+
+Vercel project `mef-wellness/mef-platform` (repo `MEFwellness/mef-platform`, branch `main`) — env var changes don't apply to already-built deployments, so triggered a fresh Production deploy from the current `main` commit (`e64afc9`) via `vercel --prod`. New deployment `dpl_Bu48SGrTFkjhA6DPo8fC7THfGxba` is Ready and `vercel inspect app.mefwellness.com` confirms the domain is aliased to it — the live site is now running with the new key baked in.
+
+### Verification (quota-respecting: 1 of the 2 allowed video-exercise fetches used, no poster extraction, no bulk fetching)
+
+**Video access**: called `/usage` first — `plan: "pro"`, `monthlyExerciseLimit: 350`, but `status: "pending_approval"`. Despite that pending status, `whiteVideoAccess`/`premiumVideoAccess` both read `true`, and fetching one real exercise (`GET /exercises/{id}`) returned a genuine `videoUrl` and `videoHlsUrl` (real signed CDN URLs, ~48h expiry as expected). **Video is working on the new key** — the "Under Review" restriction that blocked video on the trial key is not blocking it now, so the second allowed check call wasn't needed.
+
+**Nutrition endpoints** (scouting only, nothing built): the vendor's `/openapi.json` lists real routes — `/foods` (search), `/foods/barcode/{upc}`, `/recipes/search`, plus `/foods/{id}`, `/foods/log/text`, `/foods/log/photo`, `/recipes/{id}`, `/mealplans/generate` (none of the log/mealplan ones were called — read-only scouting per the task). One read-only call each:
+- Food search (`/foods?query=chicken breast`) — **works**, 200, blends a small internal "staple" set with live USDA FoodData Central results (protein/fat/carbs/fiber/sodium per entry).
+- Recipe search (`/recipes/search?query=chicken`) — **works**, 200, full recipes with macros, ingredients, prep/cook time, images.
+- Barcode lookup (`/foods/barcode/049000028911`) — **works**, 200, resolved to "Diet Coke Soft Drink" via Open Food Facts with full nutrition fields.
+
+All three nutrition endpoints are live on this plan with no upgrade wall encountered.
+
+**Catalog types** (local Supabase, freshly reset — 825 rows; the 857 figure mentioned in the task may reflect a more recent production catalog refresh not yet reflected in the local seed, since the vendor's live catalog is fetched by an offline script rather than tracked in a migration): `exercise_type` tag breakdown (an exercise can carry more than one tag) — strength 561, functional 149, core 140, calisthenics 102, stretching 95, cardio 90, yoga 84, mobility 68, plyometric 62, balance 47, isometric 47, warmup 33, hiit 25, rehabilitation 15, cooldown 5.
+
+### Verified
+
+`npm run typecheck` clean (both workspaces). `npm run lint` — 0 errors, same 65 pre-existing warnings. Full `npm test` (fresh `supabase db reset`) — 282/283 files, 3096/3097 tests passing, same pre-existing unrelated `correlation-engine-integration.test.ts` flake (31 vs 30). `npm run build --workspaces` — compiled successfully. No code diff to commit (only env vars and this doc changed).
