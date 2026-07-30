@@ -2451,3 +2451,32 @@ Checked the other 3 items on the diagnostic list before concluding, to rule out 
 Applied locally via `supabase db reset` (124 applies cleanly after 123). `npm run typecheck` clean, `npm run lint` — 0 errors, same 65 pre-existing warnings, `vitest run` — 279/280 files passing (same pre-existing `correlation-engine-integration.test.ts` flake, 31 vs 30, unrelated), `npm run build` — compiled successfully. Pushed to `origin/main`; confirmed via `vercel inspect` that the new Production deployment is aliased to `app.mefwellness.com`.
 
 **Still needs the user to run one command**: `supabase db push --db-url "<production-db-url-with-password>"` to apply migration 124 and send the `NOTIFY`. This is the one action only the user can do (same password-only-they-hold constraint as every prior production migration in this doc) — once it's run, `/lead-widget-test` should work immediately, no redeploy needed since this only touches Supabase, not Vercel.
+
+## Lead Capture Agent live 500, take 2: found and fixed the real root cause (2026-07-30)
+
+The user applied migration 124 ("Finished supabase db push") and the live widget still failed with the exact same error. Re-diagnosed against production directly rather than trusting the prior session's theory.
+
+### What was actually still broken
+
+Called the live endpoint again and pulled fresh logs — same `PGRST204`/`pattern_name`/schema-cache error, meaning the NOTIFY didn't fix it. Rather than guess a second time, made the endpoint resilient to that specific failure first (see below), which unblocked the opening turn — then drove a full live conversation turn by turn against `https://app.mefwellness.com/api/lead-capture` with `curl`, all the way through the 4 follow-ups. **The `follow_up_3` → `follow_up_4` transition failed live** with a *different*, more telling error, pulled from production logs in real time:
+
+```
+updateLeadConversation failed {
+  code: '23514',
+  message: 'new row for relation "lead_conversations" violates check constraint "lead_conversations_stage_check"'
+}
+```
+
+`23514` is a genuine Postgres check-constraint violation — not a PostgREST cache symptom. This proves production's `lead_conversations.stage` column was never actually given the `follow_up_4` value in its allowed set at all, which means production's table was built from an **older version of migration 123** — one from before this repo's "Lead Capture Agent v2" session added `follow_up_4` and `pattern_name` to that same file. The likely mechanism: `supabase db push` tracks migrations by version number only, never by diffing file content — so once "00000000000123" was recorded as applied in this project's migration history (at some earlier point), every later edit to that same file was silently invisible to subsequent pushes, no error, no warning. Migration 124's `NOTIFY` genuinely ran, but it was reloading PostgREST's cache for a schema that had never received the follow_up_4/pattern_name changes in the first place — a real fix for the wrong problem.
+
+### The two-part real fix
+
+**1. Made the code resilient regardless of cache/migration state** (`lib/lead-capture/data.ts`) — `createLeadConversation`, `updateLeadConversation`, and `insertCapturedLead` now detect PostgREST's specific "column not in schema cache" error (`PGRST204` naming `pattern_name`) and retry once with that field stripped from the payload. The conversation, routing, and coach notification all keep working even if `pattern_name` genuinely can't be written for some reason; only the pattern label itself fails to persist on that row. New test file `tests/lead-capture-schema-cache-resilience.test.ts` (4 tests, hand-built fake `SupabaseClient` since a real local Supabase never has a stale cache to reproduce this against) proves the retry actually drops the field and still succeeds, for all three write paths.
+
+**2. A new, idempotent repair migration** (`supabase/migrations/00000000000125_lead_capture_stage_and_pattern_name_backfill.sql`) — since editing migration 123 further would keep being silently skipped, this is a genuinely new version number. `drop constraint if exists` / `add column if not exists` throughout, so it's safe to run regardless of production's actual current state: rebuilds `lead_conversations_stage_check` to include `follow_up_4`, adds `pattern_name` to both `lead_conversations` and `captured_leads` if either is missing it, rebuilds both `pattern_name` check constraints, and ends with the same `NOTIFY pgrst, 'reload schema'` as migration 124 for good measure.
+
+### Verified — this time against the live production endpoint itself, not just "should work"
+
+After deploying the code-resilience fix (before migration 125 existed), called `https://app.mefwellness.com/api/lead-capture` directly: the opening turn now returns 200 with the real opening question and 4 buttons (previously a 500). Continued the same live conversation turn by turn with `curl` — `follow_up_1`, `follow_up_2`, `follow_up_3` all worked and returned real (non-fallback) LLM-generated questions with the correct quick-reply buttons, confirming `ANTHROPIC_API_KEY` is genuinely working in production too — until the `follow_up_4` transition surfaced the `23514` error above, which is what led to migration 125. `npm run typecheck` clean, `npm run lint` — 0 errors, same 65 warnings, full `vitest run` — 280/281 files (3003/3004 tests) passing, same pre-existing unrelated flake. `npm run build` — compiled successfully. Migration 125 applies cleanly locally via `supabase db reset`, including idempotently on top of a database that already has these changes (proving it's safe to run even if some future environment already matches). Code pushed to `origin/main`; confirmed via `vercel inspect` that the new Production deployment is Ready and aliased to `app.mefwellness.com`.
+
+**Still needs the user to run one command** — same as every prior production migration in this doc: `supabase db push --db-url "<production-db-url-with-password>"`. This time it will actually change something (the previous push, for 124, only ran a NOTIFY against a schema that hadn't changed). Once applied, the full conversation through `follow_up_4` → the two-part insight → email capture → routing should work end-to-end, not just the opening turn — the code-resilience fix already makes the opening turn work today, but the `follow_up_4` step needs this migration to genuinely proceed past it.
