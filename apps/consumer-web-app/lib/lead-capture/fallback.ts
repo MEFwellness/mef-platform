@@ -10,10 +10,16 @@
  * The pattern name itself is never a fallback concern: pattern.ts is a
  * plain deterministic function, not an LLM call, so it's assigned
  * correctly whether or not the LLM is configured.
+ *
+ * The follow-up question text below is read from followUpScript.ts — the
+ * single source of truth it shares with quickReplies.ts's buttons — rather
+ * than being hand-duplicated here, so this file can never drift out of
+ * sync with the buttons offered alongside it.
  */
 
 import type { LeadConversationStage, LeadTopic, LeadRoutingDestination, LeadPatternName } from '@mef/shared-types-contracts';
 import { getDiscoveryCallUrl, getQuizGuideUrl } from './env';
+import { FOLLOW_UP_SCRIPT } from './followUpScript';
 
 /** Static — always the same regardless of LLM availability, so the opening turn never needs a provider call at all. */
 export const OPENING_MESSAGE = "What's been bothering you most lately?";
@@ -22,50 +28,11 @@ export const QUICK_REPLY_OPTIONS = ['Pain', 'Energy', 'Sleep', 'Stress', 'Weight
 /** Shown when the widget reopens after being dismissed before the visitor answered anything — acknowledges the return without referencing the close. */
 export const REOPEN_MESSAGE = "Still thinking about something? Tell me what's been going on.";
 
-const FOLLOW_UP_1: Record<LeadTopic, string> = {
-  pain: 'Where does it show up most — one spot, or does it move around?',
-  energy: 'When does it hit hardest — morning, mid-afternoon, or by evening?',
-  sleep: "What's the main issue — falling asleep, staying asleep, or waking up already tired?",
-  stress: 'Where do you feel it most — a racing mind, tension in the body, or a shorter fuse than usual?',
-  weight: "What's changed most — cravings and appetite, energy crashes, or the scale barely moving no matter what you do?",
-  general: 'Is this mostly physical, mostly mental, or a bit of both?',
-};
-
-const FOLLOW_UP_2: Record<LeadTopic, string> = {
-  pain: 'How long has this been going on?',
-  energy: 'How long has this been going on?',
-  sleep: 'How long has this been going on?',
-  stress: 'How long has this been building?',
-  weight: 'How long has this been the story?',
-  general: 'How long has this been going on?',
-};
-
-const FOLLOW_UP_3: Record<LeadTopic, string> = {
-  pain: 'Have you tried anything for it so far — stretching, a doctor, rest?',
-  energy: 'Have you tried anything to turn it around — more caffeine, more sleep, supplements?',
-  sleep: 'Have you tried anything so far — a wind-down routine, cutting screens, melatonin?',
-  stress: 'Have you tried anything to manage it — meditation, exercise, talking it out?',
-  weight: "What have you already tried — cutting calories, more cardio, tracking everything?",
-  general: 'Have you tried anything to address it so far?',
-};
-
-const FOLLOW_UP_4: Record<LeadTopic, string> = {
-  pain: 'What would getting past this let you do again?',
-  energy: 'What would steady energy free you up to do?',
-  sleep: 'What would a real night of sleep change for you day to day?',
-  stress: 'What would feeling less stressed free up room for?',
-  weight: 'What would you actually want out of this — steady energy, feeling comfortable again, or just an end to the yo-yo?',
-  general: "What's the outcome you're actually after?",
-};
-
 export function buildFallbackFollowUp(
   stage: Exclude<LeadConversationStage, 'opening' | 'insight_capture' | 'routed'>,
   topic: LeadTopic
 ): string {
-  if (stage === 'follow_up_1') return FOLLOW_UP_1[topic];
-  if (stage === 'follow_up_2') return FOLLOW_UP_2[topic];
-  if (stage === 'follow_up_3') return FOLLOW_UP_3[topic];
-  return FOLLOW_UP_4[topic];
+  return FOLLOW_UP_SCRIPT[stage][topic].question;
 }
 
 /**

@@ -59,29 +59,43 @@ downstream: topic classification, pattern assignment, and email extraction
 all just look at plain text, with no idea whether it came from a tap or a
 keyboard.
 
-The four follow-ups, in order, and their buttons (`lib/lead-capture/
-quickReplies.ts`):
+**The question and its buttons are defined together, as one pair, in a
+single file** (`lib/lead-capture/followUpScript.ts`) — never in two places
+that could drift apart. `fallback.ts`'s deterministic question text and
+`quickReplies.ts`'s buttons both read from that same file; when the real
+LLM is configured, the exact button set for that turn is also handed to the
+model as part of its instructions, with an explicit requirement that its
+own phrasing stay answerable by those same buttons. This is a fix for a
+real bug that shipped once: the Weight path asked *"Has the shift been
+gradual over months, or did you notice it change more suddenly..."* while
+showing buttons for a completely different question ("what changed most").
+Every pairing below is checked by an automated test
+(`tests/lead-capture-follow-up-coherence.test.ts`) that a future edit to
+either side can't silently break.
 
-| Stage | Question focus | Buttons (Pain example) |
+The four follow-ups, in order, and their buttons (Pain example):
+
+| Stage | Question | Buttons |
 |---|---|---|
-| `follow_up_1` | Where it shows up / when it hits | Neck/Shoulders, Lower Back, Hips/Knees, All Over |
-| `follow_up_2` | How long | Weeks, Months, Years, As Long As I Can Remember *(same 4 for every topic — duration reads the same regardless of the concern)* |
-| `follow_up_3` | What they've tried | Stretching/Foam Rolling, Doctor Or PT, Rest, Nothing Yet |
-| `follow_up_4` | Their goal | Train/Move Freely Again, Sleep Through The Night, Not Think About It, Keep Up With Life |
+| `follow_up_1` | Where does it show up most — neck and shoulders, lower back, hips and knees, or all over? | Neck/Shoulders, Lower Back, Hips/Knees, All Over |
+| `follow_up_2` | How long has this been going on? *(same question + buttons for every topic — duration reads the same regardless of the concern)* | Weeks, Months, Years, As Long As I Can Remember |
+| `follow_up_3` | Have you tried anything for it so far — stretching, a doctor, rest? | Stretching/Foam Rolling, Doctor Or PT, Rest, Nothing Yet |
+| `follow_up_4` | What would getting past this let you do again — move freely, sleep through the night, stop thinking about it, or just keep up with life? | Train/Move Freely Again, Sleep Through The Night, Not Think About It, Keep Up With Life |
 
 Energy, Sleep, Stress, Weight, and General each get their own
-topic-appropriate set for `follow_up_1`, `follow_up_3`, and `follow_up_4` —
-see `quickReplies.ts` for the full table. The insight-and-email turn has no
-buttons at all: an email address isn't a multiple-choice answer, so that
-turn relies on the (always-visible) free-text input alone.
+topic-appropriate question + button pair for `follow_up_1`, `follow_up_3`,
+and `follow_up_4` — see `followUpScript.ts` for the full table. The
+insight-and-email turn has no buttons at all: an email address isn't a
+multiple-choice answer, so that turn relies on the (always-visible)
+free-text input alone.
 
-Weight's own buttons, root-cause angle rather than diet-culture:
+Weight's own question + button pairs, root-cause angle rather than diet-culture:
 
-| Stage | Question focus | Buttons |
+| Stage | Question | Buttons |
 |---|---|---|
-| `follow_up_1` | What's changed most | Cravings/Appetite, Slow Despite Effort, Since A Big Life Change, Energy Crashes |
-| `follow_up_3` | What they've tried | Cutting Calories, More Cardio, Tracking Everything, Nothing Yet |
-| `follow_up_4` | Their goal | Feel Comfortable Again, More Energy Day To Day, Steady Not Yo-Yo, Just Some Answers |
+| `follow_up_1` | What's changed most — cravings and appetite, feeling stuck despite real effort, a shift after a big life change, or energy crashing hard? | Cravings/Appetite, Slow Despite Effort, Since A Big Life Change, Energy Crashes |
+| `follow_up_3` | Have you tried anything so far — cutting calories, more cardio, tracking everything? | Cutting Calories, More Cardio, Tracking Everything, Nothing Yet |
+| `follow_up_4` | What would you actually want out of this — feeling comfortable again, steady energy day to day, an end to the yo-yo, or just some real answers? | Feel Comfortable Again, More Energy Day To Day, Steady Not Yo-Yo, Just Some Answers |
 
 The Weight follow-ups never ask for or reference a calorie count, a diet
 plan, or a number on the scale — they ask about appetite, energy, stress,
@@ -158,7 +172,7 @@ text input at that turn.
 > `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(taps)* Pain
 >
-> **Agent:** Where does it show up most — one spot, or does it move around?
+> **Agent:** Where does it show up most — neck and shoulders, lower back, hips and knees, or all over?
 > `[buttons: Neck/Shoulders, Lower Back, Hips/Knees, All Over]`
 > **Visitor:** *(taps)* Lower Back
 >
@@ -170,7 +184,7 @@ text input at that turn.
 > `[buttons: Stretching/Foam Rolling, Doctor Or PT, Rest, Nothing Yet]`
 > **Visitor:** *(types)* tried stretching, not much luck
 >
-> **Agent:** What would getting past this let you do again?
+> **Agent:** What would getting past this let you do again — move freely, sleep through the night, stop thinking about it, or just keep up with life?
 > `[buttons: Train/Move Freely Again, Sleep Through The Night, Not Think About It, Keep Up With Life]`
 > **Visitor:** *(types)* I'm ready to book something and fix this
 >
@@ -197,7 +211,7 @@ assigned pattern: a compensation pattern."
 > `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(taps)* Energy
 >
-> **Agent:** When does it hit hardest — morning, mid-afternoon, or by evening?
+> **Agent:** When does it hit hardest — morning, mid-afternoon, by evening, or pretty much all day?
 > `[buttons: Morning, Mid-Afternoon, By Evening, All Day]`
 > **Visitor:** *(taps)* Mid-Afternoon
 >
@@ -209,7 +223,7 @@ assigned pattern: a compensation pattern."
 > `[buttons: More Caffeine, More Sleep, Supplements, Nothing Yet]`
 > **Visitor:** *(taps)* More Caffeine
 >
-> **Agent:** What would steady energy free you up to do?
+> **Agent:** What would steady energy free you up to do — get through workdays, show up for family, work out again, or just feel like yourself?
 > `[buttons: Get Through Workdays, Show Up For Family, Work Out Again, Just Feel Like Myself]`
 > **Visitor:** *(taps)* Get Through Workdays
 >
@@ -231,7 +245,7 @@ assigned pattern: a compensation pattern."
 > `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(types)* I can't stay asleep past 3am most nights
 >
-> **Agent:** What's the main issue — falling asleep, staying asleep, or waking up already tired?
+> **Agent:** What's the main issue — falling asleep, staying asleep, waking up already tired, or a bit of everything?
 > `[buttons: Falling Asleep, Staying Asleep, Waking Up Tired, All Of It]`
 > **Visitor:** *(taps)* Staying Asleep
 >
@@ -243,7 +257,7 @@ assigned pattern: a compensation pattern."
 > `[buttons: Wind-Down Routine, Cutting Screens, Melatonin, Nothing Yet]`
 > **Visitor:** *(taps)* Melatonin
 >
-> **Agent:** What would a real night of sleep change for you day to day?
+> **Agent:** What would a real night of sleep change for you — sharper focus, a better mood, energy for workouts, or just feeling human again?
 > `[buttons: Sharper Focus, Better Mood, Energy For Workouts, Just Feeling Human Again]`
 > **Visitor:** *(taps)* Better Mood
 >
@@ -265,7 +279,7 @@ assigned pattern: a compensation pattern."
 > `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(taps)* Stress
 >
-> **Agent:** Where do you feel it most — a racing mind, tension in the body, or a shorter fuse than usual?
+> **Agent:** Where do you feel it most — a racing mind, tension in the body, a shorter fuse than usual, or all of the above?
 > `[buttons: Mind Racing, Body Tension, Short Fuse, All Of It]`
 > **Visitor:** *(taps)* Mind Racing
 >
@@ -277,7 +291,7 @@ assigned pattern: a compensation pattern."
 > `[buttons: Meditation/Breathing, Exercise, Talking It Out, Nothing Yet]`
 > **Visitor:** *(taps)* Nothing Yet
 >
-> **Agent:** What would feeling less stressed free up room for?
+> **Agent:** What would feeling less stressed free up — better sleep, more patience, more focus, or just some breathing room?
 > `[buttons: Better Sleep, More Patience, More Focus, Just Some Breathing Room]`
 > **Visitor:** *(taps)* Better Sleep
 >
@@ -299,7 +313,7 @@ assigned pattern: a compensation pattern."
 > `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(taps)* Pain
 >
-> **Agent:** Where does it show up most — one spot, or does it move around?
+> **Agent:** Where does it show up most — neck and shoulders, lower back, hips and knees, or all over?
 > `[buttons: Neck/Shoulders, Lower Back, Hips/Knees, All Over]`
 > **Visitor:** *(taps)* All Over
 >
@@ -311,7 +325,7 @@ assigned pattern: a compensation pattern."
 > `[buttons: Stretching/Foam Rolling, Doctor Or PT, Rest, Nothing Yet]`
 > **Visitor:** *(types)* tried a bit of everything honestly
 >
-> **Agent:** What would getting past this let you do again?
+> **Agent:** What would getting past this let you do again — move freely, sleep through the night, stop thinking about it, or just keep up with life?
 > `[buttons: Train/Move Freely Again, Sleep Through The Night, Not Think About It, Keep Up With Life]`
 > **Visitor:** *(types)* yes please, when can we start
 >
@@ -339,7 +353,7 @@ warm lead.*
 > `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(types)* honestly not totally sure, just feel kind of off
 >
-> **Agent:** Is this mostly physical, mostly mental, or a bit of both?
+> **Agent:** Is this mostly physical, mostly mental, tied to your sleep, or hard to say?
 > `[buttons: Physical, Mental, Sleep, Not Sure]`
 > **Visitor:** *(taps)* Not Sure
 >
@@ -351,7 +365,7 @@ warm lead.*
 > `[buttons: A Few Things, Saw A Doctor, Not Sure, Nothing Yet]`
 > **Visitor:** *(taps)* Not Sure
 >
-> **Agent:** What's the outcome you're actually after?
+> **Agent:** What's the outcome you're actually after — feeling normal again, more energy, better sleep, or just some answers?
 > `[buttons: Feel Normal Again, More Energy, Better Sleep, Just Some Answers]`
 > **Visitor:** *(taps)* Just Some Answers
 >
@@ -383,7 +397,7 @@ note.*
 > `[buttons: Pain, Energy, Sleep, Stress, Weight]`
 > **Visitor:** *(taps)* Weight
 >
-> **Agent:** What's changed most — cravings and appetite, energy crashes, or the scale barely moving no matter what you do?
+> **Agent:** What's changed most — cravings and appetite, feeling stuck despite real effort, a shift after a big life change, or energy crashing hard?
 > `[buttons: Cravings/Appetite, Slow Despite Effort, Since A Big Life Change, Energy Crashes]`
 > **Visitor:** *(taps)* Since A Big Life Change
 >
@@ -391,11 +405,11 @@ note.*
 > `[buttons: Weeks, Months, Years, As Long As I Can Remember]`
 > **Visitor:** *(taps)* Months
 >
-> **Agent:** What have you already tried — cutting calories, more cardio, tracking everything?
+> **Agent:** Have you tried anything so far — cutting calories, more cardio, tracking everything?
 > `[buttons: Cutting Calories, More Cardio, Tracking Everything, Nothing Yet]`
 > **Visitor:** *(types)* honestly nothing yet, just been hoping it evens out
 >
-> **Agent:** What would you actually want out of this — steady energy, feeling comfortable again, or just an end to the yo-yo?
+> **Agent:** What would you actually want out of this — feeling comfortable again, steady energy day to day, an end to the yo-yo, or just some real answers?
 > `[buttons: Feel Comfortable Again, More Energy Day To Day, Steady Not Yo-Yo, Just Some Answers]`
 > **Visitor:** *(taps)* Just Some Answers
 >

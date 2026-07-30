@@ -23,6 +23,7 @@
 import type { LeadConversationStage, LeadTopic } from '@mef/shared-types-contracts';
 import type { LeadMessage } from '@mef/shared-types-contracts';
 import { PATTERN_LABELS } from './pattern';
+import { FOLLOW_UP_SCRIPT } from './followUpScript';
 import type { LeadPatternName } from '@mef/shared-types-contracts';
 
 export const LEAD_AGENT_SYSTEM_PROMPT = `You are a seasoned root-cause wellness practitioner talking with someone who just showed up because something isn't right. Your lens: the body is one connected system, a symptom is a signal rather than the problem itself, and the work is finding the root — not managing the symptom.
@@ -65,13 +66,28 @@ const FOLLOW_UP_FOCUS: Record<
   follow_up_4: 'what outcome or goal they actually want out of fixing this',
 };
 
-/** Builds the userPrompt for a single follow-up-question turn (stages follow_up_1..follow_up_4). */
+/**
+ * Builds the userPrompt for a single follow-up-question turn (stages
+ * follow_up_1..follow_up_4). The visitor is shown a fixed set of
+ * quick-reply buttons alongside whatever question this turn returns
+ * (quickReplies.ts's getQuickReplies, sourced from the same
+ * followUpScript.ts as the buttons below) — those exact buttons are
+ * spelled out here and the model is required to phrase its question so
+ * every one of them is a direct answer, rather than free-associating a
+ * different angle on the same general focus (the bug this file exists to
+ * prevent: an LLM asking "gradual vs sudden" while the buttons on screen
+ * were "Cravings/Appetite, Slow Despite Effort, Since A Big Life Change,
+ * Energy Crashes" — a completely different question those buttons never
+ * answered).
+ */
 export function buildFollowUpUserPrompt(
   stage: Extract<LeadConversationStage, 'follow_up_1' | 'follow_up_2' | 'follow_up_3' | 'follow_up_4'>,
   topic: LeadTopic,
   history: LeadMessage[]
 ): string {
-  return `Conversation so far (the visitor's main concern is ${TOPIC_LABEL[topic]}):\n${transcript(history)}\n\nYour task: ask ONE short question about ${FOLLOW_UP_FOCUS[stage]}. 1-2 sentences, no exclamation points, not diagnostic, not a repeat of a question already asked above.`;
+  const buttons = FOLLOW_UP_SCRIPT[stage][topic].buttons;
+  const buttonList = buttons.map((button) => `"${button}"`).join(', ');
+  return `Conversation so far (the visitor's main concern is ${TOPIC_LABEL[topic]}):\n${transcript(history)}\n\nYour task: ask ONE short question about ${FOLLOW_UP_FOCUS[stage]}. The visitor will see these exact quick-reply buttons next to your question: ${buttonList}. Phrase your question so every one of those buttons reads as a direct, natural spoken answer to it — do not ask about a different angle those buttons wouldn't answer. 1-2 sentences, no exclamation points, not diagnostic, not a repeat of a question already asked above.`;
 }
 
 /**
