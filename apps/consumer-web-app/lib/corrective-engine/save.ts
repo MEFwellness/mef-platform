@@ -18,7 +18,8 @@ import {
   type TemplateContentSectionInput,
 } from '../coach-program-builder/templates';
 
-const SECTION_TYPE_BY_BLOCK = {
+/** Also reused by lib/corrective-engine/review.ts (the coach review screen's block labels) and its inverse — keep this the single source of truth for the block <-> section_type mapping. */
+export const SECTION_TYPE_BY_BLOCK = {
   release: 'corrective',
   mobility: 'mobility',
   stability: 'activation',
@@ -46,7 +47,8 @@ function patternSummary(draft: CorrectiveProgramDraft): string {
     .join(', ');
 }
 
-function sessionToSections(session: SessionDraft): TemplateContentSectionInput[] {
+/** Also reused by review.ts's regenerate path, so a regenerated draft is written through the exact same shape a fresh save uses. */
+export function sessionToSections(session: SessionDraft): TemplateContentSectionInput[] {
   return session.blocks.map((block) => ({
     name: block.name,
     sectionType: SECTION_TYPE_BY_BLOCK[block.block],

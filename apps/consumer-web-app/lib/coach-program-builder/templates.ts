@@ -52,6 +52,8 @@ export type TemplateContentExerciseInput = ExercisePrescriptionFields & {
   exerciseName: string;
   /** Why this exercise was selected — set only when it came from the Prescription Intelligence Engine. */
   selectionReasoning?: string | null;
+  /** True only when a coach picked this via the Corrective Programs review screen's "show full library" override picker. Defaults to false. */
+  isCoachOverride?: boolean;
 };
 
 export type TemplateContentSectionInput = {
@@ -337,6 +339,7 @@ export async function replaceTemplateContent(
       pain_modification_notes: exercise.pain_modification_notes,
       alternate_exercises: exercise.alternate_exercises,
       selection_reasoning: exercise.selectionReasoning ?? null,
+      is_coach_override: exercise.isCoachOverride ?? false,
     }));
   });
 
@@ -463,6 +466,7 @@ export async function duplicateTemplate(
       pain_modification_notes: exercise.pain_modification_notes,
       alternate_exercises: exercise.alternate_exercises,
       selectionReasoning: exercise.selection_reasoning,
+      isCoachOverride: exercise.is_coach_override,
     })),
   }));
 

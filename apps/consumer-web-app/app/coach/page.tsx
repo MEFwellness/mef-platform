@@ -12,6 +12,7 @@ import {
   ListChecks,
   ChevronRight,
   Sparkles,
+  Activity,
 } from 'lucide-react';
 import { listAssignedClients } from '@/app/actions/coach';
 import { listCoachReviewQueue } from '@/app/actions/safety';
@@ -159,6 +160,23 @@ export default async function CoachPage() {
           <div className="flex items-center gap-2 text-[#854D0E]">
             <Dumbbell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Program Library</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
+        {/* ---------------------------------------------------- */}
+        {/* Corrective Programs — the Corrective Program Generator   */}
+        {/* Engine's coach-facing trigger/review/approve screen.     */}
+        {/* Always shown, same "reached from the coach dashboard"    */}
+        {/* convention as Program Library above.                     */}
+        {/* ---------------------------------------------------- */}
+        <Link
+          href="/coach/corrective-programs"
+          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:opacity-90`}
+        >
+          <div className="flex items-center gap-2 text-[#854D0E]">
+            <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Corrective Programs</p>
           </div>
           <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
         </Link>

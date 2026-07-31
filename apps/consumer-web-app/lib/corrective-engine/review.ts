@@ -1,0 +1,235 @@
+/**
+ * Coach-review data access for corrective-engine-generated program drafts —
+ * the layer app/actions/corrective-programs.ts wraps for the Corrective
+ * Programs screen. Reuses the Coach Program Builder's own functions
+ * verbatim (listCoachTemplates/getTemplateWithContent/replaceTemplateContent/
+ * setTemplateStatus/updateTemplateMeta/deleteTemplate, and assignments.ts's
+ * createAssignment) — no parallel read/write path, same discipline as
+ * save.ts.
+ *
+ * A "corrective program" has no row of its own — it's `daysPerWeek`
+ * coach_program_templates (one per weekly session, "Session A/B/C") that
+ * share one program_tags entry, `corrective-program:<uuid>` (save.ts's
+ * `programGroupTag`). Every function here operates on that whole group at
+ * once, since a coach reviews/edits/approves/discards a program, not one
+ * session template in isolation.
+ */
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { CoachProgramTemplateWithContent } from '@mef/shared-types-contracts';
+import {
+  listCoachTemplates,
+  getTemplateWithContent,
+  replaceTemplateContent,
+  updateTemplateMeta,
+  setTemplateStatus,
+  deleteTemplate,
+} from '../coach-program-builder/templates';
+import { createAssignment } from '../coach-program-builder/assignments';
+import { getLatestCompletedPostureAssessment } from './findings';
+import { detectCorrectivePatterns } from './patternMapping';
+import { loadCorrectiveExercisePool } from './exercisePool';
+import { generateCorrectiveProgramDraft } from './programGenerator';
+import { sessionToSections } from './save';
+
+const GROUP_TAG_PREFIX = 'corrective-program:';
+const MEMBER_TAG_PREFIX = 'corrective-member:';
+
+export interface CorrectiveDraftGroup {
+  programGroupTag: string;
+  memberId: string;
+  templates: CoachProgramTemplateWithContent[];
+}
+
+function groupTagOf(template: { program_tags: string[] }): string | null {
+  return template.program_tags.find((t) => t.startsWith(GROUP_TAG_PREFIX)) ?? null;
+}
+
+/** Every pending_coach_review corrective draft group for one member, newest first — a coach may have generated more than one over time (nothing here auto-discards an old one). */
+export async function listCorrectiveDraftGroupsForMember(
+  supabase: SupabaseClient,
+  coachId: string,
+  memberId: string
+): Promise<CorrectiveDraftGroup[]> {
+  const templates = await listCoachTemplates(supabase, coachId, {
+    status: 'pending_coach_review',
+    tag: `${MEMBER_TAG_PREFIX}${memberId}`,
+  });
+
+  const byGroup = new Map<string, typeof templates>();
+  for (const template of templates) {
+    const tag = groupTagOf(template);
+    if (!tag) continue;
+    const list = byGroup.get(tag) ?? [];
+    list.push(template);
+    byGroup.set(tag, list);
+  }
+
+  const groups: CorrectiveDraftGroup[] = [];
+  for (const [programGroupTag, groupTemplates] of byGroup) {
+    const ordered = groupTemplates.slice().sort((a, b) => a.name.localeCompare(b.name));
+    const hydrated = await Promise.all(ordered.map((t) => getTemplateWithContent(supabase, t.id)));
+    const content = hydrated.filter((t): t is CoachProgramTemplateWithContent => t !== null);
+    if (content.length > 0) groups.push({ programGroupTag, memberId, templates: content });
+  }
+
+  return groups.sort((a, b) =>
+    (b.templates[0]?.created_at ?? '').localeCompare(a.templates[0]?.created_at ?? '')
+  );
+}
+
+export async function getCorrectiveDraftGroup(
+  supabase: SupabaseClient,
+  coachId: string,
+  memberId: string,
+  programGroupTag: string
+): Promise<CorrectiveDraftGroup | null> {
+  const groups = await listCorrectiveDraftGroupsForMember(supabase, coachId, memberId);
+  return groups.find((g) => g.programGroupTag === programGroupTag) ?? null;
+}
+
+export interface RegenerateCorrectiveDraftInput {
+  coachId: string;
+  memberId: string;
+  programGroupTag: string;
+}
+
+/**
+ * Re-detects the member's current patterns and re-runs the generator with a
+ * fresh seed, then overwrites each existing session template's content in
+ * place (same daysPerWeek/equipment the group already has) — a regenerate
+ * never creates a new template group, so any coach edits already made to
+ * *other* sessions in the group are untouched and the group's identity
+ * (programGroupTag) never changes underneath an open review screen.
+ */
+export async function regenerateCorrectiveDraftGroup(
+  supabase: SupabaseClient,
+  input: RegenerateCorrectiveDraftInput
+): Promise<boolean> {
+  const group = await getCorrectiveDraftGroup(supabase, input.coachId, input.memberId, input.programGroupTag);
+  if (!group || group.templates.length === 0) return false;
+
+  const daysPerWeek = group.templates.length === 3 ? 3 : 2;
+  const equipment = group.templates[0]!.equipment;
+
+  const latest = await getLatestCompletedPostureAssessment(supabase, input.memberId);
+  if (!latest) return false;
+  const patterns = detectCorrectivePatterns(latest.findings);
+  if (patterns.length === 0) return false;
+
+  const pool = await loadCorrectiveExercisePool(supabase, equipment);
+  const seed = `${input.programGroupTag}:regen:${Date.now()}`;
+  const draft = generateCorrectiveProgramDraft({ patterns, daysPerWeek, equipment, seed, pool });
+
+  for (let i = 0; i < draft.weeklySessions.length; i++) {
+    const template = group.templates[i];
+    const session = draft.weeklySessions[i];
+    if (!template || !session) continue;
+
+    const contentOk = await replaceTemplateContent(supabase, template.id, input.coachId, sessionToSections(session));
+    if (!contentOk) return false;
+
+    const newDescription = template.description
+      ? template.description.replace(/seed "[^"]*"/, `seed "${seed}"`)
+      : template.description;
+    await updateTemplateMeta(supabase, template.id, {
+      name: template.name,
+      description: newDescription,
+      goal: template.goal,
+      difficulty: template.difficulty,
+      estimatedDurationMinutes: template.estimated_duration_minutes,
+      equipment: template.equipment,
+      programTags: template.program_tags,
+      correctiveTags: template.corrective_tags,
+      movementTags: template.movement_tags,
+      targetMuscles: template.target_muscles,
+      coachNotes: template.coach_notes,
+      internalNotes: template.internal_notes,
+      memberInstructions: template.member_instructions,
+    });
+  }
+
+  return true;
+}
+
+/** Mon/Wed/Fri or Mon/Thu — day-of-week indices (0=Sun..6=Sat) each weekly session is assigned to, spread across the week rather than back-to-back. */
+const WEEKLY_DAY_PATTERNS: Record<number, number[]> = {
+  2: [1, 4],
+  3: [1, 3, 5],
+};
+
+export interface ApproveCorrectiveDraftInput {
+  coachId: string;
+  memberId: string;
+  programGroupTag: string;
+  /** YYYY-MM-DD the first week's sessions should start from. */
+  startDate: string;
+}
+
+export interface ApprovedCorrectiveProgram {
+  assignmentIds: string[];
+}
+
+/**
+ * Moves every session template in the group from pending_coach_review to
+ * active, then assigns each one to the member on its own weekly day for a
+ * 4-week span, published immediately — delivered entirely through the
+ * existing Coach Program Builder assignment pipeline (createAssignment),
+ * which is exactly what the member's existing "My Programs" surface already
+ * reads. Nothing here is member-visible until this runs: a
+ * pending_coach_review template is invisible to the default template list
+ * and templates are never member-readable at all (no member RLS policy
+ * exists on coach_program_templates); a member only ever sees the frozen,
+ * published coach_assigned_workouts rows this call creates.
+ */
+export async function approveCorrectiveDraftGroup(
+  supabase: SupabaseClient,
+  input: ApproveCorrectiveDraftInput
+): Promise<ApprovedCorrectiveProgram | null> {
+  const group = await getCorrectiveDraftGroup(supabase, input.coachId, input.memberId, input.programGroupTag);
+  if (!group || group.templates.length === 0) return null;
+
+  const dayPattern = WEEKLY_DAY_PATTERNS[group.templates.length] ?? group.templates.map((_, i) => 1 + (i * 2) % 6);
+
+  const assignmentIds: string[] = [];
+  for (let i = 0; i < group.templates.length; i++) {
+    const template = group.templates[i]!;
+    const activated = await setTemplateStatus(supabase, template.id, 'active');
+    if (!activated) return null;
+
+    const assignment = await createAssignment(supabase, {
+      memberId: input.memberId,
+      coachId: input.coachId,
+      template,
+      scheduleType: 'weekly',
+      scheduleConfig: {
+        type: 'weekly',
+        startDate: input.startDate,
+        daysOfWeek: [dayPattern[i] ?? 1],
+        weeks: 4,
+      },
+      assignmentNotes: null,
+      internalNotes: null,
+      publishImmediately: true,
+    });
+    if (!assignment) return null;
+    assignmentIds.push(assignment.id);
+  }
+
+  return { assignmentIds };
+}
+
+/** Deletes every session template in the group — a discarded draft leaves nothing behind (never archived/soft-deleted, since a draft that was never assigned has no history worth keeping). */
+export async function discardCorrectiveDraftGroup(
+  supabase: SupabaseClient,
+  coachId: string,
+  memberId: string,
+  programGroupTag: string
+): Promise<boolean> {
+  const group = await getCorrectiveDraftGroup(supabase, coachId, memberId, programGroupTag);
+  if (!group) return false;
+  for (const template of group.templates) {
+    const ok = await deleteTemplate(supabase, template.id);
+    if (!ok) return false;
+  }
+  return true;
+}

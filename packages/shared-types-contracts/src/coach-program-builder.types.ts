@@ -123,6 +123,8 @@ export interface CoachProgramTemplateExercise extends ExercisePrescriptionFields
   sequence_index: number;
   /** Why this exercise was selected — populated only when it came from the Prescription Intelligence Engine; null for anything a coach picked by hand. */
   selection_reasoning: string | null;
+  /** True only when a coach explicitly chose this via the Corrective Programs review screen's "show full library" override picker instead of the slot's engine-qualified default candidates (migration 132). Always false for anything else. */
+  is_coach_override: boolean;
   created_at: string;
   updated_at: string;
 }
