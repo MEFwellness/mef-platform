@@ -2925,3 +2925,41 @@ Also worth recording precisely because it was surprising: driving the app locall
 **Honest limitation**: no external search hits came back for "chicken" during this session's search-lane test — Open Food Facts' legacy `cgi/search.pl` endpoint returned an HTML page instead of JSON on this attempt (the barcode-lookup endpoint used by scan/quick-confirm worked fine and returned real JSON). `OpenFoodFactsProvider.searchByName()` already treats any such failure as "no external results" rather than crashing — matching its own documented behavior — so the lane degraded gracefully to just the member's recent/frequent history. This is the same, unmodified search backend the original `/food-lens/search` feature already uses; not a regression from this task, and not fixed here as out of scope.
 
 **No migration to push** — this task added no schema. Everything it needs (`member_food_log`, `food_products`, `product_nutrients`) is migration 59, already in production since long before Phase 1a/1b.
+
+## Protein Ledger: search race fix, generic-food ranking, numeral legibility (2026-07-31)
+
+Targeted bug-fix pass on the Ledger's search lane and the Today's Protein card — no schema change, no rebuild of the ledger itself, per the task's own scope.
+
+### 1. Search results vanishing (the reported bug)
+
+Root cause confirmed exactly as the task suspected: `SearchLane`'s debounce (`components/protein-ledger/ProteinEntryLanes.tsx`) only throttled when a request was *dispatched* — it never guarded against one arriving out of order. A natural typing pause (e.g. after "chicken", before "breast") could let an earlier, shorter-query request stay in flight while a newer, longer-query request was also dispatched; whichever happened to resolve *last* won, so a correct, populated result set could be silently overwritten by a stale, often-empty response for an already-superseded partial query — exactly "briefly shows results, then reverts to Nothing found."
+
+Fixed with a new pure guard, `shouldApplySearchResponse` (`lib/protein/ledger.ts`) — a response is only applied if its request id is still the latest one dispatched *and* its query still matches what's live in the box right now (checked via a ref, not the async closure's stale copy of `query`, which would otherwise always trivially match itself). `isSearching` now stays true from the moment the query changes until an *accepted* response lands, and "Nothing found" never renders while it's true — a "Searching…" state shows instead. True network-level cancellation (aborting the in-flight request) isn't available here since `searchFoodsAction` is a Next.js Server Action, not a raw `fetch` under this code's control — discard-on-resolve via the id/query check is the standard, correct substitute and matches "cancel in-flight requests" in effect: a stale response's network call still completes, but its result can never reach the screen.
+
+Verified live (not just unit-tested): typed "chicken breast" one character at a time with real per-keystroke delays against a seeded cached product, polled the rendered text every 200ms for 2 seconds after typing stopped — "Nothing found" never appeared at any point, and the results, once shown, never disappeared again.
+
+### 2. Generic foods ranked first
+
+Investigated what's actually available to rank on. Open Food Facts' `cgi/search.pl` (what `OpenFoodFactsProvider.searchByName()` already uses) returns name/brand/image only — no popularity, category, or generic/branded flag. (A newer official Search-a-licious API does expose brand/category/popularity fields, but swapping the provider's HTTP endpoint is a bigger, separate change than this task's scope and wasn't made here — flagging it as a real option for a future session if richer ranking signals are wanted.) The app's own product cache (`food_products`) has no such flag either. Conclusion stated directly per the task's own fallback: **neither source can distinguish generic from branded**, so this ranks by closeness of the product name to what was actually typed instead — the task's own suggested fallback.
+
+New `rankFoodSearchResults` (`lib/food-products/search.ts`): exact case-insensitive name match ranks first, then a name that starts with the query, then one that merely contains it, then everything else; ties within a tier broken by shorter name (a plain "Chicken Breast" outranks "Tyson Chargrilled Chicken Breast Tenders, Frozen"). Applied to both `searchCachedFoodProducts`'s and `searchFoodsAction`'s external-provider results — both now over-fetch a small candidate pool before ranking and slicing to the final shown count, so there's actually something to reorder among. This is shared by the original `/food-lens/search` page too (same `searchFoodsAction`), a positive side effect, not scope creep — it's the exact same shared function the Ledger's search lane already depended on.
+
+Verified live: seeded a generic "Chicken Breast" (no brand) and a branded "Tyson Chargrilled Chicken Breast Tenders, Frozen" into the local cache (the sandbox's external OFF search was unreliable this session — see below — so this proved the ranking against real, working data instead), searched "chicken breast" in the Ledger, and the generic entry rendered first, branded second.
+
+### 3. "0g" reading as "og"
+
+Confirmed visually (screenshot, not assumed) — Cormorant Garamond's old-style figures render its zero nearly identical to a lowercase o at the Today's Protein card's display size. Fixed with `font-variant-numeric: lining-nums` on both of `ProteinLedgerProgress.tsx`'s number displays, verified by screenshotting before and after: the same serif display font, but the zero now has the flat top/bottom of a lining figure, unambiguous at a glance. Chose this over swapping to the body font (DM Sans) because it worked and keeps the design language fully intact — no font-family change needed anywhere in the card.
+
+### Guard tests
+
+`tests/protein-ledger-logic.test.ts` — 3 new `shouldApplySearchResponse` tests, including the literal out-of-order scenario the task asked for (a request for "c" dispatched first, resolving *after* a request for "chicken breast" that was dispatched second, is correctly discarded even though it completed successfully). `tests/food-products-search-ranking.test.ts` (new file, 5 tests) — exact match beats a longer branded name, starts-with beats contains, shorter name breaks ties, empty query leaves order untouched, a null product name never crashes or drops a result.
+
+### Verified
+
+`npm run typecheck` clean. `npm run lint` — 0 errors, same 90-warning baseline. Full `npm test` (fresh `supabase db reset` — same reason as last entry: driving the app locally to verify this pollutes two unrelated tests' fixtures every time, confirmed and cleaned the same way) — 294/295 test files, 3234/3235 tests passing; the one failure is the same pre-existing `correlation-engine-integration.test.ts` flake (31 vs 30). `npm run build --workspace=@mef/consumer-web-app` — compiled successfully; `/food-lens/protein/ledger` now 6.02 kB route-specific JS (was 5.8 kB).
+
+**Verified locally with Playwright**, real member.one session, real server actions — see each fix's own "Verified live" note above for what was actually driven and screenshotted.
+
+**Honest limitation, still true this session**: Open Food Facts' legacy search endpoint returned an HTML "temporarily unavailable" page rather than JSON again this session (both the legacy `cgi/search.pl` scraping endpoint currently used and the equally-legacy `/api/v2/search` REST endpoint failed the same way; the newer Search-a-licious API at `search.openfoodfacts.org/search` worked fine and returned real, well-structured JSON when tested directly). Since the user's own bug report describes seeing real branded results, this is most likely transient/sandbox-network-specific rather than a universal outage — the provider's endpoint was deliberately left unchanged this session (out of scope for a targeted fix), but if external search continues to come back empty in production, switching `OpenFoodFactsProvider.searchByName()` to the Search-a-licious endpoint is the recommended fix, and would also unlock real brand/category/popularity data for even better ranking than the exact-match heuristic used here.
+
+**No migration to push** — no schema changed in this pass either.
