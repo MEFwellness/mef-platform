@@ -16,6 +16,7 @@ import {
   Refrigerator,
   Store,
   MessageCircle,
+  Beef,
 } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
@@ -25,6 +26,7 @@ import {
   getActivePrimalPatternProfileAction,
 } from '@/app/actions/food-lens';
 import { getTodaysCoachingMessageAction } from '@/app/actions/food-insights';
+import { getMyProteinSetupState } from '@/app/actions/protein';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -102,12 +104,24 @@ export default async function FoodLensPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, scans, pattern, dailyCoaching] = await Promise.all([
+  const [isCoach, scans, pattern, dailyCoaching, proteinState] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     listMyFoodLensScansAction(),
     getActivePrimalPatternProfileAction(),
     getTodaysCoachingMessageAction(),
+    getMyProteinSetupState(),
   ]);
+
+  const proteinSubtitle =
+    proteinState?.stage === 'active'
+      ? proteinState.suggestedRange
+        ? `Guidance: ${proteinState.suggestedRange.low}–${proteinState.suggestedRange.high}g/day`
+        : `${proteinState.activeGrams}g/day, active`
+      : proteinState?.stage === 'pending_review'
+        ? 'Pending your coach’s review'
+        : proteinState?.stage === 'blocked'
+          ? 'See your coach for a personalized number'
+          : 'Set your body weight and activity level';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -186,6 +200,20 @@ export default async function FoodLensPage() {
                   ? 'Update your protein/carb/fat emphasis'
                   : 'Needed for a personalized comparison'}
               </p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
+        <Link
+          href={'/food-lens/protein' as Route}
+          className={`${CARD} mt-3 flex items-center justify-between p-4`}
+        >
+          <div className="flex items-center gap-2.5">
+            <Beef className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+            <div>
+              <p className="text-sm font-medium text-[#1B3A2D]">Protein target</p>
+              <p className="mt-0.5 text-xs text-[#6B7A72]">{proteinSubtitle}</p>
             </div>
           </div>
           <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />

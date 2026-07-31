@@ -23,6 +23,10 @@ type SafetyFlagsRow = {
   uses_insulin: boolean;
   has_clinician_nutrition_plan: boolean;
   is_pregnant: boolean;
+  has_kidney_disease: boolean;
+  has_significant_liver_disease: boolean;
+  has_eating_disorder: boolean;
+  has_medical_protein_limit: boolean;
   other_flags: Record<string, boolean> | null;
   last_updated_by: string | null;
   last_updated_by_role: NutritionSafetyOverrideSource | null;
@@ -51,6 +55,10 @@ function mapRow(row: SafetyFlagsRow): NutritionSafetyProfile {
     usesInsulin: row.uses_insulin,
     hasClinicianNutritionPlan: row.has_clinician_nutrition_plan,
     isPregnant: row.is_pregnant,
+    hasKidneyDisease: row.has_kidney_disease,
+    hasSignificantLiverDisease: row.has_significant_liver_disease,
+    hasEatingDisorder: row.has_eating_disorder,
+    hasMedicalProteinLimit: row.has_medical_protein_limit,
     otherFlags: row.other_flags ?? {},
   };
 
@@ -103,6 +111,10 @@ export async function upsertNutritionSafetyFlags(
         uses_insulin: flags.usesInsulin,
         has_clinician_nutrition_plan: flags.hasClinicianNutritionPlan,
         is_pregnant: flags.isPregnant,
+        has_kidney_disease: flags.hasKidneyDisease,
+        has_significant_liver_disease: flags.hasSignificantLiverDisease,
+        has_eating_disorder: flags.hasEatingDisorder,
+        has_medical_protein_limit: flags.hasMedicalProteinLimit,
         other_flags: flags.otherFlags,
         last_updated_by: updatedBy,
         last_updated_by_role: updatedByRole,

@@ -2771,3 +2771,57 @@ Empty state (a member with no completed assessment yields `null`, not a generate
 ```
 supabase db push --db-url "<production-db-url-with-password>"
 ```
+
+## Protein Phase 1a — profile, safety screen, target calculation, coach approval (2026-07-31)
+
+Foundation only, exactly per the task's scope: no food entry, no barcode, no ledger, no photo estimates, zero Your Move API calls. A member sets body weight + activity level, a safety screen gates automatic calculation, the target is calculated and either goes to a coach for approval (24-week program) or is shown as guidance (monthly/self-guided).
+
+### Where it lives, and why
+
+`/food-lens/protein` — a new sibling of `/food-lens/pattern` (Primal Pattern) and `/food-lens/preferences`, reached from a new card on the Food Lens hub (`app/food-lens/page.tsx`). Chose Food Lens over the generic `/profile` area because body weight and activity level are nutrition-calculation inputs, not general account settings, and this repo already treats Food Lens as the home for nutrition-specific member setup (Primal Pattern's protein/carb/fat emphasis lives there too, one card up).
+
+### Safety screen: extends the existing nutrition safety table, doesn't duplicate it
+
+Migration 133 adds `has_kidney_disease`, `has_significant_liver_disease`, `has_eating_disorder`, `has_medical_protein_limit` to migration 65's `member_nutrition_safety_flags` — the table already built for exactly this purpose (member-reported medical flags gating automatic nutrition guidance), already used by the Primal Pattern assessment. `is_pregnant` already existed there and is reused as-is. A dedicated `hasProteinSafetyOverride()` (`lib/health-safety/types.ts`) checks only the 5 fields relevant to protein safety — deliberately not the table's existing general `hasActiveOverride`, which also considers diabetes/insulin fields that have no bearing on protein safety. Submitting the protein form merges into whatever safety flags already exist rather than clobbering them, so the two features can never stomp on each other's data.
+
+### Schema (migration 133)
+
+Two new tables alongside the `member_nutrition_safety_flags` columns above:
+- `member_protein_profile` — one row per member (weight in lb, activity-level key). Activity-level multipliers (1.0/1.2/1.4/1.6) are deliberately config-in-code (`lib/protein/calculation.ts`), not a DB column, same convention as correlation-engine weights and membership-tier ranks.
+- `member_protein_targets` — append-only (one row per calculation request, never edited in place), so a later recompute never silently overwrites a coach's review of an earlier number. `track` ('structured_program' vs 'self_guided') is resolved server-side from the member's real `profiles.membership_tier` at submission time, never trusted from client input.
+
+**The core guarantee — a 24-week program member never sees an active target before coach approval — is enforced at the database level, not just in the UI**: the member SELECT policy only ever returns a row where `status = 'active'`; a `pending_coach_review` row is genuinely unreadable by the member's own authenticated client, not merely hidden by app logic. The INSERT policy's `WITH CHECK` separately cross-references the member's real `membership_tier` via a subquery against `profiles` — a member cannot self-insert an already-`active` row by calling the API directly unless their real tier is actually a self-guided one, and even then only with `active_grams` equal to the computed number (no self-editing). Whether a member has a request outstanding is inferred at the app layer ("a profile exists, but no active row is visible") rather than via any column that would leak the pending number.
+
+### Judgment calls (flagging for review)
+
+- **24-week vs. monthly/self-guided mapping**: there is no dedicated "24-week program" flag anywhere in this schema. Mapped `membership_tiers.holistic_reset` (migration 69, this platform's structured coach-led tier) to the structured/24-week track, and `free_trial`/`membership` to self-guided (`lib/protein/track.ts`). Revisit if the business splits these differently.
+- **Guidance range width**: ±10% of the computed number, rounded to the nearest 5g, with a 10g floor so small targets still get a meaningful spread (`getSuggestedProteinRange`, `lib/protein/calculation.ts`).
+- **Safety-screen combined wording**: "an active or recovering eating disorder" is one yes/no item (matching the task's own phrasing), not two.
+
+### Coach approval surface
+
+`/coach/protein-review` — a queue list modeled directly on the existing `/coach/review-queue` (same card/status styling, open/resolved-style layout), only shown on the coach dashboard when something is actually pending (same convention as the Safety Review Queue card). `/coach/protein-review/[id]` shows the submitted weight/activity/computed number and a single input pre-filled with the computed value — approve as-is by leaving it, or edit it and save; either path is the same `approveProteinTargetAction`, which flips status to `active` and records `is_coach_edited` accordingly.
+
+### Guard tests
+
+`tests/protein-calculation.test.ts` (22 tests) — pure unit tests: rounding to the nearest 5g across many weight/multiplier combinations including an exact tie, the guidance-range math, `hasProteinSafetyOverride` (each of the 5 conditions blocks alone; diabetes-only flags do not), and the membership-tier-to-track mapping. `tests/protein-targets-review.test.ts` (7 tests) — real local Supabase (no mocks): a structured-program member's own client cannot insert an already-active row for itself even when it labels the row `track: 'self_guided'` to try to satisfy the policy; a pending row is genuinely unreadable by the member who owns it; the full flow (member submits → coach's queue shows it → coach approves as-is → member reads the real active target back); a coach edit stores a different `active_grams` than `computed_grams` flagged `is_coach_edited`; a different member can never read another member's row; a self-guided member's own client can insert and immediately read back an active row with no coach step, but cannot insert one with a self-edited `active_grams`.
+
+**Deliberate break, done by hand this session**: temporarily replaced the INSERT policy's `membership_tier` cross-check with `and true`, reset the local DB, reran the suite — the "member cannot self-insert an already-active row while their real tier is holistic_reset" test went red (`expected null not to be null`, i.e. the bypass insert that should have been rejected went through) — then restored the real check, reset again, and confirmed all tests green.
+
+### A real bug found and fixed via live testing, not just the automated suite
+
+The member-facing form's "blocked" (safety-screen) view had no way back to the form — `pending_review` and `active` states both offered an "Update your info" link, but `blocked` didn't, so a member who'd misclicked a safety checkbox (or whose situation later changed) had no UI path to revisit it. Caught while driving the real flow with Playwright, not by the test suite (which doesn't exercise this UI path). Fixed in `ProteinProfileForm.tsx` by adding the same "Update your info" link to the blocked state.
+
+### Verified
+
+`npm run typecheck` clean (both workspaces) — fixed two build-time issues along the way: Next's typed-routes plugin needed `as Route` casts on the four new `/coach/protein-review*` links (new routes, not yet in `.next/types` from a prior build), and `exactOptionalPropertyTypes` needed the coach-approval action to omit `error` entirely on success rather than set it to `undefined`. `npm run lint` — 0 errors, same 90-warning baseline, none in new files. Full `npm test` (fresh `supabase db reset`, migration 133 applied cleanly) — 292/292 test files run, 1 failing test (`correlation-engine-integration.test.ts`, the same pre-existing unrelated 31-vs-30 flake documented in every recent entry in this doc), all 29 new protein tests passing. `npm run build --workspace=@mef/consumer-web-app` — compiled successfully; new routes (`/food-lens/protein`, `/coach/protein-review`, `/coach/protein-review/[id]`) all built. Next's `'use server'` file restriction (only async function exports allowed) meant the safety-block message string had to live in `lib/protein/copy.ts` rather than `app/actions/protein.ts` — a real compile error caught by the build, not just assumed.
+
+**Verified locally with Playwright** (dev server + local Supabase, 390×844 mobile viewport, real `member.one`/`coach.one` seeded accounts, real server actions and RLS — no mocking): checked the eating-disorder safety box → submitted → saw the exact caring block message, confirmed it persists across a page reload (not just in-memory state). Cleared the flag, submitted as a self-guided member (default seeded tier) → saw the guidance range (165 lb, regular movement → 90g, range shown, labeled "guidance, not a prescription"). Flipped the same member to the `holistic_reset` tier and resubmitted (200 lb, muscle-building emphasis) → saw the "your coach is setting up your target" message with no number anywhere in the page. Logged in as the coach → dashboard showed the Protein Targets card → queue showed the real submission (200 lb, computed 145g) → opened it, entered an edited value (150g), saved → queue emptied. Logged back in as the member → saw the real active target (150g, "Set by your coach"), proving the coach's edit — not the computed 145g — is what the member sees. All ad-hoc verification scripts were scratch files outside the repo/deleted before commit; no test data left in local Supabase afterward.
+
+**Migrations to push** — one migration is pending against production: 133 (the 4 new safety-flag columns plus `member_protein_profile`/`member_protein_targets`, additive only, no existing behavior changes). Combined with the migrations noted as still-possibly-unpushed in the prior three entries (127 through 132), one command applies whichever of them the production DB doesn't have yet — `supabase db push` tracks by version number, so anything already applied is skipped automatically:
+
+```
+supabase db push --db-url "<production-db-url-with-password>"
+```
+
+**Not applied to production** — same as every migration in this doc; nothing here changes runtime behavior for anyone until that command runs.

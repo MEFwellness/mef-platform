@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import type { Route } from 'next';
 import {
   Users,
   UserCheck,
@@ -13,9 +14,11 @@ import {
   ChevronRight,
   Sparkles,
   Activity,
+  Beef,
 } from 'lucide-react';
 import { listAssignedClients } from '@/app/actions/coach';
 import { listCoachReviewQueue } from '@/app/actions/safety';
+import { listPendingProteinTargetsAction } from '@/app/actions/protein-review';
 import { buildAllClientSummaries } from './lib';
 import { BottomNav } from '@/components/BottomNav';
 import { STATUS_STYLES } from '@/lib/wellness/status';
@@ -54,6 +57,7 @@ export default async function CoachPage() {
   const openReviewCases = reviewQueue.filter(
     (entry) => entry.status !== 'closed' && entry.status !== 'approved_for_limited_coaching'
   );
+  const pendingProteinTargets = await listPendingProteinTargetsAction();
 
   const totalActive = summaries.length;
   const needingAttention = summaries.filter((s) => s.attentionReasons.length > 0);
@@ -213,6 +217,28 @@ export default async function CoachPage() {
           </div>
           <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
         </Link>
+
+        {/* ---------------------------------------------------- */}
+        {/* Protein Targets — Protein Phase 1a's coach approval    */}
+        {/* queue. Only shown when a 24-week program member's       */}
+        {/* computed target is waiting on review, same "don't        */}
+        {/* clutter an empty queue" convention as Safety Review     */}
+        {/* Queue below.                                              */}
+        {/* ---------------------------------------------------- */}
+        {pendingProteinTargets.length > 0 && (
+          <Link
+            href={'/coach/protein-review' as Route}
+            className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:opacity-90`}
+          >
+            <div className="flex items-center gap-2 text-[#854D0E]">
+              <Beef className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-wider">Protein Targets</p>
+            </div>
+            <span className="rounded-full bg-[#1B3A2D]/[0.06] px-3 py-1 text-sm font-semibold text-[#1B3A2D]">
+              {pendingProteinTargets.length} pending
+            </span>
+          </Link>
+        )}
 
         {/* ---------------------------------------------------- */}
         {/* Safety Review Queue — cases flagged by the coaching    */}
