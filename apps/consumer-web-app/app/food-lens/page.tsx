@@ -16,8 +16,6 @@ import {
   Refrigerator,
   Store,
   MessageCircle,
-  Beef,
-  ClipboardList,
 } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
@@ -27,8 +25,9 @@ import {
   getActivePrimalPatternProfileAction,
 } from '@/app/actions/food-lens';
 import { getTodaysCoachingMessageAction } from '@/app/actions/food-insights';
-import { getMyProteinSetupState } from '@/app/actions/protein';
 import { getProteinLedgerTodayAction } from '@/app/actions/protein-ledger';
+import { ProteinLedgerProgress } from '@/components/protein-ledger/ProteinLedgerProgress';
+import { PrimalPatternSetupBanner } from '@/components/food-lens/PrimalPatternSetupBanner';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -65,37 +64,33 @@ const FALLBACK_SCAN_LABEL: Record<string, string> = {
   meal_photo: 'Meal scan',
 };
 
-const ENTRY_OPTIONS = [
-  {
-    href: '/food-lens/new' as Route,
-    icon: Camera,
-    title: 'Scan a Meal',
-    description: 'Take a photo and review the foods and portions before saving.',
-  },
+const PRIMARY_ENTRY_OPTION = {
+  href: '/food-lens/new' as Route,
+  icon: Camera,
+  title: 'Scan a Meal',
+  description: 'Take a photo and review the foods and portions before saving.',
+};
+
+const COMPACT_ENTRY_OPTIONS = [
   {
     href: '/food-lens/barcode/new' as Route,
     icon: Barcode,
     title: 'Scan a Barcode',
-    description: 'Identify packaged foods and receive ingredient and nutrition guidance.',
   },
   {
     href: '/food-lens/label/new' as Route,
     icon: ScanLine,
     title: 'Scan a Label',
-    description:
-      'Capture Nutrition Facts and ingredients when a product is missing from the database.',
   },
   {
     href: '/food-lens/search' as Route,
     icon: Search,
     title: 'Search',
-    description: 'Find a previously scanned or commonly logged food.',
   },
   {
     href: '/food-lens/manual/new' as Route,
     icon: PenLine,
     title: 'Manual Entry',
-    description: 'Add a meal or food yourself.',
   },
 ];
 
@@ -106,32 +101,17 @@ export default async function FoodLensPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, scans, pattern, dailyCoaching, proteinState, proteinLedgerToday] = await Promise.all([
+  const [isCoach, scans, pattern, dailyCoaching, proteinLedgerToday] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     listMyFoodLensScansAction(),
     getActivePrimalPatternProfileAction(),
     getTodaysCoachingMessageAction(),
-    getMyProteinSetupState(),
     getProteinLedgerTodayAction(),
   ]);
 
-  const proteinLedgerSubtitle =
-    proteinLedgerToday && proteinLedgerToday.targetState?.stage === 'active'
-      ? `${proteinLedgerToday.totalGrams}g of ${proteinLedgerToday.targetState.activeGrams}g today`
-      : proteinLedgerToday
-        ? `${proteinLedgerToday.totalGrams}g logged today`
-        : 'Log a food to start today’s tally';
-
-  const proteinSubtitle =
-    proteinState?.stage === 'active'
-      ? proteinState.suggestedRange
-        ? `Guidance: ${proteinState.suggestedRange.low}–${proteinState.suggestedRange.high}g/day`
-        : `${proteinState.activeGrams}g/day, active`
-      : proteinState?.stage === 'pending_review'
-        ? 'Pending your coach’s review'
-        : proteinState?.stage === 'blocked'
-          ? 'See your coach for a personalized number'
-          : 'Set your body weight and activity level';
+  const proteinTargetState = proteinLedgerToday?.targetState ?? null;
+  const proteinTotalGrams = proteinLedgerToday?.totalGrams ?? 0;
+  const proteinCardIsTappable = proteinTargetState !== null && proteinTargetState.stage !== 'not_started';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -143,11 +123,11 @@ export default async function FoodLensPage() {
           <p className="text-sm font-semibold uppercase tracking-wider">Food Lens</p>
         </div>
         <h1 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          Meal coaching, not counting
+          One number we count. Everything else, we coach.
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#4F645A]">
-          However you&apos;d like to log it, Root will walk through what actually matters — never
-          just one nutrient in isolation.
+          However you&apos;d like to log it, Root walks through what actually matters — never a
+          nutrient in isolation.
         </p>
 
         {dailyCoaching.messages.length > 0 && (
@@ -166,84 +146,64 @@ export default async function FoodLensPage() {
           </div>
         )}
 
-        <div className="mt-6 space-y-2.5">
-          {ENTRY_OPTIONS.map((option) => (
-            <Link
-              key={option.href}
-              href={option.href}
-              className={`${CARD} flex items-center gap-3.5 p-4`}
-            >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#1B3A2D]/[0.06]">
-                <option.icon
-                  className="h-5 w-5 text-[#1B3A2D]"
-                  strokeWidth={1.75}
-                  aria-hidden="true"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-[#1B3A2D]">{option.title}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">
-                  {option.description}
-                </p>
-              </div>
-              <ChevronRight
-                className="h-4 w-4 shrink-0 text-[#9AA79F]"
+        <section className="mt-6">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+            Log food
+          </p>
+
+          <Link
+            href={PRIMARY_ENTRY_OPTION.href}
+            className="mef-press flex items-center gap-4 rounded-[28px] bg-gradient-to-br from-[#1B3A2D] to-[#12261D] p-5 shadow-[0_8px_28px_-8px_rgba(27,58,45,0.45)]"
+          >
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10">
+              <PRIMARY_ENTRY_OPTION.icon
+                className="h-6 w-6 text-[#C4A050]"
                 strokeWidth={1.75}
                 aria-hidden="true"
               />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-semibold text-white">{PRIMARY_ENTRY_OPTION.title}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-white/70">
+                {PRIMARY_ENTRY_OPTION.description}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-white/60" strokeWidth={1.75} aria-hidden="true" />
+          </Link>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {COMPACT_ENTRY_OPTIONS.map((option) => (
+              <Link
+                key={option.href}
+                href={option.href}
+                className={`${CARD} mef-press flex flex-col items-center gap-2 p-4 text-center`}
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1B3A2D]/[0.06]">
+                  <option.icon
+                    className="h-5 w-5 text-[#1B3A2D]"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                </div>
+                <p className="text-sm font-medium text-[#1B3A2D]">{option.title}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6">
+          {proteinCardIsTappable ? (
+            <Link href={'/food-lens/protein/ledger' as Route} className="mef-press block">
+              <ProteinLedgerProgress targetState={proteinTargetState} totalGrams={proteinTotalGrams} />
             </Link>
-          ))}
-        </div>
+          ) : (
+            <ProteinLedgerProgress targetState={proteinTargetState} totalGrams={proteinTotalGrams} />
+          )}
+        </section>
 
-        <Link
-          href={'/food-lens/pattern' as Route}
-          className={`${CARD} mt-5 flex items-center justify-between p-4`}
-        >
-          <div className="flex items-center gap-2.5">
-            <Settings2 className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
-            <div>
-              <p className="text-sm font-medium text-[#1B3A2D]">
-                {pattern ? pattern.pattern_label : 'Set your Primal Pattern target'}
-              </p>
-              <p className="mt-0.5 text-xs text-[#6B7A72]">
-                {pattern
-                  ? 'Update your protein/carb/fat emphasis'
-                  : 'Needed for a personalized comparison'}
-              </p>
-            </div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
+        {!pattern && <PrimalPatternSetupBanner />}
 
-        <Link
-          href={'/food-lens/protein/ledger' as Route}
-          className={`${CARD} mt-5 flex items-center justify-between p-4`}
-        >
-          <div className="flex items-center gap-2.5">
-            <ClipboardList className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
-            <div>
-              <p className="text-sm font-medium text-[#1B3A2D]">Protein ledger</p>
-              <p className="mt-0.5 text-xs text-[#6B7A72]">{proteinLedgerSubtitle}</p>
-            </div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
-
-        <Link
-          href={'/food-lens/protein' as Route}
-          className={`${CARD} mt-3 flex items-center justify-between p-4`}
-        >
-          <div className="flex items-center gap-2.5">
-            <Beef className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
-            <div>
-              <p className="text-sm font-medium text-[#1B3A2D]">Protein target</p>
-              <p className="mt-0.5 text-xs text-[#6B7A72]">{proteinSubtitle}</p>
-            </div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="mt-6 grid grid-cols-2 gap-3">
           <Link
             href={'/food-lens/log' as Route}
             className={`${CARD} flex items-center gap-2.5 p-4`}

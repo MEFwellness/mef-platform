@@ -2963,3 +2963,33 @@ Confirmed visually (screenshot, not assumed) — Cormorant Garamond's old-style 
 **Honest limitation, still true this session**: Open Food Facts' legacy search endpoint returned an HTML "temporarily unavailable" page rather than JSON again this session (both the legacy `cgi/search.pl` scraping endpoint currently used and the equally-legacy `/api/v2/search` REST endpoint failed the same way; the newer Search-a-licious API at `search.openfoodfacts.org/search` worked fine and returned real, well-structured JSON when tested directly). Since the user's own bug report describes seeing real branded results, this is most likely transient/sandbox-network-specific rather than a universal outage — the provider's endpoint was deliberately left unchanged this session (out of scope for a targeted fix), but if external search continues to come back empty in production, switching `OpenFoodFactsProvider.searchByName()` to the Search-a-licious endpoint is the recommended fix, and would also unlock real brand/category/popularity data for even better ranking than the exact-match heuristic used here.
 
 **No migration to push** — no schema changed in this pass either.
+
+## Food Lens page redesign: sections instead of a flat card stack (2026-07-31)
+
+Restructured `/food-lens` from ~12 equal-weight stacked cards into clear sections. Layout/copy only — no destination page touched, no functionality added or removed, no new data query (the merged protein card actually removes one: see below).
+
+### 1. Subheading swap
+
+New headline "One number we count. Everything else, we coach." and supporting line, same Cormorant Garamond/DM Sans typography, same FOOD LENS eyebrow. Kept the exact locked subhead class (`text-[15px] leading-relaxed text-[#4F645A]`) so `tests/subhead-contrast-ratio.test.ts`'s "applied everywhere" grep still passes.
+
+### 2. Log food section
+
+Added a "Log food" section header. Scan a Meal is now a standalone full-width primary tile (forest-green gradient, gold camera icon, white text) at the top — the flagship action. The other four (Scan a Barcode, Scan a Label, Search, Manual Entry) became a 2x2 grid of compact icon+title tiles with their description sentences removed — those sentences were the actual bulk of the old page's height. All five hrefs unchanged.
+
+### 3. Merged protein card
+
+The old "Protein ledger" and "Protein target" cards are gone, replaced by one card reusing the existing `ProteinLedgerProgress` component (built in the Protein Ledger Phase 1b task) — it already encodes exactly the three states the task asked for (no target → setup nudge, pending coach review → clear pending message and no progress bar, target set → "Xg of Yg" with a fill bar), including the lining-numerals fix so "0g" never reads as "og." This let me *drop* a data fetch rather than add one: `getMyProteinSetupState()` was being called a second time just for the old separate "Protein target" card, and `getProteinLedgerTodayAction()` already calls it internally, so the page now fetches protein state exactly once. The card is wrapped in a link to the ledger whenever a target exists in any form (active/pending/blocked); when no target exists yet, the component's own internal "Set up your protein target" link is the only interactive element (avoids a nested `<a>`).
+
+### 4. Primal Pattern: permanent card → dismissible banner
+
+New `components/food-lens/PrimalPatternSetupBanner.tsx` (client component). Only rendered at all when the member has no active Primal Pattern profile (server-checked); closing its X hides it for the rest of the browser session via `sessionStorage` (not `localStorage` — deliberately not permanent), reappearing on a fresh session if still unset. Once a pattern is set, the banner — and the destination link that used to live in it — disappears entirely, per the task's explicit "must not occupy space for members who've completed it." This is a real reduction in reachability for that one destination once a pattern exists (no compact fallback link was added elsewhere on the page) — a deliberate reading of that instruction over the task's general "every destination stays reachable" framing; worth confirming this was the intended tradeoff.
+
+### Verified
+
+`npm run typecheck` clean. `npm run lint` — 0 errors, same pre-existing warning baseline (unrelated scripts/hooks). New `tests/food-lens-page-redesign.test.ts` (25 tests: subheading swap, Log food section structure, merged-card states via `resolveLedgerTargetDisplay`, banner session-scoping, unchanged section order) — all passing, plus the pre-existing `food-lens-navigation`/`subhead-contrast-ratio`/`protein-ledger-logic` suites re-run clean against the new file. Full `npm test` (fresh `supabase db reset` first) — 295/296 test files, 3259/3260 tests passing; the one failure is the same pre-existing `correlation-engine-integration.test.ts` flake documented in the entry above (confirmed by running it against `main` with this session's changes stashed — identical failure, so definitively not caused by this work). `npm run build` — compiled successfully, `/food-lens` route generated (3.56 kB route-specific JS).
+
+**Verified locally with Playwright** (dev server + local Supabase, `member.one@example.test`, 390×844 mobile viewport): screenshotted the redesigned page in the no-target protein state (default seed) — headline/subhead copy, Log food section (primary tile + 2x2 grid), protein card, Primal Pattern banner, unchanged utility row/Week in Food/Recent scans all render in the correct order with zero console errors. Seeded a real `member_protein_targets` row (`active`, 120g) via direct SQL and re-screenshotted: "0g of 120g" with a real (empty) progress fill bar and guidance range, confirmed tapping the card navigates to `/food-lens/protein/ledger`. Updated that same row's status to `pending_coach_review` and re-screenshotted: the pending message renders with no progress bar, matching spec. Seeded a real `primal_pattern_profiles` row and confirmed the banner disappears entirely (element count 0), not just visually hidden. Drove the dismiss button directly: banner hides immediately, stays hidden after a same-session reload, and reappears in a brand-new browser context (fresh session). All seeded test rows deleted afterward and a full `supabase db reset` run before the final test pass, per this repo's own documented practice for local Playwright runs.
+
+**Not deployed as of this entry** — build/tests verified locally; push and Vercel/domain verification to follow immediately after this entry.
+
+**No migration to push** — no schema changed in this pass.
