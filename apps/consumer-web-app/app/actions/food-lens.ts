@@ -52,7 +52,7 @@ import {
   overallConfidenceFor,
   type ComparisonMacroEstimate,
 } from '@/lib/food-lens/comparison';
-import { computeMealQualityRating } from '@/lib/food-lens/mealQuality';
+import { computeMealQualityRating, primaryMealSubjectLabel } from '@/lib/food-lens/mealQuality';
 import { generateFoodLensCoachingNarrative } from '@/lib/food-lens/coachingNarrative';
 import { upsertRegistryEntryFromFoodLensComparison } from '@/lib/registry/adapters/foodLens';
 import {
@@ -304,7 +304,8 @@ export async function analyzeFoodLensScanAction(
         carb: result.macroEstimate.carb,
         fat: result.macroEstimate.fat,
       },
-      comparison?.signals ?? null
+      comparison?.signals ?? null,
+      primaryMealSubjectLabel(result.items)
     );
 
     await updateFoodLensScan(supabase, scanId, {
@@ -389,9 +390,15 @@ async function computeAndStoreMealQuality(
   macroEstimateId: string,
   qualitySignals: FoodLensQualitySignals,
   macro: ComparisonMacroEstimate,
-  patternSignals: FoodLensComparisonSignal[] | null
+  patternSignals: FoodLensComparisonSignal[] | null,
+  itemLabel: string | null
 ): Promise<FoodLensMealQualityRating | undefined> {
-  const { rating, explanation } = computeMealQualityRating(qualitySignals, macro, patternSignals);
+  const { rating, explanation } = computeMealQualityRating(
+    qualitySignals,
+    macro,
+    patternSignals,
+    itemLabel
+  );
 
   const created = await insertFoodLensMealQualityRating(supabase, {
     scanId,
@@ -788,7 +795,10 @@ export async function recomputeFoodLensResultAction(
           confidence: previousRating.confidence,
         },
         derived,
-        comparison?.signals ?? null
+        comparison?.signals ?? null,
+        primaryMealSubjectLabel(
+          confirmedOrAdded.map((i) => ({ label: i.label, isCondiment: i.is_condiment }))
+        )
       )
     : undefined;
 

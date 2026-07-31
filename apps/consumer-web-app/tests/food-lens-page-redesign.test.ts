@@ -80,10 +80,9 @@ describe('Food Lens page: Log food section', () => {
 });
 
 describe('Food Lens page: merged protein card', () => {
-  it('renders exactly one merged protein card (two JSX branches for tappable vs. not, never two distinct cards)', () => {
+  it('renders exactly one merged protein card, always wrapped in a single Link', () => {
     const occurrences = PAGE.split('<ProteinLedgerProgress').length - 1;
-    expect(occurrences).toBe(2);
-    expect(PAGE).toContain('proteinCardIsTappable ? (');
+    expect(occurrences).toBe(1);
   });
 
   it('the old separate "Protein ledger" / "Protein target" cards are gone', () => {
@@ -93,10 +92,18 @@ describe('Food Lens page: merged protein card', () => {
     expect(PAGE).not.toContain('proteinSubtitle');
   });
 
-  it('taps through to the ledger once a target exists (active, pending review, or blocked), but not before setup', () => {
-    expect(PAGE).toContain('proteinCardIsTappable');
-    expect(PAGE).toContain("stage !== 'not_started'");
-    expect(PAGE).toContain("href={'/food-lens/protein/ledger' as Route}");
+  // Regression test: the redesign originally gated this Link behind
+  // `proteinCardIsTappable` (stage !== 'not_started'), which meant a
+  // brand-new member — the single most common state — had zero reachable
+  // link to the ledger's own entry lanes (barcode/search/quick-add) from
+  // this page. The ledger page itself (app/food-lens/protein/ledger/
+  // page.tsx) has never gated on target stage, so this was purely a
+  // reachability bug introduced by the redesign, not a deliberate design
+  // constraint. Fixed by always wrapping the card, in every stage.
+  it('always taps through to the ledger, in every target stage — including before any target is set up', () => {
+    expect(PAGE).not.toContain('proteinCardIsTappable');
+    expect(PAGE).toContain("<Link href={'/food-lens/protein/ledger' as Route} className=\"mef-press block\">");
+    expect(PAGE).toContain('setupLinkIsInteractive={false}');
   });
 });
 

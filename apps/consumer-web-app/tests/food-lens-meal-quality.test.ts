@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeMealQualityRating } from '../lib/food-lens/mealQuality';
+import { computeMealQualityRating, primaryMealSubjectLabel } from '../lib/food-lens/mealQuality';
 import type { ComparisonMacroEstimate } from '../lib/food-lens/comparison';
 import type { FoodLensQualitySignals } from '../lib/food-lens/providers/types';
 
@@ -27,7 +27,7 @@ function macro(overrides: Partial<ComparisonMacroEstimate> = {}): ComparisonMacr
 }
 
 describe('computeMealQualityRating', () => {
-  it('rates a regular sugary soda (Sprite) red, naming it specifically as a soda — never the hedged "beverage or snack" phrasing', () => {
+  it('rates a regular sugary soda (Sprite) red, naming the actual detected item — never the hedged "beverage or snack" phrasing', () => {
     const result = computeMealQualityRating(
       signals({
         nutrientDensity: 'low',
@@ -46,10 +46,12 @@ describe('computeMealQualityRating', () => {
         // because it "looks small" or because a container is partly empty.
         carb: { level: 'high', confidence: 0.85 },
         fat: { level: 'none', confidence: 0.7 },
-      })
+      }),
+      null,
+      'Sprite'
     );
     expect(result.rating).toBe('red');
-    expect(result.explanation.toLowerCase()).toContain('soda');
+    expect(result.explanation).toContain('Sprite');
     expect(result.explanation.toLowerCase()).not.toContain('beverage or snack');
     expect(result.explanation.toLowerCase()).not.toMatch(
       /bad food|unhealthy person|failure|should not eat/
@@ -68,11 +70,62 @@ describe('computeMealQualityRating', () => {
         isBeverage: false,
         confidence: 0.85,
       }),
+      macro({ carb: { level: 'high', confidence: 0.85 } }),
+      null,
+      'Frosted Cereal Bar'
+    );
+    expect(result.rating).toBe('red');
+    expect(result.explanation).toContain('Frosted Cereal Bar');
+    expect(result.explanation.toLowerCase()).toContain('snack');
+    expect(result.explanation.toLowerCase()).not.toContain('soda');
+  });
+
+  it('regression: no item label falls back to a generic subject, never a category guess like "soda"', () => {
+    const result = computeMealQualityRating(
+      signals({
+        nutrientDensity: 'low',
+        addedSugarLevel: 'high',
+        processingLevel: 'ultra_processed',
+        isBeverage: true,
+        confidence: 0.85,
+      }),
       macro({ carb: { level: 'high', confidence: 0.85 } })
     );
     expect(result.rating).toBe('red');
-    expect(result.explanation.toLowerCase()).toContain('snack');
     expect(result.explanation.toLowerCase()).not.toContain('soda');
+    expect(result.explanation.toLowerCase()).toContain('this drink');
+  });
+
+  it('regression: a sweetened latte with real cream/sauce fat never claims "little meaningful fat" — the banner-vs-Macro-Balance contradiction bug', () => {
+    // The real production scenario that broke: iced matcha latte with
+    // vanilla sweet cream and pistachio sauce. High added sugar and low
+    // nutrient density earn a red verdict on their own, but the cream/sauce
+    // are a real, moderate fat contribution per the SAME macro estimate
+    // Macro Balance renders — the red explanation must not contradict that.
+    const result = computeMealQualityRating(
+      signals({
+        nutrientDensity: 'low',
+        addedSugarLevel: 'high',
+        processingLevel: 'processed',
+        hasMeaningfulProtein: false,
+        hasMeaningfulFiber: false,
+        hasHealthyFat: true,
+        isBeverage: true,
+        confidence: 0.85,
+      }),
+      macro({
+        protein: { level: 'low', confidence: 0.8 },
+        carb: { level: 'high', confidence: 0.85 },
+        fat: { level: 'moderate', confidence: 0.8 },
+      }),
+      null,
+      'Iced Matcha Latte with Vanilla Sweet Cream and Pistachio Sauce'
+    );
+    expect(result.rating).toBe('red');
+    expect(result.explanation).toContain('Iced Matcha Latte with Vanilla Sweet Cream and Pistachio Sauce');
+    expect(result.explanation.toLowerCase()).not.toContain('soda');
+    expect(result.explanation.toLowerCase()).not.toContain('little meaningful fat');
+    expect(result.explanation.toLowerCase()).not.toMatch(/little meaningful .*\bfat\b/);
   });
 
   it('rates plain water green, as hydration — not red or yellow just for having no nutrients', () => {
@@ -274,4 +327,29 @@ describe('computeMealQualityRating', () => {
   // layer; the Sprite regression test above is the closest unit-level
   // proxy: a soda always reads carb-'high' regardless of any notion of
   // "how much is left."
+});
+
+describe('primaryMealSubjectLabel', () => {
+  it('picks the first non-condiment item over its own condiments', () => {
+    expect(
+      primaryMealSubjectLabel([
+        { label: 'Iced Matcha Latte', isCondiment: false },
+        { label: 'Vanilla Sweet Cream', isCondiment: true },
+        { label: 'Pistachio Sauce', isCondiment: true },
+      ])
+    ).toBe('Iced Matcha Latte');
+  });
+
+  it('falls back to the first item when every detected item is a condiment', () => {
+    expect(
+      primaryMealSubjectLabel([
+        { label: 'Ranch Dressing', isCondiment: true },
+        { label: 'Hot Sauce', isCondiment: true },
+      ])
+    ).toBe('Ranch Dressing');
+  });
+
+  it('returns null for an empty item list', () => {
+    expect(primaryMealSubjectLabel([])).toBeNull();
+  });
 });

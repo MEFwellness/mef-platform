@@ -24,7 +24,7 @@
  *   verdict built on a shaky read).
  */
 
-import type { FoodLensComparisonSignal } from '@mef/shared-types-contracts';
+import type { FoodLensComparisonSignal, FoodLensMealMacroLevel } from '@mef/shared-types-contracts';
 import type { ComparisonMacroEstimate } from './comparison';
 import type { FoodLensQualitySignals } from './providers/types';
 
@@ -44,18 +44,56 @@ const LOW_CONFIDENCE_EXPLANATION =
 const HYDRATION_EXPLANATION =
   'Plain water (or a similar zero-calorie beverage) supports hydration with no added sugar or processing concerns.';
 
-// Two distinct phrasings, not one hedged "beverage or snack" sentence — a
-// confidently identified item should read as confidently identified. Which
-// one is used is decided by the vision model's own is_beverage signal, not
-// guessed from the label text.
-const SUGAR_DRIVEN_RED_BEVERAGE_EXPLANATION =
-  'This appears to be a regular sugary soda or sweetened beverage, with carbohydrates coming primarily from added sugar and little meaningful protein, fat, fiber, or nutrient density.';
+function joinWithOr(parts: string[]): string {
+  if (parts.length === 1) return parts[0]!;
+  return `${parts.slice(0, -1).join(', ')} or ${parts[parts.length - 1]}`;
+}
 
-const SUGAR_DRIVEN_RED_FOOD_EXPLANATION =
-  'This appears to be a sugary snack, with carbohydrates coming primarily from added sugar and little meaningful protein, fat, fiber, or nutrient density.';
+const lowOrNone = (level: FoodLensMealMacroLevel) => level === 'none' || level === 'low';
 
-const ULTRA_PROCESSED_RED_EXPLANATION =
-  'This appears to be a heavily processed item with little meaningful protein, fiber, healthy fat, or nutrient density.';
+/**
+ * The red "sugar-driven" explanation, built from THIS scan's actual
+ * detected-item label and its actual macro estimate — never a hardcoded
+ * "regular sugary soda" guess (that text used to render for anything with
+ * high added sugar and low nutrient density, including e.g. a sweetened
+ * latte, misdescribing the real item) and never an unconditional "little
+ * meaningful protein, fat, fiber" claim (that used to render even when the
+ * SAME macro estimate feeding Macro Balance read fat as moderate/high —
+ * the exact banner-vs-Macro-Balance-vs-Root's-Take contradiction this was
+ * built to fix). Only claims a macro is absent here when both the quality
+ * signals AND the shared macro estimate agree it's low or none.
+ */
+function sugarDrivenExplanation(
+  itemLabel: string | null,
+  signals: FoodLensQualitySignals,
+  macro: ComparisonMacroEstimate
+): string {
+  const subject = itemLabel ?? (signals.isBeverage ? 'This drink' : 'This item');
+  const kind = signals.isBeverage ? 'a sweetened beverage' : 'a sugary snack';
+
+  const absentParts: string[] = [];
+  if (!signals.hasMeaningfulProtein && lowOrNone(macro.protein.level)) absentParts.push('protein');
+  if (!signals.hasHealthyFat && lowOrNone(macro.fat.level)) absentParts.push('fat');
+  if (!signals.hasMeaningfulFiber) absentParts.push('fiber');
+
+  const tail = absentParts.length > 0 ? ` and little meaningful ${joinWithOr(absentParts)}` : '';
+
+  return `${subject} reads as ${kind}, with carbohydrates coming primarily from added sugar and low nutrient density${tail}.`;
+}
+
+/**
+ * The ultra-processed red explanation, item-named for the same reason as
+ * sugarDrivenExplanation above. Unlike that branch, this one's "little
+ * meaningful protein, fiber, healthy fat" claim is already gated on those
+ * exact three signals by ultraProcessedAndEmpty's own condition below
+ * (never reached unless all three are already false), so there's no
+ * separate absence check needed here — it can't contradict Macro Balance
+ * by construction.
+ */
+function ultraProcessedExplanation(itemLabel: string | null): string {
+  const subject = itemLabel ?? 'This item';
+  return `${subject} reads as a heavily processed item with little meaningful protein, fiber, healthy fat, or nutrient density.`;
+}
 
 const GREEN_EXPLANATION =
   'This meal appears nutrient-dense and includes a balanced combination of protein, whole-food carbohydrates, and healthy fats.';
@@ -104,7 +142,8 @@ function isPlainHydration(
 export function computeMealQualityRating(
   signals: FoodLensQualitySignals,
   macro: ComparisonMacroEstimate,
-  patternSignals?: FoodLensComparisonSignal[] | null
+  patternSignals?: FoodLensComparisonSignal[] | null,
+  itemLabel?: string | null
 ): MealQualityResult {
   if (signals.confidence < LOW_CONFIDENCE_THRESHOLD) {
     return { rating: 'yellow', explanation: LOW_CONFIDENCE_EXPLANATION };
@@ -127,13 +166,11 @@ export function computeMealQualityRating(
   if (sugarDriven) {
     return {
       rating: 'red',
-      explanation: signals.isBeverage
-        ? SUGAR_DRIVEN_RED_BEVERAGE_EXPLANATION
-        : SUGAR_DRIVEN_RED_FOOD_EXPLANATION,
+      explanation: sugarDrivenExplanation(itemLabel ?? null, signals, macro),
     };
   }
   if (ultraProcessedAndEmpty) {
-    return { rating: 'red', explanation: ULTRA_PROCESSED_RED_EXPLANATION };
+    return { rating: 'red', explanation: ultraProcessedExplanation(itemLabel ?? null) };
   }
 
   const isNutrientDenseWhole =
@@ -155,4 +192,19 @@ export function computeMealQualityRating(
   }
 
   return { rating: 'yellow', explanation: MIXED_MODERATE_EXPLANATION };
+}
+
+/**
+ * The subject to name in a Meal Quality explanation — the first
+ * non-condiment detected item (a latte over its own vanilla-cream/
+ * pistachio-sauce condiments), falling back to the first item at all when
+ * every detected item is a condiment. Pure/no I/O so it's callable from
+ * both the fresh-analysis and recompute-after-correction call sites in
+ * app/actions/food-lens.ts.
+ */
+export function primaryMealSubjectLabel(
+  items: Array<{ label: string; isCondiment: boolean }>
+): string | null {
+  const primary = items.find((i) => !i.isCondiment) ?? items[0];
+  return primary?.label ?? null;
 }

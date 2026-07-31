@@ -111,7 +111,6 @@ export default async function FoodLensPage() {
 
   const proteinTargetState = proteinLedgerToday?.targetState ?? null;
   const proteinTotalGrams = proteinLedgerToday?.totalGrams ?? 0;
-  const proteinCardIsTappable = proteinTargetState !== null && proteinTargetState.stage !== 'not_started';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -192,13 +191,13 @@ export default async function FoodLensPage() {
         </section>
 
         <section className="mt-6">
-          {proteinCardIsTappable ? (
-            <Link href={'/food-lens/protein/ledger' as Route} className="mef-press block">
-              <ProteinLedgerProgress targetState={proteinTargetState} totalGrams={proteinTotalGrams} />
-            </Link>
-          ) : (
-            <ProteinLedgerProgress targetState={proteinTargetState} totalGrams={proteinTotalGrams} />
-          )}
+          <Link href={'/food-lens/protein/ledger' as Route} className="mef-press block">
+            <ProteinLedgerProgress
+              targetState={proteinTargetState}
+              totalGrams={proteinTotalGrams}
+              setupLinkIsInteractive={false}
+            />
+          </Link>
         </section>
 
         {!pattern && <PrimalPatternSetupBanner />}

@@ -3,6 +3,9 @@ import {
   compareMealToPattern,
   deriveMacroEstimateFromItems,
   overallConfidenceFor,
+  isPatternBaselineThin,
+  formatPatternComparisonCaption,
+  possessivePatternPhrase,
   type ComparisonMacroEstimate,
 } from '../lib/food-lens/comparison';
 import type { FoodLensDetectedItem, PrimalPatternProfile } from '@mef/shared-types-contracts';
@@ -74,6 +77,80 @@ describe('compareMealToPattern', () => {
     );
     const proteinSignal = signals.find((s) => s.dimension === 'protein')!;
     expect(proteinSignal.direction).toBe('light');
+  });
+});
+
+describe('isPatternBaselineThin', () => {
+  it('is thin when the label and all three emphases are still at PrimalPatternForm\'s untouched defaults', () => {
+    expect(
+      isPatternBaselineThin({
+        pattern_label: 'My Eating Pattern',
+        protein_emphasis: 'moderate',
+        carb_emphasis: 'moderate',
+        fat_emphasis: 'moderate',
+      })
+    ).toBe(true);
+  });
+
+  it('is not thin once the member has renamed the pattern, even if all emphases are still moderate', () => {
+    expect(
+      isPatternBaselineThin({
+        pattern_label: 'My Real Pattern',
+        protein_emphasis: 'moderate',
+        carb_emphasis: 'moderate',
+        fat_emphasis: 'moderate',
+      })
+    ).toBe(false);
+  });
+
+  it('is not thin once any emphasis has been changed off moderate, even under the default label', () => {
+    expect(
+      isPatternBaselineThin({
+        pattern_label: 'My Eating Pattern',
+        protein_emphasis: 'high',
+        carb_emphasis: 'moderate',
+        fat_emphasis: 'moderate',
+      })
+    ).toBe(false);
+  });
+
+  it('is not thin for a fully customized pattern', () => {
+    expect(
+      isPatternBaselineThin({
+        pattern_label: 'Keto',
+        protein_emphasis: 'high',
+        carb_emphasis: 'low',
+        fat_emphasis: 'high',
+      })
+    ).toBe(false);
+  });
+});
+
+describe('possessivePatternPhrase', () => {
+  it('regression: never doubles "pattern" for the default label "My Eating Pattern"', () => {
+    expect(possessivePatternPhrase('My Eating Pattern')).toBe('your My Eating Pattern');
+  });
+
+  it('appends "pattern" for a custom label that does not already end with it', () => {
+    expect(possessivePatternPhrase('Keto')).toBe('your Keto pattern');
+  });
+});
+
+describe('formatPatternComparisonCaption', () => {
+  it('regression: never doubles the word "pattern" for the default label "My Eating Pattern"', () => {
+    expect(formatPatternComparisonCaption('My Eating Pattern')).toBe(
+      'Compared against your My Eating Pattern'
+    );
+  });
+
+  it('appends "pattern" for a custom label that does not already end with it', () => {
+    expect(formatPatternComparisonCaption('Keto')).toBe('Compared against your Keto pattern');
+  });
+
+  it('does not double "pattern" for a custom label that already ends with it, case-insensitively', () => {
+    expect(formatPatternComparisonCaption('My Low-Carb pattern')).toBe(
+      'Compared against your My Low-Carb pattern'
+    );
   });
 });
 

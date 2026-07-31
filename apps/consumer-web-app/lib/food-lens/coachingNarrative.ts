@@ -43,7 +43,11 @@ import { getConversationContextIntelligence } from '@/lib/intelligence-engine/en
 import { getConversationCoachingContext } from '@/lib/intelligence-core/service';
 import { getConversationCoachProvider } from '@/lib/conversation-coach/provider';
 import { classifyConcern } from '@/lib/safety/classifier';
-import type { ComparisonMacroEstimate } from './comparison';
+import {
+  isPatternBaselineThin,
+  possessivePatternPhrase,
+  type ComparisonMacroEstimate,
+} from './comparison';
 import { listRecentFoodLensComparisonsForMember } from './data';
 import { FOOD_LENS_NARRATIVE_PROMPT_VERSION } from './coachingNarrativePromptVersion';
 
@@ -106,7 +110,7 @@ export function buildDeterministicFallbackNarrative(
   signals: FoodLensComparisonSignal[],
   patternLabel: string | null
 ): string {
-  const patternPhrase = patternLabel ? `your ${patternLabel} pattern` : 'your eating pattern';
+  const patternPhrase = patternLabel ? possessivePatternPhrase(patternLabel) : 'your eating pattern';
   const nonMatch = signals.find((s) => s.direction !== 'match');
 
   if (!nonMatch) {
@@ -124,6 +128,18 @@ export function buildDeterministicFallbackNarrative(
 /** Used only when a member currently has an active safety restriction (doc 7.3) — a generic, gentle line with no detailed macro-balance talk. */
 function buildSafetySoftenedNarrative(): string {
   return "Thanks for logging this meal. I'll keep today's feedback light here — check in with your assigned coach if you'd like to talk through your eating in more detail.";
+}
+
+/**
+ * Used only when the member's Primal Pattern target is still at its
+ * untouched defaults (lib/food-lens/comparison.ts's isPatternBaselineThin)
+ * — there's no real eating-pattern data behind a match/heavier/lighter
+ * claim yet, so this never lets the LLM path phrase one as if there were
+ * (e.g. "right in your normal range"). Deterministic and non-negotiable,
+ * same discipline as the safety-softened line above.
+ */
+function buildThinBaselineNarrative(): string {
+  return "You haven't set up the real details of your eating pattern yet, so there isn't enough there for a personalized comparison on this meal — set up your actual Primal Pattern target for a read that means something.";
 }
 
 export type GenerateFoodLensNarrativeInput = {
@@ -146,6 +162,14 @@ export async function generateFoodLensCoachingNarrative(
   input: GenerateFoodLensNarrativeInput
 ): Promise<GenerateFoodLensNarrativeResult> {
   const { supabase, memberId, localDate } = input;
+
+  // No real eating-pattern data exists yet to compare against (target
+  // still at its untouched defaults) — never let the LLM path phrase an
+  // unearned "match"/"normal range" claim. Checked before any LLM/context
+  // work, same as the safety-restriction short-circuit below.
+  if (isPatternBaselineThin(input.target)) {
+    return { narrative: buildThinBaselineNarrative(), promptVersion: null };
+  }
 
   const [intelligence, coachingContext, recentScans] = await Promise.all([
     getConversationContextIntelligence(supabase, memberId, localDate),

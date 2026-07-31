@@ -9,6 +9,7 @@ import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildFoodLensEntryContext } from '@/lib/conversation-coach/entryContext';
 import { getFoodLensScanAction } from '@/app/actions/food-lens';
 import { getPrimalPatternProfileById } from '@/lib/food-lens/data';
+import { isPatternBaselineThin } from '@/lib/food-lens/comparison';
 import { DetectedItemsList } from '@/components/food-lens/DetectedItemsList';
 import { MacroBalanceMeter } from '@/components/food-lens/MacroBalanceMeter';
 import { MealQualityIndicator } from '@/components/food-lens/MealQualityIndicator';
@@ -149,6 +150,7 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
               narrative={comparison.narrative}
               signals={comparison.signals}
               confidence={comparison.confidence}
+              isThinBaseline={isPatternBaselineThin(pattern)}
             />
           ) : macroEstimate ? (
             <div className={`${CARD} p-6`}>

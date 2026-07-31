@@ -17,9 +17,12 @@ const CARD = 'rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,
 export function ProteinLedgerProgress({
   targetState,
   totalGrams,
+  setupLinkIsInteractive = true,
 }: {
   targetState: ProteinSetupState | null;
   totalGrams: number;
+  /** False when this card is already wrapped in an outer `<Link>` (the food-lens page's merged card) — an anchor can't nest inside another anchor, so the setup nudge renders as plain text there instead; the outer link itself still goes to the ledger, which carries its own working setup link. */
+  setupLinkIsInteractive?: boolean;
 }) {
   const display = resolveLedgerTargetDisplay(targetState);
 
@@ -64,13 +67,18 @@ export function ProteinLedgerProgress({
         </p>
       )}
 
-      {display.showSetupNudge && (
+      {display.showSetupNudge && setupLinkIsInteractive && (
         <Link
           href={'/food-lens/protein' as Route}
           className="mt-4 inline-block text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
         >
           Set up your protein target
         </Link>
+      )}
+      {display.showSetupNudge && !setupLinkIsInteractive && (
+        <p className="mt-4 text-sm font-medium text-[#1B3A2D] underline underline-offset-2">
+          Set up your protein target
+        </p>
       )}
     </div>
   );

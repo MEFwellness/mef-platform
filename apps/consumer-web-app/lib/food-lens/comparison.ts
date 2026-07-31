@@ -54,6 +54,56 @@ export type MealPatternComparisonResult = {
   confidence: number;
 };
 
+/** The exact default value PrimalPatternForm pre-fills for pattern_label — see components/food-lens/PrimalPatternForm.tsx. */
+const DEFAULT_PATTERN_LABEL = 'My Eating Pattern';
+
+/**
+ * True when a member's Primal Pattern target has never actually been
+ * customized — every ordinal emphasis still at the form's default
+ * ('moderate') and the label still the pre-filled default text. This
+ * system has no real historical/statistical eating baseline behind it
+ * (primal_pattern_profiles is a one-time, self-entered record — see
+ * PrimalPatternForm's own docblock, "no questionnaire scoring engine
+ * exists yet"), so an untouched-default row is the only signal available
+ * for "this member hasn't actually told us their real pattern yet." Used
+ * to keep Root's Take (and the comparison chips) from claiming a
+ * confident match against what is, functionally, an unconfigured
+ * placeholder rather than the member's real eating pattern.
+ */
+export function isPatternBaselineThin(
+  target: Pick<PrimalPatternProfile, 'pattern_label' | 'protein_emphasis' | 'carb_emphasis' | 'fat_emphasis'>
+): boolean {
+  return (
+    target.pattern_label.trim() === DEFAULT_PATTERN_LABEL &&
+    target.protein_emphasis === 'moderate' &&
+    target.carb_emphasis === 'moderate' &&
+    target.fat_emphasis === 'moderate'
+  );
+}
+
+/**
+ * "your X" or "your X pattern" for a member's Primal Pattern label —
+ * shared by every place that phrases a possessive reference to it
+ * (the comparison caption below and coachingNarrative.ts's deterministic
+ * fallback). A member's `pattern_label` is very often left at its
+ * pre-filled default, "My Eating Pattern" — which already ends in the
+ * word "pattern," so naively appending a literal " pattern" after it
+ * produced "your My Eating Pattern pattern" everywhere this was phrased.
+ * Only appends the word when the label doesn't already end with it,
+ * case-insensitively (a custom label like "Keto" or "My Low-Carb Pattern"
+ * both read correctly either way).
+ */
+export function possessivePatternPhrase(patternLabel: string): string {
+  const trimmed = patternLabel.trim();
+  if (/pattern$/i.test(trimmed)) return `your ${trimmed}`;
+  return `your ${trimmed} pattern`;
+}
+
+/** The "Compared against your X pattern" caption on Root's Take. See possessivePatternPhrase above for the doubled-word fix this relies on. */
+export function formatPatternComparisonCaption(patternLabel: string): string {
+  return `Compared against ${possessivePatternPhrase(patternLabel)}`;
+}
+
 export function compareMealToPattern(
   meal: ComparisonMacroEstimate,
   target: Pick<PrimalPatternProfile, 'protein_emphasis' | 'carb_emphasis' | 'fat_emphasis'>
