@@ -18,7 +18,7 @@ function Row({
       className={`flex items-center justify-between py-2 text-sm ${indent ? 'pl-4 text-[#6B7A72]' : 'text-[#1B3A2D]'}`}
     >
       <span>{label}</span>
-      <span className="font-medium">{value !== null ? `${value}${unit}` : '—'}</span>
+      <span className="font-medium">{value !== null ? `${Math.round(value)}${unit}` : '—'}</span>
     </div>
   );
 }
@@ -38,16 +38,20 @@ export function NutritionFactsPanel({ nutrients }: { nutrients: ProductNutrients
     <div className={`${CARD} p-6`}>
       <div className="grid grid-cols-3 gap-3 text-center">
         <div>
-          <p className="text-lg font-semibold text-[#1B3A2D]">{nutrients.calories ?? '—'}</p>
+          <p className="text-lg font-semibold text-[#1B3A2D]">
+            {nutrients.calories !== null ? Math.round(nutrients.calories) : '—'}
+          </p>
           <p className="text-[11px] uppercase tracking-wide text-[#9AA79F]">Calories</p>
         </div>
         <div>
-          <p className="text-lg font-semibold text-[#1B3A2D]">{nutrients.protein_g ?? '—'}g</p>
+          <p className="text-lg font-semibold text-[#1B3A2D]">
+            {nutrients.protein_g !== null ? Math.round(nutrients.protein_g) : '—'}g
+          </p>
           <p className="text-[11px] uppercase tracking-wide text-[#9AA79F]">Protein</p>
         </div>
         <div>
           <p className="text-lg font-semibold text-[#1B3A2D]">
-            {nutrients.total_carbohydrate_g ?? '—'}g
+            {nutrients.total_carbohydrate_g !== null ? Math.round(nutrients.total_carbohydrate_g) : '—'}g
           </p>
           <p className="text-[11px] uppercase tracking-wide text-[#9AA79F]">Carbs</p>
         </div>

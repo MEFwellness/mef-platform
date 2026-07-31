@@ -13,8 +13,8 @@ const COMPLETENESS_STYLE: Record<DataCompleteness, string> = {
 };
 
 const DATA_SOURCE_LABEL: Record<FoodProduct['data_source'], string> = {
-  open_food_facts: 'Open Food Facts',
-  usda_fdc: 'USDA FoodData Central',
+  open_food_facts: 'MEF nutrition database',
+  usda_fdc: 'MEF nutrition database',
   mef_verified: 'MEF Verified',
 };
 

@@ -27,7 +27,7 @@ const SOURCE_LABEL: Record<FoodSearchResult['source'], string> = {
   recent: 'Recently logged',
   frequent: 'Frequently logged',
   cached: 'Previously scanned',
-  external: 'From Open Food Facts',
+  external: 'From our nutrition database',
 };
 
 export function FoodSearch() {
@@ -164,7 +164,7 @@ export function FoodSearch() {
           <Section title="Recent" items={results.recent} />
           <Section title="Frequent" items={results.frequent} />
           <Section title="Previously scanned" items={results.cached} />
-          <Section title="From Open Food Facts" items={results.external} />
+          <Section title="From our nutrition database" items={results.external} />
           {query.trim().length > 0 &&
             results.cached.length === 0 &&
             results.external.length === 0 && (

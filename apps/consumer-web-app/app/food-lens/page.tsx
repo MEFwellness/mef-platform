@@ -17,6 +17,7 @@ import {
   Store,
   MessageCircle,
   Beef,
+  ClipboardList,
 } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
@@ -27,6 +28,7 @@ import {
 } from '@/app/actions/food-lens';
 import { getTodaysCoachingMessageAction } from '@/app/actions/food-insights';
 import { getMyProteinSetupState } from '@/app/actions/protein';
+import { getProteinLedgerTodayAction } from '@/app/actions/protein-ledger';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -104,13 +106,21 @@ export default async function FoodLensPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, scans, pattern, dailyCoaching, proteinState] = await Promise.all([
+  const [isCoach, scans, pattern, dailyCoaching, proteinState, proteinLedgerToday] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     listMyFoodLensScansAction(),
     getActivePrimalPatternProfileAction(),
     getTodaysCoachingMessageAction(),
     getMyProteinSetupState(),
+    getProteinLedgerTodayAction(),
   ]);
+
+  const proteinLedgerSubtitle =
+    proteinLedgerToday && proteinLedgerToday.targetState?.stage === 'active'
+      ? `${proteinLedgerToday.totalGrams}g of ${proteinLedgerToday.targetState.activeGrams}g today`
+      : proteinLedgerToday
+        ? `${proteinLedgerToday.totalGrams}g logged today`
+        : 'Log a food to start today’s tally';
 
   const proteinSubtitle =
     proteinState?.stage === 'active'
@@ -200,6 +210,20 @@ export default async function FoodLensPage() {
                   ? 'Update your protein/carb/fat emphasis'
                   : 'Needed for a personalized comparison'}
               </p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
+        <Link
+          href={'/food-lens/protein/ledger' as Route}
+          className={`${CARD} mt-5 flex items-center justify-between p-4`}
+        >
+          <div className="flex items-center gap-2.5">
+            <ClipboardList className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
+            <div>
+              <p className="text-sm font-medium text-[#1B3A2D]">Protein ledger</p>
+              <p className="mt-0.5 text-xs text-[#6B7A72]">{proteinLedgerSubtitle}</p>
             </div>
           </div>
           <ChevronRight className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />

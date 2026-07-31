@@ -174,7 +174,7 @@ export function GenerateProgramFlow({ difficultyOptions }: { difficultyOptions: 
         </div>
 
         <p className="text-xs text-[#6B7A72]">
-          Your Move builds one repeating weekly split — this program repeats it for {weeks} week{weeks === 1 ? '' : 's'}
+          This builds one repeating weekly split — this program repeats it for {weeks} week{weeks === 1 ? '' : 's'}
           once saved and assigned.
         </p>
 
