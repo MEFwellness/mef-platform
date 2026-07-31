@@ -124,7 +124,47 @@ export async function listFrequentProductsForMember(
     .map((p) => toResult(p, 'frequent'));
 }
 
-/** Cached food_products matching a free-text query via full-text search, excluding anything already shown. */
+/**
+ * Ranks free-text search hits so the result closest to what the member
+ * actually typed surfaces first — an exact (case-insensitive) name match
+ * ranks highest, then a name that starts with the query, then a name that
+ * merely contains it, then everything else; ties broken by shorter name
+ * (a plain "Chicken Breast" reads as closer to a generic whole food than
+ * "Tyson Chargrilled Chicken Breast Tenders, Frozen"), then original
+ * order. Neither Open Food Facts nor this app's own cache expose a
+ * reliable "generic vs. branded" flag to sort on directly — packaged-food
+ * databases are fundamentally barcode/retail-product data, so a raw
+ * ingredient with no packaging often has no entry there at all. This is
+ * the best ranking available without that signal.
+ */
+export function rankFoodSearchResults<T extends { name: string | null }>(
+  query: string,
+  results: T[]
+): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return results;
+
+  function matchScore(name: string | null): number {
+    const n = (name ?? '').trim().toLowerCase();
+    if (n === q) return 0;
+    if (n.startsWith(q)) return 1;
+    if (n.includes(q)) return 2;
+    return 3;
+  }
+  function nameLength(name: string | null): number {
+    return (name ?? '').trim().length;
+  }
+
+  return results
+    .map((result, index) => ({ result, index, score: matchScore(result.name) }))
+    .sort(
+      (a, b) =>
+        a.score - b.score || nameLength(a.result.name) - nameLength(b.result.name) || a.index - b.index
+    )
+    .map(({ result }) => result);
+}
+
+/** Cached food_products matching a free-text query via full-text search, excluding anything already shown. Over-fetches a modest candidate pool so rankFoodSearchResults has enough to actually reorder among before the final slice. */
 export async function searchCachedFoodProducts(
   supabase: SupabaseClient,
   query: string,
@@ -138,7 +178,7 @@ export async function searchCachedFoodProducts(
     .from('food_products')
     .select('id, barcode, name, brand, image_url, serving_size_text')
     .textSearch('search_vector', trimmed, { type: 'websearch' })
-    .limit(limit + excludeProductIds.length);
+    .limit(limit * 3 + excludeProductIds.length);
 
   if (error) {
     console.error('searchCachedFoodProducts failed', error);
@@ -146,8 +186,8 @@ export async function searchCachedFoodProducts(
   }
 
   const exclude = new Set(excludeProductIds);
-  return (data ?? [])
+  const candidates = (data ?? [])
     .filter((p) => !exclude.has(p.id as string))
-    .slice(0, limit)
     .map((p) => toResult(p as FoodProduct, 'cached'));
+  return rankFoodSearchResults(trimmed, candidates).slice(0, limit);
 }

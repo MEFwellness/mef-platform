@@ -12,7 +12,7 @@
  * here.
  */
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Barcode, Search, PenLine, Loader2, X } from 'lucide-react';
 import { BarcodeScanner } from '@/components/food-products/BarcodeScanner';
@@ -26,7 +26,7 @@ import {
   resolveLedgerProductAction,
   type LedgerProductPreview,
 } from '@/app/actions/protein-ledger';
-import { roundGrams } from '@/lib/protein/ledger';
+import { roundGrams, shouldApplySearchResponse } from '@/lib/protein/ledger';
 
 const CARD = 'rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -304,13 +304,41 @@ function SearchLane({
 }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodSearchResponse | null>(null);
-  const [isSearching, startSearching] = useTransition();
+  const [isSearching, setIsSearching] = useState(false);
+  const latestRequestIdRef = useRef(0);
+  // The truly live query text, readable from inside an old async closure —
+  // `query` itself would only ever read back the value captured when that
+  // particular effect instance was created, which defeats the "matches the
+  // CURRENT text in the box" check below.
+  const liveQueryRef = useRef(query);
+  liveQueryRef.current = query;
 
+  // Debounced, but the debounce alone doesn't guarantee in-order arrival —
+  // a request from an earlier keystroke can still resolve after a later
+  // one if the network/server timing works out that way. Every response is
+  // checked against shouldApplySearchResponse before it's allowed to touch
+  // `results`, so a stale one can never overwrite a current one, and the
+  // "nothing found" empty state never renders while a request for what's
+  // currently in the box is still in flight (isSearching only clears once
+  // an accepted response lands).
   useEffect(() => {
+    setIsSearching(true);
+    const searchedQuery = query;
     const handle = setTimeout(() => {
-      startSearching(async () => {
-        setResults(await searchFoodsAction(query));
-      });
+      const requestId = ++latestRequestIdRef.current;
+      (async () => {
+        const response = await searchFoodsAction(searchedQuery);
+        if (
+          !shouldApplySearchResponse(
+            { requestId, query: searchedQuery },
+            { latestRequestId: latestRequestIdRef.current, query: liveQueryRef.current }
+          )
+        ) {
+          return;
+        }
+        setResults(response);
+        setIsSearching(false);
+      })();
     }, 300);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -370,7 +398,7 @@ function SearchLane({
           />
         )}
       </div>
-      {results && (
+      {results ? (
         <div className="mt-4 space-y-4">
           <Section title="Recent" items={results.recent} />
           <Section title="Frequent" items={results.frequent} />
@@ -380,12 +408,21 @@ function SearchLane({
             results.cached.length === 0 &&
             results.external.length === 0 &&
             results.recent.length === 0 &&
-            results.frequent.length === 0 && (
+            results.frequent.length === 0 &&
+            // Never render "nothing found" while a request for what's
+            // currently in the box is still in flight — a response for an
+            // outdated, shorter query could otherwise land after a real
+            // result set and read as "your real search found nothing."
+            (isSearching ? (
+              <p className="text-sm text-[#6B7A72]">Searching…</p>
+            ) : (
               <p className="text-sm text-[#6B7A72]">
                 Nothing found for &quot;{query}&quot;. Try scanning a barcode or quick add instead.
               </p>
-            )}
+            ))}
         </div>
+      ) : (
+        isSearching && <p className="mt-4 text-sm text-[#6B7A72]">Searching…</p>
       )}
     </div>
   );

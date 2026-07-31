@@ -16,6 +16,7 @@ import type { FoodFavoriteType, MealCategory, SavedMeal } from '@mef/shared-type
 import {
   listRecentProductsForMember,
   listFrequentProductsForMember,
+  rankFoodSearchResults,
   searchCachedFoodProducts,
   type FoodSearchResult,
 } from '@/lib/food-products/search';
@@ -104,12 +105,17 @@ export async function searchFoodsAction(query: string = ''): Promise<FoodSearchR
     // didn't turn up much — product requirement §4's explicit lowest
     // priority tier.
     if (cached.length < 5) {
+      const finalSlots = 10 - cached.length;
       for (const providerName of resolveFoodProductProviderChain()) {
         const provider = getFoodProductProvider(providerName);
         if (!provider.searchByName) continue;
         try {
-          const hits = await provider.searchByName(trimmed, 10 - cached.length);
-          external = hits
+          // Over-fetch a modest candidate pool so rankFoodSearchResults has
+          // enough to actually reorder among (a provider's own relevance
+          // order is not necessarily "closest name match first" — see that
+          // function's header) before slicing down to what's actually shown.
+          const hits = await provider.searchByName(trimmed, Math.max(finalSlots * 2, finalSlots));
+          const candidates = hits
             .filter(
               (h) => !shownIds.includes(h.barcode) && !cached.some((c) => c.barcode === h.barcode)
             )
@@ -122,6 +128,7 @@ export async function searchFoodsAction(query: string = ''): Promise<FoodSearchR
               imageUrl: h.imageUrl,
               servingSizeText: null,
             }));
+          external = rankFoodSearchResults(trimmed, candidates).slice(0, finalSlots);
         } catch (err) {
           console.error(`searchFoodsAction: external search via ${providerName} failed`, err);
         }

@@ -115,6 +115,23 @@ export function resolveLedgerTargetDisplay(state: ProteinSetupState | null): Led
   };
 }
 
+/**
+ * Search-lane race guard — a debounced text search can have more than one
+ * request in flight at once (the member pauses long enough for one search
+ * to fire, then keeps typing before it resolves), and network timing gives
+ * no guarantee they resolve in the order they were sent. A response is only
+ * safe to render if BOTH its request id is still the latest one dispatched
+ * (no newer search has since started) AND its query still matches what's
+ * currently in the box — either condition alone can be satisfied by a
+ * stale response in some interleaving; both together can't be.
+ */
+export function shouldApplySearchResponse(
+  response: { requestId: number; query: string },
+  current: { latestRequestId: number; query: string }
+): boolean {
+  return response.requestId === current.latestRequestId && response.query === current.query;
+}
+
 /** The last N local dates ending today (today's date is always last), for the history view's date range. */
 export function lastNLocalDates(todayLocalDate: string, days: number): string[] {
   const start = new Date(`${todayLocalDate}T00:00:00.000Z`);

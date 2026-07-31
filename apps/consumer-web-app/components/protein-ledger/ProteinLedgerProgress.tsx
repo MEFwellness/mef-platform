@@ -30,12 +30,12 @@ export function ProteinLedgerProgress({
       </p>
 
       {display.mode !== 'active' ? (
-        <p className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl text-[#1B3A2D]">
+        <p className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl text-[#1B3A2D] [font-variant-numeric:lining-nums]">
           {totalGrams}g
         </p>
       ) : (
         <>
-          <p className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl text-[#1B3A2D]">
+          <p className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl text-[#1B3A2D] [font-variant-numeric:lining-nums]">
             {totalGrams}g
             <span className="ml-2 text-lg font-[family-name:var(--font-dm-sans)] font-medium text-[#6B7A72]">
               of {display.targetGrams}g

@@ -14,6 +14,7 @@ import {
   resolveEntrySource,
   resolveLedgerTargetDisplay,
   roundGrams,
+  shouldApplySearchResponse,
   sumProteinGrams,
 } from '../lib/protein/ledger';
 import { localDateStringFor } from '../lib/time/localDate';
@@ -138,5 +139,47 @@ describe('day attribution across timezone boundaries', () => {
       { localDate: '2024-01-14', totalGrams: 0 },
       { localDate: '2024-01-15', totalGrams: 50 },
     ]);
+  });
+});
+
+describe('shouldApplySearchResponse — search-lane race guard', () => {
+  it('simulates out-of-order arrival: an earlier, shorter query resolving after a later, longer one must not overwrite it', () => {
+    // Member types "c" (request A, id 1) then keeps typing to "chicken
+    // breast" before A resolves (request B, id 2) — by the time B is
+    // dispatched, id 2 is the latest and "chicken breast" is the live text.
+    const latestRequestId = 2;
+    const liveQuery = 'chicken breast';
+
+    // B (the current, correct request) resolves first.
+    const bApplies = shouldApplySearchResponse(
+      { requestId: 2, query: 'chicken breast' },
+      { latestRequestId, query: liveQuery }
+    );
+    expect(bApplies).toBe(true);
+
+    // A (dispatched earlier, for a since-superseded partial query) resolves
+    // late, after B already landed — it must be discarded even though it
+    // eventually did complete successfully.
+    const aApplies = shouldApplySearchResponse(
+      { requestId: 1, query: 'c' },
+      { latestRequestId, query: liveQuery }
+    );
+    expect(aApplies).toBe(false);
+  });
+
+  it('also rejects a response whose request id is current but whose query text has since moved on (a rapid keystroke between dispatch and resolution)', () => {
+    const applies = shouldApplySearchResponse(
+      { requestId: 3, query: 'chicken' },
+      { latestRequestId: 3, query: 'chicken breast' }
+    );
+    expect(applies).toBe(false);
+  });
+
+  it('accepts a response only when both the request id and the query text are still current', () => {
+    const applies = shouldApplySearchResponse(
+      { requestId: 5, query: 'chicken breast' },
+      { latestRequestId: 5, query: 'chicken breast' }
+    );
+    expect(applies).toBe(true);
   });
 });
