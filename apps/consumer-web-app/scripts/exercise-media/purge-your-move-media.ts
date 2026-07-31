@@ -22,6 +22,12 @@
  * stored data, not vendor-proprietary media; only the video-derived assets
  * above are purge-eligible.
  *
+ * The video_url cache clear is explicitly scoped to `provider = 'your_move'`
+ * — exercise_catalog also holds MEF-authored custom exercises (migration
+ * 129, provider = 'mef_custom'), which never have Your Move video and must
+ * never be touched by this or any future vendor-cleanup step (see
+ * tests/mef-custom-exercise-purge-exclusion.test.ts).
+ *
  * Usage: SEED_SUPABASE_URL=... SEED_SUPABASE_SERVICE_ROLE_KEY=... \
  *   npx tsx scripts/exercise-media/purge-your-move-media.ts
  */
@@ -50,6 +56,7 @@ export async function purgeYourMoveMedia(supabase: SupabaseClient) {
   const { error: cacheClearError } = await supabase
     .from('exercise_catalog')
     .update({ video_url: null, video_url_expires_at: null })
+    .eq('provider', 'your_move')
     .not('video_url', 'is', null);
   if (cacheClearError) console.error('Clearing cached video URLs failed', cacheClearError);
 

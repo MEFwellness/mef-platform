@@ -9,15 +9,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import type { ExerciseLibraryProvider, MefExerciseMetadata } from '@mef/shared-types-contracts';
 
+/**
+ * Reads are external_id-only, not (provider, external_id) — external_id is
+ * already unique across the whole catalog in practice (Your Move's own
+ * UUIDs vs. MEF's own `mef-custom-*` slugs can never collide), and this
+ * keeps a single search/browse page from having to split its metadata
+ * lookup by provider when results mix Your Move and MEF-custom exercises
+ * (see migration 129's mef_custom provider value). The unique DB
+ * constraint remains (provider, external_id) — writes still need the
+ * provider (see upsertExerciseMetadataCues below).
+ */
 export async function getExerciseMetadata(
   supabase: SupabaseClient,
-  provider: ExerciseLibraryProvider,
   externalId: string
 ): Promise<MefExerciseMetadata | null> {
   const { data, error } = await supabase
     .from('mef_exercise_metadata')
     .select('*')
-    .eq('provider', provider)
     .eq('external_id', externalId)
     .maybeSingle();
   if (error) {
@@ -30,16 +38,11 @@ export async function getExerciseMetadata(
 /** Batched lookup for a page of search results — one query instead of one-per-row. */
 export async function getExerciseMetadataMap(
   supabase: SupabaseClient,
-  provider: ExerciseLibraryProvider,
   externalIds: string[]
 ): Promise<Map<string, MefExerciseMetadata>> {
   if (externalIds.length === 0) return new Map();
 
-  const { data, error } = await supabase
-    .from('mef_exercise_metadata')
-    .select('*')
-    .eq('provider', provider)
-    .in('external_id', externalIds);
+  const { data, error } = await supabase.from('mef_exercise_metadata').select('*').in('external_id', externalIds);
   if (error) {
     console.error('getExerciseMetadataMap failed', error);
     return new Map();
@@ -63,7 +66,7 @@ export async function upsertExerciseMetadataCues(
   externalId: string,
   coachingCues: string[]
 ): Promise<boolean> {
-  const existing = await getExerciseMetadata(supabase, provider, externalId);
+  const existing = await getExerciseMetadata(supabase, externalId);
   const { error } = await supabase.from('mef_exercise_metadata').upsert(
     {
       id: existing?.id ?? randomUUID(),

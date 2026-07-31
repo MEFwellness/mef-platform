@@ -73,7 +73,7 @@ async function main() {
   const existingMetadata = new Map<string, MefExerciseMetadata>();
   for (let i = 0; i < catalog.length; i += METADATA_BATCH_SIZE) {
     const batchIds = catalog.slice(i, i + METADATA_BATCH_SIZE).map((c) => c.external_id);
-    const batchMap = await getExerciseMetadataMap(supabase, 'your_move', batchIds);
+    const batchMap = await getExerciseMetadataMap(supabase, batchIds);
     for (const [key, value] of batchMap) existingMetadata.set(key, value);
   }
 

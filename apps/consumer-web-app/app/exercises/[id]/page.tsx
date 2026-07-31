@@ -41,7 +41,7 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
     // sequenced after.
     const [rawExercise, metadata, isFavorited, history, recentlyViewedRaw, extractedPoster] = await Promise.all([
       getExerciseByExternalId(supabase, params.id),
-      getExerciseMetadata(supabase, 'your_move', params.id),
+      getExerciseMetadata(supabase, params.id),
       isExerciseFavorited(supabase, user.id, 'your_move', params.id),
       listExerciseCompletionHistory(supabase, user.id, 'your_move', params.id),
       listMyRecentlyViewedExercises(supabase, user.id, 6),

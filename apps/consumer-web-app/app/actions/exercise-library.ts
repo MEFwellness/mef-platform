@@ -308,7 +308,7 @@ export async function getMyFavoriteExercises(limit = 10): Promise<ExerciseLibrar
   const externalIds = favorites.map((f) => f.external_id);
   const [catalogMap, metadataMap] = await Promise.all([
     getExercisesByExternalIds(supabase, externalIds),
-    getExerciseMetadataMap(supabase, 'your_move', externalIds),
+    getExerciseMetadataMap(supabase, externalIds),
   ]);
 
   const exercises = favorites
@@ -348,7 +348,7 @@ export async function getSuggestedNextExercise(): Promise<ExerciseLibraryExercis
     if (!pick) return null;
 
     const [metadata, isFavorited] = await Promise.all([
-      getExerciseMetadataMap(supabase, 'your_move', [pick.external_id]),
+      getExerciseMetadataMap(supabase, [pick.external_id]),
       isExerciseFavorited(supabase, memberId, 'your_move', pick.external_id),
     ]);
     return normalizeExerciseCatalogRow(pick, metadata.get(pick.external_id) ?? null, isFavorited);

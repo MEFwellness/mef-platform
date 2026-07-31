@@ -24,7 +24,6 @@ export async function computeFavoriteMovementTypes(
 
   const metadataMap = await getExerciseMetadataMap(
     supabase,
-    'your_move',
     favorites.map((f) => f.external_id)
   );
 

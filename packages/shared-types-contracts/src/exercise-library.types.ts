@@ -17,14 +17,22 @@ import type { MovementSessionSection } from './movement.types';
 
 /**
  * Which content source an exercise or a piece of MEF metadata came from.
- * 'your_move' is the only value ever written for a new row — 'exercise_api_dev'
- * survives solely as a legacy marker on pre-existing member data (assigned
- * workouts, favorites, completion/view history, coach program and
- * prescription rows) whose exercise no longer resolves in the live catalog;
- * see is_legacy on those row types below. Nothing in this codebase ever
- * calls out to ExerciseAPI.dev again.
+ * 'exercise_api_dev' survives solely as a legacy marker on pre-existing
+ * member data (assigned workouts, favorites, completion/view history,
+ * coach program and prescription rows) whose exercise no longer resolves
+ * in the live catalog; see is_legacy on those row types below. Nothing in
+ * this codebase ever calls out to ExerciseAPI.dev again.
+ *
+ * 'mef_custom' (migration 129) marks exercise_catalog/mef_exercise_metadata
+ * rows MEF authored directly — cue-only corrective exercises with no Your
+ * Move video, created to fill corrective-blueprint gaps (see
+ * docs/CORRECTIVE_BLUEPRINT_GAP_CHECK.md). These are never Your Move's
+ * proprietary content and must never be touched by the Your Move
+ * subscription-lapse purge (scripts/exercise-media/purge-your-move-media.ts),
+ * which scopes its exercise_catalog writes to `provider = 'your_move'`
+ * specifically for this reason.
  */
-export type ExerciseLibraryProvider = 'your_move' | 'exercise_api_dev';
+export type ExerciseLibraryProvider = 'your_move' | 'exercise_api_dev' | 'mef_custom';
 
 export type MefExerciseDifficulty = 'beginner' | 'intermediate' | 'advanced';
 
@@ -56,7 +64,7 @@ export type CorrectiveStrainLevel = 'low' | 'moderate' | 'high';
  */
 export interface ExerciseCatalogRow {
   id: string;
-  provider: 'your_move';
+  provider: 'your_move' | 'mef_custom';
   external_id: string;
 
   name: string;
@@ -188,7 +196,7 @@ export interface MovementProgramVersion {
  *      not covering every exercise) — never a broken player.
  */
 export interface ExerciseLibraryExercise {
-  provider: 'your_move';
+  provider: 'your_move' | 'mef_custom';
   externalId: string;
   name: string;
   category: string | null;

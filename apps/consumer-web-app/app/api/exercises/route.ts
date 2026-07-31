@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     const externalIds = exercises.map((e) => e.external_id);
     const [metadataMap, favoriteIds, posterMap] = await Promise.all([
-      getExerciseMetadataMap(supabase, 'your_move', externalIds),
+      getExerciseMetadataMap(supabase, externalIds),
       listMyExerciseFavoriteIds(supabase, user.id, 'your_move'),
       getExtractedPosterMap(supabase, externalIds),
     ]);

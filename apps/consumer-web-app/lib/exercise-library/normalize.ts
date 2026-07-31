@@ -33,7 +33,7 @@ export function normalizeExerciseCatalogRow(
   const cues = !exercise.has_video ? (metadata?.coaching_cues ?? []) : [];
 
   return {
-    provider: 'your_move',
+    provider: exercise.provider,
     externalId: exercise.external_id,
     name: exercise.name,
     category: exercise.category,
