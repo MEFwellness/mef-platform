@@ -3118,3 +3118,35 @@ Added one new branch to `getMyQuestionnaireCatalog()`, matched generically by `e
 **No migration** — this was a pure application-code fix, no schema change.
 
 **Deployed**: pushed to `origin/main` (commit `fa2ce6a`). Vercel auto-triggered a new Production deployment (`dpl_9FcVxd8D5hmes7XFYdJ6JT5YXMsR`) for the `mef-platform` project, built successfully, went Ready, and is aliased to `app.mefwellness.com` (confirmed via `vercel inspect`). No database migration involved in this fix. Not verified: the logged-in experience on the live production URL itself — only the local dev server was driven in a browser, per the standing rule not to claim live-site verification that wasn't actually done.
+
+## Core Values Snapshot — admin testing tools: retake, time-shift, branch recipes (2026-07-31)
+
+Testing-only utilities so Core Values Snapshot can be fully verified as a member without waiting real days or guessing which answers produce which outcome. No changes to scoring, copy, flow, or anything a member sees — purely new, admin-only tooling layered on top of what already ships.
+
+### Where it lives
+
+`/admin/cvs-test-tools` — linked only from the existing `/admin` page (a new "Testing Tools" card), never from anywhere a member or coach without the admin role can reach. Every action requires an active `platform_administrator` role, checked explicitly for a clean redirect (`app/admin/cvs-test-tools/page.tsx`) AND enforced independently by the `platform_admin_all_*` RLS policies already granted on every table these tools touch (migrations 92, 96, 99, 134) — same dual "UX check, RLS is the real boundary" discipline as the existing `/admin` page and its own `app/actions/admin.ts`. A bug in the new page-level check could never let a non-admin actually write another member's data; the database itself would refuse it. Every action takes an explicit member id chosen from a dropdown and only ever touches that one member's rows — there is no "apply to everyone" path.
+
+### RETAKE
+
+`resetCvsForMemberAction` (`app/actions/coreValuesSnapshotAdmin.ts`) deletes, for the one chosen member: every Core Values Snapshot session (answers cascade automatically), every "What Root Knows So Far" entry that experience wrote (matched by the same `source_refs` note every draft in `lib/core-values-snapshot/narrative.ts` stamps on — `.contains('source_refs', ...)`, note the value must be `JSON.stringify`'d for supabase-js's jsonb `.contains()` filter to parse correctly, a real bug caught and fixed by this session's own integration test before it shipped), and every Weekly Experiment that experience started (`recommendation_id is null` — daily logs cascade). Reports back exactly how many of each it removed.
+
+### TIME-SHIFT
+
+`shiftCvsExperimentAction` finds the member's most recent Core Values Snapshot-sourced experiment, moves its `start_date` back 3 or 7 days so `daysSinceStart`/`isDay3Eligible`/`isDay7Eligible` (the same real functions the member-facing experience reads) read as day 3 or day 7 right now, and clears any previously-shown day-3/day-7 `member_coaching_messages` row for that exact experiment id so the dashboard's "From Root" tile genuinely re-fires rather than staying silent because it already "said this." For a day-7 shift, also seeds real `cvs_experiment_daily_logs` rows across the shifted window in one of the two requested patterns — mostly-yes (5 yes / 1 not-today / 1 left untapped, clears `classifyDay7Pattern`'s ≥70%-yes bar) or patchy (1 yes / 2 not-today / 4 left untapped, stays well under it) — so the day-7 reflection genuinely has something honest to read rather than reading zero data.
+
+### Branch recipes
+
+A static reference card on the same page (and in the completion report below) spells out, in plain language, exactly which answers reach each of the four "What Root Learned" branches and the S1 guilt observation — derived directly from `lib/core-values-snapshot/scoring.ts`'s real rules, not guessed.
+
+### Guard tests
+
+`tests/core-values-snapshot-admin-integration.test.ts` (4 tests, real RLS, real local DB — server actions can't be called directly in vitest per this repo's own stated reason, so these issue the exact same queries the actions issue, authenticated as the real seeded `platform_administrator` and member test users): an admin's reset removes exactly one member's sessions/narrative/experiments and leaves a second member's identical fixtures untouched; a non-admin member attempting the same delete on another member's session is blocked with zero rows affected (RLS, not missing UI); the day-7 pattern seeding math classifies as `mostly_yes`/`patchy` exactly as `classifyDay7Pattern` expects; clearing one experiment's day-3/day-7 coaching messages never touches a different experiment's messages. This suite is what caught the `.contains()` JSON-stringify bug.
+
+### Verified
+
+`npx tsc --noEmit` clean. `npm run lint` (repo root) — 0 errors, same 90-warning baseline. Full `npm test` after a fresh `supabase db reset` — 298/299 test files, 3310/3311 passing; the one failure is the same pre-existing `correlation-engine-integration.test.ts` date-math flake documented throughout this doc, unrelated. `npm run build --workspace=@mef/consumer-web-app` — compiled successfully, `/admin/cvs-test-tools` generated (5.08 kB).
+
+**Verified locally with Playwright** (dev server + local Supabase, real `admin.one@example.test`/`member.one@example.test` sessions, 390×844 mobile viewport, zero console errors) — logged in as admin, opened the new page, confirmed the member dropdown lists real profiles by display name. Ran Reset against member.one (0 rows removed, since the account was already clean from prior test cleanup). As member.one, completed a real Core Values Snapshot attempt and started the Weekly Experiment. As admin, fired the day-3 shift — the summary reported the real experiment title and new start date. As member.one, reloaded the dashboard and confirmed the real "From Root" tile ("Your five-minute experiment") was present, tapped it, and landed on the real day-3 message ("Three days in..."). As admin, fired the day-7 shift with the mostly-yes pattern — confirmed the seeded counts in the summary (5 yes / 1 not-today / 1 untapped). As member.one, confirmed the real day-7 message rendered with the "theory held" mostly-yes language, computed from the actually-seeded daily logs, not hand-typed. All seeded test data cleared and a final `supabase db reset` run before the last full-suite pass.
+
+**No migration** — every table and RLS policy this uses already existed from the original Core Values Snapshot build; this session added no schema.

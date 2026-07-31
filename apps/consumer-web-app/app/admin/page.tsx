@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import type { Route } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { listUsers, listActiveCoachUserIds, listAssignmentHistory } from '@/app/actions/admin';
@@ -28,6 +30,17 @@ export default async function AdminPage() {
         <p className="mt-2 text-[15px] text-[#6B7A72]">
           User management, coach roles, and client assignments.
         </p>
+
+        <Link
+          href={'/admin/cvs-test-tools' as Route}
+          className="mef-focus-ring mt-6 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Testing Tools</p>
+          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">Core Values Snapshot — reset &amp; time-shift</p>
+          <p className="mt-1 text-sm text-[#6B7A72]">
+            Retake a test member&apos;s completion, or fire the day-3/day-7 Weekly Experiment follow-ups early.
+          </p>
+        </Link>
 
         <AdminPanel users={users} coachIds={coachIds} assignments={assignments} />
       </main>
