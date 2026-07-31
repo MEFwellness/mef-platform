@@ -22,12 +22,15 @@ export type ConversationType =
   | 'reassessment'
   | 'experiment_follow_up'
   | 'experiment_success'
-  | 'experiment_unsuccessful';
+  | 'experiment_unsuccessful'
+  /** Core Values Snapshot's Weekly Experiment day-3/day-7 follow-ups (lib/core-values-snapshot/) — delivered through this same engine's dashboard tile and message ledger, but always arrive with their own `precomposedMessage` (their copy is final/verbatim per that experience's brief) rather than being built from templates.ts. */
+  | 'cvs_day3_checkin'
+  | 'cvs_day7_result';
 
 /** One thing Root could bring up today, ranked and reasoned — never a random pick. */
 export type CoachingCandidate = {
   conversationType: ConversationType;
-  /** Stable dedup/memory key — a LongitudinalSignal.signalKey, "experiment::<id>::outcome|overdue|midpoint", or "router::reassessment|investigation::<AssessmentKey>". Never shown to the member. */
+  /** Stable dedup/memory key — a LongitudinalSignal.signalKey, "experiment::<id>::outcome|overdue|midpoint", "cvs::<experimentId>::day3|day7", or "router::reassessment|investigation::<AssessmentKey>". Never shown to the member. */
   topicKey: string;
   /** Member-safe topic phrase, e.g. "your sleep" or "Shoulder discomfort" or an experiment's own title — never a raw code, domain key, or confidence number. */
   topicLabel: string;
@@ -38,6 +41,8 @@ export type CoachingCandidate = {
   /** Coach-facing only (Coach Workspace), e.g. the SignalState or RootRouterOutcome this traces to — never rendered to a member. */
   sourceState: string;
   experimentOutcome?: LifestyleExperimentOutcome | null;
+  /** When set, the composer uses this verbatim instead of building from templates.ts's BUILDERS — for conversation types (like Core Values Snapshot's) whose copy is final/fixed rather than template-generated. */
+  precomposedMessage?: ComposedCoachingMessage;
 };
 
 export type ComposedCoachingMessage = {

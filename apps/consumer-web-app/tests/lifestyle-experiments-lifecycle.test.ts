@@ -13,6 +13,7 @@ function experiment(overrides: Partial<LifestyleExperiment> = {}): LifestyleExpe
     id: 'e1',
     memberId: 'm1',
     recommendationId: 'r1',
+    sourceSessionId: null,
     title: 'Wind-down routine',
     protocol: 'Try a consistent bedtime routine.',
     startDate: '2026-06-01',

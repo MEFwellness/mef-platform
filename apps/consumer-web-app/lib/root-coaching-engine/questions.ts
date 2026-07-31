@@ -26,6 +26,8 @@ const QUESTION_POOL: Record<ConversationType, (topicLabel: string) => string[]> 
   experiment_follow_up: (t) => [`How did ${t} feel?`, `What have you noticed since trying ${t}?`],
   experiment_success: (t) => [`What do you think contributed to ${t} working?`, `What would make it easier to keep this going?`],
   experiment_unsuccessful: (t) => [`What got in the way with ${t}?`, `What would you want to try differently next time?`],
+  cvs_day3_checkin: (t) => [`How's the five-minute experiment with ${t} actually going?`, `What's made it easy or hard to protect that time so far?`],
+  cvs_day7_result: (t) => [`What did the week's pattern with ${t} tell you?`, `Does ${t} still feel like the right thing to protect?`],
 };
 
 /** Up to 2 questions, referencing the real topic — never all pools at once, never overwhelming. */

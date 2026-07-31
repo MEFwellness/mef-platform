@@ -12,6 +12,7 @@ type Row = {
   id: string;
   member_id: string;
   recommendation_id: string | null;
+  source_session_id: string | null;
   title: string;
   protocol: string;
   start_date: string;
@@ -28,6 +29,7 @@ function fromRow(row: Row): LifestyleExperiment {
     id: row.id,
     memberId: row.member_id,
     recommendationId: row.recommendation_id,
+    sourceSessionId: row.source_session_id,
     title: row.title,
     protocol: row.protocol,
     startDate: row.start_date,
@@ -49,6 +51,7 @@ export async function startLifestyleExperiment(
     protocol: string;
     startDate: string;
     durationDays: number;
+    sourceSessionId?: string | null;
   }
 ): Promise<LifestyleExperiment | null> {
   // Defensive re-check (Prompt 12, Part 3 guardrail) — the primary,
@@ -68,6 +71,7 @@ export async function startLifestyleExperiment(
     .insert({
       member_id: memberId,
       recommendation_id: params.recommendationId,
+      source_session_id: params.sourceSessionId ?? null,
       title: params.title,
       protocol: params.protocol,
       start_date: params.startDate,

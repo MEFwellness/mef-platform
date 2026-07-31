@@ -20,6 +20,8 @@ import { computeLongitudinalSignals, listRecommendationEventsForMember } from '@
 import { listMyLifestyleExperiments } from '@/lib/lifestyle-experiments';
 import { listMemberRecommendations } from '@/lib/recommendation-engine';
 import { getCoachingSafetyGate } from '@/lib/coaching-insights/safety';
+import { listCvsDailyLogs } from '@/lib/core-values-snapshot/dailyLogsData';
+import { buildCvsCoachingCandidates } from '@/lib/core-values-snapshot/coachingCandidates';
 import {
   buildMemberEngagementProfile,
   listRecentCoachingMessages,
@@ -79,13 +81,31 @@ async function gatherAndPlan(
     ? signals.filter((s) => !(s.signalKind === 'registry_finding' && s.signalKey.includes('::nutrition::')))
     : signals;
 
+  // Core Values Snapshot's Weekly Experiment reuses lifestyle_experiments
+  // (recommendation_id left null, since it isn't Recommendation Engine-
+  // sourced like every other row here) — split those out so the generic
+  // experimentCandidates() below doesn't ALSO generate its own midpoint/
+  // overdue/outcome messages for the same experiment CVS's own day-3/day-7
+  // candidates already cover; buildMemberEngagementProfile above still saw
+  // the full, unfiltered list, so consistency scoring is unaffected.
+  const nonCvsExperiments = experiments.filter((e) => e.recommendationId !== null);
+  const cvsExperiments = experiments.filter((e) => e.recommendationId === null);
+  const cvsExperimentsWithLogs = await Promise.all(
+    cvsExperiments.map(async (experiment) => ({
+      experiment,
+      logs: await listCvsDailyLogs(supabase, experiment.id),
+    }))
+  );
+  const cvsCandidates = buildCvsCoachingCandidates(cvsExperimentsWithLogs, recentMessages, localDate);
+
   const plan = planCoachingConversation({
     signals: signalsForSelection,
     routerOutcome: rootMapInputs.routerOutcome,
-    experiments,
+    experiments: nonCvsExperiments,
     engagementProfile,
     recentMessages,
     asOfLocalDate: localDate,
+    cvsCandidates,
   });
 
   return { plan, recentMessages, localDate };

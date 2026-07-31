@@ -79,6 +79,7 @@ describe('registry.ts INVESTIGATION_METADATA', () => {
         'short-haq',
         'finding-1-love',
         'wbsa',
+        'core-values-snapshot',
       ].sort()
     );
   });

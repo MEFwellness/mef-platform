@@ -52,6 +52,7 @@ import {
 } from '@/app/actions/conversation-coach';
 import { getClientBodyAssessmentsAction } from '@/app/actions/body-assessment';
 import { getClientWbsaSessionsAction } from '@/app/actions/wbsa';
+import { getClientCvsSessionsAction } from '@/app/actions/coreValuesSnapshot';
 import { getClientAssessmentAssignments } from '@/app/actions/assessmentAssignments';
 import {
   getClientMovementProfile,
@@ -86,6 +87,7 @@ import { IntelligenceCorePanel } from './IntelligenceCorePanel';
 import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
 import { WbsaPanel } from './WbsaPanel';
+import { CoreValuesSnapshotPanel } from './CoreValuesSnapshotPanel';
 import { AssessmentAssignmentPanel } from './AssessmentAssignmentPanel';
 import { MovementProfilePanel } from './MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
@@ -193,6 +195,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     intelligenceCoreSummary,
     bodyAssessments,
     wbsaSessions,
+    cvsSessions,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -224,6 +227,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientIntelligenceCoreSummary(profile.id),
     getClientBodyAssessmentsAction(profile.id),
     getClientWbsaSessionsAction(profile.id),
+    getClientCvsSessionsAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -545,6 +549,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               flags only in the list, full detail on its own page" split as
               Body Assessment above. */}
           <WbsaPanel clientId={profile.id} sessions={wbsaSessions} />
+
+          {/* Core Values Snapshot — free-tier Experience 1, also on the
+              Unified Adaptive Assessment Runtime. Same summary-list +
+              full-detail-on-its-own-page split as WBSA above. */}
+          <CoreValuesSnapshotPanel clientId={profile.id} sessions={cvsSessions} />
 
           {/* Movement Profile — permanent movement record + Pending Coach
               Review worklist (Member Exercise Experience & Movement

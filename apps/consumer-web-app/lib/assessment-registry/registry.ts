@@ -562,6 +562,76 @@ const WBSA: AssessmentDefinition = {
   safetyCategory: 'clinical_intake',
 };
 
+/**
+ * Core Values Snapshot — free-tier Experience 1 (migration 134), the
+ * second real content on the Unified Adaptive Assessment Foundation/
+ * Runtime after WBSA. Unlike WBSA, this is deliberately free (`minLevel:
+ * 'free_trial'`) and produces zero Universal Registry findings by design
+ * (a values/preference instrument, not a symptom instrument — see the
+ * migration's own header comment) — its "results" are entirely computed
+ * client/server-side from the session's own answers
+ * (lib/core-values-snapshot/scoring.ts), not from DerivedFinding[].
+ */
+const CORE_VALUES_SNAPSHOT: AssessmentDefinition = {
+  databaseId: 'f852e76a-75cc-441c-9c76-252f5c881a86',
+  key: 'core-values-snapshot',
+  type: 'intake_questionnaire',
+
+  displayName: 'Core Values Snapshot',
+  shortDescription:
+    'Twelve questions that surface which of six value areas matters most to you right now, and whether your last two weeks actually protected it.',
+  category: 'values_alignment',
+  estimatedMinutes: 7,
+
+  membership: {
+    minLevel: 'free_trial',
+    allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
+  },
+  program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
+  prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: [],
+  clinicalPriority: 'low',
+  coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
+  retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
+  reassessment: {
+    supportsReassessment: true,
+    stages: [],
+    schedule: 'Member-initiated retake, no fixed cadence — same as every other live assessment today.',
+  },
+  comparison: {
+    supportsSimpleHistory: true,
+    supportsScoreTrend: false,
+    supportsSideBySideComparison: false,
+    supportsQuestionLevelComparison: false,
+  },
+  resultAccess: {
+    memberCanView: true,
+    requiresCoachPublishToView: false,
+    coachCanView: true,
+    adminCanView: true,
+  },
+
+  currentVersion: 1,
+  versionLockingRequired: false,
+
+  isActive: true,
+  implementationStatus: 'live',
+  isComingSoon: false,
+
+  route: '/assessments/core-values-snapshot',
+  takeRoute: '/assessments/core-values-snapshot/take',
+  resultRoute: '/assessments/core-values-snapshot/results/[sessionId]',
+  componentRef: 'components/core-values-snapshot/CoreValuesSnapshotTaker.tsx',
+  introCopyRef: 'lib/core-values-snapshot/copy.ts',
+
+  scoringAdapter: 'unified-runtime-findings',
+  resultAdapter: 'core-values-snapshot-results',
+  storageAdapter: 'unified-assessment-runtime-tables',
+
+  displayOrder: 0,
+  safetyCategory: 'none',
+};
+
 const ASSESSMENT_REGISTRY: Record<AssessmentKey, AssessmentDefinition> = {
   'onboarding-health-history': ONBOARDING,
   'chek-hlc1-nutrition-lifestyle': CHEK_HLC1,
@@ -572,6 +642,7 @@ const ASSESSMENT_REGISTRY: Record<AssessmentKey, AssessmentDefinition> = {
   'short-haq': SHORT_HAQ,
   'finding-1-love': FINDING_1_LOVE,
   wbsa: WBSA,
+  'core-values-snapshot': CORE_VALUES_SNAPSHOT,
 };
 
 export function getAssessmentRegistryEntry(key: AssessmentKey): AssessmentDefinition {

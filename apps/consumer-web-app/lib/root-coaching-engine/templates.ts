@@ -238,6 +238,23 @@ const BUILDERS: Record<ConversationType, Builder> = {
     action: pick(["Let's think about how to keep this going.", 'Worth considering how to build on this.'], `act::${ctx.rotationSeed}`),
   }),
 
+  // Core Values Snapshot's day-3/day-7 candidates always arrive with a
+  // `precomposedMessage` (service.ts short-circuits before ever calling
+  // buildTemplateParts for them) since that experience's copy is final,
+  // not template-generated. These entries exist only so BUILDERS stays a
+  // total Record<ConversationType, Builder> — defensive, not expected to
+  // run in practice.
+  cvs_day3_checkin: (ctx) => ({
+    observation: `Checking in on ${ctx.topicLabel}.`,
+    explanation: 'A few days into the experiment.',
+    action: 'However it is going is useful information.',
+  }),
+  cvs_day7_result: (ctx) => ({
+    observation: `Seven days with ${ctx.topicLabel}.`,
+    explanation: "Here's what the week's pattern shows.",
+    action: 'Worth a look whenever you have a moment.',
+  }),
+
   experiment_unsuccessful: (ctx) => ({
     observation: pick(
       [

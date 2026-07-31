@@ -44,7 +44,9 @@ export type AssessmentKey =
   | 'short-haq'
   | 'finding-1-love'
   /** Whole-Body Systems Assessment — the first real assessment on the Unified Adaptive Assessment Runtime (migrations 98-100). */
-  | 'wbsa';
+  | 'wbsa'
+  /** Core Values Snapshot — free-tier Experience 1, also on the Unified Adaptive Assessment Runtime (migration 134). */
+  | 'core-values-snapshot';
 
 export type AssessmentType =
   /** Structured Q&A, scored, single-select-with-points (the reusable engine's own model). */
@@ -87,7 +89,8 @@ export type ResultAdapterId =
   | 'primal-pattern-results'
   | 'onboarding-baseline-reassessment'
   | 'body-assessment-coach-review'
-  | 'wbsa-system-pattern-results';
+  | 'wbsa-system-pattern-results'
+  | 'core-values-snapshot-results';
 
 export type StorageAdapterId =
   | 'wellness-assessments-tables'

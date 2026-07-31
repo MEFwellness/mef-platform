@@ -205,6 +205,8 @@ export type SelectorInput = {
   engagementProfile: MemberEngagementProfile;
   recentMessages: CoachingMessageRow[];
   asOfLocalDate: string;
+  /** Already-built candidates from an experience outside this engine's own signal/experiment/router vocabulary — today, Core Values Snapshot's day-3/day-7 Weekly Experiment follow-ups (lib/core-values-snapshot/coachingCandidates.ts). Optional and additive: every existing caller that omits this keeps behaving exactly as before. */
+  cvsCandidates?: CoachingCandidate[];
 };
 
 /**
@@ -220,13 +222,14 @@ export type SelectorInput = {
  * changes the wording either.
  */
 export function selectCoachingCandidates(input: SelectorInput): CoachingCandidate[] {
-  const { signals, routerOutcome, experiments, engagementProfile, recentMessages, asOfLocalDate } = input;
+  const { signals, routerOutcome, experiments, engagementProfile, recentMessages, asOfLocalDate, cvsCandidates } = input;
 
   const router = routerCandidate(routerOutcome);
   const all = [
     ...signalCandidates(signals, engagementProfile, asOfLocalDate),
     ...experimentCandidates(experiments, recentMessages, asOfLocalDate),
     ...(router ? [router] : []),
+    ...(cvsCandidates ?? []),
   ];
 
   return all.sort((a, b) => b.priority - a.priority || b.historyDepthDays - a.historyDepthDays);

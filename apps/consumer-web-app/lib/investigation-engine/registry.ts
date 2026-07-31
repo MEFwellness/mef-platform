@@ -326,6 +326,36 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     reassessmentCadence: { kind: 'member_initiated' },
     commonlyUnlocksNextKeys: [],
   },
+  'core-values-snapshot': {
+    key: 'core-values-snapshot',
+    // A values/preference instrument, not a body-system or symptom
+    // screener — the four Coaching Domains that actually apply are
+    // identity/purpose/relationships/stress, same reasoning WBSA's own
+    // comment uses in reverse (it lists only the seven physical domains).
+    coachingDomains: ['identity_self_concept', 'purpose_motivation', 'relationships_social_connection', 'stress_nervous_system'],
+    category: 'core',
+    primaryObjective:
+      'Surface which of six value areas (health, relationships, growth, purpose, freedom, peace) matters most to a member right now, and whether their reported last two weeks actually protected it.',
+    whyItExists:
+      "The app's new free-tier entry point (Experience 1 of 3) — establishes what a member is protecting before any symptom or body-system content, per the product's own ordering.",
+    unlockTriggers: [{ kind: 'member_initiated' }],
+    requiredPriorInvestigationKeys: [],
+    optionalPriorInvestigationKeys: [],
+    hypothesesInvestigated: [
+      'Which of six value areas matters most to this member right now',
+      "Whether the member's last two weeks actually protected their top value, or a gap has opened between the two",
+    ],
+    confidenceContributionDomains: ['identity_self_concept', 'purpose_motivation', 'relationships_social_connection', 'stress_nervous_system'],
+    rootModelContribution: {
+      // Deliberately empty — a values/preference instrument, not a
+      // symptom instrument, so it produces zero Universal Registry
+      // findings by design (see migration 134's own header comment).
+      registryDomains: [],
+      shape: 'narrative_observation',
+    },
+    reassessmentCadence: { kind: 'member_initiated' },
+    commonlyUnlocksNextKeys: [],
+  },
 };
 
 export function getInvestigationMetadata(key: AssessmentKey): InvestigationMetadata {

@@ -31,6 +31,7 @@ export type PlanCoachingConversationInput = {
   engagementProfile: MemberEngagementProfile;
   recentMessages: CoachingMessageRow[];
   asOfLocalDate: string;
+  cvsCandidates?: CoachingCandidate[];
 };
 
 export type CoachingConversationPlan = {
@@ -46,24 +47,31 @@ export function planCoachingConversation(input: PlanCoachingConversationInput): 
 
   let message: CoachingMessageView | null = null;
   if (chosenCandidate) {
-    // Keyed off distinct prior *days* this topic was messaged, not raw row
-    // count — so re-selecting the same topic multiple times on the same day
-    // (a reload, a prefetch, a coach re-opening the workspace) always
-    // resolves to the same rotation index, keeping the member's message
-    // stable through the day. It only advances once a new calendar day's
-    // row actually lands.
-    const priorDays = new Set(
-      input.recentMessages.filter((m) => m.topicKey === chosenCandidate.topicKey).map((m) => m.shownAt.slice(0, 10))
-    ).size;
-    const ctx: TemplateContext = {
-      topicLabel: chosenCandidate.topicLabel,
-      historyDepthDays: chosenCandidate.historyDepthDays,
-      consistencyLevel: input.engagementProfile.consistencyLevel,
-      hasUnfinishedExperimentPattern: input.engagementProfile.hasUnfinishedExperimentPattern,
-      rotationSeed: `${chosenCandidate.topicKey}::${priorDays}`,
-    };
-    const composed = composeCoachingMessage(chosenCandidate.conversationType, ctx);
-    message = { ...composed, conversationType: chosenCandidate.conversationType };
+    if (chosenCandidate.precomposedMessage) {
+      // Core Values Snapshot's day-3/day-7 follow-ups (and any future
+      // candidate source with fixed, non-templated copy) skip the
+      // template/rotation pipeline entirely — their text is already final.
+      message = { ...chosenCandidate.precomposedMessage, conversationType: chosenCandidate.conversationType };
+    } else {
+      // Keyed off distinct prior *days* this topic was messaged, not raw row
+      // count — so re-selecting the same topic multiple times on the same day
+      // (a reload, a prefetch, a coach re-opening the workspace) always
+      // resolves to the same rotation index, keeping the member's message
+      // stable through the day. It only advances once a new calendar day's
+      // row actually lands.
+      const priorDays = new Set(
+        input.recentMessages.filter((m) => m.topicKey === chosenCandidate.topicKey).map((m) => m.shownAt.slice(0, 10))
+      ).size;
+      const ctx: TemplateContext = {
+        topicLabel: chosenCandidate.topicLabel,
+        historyDepthDays: chosenCandidate.historyDepthDays,
+        consistencyLevel: input.engagementProfile.consistencyLevel,
+        hasUnfinishedExperimentPattern: input.engagementProfile.hasUnfinishedExperimentPattern,
+        rotationSeed: `${chosenCandidate.topicKey}::${priorDays}`,
+      };
+      const composed = composeCoachingMessage(chosenCandidate.conversationType, ctx);
+      message = { ...composed, conversationType: chosenCandidate.conversationType };
+    }
   }
 
   const workspaceSummary = buildCoachWorkspaceSummary({ candidates, recentMessages: input.recentMessages });

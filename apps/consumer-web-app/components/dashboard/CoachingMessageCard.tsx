@@ -19,12 +19,30 @@
  * sheet body below still shows.
  */
 
+import type { Route } from 'next';
 import { getMyCoachingMessage } from '@/app/actions/rootCoaching';
 import { NoticingTile } from './NoticingTile';
+
+const CVS_EXPERIMENT_CONVERSATION_TYPES = new Set(['cvs_day3_checkin', 'cvs_day7_result']);
 
 export async function CoachingMessageCard() {
   const message = await getMyCoachingMessage();
   if (!message) return null;
+
+  // Core Values Snapshot's Weekly Experiment follow-ups have a real
+  // destination (the day-3/day-7 response happens there, not in a
+  // read-only sheet) — same "href for a real page, sheet for dashboard-
+  // only content" split this tile's own header comment describes.
+  if (CVS_EXPERIMENT_CONVERSATION_TYPES.has(message.conversationType)) {
+    return (
+      <NoticingTile
+        imageSrc="/images/card-fromroot.jpg"
+        kicker="From Root"
+        headline="Your five-minute experiment"
+        href={'/assessments/core-values-snapshot/experiment' as Route}
+      />
+    );
+  }
 
   const hasMore = message.coachingCard.trim() !== message.dashboardLine.trim();
 
