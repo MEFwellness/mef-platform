@@ -102,7 +102,12 @@ export async function listCoachTemplates(
   let query = supabase.from('coach_program_templates').select('*').eq('coach_id', coachId);
 
   if (filters.status) query = query.eq('status', filters.status);
-  else query = query.neq('status', 'archived');
+  // Default browse view excludes both archived AND pending_coach_review —
+  // an engine-generated draft (lib/corrective-engine/) has no dedicated
+  // review screen yet, so it must stay invisible in the general Program
+  // Library list until one exists (still reachable via an explicit
+  // status: 'pending_coach_review' filter).
+  else query = query.in('status', ['draft', 'active']);
   if (filters.favoritedOnly) query = query.eq('is_favorited', true);
   if (filters.search) query = query.ilike('name', `%${filters.search}%`);
   if (filters.tag) {

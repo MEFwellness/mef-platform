@@ -25,6 +25,8 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { CorrectiveRole } from '../../lib/exercise-library/correctiveClassification';
+import { CORRECTIVE_BLUEPRINT_LIST } from '../../lib/corrective-engine/blueprints';
+import type { MuscleSlot } from '../../lib/corrective-engine/types';
 
 const OUTPUT_PATH = path.resolve(__dirname, '../../../../docs/CORRECTIVE_BLUEPRINT_GAP_CHECK.md');
 const MIN_OPTIONS_PER_SLOT = 3;
@@ -41,11 +43,7 @@ interface Entry {
   musclesStrengthened: string[];
 }
 
-interface Slot {
-  muscle: string;
-  /** Canonical label(s) as they actually appear in muscles_stretched/muscles_strengthened — a slot matches if ANY of these labels is present (handles compound blueprint names like "lower/mid traps" or "SCM/scalenes"). Empty array means this blueprint muscle has no matching canonical label anywhere in the data — a structural gap. */
-  canonicalLabels: string[];
-}
+type Slot = MuscleSlot;
 
 interface Blueprint {
   name: string;
@@ -55,62 +53,15 @@ interface Blueprint {
   coreStabilityOnlySlots?: string[];
 }
 
-const BLUEPRINTS: Blueprint[] = [
-  {
-    name: 'LOWER CROSS',
-    tight: [
-      { muscle: 'hip flexors', canonicalLabels: ['hip flexors'] },
-      { muscle: 'TFL', canonicalLabels: ['TFL'] },
-      { muscle: 'lumbar erectors', canonicalLabels: ['lumbar erectors'] },
-    ],
-    long: [
-      { muscle: 'glutes', canonicalLabels: ['glutes'] },
-      { muscle: 'hamstrings', canonicalLabels: ['hamstrings'] },
-      { muscle: 'deep abdominals (TVA)', canonicalLabels: ['deep abdominals (TVA)'] },
-    ],
-    coreStabilityOnlySlots: ['deep abdominals (TVA)'],
-  },
-  {
-    name: 'UPPER CROSS',
-    tight: [
-      { muscle: 'pecs', canonicalLabels: ['pecs'] },
-      { muscle: 'upper traps', canonicalLabels: ['upper traps'] },
-      { muscle: 'lats', canonicalLabels: ['lats'] },
-      { muscle: 'levator scapulae', canonicalLabels: ['levator scapulae'] },
-    ],
-    long: [
-      { muscle: 'deep neck flexors', canonicalLabels: ['deep neck flexors'] },
-      { muscle: 'lower/mid traps', canonicalLabels: ['lower traps', 'mid traps'] },
-      { muscle: 'rhomboids', canonicalLabels: ['rhomboids'] },
-      { muscle: 'serratus anterior', canonicalLabels: ['serratus anterior'] },
-    ],
-  },
-  {
-    name: 'FORWARD HEAD',
-    tight: [
-      { muscle: 'suboccipitals', canonicalLabels: ['suboccipitals'] },
-      { muscle: 'upper traps', canonicalLabels: ['upper traps'] },
-      { muscle: 'SCM/scalenes', canonicalLabels: ['SCM', 'scalenes'] },
-      { muscle: 'chest', canonicalLabels: ['pecs'] },
-    ],
-    long: [
-      { muscle: 'deep neck flexors', canonicalLabels: ['deep neck flexors'] },
-      { muscle: 'thoracic extensors', canonicalLabels: ['thoracic extensors'] },
-    ],
-  },
-  {
-    name: 'FLAT BACK',
-    tight: [
-      { muscle: 'hamstrings', canonicalLabels: ['hamstrings'] },
-      { muscle: 'glutes', canonicalLabels: ['glutes'] },
-      { muscle: 'abdominals', canonicalLabels: ['abdominals'] },
-    ],
-    long: [
-      { muscle: 'hip flexors', canonicalLabels: ['hip flexors'] },
-      { muscle: 'lumbar erectors', canonicalLabels: ['lumbar erectors'] },
-    ],
-  },
-];
+// Sourced from lib/corrective-engine/blueprints.ts — the same data the
+// corrective program generator engine builds sessions from, so this report
+// can never drift out of sync with what the engine actually selects.
+const BLUEPRINTS: Blueprint[] = CORRECTIVE_BLUEPRINT_LIST.map((bp) => ({
+  name: bp.name.toUpperCase(),
+  tight: bp.tightMuscles,
+  long: bp.longMuscles,
+  ...(bp.coreStabilityOnlySlots ? { coreStabilityOnlySlots: bp.coreStabilityOnlySlots } : {}),
+}));
 
 function matchesAny(arr: string[], labels: string[]): boolean {
   return labels.some((l) => arr.includes(l));

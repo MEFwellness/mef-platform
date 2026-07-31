@@ -16,7 +16,8 @@
 import type { ExerciseLibraryProvider } from './exercise-library.types';
 
 export type ProgramDifficulty = 'beginner' | 'intermediate' | 'advanced';
-export type ProgramTemplateStatus = 'draft' | 'active' | 'archived';
+/** 'pending_coach_review' is set only by the Corrective Program Generator Engine (lib/corrective-engine/) — a coach-authored-from-scratch template never starts there and no app code ever transitions a template into it besides that engine. See migration 131. */
+export type ProgramTemplateStatus = 'draft' | 'active' | 'archived' | 'pending_coach_review';
 
 export type ProgramSectionType =
   | 'warm_up'
