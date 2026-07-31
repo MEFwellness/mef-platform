@@ -29,6 +29,23 @@ export type ExerciseLibraryProvider = 'your_move' | 'exercise_api_dev';
 export type MefExerciseDifficulty = 'beginner' | 'intermediate' | 'advanced';
 
 /**
+ * Corrective-role metadata (migration 127) — see apps/consumer-web-app/lib/
+ * exercise-library/correctiveClassification.ts for the rules that assign
+ * these. Pure data foundation for a future AI corrective program
+ * generator; nothing reads these yet.
+ */
+export type CorrectiveRole =
+  | 'release'
+  | 'stretch'
+  | 'mobility'
+  | 'stability'
+  | 'strength'
+  | 'power'
+  | 'core_stability';
+
+export type CorrectiveStrainLevel = 'low' | 'moderate' | 'high';
+
+/**
  * A row in exercise_catalog (migration 119) — the sole Exercise Library
  * catalog, populated from Your Move's browse endpoint (quota-free) by
  * scripts/exercise-media/fetch-your-move-catalog.ts. video_url/
@@ -92,6 +109,12 @@ export interface MefExerciseMetadata {
 
   contraindications: string[];
   coaching_cues: string[];
+
+  corrective_roles: CorrectiveRole[];
+  muscles_stretched: string[];
+  muscles_strengthened: string[];
+  strain_level: CorrectiveStrainLevel | null;
+  spinal_flexion_core: boolean;
 
   regressions: string[];
   progressions: string[];
