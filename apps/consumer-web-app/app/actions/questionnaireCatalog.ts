@@ -27,7 +27,9 @@ import {
   type CatalogFlags,
   type CatalogSection,
 } from '@/lib/assessment-registry/catalog';
-import type { AssessmentKey } from '@/lib/assessment-registry/types';
+import type { AssessmentDefinition, AssessmentKey } from '@/lib/assessment-registry/types';
+import { getUnifiedAssessmentDefinitionByKey, getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
+import { findInProgressSession } from '@/lib/assessment-runtime';
 
 export type CatalogCard = {
   key: AssessmentKey;
@@ -97,6 +99,76 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
   ]);
 
   const engineByKey = new Map(engineList.map((item) => [item.questionnaireId, item] as const));
+
+  // Assessments on the Unified Adaptive Assessment Runtime (WBSA, Core
+  // Values Snapshot, and any future one — matched generically by
+  // storageAdapter rather than a per-key list, same "no per-assessment
+  // hardcoding beyond what content genuinely differs" posture as the
+  // engine/onboarding/primal-pattern branches below) don't come through
+  // getMyQuestionnaireList (that's the older generic-engine's own list) —
+  // one small batched query gets the latest completed session id for
+  // each, so "View Results" has somewhere real to point.
+  const unifiedRuntimeEntries = entries.filter((e) => e.storageAdapter === 'unified-assessment-runtime-tables');
+  const latestUnifiedSessionIdByDefinitionId = new Map<string, string>();
+  if (unifiedRuntimeEntries.length > 0) {
+    const { data: latestCompletedRows } = await supabase
+      .from('assessment_attempts')
+      .select('assessment_definition_id, source_id, completed_at')
+      .eq('member_id', memberId)
+      .eq('source_table', 'unified_assessment_sessions')
+      .eq('status', 'completed')
+      .in(
+        'assessment_definition_id',
+        unifiedRuntimeEntries.map((e) => e.databaseId)
+      )
+      .order('completed_at', { ascending: false });
+
+    for (const row of latestCompletedRows ?? []) {
+      const definitionId = row.assessment_definition_id as string;
+      // Rows are ordered latest-first, so the first one seen per
+      // definition id is the most recent completion.
+      if (!latestUnifiedSessionIdByDefinitionId.has(definitionId)) {
+        latestUnifiedSessionIdByDefinitionId.set(definitionId, row.source_id as string);
+      }
+    }
+  }
+
+  async function buildUnifiedRuntimeCard(
+    entry: AssessmentDefinition,
+    section: CatalogSection,
+    flags: CatalogFlags,
+    facts: NonNullable<ReturnType<typeof factsByKey.get>>
+  ): Promise<CatalogCard> {
+    let draftProgress: { answered: number; total: number } | null = null;
+    const definition = await getUnifiedAssessmentDefinitionByKey(supabase, entry.key);
+    if (definition) {
+      const draftSession = await findInProgressSession(supabase, memberId!, definition.id);
+      if (draftSession) {
+        const questions = await getUnifiedAssessmentQuestions(supabase, definition.id);
+        draftProgress = {
+          answered: draftSession.progress.answered,
+          total: questions.filter((q) => q.active).length,
+        };
+      }
+    }
+
+    const latestSessionId = latestUnifiedSessionIdByDefinitionId.get(entry.databaseId) ?? null;
+
+    return {
+      key: entry.key,
+      title: entry.displayName,
+      description: entry.shortDescription,
+      estimatedMinutes: entry.estimatedMinutes,
+      category: entry.category,
+      section,
+      flags,
+      draftProgress,
+      latestCompletedAt: facts.latestCompletedAt,
+      primaryHref: entry.route,
+      resultHref: latestSessionId ? `${entry.route}/results/${latestSessionId}` : null,
+      coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
+    };
+  }
 
   const cards: CatalogCard[] = [];
 
@@ -170,6 +242,11 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
           : null,
         coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
       });
+      continue;
+    }
+
+    if (entry.storageAdapter === 'unified-assessment-runtime-tables') {
+      cards.push(await buildUnifiedRuntimeCard(entry, section, flags, facts));
       continue;
     }
 
