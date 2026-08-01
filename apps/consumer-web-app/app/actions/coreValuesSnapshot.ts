@@ -50,6 +50,7 @@ import {
 } from '@/lib/core-values-snapshot/dailyLogsData';
 import { classifyDay7Pattern, daysSinceStart, isDay3Eligible, isDay7Eligible, type Day3Response } from '@/lib/core-values-snapshot/experiment';
 import { clearRootPopupDismissal, cvsPopupMessageKey } from '@/lib/root-popup-messages/data';
+import { hasStartedLscAction } from './lifeSignalCheck';
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -196,6 +197,7 @@ export async function startCvsExperimentAction(
     startDate,
     durationDays: CVS_EXPERIMENT_DURATION_DAYS,
     sourceSessionId: sessionId,
+    sourceExperienceKey: 'core-values-snapshot',
   });
   if (!experiment) return { ok: false, error: 'Could not start this experiment.' };
 
@@ -333,7 +335,7 @@ export type CvsCoachSessionDetail = {
   guiltAnswerVerbatim: string | null;
   timeToCompleteMinutes: number | null;
   experiment: (LifestyleExperiment & { logs: Awaited<ReturnType<typeof listCvsDailyLogs>> }) | null;
-  /** Experience 2 (Life Signal Check) doesn't exist yet — always false until that experience ships and can be checked for real. */
+  /** Whether this member has started (or completed) the Life Signal Check, checked for real via hasStartedLscAction. */
   continuedToExperience2: boolean;
 };
 
@@ -368,13 +370,15 @@ export async function getClientCvsSessionDetailAction(sessionId: string): Promis
     }
   }
 
+  const continuedToExperience2 = await hasStartedLscAction(session.memberId);
+
   return {
     session,
     scoring,
     guiltAnswerVerbatim,
     timeToCompleteMinutes,
     experiment,
-    continuedToExperience2: false,
+    continuedToExperience2,
   };
 }
 

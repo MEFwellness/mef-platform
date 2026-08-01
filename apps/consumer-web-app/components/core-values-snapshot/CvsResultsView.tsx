@@ -136,12 +136,9 @@ export function CloseSection({
           <button
             type="button"
             onClick={onStartLifeSignalCheck}
-            disabled
-            aria-disabled="true"
-            title="Coming soon"
-            className="block w-full cursor-not-allowed rounded-2xl bg-[#1B3A2D]/40 px-6 py-4 text-center text-sm font-semibold text-white"
+            className="mef-focus-ring block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
           >
-            {CVS_HANDOFF.primaryButton} · Coming soon
+            {CVS_HANDOFF.primaryButton}
           </button>
           <button
             type="button"

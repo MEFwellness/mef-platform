@@ -340,7 +340,10 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
 
       {beat === 'close' && (
         <>
-          <CloseSection onStartLifeSignalCheck={() => {}} onLater={() => router.push('/dashboard' as Route)} />
+          <CloseSection
+            onStartLifeSignalCheck={() => router.push('/assessments/life-signal-check' as Route)}
+            onLater={() => router.push('/dashboard' as Route)}
+          />
           {narrativeItems.length > 0 && (
             <div className={`${CVS_CARD} mef-animate-in mt-4 p-7`}>
               <p className={`${CVS_DISPLAY_FONT} text-xl text-[#1B3A2D]`}>What Root knows so far</p>

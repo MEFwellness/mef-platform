@@ -18,9 +18,11 @@ export type LifestyleExperiment = {
   id: string;
   memberId: string;
   recommendationId: string | null;
-  /** Null for every experiment sourced from the Recommendation Engine (the original, still-primary path). Set only when an assessment other than the Recommendation Engine started this experiment directly — today, only Core Values Snapshot (lib/core-values-snapshot/) — so that experience's own session can be traced forward to the exact experiment it started, for accurate per-completion coach visibility and retake handling. */
+  /** Null for every experiment sourced from the Recommendation Engine (the original, still-primary path). Set only when an assessment other than the Recommendation Engine started this experiment directly — today, Core Values Snapshot and Life Signal Check (lib/core-values-snapshot/, lib/life-signal-check/) — so that experience's own session can be traced forward to the exact experiment it started, for accurate per-completion coach visibility and retake handling. */
   sourceSessionId: string | null;
-  /** Set only once the member has tapped "Got it" on Core Values Snapshot's day-7 reflection — null for every other experiment, and null until acknowledged. */
+  /** Which non-Recommendation-Engine experience started this experiment ('core-values-snapshot' | 'life-signal-check'), null for every Recommendation Engine-sourced row. The real disambiguator once more than one such experience exists — sourceSessionId/recommendationId alone can no longer tell them apart. */
+  sourceExperienceKey: string | null;
+  /** Set only once the member has tapped "Got it" on this experiment's own day-7 reflection (Core Values Snapshot or Life Signal Check) — null for every other experiment, and null until acknowledged. */
   day7AcknowledgedAt: string | null;
   title: string;
   protocol: string;

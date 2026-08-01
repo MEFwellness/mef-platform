@@ -73,7 +73,7 @@ export async function upsertCvsDailyLog(
   return true;
 }
 
-/** The member's most recent Core Values Snapshot-sourced experiment (recommendation_id is null) — the one signal this codebase currently has for "not started via the Recommendation Engine," since every other lifestyle_experiments row is always Recommendation Engine-sourced today (see lib/lifestyle-experiments/lifecycle.ts's own header comment). */
+/** The member's most recent Core Values Snapshot-sourced experiment, disambiguated from any other non-Recommendation-Engine experience (today, Life Signal Check) via source_experience_key (migration 138) rather than the old "recommendation_id is null" heuristic, which could no longer tell the two apart once a second such experience existed. */
 export async function findLatestCvsExperiment(
   supabase: SupabaseClient,
   memberId: string
@@ -82,7 +82,7 @@ export async function findLatestCvsExperiment(
     .from('lifestyle_experiments')
     .select('id, source_session_id')
     .eq('member_id', memberId)
-    .is('recommendation_id', null)
+    .eq('source_experience_key', 'core-values-snapshot')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

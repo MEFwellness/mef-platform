@@ -3,11 +3,13 @@
 /**
  * Root's pop-up message — the day-3/day-7 Weekly Experiment follow-ups
  * shown as a modal right after login instead of only sitting as a card
- * (components/dashboard/CvsCheckinCard.tsx, unchanged and still the
- * fallback home for this same message). Reuses the exact same copy
- * functions and server actions as the card
- * (lib/core-values-snapshot/copy.ts, app/actions/coreValuesSnapshot.ts) so
- * "answer here" and "answer on the card" are one real system, not two.
+ * (components/dashboard/CvsCheckinCard.tsx / LscCheckinCard.tsx, both
+ * unchanged and still the fallback home for these same messages). Reuses
+ * the exact same copy functions and per-experience server actions as
+ * those cards (lib/core-values-snapshot/copy.ts,
+ * app/actions/coreValuesSnapshot.ts, app/actions/lifeSignalCheck.ts) so
+ * "answer here" and "answer on the card" are one real system, not two,
+ * for either experience.
  *
  * Deliberately has no backdrop-click/Escape dismissal — the whole point is
  * that nobody misses this message, so the only ways out are answering it,
@@ -23,11 +25,14 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CVS_DAY3_OPTIONS, cvsDay3FollowUpText, cvsDay3ReflectionText, cvsDay7FollowUpText } from '@/lib/core-values-snapshot/copy';
+import { lscDay3FollowUpText, lscDay3ReflectionText, lscDay7FollowUpText } from '@/lib/life-signal-check/copy';
 import { acknowledgeCvsDay7Action, submitCvsDay3ResponseAction } from '@/app/actions/coreValuesSnapshot';
+import { acknowledgeLscDay7Action, submitLscDay3ResponseAction } from '@/app/actions/lifeSignalCheck';
 import { snoozeRootPopupMessageAction, ignoreRootPopupMessageAction, type RootPopupMessage } from '@/app/actions/rootPopupMessages';
 import { classifyDay7Pattern, type Day3Response } from '@/lib/core-values-snapshot/experiment';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
+/** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
   const router = useRouter();
   const [closed, setClosed] = useState(false);
@@ -38,6 +43,8 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   useBodyScrollLock(!closed);
 
   if (closed) return null;
+
+  const isDay3 = message.kind === 'cvs_day3' || message.kind === 'lsc_day3';
 
   function handleMaybeLater() {
     setClosed(true);
@@ -56,7 +63,10 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   function handleDay3Pick(value: Day3Response) {
     setError(null);
     startTransition(async () => {
-      const result = await submitCvsDay3ResponseAction(message.experimentId, value);
+      const result =
+        message.kind === 'cvs_day3'
+          ? await submitCvsDay3ResponseAction(message.experimentId, value)
+          : await submitLscDay3ResponseAction(message.experimentId, value);
       if (!result.ok) {
         setError(result.error ?? 'Could not save that.');
         return;
@@ -69,7 +79,10 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   function handleDay7Acknowledge() {
     setError(null);
     startTransition(async () => {
-      const result = await acknowledgeCvsDay7Action(message.experimentId);
+      const result =
+        message.kind === 'cvs_day7'
+          ? await acknowledgeCvsDay7Action(message.experimentId)
+          : await acknowledgeLscDay7Action(message.experimentId);
       if (!result.ok) {
         setError(result.error ?? 'Could not save that.');
         return;
@@ -79,7 +92,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     });
   }
 
-  const answered = message.kind === 'cvs_day3' && day3Response !== null;
+  const answered = isDay3 && day3Response !== null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
@@ -105,7 +118,9 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
         {answered ? (
           <>
             <p className="relative mt-3 text-[16px] leading-relaxed text-[#F5F0E4]">
-              {cvsDay3ReflectionText(day3Response as Day3Response)}
+              {message.kind === 'cvs_day3'
+                ? cvsDay3ReflectionText(day3Response as Day3Response)
+                : lscDay3ReflectionText(day3Response as Day3Response)}
             </p>
             <button
               type="button"
@@ -120,12 +135,16 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
             <p className="relative mt-3 text-[16px] leading-relaxed text-[#F5F0E4]">
               {message.kind === 'cvs_day3'
                 ? cvsDay3FollowUpText(message.topLabelText)
-                : cvsDay7FollowUpText(message.topLabelText, classifyDay7Pattern(message.logs, message.durationDays).pattern)}
+                : message.kind === 'lsc_day3'
+                  ? lscDay3FollowUpText(message.topLabelText)
+                  : message.kind === 'cvs_day7'
+                    ? cvsDay7FollowUpText(message.topLabelText, classifyDay7Pattern(message.logs, message.durationDays).pattern)
+                    : lscDay7FollowUpText(message.topLabelText, classifyDay7Pattern(message.logs, message.durationDays).pattern)}
             </p>
 
             {error && <p className="relative mt-3 text-sm text-[#F5B7A0]">{error}</p>}
 
-            {message.kind === 'cvs_day3' ? (
+            {message.kind === 'cvs_day3' || message.kind === 'lsc_day3' ? (
               <div className="relative mt-5 space-y-2">
                 {CVS_DAY3_OPTIONS.map((option) => (
                   <button

@@ -7,12 +7,31 @@ import { CVS_CARD, CVS_DISPLAY_FONT } from './theme';
  * already-existing getMyNarrative() action, no new table, no new query
  * layer. Only new here is this small presentational card, since no
  * member-facing "Root's narrative" card exists elsewhere yet to reuse
- * outright. Filters to entries this Core Values Snapshot completion just
- * wrote (source_refs note === 'core-values-snapshot').
+ * outright. `notes` defaults to Core Values Snapshot's own note only
+ * (unchanged existing behavior: matched to this exact sessionId). Life
+ * Signal Check's closing/results screens pass both notes so the card
+ * grows across experiences instead of replacing Experience 1's own
+ * entries — with more than one note, matching is by note alone (not
+ * scoped to sessionId), since a second experience's entries were never
+ * written against this session's id in the first place, and every
+ * narrative write here already dedupes to one active row per
+ * category+title (findActiveItem/supersedeNarrativeItem), so "by note"
+ * always resolves to the member's current understanding, not stale
+ * history.
  */
-export async function WhatRootKnowsCard({ sessionId }: { sessionId: string }) {
+export async function WhatRootKnowsCard({
+  sessionId,
+  notes = ['core-values-snapshot'],
+}: {
+  sessionId: string;
+  notes?: string[];
+}) {
   const items = await getMyNarrative();
-  const mine = items.filter((item) => item.source_refs?.some((ref) => ref.id === sessionId && ref.note === 'core-values-snapshot'));
+  const mine = items.filter((item) =>
+    notes.length > 1
+      ? item.source_refs?.some((ref) => ref.note && notes.includes(ref.note))
+      : item.source_refs?.some((ref) => ref.id === sessionId && ref.note && notes.includes(ref.note))
+  );
 
   if (mine.length === 0) return null;
 

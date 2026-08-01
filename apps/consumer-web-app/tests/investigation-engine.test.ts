@@ -80,6 +80,7 @@ describe('registry.ts INVESTIGATION_METADATA', () => {
         'finding-1-love',
         'wbsa',
         'core-values-snapshot',
+        'life-signal-check',
       ].sort()
     );
   });

@@ -46,7 +46,9 @@ export type AssessmentKey =
   /** Whole-Body Systems Assessment — the first real assessment on the Unified Adaptive Assessment Runtime (migrations 98-100). */
   | 'wbsa'
   /** Core Values Snapshot — free-tier Experience 1, also on the Unified Adaptive Assessment Runtime (migration 134). */
-  | 'core-values-snapshot';
+  | 'core-values-snapshot'
+  /** Life Signal Check — free-tier Experience 2, also on the Unified Adaptive Assessment Runtime (migration 138). Unlocks only after Core Values Snapshot completes, via prerequisites.prerequisiteKeys below. */
+  | 'life-signal-check';
 
 export type AssessmentType =
   /** Structured Q&A, scored, single-select-with-points (the reusable engine's own model). */
@@ -90,7 +92,8 @@ export type ResultAdapterId =
   | 'onboarding-baseline-reassessment'
   | 'body-assessment-coach-review'
   | 'wbsa-system-pattern-results'
-  | 'core-values-snapshot-results';
+  | 'core-values-snapshot-results'
+  | 'life-signal-check-results';
 
 export type StorageAdapterId =
   | 'wellness-assessments-tables'

@@ -632,6 +632,78 @@ const CORE_VALUES_SNAPSHOT: AssessmentDefinition = {
   safetyCategory: 'none',
 };
 
+/**
+ * Life Signal Check — free-tier Experience 2 (migration 138), the third
+ * real content on the Unified Adaptive Assessment Foundation/Runtime.
+ * Deliberately free, same as Core Values Snapshot, and produces zero
+ * Universal Registry findings by design (a listening instrument, not a
+ * symptom instrument). Unlike every other entry above,
+ * prerequisites.prerequisiteKeys is genuinely populated here — the first
+ * assessment to actually use that pre-existing field rather than leave it
+ * an empty array. lib/assessment-registry/access.ts and ./catalog.ts
+ * compute completedPrerequisiteKeys from real per-member facts, so this
+ * is real, server-enforced gating, not a UI-only lock.
+ */
+const LIFE_SIGNAL_CHECK: AssessmentDefinition = {
+  databaseId: 'e784c029-0d1c-4f31-afc2-4c6c2e97e320',
+  key: 'life-signal-check',
+  type: 'intake_questionnaire',
+
+  displayName: 'Life Signal Check',
+  shortDescription:
+    'Eleven questions that listen for where your life is speaking the loudest right now, across energy, sleep, tension, digestion, body, and mind.',
+  category: 'body_signals',
+  estimatedMinutes: 4,
+
+  membership: {
+    minLevel: 'free_trial',
+    allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
+  },
+  program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
+  prerequisites: { prerequisiteKeys: ['core-values-snapshot'], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: ['core-values-snapshot'],
+  clinicalPriority: 'low',
+  coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
+  retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
+  reassessment: {
+    supportsReassessment: true,
+    stages: [],
+    schedule: 'Member-initiated retake, no fixed cadence — same as every other live assessment today.',
+  },
+  comparison: {
+    supportsSimpleHistory: true,
+    supportsScoreTrend: false,
+    supportsSideBySideComparison: false,
+    supportsQuestionLevelComparison: false,
+  },
+  resultAccess: {
+    memberCanView: true,
+    requiresCoachPublishToView: false,
+    coachCanView: true,
+    adminCanView: true,
+  },
+
+  currentVersion: 1,
+  versionLockingRequired: false,
+
+  isActive: true,
+  implementationStatus: 'live',
+  isComingSoon: false,
+
+  route: '/assessments/life-signal-check',
+  takeRoute: '/assessments/life-signal-check/take',
+  resultRoute: '/assessments/life-signal-check/results/[sessionId]',
+  componentRef: 'components/life-signal-check/LifeSignalCheckTaker.tsx',
+  introCopyRef: 'lib/life-signal-check/copy.ts',
+
+  scoringAdapter: 'unified-runtime-findings',
+  resultAdapter: 'life-signal-check-results',
+  storageAdapter: 'unified-assessment-runtime-tables',
+
+  displayOrder: 0.5,
+  safetyCategory: 'none',
+};
+
 const ASSESSMENT_REGISTRY: Record<AssessmentKey, AssessmentDefinition> = {
   'onboarding-health-history': ONBOARDING,
   'chek-hlc1-nutrition-lifestyle': CHEK_HLC1,
@@ -643,6 +715,7 @@ const ASSESSMENT_REGISTRY: Record<AssessmentKey, AssessmentDefinition> = {
   'finding-1-love': FINDING_1_LOVE,
   wbsa: WBSA,
   'core-values-snapshot': CORE_VALUES_SNAPSHOT,
+  'life-signal-check': LIFE_SIGNAL_CHECK,
 };
 
 export function getAssessmentRegistryEntry(key: AssessmentKey): AssessmentDefinition {

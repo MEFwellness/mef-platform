@@ -13,6 +13,7 @@ type Row = {
   member_id: string;
   recommendation_id: string | null;
   source_session_id: string | null;
+  source_experience_key: string | null;
   day7_acknowledged_at: string | null;
   title: string;
   protocol: string;
@@ -31,6 +32,7 @@ function fromRow(row: Row): LifestyleExperiment {
     memberId: row.member_id,
     recommendationId: row.recommendation_id,
     sourceSessionId: row.source_session_id,
+    sourceExperienceKey: row.source_experience_key,
     day7AcknowledgedAt: row.day7_acknowledged_at,
     title: row.title,
     protocol: row.protocol,
@@ -54,6 +56,7 @@ export async function startLifestyleExperiment(
     startDate: string;
     durationDays: number;
     sourceSessionId?: string | null;
+    sourceExperienceKey?: string | null;
   }
 ): Promise<LifestyleExperiment | null> {
   // Defensive re-check (Prompt 12, Part 3 guardrail) — the primary,
@@ -74,6 +77,7 @@ export async function startLifestyleExperiment(
       member_id: memberId,
       recommendation_id: params.recommendationId,
       source_session_id: params.sourceSessionId ?? null,
+      source_experience_key: params.sourceExperienceKey ?? null,
       title: params.title,
       protocol: params.protocol,
       start_date: params.startDate,

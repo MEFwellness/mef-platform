@@ -207,6 +207,8 @@ export type SelectorInput = {
   asOfLocalDate: string;
   /** Already-built candidates from an experience outside this engine's own signal/experiment/router vocabulary — today, Core Values Snapshot's day-3/day-7 Weekly Experiment follow-ups (lib/core-values-snapshot/coachingCandidates.ts). Optional and additive: every existing caller that omits this keeps behaving exactly as before. */
   cvsCandidates?: CoachingCandidate[];
+  /** Same shape as cvsCandidates, for Life Signal Check's own day-3/day-7 follow-ups (lib/life-signal-check/coachingCandidates.ts). Kept as its own field rather than folded into cvsCandidates so a candidate's real source is never misleadingly named. */
+  lscCandidates?: CoachingCandidate[];
 };
 
 /**
@@ -222,7 +224,7 @@ export type SelectorInput = {
  * changes the wording either.
  */
 export function selectCoachingCandidates(input: SelectorInput): CoachingCandidate[] {
-  const { signals, routerOutcome, experiments, engagementProfile, recentMessages, asOfLocalDate, cvsCandidates } = input;
+  const { signals, routerOutcome, experiments, engagementProfile, recentMessages, asOfLocalDate, cvsCandidates, lscCandidates } = input;
 
   const router = routerCandidate(routerOutcome);
   const all = [
@@ -230,6 +232,7 @@ export function selectCoachingCandidates(input: SelectorInput): CoachingCandidat
     ...experimentCandidates(experiments, recentMessages, asOfLocalDate),
     ...(router ? [router] : []),
     ...(cvsCandidates ?? []),
+    ...(lscCandidates ?? []),
   ];
 
   return all.sort((a, b) => b.priority - a.priority || b.historyDepthDays - a.historyDepthDays);

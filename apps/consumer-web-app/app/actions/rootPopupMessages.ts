@@ -3,19 +3,23 @@
  *
  * Root's pop-up messages — proactive Root coaching messages that expect a
  * response or acknowledgment, surfaced as a modal right after login
- * instead of only sitting as a card. Today the only messages of this
- * shape are the Core Values Snapshot day-3/day-7 Weekly Experiment
- * follow-ups (components/core-values-snapshot/CvsFollowUpCards.tsx);
- * everything here is written so a future message of the same shape (a
- * real answer/acknowledge affordance, not just an observation) only needs
- * a new case in getMyRootPopupMessageAction, not a new dismissal/eligibility
+ * instead of only sitting as a card. Today these are the Core Values
+ * Snapshot and Life Signal Check Weekly Experiment day-3/day-7 follow-ups
+ * (components/core-values-snapshot/CvsFollowUpCards.tsx); everything here
+ * is written so a future message of the same shape (a real
+ * answer/acknowledge affordance, not just an observation) only needs a
+ * new case in getMyRootPopupMessageAction, not a new dismissal/eligibility
  * system.
  *
  * No parallel data store for "is there a message" — this thinly wraps the
- * existing getMyCvsExperimentStatusAction (app/actions/coreValuesSnapshot.ts)
+ * existing getMyCvsExperimentStatusAction/getMyLscExperimentStatusAction
  * and the shared resolveCvsCheckinPending rule
  * (lib/core-values-snapshot/experiment.ts), same discipline as every other
- * file in app/actions.
+ * file in app/actions. When both a Core Values Snapshot and a Life Signal
+ * Check follow-up are pending at once, Core Values Snapshot (the older
+ * experience) wins the pop-up slot first — the loser simply waits as its
+ * own dashboard card until the winner is resolved, same "one at a time"
+ * rule already used between day 3 and day 7 within a single experience.
  */
 
 'use server';
@@ -23,9 +27,11 @@
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { createClient } from '@/lib/supabase/server';
 import { getMyCvsExperimentStatusAction } from './coreValuesSnapshot';
+import { getMyLscExperimentStatusAction } from './lifeSignalCheck';
 import { resolveCvsCheckinPending, type CvsDailyLogRow } from '@/lib/core-values-snapshot/experiment';
 import {
   cvsPopupMessageKey,
+  lscPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
   isRootPopupDueThisLogin,
@@ -42,6 +48,15 @@ export type RootPopupMessage =
       topLabelText: string;
       logs: CvsDailyLogRow[];
       durationDays: number;
+    }
+  | { kind: 'lsc_day3'; messageKey: string; experimentId: string; topLabelText: string }
+  | {
+      kind: 'lsc_day7';
+      messageKey: string;
+      experimentId: string;
+      topLabelText: string;
+      logs: CvsDailyLogRow[];
+      durationDays: number;
     };
 
 async function requireMemberId(): Promise<string | null> {
@@ -49,36 +64,64 @@ async function requireMemberId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
-/** The one Root message (if any) currently pending a response/acknowledgment, regardless of whether it's due to pop up this login. Used both to decide the pop-up and to badge the underlying card as high priority once snoozed. */
+/** The one Root message (if any) currently pending a response/acknowledgment, regardless of whether it's due to pop up this login. Used both to decide the pop-up and to badge the underlying card as high priority once snoozed. Core Values Snapshot is checked before Life Signal Check (oldest experience first); day 3 always wins over day 7 within either. */
 async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null> {
-  const status = await getMyCvsExperimentStatusAction();
-  if (!status) return null;
-
-  const pending = resolveCvsCheckinPending({
-    isDay3Eligible: status.isDay3Eligible,
-    day3Answered: status.logs.some((l) => l.day3Response !== null),
-    isDay7Eligible: status.isDay7Eligible,
-    day7Acknowledged: status.experiment.day7AcknowledgedAt !== null,
-  });
-
-  if (pending === 'day3') {
-    return {
-      kind: 'cvs_day3',
-      messageKey: cvsPopupMessageKey('day3', status.experiment.id),
-      experimentId: status.experiment.id,
-      topLabelText: status.experiment.title,
-    };
+  const cvsStatus = await getMyCvsExperimentStatusAction();
+  if (cvsStatus) {
+    const pending = resolveCvsCheckinPending({
+      isDay3Eligible: cvsStatus.isDay3Eligible,
+      day3Answered: cvsStatus.logs.some((l) => l.day3Response !== null),
+      isDay7Eligible: cvsStatus.isDay7Eligible,
+      day7Acknowledged: cvsStatus.experiment.day7AcknowledgedAt !== null,
+    });
+    if (pending === 'day3') {
+      return {
+        kind: 'cvs_day3',
+        messageKey: cvsPopupMessageKey('day3', cvsStatus.experiment.id),
+        experimentId: cvsStatus.experiment.id,
+        topLabelText: cvsStatus.experiment.title,
+      };
+    }
+    if (pending === 'day7') {
+      return {
+        kind: 'cvs_day7',
+        messageKey: cvsPopupMessageKey('day7', cvsStatus.experiment.id),
+        experimentId: cvsStatus.experiment.id,
+        topLabelText: cvsStatus.experiment.title,
+        logs: cvsStatus.logs,
+        durationDays: cvsStatus.experiment.durationDays,
+      };
+    }
   }
-  if (pending === 'day7') {
-    return {
-      kind: 'cvs_day7',
-      messageKey: cvsPopupMessageKey('day7', status.experiment.id),
-      experimentId: status.experiment.id,
-      topLabelText: status.experiment.title,
-      logs: status.logs,
-      durationDays: status.experiment.durationDays,
-    };
+
+  const lscStatus = await getMyLscExperimentStatusAction();
+  if (lscStatus) {
+    const pending = resolveCvsCheckinPending({
+      isDay3Eligible: lscStatus.isDay3Eligible,
+      day3Answered: lscStatus.logs.some((l) => l.day3Response !== null),
+      isDay7Eligible: lscStatus.isDay7Eligible,
+      day7Acknowledged: lscStatus.experiment.day7AcknowledgedAt !== null,
+    });
+    if (pending === 'day3') {
+      return {
+        kind: 'lsc_day3',
+        messageKey: lscPopupMessageKey('day3', lscStatus.experiment.id),
+        experimentId: lscStatus.experiment.id,
+        topLabelText: lscStatus.experiment.title,
+      };
+    }
+    if (pending === 'day7') {
+      return {
+        kind: 'lsc_day7',
+        messageKey: lscPopupMessageKey('day7', lscStatus.experiment.id),
+        experimentId: lscStatus.experiment.id,
+        topLabelText: lscStatus.experiment.title,
+        logs: lscStatus.logs,
+        durationDays: lscStatus.experiment.durationDays,
+      };
+    }
   }
+
   return null;
 }
 
@@ -96,12 +139,12 @@ export async function getMyRootPopupDismissalAction(
 
 /**
  * The message (if any) that should interrupt this member as a pop-up on
- * this login. Oldest unhandled message first (resolveCvsCheckinPending
- * already checks day 3 before day 7), one at a time — a second pending
- * message, if one ever exists, simply waits its turn as a card until this
- * one is resolved. Never returns a message for an 'ignored' dismissal, and
- * only returns a 'snoozed' one once a real login has happened since the
- * snooze.
+ * this login. Oldest unhandled message first (Core Values Snapshot before
+ * Life Signal Check, and within each, resolveCvsCheckinPending already
+ * checks day 3 before day 7), one at a time — a second pending message,
+ * if one ever exists, simply waits its turn as a card until this one is
+ * resolved. Never returns a message for an 'ignored' dismissal, and only
+ * returns a 'snoozed' one once a real login has happened since the snooze.
  */
 export async function getMyRootPopupMessageAction(): Promise<RootPopupMessage | null> {
   const user = await getCachedUser();

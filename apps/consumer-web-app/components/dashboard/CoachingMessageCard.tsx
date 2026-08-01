@@ -23,23 +23,29 @@
  * 90/94), but they're deliberately never rendered here: the real
  * question/reflection, with a real answer/acknowledge affordance, now
  * lives directly on the dashboard as its own card
- * (components/dashboard/CvsCheckinCard.tsx) instead of a teaser tile that
- * only links out to it — showing it a second time here would just be the
- * same "From Root" message twice on one screen. getMyCoachingMessage()
- * still runs and still records the pick into member_coaching_messages
- * (needed for this engine's own de-dup/history bookkeeping); this card
- * just renders nothing for those two conversation types.
+ * (components/dashboard/CvsCheckinCard.tsx / LscCheckinCard.tsx) instead
+ * of a teaser tile that only links out to it — showing it a second time
+ * here would just be the same "From Root" message twice on one screen.
+ * getMyCoachingMessage() still runs and still records the pick into
+ * member_coaching_messages (needed for this engine's own de-dup/history
+ * bookkeeping); this card just renders nothing for those conversation
+ * types.
  */
 
 import { getMyCoachingMessage } from '@/app/actions/rootCoaching';
 import { NoticingTile } from './NoticingTile';
 
-const CVS_EXPERIMENT_CONVERSATION_TYPES = new Set(['cvs_day3_checkin', 'cvs_day7_result']);
+const EXPERIMENT_FOLLOW_UP_CONVERSATION_TYPES = new Set([
+  'cvs_day3_checkin',
+  'cvs_day7_result',
+  'lsc_day3_checkin',
+  'lsc_day7_result',
+]);
 
 export async function CoachingMessageCard() {
   const message = await getMyCoachingMessage();
   if (!message) return null;
-  if (CVS_EXPERIMENT_CONVERSATION_TYPES.has(message.conversationType)) return null;
+  if (EXPERIMENT_FOLLOW_UP_CONVERSATION_TYPES.has(message.conversationType)) return null;
 
   const hasMore = message.coachingCard.trim() !== message.dashboardLine.trim();
 

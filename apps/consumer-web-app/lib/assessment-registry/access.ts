@@ -15,8 +15,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { findAssessmentRegistryEntry } from './registry';
 import { calculateLockReason, type LockReason } from './status';
 import { getMemberAssessmentFacts } from './facts';
+import type { AssessmentKey } from './types';
 
 export type AccessResult = { allowed: true } | { allowed: false; reason: LockReason };
+
+/** Every registered assessment key this member has actually completed, computed from the same batched facts query every other status calculation already reads — the real input calculateLockReason's own prerequisiteKeys check needs. Previously every caller passed an empty Set here (no assessment used prerequisiteKeys until Life Signal Check), so this had no observable effect before now. */
+function completedKeysFrom(factsByKey: Awaited<ReturnType<typeof getMemberAssessmentFacts>>): Set<AssessmentKey> {
+  const completed = new Set<AssessmentKey>();
+  for (const [key, facts] of factsByKey) {
+    if (facts.completionStatus === 'completed') completed.add(key);
+  }
+  return completed;
+}
 
 /** Accepts a plain string — callers resolve it from a URL param, not a statically-known AssessmentKey. */
 export async function checkAssessmentAccess(
@@ -36,7 +46,7 @@ export async function checkAssessmentAccess(
     return { allowed: true };
   }
 
-  const lockReason = calculateLockReason(definition, facts, new Set());
+  const lockReason = calculateLockReason(definition, facts, completedKeysFrom(factsByKey));
   if (!lockReason) return { allowed: true };
   return { allowed: false, reason: lockReason };
 }

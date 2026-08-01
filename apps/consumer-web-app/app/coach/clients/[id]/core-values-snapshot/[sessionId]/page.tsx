@@ -136,9 +136,7 @@ export default async function CoachCvsSessionDetailPage({
           <section className={`${CARD} p-6`}>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Continued to Experience 2</p>
             <p className="mt-2 text-sm text-[#1B3A2D]">
-              {continuedToExperience2
-                ? 'Yes: started the Life Signal Check.'
-                : 'Not yet: the Life Signal Check (Experience 2) has not shipped yet, so this always reads No for now.'}
+              {continuedToExperience2 ? 'Yes: started the Life Signal Check.' : 'Not yet: has not started the Life Signal Check.'}
             </p>
           </section>
         </div>

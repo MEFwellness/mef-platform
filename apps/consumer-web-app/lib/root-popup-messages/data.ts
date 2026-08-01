@@ -19,6 +19,11 @@ export function cvsPopupMessageKey(kind: 'day3' | 'day7', experimentId: string):
   return `cvs_${kind}:${experimentId}`;
 }
 
+/** Same shape as cvsPopupMessageKey, for Life Signal Check's own day-3/day-7 follow-ups. */
+export function lscPopupMessageKey(kind: 'day3' | 'day7', experimentId: string): string {
+  return `lsc_${kind}:${experimentId}`;
+}
+
 export async function getRootPopupDismissal(
   supabase: SupabaseClient,
   memberId: string,

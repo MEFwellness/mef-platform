@@ -22,6 +22,7 @@ import { listMemberRecommendations } from '@/lib/recommendation-engine';
 import { getCoachingSafetyGate } from '@/lib/coaching-insights/safety';
 import { listCvsDailyLogs } from '@/lib/core-values-snapshot/dailyLogsData';
 import { buildCvsCoachingCandidates } from '@/lib/core-values-snapshot/coachingCandidates';
+import { buildLscCoachingCandidates } from '@/lib/life-signal-check/coachingCandidates';
 import {
   buildMemberEngagementProfile,
   listRecentCoachingMessages,
@@ -81,31 +82,43 @@ async function gatherAndPlan(
     ? signals.filter((s) => !(s.signalKind === 'registry_finding' && s.signalKey.includes('::nutrition::')))
     : signals;
 
-  // Core Values Snapshot's Weekly Experiment reuses lifestyle_experiments
-  // (recommendation_id left null, since it isn't Recommendation Engine-
-  // sourced like every other row here) — split those out so the generic
+  // Core Values Snapshot's and Life Signal Check's own Weekly Experiments
+  // both reuse lifestyle_experiments (recommendation_id left null, since
+  // neither is Recommendation Engine-sourced like every other row here) —
+  // split those out, by source_experience_key (migration 138) so the two
+  // experiences' own experiments are never mixed up, so the generic
   // experimentCandidates() below doesn't ALSO generate its own midpoint/
-  // overdue/outcome messages for the same experiment CVS's own day-3/day-7
-  // candidates already cover; buildMemberEngagementProfile above still saw
-  // the full, unfiltered list, so consistency scoring is unaffected.
-  const nonCvsExperiments = experiments.filter((e) => e.recommendationId !== null);
-  const cvsExperiments = experiments.filter((e) => e.recommendationId === null);
+  // overdue/outcome messages for experiments each experience's own
+  // day-3/day-7 candidates already cover; buildMemberEngagementProfile
+  // above still saw the full, unfiltered list, so consistency scoring is
+  // unaffected.
+  const nonSourcedExperiments = experiments.filter((e) => e.recommendationId !== null);
+  const cvsExperiments = experiments.filter((e) => e.sourceExperienceKey === 'core-values-snapshot');
+  const lscExperiments = experiments.filter((e) => e.sourceExperienceKey === 'life-signal-check');
   const cvsExperimentsWithLogs = await Promise.all(
     cvsExperiments.map(async (experiment) => ({
       experiment,
       logs: await listCvsDailyLogs(supabase, experiment.id),
     }))
   );
+  const lscExperimentsWithLogs = await Promise.all(
+    lscExperiments.map(async (experiment) => ({
+      experiment,
+      logs: await listCvsDailyLogs(supabase, experiment.id),
+    }))
+  );
   const cvsCandidates = buildCvsCoachingCandidates(cvsExperimentsWithLogs, recentMessages, localDate);
+  const lscCandidates = buildLscCoachingCandidates(lscExperimentsWithLogs, recentMessages, localDate);
 
   const plan = planCoachingConversation({
     signals: signalsForSelection,
     routerOutcome: rootMapInputs.routerOutcome,
-    experiments: nonCvsExperiments,
+    experiments: nonSourcedExperiments,
     engagementProfile,
     recentMessages,
     asOfLocalDate: localDate,
     cvsCandidates,
+    lscCandidates,
   });
 
   return { plan, recentMessages, localDate };

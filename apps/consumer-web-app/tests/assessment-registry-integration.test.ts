@@ -68,7 +68,7 @@ describe('registry catalog', () => {
     expect(error).toBeNull();
 
     const entries = listAssessmentRegistryEntries();
-    expect(entries).toHaveLength(10);
+    expect(entries).toHaveLength(11);
 
     const dbByKey = new Map((data ?? []).map((row) => [row.key, row.id]));
     expect(dbByKey.size).toBe(entries.length); // no duplicate keys in the DB

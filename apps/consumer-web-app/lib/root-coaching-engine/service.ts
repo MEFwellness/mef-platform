@@ -32,6 +32,7 @@ export type PlanCoachingConversationInput = {
   recentMessages: CoachingMessageRow[];
   asOfLocalDate: string;
   cvsCandidates?: CoachingCandidate[];
+  lscCandidates?: CoachingCandidate[];
 };
 
 export type CoachingConversationPlan = {

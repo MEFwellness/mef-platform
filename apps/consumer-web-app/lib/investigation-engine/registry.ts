@@ -356,6 +356,50 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     reassessmentCadence: { kind: 'member_initiated' },
     commonlyUnlocksNextKeys: [],
   },
+  'life-signal-check': {
+    key: 'life-signal-check',
+    // A listening instrument across six body signals, not a symptom
+    // screener — mapped to the coaching domains those six signals
+    // actually correspond to (energy/recovery, sleep, stress/tension,
+    // digestion, pain/structure, and mood for the "quiet mind" signal).
+    coachingDomains: [
+      'recovery_energy_regulation',
+      'sleep_circadian_rhythm',
+      'stress_nervous_system',
+      'digestion_gut_health',
+      'pain_structural_integrity',
+      'emotional_resilience_mood',
+    ],
+    category: 'core',
+    primaryObjective:
+      'Listen for where a member’s life is speaking the loudest right now, across six signals: energy, sleep, tension, digestion, body, and mind.',
+    whyItExists:
+      "The app's free-tier entry point's second conversation (Experience 2 of 3): finds what's pressing on the member, right after Core Values Snapshot establishes what they're protecting, per the product's own ordering.",
+    unlockTriggers: [{ kind: 'member_initiated' }],
+    requiredPriorInvestigationKeys: ['core-values-snapshot'],
+    optionalPriorInvestigationKeys: [],
+    hypothesesInvestigated: [
+      'Which of six signals (energy, sleep, tension, digestion, body, mind) is loudest for this member right now',
+      'Whether the loudest signal is genuinely adjacent to the value the member said matters most (Body-Value Echo)',
+    ],
+    confidenceContributionDomains: [
+      'recovery_energy_regulation',
+      'sleep_circadian_rhythm',
+      'stress_nervous_system',
+      'digestion_gut_health',
+      'pain_structural_integrity',
+      'emotional_resilience_mood',
+    ],
+    rootModelContribution: {
+      // Deliberately empty — a listening instrument, not a symptom
+      // instrument, so it produces zero Universal Registry findings by
+      // design (see migration 138's own header comment).
+      registryDomains: [],
+      shape: 'narrative_observation',
+    },
+    reassessmentCadence: { kind: 'member_initiated' },
+    commonlyUnlocksNextKeys: [],
+  },
 };
 
 export function getInvestigationMetadata(key: AssessmentKey): InvestigationMetadata {

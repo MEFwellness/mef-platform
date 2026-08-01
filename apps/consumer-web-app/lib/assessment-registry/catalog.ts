@@ -20,7 +20,7 @@
  * path for questionnaire status.
  */
 
-import type { AssessmentDefinition } from './types';
+import type { AssessmentDefinition, AssessmentKey } from './types';
 import { calculateLockReason, describeLockReason, type MemberAssessmentFacts } from './status';
 
 export type CatalogSection = 'assigned' | 'completed' | 'premium' | 'available';
@@ -51,7 +51,8 @@ function isReassessmentDue(facts: MemberAssessmentFacts, now: Date): boolean {
 export function categorizeForCatalog(
   definition: AssessmentDefinition,
   facts: MemberAssessmentFacts,
-  now: Date = new Date()
+  now: Date = new Date(),
+  completedPrerequisiteKeys: ReadonlySet<AssessmentKey> = new Set()
 ): CatalogEntry {
   const isPremium = definition.membership.minLevel !== 'free_trial';
   const comingSoon =
@@ -91,7 +92,7 @@ export function categorizeForCatalog(
     };
   }
 
-  const lockReason = calculateLockReason(definition, facts, new Set());
+  const lockReason = calculateLockReason(definition, facts, completedPrerequisiteKeys);
   const reassessmentDue = isReassessmentDue(facts, now);
   const isCompleted = facts.completionStatus === 'completed' && !reassessmentDue;
 

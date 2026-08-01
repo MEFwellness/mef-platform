@@ -53,6 +53,7 @@ import {
 import { getClientBodyAssessmentsAction } from '@/app/actions/body-assessment';
 import { getClientWbsaSessionsAction } from '@/app/actions/wbsa';
 import { getClientCvsSessionsAction } from '@/app/actions/coreValuesSnapshot';
+import { getClientLscSessionsAction } from '@/app/actions/lifeSignalCheck';
 import { getClientAssessmentAssignments } from '@/app/actions/assessmentAssignments';
 import {
   getClientMovementProfile,
@@ -88,6 +89,7 @@ import { ConversationPanel } from './ConversationPanel';
 import { BodyAssessmentPanel } from './BodyAssessmentPanel';
 import { WbsaPanel } from './WbsaPanel';
 import { CoreValuesSnapshotPanel } from './CoreValuesSnapshotPanel';
+import { LifeSignalCheckPanel } from './LifeSignalCheckPanel';
 import { AssessmentAssignmentPanel } from './AssessmentAssignmentPanel';
 import { MovementProfilePanel } from './MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
@@ -196,6 +198,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     bodyAssessments,
     wbsaSessions,
     cvsSessions,
+    lscSessions,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -228,6 +231,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientBodyAssessmentsAction(profile.id),
     getClientWbsaSessionsAction(profile.id),
     getClientCvsSessionsAction(profile.id),
+    getClientLscSessionsAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -554,6 +558,11 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               Unified Adaptive Assessment Runtime. Same summary-list +
               full-detail-on-its-own-page split as WBSA above. */}
           <CoreValuesSnapshotPanel clientId={profile.id} sessions={cvsSessions} />
+
+          {/* Life Signal Check — free-tier Experience 2, also on the
+              Unified Adaptive Assessment Runtime. Same summary-list +
+              full-detail-on-its-own-page split as Core Values Snapshot above. */}
+          <LifeSignalCheckPanel clientId={profile.id} sessions={lscSessions} />
 
           {/* Movement Profile — permanent movement record + Pending Coach
               Review worklist (Member Exercise Experience & Movement

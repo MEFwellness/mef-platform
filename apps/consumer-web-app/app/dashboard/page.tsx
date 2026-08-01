@@ -65,6 +65,7 @@ import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
 import { CoachingMessageCard } from '@/components/dashboard/CoachingMessageCard';
 import { CvsCheckinCard } from '@/components/dashboard/CvsCheckinCard';
+import { LscCheckinCard } from '@/components/dashboard/LscCheckinCard';
 import { HomeHero } from '@/components/dashboard/HomeHero';
 import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
 import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
@@ -289,6 +290,10 @@ export default async function DashboardPage({
 
                 <Suspense fallback={null}>
                   <CvsCheckinCard />
+                </Suspense>
+
+                <Suspense fallback={null}>
+                  <LscCheckinCard />
                 </Suspense>
 
                 <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />

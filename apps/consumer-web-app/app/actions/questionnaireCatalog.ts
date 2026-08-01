@@ -170,13 +170,21 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
     };
   }
 
+  // Real completed-assessment keys, for the prerequisiteKeys check
+  // categorizeForCatalog's own calculateLockReason performs (e.g. Life
+  // Signal Check requires Core Values Snapshot) — computed once from the
+  // same batched facts query already fetched above, not a new query.
+  const completedPrerequisiteKeys = new Set<AssessmentKey>(
+    [...factsByKey.entries()].filter(([, facts]) => facts.completionStatus === 'completed').map(([key]) => key)
+  );
+
   const cards: CatalogCard[] = [];
 
   for (const entry of entries) {
     const facts = factsByKey.get(entry.key);
     if (!facts) continue;
 
-    const { section, flags } = categorizeForCatalog(entry, facts);
+    const { section, flags } = categorizeForCatalog(entry, facts, new Date(), completedPrerequisiteKeys);
 
     if (entry.key === 'onboarding-health-history') {
       cards.push({

@@ -25,7 +25,10 @@ export type ConversationType =
   | 'experiment_unsuccessful'
   /** Core Values Snapshot's Weekly Experiment day-3/day-7 follow-ups (lib/core-values-snapshot/) — delivered through this same engine's dashboard tile and message ledger, but always arrive with their own `precomposedMessage` (their copy is final/verbatim per that experience's brief) rather than being built from templates.ts. */
   | 'cvs_day3_checkin'
-  | 'cvs_day7_result';
+  | 'cvs_day7_result'
+  /** Life Signal Check's own Weekly Experiment day-3/day-7 follow-ups (lib/life-signal-check/) — same shape and same precomposedMessage discipline as the two above. */
+  | 'lsc_day3_checkin'
+  | 'lsc_day7_result';
 
 /** One thing Root could bring up today, ranked and reasoned — never a random pick. */
 export type CoachingCandidate = {

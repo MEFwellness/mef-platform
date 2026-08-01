@@ -255,6 +255,20 @@ const BUILDERS: Record<ConversationType, Builder> = {
     action: 'Worth a look whenever you have a moment.',
   }),
 
+  // Life Signal Check's day-3/day-7 candidates, same defensive-only shape
+  // as Core Values Snapshot's own two above — its copy is also final,
+  // not template-generated.
+  lsc_day3_checkin: (ctx) => ({
+    observation: `Checking in on ${ctx.topicLabel}.`,
+    explanation: 'A few days into the experiment.',
+    action: 'However it is going is useful information.',
+  }),
+  lsc_day7_result: (ctx) => ({
+    observation: `Seven days with ${ctx.topicLabel}.`,
+    explanation: "Here's what the week's pattern shows.",
+    action: 'Worth a look whenever you have a moment.',
+  }),
+
   experiment_unsuccessful: (ctx) => ({
     observation: pick(
       [
