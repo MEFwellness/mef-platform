@@ -6,11 +6,11 @@ import type { Route } from 'next';
 import { CVS_CARD, CVS_DISPLAY_FONT, CVS_FOREST } from './theme';
 import { GapVisual } from './GapVisual';
 import {
+  buildCvsClosingReinforcement,
   buildGapVisualCopy,
   buildKeyInsightCopy,
   buildS1Observation,
   buildWhatRootLearned,
-  CVS_CLOSING_REINFORCEMENT,
   CVS_HANDOFF,
   CVS_PROGRESS_CARD,
   CVS_RESOURCE_AUDIO_SRC,
@@ -105,14 +105,16 @@ export function ResourceSection({ audioAvailable }: { audioAvailable: boolean })
 export function CloseSection({
   onStartLifeSignalCheck,
   onLater,
+  didStartExperiment,
 }: {
   onStartLifeSignalCheck: () => void;
   onLater: () => void;
+  didStartExperiment: boolean;
 }) {
   return (
     <div className="space-y-4">
       <div className={`${CVS_CARD} mef-animate-in p-7`}>
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{CVS_CLOSING_REINFORCEMENT}</p>
+        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{buildCvsClosingReinforcement(didStartExperiment)}</p>
       </div>
 
       <div className={`${CVS_CARD} mef-animate-in p-7`}>

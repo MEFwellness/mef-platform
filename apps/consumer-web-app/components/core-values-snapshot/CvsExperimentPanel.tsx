@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { CVS_CARD, CVS_DISPLAY_FONT } from './theme';
 import { CvsDay3FollowUp, CvsDay7FollowUp } from './CvsFollowUpCards';
@@ -14,14 +14,26 @@ type Props = {
   topValue: ValueArea;
   scoring: CvsScoring | null;
   initialStatus: CvsExperimentStatus | null;
-  onStarted?: () => void;
+  onStatusChange?: (status: CvsExperimentStatus | null) => void;
 };
 
-/** Beat 5 — the offer/theory screen when no experiment is running yet, plus the daily/day-3/day-7 active states. Shared between the in-flow taker (right after finishing) and the standalone /assessments/core-values-snapshot/experiment page (reached later via the "From Root" day-3/day-7 nudge). */
-export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus }: Props) {
+/** Beat 5 — the offer/theory screen when no experiment is running yet, plus the daily/day-3/day-7 active states. Shared between the in-flow taker (right after finishing), the dashboard's own "start it later" offer, and the standalone /assessments/core-values-snapshot/experiment page (reached later via the "From Root" day-3/day-7 nudge). */
+export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus, onStatusChange }: Props) {
   const [status, setStatus] = useState(initialStatus);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // Bubbles this panel's own status up to a parent that needs to know
+  // (CoreValuesSnapshotTaker.tsx, so the closing screen's copy can
+  // honestly reflect whether an experiment actually started) — its own
+  // effect, not inside setStatus's updater, since calling a parent's
+  // setState from inside a child's state updater triggers React's "Cannot
+  // update a component while rendering a different component" warning
+  // (a real bug caught the same way in Life Signal Check's own panel).
+  useEffect(() => {
+    onStatusChange?.(status);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   if (!status) {
     if (!scoring) return null;

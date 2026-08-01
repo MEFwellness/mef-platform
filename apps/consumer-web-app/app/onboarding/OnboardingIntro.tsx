@@ -1,5 +1,10 @@
 import Image from 'next/image';
 import { EXPECTATIONS_COPY, ONBOARDING_JOURNEY_STEPS } from '@/lib/onboarding/coachCopy';
+import { IntroReveal } from '@/components/IntroReveal';
+import { introRevealFollowUpDelayMs } from '@/lib/introRevealTiming';
+
+const PURPOSE_LINES = EXPECTATIONS_COPY.purpose.split(/(?<=[.!?])\s+/);
+const AFTER_REVEAL_MS = introRevealFollowUpDelayMs(PURPOSE_LINES.length);
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const HEADING =
@@ -44,20 +49,19 @@ export function OnboardingIntro({ onStart }: { onStart: () => void }) {
         </span>
       </div>
 
-      <div
-        className="mef-animate-in mt-7 flex flex-col items-center text-center"
-        style={{ animationDelay: '80ms' }}
-      >
-        <span className="rounded-full bg-[#1B3A2D]/[0.06] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1B3A2D]/70">
-          {EXPECTATIONS_COPY.eyebrow}
-        </span>
-        <h1 className={`${HEADING} mt-4 max-w-[19rem] md:max-w-sm`}>{EXPECTATIONS_COPY.title}</h1>
-        <p className="mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#4F645A]">
-          {EXPECTATIONS_COPY.purpose}
-        </p>
+      <div className="mt-7 flex flex-col items-center text-center">
+        <IntroReveal
+          eyebrow={EXPECTATIONS_COPY.eyebrow}
+          eyebrowClassName="rounded-full bg-[#1B3A2D]/[0.06] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#1B3A2D]/70"
+          title={EXPECTATIONS_COPY.title}
+          titleTag="h1"
+          titleClassName={`${HEADING} mt-4 max-w-[19rem] md:max-w-sm`}
+          lines={PURPOSE_LINES}
+          lineClassName="mx-auto max-w-sm text-[15px] leading-relaxed text-[#4F645A]"
+        />
       </div>
 
-      <div className={`${CARD} mef-animate-in mt-8 p-6 md:p-7`} style={{ animationDelay: '160ms' }}>
+      <div className={`${CARD} mef-animate-in mt-8 p-6 md:p-7`} style={{ animationDelay: `${AFTER_REVEAL_MS}ms` }}>
         {ONBOARDING_JOURNEY_STEPS.map((step, index) => {
           const isCurrent = index === 0;
           return (
@@ -94,7 +98,7 @@ export function OnboardingIntro({ onStart }: { onStart: () => void }) {
 
       <p
         className="mef-animate-in mt-5 text-center text-[13px] text-[#6B7A72]/80"
-        style={{ animationDelay: '220ms' }}
+        style={{ animationDelay: `${AFTER_REVEAL_MS + 60}ms` }}
       >
         {EXPECTATIONS_COPY.timeCaption}
       </p>
@@ -103,7 +107,7 @@ export function OnboardingIntro({ onStart }: { onStart: () => void }) {
         type="button"
         onClick={onStart}
         className="mef-animate-in mef-focus-ring mt-4 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
-        style={{ animationDelay: '260ms' }}
+        style={{ animationDelay: `${AFTER_REVEAL_MS + 100}ms` }}
       >
         {EXPECTATIONS_COPY.cta}
       </button>

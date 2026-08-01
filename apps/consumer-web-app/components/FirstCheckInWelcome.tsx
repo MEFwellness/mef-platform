@@ -1,8 +1,15 @@
 import type { Route } from 'next';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
+import { IntroReveal } from '@/components/IntroReveal';
+import { introRevealFollowUpDelayMs } from '@/lib/introRevealTiming';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const BODY_LINES = [
+  'Root builds everything here (your Daily Brief, your Wellness Index, recovery trends, and daily coaching) from your check-ins.',
+  'Complete your first one and this page starts to come alive.',
+];
+const AFTER_REVEAL_MS = introRevealFollowUpDelayMs(BODY_LINES.length);
 
 /**
  * Premium UX Milestone 2: replaces the pre-first-check-in Dashboard and
@@ -37,21 +44,24 @@ export function FirstCheckInWelcome() {
       <div className="relative mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F5B700]/15">
         <Sparkles className="h-5 w-5 text-[#854D0E]" strokeWidth={1.75} aria-hidden="true" />
       </div>
-      <h2 className="relative mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#1B3A2D] sm:text-3xl">
-        Let&apos;s get started
-      </h2>
-      <p className="relative mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#6B7A72] sm:text-[15px]">
-        Root builds everything here (your Daily Brief, your Wellness Index, recovery trends, and
-        daily coaching) from your check-ins. Complete your first one and this page starts to come
-        alive.
-      </p>
+      <div className="relative">
+        <IntroReveal
+          title="Let's get started"
+          titleClassName="font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#1B3A2D] sm:text-3xl"
+          lines={BODY_LINES}
+          lineClassName="mx-auto max-w-sm text-sm leading-relaxed text-[#6B7A72] sm:text-[15px]"
+        />
+      </div>
       <Link
         href={'/checkin' as Route}
-        className="mef-press relative mt-4 inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
+        className="mef-press mef-fade-in relative mt-4 inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
+        style={{ animationDelay: `${AFTER_REVEAL_MS}ms` }}
       >
         Complete your first check-in
       </Link>
-      <p className="relative mt-2.5 text-xs text-[#6B7A72]">Takes about a minute.</p>
+      <p className="mef-fade-in relative mt-2.5 text-xs text-[#6B7A72]" style={{ animationDelay: `${AFTER_REVEAL_MS + 60}ms` }}>
+        Takes about a minute.
+      </p>
     </section>
   );
 }

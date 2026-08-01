@@ -160,8 +160,20 @@ export const CVS_RESOURCE_FULL_PIECE = `Every January, millions of people build 
 
 export const CVS_RESOURCE_AUDIO_SRC = '/audio/values-before-habits.mp3';
 
-export const CVS_CLOSING_REINFORCEMENT =
-  "One more thing before you go. Most people run on autopilot for years without ever naming what they're actually protecting. You just did it in about seven minutes, and you've already got an experiment running to prove it. Whatever the next seven days look like, that's a starting line most people never draw. That counts.";
+/**
+ * Branches on whether the member actually started the Weekly Experiment
+ * (Root's accuracy rule: never claim something isn't true for this
+ * member) — mirrors Life Signal Check's own buildLscClosingReinforcement
+ * fix. Real bug this replaces: the old single, unconditional line always
+ * claimed an experiment was running, even for a member blocked by the
+ * active-experiment cap or who simply declined to start one.
+ */
+export function buildCvsClosingReinforcement(didStartExperiment: boolean): string {
+  if (didStartExperiment) {
+    return "One more thing before you go. Most people run on autopilot for years without ever naming what they're actually protecting. You just did it in about seven minutes, and you've already got an experiment running to prove it. Whatever the next seven days look like, that's a starting line most people never draw. That counts.";
+  }
+  return "One more thing before you go. Most people run on autopilot for years without ever naming what they're actually protecting. You just did it in about seven minutes, and that's a starting line most people never draw, whether or not you start the experiment today. It'll be waiting on your dashboard whenever you're ready.";
+}
 
 export const CVS_PROGRESS_CARD = {
   heading: 'Conversation 1 of 3: complete ✓',

@@ -204,6 +204,41 @@ export async function startCvsExperimentAction(
   return { ok: true, experiment };
 }
 
+export type CvsOffer = { sessionId: string; scoring: CvsScoring };
+
+/**
+ * The member's most recently completed Core Values Snapshot session, only
+ * when they have never started (or no longer have) an experiment tied to
+ * it — mirrors Life Signal Check's own getMyLscOfferAction. Used by the
+ * dashboard card (CvsCheckinCard.tsx) to give a member who was blocked by
+ * the active-experiment cap, or who simply declined at the time, a real
+ * way to start the Weekly Experiment later.
+ */
+export async function getMyCvsOfferAction(): Promise<CvsOffer | null> {
+  const memberId = await requireMemberId();
+  if (!memberId) return null;
+
+  const supabase = createClient();
+  const definition = await getUnifiedAssessmentDefinitionByKey(supabase, CVS_KEY);
+  if (!definition) return null;
+
+  const { data } = await supabase
+    .from('unified_assessment_sessions')
+    .select('id')
+    .eq('member_id', memberId)
+    .eq('assessment_definition_id', definition.id)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+
+  const session = await getSessionById(supabase, data.id as string);
+  if (!session) return null;
+
+  return { sessionId: session.id, scoring: computeCvsScoring(session.answers) };
+}
+
 export type CvsExperimentStatus = {
   experiment: LifestyleExperiment;
   todayLocalDate: string;

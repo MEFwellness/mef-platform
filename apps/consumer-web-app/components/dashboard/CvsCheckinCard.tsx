@@ -10,11 +10,16 @@
  * components/dashboard/CoachingMessageCard.tsx and its neighbors — reuses
  * the exact same question/reflection components the experiment page
  * itself renders (CvsFollowUpCards.tsx), not a second hand-kept copy.
+ *
+ * When the member has never started (or no longer has) a Core Values
+ * Snapshot experiment, this renders a real "start it later" offer instead
+ * of disappearing — mirrors Life Signal Check's own LscCheckinCard.tsx fix.
  */
 
-import { getMyCvsExperimentStatusAction } from '@/app/actions/coreValuesSnapshot';
+import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from '@/app/actions/coreValuesSnapshot';
 import { getMyRootPopupDismissalAction } from '@/app/actions/rootPopupMessages';
 import { CvsDay3FollowUp, CvsDay7FollowUp } from '@/components/core-values-snapshot/CvsFollowUpCards';
+import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperimentPanel';
 import { resolveCvsCheckinPending } from '@/lib/core-values-snapshot/experiment';
 import { cvsPopupMessageKey } from '@/lib/root-popup-messages/data';
 
@@ -22,7 +27,18 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
 
 export async function CvsCheckinCard() {
   const status = await getMyCvsExperimentStatusAction();
-  if (!status) return null;
+  if (!status) {
+    const offer = await getMyCvsOfferAction();
+    if (!offer) return null;
+    return (
+      <CvsExperimentPanel
+        sessionId={offer.sessionId}
+        topValue={offer.scoring.topValue}
+        scoring={offer.scoring}
+        initialStatus={null}
+      />
+    );
+  }
 
   const pending = resolveCvsCheckinPending({
     isDay3Eligible: status.isDay3Eligible,

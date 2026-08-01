@@ -21,7 +21,8 @@ import { generateQ12Options } from '@/lib/core-values-snapshot/q12';
 import { seededShuffle } from '@/lib/core-values-snapshot/randomize';
 import { CVS_INTRO_COPY, CVS_Q12_PROMPT, CVS_SCREEN2_INTRO } from '@/lib/core-values-snapshot/copy';
 import type { CvsScoring } from '@/lib/core-values-snapshot/types';
-import { IntroReveal, introRevealFollowUpDelayMs } from '@/components/IntroReveal';
+import { IntroReveal } from '@/components/IntroReveal';
+import { introRevealFollowUpDelayMs } from '@/lib/introRevealTiming';
 import { ExperienceHomeLink } from '@/components/ExperienceHomeLink';
 import { CVS_CARD, CVS_DISPLAY_FONT } from './theme';
 import { Q12Choice, ScaleBattery, SingleSelectQuestion, type CvsOption } from './CvsQuestionCards';
@@ -174,6 +175,10 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
     (k) => answers[k] !== undefined
   ).length;
   const showQuestionChrome = beat === 'screen1' || beat === 'screen2' || beat === 'screen3';
+  // Whether the member actually started the Weekly Experiment tied to
+  // *this* session — drives the closing screen's honest copy branch (Root
+  // never claims an experiment is running when nothing started).
+  const didStartExperiment = experimentStatus !== null && experimentStatus.experiment.sourceSessionId === sessionId;
 
   return (
     <div>
@@ -314,6 +319,7 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
             topValue={scoring.topValue}
             scoring={scoring}
             initialStatus={experimentStatus}
+            onStatusChange={setExperimentStatus}
           />
           <div className="mt-5">
             <button
@@ -347,6 +353,7 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
           <CloseSection
             onStartLifeSignalCheck={() => router.push('/assessments/life-signal-check' as Route)}
             onLater={() => router.push('/dashboard' as Route)}
+            didStartExperiment={didStartExperiment}
           />
           {narrativeItems.length > 0 && (
             <div className={`${CVS_CARD} mef-animate-in mt-4 p-7`}>
