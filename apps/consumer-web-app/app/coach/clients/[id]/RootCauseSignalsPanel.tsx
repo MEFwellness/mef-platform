@@ -37,7 +37,7 @@ export function RootCauseSignalsPanel({ signals }: { signals: RootCauseSignalsVi
         <p className="text-sm font-semibold uppercase tracking-wider">Root Cause Signals</p>
       </div>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        Cross-assessment findings, patterns, and suggested next steps — coaching signals only, never
+        Cross-assessment findings, patterns, and suggested next steps, coaching signals only, never
         a diagnosis.
       </p>
 

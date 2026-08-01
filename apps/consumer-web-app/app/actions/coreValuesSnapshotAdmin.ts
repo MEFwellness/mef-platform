@@ -165,7 +165,7 @@ export async function shiftCvsExperimentAction(
   if (!experiment) {
     return {
       ok: false,
-      error: 'This member has no Core Values Snapshot experiment yet — have them complete the assessment and tap "I\'m in" first.',
+      error: 'This member has no Core Values Snapshot experiment yet, have them complete the assessment and tap "I\'m in" first.',
     };
   }
 
@@ -220,6 +220,6 @@ export async function shiftCvsExperimentAction(
 
   return {
     ok: true,
-    summary: `Shifted "${experiment.title}" to day ${targetDay} (start date now ${newStart}).${seededSummary} Reload the member's dashboard — the day-${targetDay} message should appear on the "From Root" tile.`,
+    summary: `Shifted "${experiment.title}" to day ${targetDay} (start date now ${newStart}).${seededSummary} Reload the member's dashboard: the day-${targetDay} check-in should appear as its own "From Root" card in the Today section.`,
   };
 }

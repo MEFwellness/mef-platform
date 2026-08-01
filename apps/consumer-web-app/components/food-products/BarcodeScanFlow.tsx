@@ -121,7 +121,7 @@ export function BarcodeScanFlow() {
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
           Point your camera at a product&apos;s barcode and Root will look up its nutrition facts
-          and ingredients, then walk through what actually matters for you — never just one nutrient
+          and ingredients, then walk through what actually matters for you, never just one nutrient
           in isolation.
         </p>
         <div className="mt-4 flex items-start gap-2 rounded-2xl bg-[#1B3A2D]/[0.04] p-3">
@@ -131,7 +131,7 @@ export function BarcodeScanFlow() {
             aria-hidden="true"
           />
           <p className="text-xs leading-relaxed text-[#6B7A72]">
-            Only the decoded barcode number leaves your device — no camera image is uploaded for
+            Only the decoded barcode number leaves your device. No camera image is uploaded for
             this scan type.
           </p>
         </div>
@@ -154,7 +154,7 @@ export function BarcodeScanFlow() {
         </p>
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
           This barcode isn&apos;t in our database yet. You can try scanning again, enter a different
-          barcode, or take a photo of the product for a future review — we never guess at a
+          barcode, or take a photo of the product for a future review. We never guess at a
           product&apos;s nutrition facts from the barcode number alone.
         </p>
         <div className="mt-4 flex flex-col gap-2.5">

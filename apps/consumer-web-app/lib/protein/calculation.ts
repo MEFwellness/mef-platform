@@ -26,7 +26,7 @@ export const ACTIVITY_LEVELS: ActivityLevelOption[] = [
     key: 'general_wellness',
     multiplier: 1.0,
     label: 'Low activity, general wellness',
-    description: "You're not doing structured exercise most days — your focus right now is overall health, not training.",
+    description: "You're not doing structured exercise most days. Your focus right now is overall health, not training.",
   },
   {
     key: 'regular_movement',

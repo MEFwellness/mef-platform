@@ -125,7 +125,7 @@ export default async function FoodLensPage() {
           One number we count. Everything else, we coach.
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#4F645A]">
-          However you&apos;d like to log it, Root walks through what actually matters — never a
+          However you&apos;d like to log it, Root walks through what actually matters, never a
           nutrient in isolation.
         </p>
 
@@ -267,7 +267,7 @@ export default async function FoodLensPage() {
           {scans.length === 0 ? (
             <div className={`${CARD} p-6`}>
               <p className="text-sm text-[#6B7A72]">
-                No scans yet — choose an option above to get your first read.
+                No scans yet. Choose an option above to get your first read.
               </p>
             </div>
           ) : (

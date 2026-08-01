@@ -75,15 +75,15 @@ export function buildAdaptiveNote(suggestedAction: string, level: AdherenceLevel
   if (level === 'low') {
     if (original !== null && original > 2) {
       const easier = Math.max(2, Math.min(original - 1, Math.round(original / 2)));
-      return `Consistency has been tough lately — a smaller version is enough today: try about ${easier} minute${easier === 1 ? '' : 's'} instead.`;
+      return `Consistency has been tough lately. A smaller version is enough today: try about ${easier} minute${easier === 1 ? '' : 's'} instead.`;
     }
-    return 'Consistency has been tough lately — an easier version is enough today. Just starting counts.';
+    return 'Consistency has been tough lately. An easier version is enough today. Just starting counts.';
   }
 
   // level === 'high'
   if (original !== null) {
     const stretch = original + Math.max(2, Math.round(original * 0.3));
-    return `You've been consistent lately — if it feels right today, try stretching it to about ${stretch} minutes.`;
+    return `You've been consistent lately, if it feels right today, try stretching it to about ${stretch} minutes.`;
   }
-  return "You've been consistent lately — if today feels good, feel free to push a little further than usual.";
+  return "You've been consistent lately, if today feels good, feel free to push a little further than usual.";
 }

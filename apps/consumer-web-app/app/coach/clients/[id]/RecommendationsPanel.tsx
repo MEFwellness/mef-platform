@@ -68,7 +68,7 @@ export function RecommendationsPanel({
       </p>
       <p className="mt-1 text-xs text-[#6B7A72]">
         What the Recommendation Engine has surfaced for this member, why, and what they&apos;ve
-        done with it — never a diagnosis.
+        done with it, never a diagnosis.
       </p>
 
       {recommendations.length > 0 && (

@@ -123,7 +123,7 @@ function rapidImprovementAlerts(trends: LongitudinalTrend[]): CoachAlertDraft[] 
       alertType: 'rapid_improvement' as const,
       severity: 'info' as const,
       title: `${areaLabel(t.area)} improving rapidly`,
-      reason: `${areaLabel(t.area)} has improved sharply over the last 30 days (${Math.round(t.confidence * 100)}% confidence) — a good moment to acknowledge this with the member.`,
+      reason: `${areaLabel(t.area)} has improved sharply over the last 30 days (${Math.round(t.confidence * 100)}% confidence), a good moment to acknowledge this with the member.`,
       alertKey: `rapid_improvement_${t.area}`,
       evidenceRefs: t.evidenceRefs,
       sourceRefs: [],
@@ -216,9 +216,9 @@ function medicalEvaluationRecommendedAlerts(
         {
           alertType: 'medical_evaluation_recommended' as const,
           severity: 'notable' as const,
-          title: 'Sustained pain pattern — consider a medical evaluation',
+          title: 'Sustained pain pattern: consider a medical evaluation',
           reason:
-            'Pain/discomfort has been a sustained, strong concern across both the last 30 and prior 30 days — worth suggesting the member speak with a healthcare provider, never a diagnosis from this app.',
+            'Pain/discomfort has been a sustained, strong concern across both the last 30 and prior 30 days, worth suggesting the member speak with a healthcare provider, never a diagnosis from this app.',
           alertKey: 'medical_evaluation_sustained_pain',
           evidenceRefs: painTrend.evidenceRefs,
           sourceRefs: [],

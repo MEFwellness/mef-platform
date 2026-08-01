@@ -21,7 +21,7 @@ export function buildCvsNarrativeDrafts(sessionId: string, scoring: CvsScoring):
     {
       category: 'primary_priorities',
       title: 'What matters most, from the Core Values Snapshot',
-      summary: `${top} is your top value, based on everything you answered — ${runner} is the runner-up.`,
+      summary: `${top} is your top value, based on everything you answered. ${runner} is the runner-up.`,
       provenance: 'member_reported',
       confidence: 0.8,
       memberVisible: true,
@@ -32,7 +32,7 @@ export function buildCvsNarrativeDrafts(sessionId: string, scoring: CvsScoring):
       title: `Attention gap on ${top}`,
       summary:
         scoring.branch === 'aligned'
-          ? `${top} rated ${att}/5 for attention — aligned, attention matches values.`
+          ? `${top} rated ${att}/5 for attention: aligned, attention matches values.`
           : `${top} rated ${att}/5 for attention.`,
       provenance: 'inferred',
       confidence: 0.7,
@@ -55,7 +55,7 @@ export function buildCvsNarrativeDrafts(sessionId: string, scoring: CvsScoring):
     drafts.push({
       category: 'unresolved_concerns',
       title: `Guilt about ${guiltAreaLabel} despite showing up`,
-      summary: `Feels guilty about ${guiltAreaLabel} despite showing up for it — open question.`,
+      summary: `Feels guilty about ${guiltAreaLabel} despite showing up for it (open question).`,
       provenance: 'inferred',
       confidence: 0.6,
       memberVisible: true,

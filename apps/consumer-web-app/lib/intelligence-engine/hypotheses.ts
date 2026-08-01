@@ -96,7 +96,7 @@ function plateauHypothesis(patterns: PatternInsight[]): RootCauseHypothesis | nu
 
   return {
     id: `plateau_strategy_${plateau.key}`,
-    statement: `${plateau.label} — the current coaching approach for this area may have reached its ceiling and could benefit from a different strategy.`,
+    statement: `${plateau.label}: the current coaching approach for this area may have reached its ceiling and could benefit from a different strategy.`,
     confidence,
     knownFacts: [plateau.description],
     likelyPatterns: [
@@ -152,7 +152,7 @@ function consistencyBarrierHypothesis(
       'This could be a short, temporary dip rather than a stable pattern.',
     ],
     recommendedCoachingDirection:
-      'Ask directly what has been getting in the way, rather than assuming the cause — this data can only show that something is, not what.',
+      'Ask directly what has been getting in the way, rather than assuming the cause. This data can only show that something is, not what.',
   };
 }
 
@@ -170,7 +170,7 @@ export function buildRootCauseHypotheses(
       'Explore stress-reduction and sleep hygiene together in the same conversation rather than as two separate topics.',
       [
         'An unrelated third factor (a life event, a schedule change) could be driving both independently.',
-        'The relationship could run in only one direction rather than both — the data alone cannot establish which.',
+        'The relationship could run in only one direction rather than both. The data alone cannot establish which.',
       ]
     ),
     pairedDeclineHypothesis(
@@ -181,14 +181,14 @@ export function buildRootCauseHypotheses(
       'Favor gentle, pain-aware movement options and suggest checking with a healthcare provider if discomfort persists or worsens.',
       [
         'The reduced movement could be caused by something unrelated to pain (schedule, motivation, weather).',
-        'The pain could have a cause entirely outside this app’s scope — never something to diagnose here.',
+        'The pain could have a cause entirely outside this app’s scope, never something to diagnose here.',
       ]
     ),
     pairedDeclineHypothesis(
       trends,
       'stress',
       'digestion',
-      'Elevated stress may be contributing to digestive discomfort — a well-established but individually variable connection.',
+      'Elevated stress may be contributing to digestive discomfort, a well-established but individually variable connection.',
       'Pair stress-reduction suggestions with digestion coaching rather than treating them as unrelated.',
       [
         'Digestive changes could stem from diet or another factor unrelated to stress.',

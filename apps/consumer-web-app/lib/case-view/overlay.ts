@@ -50,7 +50,7 @@ export function buildOverlaySeries(
     lagOffsetDays,
     lagNote:
       lagOffsetDays === 1
-        ? `${driverLabel} is shown one day earlier than ${outcomeLabel.toLowerCase()} — this relationship is strongest when it leads by a day.`
+        ? `${driverLabel} is shown one day earlier than ${outcomeLabel.toLowerCase()}: this relationship is strongest when it leads by a day.`
         : null,
   };
 }

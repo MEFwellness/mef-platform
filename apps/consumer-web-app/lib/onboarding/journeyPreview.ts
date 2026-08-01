@@ -40,26 +40,26 @@ const PERSONALIZED_CHAPTER: Record<JourneyGroup, (focus: string | null) => Journ
   body_movement: (focus) => ({
     title: 'Movement & Posture Analysis',
     body: focus
-      ? `Because you mentioned ${focus}, movement and posture patterns are where we'll look closely first — small mechanical patterns often explain more than they get credit for.`
-      : "Movement and posture patterns are where we'll look closely first — small mechanical patterns often explain more than they get credit for.",
+      ? `Because you mentioned ${focus}, movement and posture patterns are where we'll look closely first: small mechanical patterns often explain more than they get credit for.`
+      : "Movement and posture patterns are where we'll look closely first: small mechanical patterns often explain more than they get credit for.",
   }),
   mind_energy: (focus) => ({
     title: 'Pattern Recognition',
     body: focus
-      ? `Because you mentioned ${focus}, we'll start watching how your stress, sleep, and energy move together over time — instead of looking at each one in isolation.`
-      : "We'll start watching how your stress, sleep, and energy move together over time — instead of looking at each one in isolation.",
+      ? `Because you mentioned ${focus}, we'll start watching how your stress, sleep, and energy move together over time, instead of looking at each one in isolation.`
+      : "We'll start watching how your stress, sleep, and energy move together over time, instead of looking at each one in isolation.",
   }),
   lifestyle: (focus) => ({
     title: 'Lifestyle Insights',
     body: focus
-      ? `Because you mentioned ${focus}, we'll start connecting what you eat, how you move, and how you feel — the everyday patterns behind it.`
-      : "We'll start connecting what you eat, how you move, and how you feel — the everyday patterns behind how you feel.",
+      ? `Because you mentioned ${focus}, we'll start connecting what you eat, how you move, and how you feel: the everyday patterns behind it.`
+      : "We'll start connecting what you eat, how you move, and how you feel: the everyday patterns behind how you feel.",
   }),
   broad: (focus) => ({
     title: 'Root Score',
     body: focus
-      ? `Since you're focused on ${focus}, your Root Score will start pulling every domain — sleep, stress, movement, digestion — into one number you can actually watch move over time.`
-      : 'Your Root Score pulls every domain — sleep, stress, movement, digestion — into one number you can actually watch move over time.',
+      ? `Since you're focused on ${focus}, your Root Score will start pulling every domain (sleep, stress, movement, digestion) into one number you can actually watch move over time.`
+      : 'Your Root Score pulls every domain (sleep, stress, movement, digestion) into one number you can actually watch move over time.',
   }),
 };
 
@@ -77,12 +77,12 @@ export function buildJourneyPreview(answers: OnboardingAnswerInput[]): JourneyPr
   return {
     timeline: {
       title: 'Your Wellness Timeline begins today',
-      body: "Today's reflection becomes the very first entry — and what your Root Score starts learning from as you check in over the next few weeks.",
+      body: "Today's reflection becomes the very first entry, and what your Root Score starts learning from as you check in over the next few weeks.",
     },
     personalized: PERSONALIZED_CHAPTER[group](focus),
     checkins: {
       title: 'Daily Check-ins',
-      body: 'A quick Morning Readiness and Evening Reflection each day is how the picture keeps building — a couple of minutes that turn one assessment into an ongoing conversation.',
+      body: 'A quick Morning Readiness and Evening Reflection each day is how the picture keeps building: a couple of minutes that turn one assessment into an ongoing conversation.',
     },
     closing:
       'From here, guided reassessments track what actually changes, your coach uses all of it to personalize your plan, and progress tracking brings the whole picture together in one place.',

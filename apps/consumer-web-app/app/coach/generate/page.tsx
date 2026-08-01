@@ -55,7 +55,7 @@ export default async function GenerateEntryPage() {
               <Dumbbell className="h-5 w-5 text-[#854D0E]" strokeWidth={1.75} aria-hidden="true" />
               <div>
                 <p className="text-base font-semibold text-[#1B3A2D]">Generate a Workout</p>
-                <p className="mt-0.5 text-xs text-[#6B7A72]">One session — muscle group, equipment, difficulty.</p>
+                <p className="mt-0.5 text-xs text-[#6B7A72]">One session: muscle group, equipment, difficulty.</p>
               </div>
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
@@ -69,7 +69,7 @@ export default async function GenerateEntryPage() {
               <CalendarRange className="h-5 w-5 text-[#854D0E]" strokeWidth={1.75} aria-hidden="true" />
               <div>
                 <p className="text-base font-semibold text-[#1B3A2D]">Generate a Program</p>
-                <p className="mt-0.5 text-xs text-[#6B7A72]">Multi-week — goal and number of weeks.</p>
+                <p className="mt-0.5 text-xs text-[#6B7A72]">Multi-week: goal and number of weeks.</p>
               </div>
             </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />

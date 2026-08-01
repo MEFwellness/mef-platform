@@ -30,11 +30,11 @@ export type ReplicationMatchState = {
 };
 
 function formatDegrees(value: number | null): string {
-  return value === null ? '—' : `${value.toFixed(1)}°`;
+  return value === null ? '-' : `${value.toFixed(1)}°`;
 }
 
 function formatPercent(value: number | null): string {
-  return value === null ? '—' : `${Math.round(value * 100)}%`;
+  return value === null ? '-' : `${Math.round(value * 100)}%`;
 }
 
 function MatchDot({ matched }: { matched: boolean | null }) {

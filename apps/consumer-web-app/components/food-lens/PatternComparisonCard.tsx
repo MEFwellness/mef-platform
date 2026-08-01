@@ -70,7 +70,7 @@ export function PatternComparisonCard({
       )}
 
       <p className="mt-4 text-[11px] leading-relaxed text-[#6B7A72]">
-        This reflects one meal, not a verdict on your overall eating — and it&apos;s built from AI
+        This reflects one meal, not a verdict on your overall eating, and it&apos;s built from AI
         estimates, not exact measurements.
       </p>
     </div>

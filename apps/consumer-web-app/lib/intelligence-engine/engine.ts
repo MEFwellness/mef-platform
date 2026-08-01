@@ -80,7 +80,7 @@ const ATTENTION_LEVEL_REASON: Record<AttentionLevel, (area: WellnessArea | null)
         : 'A concern reached important severity and warrants direct coach attention.',
     discuss: (area) =>
       area ? `${areaLabel(area)} is worth raising directly at the next session.` : null,
-    monitor: () => 'Nothing urgent — worth keeping an eye on.',
+    monitor: () => 'Nothing urgent, worth keeping an eye on.',
     none: () => null,
   };
 

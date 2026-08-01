@@ -22,7 +22,7 @@ export const SHORT_HAQ_COPY: AssessmentCopy = {
   listDescription:
     'A brief MEF Wellness check-in across digestion, energy, sleep, stress, immunity, movement, circulation, focus, and hormonal balance.',
   welcomeSubtitle:
-    'A short, whole-body check-in across nine everyday wellness areas. Answer honestly about how often each pattern shows up for you — there are no right answers, just a clearer picture of where to focus next.',
+    'A short, whole-body check-in across nine everyday wellness areas. Answer honestly about how often each pattern shows up for you. There are no right answers, just a clearer picture of where to focus next.',
   estimatedMinutes: 12,
   categoryCopy: {
     digestive_wellness: {
@@ -35,7 +35,7 @@ export const SHORT_HAQ_COPY: AssessmentCopy = {
     energy_and_fatigue: {
       shortLabel: 'energy',
       shortDescription:
-        'Your everyday energy levels — whether they hold steady through the day or dip and crash.',
+        'Your everyday energy levels: whether they hold steady through the day or dip and crash.',
       coachingFocus:
         'A consistent sleep and meal rhythm tends to smooth out energy dips faster than any single supplement or stimulant.',
     },
@@ -72,7 +72,7 @@ export const SHORT_HAQ_COPY: AssessmentCopy = {
       shortDescription:
         'Signs related to your heart and circulation: resting heart rhythm, temperature regulation, and everyday breathlessness.',
       coachingFocus:
-        'Regular movement and hydration are the most direct everyday levers here — flag anything that feels sudden or severe to a healthcare provider right away.',
+        'Regular movement and hydration are the most direct everyday levers here. Flag anything that feels sudden or severe to a healthcare provider right away.',
     },
     cognitive_clarity: {
       shortLabel: 'cognitive clarity',
@@ -86,7 +86,7 @@ export const SHORT_HAQ_COPY: AssessmentCopy = {
       shortDescription:
         'Everyday signs your hormonal patterns may be shifting: temperature regulation, libido, and cycle- or life-stage-related changes.',
       coachingFocus:
-        'This category reflects patterns that are worth tracking over time — consistent sleep and stress recovery support hormonal balance broadly, and a healthcare provider is the right resource for anything that feels significant.',
+        'This category reflects patterns that are worth tracking over time. Consistent sleep and stress recovery support hormonal balance broadly, and a healthcare provider is the right resource for anything that feels significant.',
     },
   },
 };

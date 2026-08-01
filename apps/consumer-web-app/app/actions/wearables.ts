@@ -47,7 +47,7 @@ export async function connectWearableProvider(
   const connection = await upsertWearableConnection(supabase, user.id, provider, {
     providerConfigured: isWearableProviderConfigured(provider),
   });
-  if (!connection) return { error: 'Could not connect right now — please try again.' };
+  if (!connection) return { error: 'Could not connect right now. Please try again.' };
 
   // Best-effort first sync right after connecting — same "never let a
   // best-effort side path affect the primary result" discipline as every
@@ -76,7 +76,7 @@ export async function disconnectWearableProviderAction(
   }
 
   const ok = await disconnectWearableConnection(supabase, connectionId);
-  if (!ok) return { error: 'Could not disconnect right now — please try again.' };
+  if (!ok) return { error: 'Could not disconnect right now. Please try again.' };
   return {};
 }
 

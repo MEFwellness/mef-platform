@@ -100,7 +100,7 @@ const CORRELATION_PATTERNS: CorrelationPattern[] = [
   {
     concerns: ['stress', 'digestion', 'weight'],
     matches: (v) => v.stress !== null && v.stress >= 4 && v.digestion !== null && v.digestion <= 2,
-    text: 'You shared that stress tends to run high for you, while also describing your digestion as a struggle lately. Those two often move together — worth exploring further.',
+    text: 'You shared that stress tends to run high for you, while also describing your digestion as a struggle lately. Those two often move together, worth exploring further.',
   },
   {
     concerns: ['stress', 'energy', 'performance'],
@@ -111,7 +111,7 @@ const CORRELATION_PATTERNS: CorrelationPattern[] = [
     concerns: ['sleep', 'energy', 'performance'],
     matches: (v) =>
       v.energy !== null && v.energy <= 2 && v.sleepQuality !== null && v.sleepQuality <= 2,
-    text: 'You shared that both your sleep quality and your energy have been on the lower side. Those two are closely connected — improving one often lifts the other.',
+    text: 'You shared that both your sleep quality and your energy have been on the lower side. Those two are closely connected: improving one often lifts the other.',
   },
   {
     concerns: ['pain', 'movement', 'healthy_aging'],
@@ -163,16 +163,16 @@ function findCorrelationText(answers: OnboardingAnswerInput[]): string | null {
  * one sentence instead of two abrupt ones stacked together.
  */
 const TIER_CLAUSE: Record<GuestObservationTier, string> = {
-  steady: 'a lot of this already looks fairly steady — a good foundation to build on.',
+  steady: 'a lot of this already looks fairly steady, a good foundation to build on.',
   mixed: 'a few areas look like they could use some attention, alongside some that seem steady.',
-  stretched: 'a few areas seem notably stretched right now — worth paying closer attention to.',
+  stretched: 'a few areas seem notably stretched right now, worth paying closer attention to.',
 };
 
 const WHY_IT_MATTERS: Record<GuestObservationTier, string> = {
   steady:
-    "Patterns like this are worth tracking even when things feel good — knowing where you're starting from is what makes it possible to notice small shifts before they become bigger ones.",
+    "Patterns like this are worth tracking even when things feel good: knowing where you're starting from is what makes it possible to notice small shifts before they become bigger ones.",
   mixed:
-    "Noticing where things stand today gives us a real starting point. Tracking a pattern like this over time — not just once — is how we start to tell what's actually helping.",
+    "Noticing where things stand today gives us a real starting point. Tracking a pattern like this over time (not just once) is how we start to tell what's actually helping.",
   stretched:
     "Naming a pattern is the first step toward changing it. Paying attention to this over time, not just today, is how real shifts tend to happen.",
 };
@@ -216,7 +216,7 @@ export function buildGuestOnboardingObservation(
   const observation = correlationText
     ? correlationText
     : concernPhrase
-      ? `You told us ${concernPhrase} is what brought you here today — and ${TIER_CLAUSE[tier]}`
+      ? `You told us ${concernPhrase} is what brought you here today, and ${TIER_CLAUSE[tier]}`
       : `Based on what you've shared so far, ${TIER_CLAUSE[tier]}`;
 
   return {
@@ -225,6 +225,6 @@ export function buildGuestOnboardingObservation(
     observation,
     whyItMatters: WHY_IT_MATTERS[tier],
     disclaimer:
-      'This is an early, non-diagnostic reflection based only on what you just shared — not a diagnosis or medical advice.',
+      'This is an early, non-diagnostic reflection based only on what you just shared, not a diagnosis or medical advice.',
   };
 }

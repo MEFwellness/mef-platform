@@ -40,7 +40,7 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     ],
     category: 'core',
     primaryObjective:
-      "Populate the member's first Root Map — breadth over depth, across every domain at once.",
+      "Populate the member's first Root Map: breadth over depth, across every domain at once.",
     whyItExists:
       'The one mandatory instrument; without it nothing else in the library can unlock (the blanket safety gate every Focused investigation shares).',
     unlockTriggers: [],
@@ -252,7 +252,7 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     ],
     category: 'multi_domain_screener',
     primaryObjective:
-      'A whole-body check-in across 16 connected functional systems — digestive, metabolic, immune, respiratory, circulatory, renal, thyroid, adrenal, reproductive, neurological, musculoskeletal, dermatological, nutrient, and recovery patterns.',
+      'A whole-body check-in across 16 connected functional systems: digestive, metabolic, immune, respiratory, circulatory, renal, thyroid, adrenal, reproductive, neurological, musculoskeletal, dermatological, nutrient, and recovery patterns.',
     whyItExists:
       'The first real content on the Unified Adaptive Assessment Runtime; gives the Root Router the widest simultaneous body-system signal of any live instrument.',
     unlockTriggers: [{ kind: 'member_initiated' }],
@@ -296,7 +296,7 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     coachingDomains: [],
     category: 'behavioral_readiness',
     primaryObjective:
-      'Stage-of-change and behavior-change readiness — how much new coaching load the member can take on right now.',
+      'Stage-of-change and behavior-change readiness: how much new coaching load the member can take on right now.',
     whyItExists: "Pacing to Capacity, not just to what a domain's severity alone would support.",
     unlockTriggers: [{ kind: 'member_initiated' }],
     requiredPriorInvestigationKeys: ['onboarding-health-history'],
@@ -315,7 +315,7 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     // No content designed yet — catalog placeholder only.
     coachingDomains: [],
     category: 'single_domain_deep_dive',
-    primaryObjective: 'Not yet designed — Coming Soon catalog placeholder.',
+    primaryObjective: 'Not yet designed. Coming Soon catalog placeholder.',
     whyItExists: 'Not yet designed.',
     unlockTriggers: [{ kind: 'member_initiated' }],
     requiredPriorInvestigationKeys: ['onboarding-health-history'],
@@ -337,7 +337,7 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     primaryObjective:
       'Surface which of six value areas (health, relationships, growth, purpose, freedom, peace) matters most to a member right now, and whether their reported last two weeks actually protected it.',
     whyItExists:
-      "The app's new free-tier entry point (Experience 1 of 3) — establishes what a member is protecting before any symptom or body-system content, per the product's own ordering.",
+      "The app's new free-tier entry point (Experience 1 of 3): establishes what a member is protecting before any symptom or body-system content, per the product's own ordering.",
     unlockTriggers: [{ kind: 'member_initiated' }],
     requiredPriorInvestigationKeys: [],
     optionalPriorInvestigationKeys: [],

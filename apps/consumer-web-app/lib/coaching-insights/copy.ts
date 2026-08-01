@@ -142,7 +142,7 @@ export function repeatedMomentumStatement(matches: number, total: number): strin
 export function proteinHydrationEnergyWatchStatement(matchingDays: number): string {
   return (
     `On days when your meals read lighter in protein and your hydration is lower, ` +
-    `you tend to report lower afternoon energy — this showed up on ${matchingDays} separate days.`
+    `you tend to report lower afternoon energy. This showed up on ${matchingDays} separate days.`
   );
 }
 

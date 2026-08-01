@@ -33,7 +33,7 @@ export function MovementSessionControls({
   }
 
   if (status === 'completed') {
-    return <p className="text-sm font-medium text-green-700">Session completed — nice work.</p>;
+    return <p className="text-sm font-medium text-green-700">Session completed. Nice work.</p>;
   }
 
   if (status === 'skipped') {

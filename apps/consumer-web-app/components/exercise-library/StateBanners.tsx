@@ -45,7 +45,7 @@ const ERROR_COPY: Record<string, { title: string; tone: string }> = {
     tone: 'bg-[#EFF6F1] border-[#1B3A2D]/15 text-[#6B7A72]',
   },
   NETWORK_ERROR: {
-    title: 'Network error — check your connection and try again',
+    title: 'Network error: check your connection and try again',
     tone: 'bg-red-50 border-red-200 text-red-800',
   },
   INTERNAL_ERROR: {

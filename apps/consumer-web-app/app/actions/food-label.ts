@@ -119,7 +119,7 @@ export async function analyzeFoodLensLabelScanAction(
     return {
       status: 'not_configured',
       error:
-        "Label scanning isn't available yet — no OCR provider is configured. This scan is saved and " +
+        "Label scanning isn't available yet. No OCR provider is configured. This scan is saved and " +
         'will be read automatically once one is connected.',
     };
   }

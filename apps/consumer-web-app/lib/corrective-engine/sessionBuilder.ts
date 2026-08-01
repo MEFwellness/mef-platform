@@ -295,7 +295,7 @@ export function buildSession(
   blocks.push({
     block: 'release',
     name: 'Release',
-    blockReasoning: `Myofascial release for this member's tight muscles (${patternSummary}) — always first, never touches the long/weak side of the pattern.`,
+    blockReasoning: `Myofascial release for this member's tight muscles (${patternSummary}), always first, never touches the long/weak side of the pattern.`,
     exercises: pickForSlots(
       pool,
       tight,
@@ -329,7 +329,7 @@ export function buildSession(
   blocks.push({
     block: 'stability',
     name: 'Stability',
-    blockReasoning: `The main corrective work — strengthening this pattern's long, underactive muscles with a stability emphasis (${patternSummary}).`,
+    blockReasoning: `The main corrective work: strengthening this pattern's long, underactive muscles with a stability emphasis (${patternSummary}).`,
     exercises: pickForSlots(pool, long, ['stability', 'strength'], 'musclesStrengthened', budget.stability, usedIds, rng, (e, slot) =>
       `Stability/strengthening work for ${slot.muscle} (long/underactive in ${slot.blueprintNames.join(' + ')}).`
     ),
@@ -347,7 +347,7 @@ export function buildSession(
   blocks.push({
     block: 'core',
     name: 'Core',
-    blockReasoning: 'Core-stability (anti-movement) work only — always the final block, never spinal-flexion.',
+    blockReasoning: 'Core-stability (anti-movement) work only, always the final block, never spinal-flexion.',
     exercises: pickCoreBlock(pool, patterns, budget.core, usedIds, rng),
   });
 

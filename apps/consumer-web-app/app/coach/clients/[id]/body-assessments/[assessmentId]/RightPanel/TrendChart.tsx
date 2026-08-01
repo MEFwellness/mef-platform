@@ -159,7 +159,7 @@ export function TrendChart({
                 strokeWidth={2}
               >
                 <title>
-                  {formatDate(p.date)} — {p.valueLabel ?? p.value}
+                  {formatDate(p.date)}: {p.valueLabel ?? p.value}
                 </title>
               </circle>
               {isEndpoint && (

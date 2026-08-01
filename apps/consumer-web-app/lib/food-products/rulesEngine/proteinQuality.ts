@@ -75,8 +75,8 @@ export function analyzeProteinQuality(input: {
   } else {
     observations.push(
       isMeaningfulAmount
-        ? `Provides ${input.proteinG}g of protein per serving — a nutritionally meaningful amount.`
-        : `Provides ${input.proteinG}g of protein per serving — a modest amount.`
+        ? `Provides ${input.proteinG}g of protein per serving, a nutritionally meaningful amount.`
+        : `Provides ${input.proteinG}g of protein per serving, a modest amount.`
     );
   }
   if (isMarketedHighProteinButModest) {

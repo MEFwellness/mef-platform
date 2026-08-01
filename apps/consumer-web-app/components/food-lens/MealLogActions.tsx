@@ -70,7 +70,7 @@ export function MealLogActions({
       }
       setSavingMeal(false);
       setMealName('');
-      setMessage('Saved — you can repeat-log this meal from Search.');
+      setMessage('Saved. You can repeat-log this meal from Search.');
     });
   }
 
@@ -113,7 +113,7 @@ export function MealLogActions({
         disabled={isLogging}
         className="mt-4 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-60"
       >
-        {isLogging ? 'Adding…' : 'Yes — add to my food log'}
+        {isLogging ? 'Adding…' : 'Yes, add to my food log'}
       </button>
 
       {savingMeal ? (

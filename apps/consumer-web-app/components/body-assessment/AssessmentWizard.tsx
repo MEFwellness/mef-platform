@@ -77,7 +77,7 @@ const INTRO_STEPS: IntroStep[] = [
     icon: Sparkles,
     body: [
       'This guided assessment walks you through a few photos and short videos so your coach can track your posture and movement over time.',
-      'You can pause and retake any capture — nothing is final until you review and submit.',
+      'You can pause and retake any capture. Nothing is final until you review and submit.',
     ],
   },
   {
@@ -85,8 +85,8 @@ const INTRO_STEPS: IntroStep[] = [
     title: 'Lighting',
     icon: Sun,
     body: [
-      'Find a well-lit room — natural daylight or a bright overhead light works well.',
-      'Avoid strong backlighting (like standing in front of a window) — it can make you hard to see.',
+      'Find a well-lit room: natural daylight or a bright overhead light works well.',
+      'Avoid strong backlighting (like standing in front of a window). It can make you hard to see.',
     ],
   },
   {
@@ -474,7 +474,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
               />
               <p className="text-[13px] leading-relaxed text-[#6B7A72]">
                 You&apos;ll be standing well back from the phone once the photos begin, too far to
-                read on-screen text — so we guide you mostly out loud. Tap below to turn on voice
+                read on-screen text, so we guide you mostly out loud. Tap below to turn on voice
                 guidance and confirm you can hear it now, before you&apos;re across the room.
               </p>
             </div>
@@ -491,18 +491,18 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
             </button>
             {guidedVoice.status === 'unlocked' && (
               <p className="mt-3 text-[13px] font-medium text-[#1B3A2D]">
-                Voice guidance is working — you should have just heard it.
+                Voice guidance is working. You should have just heard it.
               </p>
             )}
             {guidedVoice.status === 'blocked' && (
               <p className="mt-3 text-[13px] font-medium text-[#1B3A2D]">
-                We couldn&apos;t confirm audio played — check your volume and silent/mute switch,
+                We couldn&apos;t confirm audio played: check your volume and silent/mute switch,
                 then tap the button again. You can still follow the on-screen text either way.
               </p>
             )}
             {guidedVoice.status === 'unavailable' && (
               <p className="mt-3 text-[13px] font-medium text-[#1B3A2D]">
-                Voice guidance isn&apos;t available on this browser — follow the on-screen text
+                Voice guidance isn&apos;t available on this browser. Follow the on-screen text
                 instead.
               </p>
             )}
@@ -515,7 +515,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
               <Compass className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
               <p className="text-[13px] leading-relaxed text-[#6B7A72]">
                 Every angle we measure depends on your phone being in the exact same position every
-                time, so we ask for access to your phone&apos;s motion sensors — this lets us
+                time, so we ask for access to your phone&apos;s motion sensors: this lets us
                 confirm it&apos;s level and at the right height before each photo, so your results
                 are truly comparable over time.
               </p>
@@ -534,11 +534,11 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
             ) : (
               <p className="mt-3 text-[13px] font-medium text-[#1B3A2D]">
                 {orientationPermission === 'granted' &&
-                  'Motion access enabled — we’ll guide you to hold the phone steady.'}
+                  'Motion access enabled. We’ll guide you to hold the phone steady.'}
                 {orientationPermission === 'not_required' &&
-                  'Your browser shares motion data automatically — we’ll guide you to hold the phone steady.'}
+                  'Your browser shares motion data automatically. We’ll guide you to hold the phone steady.'}
                 {(orientationPermission === 'denied' || orientationPermission === 'unavailable') &&
-                  'No problem — we’ll show you an on-screen level guide to confirm by hand instead.'}
+                  'No problem, we’ll show you an on-screen level guide to confirm by hand instead.'}
               </p>
             )}
           </div>

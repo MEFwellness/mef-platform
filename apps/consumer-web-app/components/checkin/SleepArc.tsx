@@ -491,7 +491,7 @@ export function SleepArc({
          */}
         {hasValues && isImplausibleSleepWindow(sweepMinutes, PLAUSIBLE_MIN_MINUTES, PLAUSIBLE_MAX_MINUTES) && (
           <p role="note" className="mt-2 max-w-xs text-center text-[12px] leading-relaxed text-[#7C5443]">
-            That&apos;s a {formatDuration(sweepMinutes)} window between bedtime and wake — worth a quick check that
+            That&apos;s a {formatDuration(sweepMinutes)} window between bedtime and wake, worth a quick check that
             the handles are set the way you meant?
           </p>
         )}

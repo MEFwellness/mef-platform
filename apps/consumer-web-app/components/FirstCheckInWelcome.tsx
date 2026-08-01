@@ -41,8 +41,8 @@ export function FirstCheckInWelcome() {
         Let&apos;s get started
       </h2>
       <p className="relative mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[#6B7A72] sm:text-[15px]">
-        Root builds everything here — your Daily Brief, your Wellness Index, recovery trends, and
-        daily coaching — from your check-ins. Complete your first one and this page starts to come
+        Root builds everything here (your Daily Brief, your Wellness Index, recovery trends, and
+        daily coaching) from your check-ins. Complete your first one and this page starts to come
         alive.
       </p>
       <Link

@@ -34,8 +34,8 @@ export function PrescriptionIntelligenceCard({
 
       <p className="mt-3 text-sm text-[#6B7A72]">
         {latest
-          ? `Last run ${new Date(latest.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${latest.status.replace(/_/g, ' ')}.`
-          : 'No prescription runs yet — build today’s strategy from this member’s Movement Profile, readiness, and assessment history.'}
+          ? `Last run ${new Date(latest.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${latest.status.replace(/_/g, ' ')}.`
+          : 'No prescription runs yet: build today’s strategy from this member’s Movement Profile, readiness, and assessment history.'}
       </p>
 
       <Link

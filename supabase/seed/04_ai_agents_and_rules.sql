@@ -16,7 +16,7 @@ insert into ai_agents (agent_key, name, category, description, responsibilities,
     'member_engagement',
     'Member Engagement Agent',
     'engagement',
-    'Keeps members motivated and reduces drop-off through encouragement and recognition — never diagnostic, never medical.',
+    'Keeps members motivated and reduces drop-off through encouragement and recognition, never diagnostic, never medical.',
     '["Daily encouragement","Celebrate milestones","Recognize consistency","Detect inactivity","Encourage habit formation","Reduce member drop-off"]'::jsonb,
     '{}'::jsonb
   ),
@@ -32,7 +32,7 @@ insert into ai_agents (agent_key, name, category, description, responsibilities,
     'coach_assistant',
     'Coach Assistant Agent',
     'coaching',
-    'Prepares client summaries and surfaces coaching insights for a human coach — assists judgment, never replaces it.',
+    'Prepares client summaries and surfaces coaching insights for a human coach, assists judgment, never replaces it.',
     '["Prepare client summaries","Generate coaching insights","Suggest coaching questions","Suggest reassessments","Highlight important changes","Never replace coach judgment"]'::jsonb,
     '{}'::jsonb
   ),
@@ -56,7 +56,7 @@ insert into ai_agents (agent_key, name, category, description, responsibilities,
     'body_assessment',
     'Body Assessment Agent',
     'movement',
-    'Turns completed guided body assessments into member-facing bookkeeping (new findings ready for review) — never interprets or diagnoses a finding itself.',
+    'Turns completed guided body assessments into member-facing bookkeeping (new findings ready for review), never interprets or diagnoses a finding itself.',
     '["Acknowledge a completed assessment","Surface a count of new findings awaiting coach review","Never interpret or diagnose a finding"]'::jsonb,
     '{}'::jsonb
   ),
@@ -64,7 +64,7 @@ insert into ai_agents (agent_key, name, category, description, responsibilities,
     'proactive_coach',
     'Proactive Coach Agent',
     'engagement',
-    'Observes real wearable-derived patterns (HRV, sleep, recovery, activity, stress) and reaches out first, in a calm, encouraging, never-alarming voice — never diagnoses, never interprets raw data itself.',
+    'Observes real wearable-derived patterns (HRV, sleep, recovery, activity, stress) and reaches out first, in a calm, encouraging, never-alarming voice, never diagnoses, never interprets raw data itself.',
     '["Detect HRV/sleep/activity/stress trends already computed from wearable data","Recognize excellent recovery","Deliver one calm, on-voice proactive message per real pattern","Never repeat the same nudge before its cooldown window passes"]'::jsonb,
     '{}'::jsonb
   )
@@ -90,7 +90,7 @@ insert into ai_rules (rule_key, agent_key, name, description, trigger_event_type
     "insightType": "recovery_needed",
     "actionType": "risk_alert",
     "title": "Rising stress with declining sleep",
-    "descriptionTemplate": "Stress has increased for {{stressConsecutiveIncreaseDays}} consecutive days while sleep quality has been declining — this combination often signals a need for recovery.",
+    "descriptionTemplate": "Stress has increased for {{stressConsecutiveIncreaseDays}} consecutive days while sleep quality has been declining. This combination often signals a need for recovery.",
     "confidence": 0.75,
     "requiresCoachApproval": false
   }'::jsonb
@@ -113,7 +113,7 @@ insert into ai_rules (rule_key, agent_key, name, description, trigger_event_type
     "insightType": "progress_worth_celebrating",
     "actionType": "progress_milestone",
     "title": "Pain easing, movement increasing",
-    "descriptionTemplate": "Pain has been easing while movement has been increasing over recent check-ins — real, measurable progress worth recognizing.",
+    "descriptionTemplate": "Pain has been easing while movement has been increasing over recent check-ins. Real, measurable progress worth recognizing.",
     "confidence": 0.8,
     "requiresCoachApproval": false
   }'::jsonb

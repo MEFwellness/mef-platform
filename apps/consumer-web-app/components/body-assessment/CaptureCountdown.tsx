@@ -35,7 +35,7 @@ export function CaptureCountdown({
     <div
       className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2"
       role="status"
-      aria-label={nearComplete ? 'Holding — capturing shortly' : 'Holding position'}
+      aria-label={nearComplete ? 'Holding, capturing shortly' : 'Holding position'}
     >
       <svg
         width="58"

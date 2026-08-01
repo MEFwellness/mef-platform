@@ -43,7 +43,7 @@ export function NameForm() {
         What should we call you?
       </h1>
       <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">
-        This is how we&apos;ll greet you — in the app, and from your coach.
+        This is how we&apos;ll greet you, in the app, and from your coach.
       </p>
 
       <form className="mt-5 space-y-4" action={handleSubmit}>

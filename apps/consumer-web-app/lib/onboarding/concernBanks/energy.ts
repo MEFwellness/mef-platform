@@ -86,7 +86,7 @@ export const ENERGY_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'energy_mental_vs_physical',
-    prompt_text: 'Is it more your body that feels tired, or your mind — or both?',
+    prompt_text: 'Is it more your body that feels tired, or your mind, or both?',
     answer_type: 'enum',
     allowed_values: ['mostly_physical', 'mostly_mental', 'both_equally', 'not_sure'],
     domain: 'mindset',
@@ -109,7 +109,7 @@ export const ENERGY_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'energy_exercise_frequency',
-    prompt_text: 'How often are you moving your body in a typical week — walks, workouts, anything active?',
+    prompt_text: 'How often are you moving your body in a typical week: walks, workouts, anything active?',
     answer_type: 'enum',
     allowed_values: ['rarely_or_never', 'once_or_twice', 'a_few_times', 'most_days'],
     domain: 'movement_energy',

@@ -76,7 +76,7 @@ function SummaryCard({
           Protein target
         </p>
         <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">
-          Thanks — we&apos;ve got your info. Your coach is setting up your personalized protein
+          Thanks. We&apos;ve got your info. Your coach is setting up your personalized protein
           target and it&apos;ll show here once it&apos;s ready.
         </p>
         <button
@@ -104,7 +104,7 @@ function SummaryCard({
             </span>
           </p>
           <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-            This is guidance, not a prescription — a suggested range built around your numbers (
+            This is guidance, not a prescription: a suggested range built around your numbers (
             {state.activeGrams}g), for you to use as a starting point.
           </p>
         </>
@@ -254,7 +254,7 @@ export function ProteinProfileForm({ initial }: { initial: ProteinSetupState | n
         </p>
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
           Let us know if any of these apply to you. If they do, we won&apos;t auto-calculate a
-          number — we&apos;ll point you to your coach or healthcare provider instead.
+          number. We&apos;ll point you to your coach or healthcare provider instead.
         </p>
         <div className="mt-3 space-y-2">
           {SAFETY_QUESTIONS.map((q) => (

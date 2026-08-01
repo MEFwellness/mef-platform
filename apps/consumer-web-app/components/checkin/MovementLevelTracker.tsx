@@ -88,7 +88,7 @@ export function MovementLevelTracker({
           );
         })}
       </div>
-      {error && <p className="mt-2 text-xs text-red-600">Didn&apos;t save — try again.</p>}
+      {error && <p className="mt-2 text-xs text-red-600">Didn&apos;t save. Try again.</p>}
       <div className="mt-auto pt-3 text-xs text-[#6B7A72]">
         {level ? 'Logged for today. Tap another level any time to update it.' : 'Nothing logged yet today.'}
       </div>

@@ -90,7 +90,7 @@ export const STRESS_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'stress_impact_relationships',
-    prompt_text: 'How much does your stress spill over onto the people around you — snapping, going quiet, that kind of thing?',
+    prompt_text: 'How much does your stress spill over onto the people around you: snapping, going quiet, that kind of thing?',
     answer_type: 'enum',
     allowed_values: ['not_at_all', 'a_little', 'noticeably', 'a_lot'],
     domain: 'mind_stress',
@@ -107,7 +107,7 @@ export const STRESS_BANK: ConcernQuestionSeed[] = [
   {
     question_key: 'stress_current_coping',
     prompt_text: 'When stress hits, what do you actually reach for right now?',
-    helper_text: "Select any that apply — no judgment, just want the real picture.",
+    helper_text: "Select any that apply. No judgment, just want the real picture.",
     answer_type: 'multi_select',
     allowed_values: ['exercise', 'food', 'alcohol', 'scrolling_my_phone', 'talking_to_someone', 'alone_time', 'nothing_in_particular', 'other'],
     domain: 'mind_stress',
@@ -123,7 +123,7 @@ export const STRESS_BANK: ConcernQuestionSeed[] = [
   {
     question_key: 'stress_main_sources',
     prompt_text: "What's driving most of your stress these days?",
-    helper_text: "Select whatever's realest — even a few at once.",
+    helper_text: "Select whatever's realest, even a few at once.",
     answer_type: 'multi_select',
     allowed_values: ['work', 'family', 'money', 'health', 'relationships', 'uncertainty_about_the_future', 'too_much_on_my_plate', 'other'],
     domain: 'mind_stress',

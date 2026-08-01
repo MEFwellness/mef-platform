@@ -55,7 +55,7 @@ const CATEGORY_META: Record<
     tone: 'default',
   },
   red_flag: {
-    label: 'Potential Red Flags — Requires Manual Review',
+    label: 'Potential Red Flags: Requires Manual Review',
     icon: AlertTriangle,
     tone: 'warning',
   },
@@ -234,7 +234,7 @@ export function AIAssistantSection({
         className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border border-dashed border-[#1B3A2D]/15 px-4 py-2.5 text-sm font-medium text-[#6B7A72] opacity-60"
       >
         <Mic className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-        Record Voice Message — Coming soon
+        Record Voice Message (Coming soon)
       </button>
 
       <PublishBar
@@ -631,7 +631,7 @@ function PublishBar({
   if (isPublished) {
     return (
       <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-center text-sm font-medium text-emerald-700">
-        Report published — visible in the member portal.
+        Report published, visible in the member portal.
       </div>
     );
   }

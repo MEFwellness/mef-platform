@@ -62,7 +62,7 @@ export function ProteinLedgerProgress({
 
       {display.mode === 'pending_review' && (
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-          Your coach is still setting up your target — your daily total will show progress against
+          Your coach is still setting up your target, your daily total will show progress against
           it once that&apos;s ready.
         </p>
       )}

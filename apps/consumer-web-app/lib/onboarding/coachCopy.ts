@@ -14,7 +14,7 @@ import type { OnboardingQuestion } from '@mef/shared-types-contracts';
 export const COACH_PROMPT: Record<string, string> = {
   primary_concern: "What's the main thing you'd like us to work on together?",
   baseline_sleep_quality:
-    "Let's start with sleep — most nights, how well would you say you're sleeping?",
+    "Let's start with sleep: most nights, how well would you say you're sleeping?",
   baseline_sleep_hours: 'And roughly how many hours of sleep are you getting on a typical night?',
   baseline_stress_level: "How much stress would you say you're carrying on a normal day?",
   baseline_energy_level: "What's your energy usually like, day to day?",
@@ -29,8 +29,8 @@ export const COACH_PROMPT: Record<string, string> = {
 };
 
 export const COACH_HELPER: Record<string, string> = {
-  primary_concern: "Pick whatever feels closest — we'll go from there.",
-  baseline_pain_areas: "Select any that apply — or none, if nothing's standing out.",
+  primary_concern: "Pick whatever feels closest. We'll go from there.",
+  baseline_pain_areas: "Select any that apply, or none, if nothing's standing out.",
   readiness_importance: '0 = not important at all, 10 = extremely important.',
   readiness_confidence: '0 = not confident at all, 10 = extremely confident.',
 };
@@ -59,7 +59,7 @@ export const EXPECTATIONS_COPY = {
   eyebrow: 'Step 1 of 3',
   title: 'Welcome to the beginning of your wellness story.',
   purpose:
-    'A great coach starts by listening. This is a short, guided conversation about the patterns behind how you feel, move, and recover — so everything that follows is built around you.',
+    'A great coach starts by listening. This is a short, guided conversation about the patterns behind how you feel, move, and recover, so everything that follows is built around you.',
   timeCaption: 'Takes about 4 minutes.',
   cta: "Let's begin",
 };
@@ -78,15 +78,15 @@ export const EXPECTATIONS_COPY = {
 export const ONBOARDING_JOURNEY_STEPS = [
   {
     title: 'Understand You',
-    body: "A short, guided conversation about what's really going on — no right or wrong answers, just what's true for you.",
+    body: "A short, guided conversation about what's really going on: no right or wrong answers, just what's true for you.",
   },
   {
     title: 'Your First Observation',
-    body: 'A personalized reflection on the patterns we notice together — honest, non-diagnostic, and just for you.',
+    body: 'A personalized reflection on the patterns we notice together: honest, non-diagnostic, and just for you.',
   },
   {
     title: 'Your Wellness Story Begins',
-    body: 'Every check-in and reassessment from here builds on what we learn today — your picture gets clearer over time.',
+    body: 'Every check-in and reassessment from here builds on what we learn today, your picture gets clearer over time.',
   },
 ] as const;
 
@@ -97,21 +97,21 @@ export const ONBOARDING_JOURNEY_STEPS = [
  * `primary_concern` enum value.
  */
 export const TRANSITION_COPY: Record<string, string> = {
-  pain: "You mentioned pain is on your mind — let's start with where you're feeling it.",
+  pain: "You mentioned pain is on your mind. Let's start with where you're feeling it.",
   energy:
     "Since energy is what you're after, let's talk about how you've been feeling day to day.",
   sleep: "Sleep is where you'd like to focus, so let's start right there.",
   stress:
-    "Stress often shows up in the body in surprising ways — let's check in on your digestion too.",
+    "Stress often shows up in the body in surprising ways. Let's check in on your digestion too.",
   weight:
-    "Weight goals usually connect to movement and how your body processes food — let's touch on both.",
+    "Weight goals usually connect to movement and how your body processes food. Let's touch on both.",
   digestion: "Let's dig into digestion first, since that's what brought you here.",
   movement: "Let's talk about how you're moving these days.",
-  performance: "Performance starts with energy and movement — let's cover those next.",
+  performance: "Performance starts with energy and movement. Let's cover those next.",
   healthy_aging: "Healthy aging touches everything, so we'll move through each area together.",
   habits:
     "Since building better habits is the goal, tell us a bit about what that looks like for you.",
-  general_optimization: "You're focused on overall wellness — let's build a full picture together.",
+  general_optimization: "You're focused on overall wellness. Let's build a full picture together.",
   other: "Let's build a full picture of where you're starting from.",
 };
 
@@ -127,7 +127,7 @@ export const DEFAULT_TRANSITION = "Let's build a full picture of where you're st
  * content to author/maintain.
  */
 export const ZOOM_OUT_TRANSITION =
-  "Thanks for walking me through that — it's helping me understand you better. Now let's zoom out for a moment and look at the fuller picture.";
+  "Thanks for walking me through that. It's helping me understand you better. Now let's zoom out for a moment and look at the fuller picture.";
 
 /**
  * Shown inline, directly above the one question each concern pulls forward
@@ -139,13 +139,13 @@ export const ZOOM_OUT_TRANSITION =
 export const FORWARDED_CONTEXT_NOTE: Record<string, string> = {
   pain: "Because pain is on your mind, let's pinpoint where you're feeling it.",
   energy: "Because energy is what you're after, let's dig into how it's really been.",
-  stress: 'Stress often shows up in the body in surprising ways — like digestion.',
-  weight: 'Weight goals usually connect to movement first — worth touching on now.',
+  stress: 'Stress often shows up in the body in surprising ways, like digestion.',
+  weight: 'Weight goals usually connect to movement first, worth touching on now.',
   digestion: "Since digestion is what's on your mind, let's start right there.",
   movement: "Let's talk about how you're moving these days, since that's the focus.",
-  performance: 'Performance starts with energy — worth checking in on that first.',
+  performance: 'Performance starts with energy, worth checking in on that first.',
   healthy_aging: "Movement plays a big role in aging well, so let's cover that next.",
   habits: 'Since building better habits is the goal, this one gets at what that looks like.',
-  general_optimization: "You're after overall wellness — let's hear what that looks like for you.",
+  general_optimization: "You're after overall wellness. Let's hear what that looks like for you.",
   other: "Let's hear a bit more, in your own words, about what's going on.",
 };

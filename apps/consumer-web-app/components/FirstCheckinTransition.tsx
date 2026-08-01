@@ -98,7 +98,7 @@ export function FirstCheckinTransition({
         {!hasMovementAssessment && (
           <p className="relative mx-auto mt-2 max-w-sm text-[15px] leading-relaxed text-[#4F645A]">
             Your Guided Posture &amp; Movement Assessment helps us identify movement imbalances,
-            posture patterns, and areas that may be contributing to discomfort or poor performance —
+            posture patterns, and areas that may be contributing to discomfort or poor performance:
             the foundation for your personalized corrective exercise program.
           </p>
         )}

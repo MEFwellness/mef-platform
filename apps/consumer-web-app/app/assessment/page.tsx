@@ -102,7 +102,7 @@ export default async function BodyAssessmentPage() {
           {assessments.length === 0 ? (
             <div className={`${CARD} p-6`}>
               <p className="text-sm text-[#6B7A72]">
-                No assessments yet — start one above to begin tracking your posture and movement.
+                No assessments yet, start one above to begin tracking your posture and movement.
               </p>
             </div>
           ) : (

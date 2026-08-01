@@ -253,7 +253,7 @@ export function PrescriptionReviewPanel({
 }) {
   const router = useRouter();
   const [templateName, setTemplateName] = useState(
-    `${clientDisplayName} — ${new Date(snapshot.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Prescription`
+    `${clientDisplayName}, ${new Date(snapshot.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Prescription`
   );
   const [memberInstructions, setMemberInstructions] = useState('');
   const [rejectReason, setRejectReason] = useState('');
@@ -401,7 +401,7 @@ export function PrescriptionReviewPanel({
             ))}
             {block.exercises.length === 0 && (
               <p className="text-xs text-[#6B7A72]">
-                No matching exercises were found in the catalog for this block — add one manually
+                No matching exercises were found in the catalog for this block. Add one manually
                 from the Program Builder after approving.
               </p>
             )}

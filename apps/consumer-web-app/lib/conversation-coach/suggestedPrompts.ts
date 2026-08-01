@@ -18,7 +18,7 @@ export const SUGGESTED_PROMPTS: Record<ConversationEntryPoint, string[]> = {
   today_focus: ["Talk through today's challenge", 'Why is this my focus?'],
   today_easier_option: ['I need an easier option today'],
   today_why: ['Why is this my focus?'],
-  today_completed: ["I completed this — what's next?"],
+  today_completed: ["I completed this, what's next?"],
   progress_pattern: ['Help me understand this pattern'],
   progress_improved: ['What has improved?'],
   progress_focus: ['What should I focus on next?'],

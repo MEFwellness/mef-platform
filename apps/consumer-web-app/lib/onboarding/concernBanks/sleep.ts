@@ -95,14 +95,14 @@ export const SLEEP_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'sleep_bedtime_wind_down',
-    prompt_text: 'Walk me through the last half hour before you turn the lights off — what does that usually look like?',
+    prompt_text: 'Walk me through the last half hour before you turn the lights off: what does that usually look like?',
     answer_type: 'free_text',
     domain: 'recovery',
     weight: 1,
   },
   {
     question_key: 'sleep_reliance_on_aid',
-    prompt_text: 'Do you lean on anything — a supplement, a sound machine, a nightly ritual — to help you fall asleep?',
+    prompt_text: 'Do you lean on anything (a supplement, a sound machine, a nightly ritual) to help you fall asleep?',
     answer_type: 'boolean',
     domain: 'sleep',
     weight: 1,
@@ -125,7 +125,7 @@ export const SLEEP_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'sleep_weekday_weekend_consistency',
-    prompt_text: 'How consistent are your bed and wake times — weekdays compared to weekends?',
+    prompt_text: 'How consistent are your bed and wake times: weekdays compared to weekends?',
     helper_text: '1 = totally different schedules, 5 = basically the same every day.',
     answer_type: 'numeric',
     domain: 'sleep',

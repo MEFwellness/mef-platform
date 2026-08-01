@@ -106,7 +106,7 @@ export const PERFORMANCE_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'performance_goal_description',
-    prompt_text: "Tell me about it — what are you working toward?",
+    prompt_text: "Tell me about it: what are you working toward?",
     answer_type: 'free_text',
     domain: 'movement_energy',
     weight: 1,
@@ -131,7 +131,7 @@ export const PERFORMANCE_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'performance_mental_composure',
-    prompt_text: 'When it really counts — a big lift, a race, a big moment at work — how focused and composed do you feel?',
+    prompt_text: 'When it really counts (a big lift, a race, a big moment at work), how focused and composed do you feel?',
     helper_text: '1 = rattled and scattered, 5 = locked in and confident.',
     answer_type: 'numeric',
     domain: 'mindset',

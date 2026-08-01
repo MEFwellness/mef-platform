@@ -67,7 +67,7 @@ export default async function CoachingInsightsPage() {
           Coaching Insights
         </h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
-          Educational observations Root has noticed across your check-ins, meals, and progress —
+          Educational observations Root has noticed across your check-ins, meals, and progress,
           always grounded in what you&apos;ve actually logged, never a guess.
         </p>
 
@@ -94,7 +94,7 @@ export default async function CoachingInsightsPage() {
         ) : insights.length === 0 && !pictureHasContent ? (
           <section className={`${CARD} mt-6 p-6`}>
             <p className="text-sm leading-relaxed text-[#1B3A2D]">
-              Nothing to share yet — keep logging your check-ins and meals, and Root will have real
+              Nothing to share yet. Keep logging your check-ins and meals, and Root will have real
               patterns to point out here soon.
             </p>
           </section>
@@ -143,7 +143,7 @@ function LongitudinalPictureSection({
         <p className="text-sm font-semibold uppercase tracking-wider">Your Longitudinal Picture</p>
       </div>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        How things have been trending across your check-ins and history — held loosely, never a diagnosis.
+        How things have been trending across your check-ins and history, held loosely, never a diagnosis.
       </p>
 
       <div className="mt-4 space-y-5">
@@ -153,7 +153,7 @@ function LongitudinalPictureSection({
             <ul className="mt-2 space-y-2">
               {group.items.map((item, i) => (
                 <li key={i} className="text-sm leading-relaxed text-[#1B3A2D]">
-                  <span className="font-semibold">{item.subject}</span> — {item.sentence}
+                  <span className="font-semibold">{item.subject}:</span> {item.sentence}
                 </li>
               ))}
             </ul>

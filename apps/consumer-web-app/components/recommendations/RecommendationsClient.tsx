@@ -35,7 +35,7 @@ const STATUS_LABEL: Record<LifestyleExperiment['status'], string> = {
   active: 'In progress',
   completed: 'Completed',
   abandoned: 'Stopped early',
-  expired_no_reflection: 'Tracking period ended — add a reflection',
+  expired_no_reflection: 'Tracking period ended, add a reflection',
 };
 
 function StartExperimentForm({ rowId, onDone }: { rowId: string; onDone: () => void }) {
@@ -201,7 +201,7 @@ export function RecommendationsClient({
         </p>
         {active.length === 0 ? (
           <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-            Nothing new right now — keep checking in and completing assessments, and
+            Nothing new right now. Keep checking in and completing assessments, and
             recommendations will show up here as patterns emerge.
           </p>
         ) : (

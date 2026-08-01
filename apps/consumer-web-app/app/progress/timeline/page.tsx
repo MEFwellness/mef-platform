@@ -194,7 +194,7 @@ export default async function HealthTimelinePage() {
           Your Health Timeline
         </h1>
         <p className="mt-2 text-[15px] text-[#6B7A72]">
-          Every assessment, reassessment, and published report — your journey in one place.
+          Every assessment, reassessment, and published report: your journey in one place.
         </p>
 
         <div className="mt-7 space-y-3">

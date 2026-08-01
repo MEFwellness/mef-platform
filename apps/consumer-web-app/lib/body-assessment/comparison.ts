@@ -81,7 +81,7 @@ function summarizeDimension(
     case 'improved':
       return `Improved from ${before.severity} to ${after.severity}.`;
     case 'declined':
-      return `Changed from ${before.severity} to ${after.severity} — worth a closer look.`;
+      return `Changed from ${before.severity} to ${after.severity}, worth a closer look.`;
     case 'stable':
       return `Remained ${after.severity} across both assessments.`;
     default:

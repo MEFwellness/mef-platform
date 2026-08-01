@@ -131,7 +131,7 @@ export function evaluateCalendarReassessmentTriggers(
     suggestions.push({
       assessmentKey: metadata.key,
       triggerSource: 'calendar',
-      reason: `It's been ${metadata.reassessmentCadence.days}+ days since your last check-in on this — worth a fresh look.`,
+      reason: `It's been ${metadata.reassessmentCadence.days}+ days since your last check-in on this, worth a fresh look.`,
       triggerContext: { cadenceDays: metadata.reassessmentCadence.days, lastCompletedAt },
     });
   }
@@ -204,7 +204,7 @@ export function evaluateExperimentOutcomeReassessmentTriggers(
     suggestions.push({
       assessmentKey,
       triggerSource: 'experiment_outcome',
-      reason: "A recent small change didn't fully resolve this — worth a fresh assessment to see what else might help.",
+      reason: "A recent small change didn't fully resolve this, worth a fresh assessment to see what else might help.",
       triggerContext: { outcome: experiment.outcome, sourceDomain: experiment.sourceDomain },
     });
   }
@@ -239,7 +239,7 @@ export function evaluateRecommendationSequenceReassessmentTriggers(
     suggestions.push({
       assessmentKey,
       triggerSource: 'recommendation_sequence',
-      reason: `You've completed ${completedCount} recommendations in this area — a good point to check in with a fresh assessment.`,
+      reason: `You've completed ${completedCount} recommendations in this area, a good point to check in with a fresh assessment.`,
       triggerContext: { completedCount, sourceDomain },
     });
   }
@@ -281,8 +281,8 @@ export function evaluateLongitudinalReassessmentTriggers(
       triggerSource: 'finding_change',
       reason:
         signal.state === 'resolved'
-          ? 'Something that used to show up consistently looks like it may have settled down — worth confirming with a fresh look.'
-          : "A pattern has held steady across several check-ins — worth a closer look at what has and hasn't changed.",
+          ? 'Something that used to show up consistently looks like it may have settled down, worth confirming with a fresh look.'
+          : "A pattern has held steady across several check-ins, worth a closer look at what has and hasn't changed.",
       triggerContext: {
         findingCodes: [String(signal.evidenceSummary.code ?? signal.signalLabel)],
         confidence: signal.confidence,

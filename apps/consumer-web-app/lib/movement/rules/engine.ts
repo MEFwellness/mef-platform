@@ -246,7 +246,7 @@ export function buildSelectionReasons(
       label: 'Starting with a balanced foundation',
       domain: 'baseline',
       detail:
-        'No check-in or assessment data yet — today’s session covers preparation, mobility, and recovery as a safe starting point.',
+        'No check-in or assessment data yet. Today’s session covers preparation, mobility, and recovery as a safe starting point.',
     });
   }
 

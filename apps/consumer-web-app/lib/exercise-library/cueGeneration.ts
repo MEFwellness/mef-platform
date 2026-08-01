@@ -66,7 +66,7 @@ function fromTemplate(input: CueGenerationInput): string[] {
 
   const movement =
     input.force === 'push'
-      ? 'Drive through the movement with control — press away rather than rushing it.'
+      ? 'Drive through the movement with control, press away rather than rushing it.'
       : input.force === 'pull'
         ? 'Pull with control, leading with the target muscle rather than momentum.'
         : input.mechanic === 'isolation'

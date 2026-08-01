@@ -64,7 +64,7 @@ export function deriveHabitAdherenceObservation(
   return {
     domain: 'habit_adherence',
     observationKey: 'habit_adherence_streak_break_window',
-    statement: `You tend to stay consistent with daily coaching for about ${rounded} day${rounded === 1 ? '' : 's'} in a row before missing one — a lighter check-in around day ${rounded} could help it stick longer.`,
+    statement: `You tend to stay consistent with daily coaching for about ${rounded} day${rounded === 1 ? '' : 's'} in a row before missing one, a lighter check-in around day ${rounded} could help it stick longer.`,
     coachDetail: `Across ${breaks.length} observed streak breaks, the average consistent run before a miss was ${avgBreak.toFixed(1)} days (individual runs: ${breaks.join(', ')}).`,
     confidence: confidenceFromSample(breaks.length, 0.5, 8, 0.85),
     evidenceCount: breaks.length,
@@ -130,7 +130,7 @@ export function deriveMovementResponseObservation(
   return {
     domain: 'movement_response',
     observationKey: 'movement_response_mood_lift',
-    statement: `Your mood tends to be noticeably better on days you move your body — even a little — compared to rest days.`,
+    statement: `Your mood tends to be noticeably better on days you move your body (even a little) compared to rest days.`,
     coachDetail: `Avg mood on movement days: ${movedAvgMood.toFixed(1)}/5 (n=${moved.length}). Avg mood on no-movement days: ${restAvgMood.toFixed(1)}/5 (n=${rested.length}).`,
     confidence: confidenceFromSample(moved.length + rested.length, 0.5, 20, 0.85),
     evidenceCount: moved.length + rested.length,

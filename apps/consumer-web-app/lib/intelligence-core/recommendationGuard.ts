@@ -86,7 +86,7 @@ export function guardRecommendations(
       consecutiveNonActions: nextConsecutive,
       suppressed: shouldSuppress,
       suppressedReason: shouldSuppress
-        ? `Recurred ${nextConsecutive} times with no new evidence — suppressed until something changes.`
+        ? `Recurred ${nextConsecutive} times with no new evidence. Suppressed until something changes.`
         : null,
     });
   }

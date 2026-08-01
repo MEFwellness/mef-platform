@@ -53,7 +53,7 @@ export function analyzeNutrientCombinations(
       code: 'high_sat_fat_high_added_sugar',
       severity: 'meaningful',
       narrative:
-        'This combination of saturated fat and added sugar together may be less supportive than either nutrient would suggest on its own — the combination matters more than any one nutrient alone.',
+        'This combination of saturated fat and added sugar together may be less supportive than either nutrient would suggest on its own: the combination matters more than any one nutrient alone.',
     });
   }
 
@@ -100,7 +100,7 @@ export function analyzeNutrientCombinations(
       code: 'high_sodium_low_nutrient_density',
       severity: 'worth_noting',
       narrative:
-        'Sodium is notable here alongside limited protein, fiber, or whole-food content — worth considering if sodium is part of your current goal.',
+        'Sodium is notable here alongside limited protein, fiber, or whole-food content, worth considering if sodium is part of your current goal.',
     });
   }
 
@@ -131,7 +131,7 @@ export function analyzeNutrientCombinations(
       code: 'high_fiber_good_protein_whole_food',
       severity: 'informational',
       narrative:
-        'This combines meaningful fiber and protein with recognizable whole-food ingredients — a supportive combination for most goals.',
+        'This combines meaningful fiber and protein with recognizable whole-food ingredients, a supportive combination for most goals.',
     });
   }
 
@@ -152,7 +152,7 @@ export function analyzeNutrientCombinations(
       code: 'ultra_processed_concentrated_energy',
       severity: 'meaningful',
       narrative:
-        'This is a heavily processed product that concentrates a meaningful amount of energy into one serving — worth keeping the serving size in mind.',
+        'This is a heavily processed product that concentrates a meaningful amount of energy into one serving, worth keeping the serving size in mind.',
     });
   }
 

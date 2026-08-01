@@ -44,7 +44,7 @@ export default async function CoachQuestionsPage() {
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
             Add, edit, or retire the questions members see in Morning Readiness and Evening
-            Reflection — changes take effect in tomorrow&apos;s check-in, no deploy needed.
+            Reflection, changes take effect in tomorrow&apos;s check-in, no deploy needed.
           </p>
         </div>
 

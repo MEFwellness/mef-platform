@@ -391,8 +391,8 @@ export function TodayZones({
           </div>
           <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">
             {capability.unlocked
-              ? 'Root now has enough days logged to start testing what you log for real, confirmed patterns — not just showing you the numbers.'
-              : `Log ${capability.remaining} more day${capability.remaining === 1 ? '' : 's'} and Root can start testing what you log for real, confirmed patterns — not just showing you the numbers.`}
+              ? 'Root now has enough days logged to start testing what you log for real, confirmed patterns, not just showing you the numbers.'
+              : `Log ${capability.remaining} more day${capability.remaining === 1 ? '' : 's'} and Root can start testing what you log for real, confirmed patterns, not just showing you the numbers.`}
           </p>
         </section>
       </div>

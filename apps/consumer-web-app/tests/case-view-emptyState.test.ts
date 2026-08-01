@@ -71,7 +71,7 @@ describe('buildStillBuildingSentence', () => {
   it('leads with elapsed time so a low count over a long span reads as an honest statement, not a mismatch', () => {
     const sentence = buildStillBuildingSentence(1, 9);
     expect(sentence).toBe(
-      "It's been 9 days since you started, and you've logged 1 check-in so far. Most people don't see a real finding for their first few weeks — that's expected, not a problem."
+      "It's been 9 days since you started, and you've logged 1 check-in so far. Most people don't see a real finding for their first few weeks, that's expected, not a problem."
     );
   });
 
@@ -82,7 +82,7 @@ describe('buildStillBuildingSentence', () => {
 
   it('handles the zero-check-in case with no day count at all', () => {
     expect(buildStillBuildingSentence(0, null)).toBe(
-      "You haven't logged a check-in yet — this fills in once you have."
+      "You haven't logged a check-in yet, this fills in once you have."
     );
   });
 

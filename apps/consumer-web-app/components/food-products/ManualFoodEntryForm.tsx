@@ -102,7 +102,7 @@ export function ManualFoodEntryForm() {
           Nutrition (if you know it)
         </p>
         <p className="mb-4 text-xs text-[#9AA79F]">
-          Leave anything blank you&apos;re not sure about — Root will never guess a number for you.
+          Leave anything blank you&apos;re not sure about. Root will never guess a number for you.
         </p>
         <div className="grid grid-cols-2 gap-4">
           <div>

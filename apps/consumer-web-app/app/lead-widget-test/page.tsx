@@ -18,7 +18,7 @@ export default function LeadWidgetTestPage() {
       <h1 style={{ color: '#1B3A2D' }}>Sample Leadpages-style Landing Page</h1>
       <p>
         This page exists only to test the MEF Wellness Lead Capture Agent widget in a realistic
-        setting — a plain marketing page with its own styles, nothing to do with the member app.
+        setting: a plain marketing page with its own styles, nothing to do with the member app.
         Look for the chat bubble in the bottom-right corner.
       </p>
       <p>

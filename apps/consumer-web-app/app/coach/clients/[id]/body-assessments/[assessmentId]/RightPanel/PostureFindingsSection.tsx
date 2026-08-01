@@ -235,7 +235,7 @@ export function PostureFindingsSection({
   return (
     <div className="space-y-2">
       <p className="text-[11px] leading-relaxed text-[#9AA79F]">
-        Screening indicators only — estimated from external landmarks on-device, not a diagnosis.
+        Screening indicators only: estimated from external landmarks on-device, not a diagnosis.
         Confirm or dismiss after your own review.
       </p>
       {findings.map((finding) => (

@@ -105,7 +105,7 @@ const MISSING_PROTEIN_FIBER_EXPLANATION =
   'This choice may fit occasionally, but the meal appears low in protein and fiber.';
 
 const MIXED_MODERATE_EXPLANATION =
-  'This looks like a mixed or moderate choice — not clearly nutrient-dense, but not a poor choice either.';
+  'This looks like a mixed or moderate choice: not clearly nutrient-dense, but not a poor choice either.';
 
 /**
  * A meal read as having none of any macro, no added sugar, and no

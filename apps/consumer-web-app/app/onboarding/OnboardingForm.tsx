@@ -205,7 +205,7 @@ function NumericSlider({
               : 'bg-[#F3F6F4] text-[#1B3A2D]/30'
           }`}
         >
-          {touched ? displayValue : '—'}
+          {touched ? displayValue : '-'}
         </span>
       </div>
       <input
@@ -233,10 +233,10 @@ function NumericSlider({
       />
       <div className="mt-3 flex justify-between text-xs font-semibold text-[#6B7A72]">
         <span>
-          {min} — {endpoints.min}
+          {min}: {endpoints.min}
         </span>
         <span>
-          {max} — {endpoints.max}
+          {max}: {endpoints.max}
         </span>
       </div>
     </div>

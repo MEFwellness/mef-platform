@@ -14,7 +14,7 @@ import { StartPageClient } from './StartPageClient';
 export const metadata: Metadata = {
   title: 'Start the Conversation | MEF Wellness',
   description:
-    'Tell us what has been going on — fatigue, pain, sleep, stress, or weight — and get a real, connected answer in about two minutes.',
+    'Tell us what has been going on (fatigue, pain, sleep, stress, or weight) and get a real, connected answer in about two minutes.',
   robots: { index: true, follow: true },
 };
 

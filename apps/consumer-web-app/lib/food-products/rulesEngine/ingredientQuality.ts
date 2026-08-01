@@ -165,7 +165,7 @@ export function analyzeIngredientQuality(input: {
     if (preservativeHits.length > 0)
       observations.push(`Contains preservatives (${preservativeHits.slice(0, 2).join(', ')}).`);
     if (isLongIngredientList)
-      observations.push('Has a long ingredient list — length alone is not treated as good or bad.');
+      observations.push('Has a long ingredient list: length alone is not treated as good or bad.');
   }
 
   return {

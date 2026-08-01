@@ -94,7 +94,7 @@ export function analyzeFatQuality(input: {
 
   const observations: string[] = [];
   if (containsPartiallyHydrogenatedOil) {
-    observations.push('Contains partially hydrogenated oil — a source of industrial trans fat.');
+    observations.push('Contains partially hydrogenated oil, a source of industrial trans fat.');
   } else if (hasIndustrialTransFat) {
     observations.push('Lists trans fat.');
   }
@@ -119,7 +119,7 @@ export function analyzeFatQuality(input: {
 
   if (input.saturatedFatG !== null) {
     observations.push(
-      `Saturated fat: ${input.saturatedFatG}g per serving — considered alongside the rest of the nutrient profile, not on its own.`
+      `Saturated fat: ${input.saturatedFatG}g per serving, considered alongside the rest of the nutrient profile, not on its own.`
     );
   }
 

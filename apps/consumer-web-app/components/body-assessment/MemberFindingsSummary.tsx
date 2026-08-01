@@ -143,7 +143,7 @@ export function MemberFindingsSummary({ findings }: { findings: BodyAssessmentFi
             <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           </span>
           <p className="text-sm leading-relaxed text-[#1B3A2D]">
-            Nothing stood out in this screening — your posture looked balanced across what we could
+            Nothing stood out in this screening. Your posture looked balanced across what we could
             observe.
           </p>
         </div>

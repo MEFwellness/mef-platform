@@ -50,7 +50,7 @@ export function HandoffForm({
   if (handoffSent) {
     return (
       <p className="text-sm text-[#6B7A72]">
-        Your coach has been notified — we won&apos;t promise an exact response time, but
+        Your coach has been notified. We won&apos;t promise an exact response time, but
         they&apos;ll follow up as soon as they&apos;re able to.
       </p>
     );
@@ -91,9 +91,9 @@ export function HandoffForm({
           onChange={(e) => setHandoffUrgency(e.target.value as ConversationHandoffUrgency)}
           className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-3 py-1.5 text-base text-[#1B3A2D]"
         >
-          <option value="low">Low — whenever they can</option>
-          <option value="medium">Medium — this week</option>
-          <option value="high">High — as soon as possible</option>
+          <option value="low">Low (whenever they can)</option>
+          <option value="medium">Medium (this week)</option>
+          <option value="high">High (as soon as possible)</option>
         </select>
       </div>
       {error && <p className="text-sm text-red-700">{error}</p>}

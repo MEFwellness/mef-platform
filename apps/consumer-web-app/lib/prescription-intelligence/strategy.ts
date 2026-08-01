@@ -267,7 +267,7 @@ function describeBlock(
         requiredMovementTags: matched,
         preferredMovementTags: [],
         movementPattern: 'stability',
-        blockReasoning: `Stability work was prioritized because your corrective priorities identify ${matched.join(', ') || 'an instability pattern'} — movement quality is addressed before load or power.`,
+        blockReasoning: `Stability work was prioritized because your corrective priorities identify ${matched.join(', ') || 'an instability pattern'}. Movement quality is addressed before load or power.`,
       };
     }
 
@@ -294,7 +294,7 @@ function describeBlock(
         requiredMovementTags: [],
         preferredMovementTags: goals,
         movementPattern: null,
-        blockReasoning: `Power work is included because today's readiness tier is "ready", no instability was flagged, and the member's goal (${matchedGoal ?? 'athletic performance'}) supports it — power is never loaded ahead of movement quality.`,
+        blockReasoning: `Power work is included because today's readiness tier is "ready", no instability was flagged, and the member's goal (${matchedGoal ?? 'athletic performance'}) supports it. Power is never loaded ahead of movement quality.`,
       };
     }
 

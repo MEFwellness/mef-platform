@@ -337,7 +337,7 @@ export default async function TodayPage() {
                 <section className={`${CARD} mt-6 p-8`}>
                   <p className="text-base text-[#1B3A2D]">Nothing here yet.</p>
                   <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-                    Your coaching lesson for today hasn&apos;t been prepared yet — check back shortly.
+                    Your coaching lesson for today hasn&apos;t been prepared yet. Check back shortly.
                   </p>
                 </section>
                 <TodayZones
@@ -428,7 +428,7 @@ export default async function TodayPage() {
                             {coachNote}
                           </p>
                           <p className="mt-2 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
-                            — Root
+                            (Root)
                           </p>
                         </div>
                       </section>
@@ -595,7 +595,7 @@ export default async function TodayPage() {
                                 decision?.content?.suggested_action ?? null
                               )}
                             >
-                              I completed this — what&apos;s next?
+                              I completed this, what&apos;s next?
                             </RootQuickLink>
                           ) : (
                             <RootQuickLink

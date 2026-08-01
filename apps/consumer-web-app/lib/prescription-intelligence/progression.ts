@@ -27,7 +27,7 @@ export function decideProgressionAction(
     return {
       action: 'maintain',
       reasoning:
-        'No completion history yet for this exercise — starting at a conservative baseline.',
+        'No completion history yet for this exercise: starting at a conservative baseline.',
     };
   }
 
@@ -36,21 +36,21 @@ export function decideProgressionAction(
   if (latest.comfort_rating === 'pain') {
     return {
       action: 'substitute',
-      reasoning: `The most recent completion (${latest.occurred_at.slice(0, 10)}) reported pain — substituting rather than repeating or progressing.`,
+      reasoning: `The most recent completion (${latest.occurred_at.slice(0, 10)}) reported pain: substituting rather than repeating or progressing.`,
     };
   }
 
   if (latest.comfort_rating === 'moderate_discomfort') {
     return {
       action: 'regress',
-      reasoning: `The most recent completion (${latest.occurred_at.slice(0, 10)}) reported moderate discomfort — regressing to a gentler variation.`,
+      reasoning: `The most recent completion (${latest.occurred_at.slice(0, 10)}) reported moderate discomfort: regressing to a gentler variation.`,
     };
   }
 
   if (latest.difficulty_rating === 'very_difficult') {
     return {
       action: 'regress',
-      reasoning: `The most recent completion (${latest.occurred_at.slice(0, 10)}) was rated very difficult — regressing to a more manageable variation.`,
+      reasoning: `The most recent completion (${latest.occurred_at.slice(0, 10)}) was rated very difficult: regressing to a more manageable variation.`,
     };
   }
 
@@ -65,7 +65,7 @@ export function decideProgressionAction(
     return {
       action: 'progress',
       reasoning:
-        'The last two completions were rated easy (or very easy) and comfortable — progressing this exercise.',
+        'The last two completions were rated easy (or very easy) and comfortable: progressing this exercise.',
     };
   }
 
@@ -77,7 +77,7 @@ export function decideProgressionAction(
     return {
       action: 'deload',
       reasoning:
-        "Today's readiness signals are below this member's usual baseline — deloading rather than repeating at full intensity.",
+        "Today's readiness signals are below this member's usual baseline: deloading rather than repeating at full intensity.",
     };
   }
 

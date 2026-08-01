@@ -48,7 +48,7 @@ function RevisionRow({ revision }: { revision: RevisionEntry }) {
     <div className="border-t border-[#1B3A2D]/5 py-2 text-xs text-[#6B7A72]">
       <p>
         <span className="font-medium text-[#1B3A2D]">{revision.changeType}</span> by{' '}
-        {revision.changedByName} — {formatDate(revision.changedAt)}
+        {revision.changedByName}, {formatDate(revision.changedAt)}
       </p>
       {revision.changeType === 'updated' && diffs.length > 0 && (
         <ul className="mt-1 space-y-0.5">
@@ -254,7 +254,7 @@ export function QuestionRow({
       {showReplace && (
         <div className="mt-3">
           <p className="mb-2 text-xs text-[#854D0E]">
-            This creates a brand-new question and retires this one — its {question.answeredCount}{' '}
+            This creates a brand-new question and retires this one. Its {question.answeredCount}{' '}
             recorded answer{question.answeredCount === 1 ? '' : 's'} stay exactly as they are, under
             the old question key.
           </p>

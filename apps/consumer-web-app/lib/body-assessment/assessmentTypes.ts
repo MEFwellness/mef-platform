@@ -42,7 +42,7 @@ const FRONT_STEP: CaptureStepConfig = {
     'Stand about six feet from the camera.',
     'Face the camera directly, feet hip-width apart.',
     'Let your arms relax naturally at your sides.',
-    'Hold still — we’ll capture in a moment.',
+    'Hold still, we’ll capture in a moment.',
   ],
 };
 
@@ -54,7 +54,7 @@ const LEFT_SIDE_STEP: CaptureStepConfig = {
     'Turn so your left side faces the camera.',
     'Look straight ahead, not at the camera.',
     'Keep your arms relaxed at your sides.',
-    'Hold still — we’ll capture in a moment.',
+    'Hold still, we’ll capture in a moment.',
   ],
 };
 
@@ -66,7 +66,7 @@ const RIGHT_SIDE_STEP: CaptureStepConfig = {
     'Turn so your right side faces the camera.',
     'Look straight ahead, not at the camera.',
     'Keep your arms relaxed at your sides.',
-    'Hold still — we’ll capture in a moment.',
+    'Hold still, we’ll capture in a moment.',
   ],
 };
 
@@ -77,7 +77,7 @@ const BACK_STEP: CaptureStepConfig = {
   instructions: [
     'Turn so your back faces the camera.',
     'Feet hip-width apart, arms relaxed.',
-    'Hold still — we’ll capture in a moment.',
+    'Hold still, we’ll capture in a moment.',
   ],
 };
 
@@ -88,7 +88,7 @@ const WALKING_STEP: CaptureStepConfig = {
   instructions: [
     'Step back so your full walking path is visible.',
     'Walk naturally away from the camera, then turn and walk back.',
-    'Walk at your normal, everyday pace — nothing exaggerated.',
+    'Walk at your normal, everyday pace, nothing exaggerated.',
   ],
   durationSeconds: 12,
 };
@@ -99,7 +99,7 @@ const BREATHING_STEP: CaptureStepConfig = {
   title: 'Breathing Observation',
   instructions: [
     'Stand facing the camera so your chest and shoulders are visible.',
-    'Breathe normally — there’s no need to change your breathing.',
+    'Breathe normally, there’s no need to change your breathing.',
     'Stay still for the full recording.',
   ],
   durationSeconds: 15,
@@ -182,7 +182,7 @@ export const ASSESSMENT_TYPE_CONFIG: Record<BodyAssessmentType, AssessmentTypeCo
   static_posture: {
     type: 'static_posture',
     label: 'Static Posture',
-    description: 'A four-angle standing posture assessment — front, both sides, and back.',
+    description: 'A four-angle standing posture assessment: front, both sides, and back.',
     estimatedMinutes: 4,
     captureSteps: [FRONT_STEP, LEFT_SIDE_STEP, RIGHT_SIDE_STEP, BACK_STEP],
   },
@@ -245,7 +245,7 @@ export const ASSESSMENT_TYPE_CONFIG: Record<BodyAssessmentType, AssessmentTypeCo
   custom: {
     type: 'custom',
     label: 'Custom Assessment',
-    description: 'A coach-defined assessment — capture steps are configured per assignment.',
+    description: 'A coach-defined assessment, capture steps are configured per assignment.',
     estimatedMinutes: 5,
     captureSteps: [FRONT_STEP],
   },

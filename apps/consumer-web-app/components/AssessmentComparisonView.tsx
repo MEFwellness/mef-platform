@@ -58,7 +58,7 @@ function MetricRow({ metric }: { metric: ComparisonMetric }) {
               {metric.baseline.displayValue}
             </span>
           ) : (
-            <span className="text-[#1B3A2D]/40">—</span>
+            <span className="text-[#1B3A2D]/40">-</span>
           )}
         </div>
         <div className="flex items-center gap-1.5">
@@ -68,7 +68,7 @@ function MetricRow({ metric }: { metric: ComparisonMetric }) {
               {metric.latest.displayValue}
             </span>
           ) : (
-            <span className="text-[#1B3A2D]/40">—</span>
+            <span className="text-[#1B3A2D]/40">-</span>
           )}
         </div>
       </div>

@@ -131,7 +131,7 @@ export function AddToFoodLogSheet({
       {servingSizeText && (
         <p className="mt-2 text-xs text-[#9AA79F]">
           {servings}× {servingSizeText}
-          {scaledCalories !== null ? ` — approximately ${scaledCalories} calories` : ''}
+          {scaledCalories !== null ? ` (approximately ${scaledCalories} calories)` : ''}
         </p>
       )}
 

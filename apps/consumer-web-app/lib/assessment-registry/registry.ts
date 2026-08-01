@@ -512,7 +512,7 @@ const WBSA: AssessmentDefinition = {
 
   displayName: 'Whole-Body Systems Assessment',
   shortDescription:
-    'A whole-body check-in across 16 connected functional systems — digestion, energy, immune, circulation, hormones, mood, and more — to help surface patterns worth a closer look.',
+    'A whole-body check-in across 16 connected functional systems: digestion, energy, immune, circulation, hormones, mood, and more, to help surface patterns worth a closer look.',
   category: 'whole_body_systems',
   estimatedMinutes: 20,
 

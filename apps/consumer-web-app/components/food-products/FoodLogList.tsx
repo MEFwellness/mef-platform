@@ -72,7 +72,7 @@ export function FoodLogList({ entries: initial }: { entries: FoodLogEntryWithPro
         entry.product!.name ?? 'Saved food',
         entry.product!.name ?? 'Saved food'
       );
-      setMessage('Saved — find it under repeatable meals from Search.');
+      setMessage('Saved. Find it under repeatable meals from Search.');
     });
   }
 
@@ -109,7 +109,7 @@ export function FoodLogList({ entries: initial }: { entries: FoodLogEntryWithPro
     return (
       <div className={`${CARD} p-6`}>
         <p className="text-sm text-[#6B7A72]">
-          Nothing logged yet today — scanned products can be added from their result screen.
+          Nothing logged yet today. Scanned products can be added from their result screen.
         </p>
       </div>
     );

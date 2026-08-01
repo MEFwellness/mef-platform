@@ -239,7 +239,7 @@ describe('Scenario 4 — improvement and a positive streak', () => {
     );
     expect(brief.notablePatternTitle).toBe('Digestion has been improving');
     expect(brief.encouragingMessage).toBe(
-      '7 days in a row checking in — that consistency is exactly what moves the needle.'
+      '7 days in a row checking in, that consistency is exactly what moves the needle.'
     );
   });
 });
@@ -319,7 +319,7 @@ describe('Scenario 6 — a recommendation the member has not followed', () => {
     const memory = buildFeedMemory(historyPairs, AS_OF);
     const sentence = buildContinuitySentence(memory);
     expect(sentence).toBe(
-      'You saved "Box breathing for stress" for later — let\'s pick that back up today.'
+      'You saved "Box breathing for stress" for later. Let\'s pick that back up today.'
     );
 
     const brief = composeMorningBrief(baseSignals({ continuitySentence: sentence }));

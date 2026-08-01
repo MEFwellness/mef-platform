@@ -1445,7 +1445,7 @@ export function CameraCapture({
 
         {requiresStanding && phase === 'ready' && guidedVoice.status === 'unavailable' && (
           <div className="absolute inset-x-4 top-24 z-50 rounded-2xl bg-black/60 px-4 py-2.5 text-center text-xs font-medium text-white">
-            Voice guidance isn&apos;t available on this browser — follow the on-screen instructions.
+            Voice guidance isn&apos;t available on this browser. Follow the on-screen instructions.
           </div>
         )}
 
@@ -1453,7 +1453,7 @@ export function CameraCapture({
           <div className="absolute inset-x-0 top-16 flex justify-center">
             <span className="flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1 text-xs font-semibold text-white">
               <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
-              Recording — {secondsRemaining}s
+              Recording ({secondsRemaining}s)
             </span>
           </div>
         )}

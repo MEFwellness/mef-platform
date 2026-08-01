@@ -16,11 +16,11 @@ export function describeGap(predictedLevel: number, actualLevel: number, gap: nu
   const actualLabel = energyLevelLabel(actualLevel);
 
   if (gap === 0) {
-    return `You called it — you predicted ${predictedLabel}, and that's exactly how today came in.`;
+    return `You called it, you predicted ${predictedLabel}, and that's exactly how today came in.`;
   }
   const direction = gap > 0 ? 'higher' : 'lower';
   const amount = Math.abs(gap);
-  return `You predicted ${predictedLabel}, and today came in ${actualLabel} — ${amount} point${amount === 1 ? '' : 's'} ${direction} than you expected.`;
+  return `You predicted ${predictedLabel}, and today came in ${actualLabel}: ${amount} point${amount === 1 ? '' : 's'} ${direction} than you expected.`;
 }
 
 export function describeRootGap(predictedLevel: number, actualLevel: number, gap: number): string {
@@ -28,27 +28,27 @@ export function describeRootGap(predictedLevel: number, actualLevel: number, gap
   const actualLabel = energyLevelLabel(actualLevel);
 
   if (gap === 0) {
-    return `Root predicted ${predictedLabel} — exactly right.`;
+    return `Root predicted ${predictedLabel}, exactly right.`;
   }
   const direction = gap > 0 ? 'higher' : 'lower';
   const amount = Math.abs(gap);
-  return `Root predicted ${predictedLabel}; today came in ${actualLabel} — ${amount} point${amount === 1 ? '' : 's'} ${direction} than Root expected.`;
+  return `Root predicted ${predictedLabel}; today came in ${actualLabel}: ${amount} point${amount === 1 ? '' : 's'} ${direction} than Root expected.`;
 }
 
 export function describeRootNotReady(basisObservationCount: number, minRequired: number): string {
   if (basisObservationCount === 0) {
-    return "Root isn't ready to make a call yet — it needs a real history of your energy answers first.";
+    return "Root isn't ready to make a call yet. It needs a real history of your energy answers first.";
   }
-  return `Root isn't ready to make a call yet — it has ${basisObservationCount} of the ${minRequired} days of history it needs before predicting.`;
+  return `Root isn't ready to make a call yet. It has ${basisObservationCount} of the ${minRequired} days of history it needs before predicting.`;
 }
 
 /** Root has enough history but declined to guess because it's too erratic — an abstention, never silently rounded into a forecast. */
 export function describeRootTooVolatile(basisObservationCount: number): string {
-  return `Root sat this one out — your last ${basisObservationCount} energy answers have been swinging too much for a single call to mean anything.`;
+  return `Root sat this one out. Your last ${basisObservationCount} energy answers have been swinging too much for a single call to mean anything.`;
 }
 
 export const ROOT_NO_ATTEMPT_SENTENCE =
-  "Root didn't make a prediction for today — there was no Evening Reflection last night to base one on.";
+  "Root didn't make a prediction for today. There was no Evening Reflection last night to base one on.";
 
 export function describeTimeline(checkinCount: number, daysSinceFirstCheckin: number | null, targetDays: number): string {
   const checkinPhrase = `${checkinCount} check-in${checkinCount === 1 ? '' : 's'} logged`;

@@ -109,7 +109,7 @@ export function StartPageClient() {
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-[17px] leading-relaxed opacity-90 sm:text-lg">
             The fatigue. The pain that keeps coming back. The sleep that never feels like enough.
-            These aren&apos;t random — they&apos;re connected. Tell us what&apos;s going on, and get a
+            These aren&apos;t random. They&apos;re connected. Tell us what&apos;s going on, and get a
             real answer in the next two minutes.
           </p>
           <div className="mt-10">
@@ -130,7 +130,7 @@ export function StartPageClient() {
           You&apos;ve described the symptoms. You&apos;ve been told your labs look fine, to stretch
           more, to stress less. And you walked out with the same body you walked in with. Here&apos;s
           what almost nobody does: look at how your sleep, your stress, your movement, your
-          digestion, and your pain all feed each other. That&apos;s where the real answer lives — at
+          digestion, and your pain all feed each other. That&apos;s where the real answer lives, at
           the root, not the symptom. That&apos;s the only place we look.
         </p>
         <div className="mt-8">
@@ -148,12 +148,12 @@ export function StartPageClient() {
             {
               n: '1',
               title: "Tell us what's bothering you.",
-              body: 'Pain, energy, sleep, stress, or weight — tap one and answer a few short questions. No forms. No jargon.',
+              body: 'Pain, energy, sleep, stress, or weight: tap one and answer a few short questions. No forms. No jargon.',
             },
             {
               n: '2',
               title: 'See how it connects.',
-              body: "Our guide is trained on the MEF Wellness method. It links your answers together the way a root-cause practitioner would — and shows you what's likely driving what.",
+              body: "Our guide is trained on the MEF Wellness method. It links your answers together the way a root-cause practitioner would, and shows you what's likely driving what.",
             },
             {
               n: '3',
@@ -170,7 +170,7 @@ export function StartPageClient() {
               </span>
               <div>
                 <p className="text-lg font-semibold" style={{ color: FOREST }}>
-                  Step {step.n} — {step.title}
+                  Step {step.n}: {step.title}
                 </p>
                 <p className="mt-1.5 text-[15px] leading-relaxed">{step.body}</p>
               </div>
@@ -190,7 +190,7 @@ export function StartPageClient() {
         <p className="mx-auto mt-6 max-w-xl text-[16px] leading-relaxed opacity-90 sm:text-[17px]">
           Ask the internet about fatigue and you&apos;ll get a list you&apos;ve already read ten
           times. This is different. This conversation runs on the same framework used with real
-          coaching clients — the Six Fundamentals to Health and the Four Doctors — built by a CHEK
+          coaching clients (the Six Fundamentals to Health and the Four Doctors) built by a CHEK
           Practitioner who has spent years finding what conventional approaches miss. It won&apos;t
           diagnose you. It won&apos;t lecture you. It will listen, connect, and point you somewhere
           true.
@@ -209,7 +209,7 @@ export function StartPageClient() {
           {[
             'You wake up tired no matter how long you sleep.',
             'The same pain keeps returning no matter what you try.',
-            'You\'ve been told everything is "normal" — but you don\'t feel normal.',
+            'You\'ve been told everything is "normal," but you don\'t feel normal.',
             "You're done managing symptoms and ready to find the cause.",
           ].map((item) => (
             <li key={item} className="flex items-start gap-3 text-[16px] leading-relaxed">
@@ -225,7 +225,7 @@ export function StartPageClient() {
           ))}
         </ul>
         <div className="mt-10">
-          <CTAButton label="Yes — That's Me →" onClick={openChat} />
+          <CTAButton label="Yes, that's me →" onClick={openChat} />
         </div>
       </Section>
 

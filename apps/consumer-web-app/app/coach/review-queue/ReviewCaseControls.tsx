@@ -52,7 +52,7 @@ export function ReviewCaseControls({ reviewId, currentStatus, currentNotes }: Pr
         Coach Controls
       </p>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        A coach action here can never unlock diagnosis, medication advice, or unsafe guidance — only
+        A coach action here can never unlock diagnosis, medication advice, or unsafe guidance, only
         the review workflow status.
       </p>
 

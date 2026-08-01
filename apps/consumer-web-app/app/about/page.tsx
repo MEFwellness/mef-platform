@@ -43,7 +43,7 @@ export default async function AboutPage() {
             by MEF Wellness
           </p>
           <p className="mt-4 text-sm leading-relaxed text-[#6B7A72]">
-            Daily wellness check-ins, trends, and coaching — built around your history, focused on
+            Daily wellness check-ins, trends, and coaching, built around your history, focused on
             your future.
           </p>
           <p className="mt-4 text-xs text-[#6B7A72]/70">Version {APP_VERSION}</p>

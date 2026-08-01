@@ -25,5 +25,5 @@ export const MEMBER_DOMAIN_DESCRIPTIONS: Record<CoachingDomain, string> = {
   stress_nervous_system: "How much pressure you're under, and how well you come down from it.",
   emotional_resilience_mood: 'Your mood over time, and what you do when it dips.',
   identity_self_concept: 'How you see yourself and your body right now, and what past attempts taught you.',
-  purpose_motivation: 'Your why — what matters to you, and what a good week actually looks like.',
+  purpose_motivation: 'Your why: what matters to you, and what a good week actually looks like.',
 };

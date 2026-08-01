@@ -20,6 +20,8 @@ export type LifestyleExperiment = {
   recommendationId: string | null;
   /** Null for every experiment sourced from the Recommendation Engine (the original, still-primary path). Set only when an assessment other than the Recommendation Engine started this experiment directly — today, only Core Values Snapshot (lib/core-values-snapshot/) — so that experience's own session can be traced forward to the exact experiment it started, for accurate per-completion coach visibility and retake handling. */
   sourceSessionId: string | null;
+  /** Set only once the member has tapped "Got it" on Core Values Snapshot's day-7 reflection — null for every other experiment, and null until acknowledged. */
+  day7AcknowledgedAt: string | null;
   title: string;
   protocol: string;
   startDate: string;

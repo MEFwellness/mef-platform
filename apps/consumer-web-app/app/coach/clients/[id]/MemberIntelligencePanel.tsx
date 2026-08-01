@@ -197,7 +197,7 @@ export function MemberIntelligencePanel({
         </button>
       </div>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        The centralized longitudinal read every coaching surface shares — never a diagnosis, every
+        The centralized longitudinal read every coaching surface shares, never a diagnosis, every
         claim traces back to real evidence.
       </p>
       {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
@@ -208,11 +208,11 @@ export function MemberIntelligencePanel({
         <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-xs text-[#6B7A72]">Current focus</dt>
-            <dd className="text-[#1B3A2D]">{memberSummary.currentFocus ?? '—'}</dd>
+            <dd className="text-[#1B3A2D]">{memberSummary.currentFocus ?? '-'}</dd>
           </div>
           <div>
             <dt className="text-xs text-[#6B7A72]">Biggest obstacle</dt>
-            <dd className="text-[#1B3A2D]">{memberSummary.biggestObstacle ?? '—'}</dd>
+            <dd className="text-[#1B3A2D]">{memberSummary.biggestObstacle ?? '-'}</dd>
           </div>
           <div>
             <dt className="text-xs text-[#6B7A72]">Most improved area</dt>
@@ -233,12 +233,12 @@ export function MemberIntelligencePanel({
           <div>
             <dt className="text-xs text-[#6B7A72]">Adherence score</dt>
             <dd className="text-[#1B3A2D]">
-              {memberSummary.adherenceScore !== null ? `${memberSummary.adherenceScore}%` : '—'}
+              {memberSummary.adherenceScore !== null ? `${memberSummary.adherenceScore}%` : '-'}
             </dd>
           </div>
           <div>
             <dt className="text-xs text-[#6B7A72]">Recommended next discussion</dt>
-            <dd className="text-[#1B3A2D]">{memberSummary.recommendedNextDiscussion ?? '—'}</dd>
+            <dd className="text-[#1B3A2D]">{memberSummary.recommendedNextDiscussion ?? '-'}</dd>
           </div>
           <div>
             <dt className="text-xs text-[#6B7A72]">Wellness trajectory</dt>
@@ -359,7 +359,7 @@ export function MemberIntelligencePanel({
             <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold">Root Cause Hypotheses</p>
           </div>
-          <p className="text-xs text-[#6B7A72]">Coaching hypotheses only — never a diagnosis.</p>
+          <p className="text-xs text-[#6B7A72]">Coaching hypotheses only, never a diagnosis.</p>
           <ul className="mt-2 space-y-3">
             {hypotheses.map((h) => (
               <li key={h.id} className="rounded-2xl bg-[#FAFAF8] p-3 text-sm">

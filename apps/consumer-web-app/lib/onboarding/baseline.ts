@@ -199,7 +199,7 @@ export function formatAnswerValue(answer: BaselineAnswer): string {
   }
 
   const { value, answerType, questionKey } = answer;
-  if (value === null) return '—';
+  if (value === null) return '-';
 
   switch (answerType) {
     case 'numeric': {

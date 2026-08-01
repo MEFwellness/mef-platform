@@ -80,7 +80,7 @@ export function PrimalPatternForm({ initial }: { initial: PrimalPatternProfile |
         Your Primal Pattern target
       </p>
       <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">
-        This is what Food Lens compares your meals against. Set it manually for now — a full
+        This is what Food Lens compares your meals against. Set it manually for now. A full
         questionnaire is on the way.
       </p>
 

@@ -94,7 +94,7 @@ insert into ai_rules (rule_key, agent_key, name, description, trigger_event_type
     "insightType": "recovery_needed",
     "actionType": "risk_alert",
     "title": "Rising stress with declining sleep",
-    "descriptionTemplate": "Stress has increased for {{stressConsecutiveIncreaseDays}} consecutive days while sleep quality has been declining — this combination often signals a need for recovery.",
+    "descriptionTemplate": "Stress has increased for {{stressConsecutiveIncreaseDays}} consecutive days while sleep quality has been declining. This combination often signals a need for recovery.",
     "confidence": 0.75,
     "requiresCoachApproval": false
   }'::jsonb
@@ -115,7 +115,7 @@ insert into ai_rules (rule_key, agent_key, name, description, trigger_event_type
     "insightType": "progress_worth_celebrating",
     "actionType": "progress_milestone",
     "title": "Pain easing, movement increasing",
-    "descriptionTemplate": "Pain has been easing while movement has been increasing over recent check-ins — real, measurable progress worth recognizing.",
+    "descriptionTemplate": "Pain has been easing while movement has been increasing over recent check-ins. Real, measurable progress worth recognizing.",
     "confidence": 0.8,
     "requiresCoachApproval": false
   }'::jsonb

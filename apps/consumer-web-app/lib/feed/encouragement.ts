@@ -15,7 +15,7 @@ const ENCOURAGEMENT_LINES = [
   'Take care of today. Tomorrow will thank you.',
   'One good choice is enough to start with.',
   'Consistency beats perfection.',
-  'You show up, one day at a time — that is the whole practice.',
+  'You show up, one day at a time. That is the whole practice.',
   'Small steps, repeated, become who you are.',
 ];
 
@@ -36,7 +36,7 @@ export function dailyEncouragement(localDate: string): string {
 const COMPLETION_LINES = [
   'Great work. Nice job showing up today.',
   'Done. Consistency beats perfection.',
-  "Nicely done — that's today taken care of.",
+  "Nicely done. That's today taken care of.",
   'Complete. Small actions add up more than they seem to.',
 ];
 

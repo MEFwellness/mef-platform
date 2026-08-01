@@ -47,11 +47,11 @@ export function buildReasonText(
     case 'recent_checkins':
       return `Your recent check-ins point to ${label} as today's most useful place to focus.`;
     case 'incomplete_habits':
-      return 'Something you saved for later is still waiting — today is a good day to finish it.';
+      return 'Something you saved for later is still waiting. Today is a good day to finish it.';
     case 'low_adherence':
       return `Your coaching feed has been harder to keep up with lately, so today is intentionally about ${label}.`;
     case 'recent_improvement':
-      return `${focusDisplayLabel(focus, mode)} has been improving lately — today builds on that momentum.`;
+      return `${focusDisplayLabel(focus, mode)} has been improving lately. Today builds on that momentum.`;
     case 'long_term_pattern':
       return `${focusDisplayLabel(focus, mode)} has been a sustained pattern in your check-ins, worth continued attention.`;
     case 'coach_assignment':
@@ -61,7 +61,7 @@ export function buildReasonText(
     case 'streak_recovery':
       return signals.streak.daysSinceLastCheckin !== null &&
         signals.streak.daysSinceLastCheckin >= 2
-        ? "It's been a few days since your last check-in — today is about easing back in, not catching up."
+        ? "It's been a few days since your last check-in. Today is about easing back in, not catching up."
         : "You're picking your consistency back up, and today keeps that going.";
     case 'weekly_rhythm':
       return `Today's rhythm in the week naturally calls for a bit of ${label}.`;
@@ -85,47 +85,47 @@ export function buildReasonText(
 export function recoveryLevelText(level: RecoveryLevel): string {
   switch (level) {
     case 'excellent':
-      return 'Your recovery is excellent today — your body is well-rested and ready to be pushed a little.';
+      return 'Your recovery is excellent today. Your body is well-rested and ready to be pushed a little.';
     case 'good':
-      return 'Your recovery is solid today — a normal, steady day is a good call.';
+      return 'Your recovery is solid today. A normal, steady day is a good call.';
     case 'fair':
-      return 'Your recovery is a bit lower than usual today — nothing alarming, just worth being gentler with yourself.';
+      return 'Your recovery is a bit lower than usual today, nothing alarming, just worth being gentler with yourself.';
     case 'poor':
-      return 'Your recovery is low today — today is a good day to prioritize rest over intensity.';
+      return 'Your recovery is low today. Today is a good day to prioritize rest over intensity.';
   }
 }
 
 /** Today's step count, as one movement recommendation sentence. */
 export function movementRecommendationText(steps: number): string {
-  if (steps < 3000) return 'Movement has been light — even a 10-minute walk today would help.';
+  if (steps < 3000) return 'Movement has been light. Even a 10-minute walk today would help.';
   if (steps < 7000)
     return "You're moving, but there's room for a bit more today if it feels right.";
-  return "You're staying active — keep it up.";
+  return "You're staying active. Keep it up.";
 }
 
 /** Today's stress score (0-100, higher = more stressed), as one recommendation sentence. */
 export function stressLevelRecommendationText(stressScore: number): string {
   if (stressScore >= 70) {
-    return 'Your stress has been elevated — a few minutes of slow breathing today can help more than it seems.';
+    return 'Your stress has been elevated. A few minutes of slow breathing today can help more than it seems.';
   }
   if (stressScore >= 40)
-    return 'Your stress is moderate today — worth a short pause somewhere in your day.';
+    return 'Your stress is moderate today, worth a short pause somewhere in your day.';
   return 'Your stress levels look calm today.';
 }
 
 /** Last night's sleep duration in hours, as one recommendation sentence. */
 export function sleepDurationRecommendationText(hours: number): string {
   if (hours < 6)
-    return 'Last night was short on sleep — an earlier wind-down tonight would go a long way.';
+    return 'Last night was short on sleep. An earlier wind-down tonight would go a long way.';
   if (hours < 7)
-    return 'Sleep was a little light last night — nothing urgent, just worth protecting tonight.';
-  return 'You got a solid night of sleep — that foundation makes everything else easier today.';
+    return 'Sleep was a little light last night, nothing urgent, just worth protecting tonight.';
+  return 'You got a solid night of sleep. That foundation makes everything else easier today.';
 }
 
 /** A real 3-day HRV decline, as the Proactive Coach's own observe-then-coach message. */
 export function hrvTrendDecliningText(): string {
   return (
-    'Your HRV has been trending downward for three days — your body is asking for a bit more ' +
+    'Your HRV has been trending downward for three days. Your body is asking for a bit more ' +
     "recovery than usual. Today's a good day to keep things lighter: a short walk, extra water, " +
     'an early night.'
   );
@@ -135,13 +135,13 @@ export function hrvTrendDecliningText(): string {
 export function sleepTrendDecliningText(): string {
   return (
     "I noticed your sleep has been decreasing over the last few nights. It doesn't need to be " +
-    'a big shift — a slightly earlier wind-down tonight is often enough to turn this around.'
+    'a big shift. A slightly earlier wind-down tonight is often enough to turn this around.'
   );
 }
 
 export function activityTrendDecliningText(): string {
   return (
-    'Your activity has been lighter than usual the last few days. No judgment here — just a ' +
+    'Your activity has been lighter than usual the last few days. No judgment here, just a ' +
     'gentle nudge that even a short walk today would help.'
   );
 }
@@ -149,17 +149,17 @@ export function activityTrendDecliningText(): string {
 export function stressTrendRisingText(): string {
   return (
     'Your stress has been elevated the last few days. A few minutes of slow, intentional breathing ' +
-    'today can make a real difference — your coaching feed has something ready if you want it.'
+    'today can make a real difference. Your coaching feed has something ready if you want it.'
   );
 }
 
 export function stressTrendEasingText(): string {
-  return 'Your stress levels have been coming down the last few days — whatever you’re doing, keep it up.';
+  return 'Your stress levels have been coming down the last few days, whatever you’re doing, keep it up.';
 }
 
 export function wearableConnectedText(providerLabel: string): string {
   return (
-    `Thanks for connecting ${providerLabel} — I'll use this to personalize your coaching, and ` +
+    `Thanks for connecting ${providerLabel}. I'll use this to personalize your coaching, and ` +
     "I'll let you know if I notice anything worth your attention."
   );
 }

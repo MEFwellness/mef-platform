@@ -197,7 +197,7 @@ export function HomeHero({
         </h2>
         <p className="mt-2 max-w-md text-[15px] leading-relaxed text-[#FAFAF8]/85">
           {snapshot?.explanation_summary ||
-            'Complete a few check-ins and MEF Wellness will begin calculating your Root Score from real patterns — never a guess.'}
+            'Complete a few check-ins and MEF Wellness will begin calculating your Root Score from real patterns, never a guess.'}
         </p>
         <Link
           href="/root-score"

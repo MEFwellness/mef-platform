@@ -39,7 +39,7 @@ async function matchEducationToWeakestArea(context: AgentContext): Promise<Agent
 
   const label = WELLNESS_METRIC_LABEL[index.priority.key];
   const supportingData = { matchedMetric: index.priority.key, matchedScore: index.priority.score };
-  const description = `${label} is the current lowest-scoring area (${index.priority.score}/100) — educational content on ${label.toLowerCase()} would be most relevant right now.`;
+  const description = `${label} is the current lowest-scoring area (${index.priority.score}/100): educational content on ${label.toLowerCase()} would be most relevant right now.`;
 
   return [
     {

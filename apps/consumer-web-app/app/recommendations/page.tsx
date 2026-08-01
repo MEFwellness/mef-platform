@@ -19,7 +19,7 @@ import { BackButton } from '@/components/BackButton';
 import { RecommendationsClient } from '@/components/recommendations/RecommendationsClient';
 
 const SAFETY_STATEMENT =
-  'These recommendations are a wellness coaching guide built from your own check-ins, activity, and assessments — never a medical diagnosis or a prediction about your health. Working suggestions only, held loosely, and always something to confirm or correct with your coach.';
+  'These recommendations are a wellness coaching guide built from your own check-ins, activity, and assessments, never a medical diagnosis or a prediction about your health. Working suggestions only, held loosely, and always something to confirm or correct with your coach.';
 
 export default async function RecommendationsPage() {
   const supabase = createClient();

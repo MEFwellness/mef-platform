@@ -327,8 +327,8 @@ export function IntelligencePanel({
         </button>
       </div>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        Longer-term trends and patterns across this member&apos;s real check-in and coaching history
-        — never a diagnosis.
+        Longer-term trends and patterns across this member&apos;s real check-in and coaching history,
+        never a diagnosis.
       </p>
       {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
 
@@ -340,7 +340,7 @@ export function IntelligencePanel({
 
       {active.length === 0 ? (
         <p className="mt-3 text-sm text-[#6B7A72]">
-          No notable patterns yet — insights build as more history comes in.
+          No notable patterns yet, insights build as more history comes in.
         </p>
       ) : (
         <ul className="mt-2 divide-y divide-[#1B3A2D]/5">

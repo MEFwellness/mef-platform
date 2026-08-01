@@ -28,7 +28,7 @@ export function QuestionPreviewModal({
       >
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
-            Member preview — {question.screen === 'morning' ? 'Morning Readiness' : 'Evening Reflection'}
+            Member preview: {question.screen === 'morning' ? 'Morning Readiness' : 'Evening Reflection'}
           </p>
           <button type="button" onClick={onClose} aria-label="Close preview">
             <X className="h-5 w-5 text-[#6B7A72]" />
@@ -38,7 +38,7 @@ export function QuestionPreviewModal({
           <DriverProbeField question={question} value={value} onChange={setValue} />
         </div>
         <p className="mt-5 text-xs text-[#6B7A72]">
-          This is the exact component members see — tapping an option here doesn&apos;t save anything.
+          This is the exact component members see. Tapping an option here doesn&apos;t save anything.
         </p>
       </div>
     </div>

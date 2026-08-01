@@ -60,7 +60,7 @@ function ShareButton({ exerciseName }: { exerciseName: string }) {
     const url = typeof window !== 'undefined' ? window.location.href : '';
     const shareData = {
       title: exerciseName,
-      text: `${exerciseName} — MEF Wellness Exercise Library`,
+      text: `${exerciseName}: MEF Wellness Exercise Library`,
       url,
     };
 

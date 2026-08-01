@@ -21,7 +21,7 @@ import { CaseViewBody } from '@/components/case-view/CaseViewBody';
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 const SAFETY_STATEMENT =
-  "This view is built from your own check-ins — it shows relationships in your data, not medical conclusions or predictions. Nothing here says one thing causes another; it's something to explore with your coach, not a diagnosis.";
+  "This view is built from your own check-ins. It shows relationships in your data, not medical conclusions or predictions. Nothing here says one thing causes another; it's something to explore with your coach, not a diagnosis.";
 
 export default async function CaseViewPage() {
   const supabase = createClient();

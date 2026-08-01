@@ -40,7 +40,7 @@ export default async function FoodLensLabelScanPage({ params }: { params: { id: 
           Review what Root read
         </h1>
         <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">
-          Check each value below — anything Root wasn&apos;t confident about is flagged. Nothing is
+          Check each value below. Anything Root wasn&apos;t confident about is flagged. Nothing is
           saved until you confirm.
         </p>
 
@@ -48,7 +48,7 @@ export default async function FoodLensLabelScanPage({ params }: { params: { id: 
           {scan.status === 'not_configured' && (
             <div className={`${CARD} p-6`}>
               <p className="text-sm text-[#6B7A72]">
-                Label scanning isn&apos;t available yet — this scan is saved and will be read
+                Label scanning isn&apos;t available yet. This scan is saved and will be read
                 automatically once it is.
               </p>
             </div>

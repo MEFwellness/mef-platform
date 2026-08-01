@@ -71,7 +71,7 @@ function Chart({ points }: { points: { date: string; rating: number }[] }) {
                     empty even though they hydrate correctly client-side — a real
                     SSR/hydration mismatch caught by driving this in a browser.
                     One pre-joined template-literal child avoids it. */}
-                <title>{`${formatDate(p.date)} — ${RATING_LABELS[p.rating - 1]}`}</title>
+                <title>{`${formatDate(p.date)}: ${RATING_LABELS[p.rating - 1]}`}</title>
               </circle>
               {isEndpoint && (
                 <text x={cx} y={cy - 10} textAnchor="end" className="fill-[#1B3A2D]" style={{ fontSize: 11, fontWeight: 600 }}>
@@ -143,7 +143,7 @@ export function GoalProgressChart({
 
       {goalProgress.points.length === 0 ? (
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-          No ratings yet — answer below and this fills in over time.
+          No ratings yet. Answer below and this fills in over time.
         </p>
       ) : (
         <Chart points={goalProgress.points} />
@@ -170,7 +170,7 @@ export function GoalProgressChart({
       )}
 
       {!readOnly && justSubmitted && (
-        <p className="mt-4 text-sm text-[#6B7A72]">Thanks — that&apos;s saved.</p>
+        <p className="mt-4 text-sm text-[#6B7A72]">Thanks, that&apos;s saved.</p>
       )}
     </div>
   );

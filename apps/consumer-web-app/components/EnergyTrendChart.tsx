@@ -225,7 +225,7 @@ export function EnergyTrendChart({ checkins, showBars = false }: Props) {
               top: `${Math.max(active.y - 14, 4)}%`,
             }}
           >
-            {formatDate(active.checkin.local_date)} · Energy {active.checkin.energy_level ?? '—'}/5
+            {formatDate(active.checkin.local_date)} · Energy {active.checkin.energy_level ?? '-'}/5
           </div>
         )}
       </div>

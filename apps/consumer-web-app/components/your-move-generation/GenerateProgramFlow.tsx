@@ -174,7 +174,7 @@ export function GenerateProgramFlow({ difficultyOptions }: { difficultyOptions: 
         </div>
 
         <p className="text-xs text-[#6B7A72]">
-          This builds one repeating weekly split — this program repeats it for {weeks} week{weeks === 1 ? '' : 's'}
+          This builds one repeating weekly split. This program repeats it for {weeks} week{weeks === 1 ? '' : 's'}
           once saved and assigned.
         </p>
 
@@ -196,7 +196,7 @@ export function GenerateProgramFlow({ difficultyOptions }: { difficultyOptions: 
   return (
     <div className="space-y-4">
       <section className={`${CARD} space-y-3 p-6`}>
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Draft — Edit Before Saving</p>
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Draft: Edit Before Saving</p>
         <label className={FIELD_LABEL}>
           Program Name
           <input value={programName} onChange={(e) => setProgramName(e.target.value)} className={INPUT} />
@@ -209,7 +209,7 @@ export function GenerateProgramFlow({ difficultyOptions }: { difficultyOptions: 
               onChange={(e) => setDraftDifficulty((e.target.value || null) as ProgramDifficulty | null)}
               className={INPUT}
             >
-              <option value="">—</option>
+              <option value="">-</option>
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
               <option value="advanced">Advanced</option>
@@ -230,7 +230,7 @@ export function GenerateProgramFlow({ difficultyOptions }: { difficultyOptions: 
         <p className="text-xs text-[#6B7A72]">
           {split} · {days.length} day{days.length === 1 ? '' : 's'}/week, repeats for {draftWeeks} week
           {draftWeeks === 1 ? '' : 's'} once assigned. Each day below saves as its own program in the Program
-          Library — assign each on its own days of the week using the existing assign flow.
+          Library. Assign each on its own days of the week using the existing assign flow.
         </p>
       </section>
 

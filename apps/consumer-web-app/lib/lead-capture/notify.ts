@@ -54,7 +54,7 @@ export async function notifyCoachesOfNewLead(
   const patternLabel = lead.patternName ? PATTERN_LABELS[lead.patternName] : null;
   const title = `${temperatureLabel} lead: ${name} (${topicLabel})`;
   const body = patternLabel
-    ? `${name} (${lead.email}) came in through the Lead Capture Agent about ${topicLabel} — assigned pattern: ${patternLabel}.`
+    ? `${name} (${lead.email}) came in through the Lead Capture Agent about ${topicLabel}, assigned pattern: ${patternLabel}.`
     : `${name} (${lead.email}) came in through the Lead Capture Agent about ${topicLabel}.`;
 
   await Promise.all(

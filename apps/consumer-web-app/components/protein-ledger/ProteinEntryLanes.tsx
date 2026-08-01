@@ -127,7 +127,7 @@ export function ProteinEntryLanes() {
       <div className={`${CARD} text-center`}>
         <p className="text-sm font-medium text-[#1B3A2D]">We couldn&apos;t find that product.</p>
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-          This barcode isn&apos;t in our database yet — try search or quick add instead.
+          This barcode isn&apos;t in our database yet. Try search or quick add instead.
         </p>
         <div className="mt-4 flex flex-col gap-2.5">
           <button
@@ -471,7 +471,7 @@ function QuickAddLane({
         </button>
       </div>
       <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-        Enter the grams of protein directly — a name is optional.
+        Enter the grams of protein directly. A name is optional.
       </p>
       <label className="mt-4 block">
         <span className="text-xs text-[#6B7A72]">Grams of protein</span>

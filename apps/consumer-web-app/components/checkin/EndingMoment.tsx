@@ -64,12 +64,12 @@ export function EndingMoment({
             Today, in one color.
           </p>
           <p className="mt-2 max-w-xs text-[13px] leading-relaxed text-[#6B7A72]">
-            Built from how you actually answered — nothing added.
+            Built from how you actually answered, nothing added.
           </p>
         </>
       ) : (
         <p className="max-w-xs text-[13px] leading-relaxed text-[#6B7A72]">
-          Nothing real to show yet today — that&apos;s alright.
+          Nothing real to show yet today. That&apos;s alright.
         </p>
       )}
       <button

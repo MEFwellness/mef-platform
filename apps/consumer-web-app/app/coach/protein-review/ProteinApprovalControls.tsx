@@ -57,7 +57,7 @@ export function ProteinApprovalControls({
       </label>
       {isEdited && (
         <p className="mt-2 text-xs text-[#854D0E]">
-          Different from the computed value ({computedGrams}g) — this will be recorded as a coach
+          Different from the computed value ({computedGrams}g), this will be recorded as a coach
           edit.
         </p>
       )}

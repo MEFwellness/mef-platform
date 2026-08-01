@@ -102,7 +102,7 @@ export function maybeReframeAsResolved(
     title: draft.title
       .replace('improving', 'become less frequent')
       .replace('stayed steady', 'settled down'),
-    memberSummary: `${draft.memberSummary} This had been a concern before — it looks like that's easing.`,
+    memberSummary: `${draft.memberSummary} This had been a concern before. It looks like that's easing.`,
     reasoningCodes: [...draft.reasoningCodes, 'RESOLVED_PREVIOUS_CONCERN'],
   };
 }
@@ -263,7 +263,7 @@ export async function recalculateWellnessIntelligence(
       title: 'Your current wellness priorities',
       memberSummary: priority.primaryPriority
         ? `Right now, ${priority.primaryPriority} is the area worth the most attention.`
-        : 'Nothing urgent stands out right now — a steady stretch.',
+        : 'Nothing urgent stands out right now, a steady stretch.',
       coachDetail: JSON.stringify(priority),
       confidence: 0.7,
       severity:

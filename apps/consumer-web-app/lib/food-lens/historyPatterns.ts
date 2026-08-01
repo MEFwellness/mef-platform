@@ -24,7 +24,7 @@ export const MIN_DISTINCT_DAYS_FOR_HISTORY = 8;
 export const MIN_TOTAL_ENTRIES_FOR_HISTORY = 12;
 
 export const INSUFFICIENT_HISTORY_MESSAGE =
-  'Your data may be incomplete if meals were not logged — there is not yet enough logged history over this period for a reliable pattern read. Keep logging and Root will have more to share here soon.';
+  'Your data may be incomplete if meals were not logged. There is not yet enough logged history over this period for a reliable pattern read. Keep logging and Root will have more to share here soon.';
 
 const MEANINGFUL_FIBER_G = 3;
 const HIGH_ADDED_SUGAR_G = 10;
@@ -75,7 +75,7 @@ export function computeHistoryPatterns(input: HistoryPatternsInput): HistoryPatt
     );
   } else if (proteinRatio > 0 && proteinRatio < 0.4) {
     observations.push(
-      `Your recent meals suggest protein appeared on fewer days than not over the ${periodLabel} — worth keeping an eye on if that's not intentional.`
+      `Your recent meals suggest protein appeared on fewer days than not over the ${periodLabel}, worth keeping an eye on if that's not intentional.`
     );
   }
 
@@ -110,7 +110,7 @@ export function computeHistoryPatterns(input: HistoryPatternsInput): HistoryPatt
   ).length;
   if (distinctVegetableLabels > 0 && distinctVegetableLabels <= 2) {
     observations.push(
-      `Your recent meals suggest a fairly narrow range of vegetables and fruit — trying a new one now and then could add variety.`
+      `Your recent meals suggest a fairly narrow range of vegetables and fruit, trying a new one now and then could add variety.`
     );
   } else if (distinctVegetableLabels >= 6) {
     observations.push(
@@ -125,7 +125,7 @@ export function computeHistoryPatterns(input: HistoryPatternsInput): HistoryPatt
     input.mealQualityRatings.filter((r) => r.processingLevel === 'ultra_processed').length;
   if (highlyProcessedCount / Math.max(1, totalEntries) >= 0.4) {
     observations.push(
-      `A meaningful share of what's been logged over the ${periodLabel} has been highly processed — something to keep in view, not a verdict on any single meal.`
+      `A meaningful share of what's been logged over the ${periodLabel} has been highly processed, something to keep in view, not a verdict on any single meal.`
     );
   }
 
@@ -138,7 +138,7 @@ export function computeHistoryPatterns(input: HistoryPatternsInput): HistoryPatt
   const mostRepeated = [...labelCounts.entries()].sort((a, b) => b[1] - a[1])[0];
   if (mostRepeated && mostRepeated[1] >= 4) {
     observations.push(
-      `"${mostRepeated[0]}" has come up often in your recent meals — a recurring favorite, based on what was logged.`
+      `"${mostRepeated[0]}" has come up often in your recent meals, a recurring favorite, based on what was logged.`
     );
   }
 

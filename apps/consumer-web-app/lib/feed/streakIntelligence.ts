@@ -85,16 +85,16 @@ export function computeStreakInsight(
 export function buildStreakMessage(insight: StreakInsight): string | null {
   if (!insight.checkedInToday && insight.daysSinceLastCheckin !== null) {
     if (insight.daysSinceLastCheckin >= 2) {
-      return `It's been ${insight.daysSinceLastCheckin} days since your last check-in — no worries, today's a great day to start again.`;
+      return `It's been ${insight.daysSinceLastCheckin} days since your last check-in. No worries, today's a great day to start again.`;
     }
     return null;
   }
 
   if (insight.isLongestInWindow) {
-    return `This is your longest streak in a while — ${insight.currentStreak} days and counting.`;
+    return `This is your longest streak in a while: ${insight.currentStreak} days and counting.`;
   }
   if (insight.justRecovered) {
-    return `Nice recovery getting back to a ${insight.currentStreak}-day streak — that consistency is what counts.`;
+    return `Nice recovery getting back to a ${insight.currentStreak}-day streak. That consistency is what counts.`;
   }
   if (insight.currentStreak >= 3) {
     return `You've checked in ${insight.currentStreak} days in a row.`;

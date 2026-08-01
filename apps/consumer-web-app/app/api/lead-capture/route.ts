@@ -70,7 +70,7 @@ function serviceRoleClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is missing — set it in your hosting provider's project " +
+      "SUPABASE_SERVICE_ROLE_KEY is missing. Set it in your hosting provider's project " +
         'environment variables, then redeploy.'
     );
   }
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
   const ip = getClientIp(request);
   if (!checkRateLimit(ip)) {
     return NextResponse.json(
-      { error: 'Too many requests — please try again in a few minutes.' },
+      { error: 'Too many requests, please try again in a few minutes.' },
       { status: 429, headers }
     );
   }

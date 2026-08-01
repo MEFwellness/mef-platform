@@ -58,8 +58,8 @@ export function WellnessIndexCard({ result, previousScore, clientFirstName }: Pr
           </div>
           <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
             {clientFirstName
-              ? `A coaching metric calculated from ${clientFirstName}’s check-in today and recent wellness trends — not a medical score.`
-              : "A coaching metric calculated from today's check-in and your recent wellness trends — not a medical score."}
+              ? `A coaching metric calculated from ${clientFirstName}’s check-in today and recent wellness trends, not a medical score.`
+              : "A coaching metric calculated from today's check-in and your recent wellness trends, not a medical score."}
           </p>
 
           {result.strongest && (

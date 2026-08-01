@@ -21,7 +21,7 @@ import { domainAnchorId, NOT_COVERED_SECTION_ANCHOR_ID } from '@/lib/root-map/an
 import { useRootMapHighlightRequests } from '@/lib/root-map/highlightBus';
 
 const EXPLANATION =
-  "These four are real coaching territory — there just isn't a dedicated assessment for them on the platform yet, so nothing here is tracked from your activity today.";
+  "These four are real coaching territory. There just isn't a dedicated assessment for them on the platform yet, so nothing here is tracked from your activity today.";
 
 /** How long the tapped domain stays visually marked before fading back to normal. */
 const HIGHLIGHT_DURATION_MS = 2600;

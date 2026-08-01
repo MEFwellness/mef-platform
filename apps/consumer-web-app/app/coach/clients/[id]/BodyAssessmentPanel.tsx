@@ -11,7 +11,7 @@ const STATUS_LABEL: Record<string, string> = {
   submitted: 'Submitted',
   not_configured: 'Awaiting analysis',
   analyzing: 'Analyzing',
-  analyzed: 'Analyzed — needs review',
+  analyzed: 'Analyzed, needs review',
   coach_reviewed: 'Reviewed',
   archived: 'Archived',
 };

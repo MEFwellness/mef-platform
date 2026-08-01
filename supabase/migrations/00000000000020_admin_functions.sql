@@ -62,7 +62,7 @@ begin
     select 1 from coach_client_assignments
     where client_id = p_client_id and status = 'active'
   ) then
-    raise exception 'Client % already has an active coach assignment — revoke it first', p_client_id;
+    raise exception 'Client % already has an active coach assignment, revoke it first', p_client_id;
   end if;
 
   insert into coach_client_assignments (coach_id, client_id, assigned_by)

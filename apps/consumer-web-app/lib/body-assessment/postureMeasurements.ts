@@ -177,7 +177,7 @@ export function computeForwardHeadEstimate(
     confidence,
     severity: possible ? 'mild' : 'none',
     narrative: possible
-      ? `Estimated craniovertebral angle (photographic estimate, ear-to-shoulder line vs. horizontal): ${angle.toFixed(1)}°. This is a screening indicator of possible forward-head posture, not a diagnosis — requires practitioner review.`
+      ? `Estimated craniovertebral angle (photographic estimate, ear-to-shoulder line vs. horizontal): ${angle.toFixed(1)}°. This is a screening indicator of possible forward-head posture, not a diagnosis, requires practitioner review.`
       : `Estimated craniovertebral angle (photographic estimate): ${angle.toFixed(1)}°. No forward-head screening indicator flagged at this angle.`,
     landmarksUsed: [
       useLeft ? 'left_ear' : 'right_ear',
@@ -224,7 +224,7 @@ export function computeShoulderAlignment(
     confidence,
     severity: possible ? 'mild' : 'none',
     narrative: possible
-      ? `Possible shoulder-height asymmetry — screening indicator, not a diagnosis. Shoulder line angle vs. horizontal: ${metrics.shoulderLineAngle.toFixed(1)}°.${rotationNote} Requires practitioner review.`
+      ? `Possible shoulder-height asymmetry: screening indicator, not a diagnosis. Shoulder line angle vs. horizontal: ${metrics.shoulderLineAngle.toFixed(1)}°.${rotationNote} Requires practitioner review.`
       : `No shoulder-height asymmetry screening indicator flagged. Shoulder line angle vs. horizontal: ${metrics.shoulderLineAngle.toFixed(1)}°.${rotationNote}`,
     landmarksUsed: ['left_shoulder', 'right_shoulder'],
   };
@@ -269,7 +269,7 @@ export function computeHipAlignment(
     confidence,
     severity: possible ? 'mild' : 'none',
     narrative: possible
-      ? `Possible hip alignment asymmetry — screening indicator, not a diagnosis (possible pelvic drop and/or lateral pelvic shift). Hip line angle vs. horizontal: ${metrics.hipLineAngle.toFixed(1)}°, lateral shift estimate: ${(lateralShiftRatio * 100).toFixed(0)}% of hip width. Requires practitioner review.`
+      ? `Possible hip alignment asymmetry: screening indicator, not a diagnosis (possible pelvic drop and/or lateral pelvic shift). Hip line angle vs. horizontal: ${metrics.hipLineAngle.toFixed(1)}°, lateral shift estimate: ${(lateralShiftRatio * 100).toFixed(0)}% of hip width. Requires practitioner review.`
       : `No hip alignment asymmetry screening indicator flagged. Hip line angle vs. horizontal: ${metrics.hipLineAngle.toFixed(1)}°.`,
     landmarksUsed: ['left_hip', 'right_hip', 'left_ankle', 'right_ankle'],
   };
@@ -329,7 +329,7 @@ export function computeLateralTrunkAsymmetry(
     confidence,
     severity: flagCount >= 2 ? 'moderate' : possible ? 'mild' : 'none',
     narrative: possible
-      ? `Visible asymmetry detected across ${flagCount} of 4 external signals (shoulder height, hip height, trunk midline offset, head-to-pelvis offset). This is a screening indicator only — not a measurement of spinal curvature and not a diagnosis. Practitioner review recommended.`
+      ? `Visible asymmetry detected across ${flagCount} of 4 external signals (shoulder height, hip height, trunk midline offset, head-to-pelvis offset). This is a screening indicator only, not a measurement of spinal curvature and not a diagnosis. Practitioner review recommended.`
       : 'No visible lateral trunk asymmetry screening indicator flagged across the external signals checked.',
     landmarksUsed: ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'nose'],
   };
@@ -382,7 +382,7 @@ export function computeLowerCrossedIndicators(
     confidence,
     severity: possible ? 'mild' : 'none',
     narrative: possible
-      ? `Possible lower-crossed postural pattern — practitioner review required. Contributing visible signals: hip position relative to ankle, forward trunk displacement, and knee position (${flagCount} of 3 checked). Not a diagnosis of lower-crossed syndrome; anterior pelvic tilt itself is not measured (requires pelvis-orientation landmarks this pose model does not provide).`
+      ? `Possible lower-crossed postural pattern: practitioner review required. Contributing visible signals: hip position relative to ankle, forward trunk displacement, and knee position (${flagCount} of 3 checked). Not a diagnosis of lower-crossed syndrome; anterior pelvic tilt itself is not measured (requires pelvis-orientation landmarks this pose model does not provide).`
       : 'No lower-crossed postural pattern screening indicator flagged across the external signals checked.',
     landmarksUsed: [
       'left_hip',
@@ -429,7 +429,7 @@ export function computeSagittalTrunkPosture(
       `External posture estimate (not a spinal curvature measurement): neck inclination ` +
       `${neckInclination.toFixed(1)}° from horizontal, trunk inclination ${trunkInclination.toFixed(1)}° ` +
       `from vertical. This pose model cannot separate cervical, thoracic, and lumbar curvature ` +
-      `individually from external landmarks — reported as one combined sagittal alignment ` +
+      `individually from external landmarks, reported as one combined sagittal alignment ` +
       `estimate for practitioner review, not per-region spinal measurements.`,
     landmarksUsed: [
       useLeft ? 'left_ear' : 'right_ear',
@@ -526,7 +526,7 @@ export function computeKneeAlignmentEstimate(
     confidence,
     severity: possible ? 'mild' : 'none',
     narrative: possible
-      ? `Possible frontal-plane knee deviation — screening indicator, not a diagnosis. Left knee offset from the hip-ankle line: ${(leftRatio * 100).toFixed(0)}% of hip width (${directionLabel(leftRatio)}); right: ${(rightRatio * 100).toFixed(0)}% (${directionLabel(rightRatio)}). This 2D estimate cannot distinguish true valgus/varus from foot rotation, stance width, or camera-angle artifacts. Requires practitioner review.`
+      ? `Possible frontal-plane knee deviation: screening indicator, not a diagnosis. Left knee offset from the hip-ankle line: ${(leftRatio * 100).toFixed(0)}% of hip width (${directionLabel(leftRatio)}); right: ${(rightRatio * 100).toFixed(0)}% (${directionLabel(rightRatio)}). This 2D estimate cannot distinguish true valgus/varus from foot rotation, stance width, or camera-angle artifacts. Requires practitioner review.`
       : `No frontal-plane knee deviation screening indicator flagged. Left knee offset: ${(leftRatio * 100).toFixed(0)}% of hip width, right: ${(rightRatio * 100).toFixed(0)}%.`,
     landmarksUsed: [
       'left_hip',
@@ -625,7 +625,7 @@ export function computeFootTurnoutEstimate(
     confidence,
     severity: possible ? 'mild' : 'none',
     narrative: possible
-      ? `Estimated foot-direction angle (heel-to-toe line vs. vertical, 2D image-plane proxy): left ${leftSignedAngle.toFixed(1)}° (${describeDirection(leftSignedAngle)}), right ${rightSignedAngle.toFixed(1)}° (${describeDirection(rightSignedAngle)}). This is a screening indicator only — it cannot separate true foot rotation from stance width or camera-angle artifacts, and is not a diagnosis. Requires practitioner review.`
+      ? `Estimated foot-direction angle (heel-to-toe line vs. vertical, 2D image-plane proxy): left ${leftSignedAngle.toFixed(1)}° (${describeDirection(leftSignedAngle)}), right ${rightSignedAngle.toFixed(1)}° (${describeDirection(rightSignedAngle)}). This is a screening indicator only. It cannot separate true foot rotation from stance width or camera-angle artifacts, and is not a diagnosis. Requires practitioner review.`
       : `No foot-turnout screening indicator flagged. Estimated foot-direction angle: left ${leftSignedAngle.toFixed(1)}°, right ${rightSignedAngle.toFixed(1)}°.`,
     landmarksUsed: [
       'left_heel',
@@ -700,7 +700,7 @@ export function computeWeightShiftEstimate(
     confidence,
     severity: possible ? 'mild' : 'none',
     narrative: possible
-      ? `Possible weight-shift screening indicator — a 2D visible-mass centroid (midpoint of the shoulder and hip midpoints) sits ${(Math.abs(lateralOffsetRatio) * 100).toFixed(0)}% of stance width toward the ${towardLeft ? 'left' : 'right'} side, relative to the midpoint between both ankles. This is NOT a true center-of-mass or force-plate weight-distribution measurement, only a 2D image-plane proxy — not a diagnosis. Requires practitioner review.`
+      ? `Possible weight-shift screening indicator: a 2D visible-mass centroid (midpoint of the shoulder and hip midpoints) sits ${(Math.abs(lateralOffsetRatio) * 100).toFixed(0)}% of stance width toward the ${towardLeft ? 'left' : 'right'} side, relative to the midpoint between both ankles. This is NOT a true center-of-mass or force-plate weight-distribution measurement, only a 2D image-plane proxy, not a diagnosis. Requires practitioner review.`
       : `No weight-shift screening indicator flagged. Visible-mass centroid offset from the base of support: ${(lateralOffsetRatio * 100).toFixed(0)}% of stance width.`,
     landmarksUsed: [
       'left_shoulder',

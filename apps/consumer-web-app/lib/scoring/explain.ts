@@ -26,7 +26,7 @@ const NO_DATA_EXPLANATION: ExplanationResult = {
   positiveFactors: [],
   limitingFactors: [],
   explanationSummary:
-    "We don't have enough data yet to explain your Root Score. Keep checking in, logging meals, and moving — MEF Wellness will start identifying real patterns.",
+    "We don't have enough data yet to explain your Root Score. Keep checking in, logging meals, and moving. MEF Wellness will start identifying real patterns.",
   nextAction: null,
 };
 
@@ -58,7 +58,7 @@ export function buildExplanation(domainScores: DomainScore[]): ExplanationResult
 
   let explanationSummary: string;
   if (!hasRange) {
-    explanationSummary = `Your Root Score is currently grounded in ${strongest.label.toLowerCase()} data — more domains will factor in as you check in, log meals, and move.`;
+    explanationSummary = `Your Root Score is currently grounded in ${strongest.label.toLowerCase()} data, more domains will factor in as you check in, log meals, and move.`;
   } else {
     explanationSummary = `${capitalize(DOMAIN_COPY[strongest.domain].strengthPhrase)}, while ${DOMAIN_COPY[opportunity.domain].opportunityPhrase}.`;
   }

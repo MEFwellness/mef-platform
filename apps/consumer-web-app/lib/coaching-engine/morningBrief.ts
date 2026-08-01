@@ -74,7 +74,7 @@ function checkinStressSummary(latest: DailyCheckin | null): string | null {
 /** A streak worth naming outranks the Brain's own generic encouragement line — same "real, specific, and true" bar every other proactive message in this app holds itself to. */
 function pickEncouragingMessage(streak: number, brainEncouragement: string): string {
   if (streak >= 3) {
-    return `${streak} days in a row checking in — that consistency is exactly what moves the needle.`;
+    return `${streak} days in a row checking in, that consistency is exactly what moves the needle.`;
   }
   return brainEncouragement;
 }

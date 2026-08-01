@@ -141,7 +141,7 @@ export function checkinWeekdayPattern(
     ],
     reasoningCodes: ['WEEKDAY_CHECKIN_STRENGTH'],
     recommendedCoachingResponse: null,
-    recommendedCoachAction: `${capitalize(strongest.day)}s may be a good day to introduce something new — engagement tends to be highest.`,
+    recommendedCoachAction: `${capitalize(strongest.day)}s may be a good day to introduce something new, engagement tends to be highest.`,
     memberVisible: true,
   };
 }
@@ -179,7 +179,7 @@ export function categoryWeekdayDipPattern(
     trendStrength: null,
     patternKey: `category_weekday_dip_${category}`,
     title: `${capitalize(plain)} tends to be harder to keep up on ${isWeekend ? 'weekends' : capitalize(weakest.day) + 's'}`,
-    memberSummary: `${capitalize(plain)} tends to be harder to maintain ${isWeekend ? 'on weekends' : `on ${capitalize(weakest.day)}s`} — a small, real pattern worth planning around.`,
+    memberSummary: `${capitalize(plain)} tends to be harder to maintain ${isWeekend ? 'on weekends' : `on ${capitalize(weakest.day)}s`}, a small, real pattern worth planning around.`,
     coachDetail: `${capitalize(plain)}-category completion on ${capitalize(weakest.day)}s is ${Math.round(weakest.rate * 100)}% vs. ${Math.round(baseline * 100)}% overall across the last 90 days.`,
     confidence: confidenceFromSample(inWindow.length, 0.5, 40),
     severity: 'notable',
@@ -216,7 +216,7 @@ export function repeatedSavedNotCompletedPattern(
     trendStrength: null,
     patternKey: 'repeated_saved_not_completed',
     title: 'A few saved lessons are still waiting',
-    memberSummary: `You've saved ${saved.length} lessons for later that haven't been completed yet — no pressure, just worth knowing they're there.`,
+    memberSummary: `You've saved ${saved.length} lessons for later that haven't been completed yet, no pressure, just worth knowing they're there.`,
     coachDetail: `${saved.length} feed items are currently saved-but-not-completed: ${saved.map(({ content }) => content?.title ?? 'untitled').join('; ')}.`,
     confidence: confidenceFromSample(saved.length, 0.5, 10),
     severity: 'info',
@@ -267,7 +267,7 @@ export function disruptionRecoveryPattern(
     trendStrength: null,
     patternKey: 'disruption_recovery',
     title: 'Schedule disruptions have come up more than once',
-    memberSummary: `Your check-ins have paused for a few days ${gapCount} separate times over the last few months — and you've picked back up each time, which is exactly what matters.`,
+    memberSummary: `Your check-ins have paused for a few days ${gapCount} separate times over the last few months, and you've picked back up each time, which is exactly what matters.`,
     coachDetail: `${gapCount} gaps of ${DISRUPTION_GAP_DAYS}+ consecutive days without a check-in in the last 90 days: ${gapEvidence.join(', ')}.`,
     confidence: confidenceFromSample(gapCount, 0.55, 6, 0.85),
     severity: gapCount >= 3 ? 'notable' : 'info',
@@ -277,7 +277,7 @@ export function disruptionRecoveryPattern(
     recommendedCoachingResponse:
       'Frame a return after a gap as a normal restart, never as catching up.',
     recommendedCoachAction:
-      'Ask what tends to disrupt check-ins — travel, work schedule, or something else — and plan around it together.',
+      'Ask what tends to disrupt check-ins (travel, work schedule, or something else) and plan around it together.',
     memberVisible: true,
   };
 }
@@ -326,7 +326,7 @@ export function repeatedInterventionSuccessPattern(
     trendStrength: null,
     patternKey: `repeated_success_${contentId}`,
     title: `"${best.title}" has worked for you before`,
-    memberSummary: `You've completed "${best.title}" ${best.count} times${ratedNote} — a strategy worth returning to when it fits.`,
+    memberSummary: `You've completed "${best.title}" ${best.count} times${ratedNote}, a strategy worth returning to when it fits.`,
     coachDetail: `Content item "${best.title}" completed ${best.count} times${best.ratedCount > 0 ? `, rated helpful ${best.helpfulCount}/${best.ratedCount} times` : ' (not yet rated)'}.`,
     confidence: confidenceFromSample(best.count, 0.55, 8),
     severity: 'info',
@@ -432,7 +432,7 @@ export function divergencePattern(
       trendStrength: null,
       patternKey: `divergence_${pair.improved}_${pair.stuck}`,
       title: `${stuckLabel} ${stuckWord} even though ${improvedLabel.toLowerCase()} has improved`,
-      memberSummary: `${stuckLabel} ${stuckWord} even though ${improvedLabel.toLowerCase()} has improved recently — worth watching, not necessarily connected.`,
+      memberSummary: `${stuckLabel} ${stuckWord} even though ${improvedLabel.toLowerCase()} has improved recently, worth watching, not necessarily connected.`,
       coachDetail: `${improvedLabel} is trending 'improving' over the last 30 days while ${stuckLabel.toLowerCase()} is trending '${stuckState}' over the same window.`,
       confidence: 0.6,
       severity: 'notable',
@@ -442,7 +442,7 @@ export function divergencePattern(
         { type: 'wellness_trend', id: pair.stuck },
       ],
       reasoningCodes: [`DIVERGENCE_${pair.improved.toUpperCase()}_${pair.stuck.toUpperCase()}`],
-      recommendedCoachingResponse: `Don't assume ${improvedLabel.toLowerCase()} alone will resolve ${stuckLabel.toLowerCase()} — they may need separate attention.`,
+      recommendedCoachingResponse: `Don't assume ${improvedLabel.toLowerCase()} alone will resolve ${stuckLabel.toLowerCase()}, they may need separate attention.`,
       recommendedCoachAction: `Worth exploring what else might be driving ${stuckLabel.toLowerCase()} directly.`,
       memberVisible: true,
     });
@@ -498,7 +498,7 @@ export function contentFollowedByMetricImprovementPattern(
     trendStrength: null,
     patternKey: `content_followed_by_${category}_${metric}`,
     title: `${capitalize(plain)} practices tend to be followed by better ${metricLabel.toLowerCase()}`,
-    memberSummary: `On days after a ${plain} practice, your ${metricLabel.toLowerCase()} has tended to look better the next day — worth noticing, not a guarantee.`,
+    memberSummary: `On days after a ${plain} practice, your ${metricLabel.toLowerCase()} has tended to look better the next day, worth noticing, not a guarantee.`,
     coachDetail: `${capitalize(plain)}-category completions were followed by an improved next-day ${metricLabel.toLowerCase()} score ${improvedCount}/${sample} times (${Math.round(rate * 100)}%).`,
     confidence: confidenceFromSample(sample, 0.5, 10),
     severity: 'info',

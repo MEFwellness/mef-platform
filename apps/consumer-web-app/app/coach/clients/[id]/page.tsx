@@ -447,7 +447,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               </ul>
             ) : (
               <p className="mt-3 text-sm text-[#6B7A72]">
-                No notable patterns yet — insights build as more check-ins come in.
+                No notable patterns yet, insights build as more check-ins come in.
               </p>
             )}
           </section>
@@ -636,7 +636,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             {baseline ? (
               <BaselineAssessmentView
                 baseline={baseline}
-                description={`${firstName}'s Baseline Assessment reflects what they shared when they first joined — a starting point for measuring progress over time.`}
+                description={`${firstName}'s Baseline Assessment reflects what they shared when they first joined, a starting point for measuring progress over time.`}
               />
             ) : (
               <div className={`${CARD} p-6`}>
@@ -687,8 +687,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                   <li key={c.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                     <span className="font-medium text-[#1B3A2D]">{formatDate(c.local_date)}</span>
                     <span className="text-[#6B7A72]">
-                      Mood {c.mood_level ?? '—'} · Energy {c.energy_level ?? '—'} · Sleep{' '}
-                      {c.sleep_duration ?? '—'} · Stress {c.stress_level ?? '—'}
+                      Mood {c.mood_level ?? '-'} · Energy {c.energy_level ?? '-'} · Sleep{' '}
+                      {c.sleep_duration ?? '-'} · Stress {c.stress_level ?? '-'}
                     </span>
                   </li>
                 ))}

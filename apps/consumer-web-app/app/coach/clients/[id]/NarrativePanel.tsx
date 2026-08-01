@@ -216,7 +216,7 @@ export function NarrativePanel({ clientId, items }: { clientId: string; items: N
         Member Narrative
       </p>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        A structured, evolving understanding of this member — not a raw activity log.
+        A structured, evolving understanding of this member, not a raw activity log.
       </p>
 
       {active.length === 0 ? (

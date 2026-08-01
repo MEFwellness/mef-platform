@@ -99,7 +99,7 @@ export function MealCamera({ onCapture, busy = false }: Props) {
       );
       setBlocked(true);
     } else if (luminance < DIM_THRESHOLD) {
-      setQualityWarning('This looks a little dim — you can use it, or retake with more light.');
+      setQualityWarning('This looks a little dim. You can use it, or retake with more light.');
       setBlocked(false);
     } else {
       setQualityWarning(null);

@@ -103,7 +103,7 @@ export default async function CoachCvsSessionDetailPage({
               <p>S1 (guilt-vs-attention) observation fired: <span className="font-medium">{scoring.s1Fires ? 'Yes' : 'No'}</span></p>
               <p>
                 Verbatim Q3 answer (&quot;I feel guilty that I don&apos;t ______ enough&quot;):{' '}
-                <span className="font-medium">{guiltAnswerVerbatim ?? '—'}</span>
+                <span className="font-medium">{guiltAnswerVerbatim ?? '-'}</span>
               </p>
             </div>
           </section>
@@ -111,7 +111,7 @@ export default async function CoachCvsSessionDetailPage({
           <section className={`${CARD} p-6`}>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Weekly Experiment</p>
             {!experiment ? (
-              <p className="mt-3 text-sm text-[#6B7A72]">Skipped — did not start the experiment.</p>
+              <p className="mt-3 text-sm text-[#6B7A72]">Skipped: did not start the experiment.</p>
             ) : (
               <div className="mt-3 space-y-1.5 text-sm text-[#1B3A2D]">
                 <p>Status: <span className="font-medium">{experiment.status.replace(/_/g, ' ')}</span></p>
@@ -137,8 +137,8 @@ export default async function CoachCvsSessionDetailPage({
             <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Continued to Experience 2</p>
             <p className="mt-2 text-sm text-[#1B3A2D]">
               {continuedToExperience2
-                ? 'Yes — started the Life Signal Check.'
-                : 'Not yet — the Life Signal Check (Experience 2) has not shipped yet, so this always reads No for now.'}
+                ? 'Yes: started the Life Signal Check.'
+                : 'Not yet: the Life Signal Check (Experience 2) has not shipped yet, so this always reads No for now.'}
             </p>
           </section>
         </div>

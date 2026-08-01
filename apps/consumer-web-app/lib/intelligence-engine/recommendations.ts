@@ -67,7 +67,7 @@ function areaDrivenRecommendations(
       title: copy.priorityTitle,
       detail:
         domain === 'breathing'
-          ? `Slow, deliberate breathing can help lower ${areaLabel(trend.area).toLowerCase()} — ${copy.priorityAction}`
+          ? `Slow, deliberate breathing can help lower ${areaLabel(trend.area).toLowerCase()}, ${copy.priorityAction}`
           : copy.priorityAction,
       priority: priorityFor(trend.area, priorities),
       confidence: trend.confidence,
@@ -99,7 +99,7 @@ function educationRecommendation(trends: LongitudinalTrend[]): Recommendation | 
   return {
     domain: 'education',
     title: `Share education content on ${areaLabel(emerging.area).toLowerCase()}`,
-    detail: `${areaLabel(emerging.area)} shows an early, fresh change this week — brief educational content can help before coaching further.`,
+    detail: `${areaLabel(emerging.area)} shows an early, fresh change this week. Brief educational content can help before coaching further.`,
     priority: 'medium',
     confidence: emerging.confidence,
     evidence: emerging.evidenceRefs.map((e) => e.note ?? e.type),
@@ -117,7 +117,7 @@ function assessmentsRecommendation(profile: MemberHealthProfile): Recommendation
   return {
     domain: 'assessments',
     title: 'Request a reassessment',
-    detail: `It has been ${profile.daysSinceLastReassessmentOrBaseline} days since the member's last baseline/reassessment — a fresh reassessment would give both the member and their coach an updated picture.`,
+    detail: `It has been ${profile.daysSinceLastReassessmentOrBaseline} days since the member's last baseline/reassessment, a fresh reassessment would give both the member and their coach an updated picture.`,
     priority: 'medium',
     confidence: 0.9,
     evidence: [`${profile.daysSinceLastReassessmentOrBaseline} days since last assessment`],
@@ -137,7 +137,7 @@ function coachFollowUpRecommendation(priorities: CoachingPriorities): Recommenda
     domain: 'coach_follow_up',
     title: 'Flag for coach follow-up',
     detail: area
-      ? `${areaLabel(area)} is currently the member's top priority — worth a direct conversation at the next touchpoint.`
+      ? `${areaLabel(area)} is currently the member's top priority, worth a direct conversation at the next touchpoint.`
       : 'The current priority picture is worth a direct conversation at the next touchpoint.',
     priority: priorities.recommendedCoachAttentionLevel === 'priority' ? 'high' : 'medium',
     confidence: 0.75,
@@ -175,7 +175,7 @@ function conversationPromptRecommendation(
     title: 'Suggested Conversation Coach prompt',
     detail: topHypothesis
       ? `${topHypothesis.statement} ${topHypothesis.recommendedCoachingDirection}`
-      : `Ask how ${areaLabel(area!).toLowerCase()} has been feeling lately — it's the member's current top priority.`,
+      : `Ask how ${areaLabel(area!).toLowerCase()} has been feeling lately, it's the member's current top priority.`,
     priority: 'medium',
     confidence: topHypothesis?.confidence ?? 0.6,
     evidence: topHypothesis ? topHypothesis.knownFacts : [`Primary priority: ${area}`],
@@ -193,8 +193,8 @@ function notificationsRecommendation(
     domain: 'notifications',
     title: 'Notification-worthy change',
     detail: burnout
-      ? 'A burnout-like pattern was detected — this is significant enough to notify the assigned coach.'
-      : 'The member has a priority-level concern — this is significant enough to notify the assigned coach.',
+      ? 'A burnout-like pattern was detected, this is significant enough to notify the assigned coach.'
+      : 'The member has a priority-level concern, this is significant enough to notify the assigned coach.',
     priority: 'high',
     confidence: burnout?.confidence ?? 0.7,
     evidence: burnout ? [burnout.description] : [`Coach attention level: priority`],
@@ -208,7 +208,7 @@ function automationRecommendation(profile: MemberHealthProfile): Recommendation 
     domain: 'automation',
     title: 'Candidate for an automated nudge',
     detail:
-      "Completion of daily coaching actions has been consistently low — a future automated reminder at the member's usual check-in time is a good candidate once that capability exists.",
+      "Completion of daily coaching actions has been consistently low, a future automated reminder at the member's usual check-in time is a good candidate once that capability exists.",
     priority: 'low',
     confidence: 0.6,
     evidence: [

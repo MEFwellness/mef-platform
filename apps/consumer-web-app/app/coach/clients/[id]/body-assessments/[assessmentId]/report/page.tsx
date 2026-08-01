@@ -196,7 +196,7 @@ export default async function BodyAssessmentReportPage({
         )}
 
         <p className="mt-10 text-[11px] leading-relaxed text-[#9AA79F] print:text-black">
-          This report reflects screening-level observations reviewed by your coach — it is not a
+          This report reflects screening-level observations reviewed by your coach. It is not a
           medical diagnosis. Speak with a qualified practitioner about any findings you have
           questions about.
         </p>

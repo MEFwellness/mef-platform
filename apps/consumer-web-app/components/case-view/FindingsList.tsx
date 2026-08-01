@@ -28,11 +28,11 @@ function FindingCard({ finding, coachMode }: { finding: FindingView; coachMode: 
           </div>
           <div>
             <dt className="text-[#9AA79F]">Span</dt>
-            <dd className="font-medium text-[#1B3A2D]">{finding.spanDays ?? '—'} days</dd>
+            <dd className="font-medium text-[#1B3A2D]">{finding.spanDays ?? '-'} days</dd>
           </div>
           <div>
             <dt className="text-[#9AA79F]">Strength (ρ)</dt>
-            <dd className="font-medium text-[#1B3A2D]">{finding.rho !== null ? finding.rho.toFixed(2) : '—'}</dd>
+            <dd className="font-medium text-[#1B3A2D]">{finding.rho !== null ? finding.rho.toFixed(2) : '-'}</dd>
           </div>
           <div>
             <dt className="text-[#9AA79F]">Split-window agreement</dt>
@@ -44,7 +44,7 @@ function FindingCard({ finding, coachMode }: { finding: FindingView; coachMode: 
           </div>
           <div>
             <dt className="text-[#9AA79F]">Direction</dt>
-            <dd className="font-medium text-[#1B3A2D]">{finding.direction ?? '—'}</dd>
+            <dd className="font-medium text-[#1B3A2D]">{finding.direction ?? '-'}</dd>
           </div>
           <div>
             <dt className="text-[#9AA79F]">Confidence</dt>

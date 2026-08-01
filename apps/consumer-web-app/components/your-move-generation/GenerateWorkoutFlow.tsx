@@ -172,7 +172,7 @@ export function GenerateWorkoutFlow({
   return (
     <div className="space-y-4">
       <section className={`${CARD} space-y-3 p-6`}>
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Draft — Edit Before Saving</p>
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Draft: Edit Before Saving</p>
         <label className={FIELD_LABEL}>
           Workout Name
           <input value={name} onChange={(e) => setName(e.target.value)} className={INPUT} />
@@ -185,7 +185,7 @@ export function GenerateWorkoutFlow({
               onChange={(e) => setDraftDifficulty((e.target.value || null) as ProgramDifficulty | null)}
               className={INPUT}
             >
-              <option value="">—</option>
+              <option value="">-</option>
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
               <option value="advanced">Advanced</option>

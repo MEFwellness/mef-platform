@@ -56,10 +56,10 @@ const COACHING_QUESTION_BY_STATE: Partial<Record<SignalState, string>> = {
   emerging_pattern: 'Is there a common thread across the times this has appeared?',
   established_pattern: "How is this affecting their day-to-day, and what have they already tried?",
   worsening: "What's changed recently that might be contributing to this?",
-  improving: "What's been working — worth reinforcing or expanding on?",
+  improving: "What's been working, worth reinforcing or expanding on?",
   stable: 'Is "stable" here a good thing, or does it feel like a plateau worth addressing?',
   resolved: 'Does it feel resolved to them too, or just quieter for now?',
-  stale: "It's been a while since we've heard about this — still relevant to bring up?",
+  stale: "It's been a while since we've heard about this, still relevant to bring up?",
   conflicting: 'What does their own day-to-day experience of this actually feel like?',
   insufficient_data: 'Would a specific check-in question help fill in the picture here?',
 };
@@ -128,7 +128,7 @@ function RequestReassessmentForm({
     <form onSubmit={handleSubmit} className="mt-4 border-t border-[#1B3A2D]/5 pt-4">
       <p className="text-sm font-semibold text-[#1B3A2D]">Request a Reassessment</p>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        Schedules it for this member the same way an automated trigger would — they&apos;ll see it as
+        Schedules it for this member the same way an automated trigger would. They&apos;ll see it as
         a normal suggested next step.
       </p>
       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -189,7 +189,7 @@ export function LongitudinalIntelligencePanel({
         <p className="text-sm font-semibold uppercase tracking-wider">Longitudinal Intelligence</p>
       </div>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        How this member&apos;s signals have held up over time — emerging vs. established, improving vs.
+        How this member&apos;s signals have held up over time: emerging vs. established, improving vs.
         worsening, and what&apos;s gone stale or conflicting.
       </p>
 

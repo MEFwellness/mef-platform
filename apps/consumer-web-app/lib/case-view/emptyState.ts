@@ -76,10 +76,10 @@ export function buildCaseEmptyState(
  */
 export function buildStillBuildingSentence(checkinCount: number, daysSinceFirstCheckin: number | null): string {
   const encouragement =
-    "Most people don't see a real finding for their first few weeks — that's expected, not a problem.";
+    "Most people don't see a real finding for their first few weeks, that's expected, not a problem.";
 
   if (checkinCount === 0) {
-    return "You haven't logged a check-in yet — this fills in once you have.";
+    return "You haven't logged a check-in yet, this fills in once you have.";
   }
 
   const checkinPhrase = `${checkinCount} check-in${checkinCount === 1 ? '' : 's'} so far`;

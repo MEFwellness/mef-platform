@@ -195,7 +195,7 @@ export function QuestionEditorForm({
         />
         {keyEditable && (
           <p className="mt-1 text-xs text-[#6B7A72]">
-            Generated from the prompt — edit now if you want, it can&apos;t change later.
+            Generated from the prompt. Edit now if you want, it can&apos;t change later.
           </p>
         )}
       </div>
@@ -214,7 +214,7 @@ export function QuestionEditorForm({
             <option value="">Choose a driver…</option>
             {drivers.map((driver) => (
               <option key={driver.id} value={driver.id}>
-                {driver.id} — {driver.label}
+                {driver.id}: {driver.label}
               </option>
             ))}
           </select>
@@ -274,7 +274,7 @@ export function QuestionEditorForm({
       {(responseType === 'single_select' || responseType === 'multi_select') && (
         <div>
           <label className={LABEL_CLASS} htmlFor="select-options">
-            Choices — one per line, as &quot;value: what the member sees&quot;
+            Choices: one per line, as &quot;value: what the member sees&quot;
           </label>
           <textarea
             id="select-options"
@@ -290,7 +290,7 @@ export function QuestionEditorForm({
 
       {(responseTypeLocked || optionsLocked) && (
         <p className="text-xs text-[#854D0E]">
-          This question already has recorded answers, so its answer type and choices are locked —
+          This question already has recorded answers, so its answer type and choices are locked:
           changing them would reinterpret past answers. Use &quot;Retire and replace&quot; instead.
         </p>
       )}

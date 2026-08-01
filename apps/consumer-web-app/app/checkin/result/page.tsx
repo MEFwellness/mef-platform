@@ -152,7 +152,7 @@ export default async function CheckinResultPage({
                     Calibration over time
                   </p>
                   <p className="mt-1 text-[13px] leading-snug text-[#6B7A72]">
-                    Within a point counts as a hit — the scale only has five steps, so exact and one-off are both a real
+                    Within a point counts as a hit: the scale only has five steps, so exact and one-off are both a real
                     read; anything further off is a miss.
                   </p>
                   <div className="mt-3 flex gap-8">

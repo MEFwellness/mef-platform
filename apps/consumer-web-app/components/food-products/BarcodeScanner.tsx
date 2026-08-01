@@ -296,7 +296,7 @@ export function BarcodeScanner({ onDecode, onCancel, busy = false }: Props) {
       </div>
 
       <p className="bg-white px-4 py-2 text-center text-xs text-[#6B7A72]">
-        Center the barcode in the frame — it scans automatically.
+        Center the barcode in the frame. It scans automatically.
       </p>
 
       <div className="flex items-center justify-center gap-3 bg-white p-4">

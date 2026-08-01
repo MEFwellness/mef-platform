@@ -74,7 +74,7 @@ export function WearableConnectionCard({
                 />
                 {connection?.provider_status === 'active'
                   ? formatLastSynced(connection.last_synced_at)
-                  : 'Connected — waiting on integration to go live'}
+                  : 'Connected, waiting on integration to go live'}
               </p>
             ) : (
               <p className="mt-0.5 text-xs text-[#6B7A72]">Not connected</p>

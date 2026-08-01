@@ -84,7 +84,7 @@ export function computePelvicDropScreening(samples: PelvicDropSample[]): PelvicD
     confidence,
     sampleCount: sorted.length,
     narrative: possible
-      ? `Pelvic-drop screening indicator: estimated ${maxDeviation.toFixed(1)}° contralateral pelvic-line change during the single-leg stance, relative to the initial standing baseline. Not a Trendelenburg diagnosis — requires practitioner review and clinical examination.`
-      : `No pelvic-drop screening indicator flagged — estimated pelvic-line change during the single-leg stance stayed within the screening bound (${maxDeviation.toFixed(1)}°).`,
+      ? `Pelvic-drop screening indicator: estimated ${maxDeviation.toFixed(1)}° contralateral pelvic-line change during the single-leg stance, relative to the initial standing baseline. Not a Trendelenburg diagnosis: requires practitioner review and clinical examination.`
+      : `No pelvic-drop screening indicator flagged: estimated pelvic-line change during the single-leg stance stayed within the screening bound (${maxDeviation.toFixed(1)}°).`,
   };
 }

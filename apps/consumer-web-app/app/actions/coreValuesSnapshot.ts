@@ -32,6 +32,7 @@ import {
   listMyLifestyleExperiments,
   countActiveExperiments,
   deriveEffectiveStatus,
+  markDay7Acknowledged,
   MAX_ACTIVE_EXPERIMENTS,
   type LifestyleExperiment,
 } from '@/lib/lifestyle-experiments';
@@ -181,7 +182,7 @@ export async function startCvsExperimentAction(
   if (activeCount >= MAX_ACTIVE_EXPERIMENTS) {
     return {
       ok: false,
-      error: `You're already working on ${MAX_ACTIVE_EXPERIMENTS} experiments — close one out before starting another.`,
+      error: `You're already working on ${MAX_ACTIVE_EXPERIMENTS} experiments, close one out before starting another.`,
     };
   }
 
@@ -264,6 +265,15 @@ export async function submitCvsDay3ResponseAction(
   const supabase = createClient();
   const localDate = await localDateFor(supabase, memberId);
   const ok = await upsertCvsDailyLog(supabase, memberId, experimentId, localDate, { day3Response: response });
+  return ok ? { ok: true } : { ok: false, error: 'Could not save that.' };
+}
+
+export async function acknowledgeCvsDay7Action(experimentId: string): Promise<{ ok: boolean; error?: string }> {
+  const memberId = await requireMemberId();
+  if (!memberId) return { ok: false, error: 'Not signed in.' };
+
+  const supabase = createClient();
+  const ok = await markDay7Acknowledged(supabase, memberId, experimentId);
   return ok ? { ok: true } : { ok: false, error: 'Could not save that.' };
 }
 

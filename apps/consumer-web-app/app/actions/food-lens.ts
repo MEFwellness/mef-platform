@@ -199,7 +199,7 @@ export async function analyzeFoodLensScanAction(
     return {
       status: 'not_configured',
       error:
-        "Food Lens isn't available yet — no vision provider is configured. This scan is saved and " +
+        "Food Lens isn't available yet. No vision provider is configured. This scan is saved and " +
         'will be analyzed automatically once one is connected.',
     };
   }

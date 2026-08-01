@@ -29,7 +29,7 @@ export function CoachingSections({ coaching }: { coaching: FoodCoachingResult })
         <Section label="Missing information" text={coaching.missingInformation} />
       </div>
       <p className="mt-4 text-xs leading-relaxed text-[#9AA79F]">
-        This reflects your own scan data and context — not a medical assessment.
+        This reflects your own scan data and context, not a medical assessment.
       </p>
     </div>
   );

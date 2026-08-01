@@ -82,7 +82,7 @@ export default async function CorrectiveProgramsMemberPage({
           {!overview.latestAssessment ? (
             <p className="mt-3 text-sm text-[#6B7A72]">
               {overview.memberName} doesn&apos;t have a completed posture assessment yet. A corrective
-              program can only be generated from real assessment findings — have them complete a
+              program can only be generated from real assessment findings, have them complete a
               posture assessment first, then come back here.
             </p>
           ) : (

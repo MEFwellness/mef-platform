@@ -60,11 +60,11 @@ export const DOMAIN_COPY: Record<ScoreDomainKey, DomainCopy> = {
   consistency: {
     opportunityPhrase: 'check-in consistency is your clearest opportunity',
     strengthPhrase: 'your check-in consistency is a real strength',
-    nextAction: 'Check in today — consistency, not perfection, is what moves this score.',
+    nextAction: 'Check in today: consistency, not perfection, is what moves this score.',
     linkHref: '/checkin',
     linkLabel: 'Check in today',
   },
 };
 
 export const SAFETY_STATEMENT =
-  'Root Score is a wellness coaching guide built from your own check-ins, activity, and assessments — it is not a medical diagnosis, a clinical measurement, or a prediction about your health.';
+  'Root Score is a wellness coaching guide built from your own check-ins, activity, and assessments, it is not a medical diagnosis, a clinical measurement, or a prediction about your health.';

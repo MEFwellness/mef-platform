@@ -138,7 +138,7 @@ insert into ai_rules (rule_key, agent_key, name, description, trigger_event_type
     "insightType": "missed_checkin_nudge",
     "actionType": "reminder_recommendation",
     "title": "It has been a couple of days",
-    "descriptionTemplate": "It has been {{daysSinceLastCheckin}} days since the last check-in — a quick one today keeps things on track.",
+    "descriptionTemplate": "It has been {{daysSinceLastCheckin}} days since the last check-in. A quick one today keeps things on track.",
     "confidence": 0.85,
     "requiresCoachApproval": false
   }'::jsonb
@@ -158,7 +158,7 @@ insert into ai_rules (rule_key, agent_key, name, description, trigger_event_type
     "insightType": "reengagement",
     "actionType": "member_encouragement",
     "title": "We have missed you",
-    "descriptionTemplate": "It has been {{daysSinceLastCheckin}} days — whenever you are ready, your coach and Root are right here.",
+    "descriptionTemplate": "It has been {{daysSinceLastCheckin}} days. Whenever you are ready, your coach and Root are right here.",
     "confidence": 0.8,
     "requiresCoachApproval": false
   }'::jsonb

@@ -12,7 +12,7 @@ function scoreColor(score: number | null): string {
 }
 
 function formatSleepDuration(minutes: number | null): string {
-  if (minutes === null) return '—';
+  if (minutes === null) return '-';
   const hours = Math.floor(minutes / 60);
   const mins = Math.round(minutes % 60);
   return `${hours}h ${mins}m`;
@@ -36,7 +36,7 @@ export function WearableStatsRow({ snapshot }: { snapshot: WearableDailySnapshot
           <p className="text-[11px] font-semibold uppercase tracking-wider">Readiness</p>
         </div>
         <p className={`mt-2 text-2xl font-semibold ${scoreColor(snapshot.readinessScore)}`}>
-          {snapshot.readinessScore ?? '—'}
+          {snapshot.readinessScore ?? '-'}
           {snapshot.readinessScore !== null && (
             <span className="text-sm font-normal text-[#6B7A72]">/100</span>
           )}
@@ -51,7 +51,7 @@ export function WearableStatsRow({ snapshot }: { snapshot: WearableDailySnapshot
         <p
           className={`mt-2 text-2xl font-semibold ${scoreColor(snapshot.recoveryScore ?? snapshot.readinessScore)}`}
         >
-          {snapshot.recoveryScore ?? snapshot.readinessScore ?? '—'}
+          {snapshot.recoveryScore ?? snapshot.readinessScore ?? '-'}
           {(snapshot.recoveryScore ?? snapshot.readinessScore) !== null && (
             <span className="text-sm font-normal text-[#6B7A72]">/100</span>
           )}

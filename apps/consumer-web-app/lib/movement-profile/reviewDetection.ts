@@ -61,7 +61,7 @@ export function detectMovementProfileReviewSignals(
       signals.push({
         reviewType: 'new_pain_report',
         summary: `New pain report on ${name}`,
-        detail: `The member rated "${name}" as painful — no prior pain rating for this exercise.`,
+        detail: `The member rated "${name}" as painful, no prior pain rating for this exercise.`,
       });
     } else {
       const newRank = PAIN_LEVEL_RANK[newCompletion.comfort_rating] ?? 0;
@@ -101,7 +101,7 @@ export function detectMovementProfileReviewSignals(
       signals.push({
         reviewType: 'possible_progression',
         summary: `Possible progression opportunity on ${name}`,
-        detail: `The last 3 difficulty ratings for "${name}" were easy or very easy — this member may be ready for a harder variation.`,
+        detail: `The last 3 difficulty ratings for "${name}" were easy or very easy, this member may be ready for a harder variation.`,
       });
     }
 
@@ -112,7 +112,7 @@ export function detectMovementProfileReviewSignals(
       signals.push({
         reviewType: 'possible_regression',
         summary: `Possible regression needed on ${name}`,
-        detail: `The last 2 difficulty ratings for "${name}" were "very difficult" — this member may need an easier variation.`,
+        detail: `The last 2 difficulty ratings for "${name}" were "very difficult", this member may need an easier variation.`,
       });
     }
   }

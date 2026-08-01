@@ -36,7 +36,7 @@ function pick(options: string[], seedKey: string): string {
 
 const FIXED_STATE_PHRASE: Partial<Record<SignalState, string>> = {
   stale: "This hasn't been updated in a while, so we're treating it as older information.",
-  conflicting: "What we're seeing here is mixed — different signals point in different directions right now.",
+  conflicting: "What we're seeing here is mixed: different signals point in different directions right now.",
   insufficient_data: "We don't have enough information yet to say much about this.",
   resolved: 'This looks like it has settled down since we first noticed it.',
 };

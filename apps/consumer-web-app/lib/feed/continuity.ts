@@ -34,7 +34,7 @@ export function buildChallengeCarryover(
 ): string | null {
   const match = memory.savedNotCompleted.find((s) => s.contentItemId === todayContentItemId);
   if (!match) return null;
-  return "You saved this one for later — let's complete it today.";
+  return "You saved this one for later. Let's complete it today.";
 }
 
 /**
@@ -46,14 +46,14 @@ export function buildChallengeCarryover(
 export function buildContinuitySentence(memory: FeedMemory): string | null {
   if (memory.savedNotCompleted.length > 0) {
     const saved = memory.savedNotCompleted[0]!;
-    return `You saved "${saved.title}" for later — let's pick that back up today.`;
+    return `You saved "${saved.title}" for later. Let's pick that back up today.`;
   }
 
   if (memory.mostFrequentCategory) {
     const count = memory.categoryCountsThisWeek[memory.mostFrequentCategory];
     if (count >= MIN_WEEK_SAMPLE) {
       const label = FOUR_DOCTORS_PLAIN_LABEL[memory.mostFrequentCategory];
-      return `You've completed ${count} ${label} lesson${count === 1 ? '' : 's'} this week — let's keep building on that.`;
+      return `You've completed ${count} ${label} lesson${count === 1 ? '' : 's'} this week. Let's keep building on that.`;
     }
   }
 

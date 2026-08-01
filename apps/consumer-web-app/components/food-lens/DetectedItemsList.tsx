@@ -152,7 +152,7 @@ export function DetectedItemsList({
         Detected items
       </p>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        Correct anything Root got wrong — it helps your future scans too. The confidence below is
+        Correct anything Root got wrong. It helps your future scans too. The confidence below is
         how sure Root is that this is the right food, separate from the nutrient-amount confidence
         shown in Macro Balance.
       </p>

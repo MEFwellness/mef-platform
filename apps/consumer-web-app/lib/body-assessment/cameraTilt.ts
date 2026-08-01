@@ -48,7 +48,7 @@ export function evaluateCameraTilt(
   if (gammaDegrees !== null && Math.abs(gammaDegrees) > ROLL_TOLERANCE_DEGREES) {
     return {
       ok: false,
-      message: 'Level your phone — even a slight tilt affects the measurement.',
+      message: 'Level your phone. Even a slight tilt affects the measurement.',
     };
   }
   if (
@@ -57,7 +57,7 @@ export function evaluateCameraTilt(
   ) {
     return {
       ok: false,
-      message: 'Aim your phone straight ahead — not tilted up or down.',
+      message: 'Aim your phone straight ahead, not tilted up or down.',
     };
   }
   return { ok: true, message: '' };

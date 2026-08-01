@@ -276,7 +276,7 @@ export function AssignProgramPanel({
 
       <p className="text-xs text-[#6B7A72]">
         {previewDates.length === 0
-          ? 'No workout dates yet — finish configuring the schedule above.'
+          ? 'No workout dates yet. Finish configuring the schedule above.'
           : `This will create ${previewDates.length} workout${previewDates.length === 1 ? '' : 's'}.`}
       </p>
 

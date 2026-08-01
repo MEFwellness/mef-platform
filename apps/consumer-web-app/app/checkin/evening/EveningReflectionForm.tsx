@@ -258,7 +258,7 @@ export function EveningReflectionForm({
           </p>
           <p className="text-[13px] text-[#6B7A72]">
             {existingForecastLevel === null
-              ? "No wrong answer — tomorrow's check-in will tell you how close you were."
+              ? "No wrong answer, tomorrow's check-in will tell you how close you were."
               : "You've already made this prediction. It's locked in until tomorrow grades it."}
           </p>
           {existingForecastLevel === null ? (

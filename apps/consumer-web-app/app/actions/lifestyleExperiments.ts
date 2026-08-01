@@ -51,7 +51,7 @@ export async function startMyExperiment(
   const activeCount = await countActiveExperiments(supabase, user.id);
   if (activeCount >= MAX_ACTIVE_EXPERIMENTS) {
     return {
-      error: `You're already working on ${MAX_ACTIVE_EXPERIMENTS} experiments — close one out with a reflection before starting another.`,
+      error: `You're already working on ${MAX_ACTIVE_EXPERIMENTS} experiments, close one out with a reflection before starting another.`,
     };
   }
 

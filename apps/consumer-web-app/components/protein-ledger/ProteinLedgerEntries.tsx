@@ -118,7 +118,7 @@ export function ProteinLedgerEntries({ entries: initial }: { entries: LedgerEntr
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <p className="text-sm font-semibold text-[#1B3A2D]">
-                {entry.proteinGrams !== null ? `${roundGrams(entry.proteinGrams)}g` : '—'}
+                {entry.proteinGrams !== null ? `${roundGrams(entry.proteinGrams)}g` : '-'}
               </p>
               <button
                 type="button"

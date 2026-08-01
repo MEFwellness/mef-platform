@@ -66,7 +66,7 @@ export function SummarySection({
           </span>
         }
       />
-      <Row label="Time Required" value={duration ?? '—'} />
+      <Row label="Time Required" value={duration ?? '-'} />
       <Row label="Number of Captures" value={captureCount} />
     </div>
   );

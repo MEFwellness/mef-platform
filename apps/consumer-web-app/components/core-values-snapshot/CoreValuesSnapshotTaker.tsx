@@ -284,7 +284,7 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
       {beat === 'finishing' && (
         <div className="flex flex-col items-center justify-center gap-3 py-16">
           <Loader2 className="h-6 w-6 animate-spin text-[#1B3A2D]" aria-hidden="true" />
-          <p className="text-sm text-[#6B7A72]">One moment — Root is putting this together.</p>
+          <p className="text-sm text-[#6B7A72]">One moment, Root is putting this together.</p>
         </div>
       )}
 

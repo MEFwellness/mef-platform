@@ -26,7 +26,7 @@ const COACHING_STYLE_BY_MODE: Record<CoachingMode, string> = {
   recover: 'Gentle, recovery-focused coaching',
   educate: 'Education-first coaching',
   celebrate: 'Celebratory, momentum-reinforcing coaching',
-  reset: 'A soft reset — light, no-pressure re-engagement',
+  reset: 'A soft reset: light, no-pressure re-engagement',
   maintain: 'Steady, maintenance-focused coaching',
 };
 

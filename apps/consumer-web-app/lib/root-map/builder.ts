@@ -35,10 +35,10 @@ import type { RootMapDomainView, RootMapStage, RootMapView } from './types';
 import { MEMBER_DOMAIN_DESCRIPTIONS } from './memberCopy';
 
 const GATHERING_INFO_MESSAGE =
-  "Rooted Reset is still gathering information here — as you complete assessments and check-ins, this section will fill in.";
+  "Rooted Reset is still gathering information here, as you complete assessments and check-ins, this section will fill in.";
 
 const UNINSTRUMENTED_MESSAGE =
-  "This is real coaching territory — Rooted Reset doesn't have a dedicated assessment for it yet, so nothing here is tracked from your activity today.";
+  "This is real coaching territory: Rooted Reset doesn't have a dedicated assessment for it yet, so nothing here is tracked from your activity today.";
 
 const SAFETY_SUPPRESSED_MESSAGE =
   'Your coach is reviewing something in this area with you right now, so specific details are paused here for the moment.';
@@ -74,7 +74,7 @@ function recommendationCopyForDomain(
     return {
       currentRecommendation: 'No assessment covers this yet',
       nextSuggestedStep:
-        "This will be added as Rooted Reset's assessment library expands — nothing to do here for now.",
+        "This will be added as Rooted Reset's assessment library expands, nothing to do here for now.",
     };
   }
   if (confidence.label === 'building') {
@@ -93,7 +93,7 @@ function recommendationCopyForDomain(
   if (priority === 'worth_watching') {
     return {
       currentRecommendation: 'Worth keeping an eye on',
-      nextSuggestedStep: 'Keep tracking here — no urgent action needed yet.',
+      nextSuggestedStep: 'Keep tracking here, no urgent action needed yet.',
     };
   }
   return {
@@ -144,7 +144,7 @@ function buildDomainView(
     whatWeUnderstand = matchingFindings.map((f) => f.narrative ?? f.label);
     whatWereStillLearning =
       confidence.label === 'high'
-        ? "We have a clear, corroborated picture here — we'll keep watching for anything that changes."
+        ? "We have a clear, corroborated picture here, we'll keep watching for anything that changes."
         : "We're building a clearer picture here as more information comes in.";
   }
 

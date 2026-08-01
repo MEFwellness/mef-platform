@@ -61,7 +61,7 @@ const RULES: ComboRule[] = [
   {
     categories: ['protein', 'carb', 'vegetable'],
     build: (p) =>
-      `${listNames([p.protein, p.carb, p.vegetable])} are all on hand — enough for a balanced plate covering protein, a carbohydrate source, and vegetables.`,
+      `${listNames([p.protein, p.carb, p.vegetable])} are all on hand: enough for a balanced plate covering protein, a carbohydrate source, and vegetables.`,
   },
   {
     categories: ['protein', 'carb', 'fat'],
@@ -76,17 +76,17 @@ const RULES: ComboRule[] = [
   {
     categories: ['protein', 'vegetable'],
     build: (p) =>
-      `You have ${p.protein.name} and ${p.vegetable.name} on hand — a quick base for a protein-and-vegetable plate.`,
+      `You have ${p.protein.name} and ${p.vegetable.name} on hand: a quick base for a protein-and-vegetable plate.`,
   },
   {
     categories: ['protein', 'fat'],
     build: (p) =>
-      `${p.protein.name} and ${p.fat.name} are both available — a simple pairing if you want something protein-forward with a satisfying fat source.`,
+      `${p.protein.name} and ${p.fat.name} are both available: a simple pairing if you want something protein-forward with a satisfying fat source.`,
   },
   {
     categories: ['protein', 'carb'],
     build: (p) =>
-      `${p.protein.name} and ${p.carb.name} are both in your pantry — a straightforward base for a filling meal.`,
+      `${p.protein.name} and ${p.carb.name} are both in your pantry: a straightforward base for a filling meal.`,
   },
   {
     categories: ['carb', 'fat'],
@@ -101,7 +101,7 @@ const RULES: ComboRule[] = [
   {
     categories: ['vegetable', 'fat'],
     build: (p) =>
-      `${p.vegetable.name} and ${p.fat.name} are on hand — enough for a simple dressed vegetable dish.`,
+      `${p.vegetable.name} and ${p.fat.name} are on hand: enough for a simple dressed vegetable dish.`,
   },
 ];
 

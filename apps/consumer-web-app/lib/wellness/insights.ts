@@ -59,12 +59,12 @@ function trendMessage(key: WellnessMetricKey, direction: InsightDirection): stri
   if (key === 'stress') {
     return direction === 'declining'
       ? 'Stress has been increasing over recent check-ins.'
-      : 'Stress has been decreasing over recent check-ins — a positive sign.';
+      : 'Stress has been decreasing over recent check-ins, a positive sign.';
   }
   if (key === 'pain') {
     return direction === 'declining'
       ? 'Pain has been worsening over recent check-ins.'
-      : 'Pain has been easing over recent check-ins — a positive sign.';
+      : 'Pain has been easing over recent check-ins, a positive sign.';
   }
   const label = WELLNESS_METRIC_LABEL[key];
   return direction === 'declining'

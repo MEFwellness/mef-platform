@@ -237,7 +237,7 @@ export function RootMapRing({
           viewBox={`${-VIEWBOX_MARGIN} ${-VIEWBOX_MARGIN} ${size + 2 * VIEWBOX_MARGIN} ${size + 2 * VIEWBOX_MARGIN}`}
           className="h-auto w-full"
           role="img"
-          aria-label="Your Root Map — twelve dimensions, filling in as you record more data. Tap a segment, or its name in the key below, to jump to that dimension."
+          aria-label="Your Root Map: twelve dimensions, filling in as you record more data. Tap a segment, or its name in the key below, to jump to that dimension."
         >
           {/* The visual arcs use the classic stroke-dashoffset technique,
               which relies on a plain SVG <circle>'s own default path start

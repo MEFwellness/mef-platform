@@ -101,7 +101,7 @@ export default async function ReassessmentsPage() {
                 </div>
                 <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
                   Many members find it helpful to reassess around 30 and 90 days after their
-                  baseline — {formatDate(addDaysToLocalDate(comparison.baseline.localDate, 30))} and{' '}
+                  baseline: {formatDate(addDaysToLocalDate(comparison.baseline.localDate, 30))} and{' '}
                   {formatDate(addDaysToLocalDate(comparison.baseline.localDate, 90))} for you.
                   Reminders aren&apos;t built yet, so start whenever you&apos;re ready.
                 </p>

@@ -182,7 +182,7 @@ async function onboardingInsight(context: AgentContext): Promise<AgentOutput> {
         insightType: 'baseline_established',
         title: 'Baseline established',
         description: primaryConcern
-          ? `Baseline completed — primary concern reported as "${String(primaryConcern.value)}".`
+          ? `Baseline completed: primary concern reported as "${String(primaryConcern.value)}".`
           : 'Baseline assessment completed.',
         supportingData: {
           submissionId: baseline.submissionId,

@@ -63,6 +63,7 @@ import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCar
 import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
 import { CoachingMessageCard } from '@/components/dashboard/CoachingMessageCard';
+import { CvsCheckinCard } from '@/components/dashboard/CvsCheckinCard';
 import { HomeHero } from '@/components/dashboard/HomeHero';
 import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
 import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
@@ -282,6 +283,10 @@ export default async function DashboardPage({
                 {morningBrief && (
                   <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
                 )}
+
+                <Suspense fallback={null}>
+                  <CvsCheckinCard />
+                </Suspense>
 
                 <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />
 
@@ -578,7 +583,7 @@ export default async function DashboardPage({
                   ) : (
                     <div className="flex items-center gap-3 border-b border-[#1B3A2D]/8 py-4">
                       <p className="text-sm leading-relaxed text-[#6B7A72]">
-                        Your device is connected — recovery numbers will appear here after your first
+                        Your device is connected. Recovery numbers will appear here after your first
                         sync.
                       </p>
                     </div>

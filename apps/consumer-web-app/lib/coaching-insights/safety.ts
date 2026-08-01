@@ -34,7 +34,7 @@ export type CoachingSafetyGate = {
 };
 
 const SAFETY_PAUSED_MESSAGE =
-  "Your coaching insights are paused for now — check in with your assigned coach if you'd like to talk through how you've been doing.";
+  "Your coaching insights are paused for now, check in with your assigned coach if you'd like to talk through how you've been doing.";
 
 export async function getCoachingSafetyGate(
   supabase: SupabaseClient,

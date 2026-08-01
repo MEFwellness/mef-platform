@@ -69,7 +69,7 @@ type EditableSession = {
 };
 
 function sessionLabelOf(template: CoachProgramTemplateWithContent): string {
-  const match = template.name.match(/— (Session [A-Z])$/);
+  const match = template.name.match(/: (Session [A-Z])$/);
   return match?.[1] ?? template.name;
 }
 
@@ -224,7 +224,7 @@ export function DraftReviewPanel({
       externalId: picked.externalId,
       exerciseName: picked.name,
       coachingCues: picked.coachingCues,
-      selectionReasoning: picked.isCoachOverride ? 'Coach override — picked from the full library.' : null,
+      selectionReasoning: picked.isCoachOverride ? 'Coach override: picked from the full library.' : null,
       isCoachOverride: picked.isCoachOverride,
     };
     updateExercises(sessionIndex, sectionIndex, (exercises) => {
@@ -279,7 +279,7 @@ export function DraftReviewPanel({
   }
 
   async function handleDiscard() {
-    if (!confirm('Discard this draft? This deletes it completely — it was never visible to the member.')) {
+    if (!confirm('Discard this draft? This deletes it completely. It was never visible to the member.')) {
       return;
     }
     setError(null);
@@ -326,7 +326,7 @@ export function DraftReviewPanel({
           {blueprintNames || 'Corrective Program'}
         </h1>
         <p className="mt-2 text-[15px] text-[#6B7A72]">
-          4-week draft for {memberName} — {sessions.length}x/week. Not visible to {memberName} until
+          4-week draft for {memberName} ({sessions.length}x/week). Not visible to {memberName} until
           you approve and assign it.
         </p>
       </div>

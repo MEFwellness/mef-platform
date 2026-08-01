@@ -250,7 +250,7 @@ function ExerciseDetailFields({
           onChange={(e) => onChange({ load_unit: (e.target.value || null) as never })}
           className={INPUT}
         >
-          <option value="">—</option>
+          <option value="">-</option>
           <option value="lbs">lbs</option>
           <option value="kg">kg</option>
           <option value="bodyweight">Bodyweight</option>
@@ -281,7 +281,7 @@ function ExerciseDetailFields({
           onChange={(e) => onChange({ side: (e.target.value || null) as never })}
           className={INPUT}
         >
-          <option value="">—</option>
+          <option value="">-</option>
           <option value="left">Left</option>
           <option value="right">Right</option>
           <option value="both">Both</option>
@@ -632,7 +632,7 @@ export function ProgramBuilder({
               onChange={(e) => setMeta({ ...meta, difficulty: (e.target.value || null) as never })}
               className={INPUT}
             >
-              <option value="">—</option>
+              <option value="">-</option>
               {difficultyOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}

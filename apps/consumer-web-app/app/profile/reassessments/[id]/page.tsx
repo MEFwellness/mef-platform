@@ -10,7 +10,7 @@ import { buildAssessmentEntryContext } from '@/lib/conversation-coach/entryConte
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
 
 const DESCRIPTION =
-  'This reassessment reflects the information you shared at this point in time — compare it with your Baseline Assessment to see how things have changed.';
+  'This reassessment reflects the information you shared at this point in time: compare it with your Baseline Assessment to see how things have changed.';
 
 export default async function ReassessmentDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();

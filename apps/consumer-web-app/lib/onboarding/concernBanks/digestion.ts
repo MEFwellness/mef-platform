@@ -34,7 +34,7 @@ export const DIGESTION_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'digestion_worst_time_of_day',
-    prompt_text: 'Is there a time of day when it tends to be worst — morning, after meals, evening?',
+    prompt_text: 'Is there a time of day when it tends to be worst: morning, after meals, evening?',
     answer_type: 'enum',
     allowed_values: ['morning', 'midday', 'after_meals', 'evening', 'late_at_night', 'no_real_pattern'],
     domain: 'nutrition_digestion',

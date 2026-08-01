@@ -55,7 +55,7 @@ export const PAIN_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'pain_duration',
-    prompt_text: "How long has this been part of your life — days, months, longer?",
+    prompt_text: "How long has this been part of your life: days, months, longer?",
     answer_type: 'enum',
     allowed_values: ['under_2_weeks', '2_weeks_to_3_months', '3_to_12_months', 'over_a_year', 'on_and_off_for_years'],
     domain: 'pain_structural',
@@ -104,7 +104,7 @@ export const PAIN_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'pain_relieving_activities',
-    prompt_text: "And on the flip side — what actually helps, even a little?",
+    prompt_text: "And on the flip side: what actually helps, even a little?",
     helper_text: 'Select any that apply.',
     answer_type: 'multi_select',
     allowed_values: ['rest', 'gentle_movement_or_stretching', 'heat', 'ice', 'massage_or_bodywork', 'medication', 'nothing_reliably_helps'],
@@ -120,7 +120,7 @@ export const PAIN_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'pain_prior_treatment_tried',
-    prompt_text: "Have you tried working on this before — physical therapy, a professional, anything at home?",
+    prompt_text: "Have you tried working on this before: physical therapy, a professional, anything at home?",
     answer_type: 'enum',
     allowed_values: ['yes_saw_a_professional', 'yes_tried_things_on_my_own', 'no_havent_addressed_it_yet', 'currently_working_on_it'],
     domain: 'pain_structural',
@@ -159,7 +159,7 @@ export const PAIN_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'pain_daily_task_difficulty',
-    prompt_text: "Are there everyday things — carrying groceries, playing with kids, getting up from a chair — that feel harder than they should?",
+    prompt_text: "Are there everyday things (carrying groceries, playing with kids, getting up from a chair) that feel harder than they should?",
     answer_type: 'enum',
     allowed_values: ['yes_several_things', 'yes_one_or_two_things', 'not_really', 'not_at_all'],
     domain: 'movement_energy',

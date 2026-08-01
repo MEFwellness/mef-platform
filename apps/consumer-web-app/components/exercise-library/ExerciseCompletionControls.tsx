@@ -214,7 +214,7 @@ export function ExerciseCompletionControls({
       )}
 
       {savedAt && !status && (
-        <p className="mt-3 text-sm font-medium text-[#1B3A2D]">Saved — added to your history.</p>
+        <p className="mt-3 text-sm font-medium text-[#1B3A2D]">Saved. Added to your history.</p>
       )}
     </div>
   );

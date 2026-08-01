@@ -50,7 +50,7 @@ export function generateSwapSuggestions(rules: FoodRulesEngineResult): SwapSugge
     suggestions.push({
       reason: "This doesn't provide a meaningful amount of protein on its own.",
       suggestion:
-        'Add a whole-food protein source — eggs, Greek yogurt, beans, or a lean meat all work well alongside this.',
+        'Add a whole-food protein source: eggs, Greek yogurt, beans, or a lean meat all work well alongside this.',
     });
   }
 

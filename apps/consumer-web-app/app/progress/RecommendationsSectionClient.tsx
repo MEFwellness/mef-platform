@@ -30,7 +30,7 @@ export function RecommendationsSectionClient({
       <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Recommendations</p>
       {active.length === 0 ? (
         <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-          Nothing new right now — keep checking in and completing assessments, and recommendations
+          Nothing new right now. Keep checking in and completing assessments, and recommendations
           will show up here as patterns emerge.
         </p>
       ) : (

@@ -9,7 +9,7 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
 
 const INCLUDED: { label: string; Icon: typeof HeartPulse }[] = [
   { label: 'Daily Root Score and cross-domain trends', Icon: Sparkles },
-  { label: 'Root — your always-on wellness coach', Icon: HeartPulse },
+  { label: 'Root (your always-on wellness coach)', Icon: HeartPulse },
   { label: 'Guided posture and movement assessments', Icon: ScanFace },
   { label: 'Movement Intelligence, adapted to your recovery', Icon: Activity },
   { label: 'Food Lens meal coaching and label scanning', Icon: UtensilsCrossed },

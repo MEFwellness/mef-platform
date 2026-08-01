@@ -54,7 +54,7 @@ export function InvestigationPanel({ panel }: { panel: InvestigationPanelView })
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">The investigation</p>
         <p className="mt-1 text-[13px] leading-relaxed text-[#6B7A72]">
-          What we&apos;re looking at as possible root causes for what you came for — and what&apos;s already been
+          What we&apos;re looking at as possible root causes for what you came for, and what&apos;s already been
           ruled out.
         </p>
       </div>
@@ -81,7 +81,7 @@ export function InvestigationPanel({ panel }: { panel: InvestigationPanelView })
       {panel.notYetTrackable.length > 0 && (
         <div className="border-t border-[#1B3A2D]/[0.06] pt-4">
           <p className="text-[12px] text-[#9AA79F]">
-            Not trackable yet — {panel.notYetTrackable.map((d) => d.label).join(', ')}. There&apos;s no daily way
+            Not trackable yet: {panel.notYetTrackable.map((d) => d.label).join(', ')}. There&apos;s no daily way
             to measure {panel.notYetTrackable.length === 1 ? 'this one' : 'these'} yet, so no investigation has
             started.
           </p>

@@ -63,7 +63,7 @@ export function ForecastCalibrationChart({ series }: { series: CalibrationPoint[
         viewBox={`0 0 ${width} ${height}`}
         className="mt-2 w-full"
         role="img"
-        aria-label={`Forecast accuracy over time — you ${last.herAccuracyPct}%, Root ${last.rootAccuracyPct}% as of ${formatDate(last.date)}`}
+        aria-label={`Forecast accuracy over time: you ${last.herAccuracyPct}%, Root ${last.rootAccuracyPct}% as of ${formatDate(last.date)}`}
       >
         <line
           x1={padX}
@@ -84,10 +84,10 @@ export function ForecastCalibrationChart({ series }: { series: CalibrationPoint[
           strokeDasharray="4 3"
         />
         <circle cx={xFor(series.length - 1)} cy={yFor(last.herAccuracyPct)} r={3.5} fill={HER_COLOR} stroke={SURFACE_COLOR} strokeWidth={1.5}>
-          <title>{`You, ${formatDate(last.date)} — ${last.herAccuracyPct}%`}</title>
+          <title>{`You, ${formatDate(last.date)}: ${last.herAccuracyPct}%`}</title>
         </circle>
         <circle cx={xFor(series.length - 1)} cy={yFor(last.rootAccuracyPct)} r={3.5} fill={ROOT_COLOR} stroke={SURFACE_COLOR} strokeWidth={1.5}>
-          <title>{`Root, ${formatDate(last.date)} — ${last.rootAccuracyPct}%`}</title>
+          <title>{`Root, ${formatDate(last.date)}: ${last.rootAccuracyPct}%`}</title>
         </circle>
       </svg>
 

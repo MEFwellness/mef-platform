@@ -129,18 +129,18 @@ export function buildDeterministicFallbackCoaching(
   const supportsYou =
     supportsParts.length > 0
       ? `This product provides ${supportsParts.join(', ')}.`
-      : 'This product was analyzed against your Rooted Reset nutrition profile — see the details below for the full picture.';
+      : 'This product was analyzed against your Rooted Reset nutrition profile. See the details below for the full picture.';
 
   const topCombination = rules.nutrientCombinations.find((f) => f.severity !== 'informational');
   const mindfulOf = topCombination
     ? topCombination.narrative
     : (rules.nutrientCombinations[0]?.narrative ??
-      'No single nutrient here stands out as a concern on its own — consider the full picture below.');
+      'No single nutrient here stands out as a concern on its own. Consider the full picture below.');
 
   const bestFit =
     rules.processingContext.label === 'highly_processed'
       ? 'This may work better as an occasional convenience choice rather than a primary everyday item.'
-      : 'This can fit into a variety of eating patterns — check the details below against your own goals.';
+      : 'This can fit into a variety of eating patterns. Check the details below against your own goals.';
 
   const recommendation =
     rules.carbQuality.fiberG !== null && rules.carbQuality.fiberG < 3
@@ -154,7 +154,7 @@ export function buildDeterministicFallbackCoaching(
 
   const allergenNote =
     allergenMatches.length > 0
-      ? ` This product also declares ${allergenMatches.map((a) => a.allergen).join(', ')}, which matches an allergy on your profile — please check the label yourself before eating.`
+      ? ` This product also declares ${allergenMatches.map((a) => a.allergen).join(', ')}, which matches an allergy on your profile. Please check the label yourself before eating.`
       : '';
 
   return {
@@ -168,7 +168,7 @@ export function buildDeterministicFallbackCoaching(
 
 function buildSafetySoftenedCoaching(): FoodCoachingResult {
   return {
-    supportsYou: "Thanks for scanning this product — I'll keep today's feedback light here.",
+    supportsYou: "Thanks for scanning this product. I'll keep today's feedback light here.",
     mindfulOf:
       "Check in with your assigned coach if you'd like to talk through this in more detail.",
     bestFit: null,

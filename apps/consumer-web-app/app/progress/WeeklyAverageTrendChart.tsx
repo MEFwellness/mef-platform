@@ -148,7 +148,7 @@ export function WeeklyAverageTrendChart({ points, min, max, label, levelLabel, r
         <p className="text-sm leading-relaxed text-[#1B3A2D]/70">
           {qualifyingCount === 0
             ? `Once you've logged check-ins on at least ${MIN_CHECKINS_PER_WEEK} days in a week, that week's ${label.toLowerCase()} average will start showing up here.`
-            : `You have ${qualifyingCount} full ${qualifyingCount === 1 ? 'week' : 'weeks'} logged so far. Your ${label.toLowerCase()} trend appears once you have ${MIN_QUALIFYING_WEEKS} — keep checking in.`}
+            : `You have ${qualifyingCount} full ${qualifyingCount === 1 ? 'week' : 'weeks'} logged so far. Your ${label.toLowerCase()} trend appears once you have ${MIN_QUALIFYING_WEEKS}, keep checking in.`}
         </p>
         <Link
           href="/checkin"

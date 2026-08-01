@@ -317,7 +317,7 @@ function TextField({
           const next = local.trim().length > 0 ? local.trim() : null;
           if (next !== (value ?? null)) onCommit(next);
         }}
-        placeholder="Not read — add it yourself"
+        placeholder="Not read, add it yourself"
         className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D] placeholder:text-[#9AA79F]"
       />
     </FieldShell>
@@ -349,7 +349,7 @@ function TextAreaField({
           const next = local.trim().length > 0 ? local.trim() : null;
           if (next !== (value ?? null)) onCommit(next);
         }}
-        placeholder="Not read — add it yourself"
+        placeholder="Not read, add it yourself"
         className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D] placeholder:text-[#9AA79F]"
       />
     </FieldShell>
@@ -384,7 +384,7 @@ function NumberField({
           const normalized = next !== null && Number.isNaN(next) ? null : next;
           if (normalized !== value) onCommit(normalized);
         }}
-        placeholder="Not read — add it yourself"
+        placeholder="Not read, add it yourself"
         className="w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D] placeholder:text-[#9AA79F]"
       />
     </FieldShell>

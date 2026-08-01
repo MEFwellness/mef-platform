@@ -35,7 +35,7 @@ export default async function CvsTestToolsPage() {
         <BackButton fallbackHref="/admin" label="Back to Admin" forceFallback />
 
         <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
-          Core Values Snapshot — Test Tools
+          Core Values Snapshot: Test Tools
         </h1>
         <p className="mt-2 text-[15px] text-[#6B7A72]">
           Reset a test member&apos;s completion so they can retake it, or jump their Weekly Experiment&apos;s

@@ -52,7 +52,7 @@ export function validateLabelExtraction(input: LabelValidationInput): LabelValid
     warnings.push({
       field: 'total_fat_g',
       message:
-        'Saturated, trans, mono-, and polyunsaturated fat add up to more than the total fat listed — double-check these values.',
+        'Saturated, trans, mono-, and polyunsaturated fat add up to more than the total fat listed: double-check these values.',
     });
   }
 
@@ -63,7 +63,7 @@ export function validateLabelExtraction(input: LabelValidationInput): LabelValid
   ) {
     warnings.push({
       field: 'added_sugar_g',
-      message: 'Added sugar is listed as more than total sugar — double-check these values.',
+      message: 'Added sugar is listed as more than total sugar: double-check these values.',
     });
   }
 
@@ -76,7 +76,7 @@ export function validateLabelExtraction(input: LabelValidationInput): LabelValid
     warnings.push({
       field: 'total_carbohydrate_g',
       message:
-        'Fiber and total sugar add up to more than total carbohydrate — double-check these values.',
+        'Fiber and total sugar add up to more than total carbohydrate: double-check these values.',
     });
   }
 
@@ -89,7 +89,7 @@ export function validateLabelExtraction(input: LabelValidationInput): LabelValid
     warnings.push({
       field: 'calories',
       message:
-        'Calories were read but fat and carbohydrate were not — this label may need a clearer photo.',
+        'Calories were read but fat and carbohydrate were not. This label may need a clearer photo.',
     });
   }
 

@@ -122,12 +122,12 @@ export function buildDeterministicFallbackNarrative(
       ? `shows no ${nonMatch.dimension}`
       : `reads ${nonMatch.mealLevel} in ${nonMatch.dimension}`;
 
-  return `This meal ${levelPhrase} — ${directionWord(nonMatch.direction)} what ${patternPhrase} calls for right now.`;
+  return `This meal ${levelPhrase}, ${directionWord(nonMatch.direction)} what ${patternPhrase} calls for right now.`;
 }
 
 /** Used only when a member currently has an active safety restriction (doc 7.3) — a generic, gentle line with no detailed macro-balance talk. */
 function buildSafetySoftenedNarrative(): string {
-  return "Thanks for logging this meal. I'll keep today's feedback light here — check in with your assigned coach if you'd like to talk through your eating in more detail.";
+  return "Thanks for logging this meal. I'll keep today's feedback light here. Check in with your assigned coach if you'd like to talk through your eating in more detail.";
 }
 
 /**
@@ -139,7 +139,7 @@ function buildSafetySoftenedNarrative(): string {
  * same discipline as the safety-softened line above.
  */
 function buildThinBaselineNarrative(): string {
-  return "You haven't set up the real details of your eating pattern yet, so there isn't enough there for a personalized comparison on this meal — set up your actual Primal Pattern target for a read that means something.";
+  return "You haven't set up the real details of your eating pattern yet, so there isn't enough there for a personalized comparison on this meal. Set up your actual Primal Pattern target for a read that means something.";
 }
 
 export type GenerateFoodLensNarrativeInput = {

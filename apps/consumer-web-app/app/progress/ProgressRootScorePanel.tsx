@@ -157,7 +157,7 @@ export function ProgressRootScorePanel({
         </>
       ) : (
         <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-          Complete a check-in to start building your Root Score — it summarizes your recovery,
+          Complete a check-in to start building your Root Score: it summarizes your recovery,
           stress, nutrition, movement, and consistency into one longer-term wellness picture.
         </p>
       )}

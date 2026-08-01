@@ -35,7 +35,7 @@ export function ManualLevelBubble({
     return (
       <div className="absolute inset-x-4 top-24 z-20 flex items-center gap-2 rounded-2xl bg-emerald-600/90 px-4 py-2.5 text-xs font-medium text-white">
         <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
-        Phone leveling confirmed manually — screening confidence noted as reduced.
+        Phone leveling confirmed manually: screening confidence noted as reduced.
       </div>
     );
   }
@@ -70,7 +70,7 @@ export function ManualLevelBubble({
       <p className="mt-2 text-xs leading-relaxed text-white">
         We can&apos;t read your phone&apos;s motion sensors on this device or browser. Prop your
         phone against a level surface or wall, or use a real spirit-level app, so it&apos;s upright
-        and steady — like centering this bubble — then confirm below.
+        and steady (like centering this bubble), then confirm below.
       </p>
       <button
         type="button"

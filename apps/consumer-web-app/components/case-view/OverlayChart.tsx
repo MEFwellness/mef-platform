@@ -108,7 +108,7 @@ export function OverlayChart({ overlay }: { overlay: OverlaySeries }) {
             {/* Single pre-joined string child — see GoalProgressChart.tsx's
                 identical comment for why multiple interpolated children
                 inside <title> server-render empty. */}
-            <title>{`${overlay.outcomeLabel}, ${formatDate(p.date)} — ${p.value}`}</title>
+            <title>{`${overlay.outcomeLabel}, ${formatDate(p.date)}: ${p.value}`}</title>
           </circle>
         ))}
         {overlay.driverPoints.map((p) => (
@@ -121,7 +121,7 @@ export function OverlayChart({ overlay }: { overlay: OverlaySeries }) {
             stroke={SURFACE_COLOR}
             strokeWidth={1.5}
           >
-            <title>{`${overlay.driverLabel}, ${formatDate(p.date)} — ${p.value}`}</title>
+            <title>{`${overlay.driverLabel}, ${formatDate(p.date)}: ${p.value}`}</title>
           </circle>
         ))}
 
@@ -169,7 +169,7 @@ export function OverlayChart({ overlay }: { overlay: OverlaySeries }) {
             <li key={date} className="flex items-center justify-between gap-2">
               <span>{formatDate(date)}</span>
               <span className="font-medium text-[#1B3A2D]">
-                {overlay.outcomeLabel}: {outcomeByDate.get(date) ?? '—'} · {overlay.driverLabel}: {driverByDate.get(date) ?? '—'}
+                {overlay.outcomeLabel}: {outcomeByDate.get(date) ?? '-'} · {overlay.driverLabel}: {driverByDate.get(date) ?? '-'}
               </span>
             </li>
           ))}

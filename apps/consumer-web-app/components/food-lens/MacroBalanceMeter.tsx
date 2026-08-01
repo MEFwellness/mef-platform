@@ -84,15 +84,15 @@ export function MacroBalanceMeter({
   return (
     <div className="space-y-3">
       <p className="text-[11px] leading-relaxed text-[#6B7A72]">
-        Confidence below is how sure Root is about the amount of each nutrient — not whether the
+        Confidence below is how sure Root is about the amount of each nutrient, not whether the
         food itself was identified correctly (see the items list for that).
       </p>
       <Bar dimension={{ label: 'Protein', ...protein }} />
       <Bar dimension={{ label: 'Carbohydrate', ...carb }} />
       <Bar dimension={{ label: 'Fat', ...fat }} />
       <p className="text-[11px] leading-relaxed text-[#6B7A72]">
-        These are rough, relative estimates from your photo, not exact measurements — never a
-        calorie count or gram weight. A high amount here isn&apos;t automatically good or bad — see
+        These are rough, relative estimates from your photo, not exact measurements, never a
+        calorie count or gram weight. A high amount here isn&apos;t automatically good or bad. See
         Root&apos;s take above for that.
       </p>
     </div>

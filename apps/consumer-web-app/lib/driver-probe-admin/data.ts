@@ -262,7 +262,7 @@ export async function createQuestion(
   coachId: string
 ): Promise<{ error: string | null }> {
   if (!isValidQuestionKey(input.questionKey)) {
-    return { error: 'Question key must start with "checkin_probe." — adjust the wording so a valid key can be generated.' };
+    return { error: 'Question key must start with "checkin_probe.". Adjust the wording so a valid key can be generated.' };
   }
   if ((FIXED_CORE_QUESTION_KEYS as readonly string[]).includes(input.questionKey)) {
     return { error: 'That key collides with a protected core question. Choose different wording.' };
@@ -318,7 +318,7 @@ export async function updateQuestion(
     if (answered > 0) {
       return {
         ok: false,
-        error: `This question already has ${answered} recorded answer${answered === 1 ? '' : 's'} — its answer type and choices are locked so past answers keep their meaning. Use "Retire and replace" to change the answer type instead.`,
+        error: `This question already has ${answered} recorded answer${answered === 1 ? '' : 's'}. Its answer type and choices are locked so past answers keep their meaning. Use "Retire and replace" to change the answer type instead.`,
         lockedFields: ['responseType', 'options'],
       };
     }

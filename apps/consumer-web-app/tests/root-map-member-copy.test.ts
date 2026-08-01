@@ -57,7 +57,7 @@ describe('MEMBER_DOMAIN_DESCRIPTIONS', () => {
       'How you see yourself and your body right now, and what past attempts taught you.'
     );
     expect(MEMBER_DOMAIN_DESCRIPTIONS.purpose_motivation).toBe(
-      'Your why — what matters to you, and what a good week actually looks like.'
+      'Your why: what matters to you, and what a good week actually looks like.'
     );
   });
 });

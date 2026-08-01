@@ -3,21 +3,10 @@
 import { useState, useTransition } from 'react';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { CVS_CARD, CVS_DISPLAY_FONT } from './theme';
-import {
-  buildExperimentTheoryCopy,
-  CVS_DAY3_OPTIONS,
-  cvsDailyPromptCopy,
-  cvsDay3FollowUpText,
-  cvsDay7FollowUpText,
-} from '@/lib/core-values-snapshot/copy';
+import { CvsDay3FollowUp, CvsDay7FollowUp } from './CvsFollowUpCards';
+import { buildExperimentTheoryCopy, cvsDailyPromptCopy, cvsDay3ReflectionText } from '@/lib/core-values-snapshot/copy';
 import type { CvsScoring } from '@/lib/core-values-snapshot/types';
-import {
-  logCvsExperimentDayAction,
-  startCvsExperimentAction,
-  submitCvsDay3ResponseAction,
-  type CvsExperimentStatus,
-} from '@/app/actions/coreValuesSnapshot';
-import { classifyDay7Pattern, type Day3Response } from '@/lib/core-values-snapshot/experiment';
+import { logCvsExperimentDayAction, startCvsExperimentAction, type CvsExperimentStatus } from '@/app/actions/coreValuesSnapshot';
 import type { ValueArea } from '@/lib/core-values-snapshot/constants';
 
 type Props = {
@@ -33,7 +22,6 @@ export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus
   const [status, setStatus] = useState(initialStatus);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [day3Submitted, setDay3Submitted] = useState(false);
 
   if (!status) {
     if (!scoring) return null;
@@ -79,8 +67,7 @@ export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus
   }
 
   const topLabelText = status.experiment.title;
-  const day3AlreadyAnswered = status.logs.some((l) => l.day3Response !== null);
-  const day7Result = classifyDay7Pattern(status.logs, status.experiment.durationDays);
+  const day3Log = status.logs.find((l) => l.day3Response !== null) ?? null;
 
   function logDay(completed: boolean) {
     if (!status) return;
@@ -92,19 +79,6 @@ export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus
         return;
       }
       setStatus((prev) => (prev ? { ...prev, todayCompleted: completed } : prev));
-    });
-  }
-
-  function submitDay3(response: Day3Response) {
-    if (!status) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await submitCvsDay3ResponseAction(status.experiment.id, response);
-      if (!result.ok) {
-        setError(result.error ?? 'Could not save that.');
-        return;
-      }
-      setDay3Submitted(true);
     });
   }
 
@@ -121,7 +95,7 @@ export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus
         {status.todayCompleted !== null ? (
           <div className="mt-5 flex items-center gap-2 text-sm font-medium text-[#4F7A63]">
             <CheckCircle2 className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
-            {status.todayCompleted ? 'Logged — today counted.' : 'Logged — not today, and that’s fine.'}
+            {status.todayCompleted ? 'Logged: today counted.' : 'Logged: not today, and that’s fine.'}
           </div>
         ) : (
           <div className="mt-5 flex gap-3">
@@ -145,36 +119,26 @@ export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus
         )}
       </div>
 
-      {status.isDay3Eligible && !day3AlreadyAnswered && !day3Submitted && (
-        <div className={`${CVS_CARD} mef-animate-in p-7`}>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">From Root</p>
-          <p className="mt-2 text-[15px] leading-relaxed text-[#1B3A2D]">{cvsDay3FollowUpText(topLabelText)}</p>
-          <div className="mt-5 space-y-2">
-            {CVS_DAY3_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                disabled={isPending}
-                onClick={() => submitDay3(option.value as Day3Response)}
-                className="mef-focus-ring block w-full rounded-2xl border border-[#1B3A2D]/10 px-5 py-3 text-left text-sm font-medium text-[#1B3A2D] transition hover:border-[#C4A050]/60 hover:bg-[#FAF7F0] disabled:opacity-50"
-              >
-                {option.label}
-              </button>
-            ))}
+      {status.isDay3Eligible && (
+        day3Log ? (
+          <div className={`${CVS_CARD} mef-animate-in p-7`}>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">From Root</p>
+            <p className="mt-2 text-[15px] leading-relaxed text-[#1B3A2D]">
+              {cvsDay3ReflectionText(day3Log.day3Response!)}
+            </p>
           </div>
-        </div>
-      )}
-      {status.isDay3Eligible && (day3AlreadyAnswered || day3Submitted) && (
-        <p className="px-1 text-center text-xs text-[#6B7A72]">Thanks for the day-3 check-in.</p>
+        ) : (
+          <CvsDay3FollowUp experimentId={status.experiment.id} topLabelText={topLabelText} />
+        )
       )}
 
-      {status.isDay7Eligible && (
-        <div className={`${CVS_CARD} mef-animate-in p-7`}>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">From Root</p>
-          <p className="mt-2 text-[15px] leading-relaxed text-[#1B3A2D]">
-            {cvsDay7FollowUpText(topLabelText, day7Result.pattern)}
-          </p>
-        </div>
+      {status.isDay7Eligible && !status.experiment.day7AcknowledgedAt && (
+        <CvsDay7FollowUp
+          experimentId={status.experiment.id}
+          topLabelText={topLabelText}
+          logs={status.logs}
+          durationDays={status.experiment.durationDays}
+        />
       )}
     </div>
   );

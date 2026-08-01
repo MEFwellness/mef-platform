@@ -45,7 +45,7 @@ const MODE_OPTIONS: Array<{
     source: 'manual_entry',
     icon: Search,
     title: 'Type a restaurant and item',
-    description: 'Enter the restaurant name and a menu item — the quickest way to get Root’s take.',
+    description: 'Enter the restaurant name and a menu item: the quickest way to get Root’s take.',
   },
   {
     mode: 'menu_text',
@@ -53,7 +53,7 @@ const MODE_OPTIONS: Array<{
     icon: FileText,
     title: 'Paste menu text',
     description:
-      'Copy and paste a menu (or part of one) — Root can look for lighter-prep alternatives in it too.',
+      'Copy and paste a menu (or part of one). Root can look for lighter-prep alternatives in it too.',
   },
   {
     mode: 'menu_photo',
@@ -178,7 +178,7 @@ export function RestaurantEntryFlow() {
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
           Restaurants rarely publish full nutrition data, so this is coaching based on the best
-          information available — never a guess dressed up as a fact. You&apos;ll always see exactly
+          information available, never a guess dressed up as a fact. You&apos;ll always see exactly
           where the analysis came from.
         </p>
         <div className="mt-4 flex items-start gap-2 rounded-2xl bg-[#1B3A2D]/[0.04] p-3">
@@ -188,7 +188,7 @@ export function RestaurantEntryFlow() {
             aria-hidden="true"
           />
           <p className="text-xs leading-relaxed text-[#6B7A72]">
-            Choose whatever information you actually have — just a name, pasted menu text, or a
+            Choose whatever information you actually have: just a name, pasted menu text, or a
             photo. More detail means a more specific (though still estimated) analysis.
           </p>
         </div>
@@ -262,7 +262,7 @@ export function RestaurantEntryFlow() {
               value={rawMenuText}
               onChange={(e) => setRawMenuText(e.target.value)}
               rows={6}
-              placeholder="Paste as much of the menu as you have — the item and anything else on the menu."
+              placeholder="Paste as much of the menu as you have: the item and anything else on the menu."
               className="mt-1 w-full rounded-xl border border-[#1B3A2D]/15 px-3 py-2.5 text-base text-[#1B3A2D]"
             />
           </>

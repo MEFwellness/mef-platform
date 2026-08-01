@@ -125,7 +125,7 @@ export default async function RootScorePage() {
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
               {snapshot?.explanation_summary ||
-                "Root Score combines your check-ins, Food Lens activity, movement, and assessments into one longer-term wellness picture. It's not ready to show yet — a few more real data points will get it there."}
+                "Root Score combines your check-ins, Food Lens activity, movement, and assessments into one longer-term wellness picture. It's not ready to show yet. A few more real data points will get it there."}
             </p>
             <div className="mt-5 space-y-2">
               <Link
@@ -218,7 +218,7 @@ export default async function RootScorePage() {
                   </>
                 ) : (
                   <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                    Keep checking in — Momentum needs at least two weeks of recent activity to show
+                    Keep checking in. Momentum needs at least two weeks of recent activity to show
                     a direction.
                   </p>
                 )}
@@ -248,7 +248,7 @@ export default async function RootScorePage() {
                     </p>
                     <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
                       MEF Wellness needs more history to understand how you recover after a
-                      disrupted period. Keep checking in — there&apos;s nothing else to do here.
+                      disrupted period. Keep checking in. There&apos;s nothing else to do here.
                     </p>
                   </>
                 )}
@@ -306,8 +306,8 @@ export default async function RootScorePage() {
                 How Root Score Works
               </p>
               <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                Root Score blends up to five areas — recovery, stress, nutrition, movement, and
-                consistency — using a rolling 30-day window, so no single day, meal, or workout can
+                Root Score blends up to five areas (recovery, stress, nutrition, movement, and
+                consistency) using a rolling 30-day window, so no single day, meal, or workout can
                 move it very far. A domain only counts when there&apos;s real data behind it;
                 missing data lowers confidence, never the score itself. Momentum looks at your most
                 recent 7 days against the 7 before that. Resilience only shows a real number once

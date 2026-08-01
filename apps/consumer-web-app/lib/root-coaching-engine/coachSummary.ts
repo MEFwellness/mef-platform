@@ -34,7 +34,7 @@ export function buildCoachWorkspaceSummary(input: {
     ? `Today's most relevant thread is ${top.topicLabel} (${humanizeState(top.sourceState)}).${
         otherCount > 0 ? ` ${otherCount} other topic${otherCount === 1 ? '' : 's'} worth keeping in view.` : ''
       }`
-    : 'Nothing urgent stands out right now — a quiet, steady stretch.';
+    : 'Nothing urgent stands out right now: a quiet, steady stretch.';
 
   const currentPriorities = candidates
     .slice(0, MAX_PRIORITIES)

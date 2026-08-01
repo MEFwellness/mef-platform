@@ -139,7 +139,7 @@ export function ProgramLibraryPanel({
         <div className={`${CARD} mt-4 p-6`}>
           <p className="text-sm text-[#6B7A72]">
             {templates.length === 0
-              ? 'No programs yet — create your first one.'
+              ? 'No programs yet. Create your first one.'
               : 'No programs match these filters.'}
           </p>
         </div>

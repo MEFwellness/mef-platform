@@ -27,7 +27,7 @@ export function RootMapPanel({ rootMap }: { rootMap: CoachRootMapView }) {
       </div>
       <p className="mt-1 text-xs text-[#6B7A72]">
         The same plain-language per-domain view the member sees, plus safety flags, pending
-        reassessments, and Root Router decision history — coaching signals only, never a diagnosis.
+        reassessments, and Root Router decision history, coaching signals only, never a diagnosis.
       </p>
 
       {rootMap.restrictedTopics.length > 0 && (
@@ -59,7 +59,7 @@ export function RootMapPanel({ rootMap }: { rootMap: CoachRootMapView }) {
           <ul className="mt-2 space-y-1.5">
             {rootMap.pendingReassessments.map((r) => (
               <li key={r.assessmentKey} className="text-sm text-[#1B3A2D]/80">
-                · {r.displayName} — due {new Date(r.dueAt).toLocaleDateString()} ({r.triggerSource})
+                · {r.displayName}: due {new Date(r.dueAt).toLocaleDateString()} ({r.triggerSource})
               </li>
             ))}
           </ul>
@@ -75,7 +75,7 @@ export function RootMapPanel({ rootMap }: { rootMap: CoachRootMapView }) {
                 Recommended <span className="font-medium">{displayNameFor(d.recommendedKey)}</span>{' '}
                 ({d.recommendedReason.replace(/_/g, ' ')})
                 {d.chosenKey && d.chosenKey !== d.recommendedKey && (
-                  <> — member chose <span className="font-medium">{displayNameFor(d.chosenKey)}</span> instead</>
+                  <>, member chose <span className="font-medium">{displayNameFor(d.chosenKey)}</span> instead</>
                 )}
                 <span className="ml-1 text-xs text-[#6B7A72]">
                   {new Date(d.decidedAt).toLocaleDateString()}

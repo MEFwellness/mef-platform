@@ -54,7 +54,7 @@ export function CoachNotesPanel({ clientId, initialNotes, coachName, submissionI
         <p className="text-sm font-semibold uppercase tracking-wider">Coach Notes</p>
       </div>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        Private to your coaching team — notes are not visible to this client.
+        Private to your coaching team: notes are not visible to this client.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-4">

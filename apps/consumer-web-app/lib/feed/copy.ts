@@ -27,7 +27,7 @@ export const FOUR_DOCTORS_PLAIN_LABEL: Record<FourDoctorsCategory, string> = {
 export function buildFocusText(item: MefContentItem, reason: SelectionReason): string {
   if (reason.kind === 'priority_metric') {
     const label = WELLNESS_METRIC_LABEL[reason.metric];
-    return `${label} is today's focus. It's shown up in your recent check-ins, so let's give it a little extra attention — small, consistent wins here matter far more than trying to do everything at once.`;
+    return `${label} is today's focus. It's shown up in your recent check-ins, so let's give it a little extra attention. Small, consistent wins here matter far more than trying to do everything at once.`;
   }
   if (reason.kind === 'coach_assigned') {
     return `Your coach hand-picked today's lesson for you: ${item.title}.`;
@@ -45,7 +45,7 @@ export function buildWhyText(reason: SelectionReason): string {
     case 'priority_metric':
       return `We selected today's lesson because ${WELLNESS_METRIC_LABEL[reason.metric].toLowerCase()} has become an area worth extra attention in your recent check-ins.`;
     case 'goal_rotation':
-      return "Today's lesson brings something a little different into your coaching experience — variety helps keep things fresh.";
+      return "Today's lesson brings something a little different into your coaching experience. Variety helps keep things fresh.";
   }
 }
 
@@ -106,19 +106,19 @@ export function buildCoachNote(input: {
   const greeting = `${input.timeContext.greetingWord}, ${input.firstName}. ${input.timeContext.weekPhase.tone}`;
   const observation = input.continuitySentence ?? reasonObservation(input.reason);
   const streakLine = input.streakMessage ? ` ${input.streakMessage}` : '';
-  const segue = ` Let's place a little extra attention on ${FOUR_DOCTORS_PLAIN_LABEL[input.category]} today. Don't worry about doing everything perfectly — one small action keeps your momentum moving forward.`;
+  const segue = ` Let's place a little extra attention on ${FOUR_DOCTORS_PLAIN_LABEL[input.category]} today. Don't worry about doing everything perfectly. One small action keeps your momentum moving forward.`;
 
   return `${greeting} ${observation}${streakLine}${segue}`;
 }
 
 const BONUS_CHALLENGE: Record<FourDoctorsCategory, string> = {
   doctor_movement:
-    'Try doing it outside, even for a minute — fresh air tends to make movement feel easier.',
+    'Try doing it outside, even for a minute. Fresh air tends to make movement feel easier.',
   doctor_diet:
-    'Notice how your body feels about 30 minutes afterward — no need to change anything, just notice.',
-  doctor_quiet: 'Try it without your phone nearby — see if that changes how it feels.',
+    'Notice how your body feels about 30 minutes afterward, no need to change anything, just notice.',
+  doctor_quiet: 'Try it without your phone nearby. See if that changes how it feels.',
   doctor_happiness:
-    'Share how it goes with someone you trust — saying it out loud tends to make it stick.',
+    'Share how it goes with someone you trust. Saying it out loud tends to make it stick.',
 };
 
 /** An optional, generic, category-templated add-on — never member-specific data, so it's honest to show for every lesson regardless of what we know about this particular member. */

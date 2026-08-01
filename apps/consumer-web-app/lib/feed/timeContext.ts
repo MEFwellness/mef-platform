@@ -44,7 +44,7 @@ const WEEK_PHASE: Record<DayOfWeek, WeekPhase> = {
   tuesday: { label: 'Momentum', tone: "Let's keep this momentum going." },
   wednesday: {
     label: 'Midweek Reflection',
-    tone: "We're halfway through the week — a good moment to check in with yourself.",
+    tone: "We're halfway through the week, a good moment to check in with yourself.",
   },
   thursday: { label: 'Consistency', tone: "Let's keep showing up, one more day." },
   friday: {

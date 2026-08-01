@@ -27,7 +27,7 @@ describe('Food Lens page: subheading swap', () => {
   it('has the new headline and supporting line', () => {
     expect(PAGE).toContain('One number we count. Everything else, we coach.');
     expect(PAGE).toContain(
-      'However you&apos;d like to log it, Root walks through what actually matters — never a'
+      'However you&apos;d like to log it, Root walks through what actually matters, never a'
     );
   });
 

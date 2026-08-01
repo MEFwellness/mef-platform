@@ -153,7 +153,7 @@ export function deriveFromSafetyClassification(
   return {
     category: 'active_restrictions',
     title: `Coaching is currently limited on: ${topics}`,
-    summary: `Personalized coaching on ${topics} is paused until your coach has reviewed it — everything else in your coaching experience continues as normal.`,
+    summary: `Personalized coaching on ${topics} is paused until your coach has reviewed it. Everything else in your coaching experience continues as normal.`,
     provenance: 'system_observed',
     confidence: 1,
     memberVisible: true,
@@ -173,7 +173,7 @@ export function deriveStreakWin(
   return {
     category: 'recent_wins',
     title: `${streak}-day check-in streak`,
-    summary: `${streak} consecutive days of check-ins — real, consistent follow-through worth recognizing.`,
+    summary: `${streak} consecutive days of check-ins: real, consistent follow-through worth recognizing.`,
     provenance: 'system_observed',
     confidence: 1,
     memberVisible: true,

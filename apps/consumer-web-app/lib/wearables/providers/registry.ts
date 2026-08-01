@@ -25,7 +25,7 @@ class UnconfiguredWearableProvider implements WearableProvider {
   ): Promise<WearableDailyMetricResult[]> {
     throw new Error(
       `Wearable provider "${this.name}" is not configured. This milestone builds the wearable ` +
-        'integration layer and provider abstraction only — no real Oura/Apple Health/Google Fit ' +
+        'integration layer and provider abstraction only, no real Oura/Apple Health/Google Fit ' +
         'API is wired to a real account yet.'
     );
   }

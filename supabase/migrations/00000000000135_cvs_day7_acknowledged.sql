@@ -1,0 +1,20 @@
+-- Core Values Snapshot — day-7 "Got it" acknowledgement.
+--
+-- Bug: the day-3/day-7 follow-up messages Root promises ("I'll check in on
+-- day 3... at the end of the seven days I'll tell you what I think your
+-- results mean") were only ever visible on the dedicated
+-- /assessments/core-values-snapshot/experiment page, reached by tapping
+-- "View Result" — members had no reason to go looking there, so the
+-- check-ins went undiscovered. Fixing this by also surfacing day-3/day-7
+-- directly on the dashboard needs a real "has the member acknowledged the
+-- day-7 reflection" signal so the new dashboard card can resolve and stop
+-- showing itself once acted on — day-3 already has this (day3_response on
+-- cvs_experiment_daily_logs), day-7 has never had one, since it was
+-- previously a pure read-only reflection with nothing to submit.
+--
+-- One new nullable column on lifestyle_experiments (not
+-- cvs_experiment_daily_logs) because the day-7 reflection is a once-per-
+-- experiment event, not tied to one calendar day's row — same "additive,
+-- nullable, only Core Values Snapshot ever sets it" shape as migration
+-- 134's own source_session_id column on this same table.
+alter table lifestyle_experiments add column day7_acknowledged_at timestamptz;

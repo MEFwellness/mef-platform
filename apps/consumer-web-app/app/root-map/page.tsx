@@ -35,10 +35,10 @@ import { RootMapNotCoveredSection } from '@/components/root-map/RootMapNotCovere
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 const SAFETY_STATEMENT =
-  'Your Root Map is a wellness coaching guide built from your own check-ins, activity, and assessments — it is not a medical diagnosis, a clinical measurement, or a prediction about your health. Working hypotheses only, held loosely, and always something to confirm or correct with your coach.';
+  'Your Root Map is a wellness coaching guide built from your own check-ins, activity, and assessments. It is not a medical diagnosis, a clinical measurement, or a prediction about your health. Working hypotheses only, held loosely, and always something to confirm or correct with your coach.';
 
 const NOTHING_STANDS_OUT_YET =
-  "Nothing specific has stood out yet — keep checking in and we'll name it here as soon as it does.";
+  "Nothing specific has stood out yet. Keep checking in and we'll name it here as soon as it does.";
 
 export default async function RootMapPage() {
   const supabase = createClient();
@@ -73,7 +73,7 @@ export default async function RootMapPage() {
               Building your Root Map
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-              Rooted Reset is still gathering information about you — complete a check-in or an
+              Rooted Reset is still gathering information about you. Complete a check-in or an
               assessment and this page will start filling in.
             </p>
           </section>
@@ -142,7 +142,7 @@ export default async function RootMapPage() {
                   ))
                 ) : (
                   <p className="px-1 text-sm leading-relaxed text-[#6B7A72]">
-                    Nothing has risen to a clear pattern yet — as you check in and complete
+                    Nothing has risen to a clear pattern yet. As you check in and complete
                     assessments, real findings will start appearing here.
                   </p>
                 )}

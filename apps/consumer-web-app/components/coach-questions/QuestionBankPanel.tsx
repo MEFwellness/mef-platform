@@ -132,7 +132,7 @@ export function QuestionBankPanel({
           </p>
         </div>
         <p className="mt-1 text-xs text-[#6B7A72]">
-          Asked every single day, never rotated. These aren&apos;t editable here — changing them
+          Asked every single day, never rotated. These aren&apos;t editable here: changing them
           risks breaking the Morning Readiness score and other features that depend on them
           existing exactly as they are.
         </p>
@@ -214,7 +214,7 @@ export function QuestionBankPanel({
             onChange={setDriverFilter}
             options={[
               { value: 'all', label: 'All drivers' },
-              ...drivers.map((d) => ({ value: d.id, label: `${d.id} — ${d.label}` })),
+              ...drivers.map((d) => ({ value: d.id, label: `${d.id}: ${d.label}` })),
             ]}
           />
           <FilterSelect
@@ -263,11 +263,11 @@ export function QuestionBankPanel({
       {activeGroups.map((group) => (
         <section key={group.driver?.id ?? 'followups'} className={`${CARD} p-6`}>
           <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
-            {group.driver ? `${group.driver.id} — ${group.driver.label}` : 'Follow-up questions'}
+            {group.driver ? `${group.driver.id}: ${group.driver.label}` : 'Follow-up questions'}
           </p>
           {!group.driver && (
             <p className="mt-1 text-xs text-[#6B7A72]">
-              Shown only after a member answers a specific earlier question this same check-in —
+              Shown only after a member answers a specific earlier question this same check-in,
               not part of the daily rotation.
             </p>
           )}
@@ -306,7 +306,7 @@ export function QuestionBankPanel({
             retiredGroups.map((group) => (
               <div key={group.driver?.id ?? 'followups'} className="mt-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]/80">
-                  {group.driver ? `${group.driver.id} — ${group.driver.label}` : 'Follow-up questions'}
+                  {group.driver ? `${group.driver.id}: ${group.driver.label}` : 'Follow-up questions'}
                 </p>
                 {group.questions.map((question) => (
                   <QuestionRow

@@ -17,7 +17,7 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: 'Can I change my daily check-in later?',
     answer:
-      "Yes — open today's check-in from the Today tab any time before midnight in your timezone to update it.",
+      "Yes, open today's check-in from the Today tab any time before midnight in your timezone to update it.",
   },
   {
     question: 'How do I disconnect a wearable?',
@@ -57,7 +57,7 @@ export default async function HelpPage() {
             <p className="text-sm font-semibold text-[#1B3A2D]">Ask Root</p>
             <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">
               For questions about your own check-ins, score, or coaching, the fastest answer is
-              usually Root — tap the Ask Root button on any screen.
+              usually Root: tap the Ask Root button on any screen.
             </p>
           </div>
         </div>

@@ -58,7 +58,7 @@ export function NewProgramForm({ forClientId }: { forClientId?: string | undefin
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Lower Back Recovery — Phase 1"
+          placeholder="e.g. Lower Back Recovery: Phase 1"
           className={INPUT}
         />
       </label>
@@ -78,7 +78,7 @@ export function NewProgramForm({ forClientId }: { forClientId?: string | undefin
           onChange={(e) => setDifficulty(e.target.value as typeof difficulty)}
           className={INPUT}
         >
-          <option value="">—</option>
+          <option value="">-</option>
           <option value="beginner">Beginner</option>
           <option value="intermediate">Intermediate</option>
           <option value="advanced">Advanced</option>

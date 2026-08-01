@@ -68,7 +68,7 @@ export function usePoseLandmarker(
         if (cancelled) return;
         console.error('[pose-landmarker:load]', err);
         setLoadError(
-          'Posture guidance could not load. You can still capture manually — check your position carefully.'
+          'Posture guidance could not load. You can still capture manually, check your position carefully.'
         );
         setIsLoading(false);
       }

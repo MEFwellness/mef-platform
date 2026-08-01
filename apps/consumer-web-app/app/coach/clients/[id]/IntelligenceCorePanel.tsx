@@ -79,7 +79,7 @@ export function IntelligenceCorePanel({
         </button>
       </div>
       <p className="mt-1 text-xs text-[#6B7A72]">
-        A durable, confidence-weighted model of who this member is as a coaching subject — never a
+        A durable, confidence-weighted model of who this member is as a coaching subject, never a
         diagnosis. Composes every other system&apos;s output; nothing here is fabricated.
       </p>
       {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
@@ -135,7 +135,7 @@ export function IntelligenceCorePanel({
         {prioritization.deferredCount > 0 && (
           <p className="mt-2 text-xs text-[#6B7A72]">
             {prioritization.deferredCount} more opportunit
-            {prioritization.deferredCount === 1 ? 'y' : 'ies'} waiting — never surfaced all at once,
+            {prioritization.deferredCount === 1 ? 'y' : 'ies'} waiting, never surfaced all at once,
             to avoid overwhelming the member.
           </p>
         )}
@@ -206,7 +206,7 @@ export function IntelligenceCorePanel({
         <div className="mt-4 border-t border-[#1B3A2D]/5 pt-3">
           <p className="text-sm font-semibold text-[#1B3A2D]">Wellness Identity</p>
           <p className="text-xs text-[#6B7A72]">
-            Durable, confidence-weighted coaching observations — never a diagnosis.
+            Durable, confidence-weighted coaching observations, never a diagnosis.
           </p>
           <ul className="mt-2 divide-y divide-[#1B3A2D]/5">
             {summary.identityObservations.map((o) => (

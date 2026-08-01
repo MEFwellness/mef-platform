@@ -31,7 +31,7 @@ const SAFETY_GATED_EXPLANATION =
   'Your coach is reviewing something with you right now, so new suggestions are paused until that conversation happens.';
 
 const MEDICAL_REFERRAL_EXPLANATION =
-  'This kind of concern is best discussed with a healthcare provider — your coach has been notified to follow up with you directly. This app never diagnoses or recommends changing any medication.';
+  'This kind of concern is best discussed with a healthcare provider. Your coach has been notified to follow up with you directly. This app never diagnoses or recommends changing any medication.';
 
 function toMemberRecommendation(
   rec: Recommendation,

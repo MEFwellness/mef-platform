@@ -69,19 +69,19 @@ export const EXPERIMENT_DOMAINS = new Set(['movement', 'recovery', 'nutrition', 
 
 const MEMBER_MESSAGE: Record<RootRouterOutcome, string> = {
   coach_review:
-    "Your coach is taking a closer look at something with you right now — new suggestions are paused until that conversation happens.",
+    "Your coach is taking a closer look at something with you right now. New suggestions are paused until that conversation happens.",
   reassessment: "It's a good time to revisit one of your assessments so we can see what's changed.",
   focused_investigation: "There's a specific area worth exploring further with a short assessment.",
   lifestyle_experiment:
     'Based on what we\'re noticing, a small change to a daily habit could help.',
   adjust_active_experiment:
-    "You're already working on a couple of small changes — worth adjusting one of those rather than starting something new.",
+    "You're already working on a couple of small changes, worth adjusting one of those rather than starting something new.",
   reflection: 'Worth a quick moment of reflection on how things have been going.',
   educational_insight: 'There\'s something worth learning about that connects to what we\'re noticing.',
   suggest_coaching_conversation: 'This could be a good thing to bring up with your coach when you next connect.',
   continue_observation:
-    "We're still gathering information across your domains — keep checking in and we'll keep learning.",
-  no_action_needed: 'Nothing urgent right now — things look steady.',
+    "We're still gathering information across your domains, keep checking in and we'll keep learning.",
+  no_action_needed: 'Nothing urgent right now, things look steady.',
 };
 
 /** Data the caller has already gathered (member_pattern_states-adjacent reads, active experiments, dismissal history) — this module stays a pure classifier, never fetching any of it itself. */

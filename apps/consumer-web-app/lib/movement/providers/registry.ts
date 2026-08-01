@@ -29,7 +29,7 @@ class UnconfiguredMovementExerciseProvider implements MovementExerciseProvider {
   async listExercises(_filter: MovementExerciseFilter): Promise<MovementExercise[]> {
     throw new Error(
       `Movement exercise provider "${this.name}" is not configured. This milestone builds the ` +
-        'Movement Intelligence architecture and provider abstraction only — no third-party ' +
+        'Movement Intelligence architecture and provider abstraction only, no third-party ' +
         'exercise library is wired to a real API yet.'
     );
   }

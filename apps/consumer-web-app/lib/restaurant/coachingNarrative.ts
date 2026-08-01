@@ -59,9 +59,9 @@ const FORBIDDEN_PHRASES = [
 const ESTIMATE_BASIS_EXPLANATION: Record<RestaurantEstimateBasis, string> = {
   published_nutrition: "the restaurant's own published nutrition information for this item",
   visual_estimate:
-    "a visual estimate Root made from your photo — not the restaurant's own nutrition data",
+    "a visual estimate Root made from your photo, not the restaurant's own nutrition data",
   ingredient_estimate:
-    "an estimate based on the menu description/ingredients you provided — not the restaurant's own nutrition data",
+    "an estimate based on the menu description/ingredients you provided, not the restaurant's own nutrition data",
   member_entered: 'information you entered yourself',
 };
 
@@ -170,13 +170,13 @@ export function buildDeterministicFallbackCoaching(
     );
   if (supportsYou.length === 0)
     supportsYou.push(
-      `There isn't much menu detail to point to a specific strength yet — this analysis is based on ${basisNote}.`
+      `There isn't much menu detail to point to a specific strength yet, this analysis is based on ${basisNote}.`
     );
 
   const mindfulOf: string[] = [];
   if (heuristics.friedOrBreaded)
     mindfulOf.push(
-      'This is prepared fried or breaded — worth being mindful of, especially if you order this often.'
+      'This is prepared fried or breaded, worth being mindful of, especially if you order this often.'
     );
   if (heuristics.creamyOrRichSauce)
     mindfulOf.push('This appears to include a creamy or rich sauce/topping.');
@@ -211,7 +211,7 @@ export function buildDeterministicFallbackCoaching(
     );
   if (modifications.length === 0)
     modifications.push(
-      'No specific modification stands out — this item can likely be enjoyed as described.'
+      'No specific modification stands out, this item can likely be enjoyed as described.'
     );
 
   const pairings: string[] = [];
@@ -225,15 +225,15 @@ export function buildDeterministicFallbackCoaching(
   const betterFitAlternatives: string[] =
     heuristics.alternativeCandidatesFromMenuText.length > 0
       ? heuristics.alternativeCandidatesFromMenuText.map(
-          (c) => `${c} — a lighter-prep or vegetable-forward option on the same menu`
+          (c) => `${c}, a lighter-prep or vegetable-forward option on the same menu`
         )
       : [
-          "A specific alternative couldn't be identified from the menu information available — if this menu lists a grilled, roasted, or salad-based dish, that could be a lighter-prep option.",
+          "A specific alternative couldn't be identified from the menu information available. If this menu lists a grilled, roasted, or salad-based dish, that could be a lighter-prep option.",
         ];
 
   const portionGuidance = heuristics.loadedOrLargePortionLanguage
-    ? 'The name/description suggests a larger portion than a standard serving — consider sharing it or saving half for later.'
-    : 'Let your own hunger and fullness cues guide the portion — restaurant portions can run larger than a standard serving.';
+    ? 'The name/description suggests a larger portion than a standard serving. Consider sharing it or saving half for later.'
+    : 'Let your own hunger and fullness cues guide the portion. Restaurant portions can run larger than a standard serving.';
 
   return {
     supportsYou,
@@ -247,7 +247,7 @@ export function buildDeterministicFallbackCoaching(
 
 function buildSafetySoftenedCoaching(): RestaurantMealAnalysis {
   return {
-    supportsYou: ["Thanks for logging this meal — I'll keep today's feedback light here."],
+    supportsYou: ["Thanks for logging this meal. I'll keep today's feedback light here."],
     mindfulOf: [
       "Check in with your assigned coach if you'd like to talk through this in more detail.",
     ],

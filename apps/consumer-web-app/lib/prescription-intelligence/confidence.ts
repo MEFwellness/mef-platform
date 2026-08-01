@@ -61,7 +61,7 @@ export function computeConfidence(facts: PrescriptionFacts): PrescriptionConfide
   } else {
     reasons.push({
       label: 'No assessment findings yet',
-      detail: 'Corrective priorities cannot be confirmed from real data — recommend an assessment.',
+      detail: 'Corrective priorities cannot be confirmed from real data: recommend an assessment.',
     });
   }
 

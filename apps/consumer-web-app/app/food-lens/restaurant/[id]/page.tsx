@@ -27,11 +27,11 @@ const ESTIMATE_BASIS_BANNER: Record<RestaurantEstimateBasis, { label: string; te
   },
   visual_estimate: {
     label: 'Visual estimate',
-    text: "This is a visual estimate Root made from your photo — not the restaurant's own nutrition data.",
+    text: "This is a visual estimate Root made from your photo, not the restaurant's own nutrition data.",
   },
   ingredient_estimate: {
     label: 'Estimate from menu description',
-    text: "This is an estimate based on the menu description you provided — not the restaurant's own nutrition data.",
+    text: "This is an estimate based on the menu description you provided, not the restaurant's own nutrition data.",
   },
   member_entered: {
     label: 'Information you entered',
@@ -169,7 +169,7 @@ export default async function RestaurantMealEntryResultPage({
               </div>
 
               <p className="px-1 text-xs leading-relaxed text-[#9AA79F]">
-                This reflects your own entry and the available menu information — not a medical
+                This reflects your own entry and the available menu information, not a medical
                 assessment, and not the restaurant&apos;s own nutrition facts unless stated above.
               </p>
             </>

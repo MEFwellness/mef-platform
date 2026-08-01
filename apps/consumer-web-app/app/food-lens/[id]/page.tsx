@@ -105,7 +105,7 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
           {scan.status === 'not_configured' && (
             <div className={`${CARD} p-6`}>
               <p className="text-sm text-[#6B7A72]">
-                Food Lens isn&apos;t available yet — no vision provider is configured. This scan is
+                Food Lens isn&apos;t available yet. No vision provider is configured. This scan is
                 saved and will be analyzed automatically once one is connected.
               </p>
             </div>

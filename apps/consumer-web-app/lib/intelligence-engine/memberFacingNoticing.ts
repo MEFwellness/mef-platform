@@ -24,16 +24,16 @@ import type { RegistryDomain, RegistryEntry } from '@mef/shared-types-contracts'
 
 const EDUCATIONAL_NOTE_BY_DOMAIN: Partial<Record<RegistryDomain, string>> = {
   sleep:
-    'Sleep quality and energy are closely linked — small, consistent changes to a wind-down routine tend to help both.',
+    'Sleep quality and energy are closely linked. Small, consistent changes to a wind-down routine tend to help both.',
   stress:
-    'Stress often shows up in the body before it shows up in mood — tracking it alongside sleep and digestion can reveal patterns.',
+    'Stress often shows up in the body before it shows up in mood. Tracking it alongside sleep and digestion can reveal patterns.',
   nutrition:
     'Digestion and nutrition often improve together when meal timing and food quality are addressed as one habit, not two.',
   movement:
     'Movement patterns noticed early are usually easiest to address with small, targeted adjustments.',
   posture: 'Posture-related patterns often respond well to short, consistent daily mobility work.',
   breathing:
-    'Breathing mechanics and posture are closely connected — improving one often helps the other.',
+    'Breathing mechanics and posture are closely connected. Improving one often helps the other.',
 };
 
 export type MemberNoticingView = {

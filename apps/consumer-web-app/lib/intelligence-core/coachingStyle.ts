@@ -149,7 +149,7 @@ export function computeCoachingStyle(
   if (taskLoadResult.taskLoad !== 'unclear') {
     rationaleParts.push(
       taskLoadResult.taskLoad === 'single_focus'
-        ? 'Completion drops on multi-step (practice) content — better with one clear task at a time.'
+        ? 'Completion drops on multi-step (practice) content, better with one clear task at a time.'
         : 'Completion holds up even on multi-step (practice) content.'
     );
   }

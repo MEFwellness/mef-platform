@@ -79,7 +79,7 @@ export default async function MovementPage() {
             Movement
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
-            Intelligently composed for how you&apos;re doing today — not a fixed plan.
+            Intelligently composed for how you&apos;re doing today, not a fixed plan.
           </p>
         </div>
 

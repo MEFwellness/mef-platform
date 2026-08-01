@@ -99,8 +99,8 @@ function burnoutSignalPattern(
     label: 'Signs consistent with burnout',
     description:
       decliningRelevant.length > 0
-        ? `${areaLabels} have been declining together${adherenceDropped ? ', alongside lower coaching engagement' : ''} — a pattern that can resemble burnout, worth a gentler check-in rather than more intensity.`
-        : `Coaching engagement has dropped and check-ins have gone quiet — a pattern that can resemble burnout, worth a gentler check-in rather than more intensity.`,
+        ? `${areaLabels} have been declining together${adherenceDropped ? ', alongside lower coaching engagement' : ''}, a pattern that can resemble burnout, worth a gentler check-in rather than more intensity.`
+        : `Coaching engagement has dropped and check-ins have gone quiet, a pattern that can resemble burnout, worth a gentler check-in rather than more intensity.`,
     confidence,
     evidenceRefs: decliningRelevant.flatMap((t) => t.evidenceRefs),
     sourceInsightId: null,
@@ -132,7 +132,7 @@ function plateauPatterns(trends: LongitudinalTrend[]): PatternInsight[] {
       key: `plateau_${t.area}`,
       kind: 'plateau' as const,
       label: `${areaLabel(t.area)} has plateaued`,
-      description: `${areaLabel(t.area)} has held steady at a level that still needs attention across both the last 30 and last 90 days — the current approach may need a change rather than more repetition.`,
+      description: `${areaLabel(t.area)} has held steady at a level that still needs attention across both the last 30 and last 90 days: the current approach may need a change rather than more repetition.`,
       confidence: Math.max(t.confidence, 0.55),
       evidenceRefs: t.evidenceRefs,
       sourceInsightId: null,

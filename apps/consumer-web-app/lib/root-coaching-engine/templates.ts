@@ -47,7 +47,7 @@ const ENCOURAGEMENT_HIGH = [
 ] as const;
 
 const ENCOURAGEMENT_LOW = [
-  'No pressure here — showing up when you can is enough.',
+  'No pressure here. Showing up when you can is enough.',
   "There's no need to rush this. Whenever you're ready is fine.",
 ] as const;
 
@@ -101,7 +101,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       ctx.historyDepthDays >= 21
         ? `Since we first noticed this a few weeks back, it's kept reappearing.`
         : pick(
-            [`A repeat like this is worth a closer look.`, `Once is a coincidence — twice is worth watching.`],
+            [`A repeat like this is worth a closer look.`, `Once is a coincidence. Twice is worth watching.`],
             `exp::${ctx.rotationSeed}`
           ),
     action: pick(
@@ -161,7 +161,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       `obs::${ctx.rotationSeed}`
     ),
     explanation: pick(
-      ['A little more information may help clarify what’s really going on.', "This isn't unusual — it just means we need a bit more to go on."],
+      ['A little more information may help clarify what’s really going on.', "This isn't unusual: it just means we need a bit more to go on."],
       `exp::${ctx.rotationSeed}`
     ),
     action: pick(
@@ -180,7 +180,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       `exp::${ctx.rotationSeed}`
     ),
     action: pick(
-      [`Whenever you're ready, ${ctx.topicLabel} is available for you.`, `No rush — ${ctx.topicLabel} will be there when it's a good time.`],
+      [`Whenever you're ready, ${ctx.topicLabel} is available for you.`, `No rush, ${ctx.topicLabel} will be there when it's a good time.`],
       `act::${ctx.rotationSeed}`
     ),
   }),
@@ -195,7 +195,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       `exp::${ctx.rotationSeed}`
     ),
     action: pick(
-      [`Whenever it feels right, ${ctx.topicLabel} is ready for you.`, `Take your time — ${ctx.topicLabel} isn't going anywhere.`],
+      [`Whenever it feels right, ${ctx.topicLabel} is ready for you.`, `Take your time, ${ctx.topicLabel} isn't going anywhere.`],
       `act::${ctx.rotationSeed}`
     ),
   }),
@@ -264,7 +264,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       `obs::${ctx.rotationSeed}`
     ),
     explanation: pick(
-      ["That's still useful to know — it helps rule things out.", "Not every approach works for every person, and that's alright."],
+      ["That's still useful to know: it helps rule things out.", "Not every approach works for every person, and that's alright."],
       `exp::${ctx.rotationSeed}`
     ),
     action: pick(["Let's think about trying something different next.", 'We can look at a different angle from here.'], `act::${ctx.rotationSeed}`),

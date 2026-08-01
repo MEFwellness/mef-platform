@@ -13,6 +13,7 @@ type Row = {
   member_id: string;
   recommendation_id: string | null;
   source_session_id: string | null;
+  day7_acknowledged_at: string | null;
   title: string;
   protocol: string;
   start_date: string;
@@ -30,6 +31,7 @@ function fromRow(row: Row): LifestyleExperiment {
     memberId: row.member_id,
     recommendationId: row.recommendation_id,
     sourceSessionId: row.source_session_id,
+    day7AcknowledgedAt: row.day7_acknowledged_at,
     title: row.title,
     protocol: row.protocol,
     startDate: row.start_date,
@@ -108,6 +110,25 @@ export async function closeLifestyleExperiment(
 
   if (error) {
     console.error('closeLifestyleExperiment failed', error);
+    return false;
+  }
+  return true;
+}
+
+/** Core Values Snapshot's day-7 "Got it" tap — the one thing that lets the day-7 reflection resolve and stop reappearing (on the dashboard and on the experiment page alike), the same role day3_response already plays for day 3. */
+export async function markDay7Acknowledged(
+  supabase: SupabaseClient,
+  memberId: string,
+  experimentId: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('lifestyle_experiments')
+    .update({ day7_acknowledged_at: new Date().toISOString() })
+    .eq('id', experimentId)
+    .eq('member_id', memberId);
+
+  if (error) {
+    console.error('markDay7Acknowledged failed', error);
     return false;
   }
   return true;

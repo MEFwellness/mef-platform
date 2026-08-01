@@ -45,7 +45,7 @@ export default async function ExerciseLibraryPage({
             Exercise Library
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
-            Search and browse exercises — videos, instructions, and muscles worked for every move.
+            Search and browse exercises: videos, instructions, and muscles worked for every move.
           </p>
         </div>
 

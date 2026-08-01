@@ -163,7 +163,7 @@ export function PantryDashboard({ initialActive }: { initialActive: PantryItemWi
         {items.length === 0 ? (
           <div className={`${CARD} p-6`}>
             <p className="text-sm text-[#6B7A72]">
-              Nothing in your pantry yet — add an item above, or add one straight from a barcode or
+              Nothing in your pantry yet. Add an item above, or add one straight from a barcode or
               label scan result.
             </p>
           </div>

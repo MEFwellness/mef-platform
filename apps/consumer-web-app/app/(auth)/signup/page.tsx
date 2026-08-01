@@ -182,7 +182,7 @@ export default function SignUpPage() {
             strokeWidth={2}
             aria-hidden="true"
           />
-          Your wellness information stays private — only you, and your coach if you choose to
+          Your wellness information stays private: only you, and your coach if you choose to
           share it, can see it.
         </p>
 

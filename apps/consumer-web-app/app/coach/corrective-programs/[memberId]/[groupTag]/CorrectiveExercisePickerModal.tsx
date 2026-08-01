@@ -88,7 +88,7 @@ export function CorrectiveExercisePickerModal({
       <div className="flex h-[85vh] w-full max-w-2xl flex-col rounded-t-[28px] bg-white shadow-2xl sm:h-[80vh] sm:rounded-[28px]">
         <div className="flex items-center justify-between border-b border-[#1B3A2D]/10 p-5">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
-            {BLOCK_LABEL[block]} — Choose an Exercise
+            {BLOCK_LABEL[block]}: Choose an Exercise
           </p>
           <button
             type="button"

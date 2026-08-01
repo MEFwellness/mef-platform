@@ -304,8 +304,8 @@ export default async function ProgressPage() {
                     {formatDate(c.local_date)}
                   </span>
                   <span className="flex-1 text-[#6B7A72]">
-                    Mood {c.mood_level ?? '—'} · Energy {c.energy_level ?? '—'} · Stress{' '}
-                    {c.stress_level ?? '—'}
+                    Mood {c.mood_level ?? '-'} · Energy {c.energy_level ?? '-'} · Stress{' '}
+                    {c.stress_level ?? '-'}
                     {c.sleep_duration ? ` · Sleep ${c.sleep_duration}` : ''}
                   </span>
                   {c.checkin_version > 1 && (

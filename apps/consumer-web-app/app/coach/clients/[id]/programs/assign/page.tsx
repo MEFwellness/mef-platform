@@ -44,7 +44,7 @@ export default async function AssignProgramPage({ params }: { params: { id: stri
             Assign to {firstName}
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
-            Assigning creates a frozen snapshot — future edits to the program template will never
+            Assigning creates a frozen snapshot. Future edits to the program template will never
             change what {firstName} sees for this assignment.
           </p>
         </div>

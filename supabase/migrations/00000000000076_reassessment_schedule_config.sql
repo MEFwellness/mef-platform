@@ -15,10 +15,10 @@ alter table program_phases
   add column typical_end_week int;
 
 insert into program_phases (program_key, phase_key, display_name, phase_order, typical_start_week, typical_end_week) values
-  ('holistic_reset', 'phase_1_intake_baseline', 'Phase 1 — Intake & Baseline', 1, 0, 4),
-  ('holistic_reset', 'phase_2_deeper_diagnostics', 'Phase 2 — Deeper Diagnostics', 2, 4, 8),
-  ('holistic_reset', 'phase_3_active_coaching', 'Phase 3 — Active Coaching', 3, 8, 20),
-  ('holistic_reset', 'phase_4_reassessment_completion', 'Phase 4 — Reassessment & Completion', 4, 20, 24);
+  ('holistic_reset', 'phase_1_intake_baseline', 'Phase 1: Intake & Baseline', 1, 0, 4),
+  ('holistic_reset', 'phase_2_deeper_diagnostics', 'Phase 2: Deeper Diagnostics', 2, 4, 8),
+  ('holistic_reset', 'phase_3_active_coaching', 'Phase 3: Active Coaching', 3, 8, 20),
+  ('holistic_reset', 'phase_4_reassessment_completion', 'Phase 4: Reassessment & Completion', 4, 20, 24);
 
 -- Centralized reassessment RULES (config), distinct from
 -- reassessment_schedules (migration 72), which holds the per-member

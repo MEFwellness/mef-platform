@@ -70,7 +70,7 @@ export function analyzeCarbQuality(input: {
     observations.push(`Contains ${input.addedSugarG}g of added sugar per serving.`);
   } else if (input.totalSugarG !== null && input.totalSugarG > 0 && input.addedSugarG === null) {
     observations.push(
-      `Contains ${input.totalSugarG}g of total sugar per serving — the database did not separately report how much is added vs. naturally occurring.`
+      `Contains ${input.totalSugarG}g of total sugar per serving: the database did not separately report how much is added vs. naturally occurring.`
     );
   }
 

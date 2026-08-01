@@ -59,7 +59,7 @@ export const HEALTHY_AGING_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'healthy_aging_joint_health',
-    prompt_text: 'How would you describe your joints these days — knees, hips, shoulders?',
+    prompt_text: 'How would you describe your joints these days: knees, hips, shoulders?',
     answer_type: 'enum',
     allowed_values: ['feel_great', 'occasional_stiffness', 'regular_discomfort', 'significant_limitation'],
     domain: 'pain_structural',
@@ -115,7 +115,7 @@ export const HEALTHY_AGING_BANK: ConcernQuestionSeed[] = [
   },
   {
     question_key: 'healthy_aging_daily_function_worry',
-    prompt_text: "Is there a specific everyday movement — stairs, getting up from the floor, carrying groceries — that's started to feel harder?",
+    prompt_text: "Is there a specific everyday movement (stairs, getting up from the floor, carrying groceries) that's started to feel harder?",
     answer_type: 'enum',
     allowed_values: ['nothing_comes_to_mind', 'stairs', 'getting_up_and_down', 'carrying_or_lifting', 'walking_long_distances', 'other'],
     domain: 'pain_structural',

@@ -32,12 +32,12 @@ const RECIPES: { branch: string; recipe: string }[] = [
   {
     branch: 'Split',
     recipe:
-      'Pick the same value for Q1, Q2, Q3, Q4 — but for Q11 ("if the next 90 days could only transform ONE…"), pick a DIFFERENT value you didn’t pick in Q1–4. Slider values and Q12 don’t matter for this one.',
+      'Pick the same value for Q1, Q2, Q3, Q4, but for Q11 ("if the next 90 days could only transform ONE…"), pick a DIFFERENT value you didn’t pick in Q1–4. Slider values and Q12 don’t matter for this one.',
   },
   {
     branch: 'S1 bonus observation ("guilt" callout)',
     recipe:
-      'Can appear alongside Clear Gap, Aligned, or Slipping (never Split). Whatever value you name in Q3 (“I feel guilty that I don’t ___ enough”), give that value’s own slider a 4 or 5 — easiest way is to make Q3 match your consistent top value (which also gives you Aligned). To pair it with Clear Gap or Slipping instead, make Q3 a DIFFERENT value than your top pick, and rate that different value’s slider 4 or 5 while your top value’s slider stays low/at 3.',
+      'Can appear alongside Clear Gap, Aligned, or Slipping (never Split). Whatever value you name in Q3 (“I feel guilty that I don’t ___ enough”), give that value’s own slider a 4 or 5: easiest way is to make Q3 match your consistent top value (which also gives you Aligned). To pair it with Clear Gap or Slipping instead, make Q3 a DIFFERENT value than your top pick, and rate that different value’s slider 4 or 5 while your top value’s slider stays low/at 3.',
   },
 ];
 

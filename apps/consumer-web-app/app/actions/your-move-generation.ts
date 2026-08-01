@@ -56,17 +56,17 @@ async function resolveCoachContext(): Promise<CoachContext | { error: string }> 
 function describeGenerationError(err: unknown): { code: string; message: string } {
   if (err instanceof YourMoveApiError) {
     const messages: Record<YourMoveErrorCode, string> = {
-      INVALID_API_KEY: 'Generation is temporarily unavailable — nothing was created. Please try again later.',
-      RATE_LIMITED: 'Too many requests right now — nothing was created. Wait a moment and try again.',
-      NOT_FOUND: 'No matching workout could be generated for these options — nothing was created. Try different muscle groups or equipment.',
-      INVALID_PARAMETER: 'One of the selected options isn’t supported — nothing was created. Try adjusting your selection.',
-      INTERNAL_ERROR: 'The exercise provider had an error — nothing was created. Please try again in a moment.',
-      NETWORK_ERROR: 'Could not reach the exercise provider — nothing was created. Check your connection and try again.',
-      NOT_CONFIGURED: 'Generation isn’t configured yet — nothing was created.',
+      INVALID_API_KEY: 'Generation is temporarily unavailable. Nothing was created. Please try again later.',
+      RATE_LIMITED: 'Too many requests right now. Nothing was created. Wait a moment and try again.',
+      NOT_FOUND: 'No matching workout could be generated for these options. Nothing was created. Try different muscle groups or equipment.',
+      INVALID_PARAMETER: 'One of the selected options isn’t supported. Nothing was created. Try adjusting your selection.',
+      INTERNAL_ERROR: 'The exercise provider had an error. Nothing was created. Please try again in a moment.',
+      NETWORK_ERROR: 'Could not reach the exercise provider. Nothing was created. Check your connection and try again.',
+      NOT_CONFIGURED: 'Generation isn’t configured yet. Nothing was created.',
     };
     return { code: err.code, message: messages[err.code] };
   }
-  return { code: 'UNKNOWN', message: 'Something went wrong generating this — nothing was created. Please try again.' };
+  return { code: 'UNKNOWN', message: 'Something went wrong generating this. Nothing was created. Please try again.' };
 }
 
 async function logGeneration(
@@ -142,7 +142,7 @@ export async function generateWorkoutDraftAction(
       errorCode: 'NOT_CONFIGURED',
       errorMessage: 'YMOVE_API_KEY not set.',
     });
-    return { error: 'Generation isn’t configured yet — nothing was created.' };
+    return { error: 'Generation isn’t configured yet. Nothing was created.' };
   }
 
   try {
@@ -191,7 +191,7 @@ export async function generateProgramDraftAction(
       errorCode: 'NOT_CONFIGURED',
       errorMessage: 'YMOVE_API_KEY not set.',
     });
-    return { error: 'Generation isn’t configured yet — nothing was created.' };
+    return { error: 'Generation isn’t configured yet. Nothing was created.' };
   }
 
   try {
@@ -306,7 +306,7 @@ export async function saveGeneratedProgramDraftAction(
 
   for (const day of input.days) {
     const created = await createTemplate(context.supabase, context.userId, {
-      name: `${input.programName.trim()} — ${day.dayLabel}`,
+      name: `${input.programName.trim()}: ${day.dayLabel}`,
       description: null,
       goal: input.goal || null,
       difficulty: input.difficulty,
@@ -322,14 +322,14 @@ export async function saveGeneratedProgramDraftAction(
     });
     if (!created) {
       for (const id of createdIds) await deleteTemplate(context.supabase, id);
-      return { error: `Could not save "${day.dayLabel}". Nothing from this program was saved — please try again.` };
+      return { error: `Could not save "${day.dayLabel}". Nothing from this program was saved. Please try again.` };
     }
     createdIds.push(created.id);
 
     const ok = await replaceTemplateContent(context.supabase, created.id, context.userId, day.sections);
     if (!ok) {
       for (const id of createdIds) await deleteTemplate(context.supabase, id);
-      return { error: `Could not save "${day.dayLabel}"’s exercises. Nothing from this program was saved — please try again.` };
+      return { error: `Could not save "${day.dayLabel}"’s exercises. Nothing from this program was saved. Please try again.` };
     }
     await setTemplateStatus(context.supabase, created.id, 'active');
   }

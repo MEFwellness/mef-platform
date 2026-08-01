@@ -33,11 +33,11 @@ export const WELLNESS_COACHING: Record<WellnessMetricKey, CoachingCopy> = {
   sleep: {
     priorityTitle: 'Improve Your Sleep Recovery',
     priorityWhy:
-      'Your check-in suggests sleep is currently the area with the greatest opportunity for improvement. Sleep is when your body repairs itself and regulates the hormones behind energy, mood, and stress resilience — a short or restless night tends to ripple into how the rest of the day feels.',
+      'Your check-in suggests sleep is currently the area with the greatest opportunity for improvement. Sleep is when your body repairs itself and regulates the hormones behind energy, mood, and stress resilience. A short or restless night tends to ripple into how the rest of the day feels.',
     priorityAction:
       'Wind down 30 minutes earlier tonight and keep screens out of the last 30 minutes before bed.',
     strongestNote:
-      'Solid sleep is giving your body real recovery time — that foundation is doing a lot of the work behind your other wellness areas today.',
+      'Solid sleep is giving your body real recovery time. That foundation is doing a lot of the work behind your other wellness areas today.',
   },
   stress: {
     priorityTitle: 'Reduce Your Stress Load',
@@ -46,7 +46,7 @@ export const WELLNESS_COACHING: Record<WellnessMetricKey, CoachingCopy> = {
     priorityAction:
       'Take 5 minutes for slow, deliberate breathing or step outside for a short walk today.',
     strongestNote:
-      'Your stress is well managed today — that calmer nervous system state supports better sleep, digestion, and steadier energy across the board.',
+      'Your stress is well managed today. That calmer nervous system state supports better sleep, digestion, and steadier energy across the board.',
   },
   energy: {
     priorityTitle: 'Rebuild Your Energy',
@@ -54,16 +54,16 @@ export const WELLNESS_COACHING: Record<WellnessMetricKey, CoachingCopy> = {
       'Your check-in suggests energy is currently the area with the greatest opportunity for improvement. Low energy is often a downstream signal from sleep, hydration, or stress rather than a standalone issue, so small changes elsewhere often help here too.',
     priorityAction: 'Get some daylight and a glass of water before you reach for caffeine today.',
     strongestNote:
-      'Strong energy today is a good sign the basics — sleep, hydration, and stress — are working together well.',
+      'Strong energy today is a good sign the basics (sleep, hydration, and stress) are working together well.',
   },
   mood: {
     priorityTitle: 'Support Your Mood',
     priorityWhy:
-      'Your check-in suggests mood is currently the area with the greatest opportunity for improvement. Mood is closely tied to sleep, movement, and connection with others — small, consistent actions tend to help more than any single big change.',
+      'Your check-in suggests mood is currently the area with the greatest opportunity for improvement. Mood is closely tied to sleep, movement, and connection with others. Small, consistent actions tend to help more than any single big change.',
     priorityAction:
       'Reach out to someone you enjoy talking to, get some sunlight, or take a short walk today.',
     strongestNote:
-      'A good mood today is a real asset — it tends to make everything else, from movement to your check-ins, easier to follow through on.',
+      'A good mood today is a real asset. It tends to make everything else, from movement to your check-ins, easier to follow through on.',
   },
   hydration: {
     priorityTitle: 'Increase Your Hydration',
@@ -76,9 +76,9 @@ export const WELLNESS_COACHING: Record<WellnessMetricKey, CoachingCopy> = {
   digestion: {
     priorityTitle: 'Support Your Digestion',
     priorityWhy:
-      'Your check-in suggests digestion is currently the area with the greatest opportunity for improvement. Digestion has a direct effect on energy and overall comfort — how and when you eat matters as much as what you eat.',
+      'Your check-in suggests digestion is currently the area with the greatest opportunity for improvement. Digestion has a direct effect on energy and overall comfort: how and when you eat matters as much as what you eat.',
     priorityAction:
-      'Slow down at your next meal — chew thoroughly and avoid eating while rushed or distracted.',
+      'Slow down at your next meal: chew thoroughly and avoid eating while rushed or distracted.',
     strongestNote:
       'Digestion running smoothly today is a quiet but real contributor to your energy and comfort.',
   },
@@ -88,7 +88,7 @@ export const WELLNESS_COACHING: Record<WellnessMetricKey, CoachingCopy> = {
       'Your check-in suggests movement is currently the area with the greatest opportunity for improvement. Even a short walk or mobility session can improve circulation, reduce stiffness, boost energy, and positively influence your Daily Wellness Index.',
     priorityAction: 'Take a 15–20 minute walk or complete one guided mobility session.',
     strongestNote:
-      "Staying active today is paying off — movement tends to lift energy and mood while it's happening and afterward.",
+      "Staying active today is paying off: movement tends to lift energy and mood while it's happening and afterward.",
   },
   pain: {
     priorityTitle: 'Ease Physical Strain',

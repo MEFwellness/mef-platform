@@ -97,7 +97,7 @@ export function MovementAssessmentCard({
           </p>
         </div>
         <p className={`relative mt-3 text-sm leading-relaxed ${bodyTone}`}>
-          Root is reviewing your posture and movement patterns — your personalized corrective
+          Root is reviewing your posture and movement patterns. Your personalized corrective
           exercise recommendations will appear here soon.
         </p>
       </section>
