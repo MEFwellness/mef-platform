@@ -56,12 +56,12 @@ export function buildWhatRootLearned(scoring: CvsScoring): string {
 
   switch (scoring.branch) {
     case 'clear_gap':
-      return `Here's what I noticed. Out of everything I asked, ${top} came out on top. But when I asked about your last two weeks, ${top} got a ${att} out of 5. The thing you'd protect most is the thing getting protected least. I'm not going to tell you why that is. I don't know yet. But it's worth paying attention to.`;
+      return `Here's what I noticed. Out of everything I asked, ${top} came out on top. But when I asked how much attention it's actually been getting, ${top} got a ${att} out of 5. The thing you'd protect most is the thing getting protected least. I'm not going to tell you why that is. I don't know yet. But it's worth paying attention to.`;
     case 'aligned': {
       const runnerLine = runnerGettingLess
         ? `I noticed ${runner} matters to you too, and it's getting less.`
         : `I noticed ${runner} matters to you too: worth watching how you split real attention between the two.`;
-      return `Here's what I noticed, and honestly, it's not what I usually see. Out of everything I asked, ${top} came out on top. And when I asked about your actual last two weeks? You're living it: ${att} out of 5. What matters to you is getting your time. That's rare. The more interesting question now is what it's costing you elsewhere. ${runnerLine} Worth paying attention to.`;
+      return `Here's what I noticed, and honestly, it's not what I usually see. Out of everything I asked, ${top} came out on top. And when I asked how much attention it's actually getting? You're living it: ${att} out of 5. What matters to you is getting your time. That's rare. The more interesting question now is what it's costing you elsewhere. ${runnerLine} Worth paying attention to.`;
     }
     case 'split':
       return `Here's what caught my attention. I asked you four different times what matters most to you, and ${q11} never came up as your answer, not once. But when I asked what would transform your life in the next 90 days, that's exactly what you chose. Your day-to-day instincts and your 90-day pick are pointing in two different directions. I'm not saying either is wrong. But that split is worth paying attention to.`;
@@ -94,7 +94,7 @@ export function buildKeyInsightCopy(scoring: CvsScoring): { topLine: string; att
 /** S1 — fires only if the Q3 guilt area has attention >= 4 (and never on the split branch, enforced in scoring.ts's s1Fires). */
 export function buildS1Observation(scoring: CvsScoring): string {
   const guiltAreaLabel = label(scoring.guiltArea);
-  return `One more thing surprised me. You told me you feel guilty about not doing enough for ${guiltAreaLabel}, but your last two weeks say you're actually showing up for it. Guilt about something you're already doing usually isn't about time. I don't know what it's about yet. Filing that away.`;
+  return `One more thing surprised me. You told me you feel guilty about not doing enough for ${guiltAreaLabel}, but the attention you said you're actually giving it says you're showing up for it. Guilt about something you're already doing usually isn't about time. I don't know what it's about yet. Filing that away.`;
 }
 
 export function buildExperimentTheoryCopy(scoring: CvsScoring): { theory: string; body: string; button: string; followUpNote: string } {

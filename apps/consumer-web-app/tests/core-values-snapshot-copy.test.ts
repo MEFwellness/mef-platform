@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeCvsScoring } from '../lib/core-values-snapshot/scoring';
-import { buildWhatRootLearned } from '../lib/core-values-snapshot/copy';
+import { buildWhatRootLearned, buildS1Observation } from '../lib/core-values-snapshot/copy';
 import { buildCvsNarrativeDrafts } from '../lib/core-values-snapshot/narrative';
 import type { SessionAnswers } from '../lib/assessment-runtime/types';
 
@@ -137,6 +137,58 @@ describe('clear_gap / aligned / slipping copy — no unverified repetition or co
     expect(scoring.attention[scoring.runnerUpValue]).toBeGreaterThanOrEqual(scoring.attention[scoring.topValue]);
     const text = buildWhatRootLearned(scoring);
     expect(text).not.toContain("and it's getting less");
+  });
+});
+
+describe('attention claims never invent a "last two weeks" question that was never asked (real reported bug, 2026-08-01)', () => {
+  // The Screen 2 sliders (cvs_q5-cvs_q10) each only ever ask a short label
+  // ("Rest and stillness") on a 1-5 scale — "the last two weeks" appears
+  // exactly once, in the section intro shown above the whole battery
+  // (CVS_SCREEN2_INTRO), never restated per question. Root's copy used to
+  // say "when I asked about your last two weeks, X got a Y out of 5" as if
+  // that exact question had been asked, which overclaims what any single
+  // slider actually said.
+  const OLD_TIMEFRAME_PHRASES = ['about your last two weeks', 'your actual last two weeks', 'your last two weeks say'];
+
+  it('clear_gap never claims a "last two weeks" question and stays scoped to the real attention rating', () => {
+    const a: SessionAnswers = {
+      cvs_q1: 'health', cvs_q2: 'growth', cvs_q3: 'purpose', cvs_q4: 'freedom',
+      cvs_q5: 2, cvs_q6: 2, cvs_q7: 2, cvs_q8: 2, cvs_q9: 2, cvs_q10: 2,
+      cvs_q11: 'health', cvs_q12: 'health',
+    };
+    const scoring = computeCvsScoring(a);
+    expect(scoring.branch).toBe('clear_gap');
+    const text = buildWhatRootLearned(scoring);
+    for (const phrase of OLD_TIMEFRAME_PHRASES) expect(text).not.toContain(phrase);
+    expect(text).toContain('how much attention it\'s actually been getting');
+    expect(text).toContain(`${scoring.attention[scoring.topValue]} out of 5`);
+  });
+
+  it('aligned never claims a "last two weeks" question and stays scoped to the real attention rating', () => {
+    const a: SessionAnswers = {
+      cvs_q1: 'purpose', cvs_q2: 'purpose', cvs_q3: 'purpose', cvs_q4: 'purpose',
+      cvs_q5: 1, cvs_q6: 3, cvs_q7: 1, cvs_q8: 5, cvs_q9: 1, cvs_q10: 1,
+      cvs_q11: 'purpose', cvs_q12: 'purpose',
+    };
+    const scoring = computeCvsScoring(a);
+    expect(scoring.branch).toBe('aligned');
+    const text = buildWhatRootLearned(scoring);
+    for (const phrase of OLD_TIMEFRAME_PHRASES) expect(text).not.toContain(phrase);
+    expect(text).toContain('how much attention it\'s actually getting');
+  });
+
+  it('the S1 guilt-area observation never claims a "last two weeks" question either', () => {
+    const a: SessionAnswers = {
+      cvs_q1: 'relationships', cvs_q2: 'relationships', cvs_q3: 'health', cvs_q4: 'relationships',
+      cvs_q5: 4, cvs_q6: 3, cvs_q7: 2, cvs_q8: 2, cvs_q9: 2, cvs_q10: 2,
+      cvs_q11: 'relationships', cvs_q12: 'relationships',
+    };
+    const scoring = computeCvsScoring(a);
+    expect(scoring.guiltArea).toBe('health');
+    expect(scoring.attention.health).toBeGreaterThanOrEqual(4);
+    const text = buildS1Observation(scoring);
+    for (const phrase of OLD_TIMEFRAME_PHRASES) expect(text).not.toContain(phrase);
+    expect(text).toContain('the attention you said');
   });
 });
 
