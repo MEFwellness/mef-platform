@@ -7,10 +7,11 @@ import { CVS_CARD, CVS_DISPLAY_FONT, CVS_FOREST } from '@/components/core-values
 import { LoudnessVisual } from './LoudnessVisual';
 import {
   buildLoudnessVisualRows,
+  buildLscClosingReinforcement,
+  buildLscEchoLine,
   buildLscKeyInsightCopy,
+  buildLscQ1ContrastLine,
   buildLscWhatRootLearned,
-  LSC_CLOSING_REINFORCEMENT,
-  LSC_ECHO_LINE,
   LSC_HANDOFF,
   LSC_PROGRESS_CARD,
   LSC_RESOURCE_AUDIO_SRC,
@@ -25,6 +26,7 @@ export function WhatRootLearnedSection({ scoring }: { scoring: LscScoring }) {
   const learned = buildLscWhatRootLearned(scoring);
   const rows = buildLoudnessVisualRows(scoring);
   const keyInsight = buildLscKeyInsightCopy(scoring);
+  const q1Contrast = buildLscQ1ContrastLine(scoring);
 
   return (
     <div className={`${CVS_CARD} mef-animate-in p-7`}>
@@ -38,9 +40,15 @@ export function WhatRootLearnedSection({ scoring }: { scoring: LscScoring }) {
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">{keyInsight.footer}</p>
       </div>
 
+      {q1Contrast && (
+        <p className="mt-5 rounded-2xl border border-[#1B3A2D]/10 bg-[#F3F6F4] p-5 text-[15px] leading-relaxed text-[#1B3A2D]">
+          {q1Contrast}
+        </p>
+      )}
+
       {scoring.echoFires && (
         <p className="mt-5 rounded-2xl border border-[#C4A050]/30 bg-[#FDF9EF] p-5 text-[15px] leading-relaxed text-[#1B3A2D]">
-          {LSC_ECHO_LINE}
+          {buildLscEchoLine(scoring)}
         </p>
       )}
 
@@ -104,11 +112,19 @@ export function ResourceSection({ audioAvailable }: { audioAvailable: boolean })
   );
 }
 
-export function CloseSection({ onStartReadinessPulse, onLater }: { onStartReadinessPulse: () => void; onLater: () => void }) {
+export function CloseSection({
+  onStartReadinessPulse,
+  onLater,
+  didStartExperiment,
+}: {
+  onStartReadinessPulse: () => void;
+  onLater: () => void;
+  didStartExperiment: boolean;
+}) {
   return (
     <div className="space-y-4">
       <div className={`${CVS_CARD} mef-animate-in p-7`}>
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{LSC_CLOSING_REINFORCEMENT}</p>
+        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{buildLscClosingReinforcement(didStartExperiment)}</p>
       </div>
 
       <div className={`${CVS_CARD} mef-animate-in p-7`}>

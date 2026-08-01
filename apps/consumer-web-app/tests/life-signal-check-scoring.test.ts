@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { computeSignalScores, computeLscScoring, allLscQuestionsAnswered } from '../lib/life-signal-check/scoring';
 import { computeLoudSignals, generateQ10Options } from '../lib/life-signal-check/q10';
 import { isAdjacent, VALUE_ADJACENT_SIGNALS } from '../lib/life-signal-check/adjacency';
-import { buildLscWhatRootLearned, LSC_ECHO_LINE, LSC_SURPRISE_LINE } from '../lib/life-signal-check/copy';
+import { buildLscEchoLine, buildLscWhatRootLearned, LSC_SURPRISE_LINE } from '../lib/life-signal-check/copy';
 import { buildLscNarrativeDrafts } from '../lib/life-signal-check/narrative';
 import type { SessionAnswers } from '../lib/assessment-runtime/types';
 import type { Signal } from '../lib/life-signal-check/constants';
@@ -273,7 +273,7 @@ describe('buildLscNarrativeDrafts', () => {
     expect(scoring.surpriseFires).toBe(false);
     const drafts = buildLscNarrativeDrafts('session-1', scoring);
     expect(drafts.some((d) => d.title === 'How your body is responding')).toBe(true);
-    expect(drafts.some((d) => d.summary === LSC_ECHO_LINE)).toBe(false);
+    expect(drafts.some((d) => d.summary === buildLscEchoLine(scoring))).toBe(false);
     expect(drafts.some((d) => d.summary === LSC_SURPRISE_LINE)).toBe(false);
     expect(drafts.every((d) => d.memberVisible)).toBe(true);
   });
@@ -282,7 +282,7 @@ describe('buildLscNarrativeDrafts', () => {
     const scoring = computeLscScoring(answers({ scores: { mind: 3 } }), { topValue: 'peace', branch: 'clear_gap' });
     expect(scoring.echoFires).toBe(true);
     const drafts = buildLscNarrativeDrafts('session-1', scoring);
-    expect(drafts.some((d) => d.summary === LSC_ECHO_LINE)).toBe(true);
+    expect(drafts.some((d) => d.summary === buildLscEchoLine(scoring))).toBe(true);
   });
 
   it('adds the surprise-beat entry when it fires', () => {
@@ -290,5 +290,65 @@ describe('buildLscNarrativeDrafts', () => {
     expect(scoring.surpriseFires).toBe(true);
     const drafts = buildLscNarrativeDrafts('session-1', scoring);
     expect(drafts.some((d) => d.summary === LSC_SURPRISE_LINE)).toBe(true);
+  });
+});
+
+describe('computeLscScoring — Question 1 contrast insight', () => {
+  it('fires when Q1 and Q2 name two different, specific times of day', () => {
+    const scoring = computeLscScoring(answers({ q1: 'mornings', q2: 'evenings', scores: {} }), null);
+    expect(scoring.q1ContrastFires).toBe(true);
+  });
+
+  it('never fires when Q1 and Q2 are the same answer', () => {
+    const scoring = computeLscScoring(answers({ q1: 'mornings', q2: 'mornings', scores: {} }), null);
+    expect(scoring.q1ContrastFires).toBe(false);
+  });
+
+  it('never fires when either answer is "not much of the day" or "it varies"', () => {
+    expect(computeLscScoring(answers({ q1: 'not_much', q2: 'evenings', scores: {} }), null).q1ContrastFires).toBe(false);
+    expect(computeLscScoring(answers({ q1: 'mornings', q2: 'varies', scores: {} }), null).q1ContrastFires).toBe(false);
+  });
+});
+
+describe('computeLscScoring — Question 3 early-guess comparison (generalized surprise beat)', () => {
+  it('confirms when Q3’s guessed signal matches the actual loudest signal', () => {
+    const scoring = computeLscScoring(answers({ q3: 'tired', scores: { energy: 3 } }), null);
+    expect(scoring.predictedSignalFromQ3).toBe('energy');
+    expect(scoring.q3Comparison).toBe('confirmed');
+    expect(buildLscWhatRootLearned(scoring)).toContain('Your body predicted itself');
+  });
+
+  it('reports a mismatch when Q3’s guess differs from the actual loudest signal', () => {
+    const scoring = computeLscScoring(answers({ q3: 'tired', scores: { mind: 3 } }), null);
+    expect(scoring.q3Comparison).toBe('mismatch');
+    expect(buildLscWhatRootLearned(scoring)).toContain("Earlier you said: I'm tired");
+  });
+
+  it('is null (no comparison) for "I\'m okay, actually" — that keeps its own dedicated surprise beat instead', () => {
+    const scoring = computeLscScoring(answers({ q3: 'okay_actually', scores: { energy: 3 } }), null);
+    expect(scoring.predictedSignalFromQ3).toBeNull();
+    expect(scoring.q3Comparison).toBeNull();
+  });
+
+  it('is null on quiet_body — nothing genuinely loud to confirm or contradict', () => {
+    const scoring = computeLscScoring(answers({ q3: 'tired', scores: {} }), null);
+    expect(scoring.pattern).toBe('quiet_body');
+    expect(scoring.q3Comparison).toBeNull();
+  });
+});
+
+describe('buildLscWhatRootLearned — Question 11 tone covers all four duration answers distinctly', () => {
+  it('produces four different sentences for the four duration answers', () => {
+    const texts = (['just_this_week', 'a_few_weeks', 'months', 'as_long_as_i_can_remember'] as const).map((q11) =>
+      buildLscWhatRootLearned(computeLscScoring(answers({ q3: 'okay_actually', scores: { mind: 3 }, q11 }), null))
+    );
+    expect(new Set(texts).size).toBe(4);
+  });
+
+  it('quiet_body uses its own duration phrasing, never claiming a signal is "showing up" or "speaking up"', () => {
+    const scoring = computeLscScoring(answers({ q3: 'okay_actually', scores: {}, q11: 'months' }), null);
+    const text = buildLscWhatRootLearned(scoring);
+    expect(text).toContain('felt this good');
+    expect(text).not.toMatch(/showing up|speaking up/);
   });
 });

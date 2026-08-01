@@ -14,6 +14,11 @@ import {
 
 const memberId = TEST_USERS.memberOne.id;
 
+/** deriveEffectiveStatus/expireOverdueExperiments both read real wall-clock time, so any "still active" fixture must anchor to today, not a fixed calendar date. */
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 afterAll(async () => {
   const service = serviceRoleClient();
   await service.from('lifestyle_experiments').delete().eq('member_id', memberId);
@@ -73,7 +78,7 @@ describe('lifestyle_experiments — start, reflect/close, RLS (migration 92)', (
       recommendationId: null,
       title: 'Hydration habit',
       protocol: 'Drink a glass of water before each meal.',
-      startDate: '2026-06-01',
+      startDate: today(),
       durationDays: 7,
     });
 

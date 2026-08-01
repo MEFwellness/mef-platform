@@ -6,7 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LifestyleExperiment, LifestyleExperimentOutcome } from './types';
-import { deriveEffectiveStatus, MAX_ACTIVE_EXPERIMENTS } from './lifecycle';
+import { deriveEffectiveStatus, isExperimentOverdue, MAX_ACTIVE_EXPERIMENTS } from './lifecycle';
 
 type Row = {
   id: string;
@@ -138,11 +138,50 @@ export async function markDay7Acknowledged(
   return true;
 }
 
+/**
+ * Persists the read-time "past day 7 with no reflection" derivation
+ * (lifecycle.ts's deriveEffectiveStatus) back onto the actual row, instead
+ * of only ever recomputing it in memory. Real bug this fixes: a stray
+ * 'active' row (started once during testing, or from any source, and never
+ * revisited) went on counting against MAX_ACTIVE_EXPERIMENTS forever, even
+ * long after its own 7-day window closed, because nothing ever wrote its
+ * status back to 'expired_no_reflection' — the in-memory recompute in
+ * countActiveExperiments already excluded it from that one count, but nothing
+ * ever exposed it as expired anywhere else. Called at the top of every read
+ * path below so any overdue row self-heals the moment anyone next looks,
+ * with no cron required.
+ */
+export async function expireOverdueExperiments(supabase: SupabaseClient, memberId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('lifestyle_experiments')
+    .select('id, start_date, duration_days')
+    .eq('member_id', memberId)
+    .eq('status', 'active');
+
+  if (error || !data || data.length === 0) return;
+
+  const now = new Date();
+  const overdueIds = (data as { id: string; start_date: string; duration_days: number }[])
+    .filter((row) => isExperimentOverdue({ status: 'active', startDate: row.start_date, durationDays: row.duration_days }, now))
+    .map((row) => row.id);
+
+  if (overdueIds.length === 0) return;
+
+  const { error: updateError } = await supabase
+    .from('lifestyle_experiments')
+    .update({ status: 'expired_no_reflection', updated_at: new Date().toISOString() })
+    .in('id', overdueIds);
+
+  if (updateError) console.error('expireOverdueExperiments failed', updateError);
+}
+
 /** Effective-status-aware count (an 'expired_no_reflection' experiment never counts as active — it stopped tracking, whether or not the member has closed it out yet) — the single count both the cap enforcement and the Root Router's adaptive context read. */
 export async function countActiveExperiments(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<number> {
+  await expireOverdueExperiments(supabase, memberId);
+
   const { data, error } = await supabase
     .from('lifestyle_experiments')
     .select('status, start_date, duration_days')
@@ -168,6 +207,8 @@ export async function listMyLifestyleExperiments(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<LifestyleExperiment[]> {
+  await expireOverdueExperiments(supabase, memberId);
+
   const { data, error } = await supabase
     .from('lifestyle_experiments')
     .select('*')

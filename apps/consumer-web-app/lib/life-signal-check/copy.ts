@@ -8,15 +8,16 @@
  * to exactly what scoring.ts actually checked.
  */
 
-import { SIGNAL_LABEL, type Signal, type Duration, type TimeOfDay } from './constants';
+import { BODY_TEXT_LABEL, SIGNAL_LABEL, type Signal, type Duration, type TimeOfDay } from './constants';
 import type { LscScoring } from './types';
 import type { Day3Response, Day7Pattern } from '../core-values-snapshot/experiment';
 
 export const LSC_DISPLAY_TITLE = 'Life Signal Check';
 
+/** Tightened per the app-wide intro-screen design standard (roughly half the previous length): headline first, then two short lines revealed one at a time via components/IntroReveal.tsx, same emotional hook and voice as before, less to skim past. */
 export const LSC_INTRO_COPY = {
-  title: "Where is your life speaking the loudest right now?",
-  body: "Not a symptom checklist. I'm not going to ask you to rate anything one to ten. I want to know where your week has actually been loud, and where it's been quiet. Eleven questions. Answer with your gut.",
+  title: 'Where is your life speaking the loudest right now?',
+  lines: ["Not a symptom checklist. Just where your week's been loud, and where it's been quiet.", "Eleven questions. Answer with your gut."],
   button: "Let's begin",
 };
 
@@ -52,28 +53,87 @@ function pickDivergedLine(scoring: LscScoring): string | null {
   return `You picked ${label(scoring.chosenSignal)} even though ${label(scoring.loudestSignal)} scored louder. You know things the numbers don't.`;
 }
 
-/** Question 11 sets the tone: curiosity for "just this week," respect and patience (never alarm) for "as long as I can remember." No causation claims. */
+/**
+ * Question 11 sets the tone, and all four duration answers get a genuinely
+ * distinct one, not just the two poles (curiosity, patience) the build
+ * brief named by example: curiosity for "just this week," measured
+ * attentiveness for "a few weeks," respect for "months," and patience
+ * (never alarm) for "as long as I can remember." No causation claims
+ * anywhere.
+ */
 function durationLine(duration: Duration, chosenLabel: string): string {
   switch (duration) {
     case 'just_this_week':
-      return `And this is new: you said ${chosenLabel} has only been showing up this week. Worth watching closely.`;
+      return `And this is new: you said ${chosenLabel} has only been showing up this week. New enough to just watch closely, not worry about yet.`;
     case 'a_few_weeks':
-      return `You said ${chosenLabel} has been building for a few weeks now. Long enough that it's not just a bad day.`;
+      return `You said ${chosenLabel} has been building for a few weeks now. Long enough to be a real pattern, not just a rough patch.`;
     case 'months':
       return `You said ${chosenLabel} has been going on for months. That's real staying power, and it's worth understanding, not just managing.`;
     case 'as_long_as_i_can_remember':
-      return `You said ${chosenLabel} has been with you as long as you can remember. That's not a five-minute fix, and I'm not going to pretend it is. We'll go with patience, not urgency.`;
+      return `You said ${chosenLabel} has been with you as long as you can remember. That calls for patience, not urgency, and I mean that.`;
   }
 }
 
+/** The Quiet Body branch's own version of durationLine, phrased around "this has felt this good," never "showing up" or "speaking up" — nothing scored loud, so a duration line that presumes loudness would break the accuracy rule. Pairs with Question 11's own rephrase for this branch (see LifeSignalCheckTaker.tsx). */
+function durationLineQuietBody(duration: Duration): string {
+  switch (duration) {
+    case 'just_this_week':
+      return "And this is new: you said this calm has only felt this good for about a week. Worth noticing, not just enjoying quietly.";
+    case 'a_few_weeks':
+      return 'You said this has felt this good for a few weeks now. Long enough to actually trust it a little.';
+    case 'months':
+      return "You said this has felt this good for months. That's not luck, something is actually working.";
+    case 'as_long_as_i_can_remember':
+      return "You said this has felt this good for as long as you can remember. That's worth naming, not just taking for granted.";
+  }
+}
+
+/** Question 1's contrast insight: fires only when Q1 and Q2 named two different, specific times of day (scoring.ts's q1ContrastFires) — never invented when the member said "not much of the day" or "varies" for either. */
+function q1ContrastLine(scoring: LscScoring): string | null {
+  if (!scoring.q1ContrastFires || !scoring.bestTimeOfDay || !scoring.hardestTimeOfDay) return null;
+  const bestPhrase = Q1_CONTRAST_BEST_PHRASE[scoring.bestTimeOfDay];
+  const hardestPhrase = Q1_CONTRAST_HARDEST_PHRASE[scoring.hardestTimeOfDay];
+  if (!bestPhrase || !hardestPhrase) return null;
+  return `You feel most like yourself ${bestPhrase}, but by ${hardestPhrase} it's gone.`;
+}
+
+const Q1_CONTRAST_BEST_PHRASE: Partial<Record<TimeOfDay, string>> = {
+  mornings: 'in the mornings',
+  midday: 'in the middle of the day',
+  evenings: 'in the evenings',
+};
+
+const Q1_CONTRAST_HARDEST_PHRASE: Partial<Record<TimeOfDay, string>> = {
+  mornings: 'morning',
+  midday: 'midday',
+  evenings: 'evening',
+};
+
+/** Question 3's early guess compared to what the Screen 2 signals actually found, in both directions (scoring.ts's q3Comparison) — the generalized surprise beat, for every body-text answer except "I'm okay, actually" (which keeps its own dedicated surpriseFires mechanism below). */
+function q3ComparisonLine(scoring: LscScoring): string | null {
+  if (!scoring.q3Comparison || !scoring.bodyText) return null;
+  if (scoring.q3Comparison === 'confirmed') {
+    return 'You called this in the first question. Your body predicted itself.';
+  }
+  return `Earlier you said: ${BODY_TEXT_LABEL[scoring.bodyText]}. Three screens later, it's actually ${label(scoring.loudestSignal)}.`;
+}
+
 export function buildLscWhatRootLearned(scoring: LscScoring): string {
-  const parts = [patternLine(scoring), pickDivergedLine(scoring), durationLine(scoring.duration, label(scoring.chosenSignal))];
+  const durationText =
+    scoring.pattern === 'quiet_body' ? durationLineQuietBody(scoring.duration) : durationLine(scoring.duration, label(scoring.chosenSignal));
+  const parts = [patternLine(scoring), pickDivergedLine(scoring), q3ComparisonLine(scoring), durationText];
   return parts.filter((p): p is string => Boolean(p)).join(' ');
 }
 
-/** Body-Value Echo — fires only per lib/life-signal-check/scoring.ts's echoFires condition. Curious framing, never causal, exact line per the build brief. */
-export const LSC_ECHO_LINE =
-  'The thing you value most and the thing your body is loudest about may be pointing at the same place.';
+/** Question 1's contrast insight, exposed separately (not folded into buildLscWhatRootLearned's single paragraph) so the results view can render it in its own callout box, matching the Echo/surprise overlay treatment. */
+export function buildLscQ1ContrastLine(scoring: LscScoring): string | null {
+  return q1ContrastLine(scoring);
+}
+
+/** Body-Value Echo — fires only per lib/life-signal-check/scoring.ts's echoFires condition. Curious framing, never causal, always names the actual loudest signal so it reads as this member's real result, not a template. An overlay on whichever base pattern fired, never a competing or replacing one. */
+export function buildLscEchoLine(scoring: LscScoring): string {
+  return `Your loudest signal is ${label(scoring.loudestSignal)}, and it happens to sit right next to what you told us matters most.`;
+}
 
 /** Surprise beat — fires only when Q3 said "I'm okay, actually" and at least one signal scored loud. Exact line per the build brief. */
 export const LSC_SURPRISE_LINE =
@@ -99,14 +159,15 @@ export function buildLscKeyInsightCopy(scoring: LscScoring): { topLine: string; 
   };
 }
 
+/** Question 2's answer, wired directly into the experiment's own timing, and said out loud as such (the build brief's explicit ask) rather than left as an implicit "hardest point in the day." */
 function timingPhrase(hardestTimeOfDay: TimeOfDay | null): string {
   switch (hardestTimeOfDay) {
     case 'mornings':
-      return 'in the mornings, right when it tends to hit hardest';
+      return "in the mornings, since that's when you said it gets loudest";
     case 'midday':
-      return 'in the middle of the day, right when it tends to hit hardest';
+      return "in the middle of the day, since that's when you said it gets loudest";
     case 'evenings':
-      return 'in the evenings, right when it tends to hit hardest';
+      return "in the evenings, since that's when you said it gets loudest";
     default:
       return 'whenever it tends to hit hardest for you';
   }
@@ -202,8 +263,21 @@ export const LSC_RESOURCE_FULL_PIECE = `Most health apps treat every signal your
 
 export const LSC_RESOURCE_AUDIO_SRC = '/audio/signals-not-verdicts.mp3';
 
-export const LSC_CLOSING_REINFORCEMENT =
-  "One more thing before you go. Most people either ignore what their body is telling them or panic about it. You just sat with it for four minutes, without doing either. That's rarer than it should be, and it's already an experiment running to prove something real. Whatever the next seven days look like, that counts.";
+/**
+ * The closing screen's reinforcement line branches on whether the member
+ * actually started the Weekly Experiment (per Root's accuracy rule: never
+ * claim something isn't true for this member). Root never says "it's
+ * already an experiment running" or references the seven days when nothing
+ * started — a real bug found live: the old single, unconditional line
+ * always claimed an experiment was running, even for a member blocked by
+ * the active-experiment cap or who simply declined to start one.
+ */
+export function buildLscClosingReinforcement(didStartExperiment: boolean): string {
+  if (didStartExperiment) {
+    return "One more thing before you go. Most people either ignore what their body is telling them or panic about it. You just sat with it for four minutes, without doing either. That's rarer than it should be, and it's already an experiment running to prove something real. Whatever the next seven days look like, that counts.";
+  }
+  return "One more thing before you go. Most people either ignore what their body is telling them or panic about it. You just sat with it for four minutes, without doing either. That's rarer than it should be, and that counts on its own, whether or not you start the experiment today. It'll be waiting on your dashboard whenever you're ready.";
+}
 
 export const LSC_PROGRESS_CARD = {
   heading: 'Conversation 2 of 3: complete ✓',

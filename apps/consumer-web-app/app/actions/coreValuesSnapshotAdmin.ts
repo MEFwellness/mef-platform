@@ -103,15 +103,19 @@ export async function resetCvsForMemberAction(memberId: string): Promise<CvsAdmi
     .select('id');
   if (narrativeError) return { ok: false, error: `Could not clear narrative entries: ${narrativeError.message}` };
 
-  // Every Weekly Experiment this experience started — recommendation_id is
-  // null only for Core Values Snapshot-sourced experiments today (every
-  // other lifestyle_experiments row is Recommendation Engine-sourced).
-  // cvs_experiment_daily_logs cascades on delete (migration 134).
+  // Every Weekly Experiment this experience started — scoped by
+  // source_experience_key (migration 138), not the old "recommendation_id
+  // is null" heuristic, which also matches Life Signal Check's own
+  // experiments now that a second recommendation_id-null experience exists.
+  // A real bug fixed here: before this filter, resetting a member's Core
+  // Values Snapshot test data silently deleted their Life Signal Check
+  // experiment too. cvs_experiment_daily_logs cascades on delete
+  // (migration 134).
   const { data: deletedExperiments, error: experimentsError } = await supabase
     .from('lifestyle_experiments')
     .delete()
     .eq('member_id', memberId)
-    .is('recommendation_id', null)
+    .eq('source_experience_key', 'core-values-snapshot')
     .select('id');
   if (experimentsError) return { ok: false, error: `Could not clear experiments: ${experimentsError.message}` };
 

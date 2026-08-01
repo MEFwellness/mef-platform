@@ -80,3 +80,40 @@ export type BodyText = 'tired' | 'tense' | 'ache' | 'cant_settle' | 'hungry_for_
 
 /** A signal is "loud" at score 2 or 3, per the build brief. */
 export const LOUD_THRESHOLD = 2;
+
+/** Question 1/2's option labels exactly as shown on screen (migration 138), for coach "what they actually said" views — distinct from TIME_OF_DAY_LABEL above, which is a sentence-embeddable phrase, not the raw option text. */
+export const TIME_OF_DAY_RAW_LABEL: Record<TimeOfDay, string> = {
+  mornings: 'Mornings',
+  midday: 'The middle of the day',
+  evenings: 'Evenings',
+  not_much: 'Honestly, not much of the day',
+  varies: 'It varies a lot',
+};
+
+/** Question 3's option labels exactly as shown on screen (migration 138) — reused both for coach "what they actually said" views and for Root's own honest quote-back of the member's early guess (see scoring.ts's q3Comparison). */
+export const BODY_TEXT_LABEL: Record<BodyText, string> = {
+  tired: "I'm tired",
+  tense: "I'm tense",
+  ache: 'I ache',
+  cant_settle: "I can't settle down",
+  hungry_for_different: "I'm hungry for something different",
+  okay_actually: "I'm okay, actually",
+};
+
+/**
+ * Question 3's five real body-text options each name, in the member's own
+ * words, a guess at which of the six signals will turn out loudest — "I'm
+ * okay, actually" is deliberately excluded (it isn't a guess at a signal,
+ * it's a claim that nothing is loud, already covered by the separate
+ * surprise-beat mechanism in scoring.ts). Root compares this early guess to
+ * what the Screen 2 signals actually found, in both directions (scoring.ts's
+ * q3Comparison) — the generalized form of the surprise beat beyond the
+ * "okay actually" case.
+ */
+export const BODY_TEXT_SIGNAL_GUESS: Partial<Record<BodyText, Signal>> = {
+  tired: 'energy',
+  tense: 'tension',
+  ache: 'body',
+  cant_settle: 'mind',
+  hungry_for_different: 'digestion',
+};

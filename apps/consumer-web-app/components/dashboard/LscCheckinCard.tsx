@@ -5,11 +5,18 @@
  * CvsFollowUpCards.tsx components with Life Signal Check's own server
  * actions and experience="life-signal-check" passed in, not a second
  * hand-kept copy of the card markup.
+ *
+ * When the member has never started (or no longer has) a Life Signal Check
+ * experiment, this renders a real "start it later" offer instead of
+ * disappearing — a member blocked by the active-experiment cap, or who
+ * simply declined at the time, does not otherwise have any way back to the
+ * experiment Root already built a theory for.
  */
 
-import { getMyLscExperimentStatusAction, submitLscDay3ResponseAction, acknowledgeLscDay7Action } from '@/app/actions/lifeSignalCheck';
+import { getMyLscExperimentStatusAction, getMyLscOfferAction, submitLscDay3ResponseAction, acknowledgeLscDay7Action } from '@/app/actions/lifeSignalCheck';
 import { getMyRootPopupDismissalAction } from '@/app/actions/rootPopupMessages';
 import { CvsDay3FollowUp, CvsDay7FollowUp } from '@/components/core-values-snapshot/CvsFollowUpCards';
+import { LscExperimentPanel } from '@/components/life-signal-check/LscExperimentPanel';
 import { resolveCvsCheckinPending } from '@/lib/core-values-snapshot/experiment';
 import { lscPopupMessageKey } from '@/lib/root-popup-messages/data';
 
@@ -17,7 +24,18 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
 
 export async function LscCheckinCard() {
   const status = await getMyLscExperimentStatusAction();
-  if (!status) return null;
+  if (!status) {
+    const offer = await getMyLscOfferAction();
+    if (!offer) return null;
+    return (
+      <LscExperimentPanel
+        sessionId={offer.sessionId}
+        chosenSignal={offer.scoring.chosenSignal}
+        scoring={offer.scoring}
+        initialStatus={null}
+      />
+    );
+  }
 
   const pending = resolveCvsCheckinPending({
     isDay3Eligible: status.isDay3Eligible,

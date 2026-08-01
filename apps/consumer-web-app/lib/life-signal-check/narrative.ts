@@ -10,7 +10,7 @@
  */
 
 import { SIGNAL_LABEL } from './constants';
-import { LSC_ECHO_LINE, LSC_SURPRISE_LINE } from './copy';
+import { buildLscEchoLine, LSC_SURPRISE_LINE } from './copy';
 import type { LscScoring } from './types';
 import type { NarrativeItemDraft } from '@/lib/narrative/types';
 
@@ -43,7 +43,7 @@ export function buildLscNarrativeDrafts(sessionId: string, scoring: LscScoring):
     drafts.push({
       category: 'recurring_patterns',
       title: 'Values and body pointing the same way',
-      summary: LSC_ECHO_LINE,
+      summary: buildLscEchoLine(scoring),
       provenance: 'inferred',
       confidence: 0.5,
       memberVisible: true,

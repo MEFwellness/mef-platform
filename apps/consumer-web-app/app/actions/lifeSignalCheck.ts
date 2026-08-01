@@ -231,6 +231,44 @@ export async function startLscExperimentAction(sessionId: string, signal: Signal
   return { ok: true, experiment };
 }
 
+export type LscOffer = { sessionId: string; scoring: LscScoring };
+
+/**
+ * The member's most recently completed Life Signal Check session, only
+ * when they have never started (or no longer have) a Life Signal Check
+ * experiment tied to it — used by the dashboard card (LscCheckinCard.tsx)
+ * to give a member who was blocked by the active-experiment cap, or who
+ * simply declined at the time, a real way to start the Weekly Experiment
+ * later, so the payoff of the whole conversation isn't lost. Renders
+ * LscExperimentPanel's own offer screen, which self-checks the cap again.
+ */
+export async function getMyLscOfferAction(): Promise<LscOffer | null> {
+  const memberId = await requireMemberId();
+  if (!memberId) return null;
+
+  const supabase = createClient();
+  const definition = await getUnifiedAssessmentDefinitionByKey(supabase, LSC_KEY);
+  if (!definition) return null;
+
+  const { data } = await supabase
+    .from('unified_assessment_sessions')
+    .select('id')
+    .eq('member_id', memberId)
+    .eq('assessment_definition_id', definition.id)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+
+  const session = await getSessionById(supabase, data.id as string);
+  if (!session) return null;
+
+  const cvsContext = await getLatestCvsContextForEcho(supabase, memberId);
+  const scoring = computeLscScoring(session.answers, cvsContext);
+  return { sessionId: session.id, scoring };
+}
+
 export type LscExperimentStatus = {
   experiment: LifestyleExperiment;
   todayLocalDate: string;

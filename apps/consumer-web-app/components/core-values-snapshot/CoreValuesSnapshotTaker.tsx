@@ -21,6 +21,8 @@ import { generateQ12Options } from '@/lib/core-values-snapshot/q12';
 import { seededShuffle } from '@/lib/core-values-snapshot/randomize';
 import { CVS_INTRO_COPY, CVS_Q12_PROMPT, CVS_SCREEN2_INTRO } from '@/lib/core-values-snapshot/copy';
 import type { CvsScoring } from '@/lib/core-values-snapshot/types';
+import { IntroReveal, introRevealFollowUpDelayMs } from '@/components/IntroReveal';
+import { ExperienceHomeLink } from '@/components/ExperienceHomeLink';
 import { CVS_CARD, CVS_DISPLAY_FONT } from './theme';
 import { Q12Choice, ScaleBattery, SingleSelectQuestion, type CvsOption } from './CvsQuestionCards';
 import { CloseSection, ReturnToDashboardButton, ResourceSection, WhatRootLearnedSection } from './CvsResultsView';
@@ -200,12 +202,12 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
 
       {beat === 'intro' && (
         <div className={`${CVS_CARD} mef-animate-in p-7`}>
-          <h2 className={`${CVS_DISPLAY_FONT} text-3xl leading-tight text-[#1B3A2D]`}>{CVS_INTRO_COPY.title}</h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-[#1B3A2D]">{CVS_INTRO_COPY.body}</p>
+          <IntroReveal title={CVS_INTRO_COPY.title} lines={[...CVS_INTRO_COPY.lines]} titleClassName={`${CVS_DISPLAY_FONT} text-3xl leading-tight text-[#1B3A2D]`} />
           <button
             type="button"
             onClick={() => setBeat('screen1')}
-            className="mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+            className="mef-focus-ring mef-fade-in mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+            style={{ animationDelay: `${introRevealFollowUpDelayMs(CVS_INTRO_COPY.lines.length)}ms` }}
           >
             {CVS_INTRO_COPY.button}
           </button>
@@ -287,6 +289,8 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
           <p className="text-sm text-[#6B7A72]">One moment, Root is putting this together.</p>
         </div>
       )}
+
+      {(beat === 'learned' || beat === 'experiment' || beat === 'resource' || beat === 'close') && <ExperienceHomeLink />}
 
       {beat === 'learned' && scoring && (
         <>

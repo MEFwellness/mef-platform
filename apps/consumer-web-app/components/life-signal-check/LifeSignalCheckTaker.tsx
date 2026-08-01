@@ -8,14 +8,16 @@ import type { UnifiedAssessmentQuestion } from '@mef/shared-types-contracts';
 import type { AnswerValue, SessionAnswers } from '@/lib/assessment-runtime/types';
 import { completeLscAssessmentAction, getMyLscExperimentStatusAction, submitLscAnswerAction, type LscExperimentStatus } from '@/app/actions/lifeSignalCheck';
 import { getMyNarrative } from '@/app/actions/narrative';
-import { SCREEN1_QUESTION_KEYS, SCREEN2_QUESTION_KEYS, Q10_KEY, Q11_KEY } from '@/lib/life-signal-check/constants';
+import { SCREEN1_QUESTION_KEYS, SCREEN2_QUESTION_KEYS, Q10_KEY, Q11_KEY, SIGNAL_LABEL, type Signal } from '@/lib/life-signal-check/constants';
 import { computeSignalScores } from '@/lib/life-signal-check/scoring';
-import { generateQ10Options, Q10_PROMPT_BY_FRAMING } from '@/lib/life-signal-check/q10';
+import { computeLoudSignals, generateQ10Options, Q10_PROMPT_BY_FRAMING } from '@/lib/life-signal-check/q10';
 import { seededShuffle } from '@/lib/core-values-snapshot/randomize';
 import { LSC_INTRO_COPY } from '@/lib/life-signal-check/copy';
 import type { LscScoring } from '@/lib/life-signal-check/types';
 import { CVS_CARD, CVS_DISPLAY_FONT } from '@/components/core-values-snapshot/theme';
 import { SingleSelectQuestion, type CvsOption } from '@/components/core-values-snapshot/CvsQuestionCards';
+import { IntroReveal, introRevealFollowUpDelayMs } from '@/components/IntroReveal';
+import { ExperienceHomeLink } from '@/components/ExperienceHomeLink';
 import { CloseSection, ReturnToDashboardButton, ResourceSection, WhatRootLearnedSection } from './LscResultsView';
 import { LscExperimentPanel } from './LscExperimentPanel';
 
@@ -37,7 +39,10 @@ function parseOptions(raw: unknown): CvsOption[] {
   return raw.filter((o): o is CvsOption => typeof o === 'object' && o !== null && 'value' in o && 'label' in o);
 }
 
-function determineInitialBeat(answers: SessionAnswers): { beat: Beat; screen1Index: number; screen2Index: number; screen3Index: number } {
+function determineInitialBeat(
+  answers: SessionAnswers,
+  screen2Order: readonly string[]
+): { beat: Beat; screen1Index: number; screen2Index: number; screen3Index: number } {
   const screen1Answered = SCREEN1_QUESTION_KEYS.filter((k) => answers[k] !== undefined).length;
   const screen2Answered = SCREEN2_QUESTION_KEYS.filter((k) => answers[k] !== undefined).length;
   const q10Answered = answers[Q10_KEY] !== undefined;
@@ -49,7 +54,7 @@ function determineInitialBeat(answers: SessionAnswers): { beat: Beat; screen1Ind
     return { beat: 'screen3', screen1Index: 0, screen2Index: 0, screen3Index: 0 };
   }
   if (screen1Answered === SCREEN1_QUESTION_KEYS.length) {
-    const firstUnanswered = SCREEN2_QUESTION_KEYS.findIndex((k) => answers[k] === undefined);
+    const firstUnanswered = screen2Order.findIndex((k) => answers[k] === undefined);
     return { beat: 'screen2', screen1Index: 0, screen2Index: firstUnanswered === -1 ? 0 : firstUnanswered, screen3Index: 0 };
   }
   if (screen1Answered > 0) {
@@ -61,7 +66,13 @@ function determineInitialBeat(answers: SessionAnswers): { beat: Beat; screen1Ind
 
 export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, audioAvailable }: Props) {
   const router = useRouter();
-  const initial = useMemo(() => determineInitialBeat(initialAnswers), [initialAnswers]);
+
+  // Six Signals' question order is shuffled per session (same seeded
+  // technique Core Values Snapshot already uses for its own option order)
+  // to avoid primacy bias — stable across re-renders and resumes because
+  // it's seeded by the session id, not re-rolled every render.
+  const screen2Order = useMemo(() => seededShuffle(SCREEN2_QUESTION_KEYS, `${sessionId}:lsc_screen2_order`), [sessionId]);
+  const initial = useMemo(() => determineInitialBeat(initialAnswers, screen2Order), [initialAnswers, screen2Order]);
 
   const [answers, setAnswers] = useState<SessionAnswers>(initialAnswers);
   const [beat, setBeat] = useState<Beat>(initial.beat);
@@ -86,6 +97,15 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
     return { options: options.map((o) => ({ value: o.value, label: o.label })), prompt: Q10_PROMPT_BY_FRAMING[framing] };
   }, [answers]);
 
+  // Live, mid-Screen-3 read of how many signals are already loud from
+  // Q4-Q9 — decides whether Question 10 has a real choice to offer
+  // (design fix: skip it entirely when exactly one signal is loud) and
+  // whether Question 11 needs its Quiet Body rephrase (design fix: never
+  // presume something is loud when nothing is).
+  const loudSignalsSoFar = useMemo(() => computeLoudSignals(computeSignalScores(answers)), [answers]);
+  const singleLoudSignal: Signal | null = loudSignalsSoFar.length === 1 ? loudSignalsSoFar[0]! : null;
+  const isQuietBodySoFar = loudSignalsSoFar.length === 0;
+
   function saveAnswer(questionKey: string, value: AnswerValue) {
     const question = questionByKey(questions, questionKey);
     if (!question) return;
@@ -96,6 +116,16 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
       if (!result.ok) setError(result.error);
     });
   }
+
+  // Question 10 has no real choice when exactly one signal is loud — Root
+  // already knows the answer, so it's recorded automatically and the
+  // member sees a statement instead of a pick.
+  useEffect(() => {
+    if (beat !== 'screen3' || screen3Index !== 0) return;
+    if (!singleLoudSignal || answers[Q10_KEY] !== undefined) return;
+    saveAnswer(Q10_KEY, singleLoudSignal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beat, screen3Index, singleLoudSignal, answers[Q10_KEY]]);
 
   useEffect(() => {
     if (beat !== 'finishing') return;
@@ -145,10 +175,17 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
 
   const totalAnswered = [...SCREEN1_QUESTION_KEYS, ...SCREEN2_QUESTION_KEYS, Q10_KEY, Q11_KEY].filter((k) => answers[k] !== undefined).length;
   const showQuestionChrome = beat === 'screen1' || beat === 'screen2' || beat === 'screen3';
+  // Whether the member actually started the Weekly Experiment tied to
+  // *this* session — not just whether they have any Life Signal Check
+  // experiment ever. Drives the closing screen's honest copy branch (Root
+  // never claims an experiment is running when nothing started).
+  const didStartExperiment = experimentStatus !== null && experimentStatus.experiment.sourceSessionId === sessionId;
 
   return (
     <div>
       <h1 className="sr-only">Life Signal Check</h1>
+
+      {(beat === 'learned' || beat === 'experiment' || beat === 'resource' || beat === 'close') && <ExperienceHomeLink />}
 
       {showQuestionChrome && (
         <div className="mb-5">
@@ -173,12 +210,12 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
 
       {beat === 'intro' && (
         <div className={`${CVS_CARD} mef-animate-in p-7`}>
-          <h2 className={`${CVS_DISPLAY_FONT} text-3xl leading-tight text-[#1B3A2D]`}>{LSC_INTRO_COPY.title}</h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-[#1B3A2D]">{LSC_INTRO_COPY.body}</p>
+          <IntroReveal title={LSC_INTRO_COPY.title} lines={LSC_INTRO_COPY.lines} titleClassName={`${CVS_DISPLAY_FONT} text-3xl leading-tight text-[#1B3A2D]`} />
           <button
             type="button"
             onClick={() => setBeat('screen1')}
-            className="mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+            className="mef-focus-ring mef-fade-in mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+            style={{ animationDelay: `${introRevealFollowUpDelayMs(LSC_INTRO_COPY.lines.length)}ms` }}
           >
             {LSC_INTRO_COPY.button}
           </button>
@@ -212,31 +249,40 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
       {beat === 'screen2' && (
         <>
           <SingleSelectQuestion
-            key={SCREEN2_QUESTION_KEYS[screen2Index]}
-            prompt={questionByKey(questions, SCREEN2_QUESTION_KEYS[screen2Index]!)?.prompt ?? ''}
-            options={parseOptions(questionByKey(questions, SCREEN2_QUESTION_KEYS[screen2Index]!)?.answer_options)}
-            value={answers[SCREEN2_QUESTION_KEYS[screen2Index]!] as string | undefined}
-            onChange={(v) => saveAnswer(SCREEN2_QUESTION_KEYS[screen2Index]!, v)}
+            key={screen2Order[screen2Index]}
+            prompt={questionByKey(questions, screen2Order[screen2Index]!)?.prompt ?? ''}
+            options={parseOptions(questionByKey(questions, screen2Order[screen2Index]!)?.answer_options)}
+            value={answers[screen2Order[screen2Index]!] as string | undefined}
+            onChange={(v) => saveAnswer(screen2Order[screen2Index]!, v)}
           />
           <NavRow
             onBack={screen2Index === 0 ? () => setBeat('screen1') : () => setScreen2Index((i) => i - 1)}
             onContinue={() => {
-              if (screen2Index < SCREEN2_QUESTION_KEYS.length - 1) setScreen2Index((i) => i + 1);
+              if (screen2Index < screen2Order.length - 1) setScreen2Index((i) => i + 1);
               else setBeat('screen3');
             }}
-            continueDisabled={answers[SCREEN2_QUESTION_KEYS[screen2Index]!] === undefined}
+            continueDisabled={answers[screen2Order[screen2Index]!] === undefined}
           />
         </>
       )}
 
       {beat === 'screen3' && screen3Index === 0 && (
         <>
-          <SingleSelectQuestion
-            prompt={q10.prompt}
-            options={q10.options}
-            value={answers[Q10_KEY] as string | undefined}
-            onChange={(v) => saveAnswer(Q10_KEY, v)}
-          />
+          {singleLoudSignal ? (
+            <div className={`${CVS_CARD} mef-animate-in p-7`}>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">The Call</p>
+              <p className={`${CVS_DISPLAY_FONT} mt-3 text-2xl leading-snug text-[#1B3A2D]`}>
+                This is the one that&apos;s been loudest: {SIGNAL_LABEL[singleLoudSignal]}.
+              </p>
+            </div>
+          ) : (
+            <SingleSelectQuestion
+              prompt={q10.prompt}
+              options={q10.options}
+              value={answers[Q10_KEY] as string | undefined}
+              onChange={(v) => saveAnswer(Q10_KEY, v)}
+            />
+          )}
           <NavRow onBack={() => setBeat('screen2')} onContinue={() => setScreen3Index(1)} continueDisabled={answers[Q10_KEY] === undefined} />
         </>
       )}
@@ -244,7 +290,7 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
       {beat === 'screen3' && screen3Index === 1 && (
         <>
           <SingleSelectQuestion
-            prompt={questionByKey(questions, Q11_KEY)?.prompt ?? ''}
+            prompt={isQuietBodySoFar ? 'How long has this felt this good?' : (questionByKey(questions, Q11_KEY)?.prompt ?? '')}
             options={parseOptions(questionByKey(questions, Q11_KEY)?.answer_options)}
             value={answers[Q11_KEY] as string | undefined}
             onChange={(v) => saveAnswer(Q11_KEY, v)}
@@ -282,7 +328,13 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
 
       {beat === 'experiment' && scoring && (
         <>
-          <LscExperimentPanel sessionId={sessionId} chosenSignal={scoring.chosenSignal} scoring={scoring} initialStatus={experimentStatus} />
+          <LscExperimentPanel
+            sessionId={sessionId}
+            chosenSignal={scoring.chosenSignal}
+            scoring={scoring}
+            initialStatus={experimentStatus}
+            onStatusChange={setExperimentStatus}
+          />
           <div className="mt-5">
             <button
               type="button"
@@ -312,7 +364,7 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
 
       {beat === 'close' && (
         <>
-          <CloseSection onStartReadinessPulse={() => {}} onLater={() => router.push('/dashboard' as Route)} />
+          <CloseSection onStartReadinessPulse={() => {}} onLater={() => router.push('/dashboard' as Route)} didStartExperiment={didStartExperiment} />
           {narrativeItems.length > 0 && (
             <div className={`${CVS_CARD} mef-animate-in mt-4 p-7`}>
               <p className={`${CVS_DISPLAY_FONT} text-xl text-[#1B3A2D]`}>What Root knows so far</p>

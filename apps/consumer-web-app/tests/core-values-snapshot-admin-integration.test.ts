@@ -66,7 +66,12 @@ async function seedNarrativeFor(memberId: string, sessionId: string, category: s
   return data!.id as string;
 }
 
-async function seedExperimentFor(memberId: string, sessionId: string, startDate: string) {
+async function seedExperimentFor(
+  memberId: string,
+  sessionId: string,
+  startDate: string,
+  sourceExperienceKey: 'core-values-snapshot' | 'life-signal-check' = 'core-values-snapshot'
+) {
   const service = serviceRoleClient();
   const { data, error } = await service
     .from('lifestyle_experiments')
@@ -74,6 +79,7 @@ async function seedExperimentFor(memberId: string, sessionId: string, startDate:
       member_id: memberId,
       recommendation_id: null,
       source_session_id: sessionId,
+      source_experience_key: sourceExperienceKey,
       title: 'Health & Energy',
       protocol: 'Test protocol.',
       start_date: startDate,
@@ -100,6 +106,13 @@ describe('Core Values Snapshot admin tools — reset (RETAKE)', () => {
     const untouchedNarrativeId = await seedNarrativeFor(TEST_USERS.memberTwo.id, sessionTwo, 'primary_priorities', `Untouched ${Date.now()}`);
     const untouchedExperimentId = await seedExperimentFor(TEST_USERS.memberTwo.id, sessionTwo, '2026-07-20');
 
+    // Real bug this proves is fixed: memberOne's own Life Signal Check
+    // experiment (recommendation_id null, same as every Core Values
+    // Snapshot-sourced row) must survive a Core Values Snapshot reset —
+    // before source_experience_key scoping, the old "recommendation_id is
+    // null" filter deleted this too.
+    const lscExperimentId = await seedExperimentFor(TEST_USERS.memberOne.id, sessionOne, '2026-07-20', 'life-signal-check');
+
     // The exact same three deletes resetCvsForMemberAction issues, scoped to memberOne only.
     const { data: deletedSessions } = await admin
       .from('unified_assessment_sessions')
@@ -121,7 +134,7 @@ describe('Core Values Snapshot admin tools — reset (RETAKE)', () => {
       .from('lifestyle_experiments')
       .delete()
       .eq('member_id', TEST_USERS.memberOne.id)
-      .is('recommendation_id', null)
+      .eq('source_experience_key', 'core-values-snapshot')
       .select('id');
     expect(deletedExperiments).toHaveLength(1);
 
@@ -131,6 +144,9 @@ describe('Core Values Snapshot admin tools — reset (RETAKE)', () => {
     expect(survivingNarrative).not.toBeNull();
     const { data: survivingExperiment } = await service.from('lifestyle_experiments').select('id').eq('id', untouchedExperimentId).maybeSingle();
     expect(survivingExperiment).not.toBeNull();
+    // memberOne's own Life Signal Check experiment survives too — the real fix.
+    const { data: survivingLscExperiment } = await service.from('lifestyle_experiments').select('id').eq('id', lscExperimentId).maybeSingle();
+    expect(survivingLscExperiment).not.toBeNull();
     // afterAll's cleanup still deletes everything by id, including the
     // already-admin-deleted memberOne rows (a harmless no-op re-delete)
     // and the surviving memberTwo fixtures (real cleanup) — no special

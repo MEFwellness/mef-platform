@@ -9,6 +9,7 @@
 
 import type { SessionAnswers } from '@/lib/assessment-runtime/types';
 import {
+  BODY_TEXT_SIGNAL_GUESS,
   QUESTION_KEY_SIGNAL,
   SCREEN2_QUESTION_KEYS,
   SIGNALS,
@@ -52,12 +53,14 @@ function pickLoudest(scores: Record<Signal, number>): Signal {
   return SIGNALS.find((s) => scores[s] === max)!;
 }
 
-/** Purely a function of how many signals are loud: 0 -> quiet_body, 1-2 -> one_loud (a single clear leader, even when a second signal is also elevated), 3+ -> chorus. */
-function derivePattern(loudCount: number): LscPattern {
+/** Purely a function of how many signals are loud: 0 -> quiet_body, 1-2 -> one_loud (a single clear leader, even when a second signal is also elevated), 3+ -> chorus. Exported so the taker UI (LifeSignalCheckTaker.tsx) can decide, live during Screen 3, whether Question 10 has a real choice to offer. */
+export function derivePattern(loudCount: number): LscPattern {
   if (loudCount === 0) return 'quiet_body';
   if (loudCount >= 3) return 'chorus';
   return 'one_loud';
 }
+
+const TIME_OF_DAY_WITH_A_CLEAN_CONTRAST = new Set<TimeOfDay>(['mornings', 'midday', 'evenings']);
 
 export function computeLscScoring(answers: SessionAnswers, cvsContext: CvsContextForEcho | null): LscScoring {
   const scores = computeSignalScores(answers);
@@ -78,6 +81,25 @@ export function computeLscScoring(answers: SessionAnswers, cvsContext: CvsContex
     cvsContext.branch !== 'aligned' &&
     isAdjacent(cvsContext.topValue, loudestSignal);
 
+  const q1ContrastFires =
+    bestTimeOfDay !== null &&
+    hardestTimeOfDay !== null &&
+    bestTimeOfDay !== hardestTimeOfDay &&
+    TIME_OF_DAY_WITH_A_CLEAN_CONTRAST.has(bestTimeOfDay) &&
+    TIME_OF_DAY_WITH_A_CLEAN_CONTRAST.has(hardestTimeOfDay);
+
+  // Comparing against "the loudest signal" only means something once at
+  // least one signal is genuinely loud — on quiet_body, loudestSignal is
+  // just SIGNALS' canonical-order tiebreak among a field of zeros, not a
+  // real finding, so there is nothing honest to confirm or contradict.
+  const predictedSignalFromQ3 = bodyText ? (BODY_TEXT_SIGNAL_GUESS[bodyText] ?? null) : null;
+  const q3Comparison: LscScoring['q3Comparison'] =
+    predictedSignalFromQ3 === null || loudSignals.length === 0
+      ? null
+      : predictedSignalFromQ3 === loudestSignal
+        ? 'confirmed'
+        : 'mismatch';
+
   return {
     scores,
     loudSignals,
@@ -91,6 +113,9 @@ export function computeLscScoring(answers: SessionAnswers, cvsContext: CvsContex
     bodyText,
     surpriseFires,
     echoFires,
+    q1ContrastFires,
+    predictedSignalFromQ3,
+    q3Comparison,
   };
 }
 

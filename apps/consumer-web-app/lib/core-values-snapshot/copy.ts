@@ -13,9 +13,10 @@ import type { Day3Response, Day7Pattern } from './experiment';
 
 export const CVS_DISPLAY_TITLE = 'Core Values Snapshot';
 
+/** Tightened per the app-wide intro-screen design standard (roughly half the previous length): headline first, then two short lines revealed one at a time via components/IntroReveal.tsx, same emotional hook and voice as before, less to skim past. */
 export const CVS_INTRO_COPY = {
   title: "Before we talk about your health, I want to know what you're protecting.",
-  body: "Most wellness apps start by asking what's wrong with you. I'd rather start with what matters to you, because in my experience, the gap between those two things is where everything interesting lives. Twelve questions. No wrong answers. Answer with your gut, not your resume.",
+  lines: ["Most wellness apps start with what's wrong. I'd rather start with what matters to you.", 'Twelve questions. No wrong answers. Answer with your gut.'],
   button: "Let's begin",
 };
 

@@ -31,4 +31,10 @@ export type LscScoring = {
   surpriseFires: boolean;
   /** Fires only when the loudest signal is genuinely adjacent (see adjacency.ts) to the member's Core Values Snapshot top value, and that value's own branch actually has a gap (clear_gap or slipping, not aligned). */
   echoFires: boolean;
+  /** True only when Q1 and Q2 both named a specific, different time of day (never_much/varies on either side doesn't count) — the real contrast Root can name between "when you feel like yourself" and "when it's hardest." */
+  q1ContrastFires: boolean;
+  /** Question 3's early guess at which signal would turn out loudest (constants.ts's BODY_TEXT_SIGNAL_GUESS), null when the member answered "I'm okay, actually" or hasn't answered yet. */
+  predictedSignalFromQ3: Signal | null;
+  /** Whether Q3's early guess matches what actually turned out loudest — null whenever predictedSignalFromQ3 is null (nothing to compare). The generalized surprise beat: 'confirmed' when the member called it in the first question, 'mismatch' when the loudest signal turned out to be a different one. */
+  q3Comparison: 'confirmed' | 'mismatch' | null;
 };

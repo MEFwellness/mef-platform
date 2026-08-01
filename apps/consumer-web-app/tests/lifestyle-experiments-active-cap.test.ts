@@ -114,9 +114,6 @@ describe('Lifestyle Experiments — two-active-experiment guardrail (Prompt 12, 
       durationDays: 7,
     });
 
-    const before = await listMyLifestyleExperiments(memberClient, memberId);
-    expect(before[0]!.status).toBe('active'); // raw stored status, before read-time derivation
-
     // countActiveExperiments applies deriveEffectiveStatus itself, so a
     // long-overdue row (start_date 2020, duration 7 days) reads as
     // expired_no_reflection and does not occupy a slot.
@@ -132,5 +129,49 @@ describe('Lifestyle Experiments — two-active-experiment guardrail (Prompt 12, 
     });
     expect(second).not.toBeNull();
     expect(await countActiveExperiments(memberClient, memberId)).toBe(1);
+  });
+
+  it('a past-day-7 experiment closes out automatically, for real, in the database — not just at read time', async () => {
+    const memberClient = await signInAs(TEST_USERS.memberOne);
+
+    const overdue = await startLifestyleExperiment(memberClient, memberId, {
+      recommendationId: null,
+      title: 'Long overdue',
+      protocol: 'p',
+      startDate: '2020-01-01',
+      durationDays: 7,
+    });
+    expect(overdue).not.toBeNull();
+
+    // Reading the member's experiments at all (listMyLifestyleExperiments,
+    // exactly like countActiveExperiments) self-heals any overdue row by
+    // persisting deriveEffectiveStatus's own verdict back onto the row, so
+    // it reads as expired_no_reflection everywhere from now on, not only
+    // inside this one count.
+    const after = await listMyLifestyleExperiments(memberClient, memberId);
+    expect(after.find((e) => e.id === overdue!.id)!.status).toBe('expired_no_reflection');
+
+    const service = serviceRoleClient();
+    const { data: raw } = await service.from('lifestyle_experiments').select('status').eq('id', overdue!.id).single();
+    expect(raw!.status).toBe('expired_no_reflection');
+  });
+
+  it('never touches an experiment that is still within its own tracking window', async () => {
+    const memberClient = await signInAs(TEST_USERS.memberOne);
+
+    const fresh = await startLifestyleExperiment(memberClient, memberId, {
+      recommendationId: null,
+      title: 'Still going',
+      protocol: 'p',
+      startDate: today(),
+      durationDays: 28,
+    });
+    expect(fresh).not.toBeNull();
+
+    await listMyLifestyleExperiments(memberClient, memberId);
+
+    const service = serviceRoleClient();
+    const { data: raw } = await service.from('lifestyle_experiments').select('status').eq('id', fresh!.id).single();
+    expect(raw!.status).toBe('active');
   });
 });

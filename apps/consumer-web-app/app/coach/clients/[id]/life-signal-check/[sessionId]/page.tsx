@@ -14,7 +14,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { ChevronLeft } from 'lucide-react';
 import { getClientLscSessionDetailAction } from '@/app/actions/lifeSignalCheck';
-import { SIGNALS, SIGNAL_LABEL } from '@/lib/life-signal-check/constants';
+import { BODY_TEXT_LABEL, SIGNALS, SIGNAL_LABEL, TIME_OF_DAY_RAW_LABEL, type BodyText, type TimeOfDay } from '@/lib/life-signal-check/constants';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -63,6 +63,30 @@ export default async function CoachLscSessionDetailPage({ params }: { params: { 
         </p>
 
         <div className="mt-6 space-y-5">
+          <section className={`${CARD} p-6`}>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">What they actually said (Q1-Q3)</p>
+            <div className="mt-3 space-y-1.5 text-sm text-[#1B3A2D]">
+              <p>
+                Feels most like themselves:{' '}
+                <span className="font-medium">
+                  {TIME_OF_DAY_RAW_LABEL[session.answers['lsc_q1'] as TimeOfDay] ?? 'Not answered'}
+                </span>
+              </p>
+              <p>
+                Day gets hardest:{' '}
+                <span className="font-medium">
+                  {TIME_OF_DAY_RAW_LABEL[session.answers['lsc_q2'] as TimeOfDay] ?? 'Not answered'}
+                </span>
+              </p>
+              <p>
+                If their body could send one text:{' '}
+                <span className="font-medium">
+                  {BODY_TEXT_LABEL[session.answers['lsc_q3'] as BodyText] ?? 'Not answered'}
+                </span>
+              </p>
+            </div>
+          </section>
+
           <section className={`${CARD} p-6`}>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Signal scores</p>
             <ul className="mt-3 space-y-2">
