@@ -15,13 +15,13 @@ export type RootPopupDismissal = {
   snoozedAt: string | null;
 };
 
-export function cvsPopupMessageKey(kind: 'day3' | 'day7', experimentId: string): string {
-  return `cvs_${kind}:${experimentId}`;
+export function cvsPopupMessageKey(kind: 'day3' | 'day7' | 'offer', experimentOrSessionId: string): string {
+  return `cvs_${kind}:${experimentOrSessionId}`;
 }
 
-/** Same shape as cvsPopupMessageKey, for Life Signal Check's own day-3/day-7 follow-ups. */
-export function lscPopupMessageKey(kind: 'day3' | 'day7', experimentId: string): string {
-  return `lsc_${kind}:${experimentId}`;
+/** Same shape as cvsPopupMessageKey, for Life Signal Check's own day-3/day-7 follow-ups and start-it-later offer. */
+export function lscPopupMessageKey(kind: 'day3' | 'day7' | 'offer', experimentOrSessionId: string): string {
+  return `lsc_${kind}:${experimentOrSessionId}`;
 }
 
 export async function getRootPopupDismissal(
@@ -118,4 +118,17 @@ export function isRootPopupDueThisLogin(
   if (dismissal.status === 'ignored') return false;
   if (!dismissal.snoozedAt || !lastSignInAt) return true;
   return new Date(lastSignInAt).getTime() > new Date(dismissal.snoozedAt).getTime();
+}
+
+/**
+ * Whether a "start it later" offer pop-up (cvs_offer/lsc_offer) is due.
+ * Unlike isRootPopupDueThisLogin, there is no snoozed/next-login case here
+ * — RootMessagePopupClient records the dismissal (status 'ignored') the
+ * instant the offer is shown, so any dismissal row at all, regardless of
+ * status, means it has already had its one showing and must never pop up
+ * again. The dashboard card remains the permanent, un-timed way to start
+ * it later.
+ */
+export function isOfferPopupDue(dismissal: RootPopupDismissal | null): boolean {
+  return dismissal === null;
 }

@@ -1,36 +1,40 @@
 'use client';
 
 /**
- * Root's pop-up message — the day-3/day-7 Weekly Experiment follow-ups
- * shown as a modal right after login instead of only sitting as a card
+ * Root's pop-up message — the day-3/day-7 Weekly Experiment follow-ups,
+ * plus each experience's own "start it later" offer, shown as a modal
+ * right after login instead of only sitting as a card
  * (components/dashboard/CvsCheckinCard.tsx / LscCheckinCard.tsx, both
- * unchanged and still the fallback home for these same messages). Reuses
- * the exact same copy functions and per-experience server actions as
- * those cards (lib/core-values-snapshot/copy.ts,
+ * unchanged and still the permanent, unlimited fallback home for these
+ * same messages). Reuses the exact same copy functions and per-experience
+ * server actions as those cards (lib/core-values-snapshot/copy.ts,
  * app/actions/coreValuesSnapshot.ts, app/actions/lifeSignalCheck.ts) so
- * "answer here" and "answer on the card" are one real system, not two,
- * for either experience.
+ * "answer/start here" and "answer/start on the card" are one real system,
+ * not two, for either experience.
  *
  * Deliberately has no backdrop-click/Escape dismissal — the whole point is
  * that nobody misses this message, so the only ways out are answering it,
  * or one of the two explicit escape buttons below.
  *
- * router.refresh() after every action (answer, Maybe later, Ignore)
- * re-fetches the Server Components on this page — including
- * CvsCheckinCard's own independent fetch of the same message — so the
- * on-page card picks up the new state (gone once answered, badged once
- * snoozed) without a full page reload.
+ * router.refresh() after every action (answer, Maybe later, Ignore, Start,
+ * Not now) re-fetches the Server Components on this page — including
+ * CvsCheckinCard's/LscCheckinCard's own independent fetch of the same
+ * message — so the on-page card picks up the new state (gone once
+ * answered, badged once snoozed, showing "Day 1 of 7" once started)
+ * without a full page reload.
  */
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CVS_DAY3_OPTIONS, cvsDay3FollowUpText, cvsDay3ReflectionText, cvsDay7FollowUpText } from '@/lib/core-values-snapshot/copy';
-import { lscDay3FollowUpText, lscDay3ReflectionText, lscDay7FollowUpText } from '@/lib/life-signal-check/copy';
-import { acknowledgeCvsDay7Action, submitCvsDay3ResponseAction } from '@/app/actions/coreValuesSnapshot';
-import { acknowledgeLscDay7Action, submitLscDay3ResponseAction } from '@/app/actions/lifeSignalCheck';
+import { CVS_DAY3_OPTIONS, cvsDay3FollowUpText, cvsDay3ReflectionText, cvsDay7FollowUpText, buildExperimentTheoryCopy } from '@/lib/core-values-snapshot/copy';
+import { lscDay3FollowUpText, lscDay3ReflectionText, lscDay7FollowUpText, buildLscExperimentTheoryCopy } from '@/lib/life-signal-check/copy';
+import { acknowledgeCvsDay7Action, submitCvsDay3ResponseAction, startCvsExperimentAction } from '@/app/actions/coreValuesSnapshot';
+import { acknowledgeLscDay7Action, submitLscDay3ResponseAction, startLscExperimentAction } from '@/app/actions/lifeSignalCheck';
 import { snoozeRootPopupMessageAction, ignoreRootPopupMessageAction, type RootPopupMessage } from '@/app/actions/rootPopupMessages';
 import { classifyDay7Pattern, type Day3Response } from '@/lib/core-values-snapshot/experiment';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+
+type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
@@ -42,9 +46,35 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
 
   useBodyScrollLock(!closed);
 
+  const isOffer = message.kind === 'cvs_offer' || message.kind === 'lsc_offer';
+
+  // The offer pops up at most once ever (unlike day3/day7, which return on
+  // every login until answered or explicitly ignored) — marking it
+  // 'ignored' the instant it's shown, rather than only on an explicit
+  // dismiss, is what makes that true regardless of whether the member acts
+  // on it, closes the tab, or navigates away. The dashboard card stays the
+  // permanent, un-timed way to start it later either way.
+  useEffect(() => {
+    if (isOffer) {
+      ignoreRootPopupMessageAction(message.messageKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (closed) return null;
 
-  const isDay3 = message.kind === 'cvs_day3' || message.kind === 'lsc_day3';
+  if (isOffer) {
+    return <RootOfferPopup message={message as OfferMessage} onClose={() => setClosed(true)} />;
+  }
+
+  // Narrowed once, right after the offer early-return above, so every
+  // reference below (including inside the closures further down, which TS
+  // can't narrow on its own from an outer `if`) can safely use
+  // day3Or7Message.experimentId/topLabelText/logs/durationDays — real
+  // fields on all four remaining variants, never on the two offer kinds.
+  const day3Or7Message = message as Exclude<RootPopupMessage, OfferMessage>;
+
+  const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3';
 
   function handleMaybeLater() {
     setClosed(true);
@@ -64,9 +94,9 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     setError(null);
     startTransition(async () => {
       const result =
-        message.kind === 'cvs_day3'
-          ? await submitCvsDay3ResponseAction(message.experimentId, value)
-          : await submitLscDay3ResponseAction(message.experimentId, value);
+        day3Or7Message.kind === 'cvs_day3'
+          ? await submitCvsDay3ResponseAction(day3Or7Message.experimentId, value)
+          : await submitLscDay3ResponseAction(day3Or7Message.experimentId, value);
       if (!result.ok) {
         setError(result.error ?? 'Could not save that.');
         return;
@@ -80,9 +110,9 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     setError(null);
     startTransition(async () => {
       const result =
-        message.kind === 'cvs_day7'
-          ? await acknowledgeCvsDay7Action(message.experimentId)
-          : await acknowledgeLscDay7Action(message.experimentId);
+        day3Or7Message.kind === 'cvs_day7'
+          ? await acknowledgeCvsDay7Action(day3Or7Message.experimentId)
+          : await acknowledgeLscDay7Action(day3Or7Message.experimentId);
       if (!result.ok) {
         setError(result.error ?? 'Could not save that.');
         return;
@@ -118,7 +148,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
         {answered ? (
           <>
             <p className="relative mt-3 text-[16px] leading-relaxed text-[#F5F0E4]">
-              {message.kind === 'cvs_day3'
+              {day3Or7Message.kind === 'cvs_day3'
                 ? cvsDay3ReflectionText(day3Response as Day3Response)
                 : lscDay3ReflectionText(day3Response as Day3Response)}
             </p>
@@ -133,18 +163,18 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
         ) : (
           <>
             <p className="relative mt-3 text-[16px] leading-relaxed text-[#F5F0E4]">
-              {message.kind === 'cvs_day3'
-                ? cvsDay3FollowUpText(message.topLabelText)
-                : message.kind === 'lsc_day3'
-                  ? lscDay3FollowUpText(message.topLabelText)
-                  : message.kind === 'cvs_day7'
-                    ? cvsDay7FollowUpText(message.topLabelText, classifyDay7Pattern(message.logs, message.durationDays).pattern)
-                    : lscDay7FollowUpText(message.topLabelText, classifyDay7Pattern(message.logs, message.durationDays).pattern)}
+              {day3Or7Message.kind === 'cvs_day3'
+                ? cvsDay3FollowUpText(day3Or7Message.topLabelText)
+                : day3Or7Message.kind === 'lsc_day3'
+                  ? lscDay3FollowUpText(day3Or7Message.topLabelText)
+                  : day3Or7Message.kind === 'cvs_day7'
+                    ? cvsDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)
+                    : lscDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)}
             </p>
 
             {error && <p className="relative mt-3 text-sm text-[#F5B7A0]">{error}</p>}
 
-            {message.kind === 'cvs_day3' || message.kind === 'lsc_day3' ? (
+            {day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' ? (
               <div className="relative mt-5 space-y-2">
                 {CVS_DAY3_OPTIONS.map((option) => (
                   <button
@@ -189,6 +219,93 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The one-time "start it later" offer pop-up — Root's theory in one line
+ * plus a button to start the 7 days, exactly the same theory copy and
+ * start action CvsExperimentPanel.tsx/LscExperimentPanel.tsx's own offer
+ * screen already use (buildExperimentTheoryCopy/buildLscExperimentTheoryCopy,
+ * startCvsExperimentAction/startLscExperimentAction), so a member starting
+ * here is the same real system as starting from the card. "Not now" just
+ * closes — RootMessagePopupClient already recorded the one-time dismissal
+ * the instant this mounted, so there's nothing left to do but hide it. If
+ * starting fails (most likely the two-active-experiment cap), the real
+ * error the action already returns is shown in place — the full close-out
+ * flow for that case lives on the card (Life Signal Check's own), not
+ * duplicated here.
+ */
+function RootOfferPopup({ message, onClose }: { message: OfferMessage; onClose: () => void }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const theory =
+    message.kind === 'cvs_offer' ? buildExperimentTheoryCopy(message.scoring) : buildLscExperimentTheoryCopy(message.scoring);
+
+  function handleStart() {
+    setError(null);
+    startTransition(async () => {
+      const result =
+        message.kind === 'cvs_offer'
+          ? await startCvsExperimentAction(message.sessionId, message.scoring.topValue)
+          : await startLscExperimentAction(message.sessionId, message.scoring.chosenSignal);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      onClose();
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
+      <div className="absolute inset-0 bg-[#0E1F17]/55 backdrop-blur-sm" aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="root-offer-popup-title"
+        className="relative w-full max-w-sm overflow-hidden rounded-[28px] bg-[#1B3A2D] p-7 text-[#F5F0E4] shadow-[0_32px_80px_-16px_rgba(0,0,0,0.5)]"
+      >
+        <div
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#C4A050]/10"
+          aria-hidden="true"
+        />
+
+        <p
+          id="root-offer-popup-title"
+          className="relative text-xs font-semibold uppercase tracking-wider text-[#C4A050]"
+        >
+          From Root
+        </p>
+
+        <p className="relative mt-3 text-[16px] leading-relaxed text-[#F5F0E4]">{theory.theory}</p>
+
+        {error && <p className="relative mt-3 text-sm text-[#F5B7A0]">{error}</p>}
+
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={handleStart}
+          className="mef-focus-ring relative mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-50"
+        >
+          {theory.button}
+        </button>
+
+        <div className="relative mt-6 flex items-center justify-center border-t border-[#F5F0E4]/10 pt-4">
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={onClose}
+            className="text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
+          >
+            Not now
+          </button>
+        </div>
       </div>
     </div>
   );

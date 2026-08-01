@@ -617,7 +617,8 @@ export default async function DashboardPage({
         entryContext={buildDashboardEntryContext(wellnessIndex)}
       />
 
-      {/* Root's pop-up message (day-3/day-7 Weekly Experiment follow-ups)
+      {/* Root's pop-up message (day-3/day-7 Weekly Experiment follow-ups,
+          plus each experience's own one-time "start it later" offer)
           and the wearable welcome modal, arbitrated so they never stack —
           see components/dashboard/HomeScreenPopups.tsx. Both suppressed
           during the pre-first-check-in welcome state and the first-check-in

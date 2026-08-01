@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveCvsCheckinPending } from '../lib/core-values-snapshot/experiment';
-import { cvsPopupMessageKey, isRootPopupDueThisLogin } from '../lib/root-popup-messages/data';
+import { cvsPopupMessageKey, isOfferPopupDue, isRootPopupDueThisLogin, lscPopupMessageKey } from '../lib/root-popup-messages/data';
 
 describe('resolveCvsCheckinPending', () => {
   it('is null before day 3', () => {
@@ -76,6 +76,18 @@ describe('cvsPopupMessageKey', () => {
     expect(cvsPopupMessageKey('day7', 'exp-1')).toBe('cvs_day7:exp-1');
     expect(cvsPopupMessageKey('day3', 'exp-1')).not.toBe(cvsPopupMessageKey('day3', 'exp-2'));
   });
+
+  it('has a distinct offer key, keyed by session rather than experiment (no experiment exists yet)', () => {
+    expect(cvsPopupMessageKey('offer', 'session-1')).toBe('cvs_offer:session-1');
+    expect(cvsPopupMessageKey('offer', 'session-1')).not.toBe(cvsPopupMessageKey('day3', 'session-1'));
+  });
+});
+
+describe('lscPopupMessageKey', () => {
+  it('mirrors cvsPopupMessageKey under its own lsc_ prefix, including offer', () => {
+    expect(lscPopupMessageKey('day3', 'exp-1')).toBe('lsc_day3:exp-1');
+    expect(lscPopupMessageKey('offer', 'session-1')).toBe('lsc_offer:session-1');
+  });
 });
 
 describe('isRootPopupDueThisLogin', () => {
@@ -107,5 +119,27 @@ describe('isRootPopupDueThisLogin', () => {
         '2026-08-02T08:00:00.000Z'
       )
     ).toBe(true);
+  });
+});
+
+describe('isOfferPopupDue', () => {
+  it('is due the first time, before any dismissal exists', () => {
+    expect(isOfferPopupDue(null)).toBe(true);
+  });
+
+  it('is never due again once any dismissal exists, ignored or snoozed alike', () => {
+    // RootMessagePopupClient always writes 'ignored' the instant the offer
+    // is shown, but this must hold for either status — the offer's "only
+    // once, ever" promise doesn't depend on which status gets written.
+    expect(isOfferPopupDue({ status: 'ignored', snoozedAt: null })).toBe(false);
+    expect(isOfferPopupDue({ status: 'snoozed', snoozedAt: '2026-08-01T12:00:00.000Z' })).toBe(false);
+  });
+
+  it('unlike isRootPopupDueThisLogin, a later login never revives a dismissed offer', () => {
+    const dismissal = { status: 'snoozed' as const, snoozedAt: '2026-08-01T12:00:00.000Z' };
+    // The day3/day7 rule would say this is due again after a later login...
+    expect(isRootPopupDueThisLogin(dismissal, '2026-08-02T08:00:00.000Z')).toBe(true);
+    // ...but the offer's own rule ignores login timing entirely once dismissed.
+    expect(isOfferPopupDue(dismissal)).toBe(false);
   });
 });
