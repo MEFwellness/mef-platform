@@ -21,7 +21,7 @@ export function buildCvsNarrativeDrafts(sessionId: string, scoring: CvsScoring):
     {
       category: 'primary_priorities',
       title: 'What matters most, from the Core Values Snapshot',
-      summary: `${top} is the top value that came up across four independent questions, with ${runner} as a close second.`,
+      summary: `${top} is your top value, based on everything you answered — ${runner} is the runner-up.`,
       provenance: 'member_reported',
       confidence: 0.8,
       memberVisible: true,

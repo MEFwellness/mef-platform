@@ -30,22 +30,43 @@ function label(area: ValueArea): string {
   return AREA_LABEL[area];
 }
 
-/** Beat 3 — one of four branches, {top}/{att}/{runner}/{q11} filled from real scoring. Split takes priority over slipping (and, per the "one of four branches" framing, over clear_gap/aligned too — computed upstream in scoring.ts's branch field). */
+/**
+ * Beat 3 — one of four branches, {top}/{att}/{runner}/{q11} filled from real
+ * scoring. Split takes priority over slipping (and, per the "one of four
+ * branches" framing, over clear_gap/aligned too — computed upstream in
+ * scoring.ts's branch field).
+ *
+ * Every claim below is scoped to exactly what scoring.ts actually checked —
+ * never a broader claim about "the whole session" or an unverified count of
+ * how many individual questions pointed the same way. A real accuracy bug
+ * (2026-08-01) had this branch tell a member a value "hadn't come up once
+ * before" when the check behind that line only ever looked at the four
+ * single-select "what matters" questions (Q1-Q4) — true of that narrow
+ * check, but not a safe claim about the member's whole set of answers
+ * (which also includes a slider for every one of the six areas). Fixed by
+ * scoping every sentence here to what was truly measured, not by widening
+ * the measurement.
+ */
 export function buildWhatRootLearned(scoring: CvsScoring): string {
   const top = label(scoring.topValue);
   const att = scoring.attention[scoring.topValue];
   const runner = label(scoring.runnerUpValue);
   const q11 = label(scoring.q11Pick);
+  const runnerGettingLess = scoring.attention[scoring.runnerUpValue] < att;
 
   switch (scoring.branch) {
     case 'clear_gap':
-      return `Here's what I noticed. Four different questions, four different angles — and ${top} kept showing up. When I asked what your ten-years-older self would protect, you didn't hesitate. That's usually the answer that's telling the truth. But when I asked about your last two weeks, ${top} got a ${att} out of 5. The thing you'd protect most is the thing getting protected least. I'm not going to tell you why that is — I don't know yet. But it's worth paying attention to.`;
-    case 'aligned':
-      return `Here's what I noticed — and honestly, it's not what I usually see. ${top} came up again and again in your answers. And when I asked about your actual last two weeks? You're living it — ${att} out of 5. Your answers are unusually consistent. What matters to you is getting your time. That's rare. The more interesting question now is what it's costing you elsewhere — I noticed ${runner} matters to you too, and it's getting less. Worth paying attention to.`;
+      return `Here's what I noticed. Out of everything I asked, ${top} came out on top. But when I asked about your last two weeks, ${top} got a ${att} out of 5. The thing you'd protect most is the thing getting protected least. I'm not going to tell you why that is — I don't know yet. But it's worth paying attention to.`;
+    case 'aligned': {
+      const runnerLine = runnerGettingLess
+        ? `I noticed ${runner} matters to you too, and it's getting less.`
+        : `I noticed ${runner} matters to you too — worth watching how you split real attention between the two.`;
+      return `Here's what I noticed — and honestly, it's not what I usually see. Out of everything I asked, ${top} came out on top. And when I asked about your actual last two weeks? You're living it — ${att} out of 5. What matters to you is getting your time. That's rare. The more interesting question now is what it's costing you elsewhere — ${runnerLine} Worth paying attention to.`;
+    }
     case 'split':
-      return `Here's what caught my attention. When you answered with your gut — the extra hour, the guilt, your ten-years-older self — one picture emerged. But when I asked what would transform your life in 90 days, you chose ${q11}, which hadn't come up once before that. Your instincts and your plans are pointing in two different directions. I'm not saying either is wrong. But that split is worth paying attention to.`;
+      return `Here's what caught my attention. I asked you four different times what matters most to you, and ${q11} never came up as your answer — not once. But when I asked what would transform your life in the next 90 days, that's exactly what you chose. Your day-to-day instincts and your 90-day pick are pointing in two different directions. I'm not saying either is wrong. But that split is worth paying attention to.`;
     case 'slipping':
-      return `Here's what I noticed. ${top} is clearly what matters most to you — it kept surfacing, from every angle. And it's not gone from your life; you gave it a ${att} out of 5. You're holding on. But holding on and protecting are two different things. Scraps of attention keep something alive. They don't let it grow. Worth paying attention to.`;
+      return `Here's what I noticed. Out of everything I asked, ${top} is what matters most to you. And it's not gone from your life; you gave it a ${att} out of 5. You're holding on. But holding on and protecting are two different things. Scraps of attention keep something alive. They don't let it grow. Worth paying attention to.`;
     default:
       return '';
   }

@@ -3174,3 +3174,41 @@ One row inserted into production `user_roles`: `(user_id = oakomah66@gmail.com's
 **Full account list at time of grant** (11 accounts, production): `oakomah66@gmail.com` → coach, member, platform_administrator (this grant); `oseia6666@gmail.com` → member; `oakomah66+test7@gmail.com` → member; `oakomah66.test10@gmail.com` → member; `oakomah66+test10@gmail.com` → member; `oakomah66+test11@gmail.com` → member; `oakomah66+test12@gmail.com` → member; three `is_test = true` seeded QA accounts (`test.member.populated`, `test.member.belowthreshold`, `test.member.empty`) → member; `test.coach@example.test` (`is_test = true`) → coach, member. No other account holds `platform_administrator`.
 
 **No migration, no code change, no deploy** — this was a production data grant only, via SQL the site owner ran themselves. Not verified: the logged-in experience on `/admin`/`/admin/cvs-test-tools` on the live production URL — only the database-level `has_active_role()` check was confirmed, per the standing rule not to claim live-site verification that wasn't actually done.
+
+## Fix: Core Values Snapshot "Split" branch made a false factual claim about a member's answers (2026-08-01)
+
+Bug report from real member testing: the Split interpretation fired with copy saying the 90-day pick (Freedom & Play) "hadn't come up once before" — but the member had genuinely answered a real question about that exact area earlier in the flow.
+
+### The real data (pulled from production)
+
+Session `c10ab8be-e9ec-4aff-b6a4-eb387493083d` (`oseia6666@gmail.com`, completed 2026-08-01): Q1=relationships, Q2=relationships, Q3=health, Q4=peace, sliders health=2/relationships=3/growth=4/purpose=4/freedom=2/peace=2, Q11=freedom, Q12=peace.
+
+### Diagnosis: failure type (b), not a tally bug
+
+`scoring.ts`'s `split` flag (`importanceThroughQ4[q11Pick] === 0`) correctly checked exactly what it claims to check — freedom genuinely scored zero across Q1-Q4, the four single-select "what matters" questions. The tally itself was never wrong. The bug was in `copy.ts`: the Split branch's copy said the pick "hadn't come up once before that" — an unscoped claim about the member's *entire* set of answers. But every session also answers a slider for all six areas (Q9 is literally "Fun and play," freedom's own real-world question) — so "freedom" always genuinely comes up somewhere before Q11. The logic only ever examined a subset (Q1-Q4); the copy claimed to describe everything before it.
+
+Auditing the other three branches for the same class of bug (per the task's explicit request to re-verify all four patterns) found three more real, constructible instances, not just theoretical: `clear_gap`/`slipping` both asserted "kept showing up"/"kept surfacing, from every angle" — a repetition claim that doesn't hold when a topValue reaches the top mostly via the Q11(+2)/Q12(+1) boosts rather than repeated Q1-Q4 picks (constructed and confirmed: a value that appears in only 1 of the 4 gut questions, and not even the one `clear_gap`'s own hardcoded "ten-years-older-self, you didn't hesitate" line implicitly assumed, can still become topValue). `aligned` claimed the runner-up value "is getting less" attention without ever checking that against the runner-up's actual slider value — constructed a case where the runner-up's attention is equal to or higher than the top value's, which would have made that specific sentence false too. The "What Root Knows So Far" narrative summary (`narrative.ts`) had the identical "came up across four independent questions... close second" overclaim as the Split bug, feeding the same false framing into a persisted, member-visible narrative item.
+
+### Fix
+
+Per the task's guardrail (fix the false claim without loosening when Split/surprise fires, and fall back to an honest alternative when answers don't support the stronger claim) — rewrote every affected string in `copy.ts` and `narrative.ts` to only claim what its own scoring genuinely verified:
+- **Split**: "hadn't come up once before that" → "I asked you four different times what matters most to you, and {value} never came up as your answer — not once" — scoped precisely to the Q1-Q4 check that backs it, never a full-session claim.
+- **clear_gap/slipping**: removed "kept showing up"/"kept surfacing, from every angle"/the hardcoded Q4-specific "you didn't hesitate" line; replaced with "came out on top" / "is what matters most to you" — both unconditionally true by construction (topValue is, by definition, the highest-scoring area).
+- **aligned**: the runner-up "and it's getting less" line is now conditional on `scoring.attention[runnerUpValue] < scoring.attention[topValue]` actually being true, with an honest fallback line ("worth watching how you split real attention between the two") when it isn't.
+- **narrative.ts**: the persisted "What Root Knows So Far" top-value summary dropped the same "four independent questions... close second" overclaim.
+
+No change to `scoring.ts` — the branch-selection math (Split takes priority whenever `importanceThroughQ4[q11Pick] === 0`, and every other tiebreak/tally) was already correct and is untouched. This was a pure presentation-layer accuracy fix.
+
+### Guard tests
+
+New `tests/core-values-snapshot-copy.test.ts` (7 tests): reproduces the exact real production answer set that triggered the bug and confirms the new Split copy is accurate; a property test across multiple split scenarios confirming the old false phrase never appears; a constructed clear_gap/slipping scenario where topValue is weakly supported by Q1-Q4 (only 1 of 4, and not even Q4) confirming the old "kept showing up"/"you didn't hesitate" claims are gone; both branches of the aligned runner-up conditional (genuinely getting less vs. not); and a narrative-draft test confirming the persisted summary no longer overclaims. All existing `core-values-snapshot-scoring.test.ts` (19 tests) and `core-values-snapshot-admin-integration.test.ts` (4 tests) still pass unmodified — scoring math untouched.
+
+### Verified
+
+`npx tsc --noEmit` clean. `npm run lint` (repo root) — 0 errors, same 90-warning baseline, none in touched/new files. Full `npm test` after a fresh `supabase db reset` (migration 134 re-applied clean) — 299/300 test files, 3317/3318 tests passing; the one failure is the same pre-existing `correlation-engine-integration.test.ts` date-math flake documented throughout this doc, confirmed unrelated (no CVS code anywhere near it). `npm run build --workspace=@mef/consumer-web-app` — compiled successfully.
+
+**Not driven in a browser this session** — this was a pure copy/logic fix verified via unit tests against the real production answer set that caused the bug, not a UI change; no new screens or interactions were added. Not verified: the logged-in experience on the live production URL — no browser was driven this session, per the standing rule not to claim live-site verification that wasn't actually done.
+
+**No migration** — no schema changed.
+
+**Deployed**: pushed to `origin/main` — see this entry's commit for the SHA. Vercel auto-triggers a Production deployment for the `mef-platform` project on every push to `main`, aliased to `app.mefwellness.com`; not independently re-confirmed via `vercel inspect` this session beyond the push itself.
