@@ -49,6 +49,7 @@ import {
   upsertCvsDailyLog,
 } from '@/lib/core-values-snapshot/dailyLogsData';
 import { classifyDay7Pattern, daysSinceStart, isDay3Eligible, isDay7Eligible, type Day3Response } from '@/lib/core-values-snapshot/experiment';
+import { clearRootPopupDismissal, cvsPopupMessageKey } from '@/lib/root-popup-messages/data';
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -265,6 +266,7 @@ export async function submitCvsDay3ResponseAction(
   const supabase = createClient();
   const localDate = await localDateFor(supabase, memberId);
   const ok = await upsertCvsDailyLog(supabase, memberId, experimentId, localDate, { day3Response: response });
+  if (ok) await clearRootPopupDismissal(supabase, memberId, cvsPopupMessageKey('day3', experimentId));
   return ok ? { ok: true } : { ok: false, error: 'Could not save that.' };
 }
 
@@ -274,6 +276,7 @@ export async function acknowledgeCvsDay7Action(experimentId: string): Promise<{ 
 
   const supabase = createClient();
   const ok = await markDay7Acknowledged(supabase, memberId, experimentId);
+  if (ok) await clearRootPopupDismissal(supabase, memberId, cvsPopupMessageKey('day7', experimentId));
   return ok ? { ok: true } : { ok: false, error: 'Could not save that.' };
 }
 

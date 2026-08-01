@@ -88,10 +88,12 @@ describe('WearableWelcomeModal: copy and structure are untouched — motion/timi
   });
 });
 
-describe('app/dashboard/page.tsx: the first-time-member suppression gate is untouched', () => {
-  it('still gates the modal behind hasCheckins (and the other pre-existing conditions), unmodified', () => {
+describe('app/dashboard/page.tsx: the first-time-member suppression gate is preserved', () => {
+  it('still gates the modal behind hasCheckins and the other pre-existing conditions, now passed through HomeScreenPopups (components/dashboard/HomeScreenPopups.tsx) rather than an inline render, so the Root message pop-up can arbitrate against it', () => {
     expect(DASHBOARD_PAGE).toMatch(
-      /{!hasConnectedWearable && hasCheckins && searchParams\.firstCheckin !== '1' && \(\s*\n\s*<WearableWelcomeModal \/>/
+      /showWearablePrompt={!hasConnectedWearable && hasCheckins && searchParams\.firstCheckin !== '1'}/
     );
+    expect(DASHBOARD_PAGE).toContain('<HomeScreenPopups');
+    expect(DASHBOARD_PAGE).not.toContain('<WearableWelcomeModal />');
   });
 });

@@ -28,6 +28,20 @@ export function isDay7Eligible(startDate: string, asOfLocalDate: string): boolea
   return daysSinceStart(startDate, asOfLocalDate) >= 7;
 }
 
+export type CvsCheckinKind = 'day3' | 'day7';
+
+/** Which of the day-3/day-7 follow-ups (if either) is currently unanswered, oldest first — the one shared rule both the dashboard card (components/dashboard/CvsCheckinCard.tsx) and the pop-up eligibility check (app/actions/rootPopupMessages.ts) read through, so "which one is due" is never computed two different ways. */
+export function resolveCvsCheckinPending(params: {
+  isDay3Eligible: boolean;
+  day3Answered: boolean;
+  isDay7Eligible: boolean;
+  day7Acknowledged: boolean;
+}): CvsCheckinKind | null {
+  if (params.isDay3Eligible && !params.day3Answered) return 'day3';
+  if (params.isDay7Eligible && !params.day7Acknowledged) return 'day7';
+  return null;
+}
+
 export type Day7Pattern = 'mostly_yes' | 'patchy';
 
 export type Day7Result = {

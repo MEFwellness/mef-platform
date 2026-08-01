@@ -23,13 +23,23 @@ import {
 import { acknowledgeCvsDay7Action, submitCvsDay3ResponseAction } from '@/app/actions/coreValuesSnapshot';
 import { classifyDay7Pattern, type CvsDailyLogRow, type Day3Response } from '@/lib/core-values-snapshot/experiment';
 
+/** Warm gold "waiting on you" accent, shown on the on-page card once a member has tapped "Maybe later" on this same message's pop-up — same amber token as the app's other highlight accents (see WearableWelcomeModal.tsx). */
+function HighPriorityBadge() {
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full bg-[#C4A050]/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#854D0E]">
+      Waiting on you
+    </span>
+  );
+}
+
 type Day3Props = {
   experimentId: string;
   topLabelText: string;
   cardClassName?: string;
+  isHighPriority?: boolean;
 };
 
-export function CvsDay3FollowUp({ experimentId, topLabelText, cardClassName = CVS_CARD }: Day3Props) {
+export function CvsDay3FollowUp({ experimentId, topLabelText, cardClassName = CVS_CARD, isHighPriority = false }: Day3Props) {
   const [isPending, startTransition] = useTransition();
   const [response, setResponse] = useState<Day3Response | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +55,10 @@ export function CvsDay3FollowUp({ experimentId, topLabelText, cardClassName = CV
 
   return (
     <div className={`${cardClassName} mef-animate-in p-7`}>
-      <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">From Root</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">From Root</p>
+        {isHighPriority && <HighPriorityBadge />}
+      </div>
       <p className="mt-2 text-[15px] leading-relaxed text-[#1B3A2D]">{cvsDay3FollowUpText(topLabelText)}</p>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       <div className="mt-5 space-y-2">
@@ -81,9 +94,17 @@ type Day7Props = {
   logs: CvsDailyLogRow[];
   durationDays: number;
   cardClassName?: string;
+  isHighPriority?: boolean;
 };
 
-export function CvsDay7FollowUp({ experimentId, topLabelText, logs, durationDays, cardClassName = CVS_CARD }: Day7Props) {
+export function CvsDay7FollowUp({
+  experimentId,
+  topLabelText,
+  logs,
+  durationDays,
+  cardClassName = CVS_CARD,
+  isHighPriority = false,
+}: Day7Props) {
   const [isPending, startTransition] = useTransition();
   const [acknowledged, setAcknowledged] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +115,10 @@ export function CvsDay7FollowUp({ experimentId, topLabelText, logs, durationDays
 
   return (
     <div className={`${cardClassName} mef-animate-in p-7`}>
-      <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">From Root</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">From Root</p>
+        {isHighPriority && <HighPriorityBadge />}
+      </div>
       <p className="mt-2 text-[15px] leading-relaxed text-[#1B3A2D]">
         {cvsDay7FollowUpText(topLabelText, day7Result.pattern)}
       </p>

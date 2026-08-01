@@ -42,8 +42,9 @@ import { getMyWearableConnections } from '@/app/actions/wearables';
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
 import { getMyMorningBrief } from '@/app/actions/coaching-engine';
 import { ConnectWearableCard } from '@/components/wearables/ConnectWearableCard';
-import { WearableWelcomeModal } from '@/components/wearables/WearableWelcomeModal';
 import { WearableStatsRow } from '@/app/today/WearableStatsRow';
+import { HomeScreenPopups } from '@/components/dashboard/HomeScreenPopups';
+import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
 import { FirstCheckinTransition } from '@/components/FirstCheckinTransition';
@@ -165,6 +166,7 @@ export default async function DashboardPage({
     bodyAssessments,
     questionnaireCatalog,
     assignedWorkouts,
+    rootPopupMessage,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
@@ -173,6 +175,7 @@ export default async function DashboardPage({
     getMyAssessmentsAction(),
     getMyQuestionnaireCatalog(),
     getMyAssignedWorkoutsAction(),
+    getMyRootPopupMessageAction(),
   ]);
   const today = new Date().toISOString().slice(0, 10);
   const upcomingAssignedWorkouts = assignedWorkouts
@@ -609,14 +612,17 @@ export default async function DashboardPage({
         entryContext={buildDashboardEntryContext(wellnessIndex)}
       />
 
-      {/* Suppressed during the pre-first-check-in welcome state, and
-          during the first-check-in transition below — a modal competing
-          with either of those single-CTA moments would undercut "one
-          premium welcome experience." It still shows (once, per its own
-          localStorage dismissal) on a later visit. */}
-      {!hasConnectedWearable && hasCheckins && searchParams.firstCheckin !== '1' && (
-        <WearableWelcomeModal />
-      )}
+      {/* Root's pop-up message (day-3/day-7 Weekly Experiment follow-ups)
+          and the wearable welcome modal, arbitrated so they never stack —
+          see components/dashboard/HomeScreenPopups.tsx. Both suppressed
+          during the pre-first-check-in welcome state and the first-check-in
+          transition below, same "a modal competing with a single-CTA
+          moment undercuts it" rule as before; each still shows on a later
+          visit. */}
+      <HomeScreenPopups
+        rootPopupMessage={hasCheckins && searchParams.firstCheckin !== '1' ? rootPopupMessage : null}
+        showWearablePrompt={!hasConnectedWearable && hasCheckins && searchParams.firstCheckin !== '1'}
+      />
 
       {/* Premium UX Milestone 4, part 6 — the one-time transition shown
           immediately after a member's first-ever completed check-in. */}
