@@ -3211,4 +3211,4 @@ New `tests/core-values-snapshot-copy.test.ts` (7 tests): reproduces the exact re
 
 **No migration** — no schema changed.
 
-**Deployed**: pushed to `origin/main` — see this entry's commit for the SHA. Vercel auto-triggers a Production deployment for the `mef-platform` project on every push to `main`, aliased to `app.mefwellness.com`; not independently re-confirmed via `vercel inspect` this session beyond the push itself.
+**Deployed**: pushed to `origin/main` (commit `c9ff62c`). Confirmed via `vercel inspect` that a new Production deployment for the `mef-platform` project (`dpl_AWi1RyDb6dQ1hPvD3dqaQELtfbzY`) built and went Ready, target `production` (not Preview), aliased to `app.mefwellness.com`. Not verified: the logged-in experience on the live production URL itself — only the database-level scoring/copy functions were unit-tested against the real production answer set, per the standing rule not to claim live-site verification that wasn't actually done.
