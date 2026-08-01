@@ -3293,3 +3293,39 @@ No em dashes were introduced anywhere in the new member-facing copy or UI string
 **Migration**: `00000000000137_root_message_popup.sql` (new table + RLS only, no changes to existing tables). Applied clean to local Supabase via `supabase db reset`. **Not yet applied to production** — this session had no production database credentials (`--db-url` requires the Settings → Database password, which was never supplied this session, consistent with this doc's standing rule that a coding agent doesn't get direct production database write access). Until it's applied, "Maybe later"/"Ignore" will no-op silently (the pop-up still shows and can still be answered normally; the snooze/ignore choice just won't persist yet) — see the report for the exact SQL to run.
 
 **Deployed**: pushed to `origin/main` (commit `2f494ce`). Vercel auto-triggered a new Production deployment (`dpl_EHqwsECs1HKvvvhLxQf4xaSUXkL6`) for the `mef-platform` project, built successfully, went Ready, target `production`, and is aliased to `app.mefwellness.com` (confirmed via `vercel inspect` and a live `curl -I` against the domain). Not verified: the pop-up's answer/snooze/ignore flows on the live production URL itself (see above) — only the local dev server was driven through those specific interactions, per the standing rule not to claim live-site verification that wasn't actually done.
+
+
+## Fix: Core Values Snapshot interpretation copy claimed a "last two weeks" question that was never asked (2026-08-01)
+
+Bug report from real phone testing on `app.mefwellness.com`: on the "Here's What Root Learned" screen, Root's copy said "when I asked about your last two weeks, Peace & Calm got a 2 out of 5" — a claim that Root had asked a specific question naming a two-week window.
+
+### What the attention question actually asks
+
+Checked the real Screen 2 content (`supabase/migrations/00000000000134_core_values_snapshot.sql`, rendered by `ScaleBattery` in `components/core-values-snapshot/CvsQuestionCards.tsx`). Each of the six attention sliders (`cvs_q5`-`cvs_q10`) only ever shows a short label at the moment the member rates it: "Your body and energy," "The people closest to you," "Fun and play," and so on, on a 1-5 scale ("None at all" to "Real, protected time"). None of the six individual questions says "the last two weeks." That exact phrase appears exactly once: in a section-level intro sentence (`CVS_SCREEN2_INTRO`) shown above all six sliders together, on the same screen, before the member starts rating them ("For each of these, be honest about the last two weeks. Not your intentions. Your calendar."). So Root's later claim, worded as "when I asked about your last two weeks, X got a Y," attributes a specific, repeated question to something that was actually said once, as a general framing instruction, not per question.
+
+### Diagnosis, all four branches plus one related observation
+
+Checked all four "Here's What Root Learned" branches (`buildWhatRootLearned` in `lib/core-values-snapshot/copy.ts`) for this exact claim shape: Clear Gap ("when I asked about your last two weeks, X got a Y out of 5") and Aligned ("when I asked about your actual last two weeks? You're living it: Y out of 5") both had it. Split doesn't reference the attention rating at all (it's built entirely from the Q1-Q4/Q11 "what matters" answers), and Slipping already only said "you gave it a Y out of 5" with no timeframe claim, so both were already accurate. Also checked every other place that reads `scoring.attention`: the S1 guilt-area "surprise" observation (`buildS1Observation`, fires when the Q3 guilt area's own attention rating is 4 or higher) had the identical claim ("your last two weeks say you're actually showing up for it"); `buildKeyInsightCopy`, `buildGapVisualCopy`, and the persisted "What Root Knows So Far" narrative draft (`narrative.ts`) all already said "attention it's getting" with no timeframe claim, so none needed a change.
+
+### Fix
+
+Per the task's guidance (fix Root's copy to match what was actually asked, note here rather than change the question if the question should change instead): kept the fix on Root's copy, not the question. Root's own instruction to the member (`CVS_SCREEN2_INTRO`, "be honest about the last two weeks") already reads clearly and doesn't need a per-question restatement — six sliders each individually saying "in the last two weeks, how much attention has X gotten" would be repetitive on a single screen the member is already reading top to bottom. Rewrote the three affected lines to describe only the mechanism actually used, a 1-5 attention rating, not an invented specific-timeframe question:
+- **Clear Gap**: "when I asked about your last two weeks" → "when I asked how much attention it's actually been getting."
+- **Aligned**: "when I asked about your actual last two weeks?" → "when I asked how much attention it's actually getting?"
+- **S1 (guilt-area surprise)**: "your last two weeks say you're actually showing up for it" → "the attention you said you're actually giving it says you're showing up for it."
+
+No em dashes in any of the new copy (verified by the existing `tests/no-em-dash-guard.test.ts`).
+
+### Guard tests
+
+New `describe` block in `tests/core-values-snapshot-copy.test.ts` (3 new tests): Clear Gap and Aligned both confirmed to never contain the old "last two weeks" phrasing and to contain the new attention-scoped wording plus the real `att` value; the S1 observation confirmed the same. All existing tests in that file (Split/Clear Gap/Aligned/Slipping/narrative accuracy guards from the earlier 2026-08-01 em-dash-day fix) still pass unmodified.
+
+### Verified
+
+`npx tsc --noEmit` clean. `npm run lint` (repo root) — 0 errors, same 90-warning baseline. Full `npm test` after a fresh `supabase db reset` — 301/302 test files, 3332/3333 tests passing; the one failure is the same pre-existing `correlation-engine-integration.test.ts` date-math flake documented throughout this doc, confirmed unrelated (this was a pure `core-values-snapshot` copy change). `npm run build --workspace=@mef/consumer-web-app` compiled successfully.
+
+**Not driven in a browser this session** — this is a pure copy/logic fix to a pre-existing screen, verified via unit tests against real constructed answer sets for each affected branch, not a UI change. No new screens or interactions were added.
+
+**No migration, no database content changed** — this was purely a change to the copy-generation function; the underlying question text, scoring, and stored data are all untouched, so there is nothing to run in the Supabase SQL Editor for this fix.
+
+**Deployed**: pushed to `origin/main` (commit `90a5254`). Confirmed via `vercel inspect` that a new Production deployment for the `mef-platform` project (`dpl_3vKphWeZcbB4eVHJP3GjDCjHprEW`) built successfully, went Ready, target `production` (not Preview), and is aliased to `app.mefwellness.com`. Not verified: the exact fixed sentence rendering on the live production URL for a real member in the Clear Gap or Aligned branch — none of the three seeded production test accounts currently has a completed Core Values Snapshot session in either of those branches, so this was verified via unit tests against constructed answer sets instead, per the standing rule not to claim live-site verification that wasn't actually done.
