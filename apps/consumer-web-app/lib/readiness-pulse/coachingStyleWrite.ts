@@ -57,15 +57,20 @@ export async function applyRplCoachingStyleStatement(
 ): Promise<void> {
   const current = await getCoachingStyleProfile(supabase, memberId);
 
-  await upsertCoachingStyleProfile(supabase, memberId, {
-    tonePreference: q5,
-    detailPreference: current?.detail_preference ?? 'unclear',
-    taskLoadPreference: current?.task_load_preference ?? 'unclear',
-    timeCommitmentSweetSpotMinutes: current?.time_commitment_sweet_spot_minutes ?? null,
-    confidence: 0.9,
-    evidenceCount: (current?.evidence_count ?? 0) + 1,
-    rationale: `Directly stated in the Readiness Pulse conversation (Question 5): "${Q5_OPTION_LABEL[q5]}."`,
-  });
+  await upsertCoachingStyleProfile(
+    supabase,
+    memberId,
+    {
+      tonePreference: q5,
+      detailPreference: current?.detail_preference ?? 'unclear',
+      taskLoadPreference: current?.task_load_preference ?? 'unclear',
+      timeCommitmentSweetSpotMinutes: current?.time_commitment_sweet_spot_minutes ?? null,
+      confidence: 0.9,
+      evidenceCount: (current?.evidence_count ?? 0) + 1,
+      rationale: `Directly stated in the Readiness Pulse conversation (Question 5): "${Q5_OPTION_LABEL[q5]}."`,
+    },
+    'direct'
+  );
 
   const draft = {
     category: 'coaching_preferences' as const,

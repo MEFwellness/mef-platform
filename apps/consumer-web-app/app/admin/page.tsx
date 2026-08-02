@@ -42,6 +42,17 @@ export default async function AdminPage() {
           </p>
         </Link>
 
+        <Link
+          href={'/admin/reset-plan-test-tools' as Route}
+          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Testing Tools</p>
+          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">Personal Reset Plan: grant, reset &amp; time-shift</p>
+          <p className="mt-1 text-sm text-[#6B7A72]">
+            Grant a test member access, reset their plan, or fire the day-3/day-7 follow-ups early.
+          </p>
+        </Link>
+
         <AdminPanel users={users} coachIds={coachIds} assignments={assignments} />
       </main>
 

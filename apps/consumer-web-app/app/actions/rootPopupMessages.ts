@@ -40,14 +40,18 @@ import { createClient } from '@/lib/supabase/server';
 import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from './coreValuesSnapshot';
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from './lifeSignalCheck';
 import { getMyRplExperimentStatusAction, getMyRplOfferAction } from './readinessPulse';
+import { getMyResetPlanDashboardStateAction } from './resetPlan';
 import { resolveCvsCheckinPending, type CvsDailyLogRow } from '@/lib/core-values-snapshot/experiment';
 import type { CvsScoring } from '@/lib/core-values-snapshot/types';
 import type { LscScoring } from '@/lib/life-signal-check/types';
 import type { RplScoring } from '@/lib/readiness-pulse/types';
+import type { Signal } from '@/lib/life-signal-check/constants';
+import type { ResetPlanDailyLog } from '@/lib/reset-plan/types';
 import {
   cvsPopupMessageKey,
   lscPopupMessageKey,
   rplPopupMessageKey,
+  resetPlanPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
   isOfferPopupDue,
@@ -86,7 +90,9 @@ export type RootPopupMessage =
       logs: CvsDailyLogRow[];
       durationDays: number;
     }
-  | { kind: 'rpl_offer'; messageKey: string; sessionId: string; scoring: RplScoring };
+  | { kind: 'rpl_offer'; messageKey: string; sessionId: string; scoring: RplScoring }
+  | { kind: 'reset_plan_day3'; messageKey: string; planId: string; focusSignal: Signal }
+  | { kind: 'reset_plan_day7'; messageKey: string; planId: string; focusSignal: Signal; logs: ResetPlanDailyLog[] };
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -95,6 +101,35 @@ async function requireMemberId(): Promise<string | null> {
 
 /** The one Root message (if any) currently pending a response/acknowledgment/action, regardless of whether it's due to pop up this login. Used both to decide the pop-up and to badge the underlying card as high priority once snoozed. Core Values Snapshot is checked before Life Signal Check (oldest experience first); within either, day 3 wins over day 7, and day 7 wins over that experience's own start-it-later offer (offer can only exist when no experiment is running yet, so it's never actually competing with day 3/7 for the same experience — this ordering only matters across the two experiences). */
 async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null> {
+  // Real bug found while building the Personal Reset Plan's own day-3/
+  // day-7 pop-up case: once any experience's one-time "start it later"
+  // offer had been shown once (and dismissed via the auto-ignore-on-mount
+  // effect in RootMessagePopupClient), getMyCvsOfferAction/etc kept
+  // returning that same real, eligible offer object forever (a completed
+  // session with no active experiment is a permanent condition, not a
+  // one-time one) — and this function used to return the very first
+  // eligible offer it found with no dismissal check of its own, trusting
+  // getMyRootPopupMessageAction's single outer isOfferPopupDue check to
+  // filter it. That works for the FIRST experience checked, but once that
+  // one offer turns out to already be dismissed, the whole call returns
+  // null instead of ever falling through to check Life Signal Check,
+  // Readiness Pulse, or (the case that surfaced this) the Personal Reset
+  // Plan's own pending day-3/day-7 message — a member who had ever simply
+  // declined the Core Values Snapshot Weekly Experiment could never again
+  // see ANY later pop-up, of any kind, for the rest of their membership.
+  // Fixed by checking each offer's own dismissal right here and
+  // continuing to the next experience when it's already been shown,
+  // exactly the same "skip past what's already resolved" discipline
+  // resolveCvsCheckinPending already applies to day3-vs-day7.
+  const memberId = await requireMemberId();
+  const supabase = memberId ? createClient() : null;
+
+  async function isOfferStillDue(messageKey: string): Promise<boolean> {
+    if (!memberId || !supabase) return true;
+    const dismissal = await getRootPopupDismissal(supabase, memberId, messageKey);
+    return isOfferPopupDue(dismissal);
+  }
+
   const cvsStatus = await getMyCvsExperimentStatusAction();
   // Real bug fixed alongside the same one in
   // components/dashboard/ActiveExperimentsSection.tsx: getMyCvsExperimentStatusAction/
@@ -137,12 +172,10 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   if (!cvsStatus || cvsStatus.experiment.status !== 'active') {
     const offer = await getMyCvsOfferAction();
     if (offer) {
-      return {
-        kind: 'cvs_offer',
-        messageKey: cvsPopupMessageKey('offer', offer.sessionId),
-        sessionId: offer.sessionId,
-        scoring: offer.scoring,
-      };
+      const messageKey = cvsPopupMessageKey('offer', offer.sessionId);
+      if (await isOfferStillDue(messageKey)) {
+        return { kind: 'cvs_offer', messageKey, sessionId: offer.sessionId, scoring: offer.scoring };
+      }
     }
   }
 
@@ -177,12 +210,10 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   if (!lscStatus || lscStatus.experiment.status !== 'active') {
     const offer = await getMyLscOfferAction();
     if (offer) {
-      return {
-        kind: 'lsc_offer',
-        messageKey: lscPopupMessageKey('offer', offer.sessionId),
-        sessionId: offer.sessionId,
-        scoring: offer.scoring,
-      };
+      const messageKey = lscPopupMessageKey('offer', offer.sessionId);
+      if (await isOfferStillDue(messageKey)) {
+        return { kind: 'lsc_offer', messageKey, sessionId: offer.sessionId, scoring: offer.scoring };
+      }
     }
   }
 
@@ -217,11 +248,33 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   if (!rplStatus || rplStatus.experiment.status !== 'active') {
     const offer = await getMyRplOfferAction();
     if (offer) {
+      const messageKey = rplPopupMessageKey('offer', offer.sessionId);
+      if (await isOfferStillDue(messageKey)) {
+        return { kind: 'rpl_offer', messageKey, sessionId: offer.sessionId, scoring: offer.scoring };
+      }
+    }
+  }
+
+  // Personal Reset Plan — day-3 before day-7, same as every experience
+  // above, but no offer case: the plan's own dashboard card (not a
+  // one-time pop-up) is its only "start it" surface, per the build brief.
+  const resetPlanState = await getMyResetPlanDashboardStateAction();
+  if (resetPlanState.kind === 'active' && resetPlanState.plan.focusSignal) {
+    if (resetPlanState.isDay3Eligible && !resetPlanState.day3Answered) {
       return {
-        kind: 'rpl_offer',
-        messageKey: rplPopupMessageKey('offer', offer.sessionId),
-        sessionId: offer.sessionId,
-        scoring: offer.scoring,
+        kind: 'reset_plan_day3',
+        messageKey: resetPlanPopupMessageKey('day3', resetPlanState.plan.id),
+        planId: resetPlanState.plan.id,
+        focusSignal: resetPlanState.plan.focusSignal,
+      };
+    }
+    if (resetPlanState.isDay7Eligible && !resetPlanState.day7Acknowledged) {
+      return {
+        kind: 'reset_plan_day7',
+        messageKey: resetPlanPopupMessageKey('day7', resetPlanState.plan.id),
+        planId: resetPlanState.plan.id,
+        focusSignal: resetPlanState.plan.focusSignal,
+        logs: resetPlanState.logs,
       };
     }
   }

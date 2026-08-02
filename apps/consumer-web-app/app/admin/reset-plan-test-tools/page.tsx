@@ -1,0 +1,48 @@
+/**
+ * Personal Reset Plan — admin testing tools. Not linked anywhere a member
+ * or coach can see; reachable only from the Admin page, and every action
+ * behind it requires an active platform_administrator role (checked here
+ * for a clean redirect, enforced for real by RLS — see
+ * app/actions/resetPlanAdmin.ts's own header comment).
+ */
+
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { hasActiveRole } from '@/lib/auth/guards';
+import { listResetPlanTestableMembersAction } from '@/app/actions/resetPlanAdmin';
+import { BackButton } from '@/components/BackButton';
+import { BottomNav } from '@/components/BottomNav';
+import { ResetPlanTestToolsPanel } from '@/components/admin/ResetPlanTestToolsPanel';
+
+export default async function ResetPlanTestToolsPage() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
+  if (!isAdmin) redirect('/dashboard');
+
+  const [isCoach, members] = await Promise.all([hasActiveRole(supabase, user.id, 'coach'), listResetPlanTestableMembersAction()]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
+        <BackButton fallbackHref="/admin" label="Back to Admin" forceFallback />
+
+        <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
+          Personal Reset Plan: Test Tools
+        </h1>
+        <p className="mt-2 text-[15px] text-[#6B7A72]">
+          Grant or revoke access, reset a test member&apos;s plan so they can create one fresh, or jump an active
+          plan&apos;s clock so the day-3/day-7 follow-ups fire right away. Only ever acts on the one member you pick
+          below.
+        </p>
+
+        <ResetPlanTestToolsPanel members={members} />
+      </main>
+      <BottomNav isCoach={isCoach} />
+    </div>
+  );
+}

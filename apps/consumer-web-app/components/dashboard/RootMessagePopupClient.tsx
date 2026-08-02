@@ -35,8 +35,10 @@ import { acknowledgeRplDay7Action, submitRplDay3ResponseAction, startRplExperime
 import { snoozeRootPopupMessageAction, ignoreRootPopupMessageAction, type RootPopupMessage } from '@/app/actions/rootPopupMessages';
 import { classifyDay7Pattern, type Day3Response } from '@/lib/core-values-snapshot/experiment';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { ResetPlanPopup } from '@/components/reset-plan/ResetPlanPopup';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
+type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
@@ -48,20 +50,43 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
 
   useBodyScrollLock(!closed);
 
-  const isOffer = message.kind === 'cvs_offer' || message.kind === 'lsc_offer';
+  // Real, pre-existing bug found while building the Personal Reset Plan:
+  // this check was never updated for 'rpl_offer' when Readiness Pulse
+  // introduced it (migration 141) — an rpl_offer message fell through
+  // into the day3/day7 branch below instead, which unconditionally reads
+  // .logs (a field only day3/day7 messages have), crashing the entire
+  // dashboard for any member who ever reached that specific case (which
+  // requires cvs_offer and lsc_offer to already be resolved — a
+  // combination the separate offer-starvation bug fixed alongside this
+  // one, in app/actions/rootPopupMessages.ts, had been making
+  // effectively unreachable until now).
+  const isOffer = message.kind === 'cvs_offer' || message.kind === 'lsc_offer' || message.kind === 'rpl_offer';
 
   // The offer pops up at most once ever (unlike day3/day7, which return on
   // every login until answered or explicitly ignored) — marking it
   // 'ignored' the instant it's shown, rather than only on an explicit
   // dismiss, is what makes that true regardless of whether the member acts
   // on it, closes the tab, or navigates away. The dashboard card stays the
-  // permanent, un-timed way to start it later either way.
+  // permanent, un-timed way to start it later either way. A no-op for
+  // every other kind, including the plan's own — every hook in this
+  // component must run unconditionally regardless of message.kind (rules
+  // of hooks), so this can't be skipped by an earlier return.
   useEffect(() => {
     if (isOffer) {
       ignoreRootPopupMessageAction(message.messageKey);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The plan's daily-log shape (three explicit states, not a boolean) and
+  // its own day-3/day-7 copy don't fit this component's CVS/LSC/RPL-
+  // specific ternary chains below, so it gets its own small component
+  // rather than being shoehorned in — same modal chrome, real separate
+  // implementation. Placed after every hook above so this early return
+  // never changes hook call order between renders.
+  if (message.kind === 'reset_plan_day3' || message.kind === 'reset_plan_day7') {
+    return <ResetPlanPopup message={message} onClose={() => setClosed(true)} closed={closed} />;
+  }
 
   if (closed) return null;
 
@@ -74,7 +99,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // can't narrow on its own from an outer `if`) can safely use
   // day3Or7Message.experimentId/topLabelText/logs/durationDays — real
   // fields on all four remaining variants, never on the two offer kinds.
-  const day3Or7Message = message as Exclude<RootPopupMessage, OfferMessage>;
+  const day3Or7Message = message as Exclude<RootPopupMessage, OfferMessage | ResetPlanMessage>;
 
   const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' || day3Or7Message.kind === 'rpl_day3';
 

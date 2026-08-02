@@ -65,6 +65,7 @@ import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
 import { CoachingMessageCard } from '@/components/dashboard/CoachingMessageCard';
 import { ActiveExperimentsSection } from '@/components/dashboard/ActiveExperimentsSection';
+import { PersonalResetPlanCard } from '@/components/reset-plan/PersonalResetPlanCard';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { HomeHero } from '@/components/dashboard/HomeHero';
 import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
@@ -489,6 +490,19 @@ export default async function DashboardPage({
             <RevealOnScroll delayMs={30} className="mt-14 md:mt-20">
               <Suspense fallback={null}>
                 <ActiveExperimentsSection />
+              </Suspense>
+            </RevealOnScroll>
+
+            {/* ==================================================== */}
+            {/* Personal Reset Plan — its own permanent section, never  */}
+            {/* folded into Active Experiments or the free-arc          */}
+            {/* branches. Renders nothing at all for a member without   */}
+            {/* profiles.reset_plan_granted_at, see                     */}
+            {/* components/reset-plan/PersonalResetPlanCard.tsx.        */}
+            {/* ==================================================== */}
+            <RevealOnScroll delayMs={30} className="mt-14 md:mt-20">
+              <Suspense fallback={null}>
+                <PersonalResetPlanCard />
               </Suspense>
             </RevealOnScroll>
 

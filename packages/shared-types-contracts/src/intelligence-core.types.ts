@@ -107,11 +107,14 @@ export type CoachingTonePreference =
   | 'unclear';
 export type CoachingDetailPreference = 'brief' | 'detailed' | 'unclear';
 export type CoachingTaskLoadPreference = 'single_focus' | 'multi_task_ok' | 'unclear';
+/** 'direct' means a real, explicit member statement (e.g. Readiness Pulse's own Question 5) wrote tone_preference — the background recompute (lib/intelligence-core/service.ts's recalculateIntelligenceCore) may never silently overwrite it, only a new direct statement can. 'inferred' is the default: the deterministic keyword classifier's own best guess, freely overwritten by later recomputes. See migration 142's upsert_wellness_coaching_style_profile RPC for the actual guard. */
+export type CoachingTonePreferenceSource = 'inferred' | 'direct';
 
 export interface WellnessCoachingStyleProfile {
   id: string;
   member_id: string;
   tone_preference: CoachingTonePreference;
+  tone_preference_source: CoachingTonePreferenceSource;
   detail_preference: CoachingDetailPreference;
   task_load_preference: CoachingTaskLoadPreference;
   time_commitment_sweet_spot_minutes: number | null;

@@ -55,6 +55,7 @@ import { getClientWbsaSessionsAction } from '@/app/actions/wbsa';
 import { getClientCvsSessionsAction } from '@/app/actions/coreValuesSnapshot';
 import { getClientLscSessionsAction } from '@/app/actions/lifeSignalCheck';
 import { getClientRplSessionsAction } from '@/app/actions/readinessPulse';
+import { getClientResetPlanAction } from '@/app/actions/resetPlan';
 import { getClientAssessmentAssignments } from '@/app/actions/assessmentAssignments';
 import {
   getClientMovementProfile,
@@ -92,6 +93,7 @@ import { WbsaPanel } from './WbsaPanel';
 import { CoreValuesSnapshotPanel } from './CoreValuesSnapshotPanel';
 import { LifeSignalCheckPanel } from './LifeSignalCheckPanel';
 import { ReadinessPulsePanel } from './ReadinessPulsePanel';
+import { PersonalResetPlanPanel } from './PersonalResetPlanPanel';
 import { AssessmentAssignmentPanel } from './AssessmentAssignmentPanel';
 import { MovementProfilePanel } from './MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
@@ -202,6 +204,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     cvsSessions,
     lscSessions,
     rplSessions,
+    resetPlanView,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -236,6 +239,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientCvsSessionsAction(profile.id),
     getClientLscSessionsAction(profile.id),
     getClientRplSessionsAction(profile.id),
+    getClientResetPlanAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -574,6 +578,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               own-page split as Core Values Snapshot/Life Signal Check
               above. */}
           <ReadinessPulsePanel clientId={profile.id} sessions={rplSessions} />
+
+          {/* Personal Reset Plan — the first monthly-member experience,
+              read-only here (no coach editing in this build): current
+              plan, the snapshot inputs that built it, adherence from the
+              daily log, and version history. */}
+          <PersonalResetPlanPanel view={resetPlanView} />
 
           {/* Movement Profile — permanent movement record + Pending Coach
               Review worklist (Member Exercise Experience & Movement

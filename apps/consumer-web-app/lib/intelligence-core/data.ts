@@ -240,11 +240,23 @@ export async function listProfileDimensionsForMember(
 // wellness_coaching_style_profile
 // ---------------------------------------------------------------
 
-/** Goes through the upsert_wellness_coaching_style_profile RPC — see upsertProfileDimension's docblock for why an atomic RPC replaces a real `.upsert()` or an insert/update probe here. */
+/**
+ * Goes through the upsert_wellness_coaching_style_profile RPC — see
+ * upsertProfileDimension's docblock for why an atomic RPC replaces a real
+ * `.upsert()` or an insert/update probe here. `source` defaults to
+ * 'inferred' — every existing caller (the background recompute in
+ * lib/intelligence-core/service.ts) is exactly that, a keyword-classifier
+ * guess, never a real member statement. The RPC itself (migration 142)
+ * refuses to let an 'inferred' call overwrite tone_preference on a row
+ * already marked 'direct'; only an explicit `source: 'direct'` caller
+ * (lib/readiness-pulse/coachingStyleWrite.ts's applyRplCoachingStyleStatement)
+ * can ever set or override a direct row.
+ */
 export async function upsertCoachingStyleProfile(
   supabase: SupabaseClient,
   memberId: string,
-  computation: CoachingStyleComputation
+  computation: CoachingStyleComputation,
+  source: 'inferred' | 'direct' = 'inferred'
 ): Promise<void> {
   const { error } = await supabase.rpc('upsert_wellness_coaching_style_profile', {
     p_member: memberId,
@@ -255,6 +267,7 @@ export async function upsertCoachingStyleProfile(
     p_confidence: computation.confidence,
     p_evidence_count: computation.evidenceCount,
     p_rationale: computation.rationale,
+    p_source: source,
   });
   if (error) console.error('upsertCoachingStyleProfile failed', error);
 }

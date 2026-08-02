@@ -166,3 +166,42 @@ describe('allRplQuestionsAnswered', () => {
     expect(allRplQuestionsAnswered(missing)).toBe(false);
   });
 });
+
+// Personal Reset Plan's own input snapshot reads q6/targetSignal straight
+// off RplScoring's return value and never builds a second downstream
+// answer reader — this guard pins both fields so a future edit to
+// computeRplScoring that renames or drops either one fails loudly here
+// instead of silently breaking the snapshot. Proven non-vacuous: comment
+// out `q6,`/`targetSignal,` in scoring.ts's own return object and rerun
+// this file, both assertions below fail (TS also fails to compile the
+// destructure, since RplScoring requires both fields); restore and it's
+// green again.
+describe('RplScoring exposes q6 and targetSignal for the Personal Reset Plan snapshot', () => {
+  it('q6 is a real structured single-select answer on a completed session', () => {
+    const scoring = computeRplScoring(baseAnswers({ rpl_q6: 'other_people' }), null);
+    expect(scoring.q6).toBe('other_people');
+    expect(['schedule', 'follow_through', 'other_people', 'expecting_too_much']).toContain(scoring.q6);
+  });
+
+  it('q6 degrades to the documented default rather than throwing on an older or incomplete session missing rpl_q6', () => {
+    const { rpl_q6, ...missing } = baseAnswers();
+    void rpl_q6;
+    const scoring = computeRplScoring(missing, null);
+    expect(scoring.q6).toBe('schedule');
+  });
+
+  it('targetSignal is Life Signal Check\'s own loudestSignal when a real, loud Life Signal Check session exists', () => {
+    const lscContext: LscContextForRpl = { loudestSignal: 'tension', pattern: 'one_loud', hardestTimeOfDay: 'evenings' };
+    const scoring = computeRplScoring(baseAnswers({ rpl_q8: 'mind' }), lscContext);
+    expect(scoring.targetSignal).toBe('tension');
+  });
+
+  it('targetSignal falls back to Question 8\'s own pick whenever there is no loud Life Signal Check context (missing session, or quiet_body)', () => {
+    const scoringNoContext = computeRplScoring(baseAnswers({ rpl_q8: 'digestion' }), null);
+    expect(scoringNoContext.targetSignal).toBe('digestion');
+
+    const quietContext: LscContextForRpl = { loudestSignal: 'sleep', pattern: 'quiet_body', hardestTimeOfDay: null };
+    const scoringQuiet = computeRplScoring(baseAnswers({ rpl_q8: 'body' }), quietContext);
+    expect(scoringQuiet.targetSignal).toBe('body');
+  });
+});

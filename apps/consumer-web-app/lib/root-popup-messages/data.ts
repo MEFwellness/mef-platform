@@ -29,6 +29,11 @@ export function rplPopupMessageKey(kind: 'day3' | 'day7' | 'offer', experimentOr
   return `rpl_${kind}:${experimentOrSessionId}`;
 }
 
+/** Same shape as the three above, for the Personal Reset Plan's own day-3/day-7 follow-ups — no 'offer' kind, since the plan has no one-time start-it-later message (its dashboard card is the only offer). */
+export function resetPlanPopupMessageKey(kind: 'day3' | 'day7', planId: string): string {
+  return `reset_plan_${kind}:${planId}`;
+}
+
 export async function getRootPopupDismissal(
   supabase: SupabaseClient,
   memberId: string,
