@@ -1,6 +1,114 @@
 @import 'tailwindcss';
 
 /*
+ * ============================================================
+ * ROOT MOTION SYSTEM — design tokens (Prompt 1)
+ * ============================================================
+ * The single source of truth for every duration and easing curve used
+ * by any `mef-*` animation in this file, per
+ * docs/motion-experience-bible.md §4 (Timing and Easing Standards).
+ * Every value below already existed as a literal in this file before
+ * this token pass — chosen as each tier's canonical value because it's
+ * the value with the most existing real usage in that tier, not an
+ * invented number. New animation work (this prompt onward) should
+ * reference these variables, never a bare `0.45s` or `ease-out` inline.
+ *
+ * Duration tiers (Bible §4): each tier is a *range*; the token holds
+ * the canonical default for that tier. A handful of existing classes
+ * sit inside a tier's range at a slightly different authored value
+ * (e.g. `.mef-fade-in` at 450ms, inside the 400-500ms Deliberate
+ * range, rather than the 500ms canonical) — those were left as their
+ * own literal values rather than force-migrated, since changing a
+ * shipped, finely-tuned duration is exactly the kind of "risky
+ * migration" the Bible says to leave alone and flag for Prompt 7, not
+ * do silently here. The classes that already matched a tier's
+ * canonical value exactly were switched to reference the token
+ * (`.mef-press`, `.mef-screen-enter`, `.mef-scale-settle`,
+ * `.mef-animate-in`, `.mef-title-logo-in`) — identical computed
+ * output, now token-driven.
+ */
+:root {
+  /* Instant: reserved for Prompt 6 (button/toggle state flips with no
+     visual travel) — no current consumer. */
+  --mef-duration-instant: 100ms;
+  /* Quick: canonical value matches .mef-press's existing 150ms.
+     .mef-screen-exit's 180ms is an in-tier variant, left as-is. */
+  --mef-duration-quick: 150ms;
+  /* Standard: canonical value matches .mef-screen-enter's existing 320ms. */
+  --mef-duration-standard: 320ms;
+  /* Deliberate: canonical value matches .mef-animate-in/.mef-pop-in's
+     existing 500ms/400ms family. .mef-fade-in (450ms) and
+     .mef-checkin-stagger (400ms) are in-tier variants, left as-is. */
+  --mef-duration-deliberate: 500ms;
+  /* Cinematic: canonical value matches .mef-scale-settle's existing
+     600ms. .mef-scale-fade-in (700ms) and .mef-close-gold-sweep (900ms)
+     are in-tier variants, left as-is. */
+  --mef-duration-cinematic: 600ms;
+  /* Epic: canonical value matches .mef-title-logo-in's existing 2000ms
+     — the only Epic-tier animation in the app today. */
+  --mef-duration-epic: 2000ms;
+
+  /* Easing curves (Bible §4). Each name matches the Bible's own table. */
+  --mef-ease-standard: ease-out;
+  --mef-ease-overshoot: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mef-ease-decelerate: cubic-bezier(0.16, 1, 0.3, 1);
+  --mef-ease-ambient: cubic-bezier(0.45, 0, 0.55, 1);
+  --mef-ease-draw: cubic-bezier(0.65, 0, 0.35, 1);
+  --mef-ease-step: step-end;
+}
+
+/*
+ * Root Motion System — generic, reusable animation primitives (Bible
+ * §3). Most of the nine animation types (fade, slide, scale, pulse,
+ * ripple) are backed by React wrapper components in components/motion/
+ * that reuse the existing keyframes below directly — no new CSS needed
+ * for those. Two are genuinely new additions, added here:
+ *
+ * `.mef-stagger-item` — a same-keyframe alias of the existing
+ * `.mef-checkin-stagger` keyframe (below), under the Root Motion
+ * System's own generic name, so future stagger use (components/motion/Stagger.tsx)
+ * isn't coupled to check-in's own class name. Check-in's own class is
+ * untouched.
+ *
+ * `.mef-float` — new. Nothing in the app uses ambient floating motion
+ * yet; this is the Bible §3/§10-compliant implementation (8-12s drift,
+ * <=6px vertical travel, opacity capped <=0.15, ease-in-out infinite),
+ * ready for components/motion/Float.tsx to use once a future prompt
+ * wires it into a real screen.
+ */
+.mef-stagger-item {
+  animation: mef-checkin-stagger 0.4s var(--mef-ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-stagger-item {
+    animation: mef-fade-in 0.3s var(--mef-ease-standard) both !important;
+  }
+}
+
+@keyframes mef-float {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: var(--mef-float-opacity, 0.12);
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: calc(var(--mef-float-opacity, 0.12) * 0.6);
+  }
+}
+
+.mef-float {
+  animation: mef-float 10s var(--mef-ease-ambient) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-float {
+    animation: none !important;
+  }
+}
+
+/*
  * Micro-interaction keyframes for the Daily Coaching Experience
  * (app/today/page.tsx, FeedInteractions.tsx) — calm, subtle motion only:
  * a gentle stagger-in on page load and a small pop for confirmations
@@ -36,7 +144,7 @@
 
 /* Apply with an inline `animation-delay` (via style={{ animationDelay: '...' }}) for a staggered card entrance down the page. */
 .mef-animate-in {
-  animation: mef-fade-up 0.5s ease-out both;
+  animation: mef-fade-up var(--mef-duration-deliberate) var(--mef-ease-standard) both;
 }
 
 .mef-pop-in {
@@ -144,7 +252,7 @@
 }
 
 .mef-screen-enter {
-  animation: mef-screen-enter 0.32s ease-out both;
+  animation: mef-screen-enter var(--mef-duration-standard) var(--mef-ease-standard) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -192,7 +300,7 @@
 }
 
 .mef-scale-settle {
-  animation: mef-scale-settle 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: mef-scale-settle var(--mef-duration-cinematic) var(--mef-ease-overshoot) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -349,7 +457,7 @@
 }
 
 .mef-title-logo-in {
-  animation: mef-title-logo-in 2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: mef-title-logo-in var(--mef-duration-epic) var(--mef-ease-decelerate) both;
 }
 
 @keyframes mef-hero-bg-fade {
@@ -886,9 +994,9 @@
    physical feedback rather than a state change. */
 .mef-press {
   transition:
-    transform 150ms ease-out,
-    background-color 150ms ease-out,
-    box-shadow 150ms ease-out;
+    transform var(--mef-duration-quick) var(--mef-ease-standard),
+    background-color var(--mef-duration-quick) var(--mef-ease-standard),
+    box-shadow var(--mef-duration-quick) var(--mef-ease-standard);
 }
 
 .mef-press:active {
