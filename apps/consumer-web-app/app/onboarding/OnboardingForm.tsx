@@ -900,7 +900,15 @@ export function OnboardingForm({
         {currentStep.type === 'transition' ? (
           <BranchTransition line={currentStep.line} onContinue={goNext} />
         ) : (
-          <>
+          // Screen Layout System (Prompt 2): a single question plus one
+          // button row is exactly the "single-question assessment step"
+          // sparse case — vertically centered in the space below the
+          // progress bar above, instead of leaving it stranded near the
+          // top with the rest of the screen empty. A bounded vh (not the
+          // full-viewport `.mef-center-viewport`) because this block has
+          // a real sibling (OnboardingProgress) rendered above it in the
+          // same normal-flow container.
+          <div className="flex min-h-[55vh] flex-col justify-center">
             {currentStep.question.question_key === PRIMARY_CONCERN_QUESTION_KEY &&
             knownPrimaryGoal ? (
               <QuestionField
@@ -968,7 +976,7 @@ export function OnboardingForm({
                 </button>
               )}
             </div>
-          </>
+          </div>
         )}
       </div>
     </form>
