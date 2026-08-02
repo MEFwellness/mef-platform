@@ -37,6 +37,20 @@ export function smallerTiers(tier: ActionTier): ActionTier[] {
   return ACTION_TIERS.filter((t) => ACTION_TIER_ORDER[t] < rank).sort((a, b) => ACTION_TIER_ORDER[b] - ACTION_TIER_ORDER[a]);
 }
 
+/**
+ * Screen 4's shrink control — plain description of the action each tier
+ * switches to, never the tier's own internal name (READINESS_PATTERN_LABEL
+ * above). A button reading "Not yet" reads as a refusal, not a smaller
+ * option. `ready_now` is included only for type completeness; smallerTiers()
+ * never returns it, since it is the largest tier, never a shrink target.
+ */
+export const RESET_PLAN_SHRINK_LABEL: Record<ActionTier, string> = {
+  ready_now: 'The full version',
+  ready_if_small: 'A smaller step',
+  still_deciding: 'Notice, then a tiny step',
+  not_yet: 'Just notice instead',
+};
+
 /** The three explicit daily states — a missing row is never a fourth implicit "miss" state, per the build's own accuracy rule. */
 export type ResetPlanDailyState = 'completed_normal' | 'completed_difficult' | 'not_today';
 

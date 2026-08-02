@@ -27,7 +27,7 @@ import {
   buildResetPlanWhyItMatters,
   resetPlanProposedTier,
 } from '@/lib/reset-plan/copy';
-import { RESET_PLAN_FOCUS_SIGNALS, smallerTiers, type ActionTier } from '@/lib/reset-plan/constants';
+import { RESET_PLAN_FOCUS_SIGNALS, RESET_PLAN_SHRINK_LABEL, smallerTiers, type ActionTier } from '@/lib/reset-plan/constants';
 import { SIGNAL_LABEL, type Signal } from '@/lib/life-signal-check/constants';
 import { READINESS_PATTERN_LABEL } from '@/lib/readiness-pulse/constants';
 import type { CoachingTonePreference } from '@mef/shared-types-contracts';
@@ -239,7 +239,7 @@ export function ResetPlanTaker({ initialPlan }: { initialPlan: ResetPlan }) {
                     onClick={() => chooseTier(tier)}
                     className="mef-focus-ring rounded-full border border-[#1B3A2D]/15 px-3.5 py-2 text-xs font-medium text-[#1B3A2D] transition hover:bg-[#F5F0E4]"
                   >
-                    {READINESS_PATTERN_LABEL[tier]}
+                    {RESET_PLAN_SHRINK_LABEL[tier]}
                   </button>
                 ))}
               </div>

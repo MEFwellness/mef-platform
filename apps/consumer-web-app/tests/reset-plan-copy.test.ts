@@ -17,6 +17,8 @@ import {
   resetPlanProposedTier,
   shouldOfferDifficultDayVersion,
 } from '../lib/reset-plan/copy';
+import { ACTION_TIERS, RESET_PLAN_SHRINK_LABEL, smallerTiers, type ActionTier } from '../lib/reset-plan/constants';
+import { READINESS_PATTERN_LABEL } from '../lib/readiness-pulse/constants';
 import { EMPTY_RESET_PLAN_SNAPSHOT, type ResetPlanDailyLog, type ResetPlanSnapshot } from '../lib/reset-plan/types';
 import type { CvsScoring } from '../lib/core-values-snapshot/types';
 import type { LscScoring } from '../lib/life-signal-check/types';
@@ -231,6 +233,48 @@ describe('classifyResetPlanDay7Pattern / buildResetPlanDay7Reflection — honest
     const text = buildResetPlanDay7Reflection(logs, 'energy');
     expect(text).toContain('honest information');
     expect(text.toLowerCase()).toContain('not a failure');
+  });
+});
+
+describe('RESET_PLAN_SHRINK_LABEL — Screen 4\'s shrink control never shows a tier\'s internal name as its button label', () => {
+  it('pins the exact plain-language label for the pure-noticing tier, the case the bug report named', () => {
+    expect(RESET_PLAN_SHRINK_LABEL.not_yet).toBe('Just notice instead');
+  });
+
+  it('no shrink label is ever identical to that tier\'s own internal READINESS_PATTERN_LABEL', () => {
+    for (const tier of ACTION_TIERS) {
+      expect(RESET_PLAN_SHRINK_LABEL[tier]).not.toBe(READINESS_PATTERN_LABEL[tier]);
+    }
+  });
+
+  it('no shrink label contains any tier\'s internal vocabulary as a substring, in either direction', () => {
+    const internalNames = ACTION_TIERS.map((tier) => READINESS_PATTERN_LABEL[tier].toLowerCase());
+    for (const tier of ACTION_TIERS) {
+      const label = RESET_PLAN_SHRINK_LABEL[tier].toLowerCase();
+      for (const internalName of internalNames) {
+        expect(label).not.toContain(internalName);
+      }
+    }
+  });
+
+  it('contains no em dash', () => {
+    for (const tier of ACTION_TIERS) {
+      expect(RESET_PLAN_SHRINK_LABEL[tier]).not.toContain('—');
+    }
+  });
+
+  it('every tier smallerTiers() can actually return has a defined, non-empty label', () => {
+    for (const tier of ACTION_TIERS) {
+      for (const smaller of smallerTiers(tier)) {
+        expect(RESET_PLAN_SHRINK_LABEL[smaller]).toBeTruthy();
+      }
+    }
+  });
+
+  it('smallerTiers() never returns ready_now, so its label is never shown as a shrink option', () => {
+    for (const tier of ACTION_TIERS) {
+      expect(smallerTiers(tier)).not.toContain('ready_now' satisfies ActionTier);
+    }
   });
 });
 
