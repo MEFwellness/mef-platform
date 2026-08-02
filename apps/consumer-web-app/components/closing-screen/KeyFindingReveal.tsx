@@ -10,20 +10,40 @@
  * points-scored engine (CHEK HLC1 / Four Doctors / Short-HAQ), and Primal
  * Pattern Diet Type did not (confirmed by reading each results page: they
  * render their headline instantly, on every visit, with no first-time-
- * only gating). This closes that gap using the exact same, already-proven
- * primitives rather than a second mechanism.
+ * only gating). This closes that gap.
  *
- * A quiet beat (`delayMs`), then the finding fades in — first-time-only,
- * gated by `useCloseScreenReveal`'s own `mef-close-seen:{storageKey}`
- * localStorage key; every revisit renders the finding instantly, no
- * replay, matching every other closing screen in the app. Reduced motion
- * skips the beat outright. The finding's own data and wording are passed
+ * Deliberately NOT built on ClosingScreenPrimitives.tsx's own
+ * `useCloseScreenReveal`/`useDelayedReveal` — a real bug, caught live on
+ * app.mefwellness.com while verifying this exact component, rules that
+ * out. Those hooks' `useDelayedReveal(play, delayMs)` initializes its
+ * `revealed` state to `!play`, and `play` is always `false` on a
+ * component's very first render (its own `useCloseScreenReveal` effect
+ * hasn't run yet) — so `revealed` starts `true` regardless of whether
+ * this is really a first-time view. Inside Core Values Snapshot/Life
+ * Signal Check's own Client Component takers that's a minor, invisible
+ * one-frame quirk (the whole taker only ever exists client-side, no
+ * server HTML to leak). WBSA/generic/Primal Pattern's results pages are
+ * Server Components, though: Next.js server-renders the "revealed" state
+ * into the actual HTML response, so the finding was present in the very
+ * first bytes sent to the browser — confirmed empirically (a live fetch
+ * showed identical page content at 150ms and at 850ms after navigation,
+ * i.e. the "staged" delay never visibly gated anything). This component
+ * instead starts in an explicit `'pending'` state that renders `null` on
+ * both the server and the client's first render (so there's nothing to
+ * leak into SSR output and no hydration mismatch), then resolves to
+ * `'instant'` or `'staged'` in a single effect after mount.
+ *
+ * Same `mef-close-seen:{storageKey}` localStorage convention as
+ * `useCloseScreenReveal` (a separate write, not shared state — this
+ * component owns its own key namespace's screens). Reduced motion always
+ * resolves instantly. The finding's own data and wording are passed
  * through unchanged via `children` — this component only controls when
  * it mounts, never what it says.
  */
 
-import type { ReactNode } from 'react';
-import { useCloseScreenReveal, useDelayedReveal } from './ClosingScreenPrimitives';
+import { useEffect, useState, type ReactNode } from 'react';
+
+type RevealState = 'pending' | 'instant' | 'staged';
 
 export function KeyFindingReveal({
   storageKey,
@@ -36,12 +56,29 @@ export function KeyFindingReveal({
   className?: string;
   children: ReactNode;
 }) {
-  const play = useCloseScreenReveal(storageKey);
-  const revealed = useDelayedReveal(play, delayMs);
+  const [state, setState] = useState<RevealState>('pending');
 
-  if (!revealed) return null;
+  useEffect(() => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const key = `mef-close-seen:${storageKey}`;
+    let alreadySeen = false;
+    try {
+      alreadySeen = window.localStorage.getItem(key) === '1';
+      if (!alreadySeen) window.localStorage.setItem(key, '1');
+    } catch {
+      alreadySeen = false;
+    }
 
-  return (
-    <div className={play ? `mef-fade-in ${className}` : className}>{children}</div>
-  );
+    if (reducedMotion || alreadySeen) {
+      setState('instant');
+      return undefined;
+    }
+
+    const timer = setTimeout(() => setState('staged'), delayMs);
+    return () => clearTimeout(timer);
+  }, [storageKey, delayMs]);
+
+  if (state === 'pending') return null;
+
+  return <div className={state === 'staged' ? `mef-fade-in ${className}` : className}>{children}</div>;
 }
