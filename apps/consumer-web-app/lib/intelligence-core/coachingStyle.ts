@@ -20,8 +20,30 @@ const MIN_HELPFUL_SAMPLE = 3;
 const MIN_FORMAT_SAMPLE = 4;
 
 const ENCOURAGEMENT_KEYWORDS = ['encourag', 'positive', 'cheer', 'celebrat', 'support'];
-const DIRECT_KEYWORDS = ['direct', 'straightforward', 'just tell', 'concise', 'to the point'];
-const EDUCATION_KEYWORDS = ['explain', 'why', 'understand', 'education', 'learn more'];
+const DIRECT_KEYWORDS = ['direct', 'straightforward', 'just tell', 'concise', 'to the point', 'call it out', 'no cushion'];
+// 'why' alone was dropped (previously listed here) — it collided with
+// Readiness Pulse's own new meaning_anchored phrase "remind me why I
+// started" (a motivational anchor, not a request for explanation),
+// forcing every real occurrence of that exact member statement into a
+// tie the resolution order then broke the wrong way. 'explain'/
+// 'understand' already carry the "wants the reasoning" signal a bare
+// 'why' was redundant with.
+const EDUCATION_KEYWORDS = ['explain', 'understand', 'education', 'learn more'];
+/**
+ * Added alongside Readiness Pulse's own Question 5 (migration 141), an
+ * explicit member-stated hypothetical mapping onto four coaching styles.
+ * 'direct' above already existed and needed no new keywords beyond the two
+ * added ("call it out"/"no cushion", Q5's own option text) — these three
+ * are new tone_preference values with no prior keyword coverage. Keeping
+ * them here (not only in the one-time direct write in
+ * app/actions/readinessPulse.ts) is what makes the profile genuinely
+ * living: any future coaching_preferences narrative text using this same
+ * language, from any source, keeps recomputing the same tone on the next
+ * scheduled run, not just the one Readiness Pulse ever wrote.
+ */
+const MEANING_ANCHORED_KEYWORDS = ['remind me why', 'why i started', 'meaning-anchored', 'anchor'];
+const ADAPTIVE_KEYWORDS = ['shrink it', 'make it smaller', 'make tomorrow smaller', 'adaptive coaching'];
+const AUTONOMOUS_KEYWORDS = ['come back on my own', 'on my own', 'say nothing', 'autonomous'];
 
 function inferTonePreference(
   narrativeItems: NarrativeItem[],
@@ -41,6 +63,9 @@ function inferTonePreference(
   let encouragement = 0;
   let direct = 0;
   let education = 0;
+  let meaningAnchored = 0;
+  let adaptive = 0;
+  let autonomous = 0;
   let matchedText: string | null = null;
 
   for (const text of texts) {
@@ -56,14 +81,28 @@ function inferTonePreference(
       education++;
       matchedText = matchedText ?? text;
     }
+    if (MEANING_ANCHORED_KEYWORDS.some((k) => text.includes(k))) {
+      meaningAnchored++;
+      matchedText = matchedText ?? text;
+    }
+    if (ADAPTIVE_KEYWORDS.some((k) => text.includes(k))) {
+      adaptive++;
+      matchedText = matchedText ?? text;
+    }
+    if (AUTONOMOUS_KEYWORDS.some((k) => text.includes(k))) {
+      autonomous++;
+      matchedText = matchedText ?? text;
+    }
   }
 
-  const best = Math.max(encouragement, direct, education);
+  const best = Math.max(encouragement, direct, education, meaningAnchored, adaptive, autonomous);
   if (best === 0) return { tone: 'unclear', matchCount: 0, matchedText: null };
-  if (best === encouragement)
-    return { tone: 'encouragement', matchCount: encouragement, matchedText };
+  if (best === encouragement) return { tone: 'encouragement', matchCount: encouragement, matchedText };
   if (best === direct) return { tone: 'direct', matchCount: direct, matchedText };
-  return { tone: 'education_first', matchCount: education, matchedText };
+  if (best === education) return { tone: 'education_first', matchCount: education, matchedText };
+  if (best === meaningAnchored) return { tone: 'meaning_anchored', matchCount: meaningAnchored, matchedText };
+  if (best === adaptive) return { tone: 'adaptive', matchCount: adaptive, matchedText };
+  return { tone: 'autonomous', matchCount: autonomous, matchedText };
 }
 
 function inferDetailPreference(historyPairs: FeedHistoryPair[]): {

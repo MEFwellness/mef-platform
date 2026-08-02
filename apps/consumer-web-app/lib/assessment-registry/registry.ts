@@ -704,6 +704,72 @@ const LIFE_SIGNAL_CHECK: AssessmentDefinition = {
   safetyCategory: 'none',
 };
 
+/**
+ * Readiness Pulse — free-tier Experience 3 (migration 141), the final
+ * conversation of the free arc, on the Unified Adaptive Assessment
+ * Runtime. Second assessment (after Life Signal Check) to populate
+ * prerequisites.prerequisiteKeys for real, server-enforced gating.
+ */
+const READINESS_PULSE: AssessmentDefinition = {
+  databaseId: '76e12c62-fb0d-478b-8543-c0693690e912',
+  key: 'readiness-pulse',
+  type: 'intake_questionnaire',
+
+  displayName: 'Readiness Pulse',
+  shortDescription:
+    'Nine questions that find out, honestly and with zero judgment, whether you are actually ready to act on what the first two conversations found.',
+  category: 'behavior_change',
+  estimatedMinutes: 4,
+
+  membership: {
+    minLevel: 'free_trial',
+    allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
+  },
+  program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
+  prerequisites: { prerequisiteKeys: ['life-signal-check'], unlockRule: null, recommendationRule: null },
+  relatedAssessmentKeys: ['core-values-snapshot', 'life-signal-check'],
+  clinicalPriority: 'low',
+  coach: { approvalRequired: false, assignmentSupported: true, coachReviewRequired: false },
+  retake: { retakeAllowed: true, retakeWaitingPeriodDays: 0 },
+  reassessment: {
+    supportsReassessment: true,
+    stages: [],
+    schedule: 'Member-initiated retake, no fixed cadence — same as every other live assessment today.',
+  },
+  comparison: {
+    supportsSimpleHistory: true,
+    supportsScoreTrend: false,
+    supportsSideBySideComparison: false,
+    supportsQuestionLevelComparison: false,
+  },
+  resultAccess: {
+    memberCanView: true,
+    requiresCoachPublishToView: false,
+    coachCanView: true,
+    adminCanView: true,
+  },
+
+  currentVersion: 1,
+  versionLockingRequired: false,
+
+  isActive: true,
+  implementationStatus: 'live',
+  isComingSoon: false,
+
+  route: '/assessments/readiness-pulse',
+  takeRoute: '/assessments/readiness-pulse/take',
+  resultRoute: '/assessments/readiness-pulse/results/[sessionId]',
+  componentRef: 'components/readiness-pulse/ReadinessPulseTaker.tsx',
+  introCopyRef: 'lib/readiness-pulse/copy.ts',
+
+  scoringAdapter: 'unified-runtime-findings',
+  resultAdapter: 'readiness-pulse-results',
+  storageAdapter: 'unified-assessment-runtime-tables',
+
+  displayOrder: 0.6,
+  safetyCategory: 'none',
+};
+
 const ASSESSMENT_REGISTRY: Record<AssessmentKey, AssessmentDefinition> = {
   'onboarding-health-history': ONBOARDING,
   'chek-hlc1-nutrition-lifestyle': CHEK_HLC1,
@@ -716,6 +782,7 @@ const ASSESSMENT_REGISTRY: Record<AssessmentKey, AssessmentDefinition> = {
   wbsa: WBSA,
   'core-values-snapshot': CORE_VALUES_SNAPSHOT,
   'life-signal-check': LIFE_SIGNAL_CHECK,
+  'readiness-pulse': READINESS_PULSE,
 };
 
 export function getAssessmentRegistryEntry(key: AssessmentKey): AssessmentDefinition {

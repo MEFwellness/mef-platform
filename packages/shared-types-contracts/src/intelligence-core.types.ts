@@ -96,7 +96,15 @@ export interface WellnessProfileDimension {
   updated_at: string;
 }
 
-export type CoachingTonePreference = 'encouragement' | 'direct' | 'education_first' | 'unclear';
+/** 'meaning_anchored'/'adaptive'/'autonomous' added for Readiness Pulse's own Question 5 (migration 141) — an explicit member-stated hypothetical mapping onto four distinct coaching styles, only one of which ('direct') the deterministic keyword classifier already produced. Additive extension, same single wellness_coaching_style_profile table, no competing store. */
+export type CoachingTonePreference =
+  | 'encouragement'
+  | 'direct'
+  | 'education_first'
+  | 'meaning_anchored'
+  | 'adaptive'
+  | 'autonomous'
+  | 'unclear';
 export type CoachingDetailPreference = 'brief' | 'detailed' | 'unclear';
 export type CoachingTaskLoadPreference = 'single_focus' | 'multi_task_ok' | 'unclear';
 

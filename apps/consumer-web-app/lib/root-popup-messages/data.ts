@@ -24,6 +24,11 @@ export function lscPopupMessageKey(kind: 'day3' | 'day7' | 'offer', experimentOr
   return `lsc_${kind}:${experimentOrSessionId}`;
 }
 
+/** Same shape as cvsPopupMessageKey/lscPopupMessageKey, for Readiness Pulse's own day-3/day-7 follow-ups and start-it-later offer. */
+export function rplPopupMessageKey(kind: 'day3' | 'day7' | 'offer', experimentOrSessionId: string): string {
+  return `rpl_${kind}:${experimentOrSessionId}`;
+}
+
 export async function getRootPopupDismissal(
   supabase: SupabaseClient,
   memberId: string,

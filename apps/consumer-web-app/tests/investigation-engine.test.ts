@@ -81,6 +81,7 @@ describe('registry.ts INVESTIGATION_METADATA', () => {
         'wbsa',
         'core-values-snapshot',
         'life-signal-check',
+        'readiness-pulse',
       ].sort()
     );
   });

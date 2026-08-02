@@ -32,7 +32,6 @@
  *    this screen is reached once per completed Life Signal Check.
  */
 
-import { CheckCircle2 } from 'lucide-react';
 import { CVS_DISPLAY_FONT, CVS_GOLD, CVS_GOLD_DIVIDER } from '@/components/core-values-snapshot/theme';
 import { IntroReveal } from '@/components/IntroReveal';
 import {
@@ -59,6 +58,7 @@ type Props = {
   scoring: LscScoring;
   didStartExperiment: boolean;
   narrativeItems: NarrativeCard[];
+  onStartReadinessPulse: () => void;
   onLater: () => void;
 };
 
@@ -139,7 +139,7 @@ const OBSERVATION_DELAY_MS = REINFORCEMENT_DELAY_MS + STEP_MS;
 const KNOWS_DELAY_MS = OBSERVATION_DELAY_MS + STEP_MS;
 const HANDOFF_DELAY_MS = KNOWS_DELAY_MS + STEP_MS;
 
-export function LscCloseScreen({ sessionId, scoring, didStartExperiment, narrativeItems, onLater }: Props) {
+export function LscCloseScreen({ sessionId, scoring, didStartExperiment, narrativeItems, onStartReadinessPulse, onLater }: Props) {
   const play = useCloseScreenReveal(`lsc:${sessionId}`);
   const observation = buildLscRootObservation(scoring);
   const observationCardRevealed = useDelayedReveal(play, OBSERVATION_DELAY_MS);
@@ -186,14 +186,10 @@ export function LscCloseScreen({ sessionId, scoring, didStartExperiment, narrati
         <div className="mt-5 space-y-3">
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            title="Coming soon"
-            className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border px-6 py-4 text-center text-sm font-semibold"
-            style={{ borderColor: `${CVS_GOLD}55`, color: '#8A7A4E', backgroundColor: '#FDF9EF' }}
+            onClick={onStartReadinessPulse}
+            className="mef-focus-ring block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
           >
-            <CheckCircle2 className="h-4 w-4 opacity-60" strokeWidth={1.75} aria-hidden="true" />
-            {LSC_HANDOFF.primaryButton} · Coming soon
+            {LSC_HANDOFF.primaryButton}
           </button>
           <button
             type="button"

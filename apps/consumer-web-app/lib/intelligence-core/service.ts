@@ -329,6 +329,12 @@ function coachingStyleGuidanceText(style: CoachingStyleComputation): string | nu
     parts.push('Be direct and concise rather than softening with extra framing.');
   } else if (style.tonePreference === 'education_first') {
     parts.push('Briefly explain the "why" before the suggestion.');
+  } else if (style.tonePreference === 'meaning_anchored') {
+    parts.push('When encouragement is needed, reconnect it to why they started rather than just cheerleading the task.');
+  } else if (style.tonePreference === 'adaptive') {
+    parts.push('When something slips, shrink the ask before dropping it — offer a smaller version rather than the same size again.');
+  } else if (style.tonePreference === 'autonomous') {
+    parts.push('Give room rather than chasing — note it once, then let them come back on their own instead of repeated check-ins.');
   }
 
   if (style.detailPreference === 'brief') {

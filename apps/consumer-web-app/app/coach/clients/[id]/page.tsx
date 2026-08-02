@@ -54,6 +54,7 @@ import { getClientBodyAssessmentsAction } from '@/app/actions/body-assessment';
 import { getClientWbsaSessionsAction } from '@/app/actions/wbsa';
 import { getClientCvsSessionsAction } from '@/app/actions/coreValuesSnapshot';
 import { getClientLscSessionsAction } from '@/app/actions/lifeSignalCheck';
+import { getClientRplSessionsAction } from '@/app/actions/readinessPulse';
 import { getClientAssessmentAssignments } from '@/app/actions/assessmentAssignments';
 import {
   getClientMovementProfile,
@@ -90,6 +91,7 @@ import { BodyAssessmentPanel } from './BodyAssessmentPanel';
 import { WbsaPanel } from './WbsaPanel';
 import { CoreValuesSnapshotPanel } from './CoreValuesSnapshotPanel';
 import { LifeSignalCheckPanel } from './LifeSignalCheckPanel';
+import { ReadinessPulsePanel } from './ReadinessPulsePanel';
 import { AssessmentAssignmentPanel } from './AssessmentAssignmentPanel';
 import { MovementProfilePanel } from './MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
@@ -199,6 +201,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     wbsaSessions,
     cvsSessions,
     lscSessions,
+    rplSessions,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -232,6 +235,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientWbsaSessionsAction(profile.id),
     getClientCvsSessionsAction(profile.id),
     getClientLscSessionsAction(profile.id),
+    getClientRplSessionsAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -563,6 +567,13 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               Unified Adaptive Assessment Runtime. Same summary-list +
               full-detail-on-its-own-page split as Core Values Snapshot above. */}
           <LifeSignalCheckPanel clientId={profile.id} sessions={lscSessions} />
+
+          {/* Readiness Pulse — free-tier Experience 3, the final
+              conversation of the free arc, also on the Unified Adaptive
+              Assessment Runtime. Same summary-list + full-detail-on-its-
+              own-page split as Core Values Snapshot/Life Signal Check
+              above. */}
+          <ReadinessPulsePanel clientId={profile.id} sessions={rplSessions} />
 
           {/* Movement Profile — permanent movement record + Pending Coach
               Review worklist (Member Exercise Experience & Movement

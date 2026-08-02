@@ -185,4 +185,40 @@ describe('computeCoachingStyle', () => {
     const withoutObservation = computeCoachingStyle([], [], [], null);
     expect(withoutObservation.timeCommitmentSweetSpotMinutes).toBeNull();
   });
+
+  // Readiness Pulse's own Question 5 (migration 141) added three new
+  // tone_preference values with their own keyword coverage in
+  // coachingStyle.ts, so the profile keeps recomputing the same tone from
+  // any future coaching_preferences narrative text using this language,
+  // not only from the one-time direct write in
+  // lib/readiness-pulse/coachingStyleWrite.ts.
+  it('infers a meaning_anchored tone preference from coaching_preferences narrative text', () => {
+    const style = computeCoachingStyle(
+      [],
+      [narrativeItem({ summary: 'When something slips, remind me why I started.' })],
+      [],
+      null
+    );
+    expect(style.tonePreference).toBe('meaning_anchored');
+  });
+
+  it('infers an adaptive tone preference from coaching_preferences narrative text', () => {
+    const style = computeCoachingStyle(
+      [],
+      [narrativeItem({ summary: 'When something slips, shrink it, make tomorrow smaller.' })],
+      [],
+      null
+    );
+    expect(style.tonePreference).toBe('adaptive');
+  });
+
+  it('infers an autonomous tone preference from coaching_preferences narrative text', () => {
+    const style = computeCoachingStyle(
+      [],
+      [narrativeItem({ summary: 'Say nothing, I will come back on my own.' })],
+      [],
+      null
+    );
+    expect(style.tonePreference).toBe('autonomous');
+  });
 });

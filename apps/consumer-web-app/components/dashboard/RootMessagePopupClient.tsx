@@ -28,13 +28,15 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CVS_DAY3_OPTIONS, cvsDay3FollowUpText, cvsDay3ReflectionText, cvsDay7FollowUpText, buildExperimentTheoryCopy } from '@/lib/core-values-snapshot/copy';
 import { lscDay3FollowUpText, lscDay3ReflectionText, lscDay7FollowUpText, buildLscExperimentTheoryCopy } from '@/lib/life-signal-check/copy';
+import { rplDay3FollowUpText, rplDay3ReflectionText, rplDay7FollowUpText, rplNoticingDay7Text, rplExperimentIntroCopy } from '@/lib/readiness-pulse/copy';
 import { acknowledgeCvsDay7Action, submitCvsDay3ResponseAction, startCvsExperimentAction } from '@/app/actions/coreValuesSnapshot';
 import { acknowledgeLscDay7Action, submitLscDay3ResponseAction, startLscExperimentAction } from '@/app/actions/lifeSignalCheck';
+import { acknowledgeRplDay7Action, submitRplDay3ResponseAction, startRplExperimentAction } from '@/app/actions/readinessPulse';
 import { snoozeRootPopupMessageAction, ignoreRootPopupMessageAction, type RootPopupMessage } from '@/app/actions/rootPopupMessages';
 import { classifyDay7Pattern, type Day3Response } from '@/lib/core-values-snapshot/experiment';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
-type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' }>;
+type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
@@ -74,7 +76,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // fields on all four remaining variants, never on the two offer kinds.
   const day3Or7Message = message as Exclude<RootPopupMessage, OfferMessage>;
 
-  const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3';
+  const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' || day3Or7Message.kind === 'rpl_day3';
 
   function handleMaybeLater() {
     setClosed(true);
@@ -96,7 +98,9 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
       const result =
         day3Or7Message.kind === 'cvs_day3'
           ? await submitCvsDay3ResponseAction(day3Or7Message.experimentId, value)
-          : await submitLscDay3ResponseAction(day3Or7Message.experimentId, value);
+          : day3Or7Message.kind === 'lsc_day3'
+            ? await submitLscDay3ResponseAction(day3Or7Message.experimentId, value)
+            : await submitRplDay3ResponseAction(day3Or7Message.experimentId, value);
       if (!result.ok) {
         setError(result.error ?? 'Could not save that.');
         return;
@@ -112,7 +116,9 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
       const result =
         day3Or7Message.kind === 'cvs_day7'
           ? await acknowledgeCvsDay7Action(day3Or7Message.experimentId)
-          : await acknowledgeLscDay7Action(day3Or7Message.experimentId);
+          : day3Or7Message.kind === 'lsc_day7'
+            ? await acknowledgeLscDay7Action(day3Or7Message.experimentId)
+            : await acknowledgeRplDay7Action(day3Or7Message.experimentId);
       if (!result.ok) {
         setError(result.error ?? 'Could not save that.');
         return;
@@ -150,7 +156,9 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
             <p className="relative mt-3 text-[16px] leading-relaxed text-[#F5F0E4]">
               {day3Or7Message.kind === 'cvs_day3'
                 ? cvsDay3ReflectionText(day3Response as Day3Response)
-                : lscDay3ReflectionText(day3Response as Day3Response)}
+                : day3Or7Message.kind === 'lsc_day3'
+                  ? lscDay3ReflectionText(day3Response as Day3Response)
+                  : rplDay3ReflectionText(day3Response as Day3Response)}
             </p>
             <button
               type="button"
@@ -167,14 +175,20 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
                 ? cvsDay3FollowUpText(day3Or7Message.topLabelText)
                 : day3Or7Message.kind === 'lsc_day3'
                   ? lscDay3FollowUpText(day3Or7Message.topLabelText)
-                  : day3Or7Message.kind === 'cvs_day7'
-                    ? cvsDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)
-                    : lscDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)}
+                  : day3Or7Message.kind === 'rpl_day3'
+                    ? rplDay3FollowUpText(day3Or7Message.topLabelText)
+                    : day3Or7Message.kind === 'cvs_day7'
+                      ? cvsDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)
+                      : day3Or7Message.kind === 'lsc_day7'
+                        ? lscDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)
+                        : day3Or7Message.topLabelText === 'The Noticing'
+                          ? rplNoticingDay7Text(day3Or7Message.logs.filter((l) => l.completed === true).length)
+                          : rplDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)}
             </p>
 
             {error && <p className="relative mt-3 text-sm text-[#F5B7A0]">{error}</p>}
 
-            {day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' ? (
+            {isDay3 ? (
               <div className="relative mt-5 space-y-2">
                 {CVS_DAY3_OPTIONS.map((option) => (
                   <button
@@ -244,7 +258,14 @@ function RootOfferPopup({ message, onClose }: { message: OfferMessage; onClose: 
   const [error, setError] = useState<string | null>(null);
 
   const theory =
-    message.kind === 'cvs_offer' ? buildExperimentTheoryCopy(message.scoring) : buildLscExperimentTheoryCopy(message.scoring);
+    message.kind === 'cvs_offer'
+      ? buildExperimentTheoryCopy(message.scoring)
+      : message.kind === 'lsc_offer'
+        ? buildLscExperimentTheoryCopy(message.scoring)
+        : (() => {
+            const intro = rplExperimentIntroCopy(message.scoring);
+            return { theory: intro.heading, body: intro.body, button: intro.button, followUpNote: intro.followUpNote };
+          })();
 
   function handleStart() {
     setError(null);
@@ -252,7 +273,9 @@ function RootOfferPopup({ message, onClose }: { message: OfferMessage; onClose: 
       const result =
         message.kind === 'cvs_offer'
           ? await startCvsExperimentAction(message.sessionId, message.scoring.topValue)
-          : await startLscExperimentAction(message.sessionId, message.scoring.chosenSignal);
+          : message.kind === 'lsc_offer'
+            ? await startLscExperimentAction(message.sessionId, message.scoring.chosenSignal)
+            : await startRplExperimentAction(message.sessionId);
       if (!result.ok) {
         setError(result.error);
         return;

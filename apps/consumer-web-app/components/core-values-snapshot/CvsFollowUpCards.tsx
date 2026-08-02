@@ -30,22 +30,27 @@ import {
   cvsDay7FollowUpText,
 } from '@/lib/core-values-snapshot/copy';
 import { lscDay3FollowUpText, lscDay3ReflectionText, lscDay7FollowUpText } from '@/lib/life-signal-check/copy';
+import { rplDay3FollowUpText, rplDay3ReflectionText, rplDay7FollowUpText } from '@/lib/readiness-pulse/copy';
 import { acknowledgeCvsDay7Action, submitCvsDay3ResponseAction } from '@/app/actions/coreValuesSnapshot';
 import { classifyDay7Pattern, type CvsDailyLogRow, type Day3Response } from '@/lib/core-values-snapshot/experiment';
 
-export type FollowUpExperience = 'core-values-snapshot' | 'life-signal-check';
+/** 'readiness-pulse' covers the Ready Now / Ready If It's Small (action-type) and Still Deciding (noticing-type) experiments — Not Yet's own The Noticing experiment uses its own bespoke day-7 component (components/readiness-pulse/RplNotYetDay7.tsx) instead, since only that one pattern needs the build brief's exact tap-count-tiered copy rather than the generic Day7Pattern classification every other experience/pattern shares. */
+export type FollowUpExperience = 'core-values-snapshot' | 'life-signal-check' | 'readiness-pulse';
 
 const DAY3_FOLLOW_UP_TEXT: Record<FollowUpExperience, typeof cvsDay3FollowUpText> = {
   'core-values-snapshot': cvsDay3FollowUpText,
   'life-signal-check': lscDay3FollowUpText,
+  'readiness-pulse': rplDay3FollowUpText,
 };
 const DAY3_REFLECTION_TEXT: Record<FollowUpExperience, typeof cvsDay3ReflectionText> = {
   'core-values-snapshot': cvsDay3ReflectionText,
   'life-signal-check': lscDay3ReflectionText,
+  'readiness-pulse': rplDay3ReflectionText,
 };
 const DAY7_FOLLOW_UP_TEXT: Record<FollowUpExperience, typeof cvsDay7FollowUpText> = {
   'core-values-snapshot': cvsDay7FollowUpText,
   'life-signal-check': lscDay7FollowUpText,
+  'readiness-pulse': rplDay7FollowUpText,
 };
 
 /** Warm gold "waiting on you" accent, shown on the on-page card once a member has tapped "Maybe later" on this same message's pop-up — same amber token as the app's other highlight accents (see WearableWelcomeModal.tsx). */

@@ -400,6 +400,37 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     reassessmentCadence: { kind: 'member_initiated' },
     commonlyUnlocksNextKeys: [],
   },
+  'readiness-pulse': {
+    key: 'readiness-pulse',
+    // A readiness/behavior-change instrument, not a body-system or
+    // symptom screener — identity/purpose and stress are the two
+    // Coaching Domains a capacity-and-willingness readiness read
+    // actually speaks to, same reasoning Core Values Snapshot's own
+    // comment uses for its four.
+    coachingDomains: ['identity_self_concept', 'purpose_motivation', 'stress_nervous_system'],
+    category: 'core',
+    primaryObjective:
+      'Find out, honestly and with zero judgment, whether a member is actually ready to act: derived from real willingness and capacity answers, but her own direct pick always wins.',
+    whyItExists:
+      "The app's free-tier entry point's third and final conversation (Experience 3 of 3): closes the free arc by answering the one question the first two conversations earned, right after Life Signal Check finds what's loudest, per the product's own ordering.",
+    unlockTriggers: [{ kind: 'member_initiated' }],
+    requiredPriorInvestigationKeys: ['life-signal-check'],
+    optionalPriorInvestigationKeys: [],
+    hypothesesInvestigated: [
+      'Whether the member is genuinely ready now, ready if it stays small, still deciding, or not yet, by her own direct pick',
+      'Whether the derived willingness/capacity read agrees with her own pick, and what her stated coaching style and biggest obstacle are',
+    ],
+    confidenceContributionDomains: ['identity_self_concept', 'purpose_motivation', 'stress_nervous_system'],
+    rootModelContribution: {
+      // Deliberately empty — a readiness/behavior-change instrument, not
+      // a symptom instrument, so it produces zero Universal Registry
+      // findings by design (see migration 141's own header comment).
+      registryDomains: [],
+      shape: 'narrative_observation',
+    },
+    reassessmentCadence: { kind: 'member_initiated' },
+    commonlyUnlocksNextKeys: [],
+  },
 };
 
 export function getInvestigationMetadata(key: AssessmentKey): InvestigationMetadata {

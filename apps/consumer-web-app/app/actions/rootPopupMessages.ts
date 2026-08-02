@@ -39,12 +39,15 @@ import { getCachedUser } from '@/lib/supabase/currentUser';
 import { createClient } from '@/lib/supabase/server';
 import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from './coreValuesSnapshot';
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from './lifeSignalCheck';
+import { getMyRplExperimentStatusAction, getMyRplOfferAction } from './readinessPulse';
 import { resolveCvsCheckinPending, type CvsDailyLogRow } from '@/lib/core-values-snapshot/experiment';
 import type { CvsScoring } from '@/lib/core-values-snapshot/types';
 import type { LscScoring } from '@/lib/life-signal-check/types';
+import type { RplScoring } from '@/lib/readiness-pulse/types';
 import {
   cvsPopupMessageKey,
   lscPopupMessageKey,
+  rplPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
   isOfferPopupDue,
@@ -73,7 +76,17 @@ export type RootPopupMessage =
       logs: CvsDailyLogRow[];
       durationDays: number;
     }
-  | { kind: 'lsc_offer'; messageKey: string; sessionId: string; scoring: LscScoring };
+  | { kind: 'lsc_offer'; messageKey: string; sessionId: string; scoring: LscScoring }
+  | { kind: 'rpl_day3'; messageKey: string; experimentId: string; topLabelText: string }
+  | {
+      kind: 'rpl_day7';
+      messageKey: string;
+      experimentId: string;
+      topLabelText: string;
+      logs: CvsDailyLogRow[];
+      durationDays: number;
+    }
+  | { kind: 'rpl_offer'; messageKey: string; sessionId: string; scoring: RplScoring };
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -173,6 +186,46 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     }
   }
 
+  const rplStatus = await getMyRplExperimentStatusAction();
+  const rplPending = rplStatus
+    ? resolveCvsCheckinPending({
+        isDay3Eligible: rplStatus.isDay3Eligible,
+        day3Answered: rplStatus.logs.some((l) => l.day3Response !== null),
+        isDay7Eligible: rplStatus.isDay7Eligible,
+        day7Acknowledged: rplStatus.experiment.day7AcknowledgedAt !== null,
+      })
+    : null;
+
+  if (rplPending === 'day3') {
+    return {
+      kind: 'rpl_day3',
+      messageKey: rplPopupMessageKey('day3', rplStatus!.experiment.id),
+      experimentId: rplStatus!.experiment.id,
+      topLabelText: rplStatus!.experiment.title,
+    };
+  }
+  if (rplPending === 'day7') {
+    return {
+      kind: 'rpl_day7',
+      messageKey: rplPopupMessageKey('day7', rplStatus!.experiment.id),
+      experimentId: rplStatus!.experiment.id,
+      topLabelText: rplStatus!.experiment.title,
+      logs: rplStatus!.logs,
+      durationDays: rplStatus!.experiment.durationDays,
+    };
+  }
+  if (!rplStatus || rplStatus.experiment.status !== 'active') {
+    const offer = await getMyRplOfferAction();
+    if (offer) {
+      return {
+        kind: 'rpl_offer',
+        messageKey: rplPopupMessageKey('offer', offer.sessionId),
+        sessionId: offer.sessionId,
+        scoring: offer.scoring,
+      };
+    }
+  }
+
   return null;
 }
 
@@ -215,7 +268,7 @@ export async function getMyRootPopupMessageAction(): Promise<RootPopupMessage | 
   const supabase = createClient();
   const dismissal = await getRootPopupDismissal(supabase, user.id, message.messageKey);
 
-  if (message.kind === 'cvs_offer' || message.kind === 'lsc_offer') {
+  if (message.kind === 'cvs_offer' || message.kind === 'lsc_offer' || message.kind === 'rpl_offer') {
     return isOfferPopupDue(dismissal) ? message : null;
   }
 

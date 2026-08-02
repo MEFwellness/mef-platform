@@ -48,7 +48,9 @@ export type AssessmentKey =
   /** Core Values Snapshot — free-tier Experience 1, also on the Unified Adaptive Assessment Runtime (migration 134). */
   | 'core-values-snapshot'
   /** Life Signal Check — free-tier Experience 2, also on the Unified Adaptive Assessment Runtime (migration 138). Unlocks only after Core Values Snapshot completes, via prerequisites.prerequisiteKeys below. */
-  | 'life-signal-check';
+  | 'life-signal-check'
+  /** Readiness Pulse — free-tier Experience 3, the final conversation of the free arc, also on the Unified Adaptive Assessment Runtime (migration 141). Unlocks only after Life Signal Check completes. Distinct from the older, unrelated 'readiness-to-change' coming-soon placeholder above (catalog row only, no relation to this experience). */
+  | 'readiness-pulse';
 
 export type AssessmentType =
   /** Structured Q&A, scored, single-select-with-points (the reusable engine's own model). */
@@ -93,7 +95,8 @@ export type ResultAdapterId =
   | 'body-assessment-coach-review'
   | 'wbsa-system-pattern-results'
   | 'core-values-snapshot-results'
-  | 'life-signal-check-results';
+  | 'life-signal-check-results'
+  | 'readiness-pulse-results';
 
 export type StorageAdapterId =
   | 'wellness-assessments-tables'

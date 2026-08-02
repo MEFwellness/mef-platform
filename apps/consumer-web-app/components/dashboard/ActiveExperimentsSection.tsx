@@ -23,15 +23,17 @@
 
 import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from '@/app/actions/coreValuesSnapshot';
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from '@/app/actions/lifeSignalCheck';
+import { getMyRplExperimentStatusAction, getMyRplOfferAction } from '@/app/actions/readinessPulse';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { getMyRootPopupDismissalAction } from '@/app/actions/rootPopupMessages';
 import { localDateFor } from '@/app/actions/rootMap';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { createClient } from '@/lib/supabase/server';
-import { cvsPopupMessageKey, lscPopupMessageKey } from '@/lib/root-popup-messages/data';
+import { cvsPopupMessageKey, lscPopupMessageKey, rplPopupMessageKey } from '@/lib/root-popup-messages/data';
 import { resolveCvsCheckinPending, daysSinceStart } from '@/lib/core-values-snapshot/experiment';
 import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperimentPanel';
 import { LscExperimentPanel } from '@/components/life-signal-check/LscExperimentPanel';
+import { RplExperimentPanel } from '@/components/readiness-pulse/RplExperimentPanel';
 
 // Same zone-heading treatment as every other dashboard section (see the
 // local ZONE_LABEL constant in app/dashboard/page.tsx) — kept as a literal
@@ -66,25 +68,29 @@ function RecommendationExperimentRow({
 }
 
 export async function ActiveExperimentsSection() {
-  const [cvsStatus, lscStatus, allExperiments] = await Promise.all([
+  const [cvsStatus, lscStatus, rplStatus, allExperiments] = await Promise.all([
     getMyCvsExperimentStatusAction(),
     getMyLscExperimentStatusAction(),
+    getMyRplExperimentStatusAction(),
     getMyLifestyleExperiments(),
   ]);
 
   const cvsActive = cvsStatus && cvsStatus.experiment.status === 'active';
   const lscActive = lscStatus && lscStatus.experiment.status === 'active';
+  const rplActive = rplStatus && rplStatus.experiment.status === 'active';
 
-  const [cvsOffer, lscOffer] = await Promise.all([
+  const [cvsOffer, lscOffer, rplOffer] = await Promise.all([
     cvsActive ? Promise.resolve(null) : getMyCvsOfferAction(),
     lscActive ? Promise.resolve(null) : getMyLscOfferAction(),
+    rplActive ? Promise.resolve(null) : getMyRplOfferAction(),
   ]);
 
   const recommendationExperiments = allExperiments.filter(
     (e) => e.status === 'active' && e.recommendationId !== null
   );
 
-  const hasAnything = Boolean(cvsActive || cvsOffer || lscActive || lscOffer) || recommendationExperiments.length > 0;
+  const hasAnything =
+    Boolean(cvsActive || cvsOffer || lscActive || lscOffer || rplActive || rplOffer) || recommendationExperiments.length > 0;
   if (!hasAnything) return null;
 
   let todayLocalDate: string | null = null;
@@ -121,6 +127,20 @@ export async function ActiveExperimentsSection() {
     }
   }
 
+  let rplHighPriority = false;
+  if (rplActive && rplStatus) {
+    const pending = resolveCvsCheckinPending({
+      isDay3Eligible: rplStatus.isDay3Eligible,
+      day3Answered: rplStatus.logs.some((l) => l.day3Response !== null),
+      isDay7Eligible: rplStatus.isDay7Eligible,
+      day7Acknowledged: rplStatus.experiment.day7AcknowledgedAt !== null,
+    });
+    if (pending) {
+      const dismissal = await getMyRootPopupDismissalAction(rplPopupMessageKey(pending, rplStatus.experiment.id));
+      rplHighPriority = dismissal?.status === 'snoozed';
+    }
+  }
+
   return (
     <div>
       <p className={ZONE_LABEL}>Active Experiments</p>
@@ -147,6 +167,13 @@ export async function ActiveExperimentsSection() {
             scoring={lscOffer.scoring}
             initialStatus={null}
           />
+        )}
+
+        {rplActive && rplStatus && (
+          <RplExperimentPanel scoring={null} initialStatus={rplStatus} isHighPriority={rplHighPriority} />
+        )}
+        {!rplActive && rplOffer && (
+          <RplExperimentPanel sessionId={rplOffer.sessionId} scoring={rplOffer.scoring} initialStatus={null} />
         )}
 
         {recommendationExperiments.map((experiment) => (

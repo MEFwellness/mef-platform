@@ -65,6 +65,7 @@ import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
 import { CoachingMessageCard } from '@/components/dashboard/CoachingMessageCard';
 import { ActiveExperimentsSection } from '@/components/dashboard/ActiveExperimentsSection';
+import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { HomeHero } from '@/components/dashboard/HomeHero';
 import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
 import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
@@ -216,6 +217,7 @@ export default async function DashboardPage({
     eveningReflection,
     decision,
     morningBrief,
+    lifestyleExperiments,
   ] = await Promise.all([
     getTodaysCheckin(localDate),
     getRecentCheckins(30),
@@ -224,10 +226,21 @@ export default async function DashboardPage({
     getTodaysEveningReflection(timezone),
     getMyCoachingDecision(timezone),
     getMyMorningBrief(timezone, profile?.display_name),
+    getMyLifestyleExperiments(),
   ]);
 
   const wellnessIndex = calculateWellnessIndex(inputsFromCheckin(todaysCheckin));
   const hasCheckins = recentCheckins.length > 0;
+  // A member who has never checked in but already has a real active
+  // Weekly Experiment (from Core Values Snapshot, Life Signal Check, or
+  // Readiness Pulse — the exact free-arc path this dashboard needs to
+  // serve) still has real, non-empty content: the plain "let's get
+  // started" welcome card would otherwise hide the very experiment they
+  // just started, with no way to find it until they also do an unrelated
+  // daily check-in. Real bug found and fixed while verifying Readiness
+  // Pulse: a fresh member who completes the whole free arc and starts an
+  // experiment saw this empty-state card instead of Active Experiments.
+  const hasActiveExperiment = lifestyleExperiments.some((e) => e.status === 'active');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -244,7 +257,7 @@ export default async function DashboardPage({
       />
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
-        {!hasCheckins ? (
+        {!hasCheckins && !hasActiveExperiment ? (
           /* Premium UX Milestone 2: before a member's first completed
            check-in, Root has nothing real to personalize yet — one
            welcome moment with a single CTA replaces what would
