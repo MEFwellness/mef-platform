@@ -18,8 +18,7 @@ import { getAssessmentTypeConfig } from '@/lib/body-assessment/assessmentTypes';
 import { PendingCoachReviewCard } from './PendingCoachReviewCard';
 import { ClientReportView } from './ClientReportView';
 import { MemberFindingsSummary } from '@/components/body-assessment/MemberFindingsSummary';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 export default async function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -151,7 +150,7 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
 
           {/* Coach review */}
           {latestReview && (latestReview.observations || latestReview.recommendations) && (
-            <section className={`${CARD} p-6`}>
+            <Card>
               <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Your coach&apos;s notes
               </p>
@@ -165,7 +164,7 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
                   {latestReview.recommendations}
                 </p>
               )}
-            </section>
+            </Card>
           )}
         </div>
       </main>

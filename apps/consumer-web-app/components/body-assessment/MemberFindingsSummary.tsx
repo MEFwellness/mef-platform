@@ -24,8 +24,7 @@ import type {
   FindingStatus,
 } from '@mef/shared-types-contracts';
 import { MemberFindingCard, type MemberFindingCopy } from './MemberFindingCard';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 // A member should only ever see a finding a coach has already accepted as
 // worth attention, or one that simply hasn't been ruled out yet — never
@@ -131,7 +130,7 @@ export function MemberFindingsSummary({ findings }: { findings: BodyAssessmentFi
   );
 
   return (
-    <section className={`${CARD} mef-animate-in p-6`}>
+    <Card as="section" className="mef-animate-in">
       <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
         <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         What We Noticed
@@ -161,6 +160,6 @@ export function MemberFindingsSummary({ findings }: { findings: BodyAssessmentFi
         This is a wellness screening based on your photos and videos, not a medical diagnosis. Your
         coach reviews every finding before it becomes part of your plan.
       </p>
-    </section>
+    </Card>
   );
 }

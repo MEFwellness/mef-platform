@@ -2,8 +2,7 @@
 
 import { Check } from 'lucide-react';
 import type { ContextQuestion } from '@/lib/assessments/engine/types';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 type Props = {
   sectionPosition: string;
@@ -27,7 +26,7 @@ export function ContextQuestionCard({
   const legendId = `context-${contextQuestion.key}-legend`;
 
   return (
-    <div className={`${CARD} mef-animate-in p-7`}>
+    <Card className="mef-animate-in">
       <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
         {sectionPosition}
       </p>
@@ -66,6 +65,6 @@ export function ContextQuestionCard({
       {contextQuestion.helperText && (
         <p className="mt-4 text-xs leading-relaxed text-[#6B7A72]">{contextQuestion.helperText}</p>
       )}
-    </div>
+    </Card>
   );
 }

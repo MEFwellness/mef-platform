@@ -4,7 +4,7 @@ import { Sparkles } from 'lucide-react';
 import { IntroReveal } from '@/components/IntroReveal';
 import { IntroRevealFollowUp } from '@/components/IntroRevealFollowUp';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const CARD = 'mef-card'; // Screen Layout System (Prompt 2): standardized card recipe, app/globals.css
 const TITLE = "Let's get started";
 const BODY_LINES = [
   'Root builds everything here (your Daily Brief, your Wellness Index, recovery trends, and daily coaching) from your check-ins.',

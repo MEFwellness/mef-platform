@@ -60,8 +60,7 @@ import { useGuidedVoice } from '@/hooks/useGuidedVoice';
 import { POSE_MODEL_VERSION } from '@/hooks/usePoseLandmarker';
 import { primeBrowserSpeechSynthesis } from '@/lib/speech/browserTextToSpeech';
 import { POSTURE_THRESHOLDS_VERSION } from '@/lib/body-assessment/postureMeasurements';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { CenterStage, Card } from '@/components/layout';
 
 type IntroStep = {
   key: string;
@@ -404,45 +403,49 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
 
   if (checkingResume) {
     return (
-      <div className={`${CARD} flex flex-col items-center gap-3 p-10 text-center`}>
-        <Loader2 className="h-6 w-6 animate-spin text-[#1B3A2D]" aria-hidden="true" />
-      </div>
+      <CenterStage>
+        <Card className="flex flex-col items-center gap-3 text-center">
+          <Loader2 className="h-6 w-6 animate-spin text-[#1B3A2D]" aria-hidden="true" />
+        </Card>
+      </CenterStage>
     );
   }
 
   // ---- Welcome ----
   if (phase === 'welcome') {
     return (
-      <div className={`${CARD} p-8 text-center`}>
-        <Sparkles className="mx-auto h-8 w-8 text-[#6B7A72]" strokeWidth={1.5} aria-hidden="true" />
-        <h2 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
-          {typeConfig.label} Assessment
-        </h2>
-        <p className="mt-3 text-[15px] leading-relaxed text-[#4F645A]">{typeConfig.description}</p>
-        <p className="mt-2 text-xs text-[#9AA79F]">
-          About {typeConfig.estimatedMinutes} minute{typeConfig.estimatedMinutes === 1 ? '' : 's'}
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            // Fire-and-forget: the speechSynthesis mobile-autoplay unlock
-            // only works from within a genuine user-gesture handler like
-            // this one — the camera step itself is reached several taps
-            // later, too late for that requirement. See
-            // primeBrowserSpeechSynthesis()'s docblock; CameraCapture's
-            // voice guidance still detects and recovers from a blocked
-            // state on its own if this priming attempt doesn't hold. The
-            // device-orientation permission request itself now happens
-            // explicitly on the camera_positioning prep screen below, with
-            // a plain-language explanation, rather than silently here.
-            primeBrowserSpeechSynthesis();
-            setPhase('intro');
-          }}
-          className="mt-6 rounded-full bg-[#1B3A2D] px-8 py-3 text-sm font-medium text-white hover:brightness-110"
-        >
-          Begin
-        </button>
-      </div>
+      <CenterStage>
+        <Card className="text-center">
+          <Sparkles className="mx-auto h-8 w-8 text-[#6B7A72]" strokeWidth={1.5} aria-hidden="true" />
+          <h2 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
+            {typeConfig.label} Assessment
+          </h2>
+          <p className="mt-3 text-[15px] leading-relaxed text-[#4F645A]">{typeConfig.description}</p>
+          <p className="mt-2 text-xs text-[#9AA79F]">
+            About {typeConfig.estimatedMinutes} minute{typeConfig.estimatedMinutes === 1 ? '' : 's'}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              // Fire-and-forget: the speechSynthesis mobile-autoplay unlock
+              // only works from within a genuine user-gesture handler like
+              // this one — the camera step itself is reached several taps
+              // later, too late for that requirement. See
+              // primeBrowserSpeechSynthesis()'s docblock; CameraCapture's
+              // voice guidance still detects and recovers from a blocked
+              // state on its own if this priming attempt doesn't hold. The
+              // device-orientation permission request itself now happens
+              // explicitly on the camera_positioning prep screen below, with
+              // a plain-language explanation, rather than silently here.
+              primeBrowserSpeechSynthesis();
+              setPhase('intro');
+            }}
+            className="mt-6 rounded-full bg-[#1B3A2D] px-8 py-3 text-sm font-medium text-white hover:brightness-110"
+          >
+            Begin
+          </button>
+        </Card>
+      </CenterStage>
     );
   }
 
@@ -451,7 +454,8 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
     const step = INTRO_STEPS[introIndex]!;
     const Icon = step.icon;
     return (
-      <div className={`${CARD} p-8`}>
+      <CenterStage>
+      <Card>
         <Icon className="h-7 w-7 text-[#6B7A72]" strokeWidth={1.5} aria-hidden="true" />
         <h2 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
           {step.title}
@@ -564,7 +568,8 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
             {introIndex + 1 < INTRO_STEPS.length ? 'Next' : "Let's go"}
           </button>
         </div>
-      </div>
+      </Card>
+      </CenterStage>
     );
   }
 
@@ -582,10 +587,10 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
           </p>
         </div>
         {busy ? (
-          <div className={`${CARD} flex flex-col items-center gap-3 p-10`}>
+          <Card className="flex flex-col items-center gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-[#1B3A2D]" aria-hidden="true" />
             <p className="text-sm text-[#6B7A72]">Saving your capture…</p>
-          </div>
+          </Card>
         ) : (
           <CameraCapture
             step={step}
@@ -603,7 +608,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
   // ---- Review ----
   if (phase === 'review') {
     return (
-      <div className={`${CARD} p-6`}>
+      <Card>
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <ShieldCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Review your captures</p>
@@ -654,35 +659,39 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
         >
           Submit assessment
         </button>
-      </div>
+      </Card>
     );
   }
 
   // ---- Submitting / processing ----
   if (phase === 'submitting') {
     return (
-      <div className={`${CARD} flex flex-col items-center gap-3 p-10 text-center`}>
-        <Loader2 className="h-7 w-7 animate-spin text-[#1B3A2D]" aria-hidden="true" />
-        <p className="text-sm font-medium text-[#1B3A2D]">Submitting your assessment…</p>
-        <p className="text-xs text-[#6B7A72]">Preparing your results.</p>
-      </div>
+      <CenterStage>
+        <Card className="flex flex-col items-center gap-3 text-center">
+          <Loader2 className="h-7 w-7 animate-spin text-[#1B3A2D]" aria-hidden="true" />
+          <p className="text-sm font-medium text-[#1B3A2D]">Submitting your assessment…</p>
+          <p className="text-xs text-[#6B7A72]">Preparing your results.</p>
+        </Card>
+      </CenterStage>
     );
   }
 
   // ---- Error ----
   return (
-    <div className={`${CARD} p-8 text-center`}>
-      <Trash2 className="mx-auto h-6 w-6 text-red-600" strokeWidth={1.5} aria-hidden="true" />
-      <p className="mt-3 text-sm text-[#1B3A2D]">
-        {errorMessage ?? 'Something went wrong starting this assessment.'}
-      </p>
-      <button
-        type="button"
-        onClick={() => setPhase('welcome')}
-        className="mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-medium text-white hover:brightness-110"
-      >
-        Try again
-      </button>
-    </div>
+    <CenterStage>
+      <Card className="text-center">
+        <Trash2 className="mx-auto h-6 w-6 text-red-600" strokeWidth={1.5} aria-hidden="true" />
+        <p className="mt-3 text-sm text-[#1B3A2D]">
+          {errorMessage ?? 'Something went wrong starting this assessment.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => setPhase('welcome')}
+          className="mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-medium text-white hover:brightness-110"
+        >
+          Try again
+        </button>
+      </Card>
+    </CenterStage>
   );
 }

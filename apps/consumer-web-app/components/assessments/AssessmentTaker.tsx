@@ -40,6 +40,7 @@ import {
 import { AssessmentProgressBar } from './AssessmentProgressBar';
 import { QuestionCard } from './QuestionCard';
 import { ContextQuestionCard } from './ContextQuestionCard';
+import { CenterStage, Card } from '@/components/layout';
 import type {
   AssessmentContext,
   Questionnaire,
@@ -305,36 +306,38 @@ export function AssessmentTaker({
 
   if (completedResult) {
     return (
-      <div className="mef-animate-in rounded-[28px] bg-white p-8 text-center shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#E8F0EA] text-[#4F7A63]">
-          <CheckCircle2 className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" />
-        </span>
-        <p className="mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
-          Assessment Complete
-        </p>
-        <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-          Your {displayTitle} has been successfully saved.
-        </p>
+      <CenterStage>
+        <Card className="mef-animate-in text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#E8F0EA] text-[#4F7A63]">
+            <CheckCircle2 className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" />
+          </span>
+          <p className="mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
+            Assessment Complete
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
+            Your {displayTitle} has been successfully saved.
+          </p>
 
-        <button
-          type="button"
-          onClick={() =>
-            router.push(
-              `/assessments/${toPublicSlug(questionnaire.id)}/results/${completedResult.record.id}` as Route
-            )
-          }
-          className="mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-        >
-          View My Results
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push('/dashboard' as Route)}
-          className="mef-focus-ring mt-3 block w-full rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
-        >
-          Return to Dashboard
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() =>
+              router.push(
+                `/assessments/${toPublicSlug(questionnaire.id)}/results/${completedResult.record.id}` as Route
+              )
+            }
+            className="mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+          >
+            View My Results
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard' as Route)}
+            className="mef-focus-ring mt-3 block w-full rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+          >
+            Return to Dashboard
+          </button>
+        </Card>
+      </CenterStage>
     );
   }
 

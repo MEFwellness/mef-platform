@@ -2,8 +2,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { ChevronRight, ClipboardList } from 'lucide-react';
 import type { AssessmentSummary } from '@/lib/onboarding/reassessment';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 function formatDate(localDate: string): string {
   const [year, month, day] = localDate.split('-').map(Number);
@@ -25,9 +24,9 @@ type Props = {
 export function AssessmentHistoryList({ history, baselineHref, reassessmentHref }: Props) {
   if (history.length === 0) {
     return (
-      <section className={`${CARD} p-6`}>
+      <Card as="section">
         <p className="text-sm text-[#6B7A72]">No assessments on file yet.</p>
-      </section>
+      </Card>
     );
   }
 
@@ -35,7 +34,7 @@ export function AssessmentHistoryList({ history, baselineHref, reassessmentHref 
   const mostRecentFirst = [...history].reverse();
 
   return (
-    <section className={`${CARD} p-6`}>
+    <Card as="section">
       <div className="flex items-center gap-2 text-[#6B7A72]">
         <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Assessment History</p>
@@ -65,6 +64,6 @@ export function AssessmentHistoryList({ history, baselineHref, reassessmentHref 
           );
         })}
       </div>
-    </section>
+    </Card>
   );
 }

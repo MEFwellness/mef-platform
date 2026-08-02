@@ -3,8 +3,7 @@ import type { Route } from 'next';
 import { TrendingUp, TrendingDown, Minus, Sparkles, Target, Gauge, ArrowRight } from 'lucide-react';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import type { ComparisonMetric, ProgressSummary } from '@/lib/onboarding/comparison';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 function DirectionBadge({ direction }: { direction: ComparisonMetric['direction'] }) {
   if (direction === null) {
@@ -85,7 +84,7 @@ type Props = {
 export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props) {
   if (!hasLatest) {
     return (
-      <section className={`${CARD} p-6`}>
+      <Card as="section">
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">
@@ -102,13 +101,13 @@ export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props)
           Go to Questionnaires
           <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
         </Link>
-      </section>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-5">
-      <section className={`${CARD} p-6`}>
+      <Card as="section">
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <Target className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Progress Summary</p>
@@ -180,9 +179,9 @@ export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props)
           This summary reflects self-reported assessment answers only. It is a coaching guide, not a
           medical evaluation.
         </p>
-      </section>
+      </Card>
 
-      <section className={`${CARD} p-6`}>
+      <Card as="section">
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">
@@ -194,7 +193,7 @@ export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props)
             <MetricRow key={metric.key} metric={metric} />
           ))}
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

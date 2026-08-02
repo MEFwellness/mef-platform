@@ -1,7 +1,6 @@
 import type { BodyAssessmentComparison } from '@mef/shared-types-contracts';
 import { FINDING_TYPE_CONFIG } from '@/lib/body-assessment/findings';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 const TREND_BADGE: Record<string, string> = {
   improved: 'bg-emerald-50 text-emerald-700',
@@ -23,7 +22,7 @@ export function ComparisonSummary({ rows }: { rows: BodyAssessmentComparison[] }
   const dimensionRows = rows.filter((r) => r.dimension !== 'overall');
 
   return (
-    <section className={`${CARD} p-6`}>
+    <Card as="section">
       <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
         Progress since your last assessment
       </p>
@@ -62,6 +61,6 @@ export function ComparisonSummary({ rows }: { rows: BodyAssessmentComparison[] }
           ))}
         </ul>
       )}
-    </section>
+    </Card>
   );
 }

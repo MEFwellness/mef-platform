@@ -138,7 +138,7 @@ export function GoalProgressChart({
   }
 
   return (
-    <div className="rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
+    <div className="mef-card p-6">
       <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">Your progress</p>
 
       {goalProgress.points.length === 0 ? (

@@ -1054,3 +1054,211 @@
 .pb-safe-chat {
   padding-bottom: calc(9rem + env(safe-area-inset-bottom));
 }
+
+/*
+ * ============================================================
+ * SCREEN LAYOUT SYSTEM — spacing, reading-width, and card tokens (Prompt 2)
+ * ============================================================
+ * Per docs/motion-experience-bible.md §2 (Screen Classification), §6
+ * (Information Density Rules), and the Prompt 2 spec (spacing scale,
+ * vertical centering, reading width, card sizing).
+ *
+ * This is deliberately NOT a replacement for Tailwind's own spacing
+ * scale (p-4, gap-2, mt-6, etc.) — that scale is already a consistent,
+ * 4px-based token system and is already the dominant, load-bearing
+ * pattern across this codebase (e.g. gap-2/mt-2 and p-6/px-6 are each
+ * used hundreds of times). Re-deriving hundreds of individual Tailwind
+ * utility calls into new semantic names would be pure churn with zero
+ * visual change and real regression risk. What *was* missing, and is
+ * what this block adds, is the layer above individual utilities: the
+ * handful of layout-level constants (page padding, card padding/radius,
+ * reading width, section rhythm) that every screen previously
+ * reinvented per-file as its own bespoke `const SHELL =`/`const CARD =`
+ * string (e.g. app/onboarding/page.tsx before this prompt). Each value
+ * below is the real, already-dominant value for its role, found by
+ * grepping actual usage app-wide — not invented.
+ */
+:root {
+  /* Base spacing steps — every layout constant below is expressed as one
+     of these, and any future one-off layout value should be too. */
+  --mef-space-3xs: 0.25rem; /* 4px */
+  --mef-space-2xs: 0.5rem; /* 8px  — matches the app's single most common gap/margin (gap-2 / mt-2) */
+  --mef-space-xs: 0.75rem; /* 12px — matches gap-3 */
+  --mef-space-sm: 1rem; /* 16px — matches p-4 / px-4 */
+  --mef-space-md: 1.25rem; /* 20px — matches px-5, the small-phone page margin */
+  --mef-space-lg: 1.5rem; /* 24px — matches p-6 / px-6, the app's single most common card/page padding */
+  --mef-space-xl: 2rem; /* 32px */
+  --mef-space-2xl: 2.5rem; /* 40px — matches p-10 / px-10 */
+  --mef-space-3xl: 4rem; /* 64px — section-level rhythm, large-viewport page padding */
+
+  /* Semantic aliases — reference these in new layout work instead of a
+     bare step, so the role (not just the number) stays legible. */
+  --mef-space-page-x: var(--mef-space-md); /* 20px on small phones, widened by .mef-page responsive rule below */
+  --mef-space-page-y: var(--mef-space-xl);
+  --mef-space-card-padding: var(--mef-space-lg);
+  --mef-space-card-gap: var(--mef-space-sm);
+  --mef-space-section-gap: var(--mef-space-xl);
+
+  /* Reading width — body copy must never stretch uncomfortably wide.
+     42rem (672px) matches the app's existing max-w-2xl, already the
+     second-most-used max-width in the codebase for text-bearing
+     content, and sits right at the ~65-75ch comfortable reading
+     measure for this app's body type sizes. */
+  --mef-reading-max-width: 42rem;
+  /* Narrow single-column measure for forms/Moment copy blocks — matches
+     the app's single most-used max-width (max-w-md, 126 call sites). */
+  --mef-narrow-max-width: 28rem;
+  /* Wide measure for dashboard/reference-grid Tool screens. */
+  --mef-wide-max-width: 64rem;
+
+  /* Card sizing — matches the CARD const already hand-copied into
+     multiple screens (e.g. app/onboarding/OnboardingIntro.tsx,
+     app/onboarding/page.tsx) before this prompt formalized it once. */
+  --mef-radius-card: 28px;
+  --mef-radius-control: 1rem; /* 16px, matches rounded-2xl, the app's second most-used radius */
+  --mef-card-shadow: 0 2px 24px -4px rgba(27, 58, 45, 0.1);
+}
+
+/*
+ * Every class below lives inside `@layer components` — Tailwind v4's own
+ * `@import 'tailwindcss'` (top of this file) declares the layer order
+ * `theme, base, components, utilities` (confirmed in
+ * node_modules/tailwindcss/index.css), with `components` deliberately
+ * left empty for exactly this purpose. Per the CSS Cascade Layers spec,
+ * ANY rule in a later-declared layer beats ANY rule in an earlier one
+ * regardless of specificity or source order — so declaring these rules
+ * unlayered (the first draft of this block did) was a real bug: an
+ * unlayered rule always outranks a layered one, meaning `.mef-card`'s
+ * own padding would have always beaten a same-element `px-10 py-12`
+ * Tailwind override, no matter what. Placing these rules in
+ * `@layer components` instead means every Tailwind utility class
+ * (`p-6`, `rounded-2xl`, `hover:shadow-*`, all in Tailwind's `utilities`
+ * layer) can always override a property set here — exactly the
+ * "provide a sane default, let a real utility win when paired" contract
+ * a reusable primitive needs. See PageBenefitCard in
+ * app/welcome/WelcomeFlow.tsx (`mef-card px-10 py-12`) for a real
+ * example this fixes. (`:where()` is kept below too, belt-and-suspenders
+ * for the same intent, but the `@layer` placement is what actually makes
+ * the override work.)
+ */
+@layer components {
+  /*
+   * `.mef-card` — the one card recipe. Reserve for a real card container
+   * (a bordered/shadowed block presenting one grouped idea), not a bare
+   * div. Bible §"CARD SIZING RULES": same type, same look, everywhere.
+   */
+  .mef-card {
+    border-radius: var(--mef-radius-card);
+    background: #fff;
+    box-shadow: var(--mef-card-shadow);
+  }
+
+  :where(.mef-card) {
+    padding: var(--mef-space-card-padding);
+  }
+
+  @media (max-width: 380px) {
+    /* iPhone SE-class small phones: comfortable, not cramped — pull card
+       padding in one step rather than letting a 24px pad eat the screen. */
+    :where(.mef-card) {
+      padding: var(--mef-space-sm);
+    }
+  }
+
+  /*
+   * `.mef-card-elevated` — the one "main event" card variant: a signature
+   * moment's celebration/reinforcement card, one per screen, with every
+   * other card on that same screen staying at the plain `.mef-card` so the
+   * difference actually reads as elevation. Formalizes a recipe that
+   * already existed as `CVS_CARD_ELEVATED` (components/core-values-snapshot/theme.ts,
+   * used by Core Values Snapshot / Life Signal Check / Readiness Pulse /
+   * Reset Plan closing screens) before this token pass — not a new look.
+   */
+  .mef-card-elevated {
+    border-radius: 32px;
+    background: #fff;
+    box-shadow: 0 10px 36px -8px rgba(27, 58, 45, 0.2);
+  }
+
+  :where(.mef-card-elevated) {
+    padding: var(--mef-space-card-padding);
+  }
+
+  @media (max-width: 380px) {
+    :where(.mef-card-elevated) {
+      padding: var(--mef-space-sm);
+    }
+  }
+
+  /* Stack of same-type cards — consistent gap, not a per-screen mt-4/mt-5/mt-6 guess. */
+  :where(.mef-card-stack > * + *) {
+    margin-top: var(--mef-space-card-gap);
+  }
+
+  /*
+   * `.mef-page` — standard page shell padding. Responsive per Prompt 2
+   * requirement 6: comfortable on small phones, not sparse/stretched on
+   * large phones or tablet widths.
+   */
+  :where(.mef-page) {
+    padding-left: var(--mef-space-page-x);
+    padding-right: var(--mef-space-page-x);
+    padding-top: var(--mef-space-page-y);
+    padding-bottom: var(--mef-space-page-y);
+  }
+
+  @media (min-width: 640px) {
+    :where(.mef-page) {
+      padding-left: var(--mef-space-lg);
+      padding-right: var(--mef-space-lg);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :where(.mef-page) {
+      padding-left: var(--mef-space-2xl);
+      padding-right: var(--mef-space-2xl);
+      padding-top: var(--mef-space-3xl);
+      padding-bottom: var(--mef-space-3xl);
+    }
+  }
+
+  /*
+   * `.mef-reading` — caps body text at the reading-width token. Apply to
+   * the text block itself, not its containing card/section (which may
+   * legitimately be wider). Deliberately does NOT auto-center: most body
+   * copy in this app's Tool screens is left-aligned under a left-aligned
+   * heading/icon (confirmed while applying this across Progress/Insights/
+   * Case/Food Lens — forcing `margin: auto` there visually detached the
+   * capped paragraph from its own label). Use `.mef-reading-center`
+   * instead for the Moment-style centered-prose case (Welcome/Onboarding/
+   * closing screens).
+   */
+  :where(.mef-reading) {
+    max-width: var(--mef-reading-max-width);
+  }
+
+  :where(.mef-reading-center) {
+    max-width: var(--mef-reading-max-width);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /*
+   * `.mef-center-viewport` — vertical centering for sparse Moment/single-
+   * question screens (Prompt 2 requirement 2). Uses min-height with the
+   * dynamic viewport unit (falls back to vh) so mobile browser chrome
+   * showing/hiding doesn't cause a layout jump, and subtracts nothing by
+   * default — a screen using this as its outermost content wrapper inside
+   * a fixed-chrome layout (bottom nav, etc.) should override
+   * `--mef-center-offset` to that chrome's real height instead of
+   * changing this rule.
+   */
+  .mef-center-viewport {
+    min-height: calc(100vh - var(--mef-center-offset, 0px));
+    min-height: calc(100dvh - var(--mef-center-offset, 0px));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+}

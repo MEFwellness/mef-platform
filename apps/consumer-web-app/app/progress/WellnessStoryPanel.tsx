@@ -1,7 +1,6 @@
 import { Compass, Sparkles, Target, TrendingUp } from 'lucide-react';
 import type { MemberWellnessStorySummary } from '@/lib/intelligence-core/types';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { CardStack } from '@/components/layout';
 
 /**
  * "Your Wellness Story" — the Intelligence Core's strengths/opportunities/
@@ -25,21 +24,28 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
   }
 
   return (
-    <div className="mt-5 space-y-5">
+    <CardStack className="mt-5">
       {hasNarrative && (
-        <section className={`${CARD} mef-animate-in p-7`}>
+        <section className="mef-card mef-animate-in p-7">
           <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Where You Are Right Now
           </p>
-          <p className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-[1.35rem] leading-relaxed text-[#1B3A2D]">
+          {/* Reading width (Prompt 2), capped without the component's usual
+              auto-centering: this card sits inside /progress's own
+              md:max-w-5xl shell, and this large-type narrative line is pure
+              prose that would otherwise stretch into an uncomfortable
+              measure at tablet/desktop widths. Not using <Reading> itself
+              since its centering would misalign this line against the
+              flush-left label directly above it. */}
+          <p className="mt-3 max-w-[var(--mef-reading-max-width)] font-[family-name:var(--font-cormorant-garamond)] text-[1.35rem] leading-relaxed text-[#1B3A2D]">
             {summary.longTermTrendSummary ?? summary.motivationProfile}
           </p>
         </section>
       )}
 
       {hasPriority && (
-        <section className={`${CARD} mef-animate-in p-6`}>
+        <section className="mef-card mef-animate-in p-6">
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <Target className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Your Focus</p>
@@ -62,7 +68,7 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
       )}
 
       {(hasStrengths || hasOpportunities) && (
-        <section className={`${CARD} mef-animate-in p-6`}>
+        <section className="mef-card mef-animate-in p-6">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             {hasStrengths && (
               <div>
@@ -99,7 +105,7 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
       )}
 
       {hasWins && (
-        <section className={`${CARD} mef-animate-in p-6`}>
+        <section className="mef-card mef-animate-in p-6">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Recent Wins
           </p>
@@ -112,6 +118,6 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
           </ul>
         </section>
       )}
-    </div>
+    </CardStack>
   );
 }

@@ -11,9 +11,10 @@ export const CVS_FOREST = '#1B3A2D';
 export const CVS_GOLD = '#C4A050';
 export const CVS_CREAM = '#F5F0E4';
 
-export const CVS_CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-/** A step above CVS_CARD — larger radius, deeper shadow — for the one card on a screen that should read as the main event (e.g. the closing screen's celebration/reinforcement card), with every other card on the same screen staying at CVS_CARD so the difference actually reads as elevation, not just "every card got fancier." */
-export const CVS_CARD_ELEVATED = 'rounded-[32px] bg-white shadow-[0_10px_36px_-8px_rgba(27,58,45,0.20)]';
+/** Screen Layout System (Prompt 2): this was already, byte-for-byte, the same recipe app/globals.css's `.mef-card` now formalizes app-wide — pointed at that shared class instead of re-declaring the same radius/shadow literal here, so this family (CVS, Life Signal Check, Readiness Pulse, Reset Plan) automatically stays in sync with the one standard card everywhere else uses. */
+export const CVS_CARD = 'mef-card';
+/** A step above CVS_CARD — larger radius, deeper shadow — for the one card on a screen that should read as the main event (e.g. the closing screen's celebration/reinforcement card), with every other card on the same screen staying at CVS_CARD so the difference actually reads as elevation, not just "every card got fancier." Now backed by `.mef-card-elevated` (app/globals.css), the Screen Layout System's formalization of this same precedent. */
+export const CVS_CARD_ELEVATED = 'mef-card-elevated';
 /** A quiet gold hairline for separating sections within a card without a hard border — used sparingly (the closing screen redesign), not a default card treatment. */
 export const CVS_GOLD_DIVIDER = 'h-px w-full bg-gradient-to-r from-transparent via-[#C4A050]/40 to-transparent';
 export const CVS_DISPLAY_FONT = 'font-[family-name:var(--font-cormorant-garamond)]';

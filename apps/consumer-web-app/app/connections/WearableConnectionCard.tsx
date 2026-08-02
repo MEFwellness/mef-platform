@@ -9,8 +9,7 @@ import {
   disconnectWearableProviderAction,
   syncWearableProviderAction,
 } from '@/app/actions/wearables';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 const PROVIDER_ICON: Record<WearableProviderName, typeof Watch> = {
   oura: Watch,
@@ -57,7 +56,7 @@ export function WearableConnectionCard({
   }
 
   return (
-    <div className={`${CARD} p-6`}>
+    <Card>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#1B3A2D]/[0.06]">
@@ -118,6 +117,6 @@ export function WearableConnectionCard({
       </div>
 
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-    </div>
+    </Card>
   );
 }

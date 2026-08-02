@@ -91,8 +91,6 @@ import {
   painLabel,
 } from '@/lib/energy-forecast/scaleLabels';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 type Segment = {
   key: string;
   label: string;
@@ -298,7 +296,7 @@ export function TrendsPanel({
   const recordedCount = recordedValues(active.points).length;
 
   return (
-    <section className={`${CARD} mt-5 p-6`}>
+    <section className="mef-card mt-5 p-6">
       <div className="flex items-center gap-2 text-[#6B7A72]">
         <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Trends</p>

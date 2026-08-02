@@ -20,8 +20,6 @@ import { getMyLongitudinalPicture } from '@/app/actions/longitudinalIntelligence
 import type { LongitudinalPictureItem } from '@/lib/longitudinal-intelligence/picture';
 import { CoachingInsightCard } from '@/components/coaching-insights/CoachingInsightCard';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 const SECTIONS: Array<{
   category: CoachingInsightView['category'];
   title: string;
@@ -88,11 +86,11 @@ export default async function CoachingInsightsPage() {
         </Link>
 
         {safetyMessage ? (
-          <section className={`${CARD} mt-6 p-6`}>
+          <section className="mef-card mt-6 p-6">
             <p className="text-sm leading-relaxed text-[#1B3A2D]">{safetyMessage}</p>
           </section>
         ) : insights.length === 0 && !pictureHasContent ? (
-          <section className={`${CARD} mt-6 p-6`}>
+          <section className="mef-card mt-6 p-6">
             <p className="text-sm leading-relaxed text-[#1B3A2D]">
               Nothing to share yet. Keep logging your check-ins and meals, and Root will have real
               patterns to point out here soon.
@@ -103,7 +101,7 @@ export default async function CoachingInsightsPage() {
             const insight = byCategory.get(category);
             if (!insight) return null;
             return (
-              <section key={category} className={`${CARD} mt-5 p-6`}>
+              <section key={category} className="mef-card mt-5 p-6">
                 <div className="flex items-center gap-2 text-[#6B7A72]">
                   <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden={true} />
                   <p className="text-sm font-semibold uppercase tracking-wider">{title}</p>
@@ -137,7 +135,7 @@ function LongitudinalPictureSection({
   if (groups.length === 0 && !picture.nextBestStep) return null;
 
   return (
-    <section className={`${CARD} mt-5 p-6`}>
+    <section className="mef-card mt-5 p-6">
       <div className="flex items-center gap-2 text-[#6B7A72]">
         <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden={true} />
         <p className="text-sm font-semibold uppercase tracking-wider">Your Longitudinal Picture</p>

@@ -7,8 +7,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { AssessmentHistoryList } from '@/components/AssessmentHistoryList';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { CenterStage, Card } from '@/components/layout';
 
 /** local_date is a plain YYYY-MM-DD calendar string — Date.UTC keeps this pure calendar arithmetic, no timezone involved. Same pattern used throughout app/dashboard and app/coach. */
 function addDaysToLocalDate(localDate: string, days: number): string {
@@ -71,18 +70,20 @@ export default async function ReassessmentsPage() {
         </p>
 
         {!hasBaseline ? (
-          <div className={`${CARD} mt-6 p-6`}>
-            <p className="text-sm leading-relaxed text-[#6B7A72]">
-              You haven&apos;t completed your onboarding assessment yet.{' '}
-              <Link
-                href="/onboarding"
-                className="font-medium text-[#6B7A72] underline underline-offset-2"
-              >
-                Complete it now
-              </Link>{' '}
-              to start tracking progress over time.
-            </p>
-          </div>
+          <CenterStage>
+            <Card className="mt-6">
+              <p className="text-sm leading-relaxed text-[#6B7A72]">
+                You haven&apos;t completed your onboarding assessment yet.{' '}
+                <Link
+                  href="/onboarding"
+                  className="font-medium text-[#6B7A72] underline underline-offset-2"
+                >
+                  Complete it now
+                </Link>{' '}
+                to start tracking progress over time.
+              </p>
+            </Card>
+          </CenterStage>
         ) : (
           <div className="mt-6 space-y-5">
             <AssessmentComparisonView
@@ -92,7 +93,7 @@ export default async function ReassessmentsPage() {
             />
 
             {comparison.baseline && comparison.latest === null && (
-              <section className={`${CARD} p-6`}>
+              <Card as="section">
                 <div className="flex items-center gap-2 text-[#6B7A72]">
                   <CalendarClock className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">
@@ -105,7 +106,7 @@ export default async function ReassessmentsPage() {
                   {formatDate(addDaysToLocalDate(comparison.baseline.localDate, 90))} for you.
                   Reminders aren&apos;t built yet, so start whenever you&apos;re ready.
                 </p>
-              </section>
+              </Card>
             )}
 
             <AssessmentHistoryList

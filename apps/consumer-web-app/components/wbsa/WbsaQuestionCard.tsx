@@ -4,8 +4,7 @@ import { Check } from 'lucide-react';
 import type { UnifiedAssessmentQuestion } from '@mef/shared-types-contracts';
 import { PREFER_NOT_TO_ANSWER, type AnswerValue } from '@/lib/assessment-runtime/types';
 import { WBSA_PREFER_NOT_TO_ANSWER_LABEL } from '@/lib/wbsa/copy';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 type AnswerOption = { value: string; label: string };
 
@@ -29,7 +28,7 @@ export function WbsaQuestionCard({ sectionPosition, question, value, onChange }:
   const isSkipped = value === PREFER_NOT_TO_ANSWER;
 
   return (
-    <div className={`${CARD} mef-animate-in p-7`}>
+    <Card className="mef-animate-in">
       <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
         {sectionPosition}
       </p>
@@ -139,6 +138,6 @@ export function WbsaQuestionCard({ sectionPosition, question, value, onChange }:
           {isSkipped ? `${WBSA_PREFER_NOT_TO_ANSWER_LABEL} (selected)` : WBSA_PREFER_NOT_TO_ANSWER_LABEL}
         </button>
       )}
-    </div>
+    </Card>
   );
 }

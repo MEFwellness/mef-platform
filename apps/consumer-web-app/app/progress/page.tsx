@@ -46,6 +46,7 @@ import { AvatarLink } from '@/components/AvatarLink';
 import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
+import { CardStack } from '@/components/layout';
 import { buildProgressEntryContext } from '@/lib/conversation-coach/entryContext';
 import { WellnessIdentityPanel } from './WellnessIdentityPanel';
 import { ProgressRootScorePanel } from './ProgressRootScorePanel';
@@ -56,7 +57,6 @@ import { WellnessStorySection, WellnessStorySectionSkeleton } from './WellnessSt
 import { WellnessPatternsSection, WellnessPatternsSectionSkeleton } from './WellnessPatternsSection';
 import { RecommendationsSection, RecommendationsSectionSkeleton } from './RecommendationsSection';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
 
 const SEVERITY_LABEL: Record<string, string> = {
@@ -224,22 +224,31 @@ export default async function ProgressPage() {
         {/* Assessment block: From Your Assessments + Baseline vs. Latest
             Comparison, grouped together since both read assessment data. */}
         {healthProfileSummary && activeFindingSeverities.length > 0 && (
-          <section className={`${CARD} mef-animate-in mt-5 p-6`}>
-            <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-              From Your Assessments
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">
-              {activeFindingSeverities
-                .map(
-                  ([severity, count]) =>
-                    `${count} ${SEVERITY_LABEL[severity] ?? severity} finding${count === 1 ? '' : 's'}`
-                )
-                .join(', ')}{' '}
-              currently active
-              {healthProfileSummary.lastAssessmentPublishedAt
-                ? ` since your last published report (${new Date(healthProfileSummary.lastAssessmentPublishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}).`
-                : '.'}
-            </p>
+          <section className="mef-card mef-animate-in mt-5 p-6">
+            {/* Reading width (Prompt 2), capped without auto-centering (see
+                the identical note in WellnessStoryPanel.tsx): this card is
+                pure prose sitting inside the page's own md:max-w-5xl shell
+                — at tablet/desktop widths the card runs much wider than a
+                comfortable text measure, and every other text block on this
+                page stays flush left, so this one shouldn't become the one
+                inset/centered exception. */}
+            <div className="max-w-[var(--mef-reading-max-width)]">
+              <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+                From Your Assessments
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">
+                {activeFindingSeverities
+                  .map(
+                    ([severity, count]) =>
+                      `${count} ${SEVERITY_LABEL[severity] ?? severity} finding${count === 1 ? '' : 's'}`
+                  )
+                  .join(', ')}{' '}
+                currently active
+                {healthProfileSummary.lastAssessmentPublishedAt
+                  ? ` since your last published report (${new Date(healthProfileSummary.lastAssessmentPublishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}).`
+                  : '.'}
+              </p>
+            </div>
           </section>
         )}
 
@@ -256,38 +265,42 @@ export default async function ProgressPage() {
             from the card blocks above. */}
         <p className={`${ZONE_LABEL} mt-8`}>Explore</p>
 
-        <Link
-          href="/progress/timeline"
-          className={`${CARD} mef-animate-in mt-3 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
-        >
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <HistoryIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Your Health Timeline</p>
-          </div>
-          <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
+        <div className="mt-3">
+          <CardStack>
+            <Link
+              href="/progress/timeline"
+              className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
+            >
+              <div className="flex items-center gap-2 text-[#6B7A72]">
+                <HistoryIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">Your Health Timeline</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+            </Link>
 
-        <Link
-          href="/assessment"
-          className={`${CARD} mef-animate-in mt-3 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
-        >
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
-          </div>
-          <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
+            <Link
+              href="/assessment"
+              className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
+            >
+              <div className="flex items-center gap-2 text-[#6B7A72]">
+                <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+            </Link>
 
-        <Link
-          href={'/questionnaires' as Route}
-          className={`${CARD} mef-animate-in mt-3 flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]`}
-        >
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Questionnaires</p>
-          </div>
-          <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
+            <Link
+              href={'/questionnaires' as Route}
+              className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
+            >
+              <div className="flex items-center gap-2 text-[#6B7A72]">
+                <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">Questionnaires</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+            </Link>
+          </CardStack>
+        </div>
 
         {/* History — moved to the very bottom of the page (below Explore):
             a log of past check-ins reads as an appendix/reference, not

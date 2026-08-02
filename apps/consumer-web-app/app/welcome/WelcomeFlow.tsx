@@ -597,7 +597,7 @@ function PageBenefitCard({
     >
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <div
-          className={`flex flex-col items-center gap-4 rounded-3xl bg-white px-10 py-12 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] ${
+          className={`mef-card flex flex-col items-center gap-4 px-10 py-12 ${
             reducedMotion ? '' : 'mef-scale-fade-in'
           }`}
           style={reducedMotion ? undefined : { animationDuration: `${revealMs}ms` }}

@@ -14,8 +14,9 @@ import { getMyCvsExperimentStatusAction } from '@/app/actions/coreValuesSnapshot
 import { areaFromLabel } from '@/lib/core-values-snapshot/constants';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
-import { CVS_CARD, CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
+import { CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperimentPanel';
+import { CenterStage, Card } from '@/components/layout';
 
 export default async function CvsExperimentPage() {
   const supabase = createClient();
@@ -42,12 +43,14 @@ export default async function CvsExperimentPage() {
             initialStatus={status}
           />
         ) : (
-          <section className={`${CVS_CARD} mef-animate-in p-7 text-center`}>
-            <p className={`${CVS_DISPLAY_FONT} text-2xl text-[#1B3A2D]`}>No experiment running right now</p>
-            <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-              Your five-minute experiment starts at the end of the Core Values Snapshot.
-            </p>
-          </section>
+          <CenterStage>
+            <Card className="mef-animate-in text-center">
+              <p className={`${CVS_DISPLAY_FONT} text-2xl text-[#1B3A2D]`}>No experiment running right now</p>
+              <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
+                Your five-minute experiment starts at the end of the Core Values Snapshot.
+              </p>
+            </Card>
+          </CenterStage>
         )}
       </main>
       <BottomNav isCoach={isCoach} />

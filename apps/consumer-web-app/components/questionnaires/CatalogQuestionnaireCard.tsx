@@ -16,8 +16,8 @@ import type { Route } from 'next';
 import { Clock3, Lock, Sparkles, UserRound, CalendarClock } from 'lucide-react';
 import type { CatalogCard } from '@/app/actions/questionnaireCatalog';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
+import { Card } from '@/components/layout';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const PRIMARY_BUTTON =
   'block w-full rounded-2xl bg-[#1B3A2D] px-5 py-3 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]';
 const SECONDARY_LINK = 'text-sm font-medium text-[#1B3A2D] hover:underline';
@@ -44,7 +44,7 @@ export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
   const action = primaryAction(card);
 
   return (
-    <div className={`${CARD} mef-animate-in p-6`}>
+    <Card className="mef-animate-in">
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-snug text-[#1B3A2D]">
           {card.title}
@@ -143,6 +143,6 @@ export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
           </Link>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

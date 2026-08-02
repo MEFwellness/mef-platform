@@ -2,8 +2,7 @@ import { Gauge, TrendingUp, TrendingDown, Minus, Sparkles, Target } from 'lucide
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import type { WellnessIndexResult } from '@/lib/wellness/wellness-index';
 import { WELLNESS_COACHING } from '@/lib/wellness/coaching';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 type Props = {
   result: WellnessIndexResult | null;
@@ -30,7 +29,7 @@ function DeltaBadge({ current, previous }: { current: number; previous: number }
 
 export function WellnessIndexCard({ result, previousScore, clientFirstName }: Props) {
   return (
-    <section className={`${CARD} p-7`}>
+    <Card as="section">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -126,6 +125,6 @@ export function WellnessIndexCard({ result, previousScore, clientFirstName }: Pr
           ? `The Daily Wellness Index summarizes ${clientFirstName}’s wellness check-in and recent patterns. It is intended as a wellness coaching guide and is not a medical diagnosis.`
           : "Your Daily Wellness Index summarizes today's wellness check-in and recent patterns. It is intended as a wellness coaching guide and is not a medical diagnosis."}
       </p>
-    </section>
+    </Card>
   );
 }

@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Sunrise, Moon } from 'lucide-react';
+import { CenterStage } from '@/components/layout';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const CARD = 'mef-card'; // Screen Layout System (Prompt 2): standardized card recipe, app/globals.css
 const HEADING =
   'font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]';
 
@@ -25,7 +26,10 @@ export function OnboardingCompletionScreen({
   justMigrated?: boolean;
 }) {
   return (
-    <div className="text-center">
+    // Screen Layout System (Prompt 2): a heading, a couple of short lines,
+    // one card, one button — vertically centered instead of hugging the
+    // top of app/onboarding/page.tsx's container.
+    <CenterStage className="text-center">
       <h1 className={HEADING}>
         {justMigrated ? 'Your Story Is Saved' : <>You&apos;re All Set</>}
       </h1>
@@ -81,6 +85,6 @@ export function OnboardingCompletionScreen({
       >
         Continue to Morning Readiness
       </Link>
-    </div>
+    </CenterStage>
   );
 }

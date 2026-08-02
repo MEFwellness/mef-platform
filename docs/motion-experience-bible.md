@@ -206,6 +206,56 @@ The real precedent here cuts both ways, and this Bible reconciles it:
 
 ---
 
+## 6a. Screen Layout System (Prompt 2)
+
+Built in response to a real, widespread problem confirmed by grepping this codebase before writing a single token: no shared page/card primitives existed anywhere — 114+ top-level page files each hand-rolled their own `const SHELL =`/`const CONTAINER =`/`const CARD =` strings, several of them byte-for-byte identical to each other (six separate onboarding files alone repeated the exact same `rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]` card recipe; `components/core-values-snapshot/theme.ts`'s `CVS_CARD` — shared by Core Values Snapshot, Life Signal Check, Readiness Pulse, and Reset Plan, 22 files — matched it too). This section formalizes that recipe once, the same "grounded in real code, not invented" discipline §3/§4 already established for motion.
+
+### Spacing scale
+
+Every layout-level constant (page padding, card padding, section rhythm) is expressed as a step on this scale (`app/globals.css`'s `:root` "SCREEN LAYOUT SYSTEM" token block, mirrored in `lib/layout/tokens.ts`). This is deliberately layered *on top of* Tailwind's own spacing utilities (`p-4`, `gap-2`, `mt-6`, etc.), not a replacement for them — Tailwind's 4px-based scale is already a consistent, load-bearing token system in this codebase (`gap-2`/`mt-2` and `p-6`/`px-6` are each used hundreds of times already) and re-deriving every individual utility call into a new semantic name would be pure churn with no visual change. What this scale adds is the missing layer above that: the handful of recurring layout roles every screen previously reinvented per-file.
+
+| Token | Value | Real precedent |
+|---|---|---|
+| `--mef-space-3xs` | 4px | |
+| `--mef-space-2xs` | 8px | matches `gap-2`/`mt-2`, the app's single most common gap/margin |
+| `--mef-space-xs` | 12px | matches `gap-3` |
+| `--mef-space-sm` | 16px | matches `p-4`/`px-4` |
+| `--mef-space-md` | 20px | matches `px-5`, the small-phone page margin already used app-wide |
+| `--mef-space-lg` | 24px | matches `p-6`/`px-6`, the app's single most common card/page padding |
+| `--mef-space-xl` | 32px | |
+| `--mef-space-2xl` | 40px | matches `p-10`/`px-10` |
+| `--mef-space-3xl` | 64px | section-level rhythm, large-viewport page padding |
+
+Semantic aliases built from those steps: `--mef-space-page-x`/`--mef-space-page-y` (page shell padding), `--mef-space-card-padding` (24px), `--mef-space-card-gap` (16px, the gap between stacked same-type cards).
+
+### Card sizing rules
+
+One card recipe, `.mef-card` (`app/globals.css`) / `<Card>` (`components/layout/Card.tsx`): `--mef-radius-card` (28px, matching the six-times-repeated onboarding recipe above), the app's real dominant card shadow (`0 2px 24px -4px rgba(27,58,45,0.10)`), and responsive padding (24px, pulling in to 16px below a 380px viewport — iPhone SE class — so a card's padding doesn't eat the screen on the smallest real devices this app supports). `<CardStack>`/`.mef-card-stack` gives siblings a consistent 16px gap instead of a per-screen `mt-4`/`mt-5`/`mt-6` guess.
+
+One elevated variant, `.mef-card-elevated`: 32px radius, a deeper shadow (`0 10px 36px -8px rgba(27,58,45,0.20)`) — formalizes the pre-existing `CVS_CARD_ELEVATED` precedent (`components/core-values-snapshot/theme.ts`), reserved for the one "main event" card on a Signature Moment screen (§13) while every sibling card on that same screen stays at the plain `.mef-card`, so the difference reads as real elevation rather than "every card got fancier."
+
+**Technical note for anyone extending this system:** `app/globals.css` `@import`s Tailwind at the very top of the file, so every Tailwind utility class is earlier in cascade order than any hand-authored rule below it. `.mef-card`'s own padding is wrapped in `:where(...)` specifically so a caller can still override it with an ordinary Tailwind padding utility on the same element (e.g. `PageBenefitCard` in `app/welcome/WelcomeFlow.tsx` uses `mef-card px-10 py-12`) — without the `:where()` wrapper, the class's same-specificity, later-in-file padding rule would always win regardless of the utility, which is the opposite of what a reusable primitive should do. Any future card/page/reading-width rule added to this system should follow the same `:where()` pattern for whichever properties a caller might legitimately want to override.
+
+### Reading width
+
+`--mef-reading-max-width: 42rem` (672px) / `.mef-reading` / `<Reading>` (`components/layout/Reading.tsx`) — matches the app's existing `max-w-2xl`, already its second-most-used max-width for text-bearing content, and sits at a comfortable measure for this app's body type sizes. Apply to the text block itself, not its containing card or section — a chart or image is allowed to run the full width of its container even when the caption beside it is capped.
+
+### Vertical centering
+
+`.mef-center-viewport` / `<CenterStage>` (`components/layout/CenterStage.tsx`) — for sparse content only: a single question, a short message, one card, a confirmation. Real precedent this formalizes: `app/name/page.tsx`'s one-field "what should we call you" screen already did `flex min-h-screen items-center justify-center` by hand before this prompt; `app/welcome/WelcomeFlow.tsx`'s cinematic pages and `app/wellness-check/GuestPreviewFlow.tsx` already center via `flex flex-1 flex-col justify-center` inside their own shells. This prompt applied the same treatment to onboarding's two sparsest screens (`BranchTransition.tsx`'s one-line "coach beat," `OnboardingCompletionScreen.tsx`'s heading-plus-one-card confirmation) and Reset Plan's 'why'/'agreement' screens (`components/reset-plan/ResetPlanTaker.tsx`), which previously hugged the top of their containers with dead space below.
+
+**The judgment call that matters more than the mechanism:** centering is for content that's genuinely short, not for making a screen "feel more centered." A screen whose content already fills the viewport — a multi-field form, a scrolling list, a chart-heavy Tool, a card whose height can grow (a validation error appearing, an expandable "show alternatives" list) — must NOT be wrapped in `CenterStage`. Centering tall content does nothing useful; centering content that can grow causes a jarring layout jump when it does. `app/onboarding/OnboardingIntro.tsx` and `GuestObservationScreen.tsx` were both deliberately left uncentered in this prompt for exactly this reason — each already fills the space with a logo, a multi-line reveal, and a multi-item card, the same "content fills the space honestly" reasoning `OnboardingIntro.tsx`'s own header comment gives. When a screen is borderline, don't center it.
+
+### Responsive spacing
+
+`.mef-page` (`app/globals.css`) gives a page shell responsive padding out of the box: 20px horizontal / 32px vertical by default (comfortable on an iPhone SE-class phone), 24px horizontal from 640px up, and 24px→40px horizontal / 32px→64px vertical from 1024px up (so a tablet-width screen gets genuinely more generous margins, not the same phone padding stretched wide). Existing safe-area clearance utilities (`.pb-safe-nav`, `.pb-safe-chat`) are unrelated fixed-chrome clearance, not page padding, and are untouched by this system.
+
+### Deliberately left alone
+
+A handful of `w-[Npx]`/`ml-[Npx]`-style arbitrary values found during this prompt's audit were left as their own literal values rather than force-migrated onto the spacing scale: `.pb-safe-nav`/`.pb-safe-chat`-adjacent safe-area `calc()` paddings (precise fixed-chrome clearance, not an aesthetic spacing choice) and a few chart-axis/legend alignment offsets in `components/TrendChart.tsx`, `app/progress/WeeklyAverageTrendChart.tsx`, and `components/assessments/four-doctors-results/BalanceOverview.tsx` (each pixel value ties to a specific chart-element alignment, not a layout margin — snapping them to the nearest scale step risks misaligning real chart data). Same reasoning Prompt 1 used for its own in-tier motion-duration variants: a well-reasoned, documented exception beats a silent force-migration that risks a visual regression.
+
+---
+
 ## 7. Root's Behavior Rules
 
 Root is not a feature label on the UI. Root is the coach the member is in a relationship with. Every rule below already has real precedent in this codebase — this section formalizes what's working and closes the gaps.
@@ -335,7 +385,7 @@ Non-normative — an aid for whoever picks up each prompt, not part of the locke
 | Prompt | Bible sections it draws from |
 |---|---|
 | 1 | §3 (Animation Vocabulary), §4 (Timing and Easing Standards), §10 (Ambient Motion Rules — the low-power hook itself is built here; ambient motion using it is applied in later prompts) |
-| 2 | §6 (Information Density Rules, the spacing/card-sizing implications of it) |
+| 2 | §6a (Screen Layout System — the section this prompt itself built), §6 (Information Density Rules, the spacing/card-sizing implications of it) |
 | 3 | §5 (Cinematic Pacing Rules), §6 (Information Density Rules), §7 (curiosity-language Continue buttons) |
 | 4 | §7 (Root's Behavior Rules), §13 (Signature Moments, memory-callback and discovery-reveal mechanics) |
 | 5 | §11 (Living Dashboard Rules) |

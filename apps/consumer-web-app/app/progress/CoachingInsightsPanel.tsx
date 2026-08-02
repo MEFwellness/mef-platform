@@ -55,12 +55,19 @@ export function CoachingInsightsPanel({
         </Link>
       </div>
 
+      {/* Reading (Prompt 2), left-aligned rather than the component's usual
+          centered treatment: this card runs the page's full md:max-w-5xl
+          width and the header row above (label + "See all") stays flush
+          left/right, so centering this text block alone would misalign it
+          against that row. `max-w-[var(--mef-reading-max-width)]` caps the
+          measure without the auto-centering `.mef-reading` also applies —
+          layout only, recipe/colors untouched. */}
       {featured ? (
-        <p className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-[1.85rem] leading-tight text-[#F5F0E4]">
+        <p className="mt-4 max-w-[var(--mef-reading-max-width)] font-[family-name:var(--font-cormorant-garamond)] text-[1.85rem] leading-tight text-[#F5F0E4]">
           {featured.statement}
         </p>
       ) : (
-        <p className="mt-4 text-sm leading-relaxed text-[#F5F0E4]/80">
+        <p className="mt-4 max-w-[var(--mef-reading-max-width)] text-sm leading-relaxed text-[#F5F0E4]/80">
           Complete a few check-ins and Root will start noticing patterns worth surfacing here.
         </p>
       )}

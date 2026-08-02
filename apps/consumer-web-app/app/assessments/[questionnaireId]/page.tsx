@@ -21,8 +21,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { PriorityBadge } from '@/components/assessments/PriorityBadge';
 import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
 import { formatAssessmentDate, formatLastSaved } from '@/lib/assessments/presentation';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { CenterStage, Card } from '@/components/layout';
 
 export default async function AssessmentOverviewPage({
   params,
@@ -56,26 +55,28 @@ export default async function AssessmentOverviewPage({
         <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
           <BackButton fallbackHref="/questionnaires" label="Back to Questionnaires" forceFallback />
 
-          <section className={`${CARD} mef-animate-in mt-4 p-7 text-center`}>
-            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
-              {copy.displayTitle}
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-              {describeLockReason(access.reason)}
-            </p>
-            <Link
-              href={'/membership' as Route}
-              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-            >
-              View Membership
-            </Link>
-            <Link
-              href={'/questionnaires' as Route}
-              className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
-            >
-              Back to Questionnaires
-            </Link>
-          </section>
+          <CenterStage>
+            <Card className="mef-animate-in text-center">
+              <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
+                {copy.displayTitle}
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                {describeLockReason(access.reason)}
+              </p>
+              <Link
+                href={'/membership' as Route}
+                className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+              >
+                View Membership
+              </Link>
+              <Link
+                href={'/questionnaires' as Route}
+                className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+              >
+                Back to Questionnaires
+              </Link>
+            </Card>
+          </CenterStage>
         </main>
 
         <BottomNav isCoach={isCoach} />
@@ -94,32 +95,34 @@ export default async function AssessmentOverviewPage({
         <BackButton fallbackHref="/questionnaires" label="Back to Questionnaires" forceFallback />
 
         {justSaved && draft && (
-          <section className={`${CARD} mef-animate-in mt-4 p-7 text-center`}>
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#E8F0EA] text-[#4F7A63]">
-              <CheckCircle2 className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
-            </span>
-            <p className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
-              Assessment saved.
-            </p>
-            <p className="mt-1 text-sm text-[#6B7A72]">You can continue anytime.</p>
+          <CenterStage>
+            <Card className="mef-animate-in text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#E8F0EA] text-[#4F7A63]">
+                <CheckCircle2 className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              <p className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
+                Assessment saved.
+              </p>
+              <p className="mt-1 text-sm text-[#6B7A72]">You can continue anytime.</p>
 
-            <Link
-              href={ctaHref}
-              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-            >
-              Resume Assessment
-            </Link>
-            <Link
-              href={'/dashboard' as Route}
-              className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
-            >
-              Return to Dashboard
-            </Link>
-          </section>
+              <Link
+                href={ctaHref}
+                className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+              >
+                Resume Assessment
+              </Link>
+              <Link
+                href={'/dashboard' as Route}
+                className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+              >
+                Return to Dashboard
+              </Link>
+            </Card>
+          </CenterStage>
         )}
 
         {!justSaved && (
-          <section className={`${CARD} mef-animate-in mt-4 p-7`}>
+          <Card className="mef-animate-in mt-4">
             <div className="flex items-center gap-2 text-[#6B7A72]">
               <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-wider">Wellness Assessment</p>
@@ -161,15 +164,16 @@ export default async function AssessmentOverviewPage({
               One question at a time. Your progress saves automatically, so you can always finish
               later.
             </p>
-          </section>
+          </Card>
         )}
 
         {latestCompleted && (
-          <Link
+          <Card
+            as={Link}
             href={
               `/assessments/${toPublicSlug(questionnaire.id)}/results/${latestCompleted.id}` as Route
             }
-            className={`${CARD} mef-animate-in mt-5 flex items-center justify-between gap-4 p-6 transition hover:bg-[#FAFAF8]`}
+            className="mef-animate-in mt-5 flex items-center justify-between gap-4 transition hover:bg-[#FAFAF8]"
           >
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
@@ -181,7 +185,7 @@ export default async function AssessmentOverviewPage({
               </p>
             </div>
             <PriorityBadge priority={latestCompleted.totalPriority} />
-          </Link>
+          </Card>
         )}
 
         {latestCompleted && (

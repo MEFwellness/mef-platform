@@ -31,8 +31,6 @@ import { BottomNav } from '@/components/BottomNav';
 import { getMyTimelineEvents } from '@/app/actions/health-profile';
 import { getAnalysisById } from '@/lib/coach-intelligence/data';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 const EVENT_ICON = {
   onboarding_completed: ClipboardCheck,
   reassessment_completed: RefreshCw,
@@ -129,7 +127,7 @@ function MilestoneCard({ event, href }: { event: HealthTimelineEvent; href: stri
   const Icon = EVENT_ICON[event.event_type] ?? Milestone;
   const body = (
     <div
-      className={`${CARD} mef-animate-in flex items-start gap-4 p-6 transition ${href ? 'hover:bg-[#FAFAF8]' : ''}`}
+      className={`mef-card mef-animate-in flex items-start gap-4 p-6 transition ${href ? 'hover:bg-[#FAFAF8]' : ''}`}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EFF6F1] text-[#1B3A2D]">
         <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
@@ -207,7 +205,7 @@ export default async function HealthTimelinePage() {
               )
             )
           ) : (
-            <section className={`${CARD} p-6`}>
+            <section className="mef-card p-6">
               <p className="text-sm text-[#6B7A72]">
                 Your timeline will fill in as you complete onboarding, check in, and receive
                 assessment reports.

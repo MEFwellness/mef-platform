@@ -18,7 +18,20 @@ import { buildEndingScreenView } from '@/lib/energy-forecast/service';
 import { ForecastCalibrationChart } from '@/components/checkin/ForecastCalibrationChart';
 import type { RootStatusView } from '@/lib/energy-forecast/types';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] p-7';
+// Screen Layout System (Prompt 2): was a hand-rolled duplicate of
+// `.mef-card` (app/globals.css) — now the one shared recipe. The one
+// exception is the "handoffToCase" Link below, which keeps its own
+// bespoke recipe because it has a real `hover:shadow-[...]` micro-
+// interaction: `.mef-card`'s own box-shadow is set outside any
+// `@layer`, so (per CSS cascade-layer rules) it always wins over a
+// layered Tailwind utility class regardless of state — swapping that
+// one card onto `.mef-card` would silently kill its hover lift.
+const CARD = 'mef-card';
+// The handoffToCase Link keeps its own literal recipe (not `.mef-card`)
+// specifically so its `hover:shadow-[...]` micro-interaction still works —
+// see the comment above.
+const HOVER_LIFT_CARD =
+  'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] p-7';
 
 function RootStatusCard({ status }: { status: RootStatusView }) {
   return (
@@ -138,7 +151,7 @@ export default async function CheckinResultPage({
               {view.handoffToCase && (
                 <Link
                   href={'/case' as Route}
-                  className={`${CARD} mef-animate-in block transition-shadow duration-300 hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]`}
+                  className={`${HOVER_LIFT_CARD} mef-animate-in block transition-shadow duration-300 hover:shadow-[0_6px_32px_-6px_rgba(27,58,45,0.14)]`}
                   style={{ animationDelay: '120ms' }}
                 >
                   <p className="text-sm font-semibold text-[#1B3A2D]">Your patterns are showing up now</p>

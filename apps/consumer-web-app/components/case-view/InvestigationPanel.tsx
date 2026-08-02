@@ -1,7 +1,5 @@
 import type { DriverCaseView, InvestigationPanelView } from '@/lib/case-view/types';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 function DriverChip({ driver, variant }: { driver: DriverCaseView; variant: 'active' | 'ruled_out' | 'implicated' }) {
   const style =
     variant === 'ruled_out'
@@ -50,7 +48,7 @@ export function InvestigationPanel({ panel }: { panel: InvestigationPanelView })
   if (!hasAnything) return null;
 
   return (
-    <div className={`${CARD} space-y-6 p-6`}>
+    <div className="mef-card space-y-6 p-6">
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">The investigation</p>
         <p className="mt-1 text-[13px] leading-relaxed text-[#6B7A72]">

@@ -90,7 +90,7 @@ export default async function WeeklyNutritionReportPage() {
             </Link>
           </div>
         ) : (
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 space-y-5">
             {/* Your Week in Food */}
             <section className={`${CARD} p-6`}>
               <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
@@ -177,7 +177,7 @@ export default async function WeeklyNutritionReportPage() {
         )}
 
         {!thirtyDayPatterns.insufficientData && thirtyDayPatterns.observations.length > 0 && (
-          <section className={`${CARD} mt-4 p-6`}>
+          <section className={`${CARD} mt-5 p-6`}>
             <div className="flex items-center gap-2">
               <TrendingUp
                 className="h-4 w-4 text-[#1B3A2D]"

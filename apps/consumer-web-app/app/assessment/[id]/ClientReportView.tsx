@@ -13,8 +13,7 @@ import {
 } from '@/app/coach/clients/[id]/body-assessments/[assessmentId]/RightPanel/ComparisonSection';
 import { AnnotatedCaptureViewer } from '@/components/body-assessment/AnnotatedCaptureViewer';
 import type { AnnotationShape } from '@mef/shared-types-contracts';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 // Only the member-appropriate categories get a label here — 'coach_question'
 // and 'red_flag' are coach-internal and RLS (migration 39) never returns
@@ -94,7 +93,7 @@ export function ClientReportView({
   return (
     <div className="space-y-5">
       {summary && (
-        <section className={`${CARD} mef-animate-in p-7`}>
+        <Card as="section" className="mef-animate-in">
           <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Your Coach&apos;s Summary
@@ -102,11 +101,11 @@ export function ClientReportView({
           <p className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-[1.35rem] leading-relaxed text-[#1B3A2D]">
             {summary}
           </p>
-        </section>
+        </Card>
       )}
 
       {priorities.length > 0 && (
-        <section className={`${CARD} mef-animate-in p-6`}>
+        <Card as="section" className="mef-animate-in">
           <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             <AlertCircle className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Key Priorities
@@ -121,11 +120,11 @@ export function ClientReportView({
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
 
       {currentCaptures.length > 0 && (
-        <section className={`${CARD} mef-animate-in p-6`}>
+        <Card as="section" className="mef-animate-in">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Your captures
           </p>
@@ -140,14 +139,14 @@ export function ClientReportView({
               />
             ))}
           </div>
-        </section>
+        </Card>
       )}
 
       {CATEGORY_ORDER.map((category) => {
         const items = observations.filter((o) => o.category === category);
         if (items.length === 0) return null;
         return (
-          <section key={category} className={`${CARD} mef-animate-in p-6`}>
+          <Card as="section" key={category} className="mef-animate-in">
             <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
               {CATEGORY_LABELS[category]}
             </p>
@@ -165,12 +164,12 @@ export function ClientReportView({
                 </li>
               ))}
             </ul>
-          </section>
+          </Card>
         );
       })}
 
       {exercises.length > 0 && (
-        <section className={`${CARD} mef-animate-in p-6`}>
+        <Card as="section" className="mef-animate-in">
           <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             <Dumbbell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Recommended Exercises
@@ -185,10 +184,10 @@ export function ClientReportView({
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
 
-      <section className={`${CARD} mef-animate-in p-6`}>
+      <Card as="section" className="mef-animate-in">
         <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
           Progress since your last assessment
         </p>
@@ -201,7 +200,7 @@ export function ClientReportView({
             emptyStateDescription="Complete another assessment to unlock progress comparison."
           />
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

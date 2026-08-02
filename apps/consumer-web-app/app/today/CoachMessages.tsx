@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { MessageCircleHeart, Circle } from 'lucide-react';
 import type { Notification } from '@mef/shared-types-contracts';
 import { markMyNotificationRead } from '@/app/actions/notifications';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 function formatWhen(createdAt: string): string {
   const date = new Date(createdAt);
@@ -27,7 +26,7 @@ export function CoachMessages({ notifications }: { notifications: Notification[]
   }
 
   return (
-    <section className={`${CARD} mef-animate-in mt-6 p-6`}>
+    <Card as="section" className="mef-animate-in mt-6">
       <div className="flex items-center gap-2 text-[#6B7A72]">
         <MessageCircleHeart className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Coach Messages</p>
@@ -59,6 +58,6 @@ export function CoachMessages({ notifications }: { notifications: Notification[]
           </button>
         ))}
       </div>
-    </section>
+    </Card>
   );
 }

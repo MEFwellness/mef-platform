@@ -29,6 +29,7 @@ import { getMyRootScore, getMyRootScoreHistory } from '@/app/actions/scoring';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
+import { CenterStage } from '@/components/layout';
 import { scoreLabel } from '@/lib/wellness/wellness-index';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { RootScoreDomainRow } from '@/components/RootScoreDomainRow';
@@ -41,7 +42,15 @@ import type {
   ScoreConfidenceLevel,
 } from '@mef/shared-types-contracts';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+/**
+ * Screen Layout System (Prompt 2): the "Building your Root Score" state is
+ * this page's one genuinely sparse render — a single card, previously
+ * hugging the top of the viewport. Offset covers `pt-safe-header` (2rem) +
+ * `pb-safe-nav` (7rem) + the BackButton/label rows above it (~3.5rem),
+ * same reasoning as the identical constant in app/root-map/page.tsx and
+ * app/case/page.tsx (all three share this exact header/footer shape).
+ */
+const EMPTY_STATE_CHROME_OFFSET_PX = 200;
 
 const CONFIDENCE_LABEL: Record<ScoreConfidenceLevel, string> = {
   building: 'Building your baseline',
@@ -119,39 +128,41 @@ export default async function RootScorePage() {
         </div>
 
         {isBuilding ? (
-          <section className={`${CARD} mef-animate-in mt-3 p-7`}>
-            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
-              Building your Root Score
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-              {snapshot?.explanation_summary ||
-                "Root Score combines your check-ins, Food Lens activity, movement, and assessments into one longer-term wellness picture. It's not ready to show yet. A few more real data points will get it there."}
-            </p>
-            <div className="mt-5 space-y-2">
-              <Link
-                href="/checkin"
-                className="block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
-              >
-                Complete today&apos;s check-in
-              </Link>
-              <Link
-                href="/food-lens"
-                className="block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
-              >
-                Log a meal in Food Lens
-              </Link>
-              <Link
-                href="/movement"
-                className="block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
-              >
-                Complete a movement session
-              </Link>
-            </div>
-          </section>
+          <CenterStage chromeOffsetPx={EMPTY_STATE_CHROME_OFFSET_PX}>
+            <section className="mef-card mef-animate-in p-7">
+              <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
+                Building your Root Score
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                {snapshot?.explanation_summary ||
+                  "Root Score combines your check-ins, Food Lens activity, movement, and assessments into one longer-term wellness picture. It's not ready to show yet. A few more real data points will get it there."}
+              </p>
+              <div className="mt-5 space-y-2">
+                <Link
+                  href="/checkin"
+                  className="block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+                >
+                  Complete today&apos;s check-in
+                </Link>
+                <Link
+                  href="/food-lens"
+                  className="block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+                >
+                  Log a meal in Food Lens
+                </Link>
+                <Link
+                  href="/movement"
+                  className="block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+                >
+                  Complete a movement session
+                </Link>
+              </div>
+            </section>
+          </CenterStage>
         ) : (
           <>
             {/* Hero */}
-            <section className={`${CARD} mef-animate-in mt-3 p-7`}>
+            <section className="mef-card mef-animate-in mt-3 p-7">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-baseline gap-3">
                   <span className="font-[family-name:var(--font-cormorant-garamond)] text-6xl leading-none text-[#1B3A2D]">
@@ -189,7 +200,7 @@ export default async function RootScorePage() {
             </section>
 
             {/* Trend */}
-            <section className={`${CARD} mt-5 p-6`}>
+            <section className="mef-card mt-5 p-6">
               <div className="flex items-center gap-2 text-[#6B7A72]">
                 <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Root Score Trend</p>
@@ -199,7 +210,7 @@ export default async function RootScorePage() {
 
             {/* Momentum + Resilience */}
             <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <section className={`${CARD} p-6`}>
+              <section className="mef-card p-6">
                 <div className="flex items-center gap-2 text-[#6B7A72]">
                   <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">Momentum</p>
@@ -224,7 +235,7 @@ export default async function RootScorePage() {
                 )}
               </section>
 
-              <section className={`${CARD} p-6`}>
+              <section className="mef-card p-6">
                 <div className="flex items-center gap-2 text-[#6B7A72]">
                   <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">Resilience</p>
@@ -256,7 +267,7 @@ export default async function RootScorePage() {
             </div>
 
             {/* Domain breakdown */}
-            <section className={`${CARD} mt-5 p-6`}>
+            <section className="mef-card mt-5 p-6">
               <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Domain Breakdown
               </p>
@@ -269,7 +280,7 @@ export default async function RootScorePage() {
 
             {/* Factors */}
             {(snapshot!.positive_factors.length > 0 || snapshot!.limiting_factors.length > 0) && (
-              <section className={`${CARD} mt-5 p-6`}>
+              <section className="mef-card mt-5 p-6">
                 <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                   What&apos;s Shaping Your Score
                 </p>
@@ -301,7 +312,7 @@ export default async function RootScorePage() {
             )}
 
             {/* How it works */}
-            <section className={`${CARD} mt-5 p-6`}>
+            <section className="mef-card mt-5 p-6">
               <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 How Root Score Works
               </p>

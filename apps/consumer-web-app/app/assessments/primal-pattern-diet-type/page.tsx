@@ -18,8 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { NutritionSafetyFlagsForm } from '@/components/health-safety/NutritionSafetyFlagsForm';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 const RESULT_LABEL: Record<string, string> = {
   polar: 'Polar',
@@ -54,7 +53,7 @@ export default async function PrimalPatternOverviewPage() {
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/questionnaires" label="Back to Questionnaires" />
 
-        <section className={`${CARD} mef-animate-in mt-4 p-7`}>
+        <Card className="mef-animate-in mt-4">
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">
@@ -95,12 +94,13 @@ export default async function PrimalPatternOverviewPage() {
             One question at a time. You can select both answers when both feel true, or skip a
             question entirely. Your progress saves automatically, so you can always finish later.
           </p>
-        </section>
+        </Card>
 
         {latestCompleted && (
-          <Link
+          <Card
+            as={Link}
             href={`/assessments/primal-pattern-diet-type/results/${latestCompleted.id}` as Route}
-            className={`${CARD} mef-animate-in mt-5 flex items-center justify-between gap-4 p-6 transition hover:bg-[#FAFAF8]`}
+            className="mef-animate-in mt-5 flex items-center justify-between gap-4 transition hover:bg-[#FAFAF8]"
           >
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
@@ -110,7 +110,7 @@ export default async function PrimalPatternOverviewPage() {
                 {RESULT_LABEL[latestCompleted.result] ?? latestCompleted.result}
               </p>
             </div>
-          </Link>
+          </Card>
         )}
 
         <div className="mt-5">

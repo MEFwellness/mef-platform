@@ -83,8 +83,14 @@ import {
   STATUS_STYLES,
 } from '@/lib/wellness/status';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-const TRACKER_CARD = `${CARD} flex min-h-[172px] flex-col p-5`;
+// Screen Layout System (Prompt 2): both of these used to be a hand-rolled
+// `rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]`
+// literal, duplicated verbatim across a dozen files. `.mef-card`
+// (app/globals.css) is now that one recipe's single definition — these
+// constants just add this zone's own layout modifiers (flex/min-height for
+// the six equal-height tracker tiles) on top of it.
+const CARD = 'mef-card';
+const TRACKER_CARD = `${CARD} flex min-h-[172px] flex-col`;
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
 
 /** Suspense fallback for each "What Root Is Noticing" carousel tile, shaped like the real tile so the row doesn't jump once its own fetch resolves. */
@@ -578,7 +584,7 @@ export default async function DashboardPage({
             {/* ==================================================== */}
             <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>Trends</p>
-              <section className={`${CARD} mt-4 p-6`}>
+              <section className={`${CARD} mt-4`}>
                 <div className="flex items-center gap-2 text-[#6B7A72]">
                   <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">Energy Trend</p>
@@ -613,7 +619,7 @@ export default async function DashboardPage({
 
                 {hasConnectedWearable ? (
                   decision?.wearableSnapshot ? (
-                    <section className={`${CARD} p-6`}>
+                    <section className={CARD}>
                       <div className="flex items-center gap-2 text-[#6B7A72]">
                         <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                         <p className="text-sm font-semibold uppercase tracking-wider">

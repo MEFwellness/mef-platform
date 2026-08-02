@@ -119,7 +119,7 @@ function enumOptionLabel(option: string): string {
   return ENUM_OPTION_LABELS[option] ?? option.replaceAll('_', ' ');
 }
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const CARD = 'mef-card'; // Screen Layout System (Prompt 2): standardized card recipe, app/globals.css
 // text-base (16px), not text-sm. A focused text input/select/textarea
 // under 16px triggers iOS Safari's automatic zoom-on-focus, which is
 // exactly the "page scales unexpectedly while typing" behavior members

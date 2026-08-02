@@ -3,8 +3,7 @@ import type { Route } from 'next';
 import { ChevronRight } from 'lucide-react';
 import { PriorityBadge } from './PriorityBadge';
 import type { PriorityLevel } from '@/lib/assessments/engine/types';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 type Props = {
   href: string;
@@ -17,9 +16,10 @@ type Props = {
 
 export function CategoryCard({ href, name, score, maxScore, priority, description }: Props) {
   return (
-    <Link
+    <Card
+      as={Link}
       href={href as Route}
-      className={`${CARD} group block p-6 transition hover:bg-[#FAFAF8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B3A2D]`}
+      className="group block transition hover:bg-[#FAFAF8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B3A2D]"
     >
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm font-semibold text-[#1B3A2D]">{name}</p>
@@ -36,6 +36,6 @@ export function CategoryCard({ href, name, score, maxScore, priority, descriptio
         View details
         <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
       </div>
-    </Link>
+    </Card>
   );
 }

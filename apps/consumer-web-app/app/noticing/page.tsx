@@ -24,9 +24,23 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
+import { CenterStage } from '@/components/layout';
 import { getMyNoticingView } from '@/app/actions/memberNoticing';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+/**
+ * Screen Layout System (Prompt 2): the empty state below ("Still gathering
+ * information") is the one genuinely sparse render this page has — a
+ * single short card that used to hug the top of the viewport with a lot
+ * of dead space beneath it. `chromeOffsetPx` accounts for everything else
+ * still consuming real vertical space around it: this page's own
+ * `pt-safe-header` (2rem) + `pb-safe-chat` (9rem, since this page also
+ * renders FloatingCoachLauncher) padding, plus the BackButton row and the
+ * "What We're Noticing" label row above it (~3.5rem combined, measured
+ * from their real text-sm/icon-row heights). Approximate by design, same
+ * spirit as the app's other safe-area constants — a few px of slack here
+ * is fine, unbounded dead space was the actual bug.
+ */
+const EMPTY_STATE_CHROME_OFFSET_PX = 232;
 
 export default async function NoticingPage() {
   const supabase = createClient();
@@ -58,16 +72,18 @@ export default async function NoticingPage() {
         </div>
 
         {!hasAnything || !view ? (
-          <section className={`${CARD} mef-animate-in mt-3 p-7`}>
-            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
-              Still gathering information
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-              Complete a check-in or an assessment and this page will start filling in.
-            </p>
-          </section>
+          <CenterStage chromeOffsetPx={EMPTY_STATE_CHROME_OFFSET_PX}>
+            <section className="mef-card mef-animate-in p-7">
+              <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
+                Still gathering information
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                Complete a check-in or an assessment and this page will start filling in.
+              </p>
+            </section>
+          </CenterStage>
         ) : (
-          <section className={`${CARD} mef-animate-in mt-3 p-7`}>
+          <section className="mef-card mef-animate-in mt-3 p-7">
             {view.noticing.length > 0 && (
               <ul className="space-y-2.5">
                 {view.noticing.map((item, i) => (

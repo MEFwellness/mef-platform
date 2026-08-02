@@ -4,8 +4,7 @@ import { Gem, HeartPulse, Sparkles, Activity, UtensilsCrossed, ScanFace, Mail } 
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 const INCLUDED: { label: string; Icon: typeof HeartPulse }[] = [
   { label: 'Daily Root Score and cross-domain trends', Icon: Sparkles },
@@ -40,7 +39,7 @@ export default async function MembershipPage() {
           Signed in as <span className="text-[#1B3A2D]">{user.email}</span>.
         </p>
 
-        <div className={`${CARD} mt-6 p-6`}>
+        <Card className="mt-6">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             What&apos;s Included
           </p>
@@ -56,9 +55,9 @@ export default async function MembershipPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
-        <div className={`${CARD} mt-5 flex items-start gap-3 p-6`}>
+        <Card className="mt-5 flex items-start gap-3">
           <Mail
             className="mt-0.5 h-5 w-5 shrink-0 text-[#1B3A2D]/60"
             strokeWidth={1.75}
@@ -77,7 +76,7 @@ export default async function MembershipPage() {
               .
             </p>
           </div>
-        </div>
+        </Card>
       </main>
 
       <BottomNav isCoach={isCoach} />

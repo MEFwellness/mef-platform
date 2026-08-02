@@ -9,7 +9,7 @@ import { fetchLatestMemberGoalSelection } from '@/lib/member-goals/data';
 import { ConsentForm } from './ConsentForm';
 import { OnboardingFlow } from './OnboardingFlow';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const CARD = 'mef-card'; // Screen Layout System (Prompt 2): standardized card recipe, app/globals.css
 const SHELL =
   'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
 const CONTAINER = 'mx-auto w-full max-w-md px-5 py-10 sm:px-6 md:max-w-2xl md:px-10';

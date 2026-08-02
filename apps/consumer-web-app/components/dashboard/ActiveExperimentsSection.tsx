@@ -40,7 +40,9 @@ import { RplExperimentPanel } from '@/components/readiness-pulse/RplExperimentPa
 // here rather than a new shared export, since one string isn't worth an
 // abstraction.
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
-const ROW_CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] p-6';
+// Screen Layout System (Prompt 2): was a hand-rolled duplicate of
+// `.mef-card` (app/globals.css) — now the one shared recipe.
+const ROW_CARD = 'mef-card';
 
 /** A Recommendation-Engine-sourced active experiment has no daily yes/no question of its own (that mechanism only exists for Core Values Snapshot/Life Signal Check's Weekly Experiment) — honestly shows name and real day progress only, with a direct link to /recommendations, the one place its reflect/close flow already lives, rather than inventing a question that was never asked. */
 function RecommendationExperimentRow({

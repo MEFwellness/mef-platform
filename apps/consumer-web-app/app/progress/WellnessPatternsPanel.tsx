@@ -1,8 +1,6 @@
 import { Sparkles } from 'lucide-react';
 import type { WellnessInsight } from '@mef/shared-types-contracts';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 /**
  * Section 8's "Your Wellness Patterns" — restrained by construction: the
  * server action (getMyWellnessPatterns) already caps this at a small
@@ -16,7 +14,7 @@ export function WellnessPatternsPanel({ insights }: { insights: WellnessInsight[
   if (insights.length === 0) return null;
 
   return (
-    <section className={`${CARD} mt-5 p-6`}>
+    <section className="mef-card mt-5 p-6">
       <div className="flex items-center gap-2 text-[#6B7A72]">
         <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">Your Wellness Patterns</p>

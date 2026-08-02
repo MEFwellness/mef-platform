@@ -26,16 +26,23 @@ import { getMyRootMap } from '@/app/actions/rootMap';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
+import { CenterStage, CardStack } from '@/components/layout';
 import { groupRootMapDomains, resolveNamedAreaRecommendation } from '@/lib/root-map';
 import { RootMapRing } from '@/components/root-map/RootMapRing';
 import { RootMapFindingCard } from '@/components/root-map/RootMapFindingCard';
 import { RootMapBuildingRow } from '@/components/root-map/RootMapBuildingRow';
 import { RootMapNotCoveredSection } from '@/components/root-map/RootMapNotCoveredSection';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 const SAFETY_STATEMENT =
   'Your Root Map is a wellness coaching guide built from your own check-ins, activity, and assessments. It is not a medical diagnosis, a clinical measurement, or a prediction about your health. Working hypotheses only, held loosely, and always something to confirm or correct with your coach.';
+
+/**
+ * Screen Layout System (Prompt 2): the "Building your Root Map" state is
+ * this page's one genuinely sparse render — a single card, previously
+ * hugging the top of the viewport. Same reasoning/value as the identical
+ * constant in app/root-score/page.tsx and app/case/page.tsx.
+ */
+const EMPTY_STATE_CHROME_OFFSET_PX = 200;
 
 const NOTHING_STANDS_OUT_YET =
   "Nothing specific has stood out yet. Keep checking in and we'll name it here as soon as it does.";
@@ -68,18 +75,20 @@ export default async function RootMapPage() {
         </div>
 
         {!rootMap || !groups ? (
-          <section className={`${CARD} mef-animate-in mt-3 p-7`}>
-            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
-              Building your Root Map
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-              Rooted Reset is still gathering information about you. Complete a check-in or an
-              assessment and this page will start filling in.
-            </p>
-          </section>
+          <CenterStage chromeOffsetPx={EMPTY_STATE_CHROME_OFFSET_PX}>
+            <section className="mef-card mef-animate-in p-7">
+              <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
+                Building your Root Map
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                Rooted Reset is still gathering information about you. Complete a check-in or an
+                assessment and this page will start filling in.
+              </p>
+            </section>
+          </CenterStage>
         ) : (
           <>
-            <section className={`${CARD} mef-animate-in mt-3 p-7`}>
+            <section className="mef-card mef-animate-in mt-3 p-7">
               <RootMapRing
                 domains={rootMap.domains.map((d) => ({
                   domain: d.domain,
@@ -94,7 +103,7 @@ export default async function RootMapPage() {
               </p>
             </section>
 
-            <section className={`${CARD} mef-animate-in mt-5 p-7`}>
+            <section className="mef-card mef-animate-in mt-5 p-7">
               <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
                 What We&apos;re Noticing Overall
               </h1>
@@ -131,15 +140,17 @@ export default async function RootMapPage() {
               <p className="px-1 text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
                 What We&apos;re Seeing
               </p>
-              <div className="mt-3 space-y-5">
+              <div className="mt-3">
                 {groups.seeing.length > 0 ? (
-                  groups.seeing.map((domain) => (
-                    <RootMapFindingCard
-                      key={domain.domain}
-                      domain={domain}
-                      coverage={rootMap.coverageByDomain[domain.domain] ?? null}
-                    />
-                  ))
+                  <CardStack>
+                    {groups.seeing.map((domain) => (
+                      <RootMapFindingCard
+                        key={domain.domain}
+                        domain={domain}
+                        coverage={rootMap.coverageByDomain[domain.domain] ?? null}
+                      />
+                    ))}
+                  </CardStack>
                 ) : (
                   <p className="px-1 text-sm leading-relaxed text-[#6B7A72]">
                     Nothing has risen to a clear pattern yet. As you check in and complete

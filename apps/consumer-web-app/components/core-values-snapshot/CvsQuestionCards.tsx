@@ -1,8 +1,9 @@
 'use client';
 
 import { Check } from 'lucide-react';
-import { CVS_CARD, CVS_DISPLAY_FONT, CVS_GOLD, CVS_FOREST } from './theme';
+import { CVS_DISPLAY_FONT, CVS_GOLD, CVS_FOREST } from './theme';
 import { CVS_SCALE_LABELS } from '@/lib/core-values-snapshot/copy';
+import { Card } from '@/components/layout';
 
 export type CvsOption = { value: string; label: string };
 
@@ -16,7 +17,7 @@ type SingleSelectProps = {
 /** Q1-Q4, Q11 — one focused question, options already shuffled by the caller (seeded per session, stable across re-renders and resumes). */
 export function SingleSelectQuestion({ prompt, options, value, onChange }: SingleSelectProps) {
   return (
-    <div className={`${CVS_CARD} mef-animate-in p-7`}>
+    <Card className="mef-animate-in">
       <h2 className={`${CVS_DISPLAY_FONT} text-2xl leading-snug text-[#1B3A2D]`}>{prompt}</h2>
       <div className="mt-6 space-y-3" role="radiogroup" aria-label={prompt}>
         {options.map((option) => {
@@ -40,7 +41,7 @@ export function SingleSelectQuestion({ prompt, options, value, onChange }: Singl
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -95,7 +96,7 @@ type ScaleBatteryProps = {
 /** Screen 2 — all six sliders on one screen, order rotated per member (seeded, stable within a session). */
 export function ScaleBattery({ intro, rows, values, onChange }: ScaleBatteryProps) {
   return (
-    <div className={`${CVS_CARD} mef-animate-in p-7`}>
+    <Card className="mef-animate-in">
       <p className="text-sm leading-relaxed text-[#6B7A72]">{intro}</p>
       <div className="mt-2 divide-y divide-[#1B3A2D]/8">
         {rows.map((row) => (
@@ -107,7 +108,7 @@ export function ScaleBattery({ intro, rows, values, onChange }: ScaleBatteryProp
           />
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -121,7 +122,7 @@ type Q12ChoiceProps = {
 /** Q12 — two big forced-choice tiles, left/right order randomized per session. */
 export function Q12Choice({ prompt, options, value, onChange }: Q12ChoiceProps) {
   return (
-    <div className={`${CVS_CARD} mef-animate-in p-7`}>
+    <Card className="mef-animate-in">
       <h2 className={`${CVS_DISPLAY_FONT} text-2xl leading-snug text-[#1B3A2D]`}>{prompt}</h2>
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {options.map((option) => {
@@ -145,6 +146,6 @@ export function Q12Choice({ prompt, options, value, onChange }: Q12ChoiceProps) 
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }

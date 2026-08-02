@@ -6,8 +6,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { getMyNotifications } from '@/app/actions/notifications';
 import { NotificationsList } from './NotificationsList';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { CenterStage, Card } from '@/components/layout';
 
 export default async function NotificationsPage() {
   const supabase = createClient();
@@ -35,16 +34,18 @@ export default async function NotificationsPage() {
         </h1>
 
         {notifications.length === 0 ? (
-          <section className={`${CARD} mt-6 p-8 text-center`}>
-            <p className="text-sm leading-relaxed text-[#6B7A72]">
-              Nothing here yet. Coach messages, report updates, and daily briefs will show up in
-              this list.
-            </p>
-          </section>
+          <CenterStage>
+            <Card as="section" className="text-center">
+              <p className="text-sm leading-relaxed text-[#6B7A72]">
+                Nothing here yet. Coach messages, report updates, and daily briefs will show up in
+                this list.
+              </p>
+            </Card>
+          </CenterStage>
         ) : (
-          <div className={`${CARD} mt-6 p-2`}>
+          <Card className="mt-6 !p-2">
             <NotificationsList notifications={notifications} />
-          </div>
+          </Card>
         )}
       </main>
 

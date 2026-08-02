@@ -22,8 +22,7 @@ import {
 } from '@/components/assessments/CategoryScoreTrendChart';
 import { AssessmentComparisonPanel } from '@/components/assessments/AssessmentComparisonPanel';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { CenterStage, Card } from '@/components/layout';
 
 export default async function AssessmentHistoryPage({
   params,
@@ -71,20 +70,22 @@ export default async function AssessmentHistoryPage({
         <p className="mt-2 text-sm text-[#6B7A72]">{copy.displayTitle}</p>
 
         {history.length === 0 ? (
-          <section className={`${CARD} mef-animate-in mt-5 p-7`}>
-            <p className="text-sm leading-relaxed text-[#6B7A72]">
-              You haven&apos;t completed this assessment yet.
-            </p>
-            <Link
-              href={`/assessments/${toPublicSlug(questionnaire.id)}/take` as Route}
-              className="mt-4 inline-block rounded-2xl bg-[#1B3A2D] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#163025]"
-            >
-              Begin assessment
-            </Link>
-          </section>
+          <CenterStage>
+            <Card className="mef-animate-in">
+              <p className="text-sm leading-relaxed text-[#6B7A72]">
+                You haven&apos;t completed this assessment yet.
+              </p>
+              <Link
+                href={`/assessments/${toPublicSlug(questionnaire.id)}/take` as Route}
+                className="mt-4 inline-block rounded-2xl bg-[#1B3A2D] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#163025]"
+              >
+                Begin assessment
+              </Link>
+            </Card>
+          </CenterStage>
         ) : (
           <>
-            <section className={`${CARD} mef-animate-in mt-5 p-6`}>
+            <Card className="mef-animate-in mt-5">
               <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Overall Score Trend
               </p>
@@ -92,10 +93,10 @@ export default async function AssessmentHistoryPage({
                 points={trendPoints}
                 emptyLabel="Complete a second assessment to see your trend over time."
               />
-            </section>
+            </Card>
 
             {latest && (
-              <section className={`${CARD} mt-5 p-6`}>
+              <Card className="mt-5">
                 <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                   Compare Your Progress
                 </p>
@@ -105,10 +106,10 @@ export default async function AssessmentHistoryPage({
                     latestAssessmentId={latest.id}
                   />
                 </div>
-              </section>
+              </Card>
             )}
 
-            <section className={`${CARD} mt-5 p-6`}>
+            <Card className="mt-5">
               <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Every Completed Assessment
               </p>
@@ -131,7 +132,7 @@ export default async function AssessmentHistoryPage({
                   </Link>
                 ))}
               </div>
-            </section>
+            </Card>
           </>
         )}
       </main>

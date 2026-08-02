@@ -20,8 +20,7 @@ import {
   submitFeedReflectionForMember,
   rateFeedHelpfulnessForMember,
 } from '@/app/actions/feed';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 export function FeedInteractions({
   feedItem,
@@ -101,7 +100,7 @@ export function FeedInteractions({
         </p>
       )}
 
-      <section className={`${CARD} p-6`}>
+      <Card as="section">
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <MessageCircleQuestion className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Today&apos;s Reflection</p>
@@ -134,7 +133,7 @@ export function FeedInteractions({
             </div>
           </>
         )}
-      </section>
+      </Card>
 
       {feedItem.helpful === null && (
         <div className="flex items-center gap-2 text-sm text-[#6B7A72]">

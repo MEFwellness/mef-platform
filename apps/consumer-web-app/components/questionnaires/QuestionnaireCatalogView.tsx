@@ -13,6 +13,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { QuestionnaireCatalog, CatalogCard } from '@/app/actions/questionnaireCatalog';
 import { CatalogQuestionnaireCard } from './CatalogQuestionnaireCard';
+import { Card } from '@/components/layout';
 
 type FilterKey = 'all' | 'available' | 'premium' | 'assigned' | 'completed';
 
@@ -87,11 +88,11 @@ export function QuestionnaireCatalogView({
       </div>
 
       {counts.all === 0 && (
-        <section className="mef-animate-in mt-8 rounded-[28px] bg-white p-7 text-center shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
+        <Card as="section" className="mef-animate-in mt-8 text-center">
           <p className="text-sm leading-relaxed text-[#6B7A72]">
             Nothing available right now. Check back soon.
           </p>
-        </section>
+        </Card>
       )}
 
       {(filter === 'all' || filter === 'available') && (

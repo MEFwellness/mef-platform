@@ -59,10 +59,13 @@ import { RootQuickLink } from '@/components/RootQuickLink';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
 import { buildTodayEntryContext } from '@/lib/conversation-coach/entryContext';
 import { getMyNotifications } from '@/app/actions/notifications';
+import { Reading } from '@/components/layout';
 import { FeedInteractions } from './FeedInteractions';
 import { TodayZones } from './TodayZones';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+// Screen Layout System (Prompt 2): was a hand-rolled duplicate of
+// `.mef-card` (app/globals.css) — now the one shared recipe.
+const CARD = 'mef-card';
 
 const FOUR_DOCTORS_ICON: Record<FourDoctorsCategory, typeof Dumbbell> = {
   doctor_movement: Dumbbell,
@@ -232,7 +235,7 @@ export default async function TodayPage() {
                 so they're not shown here a second time. Hydration/
                 nutrition always show — they reuse the same check-in
                 status classification the Dashboard already uses. */}
-            <section className={`${CARD} mef-animate-in mt-6 p-7`}>
+            <section className={`${CARD} mef-animate-in mt-6`}>
               <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Watch className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">
@@ -334,7 +337,7 @@ export default async function TodayPage() {
 
             {!decision || !decision.feedItem || !decision.content ? (
               <>
-                <section className={`${CARD} mt-6 p-8`}>
+                <section className={`${CARD} mt-6`}>
                   <p className="text-base text-[#1B3A2D]">Nothing here yet.</p>
                   <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
                     Your coaching lesson for today hasn&apos;t been prepared yet. Check back shortly.
@@ -401,7 +404,7 @@ export default async function TodayPage() {
                           focus itself leads, Root's note carries beneath it
                           as the reasoning. */}
                       <section
-                        className={`${CARD} mef-animate-in relative overflow-hidden p-7`}
+                        className={`${CARD} mef-animate-in relative overflow-hidden`}
                         style={stagger(sectionIndex++)}
                       >
                         <div
@@ -444,10 +447,18 @@ export default async function TodayPage() {
                         totalMovementDays={totalMovementDays}
                       />
 
-                      {/* Today's Lesson */}
+                      {/* Today's Lesson — the one card in this scope that
+                          needs zero outer padding (the illustration band
+                          bleeds to the card's own edges, with the text
+                          below in its own p-7 div) — .mef-card's own
+                          padding always overrides a plain Tailwind
+                          utility class here (unlayered CSS beats the
+                          `utilities` layer), so this is set via inline
+                          style instead of a `p-0` class that would
+                          silently do nothing. */}
                       <section
-                        className={`${CARD} mef-animate-in overflow-hidden p-0`}
-                        style={stagger(sectionIndex++)}
+                        className={`${CARD} mef-animate-in overflow-hidden`}
+                        style={{ ...stagger(sectionIndex++), padding: 0 }}
                       >
                         {/* Illustration placeholder — a soft gradient band with the lesson's Four Doctors icon, ready to swap for real lesson artwork whenever it exists. */}
                         <div className="flex h-28 items-center justify-center bg-gradient-to-br from-[#1B3A2D]/[0.07] via-[#F5B700]/[0.08] to-[#1B3A2D]/[0.04]">
@@ -477,9 +488,11 @@ export default async function TodayPage() {
                           <h2 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-snug text-[#1B3A2D]">
                             {today.content.title}
                           </h2>
-                          <p className="mt-3 text-[15px] leading-relaxed text-[#1B3A2D]/85">
-                            {today.content.body}
-                          </p>
+                          <Reading className="mt-3">
+                            <p className="text-[15px] leading-relaxed text-[#1B3A2D]/85">
+                              {today.content.body}
+                            </p>
+                          </Reading>
                           {today.content.evidence_sources.length > 0 && (
                             <div className="mt-5 border-t border-[#1B3A2D]/5 pt-4">
                               <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
@@ -506,7 +519,7 @@ export default async function TodayPage() {
 
                       {/* Today's Challenge */}
                       <section
-                        className={`${CARD} mef-animate-in p-7`}
+                        className={`${CARD} mef-animate-in`}
                         style={stagger(sectionIndex++)}
                       >
                         <div className="flex items-center gap-2 text-[#6B7A72]">
@@ -562,7 +575,7 @@ export default async function TodayPage() {
                           surface; it always opens the same thread the member's own
                           /conversation page shows. */}
                       <section
-                        className={`${CARD} mef-animate-in p-6`}
+                        className={`${CARD} mef-animate-in`}
                         style={stagger(sectionIndex++)}
                       >
                         <div className="flex items-center gap-2 text-[#6B7A72]">
@@ -623,7 +636,7 @@ export default async function TodayPage() {
                       {/* Coach Insight — a single, real, derived observation (Part 7); omitted entirely when there isn't one worth showing. */}
                       {coachInsight && (
                         <section
-                          className={`${CARD} mef-animate-in p-6`}
+                          className={`${CARD} mef-animate-in`}
                           style={stagger(sectionIndex++)}
                         >
                           <div className="flex items-center gap-2 text-[#6B7A72]">
@@ -640,7 +653,7 @@ export default async function TodayPage() {
 
                       {/* Why You're Seeing This — the Coaching Brain's own reason leads, with the specific lesson's own reason underneath. */}
                       <section
-                        className={`${CARD} mef-animate-in p-6`}
+                        className={`${CARD} mef-animate-in`}
                         style={stagger(sectionIndex++)}
                       >
                         <div className="flex items-center gap-2 text-[#6B7A72]">
@@ -687,7 +700,7 @@ export default async function TodayPage() {
                   <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                   <p className="text-sm font-semibold uppercase tracking-wider">Past Lessons</p>
                 </div>
-                <div className={`${CARD} mt-3 divide-y divide-[#1B3A2D]/5 p-2`}>
+                <div className={`${CARD} mt-3 divide-y divide-[#1B3A2D]/5`}>
                   {history.map(({ feedItem, content }) => (
                     <div
                       key={feedItem.id}

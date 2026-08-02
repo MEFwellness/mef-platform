@@ -18,7 +18,8 @@ import { findInProgressSession } from '@/lib/assessment-runtime';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { CVS_KEY } from '@/lib/core-values-snapshot/constants';
-import { CVS_CARD, CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
+import { CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
+import { CenterStage, Card } from '@/components/layout';
 
 export default async function CoreValuesSnapshotOverviewPage() {
   const supabase = createClient();
@@ -37,16 +38,18 @@ export default async function CoreValuesSnapshotOverviewPage() {
       <div className={`${CVS_PAGE_BG} font-[family-name:var(--font-dm-sans)]`}>
         <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
           <BackButton fallbackHref="/dashboard" label="Back" forceFallback />
-          <section className={`${CVS_CARD} mef-animate-in mt-4 p-7 text-center`}>
-            <h1 className={`${CVS_DISPLAY_FONT} text-3xl leading-tight text-[#1B3A2D]`}>Core Values Snapshot</h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">{describeLockReason(access.reason)}</p>
-            <Link
-              href={'/dashboard' as Route}
-              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-            >
-              Back to Dashboard
-            </Link>
-          </section>
+          <CenterStage>
+            <Card className="mef-animate-in text-center">
+              <h1 className={`${CVS_DISPLAY_FONT} text-3xl leading-tight text-[#1B3A2D]`}>Core Values Snapshot</h1>
+              <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">{describeLockReason(access.reason)}</p>
+              <Link
+                href={'/dashboard' as Route}
+                className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+              >
+                Back to Dashboard
+              </Link>
+            </Card>
+          </CenterStage>
         </main>
         <BottomNav isCoach={isCoach} />
       </div>
@@ -68,7 +71,7 @@ export default async function CoreValuesSnapshotOverviewPage() {
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/dashboard" label="Back to Dashboard" forceFallback />
 
-        <section className={`${CVS_CARD} mef-animate-in mt-4 p-7`}>
+        <Card className="mef-animate-in mt-4">
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Free with Root</p>
@@ -101,7 +104,7 @@ export default async function CoreValuesSnapshotOverviewPage() {
           >
             {ctaLabel}
           </Link>
-        </section>
+        </Card>
       </main>
       <BottomNav isCoach={isCoach} />
     </div>

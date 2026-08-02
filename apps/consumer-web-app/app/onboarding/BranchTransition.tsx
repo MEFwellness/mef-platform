@@ -1,4 +1,6 @@
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { CenterStage } from '@/components/layout';
+
+const CARD = 'mef-card'; // Screen Layout System (Prompt 2): standardized card recipe, app/globals.css
 
 /**
  * A one-off "coach beat" shown exactly once, right after primary_concern is
@@ -6,10 +8,14 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
  * is what makes the reordering in lib/onboarding/branching.ts read as
  * adaptive rather than just a silent reshuffle. Not counted as a question
  * step by OnboardingProgress.
+ *
+ * Screen Layout System (Prompt 2): one short line plus one button — the
+ * sparsest possible screen in this flow, so it's vertically centered
+ * instead of hugging the top of app/onboarding/page.tsx's container.
  */
 export function BranchTransition({ line, onContinue }: { line: string; onContinue: () => void }) {
   return (
-    <div className="mef-animate-in">
+    <CenterStage className="mef-animate-in">
       <div className={`${CARD} p-6 md:p-7`}>
         <p className="font-[family-name:var(--font-cormorant-garamond)] text-2xl font-semibold leading-snug text-[#1B3A2D] md:text-[1.75rem]">
           {line}
@@ -23,6 +29,6 @@ export function BranchTransition({ line, onContinue }: { line: string; onContinu
       >
         Continue
       </button>
-    </div>
+    </CenterStage>
   );
 }

@@ -38,6 +38,7 @@ import type { BodyLandmarkPoint, CaptureOrientationSource } from '@mef/shared-ty
 import { usePoseLandmarker } from '@/hooks/usePoseLandmarker';
 import { useGuidedVoice } from '@/hooks/useGuidedVoice';
 import { useDeviceTilt, type OrientationPermissionStatus } from '@/hooks/useDeviceTilt';
+import { CenterStage, Card } from '@/components/layout';
 import {
   validatePoseFrame,
   evaluateMultiPersonCandidate,
@@ -1145,46 +1146,50 @@ export function CameraCapture({
 
   if (phase === 'unsupported') {
     return (
-      <div className="rounded-[28px] bg-white p-6 text-center shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
-        <p className="text-sm text-[#1B3A2D]">
-          Your browser doesn&apos;t support camera capture. Please try again on a phone or a browser
-          with camera support.
-        </p>
-        <button
-          type="button"
-          onClick={handleExit}
-          className="mt-4 rounded-full border border-[#1B3A2D]/15 px-5 py-2 text-sm font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.04]"
-        >
-          Exit assessment
-        </button>
-      </div>
+      <CenterStage>
+        <Card className="text-center">
+          <p className="text-sm text-[#1B3A2D]">
+            Your browser doesn&apos;t support camera capture. Please try again on a phone or a browser
+            with camera support.
+          </p>
+          <button
+            type="button"
+            onClick={handleExit}
+            className="mt-4 rounded-full border border-[#1B3A2D]/15 px-5 py-2 text-sm font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.04]"
+          >
+            Exit assessment
+          </button>
+        </Card>
+      </CenterStage>
     );
   }
 
   if (phase === 'denied') {
     return (
-      <div className="rounded-[28px] bg-white p-6 text-center shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
-        <p className="text-sm text-[#1B3A2D]">
-          We need camera access to guide you through this assessment. Please allow camera access in
-          your browser settings and try again.
-        </p>
-        <div className="mt-4 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => setFacingMode((m) => m)}
-            className="rounded-full bg-[#1B3A2D] px-5 py-2 text-sm font-medium text-white hover:brightness-110"
-          >
-            Try again
-          </button>
-          <button
-            type="button"
-            onClick={handleExit}
-            className="rounded-full border border-[#1B3A2D]/15 px-5 py-2 text-sm font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.04]"
-          >
-            Exit assessment
-          </button>
-        </div>
-      </div>
+      <CenterStage>
+        <Card className="text-center">
+          <p className="text-sm text-[#1B3A2D]">
+            We need camera access to guide you through this assessment. Please allow camera access in
+            your browser settings and try again.
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setFacingMode((m) => m)}
+              className="rounded-full bg-[#1B3A2D] px-5 py-2 text-sm font-medium text-white hover:brightness-110"
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={handleExit}
+              className="rounded-full border border-[#1B3A2D]/15 px-5 py-2 text-sm font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.04]"
+            >
+              Exit assessment
+            </button>
+          </div>
+        </Card>
+      </CenterStage>
     );
   }
 

@@ -4,8 +4,7 @@ import {
   formatAnswerValue,
   type BaselineAssessment,
 } from '@/lib/onboarding/baseline';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 function formatDate(localDate: string): string {
   const [year, month, day] = localDate.split('-').map(Number);
@@ -32,7 +31,7 @@ export function BaselineAssessmentView({ baseline, description }: Props) {
 
   return (
     <div className="space-y-5">
-      <section className={`${CARD} p-6`}>
+      <Card as="section">
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <CalendarCheck className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Completed</p>
@@ -44,10 +43,10 @@ export function BaselineAssessmentView({ baseline, description }: Props) {
           </span>
         </div>
         <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">{description}</p>
-      </section>
+      </Card>
 
       {groups.map((group) => (
-        <section key={group.domain} className={`${CARD} p-6`}>
+        <Card as="section" key={group.domain}>
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             {group.label}
           </p>
@@ -61,7 +60,7 @@ export function BaselineAssessmentView({ baseline, description }: Props) {
               </div>
             ))}
           </div>
-        </section>
+        </Card>
       ))}
     </div>
   );

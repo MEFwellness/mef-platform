@@ -16,12 +16,22 @@ import { todaysLocalDate } from '@/lib/time/localDate';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
+import { CenterStage } from '@/components/layout';
 import { CaseViewBody } from '@/components/case-view/CaseViewBody';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 const SAFETY_STATEMENT =
   "This view is built from your own check-ins. It shows relationships in your data, not medical conclusions or predictions. Nothing here says one thing causes another; it's something to explore with your coach, not a diagnosis.";
+
+/**
+ * Screen Layout System (Prompt 2): the "Building your case" state is this
+ * page's one genuinely sparse render — a single card, previously hugging
+ * the top of the viewport. Same base reasoning as the identical constant
+ * in app/root-score/page.tsx and app/root-map/page.tsx, plus this page's
+ * own trailing SAFETY_STATEMENT paragraph (~3.5rem with its `mt-6`),
+ * which — unlike those two pages — renders after the card regardless of
+ * which branch is active, so it needs to be accounted for here too.
+ */
+const EMPTY_STATE_CHROME_OFFSET_PX = 256;
 
 export default async function CaseViewPage() {
   const supabase = createClient();
@@ -51,14 +61,16 @@ export default async function CaseViewPage() {
         </div>
 
         {!caseView ? (
-          <section className={`${CARD} mef-animate-in mt-3 p-7`}>
-            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
-              Building your case
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-              Complete a check-in and this page will start filling in.
-            </p>
-          </section>
+          <CenterStage chromeOffsetPx={EMPTY_STATE_CHROME_OFFSET_PX}>
+            <section className="mef-card mef-animate-in p-7">
+              <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
+                Building your case
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                Complete a check-in and this page will start filling in.
+              </p>
+            </section>
+          </CenterStage>
         ) : (
           <div className="mt-3">
             <CaseViewBody caseView={caseView} localDate={localDate} />

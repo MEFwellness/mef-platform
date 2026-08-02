@@ -2,8 +2,7 @@
 
 import { Check } from 'lucide-react';
 import type { Question } from '@/lib/assessments/engine/types';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 type Props = {
   categoryName: string;
@@ -23,7 +22,7 @@ export function QuestionCard({
   const legendId = `question-${question.number}-legend`;
 
   return (
-    <div key={question.number} className={`${CARD} mef-animate-in p-7`}>
+    <Card key={question.number} className="mef-animate-in">
       <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
         {sectionPosition} · {categoryName}
       </p>
@@ -58,6 +57,6 @@ export function QuestionCard({
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }

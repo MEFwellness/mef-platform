@@ -15,8 +15,10 @@ import { Footprints, Check } from 'lucide-react';
 import { logMovementLevel } from '@/app/actions/events';
 import type { DailyCheckinInput } from '@mef/shared-types-contracts';
 
-const TRACKER_CARD =
-  'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] flex min-h-[172px] flex-col p-5';
+// Screen Layout System (Prompt 2): was a hand-rolled duplicate of
+// `.mef-card` (app/globals.css) — now the one shared recipe, plus this
+// tracker's own flex/min-height layout on top of it.
+const TRACKER_CARD = 'mef-card flex min-h-[172px] flex-col';
 
 export type MovementLevel = NonNullable<DailyCheckinInput['movement_today']>;
 

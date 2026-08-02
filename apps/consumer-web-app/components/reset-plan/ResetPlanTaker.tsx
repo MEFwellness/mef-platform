@@ -204,7 +204,11 @@ export function ResetPlanTaker({ initialPlan }: { initialPlan: ResetPlan }) {
       )}
 
       {screen === 'why' && plan.focusSignal && (
-        <div className={`${CVS_CARD} mef-animate-in p-7`}>
+        // Screen Layout System (Prompt 2): a single short "why" statement plus
+        // one button — sparse content, so it's centered in the available
+        // space rather than hugging the top, same min-h-[60vh] convention
+        // the 'intro' screen above already established for this flow.
+        <div className={`${CVS_CARD} mef-animate-in flex min-h-[60vh] flex-col justify-center p-7`}>
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Why it matters</p>
           <p className="mt-3 text-[15px] leading-relaxed text-[#1B3A2D]">{buildResetPlanWhyItMatters(plan.snapshot, plan.focusSignal).text}</p>
           <NavRow onContinue={() => goTo('action')} />
@@ -256,7 +260,9 @@ export function ResetPlanTaker({ initialPlan }: { initialPlan: ResetPlan }) {
       )}
 
       {screen === 'agreement' && (
-        <div className={`${CVS_CARD} mef-animate-in p-7`}>
+        // Screen Layout System (Prompt 2): same sparse-content centering as
+        // the 'why' screen above — a short list plus one button.
+        <div className={`${CVS_CARD} mef-animate-in flex min-h-[60vh] flex-col justify-center p-7`}>
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">{RESET_PLAN_AGREEMENT_COPY.heading}</p>
           <ul className="mt-3 space-y-3 text-[15px] leading-relaxed text-[#1B3A2D]">
             <li>{RESET_PLAN_AGREEMENT_COPY.dayThreeLine}</li>

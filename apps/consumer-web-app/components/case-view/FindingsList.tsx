@@ -1,8 +1,6 @@
 import type { FindingView } from '@/lib/case-view/types';
 import { OverlayChart } from './OverlayChart';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 const TIER_BADGE_STYLE: Record<1 | 2 | 3, string> = {
   1: 'bg-[#F3F6F4] text-[#6B7A72]',
   2: 'bg-[#FDF2E3] text-[#8A5A1F]',
@@ -66,7 +64,7 @@ export function FindingsList({ findings, coachMode = false }: { findings: Findin
   if (findings.length === 0) return null;
 
   return (
-    <div className={`${CARD} space-y-5 p-6`}>
+    <div className="mef-card space-y-5 p-6">
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">What&apos;s showing up</p>
         <p className="mt-1 text-[13px] leading-relaxed text-[#6B7A72]">

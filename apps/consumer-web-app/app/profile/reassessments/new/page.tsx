@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getOnboardingQuestions } from '@/app/actions/onboarding';
 import { BackButton } from '@/components/BackButton';
 import { ReassessmentFormShell } from './ReassessmentFormShell';
+import { CenterStage } from '@/components/layout';
 
 const SHELL =
   'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
@@ -41,11 +42,13 @@ export default async function NewReassessmentPage() {
     return (
       <div className={SHELL}>
         <main className={CONTAINER}>
-          <h1 className={HEADING}>We&apos;ll be right with you</h1>
-          <p className="mt-2 text-[15px] text-[#6B7A72]">
-            Your reassessment isn&apos;t available right now. Please try again in a few minutes, or
-            contact support if this continues.
-          </p>
+          <CenterStage>
+            <h1 className={HEADING}>We&apos;ll be right with you</h1>
+            <p className="mt-2 text-[15px] text-[#6B7A72]">
+              Your reassessment isn&apos;t available right now. Please try again in a few minutes, or
+              contact support if this continues.
+            </p>
+          </CenterStage>
         </main>
       </div>
     );

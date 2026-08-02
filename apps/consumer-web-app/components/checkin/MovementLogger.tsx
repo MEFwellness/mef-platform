@@ -13,8 +13,7 @@
 import { useState, useTransition } from 'react';
 import { Footprints, Check } from 'lucide-react';
 import { logMovementEvent, type MovementType } from '@/app/actions/events';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 const MOVEMENT_TYPE_LABEL: Record<MovementType, string> = {
   walk: 'Walk',
@@ -50,7 +49,7 @@ export function MovementLogger({ todaysCount }: { todaysCount: number }) {
   }
 
   return (
-    <div className={`${CARD} p-5`}>
+    <Card>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <Footprints className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -130,6 +129,6 @@ export function MovementLogger({ todaysCount }: { todaysCount: number }) {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

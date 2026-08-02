@@ -40,7 +40,9 @@ import { MovementLevelTracker, type MovementLevel } from '@/components/checkin/M
 import { CoachMessages } from './CoachMessages';
 import { capabilityProgress } from '@/lib/today/capability';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+// Screen Layout System (Prompt 2): was a hand-rolled duplicate of
+// `.mef-card` (app/globals.css) — now the one shared recipe.
+const CARD = 'mef-card';
 const CAPABILITY_SEEN_KEY = 'mef_today_capability_unlocked_seen';
 
 function prefersReducedMotion(): boolean {
@@ -229,7 +231,7 @@ export function TodayZones({
         <div className="space-y-3">
           {!todaysCheckinDone && (
             <div ref={flipRef('checkin')} className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <section className={`${CARD} p-7`}>
+              <section className={`${CARD}`}>
                 <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                   Check-In Progress
                 </p>
@@ -276,7 +278,7 @@ export function TodayZones({
           )}
 
           {openHabits.length > 0 && (
-            <section className={`${CARD} p-6`}>
+            <section className={`${CARD}`}>
               <div className="flex items-center gap-2 text-[#6B7A72]">
                 <ListChecks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                 <p className="text-sm font-semibold uppercase tracking-wider">Today&apos;s Habits</p>
@@ -308,7 +310,7 @@ export function TodayZones({
       {/* ACCOMPLISHED ZONE — Done Today, then Cumulative Totals, then Earned Capability, in that order. Cumulative Totals and Earned Capability always render once a member has any check-in history at all, so this zone is never a blank container even at 7am before anything today is logged yet. */}
       <div className="space-y-5">
         {doneTodayCount > 0 && (
-          <section className={`${CARD} p-6`}>
+          <section className={`${CARD}`}>
             <div className="flex items-center gap-2 text-[#6B7A72]">
               <CheckCircle2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               <p className="text-sm font-semibold uppercase tracking-wider">Done Today</p>
@@ -353,7 +355,7 @@ export function TodayZones({
           </section>
         )}
 
-        <section className={`${CARD} p-6`}>
+        <section className={`${CARD}`}>
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Your Totals</p>
@@ -378,7 +380,7 @@ export function TodayZones({
           </div>
         </section>
 
-        <section className={`${CARD} p-6 ${justUnlocked ? 'mef-scale-settle' : ''}`}>
+        <section className={`${CARD} ${justUnlocked ? 'mef-scale-settle' : ''}`}>
           <div className="flex items-center gap-2 text-[#6B7A72]">
             {capability.unlocked ? (
               <PartyPopper className="h-4 w-4 text-[#854D0E]" strokeWidth={1.75} aria-hidden="true" />

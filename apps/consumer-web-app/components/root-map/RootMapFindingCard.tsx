@@ -11,8 +11,6 @@
 import { buildFindingCardViewModel, type DomainCoverage, type RootMapDomainView } from '@/lib/root-map';
 import { domainAnchorId } from '@/lib/root-map/anchors';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 export function RootMapFindingCard({
   domain,
   coverage,
@@ -23,7 +21,7 @@ export function RootMapFindingCard({
   const view = buildFindingCardViewModel(domain, coverage);
 
   return (
-    <section id={domainAnchorId(domain.domain)} className={`${CARD} scroll-mt-24 p-6`}>
+    <section id={domainAnchorId(domain.domain)} className="mef-card scroll-mt-24 p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-[#1B3A2D]">{view.label}</p>
         {view.coverageLabel && (

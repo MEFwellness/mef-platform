@@ -196,7 +196,7 @@ function LaneButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-2 rounded-[24px] bg-white p-4 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]"
+      className="flex flex-col items-center gap-2 rounded-[28px] bg-white p-4 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]"
     >
       <Icon className="h-5 w-5 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
       <span className="text-xs font-medium text-[#1B3A2D]">{label}</span>

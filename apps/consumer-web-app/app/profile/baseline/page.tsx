@@ -8,8 +8,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildAssessmentEntryContext } from '@/lib/conversation-coach/entryContext';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { CenterStage, Card } from '@/components/layout';
 
 const DESCRIPTION =
   'Your Baseline Assessment reflects the information you shared when you first joined. It gives you and your coach a starting point for measuring progress over time.';
@@ -44,18 +43,20 @@ export default async function BaselineAssessmentPage() {
             <BaselineAssessmentView baseline={baseline} description={DESCRIPTION} />
           </div>
         ) : (
-          <div className={`${CARD} mt-6 p-6`}>
-            <p className="text-sm leading-relaxed text-[#6B7A72]">
-              You haven&apos;t completed your onboarding assessment yet.{' '}
-              <Link
-                href="/onboarding"
-                className="font-medium text-[#6B7A72] underline underline-offset-2"
-              >
-                Complete it now
-              </Link>
-              .
-            </p>
-          </div>
+          <CenterStage>
+            <Card className="mt-6">
+              <p className="text-sm leading-relaxed text-[#6B7A72]">
+                You haven&apos;t completed your onboarding assessment yet.{' '}
+                <Link
+                  href="/onboarding"
+                  className="font-medium text-[#6B7A72] underline underline-offset-2"
+                >
+                  Complete it now
+                </Link>
+                .
+              </p>
+            </Card>
+          </CenterStage>
         )}
       </main>
 

@@ -6,7 +6,7 @@ import { introRevealFollowUpDelayMs } from '@/lib/introRevealTiming';
 const PURPOSE_LINES = EXPECTATIONS_COPY.purpose.split(/(?<=[.!?])\s+/);
 const AFTER_REVEAL_MS = introRevealFollowUpDelayMs(EXPECTATIONS_COPY.title, PURPOSE_LINES.length);
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const CARD = 'mef-card'; // Screen Layout System (Prompt 2): standardized card recipe, app/globals.css
 const HEADING =
   'font-[family-name:var(--font-cormorant-garamond)] text-[2.15rem] leading-[1.15] text-[#1B3A2D] md:text-[2.75rem]';
 

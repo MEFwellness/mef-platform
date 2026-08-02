@@ -1,6 +1,5 @@
 import { Clock } from 'lucide-react';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 /**
  * The only thing a member sees immediately after submitting — deliberately
@@ -11,7 +10,7 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
  */
 export function PendingCoachReviewCard({ typeLabel }: { typeLabel: string }) {
   return (
-    <section className={`${CARD} mef-animate-in p-8 text-center`}>
+    <Card as="section" className="mef-animate-in text-center">
       <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F5B700]/15 text-[#854D0E]">
         <Clock className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
       </span>
@@ -27,6 +26,6 @@ export function PendingCoachReviewCard({ typeLabel }: { typeLabel: string }) {
         <span className="mef-pulse-dot h-1.5 w-1.5 rounded-full bg-[#F5B700]" aria-hidden="true" />
         Pending coach review
       </div>
-    </section>
+    </Card>
   );
 }

@@ -9,8 +9,7 @@ import { SignOutButton } from '@/components/SignOutButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildProfileEntryContext } from '@/lib/conversation-coach/entryContext';
 import { ProfileForm } from './ProfileForm';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 export default async function ProfilePage() {
   const supabase = createClient();
@@ -45,16 +44,17 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        <div className={`${CARD} mt-7 p-6`}>
+        <Card className="mt-7">
           <ProfileForm
             displayName={profile?.display_name ?? ''}
             timezone={profile?.timezone ?? 'America/New_York'}
           />
-        </div>
+        </Card>
 
-        <Link
+        <Card
+          as={Link}
           href="/profile/baseline"
-          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+          className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
         >
           <div>
             <div className="flex items-center gap-2 text-[#6B7A72]">
@@ -70,11 +70,12 @@ export default async function ProfilePage() {
             strokeWidth={1.75}
             aria-hidden="true"
           />
-        </Link>
+        </Card>
 
-        <Link
+        <Card
+          as={Link}
           href="/profile/reassessments"
-          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+          className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
         >
           <div>
             <div className="flex items-center gap-2 text-[#6B7A72]">
@@ -92,14 +93,15 @@ export default async function ProfilePage() {
             strokeWidth={1.75}
             aria-hidden="true"
           />
-        </Link>
+        </Card>
 
         {/* Assessments no longer has its own bottom-nav tab (Premium UX
             Milestone 1) — this and the Progress page card are its two
             remaining entry points; the feature itself is unchanged. */}
-        <Link
+        <Card
+          as={Link}
           href="/assessment"
-          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+          className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
         >
           <div>
             <div className="flex items-center gap-2 text-[#6B7A72]">
@@ -115,11 +117,12 @@ export default async function ProfilePage() {
             strokeWidth={1.75}
             aria-hidden="true"
           />
-        </Link>
+        </Card>
 
-        <Link
+        <Card
+          as={Link}
           href="/connections"
-          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+          className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
         >
           <div>
             <div className="flex items-center gap-2 text-[#6B7A72]">
@@ -135,9 +138,9 @@ export default async function ProfilePage() {
             strokeWidth={1.75}
             aria-hidden="true"
           />
-        </Link>
+        </Card>
 
-        <div className={`${CARD} mt-5 p-6`}>
+        <Card className="mt-5">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Account</p>
           <p className="mt-2 text-sm text-[#6B7A72]">
             Signed in as <span className="text-[#1B3A2D]">{user.email}</span>
@@ -145,7 +148,7 @@ export default async function ProfilePage() {
           <div className="mt-4">
             <SignOutButton variant="block" />
           </div>
-        </div>
+        </Card>
       </main>
 
       <BottomNav isCoach={isCoach} />

@@ -11,8 +11,7 @@ import {
   ASSESSMENT_TYPE_ORDER,
   ASSESSMENT_TYPE_CONFIG,
 } from '@/lib/body-assessment/assessmentTypes';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+import { Card } from '@/components/layout';
 
 const STATUS_LABEL: Record<string, string> = {
   in_progress: 'In progress',
@@ -72,10 +71,11 @@ export default async function BodyAssessmentPage() {
             {ASSESSMENT_TYPE_ORDER.map((type) => {
               const config = ASSESSMENT_TYPE_CONFIG[type];
               return (
-                <Link
+                <Card
                   key={type}
+                  as={Link}
                   href={{ pathname: '/assessment/new', query: { type } }}
-                  className={`${CARD} flex items-center justify-between p-5 transition hover:brightness-[1.02]`}
+                  className="flex items-center justify-between transition hover:brightness-[1.02]"
                 >
                   <div>
                     <p className="text-sm font-medium text-[#1B3A2D]">{config.label}</p>
@@ -89,7 +89,7 @@ export default async function BodyAssessmentPage() {
                     strokeWidth={1.75}
                     aria-hidden="true"
                   />
-                </Link>
+                </Card>
               );
             })}
           </div>
@@ -100,13 +100,13 @@ export default async function BodyAssessmentPage() {
             Your assessment history
           </p>
           {assessments.length === 0 ? (
-            <div className={`${CARD} p-6`}>
+            <Card>
               <p className="text-sm text-[#6B7A72]">
                 No assessments yet, start one above to begin tracking your posture and movement.
               </p>
-            </div>
+            </Card>
           ) : (
-            <ul className={`${CARD} divide-y divide-[#1B3A2D]/5 px-2`}>
+            <Card as="ul" className="divide-y divide-[#1B3A2D]/5 !p-0 !px-2">
               {assessments.map((assessment) => (
                 <li key={assessment.id}>
                   <Link
@@ -127,7 +127,7 @@ export default async function BodyAssessmentPage() {
                   </Link>
                 </li>
               ))}
-            </ul>
+            </Card>
           )}
         </section>
       </main>

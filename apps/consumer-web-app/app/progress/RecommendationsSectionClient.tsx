@@ -13,8 +13,6 @@ import { RecommendationRow } from '@/components/recommendations/RecommendationRo
 import { useRecommendationsFreshness } from '@/hooks/useRecommendationsFreshness';
 import type { MemberRecommendationView } from '@/app/actions/recommendations';
 
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
 export function RecommendationsSectionClient({
   recommendations: initialRecommendations,
   isStale,
@@ -26,7 +24,7 @@ export function RecommendationsSectionClient({
   const active = recommendations.filter((r) => r.status === 'shown');
 
   return (
-    <section className={`${CARD} mef-animate-in mt-5 p-6`}>
+    <section className="mef-card mef-animate-in mt-5 p-6">
       <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Recommendations</p>
       {active.length === 0 ? (
         <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
