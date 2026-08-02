@@ -6,13 +6,10 @@ import type { Route } from 'next';
 import { CVS_CARD, CVS_DISPLAY_FONT, CVS_FOREST } from './theme';
 import { GapVisual } from './GapVisual';
 import {
-  buildCvsClosingReinforcement,
   buildGapVisualCopy,
   buildKeyInsightCopy,
   buildS1Observation,
   buildWhatRootLearned,
-  CVS_HANDOFF,
-  CVS_PROGRESS_CARD,
   CVS_RESOURCE_AUDIO_SRC,
   CVS_RESOURCE_FULL_PIECE,
   CVS_RESOURCE_SUMMARY,
@@ -98,59 +95,6 @@ export function ResourceSection({ audioAvailable }: { audioAvailable: boolean })
           onEnded={() => setPlaying(false)}
         />
       )}
-    </div>
-  );
-}
-
-export function CloseSection({
-  onStartLifeSignalCheck,
-  onLater,
-  didStartExperiment,
-}: {
-  onStartLifeSignalCheck: () => void;
-  onLater: () => void;
-  didStartExperiment: boolean;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className={`${CVS_CARD} mef-animate-in p-7`}>
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{buildCvsClosingReinforcement(didStartExperiment)}</p>
-      </div>
-
-      <div className={`${CVS_CARD} mef-animate-in p-7`}>
-        <p className={`${CVS_DISPLAY_FONT} text-xl text-[#1B3A2D]`}>{CVS_PROGRESS_CARD.heading}</p>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-          {CVS_PROGRESS_CARD.subheading}
-        </p>
-        <ul className="mt-4 space-y-3">
-          {CVS_PROGRESS_CARD.items.map((item) => (
-            <li key={item.label} className="flex items-start gap-2 text-sm">
-              <span className={item.done ? 'text-[#4F7A63]' : 'text-[#B9AF9C]'}>{item.done ? '✓' : '○'}</span>
-              <span className={item.done ? 'text-[#1B3A2D]' : 'text-[#6B7A72]'}>{item.label}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className={`${CVS_CARD} mef-animate-in p-7`}>
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{CVS_HANDOFF.body}</p>
-        <div className="mt-5 space-y-3">
-          <button
-            type="button"
-            onClick={onStartLifeSignalCheck}
-            className="mef-focus-ring block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-          >
-            {CVS_HANDOFF.primaryButton}
-          </button>
-          <button
-            type="button"
-            onClick={onLater}
-            className="mef-focus-ring block w-full rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F5F0E4]"
-          >
-            {CVS_HANDOFF.secondaryButton}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

@@ -186,7 +186,36 @@ export const CVS_PROGRESS_CARD = {
 };
 
 export const CVS_HANDOFF = {
+  readyPrompt: 'Ready to find out what’s pressing on it?',
+  readySupport: 'Four minutes, no symptom checklist, and I’ll have my first real theory about you.',
   body: "I know what you're protecting now. What I don't know is what's pressing on it. Next, I want to find out where your life is speaking the loudest right now, not a symptom checklist, a listening session. It takes about four minutes, and when it's done, I'll have my first real theory about you.",
   primaryButton: 'Start the Life Signal Check',
-  secondaryButton: 'Later, remind me',
+  // Honest, not a promise: nothing here actually reminds the member later
+  // (no reminder system exists), so the copy never claims one. It does
+  // exactly what it says: takes the member back to their dashboard. Same
+  // fix, same reasoning, as Life Signal Check's own LSC_HANDOFF.
+  secondaryButton: 'Not now, back to dashboard',
 };
+
+/**
+ * Root "noticing something true" — one line, honestly scoped to exactly
+ * what this session found, for the closing screen's Root Observation card
+ * (mirrors Life Signal Check's own buildLscRootObservation). Shorter and
+ * more "thinking out loud" than buildWhatRootLearned's own fuller
+ * explanation — this is the aside, not the finding itself.
+ */
+export function buildCvsRootObservation(scoring: CvsScoring): string {
+  const top = label(scoring.topValue);
+  switch (scoring.branch) {
+    case 'clear_gap':
+      return `I keep coming back to the size of that gap. ${top} came out on top, and it's only getting a ${scoring.attention[scoring.topValue]} out of 5.`;
+    case 'aligned':
+      return "It's rare that what matters most is actually getting the time. I'm curious what you're already doing right.";
+    case 'split':
+      return "Your instincts and your 90-day pick pointed two different ways. I noticed that.";
+    case 'slipping':
+      return `You're holding onto ${top}. I noticed you haven't let it go.`;
+    default:
+      return '';
+  }
+}

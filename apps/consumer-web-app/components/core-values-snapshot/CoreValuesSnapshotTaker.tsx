@@ -25,8 +25,9 @@ import { IntroReveal } from '@/components/IntroReveal';
 import { ExperienceHomeLink } from '@/components/ExperienceHomeLink';
 import { CVS_CARD, CVS_DISPLAY_FONT } from './theme';
 import { Q12Choice, ScaleBattery, SingleSelectQuestion, type CvsOption } from './CvsQuestionCards';
-import { CloseSection, ReturnToDashboardButton, ResourceSection, WhatRootLearnedSection } from './CvsResultsView';
+import { ReturnToDashboardButton, ResourceSection, WhatRootLearnedSection } from './CvsResultsView';
 import { CvsExperimentPanel } from './CvsExperimentPanel';
+import { CvsCloseScreen } from './CvsCloseScreen';
 
 type Beat = 'intro' | 'screen1' | 'screen2' | 'screen3' | 'finishing' | 'learned' | 'experiment' | 'resource' | 'close';
 
@@ -350,26 +351,16 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
         </div>
       )}
 
-      {beat === 'close' && (
+      {beat === 'close' && scoring && (
         <>
-          <CloseSection
+          <CvsCloseScreen
+            sessionId={sessionId}
+            scoring={scoring}
+            didStartExperiment={didStartExperiment}
+            narrativeItems={narrativeItems}
             onStartLifeSignalCheck={() => router.push('/assessments/life-signal-check' as Route)}
             onLater={() => router.push('/dashboard' as Route)}
-            didStartExperiment={didStartExperiment}
           />
-          {narrativeItems.length > 0 && (
-            <div className={`${CVS_CARD} mef-animate-in mt-4 p-7`}>
-              <p className={`${CVS_DISPLAY_FONT} text-xl text-[#1B3A2D]`}>What Root knows so far</p>
-              <ul className="mt-4 space-y-4">
-                {narrativeItems.map((item) => (
-                  <li key={item.id}>
-                    <p className="text-sm font-medium text-[#1B3A2D]">{item.title}</p>
-                    <p className="mt-0.5 text-sm leading-relaxed text-[#6B7A72]">{item.summary}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           <ReturnToDashboardButton />
         </>
       )}

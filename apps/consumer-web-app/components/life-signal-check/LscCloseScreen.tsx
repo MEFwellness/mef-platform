@@ -32,17 +32,15 @@
  *    this screen is reached once per completed Life Signal Check.
  */
 
-import { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import {
-  CVS_CARD,
-  CVS_CARD_ELEVATED,
-  CVS_DISPLAY_FONT,
-  CVS_FOREST,
-  CVS_GOLD,
-  CVS_GOLD_DIVIDER,
-} from '@/components/core-values-snapshot/theme';
+import { CVS_DISPLAY_FONT, CVS_GOLD, CVS_GOLD_DIVIDER } from '@/components/core-values-snapshot/theme';
 import { IntroReveal } from '@/components/IntroReveal';
+import {
+  JourneyProgressLine,
+  RevealCard,
+  useCloseScreenReveal,
+  useDelayedReveal,
+} from '@/components/closing-screen/ClosingScreenPrimitives';
 import { LoudnessVisual } from './LoudnessVisual';
 import {
   buildLoudnessVisualRows,
@@ -63,141 +61,6 @@ type Props = {
   narrativeItems: NarrativeCard[];
   onLater: () => void;
 };
-
-/** True only the very first time this exact session reaches the close screen — every later visit (member navigates back through the taker for an already-completed session) renders instantly, no staged reveal, no celebration replay. Reduced motion always renders instantly regardless of history. Pure client state (this whole taker is already a Client Component), so there is no SSR/hydration concern to guard against here. */
-function useCloseScreenReveal(sessionId: string): boolean {
-  const [play, setPlay] = useState(false);
-  useEffect(() => {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reducedMotion) return;
-    const key = `mef-lsc-close-seen:${sessionId}`;
-    try {
-      const already = window.localStorage.getItem(key) === '1';
-      if (!already) {
-        window.localStorage.setItem(key, '1');
-        setPlay(true);
-      }
-    } catch {
-      setPlay(true);
-    }
-  }, [sessionId]);
-  return play;
-}
-
-function RevealCard({
-  play,
-  delayMs,
-  elevated,
-  className = '',
-  children,
-}: {
-  play: boolean;
-  delayMs: number;
-  elevated?: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const base = elevated ? CVS_CARD_ELEVATED : CVS_CARD;
-  return (
-    <div
-      className={`${base} ${play ? 'mef-fade-in' : ''} p-7 ${className}`}
-      style={play ? { animationDelay: `${delayMs}ms` } : undefined}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** The filling line between the three conversations, doubling as the first-completion celebration for whichever node just finished — a checkmark that draws itself, one soft gold sweep, and the "Conversation 2 of 3" count landing a beat after the line finishes filling. Static (final, fully-settled state, no animation) on a revisit. */
-function JourneyProgressLine({ play }: { play: boolean }) {
-  const [count, setCount] = useState(play ? 1 : 2);
-
-  useEffect(() => {
-    if (!play) return;
-    const countTimer = setTimeout(() => setCount(2), 900);
-    return () => clearTimeout(countTimer);
-  }, [play]);
-
-  return (
-    <div>
-      <div className="flex items-center" aria-hidden="true">
-        <ProgressNode done />
-        <ProgressConnector filled animated={play} />
-        <ProgressNode done drawAnimate={play} sweepAnimate={play} />
-        <ProgressConnector filled={false} animated={false} />
-        <ProgressNode done={false} label="3" />
-      </div>
-      <p className="mt-3 text-center text-xs font-semibold uppercase tracking-wider text-[#6B7A72]" aria-hidden="true">
-        Conversation {count} of 3: complete
-      </p>
-      {/* The same journey, in words, for assistive tech — the line/dots above are purely decorative. */}
-      <ul className="sr-only">
-        {LSC_PROGRESS_CARD.items.map((item) => (
-          <li key={item.label}>
-            {item.done ? 'Done: ' : 'Next: '}
-            {item.label}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** `animated` means "start empty and fill in on mount" (the newly-completed segment); a connector that's already settled (either genuinely empty, or a revisit's already-final state) renders directly at its target width, no transition. */
-function ProgressConnector({ filled, animated }: { filled: boolean; animated: boolean }) {
-  const [width, setWidth] = useState(animated ? '0%' : filled ? '100%' : '0%');
-  useEffect(() => {
-    if (!animated) return;
-    const t = setTimeout(() => setWidth(filled ? '100%' : '0%'), 60);
-    return () => clearTimeout(t);
-  }, [animated, filled]);
-  return (
-    <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#1B3A2D]/10">
-      <div
-        className="h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none"
-        style={{ width, backgroundColor: CVS_FOREST }}
-      />
-    </div>
-  );
-}
-
-function ProgressNode({
-  done,
-  label = '✓',
-  drawAnimate,
-  sweepAnimate,
-}: {
-  done: boolean;
-  label?: string;
-  drawAnimate?: boolean;
-  sweepAnimate?: boolean;
-}) {
-  if (!done) {
-    return (
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#1B3A2D]/15 text-[11px] font-semibold text-[#1B3A2D]/40">
-        {label}
-      </div>
-    );
-  }
-  return (
-    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ backgroundColor: CVS_FOREST }}>
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        {drawAnimate ? (
-          <path d="M3 8.5L6.5 12L13 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mef-close-check-draw" />
-        ) : (
-          <path d="M3 8.5L6.5 12L13 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        )}
-      </svg>
-      {sweepAnimate && (
-        <div
-          aria-hidden="true"
-          className="mef-close-gold-sweep pointer-events-none absolute inset-y-0 left-0 w-full"
-          style={{ background: `linear-gradient(100deg, transparent, ${CVS_GOLD}, transparent)` }}
-        />
-      )}
-    </div>
-  );
-}
 
 /** One "What Root Knows" card — label + finding, and a real visual instead of a sentence with digits wherever the underlying scoring actually supports one. Matches by the narrative item's own stable title (set once, in lib/life-signal-check/narrative.ts / lib/core-values-snapshot/narrative.ts) rather than any stored flag, so this also fixes the framing for a row written before this redesign existed. */
 function InsightCard({ item, scoring }: { item: NarrativeCard; scoring: LscScoring }) {
@@ -269,17 +132,6 @@ function EchoDiagramConnector() {
   return <div className="my-1 h-4 w-px" style={{ backgroundColor: '#1B3A2D33' }} aria-hidden="true" />;
 }
 
-/** True once `delayMs` has elapsed (or immediately, when `play` is false) — used to gate *mounting* a child that runs its own JS-driven animation (IntroReveal's typewriter), not just hiding it with CSS. Without this, a typewriter mounted immediately but merely opacity-hidden by its parent's own fade-in would finish typing invisibly before the card ever becomes visible. */
-function useDelayedReveal(play: boolean, delayMs: number): boolean {
-  const [revealed, setRevealed] = useState(!play);
-  useEffect(() => {
-    if (!play) return;
-    const t = setTimeout(() => setRevealed(true), delayMs);
-    return () => clearTimeout(t);
-  }, [play, delayMs]);
-  return revealed;
-}
-
 // Roughly 2.5s total on first view (item 18), instant on a revisit.
 const STEP_MS = 260;
 const REINFORCEMENT_DELAY_MS = 400;
@@ -288,14 +140,14 @@ const KNOWS_DELAY_MS = OBSERVATION_DELAY_MS + STEP_MS;
 const HANDOFF_DELAY_MS = KNOWS_DELAY_MS + STEP_MS;
 
 export function LscCloseScreen({ sessionId, scoring, didStartExperiment, narrativeItems, onLater }: Props) {
-  const play = useCloseScreenReveal(sessionId);
+  const play = useCloseScreenReveal(`lsc:${sessionId}`);
   const observation = buildLscRootObservation(scoring);
   const observationCardRevealed = useDelayedReveal(play, OBSERVATION_DELAY_MS);
 
   return (
     <div className="space-y-4">
       <div className={play ? 'mef-fade-in' : undefined}>
-        <JourneyProgressLine play={play} />
+        <JourneyProgressLine play={play} items={LSC_PROGRESS_CARD.items} />
       </div>
 
       <RevealCard play={play} delayMs={REINFORCEMENT_DELAY_MS} elevated>
