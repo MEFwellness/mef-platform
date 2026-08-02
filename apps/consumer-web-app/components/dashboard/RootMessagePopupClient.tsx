@@ -4,7 +4,7 @@
  * Root's pop-up message — the day-3/day-7 Weekly Experiment follow-ups,
  * plus each experience's own "start it later" offer, shown as a modal
  * right after login instead of only sitting as a card
- * (components/dashboard/CvsCheckinCard.tsx / LscCheckinCard.tsx, both
+ * (components/dashboard/ActiveExperimentsSection.tsx, both
  * unchanged and still the permanent, unlimited fallback home for these
  * same messages). Reuses the exact same copy functions and per-experience
  * server actions as those cards (lib/core-values-snapshot/copy.ts,

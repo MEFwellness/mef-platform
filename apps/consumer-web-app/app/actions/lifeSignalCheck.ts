@@ -213,6 +213,22 @@ export async function startLscExperimentAction(sessionId: string, signal: Signal
     };
   }
 
+  // Guard against a real, observed drift bug: nothing previously stopped a
+  // second Life Signal Check experiment from being created (a double tap,
+  // two open tabs, the offer pop-up and the dashboard card both firing)
+  // while an earlier one was still active, producing duplicate rows that
+  // then had to be closed out by hand and left the cap/count out of sync
+  // with what the member actually intended.
+  const now = new Date();
+  const latestForThisExperience = await findLatestLscExperiment(supabase, memberId);
+  if (latestForThisExperience) {
+    const experiments = await listMyLifestyleExperiments(supabase, memberId);
+    const current = experiments.find((e) => e.id === latestForThisExperience.id);
+    if (current && deriveEffectiveStatus(current, now) === 'active') {
+      return { ok: false, error: 'You already have an active Life Signal Check experiment. Close it out first.' };
+    }
+  }
+
   const startDate = await localDateFor(supabase, memberId);
   const cvsContext = await getLatestCvsContextForEcho(supabase, memberId);
   const scoring = computeLscScoring(session.answers, cvsContext);

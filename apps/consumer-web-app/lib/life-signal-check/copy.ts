@@ -11,6 +11,8 @@
 import { BODY_TEXT_LABEL, SIGNAL_LABEL, type Signal, type Duration, type TimeOfDay } from './constants';
 import type { LscScoring } from './types';
 import type { Day3Response, Day7Pattern } from '../core-values-snapshot/experiment';
+import { AREA_LABEL } from '../core-values-snapshot/constants';
+import type { CvsBranch } from '../core-values-snapshot/types';
 
 export const LSC_DISPLAY_TITLE = 'Life Signal Check';
 
@@ -216,8 +218,30 @@ export function buildLscExperimentTheoryCopy(scoring: LscScoring): LscExperiment
 
 export const LSC_EXPERIMENT_INTRO = 'I have a theory. Help me test it.';
 
-export function lscDailyPromptCopy(signalLabelText: string): string {
-  return `Did ${signalLabelText} get its five minutes today?`;
+/**
+ * The daily check-in question, one per signal, naming the actual action
+ * the member agreed to rather than the signal itself ("Did you get your
+ * five screen-free minutes before bed?", never "Did Sleep get its five
+ * minutes today?") — matches the real protocol each signal's
+ * buildLscExperimentTheoryCopy already describes. A pure function of the
+ * signal, so an already-active experiment picks up the rewritten question
+ * immediately, not only ones started after this change.
+ */
+export function lscDailyPromptCopy(signal: Signal): string {
+  switch (signal) {
+    case 'energy':
+      return 'Did you get your protected break today?';
+    case 'sleep':
+      return 'Did you get your five screen-free minutes before bed?';
+    case 'tension':
+      return 'Did you get your physical release today?';
+    case 'digestion':
+      return 'Did you eat those first five undistracted minutes today?';
+    case 'body':
+      return 'Did you get your five minutes of gentle movement today?';
+    case 'mind':
+      return 'Did you get your five minutes of doing nothing on purpose today?';
+  }
 }
 
 export function lscDay3FollowUpText(signalLabelText: string): string {
@@ -291,6 +315,53 @@ export const LSC_PROGRESS_CARD = {
 
 export const LSC_HANDOFF = {
   body: "You've named what matters. You've heard what's loudest. One question left: are you ready to do something about it? That's our last conversation.",
+  readyPrompt: 'Ready for the final conversation?',
+  readySupport: "We'll find out whether you're actually ready for change, not just curious about it.",
   primaryButton: 'Start the Readiness Pulse',
-  secondaryButton: 'Later, remind me',
+  // Honest, not a promise: nothing here actually reminds the member later
+  // (no reminder system exists yet for an experience that isn't built),
+  // so the copy never claims one. It does exactly what it says: takes the
+  // member back to their dashboard.
+  secondaryButton: 'Not now, back to dashboard',
 };
+
+/** Short, honest label for a Core Values Snapshot branch, for the closing screen's Body-Value Echo diagram (components/life-signal-check/LscCloseScreen.tsx) — never shown for 'aligned' since echoContext is only ever set when the branch already isn't. */
+export const ECHO_BRANCH_LABEL: Record<Exclude<CvsBranch, 'aligned'>, string> = {
+  clear_gap: 'a clear gap',
+  slipping: 'slipping',
+  split: 'a split focus',
+};
+
+export type LscEchoDiagram = { topValueLabel: string; pressureLabel: string; loudestSignalLabel: string };
+
+/** The Body-Value Echo connection as three plain labels, for the closing screen's vertical diagram — replaces buildLscEchoLine's prose on that one screen (buildLscEchoLine itself is unchanged, still used for the stored narrative-item summary and the "What Root Learned" screen's own callout). */
+export function buildLscEchoDiagram(scoring: LscScoring): LscEchoDiagram | null {
+  if (!scoring.echoContext) return null;
+  const branch = scoring.echoContext.branch;
+  if (branch === 'aligned') return null;
+  return {
+    topValueLabel: AREA_LABEL[scoring.echoContext.topValue],
+    pressureLabel: ECHO_BRANCH_LABEL[branch],
+    loudestSignalLabel: label(scoring.loudestSignal),
+  };
+}
+
+/**
+ * Root "noticing something true" — one line, honestly scoped to exactly
+ * what this session found, for the closing screen's Root Observation card
+ * (item 14 of the closing-screen redesign). Deliberately shorter and more
+ * "thinking out loud" than patternLine's own fuller explanation — this is
+ * the aside, not the finding itself.
+ */
+export function buildLscRootObservation(scoring: LscScoring): string {
+  if (scoring.pattern === 'quiet_body') {
+    return "It's rare that nothing comes in loud. I'm curious what you're already doing right.";
+  }
+  if (scoring.pattern === 'chorus') {
+    return `A few things were talking at once, and you still picked ${label(scoring.chosenSignal)} to start with. That's more decisive than most people manage.`;
+  }
+  if (scoring.pickDivergedFromLoudest) {
+    return `You picked ${label(scoring.chosenSignal)} over the signal that scored louder. I noticed that.`;
+  }
+  return `I keep coming back to how loud ${label(scoring.loudestSignal)} was, compared to everything else this week.`;
+}

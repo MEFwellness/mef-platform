@@ -21,6 +21,11 @@ export const SIGNAL_LABEL: Record<Signal, string> = {
   mind: 'Mind',
 };
 
+/** Reverse of SIGNAL_LABEL — a lifestyle_experiments row started from Life Signal Check stores exactly SIGNAL_LABEL[signal] as its title (see startLscExperimentAction), so this is the one place anything reading that row back (the daily prompt, the dashboard's Active Experiments section) recovers the real Signal instead of re-deriving it a second way. */
+export const SIGNAL_BY_LABEL: Partial<Record<string, Signal>> = Object.fromEntries(
+  (SIGNALS as readonly Signal[]).map((s) => [SIGNAL_LABEL[s], s])
+);
+
 /** question_key -> the signal it scores into, for the six Screen 2 questions (each question is its own signal, one apiece). */
 export const SIGNAL_QUESTION_KEY: Record<Signal, string> = {
   energy: 'lsc_q4',

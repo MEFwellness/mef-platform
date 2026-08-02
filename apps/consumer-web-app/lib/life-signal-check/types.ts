@@ -31,6 +31,8 @@ export type LscScoring = {
   surpriseFires: boolean;
   /** Fires only when the loudest signal is genuinely adjacent (see adjacency.ts) to the member's Core Values Snapshot top value, and that value's own branch actually has a gap (clear_gap or slipping, not aligned). */
   echoFires: boolean;
+  /** The real Core Values Snapshot context that made echoFires true — null whenever echoFires is false. Carried on the scoring object (not just used transiently to compute echoFires) so anything downstream that renders the Echo connection (the closing screen's vertical diagram, see components/life-signal-check/LscCloseScreen.tsx) has the real topValue/branch without a second fetch or a guess. */
+  echoContext: CvsContextForEcho | null;
   /** True only when Q1 and Q2 both named a specific, different time of day (never_much/varies on either side doesn't count) — the real contrast Root can name between "when you feel like yourself" and "when it's hardest." */
   q1ContrastFires: boolean;
   /** Question 3's early guess at which signal would turn out loudest (constants.ts's BODY_TEXT_SIGNAL_GUESS), null when the member answered "I'm okay, actually" or hasn't answered yet. */

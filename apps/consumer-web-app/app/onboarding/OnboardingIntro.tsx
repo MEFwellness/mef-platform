@@ -4,7 +4,7 @@ import { IntroReveal } from '@/components/IntroReveal';
 import { introRevealFollowUpDelayMs } from '@/lib/introRevealTiming';
 
 const PURPOSE_LINES = EXPECTATIONS_COPY.purpose.split(/(?<=[.!?])\s+/);
-const AFTER_REVEAL_MS = introRevealFollowUpDelayMs(PURPOSE_LINES.length);
+const AFTER_REVEAL_MS = introRevealFollowUpDelayMs(EXPECTATIONS_COPY.title, PURPOSE_LINES.length);
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const HEADING =
@@ -58,6 +58,7 @@ export function OnboardingIntro({ onStart }: { onStart: () => void }) {
           titleClassName={`${HEADING} mt-4 max-w-[19rem] md:max-w-sm`}
           lines={PURPOSE_LINES}
           lineClassName="mx-auto max-w-sm text-[15px] leading-relaxed text-[#4F645A]"
+          storageKey="onboarding-intro"
         />
       </div>
 

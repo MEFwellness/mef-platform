@@ -188,6 +188,21 @@ export async function startCvsExperimentAction(
     };
   }
 
+  // Guard against a real, observed drift bug: nothing previously stopped a
+  // second Core Values Snapshot experiment from being created (a double
+  // tap, two open tabs, the offer pop-up and the dashboard card both
+  // firing) while an earlier one was still active, producing duplicate
+  // rows with the same title that then had to be closed out by hand.
+  const now = new Date();
+  const latestForThisExperience = await findLatestCvsExperiment(supabase, memberId);
+  if (latestForThisExperience) {
+    const experiments = await listMyLifestyleExperiments(supabase, memberId);
+    const current = experiments.find((e) => e.id === latestForThisExperience.id);
+    if (current && deriveEffectiveStatus(current, now) === 'active') {
+      return { ok: false, error: 'You already have an active Core Values Snapshot experiment. Close it out first.' };
+    }
+  }
+
   const startDate = await localDateFor(supabase, memberId);
   const { theory, body } = buildExperimentTheoryCopy(computeCvsScoring(session.answers));
   const experiment = await startLifestyleExperiment(supabase, memberId, {

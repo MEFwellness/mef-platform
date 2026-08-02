@@ -64,8 +64,7 @@ import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCar
 import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
 import { CoachingMessageCard } from '@/components/dashboard/CoachingMessageCard';
-import { CvsCheckinCard } from '@/components/dashboard/CvsCheckinCard';
-import { LscCheckinCard } from '@/components/dashboard/LscCheckinCard';
+import { ActiveExperimentsSection } from '@/components/dashboard/ActiveExperimentsSection';
 import { HomeHero } from '@/components/dashboard/HomeHero';
 import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
 import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
@@ -288,14 +287,6 @@ export default async function DashboardPage({
                   <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
                 )}
 
-                <Suspense fallback={null}>
-                  <CvsCheckinCard />
-                </Suspense>
-
-                <Suspense fallback={null}>
-                  <LscCheckinCard />
-                </Suspense>
-
                 <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />
 
                 <DailyWellnessSection checkin={todaysCheckin} eveningReflection={eveningReflection} />
@@ -470,6 +461,22 @@ export default async function DashboardPage({
                   </div>
                 )}
               </div>
+            </RevealOnScroll>
+
+            {/* ==================================================== */}
+            {/* Active Experiments — every currently-running Weekly     */}
+            {/* Experiment (any source), with real day progress and     */}
+            {/* today's daily question, plus any "start it later"       */}
+            {/* offer — one persistent place, see                       */}
+            {/* components/dashboard/ActiveExperimentsSection.tsx.      */}
+            {/* Renders nothing at all when there is truly nothing to   */}
+            {/* show, so this zone silently disappears rather than      */}
+            {/* leaving an empty heading.                                */}
+            {/* ==================================================== */}
+            <RevealOnScroll delayMs={30} className="mt-14 md:mt-20">
+              <Suspense fallback={null}>
+                <ActiveExperimentsSection />
+              </Suspense>
             </RevealOnScroll>
 
             {/* ==================================================== */}

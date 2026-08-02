@@ -4,7 +4,7 @@
  * Root's day-3/day-7 Weekly Experiment follow-ups — the actual question
  * (day 3) and reflection (day 7), with real answer/acknowledge affordances,
  * factored out so both experiences' dashboard "From Root" cards
- * (components/dashboard/CvsCheckinCard.tsx / LscCheckinCard.tsx) and
+ * (components/dashboard/ActiveExperimentsSection.tsx) and
  * standalone experiment pages render the exact same check-in rather than
  * hand-kept copies. Previously this only ever rendered on Core Values
  * Snapshot's own standalone page, reached by tapping "View Result" — a

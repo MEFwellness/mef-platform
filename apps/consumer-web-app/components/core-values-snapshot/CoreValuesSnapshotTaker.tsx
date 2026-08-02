@@ -22,7 +22,6 @@ import { seededShuffle } from '@/lib/core-values-snapshot/randomize';
 import { CVS_INTRO_COPY, CVS_Q12_PROMPT, CVS_SCREEN2_INTRO } from '@/lib/core-values-snapshot/copy';
 import type { CvsScoring } from '@/lib/core-values-snapshot/types';
 import { IntroReveal } from '@/components/IntroReveal';
-import { introRevealFollowUpDelayMs } from '@/lib/introRevealTiming';
 import { ExperienceHomeLink } from '@/components/ExperienceHomeLink';
 import { CVS_CARD, CVS_DISPLAY_FONT } from './theme';
 import { Q12Choice, ScaleBattery, SingleSelectQuestion, type CvsOption } from './CvsQuestionCards';
@@ -206,16 +205,19 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
       )}
 
       {beat === 'intro' && (
-        <div className={`${CVS_CARD} mef-animate-in p-7`}>
-          <IntroReveal title={CVS_INTRO_COPY.title} lines={[...CVS_INTRO_COPY.lines]} titleClassName={`${CVS_DISPLAY_FONT} text-3xl leading-tight text-[#1B3A2D]`} />
-          <button
-            type="button"
-            onClick={() => setBeat('screen1')}
-            className="mef-focus-ring mef-fade-in mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-            style={{ animationDelay: `${introRevealFollowUpDelayMs(CVS_INTRO_COPY.lines.length)}ms` }}
-          >
-            {CVS_INTRO_COPY.button}
-          </button>
+        <div className={`${CVS_CARD} mef-animate-in flex min-h-[60vh] flex-col justify-center p-7`}>
+          <IntroReveal
+            title={CVS_INTRO_COPY.title}
+            lines={[...CVS_INTRO_COPY.lines]}
+            titleClassName={`${CVS_DISPLAY_FONT} text-3xl leading-tight text-[#1B3A2D]`}
+            storageKey="cvs-intro"
+            button={{
+              label: CVS_INTRO_COPY.button,
+              onClick: () => setBeat('screen1'),
+              className:
+                'mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]',
+            }}
+          />
         </div>
       )}
 
@@ -298,7 +300,7 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
       {(beat === 'learned' || beat === 'experiment' || beat === 'resource' || beat === 'close') && <ExperienceHomeLink />}
 
       {beat === 'learned' && scoring && (
-        <>
+        <div className="flex min-h-[60vh] flex-col justify-center">
           <WhatRootLearnedSection scoring={scoring} />
           <div className="mt-5">
             <button
@@ -309,11 +311,11 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
               Continue
             </button>
           </div>
-        </>
+        </div>
       )}
 
       {beat === 'experiment' && scoring && (
-        <>
+        <div className="flex min-h-[60vh] flex-col justify-center">
           <CvsExperimentPanel
             sessionId={sessionId}
             topValue={scoring.topValue}
@@ -330,11 +332,11 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
               Continue
             </button>
           </div>
-        </>
+        </div>
       )}
 
       {beat === 'resource' && (
-        <>
+        <div className="flex min-h-[60vh] flex-col justify-center">
           <ResourceSection audioAvailable={audioAvailable} />
           <div className="mt-5">
             <button
@@ -345,7 +347,7 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
               Continue
             </button>
           </div>
-        </>
+        </div>
       )}
 
       {beat === 'close' && (

@@ -7,13 +7,10 @@ import { CVS_CARD, CVS_DISPLAY_FONT, CVS_FOREST } from '@/components/core-values
 import { LoudnessVisual } from './LoudnessVisual';
 import {
   buildLoudnessVisualRows,
-  buildLscClosingReinforcement,
   buildLscEchoLine,
   buildLscKeyInsightCopy,
   buildLscQ1ContrastLine,
   buildLscWhatRootLearned,
-  LSC_HANDOFF,
-  LSC_PROGRESS_CARD,
   LSC_RESOURCE_AUDIO_SRC,
   LSC_RESOURCE_FULL_PIECE,
   LSC_RESOURCE_SUMMARY,
@@ -112,59 +109,6 @@ export function ResourceSection({ audioAvailable }: { audioAvailable: boolean })
   );
 }
 
-export function CloseSection({
-  onStartReadinessPulse,
-  onLater,
-  didStartExperiment,
-}: {
-  onStartReadinessPulse: () => void;
-  onLater: () => void;
-  didStartExperiment: boolean;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className={`${CVS_CARD} mef-animate-in p-7`}>
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{buildLscClosingReinforcement(didStartExperiment)}</p>
-      </div>
-
-      <div className={`${CVS_CARD} mef-animate-in p-7`}>
-        <p className={`${CVS_DISPLAY_FONT} text-xl text-[#1B3A2D]`}>{LSC_PROGRESS_CARD.heading}</p>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">{LSC_PROGRESS_CARD.subheading}</p>
-        <ul className="mt-4 space-y-3">
-          {LSC_PROGRESS_CARD.items.map((item) => (
-            <li key={item.label} className="flex items-start gap-2 text-sm">
-              <span className={item.done ? 'text-[#4F7A63]' : 'text-[#B9AF9C]'}>{item.done ? '✓' : '○'}</span>
-              <span className={item.done ? 'text-[#1B3A2D]' : 'text-[#6B7A72]'}>{item.label}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className={`${CVS_CARD} mef-animate-in p-7`}>
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{LSC_HANDOFF.body}</p>
-        <div className="mt-5 space-y-3">
-          <button
-            type="button"
-            onClick={onStartReadinessPulse}
-            disabled
-            aria-disabled="true"
-            title="Coming soon"
-            className="block w-full cursor-not-allowed rounded-2xl bg-[#1B3A2D]/40 px-6 py-4 text-center text-sm font-semibold text-white"
-          >
-            {LSC_HANDOFF.primaryButton} · Coming soon
-          </button>
-          <button
-            type="button"
-            onClick={onLater}
-            className="mef-focus-ring block w-full rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F5F0E4]"
-          >
-            {LSC_HANDOFF.secondaryButton}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function ReturnToDashboardButton() {
   return (

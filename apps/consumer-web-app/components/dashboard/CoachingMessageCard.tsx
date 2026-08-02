@@ -23,7 +23,7 @@
  * 90/94), but they're deliberately never rendered here: the real
  * question/reflection, with a real answer/acknowledge affordance, now
  * lives directly on the dashboard as its own card
- * (components/dashboard/CvsCheckinCard.tsx / LscCheckinCard.tsx) instead
+ * (components/dashboard/ActiveExperimentsSection.tsx) instead
  * of a teaser tile that only links out to it — showing it a second time
  * here would just be the same "From Root" message twice on one screen.
  * getMyCoachingMessage() still runs and still records the pick into

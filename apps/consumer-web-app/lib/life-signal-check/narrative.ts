@@ -31,7 +31,14 @@ export function buildLscNarrativeDrafts(sessionId: string, scoring: LscScoring):
     {
       category: 'unresolved_concerns',
       title: `What's behind ${chosen}?`,
-      summary: `What's driving ${chosen}? I don't know yet.`,
+      // Deliberately not "I don't know yet" — an honest unknown reads as
+      // the next chapter, not a blank (item 13 of the closing-screen
+      // redesign). Same honesty, just not left empty. The closing
+      // screen's own card-building (LscCloseScreen.tsx) also renders this
+      // exact framing for any pre-existing narrative item matching this
+      // title, so a member whose row was written before this copy change
+      // still sees the intentional version, not the old blank one.
+      summary: `What's driving ${chosen}? That's exactly what our next conversation finds out.`,
       provenance: 'system_observed',
       confidence: null,
       memberVisible: true,

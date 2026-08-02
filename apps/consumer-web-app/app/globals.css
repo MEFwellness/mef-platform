@@ -793,6 +793,78 @@
 }
 
 /*
+ * Life Signal Check closing screen — "the premium payoff" (2026-08-01).
+ * First-completion-only celebration: a checkmark that draws itself along
+ * its own path (distinct from the existing `.mef-capture-check`, which is
+ * a scale/opacity pop, not a line-draw) and a single, one-shot soft gold
+ * sweep across the just-completed journey item — both calm, ~1-1.2s, never
+ * looping, matching this app's existing "quiet, not dramatic" discipline.
+ */
+@keyframes mef-close-check-draw {
+  from {
+    stroke-dashoffset: 48;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.mef-close-check-draw {
+  stroke-dasharray: 48;
+  animation: mef-close-check-draw 500ms cubic-bezier(0.65, 0, 0.35, 1) 300ms both;
+}
+
+@keyframes mef-close-check-circle {
+  from {
+    stroke-dashoffset: 126;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.mef-close-check-circle {
+  stroke-dasharray: 126;
+  animation: mef-close-check-circle 450ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-close-check-draw,
+  .mef-close-check-circle {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+}
+
+/* A single soft gold band sweeping once across the completed journey
+   item — not `.mef-scan-sweep` (that one loops forever, built for an
+   in-progress scanning state; this fires exactly once, in celebration). */
+@keyframes mef-close-gold-sweep {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+.mef-close-gold-sweep {
+  animation: mef-close-gold-sweep 900ms ease-in-out 500ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-close-gold-sweep {
+    animation: none !important;
+    display: none;
+  }
+}
+
+/*
  * Home dashboard redesign (app/dashboard/page.tsx) — shared primitives
  * used across the new hero/carousel/scroll-reveal treatment.
  */

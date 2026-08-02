@@ -41,8 +41,15 @@ export function buildCvsNarrativeDrafts(sessionId: string, scoring: CvsScoring):
     },
     {
       category: 'unresolved_concerns',
+      // Deliberately not "I don't know yet" — an honest unknown reads as
+      // the next chapter, not a blank (same fix, same reasoning, as Life
+      // Signal Check's lib/life-signal-check/narrative.ts). The closing
+      // screen's own card-building (components/life-signal-check/
+      // LscCloseScreen.tsx) also renders this exact framing for any
+      // pre-existing row matching this title, so a row written before this
+      // copy change still reads the intentional version.
       title: `What's pressing on ${top}?`,
-      summary: `What's putting the pressure on ${top}? I don't know yet.`,
+      summary: `What's putting the pressure on ${top}? That's exactly what our next conversation finds out.`,
       provenance: 'system_observed',
       confidence: null,
       memberVisible: true,

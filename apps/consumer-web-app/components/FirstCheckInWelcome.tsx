@@ -2,14 +2,14 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { IntroReveal } from '@/components/IntroReveal';
-import { introRevealFollowUpDelayMs } from '@/lib/introRevealTiming';
+import { IntroRevealFollowUp } from '@/components/IntroRevealFollowUp';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+const TITLE = "Let's get started";
 const BODY_LINES = [
   'Root builds everything here (your Daily Brief, your Wellness Index, recovery trends, and daily coaching) from your check-ins.',
   'Complete your first one and this page starts to come alive.',
 ];
-const AFTER_REVEAL_MS = introRevealFollowUpDelayMs(BODY_LINES.length);
 
 /**
  * Premium UX Milestone 2: replaces the pre-first-check-in Dashboard and
@@ -46,22 +46,22 @@ export function FirstCheckInWelcome() {
       </div>
       <div className="relative">
         <IntroReveal
-          title="Let's get started"
+          title={TITLE}
           titleClassName="font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#1B3A2D] sm:text-3xl"
           lines={BODY_LINES}
           lineClassName="mx-auto max-w-sm text-sm leading-relaxed text-[#6B7A72] sm:text-[15px]"
+          storageKey="first-checkin-welcome"
         />
       </div>
-      <Link
-        href={'/checkin' as Route}
-        className="mef-press mef-fade-in relative mt-4 inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
-        style={{ animationDelay: `${AFTER_REVEAL_MS}ms` }}
-      >
-        Complete your first check-in
-      </Link>
-      <p className="mef-fade-in relative mt-2.5 text-xs text-[#6B7A72]" style={{ animationDelay: `${AFTER_REVEAL_MS + 60}ms` }}>
-        Takes about a minute.
-      </p>
+      <IntroRevealFollowUp title={TITLE} lineCount={BODY_LINES.length} storageKey="first-checkin-welcome" className="relative mt-4">
+        <Link
+          href={'/checkin' as Route}
+          className="mef-press inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
+        >
+          Complete your first check-in
+        </Link>
+        <p className="mt-2.5 text-xs text-[#6B7A72]">Takes about a minute.</p>
+      </IntroRevealFollowUp>
     </section>
   );
 }

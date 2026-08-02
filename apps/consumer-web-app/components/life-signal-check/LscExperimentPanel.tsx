@@ -15,14 +15,21 @@ import {
 } from '@/app/actions/lifeSignalCheck';
 import { getMyLifestyleExperiments, reflectAndCloseMyExperiment, abandonMyExperiment } from '@/app/actions/lifestyleExperiments';
 import { MAX_ACTIVE_EXPERIMENTS, type LifestyleExperiment } from '@/lib/lifestyle-experiments';
-import type { Signal } from '@/lib/life-signal-check/constants';
+import { SIGNAL_BY_LABEL, type Signal } from '@/lib/life-signal-check/constants';
 
 type Props = {
-  sessionId: string;
-  chosenSignal: Signal;
+  // Only needed for the offer/not-yet-started branch (starting a new
+  // experiment reads these) — the dashboard's Active Experiments section
+  // (ActiveExperimentsSection.tsx) already has a real, active
+  // `initialStatus` and never reaches that branch, so it can render this
+  // panel without re-fetching the session these were derived from.
+  sessionId?: string;
+  chosenSignal?: Signal;
   scoring: LscScoring | null;
   initialStatus: LscExperimentStatus | null;
   onStatusChange?: (status: LscExperimentStatus | null) => void;
+  /** "Waiting on you" badge on the day-3/day-7 card once the member has snoozed that exact pop-up (see components/dashboard/RootMessagePopupClient.tsx) — never set outside the dashboard's own cards. */
+  isHighPriority?: boolean;
 };
 
 /** One already-active experiment (any source: Recommendation Engine, Core Values Snapshot, or this same Life Signal Check) shown on the cap-blocked offer screen, with a real, immediate way to close it out without leaving the page — reuses the exact same server actions the standalone /recommendations page's own close flow uses (app/actions/lifestyleExperiments.ts), not a second close mechanism. */
@@ -109,7 +116,7 @@ function ActiveExperimentCloseRow({ experiment, onClosed }: { experiment: Lifest
 }
 
 /** The offer/theory screen when no experiment is running yet, plus the daily/day-3/day-7 active states — exact mirror of Core Values Snapshot's own CvsExperimentPanel, reusing the same CvsFollowUpCards components with Life Signal Check's own server actions. Shared between the in-flow taker, the dashboard's own "start it later" offer, and the standalone /assessments/life-signal-check/experiment page. */
-export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialStatus, onStatusChange }: Props) {
+export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialStatus, onStatusChange, isHighPriority = false }: Props) {
   const [status, setStatus] = useState(initialStatus);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +151,7 @@ export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialSt
   }, [status]);
 
   if (!status) {
-    if (!scoring) return null;
+    if (!scoring || !sessionId || !chosenSignal) return null;
     const theory = buildLscExperimentTheoryCopy(scoring);
     const atCap = (activeExperiments?.length ?? 0) >= MAX_ACTIVE_EXPERIMENTS;
 
@@ -211,6 +218,7 @@ export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialSt
   }
 
   const signalLabelText = status.experiment.title;
+  const resolvedSignal = SIGNAL_BY_LABEL[signalLabelText] ?? chosenSignal ?? null;
   const day3Log = status.logs.find((l) => l.day3Response !== null) ?? null;
 
   function logDay(completed: boolean) {
@@ -232,7 +240,9 @@ export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialSt
         <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
           Day {Math.min(status.daysSinceStart + 1, status.experiment.durationDays)} of {status.experiment.durationDays}
         </p>
-        <p className={`${CVS_DISPLAY_FONT} mt-2 text-xl text-[#1B3A2D]`}>{lscDailyPromptCopy(signalLabelText)}</p>
+        {resolvedSignal && (
+          <p className={`${CVS_DISPLAY_FONT} mt-2 text-xl text-[#1B3A2D]`}>{lscDailyPromptCopy(resolvedSignal)}</p>
+        )}
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
@@ -275,6 +285,7 @@ export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialSt
             topLabelText={signalLabelText}
             experience="life-signal-check"
             onSubmit={submitLscDay3ResponseAction}
+            isHighPriority={isHighPriority}
           />
         ))}
 
@@ -282,6 +293,7 @@ export function LscExperimentPanel({ sessionId, chosenSignal, scoring, initialSt
         <CvsDay7FollowUp
           experimentId={status.experiment.id}
           topLabelText={signalLabelText}
+          isHighPriority={isHighPriority}
           logs={status.logs}
           durationDays={status.experiment.durationDays}
           experience="life-signal-check"

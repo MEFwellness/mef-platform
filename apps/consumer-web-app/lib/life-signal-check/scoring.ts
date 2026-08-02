@@ -113,6 +113,7 @@ export function computeLscScoring(answers: SessionAnswers, cvsContext: CvsContex
     bodyText,
     surpriseFires,
     echoFires,
+    echoContext: echoFires ? cvsContext : null,
     q1ContrastFires,
     predictedSignalFromQ3,
     q3Comparison,

@@ -7,7 +7,7 @@
  * Snapshot and Life Signal Check Weekly Experiment day-3/day-7 follow-ups
  * (components/core-values-snapshot/CvsFollowUpCards.tsx), plus each
  * experience's "start it later" offer (CvsExperimentPanel.tsx /
- * LscExperimentPanel.tsx via CvsCheckinCard.tsx / LscCheckinCard.tsx) —
+ * LscExperimentPanel.tsx via components/dashboard/ActiveExperimentsSection.tsx) —
  * everything here is written so a future message of the same shape (a
  * real answer/acknowledge/act affordance, not just an observation) only
  * needs a new case in getMyRootPopupMessageAction, not a new
@@ -83,32 +83,45 @@ async function requireMemberId(): Promise<string | null> {
 /** The one Root message (if any) currently pending a response/acknowledgment/action, regardless of whether it's due to pop up this login. Used both to decide the pop-up and to badge the underlying card as high priority once snoozed. Core Values Snapshot is checked before Life Signal Check (oldest experience first); within either, day 3 wins over day 7, and day 7 wins over that experience's own start-it-later offer (offer can only exist when no experiment is running yet, so it's never actually competing with day 3/7 for the same experience — this ordering only matters across the two experiences). */
 async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null> {
   const cvsStatus = await getMyCvsExperimentStatusAction();
-  if (cvsStatus) {
-    const pending = resolveCvsCheckinPending({
-      isDay3Eligible: cvsStatus.isDay3Eligible,
-      day3Answered: cvsStatus.logs.some((l) => l.day3Response !== null),
-      isDay7Eligible: cvsStatus.isDay7Eligible,
-      day7Acknowledged: cvsStatus.experiment.day7AcknowledgedAt !== null,
-    });
-    if (pending === 'day3') {
-      return {
-        kind: 'cvs_day3',
-        messageKey: cvsPopupMessageKey('day3', cvsStatus.experiment.id),
-        experimentId: cvsStatus.experiment.id,
-        topLabelText: cvsStatus.experiment.title,
-      };
-    }
-    if (pending === 'day7') {
-      return {
-        kind: 'cvs_day7',
-        messageKey: cvsPopupMessageKey('day7', cvsStatus.experiment.id),
-        experimentId: cvsStatus.experiment.id,
-        topLabelText: cvsStatus.experiment.title,
-        logs: cvsStatus.logs,
-        durationDays: cvsStatus.experiment.durationDays,
-      };
-    }
-  } else {
+  // Real bug fixed alongside the same one in
+  // components/dashboard/ActiveExperimentsSection.tsx: getMyCvsExperimentStatusAction/
+  // getMyLscExperimentStatusAction return the member's most recent
+  // experiment no matter how long ago it wrapped up (completed/abandoned/
+  // expired and acknowledged), so `cvsStatus`/`lscStatus` stay truthy
+  // forever once a single experiment has ever existed. That silently
+  // skipped the offer check below (an `else` branch that could then never
+  // run), which is why the one-time "start it later" pop-up never fired
+  // for a member who had any prior experiment history at all, including
+  // simply declining a fresh session after an earlier one had finished.
+  // Fix: only treat a still-'active' experiment as blocking the offer.
+  const cvsPending = cvsStatus
+    ? resolveCvsCheckinPending({
+        isDay3Eligible: cvsStatus.isDay3Eligible,
+        day3Answered: cvsStatus.logs.some((l) => l.day3Response !== null),
+        isDay7Eligible: cvsStatus.isDay7Eligible,
+        day7Acknowledged: cvsStatus.experiment.day7AcknowledgedAt !== null,
+      })
+    : null;
+
+  if (cvsPending === 'day3') {
+    return {
+      kind: 'cvs_day3',
+      messageKey: cvsPopupMessageKey('day3', cvsStatus!.experiment.id),
+      experimentId: cvsStatus!.experiment.id,
+      topLabelText: cvsStatus!.experiment.title,
+    };
+  }
+  if (cvsPending === 'day7') {
+    return {
+      kind: 'cvs_day7',
+      messageKey: cvsPopupMessageKey('day7', cvsStatus!.experiment.id),
+      experimentId: cvsStatus!.experiment.id,
+      topLabelText: cvsStatus!.experiment.title,
+      logs: cvsStatus!.logs,
+      durationDays: cvsStatus!.experiment.durationDays,
+    };
+  }
+  if (!cvsStatus || cvsStatus.experiment.status !== 'active') {
     const offer = await getMyCvsOfferAction();
     if (offer) {
       return {
@@ -121,32 +134,34 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   }
 
   const lscStatus = await getMyLscExperimentStatusAction();
-  if (lscStatus) {
-    const pending = resolveCvsCheckinPending({
-      isDay3Eligible: lscStatus.isDay3Eligible,
-      day3Answered: lscStatus.logs.some((l) => l.day3Response !== null),
-      isDay7Eligible: lscStatus.isDay7Eligible,
-      day7Acknowledged: lscStatus.experiment.day7AcknowledgedAt !== null,
-    });
-    if (pending === 'day3') {
-      return {
-        kind: 'lsc_day3',
-        messageKey: lscPopupMessageKey('day3', lscStatus.experiment.id),
-        experimentId: lscStatus.experiment.id,
-        topLabelText: lscStatus.experiment.title,
-      };
-    }
-    if (pending === 'day7') {
-      return {
-        kind: 'lsc_day7',
-        messageKey: lscPopupMessageKey('day7', lscStatus.experiment.id),
-        experimentId: lscStatus.experiment.id,
-        topLabelText: lscStatus.experiment.title,
-        logs: lscStatus.logs,
-        durationDays: lscStatus.experiment.durationDays,
-      };
-    }
-  } else {
+  const lscPending = lscStatus
+    ? resolveCvsCheckinPending({
+        isDay3Eligible: lscStatus.isDay3Eligible,
+        day3Answered: lscStatus.logs.some((l) => l.day3Response !== null),
+        isDay7Eligible: lscStatus.isDay7Eligible,
+        day7Acknowledged: lscStatus.experiment.day7AcknowledgedAt !== null,
+      })
+    : null;
+
+  if (lscPending === 'day3') {
+    return {
+      kind: 'lsc_day3',
+      messageKey: lscPopupMessageKey('day3', lscStatus!.experiment.id),
+      experimentId: lscStatus!.experiment.id,
+      topLabelText: lscStatus!.experiment.title,
+    };
+  }
+  if (lscPending === 'day7') {
+    return {
+      kind: 'lsc_day7',
+      messageKey: lscPopupMessageKey('day7', lscStatus!.experiment.id),
+      experimentId: lscStatus!.experiment.id,
+      topLabelText: lscStatus!.experiment.title,
+      logs: lscStatus!.logs,
+      durationDays: lscStatus!.experiment.durationDays,
+    };
+  }
+  if (!lscStatus || lscStatus.experiment.status !== 'active') {
     const offer = await getMyLscOfferAction();
     if (offer) {
       return {

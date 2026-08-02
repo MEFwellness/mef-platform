@@ -10,15 +10,20 @@ import { logCvsExperimentDayAction, startCvsExperimentAction, type CvsExperiment
 import type { ValueArea } from '@/lib/core-values-snapshot/constants';
 
 type Props = {
-  sessionId: string;
-  topValue: ValueArea;
+  // Only needed for the offer/not-yet-started branch — the dashboard's
+  // Active Experiments section already has a real, active `initialStatus`
+  // and never reaches that branch.
+  sessionId?: string;
+  topValue?: ValueArea;
   scoring: CvsScoring | null;
   initialStatus: CvsExperimentStatus | null;
   onStatusChange?: (status: CvsExperimentStatus | null) => void;
+  /** "Waiting on you" badge once the member has snoozed this exact pop-up (see components/dashboard/RootMessagePopupClient.tsx) — never set outside the dashboard's own cards. */
+  isHighPriority?: boolean;
 };
 
 /** Beat 5 — the offer/theory screen when no experiment is running yet, plus the daily/day-3/day-7 active states. Shared between the in-flow taker (right after finishing), the dashboard's own "start it later" offer, and the standalone /assessments/core-values-snapshot/experiment page (reached later via the "From Root" day-3/day-7 nudge). */
-export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus, onStatusChange }: Props) {
+export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus, onStatusChange, isHighPriority = false }: Props) {
   const [status, setStatus] = useState(initialStatus);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +41,7 @@ export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus
   }, [status]);
 
   if (!status) {
-    if (!scoring) return null;
+    if (!scoring || !sessionId || !topValue) return null;
     const theory = buildExperimentTheoryCopy(scoring);
     return (
       <div className={`${CVS_CARD} mef-animate-in p-7`}>
@@ -140,7 +145,7 @@ export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus
             </p>
           </div>
         ) : (
-          <CvsDay3FollowUp experimentId={status.experiment.id} topLabelText={topLabelText} />
+          <CvsDay3FollowUp experimentId={status.experiment.id} topLabelText={topLabelText} isHighPriority={isHighPriority} />
         )
       )}
 
@@ -150,6 +155,7 @@ export function CvsExperimentPanel({ sessionId, topValue, scoring, initialStatus
           topLabelText={topLabelText}
           logs={status.logs}
           durationDays={status.experiment.durationDays}
+          isHighPriority={isHighPriority}
         />
       )}
     </div>
