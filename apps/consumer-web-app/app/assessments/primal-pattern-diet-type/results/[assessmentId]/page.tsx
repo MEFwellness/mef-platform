@@ -33,6 +33,7 @@ import {
   MEAL_EXAMPLES_BY_RESULT,
   defaultMealFrequencyFor,
 } from '@/lib/primal-pattern/premium/content';
+import { KeyFindingReveal } from '@/components/closing-screen/KeyFindingReveal';
 
 const STAT_CARD = 'rounded-2xl bg-[#F3F6F4] p-4 text-center';
 
@@ -62,12 +63,15 @@ export default async function PrimalPatternResultsPage({
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/assessments/primal-pattern-diet-type" label="Back" />
 
+        {/* Progressive Reveal Engine (Prompt 3, requirement 6): the actual diet-type finding, so it lands with a quiet beat of anticipation rather than instantly, first-time-only, instant on every revisit. */}
         <div className="mt-4">
-          <HeroResultCard
-            displayTitle={copy.displayTitle}
-            result={record.result}
-            completedAt={record.completedAt}
-          />
+          <KeyFindingReveal storageKey={`primal-pattern-close:${params.assessmentId}`}>
+            <HeroResultCard
+              displayTitle={copy.displayTitle}
+              result={record.result}
+              completedAt={record.completedAt}
+            />
+          </KeyFindingReveal>
         </div>
 
         <section

@@ -33,6 +33,7 @@ import {
 } from '@/lib/wbsa/copy';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
+import { KeyFindingReveal } from '@/components/closing-screen/KeyFindingReveal';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -102,78 +103,81 @@ export default async function WbsaResultsPage({ params }: { params: { sessionId:
           </section>
         )}
 
-        {needsAttention.length > 0 && (
-          <section className={`${CARD} mef-animate-in mt-4 p-6`}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-              Areas with more reported patterns
-            </p>
-            <ul className="mt-3 space-y-3">
-              {needsAttention.map((row) => (
-                <li key={row.sectionId} className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-[#1B3A2D]">{row.title}</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">
-                      {WBSA_BAND_DESCRIPTION[row.band]}
-                    </p>
-                  </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${BAND_BADGE_CLASS[row.band]}`}>
-                    {WBSA_BAND_LABEL[row.band]}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {lowerPattern.length > 0 && (
-          <section className={`${CARD} mef-animate-in mt-4 p-6`}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-              Areas showing fewer concerns
-            </p>
-            <ul className="mt-3 space-y-2">
-              {lowerPattern.map((row) => (
-                <li key={row.sectionId} className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-[#1B3A2D]">{row.title}</p>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${BAND_BADGE_CLASS.lower}`}>
-                    {WBSA_BAND_LABEL.lower}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {skipped && (
-          <p className="mt-4 px-1 text-center text-xs leading-relaxed text-[#6B7A72]">
-            {WBSA_SKIPPED_QUESTIONS_NOTE}
-          </p>
-        )}
-
-        {suggestions.length > 0 && (
-          <section className={`${CARD} mef-animate-in mt-4 p-6`}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-              Worth exploring next
-            </p>
-            <ul className="mt-3 space-y-3">
-              {suggestions.map((suggestion) => {
-                const entry = getAssessmentRegistryEntry(suggestion.assessmentKey);
-                return (
-                  <li key={suggestion.assessmentKey}>
-                    <Link
-                      href={entry.route as Route}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/10 px-4 py-3 text-sm text-[#1B3A2D] transition hover:bg-[#FAFAF8]"
-                    >
-                      <span>
-                        <span className="font-medium">{entry.displayName}</span>
-                        <span className="mt-0.5 block text-xs text-[#6B7A72]">{suggestion.reason}</span>
-                      </span>
-                    </Link>
+        {/* Progressive Reveal Engine (Prompt 3, requirement 6): the actual findings build up together, one quiet beat after the hero settles, rather than dumping instantly alongside it — first-time-only, instant on every revisit. */}
+        <KeyFindingReveal storageKey={`wbsa-close:${session.id}`}>
+          {needsAttention.length > 0 && (
+            <section className={`${CARD} mef-animate-in mt-4 p-6`}>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                Areas with more reported patterns
+              </p>
+              <ul className="mt-3 space-y-3">
+                {needsAttention.map((row) => (
+                  <li key={row.sectionId} className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-[#1B3A2D]">{row.title}</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">
+                        {WBSA_BAND_DESCRIPTION[row.band]}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${BAND_BADGE_CLASS[row.band]}`}>
+                      {WBSA_BAND_LABEL[row.band]}
+                    </span>
                   </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {lowerPattern.length > 0 && (
+            <section className={`${CARD} mef-animate-in mt-4 p-6`}>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                Areas showing fewer concerns
+              </p>
+              <ul className="mt-3 space-y-2">
+                {lowerPattern.map((row) => (
+                  <li key={row.sectionId} className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-[#1B3A2D]">{row.title}</p>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${BAND_BADGE_CLASS.lower}`}>
+                      {WBSA_BAND_LABEL.lower}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {skipped && (
+            <p className="mt-4 px-1 text-center text-xs leading-relaxed text-[#6B7A72]">
+              {WBSA_SKIPPED_QUESTIONS_NOTE}
+            </p>
+          )}
+
+          {suggestions.length > 0 && (
+            <section className={`${CARD} mef-animate-in mt-4 p-6`}>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                Worth exploring next
+              </p>
+              <ul className="mt-3 space-y-3">
+                {suggestions.map((suggestion) => {
+                  const entry = getAssessmentRegistryEntry(suggestion.assessmentKey);
+                  return (
+                    <li key={suggestion.assessmentKey}>
+                      <Link
+                        href={entry.route as Route}
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/10 px-4 py-3 text-sm text-[#1B3A2D] transition hover:bg-[#FAFAF8]"
+                      >
+                        <span>
+                          <span className="font-medium">{entry.displayName}</span>
+                          <span className="mt-0.5 block text-xs text-[#6B7A72]">{suggestion.reason}</span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+        </KeyFindingReveal>
 
         <section className="mt-6 flex items-start gap-3 px-1">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />

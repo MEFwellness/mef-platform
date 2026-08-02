@@ -6,6 +6,7 @@ import { Activity, ArrowLeft, Check, ClipboardList, Compass, TrendingUp } from '
 import { completeWelcomeFlow, markWelcomeIntroSeen } from '../actions/welcome';
 import { WELCOME_GOALS, SOMETHING_ELSE_KEY } from '@/lib/welcome/goals';
 import type { WelcomeGoalKey } from '@/lib/welcome/goals';
+import { Typewriter } from '@/components/reveal/Typewriter';
 
 const SHELL =
   'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
@@ -418,7 +419,7 @@ function CinematicPage({
             onClick={() => handleAdvance()}
             className={`mef-focus-ring ${PRIMARY_BUTTON} ${onBack ? '!mt-4' : ''}`}
           >
-            Continue
+            I&apos;m ready
           </button>
         </>
       )}
@@ -500,19 +501,7 @@ function PageStory({ onAdvance, onBack, onSkip, reducedMotion }: CinematicPagePr
   const holdMs = 4000;
   const totalMs = typewriterMs + pauseMs + paragraphMs + holdMs;
 
-  const [charCount, setCharCount] = useState(reducedMotion ? STORY_TEXT.length : 0);
   const [showParagraph, setShowParagraph] = useState(reducedMotion);
-
-  useEffect(() => {
-    if (reducedMotion) return undefined;
-    let count = 0;
-    const interval = setInterval(() => {
-      count += 1;
-      setCharCount(count);
-      if (count >= STORY_TEXT.length) clearInterval(interval);
-    }, msPerChar);
-    return () => clearInterval(interval);
-  }, [reducedMotion]);
 
   useEffect(() => {
     if (reducedMotion) return undefined;
@@ -529,12 +518,7 @@ function PageStory({ onAdvance, onBack, onSkip, reducedMotion }: CinematicPagePr
       reducedMotion={reducedMotion}
     >
       <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
-        <p className={`${HEADING} min-h-[2.5em]`}>
-          {reducedMotion ? STORY_TEXT : STORY_TEXT.slice(0, charCount)}
-          {!reducedMotion && charCount < STORY_TEXT.length && (
-            <span className="mef-typewriter-caret" aria-hidden="true" />
-          )}
-        </p>
+        <Typewriter as="p" text={STORY_TEXT} skip={reducedMotion} className={`${HEADING} min-h-[2.5em]`} />
         {showParagraph && (
           <p
             className={`mt-6 max-w-sm text-[15px] leading-relaxed text-[#4F645A] ${
@@ -699,7 +683,7 @@ function PageGoalSelection({
         disabled={submitting}
         className={`mef-focus-ring ${PRIMARY_BUTTON}`}
       >
-        {submitting ? 'Saving...' : 'Continue'}
+        {submitting ? 'Saving...' : "Let's find out"}
       </button>
     </div>
   );
@@ -779,7 +763,7 @@ function PagePrimaryGoal({
         disabled={submitting}
         className={`mef-focus-ring ${PRIMARY_BUTTON}`}
       >
-        {submitting ? 'Saving...' : 'Continue'}
+        {submitting ? 'Saving...' : "I'm ready"}
       </button>
     </div>
   );

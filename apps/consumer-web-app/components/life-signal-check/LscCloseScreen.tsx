@@ -34,6 +34,8 @@
 
 import { CVS_DISPLAY_FONT, CVS_GOLD, CVS_GOLD_DIVIDER } from '@/components/core-values-snapshot/theme';
 import { IntroReveal } from '@/components/IntroReveal';
+import { ConversationFlow } from '@/components/reveal/ConversationFlow';
+import { splitIntoSentences } from '@/lib/reveal/text';
 import {
   JourneyProgressLine,
   RevealCard,
@@ -151,7 +153,7 @@ export function LscCloseScreen({ sessionId, scoring, didStartExperiment, narrati
       </div>
 
       <RevealCard play={play} delayMs={REINFORCEMENT_DELAY_MS} elevated>
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{buildLscClosingReinforcement(didStartExperiment)}</p>
+        <ConversationFlow messages={splitIntoSentences(buildLscClosingReinforcement(didStartExperiment))} initialSkip={!play} />
       </RevealCard>
 
       <RevealCard play={play} delayMs={OBSERVATION_DELAY_MS}>

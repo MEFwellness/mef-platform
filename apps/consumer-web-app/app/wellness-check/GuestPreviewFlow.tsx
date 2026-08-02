@@ -287,7 +287,7 @@ function ResultsScreen({
         <p>{insight.disclaimer}</p>
       </div>
       <button type="button" onClick={onContinue} className={PRIMARY_BUTTON}>
-        Continue
+        Show me how to save this
       </button>
     </div>
   );

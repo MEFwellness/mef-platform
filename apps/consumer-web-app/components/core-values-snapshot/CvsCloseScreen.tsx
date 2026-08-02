@@ -18,6 +18,8 @@
 
 import { CVS_DISPLAY_FONT, CVS_GOLD_DIVIDER } from './theme';
 import { IntroReveal } from '@/components/IntroReveal';
+import { ConversationFlow } from '@/components/reveal/ConversationFlow';
+import { splitIntoSentences } from '@/lib/reveal/text';
 import {
   JourneyProgressLine,
   RevealCard,
@@ -95,7 +97,7 @@ export function CvsCloseScreen({ sessionId, scoring, didStartExperiment, narrati
       </div>
 
       <RevealCard play={play} delayMs={REINFORCEMENT_DELAY_MS} elevated>
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{buildCvsClosingReinforcement(didStartExperiment)}</p>
+        <ConversationFlow messages={splitIntoSentences(buildCvsClosingReinforcement(didStartExperiment))} initialSkip={!play} />
       </RevealCard>
 
       <RevealCard play={play} delayMs={OBSERVATION_DELAY_MS}>
@@ -126,7 +128,7 @@ export function CvsCloseScreen({ sessionId, scoring, didStartExperiment, narrati
         <p className={`${CVS_DISPLAY_FONT} text-xl leading-snug text-[#1B3A2D]`}>{CVS_HANDOFF.readyPrompt}</p>
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">{CVS_HANDOFF.readySupport}</p>
         <div className={`${CVS_GOLD_DIVIDER} my-5`} />
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{CVS_HANDOFF.body}</p>
+        <ConversationFlow messages={splitIntoSentences(CVS_HANDOFF.body)} initialSkip={!play} />
         <div className="mt-5 space-y-3">
           <button
             type="button"

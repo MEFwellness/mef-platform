@@ -972,7 +972,7 @@ export function OnboardingForm({
                   onClick={goNext}
                   className="mef-focus-ring flex flex-1 items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
                 >
-                  Continue
+                  Keep going
                 </button>
               )}
             </div>

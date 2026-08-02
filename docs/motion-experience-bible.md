@@ -364,6 +364,24 @@ One unforgettable moment per Experience (assessment, Reset Plan, major milestone
 
 ---
 
+## 13a. Progressive Reveal Engine (Prompt 3)
+
+The reusable machinery behind §5's pacing template and §6's "Conversational sequence"/"Reveal" conversion patterns, built once in `components/reveal/` and `lib/reveal/` rather than re-derived per screen. Applies only to Moments (§2) — never wired into a Tool.
+
+**One typewriter, not two.** `components/reveal/Typewriter.tsx` is now the single char-by-char implementation, at the same 45ms/character rate `lib/introRevealTiming.ts` already codified. `components/IntroReveal.tsx` and `app/welcome/WelcomeFlow.tsx`'s Page 2 (Story) — the original hand-rolled version this idiom was proven on — both render it internally now instead of each keeping their own copy of the same interval logic. Any future typewriter need should import this component, not write a third copy.
+
+**`RevealSequence` (`components/reveal/RevealSequence.tsx`)** is the generic engine behind the fade → headline → pause → body → pause → action template: an ordered list of steps, each mount-gated (not CSS-hidden) until its predecessor has held the screen for its own `holdMs`. Every reveal built on it inherits, for free: a tap anywhere completes the rest instantly (`onClick` on the sequence's own container sets a `skipped` flag), and `prefers-reduced-motion: reduce` (via the app's one canonical `lib/motion/useReducedMotion.ts` hook) skips the entire sequence from the very first render, matching §13's "the entire staged sequence is skipped outright" rule rather than merely speeding it up. An `initialSkip` prop lets a caller start a sequence already fully revealed — for a closing screen's own "already seen this before" state, distinct from reduced motion.
+
+**`ConversationFlow` (`components/reveal/ConversationFlow.tsx`)** is `RevealSequence` specialized for §6's "Conversational sequence" pattern: an array of short Root messages, each held on screen for at least its own reading-time floor (`lib/reveal/timing.ts`'s `readingFloorMs`, the wordCount/3-second rule from §5) before the next one mounts. `lib/reveal/text.ts`'s `splitIntoSentences` turns an existing wall-of-text paragraph into that array via the same `.split(/(?<=[.!?])\s+/)` idiom `lib/onboarding/coachCopy.ts` already used — a pure pacing change, never a copy rewrite, when the source paragraph's wording should stay untouched.
+
+**`StepCard` (`components/reveal/StepCard.tsx`)** is the "multi-step card" pattern: entirely member-paced (a tap advances, never a timer), so there is nothing to skip in the §5 sense — the member already controls every beat. Each step's own fade-in already degrades correctly under reduced motion via `.mef-fade-in`'s existing CSS rule, no JS branch needed.
+
+**`KeyFindingReveal` (`components/closing-screen/KeyFindingReveal.tsx`)** closes a real gap found while building this: `components/closing-screen/ClosingScreenPrimitives.tsx`'s own staged-reveal mechanics (`useCloseScreenReveal`, `useDelayedReveal`) were, before this prompt, only wired into Core Values Snapshot, Life Signal Check, and Readiness Pulse's closing screens — WBSA, the generic points-scored engine (CHEK HLC1 / Four Doctors / Short-HAQ), and Primal Pattern Diet Type rendered their key finding instantly, every visit, with no first-time-only gating at all. `KeyFindingReveal` wraps those same, already-proven primitives in a small reusable component so a Server Component results page (all three of these are Server Components, unlike CVS/LSC/RPL's Client Component takers) can gate a server-rendered finding behind one quiet beat without duplicating the mechanism. Same `mef-close-seen:{storageKey}` localStorage convention, same reduced-motion behavior, same first-time-only ceremony.
+
+**Reading-time floor, not just typewriter rate.** §5 already specified that a block-reveal (rather than a typewriter) must hold the screen for `wordCount / 3` seconds before any auto-advance is even eligible — `lib/reveal/timing.ts`'s `readingFloorMs` is that rule, formalized as a reusable function for the first time (previously specified in prose only, never implemented).
+
+---
+
 ## 14. Implementation Map
 
 **This is the official build plan**, not a proposal — it replaces the earlier, speculative v1 mapping (Prompt 0 was written before this plan existed). Each future prompt should cite its own row directly rather than re-deriving scope.
@@ -386,7 +404,7 @@ Non-normative — an aid for whoever picks up each prompt, not part of the locke
 |---|---|
 | 1 | §3 (Animation Vocabulary), §4 (Timing and Easing Standards), §10 (Ambient Motion Rules — the low-power hook itself is built here; ambient motion using it is applied in later prompts) |
 | 2 | §6a (Screen Layout System — the section this prompt itself built), §6 (Information Density Rules, the spacing/card-sizing implications of it) |
-| 3 | §5 (Cinematic Pacing Rules), §6 (Information Density Rules), §7 (curiosity-language Continue buttons) |
+| 3 | §5 (Cinematic Pacing Rules), §6 (Information Density Rules), §7 (curiosity-language Continue buttons), §13a (Progressive Reveal Engine — the section this prompt itself built) |
 | 4 | §7 (Root's Behavior Rules), §13 (Signature Moments, memory-callback and discovery-reveal mechanics) |
 | 5 | §11 (Living Dashboard Rules) |
 | 6 | §9 (Micro-Interaction Standards) |
@@ -395,4 +413,4 @@ Non-normative — an aid for whoever picks up each prompt, not part of the locke
 
 ---
 
-*End of v1.1. This document should be updated, not superseded, as Prompts 1–8 land — each prompt's actual implementation should be checked against its row above and this Bible corrected if reality diverges from the plan.*
+*End of v1.2. This document should be updated, not superseded, as Prompts 1–8 land — each prompt's actual implementation should be checked against its row above and this Bible corrected if reality diverges from the plan.*

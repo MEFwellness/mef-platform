@@ -27,15 +27,21 @@
  * visually-hidden duplicate) — the visible, partially-typed text is
  * `aria-hidden`, so revealing it letter by letter is a purely visual
  * effect, never a comprehension delay for assistive tech.
+ *
+ * Progressive Reveal Engine (Prompt 3): the actual char-by-char display
+ * is now components/reveal/Typewriter.tsx — the one shared implementation
+ * — rather than this component's own copy of that logic. Everything else
+ * here (the seen-before gating, the line stagger, the trailing button)
+ * is specific to this component's own timing contract and stays local.
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   INTRO_REVEAL_LINE_STEP_MS,
-  INTRO_REVEAL_MS_PER_CHAR,
   INTRO_REVEAL_TYPEWRITER_SETTLE_MS,
   introRevealTypewriterMs,
 } from '@/lib/introRevealTiming';
+import { Typewriter } from '@/components/reveal/Typewriter';
 
 function useReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
@@ -131,41 +137,23 @@ export function IntroReveal({
   // before the animation would have started.
   const skip = reducedMotion || seenBefore === true;
 
-  const [charCount, setCharCount] = useState(skip ? title.length : 0);
   const [linesStarted, setLinesStarted] = useState(skip);
 
   useEffect(() => {
     if (skip) {
-      setCharCount(title.length);
       setLinesStarted(true);
       return undefined;
     }
-    setCharCount(0);
     setLinesStarted(false);
-    let count = 0;
-    const interval = setInterval(() => {
-      count += 1;
-      setCharCount(count);
-      if (count >= title.length) clearInterval(interval);
-    }, INTRO_REVEAL_MS_PER_CHAR);
     const linesTimer = setTimeout(() => setLinesStarted(true), typewriterMs + INTRO_REVEAL_TYPEWRITER_SETTLE_MS);
-    return () => {
-      clearInterval(interval);
-      clearTimeout(linesTimer);
-    };
+    return () => clearTimeout(linesTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [skip, title]);
 
   return (
     <>
       {eyebrow && <p className={`mef-fade-in ${eyebrowClassName}`}>{eyebrow}</p>}
-      <TitleTag className={titleClassName}>
-        <span className="sr-only">{title}</span>
-        <span aria-hidden="true">
-          {skip ? title : title.slice(0, charCount)}
-          {!skip && charCount < title.length && <span className="mef-typewriter-caret" aria-hidden="true" />}
-        </span>
-      </TitleTag>
+      <Typewriter as={TitleTag} text={title} skip={skip} className={titleClassName} />
       {linesStarted && (
         <div className="mt-4 space-y-3">
           {lines.map((line, i) => (

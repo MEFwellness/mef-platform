@@ -24,6 +24,7 @@ import { CategoryCard } from '@/components/assessments/CategoryCard';
 import { PriorityBadge } from '@/components/assessments/PriorityBadge';
 import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
+import { KeyFindingReveal } from '@/components/closing-screen/KeyFindingReveal';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -75,28 +76,30 @@ export default async function AssessmentResultsPage({
           </p>
         </div>
 
-        {/* Hero: overall score ring */}
-        <section className={`${CARD} mef-animate-in mt-3 p-7`}>
-          <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
-            <ScoreRing
-              score={result.record.totalScore!}
-              maxScore={result.record.totalMaxScore!}
-              priority={result.record.totalPriority!}
-            />
-            <div className="min-w-0 flex-1 text-center sm:text-left">
-              <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                <PriorityBadge priority={result.record.totalPriority!} />
-                <span className="text-xs text-[#6B7A72]">
-                  Completed {formatAssessmentDate(result.record.completedAt!)}
-                </span>
+        {/* Hero: overall score ring — the assessment's actual key finding, so Progressive Reveal Engine (Prompt 3, requirement 6) reveals it with a quiet beat of anticipation rather than instantly, first-time-only, instant on every revisit. */}
+        <KeyFindingReveal storageKey={`generic-assessment-close:${result.record.id}`}>
+          <section className={`${CARD} mef-animate-in mt-3 p-7`}>
+            <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
+              <ScoreRing
+                score={result.record.totalScore!}
+                maxScore={result.record.totalMaxScore!}
+                priority={result.record.totalPriority!}
+              />
+              <div className="min-w-0 flex-1 text-center sm:text-left">
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                  <PriorityBadge priority={result.record.totalPriority!} />
+                  <span className="text-xs text-[#6B7A72]">
+                    Completed {formatAssessmentDate(result.record.completedAt!)}
+                  </span>
+                </div>
+                <h1 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#1B3A2D]">
+                  {insight.headline}
+                </h1>
+                <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">{insight.summary}</p>
               </div>
-              <h1 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#1B3A2D]">
-                {insight.headline}
-              </h1>
-              <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">{insight.summary}</p>
             </div>
-          </div>
-        </section>
+          </section>
+        </KeyFindingReveal>
 
         {/* Radar comparison */}
         <section className={`${CARD} mt-5 p-6`}>
