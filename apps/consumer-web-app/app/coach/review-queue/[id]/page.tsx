@@ -6,18 +6,9 @@ import { getCoachReviewQueueEntry } from '@/app/actions/safety';
 import { BottomNav } from '@/components/BottomNav';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { ReviewCaseControls } from '../ReviewCaseControls';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 export default async function ReviewCaseDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -80,7 +71,7 @@ export default async function ReviewCaseDetailPage({ params }: { params: { id: s
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wider text-[#6B7A72]">Created</dt>
-                <dd className="mt-1 font-medium text-[#1B3A2D]">{formatDate(entry.created_at)}</dd>
+                <dd className="mt-1 font-medium text-[#1B3A2D]">{formatDisplayDate(entry.created_at, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-xs uppercase tracking-wider text-[#6B7A72]">
@@ -140,7 +131,7 @@ export default async function ReviewCaseDetailPage({ params }: { params: { id: s
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-medium text-[#1B3A2D]">{entryLog.event_type}</span>
                       <span className="text-xs text-[#6B7A72]">
-                        {formatDate(entryLog.created_at)}
+                        {formatDisplayDate(entryLog.created_at, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
                       </span>
                     </div>
                     <p className="mt-0.5 text-[#6B7A72]">{entryLog.summary}</p>

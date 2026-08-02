@@ -18,6 +18,7 @@ import {
   rejectPrescriptionAction,
 } from '@/app/actions/prescription-intelligence';
 import type { BlockExerciseDraft } from '@/lib/prescription-intelligence/exerciseSelection';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const INPUT =
@@ -253,7 +254,7 @@ export function PrescriptionReviewPanel({
 }) {
   const router = useRouter();
   const [templateName, setTemplateName] = useState(
-    `${clientDisplayName}, ${new Date(snapshot.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} Prescription`
+    `${clientDisplayName}, ${formatDisplayDate(snapshot.generated_at, { month: 'short', day: 'numeric' })} Prescription`
   );
   const [memberInstructions, setMemberInstructions] = useState('');
   const [rejectReason, setRejectReason] = useState('');
@@ -338,7 +339,7 @@ export function PrescriptionReviewPanel({
                 : 'Rejected'}
           </p>
           <span className="text-xs text-[#6B7A72]">
-            Generated {new Date(snapshot.generated_at).toLocaleString('en-US')}
+            Generated {formatDisplayDate(snapshot.generated_at, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
           </span>
         </div>
         {snapshot.strategy_summary && (

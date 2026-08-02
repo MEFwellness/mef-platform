@@ -23,6 +23,7 @@ import { Activity, Check, ChevronDown, History, X } from 'lucide-react';
 import type { BodyAssessmentFinding, FindingSeverity } from '@mef/shared-types-contracts';
 import { FINDING_TYPE_CONFIG, SEVERITY_LABEL } from '@/lib/body-assessment/findings';
 import { confirmFindingAction, dismissFindingAction } from '@/app/actions/body-assessment';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import { EmptyState } from './EmptyState';
 
 const SEVERITY_TONE: Record<FindingSeverity, string> = {
@@ -32,16 +33,6 @@ const SEVERITY_TONE: Record<FindingSeverity, string> = {
   significant: 'bg-red-50 text-red-700',
   unknown: 'bg-[#1B3A2D]/[0.06] text-[#6B7A72]',
 };
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 /** Walks supersedes_id backward through `history` collecting every ancestor of `finding`, most-recently-superseded first. */
 function buildSupersedeChain(
@@ -92,8 +83,8 @@ function HistoryEntry({
       <p className="mt-1 text-[10px] text-[#9AA79F]">
         {changedBy ? `Changed by ${changedBy}` : 'Recorded'}
         {entry.coach_reviewed_at
-          ? ` · ${formatDateTime(entry.coach_reviewed_at)}`
-          : ` · ${formatDateTime(entry.created_at)}`}
+          ? ` · ${formatDisplayDate(entry.coach_reviewed_at, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+          : ` · ${formatDisplayDate(entry.created_at, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
       </p>
     </div>
   );

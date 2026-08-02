@@ -5,6 +5,7 @@ import { ShieldAlert, ChevronLeft } from 'lucide-react';
 import { listCoachReviewQueue } from '@/app/actions/safety';
 import { BottomNav } from '@/components/BottomNav';
 import { STATUS_STYLES } from '@/lib/wellness/status';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -24,15 +25,6 @@ const URGENCY_BADGE: Record<string, { bg: string; text: string }> = {
   low: { bg: STATUS_STYLES['no-data'].bg, text: STATUS_STYLES['no-data'].text },
   none: { bg: STATUS_STYLES['no-data'].bg, text: STATUS_STYLES['no-data'].text },
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 export default async function ReviewQueuePage() {
   const supabase = createClient();
@@ -98,7 +90,7 @@ export default async function ReviewQueuePage() {
                         {nameById.get(entry.member_id) ?? 'Unnamed client'}
                       </span>
                       <span className="ml-2 text-xs text-[#6B7A72]">
-                        {formatDate(entry.created_at)}
+                        {formatDisplayDate(entry.created_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">

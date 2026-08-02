@@ -2,12 +2,9 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Gauge } from 'lucide-react';
 import type { RplCoachSummary } from '@/app/actions/readinessPulse';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 /** Coach-facing summary of a client's Readiness Pulse history — same "list + link to full detail" shape as CoreValuesSnapshotPanel/LifeSignalCheckPanel. */
 export function ReadinessPulsePanel({ clientId, sessions }: { clientId: string; sessions: RplCoachSummary[] }) {
@@ -30,7 +27,7 @@ export function ReadinessPulsePanel({ clientId, sessions }: { clientId: string; 
               >
                 <div>
                   <p className="text-sm font-medium text-[#1B3A2D]">
-                    {formatDate(summary.completedAt)} · v{summary.assessmentVersion}
+                    {formatDisplayDate(summary.completedAt, { month: 'short', day: 'numeric', year: 'numeric' })} · v{summary.assessmentVersion}
                   </p>
                   <p className="text-xs text-[#6B7A72]">
                     Her pick: {summary.finalPatternLabel}

@@ -18,6 +18,7 @@ import {
   updateClientMovementProfileCoachFields,
 } from '@/app/actions/movement-profile';
 import { TagListEditor } from '@/components/movement-profile/TagListEditor';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import type { MemberMovementProfile, MovementProfileReviewItem } from '@mef/shared-types-contracts';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -32,15 +33,6 @@ const REVIEW_TYPE_LABEL: Record<string, string> = {
   new_movement_limitation: 'New movement limitation',
   restriction_conflict: 'Restriction conflict',
 };
-
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 function ReviewItemRow({ item, clientId }: { item: MovementProfileReviewItem; clientId: string }) {
   const router = useRouter();
@@ -59,7 +51,9 @@ function ReviewItemRow({ item, clientId }: { item: MovementProfileReviewItem; cl
         <span className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
           {REVIEW_TYPE_LABEL[item.review_type] ?? item.review_type}
         </span>
-        <span className="text-xs text-[#6B7A72]">{formatTimestamp(item.created_at)}</span>
+        <span className="text-xs text-[#6B7A72]">
+          {formatDisplayDate(item.created_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+        </span>
       </div>
       <p className="mt-1 text-sm font-medium text-[#1B3A2D]">{item.summary}</p>
       {item.detail && <p className="mt-0.5 text-sm text-[#6B7A72]">{item.detail}</p>}

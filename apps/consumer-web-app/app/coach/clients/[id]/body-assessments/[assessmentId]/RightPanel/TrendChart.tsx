@@ -18,6 +18,7 @@
 
 import { useId, useState } from 'react';
 import { TrendingUp } from 'lucide-react';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import { EmptyState } from './EmptyState';
 
 export type TrendPoint = {
@@ -38,14 +39,6 @@ const DELTA_TONE = {
   declined: 'bg-red-50 text-red-700',
   stable: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]',
 } as const;
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 export function TrendChart({
   title,
@@ -159,7 +152,7 @@ export function TrendChart({
                 strokeWidth={2}
               >
                 <title>
-                  {formatDate(p.date)}: {p.valueLabel ?? p.value}
+                  {formatDisplayDate(p.date, { month: 'short', day: 'numeric', year: 'numeric' })}: {p.valueLabel ?? p.value}
                 </title>
               </circle>
               {isEndpoint && (
@@ -179,7 +172,7 @@ export function TrendChart({
       </svg>
 
       <div className="mt-1 flex items-center justify-between text-[10px] text-[#9AA79F]">
-        <span>{formatDate(first.date)}</span>
+        <span>{formatDisplayDate(first.date, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
         <button
           type="button"
           onClick={() => setTableOpen((o) => !o)}
@@ -187,14 +180,14 @@ export function TrendChart({
         >
           {tableOpen ? 'Hide values' : 'View as list'}
         </button>
-        <span>{formatDate(latest.date)}</span>
+        <span>{formatDisplayDate(latest.date, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
       </div>
 
       {tableOpen && (
         <ul className="mt-2 space-y-1 rounded-xl bg-[#FAFAF8] p-2 text-[11px] text-[#6B7A72]">
           {points.map((p, i) => (
             <li key={p.date + i} className="flex items-center justify-between gap-2">
-              <span>{formatDate(p.date)}</span>
+              <span>{formatDisplayDate(p.date, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
               <span className="font-medium text-[#1B3A2D]">{p.valueLabel ?? p.value}</span>
             </li>
           ))}

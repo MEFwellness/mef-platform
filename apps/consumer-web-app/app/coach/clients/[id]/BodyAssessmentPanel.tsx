@@ -3,6 +3,7 @@ import type { Route } from 'next';
 import { ScanFace } from 'lucide-react';
 import type { BodyAssessment } from '@mef/shared-types-contracts';
 import { ASSESSMENT_TYPE_CONFIG } from '@/lib/body-assessment/assessmentTypes';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -25,14 +26,6 @@ const STATUS_BADGE: Record<string, string> = {
   coach_reviewed: 'bg-emerald-50 text-emerald-700',
   archived: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]',
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 /** Coach-facing summary of a client's Body Assessment history — same "list + link to full review surface" shape as the Baseline/Reassessment history list, since full capture review (photos/video, findings, coach review workflow) needs its own dedicated page rather than crowding this dashboard. */
 export function BodyAssessmentPanel({
@@ -63,7 +56,9 @@ export function BodyAssessmentPanel({
                   <p className="text-sm font-medium text-[#1B3A2D]">
                     {ASSESSMENT_TYPE_CONFIG[assessment.assessment_type].label}
                   </p>
-                  <p className="text-xs text-[#6B7A72]">{formatDate(assessment.started_at)}</p>
+                  <p className="text-xs text-[#6B7A72]">
+                    {formatDisplayDate(assessment.started_at, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
                 </div>
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_BADGE[assessment.status] ?? STATUS_BADGE.in_progress}`}

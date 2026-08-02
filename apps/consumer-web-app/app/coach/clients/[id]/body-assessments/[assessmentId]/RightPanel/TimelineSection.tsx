@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { History } from 'lucide-react';
 import type { BodyAssessment } from '@mef/shared-types-contracts';
 import { getAssessmentTypeConfig } from '@/lib/body-assessment/assessmentTypes';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import { EmptyState } from './EmptyState';
 
 function monthKey(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  return formatDisplayDate(iso, { month: 'long', year: 'numeric' });
 }
 
 export function TimelineSection({
@@ -56,9 +57,7 @@ export function TimelineSection({
                   >
                     <span>{getAssessmentTypeConfig(assessment.assessment_type).label}</span>
                     <span className={`text-xs ${isCurrent ? 'text-white/70' : 'text-[#6B7A72]'}`}>
-                      {new Date(assessment.started_at).toLocaleDateString('en-US', {
-                        day: 'numeric',
-                      })}
+                      {formatDisplayDate(assessment.started_at, { day: 'numeric' })}
                     </span>
                   </Link>
                 </li>

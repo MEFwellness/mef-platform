@@ -23,6 +23,7 @@ import {
   addInsightCoachContextAction,
   requestWellnessIntelligenceRecalculation,
 } from '@/app/actions/wellness-intelligence';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -49,10 +50,6 @@ const TIME_WINDOW_LABEL: Record<WellnessInsight['time_window'], string> = {
   since_baseline: 'Since baseline',
   since_reassessment: 'Since reassessment',
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 function parsePrioritySummary(coachDetail: string): PriorityIntelligence | null {
   try {
@@ -241,7 +238,7 @@ function InsightRow({ insight }: { insight: WellnessInsight }) {
           {insight.evidence_refs.length === 1 ? '' : 's'}
         </span>
         <span>·</span>
-        <span>Updated {formatDate(insight.updated_at)}</span>
+        <span>Updated {formatDisplayDate(insight.updated_at, { month: 'short', day: 'numeric' })}</span>
       </div>
 
       {addingContext && (

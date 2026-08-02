@@ -4,19 +4,10 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { NotebookPen } from 'lucide-react';
 import { addCoachNote } from '@/app/actions/coach';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import type { CoachNote } from '@mef/shared-types-contracts';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
-function formatTimestamp(isoTimestamp: string): string {
-  return new Date(isoTimestamp).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 type Props = {
   clientId: string;
@@ -89,7 +80,9 @@ export function CoachNotesPanel({ clientId, initialNotes, coachName, submissionI
             <div key={note.id} className="py-4">
               <div className="flex items-center justify-between gap-2 text-xs text-[#6B7A72]">
                 <span className="font-medium text-[#1B3A2D]">{coachName}</span>
-                <span>{formatTimestamp(note.created_at)}</span>
+                <span>
+                  {formatDisplayDate(note.created_at, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                </span>
               </div>
               <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]/85">{note.note}</p>
             </div>

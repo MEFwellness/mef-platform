@@ -16,6 +16,7 @@ import {
   updateHandoffStatusAction,
   addCoachConversationNoteAction,
 } from '@/app/actions/conversation-coach';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -24,15 +25,6 @@ const HANDOFF_STATUS_LABEL: Record<ConversationHandoffStatus, string> = {
   acknowledged: 'Acknowledged',
   resolved: 'Resolved',
 };
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 export function ConversationPanel({
   clientId,
@@ -169,7 +161,7 @@ export function ConversationPanel({
                   : 'bg-[#FAFAF8] text-[#6B7A72] hover:bg-[#1B3A2D]/[0.06]'
               }`}
             >
-              {s.title ?? s.entry_point} · {formatDateTime(s.last_message_at)}
+              {s.title ?? s.entry_point} · {formatDisplayDate(s.last_message_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
             </button>
           ))}
         </div>
@@ -231,7 +223,7 @@ export function ConversationPanel({
               >
                 <p className="whitespace-pre-wrap">{m.content}</p>
                 <div className="mt-1 flex items-center gap-1.5 text-[10px] opacity-70">
-                  <span>{formatDateTime(m.created_at)}</span>
+                  <span>{formatDisplayDate(m.created_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
                   {m.safety_classification_id && (
                     <span className="inline-flex items-center gap-0.5">
                       <ShieldAlert className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />

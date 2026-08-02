@@ -18,6 +18,7 @@ import { requestClientReassessment } from '@/app/actions/longitudinalIntelligenc
 import type { LongitudinalSignal, SignalState } from '@/lib/longitudinal-intelligence';
 import type { RootRouterOutcomeView } from '@/lib/investigation-engine/routerOutcome';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -64,10 +65,6 @@ const COACHING_QUESTION_BY_STATE: Partial<Record<SignalState, string>> = {
   insufficient_data: 'Would a specific check-in question help fill in the picture here?',
 };
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 function SignalRow({ signal }: { signal: LongitudinalSignal }) {
   const question = COACHING_QUESTION_BY_STATE[signal.state];
   return (
@@ -80,7 +77,7 @@ function SignalRow({ signal }: { signal: LongitudinalSignal }) {
           {signal.occurrenceCount} occurrence{signal.occurrenceCount === 1 ? '' : 's'}
         </span>
         <span className="rounded-full bg-[#FAFAF8] px-2.5 py-1 text-xs text-[#6B7A72]">
-          last observed {formatDate(signal.lastObservedAt)}
+          last observed {formatDisplayDate(signal.lastObservedAt, { month: 'short', day: 'numeric', year: 'numeric' })}
         </span>
       </div>
       <p className="mt-1.5 font-medium text-[#1B3A2D]">{signal.signalLabel}</p>

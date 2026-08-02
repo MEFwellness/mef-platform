@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Sparkles, ChevronRight } from 'lucide-react';
 import type { PrescriptionSnapshot } from '@mef/shared-types-contracts';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -34,7 +35,7 @@ export function PrescriptionIntelligenceCard({
 
       <p className="mt-3 text-sm text-[#6B7A72]">
         {latest
-          ? `Last run ${new Date(latest.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${latest.status.replace(/_/g, ' ')}.`
+          ? `Last run ${formatDisplayDate(latest.generated_at, { month: 'short', day: 'numeric' })}: ${latest.status.replace(/_/g, ' ')}.`
           : 'No prescription runs yet: build today’s strategy from this member’s Movement Profile, readiness, and assessment history.'}
       </p>
 

@@ -10,6 +10,7 @@
 import type { CoachMemberRecommendationView } from '@/app/actions/recommendations';
 import type { LifestyleExperiment } from '@/lib/lifestyle-experiments';
 import type { RecommendationEvent } from '@/lib/longitudinal-intelligence';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -117,7 +118,7 @@ export function RecommendationsPanel({
               <li key={e.id} className="py-2.5 text-sm">
                 <p className="font-medium text-[#1B3A2D]">{e.title}</p>
                 <p className="mt-0.5 text-xs text-[#6B7A72]">
-                  {e.status.replaceAll('_', ' ')} · started {new Date(e.startDate).toLocaleDateString()} ·{' '}
+                  {e.status.replaceAll('_', ' ')} · started {formatDisplayDate(e.startDate, { month: 'short', day: 'numeric', year: 'numeric' })} ·{' '}
                   {e.durationDays} days
                   {e.outcome ? ` · outcome: ${e.outcome.replaceAll('_', ' ')}` : ''}
                 </p>

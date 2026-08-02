@@ -1,4 +1,5 @@
 import type { BodyAssessment, BodyAssessmentStatus } from '@mef/shared-types-contracts';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const STATUS_META: Record<BodyAssessmentStatus, { label: string; className: string }> = {
   in_progress: { label: 'In progress', className: 'bg-amber-50 text-amber-700' },
@@ -50,11 +51,7 @@ export function SummarySection({
     <div className="divide-y divide-[#1B3A2D]/5">
       <Row
         label="Assessment Date"
-        value={new Date(assessment.started_at).toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-        })}
+        value={formatDisplayDate(assessment.started_at, { month: 'long', day: 'numeric', year: 'numeric' })}
       />
       <Row label="Assessment Type" value={typeLabel} />
       <Row label="Coach" value={coachName ?? 'Not yet reviewed'} />

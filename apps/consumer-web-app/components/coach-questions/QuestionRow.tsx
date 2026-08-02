@@ -13,6 +13,7 @@ import {
 } from '@/app/actions/driverProbeAdmin';
 import { QuestionEditorForm } from './QuestionEditorForm';
 import { QuestionPreviewModal } from './QuestionPreviewModal';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const RESPONSE_TYPE_LABEL: Record<string, string> = {
   boolean: 'Yes / No',
@@ -22,16 +23,6 @@ const RESPONSE_TYPE_LABEL: Record<string, string> = {
   multi_select: 'Multiple choice (pick any)',
   time_pair: 'Time',
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 function RevisionRow({ revision }: { revision: RevisionEntry }) {
   const changedKeys = new Set([
@@ -48,7 +39,7 @@ function RevisionRow({ revision }: { revision: RevisionEntry }) {
     <div className="border-t border-[#1B3A2D]/5 py-2 text-xs text-[#6B7A72]">
       <p>
         <span className="font-medium text-[#1B3A2D]">{revision.changeType}</span> by{' '}
-        {revision.changedByName}, {formatDate(revision.changedAt)}
+        {revision.changedByName}, {formatDisplayDate(revision.changedAt, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
       </p>
       {revision.changeType === 'updated' && diffs.length > 0 && (
         <ul className="mt-1 space-y-0.5">

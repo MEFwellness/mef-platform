@@ -3,6 +3,7 @@ import type {
   BodyAssessmentCoachReview,
   BodyAssessmentReviewStatus,
 } from '@mef/shared-types-contracts';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import { EmptyState } from './EmptyState';
 
 /**
@@ -26,16 +27,6 @@ const STATUS_LABEL: Record<BodyAssessmentReviewStatus, string> = {
   changes_requested: 'Changes requested',
   completed: 'Completed',
 };
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 export function ReviewHistorySection({
   reviews,
@@ -69,7 +60,9 @@ export function ReviewHistorySection({
               {STATUS_LABEL[review.review_status]}
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] text-[#9AA79F]">{formatDateTime(review.created_at)}</p>
+          <p className="mt-0.5 text-[11px] text-[#9AA79F]">
+            {formatDisplayDate(review.created_at, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+          </p>
           {review.observations && (
             <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">
               <span className="font-medium text-[#1B3A2D]">Observations: </span>

@@ -9,16 +9,9 @@ import {
 } from '@/app/actions/assessmentAssignments';
 import type { AssessmentAssignment } from '@/app/actions/assessmentAssignments';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
-function formatTimestamp(isoTimestamp: string): string {
-  return new Date(isoTimestamp).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 const STATUS_LABEL: Record<AssessmentAssignment['status'], string> = {
   pending: 'Pending',
@@ -162,7 +155,7 @@ export function AssessmentAssignmentPanel({
                 </p>
                 <p className="mt-0.5 text-xs text-[#6B7A72]">
                   {STATUS_LABEL[assignment.status]}
-                  {assignment.dueAt ? ` · Due ${formatTimestamp(assignment.dueAt)}` : ''}
+                  {assignment.dueAt ? ` · Due ${formatDisplayDate(assignment.dueAt, { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}
                   {assignment.isRequired ? ' · Required' : ' · Optional'}
                 </p>
               </div>

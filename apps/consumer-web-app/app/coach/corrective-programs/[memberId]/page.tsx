@@ -15,6 +15,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { getMemberCorrectiveOverviewAction } from '@/app/actions/corrective-programs';
 import { FINDING_TYPE_CONFIG, SEVERITY_LABEL } from '@/lib/body-assessment/findings';
 import { CORRECTIVE_BLUEPRINTS } from '@/lib/corrective-engine/blueprints';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import { GenerateDraftPanel } from './GenerateDraftPanel';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -26,11 +27,6 @@ const SEVERITY_TONE: Record<string, string> = {
   significant: 'bg-red-50 text-red-700',
   unknown: 'bg-[#1B3A2D]/[0.06] text-[#6B7A72]',
 };
-
-function formatDate(iso: string | null): string {
-  if (!iso) return 'Unknown date';
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 export default async function CorrectiveProgramsMemberPage({
   params,
@@ -88,7 +84,7 @@ export default async function CorrectiveProgramsMemberPage({
           ) : (
             <>
               <p className="mt-1 text-xs text-[#9AA79F]">
-                Completed {formatDate(overview.latestAssessment.completedAt)}
+                Completed {formatDisplayDate(overview.latestAssessment.completedAt, { month: 'short', day: 'numeric', year: 'numeric' })}
               </p>
 
               {activeFindings.length === 0 ? (
@@ -155,7 +151,7 @@ export default async function CorrectiveProgramsMemberPage({
                     <div>
                       <p className="text-sm font-medium text-[#1B3A2D]">{blueprintNames || 'Corrective program'}</p>
                       <p className="mt-0.5 text-xs text-[#6B7A72]">
-                        {group.templates.length}x/week · created {formatDate(first?.created_at ?? null)}
+                        {group.templates.length}x/week · created {formatDisplayDate(first?.created_at, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
                     <ChevronRight className="h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />

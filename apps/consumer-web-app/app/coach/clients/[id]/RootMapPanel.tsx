@@ -12,6 +12,7 @@ import { ShieldAlert } from 'lucide-react';
 import type { CoachRootMapView } from '@/app/actions/rootMap';
 import { RootMapDomainCard } from '@/components/RootMapDomainCard';
 import { findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -59,7 +60,7 @@ export function RootMapPanel({ rootMap }: { rootMap: CoachRootMapView }) {
           <ul className="mt-2 space-y-1.5">
             {rootMap.pendingReassessments.map((r) => (
               <li key={r.assessmentKey} className="text-sm text-[#1B3A2D]/80">
-                · {r.displayName}: due {new Date(r.dueAt).toLocaleDateString()} ({r.triggerSource})
+                · {r.displayName}: due {formatDisplayDate(r.dueAt, { month: 'short', day: 'numeric', year: 'numeric' })} ({r.triggerSource})
               </li>
             ))}
           </ul>
@@ -78,7 +79,7 @@ export function RootMapPanel({ rootMap }: { rootMap: CoachRootMapView }) {
                   <>, member chose <span className="font-medium">{displayNameFor(d.chosenKey)}</span> instead</>
                 )}
                 <span className="ml-1 text-xs text-[#6B7A72]">
-                  {new Date(d.decidedAt).toLocaleDateString()}
+                  {formatDisplayDate(d.decidedAt, { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               </li>
             ))}

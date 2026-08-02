@@ -6,21 +6,13 @@ import { Beef, ChevronLeft } from 'lucide-react';
 import { listPendingProteinTargetsAction } from '@/app/actions/protein-review';
 import { BottomNav } from '@/components/BottomNav';
 import { ACTIVITY_LEVELS } from '@/lib/protein/calculation';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 const ACTIVITY_LABEL: Record<string, string> = Object.fromEntries(
   ACTIVITY_LEVELS.map((option) => [option.key, option.label])
 );
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 export default async function ProteinReviewQueuePage() {
   const supabase = createClient();
@@ -69,7 +61,7 @@ export default async function ProteinReviewQueuePage() {
                   <div>
                     <span className="font-medium text-[#1B3A2D]">{entry.memberName}</span>
                     <span className="ml-2 text-xs text-[#6B7A72]">
-                      {formatDate(entry.createdAt)}
+                      {formatDisplayDate(entry.createdAt, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </span>
                     <p className="mt-0.5 text-xs text-[#6B7A72]">
                       {entry.bodyWeightLb} lb &middot; {ACTIVITY_LABEL[entry.activityLevel]}

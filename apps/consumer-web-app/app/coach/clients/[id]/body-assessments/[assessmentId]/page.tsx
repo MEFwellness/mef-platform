@@ -19,6 +19,7 @@ import { getAiAnalysisForAssessmentAction } from '@/app/actions/coach-intelligen
 import { createSignedCaptureUrl } from '@/lib/body-assessment/storage';
 import { getAssessmentTypeConfig } from '@/lib/body-assessment/assessmentTypes';
 import { FINDING_TYPE_CONFIG, SEVERITY_LABEL, SEVERITY_RANK } from '@/lib/body-assessment/findings';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import { ReviewWorkspace } from './ReviewWorkspace';
 import type { RailCapture } from './CaptureRail';
 import type { ComparisonCapture, FindingTrendSeries } from './RightPanel/ComparisonSection';
@@ -192,12 +193,7 @@ export default async function CoachBodyAssessmentDetailPage({
         </h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
           {firstName} ·{' '}
-          {new Date(assessment.started_at).toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          })}
+          {formatDisplayDate(assessment.started_at, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
         </p>
 
         <div className="mt-6">

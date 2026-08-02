@@ -18,6 +18,7 @@ import type { Route } from 'next';
 import { ChevronLeft } from 'lucide-react';
 import { getClientCvsSessionDetailAction } from '@/app/actions/coreValuesSnapshot';
 import { AREA_LABEL, VALUE_AREAS } from '@/lib/core-values-snapshot/constants';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -27,10 +28,6 @@ const BRANCH_LABEL: Record<string, string> = {
   split: 'Split (instinct vs. plan)',
   slipping: 'Slipping',
 };
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
 
 export default async function CoachCvsSessionDetailPage({
   params,
@@ -60,7 +57,7 @@ export default async function CoachCvsSessionDetailPage({
           Core Values Snapshot
         </h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
-          Completed {session.completedAt ? formatDateTime(session.completedAt) : ''}
+          Completed {session.completedAt ? formatDisplayDate(session.completedAt, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
           {timeToCompleteMinutes !== null ? ` · ${timeToCompleteMinutes} min to complete` : ''}
           {' · '}Version {session.assessmentVersion}
         </p>

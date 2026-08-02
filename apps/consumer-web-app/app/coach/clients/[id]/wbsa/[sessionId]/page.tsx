@@ -13,6 +13,7 @@ import type { Route } from 'next';
 import { ChevronLeft } from 'lucide-react';
 import { getClientWbsaSessionDetailAction } from '@/app/actions/wbsa';
 import { PREFER_NOT_TO_ANSWER } from '@/lib/assessment-runtime';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -58,7 +59,7 @@ export default async function CoachWbsaSessionDetailPage({
           Whole-Body Systems Assessment
         </h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
-          Completed {session.completedAt ? new Date(session.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+          Completed {session.completedAt ? formatDisplayDate(session.completedAt, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
           {' · '}Version {session.assessmentVersion}
         </p>
 

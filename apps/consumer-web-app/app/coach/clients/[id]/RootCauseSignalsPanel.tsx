@@ -8,6 +8,7 @@
 
 import { GitMerge } from 'lucide-react';
 import type { RootCauseSignalsView } from '@/lib/intelligence-engine/rootCauseSignals';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -102,7 +103,7 @@ export function RootCauseSignalsPanel({ signals }: { signals: RootCauseSignalsVi
                 <span className="font-medium text-[#1B3A2D]">{f.label}</span>
                 <span className="text-xs capitalize text-[#6B7A72]">
                   {f.currentTrendStatus ?? f.currentStatus} · first seen{' '}
-                  {new Date(f.firstObservedAt).toLocaleDateString()} · {f.occurrenceCount}x observed
+                  {formatDisplayDate(f.firstObservedAt, { month: 'short', day: 'numeric', year: 'numeric' })} · {f.occurrenceCount}x observed
                 </span>
               </li>
             ))}

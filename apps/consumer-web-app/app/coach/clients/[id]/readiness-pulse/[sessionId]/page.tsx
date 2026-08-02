@@ -17,6 +17,7 @@ import { getClientRplSessionDetailAction } from '@/app/actions/readinessPulse';
 import { SIGNAL_LABEL } from '@/lib/life-signal-check/constants';
 import { READINESS_PATTERN_LABEL } from '@/lib/readiness-pulse/constants';
 import { RPL_COACHING_STYLE_LABEL, RPL_OBSTACLE_LABEL, RPL_WILLINGNESS_BAND_LABEL, RPL_CAPACITY_BAND_LABEL } from '@/lib/readiness-pulse/copy';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -59,10 +60,6 @@ const Q2_LABEL: Record<string, string> = {
   nothing_forced_me: 'Honestly, nothing forced me to',
 };
 
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
-
 export default async function CoachRplSessionDetailPage({ params }: { params: { id: string; sessionId: string } }) {
   const detail = await getClientRplSessionDetailAction(params.sessionId);
   if (!detail || detail.session.memberId !== params.id || detail.session.status !== 'completed') {
@@ -84,7 +81,7 @@ export default async function CoachRplSessionDetailPage({ params }: { params: { 
 
         <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">Readiness Pulse</h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
-          Completed {session.completedAt ? formatDateTime(session.completedAt) : ''}
+          Completed {session.completedAt ? formatDisplayDate(session.completedAt, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
           {timeToCompleteMinutes !== null ? ` · ${timeToCompleteMinutes} min to complete` : ''}
           {' · '}Version {session.assessmentVersion}
         </p>

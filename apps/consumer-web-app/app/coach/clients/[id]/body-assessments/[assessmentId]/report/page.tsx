@@ -8,6 +8,7 @@ import {
 import { getAssessmentTypeConfig } from '@/lib/body-assessment/assessmentTypes';
 import { FINDING_TYPE_CONFIG, SEVERITY_LABEL } from '@/lib/body-assessment/findings';
 import { ComparisonSummary } from '@/app/assessment/[id]/ComparisonSummary';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import { PrintButton } from './PrintButton';
 
 /**
@@ -106,12 +107,7 @@ export default async function BodyAssessmentReportPage({
             </span>
             <span>
               <span className="font-medium text-[#1B3A2D] print:text-black">Date: </span>
-              {new Date(assessment.started_at).toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
+              {formatDisplayDate(assessment.started_at, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             </span>
           </div>
         </div>
@@ -183,11 +179,7 @@ export default async function BodyAssessmentReportPage({
           <section className="mt-8 print:break-inside-avoid">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-[#854D0E] print:text-black">
               Progress since{' '}
-              {new Date(previousAssessment.started_at).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
+              {formatDisplayDate(previousAssessment.started_at, { month: 'long', day: 'numeric', year: 'numeric' })}
             </h2>
             <div className="mt-3 print:border print:border-black/10 print:p-3">
               <ComparisonSummary rows={comparisonRows} />

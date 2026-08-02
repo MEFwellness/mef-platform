@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Radio } from 'lucide-react';
 import type { LscCoachSummary } from '@/app/actions/lifeSignalCheck';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -10,10 +11,6 @@ const PATTERN_LABEL: Record<LscCoachSummary['pattern'], string> = {
   chorus: 'A chorus',
   quiet_body: 'Quiet body',
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 /** Coach-facing summary of a client's Life Signal Check history — same "list + link to full detail" shape as CoreValuesSnapshotPanel. */
 export function LifeSignalCheckPanel({ clientId, sessions }: { clientId: string; sessions: LscCoachSummary[] }) {
@@ -36,7 +33,7 @@ export function LifeSignalCheckPanel({ clientId, sessions }: { clientId: string;
               >
                 <div>
                   <p className="text-sm font-medium text-[#1B3A2D]">
-                    {formatDate(summary.completedAt)} · v{summary.assessmentVersion}
+                    {formatDisplayDate(summary.completedAt, { month: 'short', day: 'numeric', year: 'numeric' })} · v{summary.assessmentVersion}
                   </p>
                   <p className="text-xs text-[#6B7A72]">
                     Chosen: {summary.chosenSignalLabel} · Loudest: {summary.loudestSignalLabel}

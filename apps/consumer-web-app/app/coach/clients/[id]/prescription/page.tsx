@@ -9,6 +9,7 @@ import {
 } from '@/app/actions/prescription-intelligence';
 import { PrescriptionGeneratorPanel } from '@/components/prescription-intelligence/PrescriptionGeneratorPanel';
 import { PrescriptionReviewPanel } from '@/components/prescription-intelligence/PrescriptionReviewPanel';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 export default async function ClientPrescriptionPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -83,10 +84,7 @@ export default async function ClientPrescriptionPage({ params }: { params: { id:
                     className="flex items-center justify-between gap-3 py-2.5 text-sm"
                   >
                     <span className="text-[#1B3A2D]">
-                      {new Date(s.generated_at).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {formatDisplayDate(s.generated_at, { month: 'short', day: 'numeric' })}
                     </span>
                     <span className="text-xs capitalize text-[#6B7A72]">
                       {s.status.replace(/_/g, ' ')}
