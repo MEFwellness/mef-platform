@@ -12,13 +12,10 @@ import { SIGNAL_LABEL } from '@/lib/life-signal-check/constants';
 import { READINESS_PATTERN_LABEL } from '@/lib/readiness-pulse/constants';
 import { Q6_OBSTACLE_LABEL } from '@/lib/reset-plan/copy';
 import type { ClientResetPlanView } from '@/app/actions/resetPlan';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import { NotebookPen } from 'lucide-react';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 export function PersonalResetPlanPanel({ view }: { view: ClientResetPlanView }) {
   return (
@@ -72,7 +69,9 @@ export function PersonalResetPlanPanel({ view }: { view: ClientResetPlanView }) 
               {view.versions.map((version) => (
                 <li key={version.id} className="py-2 text-sm text-[#1B3A2D]">
                   <span className="font-medium capitalize">{version.changeType.replace(/_/g, ' ')}</span>{' '}
-                  <span className="text-xs text-[#6B7A72]">{formatDate(version.changedAt)}</span>
+                  <span className="text-xs text-[#6B7A72]">
+                    {formatDisplayDate(version.changedAt, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
                   {version.decisionEvidence && (
                     <pre className="mt-1 whitespace-pre-wrap break-words rounded-lg bg-[#F3F6F4] p-2 text-[11px] text-[#6B7A72]">
                       {JSON.stringify(version.decisionEvidence)}

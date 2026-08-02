@@ -148,6 +148,7 @@ const FIXED_FILES = [
   "components/coach-questions/QuestionRow.tsx",
   "components/prescription-intelligence/PrescriptionReviewPanel.tsx",
   "components/prescription-intelligence/PrescriptionIntelligenceCard.tsx",
+  "app/coach/clients/[id]/PersonalResetPlanPanel.tsx",
 ];
 
 // A locale-date/time call with no `timeZone:` anywhere before its closing
