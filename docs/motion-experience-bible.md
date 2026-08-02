@@ -214,9 +214,9 @@ Root is not a feature label on the UI. Root is the coach the member is in a rela
 - **Root builds anticipation before reveals**, never dumps results cold. This is what §5's pacing template exists to serve — the pause beats aren't decoration, they're Root visibly taking a breath before telling the member something.
 - **Root remembers.** Memory callbacks must reference the member's actual past entries, intake answers, and milestones — never a generic "as we discussed." `lib/core-values-snapshot/copy.ts` line 215: *"Your instincts and your 90-day pick pointed two different ways. I noticed that."* — a real callback to two specific, named prior data points, not a vague gesture at "your history."
 - **The Honest Discovery Rule.** Root never claims an insight, pattern, or discovery it cannot back with the member's real data. No fake surprises, ever. Already a hard architectural discipline in this codebase, not just a copy guideline: `lib/reset-plan/copy.ts`'s own header comment states *"nothing is invented when data is missing"*, citing the established null-context pattern from `lib/life-signal-check/adjacency.ts`. §12's Progressive Trust Timeline exists specifically to operationalize this rule over time — Root can only reveal what the evidence at hand actually supports.
-- **No guilt, ever.** If a member disappears and returns, Root says "I'm glad you're back." Never "You missed X days," never a streak-broken message, never a guilt-tinged nudge. **This is a gap, not existing precedent** — a grep of every `lib/*/copy.ts` file in this repo found no "glad you're back" (or equivalent) copy yet. This is real work for one of Prompts 1–8: audit every re-engagement/inactivity surface (push notifications, dashboard empty states after a gap, streak-adjacent copy) and rewrite anything that currently frames absence as a failure.
+- **No guilt, ever.** If a member disappears and returns, Root says "I'm glad you're back." Never "You missed X days," never a streak-broken message, never a guilt-tinged nudge. **This is a gap, not existing precedent** — a grep of every `lib/*/copy.ts` file in this repo found no "glad you're back" (or equivalent) copy yet. This is **Prompt 4 (Root Presence System)** work: audit every re-engagement/inactivity surface (push notifications, dashboard empty states after a gap, streak-adjacent copy) and rewrite anything that currently frames absence as a failure.
 - **Celebrate growth and specific behavior, not streaks.** "You logged three high-protein meals this week, up from one last week" beats "5-day streak!" A streak counts days; growth copy names the actual thing that changed.
-- **Continue buttons use curiosity language inside a Moment.** "Show me," "Let's find out," "I'm ready" — never a bare "Continue." **Also a real gap**: 11 existing literal `'Continue'` button labels were found across the codebase today. Not all of them are wrong — a `Continue` inside a Tool (assessment-taking flow, a settings wizard) is fine and expected, since §2 explicitly exempts Tools from Moment-only copy rules. The audit work for Prompts 1–8 is to find which of those 11 sit inside a Moment (per the §2 inventory) and rewrite only those.
+- **Continue buttons use curiosity language inside a Moment.** "Show me," "Let's find out," "I'm ready" — never a bare "Continue." **Also a real gap**: 11 existing literal `'Continue'` button labels were found across the codebase today. Not all of them are wrong — a `Continue` inside a Tool (assessment-taking flow, a settings wizard) is fine and expected, since §2 explicitly exempts Tools from Moment-only copy rules. This is **Prompt 3 (Progressive Reveal Engine)** work: find which of those 11 sit inside a Moment (per the §2 inventory) and rewrite only those.
 
 ---
 
@@ -257,7 +257,7 @@ Subtle background life — slow gradients, floating particles, breathing element
 
 **Low-power fallback — mandatory, three separate triggers, any one is sufficient to disable:**
 1. **`prefers-reduced-motion: reduce`.** Already the dominant discipline in `app/globals.css` — every single keyframe block in that file has a matching `@media (prefers-reduced-motion: reduce)` override, most falling back to a plain opacity fade or `animation: none`. This is not a suggestion in this codebase, it's the established, universal pattern. Every new animation must ship with its own reduced-motion fallback in the same PR, no exceptions.
-2. **Low battery.** Not yet implemented anywhere in the codebase (checked: no `getBattery()` usage found). New work for Prompts 1–8: gate ambient-only motion (never core functional animation) behind the Battery Status API where available, falling back gracefully where it isn't (most browsers have deprecated/restricted it — treat its absence as "don't gate," not as an error).
+2. **Low battery.** Not yet implemented anywhere in the codebase (checked: no `getBattery()` usage found). The reusable low-power hook is built in **Prompt 1 (Root Motion System)**; individual ambient-only motion (never core functional animation) is gated behind it as that motion gets built in later prompts, via the Battery Status API where available, falling back gracefully where it isn't (most browsers have deprecated/restricted it — treat its absence as "don't gate," not as an error).
 3. **Older/low-power devices.** No device-tier detection exists yet either. Where feasible, a cheap proxy (`navigator.hardwareConcurrency` or a simple frame-timing check) can stand in; this is lower priority than the other two triggers since `prefers-reduced-motion` already covers the accessibility-critical case.
 
 **Reduced-motion accessibility support is mandatory for every animation in the app, ambient or not** — this line applies to §3 through §13 in full, not just this section.
@@ -316,19 +316,33 @@ One unforgettable moment per Experience (assessment, Reset Plan, major milestone
 
 ## 14. Implementation Map
 
-Proposed mapping of this Bible's sections to Prompts 1 through 8. **This mapping is this document's own proposal, not a pre-existing build plan handed down separately** — no Prompts 1–8 spec was provided alongside Prompt 0. Confirm or adjust this map before starting Prompt 1; either way, once confirmed, each prompt should cite its row here directly rather than re-deriving scope.
+**This is the official build plan**, not a proposal — it replaces the earlier, speculative v1 mapping (Prompt 0 was written before this plan existed). Each future prompt should cite its own row directly rather than re-deriving scope.
 
-| Prompt | Focus | Bible sections implemented |
-|---|---|---|
-| **1** | Motion infrastructure: formalize the timing scale and easing curves as real, reusable Tailwind/CSS tokens; audit every existing `app/globals.css` keyframe against §3/§4 and close any gaps (e.g. the missing Instant/100ms tier, the not-yet-built Float type) | §3 (Animation Vocabulary), §4 (Timing and Easing Standards) |
-| **2** | Screen classification audit: walk the full §2 inventory, confirm/correct each Moment vs. Tool call against how the screen actually behaves today, and flag any Tool that's accidentally carrying Moment-style pacing (or vice versa) | §2 (Screen Classification) |
-| **3** | Onboarding and Welcome: apply §5's pacing template and §6's density rules end-to-end across the Welcome and Onboarding Moments, since these are the member's first impression | §5 (Cinematic Pacing), §6 (Information Density), §13 (Signature Moments, for onboarding completion) |
-| **4** | Daily Tools micro-interactions: apply §9 across Check-In, Food Lens, Movement, Protein Ledger — press/lift/ripple/fill/success/loading/empty states, with zero pacing changes since these are Tools | §9 (Micro-Interaction Standards) |
-| **5** | Living Dashboard: implement §11's time-of-day shifts, real prioritization logic, celebration states, and discovery slots on `app/dashboard/page.tsx` | §11 (Living Dashboard Rules) |
-| **6** | Assessment closing screens: extend `ClosingScreenPrimitives.tsx`'s already-proven template (§13) to every assessment that doesn't yet have it (WBSA, Readiness Pulse, Primal Pattern, the generic points-scored engine, Reset Plan) | §13 (Signature Moments), §5 (Cinematic Pacing) |
-| **7** | Root's voice and copy pass: close the two real gaps identified in §7 (no-guilt return copy; the 11 bare "Continue" buttons that fall inside Moments) plus a full em-dash/punctuation audit per §8 | §7 (Root's Behavior Rules), §8 (App Copy Rules) |
-| **8** | Ambient motion, accessibility, and the Progressive Trust Timeline: build the low-power/battery/device-tier fallback triggers from §10 that don't exist yet, and wire §12's evidence-gated insight-language ladder into the intelligence surfaces (`/noticing`, `/root-map`, `/insights`) that already have the underlying data | §10 (Ambient Motion Rules), §12 (Progressive Trust Timeline) |
+- **Prompt 0: Motion & Experience Design Bible.** *(Complete.)*
+- **Prompt 1: Root Motion System.** Global animation framework: fade, slide, scale, stagger, timing and easing standards, reduced-motion accessibility, shared reusable animation components.
+- **Prompt 2: Screen Layout System.** Eliminate dead space, vertically center short content, responsive spacing, card sizing rules, reading-width rules, premium spacing system.
+- **Prompt 3: Progressive Reveal Engine.** Replace walls of text: typewriter effects, step-by-step reveals, conversation flow, multi-step cards, auto-advance where appropriate, reading-time pacing. Includes converting the 11 plain "Continue" buttons to curiosity language.
+- **Prompt 4: Root Presence System.** Thinking moments, pauses, discovery reveals, memory callbacks, coaching language, emotional pacing, curiosity-driven transitions. Includes adding the no-guilt "I'm glad you're back" return copy.
+- **Prompt 5: Dashboard Evolution.** Dynamic greetings, card prioritization, ambient animations, living progress, time-of-day adaptation, discovery moments.
+- **Prompt 6: Micro-Interactions.** Button animations, haptics, card expansion, progress animations, success states, loading transitions, empty states.
+- **Prompt 7: Full App Experience Audit.** Apply the system to every screen: remove static pages and walls of text, add motion, fix pacing and spacing, standardize interactions, eliminate dead screens. May split into 7a (Experiences, onboarding, insight screens) and 7b (dashboard, tools, settings) if too large for one run.
+- **Prompt 8: Final Polish & Premium QA.** Consistency review, animation performance optimization, low-power fallback, accessibility checks, mobile responsiveness, performance profiling, final visual polish.
+
+### Cross-reference: which Bible sections back each prompt
+
+Non-normative — an aid for whoever picks up each prompt, not part of the locked plan above.
+
+| Prompt | Bible sections it draws from |
+|---|---|
+| 1 | §3 (Animation Vocabulary), §4 (Timing and Easing Standards), §10 (Ambient Motion Rules — the low-power hook itself is built here; ambient motion using it is applied in later prompts) |
+| 2 | §6 (Information Density Rules, the spacing/card-sizing implications of it) |
+| 3 | §5 (Cinematic Pacing Rules), §6 (Information Density Rules), §7 (curiosity-language Continue buttons) |
+| 4 | §7 (Root's Behavior Rules), §13 (Signature Moments, memory-callback and discovery-reveal mechanics) |
+| 5 | §11 (Living Dashboard Rules) |
+| 6 | §9 (Micro-Interaction Standards) |
+| 7 | §2 (Screen Classification — the full Moment/Tool inventory this audit walks screen by screen), §12 (Progressive Trust Timeline) |
+| 8 | §10 (Ambient Motion Rules, low-power fallback verification), §4 (performance/GPU-friendly discipline) |
 
 ---
 
-*End of v1. This document should be updated, not superseded, as Prompts 1–8 land — each prompt's actual implementation should be checked against its row above and this Bible corrected if reality diverges from the plan.*
+*End of v1.1. This document should be updated, not superseded, as Prompts 1–8 land — each prompt's actual implementation should be checked against its row above and this Bible corrected if reality diverges from the plan.*
