@@ -1,3 +1,15 @@
+## Motion & Experience Design Bible v1 (2026-08-02)
+
+Documentation-only task (Prompt 0 of an 8-prompt motion/experience build plan). No app code, screens, or copy changed.
+
+- **Created**: `docs/motion-experience-bible.md` — the foundational motion/pacing/voice reference for Prompts 1-8. Covers: core philosophy, a full Moment-vs-Tool classification of every route in `apps/consumer-web-app/app/**` (grouped by area), a 9-type animation vocabulary, a 6-tier timing/easing scale, cinematic pacing rules for Moments, information-density conversion patterns, Root's first-person voice rules, app copy rules, micro-interaction standards for Tools, ambient-motion limits + low-power fallback, living-dashboard rules, a progressive-trust insight-unlock timeline, a Signature Moment template, and a proposed Prompt 1-8 implementation map.
+- **Grounded in real code, not invented**: every timing value, easing curve, and named animation class in the Bible was read directly from `apps/consumer-web-app/app/globals.css` (the existing `mef-*` keyframe vocabulary — fade/scale/stagger/breathe/pulse/sweep/draw animations already shipped for check-in, welcome, body assessment, and closing screens) and `lib/introRevealTiming.ts`'s real 45ms/char typewriter rate — formalized as the required palette going forward, not new numbers invented for the doc. Root's first-person "I noticed..." voice rules and the Honest Discovery Rule were likewise pulled from real, shipped copy (`lib/core-values-snapshot/copy.ts`, `lib/life-signal-check/copy.ts`, `lib/reset-plan/copy.ts`).
+- **Two real gaps flagged (not fixed)**: no "I'm glad you're back" / no-guilt re-engagement copy exists anywhere yet (grepped, none found); 11 bare `'Continue'` button labels exist app-wide, some of which likely sit inside Moments and need the curiosity-language rewrite. Both are called out as Prompt 7 work in the Bible's own implementation map, not silently left unaddressed.
+- **The Prompt 1-8 implementation map (Bible §14) is this document's own proposal** — no separate Prompts 1-8 spec was provided alongside Prompt 0, so the mapping should be confirmed or corrected before Prompt 1 starts.
+- **Not done**: no app screens, components, styles, or functionality were touched, per Prompt 0's explicit scope. No deploy, no live-site check — nothing changed to verify.
+
+---
+
 # MEF Platform — Build Status
 
 Source: `/docs/INVENTORY.md` (file-level inventory + Overlaps analysis), plus a small number of targeted follow-up reads cited inline where they go beyond what INVENTORY.md already established. Scope is bounded to the assessment / onboarding / welcome / cross-assessment-intelligence subsystem, which is what INVENTORY.md documented in depth — this is not a build-status audit of Food Lens, Movement, Wearables, etc. as standalone features. No application code was written or changed to produce this document.
