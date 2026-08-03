@@ -187,7 +187,7 @@ export function BarcodeScanner({ onDecode, onCancel, busy = false }: Props) {
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Enter barcode
           </p>
-          <button type="button" onClick={onCancel} aria-label="Cancel" className="text-[#9AA79F]">
+          <button type="button" onClick={onCancel} aria-label="Cancel" className="mef-press text-[#9AA79F]">
             <X className="h-5 w-5" strokeWidth={1.75} />
           </button>
         </div>
@@ -207,7 +207,7 @@ export function BarcodeScanner({ onDecode, onCancel, busy = false }: Props) {
           <button
             type="button"
             onClick={() => setPhase('starting')}
-            className="flex-1 rounded-full border border-[#1B3A2D]/15 py-3 text-sm font-medium text-[#1B3A2D]"
+            className="mef-press flex-1 rounded-full border border-[#1B3A2D]/15 py-3 text-sm font-medium text-[#1B3A2D]"
           >
             Use camera instead
           </button>
@@ -215,7 +215,7 @@ export function BarcodeScanner({ onDecode, onCancel, busy = false }: Props) {
             type="button"
             onClick={handleManualSubmit}
             disabled={busy || manualValue.length === 0}
-            className="flex-1 rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
+            className="mef-press flex-1 rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
           >
             {busy ? 'Looking up…' : 'Look up'}
           </button>
@@ -235,14 +235,14 @@ export function BarcodeScanner({ onDecode, onCancel, busy = false }: Props) {
           <button
             type="button"
             onClick={() => setPhase('starting')}
-            className="rounded-full border border-[#1B3A2D]/15 px-5 py-2.5 text-sm font-medium text-[#1B3A2D]"
+            className="mef-press rounded-full border border-[#1B3A2D]/15 px-5 py-2.5 text-sm font-medium text-[#1B3A2D]"
           >
             Try camera again
           </button>
           <button
             type="button"
             onClick={() => setPhase('manual')}
-            className="rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white"
+            className="mef-press rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white"
           >
             Enter manually
           </button>
@@ -274,7 +274,7 @@ export function BarcodeScanner({ onDecode, onCancel, busy = false }: Props) {
           type="button"
           onClick={() => setFacingMode((f) => (f === 'environment' ? 'user' : 'environment'))}
           aria-label="Switch camera"
-          className="absolute right-3 top-3 rounded-full bg-black/40 p-2 text-white backdrop-blur"
+          className="mef-press absolute right-3 top-3 rounded-full bg-black/40 p-2 text-white backdrop-blur"
         >
           <SwitchCamera className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -284,7 +284,7 @@ export function BarcodeScanner({ onDecode, onCancel, busy = false }: Props) {
             type="button"
             onClick={toggleTorch}
             aria-label="Toggle flashlight"
-            className="absolute left-3 top-3 rounded-full bg-black/40 p-2 text-white backdrop-blur"
+            className="mef-press absolute left-3 top-3 rounded-full bg-black/40 p-2 text-white backdrop-blur"
           >
             {torchOn ? (
               <FlashlightOff className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
@@ -303,7 +303,7 @@ export function BarcodeScanner({ onDecode, onCancel, busy = false }: Props) {
         <button
           type="button"
           onClick={onCancel}
-          className="flex items-center gap-2 rounded-full border border-[#1B3A2D]/15 px-4 py-2.5 text-sm font-medium text-[#1B3A2D]"
+          className="mef-press flex items-center gap-2 rounded-full border border-[#1B3A2D]/15 px-4 py-2.5 text-sm font-medium text-[#1B3A2D]"
         >
           <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           Cancel
@@ -311,7 +311,7 @@ export function BarcodeScanner({ onDecode, onCancel, busy = false }: Props) {
         <button
           type="button"
           onClick={() => setPhase('manual')}
-          className="flex items-center gap-2 rounded-full bg-[#1B3A2D]/[0.06] px-4 py-2.5 text-sm font-medium text-[#1B3A2D]"
+          className="mef-press flex items-center gap-2 rounded-full bg-[#1B3A2D]/[0.06] px-4 py-2.5 text-sm font-medium text-[#1B3A2D]"
         >
           <Keyboard className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           Enter manually

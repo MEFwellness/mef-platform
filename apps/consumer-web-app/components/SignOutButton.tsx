@@ -29,8 +29,8 @@ export function SignOutButton({ variant = 'row' }: { variant?: 'row' | 'block' }
         onClick={() => setConfirming(true)}
         className={
           variant === 'row'
-            ? 'flex w-full items-center gap-3 rounded-2xl px-5 py-3.5 text-left text-[15px] font-medium text-red-600 transition hover:bg-red-50'
-            : 'w-full rounded-full border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50'
+            ? 'mef-press flex w-full items-center gap-3 rounded-2xl px-5 py-3.5 text-left text-[15px] font-medium text-red-600 transition hover:bg-red-50'
+            : 'mef-press w-full rounded-full border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50'
         }
       >
         {variant === 'row' && (
@@ -62,7 +62,7 @@ export function SignOutButton({ variant = 'row' }: { variant?: 'row' | 'block' }
                 type="button"
                 onClick={() => setConfirming(false)}
                 disabled={isPending}
-                className="flex-1 rounded-full border border-[#1B3A2D]/10 px-4 py-2.5 text-sm font-medium text-[#1B3A2D] transition hover:border-[#1B3A2D]/30 disabled:opacity-50"
+                className="mef-press flex-1 rounded-full border border-[#1B3A2D]/10 px-4 py-2.5 text-sm font-medium text-[#1B3A2D] transition hover:border-[#1B3A2D]/30 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -70,7 +70,7 @@ export function SignOutButton({ variant = 'row' }: { variant?: 'row' | 'block' }
                 type="button"
                 onClick={handleConfirm}
                 disabled={isPending}
-                className="flex-1 rounded-full bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+                className="mef-press flex-1 rounded-full bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
               >
                 {isPending ? 'Signing out…' : 'Sign Out'}
               </button>

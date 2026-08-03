@@ -330,7 +330,9 @@ export default async function ProgressPage() {
               ))}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-[#6B7A72]">No check-ins logged yet.</p>
+            <p className="mt-3 text-sm text-[#6B7A72]">
+              I don&apos;t have any check-ins to show yet. They&apos;ll build up here as you go.
+            </p>
           )}
         </section>
       </main>

@@ -1,8 +1,8 @@
 'use client';
 
-import { Check } from 'lucide-react';
 import type { ContextQuestion } from '@/lib/assessments/engine/types';
 import { Card } from '@/components/layout';
+import { QuestionOptionButton } from './QuestionOptionButton';
 
 type Props = {
   sectionPosition: string;
@@ -38,28 +38,14 @@ export function ContextQuestionCard({
       </h2>
 
       <div role="radiogroup" aria-labelledby={legendId} className="mt-6 space-y-3">
-        {contextQuestion.options.map((option) => {
-          const selected = selectedValue === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => onSelect(option.value)}
-              className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-5 py-4 text-left text-[15px] font-medium transition ${
-                selected
-                  ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.35)]'
-                  : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D] hover:border-[#1B3A2D]/30 hover:bg-[#FAFAF8]'
-              } mef-focus-ring`}
-            >
-              <span>{option.label}</span>
-              {selected && (
-                <Check className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
-              )}
-            </button>
-          );
-        })}
+        {contextQuestion.options.map((option) => (
+          <QuestionOptionButton
+            key={option.value}
+            label={option.label}
+            selected={selectedValue === option.value}
+            onSelect={() => onSelect(option.value)}
+          />
+        ))}
       </div>
 
       {contextQuestion.helperText && (

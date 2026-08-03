@@ -9,6 +9,11 @@
  * `as` lets a card render as a real interactive element (`button`,
  * `a`) when the whole card is tappable, without duplicating the
  * className recipe at each call site.
+ *
+ * `lift` (Micro-Interactions, Prompt 6, Bible §9) adds `.mef-card-lift`
+ * — reserve for cards that are actually tappable (navigate or open
+ * something); leave off for pure-display cards, since the presence of
+ * lift feedback is itself the signal that a card is interactive.
  */
 
 import type { CSSProperties, ElementType, ReactNode } from 'react';
@@ -16,18 +21,24 @@ import type { CSSProperties, ElementType, ReactNode } from 'react';
 export function Card({
   children,
   as: Component = 'div',
+  lift = false,
   className = '',
   style,
   ...rest
 }: {
   children: ReactNode;
   as?: ElementType;
+  lift?: boolean;
   className?: string;
   style?: CSSProperties;
   [key: string]: unknown;
 }) {
   return (
-    <Component className={`mef-card ${className}`} style={style} {...rest}>
+    <Component
+      className={`mef-card ${lift ? 'mef-card-lift' : ''} ${className}`}
+      style={style}
+      {...rest}
+    >
       {children}
     </Component>
   );

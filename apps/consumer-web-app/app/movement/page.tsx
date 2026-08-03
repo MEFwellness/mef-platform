@@ -91,7 +91,7 @@ export default async function MovementPage() {
         <CardStack className="mt-5">
           <Link
             href={'/exercises' as Route}
-            className={`${CARD} flex items-center gap-4 p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+            className={`${CARD} mef-card-lift flex items-center gap-4 p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">
               <Dumbbell className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
@@ -111,7 +111,7 @@ export default async function MovementPage() {
 
           <Link
             href={'/movement/profile' as Route}
-            className={`${CARD} flex items-center gap-4 p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+            className={`${CARD} mef-card-lift flex items-center gap-4 p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">
               <Compass className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
@@ -167,7 +167,7 @@ export default async function MovementPage() {
 
                 <Link
                   href={'/movement/session' as Route}
-                  className="relative mt-6 inline-flex items-center gap-2 rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
+                  className="mef-press relative mt-6 inline-flex items-center gap-2 rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
                 >
                   <PlayCircle className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                   {SESSION_CTA_LABEL[session.status]}

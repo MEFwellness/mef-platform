@@ -187,6 +187,7 @@ export default async function WbsaOverviewPage({
           <Card
             as={Link}
             href={`/assessments/wbsa/results/${latestCompletedRow.source_id}` as Route}
+            lift
             className="mef-animate-in mt-5 flex items-center justify-between gap-4 transition hover:bg-[#FAFAF8]"
           >
             <div>

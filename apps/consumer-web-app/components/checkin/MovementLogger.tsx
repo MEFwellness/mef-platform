@@ -14,6 +14,7 @@ import { useState, useTransition } from 'react';
 import { Footprints, Check } from 'lucide-react';
 import { logMovementEvent, type MovementType } from '@/app/actions/events';
 import { Card } from '@/components/layout';
+import { triggerHaptic } from '@/lib/haptics';
 
 const MOVEMENT_TYPE_LABEL: Record<MovementType, string> = {
   walk: 'Walk',
@@ -64,7 +65,7 @@ export function MovementLogger({ todaysCount }: { todaysCount: number }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[#1B3A2D]/10 px-4 py-2.5 text-sm font-medium text-[#1B3A2D] transition hover:border-[#1B3A2D]/30"
+          className="mef-press mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[#1B3A2D]/10 px-4 py-2.5 text-sm font-medium text-[#1B3A2D] transition hover:border-[#1B3A2D]/30"
         >
           {justLogged ? (
             <>
@@ -81,9 +82,12 @@ export function MovementLogger({ todaysCount }: { todaysCount: number }) {
               <button
                 key={type}
                 type="button"
-                onClick={() => setMovementType(type)}
+                onClick={() => {
+                  triggerHaptic();
+                  setMovementType(type);
+                }}
                 aria-pressed={movementType === type}
-                className={`rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition ${
+                className={`mef-press rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition ${
                   movementType === type
                     ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                     : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/25'
@@ -98,9 +102,12 @@ export function MovementLogger({ todaysCount }: { todaysCount: number }) {
               <button
                 key={option.label}
                 type="button"
-                onClick={() => setMinutesAgo(option.minutesAgo)}
+                onClick={() => {
+                  triggerHaptic();
+                  setMinutesAgo(option.minutesAgo);
+                }}
                 aria-pressed={minutesAgo === option.minutesAgo}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                className={`mef-press rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                   minutesAgo === option.minutesAgo
                     ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                     : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/25'
@@ -115,14 +122,14 @@ export function MovementLogger({ todaysCount }: { todaysCount: number }) {
               type="button"
               onClick={handleLog}
               disabled={isPending}
-              className="flex-1 rounded-2xl bg-[#1B3A2D] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+              className="mef-press flex-1 rounded-2xl bg-[#1B3A2D] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
             >
               {isPending ? 'Saving…' : 'Save'}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-2xl border border-[#1B3A2D]/10 px-4 py-2.5 text-sm font-medium text-[#6B7A72] transition hover:border-[#1B3A2D]/30"
+              className="mef-press rounded-2xl border border-[#1B3A2D]/10 px-4 py-2.5 text-sm font-medium text-[#6B7A72] transition hover:border-[#1B3A2D]/30"
             >
               Cancel
             </button>

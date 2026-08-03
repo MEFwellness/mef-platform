@@ -35,7 +35,7 @@ function LevelPicker({
             key={level}
             type="button"
             onClick={() => onChange(level)}
-            className={`rounded-xl border py-2 text-xs font-medium capitalize transition ${
+            className={`mef-press rounded-xl border py-2 text-xs font-medium capitalize transition ${
               value === level
                 ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                 : 'border-[#1B3A2D]/15 text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.04]'
@@ -106,7 +106,7 @@ export function PrimalPatternForm({ initial }: { initial: PrimalPatternProfile |
         type="button"
         onClick={handleSave}
         disabled={saving}
-        className="mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
+        className="mef-press mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
       >
         {saving ? 'Saving…' : saved ? 'Saved' : 'Save my pattern'}
       </button>

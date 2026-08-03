@@ -90,7 +90,9 @@ export function ProteinLedgerEntries({ entries: initial }: { entries: LedgerEntr
   if (entries.length === 0) {
     return (
       <div className={`${CARD} p-6`}>
-        <p className="text-sm text-[#6B7A72]">Nothing logged yet today.</p>
+        <p className="text-sm text-[#6B7A72]">
+          Nothing logged yet today. Scan, search, or quick add above and I&apos;ll start your tally.
+        </p>
       </div>
     );
   }
@@ -124,7 +126,7 @@ export function ProteinLedgerEntries({ entries: initial }: { entries: LedgerEntr
                 type="button"
                 onClick={() => setEditingId(entry.id)}
                 aria-label="Edit entry"
-                className="rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] hover:text-[#1B3A2D]"
+                className="mef-press rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] hover:text-[#1B3A2D]"
               >
                 <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
               </button>
@@ -133,7 +135,7 @@ export function ProteinLedgerEntries({ entries: initial }: { entries: LedgerEntr
                 onClick={() => handleRemove(entry.id)}
                 disabled={removingId === entry.id}
                 aria-label="Remove entry"
-                className="rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] hover:text-[#B45309] disabled:opacity-50"
+                className="mef-press rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] hover:text-[#B45309] disabled:opacity-50"
               >
                 <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               </button>
@@ -185,14 +187,14 @@ function EditServingsForm({
           onClick={() => {
             if (Number.isFinite(parsed) && parsed > 0) onSave(parsed);
           }}
-          className="rounded-full bg-[#1B3A2D] px-4 py-2 text-xs font-semibold text-white"
+          className="mef-press rounded-full bg-[#1B3A2D] px-4 py-2 text-xs font-semibold text-white"
         >
           Save
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-full px-4 py-2 text-xs font-medium text-[#6B7A72]"
+          className="mef-press rounded-full px-4 py-2 text-xs font-medium text-[#6B7A72]"
         >
           Cancel
         </button>

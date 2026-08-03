@@ -49,7 +49,7 @@ export function MovementSessionControls({
             type="button"
             disabled={isPending}
             onClick={() => run(() => startMovementSession(sessionId))}
-            className="inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110 disabled:opacity-60"
+            className="mef-press inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110 disabled:opacity-60"
           >
             Start Session
           </button>
@@ -59,7 +59,7 @@ export function MovementSessionControls({
             type="button"
             disabled={isPending}
             onClick={() => run(() => completeMovementSession(sessionId))}
-            className="inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110 disabled:opacity-60"
+            className="mef-press inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110 disabled:opacity-60"
           >
             Mark Session Complete
           </button>
@@ -68,7 +68,7 @@ export function MovementSessionControls({
           type="button"
           disabled={isPending}
           onClick={() => run(() => skipMovementSession(sessionId, 'Skipped by member'))}
-          className="inline-flex items-center justify-center rounded-full border border-[#1B3A2D]/15 px-7 py-3.5 text-sm font-semibold text-[#6B7A72] transition hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D] disabled:opacity-60"
+          className="mef-press inline-flex items-center justify-center rounded-full border border-[#1B3A2D]/15 px-7 py-3.5 text-sm font-semibold text-[#6B7A72] transition hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D] disabled:opacity-60"
         >
           Skip Today
         </button>

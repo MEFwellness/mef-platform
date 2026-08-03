@@ -199,7 +199,7 @@ export function RestaurantEntryFlow() {
               key={optionMode}
               type="button"
               onClick={() => setMode(optionMode)}
-              className="flex w-full items-start gap-3 rounded-2xl border border-[#1B3A2D]/10 p-4 text-left"
+              className="mef-press flex w-full items-start gap-3 rounded-2xl border border-[#1B3A2D]/10 p-4 text-left"
             >
               <span className="mt-0.5 rounded-full bg-[#1B3A2D]/[0.06] p-2 text-[#1B3A2D]">
                 <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -223,7 +223,7 @@ export function RestaurantEntryFlow() {
         <button
           type="button"
           onClick={() => setMode('choose')}
-          className="text-xs font-medium text-[#6B7A72]"
+          className="mef-press text-xs font-medium text-[#6B7A72]"
         >
           &larr; Choose a different way
         </button>
@@ -278,7 +278,7 @@ export function RestaurantEntryFlow() {
               ? finishEntry('menu_text', { rawMenuText })
               : finishEntry('manual_entry')
           }
-          className="mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
+          className="mef-press mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
           {submitting ? 'Getting Root’s take…' : "Get Root's take"}
         </button>
@@ -349,7 +349,7 @@ export function RestaurantEntryFlow() {
       <button
         type="button"
         onClick={() => setMode('choose')}
-        className="mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
+        className="mef-press mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
       >
         Try again
       </button>

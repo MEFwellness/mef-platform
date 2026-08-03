@@ -76,7 +76,7 @@ export function GuestObservationScreen({ answers }: { answers: OnboardingAnswerI
         <button
           type="button"
           onClick={() => setAct(1)}
-          className="mef-animate-in mef-focus-ring mt-4 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
+          className="mef-animate-in mef-focus-ring mef-press mt-4 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
           style={{ animationDelay: '220ms' }}
         >
           See what happens next
@@ -141,7 +141,7 @@ export function GuestObservationScreen({ answers }: { answers: OnboardingAnswerI
 
       <Link
         href="/signup"
-        className="mef-animate-in mef-focus-ring mt-4 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
+        className="mef-animate-in mef-focus-ring mef-press mt-4 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
         style={{ animationDelay: '280ms' }}
       >
         Save My Wellness Story
@@ -149,7 +149,7 @@ export function GuestObservationScreen({ answers }: { answers: OnboardingAnswerI
 
       <Link
         href="/login"
-        className="mef-animate-in mef-focus-ring mt-3 flex w-full items-center justify-center rounded-full px-6 py-3.5 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+        className="mef-animate-in mef-focus-ring mef-press mt-3 flex w-full items-center justify-center rounded-full px-6 py-3.5 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
         style={{ animationDelay: '280ms' }}
       >
         I already have an account

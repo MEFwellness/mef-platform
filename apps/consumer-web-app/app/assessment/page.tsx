@@ -75,6 +75,7 @@ export default async function BodyAssessmentPage() {
                   key={type}
                   as={Link}
                   href={{ pathname: '/assessment/new', query: { type } }}
+                  lift
                   className="flex items-center justify-between transition hover:brightness-[1.02]"
                 >
                   <div>

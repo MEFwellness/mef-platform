@@ -69,7 +69,7 @@ function ChipGroup<T extends string>({
             type="button"
             onClick={() => onChange(active ? null : option.value)}
             aria-pressed={active}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+            className={`mef-press rounded-full border px-3 py-1.5 text-xs font-medium transition ${
               active
                 ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                 : 'border-[#1B3A2D]/15 bg-white text-[#6B7A72] hover:border-[#1B3A2D]/40'
@@ -143,7 +143,7 @@ export function ExerciseCompletionControls({
               type="button"
               onClick={() => setStatus(value)}
               aria-pressed={active}
-              className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition ${
+              className={`mef-press flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition ${
                 active
                   ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                   : 'border-[#1B3A2D]/15 bg-white text-[#1B3A2D] hover:border-[#1B3A2D]/40'
@@ -206,7 +206,7 @@ export function ExerciseCompletionControls({
             type="button"
             onClick={handleSubmit}
             disabled={isPending}
-            className="w-full rounded-full bg-[#1B3A2D] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mef-press w-full rounded-full bg-[#1B3A2D] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? 'Saving…' : 'Save'}
           </button>

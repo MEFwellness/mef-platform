@@ -137,7 +137,7 @@ export default function ConfirmResetPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+          className="mef-press flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
         >
           {submitting ? 'Updating…' : 'Update password'}
         </button>

@@ -56,7 +56,7 @@ export function SpeakerButton({ id, text }: { id: string; text: string }) {
                   : 'Play coach reply aloud'
           }
           aria-pressed={playing}
-          className={`flex h-7 w-7 items-center justify-center rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60 ${
+          className={`mef-press flex h-7 w-7 items-center justify-center rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60 ${
             playing || paused || loading
               ? 'bg-[#1B3A2D] text-white'
               : 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]/70 hover:bg-[#1B3A2D]/[0.12]'
@@ -77,7 +77,7 @@ export function SpeakerButton({ id, text }: { id: string; text: string }) {
             type="button"
             onClick={stop}
             aria-label="Stop playback"
-            className="flex h-7 w-7 items-center justify-center rounded-full text-[#1B3A2D]/50 transition hover:bg-[#1B3A2D]/[0.06] hover:text-[#1B3A2D]/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+            className="mef-press flex h-7 w-7 items-center justify-center rounded-full text-[#1B3A2D]/50 transition hover:bg-[#1B3A2D]/[0.06] hover:text-[#1B3A2D]/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
           >
             <Square className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -86,7 +86,7 @@ export function SpeakerButton({ id, text }: { id: string; text: string }) {
           <button
             type="button"
             onClick={retry}
-            className="flex items-center gap-1 rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-[11px] font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.12]"
+            className="mef-press flex items-center gap-1 rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-[11px] font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.12]"
           >
             <RotateCcw className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
             Try again

@@ -16,18 +16,23 @@ export function GrowBar({
   valuePercent,
   trackClassName = 'bg-[#1B3A2D]/10',
   fillClassName = 'bg-[#1B3A2D]',
+  /** Height utility, kept separate from `className` so a caller's own
+   * height (e.g. `h-2.5`) can't end up in an unpredictable cascade fight
+   * with this component's own default `h-1` Tailwind utility. */
+  heightClassName = 'h-1',
   className = '',
 }: {
   /** A real, already-computed 0-100 value — never an arbitrary/decorative fill. */
   valuePercent: number;
   trackClassName?: string;
   fillClassName?: string;
+  heightClassName?: string;
   className?: string;
 }) {
   const clamped = Math.max(0, Math.min(100, valuePercent));
 
   return (
-    <div className={`h-1 w-full overflow-hidden rounded-full ${trackClassName} ${className}`}>
+    <div className={`${heightClassName} w-full overflow-hidden rounded-full ${trackClassName} ${className}`}>
       <div
         className={`h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none ${fillClassName}`}
         style={{ width: `${clamped}%` }}

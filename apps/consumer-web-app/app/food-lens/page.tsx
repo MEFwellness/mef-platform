@@ -205,7 +205,7 @@ export default async function FoodLensPage() {
         <div className="mt-6 grid grid-cols-2 gap-3">
           <Link
             href={'/food-lens/log' as Route}
-            className={`${CARD} flex items-center gap-2.5 p-4`}
+            className={`${CARD} mef-card-lift flex items-center gap-2.5 p-4`}
           >
             <NotebookText
               className="h-4 w-4 text-[#9AA79F]"
@@ -216,7 +216,7 @@ export default async function FoodLensPage() {
           </Link>
           <Link
             href={'/food-lens/preferences' as Route}
-            className={`${CARD} flex items-center gap-2.5 p-4`}
+            className={`${CARD} mef-card-lift flex items-center gap-2.5 p-4`}
           >
             <Settings2 className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-medium text-[#1B3A2D]">Allergies &amp; preferences</p>
@@ -226,7 +226,7 @@ export default async function FoodLensPage() {
         <div className="mt-3 grid grid-cols-2 gap-3">
           <Link
             href={'/food-lens/pantry' as Route}
-            className={`${CARD} flex items-center gap-2.5 p-4`}
+            className={`${CARD} mef-card-lift flex items-center gap-2.5 p-4`}
           >
             <Refrigerator
               className="h-4 w-4 text-[#9AA79F]"
@@ -237,7 +237,7 @@ export default async function FoodLensPage() {
           </Link>
           <Link
             href={'/food-lens/restaurant/new' as Route}
-            className={`${CARD} flex items-center gap-2.5 p-4`}
+            className={`${CARD} mef-card-lift flex items-center gap-2.5 p-4`}
           >
             <Store className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-medium text-[#1B3A2D]">Eating out</p>
@@ -246,7 +246,7 @@ export default async function FoodLensPage() {
 
         <Link
           href={'/food-lens/report' as Route}
-          className={`${CARD} mt-3 flex items-center justify-between p-4`}
+          className={`${CARD} mef-card-lift mt-3 flex items-center justify-between p-4`}
         >
           <div className="flex items-center gap-2.5">
             <ScrollText className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
@@ -276,7 +276,7 @@ export default async function FoodLensPage() {
                 <li key={scan.id}>
                   <Link
                     href={scanHref({ id: scan.id, scanType: scan.scanType })}
-                    className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-[#1B3A2D]/[0.02]"
+                    className="mef-press flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-[#1B3A2D]/[0.02]"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-[#1B3A2D]">

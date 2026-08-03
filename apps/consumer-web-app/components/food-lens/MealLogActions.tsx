@@ -14,6 +14,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { logMealScanToFoodLogAction } from '@/app/actions/food-lens';
 import { saveMealFromScanAction } from '@/app/actions/food-search';
 import type { MealCategory } from '@mef/shared-types-contracts';
+import { SuccessCheck } from '@/components/motion/SuccessCheck';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const MEAL_CATEGORIES: MealCategory[] = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -62,6 +63,7 @@ export function MealLogActions({
 
   function handleSaveMeal() {
     setError(null);
+    setMessage(null);
     startSaving(async () => {
       const result = await saveMealFromScanAction(scanId, mealName);
       if (result.error) {
@@ -105,13 +107,18 @@ export function MealLogActions({
       </div>
 
       {error && <p className="mt-3 text-sm text-[#B45309]">{error}</p>}
-      {message && <p className="mt-3 text-sm text-[#1B3A2D]">{message}</p>}
+      {message && (
+        <div className="mt-3 flex items-center gap-2.5">
+          <SuccessCheck size={24} />
+          <p className="text-sm text-[#1B3A2D]">{message}</p>
+        </div>
+      )}
 
       <button
         type="button"
         onClick={handleLog}
         disabled={isLogging}
-        className="mt-4 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-60"
+        className="mef-press mt-4 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-60"
       >
         {isLogging ? 'Adding…' : 'Yes, add to my food log'}
       </button>
@@ -128,7 +135,7 @@ export function MealLogActions({
             type="button"
             onClick={handleSaveMeal}
             disabled={isSaving || !mealName.trim()}
-            className="rounded-full bg-[#1B3A2D]/[0.08] px-4 py-2 text-xs font-semibold text-[#1B3A2D] disabled:opacity-50"
+            className="mef-press rounded-full bg-[#1B3A2D]/[0.08] px-4 py-2 text-xs font-semibold text-[#1B3A2D] disabled:opacity-50"
           >
             Save
           </button>
@@ -137,7 +144,7 @@ export function MealLogActions({
         <button
           type="button"
           onClick={() => setSavingMeal(true)}
-          className="mt-3 w-full text-center text-xs font-semibold text-[#1B3A2D]"
+          className="mef-press mt-3 w-full text-center text-xs font-semibold text-[#1B3A2D]"
         >
           Save this combination as a repeatable meal
         </button>

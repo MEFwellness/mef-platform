@@ -38,7 +38,7 @@ export function CoachMessages({ notifications }: { notifications: Notification[]
             type="button"
             disabled={isPending || Boolean(notification.read_at)}
             onClick={() => markRead(notification.id)}
-            className="flex w-full items-start gap-2.5 py-3 text-left first:pt-0 last:pb-0 disabled:cursor-default"
+            className="mef-press flex w-full items-start gap-2.5 py-3 text-left first:pt-0 last:pb-0 disabled:cursor-default"
           >
             {!notification.read_at && (
               <Circle

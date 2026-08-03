@@ -33,7 +33,7 @@ export async function PersonalResetPlanCard() {
             <p className="mt-3 text-[15px] leading-relaxed text-[#1B3A2D]">{RESET_PLAN_ENTRY_CARD_COPY.before.body}</p>
             <Link
               href={'/reset-plan' as Route}
-              className="mef-focus-ring mt-6 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+              className="mef-focus-ring mef-press mt-6 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
             >
               {RESET_PLAN_ENTRY_CARD_COPY.before.button}
             </Link>
@@ -46,7 +46,7 @@ export async function PersonalResetPlanCard() {
             <p className="mt-3 text-[15px] leading-relaxed text-[#1B3A2D]">{RESET_PLAN_ENTRY_CARD_COPY.before.body}</p>
             <Link
               href={'/reset-plan' as Route}
-              className="mef-focus-ring mt-6 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+              className="mef-focus-ring mef-press mt-6 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
             >
               {RESET_PLAN_ENTRY_CARD_COPY.midCreation.button}
             </Link>

@@ -19,6 +19,7 @@ import {
 import { getMyLongitudinalPicture } from '@/app/actions/longitudinalIntelligence';
 import type { LongitudinalPictureItem } from '@/lib/longitudinal-intelligence/picture';
 import { CoachingInsightCard } from '@/components/coaching-insights/CoachingInsightCard';
+import { Breathe } from '@/components/motion/Breathe';
 
 const SECTIONS: Array<{
   category: CoachingInsightView['category'];
@@ -71,7 +72,7 @@ export default async function CoachingInsightsPage() {
 
         <Link
           href={'/case' as Route}
-          className="mt-5 flex items-center gap-4 rounded-[28px] bg-[#1B3A2D] p-5 shadow-[0_8px_32px_-8px_rgba(27,58,45,0.35)] transition hover:brightness-110"
+          className="mef-card-lift mt-5 flex items-center gap-4 rounded-[28px] bg-[#1B3A2D] p-5 shadow-[0_8px_32px_-8px_rgba(27,58,45,0.35)] transition hover:brightness-110"
         >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10">
             <Compass className="h-5 w-5 text-[#F5B700]" strokeWidth={1.75} aria-hidden="true" />
@@ -90,8 +91,14 @@ export default async function CoachingInsightsPage() {
             <p className="text-sm leading-relaxed text-[#1B3A2D]">{safetyMessage}</p>
           </section>
         ) : insights.length === 0 && !pictureHasContent ? (
-          <section className="mef-card mt-6 p-6">
-            <p className="text-sm leading-relaxed text-[#1B3A2D]">
+          <section className="mef-card mef-animate-in mt-6 p-6 text-center">
+            <Breathe
+              speed="waiting"
+              className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06] text-[#1B3A2D]"
+            >
+              <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            </Breathe>
+            <p className="mt-4 text-sm leading-relaxed text-[#1B3A2D]">
               Nothing to share yet. Keep logging your check-ins and meals, and I&apos;ll have real
               patterns to point out here soon.
             </p>

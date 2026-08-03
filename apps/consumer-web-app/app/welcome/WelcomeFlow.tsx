@@ -7,6 +7,8 @@ import { completeWelcomeFlow, markWelcomeIntroSeen } from '../actions/welcome';
 import { WELCOME_GOALS, SOMETHING_ELSE_KEY } from '@/lib/welcome/goals';
 import type { WelcomeGoalKey } from '@/lib/welcome/goals';
 import { Typewriter } from '@/components/reveal/Typewriter';
+import { useBleedTap } from '@/lib/motion/useBleedTap';
+import { triggerHaptic } from '@/lib/haptics';
 
 const SHELL =
   'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
@@ -252,7 +254,7 @@ export function WelcomeFlow({ initialStep = 1 }: { initialStep?: number }) {
           <button
             type="button"
             onClick={goBackOne}
-            className="mef-focus-ring mt-6 self-start rounded-full px-2 py-2 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+            className="mef-focus-ring mef-press mt-6 self-start rounded-full px-2 py-2 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
           >
             Back
           </button>
@@ -383,7 +385,7 @@ function CinematicPage({
             handleBack();
           }}
           aria-label="Back"
-          className="mef-focus-ring absolute left-0 top-0 z-10 rounded-full p-2 text-[#1B3A2D]"
+          className="mef-focus-ring mef-press absolute left-0 top-0 z-10 rounded-full p-2 text-[#1B3A2D]"
         >
           <ArrowLeft className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -396,7 +398,7 @@ function CinematicPage({
           event.stopPropagation();
           onSkip();
         }}
-        className="mef-focus-ring absolute right-0 top-0 z-10 rounded-full px-3 py-1.5 text-xs font-medium text-[#6B7A72]/70 underline underline-offset-2"
+        className="mef-focus-ring mef-press absolute right-0 top-0 z-10 rounded-full px-3 py-1.5 text-xs font-medium text-[#6B7A72]/70 underline underline-offset-2"
       >
         Skip
       </button>
@@ -409,7 +411,7 @@ function CinematicPage({
             <button
               type="button"
               onClick={() => handleBack()}
-              className="mef-focus-ring mt-10 self-start rounded-full px-2 py-2 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+              className="mef-focus-ring mef-press mt-10 self-start rounded-full px-2 py-2 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
             >
               Back
             </button>
@@ -417,7 +419,7 @@ function CinematicPage({
           <button
             type="button"
             onClick={() => handleAdvance()}
-            className={`mef-focus-ring ${PRIMARY_BUTTON} ${onBack ? '!mt-4' : ''}`}
+            className={`mef-focus-ring mef-press ${PRIMARY_BUTTON} ${onBack ? '!mt-4' : ''}`}
           >
             I&apos;m ready
           </button>
@@ -594,6 +596,55 @@ function PageBenefitCard({
   );
 }
 
+/**
+ * Micro-Interactions (Prompt 6): one instance of the tap-bleed ripple +
+ * haptic per tile, matching TapBleedTile's own pattern
+ * (components/checkin/scales/shared.tsx) — extracted out of the
+ * WELCOME_GOALS.map() above rather than calling useBleedTap() inside the
+ * callback, since a hook can't be called from inside a loop/map body.
+ * Colors are unchanged from the original inline markup: dark green fill
+ * when selected, white/light border otherwise.
+ */
+function GoalTile({
+  label,
+  isSelected,
+  animationDelayMs,
+  onSelect,
+}: {
+  label: string;
+  isSelected: boolean;
+  animationDelayMs: number;
+  onSelect: () => void;
+}) {
+  const { onPointerDown, bleedStyle } = useBleedTap();
+
+  function handleClick() {
+    triggerHaptic();
+    onSelect();
+  }
+
+  return (
+    <button
+      type="button"
+      aria-pressed={isSelected}
+      onPointerDown={onPointerDown}
+      onClick={handleClick}
+      style={{ ...bleedStyle, animationDelay: `${animationDelayMs}ms` }}
+      className={`mef-focus-ring mef-press mef-animate-in relative isolate flex items-center justify-between gap-2 overflow-hidden rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition-colors ${
+        isSelected
+          ? 'border-transparent text-white'
+          : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
+      } ${isSelected ? 'mef-bleed-active' : ''}`}
+    >
+      <span aria-hidden="true" className="mef-bleed-fill" style={{ backgroundColor: '#1B3A2D' }} />
+      <span className="relative z-10">{label}</span>
+      {isSelected && (
+        <Check className="relative z-10 h-4 w-4 shrink-0" strokeWidth={3} aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
 function PageGoalSelection({
   goals,
   otherText,
@@ -628,28 +679,15 @@ function PageGoalSelection({
         aria-label="Areas you would like help with"
         className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-3"
       >
-        {WELCOME_GOALS.map(({ key, label }, index) => {
-          const isSelected = goals.includes(key);
-          return (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => onToggleGoal(key)}
-              className={`mef-focus-ring mef-animate-in flex items-center justify-between gap-2 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition-colors ${
-                isSelected
-                  ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
-                  : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
-              }`}
-              style={{ animationDelay: `${300 + Math.min(index, 7) * 70}ms` }}
-            >
-              {label}
-              {isSelected && (
-                <Check className="h-4 w-4 shrink-0" strokeWidth={3} aria-hidden="true" />
-              )}
-            </button>
-          );
-        })}
+        {WELCOME_GOALS.map(({ key, label }, index) => (
+          <GoalTile
+            key={key}
+            label={label}
+            isSelected={goals.includes(key)}
+            animationDelayMs={300 + Math.min(index, 7) * 70}
+            onSelect={() => onToggleGoal(key)}
+          />
+        ))}
       </div>
 
       {showOtherField && (
@@ -681,7 +719,7 @@ function PageGoalSelection({
         type="button"
         onClick={onNext}
         disabled={submitting}
-        className={`mef-focus-ring ${PRIMARY_BUTTON}`}
+        className={`mef-focus-ring mef-press ${PRIMARY_BUTTON}`}
       >
         {submitting ? 'Saving...' : "Let's find out"}
       </button>
@@ -696,6 +734,48 @@ function PageGoalSelection({
  * most." Options are limited to the goals she just picked (never the full
  * WELCOME_GOALS list), per the request.
  */
+/** Same retrofit as GoalTile above, single-select variant (role="radio"). */
+function PrimaryGoalTile({
+  label,
+  isSelected,
+  animationDelayMs,
+  onSelect,
+}: {
+  label: string;
+  isSelected: boolean;
+  animationDelayMs: number;
+  onSelect: () => void;
+}) {
+  const { onPointerDown, bleedStyle } = useBleedTap();
+
+  function handleClick() {
+    triggerHaptic();
+    onSelect();
+  }
+
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={isSelected}
+      onPointerDown={onPointerDown}
+      onClick={handleClick}
+      style={{ ...bleedStyle, animationDelay: `${animationDelayMs}ms` }}
+      className={`mef-focus-ring mef-press mef-animate-in relative isolate flex items-center justify-between gap-2 overflow-hidden rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition-colors ${
+        isSelected
+          ? 'border-transparent text-white'
+          : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
+      } ${isSelected ? 'mef-bleed-active' : ''}`}
+    >
+      <span aria-hidden="true" className="mef-bleed-fill" style={{ backgroundColor: '#1B3A2D' }} />
+      <span className="relative z-10">{label}</span>
+      {isSelected && (
+        <Check className="relative z-10 h-4 w-4 shrink-0" strokeWidth={3} aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
 function PagePrimaryGoal({
   goals,
   primaryGoal,
@@ -726,29 +806,15 @@ function PagePrimaryGoal({
       </p>
 
       <div role="radiogroup" aria-label="Which area matters most right now" className="mt-6 flex flex-col gap-2.5">
-        {selectedGoals.map(({ key, label }, index) => {
-          const isSelected = primaryGoal === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              onClick={() => onSelect(key)}
-              className={`mef-focus-ring mef-animate-in flex items-center justify-between gap-2 rounded-2xl border px-4 py-4 text-left text-sm font-semibold transition-colors ${
-                isSelected
-                  ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
-                  : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
-              }`}
-              style={{ animationDelay: `${300 + index * 70}ms` }}
-            >
-              {label}
-              {isSelected && (
-                <Check className="h-4 w-4 shrink-0" strokeWidth={3} aria-hidden="true" />
-              )}
-            </button>
-          );
-        })}
+        {selectedGoals.map(({ key, label }, index) => (
+          <PrimaryGoalTile
+            key={key}
+            label={label}
+            isSelected={primaryGoal === key}
+            animationDelayMs={300 + index * 70}
+            onSelect={() => onSelect(key)}
+          />
+        ))}
       </div>
 
       {error && (
@@ -761,7 +827,7 @@ function PagePrimaryGoal({
         type="button"
         onClick={onNext}
         disabled={submitting}
-        className={`mef-focus-ring ${PRIMARY_BUTTON}`}
+        className={`mef-focus-ring mef-press ${PRIMARY_BUTTON}`}
       >
         {submitting ? 'Saving...' : "I'm ready"}
       </button>

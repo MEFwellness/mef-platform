@@ -84,7 +84,7 @@ export function ExerciseFilters({
           <button
             type="button"
             onClick={() => onChange(EMPTY_EXERCISE_FILTERS)}
-            className="mef-focus-ring rounded-full px-2.5 py-1 text-xs font-semibold text-[#6B7A72] underline-offset-2 transition hover:text-[#1B3A2D] hover:underline"
+            className="mef-press mef-focus-ring rounded-full px-2.5 py-1 text-xs font-semibold text-[#6B7A72] underline-offset-2 transition hover:text-[#1B3A2D] hover:underline"
           >
             Clear All
           </button>

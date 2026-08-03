@@ -13,6 +13,7 @@ import { Loader2, HeartHandshake } from 'lucide-react';
 import { submitMyProteinProfile, type ProteinSetupState } from '@/app/actions/protein';
 import { ACTIVITY_LEVELS } from '@/lib/protein/calculation';
 import type { ActivityLevelKey } from '@/lib/protein/types';
+import { SuccessCheck } from '@/components/motion/SuccessCheck';
 
 const CARD = 'rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -46,9 +47,14 @@ const EMPTY_SAFETY_ANSWERS: SafetyAnswersState = {
 function SummaryCard({
   state,
   onEdit,
+  justSaved = false,
 }: {
   state: Extract<ProteinSetupState, { stage: 'active' | 'pending_review' | 'blocked' }>;
   onEdit: () => void;
+  /** True only right after a successful submit in this same session — a
+   * brief, quiet acknowledgment (Bible §9 success states), not shown on an
+   * ordinary revisit of an already-set-up target. */
+  justSaved?: boolean;
 }) {
   if (state.stage === 'blocked') {
     return (
@@ -61,7 +67,7 @@ function SummaryCard({
         <button
           type="button"
           onClick={onEdit}
-          className="mt-4 text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
+          className="mef-press mt-4 text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
         >
           Update your info
         </button>
@@ -82,7 +88,7 @@ function SummaryCard({
         <button
           type="button"
           onClick={onEdit}
-          className="mt-4 text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
+          className="mef-press mt-4 text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
         >
           Update your info
         </button>
@@ -92,9 +98,12 @@ function SummaryCard({
 
   return (
     <div className={CARD}>
-      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-        Your protein target
-      </p>
+      <div className="flex items-center gap-2.5">
+        {justSaved && <SuccessCheck size={22} />}
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+          Your protein target
+        </p>
+      </div>
       {state.suggestedRange ? (
         <>
           <p className="mt-3 text-3xl font-[family-name:var(--font-cormorant-garamond)] text-[#1B3A2D]">
@@ -139,6 +148,7 @@ export function ProteinProfileForm({ initial }: { initial: ProteinSetupState | n
     initial && initial.stage !== 'not_started' ? 'summary' : 'form'
   );
   const [currentState, setCurrentState] = useState<ProteinSetupState | null>(initial);
+  const [justSaved, setJustSaved] = useState(false);
 
   const [bodyWeightLb, setBodyWeightLb] = useState('');
   const [activityLevel, setActivityLevel] = useState<ActivityLevelKey | null>(null);
@@ -180,6 +190,7 @@ export function ProteinProfileForm({ initial }: { initial: ProteinSetupState | n
       }
       if ('state' in result) {
         setCurrentState(result.state);
+        setJustSaved(result.state.stage === 'active');
         setView('summary');
       }
     });
@@ -192,7 +203,16 @@ export function ProteinProfileForm({ initial }: { initial: ProteinSetupState | n
       currentState.stage === 'pending_review' ||
       currentState.stage === 'blocked')
   ) {
-    return <SummaryCard state={currentState} onEdit={() => setView('form')} />;
+    return (
+      <SummaryCard
+        state={currentState}
+        onEdit={() => {
+          setJustSaved(false);
+          setView('form');
+        }}
+        justSaved={justSaved}
+      />
+    );
   }
 
   return (
@@ -279,7 +299,7 @@ export function ProteinProfileForm({ initial }: { initial: ProteinSetupState | n
           type="button"
           onClick={handleSubmit}
           disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40"
+          className="mef-press inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40"
         >
           {isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
           Calculate my target

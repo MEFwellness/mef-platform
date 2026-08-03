@@ -81,7 +81,7 @@ export function NutritionSafetyFlagsForm({
           type="button"
           onClick={handleSave}
           disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40"
+          className="mef-press inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40"
         >
           {isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
           Save

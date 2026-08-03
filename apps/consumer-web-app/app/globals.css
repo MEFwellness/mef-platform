@@ -1045,6 +1045,31 @@
 }
 
 /*
+ * Micro-Interactions (Prompt 6), Bible §9 "Card lift on tap" — reserved
+ * for cards that actually navigate or open something on tap. A card with
+ * no lift is the signal it isn't interactive, so never apply this to a
+ * pure-display card. Same Quick tier and ease as `.mef-press`, but a
+ * translateY + shadow deepen rather than a scale-down, since a card
+ * lifting off the page reads differently than a button compressing.
+ */
+.mef-card-lift {
+  transition:
+    transform var(--mef-duration-quick) var(--mef-ease-standard),
+    box-shadow var(--mef-duration-quick) var(--mef-ease-standard);
+}
+
+.mef-card-lift:active {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px -6px rgba(27, 58, 45, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-card-lift:active {
+    transform: none;
+  }
+}
+
+/*
  * Shared safe-area clearance tokens — the single source of truth for two
  * systemic layout faults found across the app (not page-specific): content
  * hidden under the bottom nav / floating gold Check-In button, and content

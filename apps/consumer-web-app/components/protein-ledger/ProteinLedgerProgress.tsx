@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import type { ProteinSetupState } from '@/app/actions/protein';
 import { resolveLedgerTargetDisplay } from '@/lib/protein/ledger';
+import { GrowBar } from '@/components/motion/GrowBar';
+import { CountUp } from '@/components/motion/CountUp';
 
 const CARD = 'rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -34,24 +36,25 @@ export function ProteinLedgerProgress({
 
       {display.mode !== 'active' ? (
         <p className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl text-[#1B3A2D] [font-variant-numeric:lining-nums]">
-          {totalGrams}g
+          <CountUp value={totalGrams} />g
         </p>
       ) : (
         <>
           <p className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl text-[#1B3A2D] [font-variant-numeric:lining-nums]">
-            {totalGrams}g
+            <CountUp value={totalGrams} />g
             <span className="ml-2 text-lg font-[family-name:var(--font-dm-sans)] font-medium text-[#6B7A72]">
               of {display.targetGrams}g
             </span>
           </p>
-          <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-[#1B3A2D]/[0.08]">
-            <div
-              className="h-full rounded-full bg-[#1B3A2D] transition-[width]"
-              style={{
-                width: `${display.targetGrams > 0 ? Math.min(100, Math.round((totalGrams / display.targetGrams) * 100)) : 0}%`,
-              }}
-            />
-          </div>
+          <GrowBar
+            className="mt-3"
+            heightClassName="h-2.5"
+            trackClassName="bg-[#1B3A2D]/[0.08]"
+            fillClassName="bg-[#1B3A2D]"
+            valuePercent={
+              display.targetGrams > 0 ? Math.round((totalGrams / display.targetGrams) * 100) : 0
+            }
+          />
           {display.suggestedRange && (
             <p className="mt-2 text-xs text-[#9AA79F]">
               Guidance range: {display.suggestedRange.low}–{display.suggestedRange.high}g

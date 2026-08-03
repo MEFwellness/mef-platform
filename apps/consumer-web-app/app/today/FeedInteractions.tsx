@@ -142,7 +142,7 @@ export function FeedInteractions({
             type="button"
             disabled={isPending}
             onClick={() => run(() => rateFeedHelpfulnessForMember(feedItem.id, true))}
-            className="rounded-full p-1.5 hover:bg-[#1B3A2D]/[0.06]"
+            className="rounded-full p-1.5 transition duration-150 active:scale-95 hover:bg-[#1B3A2D]/[0.06]"
             aria-label="Helpful"
           >
             <ThumbsUp className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
@@ -151,7 +151,7 @@ export function FeedInteractions({
             type="button"
             disabled={isPending}
             onClick={() => run(() => rateFeedHelpfulnessForMember(feedItem.id, false))}
-            className="rounded-full p-1.5 hover:bg-[#1B3A2D]/[0.06]"
+            className="rounded-full p-1.5 transition duration-150 active:scale-95 hover:bg-[#1B3A2D]/[0.06]"
             aria-label="Not helpful"
           >
             <ThumbsDown className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />

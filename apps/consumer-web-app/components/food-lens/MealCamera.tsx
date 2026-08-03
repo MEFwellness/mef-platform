@@ -153,7 +153,7 @@ export function MealCamera({ onCapture, busy = false }: Props) {
             type="button"
             onClick={() => setFacingMode((f) => (f === 'environment' ? 'user' : 'environment'))}
             aria-label="Switch camera"
-            className="absolute right-3 top-3 rounded-full bg-black/40 p-2 text-white backdrop-blur"
+            className="mef-press absolute right-3 top-3 rounded-full bg-black/40 p-2 text-white backdrop-blur"
           >
             <SwitchCamera className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -175,7 +175,7 @@ export function MealCamera({ onCapture, busy = false }: Props) {
               type="button"
               onClick={handleRetake}
               disabled={busy}
-              className="flex items-center gap-2 rounded-full border border-[#1B3A2D]/15 px-4 py-2.5 text-sm font-medium text-[#1B3A2D] disabled:opacity-50"
+              className="mef-press flex items-center gap-2 rounded-full border border-[#1B3A2D]/15 px-4 py-2.5 text-sm font-medium text-[#1B3A2D] disabled:opacity-50"
             >
               <RotateCcw className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               Retake
@@ -184,7 +184,7 @@ export function MealCamera({ onCapture, busy = false }: Props) {
               type="button"
               onClick={handleUse}
               disabled={busy || blocked}
-              className="rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              className="mef-press rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
             >
               {busy ? 'Uploading…' : 'Use this photo'}
             </button>
@@ -194,7 +194,7 @@ export function MealCamera({ onCapture, busy = false }: Props) {
             type="button"
             onClick={handleCapture}
             aria-label="Capture photo"
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-[#1B3A2D] text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)]"
+            className="mef-press flex h-16 w-16 items-center justify-center rounded-full bg-[#1B3A2D] text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)]"
           >
             <Camera className="h-7 w-7" strokeWidth={2} aria-hidden="true" />
           </button>

@@ -49,7 +49,7 @@ export function BackButton({ fallbackHref, label, forceFallback = false }: Props
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex items-center gap-1 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D]"
+      className="mef-press inline-flex items-center gap-1 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D]"
     >
       <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
       {label}

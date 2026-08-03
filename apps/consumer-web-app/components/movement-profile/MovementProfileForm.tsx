@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import type { MovementEquipment } from '@mef/shared-types-contracts';
 import { updateMyMovementProfile } from '@/app/actions/movement-profile';
 import { TagListEditor } from './TagListEditor';
+import { triggerHaptic } from '@/lib/haptics';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -93,9 +94,12 @@ export function MovementProfileForm({
               <button
                 key={option.value}
                 type="button"
-                onClick={() => toggleEquipment(option.value)}
+                onClick={() => {
+                  triggerHaptic();
+                  toggleEquipment(option.value);
+                }}
                 aria-pressed={active}
-                className={`rounded-full border px-3.5 py-2 text-xs font-medium transition ${
+                className={`mef-press rounded-full border px-3.5 py-2 text-xs font-medium transition ${
                   active
                     ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
                     : 'border-[#1B3A2D]/15 bg-white text-[#1B3A2D] hover:border-[#1B3A2D]/40'

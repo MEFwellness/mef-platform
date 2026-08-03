@@ -173,6 +173,7 @@ export default async function AssessmentOverviewPage({
             href={
               `/assessments/${toPublicSlug(questionnaire.id)}/results/${latestCompleted.id}` as Route
             }
+            lift
             className="mef-animate-in mt-5 flex items-center justify-between gap-4 transition hover:bg-[#FAFAF8]"
           >
             <div>

@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { X, ExternalLink, Lock, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, ExternalLink, Lock, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import type {
   ConversationEntryPoint,
   ConversationMessage,
@@ -179,7 +179,12 @@ export function FloatingCoachPanel({
       </div>
 
       <div className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-4">
-        {isLoading && <p className="text-sm text-[#6B7A72]">Loading your conversation…</p>}
+        {isLoading && (
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+            <p className="text-sm">Loading your conversation…</p>
+          </div>
+        )}
 
         {loadError && (
           <p className="text-sm text-[#6B7A72]">

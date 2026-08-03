@@ -112,7 +112,7 @@ function VerifyPageContent() {
           type="button"
           onClick={handleResend}
           disabled={!email || resending || secondsLeft > 0}
-          className="flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+          className="mef-press flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
         >
           {resending
             ? 'Sending…'
@@ -123,7 +123,7 @@ function VerifyPageContent() {
         <button
           type="button"
           onClick={handleUseDifferentEmail}
-          className="flex w-full items-center justify-center rounded-full border border-[#1B3A2D]/15 px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+          className="mef-press flex w-full items-center justify-center rounded-full border border-[#1B3A2D]/15 px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
         >
           Use a different email
         </button>

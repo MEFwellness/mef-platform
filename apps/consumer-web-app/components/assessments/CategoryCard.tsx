@@ -19,6 +19,7 @@ export function CategoryCard({ href, name, score, maxScore, priority, descriptio
     <Card
       as={Link}
       href={href as Route}
+      lift
       className="group block transition hover:bg-[#FAFAF8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B3A2D]"
     >
       <div className="flex items-start justify-between gap-3">

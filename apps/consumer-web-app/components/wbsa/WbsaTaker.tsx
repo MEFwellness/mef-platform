@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import type { UnifiedAssessmentQuestion, UnifiedAssessmentSection } from '@mef/shared-types-contracts';
 import {
   calculateVisibleQuestions,
@@ -28,6 +28,8 @@ import { AssessmentProgressBar } from '@/components/assessments/AssessmentProgre
 import { WbsaQuestionCard } from './WbsaQuestionCard';
 import { WBSA_COMPLETION_COPY, WBSA_DISPLAY_TITLE } from '@/lib/wbsa/copy';
 import { CenterStage, Card } from '@/components/layout';
+import { SuccessCheck } from '@/components/motion/SuccessCheck';
+import { ROOT_FINISHING_LABEL } from '@/lib/reveal/copy';
 
 type Props = {
   sessionId: string;
@@ -165,12 +167,23 @@ export function WbsaTaker({ sessionId, sections, questions, initialAnswers, resu
     })();
   }
 
+  if (isCompleting) {
+    return (
+      <CenterStage>
+        <div className="flex flex-col items-center justify-center gap-3 py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-[#1B3A2D]" aria-hidden="true" />
+          <p className="text-sm text-[#6B7A72]">{ROOT_FINISHING_LABEL}</p>
+        </div>
+      </CenterStage>
+    );
+  }
+
   if (completedSessionId) {
     return (
       <CenterStage>
         <Card className="mef-animate-in text-center">
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#E8F0EA] text-[#4F7A63]">
-            <CheckCircle2 className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" />
+            <SuccessCheck size={56} color="#4F7A63" />
           </span>
           <p className="mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
             {WBSA_COMPLETION_COPY.heading}
@@ -180,14 +193,14 @@ export function WbsaTaker({ sessionId, sections, questions, initialAnswers, resu
           <button
             type="button"
             onClick={() => router.push(`/assessments/wbsa/results/${completedSessionId}` as Route)}
-            className="mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+            className="mef-press mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
           >
             View My Results
           </button>
           <button
             type="button"
             onClick={() => router.push('/dashboard' as Route)}
-            className="mef-focus-ring mt-3 block w-full rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+            className="mef-press mef-focus-ring mt-3 block w-full rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
           >
             Return to Dashboard
           </button>
@@ -208,7 +221,7 @@ export function WbsaTaker({ sessionId, sections, questions, initialAnswers, resu
         type="button"
         onClick={handleSaveAndExit}
         disabled={isExiting}
-        className="mef-focus-ring inline-flex items-center gap-1 rounded-lg text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] disabled:opacity-60"
+        className="mef-press mef-focus-ring inline-flex items-center gap-1 rounded-lg text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] disabled:opacity-60"
       >
         <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         {isExiting ? 'Saving…' : 'Save and exit'}
@@ -244,7 +257,7 @@ export function WbsaTaker({ sessionId, sections, questions, initialAnswers, resu
             type="button"
             onClick={goPrev}
             disabled={stepIndex === 0}
-            className="mef-focus-ring inline-flex items-center gap-1 rounded-2xl px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#F3F6F4] disabled:opacity-30 disabled:hover:bg-transparent"
+            className="mef-press mef-focus-ring inline-flex items-center gap-1 rounded-2xl px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#F3F6F4] disabled:opacity-30 disabled:hover:bg-transparent"
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             Previous
@@ -255,9 +268,8 @@ export function WbsaTaker({ sessionId, sections, questions, initialAnswers, resu
               type="button"
               onClick={handleComplete}
               disabled={!isAnswered || isCompleting}
-              className="mef-focus-ring inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40"
+              className="mef-press mef-focus-ring inline-flex items-center gap-2 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40"
             >
-              {isCompleting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               See my results
             </button>
           ) : (
@@ -265,7 +277,7 @@ export function WbsaTaker({ sessionId, sections, questions, initialAnswers, resu
               type="button"
               onClick={goNext}
               disabled={!isAnswered}
-              className="mef-focus-ring inline-flex items-center gap-1 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40"
+              className="mef-press mef-focus-ring inline-flex items-center gap-1 rounded-2xl bg-[#1B3A2D] px-6 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025] disabled:opacity-40"
             >
               Continue
               <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />

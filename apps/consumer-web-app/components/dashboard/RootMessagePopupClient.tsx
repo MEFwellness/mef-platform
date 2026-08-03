@@ -189,7 +189,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
             <button
               type="button"
               onClick={() => setClosed(true)}
-              className="mef-focus-ring relative mt-6 inline-flex items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95"
+              className="mef-focus-ring mef-press relative mt-6 inline-flex items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95"
             >
               Done
             </button>
@@ -231,7 +231,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
                     type="button"
                     disabled={isPending}
                     onClick={() => handleDay3Pick(option.value as Day3Response)}
-                    className="mef-focus-ring block w-full rounded-2xl border border-[#F5F0E4]/20 px-5 py-3 text-left text-sm font-medium text-[#F5F0E4] transition hover:border-[#C4A050]/70 hover:bg-[#F5F0E4]/[0.06] disabled:opacity-50"
+                    className="mef-focus-ring mef-press block w-full rounded-2xl border border-[#F5F0E4]/20 px-5 py-3 text-left text-sm font-medium text-[#F5F0E4] transition hover:border-[#C4A050]/70 hover:bg-[#F5F0E4]/[0.06] disabled:opacity-50"
                   >
                     {option.label}
                   </button>
@@ -242,7 +242,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
                 type="button"
                 disabled={isPending}
                 onClick={handleDay7Acknowledge}
-                className="mef-focus-ring relative mt-5 inline-flex items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-50"
+                className="mef-focus-ring mef-press relative mt-5 inline-flex items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-50"
               >
                 Got it
               </button>
@@ -253,7 +253,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
                 type="button"
                 disabled={isPending}
                 onClick={handleMaybeLater}
-                className="text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
+                className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
               >
                 Maybe later
               </button>
@@ -261,7 +261,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
                 type="button"
                 disabled={isPending}
                 onClick={handleIgnore}
-                className="text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
+                className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
               >
                 Ignore
               </button>
@@ -349,7 +349,7 @@ function RootOfferPopup({ message, onClose }: { message: OfferMessage; onClose: 
           type="button"
           disabled={isPending}
           onClick={handleStart}
-          className="mef-focus-ring relative mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-50"
+          className="mef-focus-ring mef-press relative mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-50"
         >
           {theory.button}
         </button>
@@ -359,7 +359,7 @@ function RootOfferPopup({ message, onClose }: { message: OfferMessage; onClose: 
             type="button"
             disabled={isPending}
             onClick={onClose}
-            className="text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
+            className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
           >
             Not now
           </button>

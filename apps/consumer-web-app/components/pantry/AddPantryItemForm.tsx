@@ -80,7 +80,7 @@ export function AddPantryItemForm({ onAdded }: { onAdded: (item: PantryItemWithP
         <button
           type="submit"
           disabled={saving || !name.trim()}
-          className="shrink-0 rounded-xl bg-[#1B3A2D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className="mef-press shrink-0 rounded-xl bg-[#1B3A2D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
           {saving ? 'Adding…' : 'Add'}
         </button>

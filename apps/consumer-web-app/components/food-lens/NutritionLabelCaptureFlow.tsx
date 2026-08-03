@@ -161,7 +161,7 @@ export function NutritionLabelCaptureFlow() {
         <button
           type="button"
           onClick={() => setPhase('capture')}
-          className="mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white"
+          className="mef-press mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white"
         >
           Start with the Nutrition Facts panel
         </button>
@@ -187,14 +187,14 @@ export function NutritionLabelCaptureFlow() {
             onClick={async () => {
               if (scanId) await goToNextOptionalOrFinish(scanId);
             }}
-            className="flex-1 rounded-full border border-[#1B3A2D]/15 py-3 text-sm font-medium text-[#1B3A2D]"
+            className="mef-press flex-1 rounded-full border border-[#1B3A2D]/15 py-3 text-sm font-medium text-[#1B3A2D]"
           >
             Skip
           </button>
           <button
             type="button"
             onClick={() => setPhase('capture')}
-            className="flex-1 rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white"
+            className="mef-press flex-1 rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white"
           >
             Add photo
           </button>
@@ -210,7 +210,7 @@ export function NutritionLabelCaptureFlow() {
         <button
           type="button"
           onClick={() => setPhase('capture')}
-          className="mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
+          className="mef-press mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
         >
           Try again
         </button>

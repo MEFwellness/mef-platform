@@ -49,7 +49,7 @@ export function MovementExerciseCard({
           onClick={handleToggle}
           disabled={disabled}
           aria-label={completed ? 'Mark exercise incomplete' : 'Mark exercise complete'}
-          className="mt-0.5 shrink-0 disabled:opacity-40"
+          className="mef-press mt-0.5 shrink-0 disabled:opacity-40"
         >
           {completed ? (
             <CheckCircle2
@@ -66,7 +66,7 @@ export function MovementExerciseCard({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="flex w-full items-center justify-between gap-2 text-left"
+            className="mef-press flex w-full items-center justify-between gap-2 text-left"
             aria-expanded={expanded}
           >
             <span

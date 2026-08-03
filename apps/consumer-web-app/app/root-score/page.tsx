@@ -140,19 +140,19 @@ export default async function RootScorePage() {
               <div className="mt-5 space-y-2">
                 <Link
                   href="/checkin"
-                  className="block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+                  className="mef-press block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
                 >
                   Complete today&apos;s check-in
                 </Link>
                 <Link
                   href="/food-lens"
-                  className="block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+                  className="mef-press block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
                 >
                   Log a meal in Food Lens
                 </Link>
                 <Link
                   href="/movement"
-                  className="block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+                  className="mef-press block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
                 >
                   Complete a movement session
                 </Link>

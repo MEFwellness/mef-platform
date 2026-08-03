@@ -7,6 +7,7 @@ import { BackButton } from '@/components/BackButton';
 import { getMyNotifications } from '@/app/actions/notifications';
 import { NotificationsList } from './NotificationsList';
 import { CenterStage, Card } from '@/components/layout';
+import { Breathe } from '@/components/motion/Breathe';
 
 export default async function NotificationsPage() {
   const supabase = createClient();
@@ -35,10 +36,13 @@ export default async function NotificationsPage() {
 
         {notifications.length === 0 ? (
           <CenterStage>
-            <Card as="section" className="text-center">
-              <p className="text-sm leading-relaxed text-[#6B7A72]">
-                Nothing here yet. Coach messages, report updates, and daily briefs will show up in
-                this list.
+            <Card as="section" className="mef-animate-in text-center">
+              <Breathe speed="waiting" className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06] text-[#1B3A2D]">
+                <Bell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              </Breathe>
+              <p className="mt-4 text-sm leading-relaxed text-[#6B7A72]">
+                I don&apos;t have anything to tell you yet. Coach messages, report updates, and your
+                daily brief will land here the moment there&apos;s something worth showing you.
               </p>
             </Card>
           </CenterStage>

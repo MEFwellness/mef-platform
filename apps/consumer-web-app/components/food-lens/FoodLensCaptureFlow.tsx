@@ -109,7 +109,7 @@ export function FoodLensCaptureFlow() {
         <button
           type="button"
           onClick={() => setPhase('capture')}
-          className="mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white"
+          className="mef-press mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white"
         >
           Scan a meal
         </button>
@@ -124,7 +124,7 @@ export function FoodLensCaptureFlow() {
         <button
           type="button"
           onClick={() => setPhase('capture')}
-          className="mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
+          className="mef-press mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
         >
           Try again
         </button>

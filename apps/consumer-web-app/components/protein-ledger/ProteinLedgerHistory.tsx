@@ -1,4 +1,5 @@
 import type { DailyProteinTotal } from '@/lib/protein/ledger';
+import { GrowBar } from '@/components/motion/GrowBar';
 
 const CARD = 'rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -32,10 +33,17 @@ export function ProteinLedgerHistory({
               <span className="w-9 shrink-0 text-xs font-medium text-[#6B7A72]">
                 {formatDay(day.localDate)}
               </span>
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#1B3A2D]/[0.08]">
+              <div className="flex-1">
                 {targetGrams ? (
-                  <div className="h-full rounded-full bg-[#1B3A2D]" style={{ width: `${pct}%` }} />
-                ) : null}
+                  <GrowBar
+                    heightClassName="h-2"
+                    trackClassName="bg-[#1B3A2D]/[0.08]"
+                    fillClassName="bg-[#1B3A2D]"
+                    valuePercent={pct}
+                  />
+                ) : (
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-[#1B3A2D]/[0.08]" />
+                )}
               </div>
               <span className="w-20 shrink-0 text-right text-xs font-medium text-[#1B3A2D]">
                 {day.totalGrams}g{targetGrams ? ` / ${targetGrams}g` : ''}

@@ -138,7 +138,7 @@ describe('ProteinLedgerProgress: the three required display states', () => {
 
   it('the component renders a progress fill bar only in active mode', () => {
     expect(PROGRESS).toContain("display.mode !== 'active'");
-    expect(PROGRESS).toContain('h-full rounded-full bg-[#1B3A2D] transition-[width]');
+    expect(PROGRESS).toContain('<GrowBar');
   });
 
   it('the pending-review state is shown clearly with its own message', () => {

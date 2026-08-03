@@ -22,7 +22,7 @@ export function WhySessionCard({ reasons }: { reasons: MovementSelectionFactor[]
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 text-left"
+        className="mef-press flex w-full items-center justify-between gap-3 text-left"
         aria-expanded={open}
       >
         <span className="flex items-center gap-2 text-[#6B7A72]">

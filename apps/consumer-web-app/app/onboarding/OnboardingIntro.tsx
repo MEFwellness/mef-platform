@@ -107,7 +107,7 @@ export function OnboardingIntro({ onStart }: { onStart: () => void }) {
       <button
         type="button"
         onClick={onStart}
-        className="mef-animate-in mef-focus-ring mt-4 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
+        className="mef-animate-in mef-focus-ring mef-press mt-4 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
         style={{ animationDelay: `${AFTER_REVEAL_MS + 100}ms` }}
       >
         {EXPECTATIONS_COPY.cta}

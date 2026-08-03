@@ -38,7 +38,7 @@ export function ConsistencyPanel({ averageEnergy }: { averageEnergy: number | nu
           </span>
         </p>
       ) : (
-        <p className="mt-2 text-sm text-[#6B7A72]">Not enough data</p>
+        <p className="mt-2 text-sm text-[#6B7A72]">Not enough recorded days yet</p>
       )}
     </section>
   );

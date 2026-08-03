@@ -85,7 +85,7 @@ export function ConversationView({
                     type="button"
                     onClick={() => send(prompt)}
                     disabled={isPending}
-                    className="rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06] disabled:opacity-50"
+                    className="mef-press rounded-full border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-2 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#1B3A2D]/[0.06] disabled:opacity-50"
                   >
                     {prompt}
                   </button>
@@ -126,7 +126,7 @@ export function ConversationView({
               <button
                 type="button"
                 onClick={() => send(lastFailedRef.current!)}
-                className="font-medium underline underline-offset-2"
+                className="mef-press font-medium underline underline-offset-2"
               >
                 Retry
               </button>

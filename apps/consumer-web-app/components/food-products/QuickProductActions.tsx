@@ -38,7 +38,7 @@ export function QuickProductActions({
         type="button"
         onClick={handleFavorite}
         disabled={isPending}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1B3A2D]/15 py-2.5 text-xs font-semibold text-[#1B3A2D] disabled:opacity-60"
+        className="mef-press flex flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1B3A2D]/15 py-2.5 text-xs font-semibold text-[#1B3A2D] disabled:opacity-60"
       >
         <Heart
           className={`h-3.5 w-3.5 ${favorited ? 'fill-[#1B3A2D]' : ''}`}
@@ -51,7 +51,7 @@ export function QuickProductActions({
         type="button"
         onClick={handleAddToPantry}
         disabled={isPending || pantryAdded}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1B3A2D]/15 py-2.5 text-xs font-semibold text-[#1B3A2D] disabled:opacity-60"
+        className="mef-press flex flex-1 items-center justify-center gap-1.5 rounded-full border border-[#1B3A2D]/15 py-2.5 text-xs font-semibold text-[#1B3A2D] disabled:opacity-60"
       >
         <Refrigerator className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
         {pantryAdded ? 'In pantry' : 'Add to pantry'}

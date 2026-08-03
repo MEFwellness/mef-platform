@@ -61,7 +61,7 @@ function RecommendationExperimentRow({
       <p className="mt-1 text-sm leading-relaxed text-[#6B7A72]">{protocol}</p>
       <a
         href="/recommendations"
-        className="mef-focus-ring mt-4 inline-flex items-center text-sm font-semibold text-[#1B3A2D] underline underline-offset-4"
+        className="mef-focus-ring mef-press mt-4 inline-flex items-center text-sm font-semibold text-[#1B3A2D] underline underline-offset-4"
       >
         Log or close this out
       </a>

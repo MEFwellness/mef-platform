@@ -15,6 +15,8 @@ import {
   GUEST_PREVIEW_QUESTION_ORDER,
   type GuestPreviewAnswers,
 } from '@/lib/guest-preview/types';
+import { useBleedTap } from '@/lib/motion/useBleedTap';
+import { triggerHaptic } from '@/lib/haptics';
 
 const SHELL =
   'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
@@ -24,9 +26,9 @@ const HEADING =
   'font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-[2.5rem]';
 const BODY = 'mt-4 space-y-3 text-[15px] leading-relaxed text-[#4F645A]';
 const PRIMARY_BUTTON =
-  'mef-focus-ring mt-10 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60';
+  'mef-focus-ring mef-press mt-10 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60';
 const SECONDARY_BUTTON =
-  'mef-focus-ring mt-3 flex w-full items-center justify-center rounded-full border border-[#1B3A2D]/20 bg-white px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40';
+  'mef-focus-ring mef-press mt-3 flex w-full items-center justify-center rounded-full border border-[#1B3A2D]/20 bg-white px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40';
 
 type Screen = 'welcome' | 'quiz' | 'results' | 'cta';
 
@@ -216,11 +218,56 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
       </Link>
       <Link
         href="/signup"
-        className="mef-focus-ring mt-4 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+        className="mef-focus-ring mef-press mt-4 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
       >
         Create Account
       </Link>
     </div>
+  );
+}
+
+/**
+ * Micro-Interactions (Prompt 6): the quiz answer tile already had its own
+ * press feedback (active:scale-95 / hover:scale-[1.03] / scale-105 when
+ * selected) before this change — all kept exactly as-is. This retrofit
+ * only layers on the app's one selection-ripple language (useBleedTap +
+ * mef-bleed-fill, the same mechanics as TapBleedTile in
+ * components/checkin/scales/shared.tsx) and a haptic tick on select,
+ * extracted out of the .map() above since useBleedTap() can't be called
+ * from inside a loop body.
+ */
+function GuestPreviewOptionTile({
+  label,
+  isSelected,
+  onSelect,
+}: {
+  label: string;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const { onPointerDown, bleedStyle } = useBleedTap();
+
+  function handleClick() {
+    triggerHaptic();
+    onSelect();
+  }
+
+  return (
+    <button
+      type="button"
+      aria-pressed={isSelected}
+      onPointerDown={onPointerDown}
+      onClick={handleClick}
+      style={bleedStyle}
+      className={`mef-focus-ring relative isolate overflow-hidden rounded-full border px-4 py-2.5 text-sm font-medium transition-all duration-200 ease-out active:scale-95 ${
+        isSelected
+          ? 'scale-105 border-transparent text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
+          : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
+      } ${isSelected ? 'mef-bleed-active' : ''}`}
+    >
+      <span aria-hidden="true" className="mef-bleed-fill" style={{ backgroundColor: '#1B3A2D' }} />
+      <span className="relative z-10">{label}</span>
+    </button>
   );
 }
 
@@ -249,24 +296,14 @@ function QuizScreen({
       <Progress step={questionIndex} total={GUEST_PREVIEW_QUESTION_ORDER.length} />
       <h1 className={`${HEADING} mt-8`}>{question.prompt}</h1>
       <div className="mt-6 flex flex-wrap gap-2" role="group" aria-label={question.prompt}>
-        {question.options.map((option) => {
-          const isSelected = currentValue === option.value;
-          return (
-            <button
-              key={String(option.value)}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => onAnswer(field, option.value as never)}
-              className={`mef-focus-ring rounded-full border px-4 py-2.5 text-sm font-medium transition-all duration-200 ease-out active:scale-95 ${
-                isSelected
-                  ? 'scale-105 border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)]'
-                  : 'border-[#1B3A2D]/10 bg-white text-[#6B7A72] hover:scale-[1.03] hover:border-[#1B3A2D]/25 hover:text-[#1B3A2D]'
-              }`}
-            >
-              {option.label}
-            </button>
-          );
-        })}
+        {question.options.map((option) => (
+          <GuestPreviewOptionTile
+            key={String(option.value)}
+            label={option.label}
+            isSelected={currentValue === option.value}
+            onSelect={() => onAnswer(field, option.value as never)}
+          />
+        ))}
       </div>
     </div>
   );

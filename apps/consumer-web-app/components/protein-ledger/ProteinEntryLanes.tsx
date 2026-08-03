@@ -27,8 +27,14 @@ import {
   type LedgerProductPreview,
 } from '@/app/actions/protein-ledger';
 import { roundGrams, shouldApplySearchResponse } from '@/lib/protein/ledger';
+import { SuccessCheck } from '@/components/motion/SuccessCheck';
 
 const CARD = 'rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
+
+/** How long the quiet "logged" success beat holds before collapsing back
+ * to the three lane buttons — matches SuccessCheck's own draw duration
+ * (circle + check, ~800ms) so it never lingers past its own animation. */
+const LOGGED_BEAT_MS = 900;
 
 type Phase =
   | 'closed'
@@ -38,6 +44,7 @@ type Phase =
   | 'confirm'
   | 'searching'
   | 'quick_add'
+  | 'logged'
   | 'error';
 
 export function ProteinEntryLanes() {
@@ -105,7 +112,30 @@ export function ProteinEntryLanes() {
     startTransition(() => {
       router.refresh();
     });
-    reset();
+    setProduct(null);
+    setScanId(null);
+    setErrorMessage(null);
+    setPhase('logged');
+  }
+
+  useEffect(() => {
+    if (phase !== 'logged') return;
+    const timer = setTimeout(reset, LOGGED_BEAT_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  if (phase === 'logged') {
+    return (
+      <button
+        type="button"
+        onClick={reset}
+        className={`${CARD} mef-press flex w-full flex-col items-center gap-2 text-center`}
+      >
+        <SuccessCheck size={36} />
+        <p className="text-sm font-medium text-[#1B3A2D]">Added to today</p>
+      </button>
+    );
   }
 
   if (phase === 'closed') {
@@ -133,11 +163,15 @@ export function ProteinEntryLanes() {
           <button
             type="button"
             onClick={() => setPhase('scanning')}
-            className="rounded-full bg-[#1B3A2D] py-2.5 text-sm font-semibold text-white"
+            className="mef-press rounded-full bg-[#1B3A2D] py-2.5 text-sm font-semibold text-white"
           >
             Scan again
           </button>
-          <button type="button" onClick={reset} className="py-2 text-sm font-medium text-[#6B7A72]">
+          <button
+            type="button"
+            onClick={reset}
+            className="mef-press py-2 text-sm font-medium text-[#6B7A72]"
+          >
             Cancel
           </button>
         </div>
@@ -152,7 +186,7 @@ export function ProteinEntryLanes() {
         <button
           type="button"
           onClick={reset}
-          className="mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
+          className="mef-press mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
         >
           Close
         </button>
@@ -196,7 +230,7 @@ function LaneButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-2 rounded-[28px] bg-white p-4 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]"
+      className="mef-press flex flex-col items-center gap-2 rounded-[28px] bg-white p-4 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]"
     >
       <Icon className="h-5 w-5 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
       <span className="text-xs font-medium text-[#1B3A2D]">{label}</span>
@@ -252,7 +286,12 @@ function ConfirmServingsCard({
             <p className="mt-1 text-xs text-[#9AA79F]">Serving: {product.servingSizeText}</p>
           )}
         </div>
-        <button type="button" onClick={onCancel} aria-label="Cancel" className="shrink-0 text-[#9AA79F]">
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancel"
+          className="mef-press shrink-0 text-[#9AA79F]"
+        >
           <X className="h-5 w-5" strokeWidth={1.75} />
         </button>
       </div>
@@ -285,7 +324,7 @@ function ConfirmServingsCard({
             type="button"
             onClick={handleConfirm}
             disabled={saving || disabled}
-            className="mt-4 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
+            className="mef-press mt-4 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
           >
             {saving ? 'Adding…' : 'Confirm and add to today'}
           </button>
@@ -355,7 +394,7 @@ function SearchLane({
               <button
                 type="button"
                 onClick={() => onPick(item)}
-                className="flex w-full items-center gap-3 py-2.5 text-left"
+                className="mef-press flex w-full items-center gap-3 py-2.5 text-left"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-[#1B3A2D]">
@@ -375,7 +414,12 @@ function SearchLane({
     <div className={CARD}>
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Search</p>
-        <button type="button" onClick={onCancel} aria-label="Cancel" className="text-[#9AA79F]">
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancel"
+          className="mef-press text-[#9AA79F]"
+        >
           <X className="h-5 w-5" strokeWidth={1.75} />
         </button>
       </div>
@@ -466,7 +510,12 @@ function QuickAddLane({
     <div className={CARD}>
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Quick add</p>
-        <button type="button" onClick={onCancel} aria-label="Cancel" className="text-[#9AA79F]">
+        <button
+          type="button"
+          onClick={onCancel}
+          aria-label="Cancel"
+          className="mef-press text-[#9AA79F]"
+        >
           <X className="h-5 w-5" strokeWidth={1.75} />
         </button>
       </div>
@@ -501,7 +550,7 @@ function QuickAddLane({
         type="button"
         onClick={handleAdd}
         disabled={saving || disabled}
-        className="mt-4 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
+        className="mef-press mt-4 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-50"
       >
         {saving ? 'Adding…' : 'Add to today'}
       </button>

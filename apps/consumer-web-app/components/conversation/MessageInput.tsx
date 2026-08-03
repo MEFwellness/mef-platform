@@ -95,7 +95,7 @@ export function MessageInput({
           <button
             type="button"
             onClick={() => setShowPrivacyNotice(false)}
-            className="shrink-0 font-medium text-[#1B3A2D] underline underline-offset-2"
+            className="mef-press shrink-0 font-medium text-[#1B3A2D] underline underline-offset-2"
           >
             Got it
           </button>
@@ -154,7 +154,7 @@ export function MessageInput({
             aria-label={micLabel}
             aria-pressed={isListening}
             aria-live="polite"
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] ${
+            className={`mef-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] ${
               isListening
                 ? 'bg-red-500 text-white'
                 : 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.12]'
@@ -173,7 +173,7 @@ export function MessageInput({
             disabled
             aria-label="Voice input isn't supported in this browser"
             title="Voice input isn't supported in this browser"
-            className="flex h-11 w-11 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-[#1B3A2D]/[0.04] text-[#1B3A2D]/25"
+            className="mef-press flex h-11 w-11 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-[#1B3A2D]/[0.04] text-[#1B3A2D]/25"
           >
             <Mic className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -182,7 +182,7 @@ export function MessageInput({
         <button
           type="submit"
           disabled={disabled || !value.trim() || isListening}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+          className="mef-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Send"
         >
           <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -193,7 +193,7 @@ export function MessageInput({
         <button
           type="button"
           onClick={cancel}
-          className="mt-1.5 text-xs font-medium text-[#6B7A72] underline underline-offset-2 hover:text-[#1B3A2D]"
+          className="mef-press mt-1.5 text-xs font-medium text-[#6B7A72] underline underline-offset-2 hover:text-[#1B3A2D]"
         >
           Cancel
         </button>

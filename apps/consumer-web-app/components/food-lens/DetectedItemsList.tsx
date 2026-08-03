@@ -220,7 +220,7 @@ export function DetectedItemsList({
                       onClick={() => handleConfirm(item.id)}
                       disabled={busyId === item.id}
                       aria-label="Confirm"
-                      className="rounded-full bg-[#1B3A2D]/10 p-2 text-[#1B3A2D] disabled:opacity-50"
+                      className="mef-press rounded-full bg-[#1B3A2D]/10 p-2 text-[#1B3A2D] disabled:opacity-50"
                     >
                       <Check className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                     </button>
@@ -230,7 +230,7 @@ export function DetectedItemsList({
                     onClick={() => setEditingId(item.id)}
                     disabled={busyId === item.id}
                     aria-label="Edit"
-                    className="rounded-full bg-[#1B3A2D]/[0.06] p-2 text-[#1B3A2D] disabled:opacity-50"
+                    className="mef-press rounded-full bg-[#1B3A2D]/[0.06] p-2 text-[#1B3A2D] disabled:opacity-50"
                   >
                     <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
                   </button>
@@ -239,7 +239,7 @@ export function DetectedItemsList({
                     onClick={() => handleReject(item.id)}
                     disabled={busyId === item.id}
                     aria-label="Remove"
-                    className="rounded-full bg-[#B45309]/10 p-2 text-[#B45309] disabled:opacity-50"
+                    className="mef-press rounded-full bg-[#B45309]/10 p-2 text-[#B45309] disabled:opacity-50"
                   >
                     <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                   </button>

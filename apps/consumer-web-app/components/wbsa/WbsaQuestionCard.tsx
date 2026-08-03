@@ -1,10 +1,10 @@
 'use client';
 
-import { Check } from 'lucide-react';
 import type { UnifiedAssessmentQuestion } from '@mef/shared-types-contracts';
 import { PREFER_NOT_TO_ANSWER, type AnswerValue } from '@/lib/assessment-runtime/types';
 import { WBSA_PREFER_NOT_TO_ANSWER_LABEL } from '@/lib/wbsa/copy';
 import { Card } from '@/components/layout';
+import { QuestionOptionButton } from '@/components/assessments/QuestionOptionButton';
 
 type AnswerOption = { value: string; label: string };
 
@@ -48,51 +48,27 @@ export function WbsaQuestionCard({ sectionPosition, question, value, onChange }:
             {[
               { value: true, label: 'Yes' },
               { value: false, label: 'No' },
-            ].map((option) => {
-              const selected = !isSkipped && value === option.value;
-              return (
-                <button
-                  key={String(option.value)}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => onChange(option.value)}
-                  className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-5 py-4 text-left text-[15px] font-medium transition ${
-                    selected
-                      ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.35)]'
-                      : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D] hover:border-[#1B3A2D]/30 hover:bg-[#FAFAF8]'
-                  } mef-focus-ring`}
-                >
-                  <span>{option.label}</span>
-                  {selected && <Check className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />}
-                </button>
-              );
-            })}
+            ].map((option) => (
+              <QuestionOptionButton
+                key={String(option.value)}
+                label={option.label}
+                selected={!isSkipped && value === option.value}
+                onSelect={() => onChange(option.value)}
+              />
+            ))}
           </div>
         )}
 
         {(question.answer_type === 'frequency' || question.answer_type === 'single_select') && (
           <div role="radiogroup" aria-labelledby={legendId} className="space-y-3">
-            {parseOptions(question.answer_options).map((option) => {
-              const selected = !isSkipped && value === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => onChange(option.value)}
-                  className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-5 py-4 text-left text-[15px] font-medium transition ${
-                    selected
-                      ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.35)]'
-                      : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D] hover:border-[#1B3A2D]/30 hover:bg-[#FAFAF8]'
-                  } mef-focus-ring`}
-                >
-                  <span>{option.label}</span>
-                  {selected && <Check className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />}
-                </button>
-              );
-            })}
+            {parseOptions(question.answer_options).map((option) => (
+              <QuestionOptionButton
+                key={option.value}
+                label={option.label}
+                selected={!isSkipped && value === option.value}
+                onSelect={() => onChange(option.value)}
+              />
+            ))}
           </div>
         )}
 
@@ -102,25 +78,18 @@ export function WbsaQuestionCard({ sectionPosition, question, value, onChange }:
               const current = !isSkipped && Array.isArray(value) ? (value as string[]) : [];
               const selected = current.includes(option.value);
               return (
-                <button
+                <QuestionOptionButton
                   key={option.value}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => {
+                  variant="toggle"
+                  label={option.label}
+                  selected={selected}
+                  onSelect={() => {
                     const next = selected
                       ? current.filter((v) => v !== option.value)
                       : [...current, option.value];
                     onChange(next);
                   }}
-                  className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-5 py-4 text-left text-[15px] font-medium transition ${
-                    selected
-                      ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.35)]'
-                      : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D] hover:border-[#1B3A2D]/30 hover:bg-[#FAFAF8]'
-                  } mef-focus-ring`}
-                >
-                  <span>{option.label}</span>
-                  {selected && <Check className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />}
-                </button>
+                />
               );
             })}
           </div>

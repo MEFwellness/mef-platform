@@ -138,7 +138,7 @@ export function BarcodeScanFlow() {
         <button
           type="button"
           onClick={() => setPhase('scanning')}
-          className="mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white"
+          className="mef-press mt-5 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white"
         >
           Scan a barcode
         </button>
@@ -161,21 +161,21 @@ export function BarcodeScanFlow() {
           <button
             type="button"
             onClick={() => setPhase('scanning')}
-            className="rounded-full bg-[#1B3A2D] py-2.5 text-sm font-semibold text-white"
+            className="mef-press rounded-full bg-[#1B3A2D] py-2.5 text-sm font-semibold text-white"
           >
             Scan again
           </button>
           <button
             type="button"
             onClick={() => setPhase('photo_capture')}
-            className="rounded-full border border-[#1B3A2D]/15 py-2.5 text-sm font-medium text-[#1B3A2D]"
+            className="mef-press rounded-full border border-[#1B3A2D]/15 py-2.5 text-sm font-medium text-[#1B3A2D]"
           >
             Photograph the product instead
           </button>
           <button
             type="button"
             onClick={() => router.push('/food-lens' as Route)}
-            className="py-2 text-sm font-medium text-[#6B7A72]"
+            className="mef-press py-2 text-sm font-medium text-[#6B7A72]"
           >
             Cancel
           </button>
@@ -195,7 +195,7 @@ export function BarcodeScanFlow() {
         <button
           type="button"
           onClick={() => setPhase('scanning')}
-          className="mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
+          className="mef-press mt-4 rounded-full bg-[#1B3A2D] px-6 py-2.5 text-sm font-semibold text-white"
         >
           Try again
         </button>

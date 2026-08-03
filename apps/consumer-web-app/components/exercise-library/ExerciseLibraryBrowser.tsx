@@ -218,7 +218,7 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
                   inputRef.current?.focus();
                 }}
                 aria-label="Clear search"
-                className="mef-focus-ring absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#6B7A72] transition hover:bg-[#EFF6F1] hover:text-[#1B3A2D]"
+                className="mef-press mef-focus-ring absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#6B7A72] transition hover:bg-[#EFF6F1] hover:text-[#1B3A2D]"
               >
                 <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
               </button>
@@ -241,7 +241,7 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
                       clearRecentSearches();
                       setRecentSearches([]);
                     }}
-                    className="text-xs font-medium text-[#6B7A72] underline-offset-2 hover:text-[#1B3A2D] hover:underline"
+                    className="mef-press text-xs font-medium text-[#6B7A72] underline-offset-2 hover:text-[#1B3A2D] hover:underline"
                   >
                     Clear
                   </button>
@@ -255,7 +255,7 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => selectSuggestion(term)}
-                  className="mef-focus-ring min-h-10 rounded-full border border-[#1B3A2D]/15 bg-white px-3.5 py-2 text-xs font-medium text-[#6B7A72] transition hover:border-[#1B3A2D]/40 hover:text-[#1B3A2D]"
+                  className="mef-press mef-focus-ring min-h-10 rounded-full border border-[#1B3A2D]/15 bg-white px-3.5 py-2 text-xs font-medium text-[#6B7A72] transition hover:border-[#1B3A2D]/40 hover:text-[#1B3A2D]"
                 >
                   {term}
                 </button>
@@ -275,7 +275,7 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
               key={term}
               type="button"
               onClick={() => setQuery(term)}
-              className="mef-focus-ring min-h-10 rounded-full border border-[#1B3A2D]/15 bg-white px-3.5 py-2 text-xs font-medium text-[#6B7A72] hover:border-[#1B3A2D]/40 hover:text-[#1B3A2D]"
+              className="mef-press mef-focus-ring min-h-10 rounded-full border border-[#1B3A2D]/15 bg-white px-3.5 py-2 text-xs font-medium text-[#6B7A72] hover:border-[#1B3A2D]/40 hover:text-[#1B3A2D]"
             >
               {term}
             </button>
@@ -335,7 +335,7 @@ export function ExerciseLibraryBrowser({ initialQuery = '' }: { initialQuery?: s
                   type="button"
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="mef-focus-ring rounded-full border border-[#1B3A2D]/15 bg-white px-6 py-2.5 text-sm font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mef-press mef-focus-ring rounded-full border border-[#1B3A2D]/15 bg-white px-6 py-2.5 text-sm font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loadingMore ? 'Loading…' : 'Load more'}
                 </button>

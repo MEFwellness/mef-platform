@@ -114,7 +114,7 @@ export default async function RootMapPage() {
                   </p>
                   <Link
                     href={namedArea.investigation.route as Route}
-                    className="mt-4 inline-block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+                    className="mef-press mt-4 inline-block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
                   >
                     {namedArea.investigation.displayName}
                   </Link>
@@ -129,7 +129,7 @@ export default async function RootMapPage() {
               {showGenericRecommendation && rootMap.routerOutcome.investigation && (
                 <Link
                   href={rootMap.routerOutcome.investigation.route as Route}
-                  className="mt-4 inline-block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
+                  className="mef-press mt-4 inline-block rounded-2xl bg-[#F3F6F4] px-4 py-3 text-sm font-medium text-[#1B3A2D] transition hover:bg-[#EFF6F1]"
                 >
                   {rootMap.routerOutcome.investigation.displayName}
                 </Link>

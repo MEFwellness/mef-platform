@@ -61,7 +61,7 @@ export function HandoffForm({
       <button
         type="button"
         onClick={() => setShowHandoff(true)}
-        className="flex items-center gap-2 text-sm font-medium text-[#6B7A72] hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+        className="mef-press flex items-center gap-2 text-sm font-medium text-[#6B7A72] hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
       >
         <LifeBuoy className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         {compact
@@ -101,14 +101,14 @@ export function HandoffForm({
         <button
           type="button"
           onClick={() => setShowHandoff(false)}
-          className="rounded-full px-4 py-1.5 text-sm font-medium text-[#6B7A72]"
+          className="mef-press rounded-full px-4 py-1.5 text-sm font-medium text-[#6B7A72]"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-full bg-[#1B3A2D] px-5 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-40"
+          className="mef-press rounded-full bg-[#1B3A2D] px-5 py-1.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-40"
         >
           Send to my coach
         </button>

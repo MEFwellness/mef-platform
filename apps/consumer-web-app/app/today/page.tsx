@@ -220,7 +220,7 @@ export default async function TodayPage() {
                 before. */}
             <Link
               href={'/checkin/evening' as Route}
-              className="mt-6 flex items-center justify-between rounded-2xl border border-[#1B3A2D]/10 px-5 py-3.5 text-sm text-[#1B3A2D] transition hover:border-[#1B3A2D]/25"
+              className="mef-card-lift mt-6 flex items-center justify-between rounded-2xl border border-[#1B3A2D]/10 px-5 py-3.5 text-sm text-[#1B3A2D] transition hover:border-[#1B3A2D]/25"
             >
               <span className="font-medium">Evening Reflection</span>
               <span className="text-xs text-[#6B7A72]">Optional · a short close to the day</span>
@@ -338,9 +338,10 @@ export default async function TodayPage() {
             {!decision || !decision.feedItem || !decision.content ? (
               <>
                 <section className={`${CARD} mt-6`}>
-                  <p className="text-base text-[#1B3A2D]">Nothing here yet.</p>
+                  <p className="text-base text-[#1B3A2D]">Still putting today&apos;s lesson together.</p>
                   <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-                    Your coaching lesson for today hasn&apos;t been prepared yet. Check back shortly.
+                    I don&apos;t have it ready quite yet. Check back shortly and I&apos;ll have
+                    something for you.
                   </p>
                 </section>
                 <TodayZones

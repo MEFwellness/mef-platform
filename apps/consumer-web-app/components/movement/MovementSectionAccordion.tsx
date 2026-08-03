@@ -27,7 +27,7 @@ export function MovementSectionAccordion({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 p-6 text-left"
+        className="mef-press flex w-full items-center justify-between gap-3 p-6 text-left"
         aria-expanded={open}
       >
         <span className="flex items-center gap-3">

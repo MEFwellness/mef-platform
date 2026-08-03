@@ -244,7 +244,7 @@ export function TodayZones({
               </section>
               <Link
                 href={'/checkin' as Route}
-                className="flex flex-col justify-between gap-4 rounded-[28px] bg-[#1B3A2D] p-6 text-left text-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+                className="mef-card-lift flex flex-col justify-between gap-4 rounded-[28px] bg-[#1B3A2D] p-6 text-left text-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
               >
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wider text-white/70">

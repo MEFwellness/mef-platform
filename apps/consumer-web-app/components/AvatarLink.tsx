@@ -50,7 +50,7 @@ export function AvatarLink({ firstName }: { firstName: string }) {
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-label="Profile menu"
-        className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F5B700] bg-white text-sm font-medium text-[#1B3A2D] transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+        className="mef-press flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F5B700] bg-white text-sm font-medium text-[#1B3A2D] transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
       >
         {firstName.charAt(0).toUpperCase()}
       </button>

@@ -54,6 +54,7 @@ export default async function ProfilePage() {
         <Card
           as={Link}
           href="/profile/baseline"
+          lift
           className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
         >
           <div>
@@ -75,6 +76,7 @@ export default async function ProfilePage() {
         <Card
           as={Link}
           href="/profile/reassessments"
+          lift
           className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
         >
           <div>
@@ -101,6 +103,7 @@ export default async function ProfilePage() {
         <Card
           as={Link}
           href="/assessment"
+          lift
           className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
         >
           <div>
@@ -122,6 +125,7 @@ export default async function ProfilePage() {
         <Card
           as={Link}
           href="/connections"
+          lift
           className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
         >
           <div>

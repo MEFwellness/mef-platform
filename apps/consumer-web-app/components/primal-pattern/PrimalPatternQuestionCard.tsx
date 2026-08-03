@@ -13,6 +13,7 @@
 
 import { Check } from 'lucide-react';
 import type { Letter, PrimalPatternQuestion } from '@/lib/primal-pattern/types';
+import { triggerHaptic } from '@/lib/haptics';
 
 const LETTER_STYLE: Record<Letter, { badgeIdle: string; badgeSelected: string }> = {
   A: { badgeIdle: 'bg-[#F3F6F4] text-[#6B7A72]', badgeSelected: 'bg-[#1B3A2D] text-white' },
@@ -52,7 +53,10 @@ export function PrimalPatternQuestionCard({ question, selected, onToggle }: Prop
               type="button"
               role="checkbox"
               aria-checked={isSelected}
-              onClick={() => onToggle(letter)}
+              onClick={() => {
+                triggerHaptic();
+                onToggle(letter);
+              }}
               className={`group flex w-full items-start gap-4 rounded-3xl border-2 p-5 text-left transition-all duration-200 active:scale-[0.985] motion-reduce:active:scale-100 sm:p-6 ${
                 isSelected
                   ? 'border-[#1B3A2D] bg-[#F3F6F4] shadow-[0_6px_24px_-8px_rgba(27,58,45,0.25)]'

@@ -28,7 +28,7 @@ export function BranchTransition({ line, onContinue }: { line: string; onContinu
       <button
         type="button"
         onClick={onContinue}
-        className="mef-focus-ring mt-6 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
+        className="mef-focus-ring mef-press mt-6 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
       >
         See what happens next
       </button>

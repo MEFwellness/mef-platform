@@ -94,7 +94,7 @@ export function FoodSearch() {
                 type="button"
                 onClick={() => handleOpen(item)}
                 disabled={openingId !== null}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                className="mef-press flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 {item.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -121,7 +121,7 @@ export function FoodSearch() {
                   type="button"
                   onClick={() => handleToggleFavorite(item.productId!)}
                   aria-label="Toggle favorite"
-                  className="shrink-0 p-1.5"
+                  className="mef-press shrink-0 p-1.5"
                 >
                   <Heart
                     className={`h-4 w-4 ${favorited.has(item.productId) ? 'fill-[#1B3A2D] text-[#1B3A2D]' : 'text-[#9AA79F]'}`}

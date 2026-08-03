@@ -24,6 +24,7 @@ import {
 } from '@/app/actions/primal-pattern';
 import { PrimalPatternQuestionCard } from './PrimalPatternQuestionCard';
 import { AutoSaveIndicator, type SaveStatus } from './AutoSaveIndicator';
+import { ROOT_FINISHING_LABEL } from '@/lib/reveal/copy';
 import type {
   Letter,
   PrimalPatternAnswers,
@@ -235,7 +236,7 @@ export function PrimalPatternTaker({
                   aria-hidden="true"
                 />
               )}
-              See my results
+              {isCompleting ? ROOT_FINISHING_LABEL : 'See my results'}
             </button>
           ) : (
             <button

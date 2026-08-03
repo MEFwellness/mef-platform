@@ -142,7 +142,7 @@ export function FloatingCoachLauncher({
           // against the narrowest supported width (iPhone SE, 320px).
           // The full label pill returns at md: where content is no longer
           // full-bleed under the corner.
-          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#1B3A2D] text-white shadow-[0_8px_24px_-6px_rgba(27,58,45,0.45)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] md:bottom-8 md:right-8 md:h-auto md:w-auto md:gap-2 md:rounded-full md:px-5 md:py-3 md:text-sm md:font-medium"
+          className="mef-press fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#1B3A2D] text-white shadow-[0_8px_24px_-6px_rgba(27,58,45,0.45)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] md:bottom-8 md:right-8 md:h-auto md:w-auto md:gap-2 md:rounded-full md:px-5 md:py-3 md:text-sm md:font-medium"
         >
           <MessageCircle className="h-5 w-5 md:h-4 md:w-4" strokeWidth={1.75} aria-hidden="true" />
           <span className="hidden md:inline">{label}</span>

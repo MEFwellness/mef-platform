@@ -1,9 +1,11 @@
 'use client';
 
-import { Check } from 'lucide-react';
 import { CVS_DISPLAY_FONT, CVS_GOLD, CVS_FOREST } from './theme';
 import { CVS_SCALE_LABELS } from '@/lib/core-values-snapshot/copy';
 import { Card } from '@/components/layout';
+import { QuestionOptionButton } from '@/components/assessments/QuestionOptionButton';
+import { useBleedTap } from '@/lib/motion/useBleedTap';
+import { triggerHaptic } from '@/lib/haptics';
 
 export type CvsOption = { value: string; label: string };
 
@@ -20,26 +22,15 @@ export function SingleSelectQuestion({ prompt, options, value, onChange }: Singl
     <Card className="mef-animate-in">
       <h2 className={`${CVS_DISPLAY_FONT} text-2xl leading-snug text-[#1B3A2D]`}>{prompt}</h2>
       <div className="mt-6 space-y-3" role="radiogroup" aria-label={prompt}>
-        {options.map((option) => {
-          const selected = value === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => onChange(option.value)}
-              className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-5 py-4 text-left text-[15px] font-medium transition ${
-                selected
-                  ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.35)]'
-                  : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D] hover:border-[#C4A050]/50 hover:bg-[#FAF7F0]'
-              } mef-focus-ring`}
-            >
-              <span>{option.label}</span>
-              {selected && <Check className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />}
-            </button>
-          );
-        })}
+        {options.map((option) => (
+          <QuestionOptionButton
+            key={option.value}
+            label={option.label}
+            selected={value === option.value}
+            onSelect={() => onChange(option.value)}
+            unselectedHoverClassName="hover:border-[#C4A050]/50 hover:bg-[#FAF7F0]"
+          />
+        ))}
       </div>
     </Card>
   );
@@ -56,26 +47,9 @@ function ScaleRow({ prompt, value, onChange }: ScaleRowProps) {
     <div className="py-4 first:pt-0">
       <p className="text-[15px] font-medium text-[#1B3A2D]">{prompt}</p>
       <div className="mt-3 flex items-center gap-2" role="radiogroup" aria-label={prompt}>
-        {[1, 2, 3, 4, 5].map((n) => {
-          const selected = value === n;
-          return (
-            <button
-              key={n}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => onChange(n)}
-              className={`mef-focus-ring flex h-11 flex-1 items-center justify-center rounded-xl border text-sm font-semibold transition ${
-                selected
-                  ? 'border-transparent text-white shadow-[0_4px_12px_-4px_rgba(196,160,80,0.55)]'
-                  : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D] hover:border-[#C4A050]/50'
-              }`}
-              style={selected ? { backgroundColor: CVS_GOLD } : undefined}
-            >
-              {n}
-            </button>
-          );
-        })}
+        {[1, 2, 3, 4, 5].map((n) => (
+          <ScalePill key={n} n={n} selected={value === n} onSelect={() => onChange(n)} />
+        ))}
       </div>
       <div className="mt-1.5 flex justify-between text-[11px] text-[#6B7A72]">
         <span>{CVS_SCALE_LABELS[1]}</span>
@@ -83,6 +57,49 @@ function ScaleRow({ prompt, value, onChange }: ScaleRowProps) {
         <span>{CVS_SCALE_LABELS[5]}</span>
       </div>
     </div>
+  );
+}
+
+/**
+ * Micro-Interactions (Prompt 6): retrofits the app's one selection
+ * language (ripple bleed from the tap point + a haptic tick) onto this
+ * 1-5 pill scale via `useBleedTap`, extracted to its own component since
+ * the hook can't be called inside a `.map()` callback. The gold fill on
+ * selection is unchanged.
+ */
+function ScalePill({
+  n,
+  selected,
+  onSelect,
+}: {
+  n: number;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const { onPointerDown, bleedStyle } = useBleedTap();
+
+  function handleClick() {
+    triggerHaptic();
+    onSelect();
+  }
+
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onPointerDown={onPointerDown}
+      onClick={handleClick}
+      style={bleedStyle}
+      className={`mef-press mef-focus-ring relative isolate flex h-11 flex-1 items-center justify-center overflow-hidden rounded-xl border text-sm font-semibold transition ${
+        selected
+          ? 'border-transparent text-white shadow-[0_4px_12px_-4px_rgba(196,160,80,0.55)]'
+          : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D] hover:border-[#C4A050]/50'
+      } ${selected ? 'mef-bleed-active' : ''}`}
+    >
+      <span aria-hidden="true" className="mef-bleed-fill" style={{ backgroundColor: CVS_GOLD }} />
+      <span className="relative z-10">{n}</span>
+    </button>
   );
 }
 
@@ -125,27 +142,58 @@ export function Q12Choice({ prompt, options, value, onChange }: Q12ChoiceProps) 
     <Card className="mef-animate-in">
       <h2 className={`${CVS_DISPLAY_FONT} text-2xl leading-snug text-[#1B3A2D]`}>{prompt}</h2>
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {options.map((option) => {
-          const selected = value === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => onChange(option.value)}
-              className={`mef-focus-ring flex min-h-[104px] flex-col items-center justify-center rounded-2xl border px-5 py-6 text-center transition ${
-                selected
-                  ? 'border-transparent text-white shadow-[0_8px_24px_-6px_rgba(27,58,45,0.45)]'
-                  : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D] hover:border-[#C4A050]/60'
-              }`}
-              style={selected ? { backgroundColor: CVS_FOREST } : undefined}
-            >
-              <span className={`${CVS_DISPLAY_FONT} text-xl leading-tight`}>{option.label}</span>
-            </button>
-          );
-        })}
+        {options.map((option) => (
+          <Q12Tile
+            key={option.value}
+            label={option.label}
+            selected={value === option.value}
+            onSelect={() => onChange(option.value)}
+          />
+        ))}
       </div>
     </Card>
+  );
+}
+
+/**
+ * Micro-Interactions (Prompt 6): retrofits the app's one selection
+ * language (ripple bleed from the tap point + a haptic tick) onto Q12's
+ * big forced-choice tiles via `useBleedTap`, extracted to its own
+ * component since the hook can't be called inside a `.map()` callback.
+ * The forest-green fill on selection is unchanged.
+ */
+function Q12Tile({
+  label,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const { onPointerDown, bleedStyle } = useBleedTap();
+
+  function handleClick() {
+    triggerHaptic();
+    onSelect();
+  }
+
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onPointerDown={onPointerDown}
+      onClick={handleClick}
+      style={bleedStyle}
+      className={`mef-press mef-focus-ring relative isolate flex min-h-[104px] flex-col items-center justify-center overflow-hidden rounded-2xl border px-5 py-6 text-center transition ${
+        selected
+          ? 'border-transparent text-white shadow-[0_8px_24px_-6px_rgba(27,58,45,0.45)]'
+          : 'border-[#1B3A2D]/10 bg-white text-[#1B3A2D] hover:border-[#C4A050]/60'
+      } ${selected ? 'mef-bleed-active' : ''}`}
+    >
+      <span aria-hidden="true" className="mef-bleed-fill" style={{ backgroundColor: CVS_FOREST }} />
+      <span className={`relative z-10 ${CVS_DISPLAY_FONT} text-xl leading-tight`}>{label}</span>
+    </button>
   );
 }

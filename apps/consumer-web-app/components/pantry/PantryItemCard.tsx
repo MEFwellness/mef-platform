@@ -117,7 +117,7 @@ export function PantryItemCard({
             onClick={handleFavorite}
             disabled={pending === 'favorite'}
             aria-label={item.is_favorite ? 'Remove from favorites' : 'Mark as favorite'}
-            className="rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] disabled:opacity-50"
+            className="mef-press rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] disabled:opacity-50"
           >
             <Star
               className={`h-4 w-4 ${item.is_favorite ? 'fill-[#F5B700] text-[#F5B700]' : ''}`}
@@ -129,7 +129,7 @@ export function PantryItemCard({
             type="button"
             onClick={() => setEditing((v) => !v)}
             aria-label="Adjust quantity or expiration"
-            className="rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06]"
+            className="mef-press rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06]"
           >
             <Pencil className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -138,7 +138,7 @@ export function PantryItemCard({
             onClick={handleUsed}
             disabled={pending === 'used'}
             aria-label="Mark used"
-            className="rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] disabled:opacity-50"
+            className="mef-press rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] disabled:opacity-50"
           >
             <CheckCircle2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -147,7 +147,7 @@ export function PantryItemCard({
             onClick={handleRemove}
             disabled={pending === 'remove'}
             aria-label="Remove item"
-            className="rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] hover:text-[#B45309] disabled:opacity-50"
+            className="mef-press rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] hover:text-[#B45309] disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           </button>
@@ -183,7 +183,7 @@ export function PantryItemCard({
             type="button"
             onClick={handleSaveEdit}
             disabled={savingEdit}
-            className="rounded-full bg-[#1B3A2D] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            className="mef-press rounded-full bg-[#1B3A2D] px-4 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
           >
             {savingEdit ? 'Saving…' : 'Save'}
           </button>

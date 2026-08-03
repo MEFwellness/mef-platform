@@ -192,7 +192,9 @@ function TapToPlayVideo({
       )}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20">
         <PlayCircle className="h-14 w-14 text-white drop-shadow" strokeWidth={1.25} />
-        {state.status === 'loading' && <p className="text-xs font-medium text-white">Loading…</p>}
+        {state.status === 'loading' && (
+          <p className="text-xs font-medium text-white">Cueing up your video…</p>
+        )}
       </div>
     </button>
   );

@@ -22,6 +22,8 @@ import { WELCOME_GOALS, WELCOME_GOAL_TO_PRIMARY_CONCERN } from '@/lib/welcome/go
 import type { WelcomeGoalKey } from '@/lib/welcome/goals';
 import { OnboardingProgress } from './OnboardingProgress';
 import { BranchTransition } from './BranchTransition';
+import { useBleedTap } from '@/lib/motion/useBleedTap';
+import { triggerHaptic } from '@/lib/haptics';
 import type {
   AnswerStatus,
   OnboardingAnswerInput,
@@ -244,6 +246,108 @@ function NumericSlider({
 }
 
 /**
+ * Micro-Interactions (Prompt 6): the enum radiogroup's per-option tile,
+ * extracted out of the allowedValues.map() above so useBleedTap() (one
+ * ripple-origin state per tile) can be called at the top of a real
+ * component instead of inside a loop body, which the rules of hooks
+ * forbid. Same retrofit as TapBleedTile (components/checkin/scales/
+ * shared.tsx) and WelcomeFlow's GoalTile — colors are unchanged from the
+ * original inline markup.
+ */
+function EnumOptionTile({
+  label,
+  isSelected,
+  invalid,
+  onSelect,
+  fieldRef,
+}: {
+  label: string;
+  isSelected: boolean;
+  invalid: boolean;
+  onSelect: () => void;
+  fieldRef?: ((el: Focusable | null) => void) | undefined;
+}) {
+  const { onPointerDown, bleedStyle } = useBleedTap();
+
+  function handleClick() {
+    triggerHaptic();
+    onSelect();
+  }
+
+  return (
+    <button
+      ref={fieldRef}
+      type="button"
+      role="radio"
+      aria-checked={isSelected}
+      onPointerDown={onPointerDown}
+      onClick={handleClick}
+      style={bleedStyle}
+      className={`mef-focus-ring mef-press relative isolate flex items-center justify-between gap-2 overflow-hidden rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition-colors ${
+        isSelected
+          ? 'border-transparent text-white'
+          : invalid
+            ? 'border-red-400 bg-white text-[#1B3A2D]/70'
+            : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
+      } ${isSelected ? 'mef-bleed-active' : ''}`}
+    >
+      <span aria-hidden="true" className="mef-bleed-fill" style={{ backgroundColor: '#1B3A2D' }} />
+      <span className="relative z-10">{label}</span>
+      {isSelected && (
+        <Check className="relative z-10 h-3.5 w-3.5 shrink-0" strokeWidth={3} aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
+/** Same retrofit as EnumOptionTile above, multi-select variant (aria-pressed, no radio role). */
+function MultiSelectOptionTile({
+  label,
+  isSelected,
+  invalid,
+  onSelect,
+  fieldRef,
+}: {
+  label: string;
+  isSelected: boolean;
+  invalid: boolean;
+  onSelect: () => void;
+  fieldRef?: ((el: Focusable | null) => void) | undefined;
+}) {
+  const { onPointerDown, bleedStyle } = useBleedTap();
+
+  function handleClick() {
+    triggerHaptic();
+    onSelect();
+  }
+
+  return (
+    <button
+      ref={fieldRef}
+      type="button"
+      aria-pressed={isSelected}
+      aria-invalid={invalid}
+      onPointerDown={onPointerDown}
+      onClick={handleClick}
+      style={bleedStyle}
+      className={`mef-focus-ring mef-press relative isolate flex items-center justify-between gap-2 overflow-hidden rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition-colors ${
+        isSelected
+          ? 'border-transparent text-white'
+          : invalid
+            ? 'border-red-400 bg-white text-[#1B3A2D]/70'
+            : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
+      } ${isSelected ? 'mef-bleed-active' : ''}`}
+    >
+      <span aria-hidden="true" className="mef-bleed-fill" style={{ backgroundColor: '#1B3A2D' }} />
+      <span className="relative z-10">{label}</span>
+      {isSelected && (
+        <Check className="relative z-10 h-3.5 w-3.5 shrink-0" strokeWidth={3} aria-hidden="true" />
+      )}
+    </button>
+  );
+}
+
+/**
  * One question's fieldset, memoized so dragging one slider (which fires an
  * onChange on every pixel of movement) only re-renders the question being
  * dragged, not every other question on the page. This only works because
@@ -332,31 +436,16 @@ const QuestionField = memo(function QuestionField({
           aria-invalid={invalid}
           className="grid grid-cols-1 gap-2.5 sm:grid-cols-2"
         >
-          {allowedValues.map((option, index) => {
-            const isSelected = selectedValue === option;
-            return (
-              <button
-                key={option}
-                ref={index === 0 ? setRef : undefined}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                onClick={() => update({ status: 'answered', value: option })}
-                className={`mef-focus-ring flex items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition-colors ${
-                  isSelected
-                    ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
-                    : invalid
-                      ? 'border-red-400 bg-white text-[#1B3A2D]/70'
-                      : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
-                }`}
-              >
-                {enumOptionLabel(option)}
-                {isSelected && (
-                  <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={3} aria-hidden="true" />
-                )}
-              </button>
-            );
-          })}
+          {allowedValues.map((option, index) => (
+            <EnumOptionTile
+              key={option}
+              fieldRef={index === 0 ? setRef : undefined}
+              label={enumOptionLabel(option)}
+              isSelected={selectedValue === option}
+              invalid={invalid}
+              onSelect={() => update({ status: 'answered', value: option })}
+            />
+          ))}
         </div>
       );
     }
@@ -391,31 +480,16 @@ const QuestionField = memo(function QuestionField({
           aria-labelledby={legendId}
           className="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
         >
-          {allowedValues.map((option, index) => {
-            const isSelected = selected.includes(option);
-            return (
-              <button
-                key={option}
-                ref={index === 0 ? setRef : undefined}
-                type="button"
-                aria-pressed={isSelected}
-                aria-invalid={invalid}
-                onClick={() => toggleOption(option)}
-                className={`mef-focus-ring flex items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider transition-colors ${
-                  isSelected
-                    ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white'
-                    : invalid
-                      ? 'border-red-400 bg-white text-[#1B3A2D]/70'
-                      : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
-                }`}
-              >
-                {option.replaceAll('_', ' ')}
-                {isSelected && (
-                  <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={3} aria-hidden="true" />
-                )}
-              </button>
-            );
-          })}
+          {allowedValues.map((option, index) => (
+            <MultiSelectOptionTile
+              key={option}
+              fieldRef={index === 0 ? setRef : undefined}
+              label={option.replaceAll('_', ' ')}
+              isSelected={selected.includes(option)}
+              invalid={invalid}
+              onSelect={() => toggleOption(option)}
+            />
+          ))}
         </div>
       );
     }
@@ -523,7 +597,7 @@ const QuestionField = memo(function QuestionField({
           <button
             type="button"
             onClick={() => update({ status: 'answered' })}
-            className="mt-3 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+            className="mef-press mt-3 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
           >
             Answer this question
           </button>
@@ -532,6 +606,80 @@ const QuestionField = memo(function QuestionField({
     </fieldset>
   );
 });
+
+/**
+ * Micro-Interactions (Prompt 6) retrofit for PrimaryConcernConfirmControl's
+ * two-choice row below. Unlike EnumOptionTile/MultiSelectOptionTile, these
+ * aren't a persisted isSelected/unselected pair — tapping either one
+ * resolves the control immediately (onResolve/setPhase), so there's no
+ * ongoing "selected" state to track. `pressed` exists purely to give the
+ * ripple something to animate from on tap, mirroring TapBleedTile's own
+ * click-triggers-mef-bleed-active model one tap at a time.
+ */
+function ConfirmChoiceTile({
+  label,
+  tone,
+  onSelect,
+}: {
+  label: string;
+  tone: 'primary' | 'secondary';
+  onSelect: () => void;
+}) {
+  const [pressed, setPressed] = useState(false);
+  const { onPointerDown, bleedStyle } = useBleedTap();
+
+  function handleClick() {
+    setPressed(true);
+    triggerHaptic();
+    onSelect();
+  }
+
+  return (
+    <button
+      type="button"
+      onPointerDown={onPointerDown}
+      onClick={handleClick}
+      style={bleedStyle}
+      className={`mef-focus-ring mef-press relative isolate flex-1 overflow-hidden rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+        tone === 'primary'
+          ? 'border-[#1B3A2D] bg-[#1B3A2D] text-white hover:brightness-110'
+          : 'border-[#1B3A2D]/12 bg-white text-[#1B3A2D]/70 hover:border-[#1B3A2D]/30'
+      } ${pressed ? 'mef-bleed-active' : ''}`}
+    >
+      <span aria-hidden="true" className="mef-bleed-fill" style={{ backgroundColor: '#1B3A2D' }} />
+      <span className="relative z-10">{label}</span>
+    </button>
+  );
+}
+
+/** Same one-shot-tap retrofit as ConfirmChoiceTile, for the "change" phase's option list. */
+function ChangeOptionTile({ label, onSelect }: { label: string; onSelect: () => void }) {
+  const [pressed, setPressed] = useState(false);
+  const { onPointerDown, bleedStyle } = useBleedTap();
+
+  function handleClick() {
+    setPressed(true);
+    triggerHaptic();
+    onSelect();
+  }
+
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={false}
+      onPointerDown={onPointerDown}
+      onClick={handleClick}
+      style={bleedStyle}
+      className={`mef-focus-ring mef-press relative isolate flex items-center justify-between gap-2 overflow-hidden rounded-2xl border border-[#1B3A2D]/12 bg-white px-4 py-3 text-left text-sm font-semibold text-[#1B3A2D]/70 transition-colors hover:border-[#1B3A2D]/30 ${
+        pressed ? 'mef-bleed-active' : ''
+      }`}
+    >
+      <span aria-hidden="true" className="mef-bleed-fill" style={{ backgroundColor: '#1B3A2D' }} />
+      <span className="relative z-10">{label}</span>
+    </button>
+  );
+}
 
 /**
  * The `primary_concern` question's control when knownPrimaryGoal is set
@@ -567,21 +715,17 @@ function PrimaryConcernConfirmControl({
           most right now.
         </p>
         <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
-          <button
-            type="button"
-            onClick={() => onResolve(knownGoal.primaryGoalKey, false)}
-            className="mef-focus-ring flex-1 rounded-2xl border border-[#1B3A2D] bg-[#1B3A2D] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110"
-          >
-            Still true
-          </button>
+          <ConfirmChoiceTile
+            label="Still true"
+            tone="primary"
+            onSelect={() => onResolve(knownGoal.primaryGoalKey, false)}
+          />
           {otherOptions.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setPhase('change')}
-              className="mef-focus-ring flex-1 rounded-2xl border border-[#1B3A2D]/12 bg-white px-4 py-3 text-sm font-semibold text-[#1B3A2D]/70 transition hover:border-[#1B3A2D]/30"
-            >
-              Something changed
-            </button>
+            <ConfirmChoiceTile
+              label="Something changed"
+              tone="secondary"
+              onSelect={() => setPhase('change')}
+            />
           )}
         </div>
       </div>
@@ -595,22 +739,13 @@ function PrimaryConcernConfirmControl({
       </p>
       <div role="radiogroup" aria-label="Which area matters most now" className="mt-2 flex flex-col gap-2">
         {otherOptions.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            role="radio"
-            aria-checked={false}
-            onClick={() => onResolve(key, true)}
-            className="mef-focus-ring flex items-center justify-between gap-2 rounded-2xl border border-[#1B3A2D]/12 bg-white px-4 py-3 text-left text-sm font-semibold text-[#1B3A2D]/70 transition-colors hover:border-[#1B3A2D]/30"
-          >
-            {label}
-          </button>
+          <ChangeOptionTile key={key} label={label} onSelect={() => onResolve(key, true)} />
         ))}
       </div>
       <button
         type="button"
         onClick={() => setPhase('confirm')}
-        className="mt-3 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+        className="mef-press mt-3 text-sm font-medium text-[#6B7A72] underline underline-offset-2"
       >
         Never mind, {primaryLabel.toLowerCase()} is right
       </button>
@@ -952,7 +1087,7 @@ export function OnboardingForm({
                 <button
                   type="button"
                   onClick={goBack}
-                  className="mef-focus-ring flex items-center justify-center rounded-full border border-[#1B3A2D]/15 px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+                  className="mef-focus-ring mef-press flex items-center justify-center rounded-full border border-[#1B3A2D]/15 px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
                 >
                   Back
                 </button>
@@ -962,7 +1097,7 @@ export function OnboardingForm({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="mef-focus-ring flex flex-1 items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+                  className="mef-focus-ring mef-press flex flex-1 items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
                 >
                   {submitting ? 'Saving...' : submitLabel}
                 </button>
@@ -970,7 +1105,7 @@ export function OnboardingForm({
                 <button
                   type="button"
                   onClick={goNext}
-                  className="mef-focus-ring flex flex-1 items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
+                  className="mef-focus-ring mef-press flex flex-1 items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
                 >
                   Keep going
                 </button>
