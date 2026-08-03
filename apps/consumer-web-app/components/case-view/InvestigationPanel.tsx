@@ -52,7 +52,7 @@ export function InvestigationPanel({ panel }: { panel: InvestigationPanelView })
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-[#6B7A72]">The investigation</p>
         <p className="mt-1 text-[13px] leading-relaxed text-[#6B7A72]">
-          What we&apos;re looking at as possible root causes for what you came for, and what&apos;s already been
+          What I&apos;m looking at as possible root causes for what you came for, and what I&apos;ve already
           ruled out.
         </p>
       </div>

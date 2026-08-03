@@ -77,7 +77,10 @@ export default async function AssessmentResultsPage({
         </div>
 
         {/* Hero: overall score ring — the assessment's actual key finding, so Progressive Reveal Engine (Prompt 3, requirement 6) reveals it with a quiet beat of anticipation rather than instantly, first-time-only, instant on every revisit. */}
-        <KeyFindingReveal storageKey={`generic-assessment-close:${result.record.id}`}>
+        <KeyFindingReveal
+          storageKey={`generic-assessment-close:${result.record.id}`}
+          thinkingText="Looking at your answers..."
+        >
           <section className={`${CARD} mef-animate-in mt-3 p-7`}>
             <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
               <ScoreRing

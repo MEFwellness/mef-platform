@@ -299,7 +299,7 @@ export function ResetPlanTaker({ initialPlan }: { initialPlan: ResetPlan }) {
           })()}
 
           <div className={`${CVS_GOLD_DIVIDER} my-4`} />
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7A72]">What Root will do</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7A72]">{RESET_PLAN_AGREEMENT_COPY.heading}</p>
           <ul className="mt-1 space-y-1.5 text-sm leading-relaxed text-[#1B3A2D]">
             <li>{RESET_PLAN_AGREEMENT_COPY.dayThreeLine}</li>
             <li>{RESET_PLAN_AGREEMENT_COPY.daySevenLine}</li>

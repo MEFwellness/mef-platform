@@ -78,7 +78,7 @@ export default async function NoticingPage() {
                 Still gathering information
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                Complete a check-in or an assessment and this page will start filling in.
+                I don&apos;t have enough to go on yet. Complete a check-in or an assessment and I&apos;ll start noticing things worth sharing.
               </p>
             </section>
           </CenterStage>

@@ -98,6 +98,8 @@ function baseSignals(overrides: Partial<MorningBriefSignals> = {}): MorningBrief
     currentStreak: 1,
     activeTrendInsights: [],
     continuitySentence: null,
+    returnGreeting: null,
+    memoryCallback: null,
     ...overrides,
   };
 }

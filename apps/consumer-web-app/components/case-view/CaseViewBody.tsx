@@ -18,14 +18,17 @@ export function CaseViewBody({
   caseView,
   localDate,
   coachMode = false,
+  memoryCallback = null,
 }: {
   caseView: CaseView;
   localDate: string;
   coachMode?: boolean;
+  /** Root Presence System, requirement 4 — the member's own real check-in tenure, never passed in coach mode (Root doesn't speak to a coach in first person about "you"). */
+  memoryCallback?: string | null;
 }) {
   return (
     <div className="space-y-5">
-      <CaseHeader header={caseView.header} />
+      <CaseHeader header={caseView.header} memoryCallback={coachMode ? null : memoryCallback} />
       <GoalProgressChart goalProgress={caseView.goalProgress} localDate={localDate} readOnly={coachMode} />
       {caseView.emptyState ? (
         <CaseEmptyState emptyState={caseView.emptyState} />

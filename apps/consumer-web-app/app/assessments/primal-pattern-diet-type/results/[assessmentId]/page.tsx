@@ -65,7 +65,10 @@ export default async function PrimalPatternResultsPage({
 
         {/* Progressive Reveal Engine (Prompt 3, requirement 6): the actual diet-type finding, so it lands with a quiet beat of anticipation rather than instantly, first-time-only, instant on every revisit. */}
         <div className="mt-4">
-          <KeyFindingReveal storageKey={`primal-pattern-close:${params.assessmentId}`}>
+          <KeyFindingReveal
+            storageKey={`primal-pattern-close:${params.assessmentId}`}
+            thinkingText="Looking at your answers..."
+          >
             <HeroResultCard
               displayTitle={copy.displayTitle}
               result={record.result}

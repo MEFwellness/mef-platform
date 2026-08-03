@@ -61,21 +61,36 @@ function checkinSleepSummary(latest: DailyCheckin | null): string | null {
   if (!latest || latest.sleep_quality === null) return null;
   const status = sleepQualityStatus(latest.sleep_quality);
   if (status === 'no-data') return null;
-  return `Sleep quality last night: ${STATUS_LABEL[status].toLowerCase()}.`;
+  return `Your sleep looked ${STATUS_LABEL[status].toLowerCase()} last night.`;
 }
 
 function checkinStressSummary(latest: DailyCheckin | null): string | null {
   if (!latest || latest.stress_level === null) return null;
   const status = stressStatus(latest.stress_level);
   if (status === 'no-data') return null;
-  return `Stress level today: ${STATUS_LABEL[status].toLowerCase()}.`;
+  return `Your stress today looked ${STATUS_LABEL[status].toLowerCase()}.`;
 }
 
-/** A streak worth naming outranks the Brain's own generic encouragement line — same "real, specific, and true" bar every other proactive message in this app holds itself to. */
-function pickEncouragingMessage(streak: number, brainEncouragement: string): string {
+/**
+ * Root Presence System (Prompt 4): a one-time return greeting always wins
+ * this slot outright (Bible §7's "no guilt, ever" — the very next thing
+ * Root says to a member coming back from a gap must be the greeting, not
+ * a streak or generic line). Absent that, a streak worth naming outranks
+ * a real memory callback, which in turn outranks the Brain's own generic
+ * encouragement line — same "real, specific, and true" bar every other
+ * proactive message in this app holds itself to.
+ */
+function pickEncouragingMessage(
+  streak: number,
+  brainEncouragement: string,
+  returnGreeting: string | null,
+  memoryCallback: string | null
+): string {
+  if (returnGreeting) return returnGreeting;
   if (streak >= 3) {
     return `${streak} days in a row checking in, that consistency is exactly what moves the needle.`;
   }
+  if (memoryCallback) return memoryCallback;
   return brainEncouragement;
 }
 
@@ -89,6 +104,8 @@ export function composeMorningBrief(signals: MorningBriefSignals): ComposedMorni
     currentStreak,
     activeTrendInsights,
     continuitySentence,
+    returnGreeting,
+    memoryCallback,
   } = signals;
   const latestCheckin = recentCheckins[recentCheckins.length - 1] ?? null;
 
@@ -141,7 +158,7 @@ export function composeMorningBrief(signals: MorningBriefSignals): ComposedMorni
     stressSummary,
     habitToPrioritize: habit ? habit.title : null,
     coachingRecommendation: decision.coachInsight ?? decision.reasonText,
-    encouragingMessage: pickEncouragingMessage(currentStreak, decision.encouragement),
+    encouragingMessage: pickEncouragingMessage(currentStreak, decision.encouragement, returnGreeting, memoryCallback),
     notablePatternTitle: notablePattern?.title ?? null,
     notablePatternSummary: notablePattern?.member_summary ?? null,
     incompleteRecommendation: continuitySentence,

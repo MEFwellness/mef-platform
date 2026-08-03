@@ -15,8 +15,15 @@ const CARD = 'rounded-[28px] bg-[#1B3A2D]/[0.05] animate-pulse';
  * few stacked cards, the same bottom nav so it doesn't flash) rather than
  * a generic spinner, so the transition reads as "the page is arriving,"
  * not "something broke."
+ *
+ * Root Presence System (Prompt 4), requirement 3: an optional `message`
+ * replaces the shimmer's own silence with a short, Root-voiced purpose
+ * line ("Getting your results ready...") on the Moment-classified routes
+ * that use this skeleton — never a new wait, just words describing the
+ * fetch that was already happening. Omitted entirely by default so every
+ * Tool route's skeleton stays exactly as it was.
  */
-export function PageSkeleton() {
+export function PageSkeleton({ message }: { message?: string } = {}) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
@@ -25,6 +32,7 @@ export function PageSkeleton() {
           <div className="h-10 w-10 shrink-0 rounded-full bg-[#1B3A2D]/[0.08] animate-pulse" />
         </div>
         <div className="mt-3 h-9 w-2/3 rounded-full bg-[#1B3A2D]/[0.08] animate-pulse" />
+        {message && <p className="mt-3 text-sm text-[#6B7A72]">{message}</p>}
 
         <div className="mt-7 space-y-5">
           <div className={`${CARD} h-32`} />

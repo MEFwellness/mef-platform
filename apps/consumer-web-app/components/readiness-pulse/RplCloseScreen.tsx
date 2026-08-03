@@ -20,6 +20,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { IntroReveal } from '@/components/IntroReveal';
+import { ConversationFlow } from '@/components/reveal/ConversationFlow';
 import { CVS_DISPLAY_FONT, CVS_GOLD_DIVIDER } from '@/components/core-values-snapshot/theme';
 import { JourneyProgressLine, RevealCard, useCloseScreenReveal, useDelayedReveal } from '@/components/closing-screen/ClosingScreenPrimitives';
 import {
@@ -73,9 +74,17 @@ export function RplCloseScreen({ sessionId, scoring, didStartExperiment, topValu
 
   return (
     <div className="space-y-4">
-      {/* Beat 1: honest reinforcement, matched to her pattern and Q2 history framing. */}
+      {/* Beat 1: honest reinforcement, matched to her pattern and Q2 history framing. A brief thinking beat (Root Presence System, requirement 2) precedes it on first view only. */}
       <RevealCard play={play} delayMs={REINFORCEMENT_DELAY_MS} elevated>
-        <p className="text-[15px] leading-relaxed text-[#1B3A2D]">{buildRplClosingReinforcement(scoring, didStartExperiment)}</p>
+        <ConversationFlow
+          messages={
+            play
+              ? ['Looking back at what you shared...', buildRplClosingReinforcement(scoring, didStartExperiment)]
+              : [buildRplClosingReinforcement(scoring, didStartExperiment)]
+          }
+          messageClassName="text-[15px] leading-relaxed text-[#1B3A2D]"
+          initialSkip={!play}
+        />
       </RevealCard>
 
       {/* Beat 2: the synthesis, three cards of the complete picture. Evidence comes first within the readiness card. */}

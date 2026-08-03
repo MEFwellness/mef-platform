@@ -39,24 +39,37 @@
  * resolves instantly. The finding's own data and wording are passed
  * through unchanged via `children` — this component only controls when
  * it mounts, never what it says.
+ *
+ * Root Presence System (Prompt 4), requirement 2: an optional
+ * `thinkingText` turns the existing pre-reveal `delayMs` window from a
+ * blank pause into a brief, visible "thinking" beat ("Looking at your
+ * answers...") — first view only, same gating as everything else here,
+ * and tap-anywhere-to-skip straight to the finding (matching
+ * RevealSequence's own skip convention) since a member who has already
+ * seen the app think should never be trapped waiting on it again. When
+ * `thinkingText` is omitted, behavior is byte-identical to before: a
+ * silent `delayMs` pause with nothing rendered.
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
-type RevealState = 'pending' | 'instant' | 'staged';
+type RevealState = 'pending' | 'instant' | 'thinking' | 'staged';
 
 export function KeyFindingReveal({
   storageKey,
   delayMs = 500,
+  thinkingText,
   className = '',
   children,
 }: {
   storageKey: string;
   delayMs?: number;
+  thinkingText?: string;
   className?: string;
   children: ReactNode;
 }) {
   const [state, setState] = useState<RevealState>('pending');
+  const skippedRef = useRef(false);
 
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -74,11 +87,29 @@ export function KeyFindingReveal({
       return undefined;
     }
 
-    const timer = setTimeout(() => setState('staged'), delayMs);
+    if (thinkingText) setState('thinking');
+
+    const timer = setTimeout(() => {
+      if (!skippedRef.current) setState('staged');
+    }, delayMs);
     return () => clearTimeout(timer);
-  }, [storageKey, delayMs]);
+  }, [storageKey, delayMs, thinkingText]);
+
+  function handleSkip() {
+    if (state !== 'thinking') return;
+    skippedRef.current = true;
+    setState('staged');
+  }
 
   if (state === 'pending') return null;
+
+  if (state === 'thinking') {
+    return (
+      <div className={`mef-fade-in ${className}`} onClick={handleSkip} role="presentation">
+        <p className="text-sm text-[#6B7A72]">{thinkingText}</p>
+      </div>
+    );
+  }
 
   return <div className={state === 'staged' ? `mef-fade-in ${className}` : className}>{children}</div>;
 }

@@ -390,7 +390,7 @@ The reusable machinery behind §5's pacing template and §6's "Conversational se
 - **Prompt 1: Root Motion System.** Global animation framework: fade, slide, scale, stagger, timing and easing standards, reduced-motion accessibility, shared reusable animation components.
 - **Prompt 2: Screen Layout System.** Eliminate dead space, vertically center short content, responsive spacing, card sizing rules, reading-width rules, premium spacing system.
 - **Prompt 3: Progressive Reveal Engine.** Replace walls of text: typewriter effects, step-by-step reveals, conversation flow, multi-step cards, auto-advance where appropriate, reading-time pacing. Includes converting the 11 plain "Continue" buttons to curiosity language.
-- **Prompt 4: Root Presence System.** Thinking moments, pauses, discovery reveals, memory callbacks, coaching language, emotional pacing, curiosity-driven transitions. Includes adding the no-guilt "I'm glad you're back" return copy.
+- **Prompt 4: Root Presence System.** *(Complete.)* Thinking moments, pauses, discovery reveals, memory callbacks, coaching language, emotional pacing, curiosity-driven transitions. Includes adding the no-guilt "I'm glad you're back" return copy.
 - **Prompt 5: Dashboard Evolution.** Dynamic greetings, card prioritization, ambient animations, living progress, time-of-day adaptation, discovery moments.
 - **Prompt 6: Micro-Interactions.** Button animations, haptics, card expansion, progress animations, success states, loading transitions, empty states.
 - **Prompt 7: Full App Experience Audit.** Apply the system to every screen: remove static pages and walls of text, add motion, fix pacing and spacing, standardize interactions, eliminate dead screens. May split into 7a (Experiences, onboarding, insight screens) and 7b (dashboard, tools, settings) if too large for one run.
@@ -405,7 +405,7 @@ Non-normative — an aid for whoever picks up each prompt, not part of the locke
 | 1 | §3 (Animation Vocabulary), §4 (Timing and Easing Standards), §10 (Ambient Motion Rules — the low-power hook itself is built here; ambient motion using it is applied in later prompts) |
 | 2 | §6a (Screen Layout System — the section this prompt itself built), §6 (Information Density Rules, the spacing/card-sizing implications of it) |
 | 3 | §5 (Cinematic Pacing Rules), §6 (Information Density Rules), §7 (curiosity-language Continue buttons), §13a (Progressive Reveal Engine — the section this prompt itself built) |
-| 4 | §7 (Root's Behavior Rules), §13 (Signature Moments, memory-callback and discovery-reveal mechanics) |
+| 4 | §7 (Root's Behavior Rules), §13 (Signature Moments, memory-callback and discovery-reveal mechanics), §15 (Root Presence System — the section this prompt itself built) |
 | 5 | §11 (Living Dashboard Rules) |
 | 6 | §9 (Micro-Interaction Standards) |
 | 7 | §2 (Screen Classification — the full Moment/Tool inventory this audit walks screen by screen), §12 (Progressive Trust Timeline) |
@@ -413,4 +413,45 @@ Non-normative — an aid for whoever picks up each prompt, not part of the locke
 
 ---
 
-*End of v1.2. This document should be updated, not superseded, as Prompts 1–8 land — each prompt's actual implementation should be checked against its row above and this Bible corrected if reality diverges from the plan.*
+## 15. Root Presence System (Prompt 4)
+
+Makes Root feel present rather than printed: first-person voice everywhere it already speaks, brief thinking beats before Moment-screen reveals, Root-voiced loading text, real memory callbacks, a one-time no-guilt return greeting, and honest discovery presentation for genuinely new correlation findings. Every fact stated is backed by a real query — no exceptions, per §7/§12's Honest Discovery Rule.
+
+### Memory callback types
+
+`lib/memory-callback/` (`types.ts`, `data.ts`, `copy.ts`) — four conservative, high-confidence types, each a pure `build<Noun>Callback(context): string | null` fed by a typed context assembled entirely from existing reusable queries, returning `null` (never a fabricated line) whenever the backing data doesn't exist:
+
+| Type | Real data source | Where it's said |
+|---|---|---|
+| Stated goal | `member_goal_selections` via `fetchLatestMemberGoalSelection` (`lib/member-goals/data.ts`) — her own free text (`goals_other`) when recorded, otherwise the selected option's label | Day-7 Root pop-up messages (CVS/LSC/RPL), via the shared `appendCallback` helper |
+| Check-in tenure | `daily_checkins_current` — a real total count plus the true first-ever check-in date (unbounded, unlike `lib/scoring/calculate.ts`'s 90-day-bounded `firstEverCheckinDate`) | Daily Brief's `encouragingMessage` slot; Case View's header (never the goal callback there, since the goal is already the header's own title) |
+| Day-3 contrast | `lifestyle_experiments` + `cvs_experiment_daily_logs.day3_response`, any source experience (CVS/LSC/RPL share the table) | Available via `buildDay3ContrastCallback`, not yet wired into a speaking spot beyond the module itself — reserved for a future prompt |
+| Old finding | The same `member_pattern_states` → `buildFindings` read Case View's own list already uses, requiring the finding be at least a week old | Available via `buildFindingCallback`, same status as the day-3 type above |
+
+`appendCallback(base, callback)` is the one shared weave-in helper every speaking spot uses, rather than each hand-rolling its own null-check.
+
+### Thinking moments
+
+`components/closing-screen/KeyFindingReveal.tsx` gained an optional `thinkingText` prop: on a genuine first view, it renders that line immediately, holds for `delayMs` (still tap-anywhere-skippable), then swaps to the real finding — wired into the 3 generic-engine results pages (WBSA, the points-scored engine, Primal Pattern Diet Type). CVS/LSC/RPL's own closing screens needed no new component: `ConversationFlow` already paces an array of message strings, so a thinking line is simply prepended to that array, conditioned on the screen's own `play` (first-view) flag so it never appears on a revisit.
+
+### Loading with purpose
+
+`components/PageSkeleton.tsx` gained an optional `message` prop (a muted caption under the header shimmer) — wired into the 5 Moment-classified `loading.tsx` skeletons and the 3 take-flow skeletons that previously shipped with zero text, plus `AssessmentWizard`'s bare `checkingResume` spinner. The Tool-classified skeletons (dashboard, check-in, food-lens, etc.) were deliberately left untouched — a content-shaped shimmer with no text is already the correct Tool pattern (§9), not a violation. The three takers' duplicated "One moment, Root is putting this together" line is now one shared constant, `ROOT_FINISHING_LABEL` (`lib/reveal/copy.ts`).
+
+### No-guilt return greeting
+
+New `member_return_greetings(member_id, gap_start_local_date, shown_at)` (migration 143) — keyed on the member's last real check-in date before the gap, so the same gap episode can never earn the greeting twice, and a later, genuinely new gap earns its own. Threshold: `daysSinceLastCheckin >= 3` (`RETURN_GREETING_MIN_GAP_DAYS`, `lib/return-greeting/copy.ts`) — two days off is normal cadence (the existing `buildStreakMessage` already treats 2 days as "no worries"), three or more is a real gap worth greeting. `lib/return-greeting/data.ts`'s `tryMarkReturnGreetingShown` is an atomic `insert ... on conflict do nothing`, so a concurrent double-request can never show the greeting twice. Wins the Daily Brief's `encouragingMessage` slot outright, ahead of a streak or a memory callback — zero mention of the gap length or a missed-day count, per §7's "no guilt, ever" rule. A companion data-only migration fixed two dormant, never-actually-rendered guilt-adjacent `ai_rules` seed rows (migration 053) to the same standard, so a future surface reading that table inherits correct copy.
+
+### Discovery moments
+
+New `member_discovery_moments(member_id, signal_key, surfaced_at)` (migration 143) marks a correlation finding (`correlation::<pairKey>`, matching `member_pattern_states`'s own signal key) as already presented once. `lib/discovery-moments/service.ts` reuses Case View's own `buildFindings` read path verbatim, filtered to `tier >= 2` (the same "a pattern, not a one-time observation" bar `lib/intelligence-engine/correlationPatterns.ts` already uses) and to signal keys not yet in the new table — zero new correlation/trend logic.
+
+**Deliberately not the Root pop-up chain** (`app/actions/rootPopupMessages.ts`): that system is explicitly scoped to messages expecting an answer/acknowledge/act, and a 5th message kind appended there would be starved behind day-3/day-7/offer messages for any member mid-experiment. Instead, a new `RootDiscoveryCard` (`components/dashboard/RootDiscoveryCard.tsx`) takes its own slot in the dashboard's "What Root Is Noticing" carousel (§11's own spec for where a discovery moment belongs), reusing the existing `NoticingTile`/`NoticingSheet` tap-to-reveal shell "From Root" already established. The card is marked surfaced server-side the instant it's decided to show (mirroring the Root pop-up offer's own "write on mount" precedent) — a member who never taps it still only ever sees it announced once; after that it simply appears, unflagged, in Case View's own findings list.
+
+### Voice audit
+
+First-person "I" replaced first-person-plural "we" or third-person "Root" self-reference in every place named by this prompt: the dashboard's "From Root" card (`lib/root-coaching-engine/templates.ts`), Reset Plan's own copy (`lib/reset-plan/copy.ts`), "What We're Noticing" and the Insights hub's shell copy, Case View's header/investigation/empty-state copy, and the Daily Brief's sleep/stress summary lines. Deliberately left untouched: `lib/feed/encouragement.ts`'s generic aphorism pool (its own header comment documents this as intentionally non-personalized, not a Root claim) and the many scattered third-person "Root will/can" captions across food-lens/wearables/movement/restaurant UI — genuinely instructional feature copy, not Root mid-conversation, and outside this prompt's named surfaces (Daily Brief, Noticing, Case View, Insights, day-3/day-7, assessment results, coaching copy). A future prompt auditing the full app (per §14's Prompt 7) is the right scope for that remaining sweep.
+
+---
+
+*End of v1.3. This document should be updated, not superseded, as Prompts 1–8 land — each prompt's actual implementation should be checked against its row above and this Bible corrected if reality diverges from the plan.*

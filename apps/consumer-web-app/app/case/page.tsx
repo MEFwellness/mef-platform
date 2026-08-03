@@ -18,6 +18,8 @@ import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { CenterStage } from '@/components/layout';
 import { CaseViewBody } from '@/components/case-view/CaseViewBody';
+import { fetchTenureCallbackContext } from '@/lib/memory-callback/data';
+import { buildTenureCallback } from '@/lib/memory-callback/copy';
 
 const SAFETY_STATEMENT =
   "This view is built from your own check-ins. It shows relationships in your data, not medical conclusions or predictions. Nothing here says one thing causes another; it's something to explore with your coach, not a diagnosis.";
@@ -50,6 +52,13 @@ export default async function CaseViewPage() {
   ]);
   const localDate = todaysLocalDate(profile?.timezone ?? 'America/New_York');
 
+  // Root Presence System, requirement 4: a real memory callback (her
+  // actual check-in tenure), only worth fetching once there's a real case
+  // to attach it to.
+  const memoryCallback = caseView
+    ? buildTenureCallback(await fetchTenureCallbackContext(supabase, user.id, localDate))
+    : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
@@ -67,13 +76,13 @@ export default async function CaseViewPage() {
                 Building your case
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
-                Complete a check-in and this page will start filling in.
+                I don&apos;t have anything to build your case from yet. Complete a check-in and I&apos;ll start filling this in.
               </p>
             </section>
           </CenterStage>
         ) : (
           <div className="mt-3">
-            <CaseViewBody caseView={caseView} localDate={localDate} />
+            <CaseViewBody caseView={caseView} localDate={localDate} memoryCallback={memoryCallback} />
           </div>
         )}
 

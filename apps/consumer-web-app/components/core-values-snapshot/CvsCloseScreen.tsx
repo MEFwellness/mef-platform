@@ -97,7 +97,14 @@ export function CvsCloseScreen({ sessionId, scoring, didStartExperiment, narrati
       </div>
 
       <RevealCard play={play} delayMs={REINFORCEMENT_DELAY_MS} elevated>
-        <ConversationFlow messages={splitIntoSentences(buildCvsClosingReinforcement(didStartExperiment))} initialSkip={!play} />
+        <ConversationFlow
+          messages={
+            play
+              ? ['Looking back at what you shared...', ...splitIntoSentences(buildCvsClosingReinforcement(didStartExperiment))]
+              : splitIntoSentences(buildCvsClosingReinforcement(didStartExperiment))
+          }
+          initialSkip={!play}
+        />
       </RevealCard>
 
       <RevealCard play={play} delayMs={OBSERVATION_DELAY_MS}>

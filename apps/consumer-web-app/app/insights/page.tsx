@@ -65,7 +65,7 @@ export default async function CoachingInsightsPage() {
           Coaching Insights
         </h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
-          Educational observations Root has noticed across your check-ins, meals, and progress,
+          Educational observations I&apos;ve noticed across your check-ins, meals, and progress,
           always grounded in what you&apos;ve actually logged, never a guess.
         </p>
 
@@ -92,7 +92,7 @@ export default async function CoachingInsightsPage() {
         ) : insights.length === 0 && !pictureHasContent ? (
           <section className="mef-card mt-6 p-6">
             <p className="text-sm leading-relaxed text-[#1B3A2D]">
-              Nothing to share yet. Keep logging your check-ins and meals, and Root will have real
+              Nothing to share yet. Keep logging your check-ins and meals, and I&apos;ll have real
               patterns to point out here soon.
             </p>
           </section>

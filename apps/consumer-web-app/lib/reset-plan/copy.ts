@@ -18,7 +18,7 @@ import type { ResetPlanDailyLog, ResetPlanSnapshot } from './types';
 
 export const RESET_PLAN_INTRO_COPY = {
   title: 'You know what matters. You know what is loudest.',
-  lines: ["Now we choose where to begin, together. This is Root's first act as your coach, not another questionnaire."],
+  lines: ["Now we choose where to begin, together. This is my first act as your coach, not another questionnaire."],
   button: 'Begin',
 };
 
@@ -42,8 +42,8 @@ export function buildResetPlanProposal(snapshot: ResetPlanSnapshot): ResetPlanPr
       signal,
       heading: `Let's start with ${SIGNAL_LABEL[signal]}.`,
       body: matchedLsc
-        ? `Life Signal Check found ${SIGNAL_LABEL[signal]} was the loudest thing your body is telling you, and your Readiness Pulse pointed to the same place. That is where Root wants to begin.`
-        : `Your Readiness Pulse pointed here. This is the one place Root has the clearest read on right now.`,
+        ? `Life Signal Check found ${SIGNAL_LABEL[signal]} was the loudest thing your body is telling you, and your Readiness Pulse pointed to the same place. That is where I want to begin.`
+        : `Your Readiness Pulse pointed here. This is the one place I have the clearest read on right now.`,
     };
   }
   if (snapshot.lsc && snapshot.lsc.pattern !== 'quiet_body' && snapshot.loudestSignal) {
@@ -51,13 +51,13 @@ export function buildResetPlanProposal(snapshot: ResetPlanSnapshot): ResetPlanPr
     return {
       signal,
       heading: `Let's start with ${SIGNAL_LABEL[signal]}.`,
-      body: `Life Signal Check found ${SIGNAL_LABEL[signal]} was the loudest thing your body is telling you. That is where Root wants to begin.`,
+      body: `Life Signal Check found ${SIGNAL_LABEL[signal]} was the loudest thing your body is telling you. That is where I want to begin.`,
     };
   }
   return {
     signal: null,
     heading: "This one is your call.",
-    body: "Root doesn't have a strong enough read yet to propose a starting point honestly, so you choose where to begin.",
+    body: "I don't have a strong enough read yet to propose a starting point honestly, so you choose where to begin.",
   };
 }
 
@@ -94,12 +94,12 @@ export function buildResetPlanActionCard(focusSignal: Signal, tier: ActionTier):
   };
 }
 
-/** Screen 5 — what Root will actually do, only what ships in this build. */
+/** Screen 5 — what I will actually do, only what ships in this build. */
 export const RESET_PLAN_AGREEMENT_COPY = {
-  heading: 'What Root will do',
-  dayThreeLine: "On day 3, Root will check in with a simple question: how is it going.",
-  daySevenLine: 'On day 7, Root will reflect back the real pattern, from what you actually logged.',
-  difficultDayOfferLine: "If you log \"not today\" a couple of times, Root will offer to switch you to the difficult-day version instead of quietly disappearing.",
+  heading: 'What I will do',
+  dayThreeLine: "On day 3, I will check in with a simple question: how is it going.",
+  daySevenLine: 'On day 7, I will reflect back the real pattern, from what you actually logged.',
+  difficultDayOfferLine: "If you log \"not today\" a couple of times, I will offer to switch you to the difficult-day version instead of quietly disappearing.",
 };
 
 /** The four response groups the build brief names, keyed by CoachingTonePreference. adaptive/unclear fall to the same gentle middle as the default. */
@@ -108,7 +108,7 @@ export function buildResetPlanMissHandlingLine(tone: CoachingTonePreference, foc
     case 'direct':
       return `You logged not today several times this week. Let's make it easier.`;
     case 'encouragement':
-      return `A few "not today" days on ${SIGNAL_LABEL[focusSignal]} is real life, not a failure. Root is here, and the difficult-day version is ready whenever you want it.`;
+      return `A few "not today" days on ${SIGNAL_LABEL[focusSignal]} is real life, not a failure. I'm here, and the difficult-day version is ready whenever you want it.`;
     case 'meaning_anchored':
       return `A few "not today" days does not undo why ${SIGNAL_LABEL[focusSignal]} mattered enough to start here. The difficult-day version keeps you connected to that, even on the hard days.`;
     case 'education_first':
@@ -136,7 +136,7 @@ export const RESET_PLAN_CLOSING_HEADING = 'Your Personal Reset Plan';
 export const RESET_PLAN_ENTRY_CARD_COPY = {
   before: {
     title: 'Your Personal Reset Plan',
-    body: "Root is ready to turn everything you've discovered into one place to begin.",
+    body: "I'm ready to turn everything you've discovered into one place to begin.",
     button: 'Create My Plan',
   },
   midCreation: {

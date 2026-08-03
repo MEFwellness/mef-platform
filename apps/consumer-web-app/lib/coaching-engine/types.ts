@@ -30,6 +30,10 @@ export type MorningBriefSignals = {
   activeTrendInsights: WellnessInsight[];
   /** lib/feed/continuity.ts's buildContinuitySentence, called by the service layer with the same FeedMemory Today's "A Note from Root" already builds — a real saved-but-not-completed lesson, never invented here. */
   continuitySentence: string | null;
+  /** Root Presence System, requirement 5 — non-null only when the service layer has just atomically confirmed this is a genuinely new, not-yet-greeted multi-day gap. Wins the encouragingMessage slot outright when present. */
+  returnGreeting: string | null;
+  /** Root Presence System, requirement 4 — a real memory-callback sentence (today: check-in tenure), used only when there's no return greeting and no streak worth naming. */
+  memoryCallback: string | null;
 };
 
 export type ComposedMorningBrief = {

@@ -43,7 +43,7 @@ function capitalize(text: string): string {
 
 const ENCOURAGEMENT_HIGH = [
   "You're staying consistent with this, and that follow-through is exactly what helps patterns come into focus.",
-  "You've kept showing up for this, which makes everything we're learning together more reliable.",
+  "You've kept showing up for this, which makes everything I'm learning about you more reliable.",
 ] as const;
 
 const ENCOURAGEMENT_LOW = [
@@ -71,7 +71,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
   first_observation: (ctx) => ({
     observation: pick(
       [
-        `We're beginning to notice a small pattern with ${ctx.topicLabel}.`,
+        `I'm beginning to notice a small pattern with ${ctx.topicLabel}.`,
         `Something new is showing up around ${ctx.topicLabel}.`,
       ],
       `obs::${ctx.rotationSeed}`
@@ -84,7 +84,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       `exp::${ctx.rotationSeed}`
     ),
     action: pick(
-      [`Let's keep paying attention to ${ctx.topicLabel} this week.`, `We'll just keep noticing ${ctx.topicLabel} for now.`],
+      [`Let's keep paying attention to ${ctx.topicLabel} this week.`, `I'll just keep noticing ${ctx.topicLabel} for now.`],
       `act::${ctx.rotationSeed}`
     ),
   }),
@@ -99,13 +99,13 @@ const BUILDERS: Record<ConversationType, Builder> = {
     ),
     explanation:
       ctx.historyDepthDays >= 21
-        ? `Since we first noticed this a few weeks back, it's kept reappearing.`
+        ? `Since I first noticed this a few weeks back, it's kept reappearing.`
         : pick(
             [`A repeat like this is worth a closer look.`, `Once is a coincidence. Twice is worth watching.`],
             `exp::${ctx.rotationSeed}`
           ),
     action: pick(
-      [`Let's keep tracking ${ctx.topicLabel} together.`, `We'll continue watching how ${ctx.topicLabel} unfolds.`],
+      [`Let's keep tracking ${ctx.topicLabel} together.`, `I'll continue watching how ${ctx.topicLabel} unfolds.`],
       `act::${ctx.rotationSeed}`
     ),
   }),
@@ -126,7 +126,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       `exp::${ctx.rotationSeed}`
     ),
     action: pick(
-      [`Let's keep doing what's been working with ${ctx.topicLabel}.`, `We'll keep an eye on ${ctx.topicLabel} to see if this holds.`],
+      [`Let's keep doing what's been working with ${ctx.topicLabel}.`, `I'll keep an eye on ${ctx.topicLabel} to see if this holds.`],
       `act::${ctx.rotationSeed}`
     ),
   }),
@@ -135,7 +135,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
     observation: pick(
       [
         `${capitalize(ctx.topicLabel)} has become a little more consistent lately.`,
-        `We're seeing ${ctx.topicLabel} show up a bit more often recently.`,
+        `I'm seeing ${ctx.topicLabel} show up a bit more often recently.`,
       ],
       `obs::${ctx.rotationSeed}`
     ),
@@ -147,7 +147,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       `exp::${ctx.rotationSeed}`
     ),
     action: pick(
-      [`Let's continue paying attention to ${ctx.topicLabel} this week.`, `We'll keep tracking ${ctx.topicLabel} closely for now.`],
+      [`Let's continue paying attention to ${ctx.topicLabel} this week.`, `I'll keep tracking ${ctx.topicLabel} closely for now.`],
       `act::${ctx.rotationSeed}`
     ),
   }),
@@ -156,16 +156,16 @@ const BUILDERS: Record<ConversationType, Builder> = {
     observation: pick(
       [
         `Some of your recent answers about ${ctx.topicLabel} point in different directions.`,
-        `We're seeing mixed signals around ${ctx.topicLabel} right now.`,
+        `I'm seeing mixed signals around ${ctx.topicLabel} right now.`,
       ],
       `obs::${ctx.rotationSeed}`
     ),
     explanation: pick(
-      ['A little more information may help clarify what’s really going on.', "This isn't unusual: it just means we need a bit more to go on."],
+      ['A little more information may help clarify what’s really going on.', "This isn't unusual: it just means I need a bit more to go on."],
       `exp::${ctx.rotationSeed}`
     ),
     action: pick(
-      [`Let's keep an eye on ${ctx.topicLabel} and see what becomes clearer.`, `We'll watch ${ctx.topicLabel} a bit longer before drawing any conclusions.`],
+      [`Let's keep an eye on ${ctx.topicLabel} and see what becomes clearer.`, `I'll watch ${ctx.topicLabel} a bit longer before drawing any conclusions.`],
       `act::${ctx.rotationSeed}`
     ),
   }),
@@ -176,7 +176,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       `obs::${ctx.rotationSeed}`
     ),
     explanation: pick(
-      ['A bit more information here would help build a clearer picture.', 'This would add to what we already understand.'],
+      ['A bit more information here would help build a clearer picture.', 'This would add to what I already understand.'],
       `exp::${ctx.rotationSeed}`
     ),
     action: pick(
@@ -202,7 +202,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
 
   experiment_follow_up: (ctx) => ({
     observation: pick(
-      [`How did ${ctx.topicLabel} feel?`, `We'd love to hear how ${ctx.topicLabel} has been going.`],
+      [`How did ${ctx.topicLabel} feel?`, `I'd love to hear how ${ctx.topicLabel} has been going.`],
       `obs::${ctx.rotationSeed}`
     ),
     explanation: pick(
@@ -272,7 +272,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
   experiment_unsuccessful: (ctx) => ({
     observation: pick(
       [
-        "This doesn't appear to be giving you the results we hoped for.",
+        "This doesn't appear to be giving you the results I hoped for.",
         `${capitalize(ctx.topicLabel)} doesn't seem to be landing the way we'd hoped.`,
       ],
       `obs::${ctx.rotationSeed}`
@@ -281,7 +281,7 @@ const BUILDERS: Record<ConversationType, Builder> = {
       ["That's still useful to know: it helps rule things out.", "Not every approach works for every person, and that's alright."],
       `exp::${ctx.rotationSeed}`
     ),
-    action: pick(["Let's think about trying something different next.", 'We can look at a different angle from here.'], `act::${ctx.rotationSeed}`),
+    action: pick(["Let's think about trying something different next.", 'I can look at a different angle from here.'], `act::${ctx.rotationSeed}`),
   }),
 };
 

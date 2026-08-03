@@ -34,6 +34,7 @@ import { acknowledgeLscDay7Action, submitLscDay3ResponseAction, startLscExperime
 import { acknowledgeRplDay7Action, submitRplDay3ResponseAction, startRplExperimentAction } from '@/app/actions/readinessPulse';
 import { snoozeRootPopupMessageAction, ignoreRootPopupMessageAction, type RootPopupMessage } from '@/app/actions/rootPopupMessages';
 import { classifyDay7Pattern, type Day3Response } from '@/lib/core-values-snapshot/experiment';
+import { appendCallback } from '@/lib/memory-callback/copy';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ResetPlanPopup } from '@/components/reset-plan/ResetPlanPopup';
 
@@ -203,12 +204,21 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
                   : day3Or7Message.kind === 'rpl_day3'
                     ? rplDay3FollowUpText(day3Or7Message.topLabelText)
                     : day3Or7Message.kind === 'cvs_day7'
-                      ? cvsDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)
+                      ? appendCallback(
+                          cvsDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern),
+                          day3Or7Message.goalCallback
+                        )
                       : day3Or7Message.kind === 'lsc_day7'
-                        ? lscDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)
+                        ? appendCallback(
+                            lscDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern),
+                            day3Or7Message.goalCallback
+                          )
                         : day3Or7Message.topLabelText === 'The Noticing'
                           ? rplNoticingDay7Text(day3Or7Message.logs.filter((l) => l.completed === true).length)
-                          : rplDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern)}
+                          : appendCallback(
+                              rplDay7FollowUpText(day3Or7Message.topLabelText, classifyDay7Pattern(day3Or7Message.logs, day3Or7Message.durationDays).pattern),
+                              day3Or7Message.goalCallback
+                            )}
             </p>
 
             {error && <p className="relative mt-3 text-sm text-[#F5B7A0]">{error}</p>}

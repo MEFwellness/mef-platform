@@ -406,6 +406,7 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
       <CenterStage>
         <Card className="flex flex-col items-center gap-3 text-center">
           <Loader2 className="h-6 w-6 animate-spin text-[#1B3A2D]" aria-hidden="true" />
+          <p className="text-sm text-[#6B7A72]">Checking for where you left off...</p>
         </Card>
       </CenterStage>
     );

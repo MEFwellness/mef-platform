@@ -13,13 +13,19 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { MorningBrief, WellnessInsight } from '@mef/shared-types-contracts';
+import type { DailyCheckin, MorningBrief, WellnessInsight } from '@mef/shared-types-contracts';
 import { getCoachingFocusDecision } from '../brain/service';
 import { currentStreakLength } from '../ai/agents/accountability';
 import { listInsightsForMember } from '../intelligence/data';
 import { listFeedHistory, getContentItemsByIds } from '../feed/data';
 import { buildFeedMemory, type FeedHistoryPair } from '../feed/memory';
 import { buildContinuitySentence } from '../feed/continuity';
+import { daysBetweenLocalDates } from '../feed/dateMath';
+import { RETURN_GREETING_TEXT } from '../return-greeting/copy';
+import { isEligibleForReturnGreeting } from '../return-greeting/gate';
+import { tryMarkReturnGreetingShown } from '../return-greeting/data';
+import { fetchTenureCallbackContext } from '../memory-callback/data';
+import { buildTenureCallback } from '../memory-callback/copy';
 import { composeMorningBrief } from './morningBrief';
 import {
   getHabitLogsForDateForMember,
@@ -61,6 +67,33 @@ async function fetchContinuitySentence(
   return buildContinuitySentence(buildFeedMemory(historyPairs, localDate));
 }
 
+/**
+ * Root Presence System, requirement 5: non-null only when this is a real,
+ * just-confirmed-new multi-day gap. `recentCheckins` is oldest-first and
+ * already captures the member's true most-recent check-in regardless of
+ * how long ago it was (listRecentCheckinsForMember takes the 30 most
+ * recent rows by date, not a 30-calendar-day window), so its last element
+ * is a real "last real check-in" date, not an artifact of a bounded
+ * window. `tryMarkReturnGreetingShown` is the atomic, race-safe claim —
+ * see its own doc comment for why this call, not a separate check, is
+ * what decides whether the greeting is included.
+ */
+async function resolveReturnGreeting(
+  supabase: SupabaseClient,
+  memberId: string,
+  recentCheckins: DailyCheckin[],
+  localDate: string
+): Promise<string | null> {
+  const latest = recentCheckins[recentCheckins.length - 1] ?? null;
+  if (!latest) return null;
+
+  const daysSinceLastCheckin = daysBetweenLocalDates(latest.local_date, localDate);
+  if (!isEligibleForReturnGreeting(daysSinceLastCheckin)) return null;
+
+  const wonThisGap = await tryMarkReturnGreetingShown(supabase, memberId, latest.local_date);
+  return wonThisGap ? RETURN_GREETING_TEXT : null;
+}
+
 export async function getOrCreateTodaysMorningBrief(
   supabase: SupabaseClient,
   memberId: string,
@@ -78,6 +111,7 @@ export async function getOrCreateTodaysMorningBrief(
       habitLogsToday,
       activeTrendInsights,
       continuitySentence,
+      tenureContext,
     ] = await Promise.all([
       getCoachingFocusDecision(supabase, memberId, localDate),
       listRecentCheckinsForMember(supabase, memberId, localDate),
@@ -85,7 +119,13 @@ export async function getOrCreateTodaysMorningBrief(
       getHabitLogsForDateForMember(supabase, memberId, localDate),
       fetchActiveTrendInsights(supabase, memberId),
       fetchContinuitySentence(supabase, memberId, localDate),
+      fetchTenureCallbackContext(supabase, memberId, localDate),
     ]);
+
+    // Sequential, not joined into the Promise.all above: this atomically
+    // claims the return-greeting slot (a write), and only needs
+    // recentCheckins, which the Promise.all above already resolved.
+    const returnGreeting = await resolveReturnGreeting(supabase, memberId, recentCheckins, localDate);
 
     const composed = composeMorningBrief({
       firstName,
@@ -97,6 +137,8 @@ export async function getOrCreateTodaysMorningBrief(
       currentStreak: currentStreakLength(recentCheckins),
       activeTrendInsights,
       continuitySentence,
+      returnGreeting,
+      memoryCallback: buildTenureCallback(tenureContext),
     });
 
     return await insertMorningBrief(supabase, memberId, localDate, composed);

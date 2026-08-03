@@ -104,7 +104,7 @@ export default async function WbsaResultsPage({ params }: { params: { sessionId:
         )}
 
         {/* Progressive Reveal Engine (Prompt 3, requirement 6): the actual findings build up together, one quiet beat after the hero settles, rather than dumping instantly alongside it — first-time-only, instant on every revisit. */}
-        <KeyFindingReveal storageKey={`wbsa-close:${session.id}`}>
+        <KeyFindingReveal storageKey={`wbsa-close:${session.id}`} thinkingText="Looking at your answers...">
           {needsAttention.length > 0 && (
             <section className={`${CARD} mef-animate-in mt-4 p-6`}>
               <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">

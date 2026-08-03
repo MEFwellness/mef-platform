@@ -28,6 +28,7 @@ import { Q12Choice, ScaleBattery, SingleSelectQuestion, type CvsOption } from '.
 import { ReturnToDashboardButton, ResourceSection, WhatRootLearnedSection } from './CvsResultsView';
 import { CvsExperimentPanel } from './CvsExperimentPanel';
 import { CvsCloseScreen } from './CvsCloseScreen';
+import { ROOT_FINISHING_LABEL } from '@/lib/reveal/copy';
 
 type Beat = 'intro' | 'screen1' | 'screen2' | 'screen3' | 'finishing' | 'learned' | 'experiment' | 'resource' | 'close';
 
@@ -294,7 +295,7 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
       {beat === 'finishing' && (
         <div className="flex flex-col items-center justify-center gap-3 py-16">
           <Loader2 className="h-6 w-6 animate-spin text-[#1B3A2D]" aria-hidden="true" />
-          <p className="text-sm text-[#6B7A72]">One moment, Root is putting this together.</p>
+          <p className="text-sm text-[#6B7A72]">{ROOT_FINISHING_LABEL}</p>
         </div>
       )}
 

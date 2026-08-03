@@ -43,7 +43,7 @@ export function buildWhyText(reason: SelectionReason): string {
     case 'narrative_match':
       return reason.narrativeSummary;
     case 'priority_metric':
-      return `We selected today's lesson because ${WELLNESS_METRIC_LABEL[reason.metric].toLowerCase()} has become an area worth extra attention in your recent check-ins.`;
+      return `I selected today's lesson because ${WELLNESS_METRIC_LABEL[reason.metric].toLowerCase()} has become an area worth extra attention in your recent check-ins.`;
     case 'goal_rotation':
       return "Today's lesson brings something a little different into your coaching experience. Variety helps keep things fresh.";
   }

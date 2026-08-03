@@ -64,6 +64,7 @@ import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCar
 import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
 import { CoachingMessageCard } from '@/components/dashboard/CoachingMessageCard';
+import { RootDiscoveryCard } from '@/components/dashboard/RootDiscoveryCard';
 import { ActiveExperimentsSection } from '@/components/dashboard/ActiveExperimentsSection';
 import { PersonalResetPlanCard } from '@/components/reset-plan/PersonalResetPlanCard';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
@@ -543,7 +544,8 @@ export default async function DashboardPage({
 
             {/* ==================================================== */}
             {/* What Root Is Noticing — What We're Noticing, Your Root  */}
-            {/* Map, From Root, and Recommended For You, as a            */}
+            {/* Map, From Root, Recommended For You, and (Root Presence  */}
+            {/* System, Prompt 4) a one-time Discovery card, as a         */}
             {/* horizontal carousel of image-backed vertical cards        */}
             {/* (components/dashboard/NoticingTile.tsx), matching the     */}
             {/* rest of the redesign's image-card language instead of     */}
@@ -553,8 +555,9 @@ export default async function DashboardPage({
             {/* isn't in the row (no gap, no placeholder). Tapping a card  */}
             {/* either navigates to its existing destination (Root Map,   */}
             {/* Recommendations) or opens a bottom sheet with the full     */}
-            {/* original content (What We're Noticing, From Root — both   */}
-            {/* previously had no dedicated destination page).             */}
+            {/* original content (What We're Noticing, From Root, and     */}
+            {/* the Discovery card all previously/never had a dedicated   */}
+            {/* destination page).                                        */}
             {/* ==================================================== */}
             <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>What Root Is Noticing</p>
@@ -571,6 +574,9 @@ export default async function DashboardPage({
                   </Suspense>
                   <Suspense fallback={<NoticingTileSkeleton />}>
                     <RecommendationsCard />
+                  </Suspense>
+                  <Suspense fallback={<NoticingTileSkeleton />}>
+                    <RootDiscoveryCard />
                   </Suspense>
                 </ScrollCarousel>
               </div>

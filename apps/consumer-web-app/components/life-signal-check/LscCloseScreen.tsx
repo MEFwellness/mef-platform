@@ -153,7 +153,14 @@ export function LscCloseScreen({ sessionId, scoring, didStartExperiment, narrati
       </div>
 
       <RevealCard play={play} delayMs={REINFORCEMENT_DELAY_MS} elevated>
-        <ConversationFlow messages={splitIntoSentences(buildLscClosingReinforcement(didStartExperiment))} initialSkip={!play} />
+        <ConversationFlow
+          messages={
+            play
+              ? ['Looking back at what you shared...', ...splitIntoSentences(buildLscClosingReinforcement(didStartExperiment))]
+              : splitIntoSentences(buildLscClosingReinforcement(didStartExperiment))
+          }
+          initialSkip={!play}
+        />
       </RevealCard>
 
       <RevealCard play={play} delayMs={OBSERVATION_DELAY_MS}>

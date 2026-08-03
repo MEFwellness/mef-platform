@@ -59,6 +59,8 @@ import {
   snoozeRootPopupMessage,
   type RootPopupDismissalStatus,
 } from '@/lib/root-popup-messages/data';
+import { fetchGoalCallbackContext } from '@/lib/memory-callback/data';
+import { buildGoalCallback } from '@/lib/memory-callback/copy';
 
 export type RootPopupMessage =
   | { kind: 'cvs_day3'; messageKey: string; experimentId: string; topLabelText: string }
@@ -69,6 +71,8 @@ export type RootPopupMessage =
       topLabelText: string;
       logs: CvsDailyLogRow[];
       durationDays: number;
+      /** Root Presence System, requirement 4 — her real stated goal, when one exists, for the day-7 message to honestly reference. */
+      goalCallback: string | null;
     }
   | { kind: 'cvs_offer'; messageKey: string; sessionId: string; scoring: CvsScoring }
   | { kind: 'lsc_day3'; messageKey: string; experimentId: string; topLabelText: string }
@@ -79,6 +83,7 @@ export type RootPopupMessage =
       topLabelText: string;
       logs: CvsDailyLogRow[];
       durationDays: number;
+      goalCallback: string | null;
     }
   | { kind: 'lsc_offer'; messageKey: string; sessionId: string; scoring: LscScoring }
   | { kind: 'rpl_day3'; messageKey: string; experimentId: string; topLabelText: string }
@@ -89,6 +94,7 @@ export type RootPopupMessage =
       topLabelText: string;
       logs: CvsDailyLogRow[];
       durationDays: number;
+      goalCallback: string | null;
     }
   | { kind: 'rpl_offer'; messageKey: string; sessionId: string; scoring: RplScoring }
   | { kind: 'reset_plan_day3'; messageKey: string; planId: string; focusSignal: Signal }
@@ -130,6 +136,12 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     return isOfferPopupDue(dismissal);
   }
 
+  /** Root Presence System, requirement 4 — fetched lazily, only when a day-7 message is actually about to be returned, so every other call to this function pays no extra query. */
+  async function goalCallbackForDay7(): Promise<string | null> {
+    if (!memberId || !supabase) return null;
+    return buildGoalCallback(await fetchGoalCallbackContext(supabase, memberId));
+  }
+
   const cvsStatus = await getMyCvsExperimentStatusAction();
   // Real bug fixed alongside the same one in
   // components/dashboard/ActiveExperimentsSection.tsx: getMyCvsExperimentStatusAction/
@@ -167,6 +179,7 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
       topLabelText: cvsStatus!.experiment.title,
       logs: cvsStatus!.logs,
       durationDays: cvsStatus!.experiment.durationDays,
+      goalCallback: await goalCallbackForDay7(),
     };
   }
   if (!cvsStatus || cvsStatus.experiment.status !== 'active') {
@@ -205,6 +218,7 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
       topLabelText: lscStatus!.experiment.title,
       logs: lscStatus!.logs,
       durationDays: lscStatus!.experiment.durationDays,
+      goalCallback: await goalCallbackForDay7(),
     };
   }
   if (!lscStatus || lscStatus.experiment.status !== 'active') {
@@ -243,6 +257,7 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
       topLabelText: rplStatus!.experiment.title,
       logs: rplStatus!.logs,
       durationDays: rplStatus!.experiment.durationDays,
+      goalCallback: await goalCallbackForDay7(),
     };
   }
   if (!rplStatus || rplStatus.experiment.status !== 'active') {
