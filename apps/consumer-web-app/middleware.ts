@@ -107,6 +107,7 @@ export async function middleware(request: NextRequest) {
   if (user) {
     const now = Date.now();
     const alreadySticky = request.cookies.get(ENTRY_ANIMATION_PLAY_COOKIE)?.value === '1';
+    console.log('[entry-debug] mw', path, 'incoming login cookie=', request.cookies.get(ENTRY_ANIMATION_LOGIN_COOKIE)?.value, 'play=', request.cookies.get(ENTRY_ANIMATION_PLAY_COOKIE)?.value, 'all cookie names=', request.cookies.getAll().map((c) => c.name).join(','));
 
     let playValue: '1' | '0';
     let refreshLastActive = false;

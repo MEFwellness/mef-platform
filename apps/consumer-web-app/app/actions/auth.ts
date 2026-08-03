@@ -182,6 +182,7 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
     httpOnly: true,
     sameSite: 'lax',
   });
+  console.log('[entry-debug] signIn set login cookie, destination=', destination, 'readback=', cookies().get(ENTRY_ANIMATION_LOGIN_COOKIE)?.value);
   redirect(destination);
 }
 
