@@ -91,13 +91,14 @@ async function getEntryAnimationServerState(): Promise<{
   entryToken: string | null;
   firstName: string | null;
 }> {
-  const entryToken =
-    cookies().get(ENTRY_ANIMATION_LOGIN_COOKIE)?.value ||
-    cookies().get(ENTRY_ANIMATION_PLAY_COOKIE)?.value ||
-    null;
+  const loginCookie = cookies().get(ENTRY_ANIMATION_LOGIN_COOKIE)?.value;
+  const playCookie = cookies().get(ENTRY_ANIMATION_PLAY_COOKIE)?.value;
+  const entryToken = loginCookie || playCookie || null;
+  console.log('[entry-debug] layout loginCookie=', loginCookie, 'playCookie=', playCookie, 'entryToken=', entryToken);
   if (!entryToken) return { entryToken: null, firstName: null };
 
   const user = await getCachedUser();
+  console.log('[entry-debug] layout user=', user?.id ?? null);
   if (!user) return { entryToken: null, firstName: null };
 
   const supabase = createClient();
