@@ -54,10 +54,21 @@ export function RootResetEntryAnimation({
   firstNameRef.current = firstName;
 
   const finish = () => {
+    // eslint-disable-next-line no-console
+    console.log('[entry-debug-client] RootResetEntryAnimation finish() called');
     if (doneRef.current) return;
     doneRef.current = true;
     onComplete();
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[entry-debug-client] RootResetEntryAnimation MOUNTED');
+    return () => {
+      // eslint-disable-next-line no-console
+      console.log('[entry-debug-client] RootResetEntryAnimation UNMOUNTED');
+    };
+  }, []);
 
   // Hard backstop, independent of the phase chain below: guarantees the
   // overlay is removed even if a timer/promise in the chain never

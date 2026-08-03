@@ -89,6 +89,9 @@ export function RootResetEntryGate({
   // redo the sessionStorage dance.
   const resolvedTokenRef = useRef<string | null>(null);
 
+  // eslint-disable-next-line no-console
+  console.log('[entry-debug-client] Gate render, active=', active, 'firstName=', firstName);
+
   useEffect(() => {
     // The authoritative source: the browser's actual cookie jar, not the
     // SSR prop alone — see this component's own header comment for why.
