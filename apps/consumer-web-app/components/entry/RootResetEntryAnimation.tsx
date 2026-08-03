@@ -53,18 +53,23 @@ export function RootResetEntryAnimation({
   const firstNameRef = useRef(firstName);
   firstNameRef.current = firstName;
 
-  const finish = () => {
+  const finish = (reason: string) => {
+    // eslint-disable-next-line no-console
+    console.log('[entry-debug-client] finish() called, reason=', reason, 'doneRef=', doneRef.current);
     if (doneRef.current) return;
     doneRef.current = true;
     onComplete();
   };
+
+  // eslint-disable-next-line no-console
+  console.log('[entry-debug-client] render, reducedMotion=', reducedMotion, 'fullPhase=', fullPhase, 'reducedPhase=', reducedPhase);
 
   // Hard backstop, independent of the phase chain below: guarantees the
   // overlay is removed even if a timer/promise in the chain never
   // resolves. Never itself a source of an early cut — well past every
   // phase chain's own natural total.
   useEffect(() => {
-    const safety = setTimeout(finish, RESET_ENTRY_SAFE_TIMEOUT_MS);
+    const safety = setTimeout(() => finish('safety-timeout'), RESET_ENTRY_SAFE_TIMEOUT_MS);
     return () => clearTimeout(safety);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -104,7 +109,7 @@ export function RootResetEntryAnimation({
         RESET_ENTRY_NAME_WAIT_MS
     );
     schedule(
-      finish,
+      () => finish('full-sequence-end'),
       RESET_ENTRY_ARRIVE_MS +
         RESET_ENTRY_PRESS_MS +
         RESET_ENTRY_RELEASE_MS +
@@ -128,7 +133,7 @@ export function RootResetEntryAnimation({
       RESET_ENTRY_REDUCED_ARRIVE_MS + RESET_ENTRY_REDUCED_WELCOME_MS
     );
     schedule(
-      finish,
+      () => finish('reduced-sequence-end'),
       RESET_ENTRY_REDUCED_ARRIVE_MS + RESET_ENTRY_REDUCED_WELCOME_MS + RESET_ENTRY_REDUCED_EXIT_MS
     );
 
@@ -150,7 +155,7 @@ export function RootResetEntryAnimation({
   return (
     <div
       aria-hidden="true"
-      onClick={finish}
+      onClick={() => finish('click')}
       className={`fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#FAFAF8] ${
         overlayExiting ? (reducedMotion ? 'mef-reset-entry-exit-reduced' : 'mef-reset-entry-exit') : ''
       }`}
