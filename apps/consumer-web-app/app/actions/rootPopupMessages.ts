@@ -41,7 +41,7 @@ import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from './coreValue
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from './lifeSignalCheck';
 import { getMyRplExperimentStatusAction, getMyRplOfferAction } from './readinessPulse';
 import { getMyResetPlanDashboardStateAction } from './resetPlan';
-import { getMyPendingQuestionnaireAssignments } from './assessmentAssignments';
+import { getMyQuestionnaireCatalog } from './questionnaireCatalog';
 import { resolveCvsCheckinPending, type CvsDailyLogRow } from '@/lib/core-values-snapshot/experiment';
 import type { CvsScoring } from '@/lib/core-values-snapshot/types';
 import type { LscScoring } from '@/lib/life-signal-check/types';
@@ -155,23 +155,39 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // Coach-assigned questionnaire (Assignment-Gated Questionnaires task) —
   // checked first, ahead of every self-serve Root message below: a coach's
   // direct action for this member takes priority over Root's own day3/
-  // day7/offer messages. Uses pickFirstDueOneTimeMessage (lib/root-popup-
-  // messages/data.ts) for the exact same guarded "check due-ness, then
-  // fall through to the next candidate" discipline as every offer branch
-  // below — see that helper's own doc comment and
-  // tests/root-popup-messages.test.ts for the regression coverage proving
-  // a dismissed earlier assignment can never suppress a later, still-due
-  // one (the real starvation bug this function's header comment
-  // describes). A member can have more than one pending assignment;
-  // oldest-assigned-and-still-undismissed wins.
-  const pendingAssignments = await getMyPendingQuestionnaireAssignments();
-  const dueAssignment = await pickFirstDueOneTimeMessage(
-    pendingAssignments.map((assignment) => ({
-      ...assignment,
-      messageKey: questionnaireAssignedPopupMessageKey(assignment.assignmentId),
-    })),
-    isOfferStillDue
-  );
+  // day7/offer messages. Reads getMyQuestionnaireCatalog()'s own 'assigned'
+  // section rather than querying assessment_assignments directly — that's
+  // the exact same title/route every other assigned-questionnaire surface
+  // (the Home priority card, the Questionnaires page) already uses per
+  // type (the generic engine's own questionnaire title, Primal Pattern's,
+  // the unified runtime's), so the pop-up can never name a questionnaire
+  // differently than the page the member actually lands on. A real
+  // mismatch found live: entry.displayName alone called Short-HAQ "Short
+  // Health Assessment Questionnaire," while its own page (and the
+  // catalog/priority card, which already read the engine's own title) call
+  // it "Health Check-In Questionnaire" — Root would have announced one
+  // name and shown another.
+  //
+  // Uses pickFirstDueOneTimeMessage (lib/root-popup-messages/data.ts) for
+  // the exact same guarded "check due-ness, then fall through to the next
+  // candidate" discipline as every offer branch below — see that helper's
+  // own doc comment and tests/root-popup-messages.test.ts for the
+  // regression coverage proving a dismissed earlier assignment can never
+  // suppress a later, still-due one (the real starvation bug this
+  // function's header comment describes). A member can have more than one
+  // pending assignment; catalog registry order decides ties (precise
+  // assignment recency doesn't matter here — at most one is ever actually
+  // due and undismissed at a time in practice).
+  const catalog = await getMyQuestionnaireCatalog();
+  const assignmentCandidates = catalog.assigned
+    .filter((card) => card.assignmentId && card.primaryHref)
+    .map((card) => ({
+      assignmentId: card.assignmentId!,
+      displayName: card.title,
+      primaryHref: card.primaryHref!,
+      messageKey: questionnaireAssignedPopupMessageKey(card.assignmentId!),
+    }));
+  const dueAssignment = await pickFirstDueOneTimeMessage(assignmentCandidates, isOfferStillDue);
   if (dueAssignment) {
     return {
       kind: 'questionnaire_assigned',

@@ -44,6 +44,8 @@ export type CatalogCard = {
   primaryHref: string | null;
   resultHref: string | null;
   coachAssignmentReason: string | null;
+  /** The assessment_assignments row id, when this card is currently in the 'assigned' section — the Root pop-up chain's one source for the exact display title/route it uses, so the pop-up copy can never name a questionnaire differently than the card/page the member actually lands on (see app/actions/rootPopupMessages.ts). Null otherwise. */
+  assignmentId: string | null;
 };
 
 export type QuestionnaireCatalog = {
@@ -167,6 +169,7 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
       primaryHref: entry.route,
       resultHref: latestSessionId ? `${entry.route}/results/${latestSessionId}` : null,
       coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
+      assignmentId: facts.pendingAssignment?.id ?? null,
     };
   }
 
@@ -204,6 +207,7 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
         primaryHref: onboardingBaseline ? '/profile/reassessments/new' : '/onboarding',
         resultHref: onboardingBaseline ? '/profile/baseline' : null,
         coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
+        assignmentId: facts.pendingAssignment?.id ?? null,
       });
       continue;
     }
@@ -225,6 +229,7 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
           ? `/assessments/${primalPatternItem.questionnaireId}/results/${primalPatternItem.latestCompleted.id}`
           : null,
         coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
+        assignmentId: facts.pendingAssignment?.id ?? null,
       });
       continue;
     }
@@ -253,6 +258,7 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
           ? `/assessments/${engineItem.questionnaireId}/results/${engineItem.latestCompleted.id}`
           : null,
         coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
+        assignmentId: facts.pendingAssignment?.id ?? null,
       });
       continue;
     }
@@ -276,6 +282,7 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
       primaryHref: null,
       resultHref: null,
       coachAssignmentReason: null,
+      assignmentId: null,
     });
   }
 

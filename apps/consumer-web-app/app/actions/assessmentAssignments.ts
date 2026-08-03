@@ -11,7 +11,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { findAssessmentRegistryEntry, listAssessmentRegistryEntries } from '@/lib/assessment-registry/registry';
+import { findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
 import type { ActionResult } from './auth';
 
@@ -94,60 +94,6 @@ export async function assignAssessmentAction(
   // idempotent outcome as the check above finding it first.
   if (error && error.code !== '23505') return { error: error.message };
   return {};
-}
-
-export type MyPendingQuestionnaireAssignment = {
-  assignmentId: string;
-  assessmentKey: AssessmentKey;
-  displayName: string;
-  /** Where the "Start now" pop-up CTA should send the member — the assessment's own registered overview route. */
-  primaryHref: string;
-};
-
-/**
- * The signed-in member's own pending questionnaire assignments, oldest
- * first — the source list the Root pop-up chain (app/actions/
- * rootPopupMessages.ts) picks from for the "your coach assigned you a new
- * questionnaire" message. A separate, smaller query from
- * getMyQuestionnaireCatalog() on purpose: the pop-up only needs the
- * assignment id (to build a stable per-assignment message key) and enough
- * to render its copy/CTA, not the catalog's full per-type card-building
- * work (draft progress, latest result links, etc.).
- */
-export async function getMyPendingQuestionnaireAssignments(): Promise<
-  MyPendingQuestionnaireAssignment[]
-> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
-
-  const { data, error } = await supabase
-    .from('assessment_assignments')
-    .select('id, assessment_definition_id, created_at')
-    .eq('member_id', user.id)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true });
-
-  if (error || !data) return [];
-
-  const entriesByDatabaseId = new Map(
-    listAssessmentRegistryEntries().map((entry) => [entry.databaseId, entry] as const)
-  );
-
-  const results: MyPendingQuestionnaireAssignment[] = [];
-  for (const row of data) {
-    const entry = entriesByDatabaseId.get(row.assessment_definition_id as string);
-    if (!entry) continue;
-    results.push({
-      assignmentId: row.id as string,
-      assessmentKey: entry.key,
-      displayName: entry.displayName,
-      primaryHref: entry.route,
-    });
-  }
-  return results;
 }
 
 export async function cancelAssessmentAssignmentAction(
