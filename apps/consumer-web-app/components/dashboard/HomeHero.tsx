@@ -23,7 +23,10 @@ import Link from 'next/link';
 import { ChevronRight, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { AvatarLink } from '@/components/AvatarLink';
+import { Breathe } from '@/components/motion/Breathe';
+import { heroOverlayForGreeting } from '@/lib/dashboard/timeOfDayPalette';
 import { RootScoreCountUp } from './RootScoreCountUp';
+import { HeroAmbientGlow } from './HeroAmbientGlow';
 
 const CONFIDENCE_LABEL: Record<RootScoreSnapshot['root_confidence_level'], string> = {
   building: 'Building your baseline',
@@ -65,11 +68,13 @@ function ChangePill({ change }: { change: number | null }) {
 function HeroChrome({
   firstName,
   heroImage,
+  greetingWord,
   compact = false,
   children,
 }: {
   firstName: string;
   heroImage: string;
+  greetingWord: string;
   /**
    * Before a member's first check-in, the hero has only a greeting to
    * show — FirstCheckInWelcome (app/dashboard/page.tsx) carries the rest
@@ -80,6 +85,13 @@ function HeroChrome({
   compact?: boolean;
   children: React.ReactNode;
 }) {
+  // Dashboard Evolution (Prompt 5), requirement 2: the overlay tint
+  // shifts a few percentage points warmer/cooler with time of day —
+  // still the same two-layer legibility wash, keyed off the identical
+  // greetingWord the hero image already switches on, so the two can
+  // never disagree. See lib/dashboard/timeOfDayPalette.ts.
+  const overlay = heroOverlayForGreeting(greetingWord as Parameters<typeof heroOverlayForGreeting>[0]);
+
   return (
     <section className="relative w-full overflow-hidden">
       <div className="absolute inset-0">
@@ -93,8 +105,13 @@ function HeroChrome({
         />
         {/* Stronger on the left and top — a diagonal wash, not a flat tint,
             so the photo still reads as a photo everywhere text isn't. */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/40 to-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/45" />
+        <div className={`absolute inset-0 ${overlay.diagonal}`} />
+        <div className={`absolute inset-0 ${overlay.vertical}`} />
+        {/* Requirement 4 (Ambient Motion): a barely-perceptible warm glow
+            that slowly drifts — the hero's one piece of "subtle life,"
+            gated behind the low-power fallback inside the component
+            itself. */}
+        <HeroAmbientGlow />
       </div>
 
       {/* `relative` (no z-index) is enough to paint this above the
@@ -158,11 +175,21 @@ function HeroChrome({
 export function HomeHero({
   firstName,
   greetingWord,
+  greetingLine,
   snapshot,
   hasCheckins,
 }: {
   firstName: string;
   greetingWord: string;
+  /**
+   * Dashboard Evolution (Prompt 5), requirement 1: a short, Root-voiced
+   * second line under the greeting — lib/dashboard/greeting.ts's
+   * buildGreetingLine, computed by app/dashboard/page.tsx from real
+   * context only (the hour and whether today's check-in exists) and
+   * rotated by the member's own local date so it doesn't repeat daily.
+   * Never computed in this component — presentation only.
+   */
+  greetingLine: string;
   snapshot: RootScoreSnapshot | null;
   /**
    * Before a member's first completed check-in, FirstCheckInWelcome (see
@@ -178,20 +205,22 @@ export function HomeHero({
 
   if (!hasCheckins) {
     return (
-      <HeroChrome firstName={firstName} heroImage={heroImage} compact>
+      <HeroChrome firstName={firstName} heroImage={heroImage} greetingWord={greetingWord} compact>
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#FAFAF8] md:text-4xl">
           {greetingWord}, {firstName}
         </h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>
       </HeroChrome>
     );
   }
 
   if (!snapshot || snapshot.root_score === null) {
     return (
-      <HeroChrome firstName={firstName} heroImage={heroImage}>
+      <HeroChrome firstName={firstName} heroImage={heroImage} greetingWord={greetingWord}>
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#FAFAF8] md:text-[2.75rem]">
           {greetingWord}, {firstName}
         </h1>
+        <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>
         <h2 className="mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#FAFAF8]">
           Building your Root Score
         </h2>
@@ -211,19 +240,26 @@ export function HomeHero({
   }
 
   return (
-    <HeroChrome firstName={firstName} heroImage={heroImage}>
+    <HeroChrome firstName={firstName} heroImage={heroImage} greetingWord={greetingWord}>
       <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#FAFAF8] md:text-[2.75rem]">
         {greetingWord}, {firstName}
       </h1>
+      <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>
 
       <div className="mt-6 flex flex-wrap items-end gap-4">
-        <div className="flex items-baseline gap-1">
+        {/* Requirement 5 (Living Progress): the count-up (already built,
+            Prompt 1) is how the Root Score arrives; requirement 4/6
+            (Ambient Motion / Subtle State Moments) is how it idles once
+            settled — a gentle breathe rather than sitting frozen, the
+            one ambient breathing element this page uses (Bible §10: at
+            most one breathing/pulsing/floating element visible at once). */}
+        <Breathe className="flex items-baseline gap-1">
           <RootScoreCountUp
             value={snapshot.root_score}
             className="font-[family-name:var(--font-cormorant-garamond)] text-6xl leading-none text-[#FAFAF8]"
           />
           <span className="text-lg font-medium text-[#FAFAF8]/60">/100</span>
-        </div>
+        </Breathe>
         <ChangePill change={snapshot.root_score_change} />
       </div>
 

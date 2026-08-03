@@ -78,3 +78,22 @@ export function appendCallback(base: string, callback: string | null): string {
   if (!callback) return base;
   return `${base} ${callback}`;
 }
+
+/**
+ * Dashboard Evolution (Prompt 5), requirement 7: picks a single memory
+ * callback to speak from the three dormant-until-now candidates, in
+ * priority order from most to least specific/timely — a day-3 contrast
+ * is a callback to something she told me recently, a resurfaced finding
+ * is a specific-but-older discovery, and tenure is the always-available
+ * generic fallback (any member with at least one check-in has one).
+ * Each argument is already the real built sentence (or null) from this
+ * module's own builders above — this function does no data access and
+ * fabricates nothing itself, it only orders what's already honest.
+ */
+export function pickMemoryCallback(
+  day3ContrastCallback: string | null,
+  findingCallback: string | null,
+  tenureCallback: string | null
+): string | null {
+  return day3ContrastCallback ?? findingCallback ?? tenureCallback;
+}

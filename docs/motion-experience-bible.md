@@ -316,13 +316,41 @@ Subtle background life — slow gradients, floating particles, breathing element
 
 ## 11. Living Dashboard Rules
 
-The Home dashboard (`app/dashboard/page.tsx`) is a Tool by pacing (§2) but the app's primary example of "same information, evolving presentation" — it must never look identical two days in a row.
+The Home dashboard (`app/dashboard/page.tsx`) is a Tool by pacing (§2) but the app's primary example of "same information, evolving presentation" — it must never look identical two days in a row. §11 through §11c below are the finalized rules **Prompt 5 (Dashboard Evolution)** shipped; §14 marks that prompt complete.
 
-- **Time-of-day greeting and palette shifts.** The hero (`components/dashboard/HomeHero.tsx`) already carries a photo hero with a dark diagonal gradient and a greeting; extend this with a genuine time-of-day read (morning/midday/evening tone shift in the greeting copy and gradient warmth), not just a static "Hello."
-- **Card prioritization logic.** The current zoned layout (Quick Actions, Today, Your Path, What Root Is Noticing, Trends, Coming Up — per `project_home_dashboard_redesign`) is fixed-order today. The living version reorders or resizes zones based on real state: a member with a fresh, unread finding sees "What Root Is Noticing" surface higher; a member mid-Reset-Plan sees "Your Path" surface higher. Reordering must be driven by real state, per the Honest Discovery Rule (§7) — never a fake "for you" heuristic with nothing behind it.
-- **Subtle celebration states.** When something real just happened — a milestone, a completed assessment, a streak-free growth moment (§7) — the relevant card gets a one-time celebratory treatment (the gold-sweep/draw-check vocabulary from §3/§9), gated the same way `useCloseScreenReveal` gates the closing screens: once per real event, never on every visit.
-- **Discovery moment slots.** Reserve visual space in the "What Root Is Noticing" zone specifically for new findings crossing the Progressive Trust Timeline (§12) — this is where a member first sees that Root has unlocked a new kind of insight about them.
-- Scroll-based reveal (`components/dashboard/RevealOnScroll.tsx`, already respects `prefers-reduced-motion`) stays as the entrance mechanism for zones; this section is about what's *inside* each zone changing, not about re-litigating how zones enter.
+### 11a. Dynamic greetings (`lib/dashboard/greeting.ts`)
+
+The hero (`components/dashboard/HomeHero.tsx`) shows the existing time-band greeting word (`Good morning`/`Good afternoon`/`Good evening`, from `lib/feed/timeContext.ts`) plus a new short second line underneath, Root-voiced, warm, and drawing on exactly one real fact beyond the hour: whether today's check-in already exists (`!!todaysCheckin`, already fetched by `app/dashboard/page.tsx` — no new query). Each of the three bands has separate "pending" and "done" line sets (3-4 short variants each, App Copy Rules-compliant, no em dashes). Selection is **deterministic by the member's own local date** (a simple modulo over the date's digits, `buildGreetingLine`'s `dailySeed`), not request-time or random — the same day always shows the same line (no jarring mid-day change on reload), and the line only changes from one calendar day to the next, satisfying "several variations... so mornings don't repeat the identical line daily" without ever inventing context that isn't real.
+
+### 11b. Time-of-day adaptation (`lib/dashboard/timeOfDayPalette.ts`)
+
+The hero's existing two-layer darkening overlay (needed for text legibility over the photo) now carries a faint band-specific undertone in its lightest stop only: morning trends a few points lighter with a faint forest-green (`#1B3A2D`) undertone ("brighter and fresher"), evening trends a few points darker with a faint gold/amber (`#7A5900`) undertone ("warmer and calmer"), afternoon is the original, unchanged neutral values. The page shell's own background wash (`app/dashboard/page.tsx`) gets the same treatment: unchanged mint/cream by day, a touch of cream/gold warmth in the evening. Every value stays inside the locked palette (forest green / gold / cream) — this is a tint shift on existing gradients, never a new color or a redesign. The hero photo itself continues to switch on the identical `greetingWord`, so image, overlay tint, and greeting text can never disagree with each other.
+
+### 11c. Card prioritization (`lib/dashboard/prioritization.ts`)
+
+Two independent, pure, fully-tested reorderings — deliberately **within** a zone, not a reshuffle of zone order, so every card stays exactly as reachable as before and the page's overall shape never changes:
+
+- **Today zone** (`orderTodayCards(hasCheckinToday)`): the single most actionable block leads. Check-in not done yet today → the check-in entry point (the "Today's Numbers"/prompt block) rises to the top of the zone. Check-in already done → today's real progress/reflection content (`DailyWellnessSection`) leads instead. The Daily Brief and any assigned-programs card keep their original relative order beneath the leader either way — this is a promotion of one block, not a full re-sort.
+- **"What Root Is Noticing" carousel**: `RootDiscoveryCard` (Prompt 4's discovery moment) always occupies the lead slot ahead of the routine cards (What We're Noticing, Root Map, From Root, Recommended For You). It renders nothing at all on a day with no genuinely new finding, so this costs nothing visually on any other day, and required no new fetch to decide — each tile still independently self-gates, per the Honest Discovery Rule (§7).
+
+Both rules are rules-based and fully deterministic: the same real state always produces the same order (`tests/dashboard-prioritization.test.ts`). Navigation, the bottom bar, and Quick Actions are explicitly out of scope and never reorder.
+
+### 11d. Ambient motion and living progress on Home
+
+Two additions, deliberately the only two ambient/idle elements on the page at once (Bible §10's "never more than one breathing/pulsing/floating element visible on screen at once" — the gradient drift is a different animation type, not a breathing/pulsing/floating discrete element, so the two can coexist):
+
+- **`components/dashboard/HeroAmbientGlow.tsx`** — a single soft, blurred glow behind the hero's text column, slowly drifting opacity (0.10 → 0.20, within §10's ≤15pp guidance) and position (`translate3d`, GPU-friendly) via the new `.mef-gradient-drift` keyframe (`app/globals.css`, 18s loop). Gated behind `useLowPowerMode` (Prompt 1) at the component level — renders nothing at all under reduced motion, low battery, or a low-end device signal, verified live via Playwright with `reducedMotion: 'reduce'` emulated.
+- **Root Score breathing** (`components/dashboard/HomeHero.tsx`) — once the count-up animation (Prompt 1, already shipped) settles on a real score, the number and its `/100` suffix breathe gently forever via the existing `.mef-root-score-breathe` class, wrapped through the generic `Breathe` primitive (`components/motion/Breathe.tsx`) rather than a new implementation. This is Living Progress's "idle gracefully rather than sitting frozen" for the Root Score, and this page's one Breathe instance. The Energy Trend chart already draws in on scroll (`components/ScrollDrawIn.tsx`, pre-existing) and needed no change.
+
+No number, threshold, or calculation changed anywhere in this work — every addition above is presentation-only, layered on data the page already fetches.
+
+### 11e. Memory callbacks wired to a live speaking spot (Prompt 5, requirement 7)
+
+Two memory-callback types Prompt 4 built and pure-tested but never wired anywhere (`buildDay3ContrastCallback`, `buildFindingCallback`, `lib/memory-callback/`) now speak through the exact same Daily Brief `encouragingMessage` slot the tenure callback already occupied (`lib/coaching-engine/service.ts`). `lib/memory-callback/copy.ts`'s new `pickMemoryCallback` orders the three by specificity/timeliness: a real day-3 contrast (a recent, timely callback to something she told Root directly) wins first, a real resurfaced finding (specific but older) second, real tenure (always available once check-ins exist) last, `null` when none apply. Same conservative, data-gated rule as every other callback: each builder still independently returns `null` whenever its own real backing data doesn't exist, so a member with no experiment and no earned finding simply falls through to tenure exactly as before. Case View's own tenure-only callback is untouched — this wiring is dashboard-only, per this prompt's scope.
+
+### Superseded by the above
+
+The following legacy bullets described the *speculative* plan from before this prompt shipped: reordering whole zones against each other (e.g. "Your Path" surfacing above "What Root Is Noticing"), and a general celebration-state mechanism beyond what §3/§9's existing vocabulary already covers. Neither shipped as originally speculated — §11c's within-zone reordering was chosen instead, for the "every card remains reachable in its usual section" guarantee this prompt required, and no new celebration mechanism was needed beyond the existing Discovery Moment/Progressive Trust Timeline (§12) machinery already in place. Scroll-based reveal (`components/dashboard/RevealOnScroll.tsx`) is unchanged and stays the entrance mechanism for zones.
 
 ---
 
@@ -391,7 +419,7 @@ The reusable machinery behind §5's pacing template and §6's "Conversational se
 - **Prompt 2: Screen Layout System.** Eliminate dead space, vertically center short content, responsive spacing, card sizing rules, reading-width rules, premium spacing system.
 - **Prompt 3: Progressive Reveal Engine.** Replace walls of text: typewriter effects, step-by-step reveals, conversation flow, multi-step cards, auto-advance where appropriate, reading-time pacing. Includes converting the 11 plain "Continue" buttons to curiosity language.
 - **Prompt 4: Root Presence System.** *(Complete.)* Thinking moments, pauses, discovery reveals, memory callbacks, coaching language, emotional pacing, curiosity-driven transitions. Includes adding the no-guilt "I'm glad you're back" return copy.
-- **Prompt 5: Dashboard Evolution.** Dynamic greetings, card prioritization, ambient animations, living progress, time-of-day adaptation, discovery moments.
+- **Prompt 5: Dashboard Evolution.** *(Complete.)* Dynamic greetings, card prioritization, ambient animations, living progress, time-of-day adaptation, discovery moments — see §11a-§11e.
 - **Prompt 6: Micro-Interactions.** Button animations, haptics, card expansion, progress animations, success states, loading transitions, empty states.
 - **Prompt 7: Full App Experience Audit.** Apply the system to every screen: remove static pages and walls of text, add motion, fix pacing and spacing, standardize interactions, eliminate dead screens. May split into 7a (Experiences, onboarding, insight screens) and 7b (dashboard, tools, settings) if too large for one run.
 - **Prompt 8: Final Polish & Premium QA.** Consistency review, animation performance optimization, low-power fallback, accessibility checks, mobile responsiveness, performance profiling, final visual polish.

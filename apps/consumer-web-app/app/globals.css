@@ -108,6 +108,41 @@
   }
 }
 
+/**
+ * Dashboard Evolution (Prompt 5) — Ambient Motion (Bible §10/§11): the
+ * Home hero's "slow gradient drift." GPU-friendly properties only
+ * (opacity + transform), per this prompt's own performance budget.
+ * Opacity delta stays within Bible §10's <=15pp ambient limit (0.10 to
+ * 0.20); position drift is a small percentage-based translate, not a
+ * pixel value, since this element's own size varies by viewport.
+ * Gated behind useLowPowerMode at the component level
+ * (components/dashboard/HeroAmbientGlow.tsx), same as .mef-float — this
+ * media query is the accessibility-critical belt-and-suspenders layer
+ * every animation in this file carries, per that section's own rule.
+ */
+@keyframes mef-gradient-drift {
+  0%,
+  100% {
+    opacity: 0.1;
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 0.2;
+    transform: translate3d(-4%, 3%, 0);
+  }
+}
+
+.mef-gradient-drift {
+  animation: mef-gradient-drift 18s var(--mef-ease-ambient) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-gradient-drift {
+    animation: none !important;
+    opacity: 0.1;
+  }
+}
+
 /*
  * Micro-interaction keyframes for the Daily Coaching Experience
  * (app/today/page.tsx, FeedInteractions.tsx) — calm, subtle motion only:

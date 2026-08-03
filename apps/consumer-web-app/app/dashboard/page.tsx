@@ -25,7 +25,7 @@
  * server action call changed — only the JSX below them.
  */
 
-import { Suspense } from 'react';
+import { Fragment, Suspense } from 'react';
 import { Moon, Activity, Bone, Calendar, Smile, Utensils, Footprints, TrendingUp } from 'lucide-react';
 import { getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
@@ -73,6 +73,9 @@ import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
 import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
 import { ScrollCarousel } from '@/components/carousel/ScrollCarousel';
 import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart';
+import { buildGreetingLine } from '@/lib/dashboard/greeting';
+import { orderTodayCards, type TodayCardKey } from '@/lib/dashboard/prioritization';
+import { pageBackgroundForGreeting } from '@/lib/dashboard/timeOfDayPalette';
 import {
   stressStatus,
   painStatus,
@@ -250,8 +253,209 @@ export default async function DashboardPage({
   // experiment saw this empty-state card instead of Active Experiments.
   const hasActiveExperiment = lifestyleExperiments.some((e) => e.status === 'active');
 
+  // Dashboard Evolution (Prompt 5): both of these are pure functions of
+  // facts already fetched above (todaysCheckin, timeContext, localDate)
+  // — no new query, no new state. See lib/dashboard/greeting.ts and
+  // lib/dashboard/prioritization.ts for the actual rules.
+  const hasCheckinToday = !!todaysCheckin;
+  const heroGreetingLine = buildGreetingLine({
+    greetingWord: timeContext.greetingWord,
+    hasCheckinToday,
+    localDate,
+  });
+  const todayCardOrder = orderTodayCards(hasCheckinToday);
+
+  const morningBriefNode = morningBrief ? (
+    <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
+  ) : null;
+
+  const assignedProgramsNode = <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />;
+
+  const wellnessReflectionNode = (
+    <DailyWellnessSection checkin={todaysCheckin} eveningReflection={eveningReflection} />
+  );
+
+  const numbersOrPromptNode = todaysCheckin ? (
+    <div>
+      <p className="pb-1 text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40">
+        Today&apos;s Numbers
+      </p>
+      <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
+        <HydrationTracker initialTotal={hydrationTotal} />
+
+        <div className={TRACKER_CARD}>
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Moon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Sleep</p>
+          </div>
+          {todaysCheckin?.sleep_duration ? (
+            <>
+              <p
+                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[sleepDurationStatus(todaysCheckin.sleep_duration)].text}`}
+              >
+                {todaysCheckin.sleep_duration}
+              </p>
+              <div className="mt-auto flex gap-1 pt-3">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <div
+                    key={n}
+                    className={`h-2 flex-1 rounded-full ${
+                      todaysCheckin?.sleep_quality && n <= todaysCheckin.sleep_quality
+                        ? STATUS_STYLES[sleepQualityStatus(todaysCheckin.sleep_quality)]
+                            .dot
+                        : 'bg-[#EFE9DB]'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="mt-auto text-sm text-[#6B7A72]">Not logged yet</p>
+          )}
+        </div>
+
+        <div className={TRACKER_CARD}>
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Stress</p>
+          </div>
+          <p
+            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[stressStatus(todaysCheckin?.stress_level ?? null)].text}`}
+          >
+            {stressLabel(todaysCheckin?.stress_level ?? null)}
+          </p>
+          <div className="mt-auto flex gap-1 pt-3">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div
+                key={n}
+                className={`h-2 flex-1 rounded-full ${
+                  todaysCheckin?.stress_level && n <= todaysCheckin.stress_level
+                    ? STATUS_STYLES[stressStatus(todaysCheckin.stress_level)].dot
+                    : 'bg-[#EFE9DB]'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className={TRACKER_CARD}>
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Bone className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Pain</p>
+          </div>
+          <p
+            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[painStatus(todaysCheckin?.pain_discomfort_level ?? null)].text}`}
+          >
+            {painLabel(todaysCheckin?.pain_discomfort_level ?? null)}
+          </p>
+          <div className="mt-auto flex gap-1 pt-3">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div
+                key={n}
+                className={`h-2 flex-1 rounded-full ${
+                  todaysCheckin?.pain_discomfort_level != null &&
+                  n <= todaysCheckin.pain_discomfort_level
+                    ? STATUS_STYLES[painStatus(todaysCheckin.pain_discomfort_level)].dot
+                    : 'bg-[#EFE9DB]'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className={TRACKER_CARD}>
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Smile className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Mood</p>
+          </div>
+          <p
+            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[moodStatus(todaysCheckin?.mood_level ?? null)].text}`}
+          >
+            {moodLabel(todaysCheckin?.mood_level ?? null)}
+          </p>
+          <div className="mt-auto flex gap-1 pt-3">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div
+                key={n}
+                className={`h-2 flex-1 rounded-full ${
+                  todaysCheckin?.mood_level && n <= todaysCheckin.mood_level
+                    ? STATUS_STYLES[moodStatus(todaysCheckin.mood_level)].dot
+                    : 'bg-[#EFE9DB]'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className={TRACKER_CARD}>
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Utensils className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Digestion</p>
+          </div>
+          <p
+            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[digestionStatus(todaysCheckin?.digestion_rating ?? null)].text}`}
+          >
+            {digestionLabel(todaysCheckin?.digestion_rating ?? null)}
+          </p>
+          <div className="mt-auto flex gap-1 pt-3">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div
+                key={n}
+                className={`h-2 flex-1 rounded-full ${
+                  todaysCheckin?.digestion_rating && n <= todaysCheckin.digestion_rating
+                    ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].dot
+                    : 'bg-[#EFE9DB]'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className={TRACKER_CARD}>
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Footprints className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Movement</p>
+          </div>
+          <p
+            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
+          >
+            {movementLabel(todaysCheckin?.movement_today ?? null)}
+          </p>
+          <div className="mt-auto pt-3">
+            <span
+              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].bg} ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
+            >
+              {todaysCheckin?.movement_today
+                ? movementStatus(todaysCheckin.movement_today) === 'good'
+                  ? 'On track'
+                  : movementStatus(todaysCheckin.movement_today) === 'attention'
+                    ? 'Could be more'
+                    : 'Sedentary'
+                : 'No data'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="flex items-center justify-between gap-3 border-b border-[#1B3A2D]/8 py-4">
+      <p className="text-sm text-[#6B7A72]">
+        Complete today&apos;s check-in to see today&apos;s numbers here.
+      </p>
+    </div>
+  );
+
+  const TODAY_CARD_NODES: Record<TodayCardKey, React.ReactNode> = {
+    morning_brief: morningBriefNode,
+    assigned_programs: assignedProgramsNode,
+    wellness_reflection: wellnessReflectionNode,
+    numbers_or_prompt: numbersOrPromptNode,
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+    <div
+      className={`min-h-screen font-[family-name:var(--font-dm-sans)] ${pageBackgroundForGreeting(timeContext.greetingWord)}`}
+    >
       {/* -------------------------------------------------------- */}
       {/* Hero — full-bleed, edge to edge, sits above the padded     */}
       {/* main column entirely so the photo can reach the true       */}
@@ -260,6 +464,7 @@ export default async function DashboardPage({
       <HomeHero
         firstName={firstName}
         greetingWord={timeContext.greetingWord}
+        greetingLine={heroGreetingLine}
         snapshot={rootScoreSnapshot}
         hasCheckins={hasCheckins}
       />
@@ -303,184 +508,18 @@ export default async function DashboardPage({
             {/* ==================================================== */}
             <RevealOnScroll delayMs={60} className="mt-8 md:mt-10">
               <p className={ZONE_LABEL}>Today</p>
+              {/* Dashboard Evolution (Prompt 5), requirement 3: card
+                  prioritization. Same four blocks as before, now in the
+                  order lib/dashboard/prioritization.ts's orderTodayCards
+                  computes from real state (whether today's check-in
+                  exists) -- the check-in prompt leads when it is not
+                  done yet, today's real progress/reflection leads once
+                  it is. Every block still renders exactly what it
+                  always did; only its position changes. */}
               <div className="mt-4 space-y-4">
-                {morningBrief && (
-                  <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
-                )}
-
-                <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />
-
-                <DailyWellnessSection checkin={todaysCheckin} eveningReflection={eveningReflection} />
-
-                {todaysCheckin ? (
-                  <div>
-                    <p className="pb-1 text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40">
-                      Today&apos;s Numbers
-                    </p>
-                    <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-                      <HydrationTracker initialTotal={hydrationTotal} />
-
-                      <div className={TRACKER_CARD}>
-                        <div className="flex items-center gap-2 text-[#6B7A72]">
-                          <Moon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                          <p className="text-sm font-semibold uppercase tracking-wider">Sleep</p>
-                        </div>
-                        {todaysCheckin?.sleep_duration ? (
-                          <>
-                            <p
-                              className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[sleepDurationStatus(todaysCheckin.sleep_duration)].text}`}
-                            >
-                              {todaysCheckin.sleep_duration}
-                            </p>
-                            <div className="mt-auto flex gap-1 pt-3">
-                              {[1, 2, 3, 4, 5].map((n) => (
-                                <div
-                                  key={n}
-                                  className={`h-2 flex-1 rounded-full ${
-                                    todaysCheckin?.sleep_quality && n <= todaysCheckin.sleep_quality
-                                      ? STATUS_STYLES[sleepQualityStatus(todaysCheckin.sleep_quality)]
-                                          .dot
-                                      : 'bg-[#EFE9DB]'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                          </>
-                        ) : (
-                          <p className="mt-auto text-sm text-[#6B7A72]">Not logged yet</p>
-                        )}
-                      </div>
-
-                      <div className={TRACKER_CARD}>
-                        <div className="flex items-center gap-2 text-[#6B7A72]">
-                          <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                          <p className="text-sm font-semibold uppercase tracking-wider">Stress</p>
-                        </div>
-                        <p
-                          className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[stressStatus(todaysCheckin?.stress_level ?? null)].text}`}
-                        >
-                          {stressLabel(todaysCheckin?.stress_level ?? null)}
-                        </p>
-                        <div className="mt-auto flex gap-1 pt-3">
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <div
-                              key={n}
-                              className={`h-2 flex-1 rounded-full ${
-                                todaysCheckin?.stress_level && n <= todaysCheckin.stress_level
-                                  ? STATUS_STYLES[stressStatus(todaysCheckin.stress_level)].dot
-                                  : 'bg-[#EFE9DB]'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className={TRACKER_CARD}>
-                        <div className="flex items-center gap-2 text-[#6B7A72]">
-                          <Bone className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                          <p className="text-sm font-semibold uppercase tracking-wider">Pain</p>
-                        </div>
-                        <p
-                          className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[painStatus(todaysCheckin?.pain_discomfort_level ?? null)].text}`}
-                        >
-                          {painLabel(todaysCheckin?.pain_discomfort_level ?? null)}
-                        </p>
-                        <div className="mt-auto flex gap-1 pt-3">
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <div
-                              key={n}
-                              className={`h-2 flex-1 rounded-full ${
-                                todaysCheckin?.pain_discomfort_level != null &&
-                                n <= todaysCheckin.pain_discomfort_level
-                                  ? STATUS_STYLES[painStatus(todaysCheckin.pain_discomfort_level)].dot
-                                  : 'bg-[#EFE9DB]'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className={TRACKER_CARD}>
-                        <div className="flex items-center gap-2 text-[#6B7A72]">
-                          <Smile className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                          <p className="text-sm font-semibold uppercase tracking-wider">Mood</p>
-                        </div>
-                        <p
-                          className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[moodStatus(todaysCheckin?.mood_level ?? null)].text}`}
-                        >
-                          {moodLabel(todaysCheckin?.mood_level ?? null)}
-                        </p>
-                        <div className="mt-auto flex gap-1 pt-3">
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <div
-                              key={n}
-                              className={`h-2 flex-1 rounded-full ${
-                                todaysCheckin?.mood_level && n <= todaysCheckin.mood_level
-                                  ? STATUS_STYLES[moodStatus(todaysCheckin.mood_level)].dot
-                                  : 'bg-[#EFE9DB]'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className={TRACKER_CARD}>
-                        <div className="flex items-center gap-2 text-[#6B7A72]">
-                          <Utensils className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                          <p className="text-sm font-semibold uppercase tracking-wider">Digestion</p>
-                        </div>
-                        <p
-                          className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[digestionStatus(todaysCheckin?.digestion_rating ?? null)].text}`}
-                        >
-                          {digestionLabel(todaysCheckin?.digestion_rating ?? null)}
-                        </p>
-                        <div className="mt-auto flex gap-1 pt-3">
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <div
-                              key={n}
-                              className={`h-2 flex-1 rounded-full ${
-                                todaysCheckin?.digestion_rating && n <= todaysCheckin.digestion_rating
-                                  ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].dot
-                                  : 'bg-[#EFE9DB]'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className={TRACKER_CARD}>
-                        <div className="flex items-center gap-2 text-[#6B7A72]">
-                          <Footprints className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                          <p className="text-sm font-semibold uppercase tracking-wider">Movement</p>
-                        </div>
-                        <p
-                          className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
-                        >
-                          {movementLabel(todaysCheckin?.movement_today ?? null)}
-                        </p>
-                        <div className="mt-auto pt-3">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].bg} ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
-                          >
-                            {todaysCheckin?.movement_today
-                              ? movementStatus(todaysCheckin.movement_today) === 'good'
-                                ? 'On track'
-                                : movementStatus(todaysCheckin.movement_today) === 'attention'
-                                  ? 'Could be more'
-                                  : 'Sedentary'
-                              : 'No data'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between gap-3 border-b border-[#1B3A2D]/8 py-4">
-                    <p className="text-sm text-[#6B7A72]">
-                      Complete today&apos;s check-in to see today&apos;s numbers here.
-                    </p>
-                  </div>
-                )}
+                {todayCardOrder.map((key) => (
+                  <Fragment key={key}>{TODAY_CARD_NODES[key]}</Fragment>
+                ))}
               </div>
             </RevealOnScroll>
 
@@ -561,8 +600,19 @@ export default async function DashboardPage({
             {/* ==================================================== */}
             <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>What Root Is Noticing</p>
+              {/* Dashboard Evolution (Prompt 5), requirement 3: a new
+                  discovery moment outranks routine cards whenever one
+                  exists — RootDiscoveryCard now leads this carousel
+                  (lib/dashboard/prioritization.ts's NOTICING_CARD_ORDER).
+                  It renders nothing at all on a day with no genuinely
+                  new finding, so this reordering costs nothing visually
+                  on every other day; no extra fetch was added to decide
+                  this, each tile still independently self-gates. */}
               <div className="mt-4">
                 <ScrollCarousel>
+                  <Suspense fallback={<NoticingTileSkeleton />}>
+                    <RootDiscoveryCard />
+                  </Suspense>
                   <Suspense fallback={<NoticingTileSkeleton />}>
                     <WhatWereNoticingCard />
                   </Suspense>
@@ -574,9 +624,6 @@ export default async function DashboardPage({
                   </Suspense>
                   <Suspense fallback={<NoticingTileSkeleton />}>
                     <RecommendationsCard />
-                  </Suspense>
-                  <Suspense fallback={<NoticingTileSkeleton />}>
-                    <RootDiscoveryCard />
                   </Suspense>
                 </ScrollCarousel>
               </div>

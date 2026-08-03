@@ -24,8 +24,12 @@ import { daysBetweenLocalDates } from '../feed/dateMath';
 import { RETURN_GREETING_TEXT } from '../return-greeting/copy';
 import { isEligibleForReturnGreeting } from '../return-greeting/gate';
 import { tryMarkReturnGreetingShown } from '../return-greeting/data';
-import { fetchTenureCallbackContext } from '../memory-callback/data';
-import { buildTenureCallback } from '../memory-callback/copy';
+import {
+  fetchTenureCallbackContext,
+  fetchDay3ContrastCallbackContext,
+  fetchFindingCallbackContext,
+} from '../memory-callback/data';
+import { buildTenureCallback, buildDay3ContrastCallback, buildFindingCallback, pickMemoryCallback } from '../memory-callback/copy';
 import { composeMorningBrief } from './morningBrief';
 import {
   getHabitLogsForDateForMember,
@@ -112,6 +116,8 @@ export async function getOrCreateTodaysMorningBrief(
       activeTrendInsights,
       continuitySentence,
       tenureContext,
+      day3ContrastContext,
+      findingContext,
     ] = await Promise.all([
       getCoachingFocusDecision(supabase, memberId, localDate),
       listRecentCheckinsForMember(supabase, memberId, localDate),
@@ -120,6 +126,8 @@ export async function getOrCreateTodaysMorningBrief(
       fetchActiveTrendInsights(supabase, memberId),
       fetchContinuitySentence(supabase, memberId, localDate),
       fetchTenureCallbackContext(supabase, memberId, localDate),
+      fetchDay3ContrastCallbackContext(supabase, memberId),
+      fetchFindingCallbackContext(supabase, memberId, localDate),
     ]);
 
     // Sequential, not joined into the Promise.all above: this atomically
@@ -138,7 +146,18 @@ export async function getOrCreateTodaysMorningBrief(
       activeTrendInsights,
       continuitySentence,
       returnGreeting,
-      memoryCallback: buildTenureCallback(tenureContext),
+      // Dashboard Evolution (Prompt 5), requirement 7: wires the two
+      // memory-callback types built and tested in Prompt 4 but never
+      // spoken anywhere — a day-3 contrast and a resurfaced finding —
+      // into this same, already-live slot alongside tenure, in priority
+      // order (see pickMemoryCallback's own doc comment). Same
+      // conservative gating as before: each builder still returns null
+      // on its own whenever its real backing data doesn't exist.
+      memoryCallback: pickMemoryCallback(
+        buildDay3ContrastCallback(day3ContrastContext),
+        buildFindingCallback(findingContext),
+        buildTenureCallback(tenureContext)
+      ),
     });
 
     return await insertMorningBrief(supabase, memberId, localDate, composed);

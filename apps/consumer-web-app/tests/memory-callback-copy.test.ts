@@ -13,6 +13,7 @@ import {
   buildFindingCallback,
   buildGoalCallback,
   buildTenureCallback,
+  pickMemoryCallback,
 } from '../lib/memory-callback/copy';
 
 describe('buildGoalCallback — the Honest Discovery Rule guard', () => {
@@ -119,6 +120,37 @@ describe('buildFindingCallback — never claims "weeks ago" for something too re
     expect(result).not.toBeNull();
     expect(result).toContain('2 weeks ago');
     expect(result).toContain('Your sleep and stress move together.');
+  });
+});
+
+describe('pickMemoryCallback — Dashboard Evolution (Prompt 5), requirement 7: the two dormant callbacks are now reachable, in priority order', () => {
+  it('is non-vacuous: a real day-3 contrast wins over both a real finding and a real tenure line', () => {
+    const result = pickMemoryCallback(
+      'On day 3 of your Core Values Snapshot experiment, you told me it was going well.',
+      '2 weeks ago, I noticed something that still holds: Your sleep and stress move together.',
+      "You've been checking in with me for 9 days now, 7 check-ins so far."
+    );
+    expect(result).toBe('On day 3 of your Core Values Snapshot experiment, you told me it was going well.');
+  });
+
+  it('is non-vacuous: with no day-3 contrast, a real resurfaced finding wins over tenure', () => {
+    const result = pickMemoryCallback(
+      null,
+      '2 weeks ago, I noticed something that still holds: Your sleep and stress move together.',
+      "You've been checking in with me for 9 days now, 7 check-ins so far."
+    );
+    expect(result).toBe(
+      '2 weeks ago, I noticed something that still holds: Your sleep and stress move together.'
+    );
+  });
+
+  it('falls all the way back to tenure when neither of the two dormant callbacks has real data', () => {
+    const result = pickMemoryCallback(null, null, "You've been checking in with me for 9 days now, 7 check-ins so far.");
+    expect(result).toBe("You've been checking in with me for 9 days now, 7 check-ins so far.");
+  });
+
+  it('returns null (never a fabricated line) when none of the three has real data', () => {
+    expect(pickMemoryCallback(null, null, null)).toBeNull();
   });
 });
 
