@@ -130,8 +130,6 @@ export async function getMyPendingQuestionnaireAssignments(): Promise<
     .eq('status', 'pending')
     .order('created_at', { ascending: true });
 
-  if (error) console.error('TEMP_DEBUG getMyPendingQuestionnaireAssignments query error', error);
-  console.error('TEMP_DEBUG getMyPendingQuestionnaireAssignments', { userId: user.id, rowCount: data?.length ?? 0, rows: data });
   if (error || !data) return [];
 
   const entriesByDatabaseId = new Map(
