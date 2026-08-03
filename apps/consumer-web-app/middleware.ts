@@ -161,10 +161,14 @@ export async function middleware(request: NextRequest) {
       response.cookies.set(cookie);
     }
 
+    // Not httpOnly, matching mef_entry_login (app/actions/auth.ts) — see
+    // that cookie's own comment for why RootResetEntryGate.tsx needs to
+    // be able to fall back to reading this directly from document.cookie.
+    // Just a random token, never anything sensitive.
     response.cookies.set(ENTRY_ANIMATION_PLAY_COOKIE, playToken, {
       path: '/',
       maxAge: ENTRY_ANIMATION_PLAY_MAX_AGE_S,
-      httpOnly: true,
+      httpOnly: false,
       sameSite: 'lax',
     });
     response.cookies.set(ENTRY_ANIMATION_LAST_ACTIVE_COOKIE, String(now), {
