@@ -56,25 +56,18 @@ export function RootResetEntryAnimation({
   const firstNameRef = useRef(firstName);
   firstNameRef.current = firstName;
 
-  const mountedAtRef = useRef(Date.now());
-
-  const finish = (reason: string) => {
-    // eslint-disable-next-line no-console
-    console.log('[entry-debug-client] finish() reason=', reason, '+ms=', Date.now() - mountedAtRef.current, 'doneRef=', doneRef.current);
+  const finish = () => {
     if (doneRef.current) return;
     doneRef.current = true;
     onComplete();
   };
-
-  // eslint-disable-next-line no-console
-  console.log('[entry-debug-client] RENDER fullPhase=', fullPhase, 'reducedMotion=', reducedMotion, '+ms=', Date.now() - mountedAtRef.current);
 
   // Hard backstop, independent of the phase chain below: guarantees the
   // overlay is removed even if a timer/promise in the chain never
   // resolves. Never itself a source of an early cut — well past every
   // phase chain's own natural total.
   useEffect(() => {
-    const safety = setTimeout(() => finish('safety-timeout'), RESET_ENTRY_SAFE_TIMEOUT_MS);
+    const safety = setTimeout(finish, RESET_ENTRY_SAFE_TIMEOUT_MS);
     return () => clearTimeout(safety);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -102,7 +95,7 @@ export function RootResetEntryAnimation({
     const proceedToWelcome = () => {
       setFullPhase('welcome');
       schedule(() => setFullPhase('exit'), RESET_ENTRY_WELCOME_MS);
-      schedule(() => finish('full-sequence-end'), RESET_ENTRY_WELCOME_MS + RESET_ENTRY_EXIT_MS);
+      schedule(finish, RESET_ENTRY_WELCOME_MS + RESET_ENTRY_EXIT_MS);
     };
 
     schedule(() => setFullPhase('press'), RESET_ENTRY_ARRIVE_MS);
@@ -138,7 +131,7 @@ export function RootResetEntryAnimation({
       RESET_ENTRY_REDUCED_ARRIVE_MS + RESET_ENTRY_REDUCED_WELCOME_MS
     );
     schedule(
-      () => finish('reduced-sequence-end'),
+      finish,
       RESET_ENTRY_REDUCED_ARRIVE_MS + RESET_ENTRY_REDUCED_WELCOME_MS + RESET_ENTRY_REDUCED_EXIT_MS
     );
 
