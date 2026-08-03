@@ -90,48 +90,72 @@ export function RootResetEntryGate({
   const resolvedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // The authoritative source: the browser's actual cookie jar, not the
+    const resolve = (token: string) => {
+      if (token === resolvedTokenRef.current) return;
+      resolvedTokenRef.current = token;
+
+      let storedToken: string | null = null;
+      try {
+        storedToken = sessionStorage.getItem(ENTRY_TOKEN_STORAGE_KEY);
+      } catch {
+        // Inaccessible (rare private-browsing edge cases) — treat as never
+        // consumed; worst case is one extra play, not a crash or a stuck gate.
+      }
+
+      if (storedToken === token) {
+        setActive(false); // corrects the SSR-matched guess above for the reload-within-window case
+        return;
+      }
+
+      try {
+        sessionStorage.setItem(ENTRY_TOKEN_STORAGE_KEY, token);
+      } catch {
+        // Best-effort — if this write fails, the worst case is a possible
+        // replay on the very next reload, not a crash.
+      }
+      setActive(true);
+
+      if (token === initialEntryToken) {
+        // The SSR render that produced initialFirstName saw this exact
+        // token, so the name it resolved is trustworthy as-is.
+        setFirstName(initialFirstName);
+      } else {
+        // The cookie-jar token disagreed with (or the SSR render missed
+        // entirely) what app/layout.tsx used — its own firstName lookup
+        // may not correspond to this token, so resolve it independently
+        // rather than risk showing a stale or mismatched name.
+        setFirstName(undefined);
+        getEntryAnimationGreeting()
+          .then((result) => setFirstName(result.authenticated ? result.firstName : null))
+          .catch(() => setFirstName(null));
+      }
+    };
+
+    // The authoritative source is the browser's actual cookie jar, not the
     // SSR prop alone — see this component's own header comment for why.
-    const cookieToken = readEntryTokenFromCookies();
-    const token = cookieToken ?? initialEntryToken;
-    if (token === null || token === resolvedTokenRef.current) return;
-    resolvedTokenRef.current = token;
+    // Retried a few times at short, increasing delays rather than checked
+    // just once: confirmed directly against production that this can be
+    // genuinely intermittent — a real login sometimes has no token visible
+    // via either the SSR prop or an immediate document.cookie read on the
+    // very first effect tick, then does on a check moments later. A few
+    // hundred milliseconds of retrying is invisible against the ~3.6s
+    // animation it's deciding whether to start.
+    let cancelled = false;
+    const attempt = (retriesLeft: number) => {
+      if (cancelled) return;
+      const token = readEntryTokenFromCookies() ?? initialEntryToken;
+      if (token !== null) {
+        resolve(token);
+        return;
+      }
+      if (retriesLeft <= 0) return;
+      setTimeout(() => attempt(retriesLeft - 1), 150);
+    };
+    attempt(5);
 
-    let storedToken: string | null = null;
-    try {
-      storedToken = sessionStorage.getItem(ENTRY_TOKEN_STORAGE_KEY);
-    } catch {
-      // Inaccessible (rare private-browsing edge cases) — treat as never
-      // consumed; worst case is one extra play, not a crash or a stuck gate.
-    }
-
-    if (storedToken === token) {
-      setActive(false); // corrects the SSR-matched guess above for the reload-within-window case
-      return;
-    }
-
-    try {
-      sessionStorage.setItem(ENTRY_TOKEN_STORAGE_KEY, token);
-    } catch {
-      // Best-effort — if this write fails, the worst case is a possible
-      // replay on the very next reload, not a crash.
-    }
-    setActive(true);
-
-    if (token === initialEntryToken) {
-      // The SSR render that produced initialFirstName saw this exact
-      // token, so the name it resolved is trustworthy as-is.
-      setFirstName(initialFirstName);
-    } else {
-      // The cookie-jar token disagreed with (or the SSR render missed
-      // entirely) what app/layout.tsx used — its own firstName lookup
-      // may not correspond to this token, so resolve it independently
-      // rather than risk showing a stale or mismatched name.
-      setFirstName(undefined);
-      getEntryAnimationGreeting()
-        .then((result) => setFirstName(result.authenticated ? result.firstName : null))
-        .catch(() => setFirstName(null));
-    }
+    return () => {
+      cancelled = true;
+    };
   }, [initialEntryToken, initialFirstName]);
 
   useEffect(() => {
