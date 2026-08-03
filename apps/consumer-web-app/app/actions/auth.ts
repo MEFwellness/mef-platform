@@ -172,11 +172,21 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
   } catch (err) {
     return toActionError('signIn', err);
   }
-  // One-shot signal for middleware.ts: the very next request (the redirect
+  // One-shot token for app/layout.tsx: the very next request (the redirect
   // below) always plays the branded entry animation, regardless of how
   // recently this browser last talked to the server — see
-  // lib/entry-animation/rule.ts.
-  cookies().set(ENTRY_ANIMATION_LOGIN_COOKIE, '1', {
+  // lib/entry-animation/rule.ts. Deliberately set here (a Server Action),
+  // not minted by middleware.ts the way the gap-triggered reopen case is:
+  // confirmed directly against production that a cookie middleware sets
+  // does not reliably reach the browser on the RSC-fetch response
+  // Next.js's client router uses to follow *this specific* redirect (a
+  // Server Action's redirect() is intercepted and followed client-side,
+  // unlike a plain HTTP redirect) — the same cookie set here, in the
+  // action itself, persists correctly. The random value doubles as the
+  // token RootResetEntryGate.tsx compares against sessionStorage, so a
+  // reload within this cookie's own window correctly reuses it instead of
+  // minting a new one that would look like a second trigger.
+  cookies().set(ENTRY_ANIMATION_LOGIN_COOKIE, crypto.randomUUID(), {
     path: '/',
     maxAge: ENTRY_ANIMATION_LOGIN_MAX_AGE_S,
     httpOnly: true,

@@ -13,12 +13,24 @@ export const RESET_ENTRY_RELEASE_MS = 800;
 export const RESET_ENTRY_WELCOME_MS = 900;
 export const RESET_ENTRY_EXIT_MS = 600;
 
-/** How long to wait past the nominal welcome-stage start for the member's first name to resolve before falling back to "Welcome back." anyway — never blocks the sequence indefinitely. */
-export const RESET_ENTRY_NAME_WAIT_MS = 800;
+/**
+ * How long to wait past the nominal welcome-stage start for the member's
+ * first name to resolve before falling back to "Welcome back." anyway —
+ * never blocks the sequence indefinitely. Only ever adds to the total in
+ * the rare case the name genuinely isn't resolved yet by then (the
+ * component schedules Welcome/Exit relative to when Welcome actually
+ * starts, not as a fixed mount-relative offset, so this constant costs
+ * nothing in the common case where the name already resolved). Kept small
+ * enough that RESET_ENTRY_TOTAL_MS + this stays under the 4s hard ceiling
+ * even in that worst case — see the test in
+ * tests/entry-animation-rule.test.ts asserting exactly that.
+ */
+export const RESET_ENTRY_NAME_WAIT_MS = 300;
 
 /** Hard backstop: forces the overlay to finish and unmount no matter what, so a stuck timer or failed fetch can never trap the member on the splash. */
 export const RESET_ENTRY_SAFE_TIMEOUT_MS = 5000;
 
+/** The common-case total (name already resolved by Stage 4) — see RESET_ENTRY_NAME_WAIT_MS's own comment for the worst-case addendum. */
 export const RESET_ENTRY_TOTAL_MS =
   RESET_ENTRY_ARRIVE_MS +
   RESET_ENTRY_PRESS_MS +

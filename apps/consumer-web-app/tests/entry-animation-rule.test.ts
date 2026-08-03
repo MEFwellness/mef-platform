@@ -16,6 +16,7 @@ import {
   RESET_ENTRY_TOTAL_MS,
   RESET_ENTRY_REDUCED_TOTAL_MS,
   RESET_ENTRY_SAFE_TIMEOUT_MS,
+  RESET_ENTRY_NAME_WAIT_MS,
 } from '../lib/entry-animation/timing';
 import { resetEntryGreetingLines } from '../lib/entry-animation/greeting';
 
@@ -125,6 +126,17 @@ describe('entry animation stage timing budget (brief: 3.2-3.8s, never over 4s)',
 
   it('the full sequence never exceeds the 4s hard ceiling', () => {
     expect(RESET_ENTRY_TOTAL_MS).toBeLessThan(4000);
+  });
+
+  it('even the worst case (first name not yet resolved by Stage 4) stays under the 4s hard ceiling', () => {
+    // Regression guard: an earlier version always added
+    // RESET_ENTRY_NAME_WAIT_MS to Exit/finish's scheduled delay, even when
+    // no wait ever actually happened (the name was already resolved),
+    // pushing the *common* case to ~4.4s — confirmed directly against a
+    // real production login. RootResetEntryAnimation.tsx now schedules
+    // Exit/finish relative to when Welcome actually starts, so
+    // RESET_ENTRY_NAME_WAIT_MS only ever adds to the *worst* case.
+    expect(RESET_ENTRY_TOTAL_MS + RESET_ENTRY_NAME_WAIT_MS).toBeLessThan(4000);
   });
 
   it('the reduced-motion sequence totals roughly 1-1.5s', () => {

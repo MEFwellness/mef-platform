@@ -6,7 +6,7 @@ import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import { withBrandVersion } from '@/lib/brand';
 import { GuestPreviewMigrator } from './GuestPreviewMigrator';
 import { RootResetEntryGate } from '@/components/entry/RootResetEntryGate';
-import { ENTRY_ANIMATION_PLAY_COOKIE } from '@/lib/entry-animation/cookies';
+import { ENTRY_ANIMATION_LOGIN_COOKIE, ENTRY_ANIMATION_PLAY_COOKIE } from '@/lib/entry-animation/cookies';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { createClient } from '@/lib/supabase/server';
 
@@ -72,24 +72,33 @@ export const viewport: Viewport = {
 };
 
 /**
- * Branded "Reset" entry animation (RootResetEntryGate) — whether *this*
- * request should play it was already fully decided by middleware.ts (see
- * lib/entry-animation/rule.ts), so this only ever does the one extra
- * lookup (the member's first name) on the rare requests where that
- * cookie says yes, not on every page load. getCachedUser() here shares
- * its result with whatever the destination page itself also calls it for
- * (React's per-request cache()), so this never becomes a second real
- * auth.getUser() network call.
+ * Branded "Reset" entry animation (RootResetEntryGate) — the one-shot
+ * token identifying which trigger this is comes from one of two cookies,
+ * mef_entry_login taking priority: it's set directly by signIn()
+ * (app/actions/auth.ts) for a fresh login, which that action's own
+ * comment explains persists more reliably than a cookie middleware.ts
+ * would set for the same request. mef_entry_play is middleware's own
+ * token for the other trigger (reopened after a meaningful gap) — see
+ * middleware.ts's own comment for why that split exists. Whichever is
+ * present, this only ever does the one extra lookup (the member's first
+ * name) on the rare requests where a token exists, not on every page
+ * load. getCachedUser() here shares its result with whatever the
+ * destination page itself also calls it for (React's per-request
+ * cache()), so this never becomes a second real auth.getUser() network
+ * call.
  */
 async function getEntryAnimationServerState(): Promise<{
-  shouldPlay: boolean;
+  entryToken: string | null;
   firstName: string | null;
 }> {
-  const shouldPlay = cookies().get(ENTRY_ANIMATION_PLAY_COOKIE)?.value === '1';
-  if (!shouldPlay) return { shouldPlay: false, firstName: null };
+  const entryToken =
+    cookies().get(ENTRY_ANIMATION_LOGIN_COOKIE)?.value ||
+    cookies().get(ENTRY_ANIMATION_PLAY_COOKIE)?.value ||
+    null;
+  if (!entryToken) return { entryToken: null, firstName: null };
 
   const user = await getCachedUser();
-  if (!user) return { shouldPlay: false, firstName: null };
+  if (!user) return { entryToken: null, firstName: null };
 
   const supabase = createClient();
   const { data: profile } = await supabase
@@ -98,7 +107,7 @@ async function getEntryAnimationServerState(): Promise<{
     .eq('id', user.id)
     .single();
 
-  return { shouldPlay: true, firstName: profile?.display_name?.split(' ')[0] ?? null };
+  return { entryToken, firstName: profile?.display_name?.split(' ')[0] ?? null };
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -109,7 +118,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body className={`${dmSans.className} min-h-screen bg-[#FAFAF8] text-[#1B3A2D] antialiased`}>
         <GuestPreviewMigrator />
         <RootResetEntryGate
-          initialShouldPlay={entryState.shouldPlay}
+          initialEntryToken={entryState.entryToken}
           initialFirstName={entryState.firstName}
         />
         {children}

@@ -77,6 +77,24 @@ export function RootResetEntryAnimation({
       timers.push(id);
     };
 
+    // Welcome/Exit are scheduled *relative to when Welcome actually starts*,
+    // not as a fixed offset from mount — Welcome can start either on
+    // schedule (name already resolved, the common case) or up to
+    // RESET_ENTRY_NAME_WAIT_MS later (name still loading). Scheduling
+    // Exit/finish as fixed mount-relative offsets that always included
+    // RESET_ENTRY_NAME_WAIT_MS (an earlier version of this code) made the
+    // *common*, already-resolved case run ~4.4s instead of the intended
+    // ~3.6s — RESET_ENTRY_NAME_WAIT_MS was being added even when no wait
+    // ever actually happened. Chaining fixes that: the common case's real
+    // total is exactly RESET_ENTRY_TOTAL_MS; only the genuinely-still-
+    // loading case runs the full extra RESET_ENTRY_NAME_WAIT_MS (timing.ts
+    // keeps that worst case under the 4s ceiling on its own).
+    const proceedToWelcome = () => {
+      setFullPhase('welcome');
+      schedule(() => setFullPhase('exit'), RESET_ENTRY_WELCOME_MS);
+      schedule(finish, RESET_ENTRY_WELCOME_MS + RESET_ENTRY_EXIT_MS);
+    };
+
     schedule(() => setFullPhase('press'), RESET_ENTRY_ARRIVE_MS);
     schedule(() => setFullPhase('release'), RESET_ENTRY_ARRIVE_MS + RESET_ENTRY_PRESS_MS);
     schedule(() => {
@@ -89,29 +107,11 @@ export function RootResetEntryAnimation({
       // with whatever we have (falls back to "Welcome back." via
       // greetingLines() if still undefined/null).
       if (firstNameRef.current !== undefined) {
-        setFullPhase('welcome');
+        proceedToWelcome();
         return;
       }
-      const extra = setTimeout(() => setFullPhase('welcome'), RESET_ENTRY_NAME_WAIT_MS);
-      timers.push(extra);
+      schedule(proceedToWelcome, RESET_ENTRY_NAME_WAIT_MS);
     }, RESET_ENTRY_ARRIVE_MS + RESET_ENTRY_PRESS_MS + RESET_ENTRY_RELEASE_MS);
-    schedule(
-      () => setFullPhase('exit'),
-      RESET_ENTRY_ARRIVE_MS +
-        RESET_ENTRY_PRESS_MS +
-        RESET_ENTRY_RELEASE_MS +
-        RESET_ENTRY_WELCOME_MS +
-        RESET_ENTRY_NAME_WAIT_MS
-    );
-    schedule(
-      finish,
-      RESET_ENTRY_ARRIVE_MS +
-        RESET_ENTRY_PRESS_MS +
-        RESET_ENTRY_RELEASE_MS +
-        RESET_ENTRY_WELCOME_MS +
-        RESET_ENTRY_NAME_WAIT_MS +
-        RESET_ENTRY_EXIT_MS
-    );
 
     return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
