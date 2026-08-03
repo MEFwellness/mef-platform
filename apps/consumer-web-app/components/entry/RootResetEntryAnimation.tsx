@@ -13,10 +13,13 @@
  * children, so a screen reader skips it entirely rather than announcing
  * it (satisfies "screen readers do not announce the splash repeatedly" by
  * never announcing it at all) and keyboard focus is never at risk of
- * landing inside it. A tap/click anywhere fast-forwards straight to Enter
- * the App, mirroring components/reveal/RevealSequence.tsx's own
- * tap-anywhere-skip precedent for Moments — an extra guarantee, on top of
- * the safe timeout below, that a member is never stuck waiting.
+ * landing inside it. Deliberately has no tap-anywhere-skip handler, unlike
+ * components/reveal/RevealSequence.tsx's own Moments — confirmed directly
+ * against production that a real login's own tap on the "Log in" button
+ * can land on this overlay as a same-position "ghost click" the instant
+ * it mounts covering the full viewport where that button used to be,
+ * dismissing the animation before it ever really started. The safe
+ * timeout below is the sole guarantee against a member getting stuck.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -54,21 +57,10 @@ export function RootResetEntryAnimation({
   firstNameRef.current = firstName;
 
   const finish = () => {
-    // eslint-disable-next-line no-console
-    console.log('[entry-debug-client] RootResetEntryAnimation finish() called');
     if (doneRef.current) return;
     doneRef.current = true;
     onComplete();
   };
-
-  useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[entry-debug-client] RootResetEntryAnimation MOUNTED');
-    return () => {
-      // eslint-disable-next-line no-console
-      console.log('[entry-debug-client] RootResetEntryAnimation UNMOUNTED');
-    };
-  }, []);
 
   // Hard backstop, independent of the phase chain below: guarantees the
   // overlay is removed even if a timer/promise in the chain never
@@ -161,7 +153,6 @@ export function RootResetEntryAnimation({
   return (
     <div
       aria-hidden="true"
-      onClick={finish}
       className={`fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#FAFAF8] ${
         overlayExiting ? (reducedMotion ? 'mef-reset-entry-exit-reduced' : 'mef-reset-entry-exit') : ''
       }`}

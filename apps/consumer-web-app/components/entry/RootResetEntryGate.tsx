@@ -89,16 +89,11 @@ export function RootResetEntryGate({
   // redo the sessionStorage dance.
   const resolvedTokenRef = useRef<string | null>(null);
 
-  // eslint-disable-next-line no-console
-  console.log('[entry-debug-client] Gate render, active=', active, 'firstName=', firstName);
-
   useEffect(() => {
     // The authoritative source: the browser's actual cookie jar, not the
     // SSR prop alone — see this component's own header comment for why.
     const cookieToken = readEntryTokenFromCookies();
     const token = cookieToken ?? initialEntryToken;
-    // eslint-disable-next-line no-console
-    console.log('[entry-debug-client] effect run', { cookieToken, initialEntryToken, token, resolved: resolvedTokenRef.current });
     if (token === null || token === resolvedTokenRef.current) return;
     resolvedTokenRef.current = token;
 
@@ -109,8 +104,6 @@ export function RootResetEntryGate({
       // Inaccessible (rare private-browsing edge cases) — treat as never
       // consumed; worst case is one extra play, not a crash or a stuck gate.
     }
-    // eslint-disable-next-line no-console
-    console.log('[entry-debug-client] storedToken=', storedToken, 'token=', token);
 
     if (storedToken === token) {
       setActive(false); // corrects the SSR-matched guess above for the reload-within-window case
