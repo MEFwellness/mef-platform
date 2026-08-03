@@ -61,11 +61,25 @@ export function questionnaireStatusToMetricStatus(status: QuestionnaireStatus): 
   return 'no-data';
 }
 
+/**
+ * Text only, never fed into a comparison or a database write — pinned to
+ * `timeZone: 'UTC'` deliberately, the same fix already established at
+ * lib/time/displayDate.ts and components/case-view/OverlayChart.tsx: with
+ * no explicit zone, `toLocaleDateString` resolves against the *host
+ * process's own local timezone* — Vercel's server always runs in UTC, a
+ * member's browser runs in whatever zone they're physically in, so the
+ * exact same instant can render as different text server-side vs.
+ * client-side, and React flags it as a hydration mismatch (minified error
+ * codes #418/#423/#425). Confirmed live on `/questionnaires` for a real
+ * production member with a real completed-assessment date before this
+ * fix.
+ */
 export function formatAssessmentDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'UTC',
   });
 }
 
