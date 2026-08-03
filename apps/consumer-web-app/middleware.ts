@@ -1,6 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { hasActiveRole } from '@/lib/auth/guards';
+import { decideEntryAnimationPlay } from '@/lib/entry-animation/rule';
+import {
+  ENTRY_ANIMATION_LAST_ACTIVE_COOKIE,
+  ENTRY_ANIMATION_LAST_ACTIVE_MAX_AGE_S,
+  ENTRY_ANIMATION_LOGIN_COOKIE,
+  ENTRY_ANIMATION_PLAY_COOKIE,
+  ENTRY_ANIMATION_PLAY_MAX_AGE_S,
+} from '@/lib/entry-animation/cookies';
 
 // /api/cron/* routes authenticate their own way (a CRON_SECRET bearer
 // token checked inside each route handler — see
@@ -52,7 +60,9 @@ const PUBLIC_PATHS = [
 ];
 
 export async function middleware(request: NextRequest) {
-  const { response, user, supabase } = await updateSession(request);
+  const sessionResult = await updateSession(request);
+  const { user, supabase } = sessionResult;
+  let response = sessionResult.response;
   const path = request.nextUrl.pathname;
 
   const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
@@ -61,6 +71,114 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set('redirectedFrom', path);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Branded "Reset" entry animation — the session-entry rule itself lives
+  // in lib/entry-animation/rule.ts (pure, unit-tested); this just supplies
+  // the two cookies it reads. mef_entry_last_active is refreshed to "now"
+  // on every request a signed-in member makes (any request at all, not
+  // just navigations — a real gap here only ever means "no requests were
+  // made," i.e. the app was closed or backgrounded), which is what lets a
+  // single middleware pass double as both "was this just a login" and
+  // "was this a meaningful reopen" without any client-side storage. See
+  // that file's own header comment for the full rule and the browser vs.
+  // installed/PWA note.
+  //
+  // Sticky-once-decided: a genuine reopen that happens to land on the bare
+  // '/' (rather than a specific deep link) can still trigger *multiple*
+  // middleware passes for what a member experiences as one single
+  // navigation — app/page.tsx (a pure routing hub, never rendered UI)
+  // issues its own further redirect() to /dashboard (or /onboarding,
+  // /welcome...), a brand-new request. (signIn() itself no longer does
+  // this — lib/auth/postLoginRoute.ts's own header comment explains why
+  // it now resolves and redirects to the real destination in one hop —
+  // but the bare-'/' path remains for email-verify callbacks, password
+  // resets, and anyone with '/' bookmarked.) Without this, the *second*
+  // hop would see mef_entry_last_active already refreshed to "now" by the
+  // *first* hop moments earlier (near-zero gap) and overwrite
+  // mef_entry_play back to '0' before app/layout.tsx ever reads it on the
+  // hop that actually renders. So: once a hop sets mef_entry_play=1, later
+  // hops just carry that '1' forward untouched (and skip refreshing
+  // mef_entry_last_active, so they can't erase the very gap that justified
+  // the '1') until the client actually consumes it —
+  // RootResetEntryGate.tsx calls consumeEntryAnimationTriggers() on mount
+  // whenever it plays, which is what actually clears both cookies so the
+  // *next* real navigation doesn't replay.
+  if (user) {
+    const now = Date.now();
+    const alreadySticky = request.cookies.get(ENTRY_ANIMATION_PLAY_COOKIE)?.value === '1';
+
+    let playValue: '1' | '0';
+    let refreshLastActive = false;
+
+    if (alreadySticky) {
+      playValue = '1';
+    } else {
+      const justLoggedIn = request.cookies.get(ENTRY_ANIMATION_LOGIN_COOKIE)?.value === '1';
+      const lastActiveRaw = request.cookies.get(ENTRY_ANIMATION_LAST_ACTIVE_COOKIE)?.value;
+      const lastActiveAtMs = lastActiveRaw && /^\d+$/.test(lastActiveRaw) ? Number(lastActiveRaw) : null;
+
+      const shouldPlay = decideEntryAnimationPlay({
+        hasUser: true,
+        path,
+        isPublicPath: isPublic,
+        justLoggedIn,
+        lastActiveAtMs,
+        nowMs: now,
+      });
+
+      playValue = shouldPlay ? '1' : '0';
+      refreshLastActive = true;
+    }
+
+    // Setting cookies on `response` alone only reaches the *browser's next*
+    // request — app/layout.tsx's cookies().get() for THIS same request
+    // still sees the original incoming request cookies, unchanged. Mutating
+    // request.cookies and rebuilding response from request.headers (exactly
+    // lib/supabase/middleware.ts's own technique, immediately above in this
+    // same call chain, for the identical problem with Supabase's session
+    // cookie) is what makes the value visible to this request's own render.
+    // response.cookies.getAll() + re-applying them onto the rebuilt response
+    // preserves any cookies updateSession() itself already set (a refreshed
+    // Supabase session token) — rebuilding via NextResponse.next() otherwise
+    // starts a brand-new response with no Set-Cookie headers of its own.
+    request.cookies.set(ENTRY_ANIMATION_PLAY_COOKIE, playValue);
+    if (refreshLastActive) {
+      request.cookies.set(ENTRY_ANIMATION_LAST_ACTIVE_COOKIE, String(now));
+    }
+
+    const preservedCookies = response.cookies.getAll();
+    response = NextResponse.next({ request: { headers: request.headers } });
+    for (const cookie of preservedCookies) {
+      response.cookies.set(cookie);
+    }
+
+    // Deliberately does NOT re-send Set-Cookie for mef_entry_play while
+    // already sticky (alreadySticky === true): the browser already has
+    // '1', a fresh identical Set-Cookie would only refresh its Max-Age for
+    // no benefit, and doing so raced against — and reliably beat —
+    // RootResetEntryGate.tsx's own consumeEntryAnimationTriggers() clear
+    // call on whichever request happened to land last, so the sticky
+    // cookie was effectively never clearable. Only the transition to a
+    // real decided value (the else branch above) needs to reach the
+    // browser; every later hop of the same redirect chain just needs the
+    // request-side mutation above for its own render.
+    if (!alreadySticky) {
+      response.cookies.set(ENTRY_ANIMATION_PLAY_COOKIE, playValue, {
+        path: '/',
+        maxAge: ENTRY_ANIMATION_PLAY_MAX_AGE_S,
+        httpOnly: true,
+        sameSite: 'lax',
+      });
+    }
+    if (refreshLastActive) {
+      response.cookies.set(ENTRY_ANIMATION_LAST_ACTIVE_COOKIE, String(now), {
+        path: '/',
+        maxAge: ENTRY_ANIMATION_LAST_ACTIVE_MAX_AGE_S,
+        httpOnly: true,
+        sameSite: 'lax',
+      });
+    }
   }
 
   // Role-gated routes — redirect-only (UX). RLS is what actually protects

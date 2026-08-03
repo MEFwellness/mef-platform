@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { signIn } from '../../actions/auth';
 import { getFriendlyAuthError } from '@/lib/auth/errors';
 
@@ -9,6 +10,12 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  // middleware.ts sets this when a signed-out visit to a protected page
+  // (a deep link) got bounced here — carried through so signIn() can send
+  // the member back to it instead of always landing on the default
+  // destination. See lib/auth/postLoginRoute.ts's isSafePostLoginRedirect
+  // for why this is safe to trust even though it's a query param.
+  const redirectedFrom = useSearchParams().get('redirectedFrom');
 
   return (
     <>
@@ -35,6 +42,7 @@ export default function LoginPage() {
           setSubmitting(false);
         }}
       >
+        {redirectedFrom && <input type="hidden" name="redirectedFrom" value={redirectedFrom} />}
         <div>
           <label className="text-sm font-medium text-[#1B3A2D]" htmlFor="email">
             Email

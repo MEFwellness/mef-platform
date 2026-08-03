@@ -2,6 +2,14 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
+import {
+  ENTRY_ANIMATION_LAST_ACTIVE_COOKIE,
+  ENTRY_ANIMATION_LOGIN_COOKIE,
+  ENTRY_ANIMATION_LOGIN_MAX_AGE_S,
+  ENTRY_ANIMATION_PLAY_COOKIE,
+} from '@/lib/entry-animation/cookies';
+import { resolvePostLoginPath, isSafePostLoginRedirect } from '@/lib/auth/postLoginRoute';
 
 export interface ActionResult {
   error?: string;
@@ -136,18 +144,45 @@ export async function resendVerificationEmail(email: string): Promise<ActionResu
 export async function signIn(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get('email') ?? '');
   const password = String(formData.get('password') ?? '');
+  const redirectedFrom = formData.get('redirectedFrom');
 
+  let destination = '/';
   try {
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       logAuthFailure('supabase_request', 'signIn', error);
       return toResult(error);
     }
+    // Resolve the real destination here, in this same request, instead of
+    // redirecting to '/' and letting app/page.tsx (a second, separate
+    // request) resolve it — see lib/auth/postLoginRoute.ts's own header
+    // comment for why that extra hop mattered (a deep link never survived
+    // it, and it was a real source of double-counting for the branded
+    // entry animation's session-entry cookie). Falls back to the plain
+    // '/' hub on the (never expected in practice) case that signIn
+    // somehow returns no user, so behavior degrades to exactly what it
+    // was before rather than crashing.
+    if (data.user) {
+      destination = await resolvePostLoginPath(supabase, data.user);
+      if (destination === '/dashboard' && isSafePostLoginRedirect(redirectedFrom?.toString())) {
+        destination = redirectedFrom!.toString();
+      }
+    }
   } catch (err) {
     return toActionError('signIn', err);
   }
-  redirect('/');
+  // One-shot signal for middleware.ts: the very next request (the redirect
+  // below) always plays the branded entry animation, regardless of how
+  // recently this browser last talked to the server — see
+  // lib/entry-animation/rule.ts.
+  cookies().set(ENTRY_ANIMATION_LOGIN_COOKIE, '1', {
+    path: '/',
+    maxAge: ENTRY_ANIMATION_LOGIN_MAX_AGE_S,
+    httpOnly: true,
+    sameSite: 'lax',
+  });
+  redirect(destination);
 }
 
 export async function signOut(): Promise<void> {
@@ -157,6 +192,12 @@ export async function signOut(): Promise<void> {
   } catch (err) {
     logAuthFailure('unexpected', 'signOut', err);
   }
+  // Clear the entry-animation session state so a future login on this
+  // browser always replays it, rather than inheriting a stale
+  // mef_entry_last_active gap from whoever was signed in before.
+  cookies().set(ENTRY_ANIMATION_LAST_ACTIVE_COOKIE, '', { path: '/', maxAge: 0 });
+  cookies().set(ENTRY_ANIMATION_LOGIN_COOKIE, '', { path: '/', maxAge: 0 });
+  cookies().set(ENTRY_ANIMATION_PLAY_COOKIE, '', { path: '/', maxAge: 0 });
   redirect('/login');
 }
 

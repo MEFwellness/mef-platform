@@ -1,9 +1,14 @@
 import './globals.css';
 import type { ReactNode } from 'react';
 import type { Metadata, Viewport } from 'next';
+import { cookies } from 'next/headers';
 import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import { withBrandVersion } from '@/lib/brand';
 import { GuestPreviewMigrator } from './GuestPreviewMigrator';
+import { RootResetEntryGate } from '@/components/entry/RootResetEntryGate';
+import { ENTRY_ANIMATION_PLAY_COOKIE } from '@/lib/entry-animation/cookies';
+import { getCachedUser } from '@/lib/supabase/currentUser';
+import { createClient } from '@/lib/supabase/server';
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ['latin'],
@@ -66,11 +71,47 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/**
+ * Branded "Reset" entry animation (RootResetEntryGate) — whether *this*
+ * request should play it was already fully decided by middleware.ts (see
+ * lib/entry-animation/rule.ts), so this only ever does the one extra
+ * lookup (the member's first name) on the rare requests where that
+ * cookie says yes, not on every page load. getCachedUser() here shares
+ * its result with whatever the destination page itself also calls it for
+ * (React's per-request cache()), so this never becomes a second real
+ * auth.getUser() network call.
+ */
+async function getEntryAnimationServerState(): Promise<{
+  shouldPlay: boolean;
+  firstName: string | null;
+}> {
+  const shouldPlay = cookies().get(ENTRY_ANIMATION_PLAY_COOKIE)?.value === '1';
+  if (!shouldPlay) return { shouldPlay: false, firstName: null };
+
+  const user = await getCachedUser();
+  if (!user) return { shouldPlay: false, firstName: null };
+
+  const supabase = createClient();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .single();
+
+  return { shouldPlay: true, firstName: profile?.display_name?.split(' ')[0] ?? null };
+}
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const entryState = await getEntryAnimationServerState();
+
   return (
     <html lang="en" className={`${cormorantGaramond.variable} ${dmSans.variable}`}>
       <body className={`${dmSans.className} min-h-screen bg-[#FAFAF8] text-[#1B3A2D] antialiased`}>
         <GuestPreviewMigrator />
+        <RootResetEntryGate
+          initialShouldPlay={entryState.shouldPlay}
+          initialFirstName={entryState.firstName}
+        />
         {children}
       </body>
     </html>

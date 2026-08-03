@@ -1322,3 +1322,130 @@
     justify-content: center;
   }
 }
+
+/*
+ * Branded "Reset" entry animation (components/entry/RootResetEntryAnimation.tsx)
+ * — a five-stage sequence, none of it looping, played by that component's
+ * own plain setTimeout chain (lib/entry-animation/timing.ts) rather than
+ * animationend listeners. `mef-reset-entry-arrive` (Stage 1, Brand
+ * Entrance): the logo starts slightly smaller/lower with a faint rotation
+ * and settles to size 1, centered — Standard ease-out per Bible §4 (the
+ * decelerate curve `.mef-title-logo-in` uses is deliberately reserved for
+ * that one Welcome-flow opener, per that class's own comment, so this
+ * doesn't reuse it). `mef-reset-entry-press` (Stage 2, The Press): a
+ * physical-button compression, holds at ~93% with a deepened shadow.
+ * `mef-reset-entry-release` (Stage 3, Activation): releases back past 100%
+ * on the overshoot curve (a confirmation settle, per Bible §3/§4) with a
+ * warm-gold brightness lift; `mef-reset-entry-glow-ring` is the
+ * accompanying single expanding-and-fading ring (a separate absolutely-
+ * positioned element behind the logo), never looping, matching
+ * `.mef-close-gold-sweep`'s "fires exactly once" precedent. Stage 4
+ * (Welcome) reuses the existing `.mef-fade-up` class for both text lines,
+ * staggered via an inline `animationDelay` on the second line — no new
+ * keyframe needed. `mef-reset-entry-exit` (Stage 5, Enter the App): the
+ * overlay itself fades and lifts away, revealing the already-rendered
+ * destination page beneath.
+ */
+@keyframes mef-reset-entry-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.72) translateY(18px) rotate(-4deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0) rotate(0deg);
+  }
+}
+
+.mef-reset-entry-arrive {
+  animation: mef-reset-entry-arrive 700ms var(--mef-ease-standard) both;
+}
+
+@keyframes mef-reset-entry-press {
+  0% {
+    transform: scale(1) translateY(0);
+    filter: drop-shadow(0 4px 10px rgba(21, 46, 36, 0.18));
+  }
+  55%,
+  100% {
+    transform: scale(0.93) translateY(3px);
+    filter: drop-shadow(0 2px 6px rgba(21, 46, 36, 0.3));
+  }
+}
+
+.mef-reset-entry-press {
+  animation: mef-reset-entry-press 600ms var(--mef-ease-standard) both;
+}
+
+@keyframes mef-reset-entry-release {
+  0% {
+    transform: scale(0.93) translateY(3px);
+    filter: drop-shadow(0 2px 6px rgba(21, 46, 36, 0.3)) brightness(1);
+  }
+  45% {
+    transform: scale(1.03) translateY(0);
+    filter: drop-shadow(0 0 22px rgba(196, 160, 80, 0.55)) brightness(1.12);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    filter: drop-shadow(0 4px 10px rgba(21, 46, 36, 0.18)) brightness(1);
+  }
+}
+
+.mef-reset-entry-release {
+  animation: mef-reset-entry-release 800ms var(--mef-ease-overshoot) both;
+}
+
+@keyframes mef-reset-entry-glow-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  40% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+.mef-reset-entry-glow-ring {
+  animation: mef-reset-entry-glow-ring 800ms var(--mef-ease-standard) both;
+}
+
+@keyframes mef-reset-entry-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.mef-reset-entry-exit {
+  animation: mef-reset-entry-exit 600ms var(--mef-ease-standard) both;
+}
+
+/* Reduced-motion's own Stage 3 (fade into the app) — reuses mef-fade-in
+   reversed, same technique .mef-screen-exit's own reduced-motion fallback
+   already uses just above in this file, rather than a second near-
+   identical keyframe. */
+.mef-reset-entry-exit-reduced {
+  animation: mef-fade-in 350ms ease-out reverse both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-reset-entry-arrive,
+  .mef-reset-entry-press,
+  .mef-reset-entry-release,
+  .mef-reset-entry-exit {
+    animation: none !important;
+  }
+  .mef-reset-entry-glow-ring {
+    animation: none !important;
+    display: none;
+  }
+}
