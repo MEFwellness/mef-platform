@@ -165,13 +165,16 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // describes). A member can have more than one pending assignment;
   // oldest-assigned-and-still-undismissed wins.
   const pendingAssignments = await getMyPendingQuestionnaireAssignments();
-  const dueAssignment = await pickFirstDueOneTimeMessage(
-    pendingAssignments.map((assignment) => ({
-      ...assignment,
-      messageKey: questionnaireAssignedPopupMessageKey(assignment.assignmentId),
-    })),
-    isOfferStillDue
-  );
+  const candidates = pendingAssignments.map((assignment) => ({
+    ...assignment,
+    messageKey: questionnaireAssignedPopupMessageKey(assignment.assignmentId),
+  }));
+  console.error('TEMP_DEBUG waterfall candidates', candidates);
+  for (const c of candidates) {
+    console.error('TEMP_DEBUG isOfferStillDue check', c.messageKey, await isOfferStillDue(c.messageKey));
+  }
+  const dueAssignment = await pickFirstDueOneTimeMessage(candidates, isOfferStillDue);
+  console.error('TEMP_DEBUG dueAssignment result', dueAssignment);
   if (dueAssignment) {
     return {
       kind: 'questionnaire_assigned',
