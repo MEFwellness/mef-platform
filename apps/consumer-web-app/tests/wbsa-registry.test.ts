@@ -61,7 +61,7 @@ describe('WBSA registry entry', () => {
     expect(entry.membership.allowedLevels).not.toContain('free_trial');
   });
 
-  it('a free_trial member cannot start WBSA; a membership-tier member can', async () => {
+  it('a free_trial member cannot start WBSA; a membership-tier member still cannot without a coach assignment', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
 
     await setMembership(memberOneId, 'free_trial');
@@ -72,8 +72,37 @@ describe('WBSA registry entry', () => {
     const lockedStatus = calculateAssessmentStatus(findAssessmentRegistryEntry('wbsa')!, lockedFacts.get('wbsa')!);
     expect(lockedStatus.status).toBe('locked');
 
+    // Assignment-Gated Questionnaires task: WBSA is now requiresAssignment:
+    // true, so reaching the right membership tier alone no longer unlocks
+    // it — it stays locked (as not_assigned now, not a membership reason)
+    // until a coach actually assigns it. See
+    // tests/assessment-registry-integration.test.ts's "coach assignment
+    // override" describe block for the assigned-and-unlocked case.
     await setMembership(memberOneId, 'membership');
-    const allowedAccess = await checkAssessmentAccess(client, memberOneId, 'wbsa');
-    expect(allowedAccess.allowed).toBe(true);
+    const stillLockedAccess = await checkAssessmentAccess(client, memberOneId, 'wbsa');
+    expect(stillLockedAccess.allowed).toBe(false);
+    if (!stillLockedAccess.allowed) {
+      expect(stillLockedAccess.reason).toEqual({ kind: 'not_assigned' });
+    }
+  });
+
+  it('a coach-assigned WBSA is reachable even for a member at the correct tier, and the assignment is what unlocks it', async () => {
+    const service = serviceRoleClient();
+    await setMembership(memberOneId, 'membership');
+    const entry = findAssessmentRegistryEntry('wbsa')!;
+
+    const { error: assignError } = await service.from('assessment_assignments').insert({
+      member_id: memberOneId,
+      assessment_definition_id: entry.databaseId,
+      assigned_by: TEST_USERS.coachOne.id,
+      is_required: true,
+    });
+    expect(assignError).toBeNull();
+
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(client, memberOneId, 'wbsa');
+    expect(access.allowed).toBe(true);
+
+    await service.from('assessment_assignments').delete().eq('member_id', memberOneId);
   });
 });

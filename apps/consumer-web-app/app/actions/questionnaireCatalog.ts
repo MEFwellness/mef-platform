@@ -185,6 +185,10 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
     if (!facts) continue;
 
     const { section, flags } = categorizeForCatalog(entry, facts, new Date(), completedPrerequisiteKeys);
+    // Assignment-gated and not yet assigned/completed: invisible, skip
+    // entirely rather than paying the per-type query cost below to build a
+    // card nobody will ever see.
+    if (section === 'hidden') continue;
 
     if (entry.key === 'onboarding-health-history') {
       cards.push({
@@ -277,6 +281,10 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
 
   const catalog: QuestionnaireCatalog = emptyCatalog();
   for (const card of cards) {
+    // Defensive: no card should ever reach here with 'hidden' (filtered
+    // above), but this keeps the type-safe invariant explicit rather than
+    // relying only on that earlier `continue`.
+    if (card.section === 'hidden') continue;
     catalog[card.section].push(card);
     if (!card.flags.comingSoon) catalog.totalCount += 1;
   }

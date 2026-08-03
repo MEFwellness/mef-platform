@@ -189,6 +189,17 @@ export type AssessmentDefinition = {
   estimatedMinutes: number;
 
   membership: MembershipRules;
+  /**
+   * Assignment-gated visibility (Assignment-Gated Questionnaires task,
+   * 2026-08-03): when true, this assessment is invisible everywhere in the
+   * member app (catalog, Home) and blocked from direct access
+   * (lib/assessment-registry/access.ts) until a coach assigns it via
+   * assessment_assignments, or the member has completed it at least once.
+   * False for Onboarding, Body Assessment, and the three free experiences
+   * (Core Values Snapshot, Life Signal Check, Readiness Pulse) — those stay
+   * self-serve, unchanged by this field.
+   */
+  requiresAssignment: boolean;
   program: ProgramRules;
   prerequisites: PrerequisiteRules;
   /**

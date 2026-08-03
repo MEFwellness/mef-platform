@@ -34,6 +34,18 @@ export function resetPlanPopupMessageKey(kind: 'day3' | 'day7', planId: string):
   return `reset_plan_${kind}:${planId}`;
 }
 
+/**
+ * Assignment-Gated Questionnaires task — keyed by the assignment row's own
+ * id, not the questionnaire's key, so a new assignment cycle for the same
+ * questionnaire (a prior one completed or was cancelled, and the coach
+ * assigned it again) always earns a genuinely new message key and
+ * therefore a fresh pop-up, while a dismissal of this exact assignment's
+ * pop-up never repeats for this exact assignment.
+ */
+export function questionnaireAssignedPopupMessageKey(assignmentId: string): string {
+  return `questionnaire_assigned:${assignmentId}`;
+}
+
 export async function getRootPopupDismissal(
   supabase: SupabaseClient,
   memberId: string,
@@ -128,6 +140,32 @@ export function isRootPopupDueThisLogin(
   if (dismissal.status === 'ignored') return false;
   if (!dismissal.snoozedAt || !lastSignInAt) return true;
   return new Date(lastSignInAt).getTime() > new Date(dismissal.snoozedAt).getTime();
+}
+
+/**
+ * Given candidates in priority order and a due-check predicate, returns
+ * the first candidate still due, or null once every candidate has already
+ * been dismissed. This is the exact shape every one-time ("offer"-like)
+ * message in the Root pop-up waterfall (app/actions/rootPopupMessages.ts)
+ * must use for a list of same-kind candidates — see that file's own
+ * header comment on the real "one dismissal kills every later pop-up"
+ * starvation bug (fixed 2026-08-02, commit 85bdb347) this discipline
+ * exists to prevent: a caller that returns the first candidate
+ * unconditionally, without checking due-ness itself and falling through
+ * to the next, reintroduces that exact bug for whichever message type
+ * skips it. Used by the coach-assigned-questionnaire branch (a member can
+ * have more than one pending assignment) exactly the same way the
+ * existing cvs_offer/lsc_offer/rpl_offer branches already use their own
+ * inline version of this same check.
+ */
+export async function pickFirstDueOneTimeMessage<T extends { messageKey: string }>(
+  candidates: T[],
+  isDue: (messageKey: string) => Promise<boolean>
+): Promise<T | null> {
+  for (const candidate of candidates) {
+    if (await isDue(candidate.messageKey)) return candidate;
+  }
+  return null;
 }
 
 /**

@@ -1,6 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { resolveCvsCheckinPending } from '../lib/core-values-snapshot/experiment';
-import { cvsPopupMessageKey, isOfferPopupDue, isRootPopupDueThisLogin, lscPopupMessageKey } from '../lib/root-popup-messages/data';
+import {
+  cvsPopupMessageKey,
+  isOfferPopupDue,
+  isRootPopupDueThisLogin,
+  lscPopupMessageKey,
+  pickFirstDueOneTimeMessage,
+  questionnaireAssignedPopupMessageKey,
+} from '../lib/root-popup-messages/data';
 
 describe('resolveCvsCheckinPending', () => {
   it('is null before day 3', () => {
@@ -119,6 +126,92 @@ describe('isRootPopupDueThisLogin', () => {
         '2026-08-02T08:00:00.000Z'
       )
     ).toBe(true);
+  });
+});
+
+describe('questionnaireAssignedPopupMessageKey', () => {
+  it('is stable and distinct per assignment id', () => {
+    expect(questionnaireAssignedPopupMessageKey('assignment-1')).toBe(
+      'questionnaire_assigned:assignment-1'
+    );
+    expect(questionnaireAssignedPopupMessageKey('assignment-1')).not.toBe(
+      questionnaireAssignedPopupMessageKey('assignment-2')
+    );
+  });
+
+  it('gives a new assignment cycle for the same questionnaire a genuinely new key', () => {
+    // A coach re-assigning a questionnaire after a prior assignment
+    // completed or was cancelled creates a new assessment_assignments row
+    // with a new id — this key builder is keyed by that row id, not the
+    // questionnaire, so the new cycle's pop-up is never suppressed by the
+    // old cycle's dismissal.
+    const firstCycleKey = questionnaireAssignedPopupMessageKey('assignment-original');
+    const secondCycleKey = questionnaireAssignedPopupMessageKey('assignment-reassigned');
+    expect(firstCycleKey).not.toBe(secondCycleKey);
+  });
+});
+
+describe('pickFirstDueOneTimeMessage', () => {
+  // This is the regression target itself. The real bug (documented in
+  // app/actions/rootPopupMessages.ts's own header comment, fixed 2026-08-02,
+  // commit 85bdb347): a message-selection function that returns the first
+  // candidate it finds without checking whether it is still due, and
+  // without falling through to the next candidate when it isn't, silently
+  // returns null/nothing forever once the first candidate is ever
+  // dismissed — starving every later candidate, of any kind, permanently.
+  // These tests exercise the exact shared helper the new coach-assigned-
+  // questionnaire pop-up branch uses for its own candidate list, proving
+  // it cannot reintroduce that failure mode.
+
+  it('returns the first candidate when it is still due (no dismissal), without needing to check later ones', async () => {
+    const isDue = vi.fn(async (messageKey: string) => messageKey === 'a');
+    const result = await pickFirstDueOneTimeMessage(
+      [{ messageKey: 'a' }, { messageKey: 'b' }],
+      isDue
+    );
+    expect(result).toEqual({ messageKey: 'a' });
+    expect(isDue).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls through to a later candidate once an earlier one is already dismissed, instead of returning null', async () => {
+    // 'a' simulates an assignment whose pop-up was already dismissed
+    // (isDue -> false); a fixed version must still find 'b'.
+    const isDue = vi.fn(async (messageKey: string) => messageKey === 'b');
+    const result = await pickFirstDueOneTimeMessage(
+      [{ messageKey: 'a' }, { messageKey: 'b' }],
+      isDue
+    );
+    expect(result).toEqual({ messageKey: 'b' });
+    expect(isDue).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls through past multiple already-dismissed candidates to reach a due one further down the list', async () => {
+    // Reproduces the exact multi-candidate shape a member with several
+    // pending assignments would hit: the first two pop-ups were already
+    // shown and dismissed, only the third (newest assignment) is due.
+    const isDue = vi.fn(async (messageKey: string) => messageKey === 'assignment-3');
+    const result = await pickFirstDueOneTimeMessage(
+      [{ messageKey: 'assignment-1' }, { messageKey: 'assignment-2' }, { messageKey: 'assignment-3' }],
+      isDue
+    );
+    expect(result).toEqual({ messageKey: 'assignment-3' });
+  });
+
+  it('returns null only once every candidate has been dismissed, never before', async () => {
+    const isDue = vi.fn(async () => false);
+    const result = await pickFirstDueOneTimeMessage(
+      [{ messageKey: 'a' }, { messageKey: 'b' }, { messageKey: 'c' }],
+      isDue
+    );
+    expect(result).toBeNull();
+    expect(isDue).toHaveBeenCalledTimes(3);
+  });
+
+  it('returns null immediately for an empty candidate list (no pending assignments)', async () => {
+    const isDue = vi.fn(async () => true);
+    const result = await pickFirstDueOneTimeMessage([], isDue);
+    expect(result).toBeNull();
+    expect(isDue).not.toHaveBeenCalled();
   });
 });
 

@@ -26,6 +26,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Route } from 'next';
 import { CVS_DAY3_OPTIONS, cvsDay3FollowUpText, cvsDay3ReflectionText, cvsDay7FollowUpText, buildExperimentTheoryCopy } from '@/lib/core-values-snapshot/copy';
 import { lscDay3FollowUpText, lscDay3ReflectionText, lscDay7FollowUpText, buildLscExperimentTheoryCopy } from '@/lib/life-signal-check/copy';
 import { rplDay3FollowUpText, rplDay3ReflectionText, rplDay7FollowUpText, rplNoticingDay7Text, rplExperimentIntroCopy } from '@/lib/readiness-pulse/copy';
@@ -40,6 +41,7 @@ import { ResetPlanPopup } from '@/components/reset-plan/ResetPlanPopup';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
+type QuestionnaireAssignedMessage = Extract<RootPopupMessage, { kind: 'questionnaire_assigned' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
@@ -62,18 +64,24 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // one, in app/actions/rootPopupMessages.ts, had been making
   // effectively unreachable until now).
   const isOffer = message.kind === 'cvs_offer' || message.kind === 'lsc_offer' || message.kind === 'rpl_offer';
+  const isQuestionnaireAssigned = message.kind === 'questionnaire_assigned';
 
-  // The offer pops up at most once ever (unlike day3/day7, which return on
-  // every login until answered or explicitly ignored) — marking it
-  // 'ignored' the instant it's shown, rather than only on an explicit
+  // The offer (and the coach-assigned-questionnaire message, same one-
+  // time-ever shape) pops up at most once ever (unlike day3/day7, which
+  // return on every login until answered or explicitly ignored) — marking
+  // it 'ignored' the instant it's shown, rather than only on an explicit
   // dismiss, is what makes that true regardless of whether the member acts
-  // on it, closes the tab, or navigates away. The dashboard card stays the
-  // permanent, un-timed way to start it later either way. A no-op for
-  // every other kind, including the plan's own — every hook in this
-  // component must run unconditionally regardless of message.kind (rules
-  // of hooks), so this can't be skipped by an earlier return.
+  // on it, closes the tab, or navigates away. Dismissing never touches the
+  // questionnaire itself (that's assessment_assignments, a completely
+  // separate table/row from this dismissal) and never affects any other
+  // message's own dismissal row (message_key is per-assignment, per
+  // migration 137's design already proven by every other kind here) — see
+  // tests/root-popup-messages.test.ts for the regression coverage on both.
+  // A no-op for every other kind, including the plan's own — every hook in
+  // this component must run unconditionally regardless of message.kind
+  // (rules of hooks), so this can't be skipped by an earlier return.
   useEffect(() => {
-    if (isOffer) {
+    if (isOffer || isQuestionnaireAssigned) {
       ignoreRootPopupMessageAction(message.messageKey);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,6 +99,15 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
 
   if (closed) return null;
 
+  if (isQuestionnaireAssigned) {
+    return (
+      <QuestionnaireAssignedPopup
+        message={message as QuestionnaireAssignedMessage}
+        onClose={() => setClosed(true)}
+      />
+    );
+  }
+
   if (isOffer) {
     return <RootOfferPopup message={message as OfferMessage} onClose={() => setClosed(true)} />;
   }
@@ -99,8 +116,12 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // reference below (including inside the closures further down, which TS
   // can't narrow on its own from an outer `if`) can safely use
   // day3Or7Message.experimentId/topLabelText/logs/durationDays — real
-  // fields on all four remaining variants, never on the two offer kinds.
-  const day3Or7Message = message as Exclude<RootPopupMessage, OfferMessage | ResetPlanMessage>;
+  // fields on all four remaining variants, never on the two offer kinds or
+  // the coach-assigned-questionnaire kind.
+  const day3Or7Message = message as Exclude<
+    RootPopupMessage,
+    OfferMessage | ResetPlanMessage | QuestionnaireAssignedMessage
+  >;
 
   const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' || day3Or7Message.kind === 'rpl_day3';
 
@@ -360,6 +381,83 @@ function RootOfferPopup({ message, onClose }: { message: OfferMessage; onClose: 
             disabled={isPending}
             onClick={onClose}
             className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
+          >
+            Not now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The one-time "your coach assigned you a new questionnaire" pop-up
+ * (Assignment-Gated Questionnaires task). Same one-time-ever shape as
+ * RootOfferPopup (RootMessagePopupClient's own effect above already
+ * recorded the dismissal the instant this mounted), but "Start now" just
+ * navigates straight into the questionnaire's own overview route — no
+ * separate start action to call, since assessment_assignments already
+ * marks itself completed the moment the member finishes it (migration
+ * 144's trigger), and the questionnaire's own overview/take flow already
+ * handles begin-vs-resume on its own.
+ */
+function QuestionnaireAssignedPopup({
+  message,
+  onClose,
+}: {
+  message: QuestionnaireAssignedMessage;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+
+  function handleStart() {
+    onClose();
+    router.push(message.primaryHref as Route);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-5">
+      <div className="absolute inset-0 bg-[#0E1F17]/55 backdrop-blur-sm" aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="root-questionnaire-assigned-popup-title"
+        className="relative w-full max-w-sm overflow-hidden rounded-[28px] bg-[#1B3A2D] p-7 text-[#F5F0E4] shadow-[0_32px_80px_-16px_rgba(0,0,0,0.5)]"
+      >
+        <div
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#C4A050]/10"
+          aria-hidden="true"
+        />
+
+        <p className="relative text-xs font-semibold uppercase tracking-wider text-[#C4A050]">
+          From Root
+        </p>
+
+        <h2
+          id="root-questionnaire-assigned-popup-title"
+          className="relative mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#F5F0E4]"
+        >
+          Something new from your coach
+        </h2>
+
+        <p className="relative mt-3 text-[16px] leading-relaxed text-[#F5F0E4]">
+          Your coach has assigned you the {message.displayName} questionnaire. It helps Root
+          understand you more deeply, and your answers go straight to your coach.
+        </p>
+
+        <button
+          type="button"
+          onClick={handleStart}
+          className="mef-focus-ring mef-press relative mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95"
+        >
+          Start now
+        </button>
+
+        <div className="relative mt-6 flex items-center justify-center border-t border-[#F5F0E4]/10 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4]"
           >
             Not now
           </button>

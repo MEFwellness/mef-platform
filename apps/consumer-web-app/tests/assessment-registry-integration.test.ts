@@ -111,7 +111,15 @@ describe('registry catalog', () => {
 });
 
 describe('membership-tier gating (free / monthly / reset)', () => {
-  it('free_trial member: Four Doctors and Body Assessment available, Nutrition & Lifestyle locked', async () => {
+  // Assignment-Gated Questionnaires task: Four Doctors, Nutrition &
+  // Lifestyle, and Primal Pattern moved from tier-gated (available to any
+  // member, or locked behind a membership upgrade) to assignment-gated
+  // (invisible/locked until a coach assigns them, regardless of tier) —
+  // see requiresAssignment in lib/assessment-registry/registry.ts. Body
+  // Assessment is untouched by that change (requiresAssignment: false),
+  // so it's the one key in this describe block still governed by tier
+  // rules alone.
+  it('free_trial member with nothing assigned: Body Assessment available, Four Doctors and Nutrition & Lifestyle both locked as not_assigned', async () => {
     await setMembership(memberOneId, 'free_trial');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
@@ -120,7 +128,8 @@ describe('membership-tier gating (free / monthly / reset)', () => {
       findAssessmentRegistryEntry('four-doctors')!,
       facts.get('four-doctors')!
     );
-    expect(fourDoctors.status).toBe('available');
+    expect(fourDoctors.status).toBe('locked');
+    expect(fourDoctors.lockReason).toEqual({ kind: 'not_assigned' });
 
     const body = calculateAssessmentStatus(
       findAssessmentRegistryEntry('body-assessment')!,
@@ -133,10 +142,10 @@ describe('membership-tier gating (free / monthly / reset)', () => {
       facts.get('chek-hlc1-nutrition-lifestyle')!
     );
     expect(chek.status).toBe('locked');
-    expect(chek.lockReason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
+    expect(chek.lockReason).toEqual({ kind: 'not_assigned' });
   });
 
-  it('membership-tier member: Nutrition & Lifestyle unlocked', async () => {
+  it('membership-tier member with nothing assigned: Nutrition & Lifestyle stays locked as not_assigned (tier alone no longer unlocks it)', async () => {
     await setMembership(memberOneId, 'membership');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
@@ -144,31 +153,40 @@ describe('membership-tier gating (free / monthly / reset)', () => {
       findAssessmentRegistryEntry('chek-hlc1-nutrition-lifestyle')!,
       facts.get('chek-hlc1-nutrition-lifestyle')!
     );
-    expect(chek.status).toBe('available');
+    expect(chek.status).toBe('locked');
+    expect(chek.lockReason).toEqual({ kind: 'not_assigned' });
   });
 
-  it('a member with no profile row (default fallback) is treated as membership tier, never narrower than pre-registry behavior', async () => {
+  it('a member with no profile row (default fallback) still sees an unassigned Nutrition & Lifestyle as locked, not available', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
     const chek = calculateAssessmentStatus(
       findAssessmentRegistryEntry('chek-hlc1-nutrition-lifestyle')!,
       facts.get('chek-hlc1-nutrition-lifestyle')!
     );
-    expect(chek.status).toBe('available');
+    expect(chek.status).toBe('locked');
+    expect(chek.lockReason).toEqual({ kind: 'not_assigned' });
   });
 
-  it('holistic_reset member: everything free_trial can see remains available (superset)', async () => {
+  it('holistic_reset member with nothing assigned: Body Assessment stays available, the three assignment-gated keys stay locked regardless of tier', async () => {
     await setMembership(memberOneId, 'holistic_reset');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
+
+    const body = calculateAssessmentStatus(
+      findAssessmentRegistryEntry('body-assessment')!,
+      facts.get('body-assessment')!
+    );
+    expect(body.status).not.toBe('locked');
+
     for (const key of [
       'four-doctors',
       'chek-hlc1-nutrition-lifestyle',
-      'body-assessment',
       'primal-pattern-diet-type',
     ] as const) {
       const status = calculateAssessmentStatus(findAssessmentRegistryEntry(key)!, facts.get(key)!);
-      expect(status.status).not.toBe('locked');
+      expect(status.status).toBe('locked');
+      expect(status.lockReason).toEqual({ kind: 'not_assigned' });
     }
   });
 });
@@ -177,6 +195,12 @@ describe('program phase gating (framework mechanism — no live assessment uses 
   it('a program-only, phase-gated definition locks a member not enrolled, and unlocks at the matching phase', () => {
     const phaseGated: AssessmentDefinition = {
       ...findAssessmentRegistryEntry('four-doctors')!,
+      // This test's own concern is program-phase gating in isolation —
+      // four-doctors' real requiresAssignment: true (Assignment-Gated
+      // Questionnaires task) would otherwise shadow every assertion below
+      // behind a not_assigned lock reason before program gating is ever
+      // reached.
+      requiresAssignment: false,
       program: {
         programOnly: true,
         programKey: 'holistic_reset',
@@ -406,9 +430,113 @@ describe('coach assignment override', () => {
   });
 });
 
+describe('assignment gating — DB-level enforcement (migration 144)', () => {
+  it('rejects a second pending assignment for the same member/questionnaire pair (partial unique index)', async () => {
+    const service = serviceRoleClient();
+
+    const { error: firstError } = await service.from('assessment_assignments').insert({
+      member_id: memberOneId,
+      assessment_definition_id: CHEK_HLC1_ID,
+      assigned_by: TEST_USERS.coachOne.id,
+      is_required: true,
+    });
+    expect(firstError).toBeNull();
+
+    const { error: secondError } = await service.from('assessment_assignments').insert({
+      member_id: memberOneId,
+      assessment_definition_id: CHEK_HLC1_ID,
+      assigned_by: TEST_USERS.coachOne.id,
+      is_required: true,
+    });
+    expect(secondError).not.toBeNull();
+    expect(secondError!.code).toBe('23505');
+  });
+
+  it('allows a new pending assignment once the prior one for the same pair is no longer pending', async () => {
+    const service = serviceRoleClient();
+
+    const first = await service
+      .from('assessment_assignments')
+      .insert({
+        member_id: memberOneId,
+        assessment_definition_id: CHEK_HLC1_ID,
+        assigned_by: TEST_USERS.coachOne.id,
+        is_required: true,
+      })
+      .select('id')
+      .single();
+    expect(first.error).toBeNull();
+
+    await service
+      .from('assessment_assignments')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: TEST_USERS.coachOne.id })
+      .eq('id', first.data!.id);
+
+    const { error: secondError } = await service.from('assessment_assignments').insert({
+      member_id: memberOneId,
+      assessment_definition_id: CHEK_HLC1_ID,
+      assigned_by: TEST_USERS.coachOne.id,
+      is_required: true,
+    });
+    expect(secondError).toBeNull();
+  });
+
+  it('auto-completes a pending assignment the moment its questionnaire is completed (assessment_attempts trigger)', async () => {
+    const service = serviceRoleClient();
+
+    const assignment = await service
+      .from('assessment_assignments')
+      .insert({
+        member_id: memberOneId,
+        assessment_definition_id: FOUR_DOCTORS_ID,
+        assigned_by: TEST_USERS.coachOne.id,
+        is_required: true,
+      })
+      .select('id')
+      .single();
+    expect(assignment.error).toBeNull();
+
+    // Completing the assigned questionnaire (via the generic engine's own
+    // source table, exactly like the "completion tracking" describe block
+    // above) fires the pre-existing live-sync trigger into
+    // assessment_attempts, which in turn fires migration 144's own trigger
+    // to close out the assignment.
+    await service.from('wellness_assessments').insert({
+      member_id: memberOneId,
+      questionnaire_id: 'four-doctors',
+      status: 'completed',
+      total_score: 15,
+      total_max_score: 54,
+      total_priority: 'low',
+      started_at: new Date(Date.now() - 600_000).toISOString(),
+      completed_at: new Date().toISOString(),
+    });
+
+    const { data: updatedAssignment } = await service
+      .from('assessment_assignments')
+      .select('status, completed_attempt_id')
+      .eq('id', assignment.data!.id)
+      .single();
+    expect(updatedAssignment!.status).toBe('completed');
+    expect(updatedAssignment!.completed_attempt_id).not.toBeNull();
+
+    // And the member's facts no longer show it as pending — this is what
+    // makes the completed questionnaire disappear from the Home priority
+    // spot and move to the ordinary Completed catalog section.
+    const client = await signInAs(TEST_USERS.memberOne);
+    const facts = await getMemberAssessmentFacts(client, memberOneId);
+    expect(facts.get('four-doctors')!.pendingAssignment).toBeNull();
+    expect(facts.get('four-doctors')!.completionStatus).toBe('completed');
+  });
+});
+
 describe('server-side access enforcement (not UI-only)', () => {
-  it('blocks a free_trial member from starting a membership-tier assessment directly, even with no assignment or prior progress', async () => {
-    await setMembership(memberOneId, 'free_trial');
+  it('blocks a member from starting an assignment-gated assessment directly by URL, even at a qualifying membership tier, with no assignment or prior progress', async () => {
+    // membership tier (not free_trial) so this genuinely isolates the
+    // Assignment-Gated Questionnaires task's own gate from the older,
+    // separate membership-tier gate this same assessment used to be
+    // blocked by (see the "membership-tier gating" describe block above).
+    await setMembership(memberOneId, 'membership');
     const client = await signInAs(TEST_USERS.memberOne);
     const access = await checkAssessmentAccess(
       client,
@@ -417,7 +545,16 @@ describe('server-side access enforcement (not UI-only)', () => {
     );
     expect(access.allowed).toBe(false);
     if (!access.allowed) {
-      expect(access.reason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
+      expect(access.reason).toEqual({ kind: 'not_assigned' });
+    }
+  });
+
+  it('blocks Primal Pattern directly by URL with no assignment (a real pre-existing gap: this route had zero access enforcement at all before this task)', async () => {
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(client, memberOneId, 'primal-pattern-diet-type');
+    expect(access.allowed).toBe(false);
+    if (!access.allowed) {
+      expect(access.reason).toEqual({ kind: 'not_assigned' });
     }
   });
 

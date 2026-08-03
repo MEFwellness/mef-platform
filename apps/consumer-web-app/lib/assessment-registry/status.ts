@@ -26,6 +26,7 @@ export type AssessmentStatus =
   | 'available';
 
 export type LockReason =
+  | { kind: 'not_assigned' }
   | { kind: 'membership'; requiredLevel: MembershipKey }
   | { kind: 'program_enrollment' }
   | { kind: 'program_phase'; requiredPhaseKey: string }
@@ -68,6 +69,22 @@ export function calculateLockReason(
   facts: MemberAssessmentFacts,
   completedPrerequisiteKeys: ReadonlySet<AssessmentKey>
 ): LockReason | null {
+  // Assignment-gated visibility (Assignment-Gated Questionnaires task):
+  // checked before every other rule below, and only while the member has
+  // never started it — a coach assignment, a pending reassessment schedule
+  // (which only ever exists for an assessment the member already has real
+  // history with), or the member's own completed history always lets them
+  // through, same "never hide existing progress" protection the rest of
+  // this function already gives every other lock reason.
+  if (
+    definition.requiresAssignment &&
+    facts.completionStatus === 'not_started' &&
+    !facts.pendingAssignment &&
+    !facts.pendingReassessmentSchedule
+  ) {
+    return { kind: 'not_assigned' };
+  }
+
   if (!membershipMeetsMinimum(facts.membershipKey, definition.membership.minLevel)) {
     return { kind: 'membership', requiredLevel: definition.membership.minLevel };
   }
@@ -97,6 +114,8 @@ export function calculateLockReason(
 /** Safe, simple, member-facing copy for a lock reason. Never diagnostic, never CHEK/HLC1, no em dashes. */
 export function describeLockReason(reason: LockReason, prerequisiteNames: string[] = []): string {
   switch (reason.kind) {
+    case 'not_assigned':
+      return 'Not assigned yet. Your coach will assign this when the time is right.';
     case 'membership':
       return reason.requiredLevel === 'holistic_reset'
         ? 'Available as part of the Holistic Reset program.'

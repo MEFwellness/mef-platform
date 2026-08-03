@@ -41,6 +41,7 @@ import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from './coreValue
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from './lifeSignalCheck';
 import { getMyRplExperimentStatusAction, getMyRplOfferAction } from './readinessPulse';
 import { getMyResetPlanDashboardStateAction } from './resetPlan';
+import { getMyPendingQuestionnaireAssignments } from './assessmentAssignments';
 import { resolveCvsCheckinPending, type CvsDailyLogRow } from '@/lib/core-values-snapshot/experiment';
 import type { CvsScoring } from '@/lib/core-values-snapshot/types';
 import type { LscScoring } from '@/lib/life-signal-check/types';
@@ -52,10 +53,12 @@ import {
   lscPopupMessageKey,
   rplPopupMessageKey,
   resetPlanPopupMessageKey,
+  questionnaireAssignedPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
   isOfferPopupDue,
   isRootPopupDueThisLogin,
+  pickFirstDueOneTimeMessage,
   snoozeRootPopupMessage,
   type RootPopupDismissalStatus,
 } from '@/lib/root-popup-messages/data';
@@ -98,7 +101,14 @@ export type RootPopupMessage =
     }
   | { kind: 'rpl_offer'; messageKey: string; sessionId: string; scoring: RplScoring }
   | { kind: 'reset_plan_day3'; messageKey: string; planId: string; focusSignal: Signal }
-  | { kind: 'reset_plan_day7'; messageKey: string; planId: string; focusSignal: Signal; logs: ResetPlanDailyLog[] };
+  | { kind: 'reset_plan_day7'; messageKey: string; planId: string; focusSignal: Signal; logs: ResetPlanDailyLog[] }
+  | {
+      kind: 'questionnaire_assigned';
+      messageKey: string;
+      assignmentId: string;
+      displayName: string;
+      primaryHref: string;
+    };
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -140,6 +150,36 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   async function goalCallbackForDay7(): Promise<string | null> {
     if (!memberId || !supabase) return null;
     return buildGoalCallback(await fetchGoalCallbackContext(supabase, memberId));
+  }
+
+  // Coach-assigned questionnaire (Assignment-Gated Questionnaires task) —
+  // checked first, ahead of every self-serve Root message below: a coach's
+  // direct action for this member takes priority over Root's own day3/
+  // day7/offer messages. Uses pickFirstDueOneTimeMessage (lib/root-popup-
+  // messages/data.ts) for the exact same guarded "check due-ness, then
+  // fall through to the next candidate" discipline as every offer branch
+  // below — see that helper's own doc comment and
+  // tests/root-popup-messages.test.ts for the regression coverage proving
+  // a dismissed earlier assignment can never suppress a later, still-due
+  // one (the real starvation bug this function's header comment
+  // describes). A member can have more than one pending assignment;
+  // oldest-assigned-and-still-undismissed wins.
+  const pendingAssignments = await getMyPendingQuestionnaireAssignments();
+  const dueAssignment = await pickFirstDueOneTimeMessage(
+    pendingAssignments.map((assignment) => ({
+      ...assignment,
+      messageKey: questionnaireAssignedPopupMessageKey(assignment.assignmentId),
+    })),
+    isOfferStillDue
+  );
+  if (dueAssignment) {
+    return {
+      kind: 'questionnaire_assigned',
+      messageKey: dueAssignment.messageKey,
+      assignmentId: dueAssignment.assignmentId,
+      displayName: dueAssignment.displayName,
+      primaryHref: dueAssignment.primaryHref,
+    };
   }
 
   const cvsStatus = await getMyCvsExperimentStatusAction();
@@ -336,7 +376,12 @@ export async function getMyRootPopupMessageAction(): Promise<RootPopupMessage | 
   const supabase = createClient();
   const dismissal = await getRootPopupDismissal(supabase, user.id, message.messageKey);
 
-  if (message.kind === 'cvs_offer' || message.kind === 'lsc_offer' || message.kind === 'rpl_offer') {
+  if (
+    message.kind === 'cvs_offer' ||
+    message.kind === 'lsc_offer' ||
+    message.kind === 'rpl_offer' ||
+    message.kind === 'questionnaire_assigned'
+  ) {
     return isOfferPopupDue(dismissal) ? message : null;
   }
 

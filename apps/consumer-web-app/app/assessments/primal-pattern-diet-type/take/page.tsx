@@ -9,8 +9,23 @@ import { redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { getMyPrimalPatternTakeState } from '@/app/actions/primal-pattern';
 import { PrimalPatternTaker } from '@/components/primal-pattern/PrimalPatternTaker';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
+import { createClient } from '@/lib/supabase/server';
 
 export default async function TakePrimalPatternPage() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Same ordering rule as the generic engine's/WBSA's own take pages:
+  // access is checked before loading take state, so a direct URL visit to
+  // a not-yet-assigned questionnaire's take flow can never start a new
+  // attempt, only ever resume one that already exists.
+  const access = await checkAssessmentAccess(supabase, user.id, 'primal-pattern-diet-type');
+  if (!access.allowed) redirect('/assessments/primal-pattern-diet-type');
+
   const state = await getMyPrimalPatternTakeState();
   if (!state) redirect('/login');
 

@@ -29,12 +29,25 @@ function Section({
   title,
   subtitle,
   cards,
+  emptyMessage,
 }: {
   title: string;
   subtitle?: string;
   cards: CatalogCard[];
+  /** When set, an empty section still renders (with this calm copy) instead of disappearing — used for Assigned, so a member always sees where a coach assignment will show up. */
+  emptyMessage?: string;
 }) {
-  if (cards.length === 0) return null;
+  if (cards.length === 0) {
+    if (!emptyMessage) return null;
+    return (
+      <section className="mt-8">
+        <p className="px-1 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">{title}</p>
+        <div className="mt-3 rounded-[28px] bg-[#FAFAF8] p-6 text-center">
+          <p className="text-sm leading-relaxed text-[#6B7A72]">{emptyMessage}</p>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="mt-8">
       <p className="px-1 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">{title}</p>
@@ -90,7 +103,7 @@ export function QuestionnaireCatalogView({
       {counts.all === 0 && (
         <Card as="section" className="mef-animate-in mt-8 text-center">
           <p className="text-sm leading-relaxed text-[#6B7A72]">
-            Nothing available right now. Check back soon.
+            Nothing here yet. Your coach will assign these when the time is right.
           </p>
         </Card>
       )}
@@ -108,7 +121,11 @@ export function QuestionnaireCatalogView({
       )}
 
       {(filter === 'all' || filter === 'assigned') && (
-        <Section title="Assigned" cards={catalog.assigned} />
+        <Section
+          title="Assigned"
+          cards={catalog.assigned}
+          emptyMessage="Nothing here yet. Your coach will assign these when the time is right."
+        />
       )}
 
       {(filter === 'all' || filter === 'completed') && (

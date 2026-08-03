@@ -60,6 +60,7 @@ import { HydrationTracker } from '@/components/checkin/HydrationTracker';
 import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection';
 import { getMyQuestionnaireCatalog } from '@/app/actions/questionnaireCatalog';
 import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
+import { AssignedQuestionnairePriorityCard } from '@/components/dashboard/AssignedQuestionnairePriorityCard';
 import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCard';
 import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
@@ -470,6 +471,21 @@ export default async function DashboardPage({
       />
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
+        {/* ==================================================== */}
+        {/* Assigned Questionnaire — top priority (Assignment-      */}
+        {/* Gated Questionnaires task). Always the first thing in   */}
+        {/* <main>, above Quick Actions/Today, in both branches      */}
+        {/* below, since a coach assignment can land at any point   */}
+        {/* in a member's journey. Renders nothing when nothing is  */}
+        {/* currently assigned. See                                 */}
+        {/* components/dashboard/AssignedQuestionnairePriorityCard. */}
+        {/* ==================================================== */}
+        {questionnaireCatalog.assigned.length > 0 && (
+          <div className="pt-6">
+            <AssignedQuestionnairePriorityCard cards={questionnaireCatalog.assigned} />
+          </div>
+        )}
+
         {!hasCheckins && !hasActiveExperiment ? (
           /* Premium UX Milestone 2: before a member's first completed
            check-in, Root has nothing real to personalize yet — one

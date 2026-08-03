@@ -23,7 +23,7 @@
 import type { AssessmentDefinition, AssessmentKey } from './types';
 import { calculateLockReason, describeLockReason, type MemberAssessmentFacts } from './status';
 
-export type CatalogSection = 'assigned' | 'completed' | 'premium' | 'available';
+export type CatalogSection = 'assigned' | 'completed' | 'premium' | 'available' | 'hidden';
 
 export type CatalogFlags = {
   locked: boolean;
@@ -57,6 +57,32 @@ export function categorizeForCatalog(
   const isPremium = definition.membership.minLevel !== 'free_trial';
   const comingSoon =
     definition.isComingSoon || definition.implementationStatus !== 'live' || !definition.isActive;
+
+  // Assignment-gated visibility (Assignment-Gated Questionnaires task):
+  // checked first, ahead of comingSoon and every other section rule below —
+  // a member sees nothing at all for this assessment (not even a locked
+  // Premium card) until a coach assigns it, a reassessment comes due for
+  // it, or they have completed it once. Never hides in-progress work,
+  // matching calculateLockReason's identical condition in status.ts.
+  if (
+    definition.requiresAssignment &&
+    facts.completionStatus === 'not_started' &&
+    !facts.pendingAssignment &&
+    !facts.pendingReassessmentSchedule
+  ) {
+    return {
+      section: 'hidden',
+      flags: {
+        locked: false,
+        lockMessage: null,
+        comingSoon: false,
+        inProgress: false,
+        reassessmentDueAt: null,
+        scheduledAt: null,
+        retakeAvailable: false,
+      },
+    };
+  }
 
   if (comingSoon) {
     return {

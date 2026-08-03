@@ -15,10 +15,12 @@ import { Clock3, ListChecks, Sparkles } from 'lucide-react';
 import { getMyPrimalPatternOverview } from '@/app/actions/primal-pattern';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
+import { describeLockReason } from '@/lib/assessment-registry/status';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { NutritionSafetyFlagsForm } from '@/components/health-safety/NutritionSafetyFlagsForm';
-import { Card } from '@/components/layout';
+import { CenterStage, Card } from '@/components/layout';
 
 const RESULT_LABEL: Record<string, string> = {
   polar: 'Polar',
@@ -33,12 +35,50 @@ export default async function PrimalPatternOverviewPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [overview, isCoach] = await Promise.all([
+  const [overview, isCoach, access] = await Promise.all([
     getMyPrimalPatternOverview(),
     hasActiveRole(supabase, user.id, 'coach'),
+    checkAssessmentAccess(supabase, user.id, 'primal-pattern-diet-type'),
   ]);
 
   if (!overview) redirect('/login');
+
+  if (!access.allowed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+        <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
+          <BackButton fallbackHref="/questionnaires" label="Back to Questionnaires" forceFallback />
+
+          <CenterStage>
+            <Card className="mef-animate-in text-center">
+              <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
+                {overview.copy.displayTitle}
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                {describeLockReason(access.reason)}
+              </p>
+              {access.reason.kind !== 'not_assigned' && (
+                <Link
+                  href={'/membership' as Route}
+                  className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+                >
+                  View Membership
+                </Link>
+              )}
+              <Link
+                href={'/questionnaires' as Route}
+                className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
+              >
+                Back to Questionnaires
+              </Link>
+            </Card>
+          </CenterStage>
+        </main>
+
+        <BottomNav isCoach={isCoach} />
+      </div>
+    );
+  }
 
   const { copy, totalQuestions, draft, latestCompleted, safetyProfile } = overview;
   const ctaLabel = draft
