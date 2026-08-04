@@ -11,7 +11,9 @@
  * Body Assessment is registered in the framework but deliberately excluded
  * here — app/questionnaires/page.tsx (and Home's Questionnaires card) has
  * always been "deliberately separate from /assessment," and that existing
- * product decision is preserved, not overridden by this restructuring.
+ * product decision is preserved, not overridden by this restructuring. See
+ * getMyBodyAssessmentAssignmentCard below for its own, separate assignment
+ * card (Coach-Assign-Only Gating task, 2026-08-04).
  */
 
 'use server';
@@ -21,7 +23,7 @@ import { getMyQuestionnaireList } from './assessments';
 import { getMyPrimalPatternListItem } from './primal-pattern';
 import { fetchBaselineAssessment } from '@/lib/onboarding/baseline';
 import { getMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
-import { listAssessmentRegistryEntries } from '@/lib/assessment-registry/registry';
+import { listAssessmentRegistryEntries, findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
 import {
   categorizeForCatalog,
   type CatalogFlags,
@@ -188,10 +190,6 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
     if (!facts) continue;
 
     const { section, flags } = categorizeForCatalog(entry, facts, new Date(), completedPrerequisiteKeys);
-    // Assignment-gated and not yet assigned/completed: invisible, skip
-    // entirely rather than paying the per-type query cost below to build a
-    // card nobody will ever see.
-    if (section === 'hidden') continue;
 
     if (entry.key === 'onboarding-health-history') {
       cards.push({
@@ -288,14 +286,55 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
 
   const catalog: QuestionnaireCatalog = emptyCatalog();
   for (const card of cards) {
-    // Defensive: no card should ever reach here with 'hidden' (filtered
-    // above), but this keeps the type-safe invariant explicit rather than
-    // relying only on that earlier `continue`.
-    if (card.section === 'hidden') continue;
     catalog[card.section].push(card);
     if (!card.flags.comingSoon) catalog.totalCount += 1;
   }
   catalog.completedCount = catalog.completed.length;
 
   return catalog;
+}
+
+/**
+ * Coach-Assign-Only Gating task (2026-08-04) — Body Assessment's own
+ * assignment card, deliberately kept separate from getMyQuestionnaireCatalog()
+ * above rather than merged into it: that catalog (and /questionnaires,
+ * and Home's Questionnaires summary count) has always deliberately
+ * excluded Body Assessment, and that stays true here — this function
+ * exists only so a pending Body Assessment assignment can reuse the exact
+ * same CatalogCard shape, the same AssignedQuestionnairePriorityCard
+ * rendering, and the same questionnaire_assigned Root pop-up as every
+ * other coach-assigned questionnaire, without pulling Body Assessment
+ * into the Questionnaires page/count it was always meant to stay apart
+ * from. Returns null whenever there is no pending assignment for it.
+ */
+export async function getMyBodyAssessmentAssignmentCard(): Promise<CatalogCard | null> {
+  const memberId = await requireMemberId();
+  if (!memberId) return null;
+
+  const supabase = createClient();
+  const entry = findAssessmentRegistryEntry('body-assessment' as AssessmentKey);
+  if (!entry) return null;
+
+  const factsByKey = await getMemberAssessmentFacts(supabase, memberId);
+  const facts = factsByKey.get(entry.key);
+  if (!facts) return null;
+
+  const { section, flags } = categorizeForCatalog(entry, facts, new Date());
+  if (section !== 'assigned') return null;
+
+  return {
+    key: entry.key,
+    title: entry.displayName,
+    description: entry.shortDescription,
+    estimatedMinutes: entry.estimatedMinutes,
+    category: entry.category,
+    section,
+    flags,
+    draftProgress: null,
+    latestCompletedAt: facts.latestCompletedAt,
+    primaryHref: entry.takeRoute,
+    resultHref: null,
+    coachAssignmentReason: facts.pendingAssignment?.reason ?? null,
+    assignmentId: facts.pendingAssignment?.id ?? null,
+  };
 }

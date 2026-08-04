@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { PersonStanding, CheckCircle2, Hourglass } from 'lucide-react';
 import type { BodyAssessment } from '@mef/shared-types-contracts';
+import { LockedCardButton } from '@/components/locked/LockedCardButton';
+import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -39,10 +41,21 @@ export function MovementAssessmentCard({
   assessments,
   variant = 'card',
   className = '',
+  locked = false,
 }: {
   assessments: BodyAssessment[];
   variant?: Variant;
   className?: string;
+  /**
+   * Coach-Assign-Only Gating task (2026-08-04) — true when this member has
+   * no body assessment history and no pending coach assignment for it
+   * (see checkAssessmentAccess('body-assessment')). Only ever meaningful
+   * for the invite state below (no analyzed/submitted assessment exists
+   * yet) — a member with any real history is always let through by
+   * checkAssessmentAccess itself, so the analyzed/submitted branches above
+   * never need to check this.
+   */
+  locked?: boolean;
 }) {
   const analyzed = assessments.find((a) => a.completed_at !== null);
   const submitted = assessments.find((a) => a.status !== 'in_progress');
@@ -105,8 +118,10 @@ export function MovementAssessmentCard({
   }
 
   if (imageBacked) {
-    return (
-      <section className={`${shell} p-8 text-center sm:p-10 ${className}`}>
+    const body = (
+      <section
+        className={`${shell} p-8 text-center sm:p-10 ${locked ? 'opacity-60 grayscale-[0.4]' : ''} ${className}`}
+      >
         <div
           className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#F5B700]/15 blur-2xl"
           aria-hidden="true"
@@ -128,18 +143,34 @@ export function MovementAssessmentCard({
         <p className="relative mt-4 text-xs font-medium uppercase tracking-wider text-[#FAFAF8]/60">
           Estimated time: 5–10 minutes
         </p>
-        <Link
-          href={'/assessment' as Route}
-          className="mef-press relative mt-6 inline-flex items-center justify-center rounded-full bg-[#F5B700] px-7 py-3.5 text-sm font-semibold text-[#1B3A2D] shadow-[0_10px_24px_-6px_rgba(0,0,0,0.35)] transition hover:brightness-105"
-        >
-          Start Assessment
-        </Link>
+        {!locked && (
+          <Link
+            href={'/assessment' as Route}
+            className="mef-press relative mt-6 inline-flex items-center justify-center rounded-full bg-[#F5B700] px-7 py-3.5 text-sm font-semibold text-[#1B3A2D] shadow-[0_10px_24px_-6px_rgba(0,0,0,0.35)] transition hover:brightness-105"
+          >
+            Start Assessment
+          </Link>
+        )}
       </section>
     );
+
+    if (locked) {
+      return (
+        <div className="relative">
+          <LockedCardButton ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it.">
+            {body}
+          </LockedCardButton>
+          <CoachLockBadge />
+        </div>
+      );
+    }
+    return body;
   }
 
-  return (
-    <section className={`${shell} relative overflow-hidden p-8 text-center sm:p-10 ${className}`}>
+  const plainBody = (
+    <section
+      className={`${shell} relative overflow-hidden p-8 text-center sm:p-10 ${locked ? 'opacity-60 grayscale-[0.4]' : ''} ${className}`}
+    >
       <div
         className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#F5B700]/10"
         aria-hidden="true"
@@ -160,12 +191,26 @@ export function MovementAssessmentCard({
       <p className="relative mt-4 text-xs font-medium uppercase tracking-wider text-[#6B7A72]">
         Estimated time: 5–10 minutes
       </p>
-      <Link
-        href={'/assessment' as Route}
-        className="mef-press relative mt-6 inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
-      >
-        Start Assessment
-      </Link>
+      {!locked && (
+        <Link
+          href={'/assessment' as Route}
+          className="mef-press relative mt-6 inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
+        >
+          Start Assessment
+        </Link>
+      )}
     </section>
   );
+
+  if (locked) {
+    return (
+      <div className="relative">
+        <LockedCardButton ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it.">
+          {plainBody}
+        </LockedCardButton>
+        <CoachLockBadge />
+      </div>
+    );
+  }
+  return plainBody;
 }

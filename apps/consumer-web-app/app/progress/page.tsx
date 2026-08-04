@@ -48,6 +48,9 @@ import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { CardStack } from '@/components/layout';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
+import { LockedCardButton } from '@/components/locked/LockedCardButton';
+import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
 import { buildProgressEntryContext } from '@/lib/conversation-coach/entryContext';
 import { WellnessIdentityPanel } from './WellnessIdentityPanel';
 import { ProgressRootScorePanel } from './ProgressRootScorePanel';
@@ -107,6 +110,7 @@ export default async function ProgressPage() {
     stressHistory,
     rootScoreHistory,
     coachingInsights,
+    bodyAssessmentAccess,
   ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
@@ -120,6 +124,10 @@ export default async function ProgressPage() {
     getMyWearableMetricHistory('stress_score', 30),
     getMyRootScoreHistory(90),
     getMyCoachingInsightsAction(),
+    // Coach-Assign-Only Gating task (2026-08-04) — locks the "Assessments"
+    // Explore row below when this member has no Body Assessment history
+    // and no pending coach assignment for it.
+    checkAssessmentAccess(supabase, user.id, 'body-assessment'),
   ]);
   const firstName = firstNameFrom(profile?.display_name);
   const timezone = profile?.timezone ?? 'America/New_York';
@@ -279,16 +287,30 @@ export default async function ProgressPage() {
               <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
             </Link>
 
-            <Link
-              href="/assessment"
-              className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
-            >
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
+            {bodyAssessmentAccess.allowed ? (
+              <Link
+                href="/assessment"
+                className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
+              >
+                <div className="flex items-center gap-2 text-[#6B7A72]">
+                  <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+              </Link>
+            ) : (
+              <div className="relative">
+                <LockedCardButton ariaLabel="Assessments, locked. Tap to hear from Root about it.">
+                  <div className="mef-card mef-animate-in flex items-center justify-between p-6 opacity-55 grayscale-[0.4]">
+                    <div className="flex items-center gap-2 text-[#6B7A72]">
+                      <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                      <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
+                    </div>
+                  </div>
+                </LockedCardButton>
+                <CoachLockBadge />
               </div>
-              <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-            </Link>
+            )}
 
             <Link
               href={'/questionnaires' as Route}

@@ -14,6 +14,8 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
+import { describeLockReason } from '@/lib/assessment-registry/status';
 import type { ActionResult } from './auth';
 import type {
   AnnotationShape,
@@ -113,6 +115,14 @@ export async function startAssessmentAction(
   const ctx = await requireMember();
   if (!ctx) return { error: 'Not signed in.' };
   const { supabase, userId } = ctx;
+
+  // Coach-Assign-Only Gating task (2026-08-04): real server-side
+  // enforcement of the same rule app/assessment/page.tsx and
+  // app/assessment/new/page.tsx already redirect on — this is the actual
+  // write path, so it's checked here too rather than trusting the page-
+  // level checks alone (defense in depth against a direct call).
+  const access = await checkAssessmentAccess(supabase, userId, 'body-assessment');
+  if (!access.allowed) return { error: describeLockReason(access.reason) };
 
   const timezone = await memberTimezone(supabase, userId);
   const localDate = await resolveLocalDate(

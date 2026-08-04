@@ -58,7 +58,8 @@ import { getTodaysHydrationTotal } from '@/app/actions/events';
 import { getTodaysEveningReflection } from '@/app/actions/eveningReflection';
 import { HydrationTracker } from '@/components/checkin/HydrationTracker';
 import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection';
-import { getMyQuestionnaireCatalog } from '@/app/actions/questionnaireCatalog';
+import { getMyQuestionnaireCatalog, getMyBodyAssessmentAssignmentCard } from '@/app/actions/questionnaireCatalog';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
 import { DashboardInviteCards } from '@/components/dashboard/DashboardInviteCards';
 import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCard';
@@ -181,6 +182,8 @@ export default async function DashboardPage({
     questionnaireCatalog,
     assignedWorkouts,
     rootPopupMessage,
+    bodyAssessmentAccess,
+    bodyAssessmentAssignmentCard,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
@@ -190,6 +193,15 @@ export default async function DashboardPage({
     getMyQuestionnaireCatalog(),
     getMyAssignedWorkoutsAction(),
     getMyRootPopupMessageAction(),
+    // Coach-Assign-Only Gating task (2026-08-04): Body Assessment is now
+    // requiresAssignment, same as Four Doctors/CHEK HLC1/Primal Pattern/
+    // Short-HAQ/WBSA — a free member with no history and no pending
+    // assignment sees MovementAssessmentCard locked, not an open "Start
+    // Assessment" invite. checkAssessmentAccess already lets through
+    // anyone with real history or a pending assignment (never hides
+    // progress), so this is safe to call unconditionally.
+    checkAssessmentAccess(supabase, user.id, 'body-assessment'),
+    getMyBodyAssessmentAssignmentCard(),
   ]);
   const today = new Date().toISOString().slice(0, 10);
   const upcomingAssignedWorkouts = assignedWorkouts
@@ -484,7 +496,7 @@ export default async function DashboardPage({
         {/* See components/dashboard/DashboardInviteCards.tsx.      */}
         {/* ==================================================== */}
         <Suspense fallback={null}>
-          <DashboardInviteCards catalog={questionnaireCatalog} />
+          <DashboardInviteCards catalog={questionnaireCatalog} bodyAssessmentCard={bodyAssessmentAssignmentCard} />
         </Suspense>
 
         {!hasCheckins && !hasActiveExperiment ? (
@@ -586,7 +598,11 @@ export default async function DashboardPage({
             <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>Your Path</p>
               <div className="mt-4 space-y-4">
-                <MovementAssessmentCard assessments={bodyAssessments} variant="imageBacked" />
+                <MovementAssessmentCard
+                  assessments={bodyAssessments}
+                  variant="imageBacked"
+                  locked={!bodyAssessmentAccess.allowed}
+                />
                 <QuestionnairesHomeCard
                   completedCount={questionnaireCatalog.completedCount}
                   totalCount={questionnaireCatalog.totalCount}

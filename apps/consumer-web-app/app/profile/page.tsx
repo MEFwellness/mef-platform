@@ -11,6 +11,9 @@ import { buildProfileEntryContext } from '@/lib/conversation-coach/entryContext'
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { ProfileForm } from './ProfileForm';
 import { Card } from '@/components/layout';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
+import { LockedCardButton } from '@/components/locked/LockedCardButton';
+import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
 
 export default async function ProfilePage() {
   const supabase = createClient();
@@ -19,12 +22,14 @@ export default async function ProfilePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, timezone')
-    .eq('id', user.id)
-    .single();
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
+  const [{ data: profile }, isCoach, bodyAssessmentAccess] = await Promise.all([
+    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+    hasActiveRole(supabase, user.id, 'coach'),
+    // Coach-Assign-Only Gating task (2026-08-04) — locks the "Assessments"
+    // card below when this member has no Body Assessment history and no
+    // pending coach assignment for it.
+    checkAssessmentAccess(supabase, user.id, 'body-assessment'),
+  ]);
 
   const firstName = firstNameFrom(profile?.display_name);
 
@@ -105,27 +110,44 @@ export default async function ProfilePage() {
         {/* Assessments no longer has its own bottom-nav tab (Premium UX
             Milestone 1) — this and the Progress page card are its two
             remaining entry points; the feature itself is unchanged. */}
-        <Card
-          as={Link}
-          href="/assessment"
-          lift
-          className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
-        >
-          <div>
-            <div className="flex items-center gap-2 text-[#6B7A72]">
-              <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
+        {bodyAssessmentAccess.allowed ? (
+          <Card
+            as={Link}
+            href="/assessment"
+            lift
+            className="mt-5 flex items-center justify-between transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]"
+          >
+            <div>
+              <div className="flex items-center gap-2 text-[#6B7A72]">
+                <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
+              </div>
+              <p className="mt-1.5 text-sm text-[#6B7A72]">
+                Guided posture and movement assessments your coach reviews.
+              </p>
             </div>
-            <p className="mt-1.5 text-sm text-[#6B7A72]">
-              Guided posture and movement assessments your coach reviews.
-            </p>
+            <ChevronRight
+              className="h-5 w-5 shrink-0 text-[#1B3A2D]/40"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+          </Card>
+        ) : (
+          <div className="relative mt-5">
+            <LockedCardButton ariaLabel="Assessments, locked. Tap to hear from Root about it.">
+              <Card className="opacity-55 grayscale-[0.4]">
+                <div className="flex items-center gap-2 text-[#6B7A72]">
+                  <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
+                </div>
+                <p className="mt-1.5 text-sm text-[#6B7A72]">
+                  Guided posture and movement assessments your coach reviews.
+                </p>
+              </Card>
+            </LockedCardButton>
+            <CoachLockBadge />
           </div>
-          <ChevronRight
-            className="h-5 w-5 shrink-0 text-[#1B3A2D]/40"
-            strokeWidth={1.75}
-            aria-hidden="true"
-          />
-        </Card>
+        )}
 
         <Card
           as={Link}

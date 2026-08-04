@@ -12,6 +12,15 @@
  * of Completed into Available/Premium (flagged "Reassessment due") instead
  * of sitting inert in a "Scheduled" bucket forever.
  *
+ * Coach-Assign-Only Gating task (2026-08-04): a `requiresAssignment`
+ * assessment nobody has assigned yet used to categorize into its own
+ * invisible `hidden` section (a member saw nothing at all). It's now the
+ * same pattern as every other lock reason above — a real, visible, locked
+ * card in Available/Premium (`flags.locked = true`,
+ * `flags.lockReasonKind = 'not_assigned'`) — per the explicit product
+ * requirement that gating be visible, not invisible. `CatalogSection` no
+ * longer has a `hidden` member at all.
+ *
  * Reads the exact same facts (facts.ts) and definitions (registry.ts) that
  * calculateAssessmentStatus does — no new tables, no new query shape, just
  * a different grouping of the same data. Both the Home summary card and
@@ -21,13 +30,15 @@
  */
 
 import type { AssessmentDefinition, AssessmentKey } from './types';
-import { calculateLockReason, describeLockReason, type MemberAssessmentFacts } from './status';
+import { calculateLockReason, describeLockReason, type LockReason, type MemberAssessmentFacts } from './status';
 
-export type CatalogSection = 'assigned' | 'completed' | 'premium' | 'available' | 'hidden';
+export type CatalogSection = 'assigned' | 'completed' | 'premium' | 'available';
 
 export type CatalogFlags = {
   locked: boolean;
   lockMessage: string | null;
+  /** Which kind of lock this is, when locked (see LockReason). Coach-Assign-Only Gating task (2026-08-04): a card's UI needs to tell "not assigned by a coach yet" apart from a membership-tier/program/prerequisite lock, since only the former gets the dimmed/gold-marker/tap-to-reveal treatment — the others keep their existing "Locked" pill + upgrade prompt. */
+  lockReasonKind: LockReason['kind'] | null;
   comingSoon: boolean;
   inProgress: boolean;
   /** Set only once a pending reassessment schedule's due date has arrived — an actionable, not just informational, flag. */
@@ -58,38 +69,13 @@ export function categorizeForCatalog(
   const comingSoon =
     definition.isComingSoon || definition.implementationStatus !== 'live' || !definition.isActive;
 
-  // Assignment-gated visibility (Assignment-Gated Questionnaires task):
-  // checked first, ahead of comingSoon and every other section rule below —
-  // a member sees nothing at all for this assessment (not even a locked
-  // Premium card) until a coach assigns it, a reassessment comes due for
-  // it, or they have completed it once. Never hides in-progress work,
-  // matching calculateLockReason's identical condition in status.ts.
-  if (
-    definition.requiresAssignment &&
-    facts.completionStatus === 'not_started' &&
-    !facts.pendingAssignment &&
-    !facts.pendingReassessmentSchedule
-  ) {
-    return {
-      section: 'hidden',
-      flags: {
-        locked: false,
-        lockMessage: null,
-        comingSoon: false,
-        inProgress: false,
-        reassessmentDueAt: null,
-        scheduledAt: null,
-        retakeAvailable: false,
-      },
-    };
-  }
-
   if (comingSoon) {
     return {
       section: isPremium ? 'premium' : 'available',
       flags: {
         locked: false,
         lockMessage: null,
+        lockReasonKind: null,
         comingSoon: true,
         inProgress: false,
         reassessmentDueAt: null,
@@ -109,6 +95,7 @@ export function categorizeForCatalog(
       flags: {
         locked: false,
         lockMessage: null,
+        lockReasonKind: null,
         comingSoon: false,
         inProgress: facts.completionStatus === 'in_progress',
         reassessmentDueAt: null,
@@ -118,6 +105,15 @@ export function categorizeForCatalog(
     };
   }
 
+  // Coach-Assign-Only Gating task (2026-08-04): a `requiresAssignment`
+  // assessment nobody has assigned yet is now a *visible, locked* card,
+  // not an invisible one (see CatalogQuestionnaireCard for the dimmed/
+  // gold-marker/tap-to-reveal rendering) — calculateLockReason already
+  // returns `{ kind: 'not_assigned' }` for exactly this condition, so it
+  // falls straight through into the same locked-card path every other
+  // lock reason (membership/program/prerequisite) already used below.
+  // Never hides a member's own in-progress draft or completed history —
+  // pendingAssignment/completionStatus are checked first, same as before.
   const lockReason = calculateLockReason(definition, facts, completedPrerequisiteKeys);
   const reassessmentDue = isReassessmentDue(facts, now);
   const isCompleted = facts.completionStatus === 'completed' && !reassessmentDue;
@@ -129,6 +125,7 @@ export function categorizeForCatalog(
     flags: {
       locked: Boolean(lockReason),
       lockMessage: lockReason ? describeLockReason(lockReason) : null,
+      lockReasonKind: lockReason?.kind ?? null,
       comingSoon: false,
       inProgress: facts.completionStatus === 'in_progress',
       reassessmentDueAt: reassessmentDue ? facts.pendingReassessmentSchedule!.dueAt : null,

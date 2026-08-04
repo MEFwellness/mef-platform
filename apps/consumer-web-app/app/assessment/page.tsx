@@ -12,7 +12,9 @@ import {
   ASSESSMENT_TYPE_ORDER,
   ASSESSMENT_TYPE_CONFIG,
 } from '@/lib/body-assessment/assessmentTypes';
-import { Card } from '@/components/layout';
+import { Card, CenterStage } from '@/components/layout';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
+import { describeLockReason } from '@/lib/assessment-registry/status';
 
 const STATUS_LABEL: Record<string, string> = {
   in_progress: 'In progress',
@@ -39,12 +41,51 @@ export default async function BodyAssessmentPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, assessments, { data: profile }] = await Promise.all([
+  const [isCoach, assessments, { data: profile }, access] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     getMyAssessmentsAction(),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
+    checkAssessmentAccess(supabase, user.id, 'body-assessment'),
   ]);
   const firstName = firstNameFrom(profile?.display_name);
+
+  // Coach-Assign-Only Gating task (2026-08-04): server-side enforcement,
+  // not just hiding the entry points into this page. checkAssessmentAccess
+  // always lets through a member with real assessment history or a
+  // pending assignment (never hides existing progress) — a denial here
+  // only ever happens for a member with zero assessments and no
+  // assignment, so replacing the whole page with a graceful message
+  // (rather than an error or a crash) never hides real content.
+  if (!access.allowed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+        <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
+          <CenterStage>
+            <Card className="mef-animate-in text-center">
+              <div className="mx-auto flex items-center justify-center gap-2 text-[#6B7A72]">
+                <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                <p className="text-sm font-semibold uppercase tracking-wider">Body Assessment</p>
+              </div>
+              <h1 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
+                Guided posture &amp; movement
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
+                {describeLockReason(access.reason)}
+              </p>
+              <Link
+                href={'/dashboard' as Route}
+                className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
+              >
+                Back to Home
+              </Link>
+            </Card>
+          </CenterStage>
+        </main>
+
+        <BottomNav isCoach={isCoach} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">

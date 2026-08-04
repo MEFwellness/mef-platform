@@ -115,11 +115,14 @@ describe('membership-tier gating (free / monthly / reset)', () => {
   // Lifestyle, and Primal Pattern moved from tier-gated (available to any
   // member, or locked behind a membership upgrade) to assignment-gated
   // (invisible/locked until a coach assigns them, regardless of tier) —
-  // see requiresAssignment in lib/assessment-registry/registry.ts. Body
-  // Assessment is untouched by that change (requiresAssignment: false),
-  // so it's the one key in this describe block still governed by tier
-  // rules alone.
-  it('free_trial member with nothing assigned: Body Assessment available, Four Doctors and Nutrition & Lifestyle both locked as not_assigned', async () => {
+  // see requiresAssignment in lib/assessment-registry/registry.ts.
+  // Coach-Assign-Only Gating task (2026-08-04): Body Assessment joined
+  // that same group (requiresAssignment: true) — a free member must never
+  // reach the camera-based capture flow on their own either — so it's no
+  // longer the one key in this describe block governed by tier rules
+  // alone; it's now locked as not_assigned right alongside the other
+  // three, regardless of tier.
+  it('free_trial member with nothing assigned: Four Doctors, Nutrition & Lifestyle, and Body Assessment are all locked as not_assigned', async () => {
     await setMembership(memberOneId, 'free_trial');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
@@ -135,7 +138,8 @@ describe('membership-tier gating (free / monthly / reset)', () => {
       findAssessmentRegistryEntry('body-assessment')!,
       facts.get('body-assessment')!
     );
-    expect(body.status).toBe('available');
+    expect(body.status).toBe('locked');
+    expect(body.lockReason).toEqual({ kind: 'not_assigned' });
 
     const chek = calculateAssessmentStatus(
       findAssessmentRegistryEntry('chek-hlc1-nutrition-lifestyle')!,
@@ -168,21 +172,16 @@ describe('membership-tier gating (free / monthly / reset)', () => {
     expect(chek.lockReason).toEqual({ kind: 'not_assigned' });
   });
 
-  it('holistic_reset member with nothing assigned: Body Assessment stays available, the three assignment-gated keys stay locked regardless of tier', async () => {
+  it('holistic_reset member with nothing assigned: all four assignment-gated keys, including Body Assessment, stay locked regardless of tier', async () => {
     await setMembership(memberOneId, 'holistic_reset');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
-
-    const body = calculateAssessmentStatus(
-      findAssessmentRegistryEntry('body-assessment')!,
-      facts.get('body-assessment')!
-    );
-    expect(body.status).not.toBe('locked');
 
     for (const key of [
       'four-doctors',
       'chek-hlc1-nutrition-lifestyle',
       'primal-pattern-diet-type',
+      'body-assessment',
     ] as const) {
       const status = calculateAssessmentStatus(findAssessmentRegistryEntry(key)!, facts.get(key)!);
       expect(status.status).toBe('locked');

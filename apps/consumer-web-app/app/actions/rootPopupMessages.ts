@@ -54,7 +54,7 @@ import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from './coreValue
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from './lifeSignalCheck';
 import { getMyRplExperimentStatusAction, getMyRplOfferAction } from './readinessPulse';
 import { getMyResetPlanDashboardStateAction } from './resetPlan';
-import { getMyQuestionnaireCatalog } from './questionnaireCatalog';
+import { getMyQuestionnaireCatalog, getMyBodyAssessmentAssignmentCard } from './questionnaireCatalog';
 import { resolveCvsCheckinPending, type CvsDailyLogRow } from '@/lib/core-values-snapshot/experiment';
 import type { CvsScoring } from '@/lib/core-values-snapshot/types';
 import type { LscScoring } from '@/lib/life-signal-check/types';
@@ -212,15 +212,27 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // pending assignment; catalog registry order decides ties (precise
   // assignment recency doesn't matter here — at most one is ever actually
   // due and undismissed at a time in practice).
-  const catalog = await getMyQuestionnaireCatalog();
-  const assignmentCandidates = catalog.assigned
-    .filter((card) => card.assignmentId && card.primaryHref)
-    .map((card) => ({
-      assignmentId: card.assignmentId!,
-      displayName: card.title,
-      primaryHref: card.primaryHref!,
-      messageKey: questionnaireAssignedPopupMessageKey(card.assignmentId!),
-    }));
+  // Coach-Assign-Only Gating task (2026-08-04): Body Assessment's own
+  // assignment card is fetched separately (see
+  // getMyBodyAssessmentAssignmentCard's own doc comment — the
+  // Questionnaires catalog deliberately excludes Body Assessment, but the
+  // pop-up chain should treat a Body Assessment assignment exactly the
+  // same as any other coach assignment) and merged into the same
+  // candidate list, reusing questionnaire_assigned rather than adding a
+  // new pop-up kind.
+  const [catalog, bodyAssessmentCard] = await Promise.all([
+    getMyQuestionnaireCatalog(),
+    getMyBodyAssessmentAssignmentCard(),
+  ]);
+  const assignmentCandidates = [
+    ...catalog.assigned.filter((card) => card.assignmentId && card.primaryHref),
+    ...(bodyAssessmentCard?.assignmentId && bodyAssessmentCard.primaryHref ? [bodyAssessmentCard] : []),
+  ].map((card) => ({
+    assignmentId: card.assignmentId!,
+    displayName: card.title,
+    primaryHref: card.primaryHref!,
+    messageKey: questionnaireAssignedPopupMessageKey(card.assignmentId!),
+  }));
   const dueAssignment = await pickFirstDueOneTimeMessage(assignmentCandidates, isRecurringMessageDue);
   if (dueAssignment) {
     return {

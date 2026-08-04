@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 import type { BodyAssessmentType } from '@mef/shared-types-contracts';
 import { ASSESSMENT_TYPE_ORDER } from '@/lib/body-assessment/assessmentTypes';
 import { AssessmentWizard } from '@/components/body-assessment/AssessmentWizard';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 
 const VALID_TYPES = new Set<BodyAssessmentType>(ASSESSMENT_TYPE_ORDER);
 
@@ -18,6 +19,14 @@ export default async function NewAssessmentPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Coach-Assign-Only Gating task (2026-08-04): same take-page pattern as
+  // app/assessments/[questionnaireId]/take/page.tsx — redirect back to the
+  // overview, which is where the graceful denial message actually lives,
+  // rather than duplicating it here. A member with real history or a
+  // pending assignment is always let through.
+  const access = await checkAssessmentAccess(supabase, user.id, 'body-assessment');
+  if (!access.allowed) redirect('/assessment');
 
   const requested = searchParams.type;
   if (!requested || !VALID_TYPES.has(requested as BodyAssessmentType)) {

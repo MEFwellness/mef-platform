@@ -17,6 +17,8 @@ import { Clock3, Lock, Sparkles, UserRound, CalendarClock } from 'lucide-react';
 import type { CatalogCard } from '@/app/actions/questionnaireCatalog';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
 import { Card } from '@/components/layout';
+import { LockedCardButton } from '@/components/locked/LockedCardButton';
+import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
 
 const PRIMARY_BUTTON =
   'block w-full rounded-2xl bg-[#1B3A2D] px-5 py-3 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]';
@@ -40,16 +42,22 @@ function primaryAction(card: CatalogCard): { label: string; href: string } | nul
   };
 }
 
-export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
-  const action = primaryAction(card);
-
+/**
+ * Coach-Assign-Only Gating task (2026-08-04): a card locked because a
+ * coach hasn't assigned it yet (`lockReasonKind === 'not_assigned'`) gets
+ * its own dimmed + gold-corner-marker + tap-to-reveal treatment, distinct
+ * from a membership/program/prerequisite lock (which keeps its existing
+ * "Locked" pill, always-visible lockMessage, and "View Membership" link —
+ * unchanged below). isCoachLocked is the one switch between the two.
+ */
+function CardBody({ card, action, isCoachLocked }: { card: CatalogCard; action: ReturnType<typeof primaryAction>; isCoachLocked: boolean }) {
   return (
-    <Card className="mef-animate-in">
+    <>
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-snug text-[#1B3A2D]">
           {card.title}
         </h3>
-        {card.section === 'premium' && (
+        {card.section === 'premium' && !isCoachLocked && (
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#C4A050]/15 px-3 py-1 text-xs font-semibold text-[#8A6D2F]">
             <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
             Premium
@@ -77,7 +85,7 @@ export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
             Coming Soon
           </span>
         )}
-        {card.flags.locked && (
+        {card.flags.locked && !isCoachLocked && (
           <span className="flex items-center gap-1.5 rounded-full bg-[#F3F6F4] px-3 py-1.5 font-semibold text-[#1B3A2D]/70">
             <Lock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
             Locked
@@ -120,29 +128,55 @@ export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
         </p>
       )}
 
-      {card.flags.locked && card.flags.lockMessage && (
+      {card.flags.locked && !isCoachLocked && card.flags.lockMessage && (
         <p className="mt-3 text-xs text-[#6B7A72]">{card.flags.lockMessage}</p>
       )}
 
-      <div className="mt-5 space-y-2">
-        {action && (
-          <Link href={action.href as Route} className={PRIMARY_BUTTON}>
-            {action.label}
-          </Link>
-        )}
+      {!isCoachLocked && (
+        <div className="mt-5 space-y-2">
+          {action && (
+            <Link href={action.href as Route} className={PRIMARY_BUTTON}>
+              {action.label}
+            </Link>
+          )}
 
-        {card.section === 'completed' && card.flags.retakeAvailable && card.primaryHref && (
-          <Link href={card.primaryHref as Route} className={`${SECONDARY_LINK} block text-center`}>
-            Retake
-          </Link>
-        )}
+          {card.section === 'completed' && card.flags.retakeAvailable && card.primaryHref && (
+            <Link href={card.primaryHref as Route} className={`${SECONDARY_LINK} block text-center`}>
+              Retake
+            </Link>
+          )}
 
-        {card.flags.locked && card.section === 'premium' && (
-          <Link href={'/membership' as Route} className={`${SECONDARY_LINK} block text-center`}>
-            View Membership
-          </Link>
-        )}
+          {card.flags.locked && card.section === 'premium' && (
+            <Link href={'/membership' as Route} className={`${SECONDARY_LINK} block text-center`}>
+              View Membership
+            </Link>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
+  const action = primaryAction(card);
+  const isCoachLocked = card.flags.locked && card.flags.lockReasonKind === 'not_assigned';
+
+  if (isCoachLocked) {
+    return (
+      <div className="relative">
+        <LockedCardButton ariaLabel={`${card.title}, locked. Tap to hear from Root about it.`}>
+          <Card className="mef-animate-in opacity-55 grayscale-[0.4]">
+            <CardBody card={card} action={action} isCoachLocked />
+          </Card>
+        </LockedCardButton>
+        <CoachLockBadge />
       </div>
+    );
+  }
+
+  return (
+    <Card className="mef-animate-in">
+      <CardBody card={card} action={action} isCoachLocked={false} />
     </Card>
   );
 }

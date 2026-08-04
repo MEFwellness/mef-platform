@@ -296,7 +296,15 @@ const BODY_ASSESSMENT: AssessmentDefinition = {
     minLevel: 'free_trial',
     allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
   },
-  requiresAssignment: false,
+  // Coach-Assign-Only Gating task (2026-08-04): a proprietary coaching
+  // tool, same as Four Doctors/CHEK HLC1/Primal Pattern/Short-HAQ/WBSA
+  // above — a free member must never be able to open the camera-based
+  // capture flow on their own. Enforced the same way every other gated
+  // entry is: calculateLockReason/checkAssessmentAccess already treat
+  // requiresAssignment generically, so no new gating machinery was
+  // needed, only this flag flip plus removing this key's exclusion from
+  // listAssignableAssessments below.
+  requiresAssignment: true,
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [], unlockRule: null, recommendationRule: null },
   relatedAssessmentKeys: ['four-doctors', 'onboarding-health-history'],
@@ -808,11 +816,19 @@ export function listAssessmentRegistryEntries(): AssessmentDefinition[] {
   return Object.values(ASSESSMENT_REGISTRY).sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
-/** Assignable from the coach dashboard (section 10): registered, implemented questionnaires that already have a visible member-facing surface (the Questionnaires page). Coming Soon placeholders and Body Assessment (its own dedicated capture/review system) are intentionally excluded. */
+/**
+ * Assignable from the coach dashboard (section 10): every registered,
+ * implemented (`implementationStatus === 'live'`) assessment. Coach-Assign-
+ * Only Gating task (2026-08-04): Body Assessment used to be excluded here
+ * because it had no gating of its own yet — now that it's
+ * `requiresAssignment: true` like every other proprietary tool, a coach
+ * needs this list to include it too, or there would be no way to ever
+ * unlock it for a member. Coming Soon placeholders (Readiness to Change,
+ * Finding 1 Love) stay excluded — `implementationStatus !== 'live'` for
+ * both, since neither has real question content yet.
+ */
 export function listAssignableAssessments(): AssessmentDefinition[] {
-  return listAssessmentRegistryEntries().filter(
-    (e) => e.implementationStatus === 'live' && e.key !== 'body-assessment'
-  );
+  return listAssessmentRegistryEntries().filter((e) => e.implementationStatus === 'live');
 }
 
 /**
