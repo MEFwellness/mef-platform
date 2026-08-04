@@ -236,3 +236,46 @@ describe('isOfferPopupDue', () => {
     expect(isOfferPopupDue(dismissal)).toBe(false);
   });
 });
+
+describe('FIX 5 (2026-08-03): questionnaire_assigned and free_arc_available use recurring semantics, not one-time-ever', () => {
+  // app/actions/rootPopupMessages.ts's own findMyPendingRootPopupMessage
+  // now checks each assignment candidate with isRootPopupDueThisLogin
+  // (via a local isRecurringMessageDue closure), not isOfferPopupDue —
+  // exercised here through the exact same pickFirstDueOneTimeMessage
+  // helper that call site uses, proving "Maybe later" (snoozed) really
+  // does come back on a later login for this message kind, unlike the
+  // old one-time-ever shape.
+
+  it('a snoozed assignment candidate is skipped this login, but becomes due again on pickFirstDueOneTimeMessage after a later login', async () => {
+    const messageKey = questionnaireAssignedPopupMessageKey('assignment-1');
+    const snoozedAt = '2026-08-03T09:00:00.000Z';
+
+    const isDueSameLogin = (key: string) =>
+      Promise.resolve(
+        key === messageKey
+          ? isRootPopupDueThisLogin({ status: 'snoozed', snoozedAt }, snoozedAt)
+          : true
+      );
+    const resultSameLogin = await pickFirstDueOneTimeMessage([{ messageKey }], isDueSameLogin);
+    expect(resultSameLogin).toBeNull();
+
+    const isDueLaterLogin = (key: string) =>
+      Promise.resolve(
+        key === messageKey
+          ? isRootPopupDueThisLogin({ status: 'snoozed', snoozedAt }, '2026-08-04T08:00:00.000Z')
+          : true
+      );
+    const resultLaterLogin = await pickFirstDueOneTimeMessage([{ messageKey }], isDueLaterLogin);
+    expect(resultLaterLogin).toEqual({ messageKey });
+  });
+
+  it('an ignored assignment candidate never becomes due again, on any later login', async () => {
+    const messageKey = questionnaireAssignedPopupMessageKey('assignment-2');
+    const isDue = (key: string) =>
+      Promise.resolve(
+        key === messageKey ? isRootPopupDueThisLogin({ status: 'ignored', snoozedAt: null }, '2099-01-01T00:00:00.000Z') : true
+      );
+    const result = await pickFirstDueOneTimeMessage([{ messageKey }], isDue);
+    expect(result).toBeNull();
+  });
+});

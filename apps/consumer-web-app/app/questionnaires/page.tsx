@@ -21,6 +21,7 @@ import { getMyQuestionnaireCatalog } from '@/app/actions/questionnaireCatalog';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { AvatarLink } from '@/components/AvatarLink';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { QuestionnaireCatalogView } from '@/components/questionnaires/QuestionnaireCatalogView';
@@ -37,7 +38,7 @@ export default async function QuestionnairesPage() {
     getMyQuestionnaireCatalog(),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
   ]);
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">

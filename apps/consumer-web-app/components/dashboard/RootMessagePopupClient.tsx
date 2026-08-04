@@ -42,6 +42,7 @@ import { ResetPlanPopup } from '@/components/reset-plan/ResetPlanPopup';
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
 type QuestionnaireAssignedMessage = Extract<RootPopupMessage, { kind: 'questionnaire_assigned' }>;
+type FreeArcMessage = Extract<RootPopupMessage, { kind: 'free_arc_available' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
@@ -65,27 +66,44 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // effectively unreachable until now).
   const isOffer = message.kind === 'cvs_offer' || message.kind === 'lsc_offer' || message.kind === 'rpl_offer';
   const isQuestionnaireAssigned = message.kind === 'questionnaire_assigned';
+  const isFreeArcAvailable = message.kind === 'free_arc_available';
 
-  // The offer (and the coach-assigned-questionnaire message, same one-
-  // time-ever shape) pops up at most once ever (unlike day3/day7, which
-  // return on every login until answered or explicitly ignored) — marking
-  // it 'ignored' the instant it's shown, rather than only on an explicit
+  // The offer pops up at most once ever (unlike day3/day7, which return on
+  // every login until answered or explicitly ignored) — marking it
+  // 'ignored' the instant it's shown, rather than only on an explicit
   // dismiss, is what makes that true regardless of whether the member acts
-  // on it, closes the tab, or navigates away. Dismissing never touches the
-  // questionnaire itself (that's assessment_assignments, a completely
-  // separate table/row from this dismissal) and never affects any other
-  // message's own dismissal row (message_key is per-assignment, per
-  // migration 137's design already proven by every other kind here) — see
-  // tests/root-popup-messages.test.ts for the regression coverage on both.
-  // A no-op for every other kind, including the plan's own — every hook in
-  // this component must run unconditionally regardless of message.kind
-  // (rules of hooks), so this can't be skipped by an earlier return.
+  // on it, closes the tab, or navigates away. A no-op for every other
+  // kind, including the plan's own — every hook in this component must run
+  // unconditionally regardless of message.kind (rules of hooks), so this
+  // can't be skipped by an earlier return. `questionnaire_assigned` and
+  // `free_arc_available` are deliberately NOT in this auto-dismiss-on-mount
+  // group (FIX 5, 2026-08-03) — both now use the same real "Maybe
+  // later"/"Ignore" button choice as day3/day7 (handleMaybeLater/
+  // handleIgnore below), not an automatic one-time-ever dismissal.
   useEffect(() => {
-    if (isOffer || isQuestionnaireAssigned) {
+    if (isOffer) {
       ignoreRootPopupMessageAction(message.messageKey);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Only depend on message.messageKey, so these are safe to call from
+  // every branch below (the day3/day7 modal, and the shared invite popup
+  // for questionnaire_assigned/free_arc_available) without re-deriving
+  // them per branch.
+  function handleMaybeLater() {
+    setClosed(true);
+    startTransition(() => {
+      snoozeRootPopupMessageAction(message.messageKey).then(() => router.refresh());
+    });
+  }
+
+  function handleIgnore() {
+    setClosed(true);
+    startTransition(() => {
+      ignoreRootPopupMessageAction(message.messageKey).then(() => router.refresh());
+    });
+  }
 
   // The plan's daily-log shape (three explicit states, not a boolean) and
   // its own day-3/day-7 copy don't fit this component's CVS/LSC/RPL-
@@ -100,10 +118,33 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   if (closed) return null;
 
   if (isQuestionnaireAssigned) {
+    const m = message as QuestionnaireAssignedMessage;
     return (
-      <QuestionnaireAssignedPopup
-        message={message as QuestionnaireAssignedMessage}
-        onClose={() => setClosed(true)}
+      <RootInvitePopup
+        eyebrow="From your coach"
+        title="Something new from your coach"
+        body={`Your coach has assigned you the ${m.displayName} questionnaire. It helps Root understand you more deeply, and your answers go straight to your coach.`}
+        ctaLabel="Start now"
+        href={m.primaryHref}
+        isPending={isPending}
+        onMaybeLater={handleMaybeLater}
+        onIgnore={handleIgnore}
+      />
+    );
+  }
+
+  if (isFreeArcAvailable) {
+    const m = message as FreeArcMessage;
+    return (
+      <RootInvitePopup
+        eyebrow="From Root"
+        title={m.displayName}
+        body={m.description}
+        ctaLabel="Start now"
+        href={m.primaryHref}
+        isPending={isPending}
+        onMaybeLater={handleMaybeLater}
+        onIgnore={handleIgnore}
       />
     );
   }
@@ -116,28 +157,14 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // reference below (including inside the closures further down, which TS
   // can't narrow on its own from an outer `if`) can safely use
   // day3Or7Message.experimentId/topLabelText/logs/durationDays — real
-  // fields on all four remaining variants, never on the two offer kinds or
-  // the coach-assigned-questionnaire kind.
+  // fields on all four remaining variants, never on the offer kinds or the
+  // two invite kinds (coach-assigned-questionnaire, free-arc-available).
   const day3Or7Message = message as Exclude<
     RootPopupMessage,
-    OfferMessage | ResetPlanMessage | QuestionnaireAssignedMessage
+    OfferMessage | ResetPlanMessage | QuestionnaireAssignedMessage | FreeArcMessage
   >;
 
   const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' || day3Or7Message.kind === 'rpl_day3';
-
-  function handleMaybeLater() {
-    setClosed(true);
-    startTransition(() => {
-      snoozeRootPopupMessageAction(message.messageKey).then(() => router.refresh());
-    });
-  }
-
-  function handleIgnore() {
-    setClosed(true);
-    startTransition(() => {
-      ignoreRootPopupMessageAction(message.messageKey).then(() => router.refresh());
-    });
-  }
 
   function handleDay3Pick(value: Day3Response) {
     setError(null);
@@ -391,28 +418,43 @@ function RootOfferPopup({ message, onClose }: { message: OfferMessage; onClose: 
 }
 
 /**
- * The one-time "your coach assigned you a new questionnaire" pop-up
- * (Assignment-Gated Questionnaires task). Same one-time-ever shape as
- * RootOfferPopup (RootMessagePopupClient's own effect above already
- * recorded the dismissal the instant this mounted), but "Start now" just
- * navigates straight into the questionnaire's own overview route — no
- * separate start action to call, since assessment_assignments already
- * marks itself completed the moment the member finishes it (migration
- * 144's trigger), and the questionnaire's own overview/take flow already
- * handles begin-vs-resume on its own.
+ * The shared "Root has something waiting for you" invite pop-up (FIX 5,
+ * 2026-08-03) — used by both `questionnaire_assigned` (a coach's
+ * assignment) and `free_arc_available` (the next unstarted Core Values
+ * Snapshot / Life Signal Check / Readiness Pulse conversation). Same modal
+ * chrome as the day3/day7 pop-up above, and the same real "Maybe later"
+ * (snoozes — the dashboard card gets the gold "Waiting on you" badge, pops
+ * again next login) / "Ignore" (never pops again, card stays) choice,
+ * instead of the old one-time-ever auto-dismiss-on-mount shape this
+ * replaced. "Start now" just navigates straight into the destination
+ * route — neither kind needs a separate start action (assessment_assignments
+ * already marks itself completed on finish via migration 144's trigger;
+ * a free-arc conversation's own take flow already handles begin-vs-resume
+ * on its own).
  */
-function QuestionnaireAssignedPopup({
-  message,
-  onClose,
+function RootInvitePopup({
+  eyebrow,
+  title,
+  body,
+  ctaLabel,
+  href,
+  isPending,
+  onMaybeLater,
+  onIgnore,
 }: {
-  message: QuestionnaireAssignedMessage;
-  onClose: () => void;
+  eyebrow: string;
+  title: string;
+  body: string;
+  ctaLabel: string;
+  href: string;
+  isPending: boolean;
+  onMaybeLater: () => void;
+  onIgnore: () => void;
 }) {
   const router = useRouter();
 
   function handleStart() {
-    onClose();
-    router.push(message.primaryHref as Route);
+    router.push(href as Route);
   }
 
   return (
@@ -421,7 +463,7 @@ function QuestionnaireAssignedPopup({
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="root-questionnaire-assigned-popup-title"
+        aria-labelledby="root-invite-popup-title"
         className="relative w-full max-w-sm overflow-hidden rounded-[28px] bg-[#1B3A2D] p-7 text-[#F5F0E4] shadow-[0_32px_80px_-16px_rgba(0,0,0,0.5)]"
       >
         <div
@@ -430,36 +472,43 @@ function QuestionnaireAssignedPopup({
         />
 
         <p className="relative text-xs font-semibold uppercase tracking-wider text-[#C4A050]">
-          From Root
+          {eyebrow}
         </p>
 
         <h2
-          id="root-questionnaire-assigned-popup-title"
+          id="root-invite-popup-title"
           className="relative mt-3 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#F5F0E4]"
         >
-          Something new from your coach
+          {title}
         </h2>
 
-        <p className="relative mt-3 text-[16px] leading-relaxed text-[#F5F0E4]">
-          Your coach has assigned you the {message.displayName} questionnaire. It helps Root
-          understand you more deeply, and your answers go straight to your coach.
-        </p>
+        <p className="relative mt-3 text-[16px] leading-relaxed text-[#F5F0E4]">{body}</p>
 
         <button
           type="button"
+          disabled={isPending}
           onClick={handleStart}
-          className="mef-focus-ring mef-press relative mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95"
+          className="mef-focus-ring mef-press relative mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-50"
         >
-          Start now
+          {ctaLabel}
         </button>
 
-        <div className="relative mt-6 flex items-center justify-center border-t border-[#F5F0E4]/10 pt-4">
+        <div className="relative mt-6 flex items-center justify-center gap-6 border-t border-[#F5F0E4]/10 pt-4">
           <button
             type="button"
-            onClick={onClose}
-            className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4]"
+            disabled={isPending}
+            onClick={onMaybeLater}
+            className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
           >
-            Not now
+            Maybe later
+          </button>
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={onIgnore}
+            className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
+          >
+            Ignore
           </button>
         </div>
       </div>

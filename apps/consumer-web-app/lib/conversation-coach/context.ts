@@ -33,7 +33,7 @@ import { listActiveMemory, listRecentMessages } from './data';
 const RECENT_MESSAGE_WINDOW = 12;
 
 export type ConversationContext = {
-  memberFirstName: string;
+  memberFirstName: string | null;
   localDate: string;
   dayOfWeek: string;
   timeOfDayLabel: string;
@@ -78,7 +78,7 @@ export async function gatherConversationContext(
   sessionId: string,
   localDate: string,
   timezone: string,
-  firstName: string,
+  firstName: string | null,
   entryContext: string | null = null
 ): Promise<ConversationContext> {
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));

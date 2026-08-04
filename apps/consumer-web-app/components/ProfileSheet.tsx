@@ -34,7 +34,7 @@ export function ProfileSheet({
   visible,
   onClose,
 }: {
-  firstName: string;
+  firstName: string | null;
   visible: boolean;
   onClose: () => void;
 }) {
@@ -63,10 +63,14 @@ export function ProfileSheet({
         <div className="flex shrink-0 items-center justify-between px-5 pb-3 pt-2 sm:pt-4">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[#F5B700] bg-white text-sm font-medium text-[#1B3A2D]">
-              {firstName.charAt(0).toUpperCase()}
+              {firstName ? (
+                firstName.charAt(0).toUpperCase()
+              ) : (
+                <User className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              )}
             </span>
             <p className="font-[family-name:var(--font-cormorant-garamond)] text-lg leading-tight text-[#1B3A2D]">
-              {firstName}
+              {firstName ?? 'Welcome'}
             </p>
           </div>
           <button

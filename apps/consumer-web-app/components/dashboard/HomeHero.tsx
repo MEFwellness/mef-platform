@@ -25,6 +25,7 @@ import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { AvatarLink } from '@/components/AvatarLink';
 import { Breathe } from '@/components/motion/Breathe';
 import { heroOverlayForGreeting } from '@/lib/dashboard/timeOfDayPalette';
+import { greetingHeadline } from '@/lib/profile/greeting';
 import { RootScoreCountUp } from './RootScoreCountUp';
 import { HeroAmbientGlow } from './HeroAmbientGlow';
 
@@ -72,7 +73,7 @@ function HeroChrome({
   compact = false,
   children,
 }: {
-  firstName: string;
+  firstName: string | null;
   heroImage: string;
   greetingWord: string;
   /**
@@ -179,7 +180,7 @@ export function HomeHero({
   snapshot,
   hasCheckins,
 }: {
-  firstName: string;
+  firstName: string | null;
   greetingWord: string;
   /**
    * Dashboard Evolution (Prompt 5), requirement 1: a short, Root-voiced
@@ -207,7 +208,7 @@ export function HomeHero({
     return (
       <HeroChrome firstName={firstName} heroImage={heroImage} greetingWord={greetingWord} compact>
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#FAFAF8] md:text-4xl">
-          {greetingWord}, {firstName}
+          {greetingHeadline(greetingWord, firstName)}
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>
       </HeroChrome>
@@ -218,7 +219,7 @@ export function HomeHero({
     return (
       <HeroChrome firstName={firstName} heroImage={heroImage} greetingWord={greetingWord}>
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#FAFAF8] md:text-[2.75rem]">
-          {greetingWord}, {firstName}
+          {greetingHeadline(greetingWord, firstName)}
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>
         <h2 className="mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#FAFAF8]">
@@ -242,7 +243,7 @@ export function HomeHero({
   return (
     <HeroChrome firstName={firstName} heroImage={heroImage} greetingWord={greetingWord}>
       <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#FAFAF8] md:text-[2.75rem]">
-        {greetingWord}, {firstName}
+        {greetingHeadline(greetingWord, firstName)}
       </h1>
       <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>
 

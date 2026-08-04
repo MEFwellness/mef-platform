@@ -4,11 +4,14 @@ import type { Route } from 'next';
 /**
  * One required check-in a day (task requirement 2): this used to be a
  * segmented control presenting Morning and Evening as two equal halves of
- * one obligation. It's now an asymmetric link pair — Morning Readiness
- * reads as the primary destination (solid pill when active), Evening
- * Reflection reads as a lighter, explicitly optional detour (its own
- * "optional" label, never styled as an equal alternative) — while still
- * letting a member on either screen move to the other in one tap.
+ * one obligation. It's now an asymmetric link pair — Daily Reset (renamed
+ * from "Morning Readiness" 2026-08-03, since it's just as often taken in
+ * the afternoon or evening; display copy only, the internal 'morning'
+ * mode/route is unchanged) reads as the primary destination (solid pill
+ * when active), Evening Reflection reads as a lighter, explicitly
+ * optional detour (its own "optional" label, never styled as an equal
+ * alternative) — while still letting a member on either screen move to
+ * the other in one tap.
  */
 export function CheckInModeSwitch({ active }: { active: 'morning' | 'evening' }) {
   const PRIMARY_ACTIVE = 'bg-[#1B3A2D] text-white';
@@ -23,7 +26,7 @@ export function CheckInModeSwitch({ active }: { active: 'morning' | 'evening' })
           active === 'morning' ? PRIMARY_ACTIVE : PRIMARY_INACTIVE
         }`}
       >
-        Morning Readiness
+        Daily Reset
       </Link>
       <Link
         href={'/checkin/evening' as Route}

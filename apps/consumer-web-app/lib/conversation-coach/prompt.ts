@@ -172,10 +172,14 @@ export function buildSystemPrompt(
     ? `\n\nHow this specific member tends to respond best (internal guidance, never say this list to them): ${context.coachingStyleGuidance}`
     : '';
 
+  // No name on file yet (rare — every member is asked at signup/first
+  // login) — omit the line entirely rather than feed the model a
+  // placeholder it might parrot back ("Hi there") in a reply.
+  const nameLine = context.memberFirstName ? `- Name: ${context.memberFirstName}\n` : '';
+
   const contextBlock = `
 MEMBER CONTEXT (use only what's relevant to this message, do not recite all of it back):
-- Name: ${context.memberFirstName}
-- Local time: ${context.dayOfWeek} ${context.timeOfDayLabel}
+${nameLine}- Local time: ${context.dayOfWeek} ${context.timeOfDayLabel}
 - Today's coaching focus: ${context.focusLabel} (mode: ${context.decision.mode}, why: ${context.decision.reasonText})
 - Today's lesson: ${context.todaysLessonTitle ?? 'none prepared yet'}
 - Today's suggested action: ${context.todaysAction ?? 'none prepared yet'}

@@ -145,18 +145,22 @@ export function isRootPopupDueThisLogin(
 /**
  * Given candidates in priority order and a due-check predicate, returns
  * the first candidate still due, or null once every candidate has already
- * been dismissed. This is the exact shape every one-time ("offer"-like)
- * message in the Root pop-up waterfall (app/actions/rootPopupMessages.ts)
- * must use for a list of same-kind candidates — see that file's own
- * header comment on the real "one dismissal kills every later pop-up"
- * starvation bug (fixed 2026-08-02, commit 85bdb347) this discipline
- * exists to prevent: a caller that returns the first candidate
- * unconditionally, without checking due-ness itself and falling through
- * to the next, reintroduces that exact bug for whichever message type
- * skips it. Used by the coach-assigned-questionnaire branch (a member can
- * have more than one pending assignment) exactly the same way the
- * existing cvs_offer/lsc_offer/rpl_offer branches already use their own
- * inline version of this same check.
+ * been dismissed. This is the exact shape every message in the Root pop-up
+ * waterfall (app/actions/rootPopupMessages.ts) that can have more than one
+ * same-kind candidate at once must use — see that file's own header
+ * comment on the real "one dismissal kills every later pop-up" starvation
+ * bug (fixed 2026-08-02, commit 85bdb347) this discipline exists to
+ * prevent: a caller that returns the first candidate unconditionally,
+ * without checking due-ness itself and falling through to the next,
+ * reintroduces that exact bug for whichever message type skips it. The
+ * `isDue` predicate is generic on purpose — it works equally with
+ * isOfferPopupDue's one-time-ever rule (the cvs_offer/lsc_offer/rpl_offer
+ * branches' own inline version of this same check) and with
+ * isRootPopupDueThisLogin's recurring "snoozed comes back next login,
+ * ignored never does" rule (the coach-assigned-questionnaire branch, FIX 5
+ * 2026-08-03 — a member can have more than one pending assignment, and
+ * this pop-up kind switched from one-time-ever to recurring semantics so
+ * "Maybe later" actually means "ask me again next time").
  */
 export async function pickFirstDueOneTimeMessage<T extends { messageKey: string }>(
   candidates: T[],

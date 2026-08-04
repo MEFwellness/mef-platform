@@ -54,7 +54,7 @@ function formatTranscript(messages: ConversationMessage[]): string {
 export type SendMessageInput = {
   supabase: SupabaseClient;
   memberId: string;
-  memberFirstName: string;
+  memberFirstName: string | null;
   localDate: string;
   timezone: string;
   content: string;

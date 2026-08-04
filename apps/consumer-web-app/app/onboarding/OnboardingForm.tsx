@@ -122,11 +122,12 @@ function enumOptionLabel(option: string): string {
 }
 
 const CARD = 'mef-card'; // Screen Layout System (Prompt 2): standardized card recipe, app/globals.css
-// text-base (16px), not text-sm. A focused text input/select/textarea
-// under 16px triggers iOS Safari's automatic zoom-on-focus, which is
-// exactly the "page scales unexpectedly while typing" behavior members
-// were seeing. Range inputs (the sliders below) are unaffected by this;
-// this only matters for the boolean <select> and free_text <textarea>.
+// text-base (16px), not text-sm. A focused text input/textarea under 16px
+// triggers iOS Safari's automatic zoom-on-focus, which is exactly the
+// "page scales unexpectedly while typing" behavior members were seeing.
+// Range inputs (the sliders below) are unaffected by this; this only
+// matters for the free_text <textarea> now (boolean questions moved off
+// a native <select> onto EnumOptionTile cards, FIX 4, 2026-08-03).
 const INPUT =
   'mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none';
 const INPUT_INVALID = 'border-red-400 focus:border-red-400';
@@ -495,23 +496,35 @@ const QuestionField = memo(function QuestionField({
     }
 
     if (question.answer_type === 'boolean') {
+      // FIX 4 (2026-08-03): this used to be a native <select> — on a phone,
+      // opening it covers the question text with the OS picker. Replaced
+      // with the same tappable EnumOptionTile cards every other
+      // single-choice question in onboarding already uses, one column so
+      // both options are always full width, never a 2-up grid.
+      const selectedValue =
+        answer?.status === 'answered' && typeof answer.value === 'boolean' ? answer.value : null;
+
       return (
-        <select
-          ref={setRef}
+        <div
+          role="radiogroup"
           aria-labelledby={legendId}
           aria-invalid={invalid}
-          value={
-            answer?.status === 'answered' && typeof answer.value === 'boolean'
-              ? String(answer.value)
-              : ''
-          }
-          onChange={(event) => update({ status: 'answered', value: event.target.value === 'true' })}
-          className={`${INPUT} bg-white ${invalid ? INPUT_INVALID : ''}`}
+          className="grid grid-cols-1 gap-2.5"
         >
-          <option value="">Select an option</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </select>
+          <EnumOptionTile
+            fieldRef={setRef}
+            label="Yes"
+            isSelected={selectedValue === true}
+            invalid={invalid}
+            onSelect={() => update({ status: 'answered', value: true })}
+          />
+          <EnumOptionTile
+            label="No"
+            isSelected={selectedValue === false}
+            invalid={invalid}
+            onSelect={() => update({ status: 'answered', value: false })}
+          />
+        </div>
       );
     }
 

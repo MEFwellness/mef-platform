@@ -28,7 +28,7 @@ export function QuestionPreviewModal({
       >
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
-            Member preview: {question.screen === 'morning' ? 'Morning Readiness' : 'Evening Reflection'}
+            Member preview: {question.screen === 'morning' ? 'Daily Reset' : 'Evening Reflection'}
           </p>
           <button type="button" onClick={onClose} aria-label="Close preview">
             <X className="h-5 w-5 text-[#6B7A72]" />

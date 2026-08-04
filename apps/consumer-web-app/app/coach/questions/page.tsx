@@ -43,7 +43,7 @@ export default async function CoachQuestionsPage() {
             Check-in Questions
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
-            Add, edit, or retire the questions members see in Morning Readiness and Evening
+            Add, edit, or retire the questions members see in Daily Reset and Evening
             Reflection, changes take effect in tomorrow&apos;s check-in, no deploy needed.
           </p>
         </div>

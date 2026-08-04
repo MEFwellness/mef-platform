@@ -14,6 +14,7 @@ import { getTodaysCheckin } from '@/app/actions/checkin';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { buildEndingScreenView } from '@/lib/energy-forecast/service';
 import { ForecastCalibrationChart } from '@/components/checkin/ForecastCalibrationChart';
 import type { RootStatusView } from '@/lib/energy-forecast/types';
@@ -72,7 +73,7 @@ export default async function CheckinResultPage({
   // showing a broken or misleading screen.
   if (!todaysCheckin || todaysCheckin.energy_level == null) redirect('/checkin' as Route);
 
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
   const view = await buildEndingScreenView(supabase, user.id, localDate, todaysCheckin);
   const continueHref = (searchParams?.firstCheckin === '1' ? '/dashboard?firstCheckin=1' : '/dashboard') as Route;
 

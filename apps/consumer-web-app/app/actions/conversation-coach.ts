@@ -10,6 +10,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { resolveLocalDate } from './checkin';
 import type { ActionResult } from './auth';
 import type {
@@ -34,7 +35,7 @@ import {
 async function currentMemberContext(
   supabase: ReturnType<typeof createClient>,
   userId: string
-): Promise<{ localDate: string; timezone: string; firstName: string }> {
+): Promise<{ localDate: string; timezone: string; firstName: string | null }> {
   const { data: profile } = await supabase
     .from('profiles')
     .select('display_name, timezone')
@@ -45,7 +46,7 @@ async function currentMemberContext(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
   );
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
   return { localDate, timezone, firstName };
 }
 

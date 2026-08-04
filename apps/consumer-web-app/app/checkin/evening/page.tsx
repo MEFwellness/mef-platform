@@ -17,6 +17,7 @@ import {
 } from '@/app/actions/dailyCheckinPlan';
 import { todaysLocalDate } from '@/lib/time/localDate';
 import { AvatarLink } from '@/components/AvatarLink';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { EveningReflectionForm } from './EveningReflectionForm';
 
 export default async function EveningReflectionPage() {
@@ -45,7 +46,7 @@ export default async function EveningReflectionPage() {
     ]);
   const rotatingProbes = (checkinPlan?.rotatingProbes ?? []).filter((p) => p.screen === 'evening');
 
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
   // Same "never touched any check-in before" signal the morning page
   // computes — cinematic mode applies here too on the rare chance her
   // very first-ever check-in happens to be an evening one.

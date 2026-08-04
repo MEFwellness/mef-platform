@@ -8,6 +8,7 @@
 
 import { getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { resolveLocalDate } from './checkin';
 import type { MorningBrief } from '@mef/shared-types-contracts';
 import { getOrCreateTodaysMorningBrief } from '@/lib/coaching-engine/service';
@@ -45,7 +46,11 @@ export async function getMyMorningBrief(
     new Date(new Date().toLocaleString('en-US', { timeZone: resolvedTimezone })),
     false
   );
-  const firstName = resolvedDisplayName?.split(' ')[0] ?? 'there';
+  // greeting_name is stored but never re-rendered directly (see
+  // MorningBriefCard.tsx's own header comment — the page header already
+  // says the greeting once), so an empty string here is a contained,
+  // honest "no name yet" rather than the never-render 'there' fallback.
+  const firstName = firstNameFrom(resolvedDisplayName) ?? '';
 
   return getOrCreateTodaysMorningBrief(supabase, user.id, localDate, firstName);
 }

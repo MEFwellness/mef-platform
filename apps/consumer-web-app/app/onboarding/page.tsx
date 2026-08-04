@@ -6,6 +6,7 @@ import {
   getOnboardingAssessmentBankForGuest,
 } from '../actions/onboarding';
 import { fetchLatestMemberGoalSelection } from '@/lib/member-goals/data';
+import { CenterStage } from '@/components/layout';
 import { ConsentForm } from './ConsentForm';
 import { OnboardingFlow } from './OnboardingFlow';
 
@@ -15,16 +16,33 @@ const SHELL =
 const CONTAINER = 'mx-auto w-full max-w-md px-5 py-10 sm:px-6 md:max-w-2xl md:px-10';
 const HEADING =
   'font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]';
+const PRIMARY_BUTTON =
+  'flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110';
+const SECONDARY_BUTTON =
+  'flex w-full items-center justify-center rounded-full border-2 border-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:bg-[#1B3A2D]/5';
 
+/**
+ * FIX 3 (2026-08-03): this state and the "already complete" state below
+ * shared the same layout bug — a heading and a line or two of text hugging
+ * the top of an otherwise blank screen, with (on the "already complete"
+ * screen) two easy-to-miss underlined text links instead of real buttons.
+ * `CenterStage` (Screen Layout System, Prompt 2) is this app's established
+ * fix for exactly this shape — already used by OnboardingCompletionScreen.tsx
+ * and app/profile/reassessments/new/page.tsx's own "We'll be right with
+ * you" state — so both now use it instead of a plain top-anchored div. The
+ * consent gate just below is deliberately left as-is; see its own comment.
+ */
 function UnavailableNotice() {
   return (
     <div className={SHELL}>
       <main className={CONTAINER}>
-        <h1 className={HEADING}>We&apos;ll be right with you</h1>
-        <p className="mt-2 text-[15px] text-[#6B7A72]">
-          Your onboarding assessment isn&apos;t available right now. Please try again in a few
-          minutes, or contact support if this continues.
-        </p>
+        <CenterStage className="text-center">
+          <h1 className={HEADING}>We&apos;ll be right with you</h1>
+          <p className="mt-2 text-[15px] text-[#6B7A72]">
+            Your onboarding assessment isn&apos;t available right now. Please try again in a few
+            minutes, or contact support if this continues.
+          </p>
+        </CenterStage>
       </main>
     </div>
   );
@@ -61,6 +79,12 @@ export default async function OnboardingPage() {
   const consented = await hasCompletedConsent(user.id);
 
   if (!consented) {
+    // Deliberately NOT wrapped in CenterStage (FIX 3, 2026-08-03): unlike
+    // the pure single-message states elsewhere in this file, this gate
+    // holds a real multi-section form with a validation error that can
+    // appear/grow (ConsentForm.tsx) — exactly the case CenterStage's own
+    // header comment (components/layout/CenterStage.tsx) says not to
+    // center, since centering content that grows causes a layout jump.
     return (
       <div className={SHELL}>
         <main className={CONTAINER}>
@@ -90,24 +114,20 @@ export default async function OnboardingPage() {
     return (
       <div className={SHELL}>
         <main className={CONTAINER}>
-          <h1 className={HEADING}>Onboarding already complete</h1>
-          <p className="mt-2 text-[15px] text-[#6B7A72]">
-            Thanks, your onboarding assessment is on file. Head to{' '}
-            <Link
-              href="/checkin"
-              className="font-medium text-[#6B7A72] underline underline-offset-2"
-            >
-              today&apos;s check-in
-            </Link>{' '}
-            or review your{' '}
-            <Link
-              href="/profile/baseline"
-              className="font-medium text-[#6B7A72] underline underline-offset-2"
-            >
-              Baseline Assessment
-            </Link>
-            .
-          </p>
+          <CenterStage className="text-center">
+            <h1 className={HEADING}>Onboarding already complete</h1>
+            <p className="mt-2 text-[15px] leading-relaxed text-[#4F645A]">
+              Thanks, your onboarding assessment is on file.
+            </p>
+            <div className="mt-7 space-y-3">
+              <Link href="/checkin" className={PRIMARY_BUTTON}>
+                Go to today&apos;s check-in
+              </Link>
+              <Link href="/profile/baseline" className={SECONDARY_BUTTON}>
+                Review your Baseline Assessment
+              </Link>
+            </div>
+          </CenterStage>
         </main>
       </div>
     );

@@ -96,14 +96,17 @@ function reasonObservation(reason: SelectionReason): string {
  * building that momentum" whenever there's real history to say that from.
  */
 export function buildCoachNote(input: {
-  firstName: string;
+  firstName: string | null;
   timeContext: TimeContext;
   reason: SelectionReason;
   streakMessage: string | null;
   continuitySentence: string | null;
   category: FourDoctorsCategory;
 }): string {
-  const greeting = `${input.timeContext.greetingWord}, ${input.firstName}. ${input.timeContext.weekPhase.tone}`;
+  const greetingClause = input.firstName
+    ? `${input.timeContext.greetingWord}, ${input.firstName}.`
+    : `${input.timeContext.greetingWord}.`;
+  const greeting = `${greetingClause} ${input.timeContext.weekPhase.tone}`;
   const observation = input.continuitySentence ?? reasonObservation(input.reason);
   const streakLine = input.streakMessage ? ` ${input.streakMessage}` : '';
   const segue = ` Let's place a little extra attention on ${FOUR_DOCTORS_PLAIN_LABEL[input.category]} today. Don't worry about doing everything perfectly. One small action keeps your momentum moving forward.`;

@@ -60,7 +60,7 @@ import { HydrationTracker } from '@/components/checkin/HydrationTracker';
 import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection';
 import { getMyQuestionnaireCatalog } from '@/app/actions/questionnaireCatalog';
 import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
-import { AssignedQuestionnairePriorityCard } from '@/components/dashboard/AssignedQuestionnairePriorityCard';
+import { DashboardInviteCards } from '@/components/dashboard/DashboardInviteCards';
 import { WhatWereNoticingCard } from '@/components/dashboard/WhatWereNoticingCard';
 import { RootMapCard } from '@/components/RootMapCard';
 import { RecommendationsCard } from '@/components/dashboard/RecommendationsCard';
@@ -75,6 +75,7 @@ import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
 import { ScrollCarousel } from '@/components/carousel/ScrollCarousel';
 import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart';
 import { buildGreetingLine } from '@/lib/dashboard/greeting';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { orderTodayCards, type TodayCardKey } from '@/lib/dashboard/prioritization';
 import { pageBackgroundForGreeting } from '@/lib/dashboard/timeOfDayPalette';
 import {
@@ -214,7 +215,7 @@ export default async function DashboardPage({
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const localDate = await resolveLocalDate(nowInTz, false);
   const timeContext = buildTimeContext(nowInTz);
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
 
   // recentCheckins doesn't depend on localDate, so it joins the rest of
   // this batch (which does) instead of a separate round trip.
@@ -472,19 +473,19 @@ export default async function DashboardPage({
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         {/* ==================================================== */}
-        {/* Assigned Questionnaire — top priority (Assignment-      */}
-        {/* Gated Questionnaires task). Always the first thing in   */}
-        {/* <main>, above Quick Actions/Today, in both branches      */}
-        {/* below, since a coach assignment can land at any point   */}
-        {/* in a member's journey. Renders nothing when nothing is  */}
-        {/* currently assigned. See                                 */}
-        {/* components/dashboard/AssignedQuestionnairePriorityCard. */}
+        {/* Priority invites — a coach-assigned questionnaire and/  */}
+        {/* or the next unstarted free-arc conversation (Core       */}
+        {/* Values Snapshot / Life Signal Check / Readiness Pulse,  */}
+        {/* FIX 5, 2026-08-03). Always the first thing in <main>,   */}
+        {/* above Quick Actions/Today, in both branches below —     */}
+        {/* deliberately NOT gated on hasCheckins, since a brand-    */}
+        {/* new member with zero check-ins is exactly who needs      */}
+        {/* this reachable. Renders nothing when there is neither.  */}
+        {/* See components/dashboard/DashboardInviteCards.tsx.      */}
         {/* ==================================================== */}
-        {questionnaireCatalog.assigned.length > 0 && (
-          <div className="pt-6">
-            <AssignedQuestionnairePriorityCard cards={questionnaireCatalog.assigned} />
-          </div>
-        )}
+        <Suspense fallback={null}>
+          <DashboardInviteCards catalog={questionnaireCatalog} />
+        </Suspense>
 
         {!hasCheckins && !hasActiveExperiment ? (
           /* Premium UX Milestone 2: before a member's first completed
@@ -727,15 +728,20 @@ export default async function DashboardPage({
       />
 
       {/* Root's pop-up message (day-3/day-7 Weekly Experiment follow-ups,
-          plus each experience's own one-time "start it later" offer)
-          and the wearable welcome modal, arbitrated so they never stack —
-          see components/dashboard/HomeScreenPopups.tsx. Both suppressed
-          during the pre-first-check-in welcome state and the first-check-in
-          transition below, same "a modal competing with a single-CTA
-          moment undercuts it" rule as before; each still shows on a later
-          visit. */}
+          each experience's own one-time "start it later" offer, a coach-
+          assigned questionnaire, or the next unstarted free-arc
+          conversation) and the wearable welcome modal, arbitrated so they
+          never stack — see components/dashboard/HomeScreenPopups.tsx.
+          FIX 5 (2026-08-03): the pop-up itself is deliberately NOT gated on
+          hasCheckins anymore — a brand-new member with zero check-ins can
+          still have a coach assignment or a free-arc conversation waiting,
+          and that's exactly the member this fix needs to reach. Still
+          suppressed during the one-time first-check-in transition below
+          (never alongside another pop-up), and the wearable prompt keeps
+          its own unchanged hasCheckins gate (today's real recovery numbers
+          have nothing to show before a first check-in exists). */}
       <HomeScreenPopups
-        rootPopupMessage={hasCheckins && searchParams.firstCheckin !== '1' ? rootPopupMessage : null}
+        rootPopupMessage={searchParams.firstCheckin !== '1' ? rootPopupMessage : null}
         showWearablePrompt={!hasConnectedWearable && hasCheckins && searchParams.firstCheckin !== '1'}
       />
 

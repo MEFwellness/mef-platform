@@ -82,7 +82,7 @@ export function buildJourneyPreview(answers: OnboardingAnswerInput[]): JourneyPr
     personalized: PERSONALIZED_CHAPTER[group](focus),
     checkins: {
       title: 'Daily Check-ins',
-      body: 'A quick Morning Readiness and Evening Reflection each day is how the picture keeps building: a couple of minutes that turn one assessment into an ongoing conversation.',
+      body: 'A quick Daily Reset and Evening Reflection each day is how the picture keeps building: a couple of minutes that turn one assessment into an ongoing conversation.',
     },
     closing:
       'From here, guided reassessments track what actually changes, your coach uses all of it to personalize your plan, and progress tracking brings the whole picture together in one place.',

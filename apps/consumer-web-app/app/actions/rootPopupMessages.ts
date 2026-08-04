@@ -31,6 +31,19 @@
  * offer — the loser simply waits as its own dashboard card until the
  * winner is resolved, same "one at a time" rule already used between day
  * 3 and day 7 within a single experience.
+ *
+ * Questionnaires-and-Experiences-as-Pop-ups (2026-08-03) added one new
+ * message kind, `free_arc_available` (the next unstarted Core Values
+ * Snapshot / Life Signal Check / Readiness Pulse conversation — see
+ * lib/root-popup-messages/freeArc.ts), lowest priority of everything here:
+ * an invitation to start something new always yields to continuing
+ * something already active. The same task also switched
+ * `questionnaire_assigned` from a one-time-ever pop-up to the same
+ * recurring snoozed/ignored semantics as day3/day7 ("Maybe later" actually
+ * means "ask again next login" now, not "never again"), and removed the
+ * `hasCheckins` gate that used to keep every message here (including this
+ * one) from ever reaching a member with zero check-ins —
+ * app/dashboard/page.tsx's own comment on `HomeScreenPopups` explains why.
  */
 
 'use server';
@@ -62,6 +75,7 @@ import {
   snoozeRootPopupMessage,
   type RootPopupDismissalStatus,
 } from '@/lib/root-popup-messages/data';
+import { pickNextFreeArcCard, freeArcPopupMessageKey } from '@/lib/root-popup-messages/freeArc';
 import { fetchGoalCallbackContext } from '@/lib/memory-callback/data';
 import { buildGoalCallback } from '@/lib/memory-callback/copy';
 
@@ -108,6 +122,14 @@ export type RootPopupMessage =
       assignmentId: string;
       displayName: string;
       primaryHref: string;
+    }
+  | {
+      kind: 'free_arc_available';
+      messageKey: string;
+      assessmentKey: string;
+      displayName: string;
+      description: string;
+      primaryHref: string;
     };
 
 async function requireMemberId(): Promise<string | null> {
@@ -137,13 +159,25 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // continuing to the next experience when it's already been shown,
   // exactly the same "skip past what's already resolved" discipline
   // resolveCvsCheckinPending already applies to day3-vs-day7.
-  const memberId = await requireMemberId();
+  const user = await getCachedUser();
+  const memberId = user?.id ?? null;
   const supabase = memberId ? createClient() : null;
+  const lastSignInAt = user?.last_sign_in_at ?? null;
 
   async function isOfferStillDue(messageKey: string): Promise<boolean> {
     if (!memberId || !supabase) return true;
     const dismissal = await getRootPopupDismissal(supabase, memberId, messageKey);
     return isOfferPopupDue(dismissal);
+  }
+
+  // FIX 5 (2026-08-03): questionnaire_assigned's own candidate-picking now
+  // uses the same recurring snoozed/ignored rule day3/day7 already use,
+  // not isOfferStillDue's one-time-ever rule — see this file's own header
+  // comment for why.
+  async function isRecurringMessageDue(messageKey: string): Promise<boolean> {
+    if (!memberId || !supabase) return true;
+    const dismissal = await getRootPopupDismissal(supabase, memberId, messageKey);
+    return isRootPopupDueThisLogin(dismissal, lastSignInAt);
   }
 
   /** Root Presence System, requirement 4 — fetched lazily, only when a day-7 message is actually about to be returned, so every other call to this function pays no extra query. */
@@ -187,7 +221,7 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
       primaryHref: card.primaryHref!,
       messageKey: questionnaireAssignedPopupMessageKey(card.assignmentId!),
     }));
-  const dueAssignment = await pickFirstDueOneTimeMessage(assignmentCandidates, isOfferStillDue);
+  const dueAssignment = await pickFirstDueOneTimeMessage(assignmentCandidates, isRecurringMessageDue);
   if (dueAssignment) {
     return {
       kind: 'questionnaire_assigned',
@@ -350,6 +384,25 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     }
   }
 
+  // Free Arc Discoverability fix (2026-08-03) — the next unstarted
+  // conversation among Core Values Snapshot / Life Signal Check /
+  // Readiness Pulse, lowest priority of every message above: an
+  // invitation to try something new never preempts continuing something
+  // already active (every day3/day7/offer/assignment check above it).
+  // Reuses the exact same `catalog` already fetched for the coach-
+  // assignment check, no new query. See lib/root-popup-messages/freeArc.ts.
+  const nextFreeArcCard = pickNextFreeArcCard(catalog);
+  if (nextFreeArcCard && nextFreeArcCard.primaryHref) {
+    return {
+      kind: 'free_arc_available',
+      messageKey: freeArcPopupMessageKey(nextFreeArcCard.key),
+      assessmentKey: nextFreeArcCard.key,
+      displayName: nextFreeArcCard.title,
+      description: nextFreeArcCard.description,
+      primaryHref: nextFreeArcCard.primaryHref,
+    };
+  }
+
   return null;
 }
 
@@ -374,13 +427,16 @@ export async function getMyRootPopupDismissalAction(
  * resolved. Never returns a message for an 'ignored' dismissal, and only
  * returns a 'snoozed' one once a real login has happened since the snooze.
  *
- * The two offer kinds (cvs_offer/lsc_offer) are the one exception to that
- * "snoozed comes back next login" rule: they pop up at most once, ever.
- * RootMessagePopupClient marks the offer dismissed (status 'ignored') the
- * moment it's shown, so any dismissal row at all — not just an
- * 'ignored' one — permanently retires the pop-up for that offer. The
- * member always still has the dashboard card as an unlimited, un-timed
- * way to start it later.
+ * The three offer kinds (cvs_offer/lsc_offer/rpl_offer) are the one
+ * exception to that "snoozed comes back next login" rule: they pop up at
+ * most once, ever. RootMessagePopupClient marks the offer dismissed
+ * (status 'ignored') the moment it's shown, so any dismissal row at all —
+ * not just an 'ignored' one — permanently retires the pop-up for that
+ * offer. The member always still has the dashboard card as an unlimited,
+ * un-timed way to start it later. `questionnaire_assigned` and
+ * `free_arc_available` are NOT in this one-time-ever group (FIX 5,
+ * 2026-08-03 — both use the same recurring rule as day3/day7, so "Maybe
+ * later" genuinely means "ask again next login").
  */
 export async function getMyRootPopupMessageAction(): Promise<RootPopupMessage | null> {
   const user = await getCachedUser();
@@ -392,12 +448,7 @@ export async function getMyRootPopupMessageAction(): Promise<RootPopupMessage | 
   const supabase = createClient();
   const dismissal = await getRootPopupDismissal(supabase, user.id, message.messageKey);
 
-  if (
-    message.kind === 'cvs_offer' ||
-    message.kind === 'lsc_offer' ||
-    message.kind === 'rpl_offer' ||
-    message.kind === 'questionnaire_assigned'
-  ) {
+  if (message.kind === 'cvs_offer' || message.kind === 'lsc_offer' || message.kind === 'rpl_offer') {
     return isOfferPopupDue(dismissal) ? message : null;
   }
 

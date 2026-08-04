@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ClipboardList, ChevronRight, TrendingUp, Watch, ScanFace } from 'lucide-react';
+import { ClipboardList, ChevronRight, TrendingUp, Watch, ScanFace, User } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { SignOutButton } from '@/components/SignOutButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildProfileEntryContext } from '@/lib/conversation-coach/entryContext';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { ProfileForm } from './ProfileForm';
 import { Card } from '@/components/layout';
 
@@ -25,7 +26,7 @@ export default async function ProfilePage() {
     .single();
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -34,7 +35,11 @@ export default async function ProfilePage() {
 
         <div className="mt-4 flex items-center gap-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[#F5B700] bg-white text-lg font-medium text-[#1B3A2D]">
-            {firstName.charAt(0).toUpperCase()}
+            {firstName ? (
+              firstName.charAt(0).toUpperCase()
+            ) : (
+              <User className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+            )}
           </div>
           <div>
             <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-4xl">

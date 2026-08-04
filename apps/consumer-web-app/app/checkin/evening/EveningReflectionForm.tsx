@@ -430,7 +430,7 @@ export function EveningReflectionForm({
                     <p className="text-[15px] leading-relaxed text-[#4F645A]">
                       {existing
                         ? "You've already reflected on today. Update anything below."
-                        : 'A short close to the day. Available any time, morning or night. Your Morning Readiness never depends on this.'}
+                        : 'A short close to the day. Available any time, morning or night. Your Daily Reset never depends on this.'}
                     </p>
                     <CheckInModeSwitch active="evening" />
                   </div>

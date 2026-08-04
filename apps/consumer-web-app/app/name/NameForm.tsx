@@ -1,15 +1,16 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import Link from 'next/link';
 import { setDisplayName } from '../actions/profile';
 
 /**
  * Single-field, single-purpose: no email/password here (the account
  * already exists by the time this renders — see app/name/page.tsx), just
- * a name and a "Skip for now" out. Skipping is a real, first-class path
- * (a plain Link, not a disabled/hidden affordance) since display_name has
- * always been optional.
+ * a name. FIX 1 (2026-08-03): required, no skip — display_name used to be
+ * optional, which is exactly how members ended up seeing "Good afternoon,
+ * there" on the home screen. lib/auth/postLoginRoute.ts now routes any
+ * member with no name straight here on every login until this is answered,
+ * so a "Skip for now" link would only ever bounce them right back.
  */
 export function NameForm() {
   const [name, setName] = useState('');
@@ -22,7 +23,7 @@ export function NameForm() {
 
     setError(null);
     if (!name.trim()) {
-      setError('Please enter a name, or skip for now.');
+      setError('Please enter a name.');
       return;
     }
 
@@ -79,12 +80,6 @@ export function NameForm() {
           {submitting ? 'Saving…' : 'Continue'}
         </button>
       </form>
-
-      <p className="mt-5 text-center text-sm">
-        <Link href="/" className="font-medium text-[#6B7A72] underline underline-offset-2">
-          Skip for now
-        </Link>
-      </p>
     </>
   );
 }

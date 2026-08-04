@@ -23,7 +23,7 @@ export function FirstCheckinTransition({
   firstName,
   hasMovementAssessment,
 }: {
-  firstName: string;
+  firstName: string | null;
   hasMovementAssessment: boolean;
 }) {
   const router = useRouter();
@@ -85,7 +85,7 @@ export function FirstCheckinTransition({
         </div>
 
         <h2 className="relative mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
-          Well done, {firstName}
+          {firstName ? `Well done, ${firstName}` : 'Well done.'}
         </h2>
         {!hasMovementAssessment && (
           <p className="relative mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#4F645A]">

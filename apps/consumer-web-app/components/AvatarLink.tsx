@@ -14,10 +14,11 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { User } from 'lucide-react';
 import { ProfileSheet } from '@/components/ProfileSheet';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
-export function AvatarLink({ firstName }: { firstName: string }) {
+export function AvatarLink({ firstName }: { firstName: string | null }) {
   const [isOpen, setIsOpen] = useState(false);
   const [visible, setVisible] = useState(false);
 
@@ -52,7 +53,11 @@ export function AvatarLink({ firstName }: { firstName: string }) {
         aria-label="Profile menu"
         className="mef-press flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F5B700] bg-white text-sm font-medium text-[#1B3A2D] transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
       >
-        {firstName.charAt(0).toUpperCase()}
+        {firstName ? (
+          firstName.charAt(0).toUpperCase()
+        ) : (
+          <User className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+        )}
       </button>
 
       {isOpen && <ProfileSheet firstName={firstName} visible={visible} onClose={close} />}

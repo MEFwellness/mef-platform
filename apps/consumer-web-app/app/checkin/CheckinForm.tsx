@@ -102,7 +102,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: LucideIcon; titl
 }
 
 const SECTION_HEADINGS: Record<MorningScreenKey, { icon: LucideIcon; title: string; subtitle: string }> = {
-  feeling: { icon: Smile, title: "How you're feeling", subtitle: 'A quick emotional and physical read on this morning' },
+  feeling: { icon: Smile, title: "How you're feeling", subtitle: 'A quick emotional and physical read on right now' },
   night: { icon: Moon, title: 'Your night', subtitle: 'How last night set up today' },
   body: { icon: HeartPulse, title: 'Your body', subtitle: 'Soreness, pain, and digestion' },
   other: { icon: MessageCircle, title: 'Anything else', subtitle: "Entirely optional, share as much or as little as you'd like" },
@@ -293,7 +293,7 @@ export function CheckinForm({
         answered: moodLevel !== null,
         render: () => (
           <FiveFacesScale
-            question="How are you feeling emotionally this morning?"
+            question="How are you feeling emotionally right now?"
             labels={MOOD_MEANING}
             value={moodLevel}
             onChange={setMoodLevel}
@@ -307,7 +307,7 @@ export function CheckinForm({
         answered: energyLevel !== null,
         render: () => (
           <VerticalFillScale
-            question="How energized do you feel this morning?"
+            question="How energized do you feel right now?"
             labels={ENERGY_MEANING}
             value={energyLevel}
             onChange={setEnergyLevel}
@@ -321,7 +321,7 @@ export function CheckinForm({
         answered: stressLevel !== null,
         render: () => (
           <CompressingRings
-            question="How much stress are you carrying as you wake up?"
+            question="How much stress are you carrying right now?"
             labels={STRESS_MEANING}
             value={stressLevel}
             onChange={setStressLevel}

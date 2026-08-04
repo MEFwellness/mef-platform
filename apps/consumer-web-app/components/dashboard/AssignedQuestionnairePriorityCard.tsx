@@ -20,8 +20,30 @@ import type { CatalogCard } from '@/app/actions/questionnaireCatalog';
  * per the task's "draw the eye" requirement. Renders nothing at all when
  * there is nothing assigned, same "silently disappear" posture as every
  * other conditional dashboard zone.
+ *
+ * FIX 5 (2026-08-03): gained the gold "Waiting on you" badge once a
+ * member has tapped "Maybe later" on this exact card's own pop-up
+ * (RootMessagePopupClient's questionnaire_assigned branch) — same badge,
+ * same precedent as CvsFollowUpCards.tsx's HighPriorityBadge, computed
+ * from the same `member_root_popup_dismissals` row the pop-up itself
+ * reads (see components/dashboard/DashboardInviteCards.tsx, the new
+ * caller that fetches each card's dismissal state).
  */
-export function AssignedQuestionnairePriorityCard({ cards }: { cards: CatalogCard[] }) {
+function HighPriorityBadge() {
+  return (
+    <span className="relative mt-3 inline-flex w-fit shrink-0 items-center rounded-full bg-[#C4A050]/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#F5D98A]">
+      Waiting on you
+    </span>
+  );
+}
+
+export function AssignedQuestionnairePriorityCard({
+  cards,
+  highPriorityAssignmentIds = new Set(),
+}: {
+  cards: CatalogCard[];
+  highPriorityAssignmentIds?: ReadonlySet<string>;
+}) {
   if (cards.length === 0) return null;
 
   return (
@@ -48,6 +70,9 @@ export function AssignedQuestionnairePriorityCard({ cards }: { cards: CatalogCar
               <p className="relative mt-2 text-sm leading-relaxed text-[#F5F0E4]/75">
                 {card.coachAssignmentReason}
               </p>
+            )}
+            {card.assignmentId && highPriorityAssignmentIds.has(card.assignmentId) && (
+              <HighPriorityBadge />
             )}
             {card.primaryHref && (
               <Link

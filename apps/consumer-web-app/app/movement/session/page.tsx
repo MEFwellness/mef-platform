@@ -15,6 +15,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { AvatarLink } from '@/components/AvatarLink';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildMovementEntryContext } from '@/lib/conversation-coach/entryContext';
 import { MovementSectionAccordion } from '@/components/movement/MovementSectionAccordion';
@@ -40,7 +41,7 @@ export default async function MovementSessionPage() {
 
   if (!session) redirect('/movement');
 
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
   const recoveryStyles = RECOVERY_STATUS_STYLES[session.recovery_status];
   const sectionsPresent = MOVEMENT_SESSION_SECTION_ORDER.filter((section) =>
     session.exercises.some((e) => e.section === section)

@@ -12,7 +12,7 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
  * moment with a single CTA, same "premium empty state" pattern as every
  * other pre-data screen in this app.
  */
-export function MovementEmptyState({ firstName }: { firstName: string }) {
+export function MovementEmptyState({ firstName }: { firstName: string | null }) {
   return (
     <section className={`${CARD} mef-animate-in relative overflow-hidden p-8 text-center sm:p-10`}>
       <div
@@ -30,9 +30,9 @@ export function MovementEmptyState({ firstName }: { firstName: string }) {
         Your movement, intelligently designed
       </h2>
       <p className="relative mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-[#4F645A]">
-        {firstName}, Root builds each session from your check-ins, recovery, and assessment results,
-        not a fixed workout plan. Complete your first check-in and your first personalized session
-        appears here.
+        {firstName ? `${firstName}, r` : 'R'}oot builds each session from your check-ins, recovery,
+        and assessment results, not a fixed workout plan. Complete your first check-in and your
+        first personalized session appears here.
       </p>
       <Link
         href={'/checkin' as Route}

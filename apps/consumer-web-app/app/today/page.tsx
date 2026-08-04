@@ -54,6 +54,7 @@ import { buildContinuitySentence, buildChallengeCarryover } from '@/lib/feed/con
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { RootQuickLink } from '@/components/RootQuickLink';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -142,7 +143,7 @@ export default async function TodayPage() {
       getActiveHabits(),
     ]);
 
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const timeContext = buildTimeContext(nowInTz);

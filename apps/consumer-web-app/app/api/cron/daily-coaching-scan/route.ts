@@ -52,6 +52,7 @@ import { listMyLifestyleExperiments } from '@/lib/lifestyle-experiments';
 import { listMemberRecommendations } from '@/lib/recommendation-engine';
 import type { RecommendationDomain } from '@/lib/intelligence-engine/types';
 import type { WellnessInsight } from '@mef/shared-types-contracts';
+import { firstNameFrom } from '@/lib/profile/greeting';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,7 +122,11 @@ async function scanMember(
   member: MemberRow,
   today: string
 ): Promise<void> {
-  const firstName = member.display_name?.split(' ')[0] ?? 'there';
+  // greeting_name is stored but never re-rendered directly (see
+  // MorningBriefCard.tsx's own header comment), so an empty string here is
+  // a contained, honest "no name yet" rather than the never-render
+  // 'there' fallback (lib/profile/greeting.ts).
+  const firstName = firstNameFrom(member.display_name) ?? '';
   const recentCheckins = await listRecentCheckinsForMember(supabase, member.id, today, 40);
   const facts = buildRuleFacts(recentCheckins, today);
 

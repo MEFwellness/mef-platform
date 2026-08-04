@@ -4,15 +4,19 @@ import { createClient } from '@/lib/supabase/server';
 import { NameForm } from './NameForm';
 
 /**
- * The one-time "what should we call you" prompt reached via the auth
- * callback's redirect (app/api/auth/callback/route.ts) immediately after a
- * brand-new member verifies their email — the account already exists by
- * the time this renders, which is the whole point (the old signup form
- * asked for this before the account existed; see app/actions/auth.ts's
- * signUp() comment). Not in middleware.ts's PUBLIC_PATHS, so an
- * unauthenticated visitor is already redirected to /login before this
- * ever renders; the check below is defense-in-depth, matching every other
- * authenticated page in this app.
+ * The one-time "what should we call you" prompt. A brand-new member is
+ * routed here via the auth callback's redirect
+ * (app/api/auth/callback/route.ts) immediately after verifying their
+ * email — the account already exists by the time this renders, which is
+ * the whole point (the old signup form asked for this before the account
+ * existed; see app/actions/auth.ts's signUp() comment). An existing member
+ * whose profiles.display_name is still null is routed here on every login
+ * by lib/auth/postLoginRoute.ts (FIX 1, 2026-08-03) — the guard below
+ * (redirect('/') once display_name is set) is what makes that a true
+ * one-time prompt rather than a repeat visit. Not in middleware.ts's
+ * PUBLIC_PATHS, so an unauthenticated visitor is already redirected to
+ * /login before this ever renders; the check below is defense-in-depth,
+ * matching every other authenticated page in this app.
  */
 export default async function NamePage() {
   const supabase = createClient();

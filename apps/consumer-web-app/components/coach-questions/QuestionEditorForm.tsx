@@ -230,7 +230,7 @@ export function QuestionEditorForm({
             onChange={(e) => setScreen(e.target.value as ProbeScreen)}
             className={INPUT_CLASS}
           >
-            <option value="morning">Morning Readiness</option>
+            <option value="morning">Daily Reset</option>
             <option value="evening">Evening Reflection</option>
           </select>
         </div>

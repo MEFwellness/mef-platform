@@ -28,6 +28,21 @@ export async function resolvePostLoginPath(supabase: SupabaseClient, user: User)
   const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
   if (isAdmin) return '/admin';
 
+  // FIX 1 (2026-08-03) — no member should ever reach the home greeting
+  // with no name on file (it used to fall back to the literal word
+  // "there"). A brand-new member is already asked at /name via the auth
+  // callback (app/api/auth/callback/route.ts) before this function is
+  // ever reached; this catches every existing account that predates that
+  // step, with the same one-time, non-skippable screen. /name's own guard
+  // (app/name/page.tsx) redirects straight past this the instant
+  // display_name is set, so this never fires more than once per member.
+  const { data: nameProfile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .single();
+  if (!nameProfile?.display_name) return '/name';
+
   if (WELCOME_FLOW_ENABLED) {
     const eligibleForWelcome = await isEligibleForWelcomeFlow(supabase, user.id);
     if (eligibleForWelcome) return '/welcome';

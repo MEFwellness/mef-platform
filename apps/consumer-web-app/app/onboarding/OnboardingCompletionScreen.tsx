@@ -61,7 +61,7 @@ export function OnboardingCompletionScreen({
             aria-hidden="true"
           />
           <p className="text-[15px] leading-relaxed text-[#1B3A2D]">
-            Morning Readiness helps us understand how you&apos;re beginning your day.
+            Daily Reset helps us understand how you&apos;re doing today.
           </p>
         </div>
         <div className="mt-4 flex items-start gap-3">
@@ -83,7 +83,7 @@ export function OnboardingCompletionScreen({
         href="/checkin"
         className="mt-7 flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110"
       >
-        Continue to Morning Readiness
+        Continue to Daily Reset
       </Link>
     </CenterStage>
   );

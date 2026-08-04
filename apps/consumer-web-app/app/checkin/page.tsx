@@ -16,6 +16,7 @@ import {
 } from '@/app/actions/dailyCheckinPlan';
 import { typicalSleepTimes } from '@/lib/daily-checkin-adaptive/sleepHistory';
 import { AvatarLink } from '@/components/AvatarLink';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { CheckinForm } from './CheckinForm';
 
 /** How many recent days feed the sleep dial's "typical bedtime/wake" pre-fill — same window RECENCY_CAP_DAYS already uses elsewhere in this feature for "how overdue" weighting, reused here for consistency rather than a new arbitrary number. */
@@ -34,7 +35,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
     .eq('id', user.id)
     .single();
 
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const requestedYesterday = searchParams?.date === 'yesterday';
@@ -74,7 +75,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-[2.5rem]">
-              {requestedYesterday ? "Yesterday's Morning Readiness" : 'Morning Readiness'}
+              {requestedYesterday ? "Yesterday's Daily Reset" : 'Daily Reset'}
             </h1>
             {!requestedYesterday && canLogYesterday && (
               <Link

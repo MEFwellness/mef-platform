@@ -133,7 +133,7 @@ export function QuestionBankPanel({
         </div>
         <p className="mt-1 text-xs text-[#6B7A72]">
           Asked every single day, never rotated. These aren&apos;t editable here: changing them
-          risks breaking the Morning Readiness score and other features that depend on them
+          risks breaking the Daily Reset score and other features that depend on them
           existing exactly as they are.
         </p>
         <div className="mt-3 divide-y divide-[#1B3A2D]/5">

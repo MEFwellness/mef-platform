@@ -60,7 +60,7 @@ export function DailyWellnessSection({
         <div className="mt-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[#1B3A2D]">
             <Sunrise className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-medium">Morning Readiness</p>
+            <p className="text-sm font-medium">Daily Reset</p>
           </div>
           <span
             className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${STATUS_STYLES[morning.status].bg} ${STATUS_STYLES[morning.status].text}`}

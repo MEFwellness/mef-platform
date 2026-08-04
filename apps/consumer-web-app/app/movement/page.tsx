@@ -26,6 +26,7 @@ import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildMovementEntryContext } from '@/lib/conversation-coach/entryContext';
 import { MovementEmptyState } from '@/components/movement/MovementEmptyState';
+import { firstNameFrom } from '@/lib/profile/greeting';
 import { WhySessionCard } from '@/components/movement/WhySessionCard';
 import { MovementStatsGrid } from '@/components/movement/MovementStatsGrid';
 import { RECOVERY_STATUS_LABEL, RECOVERY_STATUS_STYLES } from '@/lib/movement/status';
@@ -53,7 +54,7 @@ export default async function MovementPage() {
     getRecentCheckins(12),
   ]);
 
-  const firstName = profile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(profile?.display_name);
   const hasEverCheckedIn = recentCheckins.length > 0;
 
   // All three are independent of each other (none takes the others'

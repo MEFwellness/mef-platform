@@ -23,6 +23,7 @@ import { buildAllClientSummaries } from './lib';
 import { BottomNav } from '@/components/BottomNav';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { ClientListPanel } from './ClientListPanel';
+import { firstNameFrom } from '@/lib/profile/greeting';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const STAT_CARD = `${CARD} flex flex-col p-5`;
@@ -49,7 +50,7 @@ export default async function CoachPage() {
     .select('display_name')
     .eq('id', user.id)
     .single();
-  const firstName = coachProfile?.display_name?.split(' ')[0] ?? 'there';
+  const firstName = firstNameFrom(coachProfile?.display_name);
 
   const clients = await listAssignedClients();
   const summaries = await buildAllClientSummaries(clients);
@@ -87,7 +88,7 @@ export default async function CoachPage() {
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          Good Morning, {firstName}
+          {firstName ? `Good Morning, ${firstName}` : 'Good Morning.'}
         </h1>
         <p className="mt-2 text-[15px] text-[#6B7A72]">
           Here&apos;s how your clients are doing today.
