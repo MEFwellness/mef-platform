@@ -10,6 +10,7 @@ import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildProfileEntryContext } from '@/lib/conversation-coach/entryContext';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { ProfileForm } from './ProfileForm';
+import { PasskeyEnrollment } from './PasskeyEnrollment';
 import { Card } from '@/components/layout';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
@@ -176,6 +177,9 @@ export default async function ProfilePage() {
           <p className="mt-2 text-sm text-[#6B7A72]">
             Signed in as <span className="text-[#1B3A2D]">{user.email}</span>
           </p>
+          <div className="mt-4 border-t border-[#1B3A2D]/10 pt-4">
+            <PasskeyEnrollment />
+          </div>
           <div className="mt-4">
             <SignOutButton variant="block" />
           </div>

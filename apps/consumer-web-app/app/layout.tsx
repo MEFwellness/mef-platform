@@ -8,7 +8,6 @@ import { GuestPreviewMigrator } from './GuestPreviewMigrator';
 import { RootResetEntryGate } from '@/components/entry/RootResetEntryGate';
 import { ENTRY_ANIMATION_LOGIN_COOKIE, ENTRY_ANIMATION_PLAY_COOKIE } from '@/lib/entry-animation/cookies';
 import { getCachedUser } from '@/lib/supabase/currentUser';
-import { createClient } from '@/lib/supabase/server';
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ['latin'],
@@ -79,35 +78,37 @@ export const viewport: Viewport = {
  * comment explains persists more reliably than a cookie middleware.ts
  * would set for the same request. mef_entry_play is middleware's own
  * token for the other trigger (reopened after a meaningful gap) — see
- * middleware.ts's own comment for why that split exists. Whichever is
- * present, this only ever does the one extra lookup (the member's first
- * name) on the rare requests where a token exists, not on every page
- * load. getCachedUser() here shares its result with whatever the
+ * middleware.ts's own comment for why that split exists.
+ *
+ * This only confirms the cookie still belongs to a live session (a stale
+ * cookie left over after logout must never resurrect a "Welcome back" on
+ * the login screen itself) — it deliberately does not also look up the
+ * member's first name the way an earlier version did. That lookup was a
+ * second, non-deduped Supabase round trip sitting in front of an
+ * `await` this whole root layout blocks on, which meant it delayed
+ * *everything* below it — including every route's own loading.tsx
+ * fallback, since nothing streams to the browser past an unSuspended
+ * await — behind a database query, on every fresh login or reopen. Under
+ * a slow connection or a slow Supabase response, that shows up as the
+ * intro's fixed-duration animation finishing on schedule while the app
+ * shell itself still hasn't even started arriving. The client-side gate
+ * already resolves the real first name on its own
+ * (RootResetEntryGate.tsx's own getEntryAnimationGreeting() call, capped
+ * at RESET_ENTRY_NAME_WAIT_MS) — this only needs to know whether to play
+ * at all. getCachedUser() here shares its result with whatever the
  * destination page itself also calls it for (React's per-request
  * cache()), so this never becomes a second real auth.getUser() network
  * call.
  */
-async function getEntryAnimationServerState(): Promise<{
-  entryToken: string | null;
-  firstName: string | null;
-}> {
+async function getEntryAnimationServerState(): Promise<{ entryToken: string | null }> {
   const entryToken =
     cookies().get(ENTRY_ANIMATION_LOGIN_COOKIE)?.value ||
     cookies().get(ENTRY_ANIMATION_PLAY_COOKIE)?.value ||
     null;
-  if (!entryToken) return { entryToken: null, firstName: null };
+  if (!entryToken) return { entryToken: null };
 
   const user = await getCachedUser();
-  if (!user) return { entryToken: null, firstName: null };
-
-  const supabase = createClient();
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name')
-    .eq('id', user.id)
-    .single();
-
-  return { entryToken, firstName: profile?.display_name?.split(' ')[0] ?? null };
+  return { entryToken: user ? entryToken : null };
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -117,10 +118,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en" className={`${cormorantGaramond.variable} ${dmSans.variable}`}>
       <body className={`${dmSans.className} min-h-screen bg-[#FAFAF8] text-[#1B3A2D] antialiased`}>
         <GuestPreviewMigrator />
-        <RootResetEntryGate
-          initialEntryToken={entryState.entryToken}
-          initialFirstName={entryState.firstName}
-        />
+        <RootResetEntryGate initialEntryToken={entryState.entryToken} />
         {children}
       </body>
     </html>

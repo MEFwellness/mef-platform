@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from '../../actions/auth';
 import { getFriendlyAuthError } from '@/lib/auth/errors';
+import { PasskeyLoginButton } from '@/components/auth/PasskeyLoginButton';
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +81,7 @@ export default function LoginPage() {
           {submitting ? 'Logging in…' : 'Log in'}
         </button>
       </form>
+      <PasskeyLoginButton redirectedFrom={redirectedFrom} onError={setError} />
       <div className="mt-5 space-y-1.5 text-center text-sm">
         <p>
           <Link href="/signup" className="font-medium text-[#6B7A72] underline underline-offset-2">

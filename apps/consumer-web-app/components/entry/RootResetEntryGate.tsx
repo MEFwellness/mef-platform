@@ -38,6 +38,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ENTRY_ANIMATION_REOPEN_THRESHOLD_MS, isEntryAnimationExcludedPath } from '@/lib/entry-animation/rule';
+import { RESET_ENTRY_BRIDGE_MAX_MS } from '@/lib/entry-animation/timing';
+import { PageSkeleton } from '@/components/PageSkeleton';
 import { RootResetEntryAnimation } from './RootResetEntryAnimation';
 
 interface EntryAnimationGreeting {
@@ -64,13 +66,7 @@ function readEntryTokenFromCookies(): string | null {
 /** sessionStorage, not localStorage: deliberately tab-scoped, so a genuinely new tab (or a relaunched, previously-killed PWA) always starts with no consumed-token history — that's what makes "closed and reopened" naturally distinct from "reloaded the same tab." */
 const ENTRY_TOKEN_STORAGE_KEY = 'mef-entry-consumed-token';
 
-export function RootResetEntryGate({
-  initialEntryToken,
-  initialFirstName,
-}: {
-  initialEntryToken: string | null;
-  initialFirstName: string | null;
-}) {
+export function RootResetEntryGate({ initialEntryToken }: { initialEntryToken: string | null }) {
   const pathname = usePathname();
   // SSR-matched initial guess: correct and zero-flash for the dominant
   // case. Corrected one effect tick later (below) if document.cookie
@@ -78,9 +74,19 @@ export function RootResetEntryGate({
   // since sessionStorage itself is never available during the server
   // render this initial value has to match.
   const [active, setActive] = useState(initialEntryToken !== null);
-  const [firstName, setFirstName] = useState<string | null | undefined>(
-    initialEntryToken !== null ? initialFirstName : undefined
-  );
+  const [firstName, setFirstName] = useState<string | null | undefined>(undefined);
+  // Once the branded animation's own fixed duration ends, whether it's
+  // safe to reveal whatever is mounted underneath depends on whether a
+  // client-side navigation to a *different*, not-yet-rendered page is
+  // still in flight — see handleIntroComplete below. True only when the
+  // token driving this activation was discovered *after* this component's
+  // own SSR render (i.e. arrived via a live client-side redirect this
+  // page didn't already know about); false for a token the SSR render
+  // already had (nothing left pending — see resolve()) and for the
+  // Page Visibility reopen case (the member never left the page at all).
+  const [bridging, setBridging] = useState(false);
+  const navigationPendingRef = useRef(false);
+  const introStartPathRef = useRef<string | null>(null);
   const hiddenAtRef = useRef<number | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -113,22 +119,23 @@ export function RootResetEntryGate({
         // Best-effort — if this write fails, the worst case is a possible
         // replay on the very next reload, not a crash.
       }
-      setActive(true);
 
-      if (token === initialEntryToken) {
-        // The SSR render that produced initialFirstName saw this exact
-        // token, so the name it resolved is trustworthy as-is.
-        setFirstName(initialFirstName);
-      } else {
-        // The cookie-jar token disagreed with (or the SSR render missed
-        // entirely) what app/layout.tsx used — its own firstName lookup
-        // may not correspond to this token, so resolve it independently
-        // rather than risk showing a stale or mismatched name.
-        setFirstName(undefined);
-        getEntryAnimationGreeting()
-          .then((result) => setFirstName(result.authenticated ? result.firstName : null))
-          .catch(() => setFirstName(null));
-      }
+      // A token this component's own SSR render already knew about means
+      // the destination page had already fully resolved server-side
+      // before any client JS ran (a full page load) — there is no
+      // pending navigation left to wait for. A token discovered only
+      // here means a real client-side navigation (a fresh login's Server
+      // Action redirect, or a reopen mid-navigation) is still in flight
+      // underneath this overlay, on the *previous* page — see
+      // handleIntroComplete for why that distinction matters.
+      navigationPendingRef.current = token !== initialEntryToken;
+      introStartPathRef.current = pathname;
+
+      setActive(true);
+      setFirstName(undefined);
+      getEntryAnimationGreeting()
+        .then((result) => setFirstName(result.authenticated ? result.firstName : null))
+        .catch(() => setFirstName(null));
     };
 
     // The authoritative source is the browser's actual cookie jar, not the
@@ -156,7 +163,7 @@ export function RootResetEntryGate({
     return () => {
       cancelled = true;
     };
-  }, [initialEntryToken, initialFirstName]);
+  }, [initialEntryToken, pathname]);
 
   useEffect(() => {
     // Public/first-run/coach/admin pages never arm the live re-trigger —
@@ -181,6 +188,10 @@ export function RootResetEntryGate({
         .then((result) => {
           if (!result.authenticated) return; // session died while backgrounded — never show "Welcome back"; let the page's own auth check redirect
           setFirstName(result.firstName);
+          // The member never left this page — its content is already
+          // loaded and current, so there is nothing for a bridge to wait
+          // for once the animation ends.
+          navigationPendingRef.current = false;
           setActive(true);
         })
         .catch(() => {
@@ -192,7 +203,51 @@ export function RootResetEntryGate({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [pathname]);
 
+  // Bridge safety cap: independent of the branded animation's own
+  // safe-timeout (that one guarantees the *animation* ends; this one
+  // guarantees the *bridge* ends too, so a navigation that never
+  // completes can't trap the member behind the skeleton either).
+  useEffect(() => {
+    if (!bridging) return;
+    const cap = setTimeout(() => {
+      setBridging(false);
+      setActive(false);
+    }, RESET_ENTRY_BRIDGE_MAX_MS);
+    return () => clearTimeout(cap);
+  }, [bridging]);
+
+  // Ends the bridge the moment the pending navigation actually lands —
+  // usePathname() only changes once the router has committed the new
+  // route, so this fires as early as it possibly can.
+  useEffect(() => {
+    if (!bridging) return;
+    if (pathname !== introStartPathRef.current) {
+      setBridging(false);
+      setActive(false);
+    }
+  }, [pathname, bridging]);
+
+  const handleIntroComplete = () => {
+    if (navigationPendingRef.current && pathname === introStartPathRef.current) {
+      // The branded animation's own fixed duration is over, but the page
+      // it's handing off to hasn't arrived yet — never reveal the stale
+      // previous screen. Bridges with the app's own loading treatment
+      // instead until the real navigation lands (or the cap above gives up).
+      setBridging(true);
+    } else {
+      setActive(false);
+    }
+  };
+
   if (!active) return null;
 
-  return <RootResetEntryAnimation firstName={firstName} onComplete={() => setActive(false)} />;
+  if (bridging) {
+    return (
+      <div className="fixed inset-0 z-[999] overflow-y-auto bg-[#FAFAF8]">
+        <PageSkeleton message="Just a moment." />
+      </div>
+    );
+  }
+
+  return <RootResetEntryAnimation firstName={firstName} onComplete={handleIntroComplete} />;
 }

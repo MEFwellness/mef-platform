@@ -30,6 +30,20 @@ export const RESET_ENTRY_NAME_WAIT_MS = 300;
 /** Hard backstop: forces the overlay to finish and unmount no matter what, so a stuck timer or failed fetch can never trap the member on the splash. */
 export const RESET_ENTRY_SAFE_TIMEOUT_MS = 5000;
 
+/**
+ * Once the branded animation's own fixed duration has genuinely run its
+ * course (RESET_ENTRY_TOTAL_MS, above), the destination page it's handing
+ * off to may still be mid-navigation (a slow connection, a cold server
+ * response). RootResetEntryGate.tsx bridges that gap with the app's own
+ * skeleton loading treatment instead of ever revealing the stale previous
+ * screen — this is the hard cap on how long the bridge itself may run
+ * before giving up and revealing whatever is there, so a navigation that
+ * never completes can never trap the member behind the skeleton either.
+ * The branded animation's own choreography is never extended by this —
+ * see RESET_ENTRY_SAFE_TIMEOUT_MS above for that, separate, guarantee.
+ */
+export const RESET_ENTRY_BRIDGE_MAX_MS = 8000;
+
 /** The common-case total (name already resolved by Stage 4) — see RESET_ENTRY_NAME_WAIT_MS's own comment for the worst-case addendum. */
 export const RESET_ENTRY_TOTAL_MS =
   RESET_ENTRY_ARRIVE_MS +

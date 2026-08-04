@@ -8,8 +8,19 @@ import { getSupabaseEnv } from './env';
  * Sprint 1 go through Server Actions instead (see app/actions/*.ts), so the
  * mutation path is auditable server-side even though the read path can be
  * direct.
+ *
+ * `auth.experimental.passkey: true` opts in to Supabase Auth's passkey
+ * (Face ID / fingerprint) support — required before `auth.registerPasskey()`
+ * or `auth.signInWithPasskey()` (lib/passkey/*, components/profile/
+ * PasskeyEnrollment.tsx, app/(auth)/login/page.tsx) will do anything but
+ * throw. Passkey ceremonies only ever run in the browser (WebAuthn has no
+ * server-side equivalent), so this flag only needs to live here, not on
+ * lib/supabase/server.ts's client. Harmless for every other caller of this
+ * client — it does not change the behavior of any non-passkey auth method.
  */
 export function createClient() {
   const { url, anonKey } = getSupabaseEnv();
-  return createBrowserClient(url, anonKey);
+  return createBrowserClient(url, anonKey, {
+    auth: { experimental: { passkey: true } },
+  });
 }

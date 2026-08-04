@@ -17,6 +17,7 @@ import {
   RESET_ENTRY_REDUCED_TOTAL_MS,
   RESET_ENTRY_SAFE_TIMEOUT_MS,
   RESET_ENTRY_NAME_WAIT_MS,
+  RESET_ENTRY_BRIDGE_MAX_MS,
 } from '../lib/entry-animation/timing';
 import { resetEntryGreetingLines } from '../lib/entry-animation/greeting';
 
@@ -146,6 +147,18 @@ describe('entry animation stage timing budget (brief: 3.2-3.8s, never over 4s)',
 
   it('the safe timeout backstop always fires after the full sequence would naturally finish', () => {
     expect(RESET_ENTRY_SAFE_TIMEOUT_MS).toBeGreaterThan(RESET_ENTRY_TOTAL_MS);
+  });
+
+  it('the bridge cap (RootResetEntryGate.tsx skeleton hand-off) is a bounded, positive duration', () => {
+    // Not tied to RESET_ENTRY_TOTAL_MS/SAFE_TIMEOUT_MS the way the other
+    // constants are here — it starts its own clock only *after* the
+    // branded animation has already finished and handed off, so there is
+    // no "must be greater than" relationship to assert against those.
+    // This just pins it to a sane, bounded range so a future edit can't
+    // silently turn it into either 0 (skeleton never shows) or Infinity
+    // (a stuck navigation could trap the member behind it forever).
+    expect(RESET_ENTRY_BRIDGE_MAX_MS).toBeGreaterThan(0);
+    expect(RESET_ENTRY_BRIDGE_MAX_MS).toBeLessThanOrEqual(15000);
   });
 });
 

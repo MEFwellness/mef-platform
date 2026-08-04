@@ -141,6 +141,40 @@ export async function resendVerificationEmail(email: string): Promise<ActionResu
   }
 }
 
+/**
+ * One-shot token for app/layout.tsx / RootResetEntryGate.tsx: the very next
+ * request (the redirect this always precedes) always plays the branded
+ * entry animation, regardless of how recently this browser last talked to
+ * the server — see lib/entry-animation/rule.ts. Deliberately set here (a
+ * Server Action), not minted by middleware.ts the way the gap-triggered
+ * reopen case is: confirmed directly against production that a cookie
+ * middleware sets does not reliably reach the browser on the RSC-fetch
+ * response Next.js's client router uses to follow *this specific* redirect.
+ * Deliberately NOT httpOnly, unlike this app's other session cookies: also
+ * confirmed directly against production that app/layout.tsx's own server
+ * render of this exact redirect's destination is inconsistent about seeing
+ * this cookie at all (Next.js appears to render the root layout more than
+ * once for one Server-Action-triggered redirect, only one of which reliably
+ * carries the freshly-set cookie) — RootResetEntryGate.tsx falls back to
+ * reading it directly from document.cookie for exactly this reason. The
+ * value is a random token, never anything sensitive, so client-JS
+ * readability carries no real risk.
+ *
+ * Shared by every server-side login completion (password, passkey) so the
+ * entry animation always plays the same way regardless of which method a
+ * member used — always called last, after every other check has passed,
+ * since redirect() throws and must never run inside the try/catch above it.
+ */
+function redirectWithEntryAnimation(destination: string): never {
+  cookies().set(ENTRY_ANIMATION_LOGIN_COOKIE, crypto.randomUUID(), {
+    path: '/',
+    maxAge: ENTRY_ANIMATION_LOGIN_MAX_AGE_S,
+    httpOnly: false,
+    sameSite: 'lax',
+  });
+  redirect(destination);
+}
+
 export async function signIn(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get('email') ?? '');
   const password = String(formData.get('password') ?? '');
@@ -172,31 +206,43 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
   } catch (err) {
     return toActionError('signIn', err);
   }
-  // One-shot token for app/layout.tsx / RootResetEntryGate.tsx: the very
-  // next request (the redirect below) always plays the branded entry
-  // animation, regardless of how recently this browser last talked to the
-  // server — see lib/entry-animation/rule.ts. Deliberately set here (a
-  // Server Action), not minted by middleware.ts the way the gap-triggered
-  // reopen case is: confirmed directly against production that a cookie
-  // middleware sets does not reliably reach the browser on the RSC-fetch
-  // response Next.js's client router uses to follow *this specific*
-  // redirect. Deliberately NOT httpOnly, unlike this app's other session
-  // cookies: also confirmed directly against production that
-  // app/layout.tsx's own server render of this exact redirect's
-  // destination is inconsistent about seeing this cookie at all (Next.js
-  // appears to render the root layout more than once for one Server-
-  // Action-triggered redirect, only one of which reliably carries the
-  // freshly-set cookie) — RootResetEntryGate.tsx falls back to reading it
-  // directly from document.cookie for exactly this reason. The value is a
-  // random token, never anything sensitive, so client-JS readability
-  // carries no real risk.
-  cookies().set(ENTRY_ANIMATION_LOGIN_COOKIE, crypto.randomUUID(), {
-    path: '/',
-    maxAge: ENTRY_ANIMATION_LOGIN_MAX_AGE_S,
-    httpOnly: false,
-    sameSite: 'lax',
-  });
-  redirect(destination);
+  redirectWithEntryAnimation(destination);
+}
+
+/**
+ * Completes a passkey ("Sign in with Face ID") sign-in. The WebAuthn
+ * ceremony itself only runs in the browser (components/PasskeyLoginButton
+ * or wherever calls `supabase.auth.signInWithPasskey()` from
+ * lib/supabase/client.ts's client) — that already establishes a real
+ * session, synced into cookies by @supabase/ssr's browser storage adapter
+ * before this action is ever called. This just does the same server-side
+ * tail signIn() does once a session exists: resolve where the member
+ * actually belongs (role/onboarding/consent) and mint the same one-shot
+ * entry-animation token, so a Face ID login looks identical to a password
+ * login from that point on. Takes a plain string rather than FormData —
+ * unlike signIn(), this is never called from a native <form action>,
+ * since the WebAuthn ceremony has to run first.
+ */
+export async function completePasskeyLogin(redirectedFrom?: string | null): Promise<ActionResult> {
+  let destination = '/';
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error || !user) {
+      logAuthFailure('supabase_request', 'completePasskeyLogin', error ?? new Error('no session after passkey sign-in'));
+      return { error: 'Face ID sign-in did not go through. Please try again or use your password.' };
+    }
+    destination = await resolvePostLoginPath(supabase, user);
+    if (destination === '/dashboard' && isSafePostLoginRedirect(redirectedFrom)) {
+      destination = redirectedFrom;
+    }
+  } catch (err) {
+    return toActionError('completePasskeyLogin', err);
+  }
+  redirectWithEntryAnimation(destination);
 }
 
 export async function signOut(): Promise<void> {
