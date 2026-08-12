@@ -34,6 +34,7 @@ import {
   PRE_TRACKING_COHORT_COPY,
   TOO_FEW_TO_RATE_LABEL,
   cohortGapNotice,
+  countNoun,
   densifyDailySeries,
   formatAverage,
   formatCount,
@@ -370,6 +371,12 @@ describe('empty and thin states', () => {
     );
     expect(line).toContain('50% of the previous measurable stage.');
     expect(line).toContain('1 member did not carry through');
+  });
+
+  it('makes a noun agree with the count in front of it', () => {
+    expect(countNoun(1, 'member')).toBe('1 member');
+    expect(countNoun(0, 'member')).toBe('0 members');
+    expect(countNoun(2, 'member')).toBe('2 members');
   });
 
   it('labels a feature nobody touched as unused rather than dropping it', () => {

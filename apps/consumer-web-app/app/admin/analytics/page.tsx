@@ -37,6 +37,7 @@ import {
   EMPTY_STATE_COPY,
   TOO_FEW_TO_RATE_LABEL,
   cohortGapNotice,
+  countNoun,
   densifyDailySeries,
   formatAverage,
   formatCount,
@@ -154,7 +155,7 @@ export default async function AdminAnalyticsOverviewPage({
                 metrics.dailyReset.startedEvents,
                 before?.dailyReset.startedEvents ?? null
               )}
-              footnote={`${formatCount(metrics.dailyReset.startedMembers)} members started at least one.`}
+              footnote={`${countNoun(metrics.dailyReset.startedMembers, 'member')} started at least one.`}
             />
             <MetricCard
               label="Daily Reset completions"
@@ -163,7 +164,7 @@ export default async function AdminAnalyticsOverviewPage({
                 metrics.dailyReset.completedEvents,
                 before?.dailyReset.completedEvents ?? null
               )}
-              footnote={`${formatCount(metrics.dailyReset.completedMembers)} members finished at least one.`}
+              footnote={`${countNoun(metrics.dailyReset.completedMembers, 'member')} finished at least one.`}
             />
             <MetricCard
               label="Food Lens scans"
@@ -175,7 +176,7 @@ export default async function AdminAnalyticsOverviewPage({
               }
               footnote={
                 features.ok
-                  ? `${formatCount(scans.members)} members scanned something.`
+                  ? `${countNoun(scans.members, 'member')} scanned something.`
                   : 'The feature usage report could not be loaded for this window.'
               }
             />
@@ -183,7 +184,7 @@ export default async function AdminAnalyticsOverviewPage({
               label="Paywall views"
               value={formatCount(metrics.paywallViews.events)}
               trend={trendFor(metrics.paywallViews.events, before?.paywallViews.events ?? null)}
-              footnote={`${formatCount(metrics.paywallViews.members)} members saw a premium or locked feature.`}
+              footnote={`${countNoun(metrics.paywallViews.members, 'member')} saw a premium or locked feature.`}
             />
           </div>
 

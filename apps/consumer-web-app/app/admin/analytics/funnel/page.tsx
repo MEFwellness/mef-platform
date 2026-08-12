@@ -93,7 +93,12 @@ export default async function AdminAnalyticsFunnelPage({
         />
       </div>
 
-      {gapNotice ? (
+      {/*
+        When the cohort is zero the empty state below already carries this
+        sentence. Printing it twice, once here and once there, reads as a
+        copy bug rather than as emphasis.
+      */}
+      {gapNotice && funnel.cohortSize > 0 ? (
         <p className="mt-4 rounded-2xl border border-[#1B3A2D]/12 bg-white/70 px-4 py-3 text-[13px] leading-relaxed text-[#1B3A2D]">
           {gapNotice}
         </p>

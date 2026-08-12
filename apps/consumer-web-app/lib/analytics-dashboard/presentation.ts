@@ -35,6 +35,11 @@ export function formatRate(value: number | null | undefined): string | null {
   return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
 }
 
+/** A count with a noun that agrees with it. "1 members scanned something" reads as a bug in the dashboard. */
+export function countNoun(value: number, singular: string, plural = `${singular}s`): string {
+  return `${formatCount(value)} ${value === 1 ? singular : plural}`;
+}
+
 /**
  * @param unit a plural noun. A value of exactly one drops the trailing "s",
  *   because "1 sessions" reads as a bug in the dashboard rather than a
