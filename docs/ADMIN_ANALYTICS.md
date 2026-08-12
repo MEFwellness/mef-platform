@@ -14,7 +14,38 @@ member_wellness_events  (migration 63, the one events table)
      -> analytics_* functions  (migration 149, all aggregation)
         -> lib/analytics-service/*  (thin wrappers, the documented rules)
            -> app/actions/analyticsAdmin.ts  (admin authorized entry points)
+           -> app/admin/analytics/*  (the four dashboard screens)
 ```
+
+## The dashboard
+
+Four admin-only server-rendered screens, added in the build after this
+layer. They consume the entry points above and nothing else.
+
+| Route | Reads |
+| --- | --- |
+| `/admin/analytics` | `analytics_overview` for this window and the previous one, `analytics_feature_usage` for both (Food Lens scans), `analytics_drop_off` for the unmeasurable list |
+| `/admin/analytics/funnel` | `analytics_funnel` |
+| `/admin/analytics/features` | `analytics_feature_usage` |
+| `/admin/analytics/drop-off` | `analytics_drop_off` |
+
+The chosen window and the test-account toggle live in the URL
+(`?range=7d|30d|90d|custom&from=&to=&test=on`), so changing either is a
+navigation and the aggregation re-runs in Postgres. Nothing in the section
+is a client component; no event row reaches a browser.
+
+`lib/analytics-dashboard/` holds the three pure modules the screens depend
+on: `viewState.ts` (what a URL means, and the previous equivalent period),
+`trend.ts` (comparison against that period, with no percentage invented
+from a zero baseline), and `presentation.ts` (formatting, the "too few to
+rate" rule, and the empty-state copy). The screens themselves cannot be
+unit-rendered in this repo, so those rules live there and are tested
+directly.
+
+The dashboard never resolves a date range of its own: `parseDashboardView`
+builds an `AnalyticsPeriod` and hands it to `resolveAnalyticsRange`, the
+same function every query here uses, so a card's label and the query
+underneath it cannot drift apart.
 
 ## What was reused, and what is new
 
@@ -353,6 +384,8 @@ on the platform.
 | `tests/analytics-service-engagement-state.test.ts` | every engagement rule branch, both the self-comparison path and the insufficient-history fallback |
 | `tests/analytics-service-friction-signals.test.ts` | every signal, from both sides of every threshold, plus the no-interpretation and no-health-content rules |
 | `tests/analytics-service-integration.test.ts` | every metric against a hand-countable fixture, the funnel including the unmeasurable stage, test-account exclusion and the toggle, member isolation, privacy, authorization, empty states |
+| `tests/admin-analytics-dashboard-view.test.ts` | the dashboard's pure rules: range parsing and fallbacks, the previous period, trend, the toggle across links, empty and thin-data copy, plus structural checks on the four pages |
+| `tests/admin-analytics-dashboard-access.test.ts` | the four reports the dashboard reads: administrator admitted, member, coach and visitor each refused, the toggle moving real numbers, range switching reaching the database, an empty window returning nulls |
 
 ## Live verification
 

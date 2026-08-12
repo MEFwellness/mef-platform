@@ -32,8 +32,22 @@ export default async function AdminPage() {
         </p>
 
         <Link
-          href={'/admin/cvs-test-tools' as Route}
+          href={'/admin/analytics' as Route}
           className="mef-focus-ring mt-6 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Analytics</p>
+          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
+            Product analytics: overview, funnel, features, drop-off
+          </p>
+          <p className="mt-1 text-sm text-[#6B7A72]">
+            Active members, sessions, where people stop, and which features nobody has opened. Test
+            accounts are excluded unless you turn them on.
+          </p>
+        </Link>
+
+        <Link
+          href={'/admin/cvs-test-tools' as Route}
+          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
         >
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Testing Tools</p>
           <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">Core Values Snapshot: reset &amp; time-shift</p>

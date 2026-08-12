@@ -1,3 +1,63 @@
+## Admin Analytics, Prompt 2 of 3: the dashboard screens (2026-08-12)
+
+Four admin-only screens over the service layer Prompt 1 shipped. No new database function, no new event type, no new tracking, and no member-facing change of any kind. Migration 149 is still the newest migration; this build added none.
+
+### The four views
+
+`/admin/analytics` **Overview.** Active members, sessions, sign-ins, Daily Reset starts and completions, Food Lens scans and paywall views, each with its trend against the equally long window immediately before the one selected. Then membership counts, rhythm (average sessions per active member, average days between visits, a per-day active chart), and the two completion rates the overview reports.
+
+`/admin/analytics/funnel` **Member funnel.** Signup, onboarding started and completed, first meaningful use, first Daily Reset started and completed, returned another day, another major feature, paywall, purchase. Accounts created and cohort size sit side by side at the top so the pre-tracking gap is visible rather than looking like nobody signed up.
+
+`/admin/analytics/features` **Feature usage.** All 26 registry features ranked by unique members, with member counts and event counts both shown. Features nobody touched are at the bottom, labelled unused, never hidden.
+
+`/admin/analytics/drop-off` **Drop-off.** Started versus completed for the five flows that emit both halves, worst drop-off first, plus the two things that cannot be measured with their reasons.
+
+### What was reused, and what is new
+
+Reused unchanged: every function in `lib/analytics-service/`, all fifteen entry points in `app/actions/analyticsAdmin.ts`, the `requireAdmin` shape, `hasActiveRole`, `getCachedUser`, `BottomNav`, and the pill-selector visual language from `components/TrendRangeSelector.tsx`. Nothing in the service layer or the database was modified.
+
+New: `lib/analytics-dashboard/` (three pure modules), `components/admin/analytics/` (chrome and primitives), the four page routes plus a layout and a guard, one link from `/admin`, two test files, and `scripts/verify-admin-analytics-dashboard.mjs`.
+
+### The decisions
+
+**All aggregation stays in Postgres.** Every screen is a server component that awaits the existing actions and renders the object it gets back. Nothing in the section is a client component, so no event row can reach a browser. A test asserts that.
+
+**The range and the toggle live in the URL.** `?range=7d|30d|90d|custom&from=&to=&test=on`. Changing either is a navigation, which re-runs the aggregation server side. One toggle, above the tabs, applies to whichever view is open and survives moving between them, changing the date range, and the previous-period comparison. It is off unless the URL asks for it, and when it is on there is a gold banner saying so.
+
+**The dashboard never resolves a date range itself.** `parseDashboardView` builds an `AnalyticsPeriod` and hands it to `resolveAnalyticsRange`, the same function every analytics query uses, so a card labelled "the last 30 days" and the query underneath it cannot drift apart. A custom range that ends in the future is pulled back to today and says so; one that cannot be read falls back to 30 days and says so.
+
+**Trend refuses to invent a percentage.** Previous window is the same length, ending the day before the current one starts, so no day is counted on both sides. Zero to something is "up from none", with no percentage, mirroring `compareWindows` returning null rather than Infinity. Nothing in either window is "no comparison", not a flat zero percent.
+
+**The minimum for a completion rate is the service layer's, not a new one.** The database returns a rate only when the denominator is at least one. Where it returns null the screen shows the raw counts and a "too few to rate" label, and no percentage. A stricter threshold invented in the UI would put the label out of step with every other consumer of the same function.
+
+**Anything unmeasurable renders its reason.** Purchases, an experience's start and completion, and per-question drop-off. Never a zero, never a dash. The reason string comes from the service layer verbatim.
+
+### Two real bugs the browser found and a test could not
+
+**Seven funnel stages out of nine claimed to be the first one.** `percentOfPreviousMeasurableStage` is null for two completely different reasons: this is the first measurable stage, or the stage before it had nobody in it to divide by. Collapsing them made every stage after an empty one print "This is the first measurable stage". Fixed by `funnelStageComparison`, which takes the first-stage fact as an argument, with a test from both sides.
+
+**Sentences ran into each other.** `rateReadout.basis` ended in a period and callers appended another, producing "Too few to rate.. 0 of 0 members". `basis` is now a clause with no trailing punctuation and "Too few to rate" is a single shared constant rendered as a chip.
+
+Neither was visible in a passing test suite. Both came from opening the screens.
+
+### Access
+
+Four independent layers, none of them new. The layout guards the whole subtree, each page guards itself again (the call, not just the import, which a test now checks after the first version of that test proved vacuous), every action runs `requireAdmin`, and every database function calls `analytics_assert_admin()` under row level security. A signed-out visitor goes to `/login`; a member or coach goes to `/dashboard`.
+
+### Tests
+
+`tests/admin-analytics-dashboard-view.test.ts`, 49 tests, no database: range parsing and every fallback, the previous period, trend in all five directions, the toggle across links and range changes, empty and thin-data copy, and structural checks on the four pages.
+
+`tests/admin-analytics-dashboard-access.test.ts`, 14 tests, real local Supabase: administrator admitted to all four reports, member, coach and visitor each refused by all four with `AnalyticsAccessDeniedError`, the toggle moving real numbers on all four, range switching reaching the database, and a genuinely empty window returning nulls rather than zeros.
+
+Guard tests proved non-vacuous by breaking the code: forcing `includeTestAccounts` true failed the toggle test, and deleting one page's guard call failed the page-guard test (which is how the first, vacuous version of that test was caught).
+
+### Verified
+
+Locally: typecheck clean, lint 0 errors, production build clean with all four routes dynamic, full suite 4066 of 4067 passing over two consecutive runs with only the documented pre-existing correlation-engine flake failing.
+
+In a real browser against local Supabase, 29 of 29 checks: visitor, member and coach each refused on all four routes; administrator loading all four at 7, 30 and 90 days with the right pill selected; the test-account banner appearing and disappearing; a custom range applying.
+
 ## Admin Analytics, Prompt 1 of 3: the server side service layer (2026-08-12)
 
 No UI, no member-facing change of any kind, and no second tracking system. This build turns the behavioral events already being recorded into answers, for the admin dashboard that comes next and for a future Engagement Agent.
