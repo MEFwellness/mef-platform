@@ -458,7 +458,7 @@ export function insufficientHistorySignal(facts: MemberEngagementFacts): Frictio
       },
       comparisonPeriod: null,
       evidenceSufficiency: 'low',
-      evidenceSufficiencyReason: `Only ${facts.historyDays} days of history, below the ${MINIMUM_HISTORY_DAYS_FOR_ANY_SIGNAL} day minimum for any pattern claim.`,
+      evidenceSufficiencyReason: `Only ${countPhrase(facts.historyDays, 'day')} of history, below the ${MINIMUM_HISTORY_DAYS_FOR_ANY_SIGNAL} day minimum for any pattern claim.`,
     };
   }
 

@@ -80,7 +80,7 @@ Deployment `dpl_CSUHixtmuGBSHftFsZV92NWbBbua`, Ready, target Production, aliased
 
 Both had a working before/after form: passing `?ref=2026-07-01&window=7` re-ran the comparison and the date input read back the chosen date.
 
-**One real copy bug the browser found and a test did not.** The History line printed "1 days" for a member with a single day of history. Fixed by pluralising it and the account-age line beside it, and shipped in the follow-up commit. Neither was visible in a passing suite; both came from reading the live screen.
+**Two real copy bugs the browser found and a test did not.** The History line printed "1 days" for a member with a single day of history, and the account-age line beside it had the same shape. Both fixed. A third, in the service layer's own `evidenceSufficiencyReason` ("Only 1 days of history, below the 7 day minimum"), was a Prompt 1 string that had never been rendered anywhere before this build; it now uses the same `countPhrase` helper every other sentence in that file already used. None was visible in a passing suite; all three came from reading the live screen.
 
 **Member experience walked on production and unchanged.** Signed in as a real production member on a 390x844 mobile viewport: Home ("Good afternoon, Heather"), Check-In ("Daily Reset") and Today ("Today") all loaded with their normal headings, zero console errors, zero page errors, and no em dash on any of them.
 
