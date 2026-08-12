@@ -50,6 +50,7 @@ const ALLOWED_PAYLOAD_KEYS = [
   'toTier',
   'term',
   'rule',
+  'presentation',
 ] as const;
 
 /**

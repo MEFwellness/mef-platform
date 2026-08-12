@@ -15,10 +15,12 @@
  *   3. An incomplete high-value action she started and abandoned.
  *   4. Otherwise, Today's Focus.
  *
- * The function returns a single SelectedPriority or null. Null is the
- * honest answer when a member has nothing at all to show yet, and the card
- * simply does not render; it is never a reason to fall back to invented
- * content.
+ *   5/6. The final fallback (daily_reset / gentle_focus), added by the
+ *      pop-up delivery fix. Structurally last, and always applicable, so
+ *      the function is TOTAL for a signed-in member: it always returns a
+ *      priority, never null. That is what lets the pop-up be guaranteed to
+ *      have something to say without ever inventing an insight, since the
+ *      fallback makes no claim about the member at all.
  */
 
 import type { PriorityInputs, PriorityRule, SelectedPriority } from './types';
@@ -37,12 +39,18 @@ import {
   buildTodaysFocusHelp,
   buildTodaysFocusReason,
   buildTodaysFocusTitle,
+  buildDailyResetHelp,
+  buildDailyResetReason,
+  buildDailyResetTitle,
+  buildGentleFocusHelp,
+  buildGentleFocusReason,
+  buildGentleFocusTitle,
 } from './copy';
 
 export function selectPriority(
   inputs: PriorityInputs,
   todayLocalDate: string
-): SelectedPriority | null {
+): SelectedPriority {
   // Rule 0 — the override. Checked before anything else and returning
   // immediately, so no ladder rule can ever be evaluated for a returning
   // member. This is what "the normal ladder is suspended" means in code:
@@ -110,8 +118,34 @@ export function selectPriority(
     };
   }
 
-  // Nothing honest to show. The card does not render.
-  return null;
+  // The final fallback. Everything above came up empty, which is the
+  // ordinary state of a brand-new member. Exactly one of these two always
+  // applies, so `selectPriority` is total for a signed-in member and the
+  // pop-up always has something honest to carry.
+  //
+  // Neither branch makes a claim about her. The first offers the Daily
+  // Reset, the product's real core loop; the second quotes her own stated
+  // goal back to her. Both are reached only after every evidence-backed
+  // rule has declined to speak.
+  if (!inputs.fallback.checkinDoneToday) {
+    return {
+      rule: 'daily_reset',
+      priorityKey: null,
+      title: buildDailyResetTitle(),
+      reason: buildDailyResetReason(inputs.fallback),
+      help: buildDailyResetHelp(),
+      href: '/checkin',
+    };
+  }
+
+  return {
+    rule: 'gentle_focus',
+    priorityKey: null,
+    title: buildGentleFocusTitle(inputs.fallback),
+    reason: buildGentleFocusReason(inputs.fallback),
+    help: buildGentleFocusHelp(inputs.fallback),
+    href: null,
+  };
 }
 
 /**
@@ -127,5 +161,10 @@ export function applicableRules(inputs: PriorityInputs): PriorityRule[] {
   if (inputs.implicatedDriver) rules.push('implicated_driver');
   if (inputs.incompleteAction) rules.push('incomplete_action');
   if (inputs.todaysFocus) rules.push('todays_focus');
+  // The fallback always contributes exactly one applicable rule, which is
+  // why the ladder can never come up empty. Included here so the guard
+  // tests can show the fallback was genuinely available and genuinely lost
+  // whenever a real rule won.
+  rules.push(inputs.fallback.checkinDoneToday ? 'gentle_focus' : 'daily_reset');
   return rules;
 }

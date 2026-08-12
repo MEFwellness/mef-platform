@@ -122,6 +122,12 @@ export interface ProductAnalyticsPayload {
    * which button was tapped.
    */
   rule?: string;
+  /**
+   * priority_shown, whether the priority reached her as the Root pop-up on
+   * open or as the inline card. A fixed slug from
+   * lib/analytics/surfaces.ts's PRIORITY_PRESENTATIONS.
+   */
+  presentation?: string;
 }
 
 export type MemberWellnessEventPayload =

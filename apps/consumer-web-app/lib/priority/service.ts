@@ -38,6 +38,7 @@ import {
 import { listActiveCandidatePairs } from '../correlation-engine/data';
 import { listMemberPatternStates } from '../longitudinal-intelligence/data';
 import { fetchLatestMemberGoalSelection } from '../member-goals/data';
+import { WELCOME_GOALS } from '../welcome/goals';
 import { buildInvestigationPanel } from '../case-view/investigation';
 import { buildFindings } from '../case-view/findings';
 import {
@@ -59,13 +60,44 @@ import type {
   TodaysFocusInput,
 } from './types';
 
-/** What the caller (the Today page) already has in hand, so this service never re-fetches it. */
+/** What the caller already has in hand, so this service never re-fetches it. */
 export type PriorityContext = {
   /** Oldest-first, per getRecentCheckins' contract. */
   recentCheckins: DailyCheckin[];
   /** Built by the caller from the Coaching Brain's decision it already fetched. */
   todaysFocus: TodaysFocusInput | null;
+  /** Whether today's Daily Reset is already complete. Decides which half of the final fallback applies. */
+  checkinDoneToday: boolean;
+  /** All-time completed check-ins, for the fallback's honest count. */
+  totalCheckins: number;
 };
+
+/**
+ * Rule 4's input, mapped from the Coaching Brain's decision. Lives here
+ * rather than in each caller so the Today page, Home, and the pop-up chain
+ * can never disagree about what "today's focus" means or which fields of
+ * the decision it reads.
+ *
+ * Deliberately duck-typed on the fields it actually uses rather than
+ * importing the CoachingDecision type: app/actions/coaching-brain.ts is a
+ * 'use server' module, and importing its types into lib/ would drag a
+ * server-action boundary into a plain library the pure engine also uses.
+ */
+export function toTodaysFocusInput(
+  decision: {
+    feedItem: { id: string; focus_text: string } | null;
+    reasonText?: string | null;
+    content: { suggested_action: string | null } | null;
+  } | null
+): TodaysFocusInput | null {
+  if (!decision?.feedItem) return null;
+  return {
+    feedItemId: decision.feedItem.id,
+    focusText: decision.feedItem.focus_text,
+    reasonText: decision.reasonText ?? null,
+    suggestedAction: decision.content?.suggested_action ?? null,
+  };
+}
 
 // ---------------------------------------------------------------------
 // Rule 1 — an active Reset Plan commitment not completed today.
@@ -247,10 +279,45 @@ async function loadIncompleteAction(
 }
 
 // ---------------------------------------------------------------------
+// The final fallback's one lookup.
+// ---------------------------------------------------------------------
 
 /**
- * The whole decision, end to end. Returns null when there is nothing
- * honest to show, in which case the Today page renders no card.
+ * Her own stated onboarding goal, as the label she actually saw and
+ * picked, or null if she never went through goal selection.
+ *
+ * `primaryGoal` first, then the first of her selected goals — the same
+ * "her own words first" preference Case View's own header logic already
+ * applies. Reads member_goal_selections through its existing accessor and
+ * WELCOME_GOALS for the label, so the card can never name a goal
+ * differently from the screen she chose it on.
+ */
+async function loadStatedGoalLabel(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<string | null> {
+  const selection = await fetchLatestMemberGoalSelection(supabase, memberId);
+  if (!selection) return null;
+
+  const key = selection.primaryGoal ?? selection.goals[0] ?? null;
+  if (!key) return null;
+
+  // 'something_else' is a placeholder for her free text, not a goal in
+  // itself. Use what she actually typed when it exists, and otherwise say
+  // nothing rather than quoting the placeholder back at her.
+  if (key === 'something_else') {
+    return selection.goalsOther?.trim() ? selection.goalsOther.trim() : null;
+  }
+
+  return WELCOME_GOALS.find((goal) => goal.key === key)?.label ?? null;
+}
+
+// ---------------------------------------------------------------------
+
+/**
+ * The whole decision, end to end. Returns null only when the row could not
+ * be claimed (see the fail-closed note below); the hierarchy itself is now
+ * total and always produces a priority.
  *
  * Claims today's row as a side effect, so the same priority Root showed
  * her this morning is the one she sees this afternoon even if a driver
@@ -291,9 +358,10 @@ export async function buildPriorityView(
     // exactly what a done or saved status on today's row records.
     const isReEntry = presence === 're_entry' && existing?.status !== 'done' && existing?.status !== 'saved';
 
-    const [implicatedDriver, incompleteAction] = await Promise.all([
+    const [implicatedDriver, incompleteAction, statedGoalLabel] = await Promise.all([
       loadImplicatedDriver(supabase, memberId),
       loadIncompleteAction(supabase, memberId, resetPlanResult.draftPlanCreatedAt),
+      loadStatedGoalLabel(supabase, memberId),
     ]);
 
     const inputs: PriorityInputs = {
@@ -302,6 +370,15 @@ export async function buildPriorityView(
       implicatedDriver,
       incompleteAction,
       todaysFocus: context.todaysFocus,
+      // The final fallback, which always applies, so the hierarchy can
+      // never come up empty and the pop-up always has something to carry.
+      // checkinDoneToday comes from the caller, which already knows
+      // whether today's Daily Reset exists.
+      fallback: {
+        checkinDoneToday: context.checkinDoneToday,
+        totalCheckins: context.totalCheckins,
+        statedGoalLabel,
+      },
       hasRealHistory: context.recentCheckins.length > 0,
     };
 
@@ -321,7 +398,7 @@ export async function buildPriorityView(
           rule: existing.rule,
           priorityKey: existing.priorityKey,
           title: existing.title,
-          reason: fresh && fresh.rule === existing.rule ? fresh.reason : null,
+          reason: fresh.rule === existing.rule ? fresh.reason : null,
           help: existing.help,
           href: existing.href,
         },
@@ -330,8 +407,6 @@ export async function buildPriorityView(
         welcomeLine: isReEntry ? RETURN_GREETING_TEXT : null,
       };
     }
-
-    if (!fresh) return null;
 
     const record = await claimDailyPriority(supabase, memberId, todayLocalDate, fresh);
 

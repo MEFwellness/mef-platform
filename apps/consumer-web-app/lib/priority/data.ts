@@ -131,6 +131,45 @@ export async function setDailyPriorityStatus(
 }
 
 /**
+ * Atomically claims the one `priority_shown` analytics event for this
+ * member's day, and records which presentation actually reached her first.
+ *
+ * The `is('shown_at', null)` filter is what makes this a claim rather than
+ * a write: only the first caller of the day matches a row, so only that
+ * caller gets `true` back and writes the event. Every later render on the
+ * same day (a Today visit after the pop-up, a Home reload) matches zero
+ * rows and stays silent. That is the "one day's card must never
+ * double-count as multiple priorities" requirement enforced in the
+ * database, not by a client-side dedupe window that could not decide it
+ * correctly anyway, since Home renders the pop-up and the inline card in
+ * the same pass.
+ */
+export async function claimPriorityShown(
+  supabase: SupabaseClient,
+  memberId: string,
+  localDate: string,
+  presentation: 'popup' | 'inline'
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('member_daily_priorities')
+    .update({
+      shown_at: new Date().toISOString(),
+      shown_presentation: presentation,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('member_id', memberId)
+    .eq('local_date', localDate)
+    .is('shown_at', null)
+    .select('id');
+
+  if (error) {
+    console.error('claimPriorityShown failed', error);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+/**
  * Her most recent sign-in BEFORE today, as a local date, or null if she has
  * none on record.
  *

@@ -32,7 +32,6 @@
  * the state structure.
  */
 
-import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { CheckCircle2, Compass, Lightbulb, ArrowRight } from 'lucide-react';
@@ -44,11 +43,7 @@ import {
   PRIORITY_HELP_HEADING,
   PRIORITY_SAVED_TEXT,
 } from '@/lib/priority/copy';
-import {
-  completePriorityAction,
-  savePriorityForLaterAction,
-  trackPriorityHelpAction,
-} from '@/app/actions/priority';
+import { usePriorityCardActions } from './usePriorityCardActions';
 
 /** Entrance staging, in the order the brief specifies. Inside `.mef-animate-in`'s own 500ms, so the last element lands at roughly 500ms. */
 const STAGE_MS = { label: 0, priority: 90, reason: 180, buttons: 270 } as const;
@@ -58,38 +53,12 @@ function stage(delayMs: number) {
 }
 
 export function PriorityCard({ view, collapsed = false }: { view: PriorityView; collapsed?: boolean }) {
-  const [status, setStatus] = useState(view.status);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  // Behavior lives in the shared hook so the inline card and the pop-up
+  // can never disagree about what Done means. See
+  // components/priority/usePriorityCardActions.ts.
+  const { status, helpOpen, pending, onDone, onSave, onHelp } = usePriorityCardActions(view);
 
   const { selected, isReEntry, welcomeLine } = view;
-
-  function handleDone() {
-    // Optimistic: the row write and the revalidate follow, but the member
-    // sees the accomplished state immediately rather than after a round
-    // trip. A failed write leaves the server state untouched and the next
-    // load simply shows the card active again.
-    setStatus('done');
-    startTransition(() => {
-      void completePriorityAction();
-    });
-  }
-
-  function handleSave() {
-    setStatus('saved');
-    startTransition(() => {
-      void savePriorityForLaterAction();
-    });
-  }
-
-  function handleHelp() {
-    setHelpOpen((open) => !open);
-    if (!helpOpen) {
-      // Fire and forget: the smaller step is already on the page, so
-      // nothing about the expansion waits on this.
-      void trackPriorityHelpAction();
-    }
-  }
 
   // ---- Accomplished state -------------------------------------------
   if (status === 'done') {
@@ -120,7 +89,7 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
         <p className="mt-2 text-sm text-[#6B7A72]">{PRIORITY_SAVED_TEXT}</p>
         <button
           type="button"
-          onClick={handleDone}
+          onClick={onDone}
           disabled={pending}
           className="mef-press mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
         >
@@ -208,7 +177,7 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
       >
         <button
           type="button"
-          onClick={handleDone}
+          onClick={onDone}
           disabled={pending}
           className="mef-press inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
         >
@@ -217,7 +186,7 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
         </button>
         <button
           type="button"
-          onClick={handleHelp}
+          onClick={onHelp}
           aria-expanded={helpOpen}
           className="mef-press inline-flex items-center gap-1.5 rounded-full border border-[#1B3A2D]/20 px-5 py-2.5 text-sm font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
         >
@@ -226,7 +195,7 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
         </button>
         <button
           type="button"
-          onClick={handleSave}
+          onClick={onSave}
           disabled={pending}
           className="mef-press inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
         >

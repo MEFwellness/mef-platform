@@ -61,6 +61,14 @@ function allRulesApply(): PriorityInputs {
       reasonText: 'Your last few check-ins pointed at afternoons.',
       suggestedAction: 'Take one short walk after lunch.',
     },
+    // The final fallback always applies, which is exactly why the
+    // precedence tests below are meaningful: every real rule that wins
+    // does so over a genuinely available alternative, never by default.
+    fallback: {
+      checkinDoneToday: false,
+      totalCheckins: 12,
+      statedGoalLabel: 'Sleep better',
+    },
     hasRealHistory: true,
   };
 }
@@ -81,10 +89,24 @@ describe('the hierarchy picks exactly one winner', () => {
     const available = applicableRules(allRulesApply());
 
     expect(available).toContain('re_entry');
-    for (const rule of PRIORITY_LADDER) {
+
+    // Every real rule is on the table at once. The last two ladder entries
+    // are the two halves of one question and are mutually exclusive by
+    // design, so exactly one of them is available here rather than both.
+    const realRules = PRIORITY_LADDER.filter(
+      (rule) => rule !== 'daily_reset' && rule !== 'gentle_focus'
+    );
+    for (const rule of realRules) {
       expect(available).toContain(rule);
     }
-    expect(available).toHaveLength(PRIORITY_LADDER.length + 1);
+
+    const fallbackHalves = available.filter(
+      (rule) => rule === 'daily_reset' || rule === 'gentle_focus'
+    );
+    expect(fallbackHalves).toHaveLength(1);
+
+    // re-entry + every real rule + exactly one fallback half.
+    expect(available).toHaveLength(realRules.length + 2);
   });
 });
 
@@ -99,6 +121,9 @@ describe('rule 0 — re-entry overrides everything', () => {
       'implicated_driver',
       'incomplete_action',
       'todays_focus',
+      // The fallback is always applicable, which is what makes every
+      // precedence assertion here a real decision rather than a default.
+      'daily_reset',
     ]);
 
     expect(selectPriority(inputs, TODAY)?.rule).toBe('re_entry');
@@ -138,6 +163,7 @@ describe('rule 1 — an active Reset Plan commitment', () => {
       'implicated_driver',
       'incomplete_action',
       'todays_focus',
+      'daily_reset',
     ]);
     expect(selectPriority(i, TODAY)?.rule).toBe('reset_plan_commitment');
   });
@@ -187,6 +213,7 @@ describe('rule 2 — a strongly implicated, goal-relevant driver', () => {
       'implicated_driver',
       'incomplete_action',
       'todays_focus',
+      'daily_reset',
     ]);
     expect(selectPriority(i, TODAY)?.rule).toBe('implicated_driver');
   });
@@ -225,7 +252,7 @@ describe('rule 3 — an incomplete high-value action', () => {
 
   it('wins over rule 4 while rule 4 is still applicable', () => {
     const i = inputs();
-    expect(applicableRules(i)).toEqual(['incomplete_action', 'todays_focus']);
+    expect(applicableRules(i)).toEqual(['incomplete_action', 'todays_focus', 'daily_reset']);
     expect(selectPriority(i, TODAY)?.rule).toBe('incomplete_action');
   });
 
@@ -270,7 +297,7 @@ describe("rule 4 — Today's Focus, the fallback", () => {
 
   it('wins only when nothing above it applies', () => {
     const i = inputs();
-    expect(applicableRules(i)).toEqual(['todays_focus']);
+    expect(applicableRules(i)).toEqual(['todays_focus', 'daily_reset']);
     expect(selectPriority(i, TODAY)?.rule).toBe('todays_focus');
   });
 
@@ -294,29 +321,129 @@ describe("rule 4 — Today's Focus, the fallback", () => {
   });
 });
 
-describe('nothing honest to show', () => {
-  it('returns null rather than inventing a priority', () => {
-    const empty: PriorityInputs = {
+describe('the final fallback — a brand-new member always gets exactly one honest card', () => {
+  /** Every evidence-backed rule declines. This is the ordinary state of a member on day one. */
+  function nothingButTheFallback(fallback: PriorityInputs['fallback']): PriorityInputs {
+    return {
       isReEntry: false,
       resetPlan: null,
       implicatedDriver: null,
       incompleteAction: null,
       todaysFocus: null,
+      fallback,
       hasRealHistory: false,
     };
+  }
 
-    expect(applicableRules(empty)).toEqual([]);
-    expect(selectPriority(empty, TODAY)).toBeNull();
+  it('never returns null, so the pop-up always has something to carry', () => {
+    const result = selectPriority(
+      nothingButTheFallback({ checkinDoneToday: false, totalCheckins: 0, statedGoalLabel: null }),
+      TODAY
+    );
+    expect(result).not.toBeNull();
+    expect(result.title.length).toBeGreaterThan(0);
+  });
+
+  it('offers the Daily Reset when today is not done yet, with a link to it', () => {
+    const result = selectPriority(
+      nothingButTheFallback({ checkinDoneToday: false, totalCheckins: 4, statedGoalLabel: null }),
+      TODAY
+    );
+    expect(result.rule).toBe('daily_reset');
+    expect(result.href).toBe('/checkin');
+  });
+
+  it('gives a day-one member NO reason line, since she has no history to describe', () => {
+    const result = selectPriority(
+      nothingButTheFallback({ checkinDoneToday: false, totalCheckins: 0, statedGoalLabel: null }),
+      TODAY
+    );
+    expect(result.rule).toBe('daily_reset');
+    expect(result.reason).toBeNull();
+  });
+
+  it('gives a real count once one exists, and never mentions missed days or a streak', () => {
+    const result = selectPriority(
+      nothingButTheFallback({ checkinDoneToday: false, totalCheckins: 4, statedGoalLabel: null }),
+      TODAY
+    );
+    expect(result.reason).toContain('4 days logged');
+    expect(result.reason?.toLowerCase()).not.toContain('missed');
+    expect(result.reason?.toLowerCase()).not.toContain('streak');
+  });
+
+  it('switches to a gentle focus once today is already done', () => {
+    const result = selectPriority(
+      nothingButTheFallback({ checkinDoneToday: true, totalCheckins: 4, statedGoalLabel: 'Sleep better' }),
+      TODAY
+    );
+    expect(result.rule).toBe('gentle_focus');
+  });
+
+  it('quotes her own stated onboarding goal rather than interpreting it', () => {
+    const result = selectPriority(
+      nothingButTheFallback({ checkinDoneToday: true, totalCheckins: 1, statedGoalLabel: 'Sleep better' }),
+      TODAY
+    );
+    expect(result.title).toContain('sleep better');
+    expect(result.reason).toBe('You chose that when you joined.');
+  });
+
+  it('makes NO claim at all about a member who never chose a goal', () => {
+    const result = selectPriority(
+      nothingButTheFallback({ checkinDoneToday: true, totalCheckins: 0, statedGoalLabel: null }),
+      TODAY
+    );
+    expect(result.rule).toBe('gentle_focus');
+    expect(result.reason).toBeNull();
+    expect(result.title.toLowerCase()).not.toContain('you have');
+    expect(result.title.toLowerCase()).not.toContain('your pattern');
+  });
+
+  it('produces exactly one card, never two, for a brand-new member', () => {
+    const applicable = applicableRules(
+      nothingButTheFallback({ checkinDoneToday: false, totalCheckins: 0, statedGoalLabel: null })
+    );
+    expect(applicable).toEqual(['daily_reset']);
+    expect(applicable).not.toContain('gentle_focus');
+  });
+
+  it('is structurally unable to outrank rules 0 through 4', () => {
+    const ladder: readonly string[] = PRIORITY_LADDER;
+    expect(ladder.indexOf('daily_reset')).toBeGreaterThan(ladder.indexOf('todays_focus'));
+    expect(ladder.indexOf('gentle_focus')).toBeGreaterThan(ladder.indexOf('todays_focus'));
+
+    const everything = allRulesApply();
+    expect(applicableRules(everything)).toContain('daily_reset');
+    expect(selectPriority(everything, TODAY).rule).toBe('re_entry');
+
+    const withoutReEntry = { ...everything, isReEntry: false };
+    expect(applicableRules(withoutReEntry)).toContain('daily_reset');
+    expect(selectPriority(withoutReEntry, TODAY).rule).toBe('reset_plan_commitment');
   });
 });
 
 describe('non-vacuity: every ladder rule can both win and lose', () => {
-  /** Strips every rule ABOVE `index` off the all-rules fixture. */
+  /**
+   * Strips every rule ABOVE `index` off the all-rules fixture, leaving the
+   * rule at `index` as the highest one still applicable.
+   *
+   * The last two ladder entries are the two halves of a single question
+   * (has she done today's Daily Reset), so exactly one of them can ever be
+   * applicable at a time. Reaching 'gentle_focus' therefore means flipping
+   * that fact rather than removing a rule above it — which is itself the
+   * property worth pinning, since it is what guarantees the fallback can
+   * only ever produce one card.
+   */
   function onlyFrom(index: number): PriorityInputs {
     const inputs: PriorityInputs = { ...allRulesApply(), isReEntry: false };
     if (index > 0) inputs.resetPlan = null;
     if (index > 1) inputs.implicatedDriver = null;
     if (index > 2) inputs.incompleteAction = null;
+    if (index > 3) inputs.todaysFocus = null;
+    if (PRIORITY_LADDER[index] === 'gentle_focus') {
+      inputs.fallback = { ...inputs.fallback, checkinDoneToday: true };
+    }
     return inputs;
   }
 
@@ -324,14 +451,25 @@ describe('non-vacuity: every ladder rule can both win and lose', () => {
     '%s wins once the rules above it are gone, and loses while any of them remain',
     (rule, index) => {
       // Wins when it is the highest remaining rule.
-      expect(selectPriority(onlyFrom(index), TODAY)?.rule).toBe(rule);
+      expect(selectPriority(onlyFrom(index), TODAY).rule).toBe(rule);
 
       // Loses whenever any higher rule is restored — which is only
       // meaningful because the rule was still applicable at the time.
-      if (index > 0) {
-        const withHigher = onlyFrom(index - 1);
+      // 'gentle_focus' sits directly below 'daily_reset', but those two can
+      // never be applicable at once, so restoring "the rule above it" has
+      // to reach past its own twin to the nearest REAL rule to be a
+      // meaningful precedence test at all.
+      const higherIndex = PRIORITY_LADDER[index] === 'gentle_focus' ? index - 2 : index - 1;
+      if (higherIndex >= 0) {
+        const withHigher: PriorityInputs = {
+          ...onlyFrom(higherIndex),
+          // Keep this rule's own applicability intact while restoring the
+          // one above it, so the assertion below is about precedence and
+          // not about the rule having quietly become unavailable.
+          fallback: onlyFrom(index).fallback,
+        };
         expect(applicableRules(withHigher)).toContain(rule);
-        expect(selectPriority(withHigher, TODAY)?.rule).not.toBe(rule);
+        expect(selectPriority(withHigher, TODAY).rule).not.toBe(rule);
       }
     }
   );
@@ -340,8 +478,25 @@ describe('non-vacuity: every ladder rule can both win and lose', () => {
     for (let index = 0; index < PRIORITY_LADDER.length; index += 1) {
       const inputs = { ...onlyFrom(index), isReEntry: true };
       expect(applicableRules(inputs)).toContain(PRIORITY_LADDER[index]);
-      expect(selectPriority(inputs, TODAY)?.rule).toBe('re_entry');
+      expect(selectPriority(inputs, TODAY).rule).toBe('re_entry');
     }
+  });
+
+  it('the two fallback halves are mutually exclusive, so the ladder can never yield two cards', () => {
+    const base = allRulesApply();
+    const notDone = applicableRules({
+      ...base,
+      fallback: { ...base.fallback, checkinDoneToday: false },
+    });
+    const done = applicableRules({
+      ...base,
+      fallback: { ...base.fallback, checkinDoneToday: true },
+    });
+
+    expect(notDone).toContain('daily_reset');
+    expect(notDone).not.toContain('gentle_focus');
+    expect(done).toContain('gentle_focus');
+    expect(done).not.toContain('daily_reset');
   });
 });
 

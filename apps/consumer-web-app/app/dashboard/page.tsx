@@ -44,6 +44,9 @@ import { getMyMorningBrief } from '@/app/actions/coaching-engine';
 import { ConnectWearableCard } from '@/components/wearables/ConnectWearableCard';
 import { WearableStatsRow } from '@/app/today/WearableStatsRow';
 import { HomeScreenPopups } from '@/components/dashboard/HomeScreenPopups';
+import { PriorityCard } from '@/components/priority/PriorityCard';
+import { TrackPriorityShown } from '@/components/priority/TrackPriorityShown';
+import { getMyPriorityView } from '@/lib/priority/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -185,6 +188,7 @@ export default async function DashboardPage({
     rootPopupMessage,
     bodyAssessmentAccess,
     bodyAssessmentAssignmentCard,
+    priority,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
@@ -203,6 +207,11 @@ export default async function DashboardPage({
     // progress), so this is safe to call unconditionally.
     checkAssessmentAccess(supabase, user.id, 'body-assessment'),
     getMyBodyAssessmentAssignmentCard(),
+    // Shares its work with getMyRootPopupMessageAction above, which asks
+    // for the same view: getMyPriorityView is request-memoized, so the
+    // pop-up decision and this inline card cost one computation between
+    // them and are handed the identical object.
+    getMyPriorityView(),
   ]);
   const today = new Date().toISOString().slice(0, 10);
   const upcomingAssignedWorkouts = assignedWorkouts
@@ -486,6 +495,28 @@ export default async function DashboardPage({
       />
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
+        {/* ==================================================== */}
+        {/* THE PRIORITY CARD, inline. The same card the Root       */}
+        {/* pop-up delivers on open, reading the same               */}
+        {/* member_daily_priorities row, so whatever she did in the  */}
+        {/* pop-up is already reflected here with no syncing.       */}
+        {/* First thing in <main> on Home, above the invites and     */}
+        {/* everything else, in both branches below. A saved card    */}
+        {/* is deliberately not rendered here: saving demotes it     */}
+        {/* out of the dominant slot, and Today is where it keeps    */}
+        {/* its collapsed home.                                     */}
+        {/* ==================================================== */}
+        {priority && priority.status !== 'saved' && (
+          <div className="pt-3">
+            <TrackPriorityShown
+              rule={priority.selected.rule}
+              isReEntry={priority.isReEntry}
+              presentation="inline"
+            />
+            <PriorityCard view={priority} />
+          </div>
+        )}
+
         {/* ==================================================== */}
         {/* Priority invites — a coach-assigned questionnaire and/  */}
         {/* or the next unstarted free-arc conversation (Core       */}

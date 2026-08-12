@@ -27,18 +27,35 @@ export type PriorityRule =
   | 'reset_plan_commitment'
   | 'implicated_driver'
   | 'incomplete_action'
-  | 'todays_focus';
+  | 'todays_focus'
+  | 'daily_reset'
+  | 'gentle_focus';
 
 /**
- * The ordered ladder rules 1 through 4, first match wins. Exported as data
- * so the selection function and its guard tests read the same order rather
- * than each hard-coding it.
+ * The ordered ladder, first match wins. Exported as data so the selection
+ * function and its guard tests read the same order rather than each
+ * hard-coding it.
+ *
+ * The last two are the final fallback, added by the pop-up delivery fix.
+ * They exist because rules 1 through 4 can all legitimately come up empty
+ * — a member with no Reset Plan, no implicated driver, nothing abandoned,
+ * and no daily_feed_items row (the real production condition found on two
+ * of three test accounts) had no priority at all, so the pop-up would
+ * never appear for exactly the member who most needs a first step.
+ *
+ * They sit last, and their position in THIS array is the only thing that
+ * decides precedence, which is what makes "structurally unable to outrank
+ * rules 0 through 4" a property of the data rather than a promise in a
+ * comment. Exactly one of the two can ever apply: they are the two halves
+ * of "has she done today's Daily Reset yet".
  */
 export const PRIORITY_LADDER = [
   'reset_plan_commitment',
   'implicated_driver',
   'incomplete_action',
   'todays_focus',
+  'daily_reset',
+  'gentle_focus',
 ] as const satisfies readonly PriorityRule[];
 
 export type PriorityStatus = 'active' | 'done' | 'saved';
@@ -99,6 +116,25 @@ export type IncompleteActionInput = {
   lastTouchedLocalDate: string | null;
 };
 
+/**
+ * The final fallback's input. Always present for a signed-in member, which
+ * is what guarantees the hierarchy can never come up empty and the pop-up
+ * always has something honest to say.
+ *
+ * Nothing here is derived or interpreted. `checkinDoneToday` is a fact,
+ * `totalCheckins` is a count, and `statedGoalLabel` is her own onboarding
+ * selection quoted back. A member at this point in the product has
+ * produced nothing to have an insight about, so the copy built from this
+ * makes no claim about her.
+ */
+export type DailyResetFallbackInput = {
+  checkinDoneToday: boolean;
+  /** All-time completed check-ins. Used only to decide whether an honest count exists to mention at all. */
+  totalCheckins: number;
+  /** Her own stated onboarding goal, verbatim from the WELCOME_GOALS label, or null if she never selected one. */
+  statedGoalLabel: string | null;
+};
+
 /** Rule 4's input — the Coaching Brain's already-selected focus for today. */
 export type TodaysFocusInput = {
   feedItemId: string;
@@ -126,6 +162,12 @@ export type PriorityInputs = {
   implicatedDriver: ImplicatedDriverInput | null;
   incompleteAction: IncompleteActionInput | null;
   todaysFocus: TodaysFocusInput | null;
+  /**
+   * The final fallback. Non-nullable on purpose: this is the field that
+   * makes `selectPriority` total for a signed-in member, so the pop-up
+   * always has a priority to carry.
+   */
+  fallback: DailyResetFallbackInput;
   /**
    * Whether this member has any completed check-in history at all. Gates
    * the reason line on rule 4 only: the Coaching Brain always produces a

@@ -23,8 +23,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { trackProductEvent } from '@/lib/analytics/track';
-import { isPriorityAction, isPriorityRule } from '@/lib/analytics/surfaces';
-import { getDailyPriority, setDailyPriorityStatus } from '@/lib/priority/data';
+import { isPriorityAction, isPriorityPresentation, isPriorityRule } from '@/lib/analytics/surfaces';
+import { claimPriorityShown, getDailyPriority, setDailyPriorityStatus } from '@/lib/priority/data';
 import {
   getCurrentResetPlan,
   getLatestResetPlanVersionId,
@@ -53,23 +53,38 @@ async function memberContext(supabase: SupabaseClient): Promise<MemberContext | 
 }
 
 /**
- * The card rendered, and which rule won. Fired from the client after the
- * screen has painted (same reason app/actions/analytics.ts's own surface
- * view action is an action rather than tracking inside the server render):
- * an insert on the render path is exactly the thing the member is waiting
- * on.
+ * The card was shown, which rule won, and whether it reached her as the
+ * pop-up or inline. Fired from the client after paint, same reason
+ * app/actions/analytics.ts's own surface-view action is an action rather
+ * than tracking inside the server render.
+ *
+ * Exactly one `priority_shown` event per member per local day, guaranteed
+ * by `claimPriorityShown`'s conditional UPDATE rather than by a client-side
+ * dedupe window. That matters because the card can render three times in
+ * one day (pop-up, Home, Today) and Home renders the pop-up and the inline
+ * card in the same pass, so no client-side timer could decide this
+ * correctly or deterministically. The presentation recorded is whichever
+ * one genuinely reached her first.
  */
-export async function trackPriorityShownAction(rule: string): Promise<void> {
+export async function trackPriorityShownAction(
+  rule: string,
+  presentation: string
+): Promise<void> {
   try {
     if (!isPriorityRule(rule)) return;
+    if (!isPriorityPresentation(presentation)) return;
     const supabase = createClient();
     const ctx = await memberContext(supabase);
     if (!ctx) return;
+
+    const won = await claimPriorityShown(supabase, ctx.memberId, ctx.localDate, presentation);
+    if (!won) return;
+
     await trackProductEvent(supabase, {
       memberId: ctx.memberId,
       eventType: 'priority_shown',
       timezone: ctx.timezone,
-      payload: { rule },
+      payload: { rule, presentation },
     });
   } catch (error) {
     console.error('trackPriorityShownAction failed', error);

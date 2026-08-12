@@ -186,6 +186,10 @@ export default async function TodayPage() {
   const priority = await buildPriorityView(supabase, user.id, localDate, {
     recentCheckins,
     todaysFocus: todaysFocusInput,
+    // The final fallback's two inputs, both already fetched above for the
+    // page's own zones, so this costs nothing extra.
+    checkinDoneToday: Boolean(todaysCheckin),
+    totalCheckins,
   });
 
   return (
@@ -233,7 +237,11 @@ export default async function TodayPage() {
             lower down the page, no longer dominant" means in practice. */}
         {priority && priority.status !== 'saved' && (
           <>
-            <TrackPriorityShown rule={priority.selected.rule} isReEntry={priority.isReEntry} />
+            <TrackPriorityShown
+              rule={priority.selected.rule}
+              isReEntry={priority.isReEntry}
+              presentation="inline"
+            />
             <PriorityCard view={priority} />
           </>
         )}

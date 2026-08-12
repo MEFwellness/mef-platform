@@ -46,6 +46,24 @@ export function questionnaireAssignedPopupMessageKey(assignmentId: string): stri
   return `questionnaire_assigned:${assignmentId}`;
 }
 
+/**
+ * The Priority Card's pop-up key, scoped to the member's own local date.
+ *
+ * The date IS the once-per-day rule. Every other message here is keyed by
+ * a row id and uses one of the two dismissal lifetimes (recurring
+ * "snoozed comes back next login", or one-time-ever); the Priority Card
+ * needs a third lifetime, "once per calendar day", and a date-scoped key
+ * expresses exactly that on top of the existing one-time-ever rule with no
+ * schema change and no second dismissal system: today's key can only ever
+ * be dismissed once, and tomorrow's key is a genuinely new message.
+ *
+ * A reload later the same day therefore finds a dismissal row and does not
+ * re-pop, while tomorrow's first open pops again.
+ */
+export function priorityCardPopupMessageKey(localDate: string): string {
+  return `priority_card:${localDate}`;
+}
+
 export async function getRootPopupDismissal(
   supabase: SupabaseClient,
   memberId: string,

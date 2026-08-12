@@ -110,12 +110,29 @@ export const PRIORITY_RULES = [
   'implicated_driver',
   'incomplete_action',
   'todays_focus',
+  'daily_reset',
+  'gentle_focus',
 ] as const;
 
 export type PriorityRuleSlug = (typeof PRIORITY_RULES)[number];
 
 export function isPriorityRule(value: unknown): value is PriorityRuleSlug {
   return typeof value === 'string' && (PRIORITY_RULES as readonly string[]).includes(value);
+}
+
+/**
+ * How the priority reached the member. 'popup' is the Root pop-up chain on
+ * open, 'inline' is the card sitting on Home or Today. Recorded once per
+ * member per day, so this answers "did she meet her priority as an
+ * interruption or by browsing to it" without ever double-counting one
+ * day's card as several priorities.
+ */
+export const PRIORITY_PRESENTATIONS = ['popup', 'inline'] as const;
+
+export type PriorityPresentation = (typeof PRIORITY_PRESENTATIONS)[number];
+
+export function isPriorityPresentation(value: unknown): value is PriorityPresentation {
+  return typeof value === 'string' && (PRIORITY_PRESENTATIONS as readonly string[]).includes(value);
 }
 
 /** The Priority Card's three buttons, carried in the payload's `action` field. */

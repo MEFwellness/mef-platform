@@ -134,16 +134,23 @@ describe('analytics vocabulary lines up with the database', () => {
     expect([...PRIORITY_RULES].sort()).toEqual([...fromTypes].sort());
   });
 
-  it("matches migration 147's own rule check constraint", () => {
-    const migration = readFileSync(
+  it("matches the rule check constraint as it stands across both migrations", () => {
+    // 147 created the constraint with the original five rules; 148 widened
+    // it with the two fallback halves. Every slug must appear in one of
+    // them, and the widening migration must carry the current full list.
+    const m147 = readFileSync(
       path.join(REPO_ROOT, 'supabase/migrations/00000000000147_priority_card.sql'),
       'utf8'
     );
+    const m148 = readFileSync(
+      path.join(REPO_ROOT, 'supabase/migrations/00000000000148_priority_card_popup_delivery.sql'),
+      'utf8'
+    );
     for (const rule of PRIORITY_RULES) {
-      expect(migration).toContain(`'${rule}'`);
+      expect(m148).toContain(`'${rule}'`);
     }
     for (const eventType of ['priority_shown', 'priority_action', 're_entry_shown']) {
-      expect(migration).toContain(`'${eventType}'`);
+      expect(m147).toContain(`'${eventType}'`);
     }
   });
 
@@ -159,7 +166,7 @@ describe('analytics vocabulary lines up with the database', () => {
 
   it('fires all three required events, and re_entry_shown only on a re-entry', () => {
     const tracker = read('components/priority/TrackPriorityShown.tsx');
-    expect(tracker).toContain('trackPriorityShownAction(rule)');
+    expect(tracker).toContain('trackPriorityShownAction(rule, presentation)');
     expect(tracker).toContain('if (isReEntry && shouldFire');
 
     const actions = read('app/actions/priority.ts');
@@ -171,7 +178,7 @@ describe('analytics vocabulary lines up with the database', () => {
   it('carries no health content on any priority payload', () => {
     const actions = read('app/actions/priority.ts');
     // The only payload fields used anywhere in this file.
-    expect(actions).toContain('payload: { rule }');
+    expect(actions).toContain('payload: { rule, presentation }');
     expect(actions).toContain('payload: { rule, action }');
     for (const banned of ['title', 'reason', 'findingSentence', 'driverId', 'priorityKey']) {
       expect(actions).not.toContain(`payload: { ${banned}`);
@@ -188,13 +195,22 @@ describe('button behavior is real, not decorative', () => {
   });
 
   it('Help me expands in place and never navigates away', () => {
-    const card = read('components/priority/PriorityCard.tsx');
-    expect(card).toContain('setHelpOpen');
-    // The help block renders inline inside the same <section>.
-    expect(card).toContain('{helpOpen && (');
-    // No router push anywhere in the card.
-    expect(card).not.toContain('router.push');
-    expect(card).not.toContain('useRouter');
+    // The toggle itself moved into the shared hook when the card gained
+    // its pop-up presentation, so both presentations behave identically.
+    const hook = read('components/priority/usePriorityCardActions.ts');
+    expect(hook).toContain('setHelpOpen');
+
+    // Both presentations render the help block inline, and neither
+    // navigates.
+    for (const file of [
+      'components/priority/PriorityCard.tsx',
+      'components/priority/PriorityCardPopup.tsx',
+    ]) {
+      const source = read(file);
+      expect(source).toContain('{helpOpen && (');
+      expect(source).not.toContain('router.push');
+      expect(source).not.toContain('useRouter');
+    }
   });
 
   it('Save for later demotes rather than dismissing', () => {

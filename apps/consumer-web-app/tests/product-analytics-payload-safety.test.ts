@@ -45,6 +45,7 @@ const ALLOWED_PAYLOAD_KEYS = new Set([
   // Priority Card (migration 147): which hierarchy rule won. A fixed
   // slug, never the priority's own wording or the reason line.
   'rule',
+  'presentation',
 ]);
 
 const ANALYTICS_EVENT_TYPES = [

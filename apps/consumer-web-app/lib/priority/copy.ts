@@ -24,6 +24,7 @@
  */
 
 import type {
+  DailyResetFallbackInput,
   ImplicatedDriverInput,
   IncompleteActionInput,
   ResetPlanCommitmentInput,
@@ -181,6 +182,73 @@ export function buildTodaysFocusHelp(input: TodaysFocusInput): string {
     return input.suggestedAction;
   }
   return 'If today is full, just read the focus once and let it sit. Noticing it is enough for now.';
+}
+
+// ---------------------------------------------------------------------
+// The final fallback. Reached only when rules 0 through 4 all came up
+// empty, which is the ordinary state of a brand-new member.
+// ---------------------------------------------------------------------
+
+/**
+ * She has not done today's Daily Reset. That is the product's real core
+ * loop and the one thing that makes everything downstream possible, so it
+ * is an honest priority rather than a placeholder invented to fill the
+ * card.
+ */
+export function buildDailyResetTitle(): string {
+  return 'Take a few minutes for your Daily Reset.';
+}
+
+/**
+ * A count, not a claim. Null on day zero, when she has no history at all
+ * and the only truthful thing to say about her data is nothing.
+ *
+ * Deliberately never says how many days she has missed, never mentions a
+ * streak, and never suggests the number should be higher.
+ */
+export function buildDailyResetReason(input: DailyResetFallbackInput): string | null {
+  if (input.totalCheckins <= 0) return null;
+  const dayWord = input.totalCheckins === 1 ? 'day' : 'days';
+  return `You have ${input.totalCheckins} ${dayWord} logged so far. Each one gives Root more to work with.`;
+}
+
+export function buildDailyResetHelp(): string {
+  return 'It is a short set of questions and you can stop at any point. Even the first few answers are enough for today.';
+}
+
+/**
+ * She has already done today's Daily Reset, so there is nothing left to
+ * ask of her. The priority becomes her own stated reason for being here,
+ * quoted back.
+ *
+ * When she never selected a goal there is nothing real to quote, so the
+ * copy stays entirely general and makes no claim about her at all. That is
+ * the honest floor of this whole system: a sentence that is true of
+ * anyone, offered as an invitation, rather than a fabricated observation
+ * about someone Root does not know yet.
+ */
+export function buildGentleFocusTitle(input: DailyResetFallbackInput): string {
+  if (!input.statedGoalLabel) {
+    return 'Nothing is waiting on you today. Notice one moment where your body felt good.';
+  }
+  return `Today, keep one eye on what brought you here: ${input.statedGoalLabel.toLowerCase()}.`;
+}
+
+/**
+ * Her own onboarding selection, named as hers. This is a quote, not an
+ * interpretation, which is why it is allowed to exist for a member with no
+ * behavioural history whatsoever. Null when she never chose a goal.
+ */
+export function buildGentleFocusReason(input: DailyResetFallbackInput): string | null {
+  if (!input.statedGoalLabel) return null;
+  return 'You chose that when you joined.';
+}
+
+export function buildGentleFocusHelp(input: DailyResetFallbackInput): string {
+  if (!input.statedGoalLabel) {
+    return 'There is nothing to do here. If you want one small thing, take three slow breaths before your next task.';
+  }
+  return 'Nothing to change today. If a moment connected to it comes up, just notice it and carry on.';
 }
 
 // ---------------------------------------------------------------------

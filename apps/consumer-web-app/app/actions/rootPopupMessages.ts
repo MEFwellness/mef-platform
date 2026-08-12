@@ -67,6 +67,7 @@ import {
   rplPopupMessageKey,
   resetPlanPopupMessageKey,
   questionnaireAssignedPopupMessageKey,
+  priorityCardPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
   isOfferPopupDue,
@@ -76,6 +77,9 @@ import {
   type RootPopupDismissalStatus,
 } from '@/lib/root-popup-messages/data';
 import { pickNextFreeArcCard, freeArcPopupMessageKey } from '@/lib/root-popup-messages/freeArc';
+import { getMyPriorityView } from '@/lib/priority/view';
+import type { PriorityView } from '@/lib/priority/types';
+import { resolveLocalDate } from './checkin';
 import { fetchGoalCallbackContext } from '@/lib/memory-callback/data';
 import { buildGoalCallback } from '@/lib/memory-callback/copy';
 
@@ -130,11 +134,35 @@ export type RootPopupMessage =
       displayName: string;
       description: string;
       primaryHref: string;
-    };
+    }
+  /**
+   * Priority Card delivery fix (2026-08-12). Root's single priority for
+   * today, delivered through this same chain rather than a second pop-up
+   * system. Carries the already-computed view so the pop-up, Home's inline
+   * card, and Today's inline card all render the identical object from the
+   * identical `member_daily_priorities` row.
+   */
+  | { kind: 'priority_card'; messageKey: string; view: PriorityView };
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
   return user?.id ?? null;
+}
+
+/**
+ * The member's own local date, which is what scopes the Priority Card's
+ * pop-up key and therefore its once-per-day rule. Uses her stored profile
+ * timezone and the same resolveLocalDate every other daily surface uses,
+ * never the server's date.
+ */
+async function currentMemberLocalDate(): Promise<string> {
+  const user = await getCachedUser();
+  const supabase = createClient();
+  const { data: profile } = user
+    ? await supabase.from('profiles').select('timezone').eq('id', user.id).maybeSingle()
+    : { data: null };
+  const timezone = profile?.timezone ?? 'America/New_York';
+  return resolveLocalDate(new Date(new Date().toLocaleString('en-US', { timeZone: timezone })), false);
 }
 
 /** The one Root message (if any) currently pending a response/acknowledgment/action, regardless of whether it's due to pop up this login. Used both to decide the pop-up and to badge the underlying card as high priority once snoozed. Core Values Snapshot is checked before Life Signal Check (oldest experience first); within either, day 3 wins over day 7, and day 7 wins over that experience's own start-it-later offer (offer can only exist when no experiment is running yet, so it's never actually competing with day 3/7 for the same experience — this ordering only matters across the two experiences). */
@@ -241,6 +269,37 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
       assignmentId: dueAssignment.assignmentId,
       displayName: dueAssignment.displayName,
       primaryHref: dueAssignment.primaryHref,
+    };
+  }
+
+  // Priority Card, the re-entry half (delivery fix, 2026-08-12).
+  //
+  // The card takes TWO positions in this chain, not one, and the split is
+  // deliberate rather than a hedge.
+  //
+  // Here, high: when the re-entry override has fired, the member has been
+  // absent 7+ days and this pop-up IS her welcome back. The build brief
+  // calls that a takeover, and a takeover that queued behind a day-3
+  // experiment follow-up would not be one. It is safe this high precisely
+  // because it is rare and self-limiting: re-entry clears the moment she
+  // engages once, so it cannot starve anything below it.
+  //
+  // The ordinary, every-day priority sits far lower (see below, just above
+  // the free-arc invitation) for the opposite reason: it is available
+  // EVERY day and perpetual, so putting it above the finite, resolvable
+  // day-3/day-7 follow-ups would starve them permanently for a member who
+  // opens the app once a day. That is exactly the starvation class this
+  // file's own header comment documents, and the reason the ordinary card
+  // yields to every message that can actually be finished.
+  //
+  // A coach assignment still outranks both: a coach's direct action for
+  // this member comes before anything Root decides on her behalf.
+  const priorityView = await getMyPriorityView();
+  if (priorityView?.isReEntry) {
+    return {
+      kind: 'priority_card',
+      messageKey: priorityCardPopupMessageKey(await currentMemberLocalDate()),
+      view: priorityView,
     };
   }
 
@@ -396,6 +455,22 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     }
   }
 
+  // Priority Card, the ordinary half. Below every message that can
+  // actually be resolved and finished (see the re-entry branch above for
+  // the full reasoning), and above the free-arc invitation, on that
+  // branch's own stated principle: an invitation to start something new
+  // yields to what Root has actually decided matters today.
+  //
+  // `priorityView` was resolved once at the top of this function, so this
+  // costs no second computation.
+  if (priorityView) {
+    return {
+      kind: 'priority_card',
+      messageKey: priorityCardPopupMessageKey(await currentMemberLocalDate()),
+      view: priorityView,
+    };
+  }
+
   // Free Arc Discoverability fix (2026-08-03) — the next unstarted
   // conversation among Core Values Snapshot / Life Signal Check /
   // Readiness Pulse, lowest priority of every message above: an
@@ -461,6 +536,20 @@ export async function getMyRootPopupMessageAction(): Promise<RootPopupMessage | 
   const dismissal = await getRootPopupDismissal(supabase, user.id, message.messageKey);
 
   if (message.kind === 'cvs_offer' || message.kind === 'lsc_offer' || message.kind === 'rpl_offer') {
+    return isOfferPopupDue(dismissal) ? message : null;
+  }
+
+  // Priority Card: once per calendar day, not once per login and not on
+  // every reload. Its message key already carries the member's own local
+  // date (priorityCardPopupMessageKey), so the existing one-time-ever rule
+  // applied to a date-scoped key IS the once-per-day rule — today's key
+  // can be dismissed exactly once, and tomorrow's key is a genuinely new
+  // message that pops again. No third dismissal lifetime, no new column.
+  //
+  // RootMessagePopupClient marks it dismissed on mount, exactly as it does
+  // for the offer kinds, so a member who closes the tab or navigates away
+  // without touching a button still does not get it again today.
+  if (message.kind === 'priority_card') {
     return isOfferPopupDue(dismissal) ? message : null;
   }
 
