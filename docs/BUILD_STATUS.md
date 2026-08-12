@@ -1,3 +1,74 @@
+## Priority Card, Part 2: The Motion Pass (2026-08-12)
+
+The card behaves exactly as it did this morning. Same three buttons, same one shared state, same analytics, same delivery chain, no schema change and no migration. What changed is that every state change is now expressed rather than swapped.
+
+### Built on the Root Motion System, not beside it
+
+Four new primitives in `app/globals.css`, each named for the state change it expresses and each usable by any surface. Nothing in them is priority-specific.
+
+| Class | Expresses | Tier |
+| --- | --- | --- |
+| `.mef-reveal-step` | the parts of one card arriving in reading order | Standard (320ms), existing `mef-fade-up` keyframe |
+| `.mef-expand` / `-open` | expanding in place, with the content below easing out of the way | Standard |
+| `.mef-recede` | content stepping back as its resolved form takes over | Quick (150ms) |
+| `.mef-settle-down` | an element taking up a lower, lesser position | Deliberate (500ms) |
+
+Every duration and curve is an existing `--mef-duration-*` / `--mef-ease-*` token. Two things were genuinely missing and were added to `lib/motion/`: `MOTION_STAGGER_STEP_TIGHT_MS` (60ms — the step for revealing parts *within* a card, as opposed to a list of cards down a page) and `revealStep()`, which applies the staging as props on the real element instead of `StaggerItem`'s wrapper `<div>`. **No component in `components/priority/` contains a millisecond value at all**, which a test enforces against the code with comments stripped.
+
+`.mef-expand` is the one class in the system that animates a layout property (`grid-template-rows: 0fr -> 1fr`). That is inherent to the requirement: nothing below an element can move out of its way without layout running. It is documented as such, and it is specifically *not* the JS-measurement approach that is the real layout-thrash failure mode. Everything else is transform and opacity only, asserted by test.
+
+### One motion language, three surfaces
+
+`usePriorityCardMotion` is to motion what `usePriorityCardActions` already is to behavior: one hook, two presentations, so the pop-up and the two inline surfaces cannot drift apart about how the card moves. The hook holds **no** behavior — it never calls a server action, never writes anything, and reads `status` only. Asserted.
+
+The pop-up had no entrance staging at all before this build; it now uses the identical sequence, plus the one motion the inline card has no equivalent for (the panel rising while the backdrop fades).
+
+### "Building on yesterday..."
+
+Runs only when Root genuinely adapted overnight. `lib/priority/transition.ts` is pure and has its own tests:
+
+1. **Yesterday means yesterday** — the immediately preceding calendar day, never "her most recent row". Bridging from something five days old while the copy says yesterday is the one failure that would make this a lie.
+2. **She completed it** — saved or left active does not qualify. Replaying an unfinished priority would read as Root reminding her what she did not do.
+3. **Today is genuinely different** — compared by `priority_key` when both have one (so a reworded action does not read as a new priority) and by rule plus title for the two keyless fallback rules.
+
+It reads yesterday's row through the existing `getDailyPriority` accessor, for presentation only. **`selectPriority` is untouched by this build and cannot see this file** — asserted both ways: the engine mentions nothing about it, and the service builds the bridge after selection has run, from what she is actually being shown.
+
+Beats are 800ms each (a Deliberate reveal plus `INTRO_REVEAL_TYPEWRITER_SETTLE_MS`, the Bible's own standardized pause), then a 150ms handover so the sequence ends by putting something away rather than by something vanishing. Measured in a real browser at 0ms / 800ms / 1760ms.
+
+### Reduced motion
+
+Every timed sequence is skipped outright, never shortened. The bridge renders its three parts at once as plain sequential text, so she loses the animation and never the message. The synchronous `prefersReducedMotionNow()` was added next to the existing hook (sharing its one query string) because the hook necessarily starts at `false` — a lazy initializer would be a hydration mismatch — which would otherwise leak one painted frame of motion.
+
+### Three bugs found by driving it, not by reading it
+
+- **The completion haptic fired on every mount of the accomplished state**, including an ordinary reload of Today hours later. That is feedback for something she did this morning; Chrome says so out loud, since there is no user gesture behind it. Now gated on `justResolved`.
+- **The bridge claimed the day on mount**, before showing anything, so any remount before it played swallowed the sequence permanently and silently — a bridge that never appears looks exactly like a day Root did not adapt. React StrictMode reproduces it on every dev mount; a Suspense retry would do it in production. The claim now happens when the sequence finishes, which also means she still gets it on the next surface if she navigates away part way through.
+- **Done on the collapsed saved card was not treated as a completion** — it fell through the branch meant for a card arriving already resolved, so no drawn checkmark and no haptic.
+
+### Live verification on app.mefwellness.com
+
+Repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform`, target Production, `vercel inspect app.mefwellness.com` resolving to `mef-platform-mjxyblbc4` (built from `6d44fd5`). Read from real computed styles, not inferred from class names. **Zero console errors, zero page errors, zero 5xx.**
+
+| Checked live | Result |
+| --- | --- |
+| Staged entrance | 0 / 60 / 180ms, all `mef-fade-up`, whole sequence inside 500ms |
+| Help me | expands in place 0px -> 95px with `grid-template-rows` genuinely transitioned, collapses back to nothing, panel hidden from assistive tech when closed |
+| Done | drawn checkmark, and still the accomplished state after a full reload |
+| Saved card | sits at position 5 of 6 on Today, out of the dominant slot |
+| Done from the collapsed saved card | reaches the accomplished state with the drawn checkmark, persists across reload |
+| Already-done card reloaded | no haptic fires, no console errors |
+| Reduce motion | card fully present and usable, every animation `none` |
+
+**Not verified live, and why.** The "Building on yesterday..." sequence needs a completed priority for the previous calendar day plus a different one today, and production's test accounts cannot be put into that state on demand — the pop-up also pops at most once per calendar day, and Part 1's own verification earlier today had already consumed it. So the sequence was driven against local Supabase with a seeded completed yesterday, sampling the DOM across the whole thing so the **order** of the beats was observed rather than assumed, plus the same run with reduced motion and the Save for later settle. All 20 checks passed, no console or page errors, and the three beats are captured in `docs/screens/priority-motion/bridge-0*.png`. **The live sequence awaits a real yesterday-to-today transition; it has not been seen on production.**
+
+Both scripts are committed: `scripts/screenshots/verify-priority-motion-live.mjs` and `verify-priority-bridge-local.mjs`.
+
+### Checks
+
+`npm run typecheck` clean. `npm run lint` 0 errors (90 pre-existing `no-console` warnings, untouched). Production build compiles. Full suite **3865/3866** — the one failure is the same pre-existing `correlation-engine-integration` test-isolation flake documented below, confirmed identical on a clean checkout.
+
+46 new motion tests. Fourteen mutations proved them non-vacuous: dropping the yesterday-means-yesterday check, letting a saved priority bridge, comparing titles instead of keys, running the timed sequence under reduced motion, reversing the entrance order, restoring the pop-up/inline mount race, reintroducing a bare millisecond literal, having the motion hook call a server action, exceeding the travel ceiling, un-gating the haptic, claiming the bridge on mount, and three on the saved-to-done path. Each was caught, and every source was restored and re-verified clean.
+
 ## Priority Card Delivery Fix: Pop-Up On Open (2026-08-12)
 
 The Priority Card shipped as an inline element of the Today screen only, so a member had to navigate to find it. Wrong delivery. It now arrives as the pop-up she meets when she opens the app, and every member always has one.
