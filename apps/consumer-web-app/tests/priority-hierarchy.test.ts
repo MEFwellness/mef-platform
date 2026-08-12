@@ -44,9 +44,17 @@ function allRulesApply(): PriorityInputs {
     },
     implicatedDriver: {
       driverId: 'SLP-3',
+      domainKey: 'SLP',
       label: 'Bedtime consistency',
       whatItObserves: 'How much bedtime varies night to night',
       findingSentence: 'On nights you get to bed at a steadier time, your next-day energy tends to be higher.',
+    },
+    qualifiedPattern: {
+      pairKey: 'sleep_hours::next_day_energy',
+      label: 'Sleep hours and next-day energy',
+      memberSentence: 'This has held across several weeks now: longer nights tend to be followed by steadier days.',
+      confidence: 0.82,
+      observationCount: 24,
     },
     incompleteAction: {
       key: 'wbsa',
@@ -54,6 +62,16 @@ function allRulesApply(): PriorityInputs {
       href: '/assessment/wbsa',
       resumeHint: 'Your answers so far are saved.',
       lastTouchedLocalDate: '2026-08-05',
+    },
+    behavioralFriction: {
+      kind: 'daily_reset_incomplete',
+      signalType: 'repeated_incomplete_flow',
+      starts: 5,
+      completions: 1,
+      completionRate: 20,
+      savedCount: null,
+      windowDays: null,
+      evidenceSufficiency: 'moderate',
     },
     todaysFocus: {
       feedItemId: 'feed-1',
@@ -119,7 +137,9 @@ describe('rule 0 — re-entry overrides everything', () => {
       're_entry',
       'reset_plan_commitment',
       'implicated_driver',
+      'qualified_pattern',
       'incomplete_action',
+      'behavioral_friction',
       'todays_focus',
       // The fallback is always applicable, which is what makes every
       // precedence assertion here a real decision rather than a default.
@@ -161,7 +181,9 @@ describe('rule 1 — an active Reset Plan commitment', () => {
     expect(applicableRules(i)).toEqual([
       'reset_plan_commitment',
       'implicated_driver',
+      'qualified_pattern',
       'incomplete_action',
+      'behavioral_friction',
       'todays_focus',
       'daily_reset',
     ]);
@@ -211,7 +233,9 @@ describe('rule 2 — a strongly implicated, goal-relevant driver', () => {
     const i = inputs();
     expect(applicableRules(i)).toEqual([
       'implicated_driver',
+      'qualified_pattern',
       'incomplete_action',
+      'behavioral_friction',
       'todays_focus',
       'daily_reset',
     ]);
@@ -248,11 +272,17 @@ describe('rule 3 — an incomplete high-value action', () => {
     isReEntry: false,
     resetPlan: null,
     implicatedDriver: null,
+    qualifiedPattern: null,
   });
 
   it('wins over rule 4 while rule 4 is still applicable', () => {
     const i = inputs();
-    expect(applicableRules(i)).toEqual(['incomplete_action', 'todays_focus', 'daily_reset']);
+    expect(applicableRules(i)).toEqual([
+      'incomplete_action',
+      'behavioral_friction',
+      'todays_focus',
+      'daily_reset',
+    ]);
     expect(selectPriority(i, TODAY)?.rule).toBe('incomplete_action');
   });
 
@@ -292,7 +322,9 @@ describe("rule 4 — Today's Focus, the fallback", () => {
     isReEntry: false,
     resetPlan: null,
     implicatedDriver: null,
+    qualifiedPattern: null,
     incompleteAction: null,
+    behavioralFriction: null,
   });
 
   it('wins only when nothing above it applies', () => {
@@ -325,10 +357,13 @@ describe('the final fallback — a brand-new member always gets exactly one hone
   /** Every evidence-backed rule declines. This is the ordinary state of a member on day one. */
   function nothingButTheFallback(fallback: PriorityInputs['fallback']): PriorityInputs {
     return {
+      safetyFlag: null,
       isReEntry: false,
       resetPlan: null,
       implicatedDriver: null,
+      qualifiedPattern: null,
       incompleteAction: null,
+      behavioralFriction: null,
       todaysFocus: null,
       fallback,
       hasRealHistory: false,
@@ -439,8 +474,10 @@ describe('non-vacuity: every ladder rule can both win and lose', () => {
     const inputs: PriorityInputs = { ...allRulesApply(), isReEntry: false };
     if (index > 0) inputs.resetPlan = null;
     if (index > 1) inputs.implicatedDriver = null;
-    if (index > 2) inputs.incompleteAction = null;
-    if (index > 3) inputs.todaysFocus = null;
+    if (index > 2) inputs.qualifiedPattern = null;
+    if (index > 3) inputs.incompleteAction = null;
+    if (index > 4) inputs.behavioralFriction = null;
+    if (index > 5) inputs.todaysFocus = null;
     if (PRIORITY_LADDER[index] === 'gentle_focus') {
       inputs.fallback = { ...inputs.fallback, checkinDoneToday: true };
     }

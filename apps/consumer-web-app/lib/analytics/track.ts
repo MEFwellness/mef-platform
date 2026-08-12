@@ -51,6 +51,10 @@ const ALLOWED_PAYLOAD_KEYS = [
   'term',
   'rule',
   'presentation',
+  // Adaptive Coaching Direction (migration 150): which KIND of action was
+  // delivered. A fixed slug from lib/coaching-direction/types.ts, never
+  // the action's own wording and never its evidence.
+  'actionType',
 ] as const;
 
 /**

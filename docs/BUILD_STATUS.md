@@ -1,3 +1,91 @@
+## Adaptive Coaching Direction, Part 1 of 3: the decision engine behind the Priority Card (2026-08-12)
+
+The Priority Card looks and behaves exactly as it did. What changed is how its content gets chosen, and that every decision is now recorded with its outcome window. No new UI, no new intelligence system, no new registry, no LLM. Migration 150.
+
+### What it is
+
+A decision layer over the card's existing hierarchy. Every signal it reads was already computed and published by a system that shipped before it: safety classifications (migration 28), Root Presence (143), Reset Plan daily logs (142), Case View's implicated drivers (106) and tier 3 correlation findings (93/105), the friction signals service (149), and the Coaching Brain's daily feed. It computes no correlation, no driver state, no tier, no score and no content.
+
+### The hierarchy, as it now stands
+
+Two overrides, then one ladder. `lib/priority/select.ts` is still the one selection function, and no pre-existing rule moved relative to any other pre-existing rule.
+
+| | Rule | Source | action_type |
+| --- | --- | --- | --- |
+| override | `safety` | an unresolved check-in safety flag | reflection |
+| override | `re_entry` | Root Presence absence | reconnect |
+| 1 | `reset_plan_commitment` | an active commitment not done today | reset |
+| 2 | `implicated_driver` | Case View's `likelyInvolved` bucket | by driver domain |
+| 3 | `qualified_pattern` | a tier 3 correlation finding | reflection |
+| 4 | `incomplete_action` | something started and left | reflection |
+| 5 | `behavioral_friction` | the friction signals service | reset / nutrition / reflection |
+| 6 | `todays_focus` | the Coaching Brain | reflection |
+| 7/8 | `daily_reset` / `gentle_focus` | the existing fallback, unchanged | reset / reflection |
+
+Three rule slugs are new (`safety`, `qualified_pattern`, `behavioral_friction`). The other seven are untouched.
+
+**`movement` is in the schema and cannot be emitted.** A driver in the MOV domain genuinely produces a movement-typed candidate; the engine drops it and continues down the ladder. The block is applied once, to every candidate, before any of them can win, so it is structural rather than a convention. Four tests cover it, including one that proves the blocked candidate really was constructible first.
+
+### Four premise mismatches found in the audit, and what was done about them
+
+**1. "Root Presence 3+ day gap" is not the card's welcome-back.** `lib/return-greeting/absence.ts` reconciles two thresholds: a 3+ day CHECK-IN gap earns the return greeting and does NOT suspend the ladder, while a 7+ day SIGN-IN absence is the re-entry state that does. The card's existing welcome-back behavior is the second one. It was kept exactly as it is, per "keep the existing welcome-back behavior, now issued by this engine". Neither threshold moved.
+
+**2. The friction signals service is admin-gated.** Every `analytics_*` function calls `analytics_assert_admin()`, which a member's own session cannot pass. Migration 149's own authorization comment names the intended escape hatch ("a service-role connection ... the app's own cron routes, and later the Engagement Agent"), so rule 5 reads it through a service-role client. Absent the key it returns null and rule 5 simply does not fire. It is also loaded LAZILY, in a second pass, only when the first pass reached its slot on the ladder.
+
+**3. Members cannot read `safety_review_queue`.** That table is the coach's surface and has no member read policy. The member-side half of the same event is `safety_classifications` + `safety_acknowledgments`, both member-readable, so that is what rule 1 reads. "Unresolved" means: from a daily check-in, `coach_review_required`, with no acknowledgment recorded as acknowledged. Every such category also sets `acknowledgment_required`, so the state always has an exit the member herself can take.
+
+**4. The coach notification path is `intelligence_coach_alerts`, not `notifications`.** `notifications` only lets a member insert rows addressed to herself, so a member session cannot notify her coach through it. `intelligence_coach_alerts` has had `member_insert_own_intelligence_alerts` since migration 34 and an assigned-coach read policy, plus a dedup-and-reopen upsert that protects a coach's dismissal. Two of its existing alert types are reused (`needs_review` for safety, `recurring_barriers` for an escalated thread). No new alert type, no new table, no coach UI.
+
+**One thing was deliberately not changed.** The brief describes rule 3 as an active commitment "that is behind". The existing rule fires whenever the commitment is not completed today. That behavior was preserved rather than tightened, because narrowing it would stop the card firing on days it fires on now. The day counts are carried into the evidence so a later pass can use them.
+
+### The adaptation guardrails
+
+All three operate on counters in `member_coaching_threads`. None of them can see health data.
+
+- **Ignored three days running changes the approach.** Approach 1 promotes the rule's own smaller step to be the priority, which invents no copy and makes no new claim. Approach 2 keeps the priority and replaces the help with a reframe that offers her a way out of it, and drops the reason line.
+- **Two approach changes with no response escalates.** The thread is flagged `coach_escalated_at`, is never selected again by anything, and raises one `intelligence_coach_alerts` row. The `is null` guard on the update is what makes that one alert rather than one a day. Setting something aside counts as a response, so a busy member is never escalated.
+- **A completed action yesterday is preferred over an unrelated one today.** It only REORDERS candidates the hierarchy already admits. It cannot resurrect a rule whose inputs are absent, and it cannot outrank either override.
+
+**`ignored` and `not_seen` are kept distinct.** The engine closes out every unresolved past decision on the first render of a new day, using `member_daily_priorities.shown_at` (migration 148's atomic claim) to tell them apart. A day she never opened the app is inert in both directions. Collapsing them would make the guardrails treat an absence as a rejection.
+
+### Privacy
+
+`signal_evidence` is signal KEYS and numeric METRICS only, enforced by a closed allowlist in `lib/coaching-direction/evidence.ts` with the same drop-do-not-throw discipline as the analytics sanitizer. Strings must be short and whitespace-free, so a sentence cannot be smuggled through an allowed key; nested structure is dropped outright, which is how an upstream evidence summary would otherwise leak.
+
+The safety rule is the sharpest case: when it fires, the ONLY thing recorded is the classification row id and a boolean. Not the level, not the urgency, not the categories, not her words. The card itself says nothing about what she raised and has no reason line.
+
+`tests/coaching-direction-privacy.test.ts` (16 tests) checks three layers: the sanitizer at runtime, the allowlist against the vocabulary of the health systems this engine reads alongside, and the engine's real output for every rule with a deliberately content-bearing fixture. One test proves non-vacuity by showing the finding sentence really does reach the reason line while never reaching the evidence.
+
+### Analytics
+
+Three new event types on the existing `member_wellness_events` pipeline through `trackProductEvent`, the one write path. No new tracking infrastructure.
+
+- `coaching_action_delivered` rides the SAME atomic `shown_at` claim as `priority_shown`, so it is exactly one per member per local day. Its `actionType` is read from the ledger, never from the browser.
+- `coaching_action_acted` for Done and Help me.
+- `coaching_action_dismissed` for Save for later.
+
+`priority_shown` and `priority_action` are untouched: they are about the card, these are about the decision, and collapsing them would break every existing rollup to save one row.
+
+### Migration 150
+
+Widens `member_daily_priorities.rule` with the three new slugs, widens the event type constraint with the three new types, and adds two tables:
+
+- **`member_coaching_threads`** one row per continuing coaching conversation, keyed `<rule>::<item>`. Counters and dates only. `coach_escalated_at` is the queryable escalation flag.
+- **`member_coaching_decisions`** the outcome ledger, one delivered decision per member per local day, with its rule, action type, thread, approach, follow-on flag, evidence keys and metrics, member response, and the before/after comparison window.
+
+**The comparison window is stored as PARAMETERS, not as a result.** Reference date, window days, and the date the after window completes. A grader reads those three, calls the existing `getMemberWindowComparison`, and gets an honest comparison or an explicit "not yet". Freezing the numbers would mean grading a decision against an after window that had not finished elapsing, which is the exact mistake that primitive's own header warns about.
+
+### Tests
+
+- `tests/coaching-direction-hierarchy.test.ts` 47 tests, no database. Every rule wins when it should and loses when it should, non-vacuously (one fixture where everything applies, only the rules above the one under test removed, `applicableRules` asserting the losers were available). Exactly one action ever returned. The movement block. All three guardrails.
+- `tests/coaching-direction-privacy.test.ts` 16 tests, no database.
+- `tests/coaching-direction-integration.test.ts` 17 tests, real local Supabase. Outcome writes from all three buttons, the first response winning over a later one, thread counters moving, escalation flagged once and queryable, the comparison window stored usably, the action_type check constraint refusing a value outside the five, and RLS keeping one member out of another's ledger and threads.
+- Existing suites updated for the wider ladder: `priority-hierarchy`, `priority-card-copy`, `priority-card-delivery` (plus 5 new wiring guards), `priority-card-motion`.
+
+**Two guards proved non-vacuous by breaking the code.** Emptying `BLOCKED_ACTION_TYPES` failed 3 movement-block tests. Changing the escalation threshold from `CHANGES_BEFORE_ESCALATION` to 3 failed 2 escalation tests. Both restored and the suite re-verified green.
+
+`tests/priority-card-motion.test.ts`'s "the selection engine never mentions yesterday" guard was deliberately tightened rather than deleted: the engine now has one legitimate reason to know about yesterday (the follow-on rule), so the guard was rewritten to prove what it was really protecting, which is that no BRIDGE concept reaches the engine and that the follow-on rule receives a thread key and a boolean, never yesterday's content.
+
 ## Admin Analytics, Prompt 3 of 3: the member engagement views (2026-08-12)
 
 The per-member layer the Prompt 1 service layer already computed, made visible. Two new screens under `/admin/analytics`. No new database function, no new event type, no new tracking, no new migration, no LLM. Migration 149 is still the newest migration.

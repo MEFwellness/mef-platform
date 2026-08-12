@@ -76,6 +76,7 @@ function yesterdayRow(overrides: Partial<DailyPriorityRecord> = {}): DailyPriori
     status: 'done',
     doneAt: '2026-08-11T18:00:00.000Z',
     savedAt: null,
+    shownAt: '2026-08-11T09:00:00.000Z',
     ...overrides,
   };
 }
@@ -88,6 +89,10 @@ function todayPriority(overrides: Partial<SelectedPriority> = {}): SelectedPrior
     reason: null,
     help: 'Just notice it.',
     href: null,
+    actionType: 'reflection',
+    threadKey: 'implicated_driver::driver-9',
+    approach: 0,
+    evidence: {},
     ...overrides,
   };
 }
@@ -181,25 +186,61 @@ describe('same-priority detection survives the cases that would produce a false 
 
 describe('the trigger cannot influence which priority won', () => {
   it('the selection engine neither imports nor mentions the bridge', () => {
-    const select = read('lib/priority/select.ts');
+    // Comments stripped. The Adaptive Coaching Direction build gave the
+    // engine one legitimate reason to know about yesterday (the follow-on
+    // guardrail), and its comments say so, so a raw-text scan for the word
+    // would now fail for the wrong reason. What must stay true is that no
+    // BRIDGE concept reaches the engine: the bridge is a presentation
+    // fact, and if it could influence selection, "Root adapted overnight"
+    // would become a thing the card could cause rather than report.
+    const select = readCode('lib/priority/select.ts');
     expect(select).not.toContain('transition');
     expect(select).not.toContain('bridge');
-    expect(select).not.toContain('yesterday');
+    expect(select).not.toContain('Bridge');
+  });
+
+  it('the follow-on guardrail is handed a thread key and a completion, never yesterday\'s content', () => {
+    // The one thing the engine may know about yesterday. It is a string
+    // and a boolean; the priority's own title, reason, evidence and rule
+    // are all absent by construction.
+    const adaptation = readCode('lib/coaching-direction/adaptation.ts');
+    expect(adaptation).toContain('export type FollowOnContext = {');
+    expect(adaptation).toContain('threadKey: string;');
+    expect(adaptation).toContain('completed: boolean;');
+
+    const select = readCode('lib/priority/select.ts');
+    expect(select).toContain('completedYesterdayThreadKey');
+    for (const forbidden of ['yesterdayTitle', 'yesterdayReason', 'yesterdayRule']) {
+      expect(select).not.toContain(forbidden);
+    }
   });
 
   it('the service builds the bridge from what she is shown, after selection has run', () => {
     const service = read('lib/priority/service.ts');
-    const selectIndex = service.indexOf('const fresh = selectPriority(');
+    const selectIndex = service.indexOf('selectCoachingAction(');
     const bridgeIndex = service.indexOf('buildPriorityBridge(');
     expect(selectIndex).toBeGreaterThan(-1);
     expect(bridgeIndex).toBeGreaterThan(selectIndex);
 
-    // Yesterday's row is never handed to the hierarchy's inputs.
-    const inputsBlock = service.slice(
-      service.indexOf('const inputs: PriorityInputs'),
-      selectIndex
-    );
+    // Yesterday's PRIORITY ROW is never handed to the hierarchy's inputs.
+    // Scoped to the input object literal itself rather than to everything
+    // before the selection call: the adaptation context built alongside it
+    // legitimately reads yesterday's LEDGER row for the follow-on
+    // guardrail, and those are two different facts. One is what she was
+    // shown (presentation, the bridge's business); the other is whether
+    // she finished it (behavior, the engine's business).
+    const inputsStart = service.indexOf('const inputs: PriorityInputs');
+    const inputsBlock = service.slice(inputsStart, service.indexOf('\n    };', inputsStart));
     expect(inputsBlock).not.toContain('yesterday');
+    expect(inputsBlock).not.toContain('bridge');
+
+    // And the row itself is only ever read by the bridge builder. Comments
+    // stripped, since the reasoning above discusses yesterday at length.
+    const code = readCode('lib/priority/service.ts');
+    const rowUses = [...code.matchAll(/\byesterday\b(?!Decision)/g)].length;
+    const bridgeUses = [...code.matchAll(/buildPriorityBridge\(yesterday,/g)].length;
+    expect(rowUses).toBeGreaterThan(0);
+    expect(rowUses).toBe(bridgeUses + 1); // the one destructuring that fetches it
   });
 });
 

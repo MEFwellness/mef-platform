@@ -27,7 +27,7 @@ import {
   PRIORITY_RULES,
   isPriorityPresentation,
 } from '@/lib/analytics/surfaces';
-import { PRIORITY_LADDER, type PriorityRule } from '@/lib/priority/types';
+import { PRIORITY_LADDER, PRIORITY_OVERRIDES, type PriorityRule } from '@/lib/priority/types';
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(APP_ROOT, '../..');
@@ -307,7 +307,7 @@ describe('analytics: presentation recorded, one priority per day', () => {
   });
 
   it('the new rule slugs match the ladder and the migration', () => {
-    const fromTypes: PriorityRule[] = ['re_entry', ...PRIORITY_LADDER];
+    const fromTypes: PriorityRule[] = [...PRIORITY_OVERRIDES, ...PRIORITY_LADDER];
     expect([...PRIORITY_RULES].sort()).toEqual([...fromTypes].sort());
 
     const migration = readFileSync(
@@ -344,5 +344,73 @@ describe('never during onboarding', () => {
 
   it('is also suppressed during the one-time first-check-in transition', () => {
     expect(read('app/dashboard/page.tsx')).toContain("searchParams.firstCheckin !== '1' ? rootPopupMessage : null");
+  });
+});
+
+// =====================================================================
+// Adaptive Coaching Direction — the engine is the card's selector, and
+// the card's three buttons feed its outcome ledger.
+//
+// A source scan for the same reason the rest of this file is one: server
+// actions cannot be invoked under vitest here (next/headers), and the
+// ledger writes themselves are proved against a real database in
+// tests/coaching-direction-integration.test.ts. What is checked here is
+// that the wiring exists at all, which is the failure a passing data-layer
+// test would never catch.
+// =====================================================================
+
+describe('the decision engine is wired in as the selector, and the delivery is untouched', () => {
+  it('the card service calls the adaptive engine rather than the bare hierarchy', () => {
+    const service = read('lib/priority/service.ts');
+    expect(service).toContain('selectCoachingAction(');
+    expect(service).toContain('listCoachingThreads(');
+    expect(service).toContain('persistCoachingDecision(');
+    expect(service).toContain('resolveOutstandingOutcomes(');
+  });
+
+  it('all three buttons write the member response to the ledger', () => {
+    const actions = read('app/actions/priority.ts');
+    expect(actions).toContain("recordCoachingOutcome(supabase, ctx, 'done')");
+    expect(actions).toContain("recordCoachingOutcome(supabase, ctx, 'help')");
+    expect(actions).toContain("recordCoachingOutcome(supabase, ctx, 'later')");
+  });
+
+  it('the three analytics events ride the existing pipeline, with no new tracking layer', () => {
+    const actions = read('app/actions/priority.ts');
+    for (const eventType of [
+      'coaching_action_delivered',
+      'coaching_action_acted',
+      'coaching_action_dismissed',
+    ]) {
+      expect(actions).toContain(eventType);
+    }
+    // trackProductEvent is the one write path, and it is the only one used.
+    expect(actions).toContain("import { trackProductEvent } from '@/lib/analytics/track'");
+    expect(actions).not.toContain('posthog');
+    expect(actions).not.toContain('segment');
+    expect(actions).not.toContain('mixpanel');
+  });
+
+  it('the delivery itself is unchanged: same pop-up chain, same once-per-day claim', () => {
+    const chain = read('app/actions/rootPopupMessages.ts');
+    expect(chain).toContain('getMyPriorityView()');
+    expect(chain).toContain("kind: 'priority_card'");
+
+    const actions = read('app/actions/priority.ts');
+    expect(actions).toContain('const won = await claimPriorityShown(');
+    expect(actions).toContain('if (!won) return;');
+  });
+
+  it('the card components were not touched, so its look and animations are the same', () => {
+    // The engine changed which content is chosen, never how it is shown.
+    // These three still take a PriorityView and nothing more.
+    for (const file of [
+      'components/priority/PriorityCard.tsx',
+      'components/priority/PriorityCardPopup.tsx',
+      'components/priority/usePriorityCardActions.ts',
+    ]) {
+      expect(read(file)).not.toContain('coaching-direction');
+      expect(read(file)).not.toContain('actionType');
+    }
   });
 });

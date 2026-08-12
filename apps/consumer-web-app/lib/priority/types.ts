@@ -14,19 +14,42 @@
  * or a content selection. It reads what those systems already published
  * and answers one question they were never asked: of everything true about
  * this member today, which single thing deserves the top of her screen.
+ *
+ * The Adaptive Coaching Direction build (migration 150) made that decision
+ * adaptive and made it remember itself. It still adds no intelligence: the
+ * two new signals it reads (an unresolved safety flag, a behavioral
+ * friction signal) are both published by systems that already existed, and
+ * the adaptation guardrails operate on counters, never on health data.
  */
 
+import type { CoachingActionType, SignalEvidence } from '../coaching-direction/types';
+
 /**
- * The selection hierarchy, in its own order. 're_entry' is an override
- * rather than a rank: it suspends the ladder rather than sitting at the
- * top of it, which is why the ladder itself is `PRIORITY_LADDER` below and
- * does not contain it.
+ * The selection hierarchy, in its own order. 'safety' and 're_entry' are
+ * OVERRIDES rather than ranks: each suspends the ladder rather than
+ * sitting at the top of it, which is why the ladder itself is
+ * `PRIORITY_LADDER` below and contains neither.
+ *
+ * The Adaptive Coaching Direction build added three rungs and moved none:
+ *
+ *   'safety'              an unresolved safety flag from a check-in. The
+ *                         strongest override there is. It outranks
+ *                         're_entry' and nothing else fires that day.
+ *   'qualified_pattern'   a tier 3 correlation finding. The second half of
+ *                         "a tier 3 qualified pattern or a Case View
+ *                         implicated driver", sitting directly below
+ *                         'implicated_driver', which is the first half.
+ *   'behavioral_friction' a repeated stuck behavior, read from the
+ *                         friction signals service.
  */
 export type PriorityRule =
+  | 'safety'
   | 're_entry'
   | 'reset_plan_commitment'
   | 'implicated_driver'
+  | 'qualified_pattern'
   | 'incomplete_action'
+  | 'behavioral_friction'
   | 'todays_focus'
   | 'daily_reset'
   | 'gentle_focus';
@@ -52,13 +75,104 @@ export type PriorityRule =
 export const PRIORITY_LADDER = [
   'reset_plan_commitment',
   'implicated_driver',
+  'qualified_pattern',
   'incomplete_action',
+  'behavioral_friction',
   'todays_focus',
   'daily_reset',
   'gentle_focus',
 ] as const satisfies readonly PriorityRule[];
 
+/**
+ * The overrides, strongest first. Neither is a rank: each returns
+ * immediately, so no ladder rule is ever evaluated when one applies.
+ * 'safety' outranks 're_entry' because a member who has raised something
+ * that has not been resolved should not be met with a welcome back as
+ * though nothing had been said.
+ */
+export const PRIORITY_OVERRIDES = ['safety', 're_entry'] as const satisfies readonly PriorityRule[];
+
 export type PriorityStatus = 'active' | 'done' | 'saved';
+
+/**
+ * The safety override's input. Present only when the member has an
+ * unresolved safety flag raised by her own check-in.
+ *
+ * NOTHING about the concern itself is carried here, and that is
+ * deliberate rather than an omission. Not the classification level, not
+ * the urgency, not the category, not her words. The card's job in this
+ * state is to stop asking things of her; it has no business restating what
+ * she disclosed, and the outcome ledger has no business remembering it.
+ * The only field is the row id, so the coach path can point at the real
+ * record.
+ *
+ * "Unresolved" has one definition, taken from the safety system's own
+ * data: a classification from a daily check-in that required a coach
+ * review, for which no acknowledgment has been recorded as acknowledged.
+ * She resolves it by acknowledging the safety message, which is a real
+ * action she can take, so this state cannot get stuck.
+ */
+export type SafetyFlagInput = {
+  safetyClassificationId: string;
+};
+
+/**
+ * Rule 4's second half: a tier 3 correlation finding.
+ *
+ * Tier 3 only. The three-tier language module
+ * (lib/longitudinal-intelligence/copy.ts) reserves tier 3 for a pattern
+ * that has genuinely earned confident wording, and this rule exists to
+ * carry exactly that, never a tier 1 "may be worth watching" dressed up as
+ * a priority. `memberSentence` is the correlation engine's own member
+ * facing sentence, passed through verbatim, never re-worded here.
+ */
+export type QualifiedPatternInput = {
+  pairKey: string;
+  /** The candidate pair's own label, e.g. "Bedtime consistency and next-day energy". */
+  label: string;
+  /** describeSignalForMember's output for this signal. Already tier-appropriate. */
+  memberSentence: string;
+  confidence: number;
+  observationCount: number;
+};
+
+/**
+ * Rule 5's input. One of three stuck behaviors, each read from a system
+ * that already measures it:
+ *
+ *   'daily_reset_incomplete'  the friction signals service's
+ *                             repeated_incomplete_flow signal on the
+ *                             daily_reset flow.
+ *   'food_logging_lapsed'     its feature_use_declined /
+ *                             opened_once_not_revisited signal on food
+ *                             logging.
+ *   'chronic_save_for_later'  the card's own member_daily_priorities
+ *                             history. No analytics call at all: "she has
+ *                             set the last several priorities aside" is a
+ *                             fact about this feature, recorded by this
+ *                             feature.
+ *
+ * The metrics are carried so the reason line can be query-backed. Nothing
+ * here is health content: every value is a count, a rate or a slug.
+ */
+export type BehavioralFrictionKind =
+  | 'daily_reset_incomplete'
+  | 'food_logging_lapsed'
+  | 'chronic_save_for_later';
+
+export type BehavioralFrictionInput = {
+  kind: BehavioralFrictionKind;
+  /** The friction signals service's own signal type, for the ledger. Null for the save-for-later kind, which that service cannot see. */
+  signalType: string | null;
+  /** Counts behind the signal. Present only where the source really produced them. */
+  starts: number | null;
+  completions: number | null;
+  completionRate: number | null;
+  savedCount: number | null;
+  windowDays: number | null;
+  /** The friction service's own evidence sufficiency, or null for the save-for-later kind. */
+  evidenceSufficiency: string | null;
+};
 
 /**
  * Rule 1's input. Present only when the member has an ACTIVE plan (never a
@@ -85,6 +199,14 @@ export type ResetPlanCommitmentInput = {
  */
 export type ImplicatedDriverInput = {
   driverId: string;
+  /**
+   * The driver library's own domain key (SLP, FUE, DIG, MOV, MEC, STR,
+   * CTX). Decides the action_type, which is what makes the movement block
+   * real: a driver in the MOV domain would produce a movement action, and
+   * the engine drops it and carries on down the ladder rather than
+   * emitting one.
+   */
+  domainKey: string;
   /** e.g. "Bedtime consistency" — the driver library's own label. */
   label: string;
   /** e.g. "How much bedtime varies night to night" — the library's own description. */
@@ -156,11 +278,25 @@ export type TodaysFocusInput = {
  * every one may legitimately be null.
  */
 export type PriorityInputs = {
+  /**
+   * The strongest override. Non-null only when an unresolved safety flag
+   * from a check-in exists. When it is set, nothing else fires that day.
+   */
+  safetyFlag?: SafetyFlagInput | null;
   /** From lib/return-greeting/absence.ts's classifyPresence — the one absence ladder. */
   isReEntry: boolean;
   resetPlan: ResetPlanCommitmentInput | null;
   implicatedDriver: ImplicatedDriverInput | null;
+  /** Rule 4's second half. Only ever a tier 3 finding; see the type. */
+  qualifiedPattern?: QualifiedPatternInput | null;
   incompleteAction: IncompleteActionInput | null;
+  /**
+   * Rule 5. Optional because it is loaded LAZILY: the friction signals
+   * service is several queries, and there is no reason to run them on a
+   * day a higher rule was always going to win. See lib/priority/service.ts
+   * for the two-pass load.
+   */
+  behavioralFriction?: BehavioralFrictionInput | null;
   todaysFocus: TodaysFocusInput | null;
   /**
    * The final fallback. Non-nullable on purpose: this is the field that
@@ -196,6 +332,18 @@ export type SelectedPriority = {
   help: string;
   /** Optional deep link the card offers alongside the buttons (e.g. resume an abandoned assessment). */
   href: string | null;
+  /**
+   * What KIND of thing this action asks for. Never rendered — it exists so
+   * the outcome ledger and a later grading pass can compare kinds of
+   * action without reading any individual action's words.
+   */
+  actionType: CoachingActionType;
+  /** '<rule>::<priority key>'. The thread this decision belongs to, across days. */
+  threadKey: string;
+  /** Which framing this is: as written, its smaller step, or the reframe. */
+  approach: number;
+  /** Signal keys and metrics only, already sanitized. Never health content. */
+  evidence: SignalEvidence;
 };
 
 /**
@@ -217,6 +365,17 @@ export type DailyPriorityRecord = {
   status: PriorityStatus;
   doneAt: string | null;
   savedAt: string | null;
+  /**
+   * When the card genuinely reached her, claimed atomically by migration
+   * 148's own `shown_at is null` update. Null means she never saw it.
+   *
+   * Read by the outcome ledger, and it is the whole difference between
+   * 'ignored' and 'not_seen'. Those are not two words for the same thing:
+   * one is a member declining a suggestion, the other is a member who was
+   * not in the app, and the adaptation guardrails must never treat the
+   * second as the first.
+   */
+  shownAt: string | null;
 };
 
 /**

@@ -21,7 +21,7 @@ import {
   RE_ENTRY_PRIORITY_TEXT,
 } from '@/lib/priority/copy';
 import { PRIORITY_ACTIONS, PRIORITY_RULES, isPriorityAction, isPriorityRule } from '@/lib/analytics/surfaces';
-import { PRIORITY_LADDER, type PriorityRule } from '@/lib/priority/types';
+import { PRIORITY_LADDER, PRIORITY_OVERRIDES, type PriorityRule } from '@/lib/priority/types';
 import { PRIORITY_REVEAL_INDEX } from '@/lib/priority/motion';
 
 const APP_ROOT = path.resolve(__dirname, '..');
@@ -131,27 +131,39 @@ describe('re-entry speaks the Root Presence System own words, not a second welco
 
 describe('analytics vocabulary lines up with the database', () => {
   it('PRIORITY_RULES matches PriorityRule exactly', () => {
-    const fromTypes: PriorityRule[] = ['re_entry', ...PRIORITY_LADDER];
+    // The overrides plus the ladder. Adaptive Coaching Direction added a
+    // second override ('safety'), so this reads PRIORITY_OVERRIDES as data
+    // rather than naming 're_entry' by hand.
+    const fromTypes: PriorityRule[] = [...PRIORITY_OVERRIDES, ...PRIORITY_LADDER];
     expect([...PRIORITY_RULES].sort()).toEqual([...fromTypes].sort());
   });
 
-  it("matches the rule check constraint as it stands across both migrations", () => {
+  it('matches the rule check constraint as it stands across all three migrations', () => {
     // 147 created the constraint with the original five rules; 148 widened
-    // it with the two fallback halves. Every slug must appear in one of
-    // them, and the widening migration must carry the current full list.
+    // it with the two fallback halves; 150 widened it again with the
+    // safety override, the tier 3 pattern rule and behavioral friction.
+    // The LATEST widening migration must carry the current full list,
+    // because it is the one that actually defines the constraint now.
     const m147 = readFileSync(
       path.join(REPO_ROOT, 'supabase/migrations/00000000000147_priority_card.sql'),
       'utf8'
     );
-    const m148 = readFileSync(
-      path.join(REPO_ROOT, 'supabase/migrations/00000000000148_priority_card_popup_delivery.sql'),
+    const m150 = readFileSync(
+      path.join(REPO_ROOT, 'supabase/migrations/00000000000150_adaptive_coaching_direction.sql'),
       'utf8'
     );
     for (const rule of PRIORITY_RULES) {
-      expect(m148).toContain(`'${rule}'`);
+      expect(m150).toContain(`'${rule}'`);
     }
     for (const eventType of ['priority_shown', 'priority_action', 're_entry_shown']) {
       expect(m147).toContain(`'${eventType}'`);
+    }
+    for (const eventType of [
+      'coaching_action_delivered',
+      'coaching_action_acted',
+      'coaching_action_dismissed',
+    ]) {
+      expect(m150).toContain(`'${eventType}'`);
     }
   });
 

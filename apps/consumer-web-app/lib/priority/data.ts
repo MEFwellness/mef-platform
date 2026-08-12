@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DailyPriorityRecord, PriorityRule, PriorityStatus, SelectedPriority } from './types';
 
 const COLUMNS =
-  'id, local_date, rule, priority_key, priority_title, priority_help, priority_href, status, done_at, saved_at';
+  'id, local_date, rule, priority_key, priority_title, priority_help, priority_href, status, done_at, saved_at, shown_at';
 
 type Row = {
   id: string;
@@ -25,6 +25,7 @@ type Row = {
   status: PriorityStatus;
   done_at: string | null;
   saved_at: string | null;
+  shown_at: string | null;
 };
 
 function fromRow(row: Row): DailyPriorityRecord {
@@ -39,6 +40,7 @@ function fromRow(row: Row): DailyPriorityRecord {
     status: row.status,
     doneAt: row.done_at,
     savedAt: row.saved_at,
+    shownAt: row.shown_at,
   };
 }
 

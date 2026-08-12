@@ -24,9 +24,11 @@
  */
 
 import type {
+  BehavioralFrictionInput,
   DailyResetFallbackInput,
   ImplicatedDriverInput,
   IncompleteActionInput,
+  QualifiedPatternInput,
   ResetPlanCommitmentInput,
   TodaysFocusInput,
 } from './types';
@@ -63,6 +65,33 @@ export const PRIORITY_HELP_HEADING = 'A smaller way in';
 export const PRIORITY_BRIDGE_YESTERDAY_LABEL = 'Yesterday';
 
 export const PRIORITY_BRIDGE_TEXT = 'Building on yesterday...';
+
+// ---------------------------------------------------------------------
+// The safety override — an unresolved concern raised in a check-in.
+// ---------------------------------------------------------------------
+
+/**
+ * The strongest state the card has, and the quietest.
+ *
+ * It deliberately says NOTHING about what she raised. Restating a concern
+ * back to someone in a card on a home screen is not care, it is exposure,
+ * and it would also mean her words had to travel through this feature to
+ * get here. They do not: the only thing this rule receives is a row id.
+ *
+ * There is no reason line and there never will be, for the same reason
+ * re-entry has none: the only available fact is the thing the card must
+ * not name.
+ *
+ * The help text is the one place in this whole feature that gives a
+ * direct instruction rather than an offer, and that is correct. Root is
+ * not equipped for a medical emergency and says so plainly rather than
+ * softening it into a suggestion.
+ */
+export const SAFETY_PRIORITY_TEXT =
+  'Nothing is being asked of you today. Take it gently.';
+
+export const SAFETY_HELP_TEXT =
+  'What you raised has been passed to your care team and someone will look at it. If it gets worse, or you feel unsafe at any point, contact a medical professional or your local emergency number. Root is not able to help with that.';
 
 // ---------------------------------------------------------------------
 // Rule 0 — re-entry.
@@ -139,6 +168,118 @@ export function buildDriverReason(input: ImplicatedDriverInput): string | null {
 export function buildDriverHelp(input: ImplicatedDriverInput): string {
   return `You do not need to change anything. The next time you notice ${input.label.toLowerCase()} today, make a mental note of it. Your next check-in is where it gets recorded.`;
 }
+
+// ---------------------------------------------------------------------
+// Rule 4's second half — a tier 3 qualified pattern.
+// ---------------------------------------------------------------------
+
+/**
+ * The correlation engine's own member-facing sentence, unchanged, offered
+ * as something to notice.
+ *
+ * Tier 3 wording only ever reaches here, which is what makes the plain
+ * framing honest: the three-tier language module already decided this
+ * pattern had earned confident phrasing, and this rule does not get to
+ * upgrade or downgrade that judgement. A tier 1 or tier 2 signal never
+ * becomes a priority at all.
+ */
+export function buildQualifiedPatternTitle(input: QualifiedPatternInput): string {
+  return `Keep an eye on ${input.label.toLowerCase()} today.`;
+}
+
+/** The finding's own sentence. Never re-worded, never summarized. */
+export function buildQualifiedPatternReason(input: QualifiedPatternInput): string | null {
+  const sentence = input.memberSentence.trim();
+  return sentence.length > 0 ? sentence : null;
+}
+
+export function buildQualifiedPatternHelp(): string {
+  return 'Nothing needs to change because of this. If you notice it today, that is the whole thing. Your next check-in is where it gets recorded.';
+}
+
+// ---------------------------------------------------------------------
+// Rule 5 — behavioral friction.
+// ---------------------------------------------------------------------
+
+/**
+ * Root offering an easier version of the thing she is getting stuck on.
+ *
+ * The hard part of this rule's voice is that its evidence is, by nature,
+ * a record of things she did not finish. So none of the three reasons
+ * below carries a count. "Started five times and finished once" is a
+ * scoreboard, and a scoreboard is the thing this product's copy rules
+ * exist to keep off the screen. Each reason states the shape of what was
+ * observed and nothing more, which is still fully query-backed: the engine
+ * only reaches this rule when the underlying counts crossed the friction
+ * service's own thresholds.
+ */
+export function buildFrictionTitle(input: BehavioralFrictionInput): string {
+  switch (input.kind) {
+    case 'daily_reset_incomplete':
+      return 'Open your Daily Reset and answer just the first question.';
+    case 'food_logging_lapsed':
+      return 'If you eat something today, log only that one thing.';
+    case 'chronic_save_for_later':
+      return 'One small thing, and nothing else today: take three slow breaths before your next task.';
+  }
+}
+
+export function buildFrictionReason(input: BehavioralFrictionInput): string | null {
+  switch (input.kind) {
+    case 'daily_reset_incomplete':
+      return 'Your Daily Reset has been opened more often than it has been finished lately, so today it is a smaller ask.';
+    case 'food_logging_lapsed':
+      return 'Food logging has been quieter recently than it was before.';
+    case 'chronic_save_for_later':
+      return 'The last few priorities were set aside, so today Root is offering something smaller.';
+  }
+}
+
+export function buildFrictionHelp(input: BehavioralFrictionInput): string {
+  switch (input.kind) {
+    case 'daily_reset_incomplete':
+      return 'One answer is enough. You can close it straight after and the answer is still saved.';
+    case 'food_logging_lapsed':
+      return 'One item, not the whole day. A single entry is a real entry.';
+    case 'chronic_save_for_later':
+      return 'That is the whole thing. Nothing to open and nothing to log.';
+  }
+}
+
+export function frictionHref(input: BehavioralFrictionInput): string | null {
+  switch (input.kind) {
+    case 'daily_reset_incomplete':
+      return '/checkin';
+    case 'food_logging_lapsed':
+      return '/food-lens';
+    case 'chronic_save_for_later':
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------
+// The two adapted framings.
+// ---------------------------------------------------------------------
+
+/**
+ * What the card says once Root has changed its approach.
+ *
+ * Neither of these names a day count, a streak, or anything she did or did
+ * not do. That is not squeamishness, it is the only honest reading of the
+ * evidence: "she ignored this three times" is a fact about Root's
+ * suggestion failing, not a fact about her. So the reframe puts the
+ * failure where it belongs and offers her a way out of the thread
+ * entirely.
+ *
+ * Approach 1 needs no copy of its own at all. Every rule already authors a
+ * smaller step for "Help me", and promoting that to be the priority is a
+ * genuinely smaller ask made entirely of words the rule already wrote.
+ */
+export const APPROACH_SMALLER_HELP_TEXT =
+  'If today is full, reading this once is enough. Nothing else is needed.';
+
+export const APPROACH_REFRAMED_HELP_TEXT =
+  'This one has not landed, and that is useful to know. If it is not the right thing right now, leave it and Root will bring something else.';
 
 // ---------------------------------------------------------------------
 // Rule 3 — an incomplete high-value action.

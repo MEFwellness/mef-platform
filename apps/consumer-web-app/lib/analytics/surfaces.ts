@@ -105,10 +105,15 @@ export function isEngagementAction(value: unknown): value is EngagementAction {
  * never its evidence, never the finding sentence shown alongside it.
  */
 export const PRIORITY_RULES = [
+  // The two overrides.
+  'safety',
   're_entry',
+  // The ladder.
   'reset_plan_commitment',
   'implicated_driver',
+  'qualified_pattern',
   'incomplete_action',
+  'behavioral_friction',
   'todays_focus',
   'daily_reset',
   'gentle_focus',
@@ -133,6 +138,25 @@ export type PriorityPresentation = (typeof PRIORITY_PRESENTATIONS)[number];
 
 export function isPriorityPresentation(value: unknown): value is PriorityPresentation {
   return typeof value === 'string' && (PRIORITY_PRESENTATIONS as readonly string[]).includes(value);
+}
+
+/**
+ * Adaptive Coaching Direction — what KIND of thing an action asked for.
+ * Carried on all three coaching_action_* events so a rollup can compare
+ * kinds of action without ever reading an individual action's words.
+ *
+ * Re-exported from lib/coaching-direction/types.ts rather than restated,
+ * so the analytics allowlist, the database check constraint and the engine
+ * can never drift apart. 'movement' appears here because the schema
+ * accepts it; the engine is structurally unable to emit one.
+ */
+export { COACHING_ACTION_TYPES } from '../coaching-direction/types';
+export type { CoachingActionType } from '../coaching-direction/types';
+
+import { isCoachingActionType } from '../coaching-direction/types';
+
+export function isCoachingActionTypeSlug(value: unknown): boolean {
+  return isCoachingActionType(value);
 }
 
 /** The Priority Card's three buttons, carried in the payload's `action` field. */

@@ -57,7 +57,18 @@ export type ProductAnalyticsEventType =
    */
   | 'priority_shown'
   | 'priority_action'
-  | 're_entry_shown';
+  | 're_entry_shown'
+  /**
+   * Adaptive Coaching Direction (migration 150). Behavioral only: which
+   * rule the decision engine chose, what kind of action it was, and which
+   * of the card's three buttons she used. Never the action's own text,
+   * never its reason line, never the evidence behind it, and never
+   * anything about a safety concern beyond the fact that the safety rule
+   * was the one that fired.
+   */
+  | 'coaching_action_delivered'
+  | 'coaching_action_acted'
+  | 'coaching_action_dismissed';
 
 export type MemberWellnessEventType = MemberWellnessOnlyEventType | ProductAnalyticsEventType;
 
@@ -128,6 +139,13 @@ export interface ProductAnalyticsPayload {
    * lib/analytics/surfaces.ts's PRIORITY_PRESENTATIONS.
    */
   presentation?: string;
+  /**
+   * coaching_action_*, what KIND of thing the delivered action asked for.
+   * A fixed slug from lib/coaching-direction/types.ts's
+   * COACHING_ACTION_TYPES. Says nothing about the member, only about the
+   * shape of the suggestion.
+   */
+  actionType?: string;
 }
 
 export type MemberWellnessEventPayload =

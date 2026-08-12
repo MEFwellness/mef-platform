@@ -25,6 +25,9 @@ import { getCachedUser } from '@/lib/supabase/currentUser';
 import { trackProductEvent } from '@/lib/analytics/track';
 import { isPriorityAction, isPriorityPresentation, isPriorityRule } from '@/lib/analytics/surfaces';
 import { claimPriorityShown, getDailyPriority, setDailyPriorityStatus } from '@/lib/priority/data';
+import { getCoachingDecision } from '@/lib/coaching-direction/data';
+import { recordCardResponse } from '@/lib/coaching-direction/service';
+import type { CardResponse } from '@/lib/coaching-direction/types';
 import {
   getCurrentResetPlan,
   getLatestResetPlanVersionId,
@@ -86,6 +89,25 @@ export async function trackPriorityShownAction(
       timezone: ctx.timezone,
       payload: { rule, presentation },
     });
+
+    // The delivery event, riding the SAME atomic claim. That is the whole
+    // reason it lives here rather than in its own tracker: the claim is
+    // what guarantees exactly one per member per local day, and a second
+    // call site with its own dedupe would eventually disagree with this
+    // one about how many actions were delivered.
+    //
+    // The action type comes from the ledger row rather than from the
+    // client, so a browser can never assert what kind of action it was
+    // shown.
+    const decision = await getCoachingDecision(supabase, ctx.memberId, ctx.localDate);
+    if (decision) {
+      await trackProductEvent(supabase, {
+        memberId: ctx.memberId,
+        eventType: 'coaching_action_delivered',
+        timezone: ctx.timezone,
+        payload: { rule: decision.rule, actionType: decision.actionType },
+      });
+    }
   } catch (error) {
     console.error('trackPriorityShownAction failed', error);
   }
@@ -124,6 +146,45 @@ async function trackPriorityAction(
     eventType: 'priority_action',
     timezone: ctx.timezone,
     payload: { rule, action },
+  });
+}
+
+/**
+ * The Adaptive Coaching Direction half of a button tap: the outcome row,
+ * and the coaching_action_* event.
+ *
+ * Deliberately additive to trackPriorityAction rather than replacing it.
+ * priority_action is about the CARD (which button, on which rule) and has
+ * a year of meaning behind it; the coaching_action_* events are about the
+ * DECISION (which kind of action, acted on or dismissed). Collapsing them
+ * would break every existing rollup to save one row.
+ *
+ * 'done' and 'help' are both acting on it: she did the thing, or she took
+ * the smaller way in. 'save' is dismissing it for today. That mapping is
+ * the whole editorial judgement in this function, and it is why "Help me"
+ * counts as a success rather than a failure of the action.
+ */
+async function recordCoachingOutcome(
+  supabase: SupabaseClient,
+  ctx: MemberContext,
+  response: CardResponse
+): Promise<void> {
+  const decision = await getCoachingDecision(supabase, ctx.memberId, ctx.localDate);
+  if (!decision) return;
+
+  await recordCardResponse(supabase, ctx.memberId, ctx.localDate, response);
+
+  if (!isPriorityRule(decision.rule)) return;
+
+  await trackProductEvent(supabase, {
+    memberId: ctx.memberId,
+    eventType: response === 'later' ? 'coaching_action_dismissed' : 'coaching_action_acted',
+    timezone: ctx.timezone,
+    payload: {
+      rule: decision.rule,
+      actionType: decision.actionType,
+      action: response === 'later' ? 'save' : response,
+    },
   });
 }
 
@@ -168,6 +229,7 @@ export async function completePriorityAction(): Promise<{ ok: boolean }> {
 
     const ok = await setDailyPriorityStatus(supabase, ctx.memberId, ctx.localDate, 'done');
     await trackPriorityAction(supabase, ctx, record.rule, 'done');
+    await recordCoachingOutcome(supabase, ctx, 'done');
     revalidatePath('/today');
     return { ok };
   } catch (error) {
@@ -193,6 +255,7 @@ export async function savePriorityForLaterAction(): Promise<{ ok: boolean }> {
 
     const ok = await setDailyPriorityStatus(supabase, ctx.memberId, ctx.localDate, 'saved');
     await trackPriorityAction(supabase, ctx, record.rule, 'save');
+    await recordCoachingOutcome(supabase, ctx, 'later');
     revalidatePath('/today');
     return { ok };
   } catch (error) {
@@ -218,6 +281,7 @@ export async function trackPriorityHelpAction(): Promise<void> {
     if (!record) return;
 
     await trackPriorityAction(supabase, ctx, record.rule, 'help');
+    await recordCoachingOutcome(supabase, ctx, 'help');
   } catch (error) {
     console.error('trackPriorityHelpAction failed', error);
   }

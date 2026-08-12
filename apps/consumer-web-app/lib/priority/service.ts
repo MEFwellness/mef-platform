@@ -50,16 +50,47 @@ import { resetPlanAction } from '../reset-plan/actionLibrary';
 import { getMemberAssessmentFacts } from '../assessment-registry/facts';
 import { listAssessmentRegistryEntries } from '../assessment-registry/registry';
 import { getLastSignInLocalDateBefore, claimDailyPriority, getDailyPriority } from './data';
-import { selectPriority } from './select';
+import { selectCoachingAction, type AdaptationContext } from './select';
 import { buildPriorityBridge, previousLocalDate } from './transition';
+import { listCoachingThreads, getCoachingDecision } from '../coaching-direction/data';
+import {
+  loadBehavioralFriction,
+  loadUnresolvedSafetyFlag,
+  selectQualifiedPattern,
+} from '../coaching-direction/signals';
+import {
+  notifyCoachOfSafetyFlag,
+  persistCoachingDecision,
+  resolveOutstandingOutcomes,
+} from '../coaching-direction/service';
+import { PRIORITY_LADDER, PRIORITY_OVERRIDES } from './types';
 import type {
+  BehavioralFrictionInput,
   ImplicatedDriverInput,
   IncompleteActionInput,
   PriorityInputs,
+  PriorityRule,
   PriorityView,
+  QualifiedPatternInput,
   ResetPlanCommitmentInput,
   TodaysFocusInput,
 } from './types';
+
+/**
+ * Where each rule sits on the ladder, derived from PRIORITY_LADDER itself
+ * rather than restated, so the lazy friction load below can ask "did the
+ * first pass get as far as rule 5" without hard-coding an order that lives
+ * somewhere else. The two overrides are not on the ladder and are given an
+ * index of -1: they are above everything, which is the correct answer to
+ * "did the walk reach friction" (it did not).
+ */
+const LADDER_INDEX: Record<PriorityRule, number> = (() => {
+  const index = Object.fromEntries(
+    PRIORITY_LADDER.map((rule, position) => [rule, position])
+  ) as Record<PriorityRule, number>;
+  for (const override of PRIORITY_OVERRIDES) index[override] = -1;
+  return index;
+})();
 
 /** What the caller already has in hand, so this service never re-fetches it. */
 export type PriorityContext = {
@@ -172,10 +203,13 @@ async function loadResetPlanCommitment(
  * what lib/driver-state-engine/classify.ts records when it promotes a
  * driver to 'implicated'.
  */
-async function loadImplicatedDriver(
+async function loadFindingRules(
   supabase: SupabaseClient,
   memberId: string
-): Promise<ImplicatedDriverInput | null> {
+): Promise<{
+  implicatedDriver: ImplicatedDriverInput | null;
+  qualifiedPattern: QualifiedPatternInput | null;
+}> {
   const [goalSelection, drivers, domains, goalWeights, driverStates, candidatePairs, patternStates] =
     await Promise.all([
       fetchLatestMemberGoalSelection(supabase, memberId),
@@ -199,13 +233,19 @@ async function loadImplicatedDriver(
     candidatePairs
   );
 
+  // Built once and used by BOTH halves of rule 4. The earned-findings list
+  // is the input to the driver's reason line and to the tier 3 rule that
+  // sits directly below it, and computing it twice in one render would be
+  // a second chance for the two to disagree about the same data.
+  const findings = buildFindings([...patternStates.values()], candidatePairs, memberGoalKeys);
+  const qualifiedPattern = selectQualifiedPattern(findings);
+
   const winner = panel.likelyInvolved[0];
-  if (!winner) return null;
+  if (!winner) return { implicatedDriver: null, qualifiedPattern };
 
   const driver = drivers.find((d) => d.id === winner.driverId);
-  if (!driver) return null;
+  if (!driver) return { implicatedDriver: null, qualifiedPattern };
 
-  const findings = buildFindings([...patternStates.values()], candidatePairs, memberGoalKeys);
   const implicatingPairs = driverStates.get(winner.driverId)?.evidenceSummary
     ?.implicatingPairs as string[] | undefined;
 
@@ -219,10 +259,14 @@ async function loadImplicatedDriver(
       .sort((a, b) => b.tier - a.tier || b.confidence - a.confidence)[0]?.memberSentence ?? null;
 
   return {
-    driverId: driver.id,
-    label: driver.label,
-    whatItObserves: driver.whatItObserves,
-    findingSentence,
+    implicatedDriver: {
+      driverId: driver.id,
+      domainKey: driver.domainKey,
+      label: driver.label,
+      whatItObserves: driver.whatItObserves,
+      findingSentence,
+    },
+    qualifiedPattern,
   };
 }
 
@@ -365,21 +409,40 @@ export async function buildPriorityView(
       getDailyPriority(supabase, memberId, previousLocalDate(todayLocalDate)),
     ]);
 
+    // Close the books on every past decision that never got an outcome,
+    // before anything reads a thread counter. Gated on today having no row
+    // yet, which makes this the FIRST render of a new day and exactly one
+    // pass per day. Without the gate it would re-run on every page view
+    // for no benefit; without it happening at all, "ignored three days
+    // running" could never become true, because a day with no response is
+    // only knowable once that day is over.
+    if (!existing) {
+      await resolveOutstandingOutcomes(supabase, memberId, todayLocalDate);
+    }
+
     // The re-entry override clears "after she engages once", which is
     // exactly what a done or saved status on today's row records.
     const isReEntry = presence === 're_entry' && existing?.status !== 'done' && existing?.status !== 'saved';
 
-    const [implicatedDriver, incompleteAction, statedGoalLabel] = await Promise.all([
-      loadImplicatedDriver(supabase, memberId),
-      loadIncompleteAction(supabase, memberId, resetPlanResult.draftPlanCreatedAt),
-      loadStatedGoalLabel(supabase, memberId),
-    ]);
+    const [findingRules, incompleteAction, statedGoalLabel, safetyFlag, threads] =
+      await Promise.all([
+        loadFindingRules(supabase, memberId),
+        loadIncompleteAction(supabase, memberId, resetPlanResult.draftPlanCreatedAt),
+        loadStatedGoalLabel(supabase, memberId),
+        loadUnresolvedSafetyFlag(supabase, memberId),
+        listCoachingThreads(supabase, memberId),
+      ]);
 
     const inputs: PriorityInputs = {
+      safetyFlag,
       isReEntry,
       resetPlan: resetPlanResult.commitment,
-      implicatedDriver,
+      implicatedDriver: findingRules.implicatedDriver,
+      qualifiedPattern: findingRules.qualifiedPattern,
       incompleteAction,
+      // Loaded lazily below, only if the first pass gets far enough down
+      // the ladder for it to matter.
+      behavioralFriction: null,
       todaysFocus: context.todaysFocus,
       // The final fallback, which always applies, so the hierarchy can
       // never come up empty and the pop-up always has something to carry.
@@ -393,7 +456,53 @@ export async function buildPriorityView(
       hasRealHistory: context.recentCheckins.length > 0,
     };
 
-    const fresh = selectPriority(inputs, todayLocalDate);
+    // Yesterday's decision, reduced to the one fact the follow-on
+    // guardrail is allowed to see: did she finish it. Read from the
+    // outcome ledger rather than from yesterday's priority row, because
+    // the ledger is where a response genuinely lives.
+    const yesterdayDecision = await getCoachingDecision(
+      supabase,
+      memberId,
+      previousLocalDate(todayLocalDate)
+    );
+
+    const adaptation: AdaptationContext = {
+      threads,
+      completedYesterdayThreadKey:
+        yesterdayDecision?.memberResponse === 'done' ? yesterdayDecision.threadKey : null,
+    };
+
+    let decision = selectCoachingAction(inputs, todayLocalDate, adaptation);
+
+    // Rule 5 is loaded LAZILY, in a second pass, and only when the first
+    // pass actually reached its slot on the ladder. The friction signals
+    // service is five queries through a separate client; running them on
+    // a day when a Reset Plan commitment was always going to win would be
+    // pure cost for a result nothing reads.
+    //
+    // The second pass is a full re-run rather than a patch, so the winner
+    // is decided by one function on one complete input set. Determinism
+    // is the whole reason this engine is a pure function.
+    const frictionWouldHaveMattered =
+      LADDER_INDEX[decision.selected.rule] >= LADDER_INDEX.behavioral_friction;
+    const existingIsFriction = existing?.rule === 'behavioral_friction';
+
+    if (frictionWouldHaveMattered || existingIsFriction) {
+      const behavioralFriction: BehavioralFrictionInput | null = await loadBehavioralFriction(
+        supabase,
+        memberId,
+        todayLocalDate
+      );
+      if (behavioralFriction) {
+        decision = selectCoachingAction(
+          { ...inputs, behavioralFriction },
+          todayLocalDate,
+          adaptation
+        );
+      }
+    }
+
+    const fresh = decision.selected;
 
     // Today's already-recorded decision wins over a fresh one. The winning
     // rule genuinely changes during the day (marking a Reset Plan
@@ -405,6 +514,7 @@ export async function buildPriorityView(
     // does not, there is no honest current reason and the card shows none.
     if (existing) {
       const shown: typeof fresh = {
+        ...fresh,
         rule: existing.rule,
         priorityKey: existing.priorityKey,
         title: existing.title,
@@ -435,6 +545,23 @@ export async function buildPriorityView(
     // tryMarkReturnGreetingShown, which never shows a greeting it cannot
     // confirm it owns.
     if (!record) return null;
+
+    // The ledger row, the thread row, and any approach change or
+    // escalation the engine asked for. Written only on the render that
+    // genuinely claimed the day, so one decision produces one ledger row.
+    await persistCoachingDecision(supabase, memberId, {
+      selected: fresh,
+      threadChanges: decision.threadChanges,
+      isFollowOn: decision.isFollowOn,
+      localDate: todayLocalDate,
+    });
+
+    // The safety override's coach notification. Deduped on the
+    // classification id inside the alert layer, so a flag that stays open
+    // for a week raises one alert, not seven.
+    if (fresh.rule === 'safety' && safetyFlag) {
+      await notifyCoachOfSafetyFlag(supabase, memberId, safetyFlag.safetyClassificationId);
+    }
 
     return {
       selected: fresh,
