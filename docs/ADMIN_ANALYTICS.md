@@ -14,12 +14,12 @@ member_wellness_events  (migration 63, the one events table)
      -> analytics_* functions  (migration 149, all aggregation)
         -> lib/analytics-service/*  (thin wrappers, the documented rules)
            -> app/actions/analyticsAdmin.ts  (admin authorized entry points)
-           -> app/admin/analytics/*  (the four dashboard screens)
+           -> app/admin/analytics/*  (the six dashboard screens)
 ```
 
 ## The dashboard
 
-Four admin-only server-rendered screens, added in the build after this
+Six admin-only server-rendered screens, added in the two builds after this
 layer. They consume the entry points above and nothing else.
 
 | Route | Reads |
@@ -28,19 +28,88 @@ layer. They consume the entry points above and nothing else.
 | `/admin/analytics/funnel` | `analytics_funnel` |
 | `/admin/analytics/features` | `analytics_feature_usage` |
 | `/admin/analytics/drop-off` | `analytics_drop_off` |
+| `/admin/analytics/members` | `getMemberEngagementStates`, and `findMembersForCoachFollowUp` for the signal counts |
+| `/admin/analytics/members/[memberId]` | `getMemberFrictionSignals`, `getMemberActivityTimeline`, `analytics_member_window_comparison` |
 
 The chosen window and the test-account toggle live in the URL
 (`?range=7d|30d|90d|custom&from=&to=&test=on`), so changing either is a
-navigation and the aggregation re-runs in Postgres. Nothing in the section
-is a client component; no event row reaches a browser.
+navigation and the aggregation re-runs in Postgres. The member views add
+`&state=` for the engagement filter and `&ref=`/`&window=` for the
+before/after comparison, on the same principle. Nothing in the section is a
+client component; no event row reaches a browser.
 
-`lib/analytics-dashboard/` holds the three pure modules the screens depend
+`lib/analytics-dashboard/` holds the four pure modules the screens depend
 on: `viewState.ts` (what a URL means, and the previous equivalent period),
 `trend.ts` (comparison against that period, with no percentage invented
-from a zero baseline), and `presentation.ts` (formatting, the "too few to
-rate" rule, and the empty-state copy). The screens themselves cannot be
-unit-rendered in this repo, so those rules live there and are tested
-directly.
+from a zero baseline), `presentation.ts` (formatting, the "too few to rate"
+rule, and the empty-state copy), and `memberView.ts` (engagement sorting and
+filtering, the basis and signal labels, the before/after readout, and the
+member views' empty copy). The screens themselves cannot be unit-rendered in
+this repo, so those rules live there and are tested directly.
+
+### The member views
+
+The engagement table lists every in-scope member, sorted most in need of
+attention first: INACTIVE, then WATCH, then ACTIVE, and inside each of those
+the longest away first. NEW is the service layer's fourth state and sorts
+last, below ACTIVE: a member whose first activity was four days ago has not
+disengaged, and putting her above a member who genuinely stopped would push
+the real absences down the list. She is listed, never hidden.
+
+Each row carries the state, the basis **in the service layer's own token**
+(`self_comparison`, `fixed_thresholds`, `new_member`, `never_active`) beside
+its plain-language expansion, days since last active, her usual rhythm where
+one is known, and how many friction signals are raised.
+
+The signal count comes from `findMembersForCoachFollowUp`, which runs the
+per-member friction queries only for members already in a WATCH or INACTIVE
+state. An ACTIVE or NEW member is therefore shown as **"Not counted"**, never
+as a zero: an uncounted member and a member with nothing raised are different
+facts, and a zero would make the second claim on the first's behalf.
+
+The detail shows her state and reason, her signals as cards (the observation
+verbatim, since when, the evidence counts, and the evidence sufficiency), her
+activity timeline, and the before/after comparison. The before/after
+reference date defaults to one whole window before the end of the selected
+range, so the after window has finished elapsing. Defaulting to today would
+show an empty after window, which reads as a collapse whether or not anything
+collapsed.
+
+### The activity timeline, the one row-level read
+
+`lib/analytics-service/timeline.ts` is the only function in this layer that
+reads rows rather than handing a whole question to Postgres. There is no
+per-day, per-feature database function to ask, and the question is about one
+member over one bounded range, so it reads that member's rows through the
+same `product_analytics_events` view and groups them in TypeScript. No new
+database function and no new migration.
+
+Four things keep it honest and inside the doctrine above:
+
+- **Authorization is inherited, not reimplemented.** The first call is
+  `analytics_member_engagement_facts` for that member, which runs
+  `analytics_assert_admin()` and raises 42501. A non-administrator is refused
+  before a single row is read, with the same `AnalyticsAccessDeniedError`
+  every other function raises. That call is also what decides whether the id
+  is an in-scope member, so there is no second scope rule.
+- **The rows never leave the server.** What the action returns is counts: a
+  day, a feature, how many events, how many starts, how many completions. No
+  payload, no event id, no timestamp finer than the calendar day.
+- **The labels come from the database.** `analytics_feature_registry()` and
+  `analytics_flow_registry()` are read over RPC rather than copied into
+  TypeScript, so a timeline cannot label a feature differently from the
+  feature usage screen or disagree about which events are a start.
+- **It is capped, and says when it capped.** `TIMELINE_ROW_CAP` is 2000. On
+  reaching it the oldest included day is dropped, because it is the only one
+  that could be half read, and the screen says which days are missing rather
+  than looking complete.
+
+An event type with no registry entry (a sign-in, a signup, a paywall view)
+still appears, labelled with its own event type made readable. Dropping it
+would make a member's week look quieter than it was, and a second registry of
+labels would drift. Note that this is a wider set than **meaningful
+activity**: a signup on its own is not app usage for the engagement rules,
+but it is something that happened and it belongs on her timeline.
 
 The dashboard never resolves a date range of its own: `parseDashboardView`
 builds an `AnalyticsPeriod` and hands it to `resolveAnalyticsRange`, the
@@ -57,6 +126,11 @@ security policies.
 New in this build: migration 149 (twenty read-only database functions and
 one index), `lib/analytics-service/`, and `app/actions/analyticsAdmin.ts`.
 Nothing existing was modified.
+
+Added by the two dashboard builds after it, with no migration and no new
+database function: `lib/analytics-dashboard/`, `components/admin/analytics/`,
+the six page routes, `lib/analytics-service/timeline.ts`, and one action,
+`getMemberActivityTimelineAction`.
 
 ## Definitions
 
@@ -386,6 +460,8 @@ on the platform.
 | `tests/analytics-service-integration.test.ts` | every metric against a hand-countable fixture, the funnel including the unmeasurable stage, test-account exclusion and the toggle, member isolation, privacy, authorization, empty states |
 | `tests/admin-analytics-dashboard-view.test.ts` | the dashboard's pure rules: range parsing and fallbacks, the previous period, trend, the toggle across links, empty and thin-data copy, plus structural checks on the four pages |
 | `tests/admin-analytics-dashboard-access.test.ts` | the four reports the dashboard reads: administrator admitted, member, coach and visitor each refused, the toggle moving real numbers, range switching reaching the database, an empty window returning nulls |
+| `tests/admin-analytics-member-view.test.ts` | the member views' pure rules: state sorting and filtering, the toggle across every link, the basis and signal labels, the insufficient-history case, the before/after controls and readout, every empty state, plus structural checks on the two pages |
+| `tests/admin-analytics-member-access.test.ts` | the five reads the member views make: administrator admitted, member, coach and visitor each refused, the timeline refusing before it reads a row, the toggle moving the list and the per-member reads, real signals with no interpretation, health content written into the same stream reaching neither screen, and the before/after primitive over two real windows |
 
 ## Live verification
 

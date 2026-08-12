@@ -1,3 +1,70 @@
+## Admin Analytics, Prompt 3 of 3: the member engagement views (2026-08-12)
+
+The per-member layer the Prompt 1 service layer already computed, made visible. Two new screens under `/admin/analytics`. No new database function, no new event type, no new tracking, no new migration, no LLM. Migration 149 is still the newest migration.
+
+### The two views
+
+`/admin/analytics/members` **Member engagement.** Every in-scope member with her engagement state, the basis it was decided on in the service layer's own token beside the plain-language expansion, days since last active, her usual rhythm where one is known, and how many friction signals are raised. Sorted most in need of attention first: Inactive, then Watch, then Active, and inside each of those the longest away first. Filterable by state, with a live count on every chip.
+
+`/admin/analytics/members/[memberId]` **Member detail.** Her state and reason, her friction signals as cards a coach can act on, her activity timeline, and a before and after comparison around a date the administrator picks.
+
+### The decisions
+
+**NEW is the fourth state, and it sorts last.** The build asked for Inactive, Watch, Active. The service layer also returns NEW. A member whose first activity was four days ago has not disengaged, and putting her above someone who genuinely stopped would push the real absences down the list. She sorts below Active, is counted on her own filter chip, and is never hidden.
+
+**A signal count that was not taken says so.** The table's counts come from `findMembersForCoachFollowUp`, the existing entry point, which deliberately runs the per-member friction queries only for members already in a Watch or Inactive state. An Active or New member therefore reads **"Not counted"**, never `0`. An uncounted member and a member with nothing raised are different facts, and a zero would make the second claim on the first's behalf. The screen says so under the table.
+
+**The basis is shown in the service layer's own word.** `self_comparison` or `fixed_thresholds` renders as a monospace chip beside the sentence that expands it. A state decided against a member's own baseline and a state decided by a fixed 7 and 21 day threshold are different strengths of claim, and collapsing them into one badge would let the weaker be read as the stronger.
+
+**A signal card is an observation, not advice.** Four things in order: the service layer's own sentence verbatim, since when, the evidence counts, and how much behavior stood behind it. No recommendation, no priority, no severity, no generated text. Signals that are context rather than friction (a habit that is holding, a return after an absence) are labelled as such and sorted below the friction ones, because a coach reading "she has been back three days running" beside "she keeps abandoning the Daily Reset" is reading the real situation.
+
+**Insufficient history is a card, not an absence.** Where the service layer returns its single `insufficient_behavioral_history` signal, the card is titled exactly **"Not enough history to say"** and still shows its evidence. Thin has to read as thin, not as broken. With current production usage that is the common case.
+
+**The before/after reference date defaults backwards, not to today.** One whole window before the end of the selected range, so the after window has finished elapsing. Defaulting to today would show an after window with nothing in it yet, which reads as a collapse whether or not anything collapsed. Where the after window still has not completed, `afterWindowComplete` puts a gold notice on the screen saying how many days of it have elapsed.
+
+**Nothing invents a percentage.** Up from none, down to none, no change, or a signed movement (points for a rate, a count otherwise). A null rate reads "Not measured", never `0%`.
+
+### The activity timeline, the one place rows are read
+
+There is no per-day, per-feature database function, and the build forbids adding one. `lib/analytics-service/timeline.ts` therefore reads one member's rows over one bounded range through the same `product_analytics_events` view every other query uses, and groups them in TypeScript. Four things keep it inside the layer's doctrine:
+
+- **Authorization is inherited, not reimplemented.** The first call is `analytics_member_engagement_facts` for that member, which runs `analytics_assert_admin()` and raises 42501. A member or coach is refused there, before a single row is read, with the same `AnalyticsAccessDeniedError` every other function raises. That call is also what decides whether the id is in scope, so there is no second scope rule and the test-account toggle reaches it unchanged.
+- **The rows never leave the server.** The action returns counts: a day, a feature, events, starts, completions. No payload, no event id, no timestamp finer than the calendar day. A test asserts the returned object contains no `payload`, no `occurred_at`, and no clock time.
+- **The labels come from the database.** `analytics_feature_registry()` and `analytics_flow_registry()` are read over RPC rather than copied into TypeScript, so a timeline cannot label a feature differently from the feature usage screen or disagree about which events are a start and which a completion.
+- **It is capped and says so.** 2000 rows. On reaching the cap the oldest included day is dropped, because it is the only one that could be half read, and the screen names the date before which days are missing rather than looking complete.
+
+An event type with no registry entry (a sign-in, a signup, a paywall view) still appears, labelled with its own event type made readable. Dropping it would make a member's week look quieter than it was. This is deliberately a wider set than "meaningful activity": a signup is not app usage for the engagement rules, but it is something that happened and it belongs on her timeline.
+
+### Privacy
+
+No health content appears on either screen because none exists in what they read. All three reads go through the service layer, which reads only `product_analytics_events`, a view that excludes the five health-content wellness event types by construction (migration 146). The member detail opens no other data source, and a test asserts its import list contains no other data module. A second test writes real health content (`concern_flagged` with a pain location, `morning_readiness_recorded` with sleep and energy numbers) into the same event stream for the same member in the same window, then asserts that neither the friction report nor the timeline contains any of it or any health field name.
+
+### What was reused, and what is new
+
+Reused unchanged: every function in `lib/analytics-service/`, the existing entry points in `app/actions/analyticsAdmin.ts`, `requireAnalyticsAdmin`, `AnalyticsChrome`, and every primitive in `components/admin/analytics/primitives.tsx`.
+
+New: `lib/analytics-dashboard/memberView.ts`, `lib/analytics-service/timeline.ts`, `components/admin/analytics/memberPrimitives.tsx`, the two page routes, one action (`getMemberActivityTimelineAction`), two test files, and `scripts/verify-admin-analytics-members.mjs`.
+
+Modified: `AnalyticsChrome.tsx` (a fifth tab, and the detail route recognised as living under it), `analytics-service/index.ts` (exports), `analyticsAdmin.ts` (the one new action), and `app/admin/page.tsx` (one sentence on the existing analytics link).
+
+### Access
+
+The same four independent layers as Prompt 2, none of them new. The layout guards the whole subtree, each new page guards itself again (the call, not just the import, which the test checks), every action runs `requireAdmin`, and every database function calls `analytics_assert_admin()` under row level security. The timeline additionally cannot read a row until the guarded facts call has returned.
+
+### Tests
+
+`tests/admin-analytics-member-view.test.ts`, 65 tests, no database: sorting in every combination including never-active and the stable tiebreak, filtering and counting, the toggle and the range on every link, the basis labels, every signal title checked against a banned-language pattern, the insufficient-history case, since-when in all three of its fallbacks, evidence formatting, the before/after controls and readout, every empty state, and structural checks on the two pages.
+
+`tests/admin-analytics-member-access.test.ts`, 29 tests, real local Supabase: administrator admitted to all five reads, member, coach and visitor each refused by all five with `AnalyticsAccessDeniedError`, the timeline refusing before it reads a row, the table listing real members and excluding coaches and administrators, real sort order, the toggle moving both the list and the per-member reads, real signals with no interpretive language, health content reaching neither screen, the timeline's day grouping and start/completion split against a hand-countable fixture, and the before/after primitive over two real windows.
+
+Guard tests proved non-vacuous by breaking the code: forcing `includeTestAccounts` true inside the timeline failed the toggle test; reversing the state order failed three sorting tests; deleting one page's guard call failed the page-guard test. Each was reverted and confirmed byte-identical with `diff` before rerunning green.
+
+### Verified locally
+
+Typecheck clean. Repo-root lint 0 errors, the same 90 pre-existing warnings, none in new or touched files. Production build compiled successfully with both new routes dynamic. Full suite run twice, once before and once after a fresh `supabase db reset`: 4161 of 4162 passing both times, the single failure being the documented pre-existing `correlation-engine-integration.test.ts` Spearman date-math flake.
+
+In a real browser against local Supabase, 23 of 23 checks: a signed-out visitor, a signed-in member and a signed-in coach each refused on both new routes including a member detail URL typed directly; the table rendering and sorted correctly; each of the four state filters showing only its own state or an honest empty state; the test-account toggle moving the list from 1 real member to 2 with a test account flagged, and back; two member details rendering with state, basis, signals, timeline and before/after; the before/after form re-running the query with a chosen date; an id that is nobody and an id that is not even a uuid each answered with an empty state rather than a crash. A temporary local fixture (90 days of real events, deleted afterwards, local database reset to pristine after) exercised the populated paths: `WATCH` on `self_comparison`, 7 real signals, 31 timeline days. Every rendered page was scanned for 16 health field names and none appeared.
+
 ## Admin Analytics, Prompt 2 of 3: the dashboard screens (2026-08-12)
 
 Four admin-only screens over the service layer Prompt 1 shipped. No new database function, no new event type, no new tracking, and no member-facing change of any kind. Migration 149 is still the newest migration; this build added none.

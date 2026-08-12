@@ -37,11 +37,11 @@ export default async function AdminPage() {
         >
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Analytics</p>
           <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
-            Product analytics: overview, funnel, features, drop-off
+            Product analytics: overview, funnel, features, drop-off, members
           </p>
           <p className="mt-1 text-sm text-[#6B7A72]">
-            Active members, sessions, where people stop, and which features nobody has opened. Test
-            accounts are excluded unless you turn them on.
+            Active members, sessions, where people stop, which features nobody has opened, and each
+            member&apos;s own engagement state. Test accounts are excluded unless you turn them on.
           </p>
         </Link>
 

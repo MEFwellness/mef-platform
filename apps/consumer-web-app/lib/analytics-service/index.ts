@@ -13,6 +13,7 @@
  *   engagementState.ts  group E: the engagement rules, pure and documented
  *   detections.ts       the shared detection primitives, one per condition
  *   comparison.ts       the before/after primitive
+ *   timeline.ts         one member's own days, features, starts and completions
  *   friction.ts         behavioral friction signals, built on the detections
  *   queries.ts          group F: the agent-ready questions, all wrappers
  *
@@ -72,6 +73,12 @@ export {
   getMemberWindowComparison,
 } from './comparison';
 export type { MetricDelta, WindowComparisonOptions } from './comparison';
+export { TIMELINE_ROW_CAP, getMemberActivityTimeline } from './timeline';
+export type {
+  MemberActivityTimeline,
+  MemberTimelineDay,
+  TimelineFeatureCount,
+} from './timeline';
 export {
   CONSISTENT_USE_MINIMUM_DAYS,
   CONSISTENT_USE_SHARE,

@@ -1,6 +1,6 @@
 /**
- * The chrome every admin analytics view shares: the title, the four tabs,
- * the date range selector, and the test-account toggle.
+ * The chrome every admin analytics view shares: the title, the tabs, the
+ * date range selector, and the test-account toggle.
  *
  * Server components, all of it. There is no client-side state here on
  * purpose: the date range and the test-account toggle are in the URL, so
@@ -9,8 +9,8 @@
  * loaded into a browser, because the browser never receives a row.
  *
  * The toggle is one control that sits above the tabs, so it applies to
- * whichever of the four views is open and stays applied when the admin
- * moves between them.
+ * whichever view is open and stays applied when the admin moves between
+ * them, including onto a single member's detail.
  */
 
 import Link from 'next/link';
@@ -32,16 +32,31 @@ export const ANALYTICS_TABS = [
   { href: '/admin/analytics/funnel', label: 'Member funnel' },
   { href: '/admin/analytics/features', label: 'Feature usage' },
   { href: '/admin/analytics/drop-off', label: 'Drop-off' },
+  { href: '/admin/analytics/members', label: 'Members' },
 ] as const;
 
 export type AnalyticsTabHref = (typeof ANALYTICS_TABS)[number]['href'];
 
-function Tabs({ current, view }: { current: AnalyticsTabHref; view: DashboardView }) {
+/**
+ * A member detail sits under the Members tab rather than earning a tab of
+ * its own, so the range, the test-account toggle and the navigation all
+ * carry over from the table she was opened from.
+ */
+export type AnalyticsSectionHref = AnalyticsTabHref | `/admin/analytics/members/${string}`;
+
+const MEMBERS_TAB = '/admin/analytics/members';
+
+function isTabActive(tabHref: AnalyticsTabHref, current: AnalyticsSectionHref): boolean {
+  if (tabHref === current) return true;
+  return tabHref === MEMBERS_TAB && current.startsWith(`${MEMBERS_TAB}/`);
+}
+
+function Tabs({ current, view }: { current: AnalyticsSectionHref; view: DashboardView }) {
   return (
     <nav aria-label="Analytics views" className="mt-6 border-b border-[#1B3A2D]/10">
       <ul className="flex flex-wrap items-end gap-x-6 gap-y-1">
         {ANALYTICS_TABS.map((tab) => {
-          const active = tab.href === current;
+          const active = isTabActive(tab.href, current);
           return (
             <li key={tab.href}>
               <Link
@@ -63,7 +78,7 @@ function Tabs({ current, view }: { current: AnalyticsTabHref; view: DashboardVie
   );
 }
 
-function RangePills({ current, view }: { current: AnalyticsTabHref; view: DashboardView }) {
+function RangePills({ current, view }: { current: AnalyticsSectionHref; view: DashboardView }) {
   return (
     <div
       role="group"
@@ -98,7 +113,7 @@ function RangePills({ current, view }: { current: AnalyticsTabHref; view: Dashbo
  * all. The test-account toggle rides along as a hidden field so submitting
  * a date range never quietly switches it off.
  */
-function CustomRangeForm({ current, view }: { current: AnalyticsTabHref; view: DashboardView }) {
+function CustomRangeForm({ current, view }: { current: AnalyticsSectionHref; view: DashboardView }) {
   const field =
     'mef-focus-ring rounded-xl border border-[#1B3A2D]/15 bg-white px-2.5 py-1.5 text-[12.5px] text-[#1B3A2D]';
   return (
@@ -137,7 +152,7 @@ function CustomRangeForm({ current, view }: { current: AnalyticsTabHref; view: D
   );
 }
 
-function TestAccountToggle({ current, view }: { current: AnalyticsTabHref; view: DashboardView }) {
+function TestAccountToggle({ current, view }: { current: AnalyticsSectionHref; view: DashboardView }) {
   const on = view.includeTestAccounts;
   return (
     <Link
@@ -173,7 +188,7 @@ export function AnalyticsChrome({
   intro,
   children,
 }: {
-  current: AnalyticsTabHref;
+  current: AnalyticsSectionHref;
   view: DashboardView;
   title: string;
   intro: string;

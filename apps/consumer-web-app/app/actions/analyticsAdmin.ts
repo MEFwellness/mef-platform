@@ -43,6 +43,7 @@ import {
   getDropOff,
   getFeatureUsage,
   getFunnel,
+  getMemberActivityTimeline,
   getMemberEngagementStates,
   getMemberFrictionSignals,
   getMemberWindowComparison,
@@ -55,6 +56,7 @@ import type {
   FeatureUsageReport,
   Funnel,
   IncompleteFlowDetection,
+  MemberActivityTimeline,
   MemberEngagement,
   MemberFollowUpCandidate,
   MemberFrictionReport,
@@ -219,6 +221,24 @@ export async function getMemberWindowComparisonAction(
   if (!referenceDate) return { ok: false, error: 'A reference date is required.' };
   return guarded('getMemberWindowComparisonAction', (supabase) =>
     getMemberWindowComparison(supabase, memberId, referenceDate, options)
+  );
+}
+
+/**
+ * One member's own days, features, starts and completions, for the member
+ * detail screen's activity timeline.
+ *
+ * The aggregation happens server side, inside the service layer: what comes
+ * back is counts per day and per feature, never an event row, never a
+ * payload, never a timestamp finer than the calendar day.
+ */
+export async function getMemberActivityTimelineAction(
+  memberId: string,
+  options?: AnalyticsOptions
+): Promise<AnalyticsActionResult<MemberActivityTimeline>> {
+  if (!memberId) return { ok: false, error: 'A member is required.' };
+  return guarded('getMemberActivityTimelineAction', (supabase) =>
+    getMemberActivityTimeline(supabase, memberId, options)
   );
 }
 
