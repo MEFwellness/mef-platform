@@ -88,9 +88,17 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
         {/* The one focal confirmation: a ring and a check that draw
             themselves once, plus the single completion haptic. Bible §9's
             success-state precedent, never the gold sweep — that is
-            reserved for genuine first-completion milestones. */}
+            reserved for genuine first-completion milestones.
+            The haptic is gated on her having completed it just now: this
+            same state also mounts on an ordinary reload, and buzzing there
+            would be feedback for something she did hours ago. */}
         <div className="mt-3 flex items-center gap-2 text-sm font-medium text-green-700">
-          <SuccessCheck size={20} color="#15803d" className="shrink-0" />
+          <SuccessCheck
+            size={20}
+            color="#15803d"
+            haptic={motion.justResolved}
+            className="shrink-0"
+          />
           {PRIORITY_DONE_TEXT}
         </div>
       </section>

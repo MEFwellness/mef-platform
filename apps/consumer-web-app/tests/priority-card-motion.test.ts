@@ -407,6 +407,32 @@ describe('motion cannot change what the card does', () => {
     }
   });
 
+  it('the completion haptic fires only when she completed it just now', () => {
+    // Found on the live site: the accomplished state also mounts on an
+    // ordinary reload, and SuccessCheck's default is to buzz on every
+    // mount. Unguarded, that is haptic feedback for something she did
+    // hours ago (and a console error, since there is no user gesture).
+    const hook = read('components/priority/usePriorityCardMotion.ts');
+    const effect = hook.slice(hook.indexOf('const previousStatus'));
+    const alreadyResolvedReturn = effect.indexOf("setResolvePhase(status === 'active' ? 'active' : 'resolved')");
+    const setsJustResolved = effect.indexOf('setJustResolved(true)');
+    expect(alreadyResolvedReturn).toBeGreaterThan(-1);
+    // The already-resolved path returns before justResolved is ever set.
+    expect(setsJustResolved).toBeGreaterThan(alreadyResolvedReturn);
+    // And it starts false, so a card that mounts already done never buzzes.
+    expect(hook).toContain('useState(false)');
+
+    for (const file of [
+      'components/priority/PriorityCard.tsx',
+      'components/priority/PriorityCardPopup.tsx',
+    ]) {
+      const source = readCode(file);
+      expect(source).toContain('haptic={motion.justResolved}');
+      // Never the unguarded default.
+      expect(source).not.toMatch(/<SuccessCheck(?![\s\S]{0,200}haptic=)/);
+    }
+  });
+
   it('the bridge is presentation only and reaches no database of its own', () => {
     const transition = read('lib/priority/transition.ts');
     expect(transition).not.toContain('supabase');
@@ -422,6 +448,31 @@ describe('motion cannot change what the card does', () => {
     // A different day is a different key, which is what makes tomorrow's
     // adaptation a genuinely new sequence.
     expect(priorityBridgeSeenKey('2026-08-12')).not.toBe(priorityBridgeSeenKey('2026-08-13'));
+  });
+
+  it('claims the day only once the sequence has finished, never on mount', () => {
+    // Found in a real browser: claiming on mount means any remount before
+    // the sequence has played swallows it permanently and silently, since
+    // a bridge that never appears is indistinguishable from a day Root
+    // did not adapt. React StrictMode reproduces that on every dev mount.
+    const hook = read('components/priority/usePriorityCardMotion.ts');
+    // From the effect's own call, not the import that also names it.
+    const effect = hook.slice(
+      hook.indexOf('useLayoutEffect(() => {'),
+      hook.indexOf('// ---- Done')
+    );
+    const marks = [...effect.matchAll(/markBridgeSeen\(/g)].map((m) => m.index ?? -1);
+    expect(marks).toHaveLength(1);
+
+    // The one claim is inside a setTimeout, at the moment the sequence
+    // ends — never in the same tick the guard was read.
+    const claim = effect.slice(effect.indexOf('const claim = setTimeout'));
+    expect(claim).toContain('markBridgeSeen(');
+    expect(claim).toContain('PRIORITY_BRIDGE_AT_MS.today');
+    expect(marks[0]).toBeGreaterThan(effect.indexOf('const claim = setTimeout'));
+
+    // And it is cleared on unmount, so a remount genuinely re-decides.
+    expect(effect).toContain('clearTimeout(claim)');
   });
 
   it('an unavailable sessionStorage lets the sequence replay rather than throwing', () => {

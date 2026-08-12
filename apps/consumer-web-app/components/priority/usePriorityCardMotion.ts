@@ -63,6 +63,19 @@ export type PriorityCardMotion = {
   /** Yesterday's block is stepping back, on its way out. */
   bridgeReceding: boolean;
   resolvePhase: PriorityResolvePhase;
+  /**
+   * She completed or saved it just now, in front of her, rather than
+   * arriving at a card that was already resolved.
+   *
+   * This is what gates the completion haptic. Found live: the accomplished
+   * state also mounts on an ordinary page load (a reload of Today, a
+   * navigation back to Home after finishing earlier), and a haptic there
+   * buzzes for something she did hours ago. Chrome says so out loud —
+   * `navigator.vibrate` with no user gesture behind it logs a console
+   * error — but the real problem is the meaning, not the warning. Bible §9
+   * gives haptics to a completed action, never to rendering a past one.
+   */
+  justResolved: boolean;
 };
 
 /**
@@ -138,27 +151,48 @@ export function usePriorityCardMotion(
       setBridgePhase('card');
       return;
     }
-    markBridgeSeen(view.localDate);
 
     // Reduced motion: the same three parts, all at once, as plain
-    // sequential text. Not a shortened animation, and not a skipped
-    // message either — she is told what Root adapted from, just without
-    // being made to watch it happen.
-    if (prefersReducedMotionNow()) {
-      setBridgePhase('all');
-      return;
-    }
+    // sequential text, and they simply stay. Not a shortened animation,
+    // and not a skipped message either — she is told what Root adapted
+    // from, just without being made to watch it happen.
+    const reduced = prefersReducedMotionNow();
+    if (reduced) setBridgePhase('all');
 
-    const toLine = setTimeout(() => setBridgePhase('line'), PRIORITY_BRIDGE_AT_MS.line);
-    const toHandover = setTimeout(
-      () => setBridgePhase('handover'),
-      PRIORITY_BRIDGE_AT_MS.handover
+    const timers = reduced
+      ? []
+      : [
+          setTimeout(() => setBridgePhase('line'), PRIORITY_BRIDGE_AT_MS.line),
+          setTimeout(() => setBridgePhase('handover'), PRIORITY_BRIDGE_AT_MS.handover),
+          setTimeout(() => setBridgePhase('card'), PRIORITY_BRIDGE_AT_MS.today),
+        ];
+
+    // The day is claimed when the sequence has finished, NEVER in the same
+    // tick it was read.
+    //
+    // Found while driving this in a real browser: claiming on mount means
+    // any remount of the card before it has played swallows the day's
+    // sequence permanently, because the remount reads the guard its own
+    // previous mount just wrote. React's StrictMode makes that reproduce
+    // on every development mount, and the same hole is open in production
+    // to a Suspense retry or any other remount. The failure is silent — a
+    // bridge that never appears looks exactly like a day Root did not
+    // adapt.
+    //
+    // Deferring the claim also gives the right answer when she navigates
+    // away mid-sequence: she did not see it, so the next surface still
+    // shows it. The reduced-motion path uses the same delay for the same
+    // reason, even though it has nothing to wait through: the parts it
+    // renders are static, so re-rendering them on a remount costs nothing
+    // and losing them costs her the message.
+    const claim = setTimeout(
+      () => markBridgeSeen(view.localDate),
+      PRIORITY_BRIDGE_AT_MS.today
     );
-    const toCard = setTimeout(() => setBridgePhase('card'), PRIORITY_BRIDGE_AT_MS.today);
+
     return () => {
-      clearTimeout(toLine);
-      clearTimeout(toHandover);
-      clearTimeout(toCard);
+      for (const timer of timers) clearTimeout(timer);
+      clearTimeout(claim);
     };
     // Runs once per mount: a bridge is a property of the day, not of a
     // re-render, and re-running it would be the replay this guards against.
@@ -173,6 +207,7 @@ export function usePriorityCardMotion(
     status === 'active' ? 'active' : 'resolved'
   );
   const previousStatus = useRef<PriorityStatus>(status);
+  const [justResolved, setJustResolved] = useState(false);
 
   useEffect(() => {
     const from = previousStatus.current;
@@ -183,6 +218,9 @@ export function usePriorityCardMotion(
       setResolvePhase(status === 'active' ? 'active' : 'resolved');
       return;
     }
+
+    // From here down she acted just now, whether or not the motion runs.
+    setJustResolved(true);
 
     if (reduced) {
       setResolvePhase('resolved');
@@ -203,5 +241,6 @@ export function usePriorityCardMotion(
     showsToday: bridgePhase === 'card' || bridgePhase === 'all',
     bridgeReceding: bridgePhase === 'handover',
     resolvePhase,
+    justResolved,
   };
 }

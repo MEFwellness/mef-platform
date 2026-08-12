@@ -168,8 +168,15 @@ export function PriorityCardPopup({
                 <p className="relative mt-5 flex items-center gap-2 text-sm font-medium text-[#C4A050]">
                   {status === 'done' && (
                     // The one focal confirmation, drawing itself once, plus
-                    // the single completion haptic where the platform has one.
-                    <SuccessCheck size={20} color="#C4A050" className="shrink-0" />
+                    // the single completion haptic where the platform has
+                    // one — and only when she completed it just now, never
+                    // when this state simply mounts already resolved.
+                    <SuccessCheck
+                      size={20}
+                      color="#C4A050"
+                      haptic={motion.justResolved}
+                      className="shrink-0"
+                    />
                   )}
                   {status === 'done' ? PRIORITY_DONE_TEXT : PRIORITY_SAVED_TEXT}
                 </p>
