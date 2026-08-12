@@ -50,9 +50,28 @@ select * from product_analytics_events where is_test = false;
    normally; `where is_test = false` is what removes them from a report.
    Never omit that filter on a number anyone will act on.
 
-`occurred_at` is the ordering column, always. `recorded_at` is server write
-time and exists only as an audit fact. `local_date` is the member's own
-calendar day, computed at write time from `occurred_at` in their timezone.
+`occurred_at` is the ordering column, always. `local_date` is the member's
+own calendar day, computed at write time from `occurred_at` in their
+timezone.
+
+**One thing to know before writing a query.** `occurred_at` is not a true
+UTC instant. It is the member's wall clock stamped as UTC, which is how
+`nowInTimezone` in `lib/time/localDate.ts` has always worked and is what
+makes `local_date` come out right. Every event in this table, including
+the five pre-existing wellness types, has always been written this way.
+Three consequences:
+
+- For grouping by day or week, use `local_date`. It is the member's real
+  calendar day and it is correct.
+- For comparing against a real clock instant ("in the last 24 hours",
+  "within 7 days of signup"), use `recorded_at`. That is the true server
+  write time.
+- For ordering events relative to each other, `occurred_at` is correct and
+  is the column every reader in this codebase already uses.
+
+Confirmed against production on 2026-08-12: a journey run at 04:06 UTC
+wrote `occurred_at` 00:06 and `recorded_at` 04:06 for a member in
+America/New_York, with `local_date` correctly 2026-08-12.
 
 ## Event types
 
@@ -143,7 +162,7 @@ select local_date, count(distinct member_id) as daily_actives
 from product_analytics_events
 where event_type = 'session_started'
   and is_test = false
-  and occurred_at >= now() - interval '30 days'
+  and local_date >= current_date - 30
 group by local_date
 order by local_date;
 ```
@@ -151,12 +170,12 @@ order by local_date;
 **Weekly actives**
 
 ```sql
-select date_trunc('week', occurred_at)::date as week_start,
+select date_trunc('week', local_date)::date as week_start,
        count(distinct member_id) as weekly_actives
 from product_analytics_events
 where event_type = 'session_started'
   and is_test = false
-  and occurred_at >= now() - interval '12 weeks'
+  and local_date >= current_date - 84
 group by 1
 order by 1;
 ```
@@ -190,7 +209,7 @@ three times in one day is one visit, not three.
 
 ```sql
 with signups as (
-  select member_id, min(occurred_at) as signed_up_at
+  select member_id, min(recorded_at) as signed_up_at
   from product_analytics_events
   where event_type = 'signup_completed' and is_test = false
   group by member_id
@@ -202,7 +221,7 @@ from (
            select 1 from product_analytics_events e
            where e.member_id = s.member_id
              and e.event_type = 'session_started'
-             and e.occurred_at between s.signed_up_at + interval '1 day'
+             and e.recorded_at between s.signed_up_at + interval '1 day'
                                   and s.signed_up_at + interval '7 days'
          ) as returned
   from signups s
@@ -219,7 +238,7 @@ select
   count(distinct member_id) filter (where event_type = 'onboarding_completed') as completed
 from product_analytics_events
 where is_test = false
-  and occurred_at >= now() - interval '30 days';
+  and local_date >= current_date - 30;
 ```
 
 **Daily Reset abandonment**
@@ -230,7 +249,7 @@ select local_date,
   count(*) filter (where event_type = 'daily_reset_completed') as completed
 from product_analytics_events
 where is_test = false
-  and occurred_at >= now() - interval '30 days'
+  and local_date >= current_date - 30
 group by local_date
 order by local_date;
 ```
@@ -256,7 +275,7 @@ select payload->>'surface' as surface,
        count(distinct member_id) as members
 from product_analytics_events
 where event_type = 'surface_viewed' and is_test = false
-  and occurred_at >= now() - interval '30 days'
+  and local_date >= current_date - 30
 group by 1
 order by views desc;
 ```
