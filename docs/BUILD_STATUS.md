@@ -62,6 +62,44 @@ The precedence tests are built to be **non-vacuous by construction**: every one 
 
 All three sources were restored and re-verified clean afterwards.
 
+### Live verification on app.mefwellness.com (2026-08-12)
+
+Deploy confirmed before testing: repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform` (org `mef-wellness`), target **Production**, deployment `mef-platform-mlwe9xgb7`, status Ready, and `app.mefwellness.com` listed among its aliases via `vercel inspect`.
+
+Migration 147 applied to production before the deploy, via `psql` over the pooler as a single `ON_ERROR_STOP` transaction, the same method used for 143/145/146. Pre-flight confirmed the table absent, the index name free, all 5 policy names free, and `has_active_role`/`is_active_coach_for` present. 12 statements, all succeeded. Post-checks: 13 columns, RLS enabled, 5 policies, 1 unique constraint, all three new event types accepted by `is_product_analytics_event_type`, and `product_analytics_events` still selectable. Recorded in the ledger; `db push --dry-run` reports **"Remote database is up to date."**
+
+Driven with `scripts/screenshots/verify-priority-card-live.mjs`. **Zero console errors, zero page errors, zero 5xx across every account.**
+
+#### memberPopulated — rule 1 won, and it was the right rule
+
+Card rendered as **section 1 of 7**, the dominant first element, with exactly one card on the page and all three buttons.
+
+- **Priority**: "See if you can catch the moment your energy dips today. Notice what was happening just before it changed. Then stand and roll your shoulders once." That is her own active Reset Plan's agreed action, verbatim from the action library (`energy` / `still_deciding`, plan active since 2026-08-02) — not a reworded copy.
+- **Reason**: "You have logged this on 1 day since your plan started." Verified against the data: she had exactly one prior logged day (2026-08-02, `not_today`). The singular/plural branch is correct.
+- **Help me**: expanded **in place**, still on `/today`, no navigation, revealing the plan's own difficult-day version: "Just catch the dip. Noticing it is enough."
+- **Done**: card moved to the accomplished state, and it **persisted across a full reload** ("Done today.").
+- **Done's real side effect confirmed in the database**: `member_reset_plan_daily_logs` gained `2026-08-12 / completed_normal`. That is the thing that genuinely feeds tomorrow's selection, since rule 1 asks "not completed today". Not decorative.
+- No em dash in the card.
+
+**Analytics, read back from production**: 3 x `priority_shown` `{"rule":"reset_plan_commitment"}`, plus `priority_action` `{"rule":"reset_plan_commitment","action":"help"}` and `priority_action` `{"rule":"reset_plan_commitment","action":"done"}`. Behavioral only, no health content, no priority text.
+
+#### memberBelowThreshold and memberEmpty — no card, and the reason is upstream
+
+Neither account rendered a card. The engine behaved **correctly and honestly**: every rule's input is genuinely absent for them, so `selectPriority` returned null rather than inventing a priority.
+
+The specific cause is rule 4. Both accounts show the Today page's own **pre-existing** empty state, "Still putting today's lesson together." — the branch that renders when `decision.feedItem` is null, which existed before this build. Confirmed at the source: `daily_feed_items` contains **zero rows for all three test members**, including memberPopulated. The Coaching Brain has never produced a lesson for these accounts, so rule 4, the designed catch-all, has nothing to fall back to.
+
+memberPopulated got a card only because rule 1 applied independently of the feed.
+
+**This is a real gap worth a decision, not a defect in the priority engine.** The hierarchy's "otherwise, Today's Focus" branch is empty in production for exactly the early-days population the card is most meant to serve. Flagged rather than silently patched: adding a fifth fallback rule would widen the specified hierarchy, which is the product owner's call.
+
+#### Not verified live, and why
+
+- **Save for later** — needs a member with an active card today. memberPopulated's row is already `done` for 2026-08-12, and the other two have no card. Resetting the fixture requires a write to production test-account data, which the environment's safety classifier blocked.
+- **Re-entry override** — needs a `session_started` row 7+ days old. Every test account's only sign-in rows are from today (artifacts of the migration-143 verification); memberEmpty has none at all. Seeding one backdated row for `test.member.belowthreshold` was blocked by the same classifier.
+
+Both behaviors are covered by the local guard tests, and both remain unproven **on the live site**. Stated plainly rather than implied.
+
 ### Checks
 
 `npm run typecheck` clean. `npm run lint` 0 errors (90 pre-existing `no-console` warnings, untouched). Production build compiles, 89/89 static pages. Full suite **3777/3778**.
