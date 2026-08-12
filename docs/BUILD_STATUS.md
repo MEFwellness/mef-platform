@@ -1,3 +1,63 @@
+## Production Migration Ledger Backfill (2026-08-12)
+
+Ledger-only task. Production's `supabase_migrations.schema_migrations` recorded migrations only through `00000000000134` (plus `146`), even though most of 135 through 145 had genuinely been applied by hand through the SQL Editor. That gap made `supabase db push` unusable against production: it would have tried to re-run already-applied migrations and failed. This task made the ledger match reality. **No migration SQL was re-run and no schema object was created, altered, or dropped.** The only writes were `insert into supabase_migrations.schema_migrations (version, name)` rows.
+
+Each migration was verified against production first, one at a time, and recorded only after its effects were confirmed fully present. Verification was per-migration, derived from reading each file and checking every object or data change it creates, not a single spot check.
+
+### Recorded (9 of 11), with the proof used for each
+
+| Migration | Verified before recording |
+| --- | --- |
+| 135 `cvs_day7_acknowledged` | `lifestyle_experiments.day7_acknowledged_at` exists, `timestamptz`, nullable |
+| 136 `em_dash_content_cleanup` | Zero em dashes remain in all 6 touched tables (168 onboarding questions, 88 driver probes, 4 program phases, 25 sections, 96 unified questions, 5 ai_rules), plus 7 exact post-migration values matched byte for byte, plus `assign_client_to_coach` carries the corrected exception message |
+| 137 `root_message_popup` | `member_root_popup_dismissals` with all 7 columns, both indexes (primary key and the named member index) plus the unique constraint, RLS enabled, all 5 policies |
+| 138 `life_signal_check` | Catalog row, definition version row, unified definition, exactly 3 sections, exactly 11 questions, `lifestyle_experiments.source_experience_key`, and both `lsc_day3_checkin`/`lsc_day7_result` in the coaching-message constraint |
+| 139 `em_dash_stored_content_sweep` | Zero em dashes across all 4 swept tables, which hold real data (39 recommendations, 8 experiments, 103 coaching messages, 47 narrative items), and the temporary `fix_em_dash_temp` function is gone, which is positive proof the migration reached its final statement rather than stopping partway |
+| 140 `em_dash_morning_brief_and_insights_sweep` | Zero em dashes across all 11 swept `coach_morning_briefs` columns (205 real rows) and both `coaching_insights` columns (16 rows), temp function again correctly dropped |
+| 141 `readiness_pulse` | Catalog row, definition version, unified definition, exactly 3 sections, exactly 9 questions, both `rpl_*` conversation types in the constraint, and the widened `tone_preference` constraint |
+| 142 `personal_reset_plan` | `profiles.reset_plan_granted_at`, `wellness_coaching_style_profile.tone_preference_source`, the `upsert_wellness_coaching_style_profile` function, all 3 tables, all 4 named indexes, all 14 policies, RLS enabled on all 3 |
+| 144 `questionnaire_assignment_gating` | The partial unique index exists and is genuinely partial on `status = 'pending'`, the `complete_assignment_on_assessment_attempt` function exists, and its trigger on `assessment_attempts` exists and is enabled |
+
+### NOT recorded, because they are genuinely not applied (2 of 11)
+
+**`00000000000143_root_presence_system.sql` is not applied at all.** Both tables it creates, `member_discovery_moments` and `member_return_greetings`, are entirely absent from production. Confirmed three ways: `to_regclass` returns null for both, `information_schema.tables` has no row matching either name or any similar name, and a direct `pg_class`/`pg_namespace` join finds them in no schema at all. Not partial: nothing from this migration exists. Per this task's instructions it was not applied and not recorded.
+
+**`00000000000145_daily_reset_rename_copy_sweep.sql` is not applied.** Its single `UPDATE` targets `driver_probe_questions.checkin_probe.morning_soreness` and rewrites the prompt from "How sore does your body feel this morning?" to "How sore does your body feel right now?". Production still holds the exact pre-migration string. That is unambiguous: the migration's own `WHERE` clause matches on that exact original wording, so if it had run, the row would read "right now". It is also not the guarded no-op case that clause was written for (a coach having edited the prompt since migration 109), because the value is not a coach's edit, it is the original. Not applied, not recorded.
+
+### Correction to this file's own prior entry
+
+The Product Analytics entry below states that migrations 135 through 145 "were applied by hand through the SQL Editor and simply never recorded," based on spot checks of three schema objects. That conclusion was too broad and is now corrected: 9 of the 11 were applied, but **143 and 145 were not applied at all.** The spot-check method was the flaw; this task verified all eleven individually.
+
+### Real consequence of 143 being missing, for whoever picks this up
+
+Production is running application code that queries two tables that do not exist. `lib/discovery-moments/data.ts` and `lib/return-greeting/data.ts` both read and write them. Nothing crashes, because both files already degrade safely: the read path returns an empty set on error and the write path logs and continues, which the live check below confirms. But the Root Presence System is silently inert in production, meaning discovery moments are never recorded as surfaced (so they can re-surface instead of resolving) and return greetings never persist. Fixing that means applying 143, which is deliberately outside this task's scope.
+
+145 is cosmetic: one check-in question still reads "this morning" instead of "right now".
+
+### Verification
+
+`supabase db push --dry-run` against production (via `--db-url`, the only connection form that works for this project) now reports exactly two pending files and attempts nothing:
+
+```
+DRY RUN: migrations will *not* be pushed to the database.
+Connecting to remote database...
+Found local migration files to be inserted before the last migration on remote database.
+
+Rerun the command with --include-all flag to apply these migrations:
+supabase/migrations/00000000000143_root_presence_system.sql
+supabase/migrations/00000000000145_daily_reset_rename_copy_sweep.sql
+```
+
+That is the correct and honest result. Zero pending was not achievable and should not have been: the nine already-applied migrations have stopped appearing, and the only two left are the two that genuinely are not applied. `db push` is now safe to reason about against this project for the first time, though applying those two remains a separate decision (note that both sort before 146, so a real push would need `--include-all`).
+
+Final ledger from 130 up: 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 144, 146.
+
+### Live site confirmed unchanged
+
+Logged into `app.mefwellness.com` with the standing production test account: login succeeded and landed on `/dashboard`, Home returned HTTP 200 and rendered its real personalized heading ("Good morning, Heather"), and the Daily Reset screen returned HTTP 200 with its real heading, its first question block, and a working Continue button. **Zero console errors, zero page errors, zero 5xx responses.** Exactly as expected: this task changed a tracking table, not the schema and not the app. The live check deliberately did not complete a Daily Reset, since writing real member data proves nothing about a ledger change.
+
+No code changed, so nothing was built or deployed.
+
 ## Product Analytics Instrumentation (2026-08-11)
 
 Behavioral product tracking, built by extending the event pipeline this platform already had rather than adding a second one or a third-party SDK. Full reference, including every query pattern, lives in `docs/PRODUCT_ANALYTICS.md`.
@@ -58,7 +118,7 @@ No copy, no markup, no layout, no styling changed anywhere. Every tracking compo
 
 Migration 146 is applied to production and recorded in the migration ledger. Applied 2026-08-12 via a direct `psql` connection over the pooler (`--db-url` pattern, per this project's established practice), in a single transaction with `ON_ERROR_STOP`, after pre-flight checks confirmed the old constraint existed, no tier-change trigger existed, `profiles.is_test`/`membership_tier` were both present, and production's `handle_new_user()` was byte-identical to migration 85's version before being replaced. All ten statements succeeded (2 ALTER TABLE, 1 CREATE INDEX, 3 CREATE FUNCTION, 1 CREATE VIEW, 1 COMMENT, 1 CREATE TRIGGER, 1 NOTIFY). Confirmed live afterwards: `handle_new_user()` contains the signup analytics insert, `track_membership_tier_change_trigger` exists and is enabled, and `product_analytics_events` is queryable.
 
-**A real, unrelated finding worth acting on separately.** Production's migration ledger only recorded up to `00000000000134`. Migrations 135 through 145 were missing from it, but spot checks confirmed their schema objects (`member_reset_plans`, `member_root_popup_dismissals`, `assessment_assignments`) genuinely exist in production, so those migrations were applied by hand through the SQL Editor and simply never recorded. This is why `supabase db push` must NOT be used against this project as-is: it would try to re-run eleven already-applied migrations and fail. That is exactly why 146 was applied as a single explicit file rather than through `db push`. Only 146 was added to the ledger; back-filling ledger rows for 135 through 145 is a separate cleanup, and it should be done after verifying each one object by object, not assumed from the three that were spot-checked.
+**A real, unrelated finding worth acting on separately.** Production's migration ledger only recorded up to `00000000000134`. Migrations 135 through 145 were missing from it, but spot checks confirmed three of their schema objects (`member_reset_plans`, `member_root_popup_dismissals`, `assessment_assignments`) genuinely exist in production, suggesting those migrations were applied by hand through the SQL Editor and simply never recorded. **Corrected 2026-08-12 by the Migration Ledger Backfill entry above: that generalization was wrong. Nine of the eleven were applied; 143 and 145 were not applied at all.** This is why `supabase db push` must NOT be used against this project as-is: it would try to re-run eleven already-applied migrations and fail. That is exactly why 146 was applied as a single explicit file rather than through `db push`. Only 146 was added to the ledger; back-filling ledger rows for 135 through 145 is a separate cleanup, and it should be done after verifying each one object by object, not assumed from the three that were spot-checked.
 
 ### Live-site verification (production, app.mefwellness.com)
 
