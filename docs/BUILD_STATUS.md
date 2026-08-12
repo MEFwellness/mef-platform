@@ -1,3 +1,51 @@
+## Migrations 143 and 145 Applied to Production (2026-08-12)
+
+Follow-up to the Migration Ledger Backfill entry below, which found these two were the only migrations in 135 to 145 that had never actually run. Both are now applied, verified, and recorded. **Production's ledger and schema now fully agree, and `supabase db push --dry-run` reports "Remote database is up to date" for the first time.**
+
+Applied the same way migration 146 was: each file fed to `psql` over the pooler (`--db-url`) as a single transaction with `ON_ERROR_STOP`, never through `db push`, after per-migration pre-flight checks.
+
+### 143 root_presence_system
+
+**Pre-flight**: both target tables absent, the index name free, all 6 policy names free, `has_active_role` present (the policies depend on it), and both target `ai_rules` rows present and still carrying migration 136's wording, which independently reconfirmed 143 had never run.
+
+**Applied**: 13 statements, all succeeded (2 CREATE TABLE, 1 CREATE INDEX, 2 ALTER TABLE for RLS, 6 CREATE POLICY, 2 UPDATE, each updating exactly 1 row).
+
+**Verified after**: both tables exist with the right column counts (4 and 3), the index exists, all 6 policies exist, RLS is enabled on both, `member_return_greetings`'s composite primary key is `(member_id, gap_start_local_date)` as designed, and both `ai_rules` rows now carry the no-guilt copy ("A quick check-in today", "I am glad you are back") instead of 136's older wording.
+
+### 145 daily_reset_rename_copy_sweep
+
+**Pre-flight**: the target row still held the exact pre-migration string the migration's own guarded `WHERE` clause matches on.
+
+**Applied**: `UPDATE 1`. `driver_probe_questions.checkin_probe.morning_soreness` now reads "How sore does your body feel right now?" instead of "How sore does your body feel this morning?", which is the point of the Daily Reset rename: that question is answerable at any hour, not just on waking.
+
+### Ledger
+
+Both recorded. Production now has an unbroken run from 134 through 146 with no gaps.
+
+```
+DRY RUN: migrations will *not* be pushed to the database.
+Connecting to remote database...
+Remote database is up to date.
+```
+
+### Live proof that the Root Presence System is genuinely working now, not just present
+
+Asserting the tables exist would prove almost nothing, so the real app was driven until it wrote a row on its own.
+
+`test.member.belowthreshold@example.test` last checked in on 2026-07-29, a 14-day gap, comfortably past the 3-day threshold in `lib/return-greeting/gate.ts`. Logged into `app.mefwellness.com` as that account and loaded Home. **Root's no-guilt return line, "I'm glad you're back.", rendered on the live page**, and `member_return_greetings` gained exactly one real row: `gap_start_local_date = 2026-07-29`, the member's true last check-in date, timestamped at the moment of the visit. Zero console errors, zero page errors, zero 5xx.
+
+**The one-greeting-per-gap guarantee was then tested, not assumed.** A second visit to Home left the table at exactly one row: the composite primary key blocked a second claim, which is the whole purpose of the table. The greeting text still appears on that second visit, and that is correct rather than a bug: `getOrCreateTodaysMorningBrief` caches one brief per member per local date, so today's already-created brief keeps its `encouraging_message` for the rest of the day. Confirmed directly in the data: that member's 2026-08-12 brief was created at the same instant as the greeting row and its `encouraging_message` is "I'm glad you're back.", while their 2026-08-11 brief (written before 143 existed) has ordinary streak copy instead.
+
+That last detail is also the cleanest confirmation of the degradation the backfill entry predicted. Yesterday's brief got no greeting despite the same 14-day gap, because `tryMarkReturnGreetingShown` fails closed when its table is missing and so never returned true. Today, with the table in place, the greeting fired on the first eligible page load. The feature really was inert in production, and really is live now.
+
+`member_discovery_moments` is created and correct but still empty, which is expected: it only gains rows when a member is shown a brand-new correlation-finding discovery, and no such discovery came up during this check.
+
+### No regression
+
+Re-checked `memberPopulated` afterwards: login landed on Home, Home returned 200 with its real personalized heading, and the Daily Reset screen returned 200 with its heading, first question block, and working Continue button. Zero errors of any kind. No code changed in this task, so nothing was built or deployed.
+
+**One pre-existing behavior worth noting, not caused by this task**: logging in as `memberBelowThreshold` lands on `/name` rather than Home, because that account has no `display_name` and `resolvePostLoginPath` redirects until one is set. That is the intended behavior shipped in the Member Fixes Batch entry below.
+
 ## Production Migration Ledger Backfill (2026-08-12)
 
 Ledger-only task. Production's `supabase_migrations.schema_migrations` recorded migrations only through `00000000000134` (plus `146`), even though most of 135 through 145 had genuinely been applied by hand through the SQL Editor. That gap made `supabase db push` unusable against production: it would have tried to re-run already-applied migrations and failed. This task made the ledger match reality. **No migration SQL was re-run and no schema object was created, altered, or dropped.** The only writes were `insert into supabase_migrations.schema_migrations (version, name)` rows.
@@ -18,7 +66,9 @@ Each migration was verified against production first, one at a time, and recorde
 | 142 `personal_reset_plan` | `profiles.reset_plan_granted_at`, `wellness_coaching_style_profile.tone_preference_source`, the `upsert_wellness_coaching_style_profile` function, all 3 tables, all 4 named indexes, all 14 policies, RLS enabled on all 3 |
 | 144 `questionnaire_assignment_gating` | The partial unique index exists and is genuinely partial on `status = 'pending'`, the `complete_assignment_on_assessment_attempt` function exists, and its trigger on `assessment_attempts` exists and is enabled |
 
-### NOT recorded, because they are genuinely not applied (2 of 11)
+### NOT recorded at the time, because they were genuinely not applied (2 of 11)
+
+**Both were applied immediately afterwards, in the follow-up task above.** The findings below are preserved as the record of what was true before that.
 
 **`00000000000143_root_presence_system.sql` is not applied at all.** Both tables it creates, `member_discovery_moments` and `member_return_greetings`, are entirely absent from production. Confirmed three ways: `to_regclass` returns null for both, `information_schema.tables` has no row matching either name or any similar name, and a direct `pg_class`/`pg_namespace` join finds them in no schema at all. Not partial: nothing from this migration exists. Per this task's instructions it was not applied and not recorded.
 
