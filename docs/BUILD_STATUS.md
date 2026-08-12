@@ -58,6 +58,37 @@ Locally: typecheck clean, lint 0 errors, production build clean with all four ro
 
 In a real browser against local Supabase, 29 of 29 checks: visitor, member and coach each refused on all four routes; administrator loading all four at 7, 30 and 90 days with the right pill selected; the test-account banner appearing and disappearing; a custom range applying.
 
+### Verified on production
+
+Deployment `dpl_BSzEdxG8pCJ4FSxQK7inHHbVpheG`, Ready, target Production, aliased to app.mefwellness.com, serving commit `e82ae17`.
+
+21 of 21 browser checks against app.mefwellness.com: a signed-out visitor refused on all four routes (307 to /login), the administrator loading all four at 7, 30 and 90 days, the test-account banner appearing and disappearing on every view, and a custom range applying.
+
+Every number on the live Overview matches a fresh, independent run of `scripts/verify-analytics-live.mjs` over the same 90 day window (2026-05-15 to 2026-08-12), whose second column counts raw event rows in JavaScript using none of the analytics functions:
+
+| Metric | Verification script | Live dashboard |
+| --- | --- | --- |
+| Active members | 2 | 2 |
+| Sessions | 2 | 2 |
+| Sign-ins | 0 | 0 |
+| Daily Reset starts | 2 | 2 |
+| Daily Reset completions | 0 | 0 |
+| Paywall views | 3 | 3 |
+| Active members, test accounts on | 5 | 5 |
+| Sessions, test accounts on | 5 | 5 |
+
+The toggle moves the live numbers the way the script says it should: 2 active members and 2 sessions off, 5 and 5 on, and sign-ins from 0 to 37.
+
+Empty states checked on live data over a window with genuinely nothing in it (2026-06-01 to 2026-06-15): all four render their own empty state and no fabricated zero. The live funnel at 90 days shows 9 accounts created against a cohort of 0, with the pre-tracking sentence, which is the real state of production.
+
+Member experience walked on production and unchanged: Home, Check-In and Today all load with their normal headings and no console errors. Across the whole build exactly one pre-existing file was modified, `app/admin/page.tsx`, which is the admin index. Everything else is new files under `app/admin/analytics`, `components/admin/analytics`, `lib/analytics-dashboard`, tests and one script.
+
+### Not verified, and why
+
+**A signed-in member and a signed-in coach were not tested on production.** The brief gives `oakomah66@gmail.com` as both the administrator and the standing test member, and on production that account holds member, coach and platform_administrator grants at once. It is the only administrator. Signing in as it proves admission, not refusal, and no password exists in the repo for any other production account. The refusal is proved three other ways: at the database level in `tests/admin-analytics-dashboard-access.test.ts` (member and coach both refused by all four reports with `AnalyticsAccessDeniedError`), in a real browser against local Supabase, and on production for a signed-out visitor. To close it live, a password for one of the four production test accounts is needed.
+
+One consequence worth knowing: because that account holds a coach grant, it is outside `analytics_member_scope` by design, so Osei's own activity never appears in any number on these screens.
+
 ## Admin Analytics, Prompt 1 of 3: the server side service layer (2026-08-12)
 
 No UI, no member-facing change of any kind, and no second tracking system. This build turns the behavioral events already being recorded into answers, for the admin dashboard that comes next and for a future Engagement Agent.
