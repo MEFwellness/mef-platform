@@ -5,6 +5,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/layout';
+import { TrackSurfaceView, TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
 
 const INCLUDED: { label: string; Icon: typeof HeartPulse }[] = [
   { label: 'Daily Root Score and cross-domain trends', Icon: Sparkles },
@@ -25,6 +26,13 @@ export default async function MembershipPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      {/* The membership screen is the app's one upgrade/plan surface, so a
+          view of it is a real paywall-adjacent signal, not just a page
+          view. Both events fire: the surface view keeps it comparable with
+          every other screen, the paywall view keeps it in the paywall
+          funnel. */}
+      <TrackSurfaceView surface="membership" />
+      <TrackPaywallView feature="membership" lockReason="membership" />
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/dashboard" label="Back" />
 

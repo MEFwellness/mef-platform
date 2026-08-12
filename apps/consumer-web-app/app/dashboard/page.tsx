@@ -79,6 +79,7 @@ import { buildGreetingLine } from '@/lib/dashboard/greeting';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { orderTodayCards, type TodayCardKey } from '@/lib/dashboard/prioritization';
 import { pageBackgroundForGreeting } from '@/lib/dashboard/timeOfDayPalette';
+import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import {
   stressStatus,
   painStatus,
@@ -470,6 +471,7 @@ export default async function DashboardPage({
     <div
       className={`min-h-screen font-[family-name:var(--font-dm-sans)] ${pageBackgroundForGreeting(timeContext.greetingWord)}`}
     >
+      <TrackSurfaceView surface="home" />
       {/* -------------------------------------------------------- */}
       {/* Hero — full-bleed, edge to edge, sits above the padded     */}
       {/* main column entirely so the photo can reach the true       */}

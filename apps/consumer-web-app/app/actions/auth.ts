@@ -10,9 +10,31 @@ import {
   ENTRY_ANIMATION_PLAY_COOKIE,
 } from '@/lib/entry-animation/cookies';
 import { resolvePostLoginPath, isSafePostLoginRedirect } from '@/lib/auth/postLoginRoute';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track';
 
 export interface ActionResult {
   error?: string;
+}
+
+/**
+ * One behavioral session_started row per completed sign-in, whatever
+ * method got the member here. This is the raw event return frequency is
+ * derived from; nothing computes daily/weekly actives at write time.
+ * Never throws (trackProductEvent swallows everything) and never blocks
+ * the redirect that follows it.
+ */
+async function recordSessionStarted(
+  supabase: SupabaseClient,
+  memberId: string,
+  method: 'password' | 'passkey'
+): Promise<void> {
+  await trackProductEvent(supabase, {
+    memberId,
+    eventType: 'session_started',
+    timezone: await resolveMemberTimezone(supabase, memberId),
+    payload: { method },
+  });
 }
 
 type AuthStage = 'client_init' | 'supabase_request' | 'unexpected';
@@ -198,6 +220,16 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
     // somehow returns no user, so behavior degrades to exactly what it
     // was before rather than crashing.
     if (data.user) {
+      // Product analytics, the raw event return frequency is derived
+      // from (daily/weekly actives, days between visits). Deliberately
+      // recorded here rather than inventing a separate "session" concept:
+      // this and completePasskeyLogin below are the only two places a
+      // real, completed sign-in exists server-side, so one row here is
+      // one genuine return visit. See docs/PRODUCT_ANALYTICS.md for the
+      // derivation queries. Must be before redirectWithEntryAnimation,
+      // which throws.
+      await recordSessionStarted(supabase, data.user.id, 'password');
+
       destination = await resolvePostLoginPath(supabase, data.user);
       if (destination === '/dashboard' && isSafePostLoginRedirect(redirectedFrom?.toString())) {
         destination = redirectedFrom!.toString();
@@ -235,6 +267,8 @@ export async function completePasskeyLogin(redirectedFrom?: string | null): Prom
       logAuthFailure('supabase_request', 'completePasskeyLogin', error ?? new Error('no session after passkey sign-in'));
       return { error: 'Face ID sign-in did not go through. Please try again or use your password.' };
     }
+    await recordSessionStarted(supabase, user.id, 'passkey');
+
     destination = await resolvePostLoginPath(supabase, user);
     if (destination === '/dashboard' && isSafePostLoginRedirect(redirectedFrom)) {
       destination = redirectedFrom;

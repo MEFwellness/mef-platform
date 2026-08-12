@@ -18,6 +18,7 @@ import { typicalSleepTimes } from '@/lib/daily-checkin-adaptive/sleepHistory';
 import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { CheckinForm } from './CheckinForm';
+import { TrackSurfaceView, TrackDailyResetStarted } from '@/components/analytics/TrackSurfaceView';
 
 /** How many recent days feed the sleep dial's "typical bedtime/wake" pre-fill — same window RECENCY_CAP_DAYS already uses elsewhere in this feature for "how overdue" weighting, reused here for consistency rather than a new arbitrary number. */
 const SLEEP_HISTORY_WINDOW_DAYS = 14;
@@ -71,6 +72,8 @@ export default async function CheckinPage({ searchParams }: { searchParams: { da
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FBF1DE] via-[#F5F0E4] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <TrackSurfaceView surface="daily_reset" />
+      <TrackDailyResetStarted />
       <main className="mx-auto w-full max-w-md px-5 pb-12 pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pl-28">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2.5">

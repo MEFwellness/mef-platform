@@ -1,3 +1,67 @@
+## Product Analytics Instrumentation (2026-08-11)
+
+Behavioral product tracking, built by extending the event pipeline this platform already had rather than adding a second one or a third-party SDK. Full reference, including every query pattern, lives in `docs/PRODUCT_ANALYTICS.md`.
+
+### Audit first: what already existed
+
+`member_wellness_events` (migration 63) was already the shared, payload-bearing event table, with `lib/events/service.ts`'s `recordMemberEvent` as its single write path and an explicit rule in its own header comment: "a future event source widens this check constraint, never adds a second events table." That is exactly what this task did. Four other event-ish tables were checked and deliberately left alone: `health_timeline_events` (a member-facing milestone story feed, not analytics), `ai_events` (AI dispatcher inputs), `member_recommendation_events` (per-recommendation outcome history), and `investigation_router_decisions`. No third-party analytics tool existed and none was added.
+
+Of the ten things the brief asked for, three were already captured in some form and were reused rather than duplicated:
+
+- **Onboarding completion** already wrote a `health_timeline_events` row (`onboarding_completed`) and an AI event (`member_completed_onboarding`). Both kept, untouched; the new `onboarding_completed` analytics event sits alongside them because neither of the existing two is queryable as behavior (one is member-facing narrative, the other is dispatcher input) and neither has a matching "started" event.
+- **Daily Reset completion** already wrote a `morning_readiness_recorded` wellness event pointing at the real check-in row. Kept, untouched; the new `daily_reset_completed` carries no answer content at all and is what an analytics query reads.
+- **Today's Focus view** already had `markTodaysFeedOpened`, called once per real page view from `FeedInteractions`'s mount effect. Reused as the trigger for the view event rather than adding a second one that could double count.
+
+Everything else (signup, sessions, surface views, Daily Reset start, Food Lens scans, food entries, Reset Plan engagement, paywall views, tier changes) had no behavioral event at all.
+
+### What was added
+
+**Migration 146** (`00000000000146_product_analytics_events.sql`) widens `member_wellness_events.event_type` with thirteen behavioral types, adds a `(event_type, occurred_at desc)` index for cross-member analytics slicing (the two existing member-scoped indexes cannot serve it and are untouched), and adds `product_analytics_events`, a `security_invoker` view that excludes the five health-content wellness types by construction and joins `profiles.is_test` onto every row so test accounts filter out with a plain `where is_test = false`. Test-account events still write normally, exactly as the brief asked.
+
+Two events are written by the database rather than the app, because neither has an authenticated app request to hang off: `signup_completed` extends `handle_new_user()` (at signup there is no session yet, so an app-side insert would be rejected by RLS), and `membership_tier_changed` is a new trigger on `profiles.membership_tier`. Both are wrapped in their own exception blocks so an analytics failure can never break a signup or a profile update.
+
+**`lib/analytics/track.ts`** is a thin, never-throwing wrapper over `recordMemberEvent`. It returns `false` on failure instead of rejecting, so `await` on a member-facing path is always safe. **`lib/analytics/surfaces.ts`** holds closed allowlists for every value a payload may carry. **`app/actions/analytics.ts`** exposes the four server actions client components call, each validating against those allowlists (values arrive from the browser, so validation is what makes smuggling health content impossible). **`components/analytics/TrackSurfaceView.tsx`** renders `null` and fires from a mount effect, so page views are recorded after paint and never delay a server render, with a module-level dedupe window so React's development double-effect and rapid re-mounts cannot double count.
+
+Thirteen event types now tracked: `signup_completed`, `session_started`, `onboarding_started`, `onboarding_completed`, `surface_viewed` (19 surfaces), `daily_reset_started`, `daily_reset_completed`, `food_scan_performed`, `food_entry_logged`, `feature_engaged` (Today's Focus and Reset Plan), `paywall_viewed`, `membership_tier_changed`, and `purchase_completed` (defined, nothing emits it, see below).
+
+`food_entry_logged` is recorded inside `lib/food-products/data.ts`'s `insertFoodLogEntry`, the one function all six logging paths already funnel through, rather than at each call site, so the count is complete by construction and a future logging path cannot silently go untracked.
+
+### The hard line: behavioral only
+
+No analytics payload can carry health content. Enforced in three places, not by convention: the allowlists reject any surface/feature/action/lock-reason that is not a known slug; `sanitizeAnalyticsPayload` drops every key outside a fixed twelve-key list and every value over 48 characters (all legitimate values are short slugs, prose is the shape health content arrives in); and `tests/product-analytics-payload-safety.test.ts` parses every analytics call site in `app/`, `lib/`, and `components/` and fails on any payload key outside the allowlist or on any obviously health-adjacent field name.
+
+### Purchases: honestly, not capturable yet
+
+There is no billing integration in this codebase. No Stripe SDK, no webhook endpoint, no checkout route, and nothing anywhere that writes `profiles.membership_tier` (verified by grep: it is read in five places and written in none). `/membership` lists what a membership includes and points at a support email. Trial, monthly, annual, and 24-week checkout all happen outside this application, so this application has nothing to observe. Rather than fake it: `membership_tier_changed` captures the effect of a purchase (every real tier movement, however it is made) via the database trigger, `paywall_viewed` captures the demand side, and `purchase_completed` exists as an accepted type with a defined payload that nothing emits. When billing moves in-app, it is one `trackProductEvent` call with no schema change.
+
+### Return frequency
+
+Not a new mechanism, per the brief. `session_started` is the raw event, written by both the password and passkey sign-in paths. Daily/weekly actives and days-between-visits are derived queries, all documented with runnable SQL in `docs/PRODUCT_ANALYTICS.md`, including the `distinct member_id, local_date` collapse so three sign-ins in one day count as one visit.
+
+### Tests
+
+`tests/product-analytics-events.test.ts` (26 tests, real local Supabase, no mocks): every new type is accepted by the widened constraint and rejected if misspelled; member id and both timestamps land on every event; creating a real auth user writes exactly one `signup_completed` with `source = 'system'`; a real tier change writes exactly one `membership_tier_changed` with the true from/to tiers and a no-op update writes none; the view exposes analytics events and provably excludes a `concern_flagged` row's text; `is_test` events still write and are excludable; return frequency comes out of the raw events; a sanitized payload really is what reaches the database; and a rejected write returns `false` rather than throwing. Both database-written tests use throwaway accounts they create and delete, not the seeded members, because other test files in the same run also write those members' tiers.
+
+`tests/product-analytics-payload-safety.test.ts` (5 tests): the source scan described above, with its own non-vacuity proof against a known-bad fixture.
+
+**Guard proven non-vacuous by actually breaking it**: the `trackProductEvent` call was removed from `submitDailyCheckin`, both files re-run (2 tests failed for the right reason: the missing call site and the call-count floor), then restored and re-run clean (`git diff --stat` confirms the restored file is exactly the intended 15-line addition).
+
+### Zero member-facing change
+
+No copy, no markup, no layout, no styling changed anywhere. Every tracking component renders `null`. The only edits to existing UI files are one self-closing tracker element and one import.
+
+### Verified
+
+`npx tsc --noEmit` clean. Repo-root `npm run lint`: 0 errors, same 90 pre-existing warnings, none in new or touched files. Full `npx vitest run` after a fresh `supabase db reset` through migration 146: 325/326 test files, 3720/3721 tests passing. The one failure is the same pre-existing `tests/correlation-engine-integration.test.ts` Spearman observation-count flake documented throughout this file's history, reconfirmed unrelated by running it in isolation on a fresh database both with this change (passes) and with the change stashed (passes) while failing in both full-suite runs. `npm run build` compiled successfully, every route generated.
+
+### Migration status: applied locally, NOT applied to production
+
+Migration 146 applies clean locally (`supabase db reset` through 146, all tests green against it). It could **not** be applied to production from this session: `supabase db push --linked` requires the Settings, Database password, which is not in any env file, any Vercel environment variable, or the linked project config, and the push fails SASL auth without it. **This one needs to be run by hand** (Supabase Dashboard, SQL Editor, paste `supabase/migrations/00000000000146_product_analytics_events.sql`), or the password supplied so a future session can run it.
+
+Until it is applied, the deployed code is safe but silent: every analytics write goes through `trackProductEvent`, which swallows the check-constraint rejection and returns `false`, so nothing member-facing breaks, no page errors, no check-in fails. It simply records nothing, and `product_analytics_events` does not exist yet.
+
+The same pre-existing production migration gap noted in the entries below (migrations 144 and 145 still unconfirmed in production) is unchanged by this task and unrelated to it.
+
 ## Coach-Assign-Only Gating: visible-locked treatment + Body Assessment closed (2026-08-04)
 
 Registry questionnaires were already assignment-gated as of the "Assignment-Gated Questionnaires" task (2026-08-03, below) for five of the eight tools this request names — but that task made a gated item **invisible** until assigned, not **visibly locked**, and it deliberately left Body Assessment (the camera-based posture/movement capture flow) completely open to any member. This task closes both gaps: (1) invisible-until-assigned becomes visible-and-locked (dimmed card, gold corner marker, tap-to-reveal Root-voice note) everywhere a gated item can appear, and (2) Body Assessment joins the same `requiresAssignment` gate as the other five, with every real entry point into its flow (not just the obvious ones) closed server-side.

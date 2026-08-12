@@ -9,6 +9,7 @@ import { fetchLatestMemberGoalSelection } from '@/lib/member-goals/data';
 import { CenterStage } from '@/components/layout';
 import { ConsentForm } from './ConsentForm';
 import { OnboardingFlow } from './OnboardingFlow';
+import { TrackOnboardingStarted } from '@/components/analytics/TrackSurfaceView';
 
 const CARD = 'mef-card'; // Screen Layout System (Prompt 2): standardized card recipe, app/globals.css
 const SHELL =
@@ -158,6 +159,11 @@ export default async function OnboardingPage() {
 
   return (
     <div className={SHELL}>
+      {/* Only ever reached once every earlier guard (consent, already
+          complete, unavailable) has passed and the real question flow is
+          about to render, so this fires on a genuine onboarding start and
+          not on the consent gate or the already-complete screen. */}
+      <TrackOnboardingStarted />
       <main className={CONTAINER}>
         <OnboardingFlow questions={questions} mode="member" knownPrimaryGoal={knownPrimaryGoal} />
       </main>

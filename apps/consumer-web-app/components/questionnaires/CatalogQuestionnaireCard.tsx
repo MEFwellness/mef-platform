@@ -19,6 +19,7 @@ import { formatAssessmentDate } from '@/lib/assessments/presentation';
 import { Card } from '@/components/layout';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
 import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
+import { TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
 
 const PRIMARY_BUTTON =
   'block w-full rounded-2xl bg-[#1B3A2D] px-5 py-3 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]';
@@ -132,6 +133,16 @@ function CardBody({ card, action, isCoachLocked }: { card: CatalogCard; action: 
         <p className="mt-3 text-xs text-[#6B7A72]">{card.flags.lockMessage}</p>
       )}
 
+      {/* Product analytics, a membership/tier lock renders its "Locked"
+          pill, its reason, and its "View Membership" link inline and
+          always visible, so the marker really is on screen as soon as this
+          card renders. That is why this one records on mount, while the
+          coach-assign lock (whose message only appears on tap) records on
+          the tap instead. Renders nothing. */}
+      {card.flags.locked && !isCoachLocked && (
+        <TrackPaywallView feature={card.key} lockReason={card.flags.lockReasonKind ?? 'membership'} />
+      )}
+
       {!isCoachLocked && (
         <div className="mt-5 space-y-2">
           {action && (
@@ -164,7 +175,10 @@ export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
   if (isCoachLocked) {
     return (
       <div className="relative">
-        <LockedCardButton ariaLabel={`${card.title}, locked. Tap to hear from Root about it.`}>
+        <LockedCardButton
+          ariaLabel={`${card.title}, locked. Tap to hear from Root about it.`}
+          analyticsFeature={card.key}
+        >
           <Card className="mef-animate-in opacity-55 grayscale-[0.4]">
             <CardBody card={card} action={action} isCoachLocked />
           </Card>

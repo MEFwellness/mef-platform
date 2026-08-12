@@ -15,6 +15,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Gem } from 'lucide-react';
 import type { CategoryScoreResult, AssessmentCopy } from '@/lib/assessments/engine/types';
+import { TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -35,6 +36,12 @@ export function FreeTierSummary({
 
   return (
     <div className="space-y-5">
+      {/* Product analytics, this whole component IS the upgrade prompt: a
+          member only ever sees it because their tier limits these results,
+          and it ends in a "View Membership" call to action. Rendering it
+          is therefore a real paywall view, attributed to the assessment
+          that triggered it. Renders nothing visible. */}
+      <TrackPaywallView feature="four-doctors" lockReason="free_tier_preview" />
       <section className={`${CARD} mef-animate-in p-7`}>
         <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
           A Few Meaningful Strengths

@@ -31,6 +31,7 @@ import { WhySessionCard } from '@/components/movement/WhySessionCard';
 import { MovementStatsGrid } from '@/components/movement/MovementStatsGrid';
 import { RECOVERY_STATUS_LABEL, RECOVERY_STATUS_STYLES } from '@/lib/movement/status';
 import { CardStack } from '@/components/layout';
+import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -68,6 +69,7 @@ export default async function MovementPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <TrackSurfaceView surface="movement" />
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/dashboard" label="Back to Home" />
 

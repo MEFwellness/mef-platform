@@ -135,7 +135,10 @@ export default async function ProfilePage() {
           </Card>
         ) : (
           <div className="relative mt-5">
-            <LockedCardButton ariaLabel="Assessments, locked. Tap to hear from Root about it.">
+            <LockedCardButton
+              ariaLabel="Assessments, locked. Tap to hear from Root about it."
+              analyticsFeature="body-assessment"
+            >
               <Card className="opacity-55 grayscale-[0.4]">
                 <div className="flex items-center gap-2 text-[#6B7A72]">
                   <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />

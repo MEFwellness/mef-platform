@@ -22,6 +22,7 @@ import { getFoodLensBarcodeScanByScanId, insertFoodLogEntry } from '@/lib/food-p
 import { getFoodLensLabelScanByScanId } from '@/lib/food-lens/labelScanData';
 import type { MealCategory } from '@mef/shared-types-contracts';
 import { resolveLocalDate } from './checkin';
+import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track';
 import type {
   FoodLensCapture,
   FoodLensCaptureType,
@@ -189,6 +190,19 @@ export async function analyzeFoodLensScanAction(
 
   const scan = await getFoodLensScan(supabase, scanId);
   if (!scan || scan.member_id !== userId) return { status: 'failed', error: 'Scan not found.' };
+
+  // Product analytics, "a Food Lens scan was performed." Recorded here,
+  // once, as soon as a real scan owned by this member is about to be
+  // analyzed, rather than at each of this function's several exits: one
+  // member action produces exactly one event regardless of whether the
+  // provider then succeeds, fails, or is unconfigured. scan_type is the
+  // only payload field and is a fixed enum, never food or health content.
+  await trackProductEvent(supabase, {
+    memberId: userId,
+    eventType: 'food_scan_performed',
+    timezone: await resolveMemberTimezone(supabase, userId),
+    payload: { scanType: scan.scan_type },
+  });
 
   const providerName = resolveConfiguredFoodLensProvider();
   if (!providerName) {

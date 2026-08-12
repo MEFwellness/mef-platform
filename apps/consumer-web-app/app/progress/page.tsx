@@ -60,6 +60,7 @@ import { ConsistencyPanel } from './ConsistencyPanel';
 import { WellnessStorySection, WellnessStorySectionSkeleton } from './WellnessStorySection';
 import { WellnessPatternsSection, WellnessPatternsSectionSkeleton } from './WellnessPatternsSection';
 import { RecommendationsSection, RecommendationsSectionSkeleton } from './RecommendationsSection';
+import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
 
@@ -158,6 +159,7 @@ export default async function ProgressPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <TrackSurfaceView surface="progress" />
       {/* Status-bar scrim: fixed and opaque, pinned to exactly the
           device's safe-area-inset-top zone regardless of scroll
           position. Without this, page content (this page has no fixed
@@ -300,7 +302,10 @@ export default async function ProgressPage() {
               </Link>
             ) : (
               <div className="relative">
-                <LockedCardButton ariaLabel="Assessments, locked. Tap to hear from Root about it.">
+                <LockedCardButton
+                  ariaLabel="Assessments, locked. Tap to hear from Root about it."
+                  analyticsFeature="body-assessment"
+                >
                   <div className="mef-card mef-animate-in flex items-center justify-between p-6 opacity-55 grayscale-[0.4]">
                     <div className="flex items-center gap-2 text-[#6B7A72]">
                       <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />

@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { trackProductEvent, resolveMemberTimezone } from '../analytics/track';
 import type {
   AllergenMatch,
   BarcodeLookupStatus,
@@ -512,6 +513,25 @@ export async function insertFoodLogEntry(
     console.error('insertFoodLogEntry failed', error);
     return null;
   }
+
+  // Product analytics, "a food or protein entry was logged." Recorded
+  // here, in the one function every logging path already funnels through
+  // (Food Lens meal scan, barcode, search, manual entry, the Protein
+  // Ledger's two paths), rather than at each of those six call sites: this
+  // is what guarantees the count is complete and that a future logging
+  // path cannot silently go untracked. entryType is derived from what kind
+  // of entry it is, never from the food itself; nothing about what the
+  // member ate is ever in an analytics payload.
+  await trackProductEvent(supabase, {
+    memberId: input.memberId,
+    eventType: 'food_entry_logged',
+    timezone: await resolveMemberTimezone(supabase, input.memberId),
+    payload: {
+      entryType: input.scanId ? 'scan' : input.manualLabel ? 'manual' : 'product',
+      feature: 'food_lens',
+    },
+  });
+
   return row;
 }
 

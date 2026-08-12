@@ -20,6 +20,7 @@ import { CenterStage } from '@/components/layout';
 import { CaseViewBody } from '@/components/case-view/CaseViewBody';
 import { fetchTenureCallbackContext } from '@/lib/memory-callback/data';
 import { buildTenureCallback } from '@/lib/memory-callback/copy';
+import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
 const SAFETY_STATEMENT =
   "This view is built from your own check-ins. It shows relationships in your data, not medical conclusions or predictions. Nothing here says one thing causes another; it's something to explore with your coach, not a diagnosis.";
@@ -61,6 +62,7 @@ export default async function CaseViewPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <TrackSurfaceView surface="your_case" />
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/dashboard" label="Back to Dashboard" />
 

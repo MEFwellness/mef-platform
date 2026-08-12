@@ -20,6 +20,7 @@ import { recordSafetyRestrictionNarrative } from '@/lib/narrative/service';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { getOrCalculateRootScore } from '@/lib/scoring/service';
 import { recordMemberEvent } from '@/lib/events/service';
+import { trackProductEvent } from '@/lib/analytics/track';
 import { resolveAssignedCoach } from '@/lib/safety/data';
 import { getTodaysHydrationTotal } from './events';
 import { recomputeMyRecommendations } from './recommendations';
@@ -125,6 +126,20 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
   } catch (eventError) {
     console.error('Member event recording failed for submitDailyCheckin', eventError);
   }
+
+  // Product analytics, the completion half of the started/completed pair
+  // that makes Daily Reset abandonment measurable (the started half fires
+  // from the wizard's own mount, components/analytics/TrackSurfaceView.tsx).
+  // Deliberately a separate, behavioral-only event rather than reusing
+  // morning_readiness_recorded above: that one is a wellness-stream record
+  // pointing at a real check-in row, this one carries no answer content at
+  // all and is what an analytics query reads. trackProductEvent never
+  // throws, so this cannot affect the result already returned.
+  await trackProductEvent(supabase, {
+    memberId: user.id,
+    eventType: 'daily_reset_completed',
+    timezone: input.timezone,
+  });
 
   // AI event emission — never allowed to affect the result above, which
   // has already succeeded by this point. Best-effort: fetch recent

@@ -25,6 +25,7 @@ import { firstNameFrom } from '@/lib/profile/greeting';
 import { BackButton } from '@/components/BackButton';
 import { BottomNav } from '@/components/BottomNav';
 import { QuestionnaireCatalogView } from '@/components/questionnaires/QuestionnaireCatalogView';
+import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
 export default async function QuestionnairesPage() {
   const supabase = createClient();
@@ -42,6 +43,7 @@ export default async function QuestionnairesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <TrackSurfaceView surface="questionnaires" />
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <div className="flex items-center justify-between gap-3">
           <BackButton fallbackHref="/dashboard" label="Back to Home" />

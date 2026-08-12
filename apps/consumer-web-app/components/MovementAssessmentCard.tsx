@@ -157,7 +157,10 @@ export function MovementAssessmentCard({
     if (locked) {
       return (
         <div className="relative">
-          <LockedCardButton ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it.">
+          <LockedCardButton
+            ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it."
+            analyticsFeature="body-assessment"
+          >
             {body}
           </LockedCardButton>
           <CoachLockBadge />
@@ -205,7 +208,10 @@ export function MovementAssessmentCard({
   if (locked) {
     return (
       <div className="relative">
-        <LockedCardButton ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it.">
+        <LockedCardButton
+            ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it."
+            analyticsFeature="body-assessment"
+          >
           {plainBody}
         </LockedCardButton>
         <CoachLockBadge />

@@ -22,6 +22,29 @@ import {
   getFeedItemById,
 } from '@/lib/feed/data';
 import { recalculateIntelligenceCore } from '@/lib/intelligence-core/service';
+import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track';
+import type { EngagementAction } from '@/lib/analytics/surfaces';
+
+/**
+ * Product analytics for Today's Focus, the daily feed item the Today
+ * screen leads with. 'opened_item' is the view; every other action here is
+ * a real interaction (completed, saved, dismissed, reflected on, rated).
+ * The item's content, the member's reflection text, and their helpfulness
+ * rating never appear in the payload: only that an interaction of that
+ * kind happened.
+ */
+async function trackTodaysFocus(
+  supabase: ReturnType<typeof createClient>,
+  memberId: string,
+  action: EngagementAction
+): Promise<void> {
+  await trackProductEvent(supabase, {
+    memberId,
+    eventType: 'feature_engaged',
+    timezone: await resolveMemberTimezone(supabase, memberId),
+    payload: { feature: 'todays_focus', action },
+  });
+}
 
 async function currentMemberLocalDate(
   supabase: ReturnType<typeof createClient>,
@@ -91,6 +114,12 @@ export async function markTodaysFeedOpened(feedItemId: string): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
   await markFeedOpened(supabase, feedItemId, user.id);
+  // Product analytics, "Today's Focus was viewed." This action already
+  // fires exactly once per real page view (FeedInteractions calls it from
+  // a mount effect keyed on the stable daily item id), so it is the right
+  // and only place for the view half of Today's Focus without adding a
+  // second trigger that could double count.
+  await trackTodaysFocus(supabase, user.id, 'opened_item');
 }
 
 export async function completeFeedActionForMember(feedItemId: string): Promise<ActionResult> {
@@ -103,6 +132,7 @@ export async function completeFeedActionForMember(feedItemId: string): Promise<A
   if (ok) {
     const localDate = await currentMemberLocalDate(supabase, user.id);
     await recalculateIntelligenceCore(supabase, user.id, localDate);
+    await trackTodaysFocus(supabase, user.id, 'completed_item');
   }
   return ok ? {} : { error: 'Could not update this item.' };
 }
@@ -114,6 +144,7 @@ export async function saveFeedItemForMember(feedItemId: string): Promise<ActionR
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Not signed in.' };
   const ok = await saveFeedItem(supabase, feedItemId, user.id);
+  if (ok) await trackTodaysFocus(supabase, user.id, 'advanced');
   return ok ? {} : { error: 'Could not save this item.' };
 }
 
@@ -124,6 +155,7 @@ export async function dismissFeedItemForMember(feedItemId: string): Promise<Acti
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Not signed in.' };
   const ok = await dismissFeedItem(supabase, feedItemId, user.id);
+  if (ok) await trackTodaysFocus(supabase, user.id, 'dismissed_item');
   return ok ? {} : { error: 'Could not dismiss this item.' };
 }
 
@@ -143,6 +175,9 @@ export async function submitFeedReflectionForMember(
   if (ok) {
     const localDate = await currentMemberLocalDate(supabase, user.id);
     await recalculateIntelligenceCore(supabase, user.id, localDate);
+    // The reflection text itself is never in the analytics payload, only
+    // the fact that one was submitted.
+    await trackTodaysFocus(supabase, user.id, 'advanced');
   }
   return ok ? {} : { error: 'Could not save your reflection.' };
 }
@@ -157,6 +192,7 @@ export async function rateFeedHelpfulnessForMember(
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Not signed in.' };
   const ok = await rateFeedHelpfulness(supabase, feedItemId, user.id, helpful);
+  if (ok) await trackTodaysFocus(supabase, user.id, 'advanced');
   return ok ? {} : { error: 'Could not save your rating.' };
 }
 

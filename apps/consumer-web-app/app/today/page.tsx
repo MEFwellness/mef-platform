@@ -63,6 +63,7 @@ import { getMyNotifications } from '@/app/actions/notifications';
 import { Reading } from '@/components/layout';
 import { FeedInteractions } from './FeedInteractions';
 import { TodayZones } from './TodayZones';
+import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
 // Screen Layout System (Prompt 2): was a hand-rolled duplicate of
 // `.mef-card` (app/globals.css) — now the one shared recipe.
@@ -167,6 +168,7 @@ export default async function TodayPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <TrackSurfaceView surface="today" />
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
         <div className="flex items-center justify-between gap-3 pt-2">
           <div className="flex items-center gap-2 text-[#6B7A72]">

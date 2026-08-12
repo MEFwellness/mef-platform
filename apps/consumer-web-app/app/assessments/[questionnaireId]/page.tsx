@@ -22,6 +22,7 @@ import { PriorityBadge } from '@/components/assessments/PriorityBadge';
 import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
 import { formatAssessmentDate, formatLastSaved } from '@/lib/assessments/presentation';
 import { CenterStage, Card } from '@/components/layout';
+import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
 export default async function AssessmentOverviewPage({
   params,
@@ -93,6 +94,7 @@ export default async function AssessmentOverviewPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <TrackSurfaceView surface="questionnaire" />
       <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8 sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/questionnaires" label="Back to Questionnaires" forceFallback />
 

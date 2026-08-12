@@ -15,6 +15,7 @@ import { startOrResumeResetPlanAction } from '@/app/actions/resetPlan';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { BackButton } from '@/components/BackButton';
 import { ResetPlanTaker } from '@/components/reset-plan/ResetPlanTaker';
+import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
 export default async function ResetPlanPage() {
   const supabase = createClient();
@@ -35,6 +36,7 @@ export default async function ResetPlanPage() {
 
   return (
     <div className={`${CVS_PAGE_BG} font-[family-name:var(--font-dm-sans)]`}>
+      <TrackSurfaceView surface="reset_plan" />
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/dashboard" label="Back to Dashboard" forceFallback />
         <h1 className="sr-only">Your Personal Reset Plan</h1>

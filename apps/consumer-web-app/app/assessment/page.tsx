@@ -15,6 +15,7 @@ import {
 import { Card, CenterStage } from '@/components/layout';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { describeLockReason } from '@/lib/assessment-registry/status';
+import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
 const STATUS_LABEL: Record<string, string> = {
   in_progress: 'In progress',
@@ -89,6 +90,7 @@ export default async function BodyAssessmentPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <TrackSurfaceView surface="body_assessment" />
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-[#6B7A72]">

@@ -33,6 +33,8 @@ import type { ActionTier, ResetPlanDailyState, ResetPlanDay3Response, ResetPlanS
 import type { ResetPlan, ResetPlanDailyLog, ResetPlanSnapshot, ResetPlanVersion } from '@/lib/reset-plan/types';
 import { buildResetPlanProposal, resetPlanProposedTier, shouldOfferDifficultDayVersion } from '@/lib/reset-plan/copy';
 import { isDay3Eligible, isDay7Eligible } from '@/lib/core-values-snapshot/experiment';
+import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track';
+import type { EngagementAction } from '@/lib/analytics/surfaces';
 import {
   acknowledgeResetPlanDay7,
   activateResetPlan,
@@ -54,6 +56,28 @@ type SupabaseServerClient = ReturnType<typeof createClient>;
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
   return user?.id ?? null;
+}
+
+/**
+ * Product analytics, "the member engaged with the Reset Plan", as
+ * distinct from merely opening it (that is the surface_viewed event
+ * app/reset-plan/page.tsx records). Only real decisions and logs count:
+ * choosing a focus, choosing an action size, activating the plan, logging
+ * a day, acknowledging day 7. The action verb is a fixed allowlist value
+ * and the member's actual choice is never in the payload, which signal
+ * they picked is plan content, not behavior.
+ */
+async function trackResetPlanEngagement(
+  supabase: SupabaseServerClient,
+  memberId: string,
+  action: EngagementAction
+): Promise<void> {
+  await trackProductEvent(supabase, {
+    memberId,
+    eventType: 'feature_engaged',
+    timezone: await resolveMemberTimezone(supabase, memberId),
+    payload: { feature: 'reset_plan', action },
+  });
 }
 
 /**
@@ -256,6 +280,7 @@ export async function chooseResetPlanFocusAction(planId: string, chosenSignal: S
 
   const proposedSignal = buildResetPlanProposal(plan.snapshot).signal;
   const updated = await setResetPlanFocus(supabase, plan, chosenSignal, proposedSignal);
+  await trackResetPlanEngagement(supabase, memberId, 'chose_focus');
   return { ok: true, plan: updated };
 }
 
@@ -270,6 +295,7 @@ export async function chooseResetPlanActionTierAction(planId: string, chosenTier
 
   const proposedTier = resetPlanProposedTier(plan.snapshot);
   const updated = await setResetPlanActionTier(supabase, plan, chosenTier, proposedTier);
+  await trackResetPlanEngagement(supabase, memberId, 'chose_action_tier');
   return { ok: true, plan: updated };
 }
 
@@ -285,6 +311,7 @@ export async function completeResetPlanAction(planId: string): Promise<ResetPlan
 
   const startLocalDate = plan.startLocalDate ?? (await localDateFor(supabase, memberId));
   const activated = await activateResetPlan(supabase, plan, startLocalDate);
+  await trackResetPlanEngagement(supabase, memberId, 'completed');
   return { ok: true, plan: activated };
 }
 
@@ -304,6 +331,7 @@ export async function logResetPlanDayAction(planId: string, state: ResetPlanDail
 
   const localDate = await localDateFor(supabase, memberId);
   const ok = await upsertResetPlanDailyLog(supabase, memberId, planId, versionId, localDate, state);
+  if (ok) await trackResetPlanEngagement(supabase, memberId, 'logged_day');
   return ok ? { ok: true } : { ok: false, error: 'Could not save that.' };
 }
 
@@ -332,6 +360,7 @@ export async function acknowledgeResetPlanDay7Action(planId: string): Promise<Lo
   if (!plan || plan.memberId !== memberId) return { ok: false, error: 'Could not find your plan.' };
 
   const ok = await acknowledgeResetPlanDay7(supabase, planId, memberId);
+  if (ok) await trackResetPlanEngagement(supabase, memberId, 'acknowledged');
   return ok ? { ok: true } : { ok: false, error: 'Could not save that.' };
 }
 

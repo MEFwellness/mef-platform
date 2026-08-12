@@ -12,12 +12,45 @@
  * rationale.
  */
 
-export type MemberWellnessEventType =
+/**
+ * The original five wellness event types (migration 63). These carry real
+ * member health content and are deliberately NOT analytics events, see
+ * ProductAnalyticsEventType below and the hard rule in
+ * lib/analytics/track.ts.
+ */
+export type MemberWellnessOnlyEventType =
   | 'morning_readiness_recorded'
   | 'hydration_logged'
   | 'movement_logged'
   | 'concern_flagged'
   | 'evening_reflection_recorded';
+
+/**
+ * Product analytics event types (migration 146), behavioral only. These
+ * share the one member_wellness_events pipeline rather than adding a
+ * second tracking system, per the same "widen the constraint, never add a
+ * second events table" rule the original migration set out.
+ *
+ * Payloads here are neutral metadata only: a surface name, a feature key,
+ * a method, a tier. Never a check-in answer, pain location, sleep number,
+ * or questionnaire response.
+ */
+export type ProductAnalyticsEventType =
+  | 'signup_completed'
+  | 'session_started'
+  | 'onboarding_started'
+  | 'onboarding_completed'
+  | 'surface_viewed'
+  | 'daily_reset_started'
+  | 'daily_reset_completed'
+  | 'food_scan_performed'
+  | 'food_entry_logged'
+  | 'feature_engaged'
+  | 'paywall_viewed'
+  | 'membership_tier_changed'
+  | 'purchase_completed';
+
+export type MemberWellnessEventType = MemberWellnessOnlyEventType | ProductAnalyticsEventType;
 
 export type MemberWellnessEventSource = 'member' | 'coach' | 'system';
 
@@ -43,12 +76,45 @@ export interface EveningReflectionRecordedPayload {
   reflectionId: string;
 }
 
+/**
+ * Every analytics payload shape. Deliberately narrow: only these keys may
+ * ever appear on an analytics event, and every value is a bounded, neutral
+ * string or number. Adding a free-text or health-content field here is the
+ * thing tests/product-analytics-payload-safety.test.ts exists to stop.
+ */
+export interface ProductAnalyticsPayload {
+  /** surface_viewed, which major screen was opened. */
+  surface?: string;
+  /** feature_engaged / paywall_viewed, which feature the event is about. */
+  feature?: string;
+  /** feature_engaged, what the member did, from a fixed allowlist. */
+  action?: string;
+  /** session_started, how the member signed in. */
+  method?: string;
+  /** onboarding_completed, baseline vs reassessment. */
+  assessmentType?: string;
+  /** food_scan_performed, which kind of scan. */
+  scanType?: string;
+  /** food_scan_performed, analyzed, failed, not_configured. */
+  status?: string;
+  /** food_entry_logged, which logging path produced the entry. */
+  entryType?: string;
+  /** paywall_viewed, why the surface was locked. */
+  lockReason?: string;
+  /** membership_tier_changed / purchase_completed, tier keys. */
+  fromTier?: string | null;
+  toTier?: string | null;
+  /** purchase_completed, billing term, when a billing system can emit it. */
+  term?: string;
+}
+
 export type MemberWellnessEventPayload =
   | HydrationLoggedPayload
   | MovementLoggedPayload
   | ConcernFlaggedPayload
   | MorningReadinessRecordedPayload
   | EveningReflectionRecordedPayload
+  | ProductAnalyticsPayload
   | Record<string, never>;
 
 export interface MemberWellnessEvent {

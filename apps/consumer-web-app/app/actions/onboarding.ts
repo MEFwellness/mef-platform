@@ -23,6 +23,7 @@ import { emitAndDispatch } from '@/lib/ai/events';
 import { buildRuleFacts } from '@/lib/ai/rules/facts';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { upsertRegistryEntriesFromOnboardingSubmission } from '@/lib/registry/adapters/onboarding';
+import { trackProductEvent } from '@/lib/analytics/track';
 
 const ASSESSMENT_VERSION = 1;
 
@@ -215,10 +216,15 @@ export async function submitOnboarding(
     };
   }
 
+  // submit_onboarding() itself already decided baseline vs reassessment
+  // (migration 25). Read back once, used by both the AI/timeline block
+  // below and the analytics event after it, rather than either re-deciding
+  // it a second way. Defaults to 'baseline' only if the read-back never
+  // happens, matching what the timeline block already assumes.
+  let assessmentType = 'baseline';
+
   // AI event emission — best-effort, never allowed to affect the result
-  // above. submit_onboarding() itself already decided baseline vs
-  // reassessment (migration 25); read that back rather than re-deciding
-  // it here a second way.
+  // above.
   try {
     if (submissionId) {
       const { data: submission } = await supabase
@@ -230,6 +236,7 @@ export async function submitOnboarding(
       if (submission) {
         const facts = buildRuleFacts([], submission.local_date);
         const isReassessment = submission.assessment_type === 'reassessment';
+        assessmentType = isReassessment ? 'reassessment' : 'baseline';
         await emitAndDispatch(
           supabase,
           {
@@ -256,6 +263,19 @@ export async function submitOnboarding(
   } catch (aiError) {
     console.error('AI event emission failed for submitOnboarding', aiError);
   }
+
+  // Product analytics, the completion half of the onboarding_started /
+  // onboarding_completed pair, so drop-off is measurable. Kept outside the
+  // try block above on purpose: this must record even if the AI/timeline
+  // side effects fail, since the member genuinely did finish. Behavioral
+  // only, baseline vs reassessment is the sole payload field and carries
+  // no answer content. trackProductEvent never throws.
+  await trackProductEvent(supabase, {
+    memberId: user.id,
+    eventType: 'onboarding_completed',
+    timezone,
+    payload: { assessmentType },
+  });
 
   return {};
 }
