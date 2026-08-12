@@ -82,24 +82,39 @@ export async function claimDailyPriority(
   localDate: string,
   selected: SelectedPriority
 ): Promise<DailyPriorityRecord | null> {
-  const { error } = await supabase.from('member_daily_priorities').upsert(
-    {
-      member_id: memberId,
-      local_date: localDate,
-      rule: selected.rule,
-      priority_key: selected.priorityKey,
-      priority_title: selected.title,
-      priority_help: selected.help,
-      priority_href: selected.href,
-      status: 'active',
-    },
-    { onConflict: 'member_id,local_date', ignoreDuplicates: true }
-  );
+  const { data, error } = await supabase
+    .from('member_daily_priorities')
+    .upsert(
+      {
+        member_id: memberId,
+        local_date: localDate,
+        rule: selected.rule,
+        priority_key: selected.priorityKey,
+        priority_title: selected.title,
+        priority_help: selected.help,
+        priority_href: selected.href,
+        status: 'active',
+      },
+      { onConflict: 'member_id,local_date', ignoreDuplicates: true }
+    )
+    .select(COLUMNS);
 
   if (error) {
     console.error('claimDailyPriority failed', error);
     return null;
   }
+
+  // The winner of the race gets its own row straight back from the write,
+  // with no second read at all. That is not only one fewer round trip: the
+  // re-read used to be byte-identical to a read the caller had already
+  // issued in the same render, which made it eligible for Next.js's fetch
+  // cache in a production build and had it served the earlier "no row"
+  // answer. See the note on the fetch override in lib/supabase/server.ts.
+  const claimed = (data as Row[] | null)?.[0];
+  if (claimed) return fromRow(claimed);
+
+  // Empty means the insert was a genuine no-op: another concurrent render
+  // already claimed today. Read that row, which really does exist.
   return getDailyPriority(supabase, memberId, localDate);
 }
 

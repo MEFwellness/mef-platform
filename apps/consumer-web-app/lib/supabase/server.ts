@@ -15,6 +15,36 @@ export function createClient() {
   const { url, anonKey } = getSupabaseEnv();
 
   return createServerClient(url, anonKey, {
+    /**
+     * Every request this client makes opts OUT of Next.js's fetch cache.
+     *
+     * Next.js patches global fetch in the App Router and, in a PRODUCTION
+     * build, will both memoize identical GETs within one render and cache
+     * them in the Data Cache. supabase-js issues its reads as plain GETs
+     * whose URL is the whole query, so two reads of the same row in one
+     * render are byte-identical requests and the second one can be served
+     * from the first one's response.
+     *
+     * That is wrong for every read in this app (a member's own data must
+     * never come from a cache), and it caused a real production bug that
+     * never reproduced in `next dev`, because dev does not have the Data
+     * Cache: `claimDailyPriority` inserts today's priority row and then
+     * re-reads it, using the same query the caller had already issued and
+     * got nothing back from moments earlier. The re-read was served the
+     * earlier empty response, the claim looked like it had failed, and
+     * everything after it in `buildPriorityView` was skipped, including
+     * the write of the coaching decision ledger row. The card still
+     * appeared, because the NEXT request found the row that had genuinely
+     * been inserted, so the symptom was silent and one-sided.
+     *
+     * There is nothing to gain from caching here and a whole class of
+     * stale-data bugs to lose, so it is switched off at the client rather
+     * than remembered at each of the hundreds of call sites.
+     */
+    global: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, cache: 'no-store' }),
+    },
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value;

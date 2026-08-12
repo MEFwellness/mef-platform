@@ -33,6 +33,7 @@ import {
   touchCoachingThread,
 } from '@/lib/coaching-direction/data';
 import { ESCALATION_REASON_NO_RESPONSE } from '@/lib/coaching-direction/adaptation';
+import { claimDailyPriority, getDailyPriority } from '@/lib/priority/data';
 import type { CardResponse } from '@/lib/coaching-direction/types';
 
 const TODAY = '2026-08-12';
@@ -397,5 +398,83 @@ describe('RLS keeps one member out of another member decisions', () => {
       comparison_after_complete_on: shiftLocalDate(TODAY, 14),
     });
     expect(error).not.toBeNull();
+  });
+});
+
+// =====================================================================
+// The claim must return the row it just wrote.
+//
+// This is a REGRESSION GUARD for a real production bug, found by driving
+// app.mefwellness.com after this build shipped and reproduced locally with
+// a production build (never in `next dev`).
+//
+// claimDailyPriority used to insert today's row and then RE-READ it with a
+// query byte-identical to one the caller had already issued moments
+// earlier in the same render, which had correctly returned nothing.
+// Next.js patches global fetch and, in a production build, served the
+// re-read that earlier empty response. The claim therefore looked like it
+// had failed, buildPriorityView returned null, and every write after it
+// was skipped, including the coaching decision ledger row. The card still
+// appeared on the NEXT request, because the row really had been inserted,
+// which is what made the failure silent.
+//
+// Two things now prevent it, and both are asserted here: the write returns
+// its own row, and the server client opts every request out of the fetch
+// cache.
+// =====================================================================
+
+describe('claiming the day returns the row that was just written', () => {
+  it('returns a record even though an identical read just returned nothing', async () => {
+    const member = await signInAs(TEST_USERS.memberOne);
+
+    // The read that used to poison the cache for the write's own re-read.
+    expect(await getDailyPriority(member, TEST_USERS.memberOne.id, TODAY)).toBeNull();
+
+    const record = await claimDailyPriority(member, TEST_USERS.memberOne.id, TODAY, {
+      rule: 'daily_reset',
+      priorityKey: null,
+      title: 'Take a few minutes for your Daily Reset.',
+      reason: null,
+      help: 'It is a short set of questions and you can stop at any point.',
+      href: '/checkin',
+      actionType: 'reset',
+      threadKey: 'daily_reset::-',
+      approach: 0,
+      evidence: {},
+    });
+
+    expect(record).not.toBeNull();
+    expect(record!.rule).toBe('daily_reset');
+    expect(record!.status).toBe('active');
+    expect(record!.shownAt).toBeNull();
+  });
+
+  it('still returns the existing row when another render already claimed the day', async () => {
+    const member = await signInAs(TEST_USERS.memberOne);
+    const selected = {
+      rule: 'daily_reset' as const,
+      priorityKey: null,
+      title: 'Take a few minutes for your Daily Reset.',
+      reason: null,
+      help: 'A smaller step.',
+      href: '/checkin',
+      actionType: 'reset' as const,
+      threadKey: 'daily_reset::-',
+      approach: 0,
+      evidence: {},
+    };
+
+    const first = await claimDailyPriority(member, TEST_USERS.memberOne.id, TODAY, selected);
+    // The second claim inserts nothing (the unique constraint holds), and
+    // must still hand back the row that exists.
+    const second = await claimDailyPriority(member, TEST_USERS.memberOne.id, TODAY, {
+      ...selected,
+      title: 'A different title that must NOT overwrite the first.',
+    });
+
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(second!.id).toBe(first!.id);
+    expect(second!.title).toBe('Take a few minutes for your Daily Reset.');
   });
 });

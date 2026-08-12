@@ -414,3 +414,29 @@ describe('the decision engine is wired in as the selector, and the delivery is u
     }
   });
 });
+
+// =====================================================================
+// The two things that stop the silent-claim bug coming back.
+// =====================================================================
+
+describe('a member read is never served from a cache', () => {
+  it('the server Supabase client opts every request out of the fetch cache', () => {
+    const client = read('lib/supabase/server.ts');
+    expect(client).toContain("cache: 'no-store'");
+    expect(client).toContain('global: {');
+  });
+
+  it('the claim returns its own written row rather than re-reading it', () => {
+    const data = read('lib/priority/data.ts');
+    const claimStart = data.indexOf('export async function claimDailyPriority');
+    const claimEnd = data.indexOf('export async function setDailyPriorityStatus');
+    const claim = data.slice(claimStart, claimEnd);
+
+    // The write asks for its own row back...
+    expect(claim).toContain('.select(COLUMNS)');
+    expect(claim).toContain('if (claimed) return fromRow(claimed);');
+    // ...and only falls back to a read when the insert was a genuine no-op.
+    const fallbackIndex = claim.indexOf('return getDailyPriority(');
+    expect(fallbackIndex).toBeGreaterThan(claim.indexOf('if (claimed) return fromRow(claimed);'));
+  });
+});

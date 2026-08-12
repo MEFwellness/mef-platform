@@ -75,6 +75,23 @@ Widens `member_daily_priorities.rule` with the three new slugs, widens the event
 
 **The comparison window is stored as PARAMETERS, not as a result.** Reference date, window days, and the date the after window completes. A grader reads those three, calls the existing `getMemberWindowComparison`, and gets an honest comparison or an explicit "not yet". Freezing the numbers would mean grading a decision against an after window that had not finished elapsing, which is the exact mistake that primitive's own header warns about.
 
+### A real production bug the live verification found, and fixed
+
+Driving app.mefwellness.com after the first deploy showed the card working and the ledger completely empty. It reproduced with a production build locally and NEVER in `next dev`, which is the whole shape of the bug.
+
+`claimDailyPriority` inserted today's priority row and then RE-READ it, using a query byte-identical to one the same render had already issued moments earlier and correctly got nothing back from. Next.js patches global fetch, and in a production build it served the re-read that earlier empty response. The claim therefore looked like it had failed, `buildPriorityView` hit its own fail-closed `if (!record) return null`, and everything after it was skipped, including the ledger write. The card still appeared, because the row genuinely had been inserted and the NEXT request found it through the `existing` branch. That is why the failure was silent and one-sided.
+
+It is a pre-existing latent bug in code that shipped with migration 147. Adding a dependent write after the claim is what made it visible.
+
+Two fixes, both shipped:
+
+- **`lib/supabase/server.ts` now opts every request out of the fetch cache** (`cache: 'no-store'`). Caching a member's own data across requests is wrong everywhere in this app, so it is switched off at the client rather than remembered at hundreds of call sites.
+- **`claimDailyPriority` returns the row from the write itself** (`.select(COLUMNS)` on the upsert), falling back to a read only when the insert was a genuine no-op, which is the concurrent-render case. One fewer round trip on the happy path, and the path that was broken no longer does a second read at all.
+
+Both are guarded: two integration tests (the claim returns a record even though an identical read just returned nothing; a second claim returns the first row and does not overwrite it) and two source guards.
+
+**A second, unrelated finding.** Neither new table has a member DELETE policy, which is correct for an append-only outcome ledger, but it means a member session cannot clean up its own rows. Worth knowing before writing any cleanup that assumes it can.
+
 ### Tests
 
 - `tests/coaching-direction-hierarchy.test.ts` 47 tests, no database. Every rule wins when it should and loses when it should, non-vacuously (one fixture where everything applies, only the rules above the one under test removed, `applicableRules` asserting the losers were available). Exactly one action ever returned. The movement block. All three guardrails.
