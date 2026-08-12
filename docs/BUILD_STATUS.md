@@ -1,3 +1,88 @@
+## Admin Analytics, Prompt 1 of 3: the server side service layer (2026-08-12)
+
+No UI, no member-facing change of any kind, and no second tracking system. This build turns the behavioral events already being recorded into answers, for the admin dashboard that comes next and for a future Engagement Agent.
+
+### What already existed and was reused, not rebuilt
+
+The audit found the instrumentation genuinely complete and live. Sixteen behavioral event types (the thirteen in the brief plus the three Priority Card ones added by migration 147) write to `member_wellness_events` through `lib/analytics/track.ts`, read back through the `product_analytics_events` view. Reused unchanged: that view, the closed allowlists in `lib/analytics/surfaces.ts`, `profiles.is_test`, the `platform_administrator` role, `has_active_role`, the existing RLS policies, and the `requireAdmin` shape `app/actions/resetPlanAdmin.ts` already uses. Nothing existing was modified.
+
+Two facts from the brief were confirmed rather than assumed: nothing emits `purchase_completed`, and `occurred_at` is the member's wall clock stamped as UTC, so `local_date` is the only correct day column.
+
+### What was added
+
+Migration 149: twenty read-only database functions and one index. `lib/analytics-service/`: nine modules. `app/actions/analyticsAdmin.ts`: fifteen admin-authorized entry points. `docs/ADMIN_ANALYTICS.md`: the definitions, thresholds, and the list of what cannot be measured and why.
+
+**All aggregation is in Postgres.** Nothing in this layer loads raw event rows into application memory, and a comment in `client.ts` says why: the event table is designed to grow to tens of millions of rows.
+
+### The definitions this rests on, each one a decision
+
+- **Session** means one active member-day, not one sign-in. `session_started` fires only on a completed sign-in and this app keeps members signed in for weeks, so sign-ins undercount real visits badly. Sign-ins are still reported, separately, as `signIns`.
+- **Active** means at least one meaningful event on a calendar day. Three analytics types are deliberately not activity: `signup_completed` (creating an account is not usage), `membership_tier_changed` (a trigger, usually an administrator), `purchase_completed` (nothing emits it).
+- **Member** excludes any account holding a coach, administrator or clinician role grant. A coach signing in writes the same events a member does, and counting that would inflate every active-member number. Defined once, in `analytics_member_scope`.
+- **Day** is always `local_date`. Two integration tests exist purely to keep that fixed, and both fail if any function filters on `occurred_at`.
+
+### Rates are null, never zero, when there is nothing to divide by
+
+A period with no Daily Resets started reports a null completion rate, not "0 percent". Real member activity is currently very small, and a fabricated zero reads as a failure that did not happen. The same applies to anything unmeasurable: `measurable: false` plus a plain-language reason, never a count of zero.
+
+Three things are reported as honestly unmeasurable rather than guessed: **purchases** (checkout is entirely outside this codebase), **experience start and completion** (`lib/analytics/surfaces.ts` accepts the vocabulary but no call site writes it, so showing it as 100 percent drop-off would be a lie about a real feature), and **per-question drop-off** (no per-screen event exists).
+
+### Engagement states: her own history first, fixed numbers only as a fallback
+
+The database returns facts; `lib/analytics-service/engagementState.ts` decides the state in pure, documented TypeScript. A member who has always opened the app twice a week is not disengaging when she opens it twice this week; a member who opened it daily for a month and has gone four days without it may be. So the first question is always "compared with her own normal".
+
+Self-comparison applies when she has at least 42 days of history and was active on at least 4 days in the 28 day baseline window: away longer than three times her own usual gap (floored at 7 days) is INACTIVE, a recent rate below half her baseline rate is WATCH, otherwise ACTIVE. Below that bar it falls back to fixed 7 and 21 day thresholds and **labels itself `fixed_thresholds`**, so nobody mistakes a blunt number for a personalized judgment. Every threshold is a named constant.
+
+This is behavioral engagement. It is not a health score, not a wellness score, and not a judgment about anyone.
+
+### One detection, many consumers
+
+The brief's hardest requirement was that a group F query and a friction signal detecting the same condition must share one implementation. `analytics_member_engagement_facts` is the single detection behind absence, decline and history sufficiency, consumed by the engagement states, three agent queries, and four friction signals. There is no second implementation of "days since last activity" anywhere. A test asserts the query and the signal read identical numbers, both for incomplete flows and for engagement.
+
+### Ten friction signals, none of which interpret
+
+The service may say "the Daily Reset was started 5 times and completed 1 time in this period". It may never say "the member lacks motivation". Why she behaved this way is not in the data. Each signal carries its type, a plain-language reason, the behavioral evidence, the comparison period where one applies, and an evidence sufficiency level, which answers only "how much behavior did we observe" and is explicitly not a medical confidence score.
+
+When there is not enough history for any pattern claim, the report contains exactly one signal saying so and no others: returning a half-confident decline alongside "we do not have enough data" would contradict itself.
+
+### The before/after primitive
+
+`analytics_member_window_comparison`. The reference day belongs to neither window, because it is the pivot. `afterWindowComplete` is returned because an after window that has not finished elapsing has fewer days of opportunity and will look like a decline whether or not anything declined. `compareWindows` returns null rather than Infinity when the before window is zero.
+
+### Privacy is structural, not a matter of discipline
+
+Every read goes through `product_analytics_events`, which excludes the five health-content wellness event types by construction. No function in migration 149 selects from any table holding health answers. A test writes real health content ("my left knee has been hurting and I only slept four hours") into the event stream and asserts it appears in no service output, and that no output carries a health-answer field name.
+
+One nuance the tests found: a feature **name** is not health content. A signal saying a member stopped using "Food and protein logging" has to be able to name the feature. An initial blanket word check was wrong about this and was tightened to what actually matters.
+
+### Authorization, three layers deep
+
+`app/actions/analyticsAdmin.ts` checks the role; `analytics_assert_admin()` raises 42501 inside every database function; and because the functions are **security invoker**, RLS still applies underneath, so a member who somehow got past both would still only see her own rows. A denial surfaces as a distinct `AnalyticsAccessDeniedError`, never as an empty report, because an empty report and a rejected one look identical on a dashboard.
+
+Tests prove a member, a coach and a signed-out visitor are all refused by every entry point, and that a member calling the helper functions directly sees only her own rows.
+
+### Performance
+
+One index added: `member_wellness_events (local_date, event_type)`. Every query here is "all members, one calendar-day range, some event types", which neither existing index can serve. **No materialized view or rollup was added**, deliberately: at current volume every function is one range scan over a few thousand rows. The documented next step, if the table passes roughly ten million rows, is a `member_analytics_daily` summary that every function could read instead with no change to its own shape.
+
+### Checks
+
+`npm run typecheck` clean. `npm run lint` 0 errors (90 pre-existing `no-console` warnings, unchanged). Production build compiles. Full suite **4001/4002**; the one failure is the same pre-existing `correlation-engine-integration` isolation flake, confirmed by stashing this work, resetting the database and running the suite without it: 3865/3866, exactly the documented baseline.
+
+136 new tests. Three mutations proved the guards non-vacuous: filtering on `occurred_at` instead of `local_date` (2 failures), removing the test-account filter from `analytics_member_scope` (2 failures), and making `analytics_assert_admin` a no-op (6 failures). Each was reverted and the suite re-verified green.
+
+### Verification, and what is NOT verified
+
+`scripts/verify-analytics-live.mjs` is committed and read-only. It calls each analytics function AND independently pulls the raw event rows for the same range and counts them in JavaScript, touching none of those functions, then prints both columns side by side. Run against local Supabase with a realistic fixture, **all 13 cross-checks agreed**, in both test-account modes (1 active member / 16 sessions excluded, 2 / 18 included).
+
+**Migration 149 has NOT been applied to production, and nothing was verified against production data.** Applying it needs the database password (`--linked`'s prompt still fails, as previously documented), and both the migration write and a read-only production query were blocked in this session. Once the migration is applied, one command does the live verification:
+
+```
+cd apps/consumer-web-app
+ANALYTICS_SUPABASE_URL=<production URL> ANALYTICS_SERVICE_ROLE_KEY=<service_role key> \
+  node scripts/verify-analytics-live.mjs
+```
+
 ## Priority Card, Part 2: The Motion Pass (2026-08-12)
 
 The card behaves exactly as it did this morning. Same three buttons, same one shared state, same analytics, same delivery chain, no schema change and no migration. What changed is that every state change is now expressed rather than swapped.
