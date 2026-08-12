@@ -214,15 +214,22 @@ export function usePriorityCardMotion(
     if (from === status) return;
     previousStatus.current = status;
 
-    if (status === 'active' || from !== 'active') {
-      setResolvePhase(status === 'active' ? 'active' : 'resolved');
+    if (status === 'active') {
+      setResolvePhase('active');
       return;
     }
 
-    // From here down she acted just now, whether or not the motion runs.
+    // She acted just now, whether or not the motion runs, and whichever
+    // state she acted from. The collapsed saved card carries its own Done
+    // button, so `saved -> done` is a real completion too and has to earn
+    // the same drawn checkmark and the same single haptic.
     setJustResolved(true);
 
-    if (reduced) {
+    // No recede from the collapsed card: it is already small and
+    // recessive, and the two inline surfaces render it in a slot the
+    // accomplished state does not occupy, so animating it out would show
+    // her an empty gap rather than a transition.
+    if (reduced || from !== 'active') {
       setResolvePhase('resolved');
       return;
     }

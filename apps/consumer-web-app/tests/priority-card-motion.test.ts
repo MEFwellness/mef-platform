@@ -228,13 +228,31 @@ describe('reduced motion removes the motion, never the meaning', () => {
     expect(returned).toContain("showsToday: bridgePhase === 'card' || bridgePhase === 'all'");
   });
 
+  it('completing from the collapsed saved card still counts as completing it', () => {
+    // The saved card carries its own Done button, so `saved -> done` is a
+    // real completion and has to earn the same drawn check and haptic as
+    // completing from the dominant card.
+    const hook = read('components/priority/usePriorityCardMotion.ts');
+    const effect = hook.slice(hook.indexOf('const previousStatus'));
+    // Only a return to 'active' short-circuits before the flag is set;
+    // every other transition passes through it.
+    const activeGuard = effect.indexOf("if (status === 'active') {");
+    expect(activeGuard).toBeGreaterThan(-1);
+    expect(effect.indexOf('setJustResolved(true)')).toBeGreaterThan(activeGuard);
+    // The `from !== 'active'` case skips only the recede, not the flag.
+    const skipsRecede = effect.indexOf("if (reduced || from !== 'active')");
+    expect(skipsRecede).toBeGreaterThan(effect.indexOf('setJustResolved(true)'));
+  });
+
   it('resolves Done and Save for later instantly, with no receding phase to sit through', () => {
     const hook = read('components/priority/usePriorityCardMotion.ts');
     const effect = hook.slice(hook.indexOf('const previousStatus'));
-    const reducedIndex = effect.indexOf('if (reduced) {');
+    // The reduced branch resolves and returns before the recede is reached.
+    const reducedIndex = effect.indexOf('if (reduced || ');
     const recedeIndex = effect.indexOf("setResolvePhase('receding')");
     expect(reducedIndex).toBeGreaterThan(-1);
     expect(recedeIndex).toBeGreaterThan(reducedIndex);
+    expect(effect.slice(reducedIndex, recedeIndex)).toContain("setResolvePhase('resolved')");
   });
 
   it('reads the setting synchronously before the first paint, so no frame of motion escapes', () => {
@@ -414,13 +432,15 @@ describe('motion cannot change what the card does', () => {
     // hours ago (and a console error, since there is no user gesture).
     const hook = read('components/priority/usePriorityCardMotion.ts');
     const effect = hook.slice(hook.indexOf('const previousStatus'));
-    const alreadyResolvedReturn = effect.indexOf("setResolvePhase(status === 'active' ? 'active' : 'resolved')");
-    const setsJustResolved = effect.indexOf('setJustResolved(true)');
-    expect(alreadyResolvedReturn).toBeGreaterThan(-1);
-    // The already-resolved path returns before justResolved is ever set.
-    expect(setsJustResolved).toBeGreaterThan(alreadyResolvedReturn);
-    // And it starts false, so a card that mounts already done never buzzes.
-    expect(hook).toContain('useState(false)');
+    // It starts false, so a card that mounts already done never buzzes:
+    // the flag can only ever be set by a status change observed here.
+    expect(hook).toContain('const [justResolved, setJustResolved] = useState(false)');
+    expect(effect).toContain('setJustResolved(true)');
+    // Nothing else may set it, and it is never set unconditionally.
+    expect([...hook.matchAll(/setJustResolved\(/g)]).toHaveLength(1);
+    const sameStatusGuard = effect.indexOf('if (from === status) return;');
+    expect(sameStatusGuard).toBeGreaterThan(-1);
+    expect(effect.indexOf('setJustResolved(true)')).toBeGreaterThan(sameStatusGuard);
 
     for (const file of [
       'components/priority/PriorityCard.tsx',
