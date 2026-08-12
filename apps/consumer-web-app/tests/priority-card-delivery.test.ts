@@ -281,6 +281,21 @@ describe('analytics: presentation recorded, one priority per day', () => {
     expect(read('app/today/page.tsx')).toContain('presentation="inline"');
   });
 
+  it('which presentation gets recorded is deterministic, not a race', () => {
+    // Home renders the pop-up and the inline card in the same paint. If
+    // both reported, the winner would be whichever round trip landed
+    // first, and the recorded presentation would be meaningless. The
+    // pop-up is what actually reached her, so the inline tracker stands
+    // down while it is showing.
+    const home = read('app/dashboard/page.tsx');
+    expect(home).toContain("rootPopupMessage?.kind === 'priority_card'");
+    expect(home).toContain('{!priorityShownAsPopup && (');
+
+    // Today has no pop-up, so its inline card always reports.
+    const today = read('app/today/page.tsx');
+    expect(today).not.toContain('priorityShownAsPopup');
+  });
+
   it('the once-per-day guarantee is an atomic database claim, not a client timer', () => {
     const data = read('lib/priority/data.ts');
     expect(data).toContain('claimPriorityShown');

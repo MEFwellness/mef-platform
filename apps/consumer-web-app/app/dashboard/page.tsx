@@ -213,6 +213,13 @@ export default async function DashboardPage({
     // them and are handed the identical object.
     getMyPriorityView(),
   ]);
+  // Whether the Root pop-up chain is delivering the Priority Card on this
+  // very load. Mirrors exactly the condition HomeScreenPopups renders on
+  // below, so the two can never disagree about which presentation the
+  // member is actually getting.
+  const priorityShownAsPopup =
+    rootPopupMessage?.kind === 'priority_card' && searchParams.firstCheckin !== '1';
+
   const today = new Date().toISOString().slice(0, 10);
   const upcomingAssignedWorkouts = assignedWorkouts
     .filter((w) => w.scheduled_date >= today && w.status !== 'completed' && w.status !== 'skipped')
@@ -508,11 +515,21 @@ export default async function DashboardPage({
         {/* ==================================================== */}
         {priority && priority.status !== 'saved' && (
           <div className="pt-3">
-            <TrackPriorityShown
-              rule={priority.selected.rule}
-              isReEntry={priority.isReEntry}
-              presentation="inline"
-            />
+            {/* The pop-up and this inline card mount in the same paint on
+                Home, so if both reported themselves the recorded
+                presentation would be a race between two round trips, and
+                "was she interrupted with this or did she browse to it"
+                would be unanswerable. The pop-up is what genuinely reached
+                her first whenever it is showing, so it reports and this
+                does not. On Today, where no pop-up exists, the inline card
+                always reports. */}
+            {!priorityShownAsPopup && (
+              <TrackPriorityShown
+                rule={priority.selected.rule}
+                isReEntry={priority.isReEntry}
+                presentation="inline"
+              />
+            )}
             <PriorityCard view={priority} />
           </div>
         )}
