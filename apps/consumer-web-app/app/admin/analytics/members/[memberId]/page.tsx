@@ -182,7 +182,7 @@ export default async function AdminAnalyticsMemberDetailPage({
               />
               <StatLine
                 label="Account created"
-                value={`${formatCount(facts.daysSinceAccountCreated)} days ago`}
+                value={`${formatCount(facts.daysSinceAccountCreated)} ${facts.daysSinceAccountCreated === 1 ? 'day' : 'days'} ago`}
                 detail={facts.accountCreatedDate}
               />
             </div>
@@ -192,7 +192,7 @@ export default async function AdminAnalyticsMemberDetailPage({
                 value={
                   facts.historyDays === null
                     ? 'None yet'
-                    : `${formatCount(facts.historyDays)} days`
+                    : `${formatCount(facts.historyDays)} ${facts.historyDays === 1 ? 'day' : 'days'}`
                 }
                 detail={historyLabel(facts)}
               />
