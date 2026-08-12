@@ -43,6 +43,24 @@ export const MOTION_MAX_STAGGER_ITEMS = 8;
 /** Bible §3 "Stagger": the default per-item delay step for a StaggerItem group. */
 export const MOTION_STAGGER_STEP_MS = 90;
 
+/**
+ * The tighter step for revealing elements *within a single card* in
+ * reading order (a label, then the thing, then its reason, then its
+ * buttons), as opposed to a list of separate cards down a page.
+ *
+ * 90ms is right when each item is its own object arriving; inside one
+ * object it stretches the card's own assembly past the point where it
+ * still reads as one arrival. At 60ms a four-element reveal on the
+ * Standard tier (320ms) finishes at 320 + 3x60 = 500ms exactly, which
+ * keeps the whole in-card sequence inside the Deliberate tier's own
+ * ceiling rather than running past it.
+ *
+ * First consumer: the Priority Card's entrance (see lib/priority/motion.ts).
+ * Any other surface that reveals its own parts in order should use this
+ * rather than inventing a third step value.
+ */
+export const MOTION_STAGGER_STEP_TIGHT_MS = 60;
+
 /** Bible §3 "Float" / §10: ambient float drift must stay within an 8-12s loop. */
 export const MOTION_FLOAT_DURATION_RANGE_MS = { min: 8000, max: 12000 } as const;
 

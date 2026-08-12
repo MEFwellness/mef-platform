@@ -22,6 +22,7 @@ import {
 } from '@/lib/priority/copy';
 import { PRIORITY_ACTIONS, PRIORITY_RULES, isPriorityAction, isPriorityRule } from '@/lib/analytics/surfaces';
 import { PRIORITY_LADDER, type PriorityRule } from '@/lib/priority/types';
+import { PRIORITY_REVEAL_INDEX } from '@/lib/priority/motion';
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(APP_ROOT, '../..');
@@ -207,7 +208,13 @@ describe('button behavior is real, not decorative', () => {
       'components/priority/PriorityCardPopup.tsx',
     ]) {
       const source = read(file);
-      expect(source).toContain('{helpOpen && (');
+      // Part 2 replaced `{helpOpen && (...)}` with a permanently mounted,
+      // class-toggled block: an unmounted panel cannot animate its own
+      // height, so conditional rendering is exactly what made the old
+      // expansion a jump. The panel is still inline and still driven by
+      // the same `helpOpen` the shared hook owns.
+      expect(source).toContain("helpOpen ? 'mef-expand-open' : ''");
+      expect(source).toContain('aria-hidden={!helpOpen}');
       expect(source).not.toContain('router.push');
       expect(source).not.toContain('useRouter');
     }
@@ -227,34 +234,42 @@ describe('button behavior is real, not decorative', () => {
 });
 
 describe('entrance animation', () => {
-  it('reuses the existing reduced-motion-aware fade-up rather than a second animation', () => {
-    const card = read('components/priority/PriorityCard.tsx');
-    expect(card).toContain('mef-animate-in');
-    // No bounce/overshoot easing in this build.
-    expect(card).not.toContain('cubic-bezier(0.34, 1.56');
-    expect(card).not.toContain('mef-pop-in');
+  // Part 2 replaced Part 1's local STAGE_MS/`.mef-animate-in` staging with
+  // the shared `.mef-reveal-step` primitive and PRIORITY_REVEAL_INDEX. The
+  // properties asserted here are the same ones Part 1 asserted — soft, no
+  // bounce, in reading order, and off under reduced motion — now checked
+  // against the real exported values rather than a regex over source.
+  // tests/priority-card-motion.test.ts covers the rest of the motion pass.
+  it('is a soft fade-up with no bounce or overshoot in either presentation', () => {
+    for (const file of [
+      'components/priority/PriorityCard.tsx',
+      'components/priority/PriorityCardPopup.tsx',
+    ]) {
+      const source = read(file);
+      expect(source).toContain('revealStep(');
+      expect(source).not.toContain('cubic-bezier(0.34, 1.56');
+      expect(source).not.toContain('mef-pop-in');
+    }
+
+    const css = read('app/globals.css');
+    const revealStepRule = css.slice(css.indexOf('.mef-reveal-step {'));
+    expect(revealStepRule.slice(0, 160)).toContain('mef-fade-up');
+    expect(revealStepRule.slice(0, 160)).not.toContain('overshoot');
   });
 
   it('stages label, then priority, then reason, then buttons', () => {
-    const card = read('components/priority/PriorityCard.tsx');
-    const stageBlock = card.slice(card.indexOf('const STAGE_MS'), card.indexOf('function stage'));
-    const label = Number(stageBlock.match(/label:\s*(\d+)/)?.[1]);
-    const priority = Number(stageBlock.match(/priority:\s*(\d+)/)?.[1]);
-    const reason = Number(stageBlock.match(/reason:\s*(\d+)/)?.[1]);
-    const buttons = Number(stageBlock.match(/buttons:\s*(\d+)/)?.[1]);
-
-    expect(label).toBeLessThan(priority);
-    expect(priority).toBeLessThan(reason);
-    expect(reason).toBeLessThan(buttons);
+    expect(PRIORITY_REVEAL_INDEX.label).toBeLessThan(PRIORITY_REVEAL_INDEX.priority);
+    expect(PRIORITY_REVEAL_INDEX.priority).toBeLessThan(PRIORITY_REVEAL_INDEX.reason);
+    expect(PRIORITY_REVEAL_INDEX.reason).toBeLessThan(PRIORITY_REVEAL_INDEX.buttons);
   });
 
-  it('and .mef-animate-in really is disabled under prefers-reduced-motion', () => {
+  it('and .mef-reveal-step really is disabled under prefers-reduced-motion', () => {
     const css = read('app/globals.css');
     const reducedBlocks = css.split('@media (prefers-reduced-motion: reduce)');
-    const disablesAnimateIn = reducedBlocks
+    const disablesRevealStep = reducedBlocks
       .slice(1)
-      .some((block) => block.slice(0, 200).includes('.mef-animate-in'));
-    expect(disablesAnimateIn).toBe(true);
+      .some((block) => block.slice(0, 200).includes('.mef-reveal-step'));
+    expect(disablesRevealStep).toBe(true);
   });
 });
 

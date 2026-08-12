@@ -194,6 +194,142 @@
 }
 
 /*
+ * ============================================================
+ * ROOT MOTION SYSTEM — state-change primitives (Priority Card
+ * Part 2, reusable by any surface)
+ * ============================================================
+ * Four classes, each expressing one kind of state change rather than
+ * decorating anything, per Bible §3's vocabulary and §4's timing tiers.
+ * First consumer is the Priority Card (components/priority/), which is
+ * why they were built now — but nothing in any of them is
+ * priority-specific, and they are named for what they do so any card
+ * that reveals its own parts, expands in place, recedes, or settles into
+ * a lesser position can use them directly.
+ *
+ * Every one carries its own prefers-reduced-motion override, per Bible
+ * §10's mandatory rule.
+ */
+
+/*
+ * `.mef-reveal-step` — the in-card staged reveal. Same `mef-fade-up`
+ * keyframe the whole app already uses for "something appeared", at the
+ * Standard tier rather than `.mef-animate-in`'s Deliberate one, because
+ * this reveals the PARTS of one card in reading order and the whole
+ * group has to land inside a single Deliberate beat rather than each
+ * part taking one. Applied with a per-element `animation-delay` from
+ * lib/motion/revealStep.ts, which owns the step value.
+ */
+.mef-reveal-step {
+  animation: mef-fade-up var(--mef-duration-standard) var(--mef-ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-reveal-step {
+    animation: none !important;
+  }
+}
+
+/*
+ * `.mef-expand` / `.mef-expand-open` — expand-in-place, where the
+ * content BELOW has to ease out of the way rather than snap.
+ *
+ * The `grid-template-rows: 0fr -> 1fr` technique, deliberately, because
+ * it is the only way to animate to a content-determined height without
+ * either a hardcoded max-height (which caps real content and mistimes
+ * the curve) or JS measurement (which is the actual layout-thrash
+ * failure mode: reading offsetHeight and writing style in the same
+ * frame, repeatedly). This animates one property on one element and
+ * touches no JS at all during the transition.
+ *
+ * This is the one place in the Root Motion System that animates a
+ * layout property instead of transform/opacity. That is inherent to the
+ * requirement: nothing below an element can move out of its way without
+ * layout running. Everything else here stays on the compositor.
+ *
+ * The direct child is the clipping frame — put the expanding content's
+ * own top margin INSIDE it so the margin collapses away too.
+ */
+.mef-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--mef-duration-standard) var(--mef-ease-standard),
+    opacity var(--mef-duration-standard) var(--mef-ease-standard);
+}
+
+.mef-expand > * {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.mef-expand-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-expand {
+    transition: none !important;
+  }
+}
+
+/*
+ * `.mef-recede` — the outgoing half of a state change: content that is
+ * being replaced by its own resolved form steps back rather than
+ * blinking out. Quick tier, since this is the part a member should
+ * barely register; the arriving state is what should hold attention.
+ */
+@keyframes mef-recede {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+.mef-recede {
+  animation: mef-recede var(--mef-duration-quick) var(--mef-ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-recede {
+    animation: none !important;
+  }
+}
+
+/*
+ * `.mef-settle-down` — an element taking up a lower, lesser position:
+ * it arrives from slightly above and settles, so a member sees it move
+ * DOWN into where it now lives rather than finding it already there.
+ * Travel stays at 10px, inside Bible §3's ~14px ceiling for slide —
+ * this is a settle, not a slide-in.
+ */
+@keyframes mef-settle-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.mef-settle-down {
+  animation: mef-settle-down var(--mef-duration-deliberate) var(--mef-ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mef-settle-down {
+    animation: none !important;
+  }
+}
+
+/*
  * Daily Check-In redesign (app/checkin, app/checkin/evening) — each
  * wizard screen's own content (heading, then each question) enters on a
  * short staggered delay via CheckinWizard.tsx's StaggerItem. Distinct

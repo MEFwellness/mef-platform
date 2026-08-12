@@ -49,6 +49,21 @@ export const PRIORITY_SAVED_TEXT = 'Saved for later. It is here whenever you wan
 /** The header above the expanded Help me content. Root offering, never instructing. */
 export const PRIORITY_HELP_HEADING = 'A smaller way in';
 
+/**
+ * The adaptation moment's two lines, shown only when she completed
+ * yesterday's priority and today's is a different one (see
+ * lib/priority/transition.ts for the conditions).
+ *
+ * Both stay observational. The label names the day and nothing else, and
+ * the bridge line says what Root is doing rather than praising her for
+ * what she did — no "well done", no streak, no count. The ellipsis is
+ * deliberate and the only punctuation here; there are no em dashes in
+ * anything a member reads.
+ */
+export const PRIORITY_BRIDGE_YESTERDAY_LABEL = 'Yesterday';
+
+export const PRIORITY_BRIDGE_TEXT = 'Building on yesterday...';
+
 // ---------------------------------------------------------------------
 // Rule 0 — re-entry.
 // ---------------------------------------------------------------------

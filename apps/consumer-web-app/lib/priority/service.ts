@@ -51,6 +51,7 @@ import { getMemberAssessmentFacts } from '../assessment-registry/facts';
 import { listAssessmentRegistryEntries } from '../assessment-registry/registry';
 import { getLastSignInLocalDateBefore, claimDailyPriority, getDailyPriority } from './data';
 import { selectPriority } from './select';
+import { buildPriorityBridge, previousLocalDate } from './transition';
 import type {
   ImplicatedDriverInput,
   IncompleteActionInput,
@@ -352,7 +353,17 @@ export async function buildPriorityView(
     // remaining rules so an existing row can short-circuit the work: once
     // Root has committed to a priority for the day, recomputing the losing
     // rules changes nothing she can see.
-    const existing = await getDailyPriority(supabase, memberId, todayLocalDate);
+    //
+    // Yesterday's row is read alongside it, for the "Building on
+    // yesterday..." presentation only. Same accessor, same table, one
+    // extra date-scoped lookup on a request-memoized path. It is
+    // deliberately NOT an input to selectPriority and cannot reach it:
+    // what Root decided today is decided by today's evidence, and this
+    // only asks whether the handover from yesterday is worth showing her.
+    const [existing, yesterday] = await Promise.all([
+      getDailyPriority(supabase, memberId, todayLocalDate),
+      getDailyPriority(supabase, memberId, previousLocalDate(todayLocalDate)),
+    ]);
 
     // The re-entry override clears "after she engages once", which is
     // exactly what a done or saved status on today's row records.
@@ -393,16 +404,22 @@ export async function buildPriorityView(
     // when the live hierarchy still agrees which rule is in play. When it
     // does not, there is no honest current reason and the card shows none.
     if (existing) {
+      const shown: typeof fresh = {
+        rule: existing.rule,
+        priorityKey: existing.priorityKey,
+        title: existing.title,
+        reason: fresh.rule === existing.rule ? fresh.reason : null,
+        help: existing.help,
+        href: existing.href,
+      };
       return {
-        selected: {
-          rule: existing.rule,
-          priorityKey: existing.priorityKey,
-          title: existing.title,
-          reason: fresh.rule === existing.rule ? fresh.reason : null,
-          help: existing.help,
-          href: existing.href,
-        },
+        selected: shown,
         status: existing.status,
+        localDate: todayLocalDate,
+        // Compared against what she is actually being shown today, not
+        // against the freshly recomputed winner, so the bridge can never
+        // claim a change she cannot see on the card in front of her.
+        bridge: buildPriorityBridge(yesterday, shown, todayLocalDate),
         isReEntry,
         welcomeLine: isReEntry ? RETURN_GREETING_TEXT : null,
       };
@@ -422,6 +439,8 @@ export async function buildPriorityView(
     return {
       selected: fresh,
       status: record.status,
+      localDate: todayLocalDate,
+      bridge: buildPriorityBridge(yesterday, fresh, todayLocalDate),
       isReEntry,
       // Root's one established return sentence, never a second welcome
       // authored by this feature. See lib/return-greeting/absence.ts for

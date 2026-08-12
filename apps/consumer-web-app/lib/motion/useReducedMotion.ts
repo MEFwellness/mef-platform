@@ -25,6 +25,27 @@ import { useEffect, useState } from 'react';
 
 const QUERY = '(prefers-reduced-motion: reduce)';
 
+/**
+ * The same answer, read synchronously, for the one case the hook cannot
+ * serve: deciding before the FIRST paint whether a timed sequence should
+ * run at all.
+ *
+ * The hook necessarily starts at `false` (a lazy initializer would make
+ * the client's first render disagree with the server's HTML, which is a
+ * hydration mismatch), so a sequence that kicks off from a passive effect
+ * gets one painted frame of motion before the hook has corrected itself.
+ * Called from a `useLayoutEffect`, which runs before paint, this closes
+ * that frame — and it reads the same one `QUERY` constant, so there is
+ * still exactly one definition of the media query in the codebase.
+ *
+ * Everything ongoing should still use the hook: this is a point read and
+ * does not react to the member changing the setting mid-session.
+ */
+export function prefersReducedMotionNow(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia(QUERY).matches;
+}
+
 export function useReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
 

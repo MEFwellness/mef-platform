@@ -219,10 +219,30 @@ export type DailyPriorityRecord = {
   savedAt: string | null;
 };
 
+/**
+ * The adaptation moment, when there is one: yesterday's completed
+ * priority, shown briefly in its resolved state before today's takes
+ * over. Purely a presentation fact — see lib/priority/transition.ts for
+ * the three conditions that produce it, none of which can influence
+ * which priority won today.
+ */
+export type PriorityBridge = {
+  /** Yesterday's priority, exactly as she was shown it. */
+  yesterdayTitle: string;
+};
+
 /** What the Today page renders. */
 export type PriorityView = {
   selected: SelectedPriority;
   status: PriorityStatus;
+  /** Her own local date for this priority. Scopes the once-per-day bridge replay guard. */
+  localDate: string;
+  /**
+   * Non-null only when Root visibly adapted overnight: she completed
+   * yesterday's priority and today's is a different one. Null is the
+   * ordinary case and means the ordinary entrance plays.
+   */
+  bridge: PriorityBridge | null;
   /** True when rule 0 fired, so the card shows the welcome-back opening. */
   isReEntry: boolean;
   /**
