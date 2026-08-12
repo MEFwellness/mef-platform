@@ -176,6 +176,12 @@ describe('chain ordering: a takeover when it should be, and never a starver', ()
     expect(ordinaryAt).toBeLessThan(freeArcAt);
   });
 
+  it('never pops for a priority she has already actioned', () => {
+    // Done or saved on Home or Today writes the same row, so the pop-up
+    // would otherwise interrupt her with something already finished.
+    expect(source).toContain("priorityViewRaw?.status === 'active' ? priorityViewRaw : null");
+  });
+
   it('returns one message, so the chain can never stack two pop-ups', () => {
     // Every branch in the resolver returns immediately; HomeScreenPopups
     // then freezes that single decision for the visit.

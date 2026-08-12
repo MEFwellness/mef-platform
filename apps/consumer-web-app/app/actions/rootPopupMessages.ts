@@ -294,7 +294,14 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   //
   // A coach assignment still outranks both: a coach's direct action for
   // this member comes before anything Root decides on her behalf.
-  const priorityView = await getMyPriorityView();
+  //
+  // Either half only ever pops while the card is still ACTIVE. If she has
+  // already marked today's priority done or saved it for later (on Home or
+  // on Today, both of which write the same row), the pop-up has nothing
+  // left to ask and interrupting her with it would be noise. The card
+  // stays available inline either way.
+  const priorityViewRaw = await getMyPriorityView();
+  const priorityView = priorityViewRaw?.status === 'active' ? priorityViewRaw : null;
   if (priorityView?.isReEntry) {
     return {
       kind: 'priority_card',
