@@ -202,6 +202,25 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // uses the same recurring snoozed/ignored rule day3/day7 already use,
   // not isOfferStillDue's one-time-ever rule — see this file's own header
   // comment for why.
+  //
+  // FIX 6 (2026-08-12, found live while verifying the Priority Card's
+  // pop-up delivery): every day3/day7 branch below now calls this for
+  // itself and FALLS THROUGH when its message is already dismissed,
+  // instead of returning unconditionally and leaving the single outer
+  // due-check in getMyRootPopupMessageAction to filter it.
+  //
+  // This is the same starvation bug this file's own header describes for
+  // the offer branches (fixed 2026-08-02), which was never applied to
+  // day3/day7. The failure is total, not partial: a member who tapped
+  // "Ignore" on a Core Values Snapshot day-3 pop-up still has that message
+  // genuinely pending forever (ignoring the pop-up is not answering the
+  // question), so this function kept returning it, and the outer check
+  // then turned the whole call into null. She could never see ANY pop-up
+  // again, of any kind, for the rest of her membership.
+  //
+  // Found on the production test account memberPopulated, which had
+  // exactly one such row (cvs_day3, 'ignored') and was consequently
+  // getting no Priority Card pop-up while every other account did.
   async function isRecurringMessageDue(messageKey: string): Promise<boolean> {
     if (!memberId || !supabase) return true;
     const dismissal = await getRootPopupDismissal(supabase, memberId, messageKey);
@@ -332,23 +351,29 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     : null;
 
   if (cvsPending === 'day3') {
-    return {
-      kind: 'cvs_day3',
-      messageKey: cvsPopupMessageKey('day3', cvsStatus!.experiment.id),
-      experimentId: cvsStatus!.experiment.id,
-      topLabelText: cvsStatus!.experiment.title,
-    };
+    const messageKey = cvsPopupMessageKey('day3', cvsStatus!.experiment.id);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'cvs_day3',
+        messageKey,
+        experimentId: cvsStatus!.experiment.id,
+        topLabelText: cvsStatus!.experiment.title,
+      };
+    }
   }
   if (cvsPending === 'day7') {
-    return {
-      kind: 'cvs_day7',
-      messageKey: cvsPopupMessageKey('day7', cvsStatus!.experiment.id),
-      experimentId: cvsStatus!.experiment.id,
-      topLabelText: cvsStatus!.experiment.title,
-      logs: cvsStatus!.logs,
-      durationDays: cvsStatus!.experiment.durationDays,
-      goalCallback: await goalCallbackForDay7(),
-    };
+    const messageKey = cvsPopupMessageKey('day7', cvsStatus!.experiment.id);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'cvs_day7',
+        messageKey,
+        experimentId: cvsStatus!.experiment.id,
+        topLabelText: cvsStatus!.experiment.title,
+        logs: cvsStatus!.logs,
+        durationDays: cvsStatus!.experiment.durationDays,
+        goalCallback: await goalCallbackForDay7(),
+      };
+    }
   }
   if (!cvsStatus || cvsStatus.experiment.status !== 'active') {
     const offer = await getMyCvsOfferAction();
@@ -371,23 +396,29 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     : null;
 
   if (lscPending === 'day3') {
-    return {
-      kind: 'lsc_day3',
-      messageKey: lscPopupMessageKey('day3', lscStatus!.experiment.id),
-      experimentId: lscStatus!.experiment.id,
-      topLabelText: lscStatus!.experiment.title,
-    };
+    const messageKey = lscPopupMessageKey('day3', lscStatus!.experiment.id);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'lsc_day3',
+        messageKey,
+        experimentId: lscStatus!.experiment.id,
+        topLabelText: lscStatus!.experiment.title,
+      };
+    }
   }
   if (lscPending === 'day7') {
-    return {
-      kind: 'lsc_day7',
-      messageKey: lscPopupMessageKey('day7', lscStatus!.experiment.id),
-      experimentId: lscStatus!.experiment.id,
-      topLabelText: lscStatus!.experiment.title,
-      logs: lscStatus!.logs,
-      durationDays: lscStatus!.experiment.durationDays,
-      goalCallback: await goalCallbackForDay7(),
-    };
+    const messageKey = lscPopupMessageKey('day7', lscStatus!.experiment.id);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'lsc_day7',
+        messageKey,
+        experimentId: lscStatus!.experiment.id,
+        topLabelText: lscStatus!.experiment.title,
+        logs: lscStatus!.logs,
+        durationDays: lscStatus!.experiment.durationDays,
+        goalCallback: await goalCallbackForDay7(),
+      };
+    }
   }
   if (!lscStatus || lscStatus.experiment.status !== 'active') {
     const offer = await getMyLscOfferAction();
@@ -410,23 +441,29 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     : null;
 
   if (rplPending === 'day3') {
-    return {
-      kind: 'rpl_day3',
-      messageKey: rplPopupMessageKey('day3', rplStatus!.experiment.id),
-      experimentId: rplStatus!.experiment.id,
-      topLabelText: rplStatus!.experiment.title,
-    };
+    const messageKey = rplPopupMessageKey('day3', rplStatus!.experiment.id);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'rpl_day3',
+        messageKey,
+        experimentId: rplStatus!.experiment.id,
+        topLabelText: rplStatus!.experiment.title,
+      };
+    }
   }
   if (rplPending === 'day7') {
-    return {
-      kind: 'rpl_day7',
-      messageKey: rplPopupMessageKey('day7', rplStatus!.experiment.id),
-      experimentId: rplStatus!.experiment.id,
-      topLabelText: rplStatus!.experiment.title,
-      logs: rplStatus!.logs,
-      durationDays: rplStatus!.experiment.durationDays,
-      goalCallback: await goalCallbackForDay7(),
-    };
+    const messageKey = rplPopupMessageKey('day7', rplStatus!.experiment.id);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'rpl_day7',
+        messageKey,
+        experimentId: rplStatus!.experiment.id,
+        topLabelText: rplStatus!.experiment.title,
+        logs: rplStatus!.logs,
+        durationDays: rplStatus!.experiment.durationDays,
+        goalCallback: await goalCallbackForDay7(),
+      };
+    }
   }
   if (!rplStatus || rplStatus.experiment.status !== 'active') {
     const offer = await getMyRplOfferAction();
@@ -444,21 +481,27 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   const resetPlanState = await getMyResetPlanDashboardStateAction();
   if (resetPlanState.kind === 'active' && resetPlanState.plan.focusSignal) {
     if (resetPlanState.isDay3Eligible && !resetPlanState.day3Answered) {
-      return {
-        kind: 'reset_plan_day3',
-        messageKey: resetPlanPopupMessageKey('day3', resetPlanState.plan.id),
-        planId: resetPlanState.plan.id,
-        focusSignal: resetPlanState.plan.focusSignal,
-      };
+      const messageKey = resetPlanPopupMessageKey('day3', resetPlanState.plan.id);
+      if (await isRecurringMessageDue(messageKey)) {
+        return {
+          kind: 'reset_plan_day3',
+          messageKey,
+          planId: resetPlanState.plan.id,
+          focusSignal: resetPlanState.plan.focusSignal,
+        };
+      }
     }
     if (resetPlanState.isDay7Eligible && !resetPlanState.day7Acknowledged) {
-      return {
-        kind: 'reset_plan_day7',
-        messageKey: resetPlanPopupMessageKey('day7', resetPlanState.plan.id),
-        planId: resetPlanState.plan.id,
-        focusSignal: resetPlanState.plan.focusSignal,
-        logs: resetPlanState.logs,
-      };
+      const messageKey = resetPlanPopupMessageKey('day7', resetPlanState.plan.id);
+      if (await isRecurringMessageDue(messageKey)) {
+        return {
+          kind: 'reset_plan_day7',
+          messageKey,
+          planId: resetPlanState.plan.id,
+          focusSignal: resetPlanState.plan.focusSignal,
+          logs: resetPlanState.logs,
+        };
+      }
     }
   }
 

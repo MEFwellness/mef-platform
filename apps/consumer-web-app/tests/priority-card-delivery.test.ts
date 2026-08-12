@@ -176,6 +176,35 @@ describe('chain ordering: a takeover when it should be, and never a starver', ()
     expect(ordinaryAt).toBeLessThan(freeArcAt);
   });
 
+  it('no branch above the Priority Card can starve it by returning an already-dismissed message', () => {
+    // FIX 6 (2026-08-12), found live. Every day3/day7 branch that sits
+    // above the Priority Card must check its OWN due-ness and fall through
+    // when dismissed. A branch that returns unconditionally, trusting the
+    // single outer check to filter it, turns the whole resolver into null
+    // and blocks every lower pop-up forever, which is exactly what one
+    // 'ignored' cvs_day3 row was doing to memberPopulated in production.
+    const pendingBranches = [
+      "if (cvsPending === 'day3')",
+      "if (cvsPending === 'day7')",
+      "if (lscPending === 'day3')",
+      "if (lscPending === 'day7')",
+      "if (rplPending === 'day3')",
+      "if (rplPending === 'day7')",
+      'resetPlanState.isDay3Eligible',
+      'resetPlanState.isDay7Eligible',
+    ];
+
+    for (const branch of pendingBranches) {
+      const at = source.indexOf(branch);
+      expect(at, `${branch} should exist`).toBeGreaterThan(-1);
+      // The guard must appear inside the branch, before its return.
+      const body = source.slice(at, source.indexOf('return {', at));
+      expect(body, `${branch} must check its own due-ness`).toContain(
+        'await isRecurringMessageDue(messageKey)'
+      );
+    }
+  });
+
   it('never pops for a priority she has already actioned', () => {
     // Done or saved on Home or Today writes the same row, so the pop-up
     // would otherwise interrupt her with something already finished.
