@@ -354,6 +354,32 @@ on the platform.
 | `tests/analytics-service-friction-signals.test.ts` | every signal, from both sides of every threshold, plus the no-interpretation and no-health-content rules |
 | `tests/analytics-service-integration.test.ts` | every metric against a hand-countable fixture, the funnel including the unmeasurable stage, test-account exclusion and the toggle, member isolation, privacy, authorization, empty states |
 
+## Live verification
+
+`scripts/verify-analytics-live.mjs` is read only and safe to run against
+production at any time. It calls each function and, independently, pulls the
+raw event rows for the same range and counts them in JavaScript using none
+of those functions, then prints both columns side by side. A number that
+only ever checks itself is not verified.
+
+```bash
+cd apps/consumer-web-app
+ANALYTICS_SUPABASE_URL=https://<ref>.supabase.co \
+ANALYTICS_SERVICE_ROLE_KEY=<Settings, API, service_role key> \
+  node scripts/verify-analytics-live.mjs
+```
+
+Run against production on 2026-08-12, all 13 cross-checks agreed, the test
+account toggle moved the numbers from 1 active member to 4, and a signed-out
+visitor, a signed-in member and a signed-in coach were each refused by all
+twelve endpoints.
+
+Note that a direct `psql` connection to `db.<ref>.supabase.co` resolves to
+IPv6 and may be unreachable; the session-mode pooler on
+`aws-1-us-west-2.pooler.supabase.com:5432` works over IPv4.
+
+## Non-vacuous guard tests
+
 The guard tests were proved non-vacuous by breaking the code and watching
 them fail:
 

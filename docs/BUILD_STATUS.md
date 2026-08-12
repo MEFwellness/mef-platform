@@ -71,17 +71,31 @@ One index added: `member_wellness_events (local_date, event_type)`. Every query 
 
 136 new tests. Three mutations proved the guards non-vacuous: filtering on `occurred_at` instead of `local_date` (2 failures), removing the test-account filter from `analytics_member_scope` (2 failures), and making `analytics_assert_admin` a no-op (6 failures). Each was reverted and the suite re-verified green.
 
-### Verification, and what is NOT verified
+### Live verification on production
 
-`scripts/verify-analytics-live.mjs` is committed and read-only. It calls each analytics function AND independently pulls the raw event rows for the same range and counts them in JavaScript, touching none of those functions, then prints both columns side by side. Run against local Supabase with a realistic fixture, **all 13 cross-checks agreed**, in both test-account modes (1 active member / 16 sessions excluded, 2 / 18 included).
+**Migration 149 is applied to production.** Pushed with `db push --db-url` (the `--linked` password prompt still fails). Confirmed on the live database: 20 `analytics_*` functions installed, the `member_wellness_events_local_date_type_idx` index present, and `migration list` showing 149 on both sides.
 
-**Migration 149 has NOT been applied to production, and nothing was verified against production data.** Applying it needs the database password (`--linked`'s prompt still fails, as previously documented), and both the migration write and a read-only production query were blocked in this session. Once the migration is applied, one command does the live verification:
+Deployment: repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform`, target Production, status Ready, aliased to `app.mefwellness.com`. The build log names the commit it cloned: **`ce970df`**, branch `main`.
 
-```
-cd apps/consumer-web-app
-ANALYTICS_SUPABASE_URL=<production URL> ANALYTICS_SERVICE_ROLE_KEY=<service_role key> \
-  node scripts/verify-analytics-live.mjs
-```
+`scripts/verify-analytics-live.mjs` is committed and read only. It calls each analytics function AND independently pulls the raw event rows for the same range and counts them in JavaScript, touching none of those functions, then prints both columns. Against real production data over the last 90 days, **all 13 cross-checks agreed**.
+
+The five spot-checks were then repeated a third way, by hand-written SQL over the raw production event rows, rebuilding the member scope from scratch rather than calling `analytics_member_scope`:
+
+| Metric | From the function | From raw production rows |
+| --- | --- | --- |
+| Active members | 1 | 1 |
+| Sessions (active member-days) | 1 | 1 |
+| Daily Reset started | 1 | 1 |
+| Paywall views | 1 | 1 |
+| Members viewing Today | 1 | 1 |
+
+**Test accounts on live data.** Excluded by default: 1 active member, 1 session. Toggle on: 4 active members, 4 sessions. There are 4 test accounts and 10 real accounts on the platform, so the standing production fixtures really are being kept out of every number by default.
+
+**Authorization on live production.** A signed-out visitor, a real signed-in member session (one of the standing production test members), and a real signed-in coach session were each pointed at all twelve new endpoints: **12 of 12 refused, every time, for all three**. The same member session still read her own events normally (5 rows), so those refusals are the analytics guard and not a broken session, and the helper function returned **0** other members' rows to her.
+
+**Privacy on live data.** No health-answer field name and no health content appeared anywhere in the production output.
+
+**One real finding, reported rather than smoothed over.** Production has 9 member accounts created inside the range and **0** `signup_completed` events, so the funnel cohort is legitimately zero and every stage reads 0. That is the instrumentation gap working as designed: those accounts predate the analytics trigger, and `profilesCreatedInRange` sits next to `cohortSize` precisely so this shows as "no cohort yet" instead of "nobody signs up". The funnel will start producing real numbers from the first account created after migration 146 shipped.
 
 ## Priority Card, Part 2: The Motion Pass (2026-08-12)
 
