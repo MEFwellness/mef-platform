@@ -95,7 +95,10 @@ export function MetricCard({
   emphasis?: boolean | undefined;
 }) {
   return (
-    <div className={`${CARD} flex h-full flex-col p-5`} data-metric={label}>
+    // data-metric-value is what the live verification script reads, so
+    // "the number on the screen" can be compared with a fresh run of
+    // scripts/verify-analytics-live.mjs mechanically rather than by eye.
+    <div className={`${CARD} flex h-full flex-col p-5`} data-metric={label} data-metric-value={value}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1B3A2D]/45">
         {label}
       </p>

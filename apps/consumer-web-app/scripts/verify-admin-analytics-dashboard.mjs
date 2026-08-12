@@ -33,6 +33,14 @@ const COACH = process.env.COACH_EMAIL
   ? { email: process.env.COACH_EMAIL, password: process.env.COACH_PASSWORD }
   : { email: 'coach.one@example.test', password: 'DevPassword123!' };
 
+/**
+ * Against production there is no seeded member or coach to sign in as, so
+ * those two passes are skipped explicitly rather than run with credentials
+ * that do not exist. A skip is printed, never silently omitted.
+ */
+const SKIP_MEMBER = process.env.SKIP_MEMBER === '1';
+const SKIP_COACH = process.env.SKIP_COACH === '1';
+
 const ROUTES = [
   '/admin/analytics',
   '/admin/analytics/funnel',
@@ -82,7 +90,9 @@ async function main() {
   // --------------------------------------------------------------
   // A signed-in member
   // --------------------------------------------------------------
-  {
+  if (SKIP_MEMBER) {
+    console.log('SKIP  member pass (SKIP_MEMBER=1, no member credentials for this target)');
+  } else {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
     await login(page, MEMBER);
@@ -96,7 +106,9 @@ async function main() {
   // --------------------------------------------------------------
   // A signed-in coach
   // --------------------------------------------------------------
-  if (COACH.email) {
+  if (SKIP_COACH) {
+    console.log('SKIP  coach pass (SKIP_COACH=1, no coach credentials for this target)');
+  } else if (COACH.email) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
     try {
@@ -151,6 +163,20 @@ async function main() {
         path: path.join(OUT, `${name}-90d-test-on.png`),
         fullPage: true,
       });
+    }
+
+    // The numbers on the Overview, both ways, so they can be checked
+    // against a fresh run of scripts/verify-analytics-live.mjs.
+    for (const test of ['off', 'on']) {
+      await page.goto(
+        `${BASE_URL}/admin/analytics?range=90d${test === 'on' ? '&test=on' : ''}`,
+        { waitUntil: 'load' }
+      );
+      await page.waitForTimeout(400);
+      const metrics = await page.$$eval('[data-metric-value]', (nodes) =>
+        nodes.map((n) => `${n.getAttribute('data-metric')}=${n.getAttribute('data-metric-value')}`)
+      );
+      console.log(`NUMBERS  overview 90d, test accounts ${test}: ${metrics.join('  ') || '(none rendered)'}`);
     }
 
     // Custom range.
