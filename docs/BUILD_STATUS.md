@@ -1,3 +1,68 @@
+## Priority Card Delivery Fix: Pop-Up On Open (2026-08-12)
+
+The Priority Card shipped as an inline element of the Today screen only, so a member had to navigate to find it. Wrong delivery. It now arrives as the pop-up she meets when she opens the app, and every member always has one.
+
+### Delivered through the existing chain, not a second pop-up system
+
+A new `priority_card` kind in `RootPopupMessage`, resolved by the same `findMyPendingRootPopupMessage` waterfall and rendered by the same `RootMessagePopupClient` dispatcher in the same dark-green modal chrome (identical panel, backdrop, corner wash and z-index, asserted by test). The chain's existing "only one pop-up may own the screen" rule therefore applies unchanged, and no page mounts the pop-up directly.
+
+**Once per calendar day.** The message key carries the member's own local date (`priority_card:2026-08-12`), so the chain's existing one-time-ever dismissal rule applied to a date-scoped key **is** the once-per-day rule: today's key can be dismissed exactly once, tomorrow's is a genuinely new message. No new column, no third dismissal lifetime, no schema for it at all. It marks itself dismissed on mount, exactly as the offer kinds do, so closing the tab still counts as its one showing. It also never pops for a priority she has already marked done or saved elsewhere, because interrupting her with something finished is noise.
+
+### Chain placement is split, deliberately
+
+The card takes **two** positions, and this is the part worth understanding:
+
+- **Re-entry sits high**, above every self-serve message. After a 7+ day absence the pop-up IS the welcome back, and a takeover that queued behind a day-3 follow-up would not be one. Safe there because it is rare and clears after a single engagement, so it cannot starve anything.
+- **The ordinary daily card sits low**, below everything that can actually be finished. It is available *every* day and perpetual; the day-3/day-7 follow-ups are finite. Above them it would starve them permanently for a member who opens the app once a day. It still beats the free-arc invitation, on that branch's own stated principle that an invitation to start something new yields to what Root has actually decided matters today.
+- **A coach assignment still outranks both.**
+
+### One card, one state, three surfaces
+
+`usePriorityCardActions` holds the three handlers, so the pop-up and the inline card cannot drift apart about what Done means, including its real Reset Plan daily-log write. Neither presentation may call the mutating actions itself, which is asserted. The inline card now also sits at the top of Home. All three surfaces resolve through one request-memoized `getMyPriorityView` and one `member_daily_priorities` row, so "Done in the pop-up shows Done everywhere" is true by construction rather than by syncing.
+
+### The empty-card gap is closed
+
+Two final fallback rules guarantee every member always has exactly one honest priority. They sit last in `PRIORITY_LADDER`, which is the only thing that decides precedence, so they are structurally unable to outrank rules 0 through 4. Exactly one of the two can ever apply.
+
+- `daily_reset` — today's Daily Reset is not done. The product's real core loop, not an invented task. Reason line is a plain count, omitted entirely on day zero.
+- `gentle_focus` — it is already done. Her own stated onboarding goal, quoted back from `member_goal_selections`. A member who never chose a goal gets a sentence that makes no claim about her at all.
+
+Neither invents an insight, which is what makes a fallback acceptable here.
+
+### Analytics
+
+`presentation` ('popup' | 'inline') added to the payload allowlist. Exactly one `priority_shown` per member per local day, guaranteed by an atomic `update ... where shown_at is null` claim rather than a client-side dedupe window, which could not have decided it correctly anyway. And because Home renders the pop-up and the inline card in the same paint, the inline tracker stands down while the pop-up is showing, so the recorded presentation is the one that genuinely reached her rather than whichever round trip landed first.
+
+### A real pre-existing bug found live, and fixed
+
+While verifying, `memberPopulated` was the only account getting no Priority Card pop-up. The cause was not this build: **every `day3`/`day7` branch in the chain returned unconditionally**, relying on the single outer due-check to filter it. That check returns `null` rather than falling through, so a message that stays genuinely pending while already dismissed blocks every lower pop-up permanently. Ignoring a day-3 pop-up is not answering its question, so the message stays pending forever, and one `ignored` `cvs_day3` row meant that member could never see **any** pop-up again, of any kind, for the rest of her membership.
+
+This is the same starvation bug this file's own header documents for the offer branches (fixed 2026-08-02) and which was never applied to day3/day7. All eight branches now check their own due-ness and fall through, the discipline `pickFirstDueOneTimeMessage` already exists to enforce. Confirmed live: that member now gets her previously-blocked day-3 follow-up back.
+
+### Migration 148
+
+Widens `member_daily_priorities.rule` for the two fallback rules, and adds `shown_at` / `shown_presentation`. Applied to production over the pooler as a single `ON_ERROR_STOP` transaction after pre-flight, recorded in the ledger, and `db push --dry-run` reports **"Remote database is up to date."** All 2 pre-existing rows preserved.
+
+### Live verification on app.mefwellness.com
+
+Deploy confirmed each time: repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform`, target Production, and `vercel inspect app.mefwellness.com` resolving to the exact deployment under test. Driven with `scripts/screenshots/verify-priority-popup-live.mjs`. **Zero console errors, zero page errors, zero 5xx across every account.**
+
+| Account | Result |
+| --- | --- |
+| `memberEmpty` (brand new) | Priority Card pop-up on open, one dialog, all three buttons. Help me expanded **inside** the pop-up with no navigation. Done inside the pop-up stuck, and Home **and** Today both showed "Done today." Same-day reload did not re-pop. |
+| `memberBelowThreshold` (just started) | Fallback pop-up with an honest "You have 5 days logged so far." Save for later inside the pop-up worked; on reload it was gone from Home's dominant slot and sat collapsed at position 6 of 6 on Today. No re-pop. |
+| `memberPopulated` | Her pop-up slot correctly went to a finite day-3 follow-up (restored by the starvation fix above), and her real Reset Plan priority was present inline on both Home and Today with byte-identical text. |
+
+Analytics read back from production: exactly **one** `priority_shown` per member for the day, `presentation` recorded as `popup` for the two who got the pop-up and `inline` for the one who met it on the page, plus `priority_action` rows for help / done / save.
+
+Test-account fixtures (`member_root_popup_dismissals` rows for the date-scoped key, and the day's `member_daily_priorities` status) were reset between runs so each pass measured a genuine first-open-of-day rather than a leftover state.
+
+### Checks
+
+`npm run typecheck` clean. `npm run lint` 0 errors (90 pre-existing `no-console` warnings, untouched). Production build compiles. Full suite **3818/3819** — the one failure is the same pre-existing `correlation-engine-integration` test-isolation flake documented in the entry below, unrelated to this work.
+
+31 new delivery guard tests plus the updated hierarchy suite (97 across the three priority files). Four mutations proved them non-vacuous: promoting the ordinary card above the finite messages, swapping once-per-day for once-per-login, having the inline card re-implement Done, and restoring the live starvation bug. Each was caught, and every source was restored and re-verified clean.
+
 ## Priority Card, Part 1: The Priority Engine and the Card (2026-08-12)
 
 The top of the Today screen now shows one thing: her single focus for today, one line explaining why, and three actions. Root decides what it is. Part 2 will deepen the motion design; this build delivers the selection engine and a fully working card with a deliberately simple entrance.
