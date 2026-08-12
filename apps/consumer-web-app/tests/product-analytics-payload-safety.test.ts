@@ -42,6 +42,9 @@ const ALLOWED_PAYLOAD_KEYS = new Set([
   'fromTier',
   'toTier',
   'term',
+  // Priority Card (migration 147): which hierarchy rule won. A fixed
+  // slug, never the priority's own wording or the reason line.
+  'rule',
 ]);
 
 const ANALYTICS_EVENT_TYPES = [
@@ -58,6 +61,9 @@ const ANALYTICS_EVENT_TYPES = [
   'paywall_viewed',
   'membership_tier_changed',
   'purchase_completed',
+  'priority_shown',
+  'priority_action',
+  're_entry_shown',
 ];
 
 function walk(dir: string, out: string[] = []): string[] {

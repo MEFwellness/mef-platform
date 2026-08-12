@@ -40,6 +40,10 @@ const APP_WRITTEN_TYPES: ProductAnalyticsEventType[] = [
   'feature_engaged',
   'paywall_viewed',
   'purchase_completed',
+  // Priority Card (migration 147).
+  'priority_shown',
+  'priority_action',
+  're_entry_shown',
 ];
 
 const ANALYTICS_TYPES: ProductAnalyticsEventType[] = [

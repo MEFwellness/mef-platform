@@ -64,6 +64,10 @@ import { Reading } from '@/components/layout';
 import { FeedInteractions } from './FeedInteractions';
 import { TodayZones } from './TodayZones';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { PriorityCard } from '@/components/priority/PriorityCard';
+import { TrackPriorityShown } from '@/components/priority/TrackPriorityShown';
+import { buildPriorityView } from '@/lib/priority/service';
+import type { TodaysFocusInput } from '@/lib/priority/types';
 
 // Screen Layout System (Prompt 2): was a hand-rolled duplicate of
 // `.mef-card` (app/globals.css) — now the one shared recipe.
@@ -166,6 +170,24 @@ export default async function TodayPage() {
   const modeBadge = decision ? MODE_BADGE[decision.mode] : null;
   const ModeIcon = modeBadge?.icon ?? Compass;
 
+  // Priority Card (Part 1). The engine is handed what this page already
+  // fetched — the Coaching Brain's decision and the member's recent
+  // check-ins — so rule 4 and the absence read cost no extra queries here.
+  // It decides one winner across five rules; see lib/priority/select.ts.
+  const todaysFocusInput: TodaysFocusInput | null = decision?.feedItem
+    ? {
+        feedItemId: decision.feedItem.id,
+        focusText: decision.feedItem.focus_text,
+        reasonText: decision.reasonText ?? null,
+        suggestedAction: decision.content?.suggested_action ?? null,
+      }
+    : null;
+
+  const priority = await buildPriorityView(supabase, user.id, localDate, {
+    recentCheckins,
+    todaysFocus: todaysFocusInput,
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <TrackSurfaceView surface="today" />
@@ -202,6 +224,19 @@ export default async function TodayPage() {
           )}
         </div>
         <p className="mt-2 text-[15px] italic text-[#6B7A72]">{decision?.encouragement ?? ''}</p>
+
+        {/* THE PRIORITY CARD — the dominant first element of this screen,
+            above every other card including the first-check-in welcome.
+            One winner, never two, never a list. Rendered here only while
+            it is active or done; a saved card moves below TodayZones
+            instead (see further down), which is what "collapses and moves
+            lower down the page, no longer dominant" means in practice. */}
+        {priority && priority.status !== 'saved' && (
+          <>
+            <TrackPriorityShown rule={priority.selected.rule} isReEntry={priority.isReEntry} />
+            <PriorityCard view={priority} />
+          </>
+        )}
 
         {recentCheckins.length === 0 ? (
           /* Premium UX Milestone 2: same welcome moment Dashboard shows
@@ -697,8 +732,13 @@ export default async function TodayPage() {
               </div>
             )}
 
-            {/* Past Lessons */}
-            {history.length > 0 && (
+            {/* Past Lessons. Suppressed entirely on a re-entry opening:
+                this is the one list on the page that labels old items
+                "Not completed", and a member returning after a real
+                absence is precisely who must not be handed a column of
+                them. Nothing is lost, it returns on her next ordinary
+                visit. */}
+            {history.length > 0 && !priority?.isReEntry && (
               <section className="mt-6">
                 <div className="flex items-center gap-2 text-[#6B7A72]">
                   <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -729,6 +769,17 @@ export default async function TodayPage() {
               </section>
             )}
           </>
+        )}
+
+        {/* The saved priority's collapsed home. Still available, no longer
+            dominant: it sits below the day's zones rather than above them,
+            and Root does not raise it back to the top again today. Outside
+            the history branch above deliberately, so a member with no
+            check-ins yet who saves her priority can still find it. */}
+        {priority && priority.status === 'saved' && (
+          <div className="mt-6">
+            <PriorityCard view={priority} collapsed />
+          </div>
         )}
       </main>
 

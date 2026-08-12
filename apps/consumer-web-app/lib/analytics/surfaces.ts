@@ -95,6 +95,39 @@ export function isEngagementAction(value: unknown): value is EngagementAction {
 }
 
 /**
+ * Priority Card — which rule in the selection hierarchy won today. Exactly
+ * the vocabulary migration 147's own `rule` check constraint uses and
+ * lib/priority/types.ts's PriorityRule declares, so an analytics rollup
+ * groups by the same buckets the engine actually decided between.
+ *
+ * A rule name says which KIND of thing Root chose, never what the thing
+ * was: 'implicated_driver' records that a driver won, never which driver,
+ * never its evidence, never the finding sentence shown alongside it.
+ */
+export const PRIORITY_RULES = [
+  're_entry',
+  'reset_plan_commitment',
+  'implicated_driver',
+  'incomplete_action',
+  'todays_focus',
+] as const;
+
+export type PriorityRuleSlug = (typeof PRIORITY_RULES)[number];
+
+export function isPriorityRule(value: unknown): value is PriorityRuleSlug {
+  return typeof value === 'string' && (PRIORITY_RULES as readonly string[]).includes(value);
+}
+
+/** The Priority Card's three buttons, carried in the payload's `action` field. */
+export const PRIORITY_ACTIONS = ['done', 'help', 'save'] as const;
+
+export type PriorityActionSlug = (typeof PRIORITY_ACTIONS)[number];
+
+export function isPriorityAction(value: unknown): value is PriorityActionSlug {
+  return typeof value === 'string' && (PRIORITY_ACTIONS as readonly string[]).includes(value);
+}
+
+/**
  * Why a locked or premium marker was shown. Mirrors the existing
  * `lockReasonKind` values lib/assessment-registry/status.ts already
  * produces, so a paywall event lines up with the gating system that caused

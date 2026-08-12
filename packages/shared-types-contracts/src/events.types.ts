@@ -48,7 +48,16 @@ export type ProductAnalyticsEventType =
   | 'feature_engaged'
   | 'paywall_viewed'
   | 'membership_tier_changed'
-  | 'purchase_completed';
+  | 'purchase_completed'
+  /**
+   * Priority Card (migration 147). Behavioral only: which hierarchy rule
+   * won, which of the three buttons was tapped, and that a re-entry
+   * opening was shown. Never the priority's own text, never the reason
+   * line, never any driver, finding, or check-in content behind it.
+   */
+  | 'priority_shown'
+  | 'priority_action'
+  | 're_entry_shown';
 
 export type MemberWellnessEventType = MemberWellnessOnlyEventType | ProductAnalyticsEventType;
 
@@ -106,6 +115,13 @@ export interface ProductAnalyticsPayload {
   toTier?: string | null;
   /** purchase_completed, billing term, when a billing system can emit it. */
   term?: string;
+  /**
+   * priority_shown / priority_action, which selection-hierarchy rule won.
+   * A fixed slug from lib/analytics/surfaces.ts's PRIORITY_RULES, never
+   * the priority's own wording. priority_action reuses `action` above for
+   * which button was tapped.
+   */
+  rule?: string;
 }
 
 export type MemberWellnessEventPayload =

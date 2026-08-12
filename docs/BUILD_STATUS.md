@@ -1,3 +1,73 @@
+## Priority Card, Part 1: The Priority Engine and the Card (2026-08-12)
+
+The top of the Today screen now shows one thing: her single focus for today, one line explaining why, and three actions. Root decides what it is. Part 2 will deepen the motion design; this build delivers the selection engine and a fully working card with a deliberately simple entrance.
+
+**No new engine was built.** This is a decision layer over systems that already shipped. Every input is read through the owning system's own published accessor:
+
+| Rule | Existing system it reads |
+| --- | --- |
+| 0. Re-entry (override) | `lib/return-greeting/` (Root Presence, migration 143) + `session_started` events from the migration 146 analytics pipeline |
+| 1. Reset Plan commitment not completed today | `lib/reset-plan/data.ts`, `lib/reset-plan/actionLibrary.ts` (migration 142) |
+| 2. Strongly implicated, goal-relevant driver | `lib/case-view/investigation.ts` over `lib/driver-library/` + `lib/correlation-engine/`; reason sentence from `lib/case-view/findings.ts` |
+| 3. Incomplete high-value action | `lib/assessment-registry/facts.ts` (the `assessment_status_by_member` view) + the Reset Plan's own `draft` state |
+| 4. Today's Focus | the Coaching Brain's decision, passed in by the page that already fetched it |
+
+Nothing here computes a correlation, a driver state, a trend, a score, or a content selection. `lib/case-view/investigation.ts`'s `likelyInvolved` bucket is reused verbatim for rule 2 rather than re-deriving goal relevance, so Case View and the Priority Card can never disagree about what Root is looking at, and `'watching'` is structurally unable to reach the card.
+
+### Re-entry and Root Presence were unified, not stacked
+
+The brief's hard requirement was one coherent welcome, never a greeting from one system plus a competing takeover from another. Root Presence already greets on a **3-day check-in gap**; re-entry takes over on **7+ days of sign-in absence**. Those measure different things, and side by side they would have produced exactly that incoherence.
+
+`lib/return-greeting/absence.ts` is the reconciliation, deliberately placed **inside** the Root Presence module rather than beside it:
+
+- Both thresholds live in one file. `RE_ENTRY_MIN_ABSENCE_DAYS = 7` is a named constant, and `classifyPresence` **calls** the existing `isEligibleForReturnGreeting` rather than restating the 3-day rule, so the greeting threshold still has exactly one definition anywhere in the codebase.
+- There is still one greeting sentence in the product and one owner of it. The Priority Card **never writes `member_return_greetings`** and never authors a welcome line of its own; when re-entry fires, the card renders `RETURN_GREETING_TEXT`, the same sentence Root already says. `tests/priority-card-copy.test.ts` guards both facts against a real call or import, not a mention.
+- A sign-in absence is treated as the same episode seen through a stronger signal, so it escalates the greeting rather than competing with it. Existing greeting behavior below 7 days is byte-for-byte unchanged.
+
+Re-entry also suppresses the Past Lessons list, the one place on Today that labels old items "Not completed" — a member returning after a real absence is precisely who must not be handed a column of them. It clears once she engages with the card, and naturally on her next visit once a newer `session_started` exists.
+
+### The card
+
+Dominant first element of Today, above every other card including the first-check-in welcome, and guarded as such by a test. Not a modal, not a popup. Label, priority, one reason line, then Done / Help me / Save for later.
+
+- **Done** marks the row done and the card moves to an accomplished state using the Today page's own accomplished language. When the priority is a Reset Plan commitment it also writes the plan's **real** `member_reset_plan_daily_logs` row, which is what genuinely feeds tomorrow: rule 1 asks "not completed today", so a logged completion is what stops the same commitment winning again before she has done it. Nothing decorative, no second copy of the Reset Plan's completion state.
+- **Help me** expands in place with the easiest smaller step. No navigation, no round trip; the card contains no `useRouter`. The smaller step is reused from what already exists (the Reset Plan's own difficult-day version, the lesson's suggested action).
+- **Save for later** collapses the card and relocates it below the day's zones, still available, and Root does not raise it back to dominant that day.
+
+**No insight without a query.** Every reason line is `string | null` and is omitted entirely when no honest reason exists. A brand-new member gets the focus with no reason line at all, a Reset Plan on day one gets none, a driver with no goal-relevant earned finding gets none, and re-entry gets none **by construction and permanently**, because the only fact available there is the length of her absence and naming it is the guilt Root Presence exists to avoid.
+
+### One thing the design got wrong first, and the fix
+
+The first cut regenerated the card's text on every render. That is wrong: the winning rule legitimately changes **during** the day, because marking a Reset Plan commitment done is exactly what makes rule 1 stop applying. The accomplished card would then have shown a different priority than the one she had just completed. So `member_daily_priorities` stores `priority_title` and `priority_help` (stable content assembled from fixed libraries) and the stored row is authoritative, while the **reason line is deliberately never stored** and is always regenerated live or omitted. Derived insight stays live; the words she was actually shown stay fixed.
+
+The service also fails closed: if the row cannot be claimed, it renders **no card** rather than one whose Done and Save buttons would silently do nothing.
+
+### Migration 147 `priority_card`
+
+One new table, `member_daily_priorities`, one row per member per local day with a real `unique (member_id, local_date)` constraint — "one winner, never two cards, never a list" enforced in the database, not only in the selection code. RLS scoped to `member_id = auth.uid()` with the usual coach and platform-administrator read paths.
+
+Three additive analytics event types (`priority_shown`, `priority_action`, `re_entry_shown`) added by **widening** `member_wellness_events`' existing check constraint, the same rule migrations 63 and 146 set out, plus `is_product_analytics_event_type` recreated so the `product_analytics_events` view picks them up without changing. One new payload key, `rule`, a fixed slug from a closed allowlist. Payloads stay behavioral: which kind of thing won, never which driver, never its evidence, never the sentence shown.
+
+### Testing
+
+57 new tests across `tests/priority-hierarchy.test.ts` and `tests/priority-card-copy.test.ts`.
+
+The precedence tests are built to be **non-vacuous by construction**: every one starts from a single fixture in which all five rules apply at once and removes only the rules above the one under test, then asserts via `applicableRules` that the losing rules really were available and really lost. This was verified by mutation, not assumed:
+
+| Mutation | Result |
+| --- | --- |
+| Re-entry no longer overrides | 3 tests fail |
+| Rule 2 promoted above rule 1 | 9 tests fail |
+| Reason line no longer suppressed for a brand-new member | 1 test fails |
+
+All three sources were restored and re-verified clean afterwards.
+
+### Checks
+
+`npm run typecheck` clean. `npm run lint` 0 errors (90 pre-existing `no-console` warnings, untouched). Production build compiles, 89/89 static pages. Full suite **3777/3778**.
+
+The one failure, `tests/correlation-engine-integration.test.ts`, is **pre-existing and unrelated to this build** — proven by stashing this work and re-running: a clean tree fails **two** tests (that one plus `tests/assessment-runtime-integration.test.ts`), so this branch removes one failure and adds none. Root cause of the correlation one was found and partly fixed: two orphaned `daily_checkins` rows dated 2015-07-01 for `memberOne`, referenced by no test in the repo, sat inside the engine's 180-day lookback and added a 31st observation to a 30-day fixture. Deleting them makes that test pass in isolation; it still fails inside the full parallel run, which is a genuine pre-existing test-isolation problem between integration files sharing the `memberOne` fixture. Not fixed here, flagged.
+
 ## Migrations 143 and 145 Applied to Production (2026-08-12)
 
 Follow-up to the Migration Ledger Backfill entry below, which found these two were the only migrations in 135 to 145 that had never actually run. Both are now applied, verified, and recorded. **Production's ledger and schema now fully agree, and `supabase db push --dry-run` reports "Remote database is up to date" for the first time.**
