@@ -1,3 +1,103 @@
+## The movement flip: Root can now offer a Root Movement session (2026-08-13)
+
+The `movement` action type existed in the schema from the start and was deliberately never emittable, because there were no sessions behind it. There are six now (migrations 153 and 154), so the block is gone. What replaced it is narrower and stricter, and it lives in the same one place the block sat in `lib/priority/select.ts`'s walk: **a movement action must carry a live session key.** A movement candidate with nothing behind it is dropped and the walk continues, exactly as the whole type was before.
+
+This is a connection build. No new intelligence, no new engine, no new UI surface, no new session lineup, and no rung moved.
+
+### The audit, before anything was built
+
+| Premise | Where it actually is | Verdict |
+| --- | --- | --- |
+| The block mechanism | `BLOCKED_ACTION_TYPES` in `lib/coaching-direction/types.ts`, applied once in `lib/priority/select.ts`'s walk | as described |
+| Its guard tests | `tests/coaching-direction-hierarchy.test.ts`, `tests/movement-session-privacy.test.ts` | as described |
+| The implicated-driver rung's domains | driver library `MOV` (6 drivers) and `MEC` (5 drivers), seeded by migration 106 | as described, and the ONLY domain-typed movement signal in the engine |
+| The qualified-pattern rung | `selectQualifiedPattern` carries a correlation `pairKey` and nothing else | **carries no domain at all** |
+| The behavioral-friction rung | three kinds: `daily_reset_incomplete`, `food_logging_lapsed`, `chronic_save_for_later` | **exposes no movement signal** |
+| The fallback when the Daily Reset is done | `gentle_focus`, which quotes her own stated goal back to her | as described |
+| Session templates and completion | six keys, `lib/movement-sessions/data.ts`, `app/actions/movement-sessions.ts` | as described |
+| The card's link handling | `selected.href` renders an "Open it" link; "Help me" expands in place | as described |
+| Test-only force mechanism | `app/api/test-only/weekly-review-reset/route.ts`, four independent gates | as described |
+| A coach-assigned program surface | `coach_assigned_workouts` (migration 82), scheduled per date | **exists, and had to be protected** |
+
+**Three premise mismatches, all reported rather than papered over.**
+
+1. **The brief's "sedentary/desk pattern → desk_reset" is not a friction signal.** The friction service measures how she uses the product, not how she moves. That pattern does exist, as driver `MOV-1 Sitting hours`, so the desk mapping comes off the driver rung instead.
+2. **The qualified-pattern rung can never map to a session**, because a tier 3 finding is a correlation pair key with no domain. Inventing a mapping for it would have been fabricated precision.
+3. **The brief expected no migration.** One was needed: `member_daily_priorities.rule` is a closed CHECK constraint and the new rung needed its name. A second was needed for the live-verification policies. Both are below.
+
+### When Root will offer a session, stated so a coach can read it
+
+**Path one, the implicated-driver rung.** A driver Root had ALREADY decided was implicated and relevant to her stated goals, when that driver is one of the eleven in the table below. The rung does not move and the bar does not drop: the driver still had to earn its place. All that changes is what the action asks for.
+
+| The driver Root is watching | The session it offers | Why |
+| --- | --- | --- |
+| MOV-1 Sitting hours | Desk Reset | built for a body that has been sitting |
+| MOV-6 Daily step volume | Desk Reset | low baseline movement is the desk pattern |
+| MEC-1 Workstation load | Desk Reset | the desk itself |
+| MOV-2 Training volume | Recovery Day | when load is implicated, the answer is the low effort day |
+| MOV-5 Recovery days | Recovery Day | the session that IS a rest day |
+| MOV-3 Training absence | Morning Mobility | the gentlest full body way back in |
+| MOV-4 Movement variety | Morning Mobility | the most varied of the six, head to toe |
+| MEC-2 Upper-cross pattern | Shoulder and Neck Reset | forward head, rounded shoulders |
+| MEC-3 Lower-cross pattern | Hip and Back Reset | pelvic position |
+| MEC-5 One-sided loading | Core Foundation | a trunk and stability answer |
+| **MEC-4 Footwear** | **nothing** | a real movement driver that none of the six addresses. Deliberately unmapped rather than pointed at the nearest session |
+
+**Path two, the enriched fallback.** Once today's Daily Reset is already done, Root offers the least-recently-completed of the six, above the sentence that quotes her own goal back at her. Ties break by the seeded order, so a member who has completed none of them always gets Morning Mobility first. There is no scoring here on purpose: this rung is reached precisely because nothing above it had anything to say about her.
+
+**When Root will NOT offer one, ever.**
+
+* When today's Daily Reset is **not** done. Then the movement rung is not built at all and she gets the Daily Reset, exactly as before. **This is the before/after of the fallback in one line: reset not done, nothing changed; reset done, a session is offered where a goal sentence used to be.**
+* When a coach has a workout scheduled for her **today** that she has not finished. Then no movement priority is built on either path. A coach's programming is a plan she agreed with a person, and Root offering a different session the same day would either displace it or quietly compete with it. Every other rule is unaffected, so she still gets a priority.
+* From safety, re-engagement, the Reset Plan commitment, the qualified-pattern rung, the incomplete-action rung or the friction rung. None of them is domain-typed and none is given a session.
+* When the sessions cannot be read at all. `loadMovementInput` fails closed to null and the engine is byte-identical to the build before the flip.
+
+### Nothing moved
+
+`movement_session` was inserted directly ABOVE the final fallback. `PRIORITY_LADDER_BEFORE_MOVEMENT` freezes the old order as data, and a test asserts the new ladder with the new rung removed is byte-identical to it, plus that the new rung sits exactly one place above `daily_reset`. Safety, re-engagement and the Reset Plan commitment were each run against a fixture with a mapped movement driver present and win every time.
+
+### The card, and never tapping Done twice
+
+A movement priority's link is the EXISTING session player route (`/movement/sessions/<key>`), through the `href` mechanism the card already had. No new component, no new route, no new button.
+
+**Completing that session marks the decision done automatically.** `lib/coaching-direction/movementOutcome.ts` writes through exactly the two functions the card's own Done button writes through, so the card's status row and the outcome ledger cannot disagree. It only ever acts when today's ledger row is typed `movement` AND its recorded session key is the one she just finished. It cannot count twice, by three independent mechanisms: `recordCoachingResponse` only matches a row whose response is still null, the status write is skipped when the row is already done, and `completeSessionRun` upstream only claims a run whose `completed_at` is still null. Save for later and Help me are untouched and do not branch on the action type at all.
+
+### Copy
+
+Observational and earned-tier only. The driver version reuses the same opening the noticing version has always used and names the session: *"Keep an eye on sitting hours today. Desk Reset is there if you want it."* Its reason line is the correlation engine's own sentence, shown only when that sentence exists, exactly as before. The fallback version makes no observation about her whatsoever, because in that state there is none to make: *"Morning Mobility is there if you want it today. Your Daily Reset is already done for today."*
+
+Help me offers the honest smaller version, which is not a shorter session (this product has no such thing) but permission to not do it: *"Nothing has to happen today. It stays where it is, and it is there when you are ready."*
+
+No diagnosis, no promise, no scold, no em dash. All four are asserted as regex over the real engine output, not as a claim.
+
+### Downstream: what needed no code, and the one thing that did
+
+**No code at all**, because they key on `action_type` generically: the outcome ledger, the `coaching_action_delivered` / `_acted` / `_dismissed` events, the Part 3 grading loop (a movement grade can be landing, landed-but-flat or dead on the same counts as anything else), and the Weekly Review's own "what worked" line and grade sentences, which already had movement phrases waiting in `lib/weekly-review/copy.ts`.
+
+**One premise mismatch, fixed minimally and reported.** `lib/weekly-review/compose.ts`'s focus chooser explicitly filtered `movement` out of its count of what she acted on, with a comment saying the engine could not act on such a focus. That was true and is not any more, and leaving it would have handed a member who acted on nothing BUT sessions a focus of something she ignored. The filter is gone; nothing else in that file changed.
+
+### Privacy: unchanged rules
+
+A movement decision carries a session key and nothing else about the session. `sessionKey` was added to the evidence allowlist; a session key is a slug that appears in the URL she is about to open and carries no fact about her. Proven three ways: every key on a real movement decision is on the allowlist and every value is a short slug; health content passed under `sessionKey`, `painLocation`, `sessionNotes`, `exerciseId` or `sessionName` is dropped; and a sentence smuggled through the session key itself is refused by the sanitizer's own no-whitespace rule. The evidence allowlist is asserted to contain no exercise id, exercise name, slot order, prescription, cue, duration or rep count.
+
+### Migrations
+
+**155** widens `member_daily_priorities.rule` by exactly one value. No table, no column, no policy, no data. **156** adds two test-account-only DELETE policies (`member_daily_priorities`, `member_coaching_decisions`), in the same shape migration 151 established for the weekly review's force-redelivery path: the restriction to `is_test` lives in the database as well as in the route handler. 156 is separate from 155 because 155 was already applied to production when the policies turned out to be needed, and an applied migration is a record rather than a file to edit.
+
+Both applied to production. `supabase db push --dry-run` afterwards reports **"Remote database is up to date."**
+
+### Tests
+
+`tests/movement-coaching-flip.test.ts` (new, 35 tests): mapping determinism including the deliberately unmapped MEC-4 and a retired-session case; the enriched fallback firing only when the reset is done, its least-recent selection and its fixed tie-break; the full hierarchy sweep proving every rung above it wins over an available session; the copy rules as regex; the privacy line; the grading loop and the Weekly Review over movement fixtures; and seven real-database tests for the auto-done path, including the no-double-count case proved by the response timestamp not moving, a session that is not today's, a day whose priority was not movement, and Save for later still standing after a session is finished.
+
+Five existing suites were updated in place rather than weakened. `coaching-direction-hierarchy` and `movement-session-privacy` had their "movement is blocked" guards rewritten to the new expectation (nothing is blocked; a movement action must carry a session key; the review still holds no session vocabulary). Three others (`priority-hierarchy`, `coaching-direction-privacy`, `priority-card-copy`) needed their ladder fixtures to know about the new rung, and now run every precedence test against an engine that genuinely COULD have offered a session and did not.
+
+**Two guards proved by breaking them.**
+1. **The hierarchy protection.** Moving `movement_session` one place up the ladder, above `todays_focus`, turned **8** tests red across both hierarchy suites, including "moved no rung" and Part 1's own "every ladder rule can both win and lose". Restored immediately; all green.
+2. **The fallback condition.** Changing `inputs.fallback.checkinDoneToday` to a bare `true` turned 2 tests red, including "never fires when the Daily Reset is not done". Restored immediately; all green.
+
+**Verified**: `npm run typecheck` clean. `npm run lint` 0 errors, the same 90 pre-existing warnings. Full `npx vitest run` after a fresh `supabase db reset`: **356/357 files, 4682/4683 tests passing**. The one failure is the same pre-existing `correlation-engine-integration.test.ts` Spearman date-math flake documented throughout this file. (`assessment-runtime-integration.test.ts` also failed on one run and was confirmed failing on unmodified `main` in the same session, then passed on the next run; it is flaky and pre-existing either way.) `npm run build` compiled successfully.
+
 ## The Root pop-ups stopped answering while they saved (2026-08-13)
 
 A member reported that answering the Priority Card pop-up, or possibly the Weekly Root Review pop-up, sometimes made the whole app feel frozen. Intermittent, on production. It was real, it was measurable, and it turned out to be three separate things.
