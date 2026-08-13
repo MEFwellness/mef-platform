@@ -120,6 +120,34 @@ One existing test was widened rather than left broken: `coaching-direction-hiera
 
 `npx tsc --noEmit` clean. Repo-root `npm run lint` 0 errors, the same 90 pre-existing warnings, none in new or touched files. `npm run build` compiled successfully, all 95 static pages generated, `/coach/clients/[id]` at 22.2 kB. Full `npx vitest run` after a fresh `supabase db reset`: **4572 of 4573 passing**, the single failure being the documented pre-existing `correlation-engine-integration.test.ts` Spearman date-math flake, confirmed pre-existing this session by stashing this build entirely and watching the identical failure on a clean tree.
 
+### Deployed, and what is NOT done
+
+Pushed to `origin/main` (`MEFwellness/mef-platform`, branch `main`), commit `f68db2c`. Vercel auto-deployed it: confirmed via `vercel inspect` that `dpl_C9dzv6wgPJvEdroBKcQLJuTLsYNv` is Ready, target `production` not Preview, for the `mef-platform` project (`.vercel/project.json`'s linked `projectId`), and that it is aliased to `app.mefwellness.com` alongside `mef-platform.vercel.app`. `curl -I https://app.mefwellness.com/login` returns 200 from it.
+
+**MIGRATION 152 IS NOT APPLIED TO PRODUCTION.** No production database password was available in this session, and there is none stored anywhere in this environment (`supabase/.temp/pooler-url` holds the `[YOUR-PASSWORD]` placeholder). Per this repo's own documented procedure the password is supplied fresh each session and never written to a file. The command needed, with the session-mode pooler port migration 109's notes recorded as the one that works:
+
+```
+npx supabase db push --db-url "postgresql://postgres.piafgqstbibvllsnuike:<Settings-Database-password>@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+```
+
+### Live-site verification: 20 of 20 checks passed
+
+New committed script `scripts/screenshots/verify-coaching-grades-live.mjs`, run with `SCREENSHOT_TARGET=live` against `app.mefwellness.com` using the production test accounts. **Zero console errors, zero page errors, zero 5xx responses.**
+
+Phase A, on `memberPopulated` and `memberEmpty`: both signed in, Home rendered real content, the Priority Card was present and in a coherent state on both, the weekly review was reachable from Home on both, **no grade sentence appeared on either** (the central assertion: this data is thin, and thin evidence must say nothing), and the coach-only escalation section correctly did not appear on any member screen.
+
+Phase B, on the coach account: the client list rendered, an assigned client's detail view opened, **the "Root has flagged" section was present and correctly empty** ("Nothing is flagged for this client right now"), with no Resolve button inside it.
+
+**What this does and does not prove.** It proves the deployed code is harmless to every member-facing surface while migration 152 is absent, and that the coach section renders its empty state correctly in exactly that state. It does NOT prove a grade was computed, a grade sentence rendered, a thread was escalated, or a resolve worked on production, because none of those can happen before the migration lands. Those are covered locally against real Postgres (`tests/coaching-grades-integration.test.ts`, 28 tests) and remain **outstanding on production**, not passed and not failed. Re-running the same script after the migration lands will not exercise them either: they need a member with a genuinely escalated thread, which no production account has.
+
+**Three failures on the first live run, all of them defects in the verification script rather than in the product**, found by running it rather than reading it, diagnosed against production before being changed:
+
+- **A completed Priority Card was reported as a broken one.** Both accounts had already completed today's priority, so the card renders "Done today." with no action buttons, which is one of its three correct states. The check now accepts a settled card and says which state it saw.
+- **The pop-up dismisser could have completed a member's priority.** Its label list included "Done", and the Priority Card's own pop-up carries a Done button. It was dismissing whatever dialog was on screen with the first matching label, which on the wrong day would have marked her priority done as a side effect of tidying the screen. "Done" and "Continue" are now out of that list and "Maybe later" is first.
+- **Someone else's Resolve button was counted as this feature's.** `MemberIntelligencePanel` has carried a "Resolve" button for coach alerts since migration 34, and the page-wide selector found five of them. The check is now scoped to the "Root has flagged" section itself.
+
+**One observation worth recording, outside this build's scope.** The Weekly Root Review rendered on Home for both production accounts. `buildWeeklyReviewState` returns null before composing anything when `member_weekly_reviews` cannot be read, so the review appearing means **migration 151 has been applied to production since the Part 2 entry above was written**, which recorded it as unapplied. Worth confirming, since Part 2's own outstanding Phase B checks may now be runnable.
+
 ## Adaptive Coaching Direction, Part 2 of 3: the Weekly Root Review (2026-08-12)
 
 Once a week, on her first app open on or after her own local Monday, Root reports the week that just finished and sets one focus for the coming week that biases the Part 1 daily engine. Deterministic, no LLM, no new intelligence system, no new registry. Migration 151.
