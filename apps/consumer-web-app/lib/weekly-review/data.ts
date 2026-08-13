@@ -337,20 +337,29 @@ export async function deleteWeeklyReviewForWeek(
   supabase: SupabaseClient,
   memberId: string,
   weekStart: string
-): Promise<{ reviews: number; focus: number }> {
-  const { data: reviews } = await supabase
+): Promise<{ reviews: number; focus: number; error: string | null }> {
+  const { data: reviews, error: reviewError } = await supabase
     .from('member_weekly_reviews')
     .delete()
     .eq('member_id', memberId)
     .eq('week_start', weekStart)
     .select('id');
 
-  const { data: focus } = await supabase
+  const { data: focus, error: focusError } = await supabase
     .from('member_week_focus')
     .delete()
     .eq('member_id', memberId)
     .eq('week_start', weekStart)
     .select('id');
 
-  return { reviews: reviews?.length ?? 0, focus: focus?.length ?? 0 };
+  // The error is RETURNED rather than swallowed. A live verification pass
+  // needs to tell "there was nothing to delete" apart from "the delete could
+  // not run", and a silent zero reads as the first while meaning the second.
+  // That distinction is the whole reason this function reports it: the state
+  // between a deploy and its migration produces exactly the second.
+  return {
+    reviews: reviews?.length ?? 0,
+    focus: focus?.length ?? 0,
+    error: reviewError?.message ?? focusError?.message ?? null,
+  };
 }

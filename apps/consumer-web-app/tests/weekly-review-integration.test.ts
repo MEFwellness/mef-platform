@@ -329,7 +329,10 @@ describe('row level security', () => {
     await claimWeekFocus(client, MEMBER, plan().focus);
 
     const deleted = await deleteWeeklyReviewForWeek(client, MEMBER, WEEK_START);
-    expect(deleted).toEqual({ reviews: 0, focus: 0 });
+    // Zero rows AND no error: the policy silently matched nothing, which is
+    // how PostgREST reports a delete RLS refused. The error field is what
+    // tells this apart from a delete that could not run at all.
+    expect(deleted).toEqual({ reviews: 0, focus: 0, error: null });
     // Still there, which is the whole point.
     expect(await getWeeklyReview(client, MEMBER, WEEK_START)).not.toBeNull();
   });
@@ -343,7 +346,7 @@ describe('row level security', () => {
     await claimWeekFocus(client, MEMBER, plan().focus);
 
     const deleted = await deleteWeeklyReviewForWeek(client, MEMBER, WEEK_START);
-    expect(deleted).toEqual({ reviews: 1, focus: 1 });
+    expect(deleted).toEqual({ reviews: 1, focus: 1, error: null });
     expect(await getWeeklyReview(client, MEMBER, WEEK_START)).toBeNull();
     expect(await getWeekFocus(client, MEMBER, WEEK_START)).toBeNull();
   });

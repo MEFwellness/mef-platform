@@ -35,7 +35,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveLocalDate } from '@/app/actions/checkin';
-import { deleteWeeklyReviewForWeek } from '@/lib/weekly-review/data';
+import { deleteWeeklyReviewForWeek, fetchWeeklyReview } from '@/lib/weekly-review/data';
 import { weekStartFor } from '@/lib/weekly-review/week';
 import {
   clearRootPopupDismissal,
@@ -71,5 +71,22 @@ export async function POST(): Promise<NextResponse> {
   const deleted = await deleteWeeklyReviewForWeek(supabase, user.id, weekStart);
   await clearRootPopupDismissal(supabase, user.id, weeklyReviewPopupMessageKey(weekStart));
 
-  return NextResponse.json({ ok: true, weekStart, deleted });
+  // Whether the two tables are reachable AT ALL, reported separately from
+  // whether anything was deleted.
+  //
+  // This exists because of a real thing the first live verification pass
+  // found: with the code deployed and migration 151 not yet applied, the
+  // reset returned a clean `{reviews: 0, focus: 0}` and the review simply
+  // never appeared. Both are correct behavior (every read fails closed), but
+  // the pass could not tell that apart from "the review composed and
+  // something else won the pop-up slot". A verification script that cannot
+  // name why it failed is a verification script that will be misread.
+  const probe = await fetchWeeklyReview(supabase, user.id, weekStart);
+
+  return NextResponse.json({
+    ok: true,
+    weekStart,
+    deleted,
+    tablesReachable: probe.ok,
+  });
 }
