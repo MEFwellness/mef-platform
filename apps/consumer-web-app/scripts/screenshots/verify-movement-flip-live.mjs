@@ -23,17 +23,22 @@
 //            the reset fallback and never a session. This is the half of
 //            the rule that cannot be proved by watching movement appear.
 //
-// WHAT THIS SCRIPT WILL NOT DO. It will not complete a Daily Reset, will
-// not fabricate a driver state, and will not write a decision itself.
-// Everything it observes is what the real engine did with the account's
-// real data. Where a state is genuinely unreachable today it reports SKIP
-// and says why, rather than reporting a pass it did not earn.
+// WHAT THIS SCRIPT WILL NOT DO. It will not fabricate a driver state, a
+// safety flag, an absence or a decision. Everything it observes is what the
+// real engine did with the account's real data. It DOES complete a Daily
+// Reset by answering it, which is not a force mechanism: that is the
+// ordinary thing a member does every day and it leaves this account's own
+// real answers. The one state it forces is the one the calendar makes
+// unreachable, a second priority claim on the same day, and it forces that
+// through a route no non-test account can call. Where a state is genuinely
+// unreachable it reports SKIP and says why, rather than a pass it did not
+// earn.
 //
 // Usage:
 //   SCREENSHOT_TARGET=live node scripts/screenshots/verify-movement-flip-live.mjs
 import { chromium } from 'playwright';
 import { ACCOUNTS, BASE_URL } from './config.mjs';
-import { login } from './lib.mjs';
+import { login, answerVisibleQuestions, lastResortFill, wizardAdvanceButton } from './lib.mjs';
 
 const PRIORITY_LABEL = 'your priority today';
 const REVIEW_LABEL = 'your week with root';
@@ -138,23 +143,67 @@ async function readCard(page) {
   }, PRIORITY_LABEL);
 }
 
+/**
+ * Completes today's Daily Reset by actually answering it, screen by screen.
+ *
+ * NOT a force mechanism and deliberately not one. Finishing a check-in is
+ * the ordinary thing a member does every day, it is reachable on demand,
+ * and the answers it leaves are this account's own real data. The only
+ * state this script ever FORCES is the one the calendar makes unreachable:
+ * a second priority claim on the same day.
+ */
+async function completeDailyReset(page, maxScreens = 14) {
+  await page.goto(`${BASE_URL}/checkin`, { waitUntil: 'load' });
+  await page.waitForTimeout(2000);
+
+  for (let screen = 1; screen <= maxScreens; screen += 1) {
+    const button = wizardAdvanceButton(page);
+    await button.waitFor({ state: 'visible', timeout: 15000 });
+    const label = (await button.textContent())?.trim();
+    const isFinal = label !== 'Continue';
+
+    for (let attempt = 0; attempt < 2 && (await button.isDisabled()); attempt += 1) {
+      await answerVisibleQuestions(page);
+    }
+    if (await button.isDisabled()) await lastResortFill(page);
+    if (await button.isDisabled()) return false;
+
+    await button.click();
+
+    if (isFinal) {
+      const endingContinue = page.getByRole('button', { name: 'Continue' });
+      await endingContinue.waitFor({ state: 'visible', timeout: 20000 });
+      await endingContinue.click();
+      await page.waitForTimeout(1500);
+      return true;
+    }
+    await page.waitForTimeout(500);
+  }
+  return false;
+}
+
 async function run() {
-  const which = process.env.MOVEMENT_ACCOUNT ?? 'memberPopulated';
-  const account = ACCOUNTS[which] ?? ACCOUNTS.memberPopulated;
+  const phaseAWhich = process.env.MOVEMENT_ACCOUNT ?? 'memberPopulated';
+  const phaseAAccount = ACCOUNTS[phaseAWhich] ?? ACCOUNTS.memberPopulated;
+  // The account Phase B and C are driven on. It has to be one whose ladder
+  // genuinely reaches the fallback, or the movement rung is unreachable for
+  // a correct reason and the phase proves nothing.
+  const fallbackAccount = ACCOUNTS[process.env.MOVEMENT_FALLBACK_ACCOUNT ?? 'memberEmpty'];
 
   console.log(`\nThe movement flip, live verification against ${BASE_URL}`);
-  console.log(`Account: ${account.label}\n`);
+  console.log(`Phase A account: ${phaseAAccount.label}`);
+  console.log(`Phase B and C account: ${fallbackAccount.label}\n`);
 
   const browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
-  attach(page, account.label);
+  attach(page, phaseAAccount.label);
 
   // ---------------------------------------------------------------
   console.log('PHASE A: regression, the member-facing app is unharmed');
   // ---------------------------------------------------------------
 
-  await login(page, BASE_URL, account);
+  await login(page, BASE_URL, phaseAAccount);
   await page.waitForTimeout(2500);
   check('logged in and landed off /login', !page.url().includes('/login'), page.url());
 
@@ -171,15 +220,11 @@ async function run() {
   await page.waitForTimeout(2500);
   const homeText = await page.evaluate(() => document.body.innerText);
   check('Home renders real content, not an error page', homeText.length > 400, `${homeText.length} chars`);
-  check(
-    'the Priority Card is still present on Home',
-    homeText.toLowerCase().includes(PRIORITY_LABEL),
-    ''
-  );
+  check('the Priority Card is still present on Home', homeText.toLowerCase().includes(PRIORITY_LABEL), '');
   check(
     'the Weekly Root Review entry is still reachable from Home',
     homeText.toLowerCase().includes('week with root') || homeText.toLowerCase().includes('weekly'),
-    'looked for the review entry on Home'
+    ''
   );
 
   const probe = await forceNewClaim(page);
@@ -188,13 +233,11 @@ async function run() {
     probe.status === 200 || probe.status === 403,
     `http${probe.status} ${JSON.stringify(probe.body)}`
   );
-  const isTestAccount = probe.status === 200;
   check(
     'the route allows this account (is_test) or refuses it (403), never anything else',
     probe.status === 200 || probe.status === 403,
-    isTestAccount ? 'allowed, so this IS a test account' : 'refused, so this is NOT a test account'
+    probe.status === 200 ? 'allowed, so this IS a test account' : 'refused, so this is NOT a test account'
   );
-
   const liveSessions = probe.body?.liveSessionCount ?? 0;
   check(
     'the six Root Movement sessions are readable from a member session',
@@ -202,43 +245,85 @@ async function run() {
     `liveSessionCount=${liveSessions}`
   );
 
+  await page.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
+  await page.waitForTimeout(3000);
+  const phaseACard = await readCard(page);
+  check('the card claimed a fresh priority after the reset', phaseACard.found === true, phaseACard.href ?? 'no link');
+  if (probe.body?.checkinDoneToday === false) {
+    check(
+      'a rich account with the Daily Reset outstanding is offered no session',
+      !(phaseACard.href ?? '').includes('/movement/sessions/'),
+      phaseACard.href ?? 'no link'
+    );
+  }
+
+  // ---------------------------------------------------------------
+  console.log('\nPHASE C, first half: an account with the Daily Reset NOT done');
+  // ---------------------------------------------------------------
+
+  const second = await context.newPage();
+  attach(second, fallbackAccount.label);
+  await context.clearCookies();
+  await login(second, BASE_URL, fallbackAccount);
+  await second.waitForTimeout(2500);
+  const secondDialog = await readDialog(second);
+  if (secondDialog.count) await clearPopup(second);
+
+  const beforeProbe = await forceNewClaim(second);
+  if (beforeProbe.status !== 200) {
+    note('the fallback account could not be driven', `http${beforeProbe.status}`);
+  } else if (beforeProbe.body?.checkinDoneToday === true) {
+    note(
+      'the reset-not-done case could not be observed today',
+      "this account's Daily Reset is already done, so it is not in that state."
+    );
+  } else {
+    await second.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
+    await second.waitForTimeout(3000);
+    const before = await readCard(second);
+    check(
+      'with the Daily Reset NOT done she gets the reset, never a session',
+      !(before.href ?? '').includes('/movement/sessions/'),
+      before.href ?? 'no link'
+    );
+    check(
+      'and the reset fallback still points at /checkin',
+      (before.href ?? '').includes('/checkin'),
+      before.href ?? (before.text ?? '').slice(0, 80)
+    );
+  }
+
   // ---------------------------------------------------------------
   console.log('\nPHASE B: the flip');
   // ---------------------------------------------------------------
 
-  if (!isTestAccount) {
-    note('the flip cannot be driven', 'the reset route refused this account, so no state can be forced.');
+  if (beforeProbe.status !== 200) {
+    note('the flip cannot be driven', 'the reset route refused this account.');
   } else {
-    const resetDone = probe.body?.checkinDoneToday === true;
+    let resetDone = beforeProbe.body?.checkinDoneToday === true;
+    if (!resetDone) {
+      const completed = await completeDailyReset(second);
+      check('completed a real Daily Reset, by answering it', completed === true, '');
+      resetDone = completed;
+    }
+
+    const afterProbe = await forceNewClaim(second);
     check(
-      "today's Daily Reset state is readable, which is the condition the rung turns on",
-      typeof probe.body?.checkinDoneToday === 'boolean',
-      `checkinDoneToday=${resetDone}`
+      'the Daily Reset now reads as done, which is the condition the rung turns on',
+      afterProbe.body?.checkinDoneToday === true,
+      `checkinDoneToday=${afterProbe.body?.checkinDoneToday}`
     );
 
-    await page.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
-    await page.waitForTimeout(3000);
-    const card = await readCard(page);
-    check('the card claimed a fresh priority after the reset', card.found === true, card.href ?? 'no link');
-
+    await second.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
+    await second.waitForTimeout(3000);
+    const card = await readCard(second);
     const isMovement = (card.href ?? '').includes('/movement/sessions/');
 
-    if (!resetDone) {
-      note(
-        'a movement session could not be reached',
-        "today's Daily Reset is not done on this account, so the reset fallback is the correct answer. " +
-          'Complete a Daily Reset on this account and re-run to reach Phase B.'
-      );
-      check(
-        'and Root correctly offered no session while the reset was outstanding',
-        !isMovement,
-        card.href ?? 'no link'
-      );
-    } else if (!isMovement) {
+    if (!isMovement) {
       note(
         'a movement session was not offered',
         'a rule above the movement rung won for this account today, which is correct behavior. ' +
-          `Card link: ${card.href ?? 'none'}.`
+          `Card link: ${card.href ?? 'none'}. Card text: ${(card.text ?? '').slice(0, 120).replace(/\n/g, ' | ')}`
       );
     } else {
       const sessionKey = (card.href ?? '').split('/').pop();
@@ -250,70 +335,41 @@ async function run() {
       check(
         'the copy offers rather than instructs',
         /if you want it|when you are ready|when you want it/i.test(card.text),
-        ''
+        (card.text ?? '').slice(0, 120).replace(/\n/g, ' | ')
       );
 
-      await page.goto(`${BASE_URL}${card.href}`, { waitUntil: 'load' });
-      await page.waitForTimeout(3000);
-      const playerText = await page.evaluate(() => document.body.innerText);
+      await second.goto(`${BASE_URL}${card.href}`, { waitUntil: 'load' });
+      await second.waitForTimeout(3000);
+      const playerText = await second.evaluate(() => document.body.innerText);
       check(
         'the link opens the real session player, not a 404',
         !playerText.toLowerCase().includes('page not found') && playerText.length > 200,
         `${sessionKey}, ${playerText.length} chars`
       );
+      check(
+        'the player shows the session lineup rather than an empty screen',
+        /begin|start/i.test(playerText),
+        playerText.slice(0, 100).replace(/\n/g, ' | ')
+      );
 
       note(
         'completing the session and watching the decision close itself',
         'requires walking the whole lineup in the player, which this script does not automate. ' +
-          'Do it by hand from the checklist in docs/BUILD_STATUS.md, then reload /today and ' +
-          'confirm it reads "Done today." without having tapped Done.'
+          'Do it by hand from the checklist in docs/BUILD_STATUS.md, then reload /today and confirm ' +
+          'it reads "Done today." without having tapped Done.'
       );
     }
   }
 
   // ---------------------------------------------------------------
-  console.log('\nPHASE C: discipline');
+  console.log('\nPHASE C, second half: the rules above the movement rung');
   // ---------------------------------------------------------------
-
-  const emptyAccount = ACCOUNTS.memberEmpty;
-  const emptyPage = await context.newPage();
-  attach(emptyPage, emptyAccount.label);
-  await emptyPage.goto(`${BASE_URL}/logout`, { waitUntil: 'load' }).catch(() => {});
-  await context.clearCookies();
-  await login(emptyPage, BASE_URL, emptyAccount);
-  await emptyPage.waitForTimeout(2500);
-  const emptyDialog = await readDialog(emptyPage);
-  if (emptyDialog.count) await clearPopup(emptyPage);
-
-  const emptyProbe = await forceNewClaim(emptyPage);
-  if (emptyProbe.status !== 200) {
-    note('the second account could not be driven', `http${emptyProbe.status}`);
-  } else {
-    await emptyPage.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
-    await emptyPage.waitForTimeout(3000);
-    const emptyCard = await readCard(emptyPage);
-    const emptyResetDone = emptyProbe.body?.checkinDoneToday === true;
-    const emptyIsMovement = (emptyCard.href ?? '').includes('/movement/sessions/');
-
-    if (emptyResetDone) {
-      note(
-        'the reset-not-done case could not be observed on this account',
-        "its Daily Reset is already done today, so the reset fallback is not the state it is in."
-      );
-    } else {
-      check(
-        'an account with the Daily Reset NOT done gets the reset, never a session',
-        !emptyIsMovement,
-        emptyCard.href ?? 'no link'
-      );
-      check(
-        'and the reset fallback still points at /checkin',
-        (emptyCard.href ?? '').includes('/checkin') ||
-          (emptyCard.text ?? '').toLowerCase().includes('daily reset'),
-        emptyCard.href ?? (emptyCard.text ?? '').slice(0, 80)
-      );
-    }
-  }
+  note(
+    'safety, re-engagement and the Reset Plan commitment beating a session',
+    'not forceable live without writing a safety classification or falsifying an absence, which no ' +
+      'test-only route here will do. Proved instead against the real engine in ' +
+      'tests/movement-coaching-flip.test.ts, over a fixture with a mapped movement driver present.'
+  );
 
   // ---------------------------------------------------------------
   console.log('\nErrors seen anywhere in the run');

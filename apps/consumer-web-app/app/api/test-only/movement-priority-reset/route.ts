@@ -81,10 +81,18 @@ export async function POST(): Promise<NextResponse> {
   // whole condition the enriched fallback turns on, and a pass that cannot
   // see it cannot tell "movement was not offered because the reset is not
   // done" (correct) from "movement was not offered at all" (a regression).
+  //
+  // Reads `daily_checkins_current` on `user_id`, which is exactly what
+  // app/actions/checkin.ts's getTodaysCheckin reads and exactly what
+  // app/today/page.tsx passes the engine as `checkinDoneToday`. Reading the
+  // base table on `member_id` instead is a real mistake this route made
+  // first time out: it reported false for an account the engine had
+  // correctly seen as done, which is precisely the kind of disagreement a
+  // verification probe exists to avoid.
   const { data: checkin } = await supabase
-    .from('daily_checkins')
+    .from('daily_checkins_current')
     .select('id')
-    .eq('member_id', user.id)
+    .eq('user_id', user.id)
     .eq('local_date', localDate)
     .maybeSingle();
 
