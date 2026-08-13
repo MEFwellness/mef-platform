@@ -182,6 +182,32 @@ async function completeDailyReset(page, maxScreens = 14) {
   return false;
 }
 
+/**
+ * Walks a session from Begin to Finish. No Done is ever tapped on the
+ * Priority Card anywhere in this script, which is what makes the assertion
+ * afterwards mean something.
+ */
+async function walkSession(page, maxSlots = 20) {
+  const begin = page.getByRole('button', { name: 'Begin' });
+  await begin.waitFor({ state: 'visible', timeout: 15000 });
+  await begin.click();
+  await page.waitForTimeout(1500);
+
+  for (let slot = 0; slot < maxSlots; slot += 1) {
+    const finish = page.getByRole('button', { name: 'Finish' });
+    if ((await finish.count()) > 0 && (await finish.first().isVisible())) {
+      await finish.first().click();
+      await page.waitForTimeout(3000);
+      return true;
+    }
+    const next = page.getByRole('button', { name: 'Next' });
+    if ((await next.count()) === 0) return false;
+    await next.first().click();
+    await page.waitForTimeout(700);
+  }
+  return false;
+}
+
 async function run() {
   const phaseAWhich = process.env.MOVEMENT_ACCOUNT ?? 'memberPopulated';
   const phaseAAccount = ACCOUNTS[phaseAWhich] ?? ACCOUNTS.memberPopulated;
@@ -352,12 +378,21 @@ async function run() {
         playerText.slice(0, 100).replace(/\n/g, ' | ')
       );
 
-      note(
-        'completing the session and watching the decision close itself',
-        'requires walking the whole lineup in the player, which this script does not automate. ' +
-          'Do it by hand from the checklist in docs/BUILD_STATUS.md, then reload /today and confirm ' +
-          'it reads "Done today." without having tapped Done.'
-      );
+      // The whole point of the flip: she does the workout, and is never
+      // asked to also confirm it. Walked for real, Begin to Finish.
+      const walked = await walkSession(second);
+      check('the session can be walked from Begin to Finish', walked === true, '');
+
+      if (walked) {
+        await second.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
+        await second.waitForTimeout(3000);
+        const after = await readCard(second);
+        check(
+          'the priority marked itself done, with no Done tapped anywhere in this run',
+          /done today/i.test(after.text ?? ''),
+          (after.text ?? '').slice(0, 120).replace(/\n/g, ' | ')
+        );
+      }
     }
   }
 
