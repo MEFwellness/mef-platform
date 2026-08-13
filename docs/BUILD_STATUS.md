@@ -1,3 +1,69 @@
+## The Root pop-ups stopped answering while they saved (2026-08-13)
+
+A member reported that answering the Priority Card pop-up, or possibly the Weekly Root Review pop-up, sometimes made the whole app feel frozen. Intermittent, on production. It was real, it was measurable, and it turned out to be three separate things.
+
+### How it was measured
+
+`apps/consumer-web-app/scripts/screenshots/measure-popup-latency.mjs` (new, committed) drives the real pop-ups in a real browser with Chrome's own Slow 3G profile applied through CDP, and reports four numbers per button: how long until anything visible changed, how long the pop-up's own buttons stayed disabled, whether a bottom-nav tap was honoured while the write was still in flight, and when the network finally went quiet. Throttling is applied after login and after the dashboard has painted, so the numbers isolate the tap rather than page load. It has hooks for putting an account back to "has not been shown today's pop-up" (SQL locally, the existing test-only route live), because otherwise each of these is a once-a-day or once-a-week measurement.
+
+### What was actually freezing
+
+**1. The Weekly Root Review's "Got it" waited for the network before doing anything.** `handleAcknowledge` awaited the server action inside a transition and only then called the callback that closes the pop-up, and every button in the review carried `disabled={isPending}`, which in the App Router stays true for the whole round trip AND the page re-render that follows it. So the modal sat there, untouchable, with the page behind it locked against scrolling (`useBodyScrollLock`), until the server came back. **Measured on `app.mefwellness.com`, Slow 3G: buttons disabled 2933ms, pop-up still on screen at 2951ms** (a second run: 2307ms). The review's two question buttons had the same wiring, so answering one switched all of them off for the length of the write.
+
+**2. The Priority Card had the same wiring in a quieter place.** Its three buttons were already optimistic — its 164ms is `PRIORITY_RECEDE_MS`, the deliberate beat where the question steps back before the confirmation arrives, not the network — but `pending` also reached the collapsed "saved" card's own Done button, which sat visible and dead for the whole write that had just saved it.
+
+**3. Found while measuring, and worse than either: a navigation could destroy the write.** A server-action call from a client component is a POST whose response is the re-rendered page, so it stays open long after the write is finished, and it belongs to the router. Tapping "Help me" and then a bottom-nav link half a second later aborted it (`net::ERR_ABORTED`) — and the retries, now issued from a page mid-navigation, were aborted the same way. **Reproduced 3 times out of 3 against a local production build: no ledger row at all**, and nothing on screen said so. Pre-existing, not introduced this week.
+
+**What was NOT the cause**, having been checked rather than assumed: the router is not globally blocked while an answer is being written (a nav link was honoured in 449-914ms throughout, before and after), and Part 1's `no-store` change is not implicated.
+
+### What changed
+
+**`lib/client/optimisticWrite.ts`** (new, pure, no React, no fetch, no timer a test cannot control). One rule in one place: `acknowledge()` runs synchronously, before the first await; the write then runs behind her with bounded retries and backoff, and reports a loss only after every attempt has failed. Both pop-ups' writes are idempotent by construction — the review's acknowledgement is conditional on `acknowledged_at IS NULL`, the priority outcome on `member_response IS NULL` — so a retry can only ever land the same single row.
+
+**`app/api/popup-response/route.ts`** (new) and **`lib/client/popupResponse.ts`** (new). The five answers now leave the browser as one `fetch` with `keepalive`, and the route hands each straight to the SAME server action that always owned that write. No second write path, no table touched in the route, no argument trusted that was not trusted before: every action still resolves the member from her own session and validates against the same closed allowlists. What changed is only that a keepalive request is not the router's, so navigating cannot cancel it and it survives the page being left.
+
+**`WeeklyReviewBody.tsx`**: acknowledge and answer both acknowledge first and write behind her. `useTransition` gone; no button disabled while a write is in flight. A genuinely lost acknowledgement rolls back to unacknowledged so Home tells her the truth and she can acknowledge it there.
+
+**`usePriorityCardActions.ts`**: `pending` is gone from the hook and from both presentations. A `statusRef` refuses a second tap on a button still on screen during the recede beat — what the pending flag was accidentally covering — without disabling anything.
+
+**`app/actions/priority.ts`**: `revalidatePath('/today')` narrowed to `revalidatePath('/today', 'page')`; the answer changes the card inside that page, not the layout above it. `trackPriorityHelpAction` now reports whether it landed, so the retry above it is real rather than decorative.
+
+### Before and after, measured
+
+Production, `app.mefwellness.com`, Chrome Slow 3G (400ms RTT, 400kb/s), throttling applied after login:
+
+| | before | after |
+| --- | --- | --- |
+| Weekly Review "Got it" — pop-up gone | 2951ms | 11ms |
+| Weekly Review "Got it" — buttons disabled | 2933ms | 0ms |
+| Weekly Review "Got it" — first visible change | 10ms | 10ms |
+| Priority "Done" — accomplished state visible | 164ms | 169ms |
+| Priority "Done" — buttons disabled | 144ms | 0ms |
+| Nav honoured during the write | 469-914ms | 483-915ms |
+
+At normal speed, unthrottled, the review answers in 10ms — the same number, because it no longer depends on the connection at all.
+
+Local production build, Slow 3G: Save for later 162ms visible / 0ms disabled, Help me 11ms visible / 0ms disabled, both with the ledger row landing. Tapping a bottom-nav link 500ms after an answer: **the write landed 0 times out of 3 over server actions (even with retries), and 3 out of 3 over the keepalive route.**
+
+### Verified live, on production
+
+Both writes were confirmed to land, not just to look fast. After the throttled "Got it", Home's persistent weekly review entry reads "Acknowledged. It stays here for the rest of the week." After the throttled "Done", `/today` reads "Done today." Zero console or page errors on every run.
+
+**Not measured live**: the Priority Card's Save for later and Help me. The card pops at most once per member per local day and today's showing on each available production test account was spent by the before/after Done measurements; both were measured against a local production build instead, and their code path is byte-identical to Done's.
+
+### Tests
+
+`tests/popup-response-latency.test.ts` (new, 20 tests). Time to visual feedback asserted with a clock for all four buttons against a write that takes a slow-3G round trip; the retry path with a deliberately failed first attempt, a thrown write, a loss reported once and only after every attempt has failed; the outcome ledger row landing in the real database after a first write the database itself genuinely refused (a second member's session, not a stub); and the conditional `member_response IS NULL` proving a retry cannot overwrite an answer she already gave. Plus source scans so the shape cannot come back: no `useTransition`, no `disabled={isPending}`/`disabled={pending}`, `onAcknowledged` called inside `acknowledge`, `keepalive: true` on the delivery, and the route holding no write of its own.
+
+**One guard proved by breaking it.** Moving `acknowledge()` in `optimisticWrite` to after the write turned 5 of those tests red, including all four button timings; restoring it turned them green again.
+
+`tests/priority-card-delivery.test.ts`'s "one card, one state, three surfaces" was updated in place, not weakened: it still asserts one shared behavior module and that neither presentation calls a mutating action itself, and now also asserts the route hands each kind to the same action.
+
+**Verified**: `npm run typecheck` clean. `npm run lint` — 0 errors, the same 90 pre-existing warnings. Full `npx vitest run` after a fresh `supabase db reset` — 355/356 files, 4644/4645 tests passing; the one failure is the same pre-existing `correlation-engine-integration.test.ts` Spearman date-math flake documented throughout this file's history, confirmed failing on unmodified `main` in this same session. `npm run build` compiled successfully, `/api/popup-response` generated.
+
+**Deployed**: pushed to `origin/main` (commit `8f7299b`), repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-wellness/mef-platform`, deployment `dpl_gUTqHY5pUYFbdmTo4HdGoiGZvVDq`, target production, status Ready, and `vercel inspect app.mefwellness.com` resolves to that same deployment.
+
+**No migration.** Nothing here touches the schema.
 ## Adaptive Coaching Direction, Part 3 of 3: the grading loop, per-member adaptation, coach escalation (2026-08-12)
 
 Closes the circle Parts 1 and 2 opened: observe, act, measure, adjust. Root now grades what the outcome ledger shows about each kind of ask, feeds that grade back into the daily engine as a preference INSIDE a hierarchy rung, says what landed in the weekly review when the evidence earns it, and gives a coach the first visible surface for the threads Part 1 was already flagging. Deterministic, no LLM, no new engine, no new registry, no new intelligence layer. Migration 152.
