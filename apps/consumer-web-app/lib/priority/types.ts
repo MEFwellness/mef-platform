@@ -289,6 +289,20 @@ export type PriorityInputs = {
   implicatedDriver: ImplicatedDriverInput | null;
   /** Rule 4's second half. Only ever a tier 3 finding; see the type. */
   qualifiedPattern?: QualifiedPatternInput | null;
+  /**
+   * Other drivers in the SAME `likelyInvolved` bucket, equally ranked by
+   * Case View's own panel.
+   *
+   * Added by the Weekly Root Review (Part 2) and read by NOTHING except its
+   * within-rung tie-break. `implicatedDriver` above is still rule 2's own
+   * winner, chosen exactly as it always was; these are the candidates that
+   * were tied with it and lost to array order. See
+   * lib/weekly-review/focus.ts for why a same-rung tie is the only place a
+   * week focus is allowed to act.
+   */
+  implicatedDriverAlternates?: readonly ImplicatedDriverInput[];
+  /** Rule 3's equally-ranked alternates: tier 3 findings tied with the winner on confidence AND observation count. Same contract as above. */
+  qualifiedPatternAlternates?: readonly QualifiedPatternInput[];
   incompleteAction: IncompleteActionInput | null;
   /**
    * Rule 5. Optional because it is loaded LAZILY: the friction signals

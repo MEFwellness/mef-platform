@@ -68,6 +68,7 @@ import {
   resetPlanPopupMessageKey,
   questionnaireAssignedPopupMessageKey,
   priorityCardPopupMessageKey,
+  weeklyReviewPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
   isOfferPopupDue,
@@ -79,6 +80,9 @@ import {
 import { pickNextFreeArcCard, freeArcPopupMessageKey } from '@/lib/root-popup-messages/freeArc';
 import { getMyPriorityView } from '@/lib/priority/view';
 import type { PriorityView } from '@/lib/priority/types';
+import { getMyWeeklyReview } from '@/lib/weekly-review/view';
+import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
+import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
 import { fetchGoalCallbackContext } from '@/lib/memory-callback/data';
 import { buildGoalCallback } from '@/lib/memory-callback/copy';
@@ -142,7 +146,22 @@ export type RootPopupMessage =
    * card, and Today's inline card all render the identical object from the
    * identical `member_daily_priorities` row.
    */
-  | { kind: 'priority_card'; messageKey: string; view: PriorityView };
+  | { kind: 'priority_card'; messageKey: string; view: PriorityView }
+  /**
+   * The Weekly Root Review (Adaptive Coaching Direction, Part 2). Root's
+   * one look back at the week, delivered through this same chain rather
+   * than a second pop-up system, once per the member's own local week.
+   * Carries the already-rendered review so the pop-up and Home's persistent
+   * entry render the identical object from the identical
+   * `member_weekly_reviews` row.
+   */
+  | {
+      kind: 'weekly_review';
+      messageKey: string;
+      weekStart: string;
+      label: string;
+      review: RenderedReview;
+    };
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -505,6 +524,49 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     }
   }
 
+  // The Weekly Root Review (Adaptive Coaching Direction, Part 2).
+  //
+  // Its position is the whole of its delivery design, so it is worth being
+  // exact about all four boundaries:
+  //
+  // BELOW the welcome-back takeover (the re-entry branch far above). A
+  // member back after a week away is met with the welcome, not with a
+  // report on a week she was not here for.
+  //
+  // BELOW coach assignments and every finite day-3/day-7 follow-up (all
+  // above). Those can be finished and then never appear again; a weekly
+  // review is perpetual, so putting it above them would starve them for a
+  // member who opens the app once a day, which is exactly the starvation
+  // class this file's own header documents. When it loses the slot to one
+  // of them, it is simply still due on her next open: its message key
+  // carries her own week start and has no dismissal row yet.
+  //
+  // BELOW safety. There is deliberately no separate safety pop-up in this
+  // chain: an unresolved check-in safety flag is the Priority Card's
+  // strongest OVERRIDE (Part 1's rule 'safety'), so it arrives as the
+  // priority_card message just below. The review therefore declines
+  // explicitly when that override has fired, rather than the safety card
+  // being moved up the chain, which would change existing behavior. A
+  // member with something unresolved open is not shown a weekly report
+  // while Root has stopped asking anything of her.
+  //
+  // ABOVE the ordinary daily priority card. Once a week, on one open, the
+  // week's report is the more important thing to say than the day's.
+  const weeklyReview = await getMyWeeklyReview();
+  const safetyOverrideActive = priorityViewRaw?.selected.rule === 'safety';
+  if (weeklyReview && !safetyOverrideActive) {
+    const messageKey = weeklyReviewPopupMessageKey(weeklyReview.weekStart);
+    if (await isOfferStillDue(messageKey)) {
+      return {
+        kind: 'weekly_review',
+        messageKey,
+        weekStart: weeklyReview.weekStart,
+        label: WEEKLY_REVIEW_LABEL,
+        review: weeklyReview.review,
+      };
+    }
+  }
+
   // Priority Card, the ordinary half. Below every message that can
   // actually be resolved and finished (see the re-entry branch above for
   // the full reasoning), and above the free-arc invitation, on that
@@ -600,6 +662,22 @@ export async function getMyRootPopupMessageAction(): Promise<RootPopupMessage | 
   // for the offer kinds, so a member who closes the tab or navigates away
   // without touching a button still does not get it again today.
   if (message.kind === 'priority_card') {
+    return isOfferPopupDue(dismissal) ? message : null;
+  }
+
+  // The Weekly Root Review: once per the member's own local week, not once
+  // per login and not on every reload. Exactly the same mechanism as the
+  // Priority Card's, one scale up. Its message key already carries her own
+  // week start (weeklyReviewPopupMessageKey), so the existing one-time-ever
+  // rule applied to a week-scoped key IS the once-per-week rule. Next
+  // Monday's key is a genuinely new message.
+  //
+  // RootMessagePopupClient marks it dismissed on mount, exactly as it does
+  // for the priority card, so a member who closes the tab or navigates away
+  // without acknowledging still does not get it again this week. The review
+  // itself stays on Home for the rest of the week either way, which is what
+  // makes the one showing safe.
+  if (message.kind === 'weekly_review') {
     return isOfferPopupDue(dismissal) ? message : null;
   }
 

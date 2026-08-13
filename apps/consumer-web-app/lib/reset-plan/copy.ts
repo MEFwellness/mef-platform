@@ -185,8 +185,26 @@ export function classifyResetPlanDay7Pattern(logs: ResetPlanDailyLog[]): { patte
 }
 
 export function buildResetPlanDay7Reflection(logs: ResetPlanDailyLog[], focusSignal: Signal): string {
-  const result = classifyResetPlanDay7Pattern(logs);
-  switch (result.pattern) {
+  return resetPlanWeekReflectionFor(classifyResetPlanDay7Pattern(logs).pattern, focusSignal);
+}
+
+/**
+ * The same four sentences, addressed by pattern rather than by a set of
+ * logs.
+ *
+ * Extracted (not duplicated) when the Weekly Root Review needed the plan's
+ * own weekly wording without holding the logs: the review stores a pattern
+ * slug and its counts, never the rows, so it cannot call the function
+ * above. There is still exactly ONE place in the product where a week of
+ * plan logs is described in words, which is the point of the extraction:
+ * the day-7 pop-up and the weekly review can never read differently about
+ * the same week.
+ */
+export function resetPlanWeekReflectionFor(
+  pattern: ResetPlanDay7Pattern,
+  focusSignal: Signal
+): string {
+  switch (pattern) {
     case 'no_response':
       return `No response logged this week on ${SIGNAL_LABEL[focusSignal]}. That is not the same as missing it, Root just does not have anything logged to reflect back yet. Whenever you are ready to start tapping, the plan is right here.`;
     case 'mostly_normal':

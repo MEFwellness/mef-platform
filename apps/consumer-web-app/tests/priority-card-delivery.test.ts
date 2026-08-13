@@ -127,7 +127,12 @@ describe('it pops once per day, not on every reload', () => {
   it('marks itself dismissed on mount, so closing the tab still counts as its one showing', () => {
     const client = read('components/dashboard/RootMessagePopupClient.tsx');
     expect(client).toContain('isPriorityCard');
-    expect(client).toContain('if (isOffer || isPriorityCard)');
+    // The auto-dismiss-on-mount group grew a third member when the Weekly
+    // Root Review (migration 151) joined the chain on the same
+    // date-or-week-scoped-key mechanism. Asserted as membership rather than
+    // as the exact expression, so adding a fourth kind that legitimately
+    // belongs in this group does not break a test about the Priority Card.
+    expect(client).toMatch(/if \(isOffer \|\| isPriorityCard(\s*\|\|\s*\w+)*\)/);
     expect(client).toContain('ignoreRootPopupMessageAction(message.messageKey)');
   });
 });

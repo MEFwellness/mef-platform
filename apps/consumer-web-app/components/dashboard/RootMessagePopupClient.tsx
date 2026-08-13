@@ -40,12 +40,15 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { ResetPlanPopup } from '@/components/reset-plan/ResetPlanPopup';
 import { PriorityCardPopup } from '@/components/priority/PriorityCardPopup';
 import { TrackPriorityShown } from '@/components/priority/TrackPriorityShown';
+import { WeeklyReviewPopup } from '@/components/weekly-review/WeeklyReviewPopup';
+import { TrackWeeklyReviewViewed } from '@/components/weekly-review/TrackWeeklyReviewViewed';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
 type QuestionnaireAssignedMessage = Extract<RootPopupMessage, { kind: 'questionnaire_assigned' }>;
 type FreeArcMessage = Extract<RootPopupMessage, { kind: 'free_arc_available' }>;
 type PriorityCardMessage = Extract<RootPopupMessage, { kind: 'priority_card' }>;
+type WeeklyReviewMessage = Extract<RootPopupMessage, { kind: 'weekly_review' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
@@ -75,6 +78,14 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // a different message and pops again. Same mechanism the one-time offers
   // already use, applied to a date-scoped key.
   const isPriorityCard = message.kind === 'priority_card';
+  // The Weekly Root Review pops once per the member's own local week, by the
+  // same mechanism: its message key carries her week start, so marking it
+  // dismissed the instant it is shown makes "once per week" true regardless
+  // of whether she acknowledges, closes the tab, or navigates away. Next
+  // Monday's key is a different message. The review stays reachable on Home
+  // for the rest of the week either way, which is what makes one showing the
+  // right number.
+  const isWeeklyReview = message.kind === 'weekly_review';
   const isQuestionnaireAssigned = message.kind === 'questionnaire_assigned';
   const isFreeArcAvailable = message.kind === 'free_arc_available';
 
@@ -91,7 +102,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // later"/"Ignore" button choice as day3/day7 (handleMaybeLater/
   // handleIgnore below), not an automatic one-time-ever dismissal.
   useEffect(() => {
-    if (isOffer || isPriorityCard) {
+    if (isOffer || isPriorityCard || isWeeklyReview) {
       ignoreRootPopupMessageAction(message.messageKey);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,6 +147,29 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
         />
         <PriorityCardPopup
           view={message.view}
+          closed={closed}
+          onClose={() => {
+            setClosed(true);
+            router.refresh();
+          }}
+        />
+      </>
+    );
+  }
+
+  // The Weekly Root Review. Placed after every hook above so this early
+  // return never changes hook call order between renders, same rule the
+  // Priority Card branch above and the Reset Plan branch below follow.
+  // TrackWeeklyReviewViewed records that it reached her; the server side
+  // guarantees only one weekly_review_viewed event per week survives, so
+  // this can never double-count against Home's persistent entry.
+  if (message.kind === 'weekly_review') {
+    return (
+      <>
+        <TrackWeeklyReviewViewed weekStart={message.weekStart} />
+        <WeeklyReviewPopup
+          review={message.review}
+          label={message.label}
           closed={closed}
           onClose={() => {
             setClosed(true);
@@ -196,7 +230,12 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // two invite kinds (coach-assigned-questionnaire, free-arc-available).
   const day3Or7Message = message as Exclude<
     RootPopupMessage,
-    OfferMessage | ResetPlanMessage | QuestionnaireAssignedMessage | FreeArcMessage | PriorityCardMessage
+    | OfferMessage
+    | ResetPlanMessage
+    | QuestionnaireAssignedMessage
+    | FreeArcMessage
+    | PriorityCardMessage
+    | WeeklyReviewMessage
   >;
 
   const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' || day3Or7Message.kind === 'rpl_day3';

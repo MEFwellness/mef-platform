@@ -64,6 +64,25 @@ export function priorityCardPopupMessageKey(localDate: string): string {
   return `priority_card:${localDate}`;
 }
 
+/**
+ * The Weekly Root Review's pop-up key, scoped to the member's own local
+ * WEEK start (her own Monday, per lib/weekly-review/week.ts).
+ *
+ * Exactly the same mechanism as the Priority Card's date-scoped key one
+ * scale up: the week IS the once-per-week rule. This week's key can be
+ * dismissed exactly once under the existing one-time-ever rule
+ * (isOfferPopupDue), and next Monday's key is a genuinely new message that
+ * pops again. No fourth dismissal lifetime, no new column, and no schedule.
+ *
+ * The deferral case falls out of this for free rather than needing its own
+ * rule: on a week where a finite item (a coach assignment, a day-3 or day-7
+ * follow-up) wins the slot, this key simply has no dismissal row yet, so it
+ * is still due on the next open.
+ */
+export function weeklyReviewPopupMessageKey(weekStart: string): string {
+  return `weekly_review:${weekStart}`;
+}
+
 export async function getRootPopupDismissal(
   supabase: SupabaseClient,
   memberId: string,

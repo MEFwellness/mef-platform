@@ -57,12 +57,15 @@ import {
   loadBehavioralFriction,
   loadUnresolvedSafetyFlag,
   selectQualifiedPattern,
+  selectQualifiedPatternTies,
 } from '../coaching-direction/signals';
 import {
   notifyCoachOfSafetyFlag,
   persistCoachingDecision,
   resolveOutstandingOutcomes,
 } from '../coaching-direction/service';
+import { getWeekFocus } from '../weekly-review/data';
+import { weekStartFor } from '../weekly-review/week';
 import { PRIORITY_LADDER, PRIORITY_OVERRIDES } from './types';
 import type {
   BehavioralFrictionInput,
@@ -208,7 +211,11 @@ async function loadFindingRules(
   memberId: string
 ): Promise<{
   implicatedDriver: ImplicatedDriverInput | null;
+  /** The rest of the same likelyInvolved bucket, equally ranked. Read only by the week-focus tie-break. */
+  implicatedDriverAlternates: ImplicatedDriverInput[];
   qualifiedPattern: QualifiedPatternInput | null;
+  /** Tier 3 findings identical to the winner on confidence AND observation count. Same contract. */
+  qualifiedPatternAlternates: QualifiedPatternInput[];
 }> {
   const [goalSelection, drivers, domains, goalWeights, driverStates, candidatePairs, patternStates] =
     await Promise.all([
@@ -239,34 +246,68 @@ async function loadFindingRules(
   // a second chance for the two to disagree about the same data.
   const findings = buildFindings([...patternStates.values()], candidatePairs, memberGoalKeys);
   const qualifiedPattern = selectQualifiedPattern(findings);
+  const qualifiedPatternAlternates = selectQualifiedPatternTies(findings);
+
+  const empty = {
+    implicatedDriver: null,
+    implicatedDriverAlternates: [],
+    qualifiedPattern,
+    qualifiedPatternAlternates,
+  };
 
   const winner = panel.likelyInvolved[0];
-  if (!winner) return { implicatedDriver: null, qualifiedPattern };
+  if (!winner) return empty;
 
-  const driver = drivers.find((d) => d.id === winner.driverId);
-  if (!driver) return { implicatedDriver: null, qualifiedPattern };
+  /**
+   * One entry in the bucket, turned into rule 2's input.
+   *
+   * The reason sentence is the strongest earned finding among the pairs
+   * that actually implicated THIS driver. Null when none of them is one of
+   * her goal-relevant earned findings, in which case the card shows no
+   * reason line at all rather than substituting a weaker or unrelated
+   * sentence. That logic was already here for the winner; it is now a
+   * function so the alternates get it too, rather than a second, simpler
+   * version of it.
+   */
+  const toInput = (driverId: string): ImplicatedDriverInput | null => {
+    const driver = drivers.find((d) => d.id === driverId);
+    if (!driver) return null;
 
-  const implicatingPairs = driverStates.get(winner.driverId)?.evidenceSummary
-    ?.implicatingPairs as string[] | undefined;
+    const implicatingPairs = driverStates.get(driverId)?.evidenceSummary?.implicatingPairs as
+      | string[]
+      | undefined;
 
-  // Strongest earned finding among the pairs that actually implicated this
-  // driver. Null when none of them is one of her goal-relevant earned
-  // findings, in which case the card shows no reason line at all rather
-  // than substituting a weaker or unrelated sentence.
-  const findingSentence =
-    findings
-      .filter((f) => implicatingPairs?.includes(f.pairKey))
-      .sort((a, b) => b.tier - a.tier || b.confidence - a.confidence)[0]?.memberSentence ?? null;
+    const findingSentence =
+      findings
+        .filter((f) => implicatingPairs?.includes(f.pairKey))
+        .sort((a, b) => b.tier - a.tier || b.confidence - a.confidence)[0]?.memberSentence ?? null;
 
-  return {
-    implicatedDriver: {
+    return {
       driverId: driver.id,
       domainKey: driver.domainKey,
       label: driver.label,
       whatItObserves: driver.whatItObserves,
       findingSentence,
-    },
+    };
+  };
+
+  const implicatedDriver = toInput(winner.driverId);
+  if (!implicatedDriver) return empty;
+
+  // Every OTHER driver in the same likelyInvolved bucket. By that panel's
+  // own definition they are all implicated and all goal-relevant, so they
+  // sit on the same rung as the winner and rule 2 has always picked between
+  // them by array order alone.
+  const implicatedDriverAlternates = panel.likelyInvolved
+    .slice(1)
+    .map((entry) => toInput(entry.driverId))
+    .filter((input): input is ImplicatedDriverInput => input !== null);
+
+  return {
+    implicatedDriver,
+    implicatedDriverAlternates,
     qualifiedPattern,
+    qualifiedPatternAlternates,
   };
 }
 
@@ -438,7 +479,9 @@ export async function buildPriorityView(
       isReEntry,
       resetPlan: resetPlanResult.commitment,
       implicatedDriver: findingRules.implicatedDriver,
+      implicatedDriverAlternates: findingRules.implicatedDriverAlternates,
       qualifiedPattern: findingRules.qualifiedPattern,
+      qualifiedPatternAlternates: findingRules.qualifiedPatternAlternates,
       incompleteAction,
       // Loaded lazily below, only if the first pass gets far enough down
       // the ladder for it to matter.
@@ -466,10 +509,21 @@ export async function buildPriorityView(
       previousLocalDate(todayLocalDate)
     );
 
+    // This week's focus, from the Weekly Root Review (Part 2). Read, never
+    // written, here: the review composes it once a week and this is the one
+    // consumer. It reaches the engine as a TIE-BREAKER between candidates on
+    // the same rung and can do nothing else, which is a property of
+    // lib/weekly-review/focus.ts's reorder rather than a promise made here.
+    //
+    // A null focus (no review yet, an older week, a member who has never had
+    // one) leaves the engine byte-identical to Part 1.
+    const weekFocus = await getWeekFocus(supabase, memberId, weekStartFor(todayLocalDate));
+
     const adaptation: AdaptationContext = {
       threads,
       completedYesterdayThreadKey:
         yesterdayDecision?.memberResponse === 'done' ? yesterdayDecision.threadKey : null,
+      weekFocus,
     };
 
     let decision = selectCoachingAction(inputs, todayLocalDate, adaptation);

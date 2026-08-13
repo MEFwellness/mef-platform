@@ -47,6 +47,9 @@ import { HomeScreenPopups } from '@/components/dashboard/HomeScreenPopups';
 import { PriorityCard } from '@/components/priority/PriorityCard';
 import { TrackPriorityShown } from '@/components/priority/TrackPriorityShown';
 import { getMyPriorityView } from '@/lib/priority/view';
+import { getMyWeeklyReview } from '@/lib/weekly-review/view';
+import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
+import { WeeklyReviewEntry } from '@/components/weekly-review/WeeklyReviewEntry';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -189,6 +192,7 @@ export default async function DashboardPage({
     bodyAssessmentAccess,
     bodyAssessmentAssignmentCard,
     priority,
+    weeklyReview,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
@@ -212,6 +216,10 @@ export default async function DashboardPage({
     // pop-up decision and this inline card cost one computation between
     // them and are handed the identical object.
     getMyPriorityView(),
+    // The Weekly Root Review, on exactly the same terms: request-memoized,
+    // so the pop-up chain's own call above and this persistent entry share
+    // one composition and are handed the identical review.
+    getMyWeeklyReview(),
   ]);
   // Whether the Root pop-up chain is delivering the Priority Card on this
   // very load. Mirrors exactly the condition HomeScreenPopups renders on
@@ -531,6 +539,29 @@ export default async function DashboardPage({
               />
             )}
             <PriorityCard view={priority} />
+          </div>
+        )}
+
+        {/* ==================================================== */}
+        {/* THE WEEKLY ROOT REVIEW, persistent (Adaptive Coaching  */}
+        {/* Direction, Part 2). After the pop-up has had its one    */}
+        {/* showing this week, the review stays reachable here for  */}
+        {/* the rest of the week, reading the same                  */}
+        {/* member_weekly_reviews row the pop-up read, so           */}
+        {/* acknowledging in either place shows acknowledged in     */}
+        {/* both with no syncing.                                   */}
+        {/* Collapsed by default and BELOW the priority card: it    */}
+        {/* has already interrupted her once this week, and today's */}
+        {/* one thing outranks last week's report on every day      */}
+        {/* except the one the pop-up owned.                        */}
+        {/* ==================================================== */}
+        {weeklyReview && (
+          <div className="pt-3">
+            <WeeklyReviewEntry
+              review={weeklyReview.review}
+              label={WEEKLY_REVIEW_LABEL}
+              weekStart={weeklyReview.weekStart}
+            />
           </div>
         )}
 

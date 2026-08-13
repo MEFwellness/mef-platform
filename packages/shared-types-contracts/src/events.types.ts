@@ -68,7 +68,22 @@ export type ProductAnalyticsEventType =
    */
   | 'coaching_action_delivered'
   | 'coaching_action_acted'
-  | 'coaching_action_dismissed';
+  | 'coaching_action_dismissed'
+  /**
+   * The Weekly Root Review (migration 151). Behavioral only: that a review
+   * was composed and delivered, that it reached her screen, that she
+   * acknowledged it, and that she answered one of its at-most-two questions.
+   *
+   * weekly_review_question_answered carries the QUESTION KEY and never the
+   * answer. Which of three fixed options she chose is behavioral context
+   * that belongs on her own review row, not in an analytics rollup, and the
+   * separation is enforced by there being no payload field it could travel
+   * in.
+   */
+  | 'weekly_review_delivered'
+  | 'weekly_review_viewed'
+  | 'weekly_review_completed'
+  | 'weekly_review_question_answered';
 
 export type MemberWellnessEventType = MemberWellnessOnlyEventType | ProductAnalyticsEventType;
 
@@ -146,6 +161,22 @@ export interface ProductAnalyticsPayload {
    * shape of the suggestion.
    */
   actionType?: string;
+  /**
+   * weekly_review_*, whether the review was the full or the thin shape. A
+   * fixed slug from lib/analytics/surfaces.ts's WEEKLY_REVIEW_SHAPES. Says
+   * how much Root had to work with, never what it observed.
+   */
+  shape?: string;
+  /**
+   * weekly_review_question_answered, WHICH question was answered. A fixed
+   * slug from lib/weekly-review/questions.ts's QUESTION_KEYS.
+   *
+   * There is deliberately no field for the ANSWER. The answer is behavioral
+   * context stored on the member's own review row; putting it here would
+   * make an analytics rollup able to reconstruct what she said about her
+   * week, which is precisely what this payload shape exists to prevent.
+   */
+  questionKey?: string;
 }
 
 export type MemberWellnessEventPayload =

@@ -159,6 +159,30 @@ export function isCoachingActionTypeSlug(value: unknown): boolean {
   return isCoachingActionType(value);
 }
 
+/**
+ * The Weekly Root Review — how much Root had to work with. Two values, and
+ * the distinction is the one thing a rollup genuinely needs: a thin review
+ * makes no observation, so counting it alongside a full one would make the
+ * feature look like it was saying more than it was.
+ */
+export const WEEKLY_REVIEW_SHAPES = ['full', 'thin'] as const;
+
+export type WeeklyReviewShapeSlug = (typeof WEEKLY_REVIEW_SHAPES)[number];
+
+export function isWeeklyReviewShape(value: unknown): value is WeeklyReviewShapeSlug {
+  return typeof value === 'string' && (WEEKLY_REVIEW_SHAPES as readonly string[]).includes(value);
+}
+
+/**
+ * Which of the review's at-most-two questions was answered.
+ *
+ * Re-exported from lib/weekly-review/questions.ts rather than restated, so
+ * the analytics allowlist and the questions themselves can never drift.
+ * There is no corresponding allowlist for the ANSWERS, on purpose: they are
+ * never sent to an analytics event.
+ */
+export { QUESTION_KEYS as WEEKLY_REVIEW_QUESTION_KEYS, isQuestionKey as isWeeklyReviewQuestionKey } from '../weekly-review/questions';
+
 /** The Priority Card's three buttons, carried in the payload's `action` field. */
 export const PRIORITY_ACTIONS = ['done', 'help', 'save'] as const;
 

@@ -143,6 +143,46 @@ export function selectQualifiedPattern(
   };
 }
 
+/**
+ * The findings that are GENUINELY TIED with the winner, excluding the
+ * winner itself.
+ *
+ * "Tied" means identical on both of the two keys `selectQualifiedPattern`
+ * sorts by: confidence and observation count. Two findings equal on both are
+ * indistinguishable to the hierarchy, so which of them rule 3 shows was
+ * previously decided by array order and nothing else. That is exactly the
+ * "otherwise equal in the hierarchy" case the Weekly Root Review's week
+ * focus is allowed to break (lib/weekly-review/focus.ts).
+ *
+ * A finding that is merely CLOSE is not tied and is not returned. Treating
+ * near-equal as equal would let a weekly preference override a real
+ * strength difference, which would be the focus changing the hierarchy
+ * rather than breaking a tie in it.
+ */
+export function selectQualifiedPatternTies(
+  findings: readonly FindingView[]
+): QualifiedPatternInput[] {
+  const winner = selectQualifiedPattern(findings);
+  if (!winner) return [];
+
+  return findings
+    .filter((finding) => finding.tier >= QUALIFIED_PATTERN_MIN_TIER)
+    .filter((finding) => finding.memberSentence.trim().length > 0)
+    .filter((finding) => finding.pairKey !== winner.pairKey)
+    .filter(
+      (finding) =>
+        finding.confidence === winner.confidence &&
+        finding.observationCount === winner.observationCount
+    )
+    .map((finding) => ({
+      pairKey: finding.pairKey,
+      label: finding.label,
+      memberSentence: finding.memberSentence,
+      confidence: finding.confidence,
+      observationCount: finding.observationCount,
+    }));
+}
+
 // ---------------------------------------------------------------------
 // Rule 5 — behavioral friction.
 // ---------------------------------------------------------------------

@@ -39,6 +39,16 @@
  * preferred over an unrelated one. All four operate on counters. None of
  * them can see, or is given, any health data.
  *
+ * THE WEEK FOCUS (Part 2). `selectCoachingAction` optionally receives the
+ * Weekly Root Review's focus for the current week and uses it as a
+ * TIE-BREAKER. The ladder admits at most one candidate per rung, so two
+ * candidates are only ever tied when their rung's own source produced
+ * several equally-ranked items (several implicated drivers, several tier 3
+ * findings tied on confidence and observation count). Among those, the
+ * focus-aligned one is preferred. The rung order never changes, and safety,
+ * re-entry and the Reset Plan commitment are exempt structurally. See
+ * lib/weekly-review/focus.ts.
+ *
  * THE MOVEMENT BLOCK. Every candidate carries an action_type, and any
  * candidate typed 'movement' is dropped and the walk continues. Movement
  * sessions do not exist in this product yet, so such an action would have
@@ -57,6 +67,8 @@ import {
 import { sanitizeSignalEvidence } from '../coaching-direction/evidence';
 import { isEmittableActionType } from '../coaching-direction/types';
 import type { CoachingActionType, CoachingThreadState } from '../coaching-direction/types';
+import { preferWeekFocusWithinRung } from '../weekly-review/focus';
+import type { WeekFocus } from '../weekly-review/types';
 import type {
   BehavioralFrictionInput,
   ImplicatedDriverInput,
@@ -124,7 +136,13 @@ export function driverActionType(domainKey: string): CoachingActionType {
   }
 }
 
-function frictionActionType(kind: BehavioralFrictionInput['kind']): CoachingActionType {
+/**
+ * Exported because the Weekly Root Review's own focus chooser needs to name
+ * the same action type this rule would produce for the same friction kind
+ * (lib/weekly-review/compose.ts). One owner of the mapping, so a week focus
+ * can never point at a kind of action the rule it came from would not emit.
+ */
+export function frictionActionType(kind: BehavioralFrictionInput['kind']): CoachingActionType {
   switch (kind) {
     case 'daily_reset_incomplete':
       return 'reset';
@@ -249,45 +267,52 @@ function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[
     );
   }
 
+  // Rule 2's winner FIRST, then its equally-ranked alternates, all on the
+  // same rung. The winner keeps its position: nothing below can outrank
+  // anything above, and with no week focus present the walk finds exactly
+  // the candidate it always found.
   if (inputs.implicatedDriver) {
-    const driver: ImplicatedDriverInput = inputs.implicatedDriver;
-    ladder.push(
-      candidate(
-        'implicated_driver',
-        driver.driverId,
-        driverActionType(driver.domainKey),
-        {
-          title: buildDriverTitle(driver),
-          reason: buildDriverReason(driver),
-          help: buildDriverHelp(driver),
-          href: null,
-        },
-        { driverId: driver.driverId, driverDomain: driver.domainKey }
-      )
-    );
+    for (const driver of [inputs.implicatedDriver, ...(inputs.implicatedDriverAlternates ?? [])]) {
+      const item: ImplicatedDriverInput = driver;
+      ladder.push(
+        candidate(
+          'implicated_driver',
+          item.driverId,
+          driverActionType(item.domainKey),
+          {
+            title: buildDriverTitle(item),
+            reason: buildDriverReason(item),
+            help: buildDriverHelp(item),
+            href: null,
+          },
+          { driverId: item.driverId, driverDomain: item.domainKey }
+        )
+      );
+    }
   }
 
   if (inputs.qualifiedPattern) {
-    const pattern = inputs.qualifiedPattern;
-    ladder.push(
-      candidate(
-        'qualified_pattern',
-        pattern.pairKey,
-        'reflection',
-        {
-          title: buildQualifiedPatternTitle(pattern),
-          reason: buildQualifiedPatternReason(pattern),
-          help: buildQualifiedPatternHelp(),
-          href: null,
-        },
-        {
-          pairKey: pattern.pairKey,
-          tier: 3,
-          confidence: pattern.confidence,
-          observationCount: pattern.observationCount,
-        }
-      )
-    );
+    for (const pattern of [inputs.qualifiedPattern, ...(inputs.qualifiedPatternAlternates ?? [])]) {
+      ladder.push(
+        candidate(
+          'qualified_pattern',
+          pattern.pairKey,
+          'reflection',
+          {
+            title: buildQualifiedPatternTitle(pattern),
+            reason: buildQualifiedPatternReason(pattern),
+            help: buildQualifiedPatternHelp(),
+            href: null,
+          },
+          {
+            pairKey: pattern.pairKey,
+            tier: 3,
+            confidence: pattern.confidence,
+            observationCount: pattern.observationCount,
+          }
+        )
+      );
+    }
   }
 
   if (inputs.incompleteAction) {
@@ -418,11 +443,23 @@ export type AdaptationContext = {
    * follow-on.
    */
   completedYesterdayThreadKey: string | null;
+  /**
+   * This week's focus, from the Weekly Root Review (Part 2), or null.
+   *
+   * A TIE-BREAKER and nothing more. It can only reorder candidates that sit
+   * on the SAME rung of the ladder, it can never move a candidate past one
+   * on a higher rung, it can never create a candidate, and it cannot touch
+   * safety, re-entry or the Reset Plan commitment. All four of those are
+   * properties of lib/weekly-review/focus.ts's own reorder rather than
+   * promises made here.
+   */
+  weekFocus?: WeekFocus | null;
 };
 
 export const NO_ADAPTATION: AdaptationContext = {
   threads: new Map(),
   completedYesterdayThreadKey: null,
+  weekFocus: null,
 };
 
 export type CoachingSelection = {
@@ -479,8 +516,17 @@ export function selectCoachingAction(
   adaptation: AdaptationContext = NO_ADAPTATION
 ): CoachingSelection {
   const overrides = buildOverrides(inputs);
+  // Two reorders, in this order, and the order matters.
+  //
+  // The week focus resolves ties INSIDE a rung; the follow-on preference
+  // promotes one candidate ACROSS rungs. Running the focus first means the
+  // follow-on rule still sees, and still promotes, exactly the candidate it
+  // would have promoted anyway (it matches on thread key, which the
+  // within-rung reorder cannot change). Running it second would let a tie
+  // resolution undo a promotion the guardrail had already made, which would
+  // put a weekly preference above a thing she finished yesterday.
   const ladder = preferFollowOn(
-    buildLadder(inputs, todayLocalDate),
+    preferWeekFocusWithinRung(buildLadder(inputs, todayLocalDate), adaptation.weekFocus ?? null),
     adaptation.completedYesterdayThreadKey
   );
 

@@ -439,6 +439,36 @@ export async function listUnresolvedDecisions(
 }
 
 /**
+ * Every delivered decision inside an inclusive local-date range, oldest
+ * first.
+ *
+ * Added for the Weekly Root Review (Part 2), which needs the week's ledger
+ * rows to say what worked. It lives here, in the module that owns the
+ * table, rather than in that feature, so there is still exactly one place
+ * member_coaching_decisions is read from.
+ */
+export async function listCoachingDecisionsInRange(
+  supabase: SupabaseClient,
+  memberId: string,
+  fromLocalDate: string,
+  toLocalDate: string
+): Promise<CoachingDecisionRecord[]> {
+  const { data, error } = await supabase
+    .from('member_coaching_decisions')
+    .select(DECISION_COLUMNS)
+    .eq('member_id', memberId)
+    .gte('local_date', fromLocalDate)
+    .lte('local_date', toLocalDate)
+    .order('local_date', { ascending: true });
+
+  if (error || !data) {
+    if (error) console.error('listCoachingDecisionsInRange failed', error);
+    return [];
+  }
+  return (data as unknown as DecisionRow[]).map(fromDecisionRow);
+}
+
+/**
  * How many of the last `windowDays` days ended with the priority set
  * aside. Read from the card's own table, not from analytics: "she saved
  * the last several priorities for later" is a fact about this feature,

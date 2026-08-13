@@ -55,6 +55,12 @@ const ALLOWED_PAYLOAD_KEYS = [
   // delivered. A fixed slug from lib/coaching-direction/types.ts, never
   // the action's own wording and never its evidence.
   'actionType',
+  // The Weekly Root Review (migration 151): whether the review was full or
+  // thin, and WHICH question was answered. There is deliberately no key
+  // here for the answer itself, which is why the answer physically cannot
+  // reach an analytics row.
+  'shape',
+  'questionKey',
 ] as const;
 
 /**
