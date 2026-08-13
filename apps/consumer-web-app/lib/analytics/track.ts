@@ -68,6 +68,14 @@ const ALLOWED_PAYLOAD_KEYS = [
   'gradeCount',
   'landingCount',
   'deadCount',
+  // Root Movement Level 1 (migration 153): which of the six fixed
+  // sessions, which catalog exercise was skipped, and two counts. There
+  // is deliberately no key for a reason, a rating or a note, so a
+  // movement event physically cannot carry health content.
+  'sessionKey',
+  'exerciseId',
+  'exerciseCount',
+  'skipCount',
 ] as const;
 
 /**

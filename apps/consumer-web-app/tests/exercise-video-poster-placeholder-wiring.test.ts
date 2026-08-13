@@ -14,10 +14,15 @@ import path from 'node:path';
 const CARD_PATH = path.resolve(__dirname, '../components/exercise-library/ExerciseCard.tsx');
 const DETAIL_PATH = path.resolve(__dirname, '../components/exercise-library/ExerciseDetailView.tsx');
 const PLACEHOLDER_PATH = path.resolve(__dirname, '../components/exercise-library/VideoPosterPlaceholder.tsx');
+// TapToPlayVideo was extracted out of ExerciseDetailView into its own
+// file when Root Movement Level 1 needed the identical player inside a
+// session. Same component, same behaviour, one file over.
+const PLAYER_PATH = path.resolve(__dirname, '../components/exercise-library/TapToPlayVideo.tsx');
 
 const cardSource = readFileSync(CARD_PATH, 'utf-8');
 const detailSource = readFileSync(DETAIL_PATH, 'utf-8');
 const placeholderSource = readFileSync(PLACEHOLDER_PATH, 'utf-8');
+const playerSource = readFileSync(PLAYER_PATH, 'utf-8');
 
 describe('guard test: video grid card shows the branded placeholder, not a blank box, until a real poster exists', () => {
   it('ExerciseCard imports VideoPosterPlaceholder', () => {
@@ -47,16 +52,15 @@ describe('guard test: video grid card shows the branded placeholder, not a blank
 });
 
 describe('guard test: exercise detail tap-to-play surface shows the branded placeholder, not a blank #EFF6F1 box', () => {
-  it('ExerciseDetailView imports VideoPosterPlaceholder', () => {
-    expect(detailSource).toMatch(/import\s*\{\s*VideoPosterPlaceholder\s*\}\s*from\s*'\.\/VideoPosterPlaceholder'/);
+  it('the detail view still reaches VideoPosterPlaceholder through the player it renders', () => {
+    expect(detailSource).toMatch(/import\s*\{\s*TapToPlayVideo\s*\}\s*from\s*'\.\/TapToPlayVideo'/);
+    expect(playerSource).toMatch(/import\s*\{\s*VideoPosterPlaceholder\s*\}\s*from\s*'\.\/VideoPosterPlaceholder'/);
   });
 
   it('TapToPlayVideo renders VideoPosterPlaceholder in its no-poster branch', () => {
-    const fnStart = detailSource.indexOf('function TapToPlayVideo(');
+    const fnStart = playerSource.indexOf('export function TapToPlayVideo(');
     expect(fnStart).toBeGreaterThan(-1);
-    const fnEnd = detailSource.indexOf('function RelatedChip', fnStart);
-    expect(fnEnd).toBeGreaterThan(fnStart);
-    const fnBody = detailSource.slice(fnStart, fnEnd);
+    const fnBody = playerSource.slice(fnStart);
 
     expect(fnBody).toContain('<VideoPosterPlaceholder exercise={{ name, primaryMuscle, category }} />');
   });

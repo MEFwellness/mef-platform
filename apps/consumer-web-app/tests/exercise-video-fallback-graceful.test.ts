@@ -13,21 +13,24 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const VIEW_PATH = path.resolve(__dirname, '../components/exercise-library/ExerciseDetailView.tsx');
+// TapToPlayVideo was extracted out of ExerciseDetailView into its own
+// file when Root Movement Level 1 needed the identical player inside a
+// session. Same component, same fallback behaviour, one file over — and
+// now guarded for BOTH call sites at once rather than only the detail
+// screen.
+const VIEW_PATH = path.resolve(__dirname, '../components/exercise-library/TapToPlayVideo.tsx');
 
 describe('guard test: video tap-to-play failure falls back to cues, never a broken player', () => {
   const source = readFileSync(VIEW_PATH, 'utf-8');
 
   it('TapToPlayVideo accepts a cues prop', () => {
-    expect(source).toMatch(/function TapToPlayVideo\(\{[\s\S]{0,200}cues/);
+    expect(source).toMatch(/export function TapToPlayVideo\(\{[\s\S]{0,300}cues/);
   });
 
   it("the component's error state renders CuesPlaceholder, not a dead player or bare error text", () => {
     const errorBranchStart = source.indexOf("if (state.status === 'error')");
     expect(errorBranchStart).toBeGreaterThan(-1);
-    const nextBranchStart = source.indexOf('function RelatedChip', errorBranchStart);
-    expect(nextBranchStart).toBeGreaterThan(errorBranchStart);
-    const errorBranch = source.slice(errorBranchStart, nextBranchStart);
+    const errorBranch = source.slice(errorBranchStart);
     expect(errorBranch).toContain('<CuesPlaceholder cues={cues} />');
   });
 

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { Route } from 'next';
 import Link from 'next/link';
-import { Share2, Check, PlayCircle } from 'lucide-react';
+import { Share2, Check } from 'lucide-react';
 import type {
   ExerciseLibraryExercise,
   MemberExerciseCompletion,
@@ -13,7 +13,10 @@ import { FavoriteButton } from './FavoriteButton';
 import { ExerciseCompletionControls } from './ExerciseCompletionControls';
 import { ExerciseHistoryList } from './ExerciseHistoryList';
 import { MediaBadge, CuesPlaceholder } from './MediaBadge';
-import { VideoPosterPlaceholder } from './VideoPosterPlaceholder';
+// Extracted to its own file when Root Movement Level 1 needed the same
+// tap-to-play behaviour inside a session player. Still the only
+// component in the product that can spend Your Move quota.
+import { TapToPlayVideo } from './TapToPlayVideo';
 
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
@@ -98,104 +101,6 @@ function ShareButton({ exerciseName }: { exerciseName: string }) {
           <Share2 className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
         )}
       </span>
-    </button>
-  );
-}
-
-/**
- * The one place in this app allowed to trigger a Your Move video fetch —
- * strictly on tap, never on mount. Shows the extracted poster with a play
- * button until tapped; only then calls /api/exercises/[id]/video-url
- * (which itself only hits Your Move's metered endpoint on a cache miss)
- * and swaps in a real <video> with the fresh, short-lived URL.
- *
- * The trial API key only serves a subset of Your Move's catalog — a fetch
- * failure here (network error, not-yet-covered exercise, anything) falls
- * back to rendering this exercise's generated cues in place of the
- * player, never a broken player or a bare error message. Once a
- * full-access key replaces the trial key, fetches for those exercises
- * simply start succeeding — no code change required for this to
- * self-heal.
- */
-function TapToPlayVideo({
-  externalId,
-  name,
-  primaryMuscle,
-  category,
-  posterUrl,
-  cues,
-}: {
-  externalId: string;
-  name: string;
-  primaryMuscle: string | null;
-  category: string | null;
-  posterUrl: string | null;
-  cues: string[];
-}) {
-  const [state, setState] = useState<
-    { status: 'idle' } | { status: 'loading' } | { status: 'ready'; videoUrl: string } | { status: 'error' }
-  >({ status: 'idle' });
-
-  async function handlePlay() {
-    setState({ status: 'loading' });
-    try {
-      const response = await fetch(`/api/exercises/${encodeURIComponent(externalId)}/video-url`);
-      const json = await response.json();
-      if (!response.ok || !json.videoUrl) {
-        setState({ status: 'error' });
-        return;
-      }
-      setState({ status: 'ready', videoUrl: json.videoUrl });
-    } catch {
-      setState({ status: 'error' });
-    }
-  }
-
-  if (state.status === 'ready') {
-    return (
-      <video
-        key={state.videoUrl}
-        src={state.videoUrl}
-        controls
-        autoPlay
-        playsInline
-        preload="metadata"
-        className="max-h-96 w-full bg-black object-contain"
-      />
-    );
-  }
-
-  // Graceful, no-broken-player fallback — the video genuinely isn't
-  // available right now, so show the same coaching cues a no-video
-  // exercise would show, instead of a dead play button or an error banner.
-  if (state.status === 'error') {
-    return (
-      <div className="h-56">
-        <CuesPlaceholder cues={cues} />
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handlePlay}
-      disabled={state.status === 'loading'}
-      aria-label="Play exercise video"
-      className="relative block h-56 w-full"
-    >
-      {posterUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- our own extracted-frame poster, stored in the exercise-media Supabase bucket
-        <img src={posterUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <VideoPosterPlaceholder exercise={{ name, primaryMuscle, category }} />
-      )}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/20">
-        <PlayCircle className="h-14 w-14 text-white drop-shadow" strokeWidth={1.25} />
-        {state.status === 'loading' && (
-          <p className="text-xs font-medium text-white">Cueing up your video…</p>
-        )}
-      </div>
     </button>
   );
 }

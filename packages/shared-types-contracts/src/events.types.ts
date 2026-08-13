@@ -96,7 +96,21 @@ export type ProductAnalyticsEventType =
    */
   | 'coaching_thread_escalated'
   | 'coaching_escalation_resolved'
-  | 'coaching_grades_computed';
+  | 'coaching_grades_computed'
+  /**
+   * Root Movement Level 1 (migration 153). Behavioral only: which of the
+   * six fixed sessions she opened, started and finished, and which
+   * catalog exercise she skipped.
+   *
+   * There is deliberately no event for leaving a session part way
+   * through, and no payload field for WHY anything was skipped. The
+   * first is a fact this product has decided not to make her answer for;
+   * the second would be health content.
+   */
+  | 'movement_session_viewed'
+  | 'movement_session_started'
+  | 'movement_session_completed'
+  | 'movement_exercise_skipped';
 
 export type MemberWellnessEventType = MemberWellnessOnlyEventType | ProductAnalyticsEventType;
 
@@ -208,6 +222,33 @@ export interface ProductAnalyticsPayload {
   gradeCount?: string;
   landingCount?: string;
   deadCount?: string;
+  /**
+   * movement_session_*, WHICH of the six ready-made sessions. A
+   * session_key from movement_session_templates (migration 153), which is
+   * a closed set of six values validated server-side against the table
+   * itself before anything is written.
+   */
+  sessionKey?: string;
+  /**
+   * movement_exercise_skipped, WHICH exercise was skipped. A Your Move
+   * catalog external id, validated server-side to be one of the slots of
+   * the session it is reported against.
+   *
+   * A catalog id names a movement, not a person. It says she skipped the
+   * side plank; it does not say her shoulder hurt, and there is no field
+   * here in which that could ever be recorded.
+   */
+  exerciseId?: string;
+  /**
+   * movement_session_viewed, how many exercises the session she opened
+   * contains. movement_session_completed, how many of them she skipped.
+   *
+   * Both written as their own digits, for the same reason gradeCount
+   * above is: the sanitizer keeps short strings only, and that rule is
+   * what stops a sentence ever reaching an event row.
+   */
+  exerciseCount?: string;
+  skipCount?: string;
 }
 
 export type MemberWellnessEventPayload =

@@ -31,6 +31,7 @@ import { WhySessionCard } from '@/components/movement/WhySessionCard';
 import { MovementStatsGrid } from '@/components/movement/MovementStatsGrid';
 import { RECOVERY_STATUS_LABEL, RECOVERY_STATUS_STYLES } from '@/lib/movement/status';
 import { CardStack } from '@/components/layout';
+import { listActiveSessionTemplates } from '@/lib/movement-sessions/data';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -49,11 +50,16 @@ export default async function MovementPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: profile }, isCoach, recentCheckins] = await Promise.all([
+  const [{ data: profile }, isCoach, recentCheckins, readySessions] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
     getRecentCheckins(12),
+    // Root Movement Level 1 (migration 153). Fails closed to an empty
+    // list where the templates table does not exist yet, which is what
+    // keeps its entry point below from rendering at all.
+    listActiveSessionTemplates(supabase),
   ]);
+  const readySessionCount = readySessions.length;
 
   const firstName = firstNameFrom(profile?.display_name);
   const hasEverCheckedIn = recentCheckins.length > 0;
@@ -92,6 +98,40 @@ export default async function MovementPage() {
             standard card-to-card gap via CardStack instead of two
             independently-guessed mt-5/mt-3 values. */}
         <CardStack className="mt-5">
+          {/* Root Movement Level 1 (migration 153): six ready-made
+              sessions, available to every member with no assessment
+              behind them. It sits first in this stack because it is the
+              one entry here that a member can act on immediately, and it
+              renders regardless of whether she has ever checked in,
+              unlike the generated session below.
+
+              Gated on the templates actually existing: before migration
+              153 is applied to an environment, listActiveSessionTemplates
+              fails closed to an empty list and this entry point does not
+              render at all, so the feature ships genuinely dormant rather
+              than as a link to an empty screen. */}
+          {readySessionCount > 0 && (
+          <Link
+            href={'/movement/sessions' as Route}
+            className={`${CARD} mef-card-lift flex items-center gap-4 p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B3A2D]/[0.06]">
+              <PlayCircle className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            <span className="flex-1">
+              <p className="text-sm font-semibold text-[#1B3A2D]">Root Movement</p>
+              <p className="mt-0.5 text-xs text-[#6B7A72]">
+                Six ready-made sessions, from ten to twenty minutes
+              </p>
+            </span>
+            <ChevronRight
+              className="h-4 w-4 text-[#1B3A2D]/30"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+          </Link>
+          )}
+
           <Link
             href={'/exercises' as Route}
             className={`${CARD} mef-card-lift flex items-center gap-4 p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
