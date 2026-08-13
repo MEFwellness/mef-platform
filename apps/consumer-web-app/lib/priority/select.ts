@@ -49,6 +49,15 @@
  * re-entry and the Reset Plan commitment are exempt structurally. See
  * lib/weekly-review/focus.ts.
  *
+ * THE GRADE PREFERENCE (Part 3). `selectCoachingAction` optionally receives
+ * this member's approach grades and uses them as a PREFERENCE INSIDE each
+ * rung: when a rung produced several candidates, the kinds of action she
+ * has evidence of acting on come first and the kinds graded dead for her
+ * come last. It has exactly the same two properties as the week focus
+ * reorder (the sequence of rules is unchanged, and with no grades the array
+ * is unchanged), it removes nothing, and it cannot reach safety, re-entry
+ * or the commitment. See lib/coaching-direction/preference.ts.
+ *
  * THE MOVEMENT BLOCK. Every candidate carries an action_type, and any
  * candidate typed 'movement' is dropped and the walk continues. Movement
  * sessions do not exist in this product yet, so such an action would have
@@ -65,6 +74,8 @@ import {
   threadKeyFor,
 } from '../coaching-direction/adaptation';
 import { sanitizeSignalEvidence } from '../coaching-direction/evidence';
+import { preferGradedActionTypesWithinRung } from '../coaching-direction/preference';
+import type { CoachingGrade } from '../coaching-direction/grading';
 import { isEmittableActionType } from '../coaching-direction/types';
 import type { CoachingActionType, CoachingThreadState } from '../coaching-direction/types';
 import { preferWeekFocusWithinRung } from '../weekly-review/focus';
@@ -432,7 +443,18 @@ function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[
 /** What the service must persist as a result of this decision. */
 export type ThreadChange =
   | { threadKey: string; kind: 'approach_change'; approach: number }
-  | { threadKey: string; kind: 'escalate'; approach: number; reason: string };
+  | {
+      threadKey: string;
+      kind: 'escalate';
+      approach: number;
+      reason: string;
+      /**
+       * What KIND of action this thread was, carried so the Part 3
+       * escalation event can say so without the service having to look the
+       * thread back up. A fixed slug; never the action's own wording.
+       */
+      actionType: CoachingActionType;
+    };
 
 export type AdaptationContext = {
   /** Thread state by thread key, as read from member_coaching_threads. */
@@ -454,12 +476,26 @@ export type AdaptationContext = {
    * promises made here.
    */
   weekFocus?: WeekFocus | null;
+  /**
+   * This member's approach grades, keyed by ACTION TYPE (Part 3).
+   *
+   * A preference INSIDE a rung and nothing more. It can only reorder
+   * candidates that share a rule, it can never move one past a candidate on
+   * a higher rung, it never removes a candidate, and it cannot touch
+   * safety, re-entry or the Reset Plan commitment. All four are properties
+   * of lib/coaching-direction/preference.ts's own reorder rather than
+   * promises made here.
+   *
+   * An empty map leaves the engine byte-identical to Part 2.
+   */
+  grades?: ReadonlyMap<string, CoachingGrade>;
 };
 
 export const NO_ADAPTATION: AdaptationContext = {
   threads: new Map(),
   completedYesterdayThreadKey: null,
   weekFocus: null,
+  grades: new Map(),
 };
 
 export type CoachingSelection = {
@@ -516,17 +552,31 @@ export function selectCoachingAction(
   adaptation: AdaptationContext = NO_ADAPTATION
 ): CoachingSelection {
   const overrides = buildOverrides(inputs);
-  // Two reorders, in this order, and the order matters.
+  // THREE reorders, in this order, and the order is the whole design.
   //
-  // The week focus resolves ties INSIDE a rung; the follow-on preference
-  // promotes one candidate ACROSS rungs. Running the focus first means the
-  // follow-on rule still sees, and still promotes, exactly the candidate it
-  // would have promoted anyway (it matches on thread key, which the
-  // within-rung reorder cannot change). Running it second would let a tie
-  // resolution undo a promotion the guardrail had already made, which would
-  // put a weekly preference above a thing she finished yesterday.
+  // Two of them resolve order INSIDE a rung (the Part 3 grade preference
+  // and the Part 2 week focus); the third promotes one candidate ACROSS
+  // rungs (the follow-on guardrail). The across-rungs one runs LAST, so a
+  // tie resolution can never undo a promotion the guardrail already made,
+  // which would put a preference above a thing she finished yesterday. It
+  // is unaffected by either within-rung pass: it matches on thread key,
+  // which neither reorder can change.
+  //
+  // Between the two within-rung passes, the GRADES run first and the WEEK
+  // FOCUS second, so the focus wins wherever they disagree. A grade is a
+  // ninety day aggregate; the focus is a fresh decision Root made about
+  // this specific week from her own week's data, which is both more recent
+  // and more specific. Running the grades second would also silently change
+  // every tie Part 2 already decides, which Part 2's own tests assert.
   const ladder = preferFollowOn(
-    preferWeekFocusWithinRung(buildLadder(inputs, todayLocalDate), adaptation.weekFocus ?? null),
+    preferWeekFocusWithinRung(
+      preferGradedActionTypesWithinRung(
+        buildLadder(inputs, todayLocalDate),
+        adaptation.grades ?? new Map(),
+        todayLocalDate
+      ),
+      adaptation.weekFocus ?? null
+    ),
     adaptation.completedYesterdayThreadKey
   );
 
@@ -545,7 +595,7 @@ export function selectCoachingAction(
   for (const item of ladder) {
     if (!isEmittableActionType(item.actionType)) continue;
 
-    const outcome = adaptThread(adaptation.threads.get(item.threadKey) ?? null);
+    const outcome = adaptThread(adaptation.threads.get(item.threadKey) ?? null, todayLocalDate);
 
     if (outcome.escalate) {
       threadChanges.push({
@@ -553,6 +603,7 @@ export function selectCoachingAction(
         kind: 'escalate',
         approach: outcome.approach,
         reason: ESCALATION_REASON_NO_RESPONSE,
+        actionType: item.actionType,
       });
       continue;
     }

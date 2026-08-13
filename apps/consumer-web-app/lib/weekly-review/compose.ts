@@ -33,6 +33,8 @@
  */
 
 import type { CoachingActionType, MemberResponse } from '../coaching-direction/types';
+import { daysSinceLastDelivered } from '../coaching-direction/grading';
+import type { CoachingGrade } from '../coaching-direction/grading';
 import type { LongitudinalSignal } from '../longitudinal-intelligence/types';
 import type { BehavioralFrictionInput } from '../priority/types';
 import { frictionActionType } from '../priority/select';
@@ -55,6 +57,7 @@ import {
 } from './types';
 import type {
   FocusReason,
+  ReviewGrade,
   ReviewObservation,
   ReviewPlan,
   ReviewShape,
@@ -129,6 +132,20 @@ export type WeeklyReviewInputs = {
   planWeek: ReviewPlanWeek | null;
   /** Part 1's own friction read, or null. */
   friction: BehavioralFrictionInput | null;
+  /**
+   * Part 3's approach grades, exactly as that module computed them. Never
+   * re-graded here. An empty list, which is what a member with no ledger
+   * history and every member before migration 152 has, means the review
+   * says nothing about grades at all.
+   */
+  grades?: readonly CoachingGrade[];
+  /**
+   * Today, in her own timezone. Needed only to age a dead grade: the 21 day
+   * decay is what tells "Root is retiring this" apart from "Root is going
+   * to try this again", and both are statements about today rather than
+   * about the week being reviewed.
+   */
+  todayLocalDate?: string;
 };
 
 // ---------------------------------------------------------------------
@@ -325,6 +342,69 @@ export function buildWorked(inputs: WeeklyReviewInputs): ReviewWorked[] {
   }
 
   return worked.filter((item) => renderWorked(item) !== null);
+}
+
+// ---------------------------------------------------------------------
+// Grades — what Part 3's grading loop concluded, said only when it earned
+// the right to be said.
+// ---------------------------------------------------------------------
+
+/**
+ * At most two grades reach a plan, and on most weeks none does.
+ *
+ * THREE GATES, and all three have to pass:
+ *
+ *   1. Evidence must not be thin. This is the gate the brief names, and it
+ *      is applied here rather than at render time so a thin grade is never
+ *      even stored (./plan.ts's sanitizer refuses one too, so it holds for
+ *      a row written by any means).
+ *   2. Only the action-type scope is spoken. A thread grade names one
+ *      specific continuing conversation, and this feature has no vocabulary
+ *      for describing what that conversation was about without storing a
+ *      label, which is one step from storing a sentence.
+ *   3. Only a verdict that says something. 'neutral' is the ordinary state
+ *      and there is no honest sentence for it.
+ *
+ * The two slots are deliberately different questions, so a member can read
+ * both in one review without them contradicting each other: WHAT WORKED
+ * takes the strongest LANDING grade, and WHAT ROOT IS ADJUSTING takes the
+ * strongest DEAD one.
+ */
+export function buildReviewGrades(inputs: WeeklyReviewInputs): ReviewGrade[] {
+  const today = inputs.todayLocalDate;
+  const speakable = (inputs.grades ?? [])
+    .filter((grade) => grade.scope === 'action_type')
+    .filter((grade) => grade.evidenceLevel === 'moderate' || grade.evidenceLevel === 'strong');
+
+  const toReviewGrade = (grade: CoachingGrade): ReviewGrade => ({
+    actionType: grade.actionType,
+    verdict: grade.verdict,
+    evidence: grade.evidenceLevel === 'strong' ? 'strong' : 'moderate',
+    metrics: sanitizeMetrics({
+      delivered: grade.deliveredCount,
+      acted: grade.actedCount,
+      moved: grade.movedCount,
+      // Frozen at composition on purpose. The plan is rendered all week and
+      // a number that aged mid-week would change the sentence under her.
+      daysSinceLastDelivered: today
+        ? (daysSinceLastDelivered(grade, today) ?? Number.NaN)
+        : Number.NaN,
+    }),
+  });
+
+  const grades: ReviewGrade[] = [];
+
+  const landing = speakable
+    .filter((grade) => grade.verdict === 'landing')
+    .sort((a, b) => b.actedCount - a.actedCount || b.movedCount - a.movedCount)[0];
+  if (landing) grades.push(toReviewGrade(landing));
+
+  const dead = speakable
+    .filter((grade) => grade.verdict === 'dead')
+    .sort((a, b) => b.deliveredCount - a.deliveredCount)[0];
+  if (dead) grades.push(toReviewGrade(dead));
+
+  return grades;
 }
 
 // ---------------------------------------------------------------------
@@ -531,6 +611,12 @@ export function composeWeeklyReview(inputs: WeeklyReviewInputs): ReviewPlan {
 
   const focus = chooseWeekFocus(inputs, 'full', observations);
 
+  // Grades reach a FULL review only. A thin review already says out loud
+  // that Root does not have enough yet, and following that with a
+  // conclusion about what has been working would contradict it in the same
+  // breath. Both thin branches above therefore return before this point.
+  const grades = buildReviewGrades(inputs);
+
   return {
     shape: 'full',
     observations,
@@ -547,5 +633,9 @@ export function composeWeeklyReview(inputs: WeeklyReviewInputs): ReviewPlan {
           sourceEvidence: {},
         },
     questionKeys: buildQuestionKeys(inputs),
+    // Absent rather than empty when there is nothing to say, so a plan that
+    // says nothing about grades is byte-identical to one composed before
+    // Part 3 existed.
+    ...(grades.length > 0 ? { grades } : {}),
   };
 }

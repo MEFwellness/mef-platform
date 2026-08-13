@@ -61,6 +61,13 @@ function fromThreadRow(row: ThreadRow): CoachingThreadState {
     lastSelectedLocalDate: row.last_selected_local_date,
     coachEscalatedAt: row.coach_escalated_at,
     coachEscalationReason: row.coach_escalation_reason,
+    // Deliberately not selected here. THREAD_COLUMNS is Part 1's own
+    // render-path column list, and adding migration 152's columns to it
+    // would make every Part 1 thread read fail between this code deploying
+    // and that migration being applied. The cooldown is merged in by
+    // lib/priority/service.ts from its own fail-closed query. See
+    // lib/coaching-direction/escalationData.ts's header.
+    escalationCooldownUntil: null,
   };
 }
 

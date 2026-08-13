@@ -21,6 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trackProductEvent } from '../analytics/track';
+import { recomputeCoachingGrades } from '../coaching-direction/gradesService';
 import { localDateStringFor } from '../time/localDate';
 import { composeWeeklyReview } from './compose';
 import { renderReview } from './copy';
@@ -103,6 +104,17 @@ export async function buildWeeklyReviewState(
     }
 
     if (!hasReviewableWeek(context.accountCreatedAt, context.timezone, weekStart)) return null;
+
+    // Adaptive Coaching Direction Part 3 — regrade before reading the
+    // grades, so a review composed on the first open of a new week speaks
+    // to what the ledger shows today rather than to whatever the last
+    // check-in left behind.
+    //
+    // Placed AFTER the two gates above on purpose: this runs at most once
+    // per member per week, on the one render that is about to compose,
+    // rather than on every Home load. It never throws and does nothing at
+    // all when migration 152 has not been applied.
+    await recomputeCoachingGrades(supabase, memberId, todayLocalDate, context.timezone);
 
     const inputs = await loadWeeklyReviewInputs(supabase, memberId, weekStart, todayLocalDate);
     const plan = composeWeeklyReview(inputs);

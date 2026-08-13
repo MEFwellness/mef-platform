@@ -123,6 +123,32 @@ export type ReviewWorked = {
 };
 
 // ---------------------------------------------------------------------
+// Grades — what Part 3's grading loop concluded about an approach.
+// ---------------------------------------------------------------------
+
+/**
+ * One approach grade, as the review is allowed to speak it.
+ *
+ * It carries the same three slugs and the same numbers the grade row does,
+ * and nothing else. ./copy.ts turns them into a sentence at read time, so
+ * this stays consistent with the one structural rule of this feature: a
+ * review row stores a PLAN, never prose.
+ *
+ * `evidence` deliberately excludes 'thin'. A thin grade is never stored on
+ * a plan at all, which is stronger than storing one and remembering not to
+ * render it: there is no state in which a thin grade could reach a member's
+ * screen, because there is no plan it could be sitting on.
+ */
+export type ReviewGrade = {
+  actionType: CoachingActionType;
+  /** 'landing' | 'landed_no_change' | 'dead', from lib/coaching-direction/grading.ts. */
+  verdict: string;
+  evidence: 'moderate' | 'strong';
+  /** delivered, acted, moved, and daysSinceLastDelivered. Numbers only. */
+  metrics: Record<string, number>;
+};
+
+// ---------------------------------------------------------------------
 // The coming week's focus.
 // ---------------------------------------------------------------------
 
@@ -197,6 +223,17 @@ export type ReviewPlan = {
   worked: ReviewWorked[];
   focus: WeekFocus;
   questionKeys: string[];
+  /**
+   * At most two grades (Part 3), and on most weeks none: one whose
+   * approach has evidence of landing, for WHAT WORKED, and one Root is
+   * retiring or retrying, for WHAT ROOT IS ADJUSTING.
+   *
+   * Optional so that every review row written before this build, and every
+   * fixture that predates it, is still a valid plan. An absent list and an
+   * empty one mean the same thing, which is that the review says nothing
+   * about grades.
+   */
+  grades?: ReviewGrade[];
 };
 
 /** One review, as read back from member_weekly_reviews. */

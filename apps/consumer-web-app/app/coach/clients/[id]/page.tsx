@@ -37,6 +37,7 @@ import {
 import { getClientRootCauseSignals } from '@/app/actions/rootCauseSignals';
 import { getClientRootMap } from '@/app/actions/rootMap';
 import { getClientCaseViewAction } from '@/app/actions/caseView';
+import { getClientCoachingEscalationsAction } from '@/app/actions/coachingEscalations';
 import { getClientRecommendations } from '@/app/actions/recommendations';
 import { getClientLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import {
@@ -83,6 +84,7 @@ import { MemberIntelligencePanel } from './MemberIntelligencePanel';
 import { RootCauseSignalsPanel } from './RootCauseSignalsPanel';
 import { RootMapPanel } from './RootMapPanel';
 import { CaseViewPanel } from './CaseViewPanel';
+import { CoachingEscalationsPanel } from './CoachingEscalationsPanel';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { LongitudinalIntelligencePanel } from './LongitudinalIntelligencePanel';
 import { CoachWorkspacePanel } from './CoachWorkspacePanel';
@@ -218,6 +220,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     clientRecommendationEvents,
     coachWorkspaceSummary,
     clientCaseView,
+    coachingEscalations,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -253,6 +256,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientRecommendationEvents(profile.id),
     getClientCoachWorkspaceSummary(profile.id),
     getClientCaseViewAction(profile.id),
+    getClientCoachingEscalationsAction(profile.id),
   ]);
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
@@ -466,6 +470,17 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
           {/* Coaching Brain — the same Daily Decision Object the client's own /today page renders (Milestone 5) */}
           <BrainPanel decision={brainDecision} />
+
+          {/* Root has flagged (Adaptive Coaching Direction Part 3) — the
+              coaching threads Root offered as written, then smaller, then
+              reframed, and could not make land. Sits directly under the
+              Coaching Brain because it is about the same daily decision
+              layer, and above the longer-horizon intelligence panels
+              because it is the one thing here that is waiting on the
+              coach to do something. Renders in its empty state too, so
+              "nothing is flagged" is distinguishable from a broken
+              section. */}
+          <CoachingEscalationsPanel clientId={profile.id} escalations={coachingEscalations} />
 
           {/* Personal Wellness Intelligence — longer-term trends/patterns across weeks and months (Milestone 6) */}
           <IntelligencePanel clientId={profile.id} insights={wellnessIntelligence} />

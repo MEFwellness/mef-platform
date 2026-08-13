@@ -28,6 +28,7 @@
 
 import { isCoachingActionType } from '../coaching-direction/types';
 import type { CoachingActionType } from '../coaching-direction/types';
+import { isGradeVerdict } from '../coaching-direction/grading';
 import { QUESTION_KEYS, isQuestionKey, isAnswerOption } from './questions';
 import {
   FOCUS_REASONS,
@@ -36,6 +37,7 @@ import {
   isWorkedKind,
 } from './types';
 import type {
+  ReviewGrade,
   ReviewObservation,
   ReviewPlan,
   ReviewShape,
@@ -81,6 +83,13 @@ export const ALLOWED_METRIC_KEYS = [
   'acted',
   'ignored',
   'notSeen',
+
+  // The Part 3 grading loop. `moved` is how many completed before/after
+  // comparisons reported movement; `daysSinceLastDelivered` is what lets
+  // ./copy.ts tell retiring an approach apart from retrying one, frozen at
+  // composition so the sentence does not change mid-week.
+  'moved',
+  'daysSinceLastDelivered',
 ] as const;
 
 export type AllowedMetricKey = (typeof ALLOWED_METRIC_KEYS)[number];
@@ -161,6 +170,43 @@ export function sanitizeWorked(input: unknown): ReviewWorked | null {
     actionType: isCoachingActionType(raw.actionType) ? (raw.actionType as CoachingActionType) : null,
     metrics: sanitizeMetrics((raw.metrics as Record<string, unknown>) ?? {}),
   };
+}
+
+/**
+ * One stored grade, or null.
+ *
+ * Three closed sets and a number map, and no path for anything else. The
+ * evidence level is the strictest of the three: 'thin' is REFUSED rather
+ * than accepted and remembered, so a thin grade cannot sit on a plan even
+ * if a future call site tried to put one there. That makes "the review says
+ * nothing at all about thin evidence" a property of the stored data rather
+ * than a rule the renderer has to keep.
+ */
+export function sanitizeGrade(input: unknown): ReviewGrade | null {
+  if (!input || typeof input !== 'object') return null;
+  const raw = input as Record<string, unknown>;
+
+  if (!isCoachingActionType(raw.actionType)) return null;
+  if (!isGradeVerdict(raw.verdict) || raw.verdict === 'neutral') return null;
+  if (raw.evidence !== 'moderate' && raw.evidence !== 'strong') return null;
+
+  return {
+    actionType: raw.actionType as CoachingActionType,
+    verdict: raw.verdict,
+    evidence: raw.evidence,
+    metrics: sanitizeMetrics((raw.metrics as Record<string, unknown>) ?? {}),
+  };
+}
+
+/** At most two grades on a plan: one for what worked, one for what Root is adjusting. */
+export const MAX_GRADES = 2;
+
+export function sanitizeGrades(input: unknown): ReviewGrade[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map(sanitizeGrade)
+    .filter((grade): grade is ReviewGrade => grade !== null)
+    .slice(0, MAX_GRADES);
 }
 
 export function sanitizeFocusEvidence(
@@ -245,12 +291,19 @@ export function sanitizePlan(input: unknown, weekStart: string): ReviewPlan | nu
     .map(sanitizeWorked)
     .filter((w): w is ReviewWorked => w !== null);
 
+  const grades = sanitizeGrades(raw.grades);
+
   return {
     shape,
     observations,
     worked,
     focus,
     questionKeys: sanitizeQuestionKeys(raw.questionKeys),
+    // Built additively rather than with `?? undefined`, because
+    // exactOptionalPropertyTypes is on: an explicitly-undefined key and an
+    // absent key are different types here, and a plan written before Part 3
+    // must read back with the key genuinely absent.
+    ...(grades.length > 0 ? { grades } : {}),
   };
 }
 
@@ -276,4 +329,14 @@ export const PLAN_VOCABULARY = {
   metricKeys: ALLOWED_METRIC_KEYS,
   focusEvidenceKeys: ALLOWED_FOCUS_EVIDENCE_KEYS,
   questionKeys: QUESTION_KEYS,
+} as const;
+
+/**
+ * Every field on a stored grade, as data, so the privacy test can assert
+ * this vocabulary never grows a free-text field rather than only asserting
+ * that today's sanitizer happens to drop one.
+ */
+export const GRADE_VOCABULARY = {
+  fields: ['actionType', 'verdict', 'evidence', 'metrics'],
+  metricKeys: ALLOWED_METRIC_KEYS,
 } as const;

@@ -16,6 +16,14 @@
  *      learned only that it is not landing. Continuing is the failure
  *      mode; handing it to a person is the correct answer.
  *
+ *   2b. A COACH RESOLVED AN ESCALATION → still nothing, until the cooldown
+ *      ends (Part 3, migration 152). Resolving is permission to try again
+ *      LATER, not an instruction to raise the same thing on the member's
+ *      very next render. The counters were already reset by the resolve
+ *      function itself, so when the cooldown does end the thread starts
+ *      from the beginning rather than one ignored day away from
+ *      re-escalating.
+ *
  *   3. YESTERDAY'S ACTION WAS COMPLETED → prefer a follow-on.
  *      When she finished something and the same thing is still a live
  *      candidate today, continuing it beats starting an unrelated one.
@@ -90,14 +98,32 @@ const UNTOUCHED: AdaptationOutcome = {
  * What should happen to one thread the engine is about to consider.
  *
  * Deliberately takes the thread state rather than the member id: this is
- * the whole decision, and it is a function of four counters. An already
- * escalated thread is blocked without further thought, which is what makes
- * "stop selecting it" a property of the data rather than a promise.
+ * the whole decision, and it is a function of four counters and one date.
+ * An already escalated thread is blocked without further thought, which is
+ * what makes "stop selecting it" a property of the data rather than a
+ * promise.
+ *
+ * `todayLocalDate` is required rather than optional on purpose. The
+ * post-resolution cooldown is the one guardrail that can expire, and an
+ * optional date would let a caller silently opt out of enforcing it by
+ * forgetting to pass one.
  */
-export function adaptThread(thread: CoachingThreadState | null): AdaptationOutcome {
+export function adaptThread(
+  thread: CoachingThreadState | null,
+  todayLocalDate: string
+): AdaptationOutcome {
   if (!thread) return UNTOUCHED;
 
   if (thread.coachEscalatedAt) {
+    return { approach: thread.approach, changed: false, escalate: false, blocked: true };
+  }
+
+  // A coach cleared this one, and the cooldown has not elapsed. Blocked,
+  // but with none of escalation's finality: nothing is flagged, nothing is
+  // counted, and the block lifts on its own on the stated date. Plain
+  // string comparison, matching every other local-date comparison in this
+  // feature, because both sides are 'YYYY-MM-DD'.
+  if (thread.escalationCooldownUntil && todayLocalDate < thread.escalationCooldownUntil) {
     return { approach: thread.approach, changed: false, escalate: false, blocked: true };
   }
 

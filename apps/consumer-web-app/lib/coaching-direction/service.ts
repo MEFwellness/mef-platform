@@ -25,6 +25,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { upsertCoachAlert } from '../intelligence-engine/data';
+import { resolveMemberTimezone, trackProductEvent } from '../analytics/track';
+import { incrementEscalationCount } from './escalationData';
 import { getDailyPriority } from '../priority/data';
 import type { SelectedPriority } from '../priority/types';
 import type { ThreadChange } from '../priority/select';
@@ -123,8 +125,17 @@ export async function persistCoachingDecision(
       change.reason
     );
     // Only notify on the transition. escalateCoachingThread's own
-    // `is null` guard is what makes that true across concurrent renders.
-    if (escalated) await notifyCoachOfEscalation(supabase, memberId, change.threadKey);
+    // `is null` guard is what makes that true across concurrent renders,
+    // and it is the same guard that makes the count and the analytics
+    // event below exactly one per escalation rather than one per render.
+    if (escalated) {
+      await notifyCoachOfEscalation(supabase, memberId, change.threadKey);
+      // Part 3. Both are best effort and both are separate from the flag
+      // itself, so a deploy that lands before migration 152 loses the
+      // count and the event, never the escalation.
+      await incrementEscalationCount(supabase, memberId, change.threadKey);
+      await trackEscalation(supabase, memberId, change.actionType);
+    }
   }
 
   await touchCoachingThread(supabase, memberId, {
@@ -192,6 +203,35 @@ async function notifyCoachOfEscalation(
     });
   } catch (error) {
     console.error('notifyCoachOfEscalation failed', error);
+  }
+}
+
+/**
+ * The Part 3 analytics event for an escalation.
+ *
+ * Behavioral only: which KIND of action stopped landing, from the closed
+ * set in ./types.ts. Deliberately NOT the thread key, which would let a
+ * rollup name one member's specific continuing conversation, and
+ * deliberately not the escalation reason, the rule's copy or any evidence.
+ *
+ * Rides the same one-per-escalation transition guard as the coach alert
+ * above, so a thread that stays escalated for a month produces one event.
+ */
+async function trackEscalation(
+  supabase: SupabaseClient,
+  memberId: string,
+  actionType: string
+): Promise<void> {
+  try {
+    const timezone = await resolveMemberTimezone(supabase, memberId);
+    await trackProductEvent(supabase, {
+      memberId,
+      eventType: 'coaching_thread_escalated',
+      timezone,
+      payload: { actionType },
+    });
+  } catch (error) {
+    console.error('trackEscalation failed', error);
   }
 }
 

@@ -61,6 +61,13 @@ const ALLOWED_PAYLOAD_KEYS = [
   // reach an analytics row.
   'shape',
   'questionKey',
+  // Adaptive Coaching Direction Part 3 (migration 152): three counts from
+  // one grading pass, written as digit strings by
+  // lib/coaching-direction/gradesService.ts's `countValue`. There is
+  // deliberately no key for WHICH action type or thread was graded.
+  'gradeCount',
+  'landingCount',
+  'deadCount',
 ] as const;
 
 /**
@@ -118,6 +125,8 @@ export type TrackProductEventInput = {
   eventType: ProductAnalyticsEventType;
   timezone: string;
   payload?: ProductAnalyticsPayload;
+  /** Defaults to 'member'. See trackProductEvent's own note on the one caller that does not. */
+  source?: 'member' | 'coach' | 'system';
 };
 
 /**
@@ -125,10 +134,16 @@ export type TrackProductEventInput = {
  * and false when it was not; never rejects, so `await` here is always safe
  * on a member-facing path.
  *
- * `source` is always 'member', these are records of what the member did.
- * The two events written by the database itself (signup_completed,
- * membership_tier_changed, migration 146) use 'system' and never come
- * through here.
+ * `source` defaults to 'member', because these are overwhelmingly records
+ * of what the member did. The two events written by the database itself
+ * (signup_completed, membership_tier_changed, migration 146) use 'system'
+ * and never come through here.
+ *
+ * The one caller that passes 'coach' is Part 3's escalation resolve
+ * (migration 152): the event belongs to the member's own stream, because
+ * that is where the escalation it closes was recorded, but a coach did it
+ * and a rollup must be able to tell that apart from something she did
+ * herself.
  */
 export async function trackProductEvent(
   supabase: SupabaseClient,
@@ -140,6 +155,7 @@ export async function trackProductEvent(
       eventType: input.eventType,
       timezone: input.timezone,
       payload: sanitizeAnalyticsPayload(input.payload),
+      ...(input.source ? { source: input.source } : {}),
     });
     return event !== null;
   } catch (error) {

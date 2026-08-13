@@ -53,6 +53,9 @@ import { getLastSignInLocalDateBefore, claimDailyPriority, getDailyPriority } fr
 import { selectCoachingAction, type AdaptationContext } from './select';
 import { buildPriorityBridge, previousLocalDate } from './transition';
 import { listCoachingThreads, getCoachingDecision } from '../coaching-direction/data';
+import { listThreadCooldowns } from '../coaching-direction/escalationData';
+import { actionTypeGradeMap } from '../coaching-direction/gradesData';
+import { loadCoachingGrades } from '../coaching-direction/gradesService';
 import {
   loadBehavioralFriction,
   loadUnresolvedSafetyFlag,
@@ -465,14 +468,38 @@ export async function buildPriorityView(
     // exactly what a done or saved status on today's row records.
     const isReEntry = presence === 're_entry' && existing?.status !== 'done' && existing?.status !== 'saved';
 
-    const [findingRules, incompleteAction, statedGoalLabel, safetyFlag, threads] =
-      await Promise.all([
-        loadFindingRules(supabase, memberId),
-        loadIncompleteAction(supabase, memberId, resetPlanResult.draftPlanCreatedAt),
-        loadStatedGoalLabel(supabase, memberId),
-        loadUnresolvedSafetyFlag(supabase, memberId),
-        listCoachingThreads(supabase, memberId),
-      ]);
+    const [
+      findingRules,
+      incompleteAction,
+      statedGoalLabel,
+      safetyFlag,
+      rawThreads,
+      cooldowns,
+      grades,
+    ] = await Promise.all([
+      loadFindingRules(supabase, memberId),
+      loadIncompleteAction(supabase, memberId, resetPlanResult.draftPlanCreatedAt),
+      loadStatedGoalLabel(supabase, memberId),
+      loadUnresolvedSafetyFlag(supabase, memberId),
+      listCoachingThreads(supabase, memberId),
+      // Part 3's two additive reads. Both live in their own fail-closed
+      // queries rather than in the thread/decision column lists Part 1
+      // selects on this same path, so before migration 152 exists both come
+      // back empty and this whole engine is byte-identical to Part 2. See
+      // lib/coaching-direction/escalationData.ts's header.
+      listThreadCooldowns(supabase, memberId),
+      loadCoachingGrades(supabase, memberId),
+    ]);
+
+    // The post-resolution cooldown merged onto the thread state the pure
+    // engine reads. A thread with no cooldown row is left exactly as
+    // listCoachingThreads returned it.
+    const threads = new Map(
+      [...rawThreads.entries()].map(([key, thread]) => [
+        key,
+        { ...thread, escalationCooldownUntil: cooldowns.get(key) ?? null },
+      ])
+    );
 
     const inputs: PriorityInputs = {
       safetyFlag,
@@ -524,6 +551,10 @@ export async function buildPriorityView(
       completedYesterdayThreadKey:
         yesterdayDecision?.memberResponse === 'done' ? yesterdayDecision.threadKey : null,
       weekFocus,
+      // Action-type scope only. The accessor is what enforces that, rather
+      // than a filter here: see lib/coaching-direction/preference.ts on why
+      // a thread-scoped grade must not reach the within-rung reorder.
+      grades: actionTypeGradeMap(grades),
     };
 
     let decision = selectCoachingAction(inputs, todayLocalDate, adaptation);

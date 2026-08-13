@@ -44,11 +44,13 @@ import { SIGNAL_LABEL, type Signal } from '../life-signal-check/constants';
 import { buildFrictionReason } from '../priority/copy';
 import type { BehavioralFrictionInput, BehavioralFrictionKind } from '../priority/types';
 import type { CoachingActionType } from '../coaching-direction/types';
+import { DEAD_GRADE_DECAY_DAYS } from '../coaching-direction/grading';
 import { QUESTIONS, isQuestionKey } from './questions';
 import { MIN_HISTORY_DAYS_FOR_FULL_REVIEW } from './types';
 import type {
   RenderedQuestion,
   RenderedReview,
+  ReviewGrade,
   ReviewObservation,
   ReviewPlan,
   ReviewWorked,
@@ -337,6 +339,105 @@ export function renderWorked(worked: ReviewWorked): string | null {
 }
 
 // ---------------------------------------------------------------------
+// Grades — Part 3.
+// ---------------------------------------------------------------------
+
+/**
+ * What KIND of ask each action type is, in the member's own second person,
+ * for use inside a grade sentence.
+ *
+ * Deliberately a phrase rather than a label. "the small daily reset kind of
+ * thing" is what she experienced; "reset actions" is what the schema calls
+ * it, and a member should never have to read a slug.
+ */
+export const GRADE_ACTION_PHRASE: Record<CoachingActionType, string> = {
+  reset: 'the small daily reset kind of thing',
+  nutrition: 'the food and water kind of thing',
+  reflection: 'the noticing kind of thing',
+  reconnect: 'the gentler invitations back in',
+  // Structurally unemittable by the engine. Present so this map is
+  // exhaustive rather than partial, same as FOCUS_STATEMENT above.
+  movement: 'the moving a little kind of thing',
+};
+
+/**
+ * THE EARNED LANGUAGE TIER, for grades.
+ *
+ * This feature's other pattern claims defer to
+ * lib/longitudinal-intelligence/copy.ts, because that module owns the tier
+ * of a published signal. A grade is not one of its signals: it is a count
+ * of what the outcome ledger recorded, tiered by
+ * lib/coaching-direction/grading.ts's evidence level, which is itself the
+ * friction service's own function. So the tier that applies here is that
+ * evidence level, and it is enforced in code by this map being total over
+ * exactly the two levels a stored grade can carry:
+ *
+ *   'moderate'  hedged. "so far", "on what Root has".
+ *   'strong'    plain. Still observational, still no causal claim.
+ *
+ * There is no 'thin' entry, and that is the enforcement: a thin grade
+ * cannot be stored on a plan (./plan.ts refuses it) and could not be
+ * rendered if it somehow were, because there is no phrasing for it here.
+ */
+const GRADE_HEDGE: Record<'moderate' | 'strong', { landed: string; retire: string }> = {
+  moderate: {
+    landed: 'is what Root has seen you take up most so far',
+    retire: 'is the one Root has the least to show for so far',
+  },
+  strong: {
+    landed: 'is what you have consistently taken up',
+    retire: 'is the one Root has nothing to show for',
+  },
+};
+
+/**
+ * The WHAT WORKED sentence for a landing grade.
+ *
+ * Two clauses and no third. The first says what she took up, which is a
+ * count she made true. The second says her week looked different
+ * afterwards, and it deliberately says DIFFERENT rather than better: the
+ * comparison primitive that produced this number states in its own header
+ * that it never says whether a change was good, and inventing that here
+ * would be the interpretation this whole build exists not to do.
+ *
+ * Returns null for anything that is not a landing grade, so the caller
+ * never has to know which verdicts have a sentence.
+ */
+export function renderGradeWorked(grade: ReviewGrade): string | null {
+  if (grade.verdict !== 'landing') return null;
+  const acted = grade.metrics.acted;
+  if (acted === undefined || acted <= 0) return null;
+
+  const phrase = GRADE_ACTION_PHRASE[grade.actionType];
+  const hedge = GRADE_HEDGE[grade.evidence].landed;
+  return `Looking back further than this week, ${phrase} ${hedge}, and the fortnight after those looked different from the fortnight before.`;
+}
+
+/**
+ * The WHAT ROOT IS ADJUSTING sentence for a dead grade.
+ *
+ * Two branches, and the difference between them is the 21 day decay:
+ * inside it Root is setting the approach down, past it Root is picking it
+ * back up. Both are statements about what ROOT is doing. Neither names a
+ * number of times she did not respond, because a suggestion that does not
+ * land is a fact about the suggestion, which is the same call Part 2's own
+ * zero branch already made.
+ */
+export function renderGradeAdjusting(grade: ReviewGrade): string | null {
+  if (grade.verdict !== 'dead') return null;
+
+  const phrase = GRADE_ACTION_PHRASE[grade.actionType];
+  const days = grade.metrics.daysSinceLastDelivered;
+  const retrying = days !== undefined && days >= DEAD_GRADE_DECAY_DAYS;
+
+  if (retrying) {
+    return `Root set ${phrase} aside a while ago and is going to offer it once more, in case what fits has changed.`;
+  }
+  const hedge = GRADE_HEDGE[grade.evidence].retire;
+  return `Root is also going to stop leading with ${phrase} for now, because ${hedge}.`;
+}
+
+// ---------------------------------------------------------------------
 // What Root is adjusting.
 // ---------------------------------------------------------------------
 
@@ -372,7 +473,16 @@ export function buildAdjusting(plan: ReviewPlan): string {
   const actionType = plan.focus.actionType ?? 'reflection';
   const statement = FOCUS_STATEMENT[actionType];
   const why = FOCUS_WHY[plan.focus.reason] ?? FOCUS_WHY.thin_history!;
-  return `${statement}, ${why}`;
+  const base = `${statement}, ${why}`;
+
+  // Part 3. One extra sentence, and only when a non-thin dead grade is on
+  // the plan. No new section: this is still the one thing WHAT ROOT IS
+  // ADJUSTING says, with what Root is retiring or retrying added to it.
+  const retirement = (plan.grades ?? [])
+    .map(renderGradeAdjusting)
+    .find((sentence): sentence is string => sentence !== null);
+
+  return retirement ? `${base} ${retirement}` : base;
 }
 
 // ---------------------------------------------------------------------
@@ -459,11 +569,21 @@ export function renderReview(
         .filter((sentence): sentence is string => sentence !== null);
 
   // A thin review never claims anything worked and never asks anything.
+  //
+  // On a full review, the Part 3 grade sentence comes LAST in this section.
+  // What she did this week is the news; what the ledger shows over ninety
+  // days is the context for it, and context that arrives before the news
+  // reads as a preamble.
   const worked = thin
     ? []
-    : plan.worked
-        .map(renderWorked)
-        .filter((sentence): sentence is string => sentence !== null);
+    : [
+        ...plan.worked
+          .map(renderWorked)
+          .filter((sentence): sentence is string => sentence !== null),
+        ...(plan.grades ?? [])
+          .map(renderGradeWorked)
+          .filter((sentence): sentence is string => sentence !== null),
+      ];
 
   return {
     weekStart,

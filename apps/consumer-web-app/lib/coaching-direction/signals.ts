@@ -21,8 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getMemberFrictionSignals } from '../analytics-service/friction';
 import type { FrictionSignal } from '../analytics-service/types';
-import { getSupabaseEnv } from '../supabase/env';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { coachingServiceRoleClient } from './serviceRole';
 import type {
   BehavioralFrictionInput,
   QualifiedPatternInput,
@@ -209,17 +208,14 @@ export const SAVE_FOR_LATER_MINIMUM = 3;
  * environment) rather than throwing. Rule 5 then simply does not fire and
  * the ladder carries on, which is the correct degradation: a missing
  * analytics credential must never cost a member her card.
+ *
+ * The client itself is built by ./serviceRole.ts, which is the one place
+ * this feature builds one. Part 3's grading pass needs the same connection
+ * for the same documented reason, and two copies of this would be two
+ * places to get the degradation behavior wrong.
  */
 function frictionClient(): SupabaseClient | null {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) return null;
-  try {
-    const { url } = getSupabaseEnv();
-    return createSupabaseClient(url, serviceRoleKey);
-  } catch (error) {
-    console.error('frictionClient failed to build', error);
-    return null;
-  }
+  return coachingServiceRoleClient();
 }
 
 function readNumber(value: unknown): number | null {

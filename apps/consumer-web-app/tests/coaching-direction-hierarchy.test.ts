@@ -141,6 +141,7 @@ function thread(overrides: Partial<CoachingThreadState> = {}): CoachingThreadSta
     lastSelectedLocalDate: '2026-08-11',
     coachEscalatedAt: null,
     coachEscalationReason: null,
+    escalationCooldownUntil: null,
     ...overrides,
   };
 }
@@ -398,7 +399,7 @@ describe('a priority ignored three days running changes approach', () => {
 
   it('leaves the framing alone below the threshold', () => {
     for (let ignored = 0; ignored < IGNORES_BEFORE_APPROACH_CHANGE; ignored += 1) {
-      const outcome = adaptThread(thread({ consecutiveIgnored: ignored }));
+      const outcome = adaptThread(thread({ consecutiveIgnored: ignored }), TODAY);
       expect(outcome.changed).toBe(false);
       expect(outcome.approach).toBe(APPROACH_AS_WRITTEN);
     }
@@ -406,7 +407,8 @@ describe('a priority ignored three days running changes approach', () => {
 
   it('changes the framing exactly at the third consecutive ignored day', () => {
     const outcome = adaptThread(
-      thread({ consecutiveIgnored: IGNORES_BEFORE_APPROACH_CHANGE })
+      thread({ consecutiveIgnored: IGNORES_BEFORE_APPROACH_CHANGE }),
+      TODAY
     );
     expect(outcome.changed).toBe(true);
     expect(outcome.approach).toBe(APPROACH_SMALLER);
@@ -504,7 +506,8 @@ describe('two approach changes with no response escalates to a coach', () => {
         approachChanges: CHANGES_BEFORE_ESCALATION - 1,
         consecutiveIgnored: IGNORES_BEFORE_APPROACH_CHANGE,
         responsesSinceLastChange: 0,
-      })
+      }),
+      TODAY
     );
     expect(outcome.escalate).toBe(true);
     expect(outcome.blocked).toBe(true);
@@ -535,6 +538,10 @@ describe('two approach changes with no response escalates to a coach', () => {
         kind: 'escalate',
         approach: APPROACH_REFRAMED,
         reason: ESCALATION_REASON_NO_RESPONSE,
+        // Part 3 carries the action type on the escalate change, so the
+        // escalation's own analytics event can say which KIND of thing
+        // stopped landing without the service looking the thread back up.
+        actionType: 'reset',
       },
     ]);
   });
@@ -559,7 +566,8 @@ describe('two approach changes with no response escalates to a coach', () => {
         approachChanges: 1,
         consecutiveIgnored: 3,
         responsesSinceLastChange: 2,
-      })
+      }),
+      TODAY
     );
     expect(outcome.escalate).toBe(false);
     expect(outcome.blocked).toBe(false);

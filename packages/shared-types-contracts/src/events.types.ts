@@ -83,7 +83,20 @@ export type ProductAnalyticsEventType =
   | 'weekly_review_delivered'
   | 'weekly_review_viewed'
   | 'weekly_review_completed'
-  | 'weekly_review_question_answered';
+  | 'weekly_review_question_answered'
+  /**
+   * Adaptive Coaching Direction Part 3 (migration 152). Behavioral only.
+   *
+   * coaching_thread_escalated fires on the transition Part 1 already
+   * guards, so it is one per escalation and not one per day a thread stays
+   * escalated. coaching_escalation_resolved is written when a coach clears
+   * one. coaching_grades_computed carries COUNTS ONLY: how many grades a
+   * pass produced and how many of them were landing or dead. Never a
+   * thread key, never an action's own text, never the evidence behind it.
+   */
+  | 'coaching_thread_escalated'
+  | 'coaching_escalation_resolved'
+  | 'coaching_grades_computed';
 
 export type MemberWellnessEventType = MemberWellnessOnlyEventType | ProductAnalyticsEventType;
 
@@ -177,6 +190,24 @@ export interface ProductAnalyticsPayload {
    * week, which is precisely what this payload shape exists to prevent.
    */
   questionKey?: string;
+  /**
+   * coaching_grades_computed, three COUNTS from one grading pass: how many
+   * grades it produced, and how many of those were landing or dead.
+   *
+   * Typed as strings because every value on this payload is a short slug
+   * and the sanitizer keeps strings only, which is the rule that makes a
+   * sentence unable to reach an event row. A count is written as its own
+   * digits by lib/coaching-direction/gradesService.ts's `countValue`
+   * rather than widening that rule for three numbers.
+   *
+   * There is deliberately no field here for WHICH action type was graded
+   * or which thread it was about. A rollup of how well coaching is landing
+   * across the product needs the counts; it does not need to be able to
+   * name one member's threads.
+   */
+  gradeCount?: string;
+  landingCount?: string;
+  deadCount?: string;
 }
 
 export type MemberWellnessEventPayload =

@@ -104,6 +104,18 @@ export type CoachingThreadState = {
   lastSelectedLocalDate: string | null;
   coachEscalatedAt: string | null;
   coachEscalationReason: string | null;
+  /**
+   * The local date before which a coach-resolved thread may not be
+   * selected again (Part 3, migration 152). Null when the thread has never
+   * been escalated, or has been escalated and not yet resolved.
+   *
+   * Read through its own fail-closed query
+   * (lib/coaching-direction/escalationData.ts's listThreadCooldowns) rather
+   * than through the thread row's own column list, so that before
+   * migration 152 exists this is simply never set and the engine behaves
+   * exactly as Part 1 did.
+   */
+  escalationCooldownUntil: string | null;
 };
 
 /**

@@ -1,3 +1,125 @@
+## Adaptive Coaching Direction, Part 3 of 3: the grading loop, per-member adaptation, coach escalation (2026-08-12)
+
+Closes the circle Parts 1 and 2 opened: observe, act, measure, adjust. Root now grades what the outcome ledger shows about each kind of ask, feeds that grade back into the daily engine as a preference INSIDE a hierarchy rung, says what landed in the weekly review when the evidence earns it, and gives a coach the first visible surface for the threads Part 1 was already flagging. Deterministic, no LLM, no new engine, no new registry, no new intelligence layer. Migration 152.
+
+### The audit came back clean
+
+Every premise the brief named exists as described, and the file paths are:
+
+| Premise | Where it actually is |
+| --- | --- |
+| Part 1 outcome ledger | `member_coaching_decisions` + `member_coaching_threads` (migration 150), read through `lib/coaching-direction/data.ts` |
+| Its response values | `done`, `help`, `later`, `ignored`, `not_seen` (`lib/coaching-direction/types.ts`) |
+| Before/after comparison primitive | `lib/analytics-service/comparison.ts` — `getMemberWindowComparison` over RPC `analytics_member_window_comparison`, plus pure `compareWindows` |
+| Part 2 week focus | `member_week_focus` (migration 151), `lib/weekly-review/focus.ts`, read by `lib/priority/service.ts` |
+| Part 2 composer | `lib/weekly-review/compose.ts` + `copy.ts` + `service.ts` |
+| Escalation flag | `member_coaching_threads.coach_escalated_at`, set by `escalateCoachingThread` |
+| Coach alert path | `intelligence_coach_alerts` via `upsertCoachAlert`, type `recurring_barriers` |
+| Coach member detail | `app/coach/clients/[id]/page.tsx`, panels as sibling components, coach access by RLS |
+
+**Exactly what the comparison primitive can compare**, since the brief asked: one member, one reference date (the pivot, belonging to neither side), and the N days before it against the N days after it, default 14. It returns eight behavioral metrics per side (`activeDays`, `activeDayRate`, `signIns`, `dailyResetStarted`, `dailyResetCompleted`, `dailyResetCompletionRate`, `totalEvents`, `averageDaysBetweenVisits`) plus `inScope`, `afterWindowComplete` and `daysOfAfterWindowElapsed`. It is admin-gated, so it is read through the same service-role escape hatch Part 1's friction read already uses and migration 149's own comment already names.
+
+Three things the audit found that shaped the build rather than being invented around:
+
+**1. `listEscalatedCoachingThreads` already existed and nothing called it.** Part 1 wrote the accessor and left it unused, which is exactly the gap this part fills. It is now reached through a wider reader that also carries the new escalation columns.
+
+**2. The escalation flag was a dead end.** Part 1 set `coach_escalated_at` and a thread carrying it is never selected again by anything. Nothing could ever clear it. Migration 152 adds the exit.
+
+**3. `member_wellness_events` has no coach INSERT policy.** So a coach clearing an escalation cannot write the event from their own session. See Analytics below.
+
+### The grader
+
+`lib/coaching-direction/grading.ts`, pure, no I/O, testable against a ledger fixture with no database. It counts and compares and does nothing else.
+
+Per action type AND per thread: delivered, acted (`done` or `help`), the brief's ignored aggregate, not-seen, plus how many completed before/after comparisons ran and how many reported movement. Four verdicts:
+
+- `landing` acted on at least twice, and a completed comparison moved
+- `landed_no_change` acted on, comparisons ran, nothing moved past the threshold
+- `dead` it reached her at least three times and she took none of it up
+- `neutral` not enough either way, which is most grades most of the time
+
+**Every grade carries an evidence-sufficiency level, and it is the friction signals service's own function that assigns it** (`evidenceSufficiency` from `lib/analytics-service/friction.ts`), not a second set of thresholds. Its `low` is named `thin` here, matching Part 2's own word for the same idea. A thin grade is labelled thin and is acted on by nothing.
+
+**The one place the brief's own wording would have produced the wrong behavior, and what was done about it.** The brief defines its ignored count as `later + ignored + not_seen`. That aggregate IS stored, exactly as asked. But the `dead` verdict is computed from the deliveries she could actually have responded to, because Part 1's sharpest design decision is that a day the card never reached her screen is not evidence about the card. Counting a fortnight away as fourteen rejections is how an adaptive system becomes one that punishes a member for having a life. Both facts are stored (`ignored_count` and `not_seen_count`); neither is inferred from the other. A test proves a member with ten never-seen days is graded neutral, not dead.
+
+**Movement is direction-agnostic, deliberately.** `compareWindows`'s own header states it never says whether a change was good. A grader that decided that for itself would be interpreting rather than counting, so `moved` means moved, and the weekly review says "different", never "better".
+
+### Grading is cheap, and that is structural
+
+Two things make it so. A completed comparison is computed **once ever** and cached on its own ledger row (`comparison_outcome`, `comparison_computed_at`), which is safe for the exact opposite of the reason migration 150 refused to freeze the window: those columns are only written once `comparison_after_complete_on` has passed, at which point the numbers can no longer change. And at most 6 comparisons run in one pass, oldest first, so a member returning after two months does not wait on thirty RPCs. The rest is one SELECT, arithmetic in memory, and one UPSERT.
+
+Only **acted-on** decisions are ever compared. The question a comparison answers is "did anything change after she did this", and a decision she never acted on has no "after she did this".
+
+### The preference layer
+
+`lib/coaching-direction/preference.ts`. When a rung produces more than one candidate, the kinds she has evidence of acting on come first and the kinds graded dead for her come last. It is the same shape as Part 2's week-focus reorder, and it has the same two directly testable properties: the sequence of RULES in the returned array is byte-identical to the input's, and with no grades the array is byte-identical. Both are asserted, and both are paired with a fixture where something demonstrably does change, so neither test can pass because the reorder was unreachable.
+
+It **removes nothing**. A rung whose only candidate is dead-graded still produces that candidate, because the alternative is Root having nothing to say. It reuses `FOCUS_EXEMPT_RULES` rather than declaring a second list, so safety, re-engagement and the commitment she agreed to are exempt structurally and the two preference layers in this product cannot drift apart about which rules are off limits.
+
+**Three reorders now run, and the order is the whole design.** Grades first, week focus second, follow-on last. The follow-on promotes ACROSS rungs so it must run last, or a tie resolution could undo a promotion the guardrail already made. Between the two within-rung passes the focus wins, because a grade is a ninety day aggregate while the focus is a fresh decision Root made about this specific week from her own week's data. Running grades second would also have silently changed every tie Part 2 already decides, which Part 2's own tests assert.
+
+**The 21 day decay is applied at READ time**, in `effectiveVerdict`, rather than by rewriting rows. The row records what the ledger showed, which is a fact that does not become false with time; whether Root should still act on it is a question about today. That means no job has to exist for a grade to expire on the right day.
+
+### The Weekly Root Review speaks the grades
+
+`ReviewPlan` gains an optional `grades` array of at most two: one landing grade for WHAT WORKED, one dead grade for WHAT ROOT IS ADJUSTING. No new sections. The adjusting sentence is APPENDED to the existing one, and a test asserts the review without a grade is a strict prefix of the review with one.
+
+**Thin evidence is enforced at the storage layer, not at render time.** `sanitizeGrade` refuses a thin grade and refuses a `neutral` verdict outright, so there is no state in which either could reach a member's screen, and a row written by any means renders the same. Grades reach a FULL review only: a thin review has already said out loud that Root does not have enough yet, and following that with a conclusion about what has been working would contradict it in the same breath.
+
+**The earned language tier.** This feature's other pattern claims defer to `describeSignalForMember`, because that module owns the tier of a published signal. A grade is not one of its signals, so the tier that applies is the grade's own evidence level, and it is enforced by `GRADE_HEDGE` being total over exactly the two levels a stored grade can carry. Moderate hedges ("so far"), strong does not. There is no `thin` entry, which is the enforcement.
+
+`daysSinceLastDelivered` is frozen on the plan at composition, so the retire/retry sentence does not change under her mid-week.
+
+### Coach escalation surfacing
+
+A section on the existing coach client page (`CoachingEscalationsPanel`), directly under the Coaching Brain because it is about the same daily decision layer and it is the one thing there waiting on the coach. It lists each flagged thread: what it was about (rule and action type in plain language, plus the identifying signal keys), how many approaches were tried, her responses as a tally, and when Root gave up. **It renders in its empty state too**, so "nothing is flagged" is distinguishable from a broken section.
+
+`approachesTried` is `approach_changes + 1` on purpose: a thread that changed approach twice was offered three ways.
+
+**The resolve is a SECURITY DEFINER function, not a wider RLS policy.** A coach needs to write four columns on a row belonging to someone else. RLS can say WHO may update a row; it cannot say WHICH COLUMNS, so a coach UPDATE policy on `member_coaching_threads` would also have handed a coach every adaptation counter on it. `resolve_coaching_escalation` checks the coach relationship with the same two functions every RLS policy in this codebase uses, and the set of columns that can change is fixed by its body. An unassigned coach, a member trying to clear her own flag, and a signed-out caller are all refused, each proved against real Postgres.
+
+Resolving clears the flag, **resets the counters**, and sets a 14 day cooldown. The reset matters: a thread that resumed carrying three ignored days and two approach changes would re-escalate on the render after its cooldown ended, which is a loop, not a retry. The cooldown is shorter than the 21 day dead-grade decay because a coach has actively looked at this one.
+
+### Analytics
+
+Three new types on the existing `member_wellness_events` pipeline through `trackProductEvent`, the one write path. No new tracking infrastructure.
+
+- `coaching_thread_escalated` rides Part 1's own one-per-escalation transition guard, so a thread flagged for a month produces one event. Carries the action type slug only, never the thread key.
+- `coaching_escalation_resolved` is written with `source: 'coach'`, through the service-role connection. `member_wellness_events` has a member insert policy and a coach READ policy, and no coach insert policy, so the choice was between widening a health-adjacent table's write surface for one behavioral row or using the connection migration 149 already names as trusted infrastructure. The second is the smaller change. `trackProductEvent` gained an optional `source` for this one caller.
+- `coaching_grades_computed` carries three COUNTS as digit strings. The analytics sanitizer keeps strings only, and that rule is what makes a sentence unable to reach an event row, so rather than widen it for three numbers a count is written as its own digits (`countValue`). A test asserts all three are digits only.
+
+### Scheduling
+
+No new cron. Grades recompute on the two moments the ledger genuinely changes shape: after a completed check-in (`app/actions/checkin.ts`, best-effort, alongside the Root Score and Recommendation Engine recomputes already there), and on the weekly review's composition path, placed AFTER its two gates so it runs at most once per member per week rather than on every Home load.
+
+### Privacy
+
+Same rule as Parts 1 and 2, and it holds at three layers. A grade row has no free-string column at all. The coach escalation view's only inputs are a thread row and the identifying keys out of an evidence object that migration 150's own sanitizer already restricted to library identifiers and numbers, which is a NARROWING of that allowlist rather than a second, wider one (asserted by a test). The analytics payloads have no field a thread key or an action's wording could travel in.
+
+`tests/coaching-grades-privacy.test.ts` (23 tests) plants a real finding sentence, a pain location, a sleep number, a food name and a concern into the fixtures every new surface reads, then asserts they are genuinely present in the input and genuinely absent from every output. That pairing is what makes it non-vacuous.
+
+### Shipping ahead of the migration is safe, and that was PROVED rather than argued
+
+Both new column sets are read through **their own queries with their own column lists**, never added to Part 1's `THREAD_COLUMNS` or `DECISION_COLUMNS`. That was a deliberate call: adding them to the shared lists would have made every Part 1 read fail with an unknown-column error in the window between this code deploying and migration 152 being applied, silently switching off outcome resolution and all three adaptation guardrails on the live site.
+
+Verified mechanically, not by reading: migration 152's table, function and six columns were dropped from the local database, and every new read path plus every Part 1 and Part 2 path was exercised against it. **14 of 14 checks passed.** `listCoachingGrades` returns `[]`, `listLedgerRowsForGrading` reports `ok: false` so the pass does nothing, `listThreadCooldowns` returns an empty map so the engine is unbiased, `listEscalatedThreadRows` returns `[]` so the coach section renders empty, `resolveCoachingEscalation` reports failure rather than throwing, and critically `listCoachingThreads` still read its thread with `consecutive_ignored: 2` and `approach: 1` intact, `getCoachingDecision` still read its ledger row, and `listCoachingDecisionsInRange` still read the week. The local database was reset to pristine afterwards.
+
+### Tests
+
+- `tests/coaching-grades.test.ts` 60 tests, no database. All four fixtures the brief names as named blocks. The verdict ladder. Reading a comparison, including the refusal to answer before the after window has elapsed. The 21 day decay at, before and after the threshold. Grouping and the comparison cap. Both weekly-review grade sentences, the earned language tier, and the copy rules over every one of them.
+- `tests/coaching-grades-preference.test.ts` 28 tests, no database. The two safety properties, each paired with a non-vacuity fixture. Landing first, dead last, source order preserved inside a band. A dead grade never removing anything. The decay. Thin evidence reordering nothing. The three exempt rules. Through the whole engine: identical selection with grades empty, safety and re-entry still winning while graded dead, and the week focus still winning where the two disagree.
+- `tests/coaching-escalation.test.ts` 28 tests, no database. The view builder, plain language for every slug in every closed set, the signal keys being a narrowing of the ledger allowlist, and the cooldown at, before and after its date, including through the whole engine.
+- `tests/coaching-grades-privacy.test.ts` 23 tests, no database.
+- `tests/coaching-grades-integration.test.ts` 28 tests, real local Supabase. The grade row's every count round-tripping, a second pass superseding rather than duplicating, all four check constraints refusing, RLS keeping one member out of another's grades and letting her assigned coach in while refusing a revoked one, the comparison outcome cached once and never overwritten, the whole escalation lifecycle including all four refusals of the resolve function, and all three event types accepted by the real constraint and reaching `product_analytics_events`.
+
+**Three guards proved non-vacuous by breaking the code.** Removing the thin-evidence gate from `preferenceBand` failed the "thin evidence reorders nothing" test. Making `seenCount` count never-seen days failed the "never calls an approach dead on days that never reached her screen" test. Removing the cooldown check from `adaptThread` failed 2 escalation tests. All three restored, confirmed byte-identical with `diff`, and each suite re-verified green.
+
+One existing test was widened rather than left broken: `coaching-direction-hierarchy.test.ts`'s escalation assertion now expects the `actionType` the escalate ThreadChange carries for Part 3's event.
+
+### Verified locally
+
+`npx tsc --noEmit` clean. Repo-root `npm run lint` 0 errors, the same 90 pre-existing warnings, none in new or touched files. `npm run build` compiled successfully, all 95 static pages generated, `/coach/clients/[id]` at 22.2 kB. Full `npx vitest run` after a fresh `supabase db reset`: **4572 of 4573 passing**, the single failure being the documented pre-existing `correlation-engine-integration.test.ts` Spearman date-math flake, confirmed pre-existing this session by stashing this build entirely and watching the identical failure on a clean tree.
+
 ## Adaptive Coaching Direction, Part 2 of 3: the Weekly Root Review (2026-08-12)
 
 Once a week, on her first app open on or after her own local Monday, Root reports the week that just finished and sets one focus for the coming week that biases the Part 1 daily engine. Deterministic, no LLM, no new intelligence system, no new registry. Migration 151.

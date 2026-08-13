@@ -18,6 +18,12 @@
  *   friction      lib/coaching-direction/signals.ts's loadBehavioralFriction,
  *                 which is the read path Part 1 established, including its
  *                 service-role client and its graceful null
+ *   grades        lib/coaching-direction/gradesService.ts's own accessor,
+ *                 whose verdicts and evidence levels were computed by that
+ *                 module and are never recomputed here. An empty list (the
+ *                 state before migration 152 is applied) simply means the
+ *                 review says nothing about grades, which is also what
+ *                 thin evidence means.
  *
  * Best-effort throughout: a failure anywhere resolves to that input being
  * absent rather than to an exception, because the caller is a page render
@@ -28,6 +34,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listCoachingDecisionsInRange } from '../coaching-direction/data';
 import { loadBehavioralFriction } from '../coaching-direction/signals';
+import { loadCoachingGrades } from '../coaching-direction/gradesService';
 import { listMemberPatternStates } from '../longitudinal-intelligence/data';
 import type { LongitudinalSignal } from '../longitudinal-intelligence/types';
 import { getCurrentResetPlan, listResetPlanDailyLogs } from '../reset-plan/data';
@@ -115,13 +122,15 @@ export async function loadWeeklyReviewInputs(
 ): Promise<WeeklyReviewInputs> {
   const range = reviewedRangeFor(weekStart);
 
-  const [checkinLocalDates, decisions, patternStates, planWeek, friction] = await Promise.all([
-    loadCheckinLocalDates(supabase, memberId),
-    listCoachingDecisionsInRange(supabase, memberId, range.from, range.to),
-    listMemberPatternStates(supabase, memberId),
-    loadPlanWeek(supabase, memberId, weekStart),
-    loadBehavioralFriction(supabase, memberId, todayLocalDate),
-  ]);
+  const [checkinLocalDates, decisions, patternStates, planWeek, friction, grades] =
+    await Promise.all([
+      loadCheckinLocalDates(supabase, memberId),
+      listCoachingDecisionsInRange(supabase, memberId, range.from, range.to),
+      listMemberPatternStates(supabase, memberId),
+      loadPlanWeek(supabase, memberId, weekStart),
+      loadBehavioralFriction(supabase, memberId, todayLocalDate),
+      loadCoachingGrades(supabase, memberId),
+    ]);
 
   return {
     weekStart,
@@ -139,5 +148,7 @@ export async function loadWeeklyReviewInputs(
     patternStates: [...patternStates.values()] as LongitudinalSignal[],
     planWeek,
     friction,
+    grades,
+    todayLocalDate,
   };
 }

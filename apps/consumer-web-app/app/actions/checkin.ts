@@ -24,6 +24,7 @@ import { trackProductEvent } from '@/lib/analytics/track';
 import { resolveAssignedCoach } from '@/lib/safety/data';
 import { getTodaysHydrationTotal } from './events';
 import { recomputeMyRecommendations } from './recommendations';
+import { recomputeCoachingGrades } from '@/lib/coaching-direction/gradesService';
 
 /**
  * Daily Check-In redesign v2 — "the new/worsening concern control
@@ -242,6 +243,15 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
   // it's stale. recomputeMyRecommendations already swallows its own
   // errors, same best-effort discipline as the Root Score call above.
   await recomputeMyRecommendations(supabase, user.id, input.local_date, 'check_in');
+
+  // Adaptive Coaching Direction Part 3 — regrade what the outcome ledger
+  // now shows. Same best-effort discipline as the two blocks above, and
+  // deliberately triggered here rather than by a cron: a completed check-in
+  // is both the moment the ledger's own inputs change and the moment a
+  // before/after comparison window is most likely to have just finished
+  // elapsing. recomputeCoachingGrades never throws, and does nothing at all
+  // when migration 152 has not been applied.
+  await recomputeCoachingGrades(supabase, user.id, input.local_date, input.timezone);
 
   return {};
 }
