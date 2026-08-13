@@ -167,6 +167,24 @@ export type WeekFocus = {
 export type ReviewShape = 'full' | 'thin';
 
 /**
+ * Below either of these, the review is thin.
+ *
+ * Both come straight from the brief, and both are honest rather than
+ * arbitrary: five Daily Resets is the smallest number from which the
+ * correlation and trend engines in this product will say anything at all,
+ * and fourteen days is the shortest span over which a week-against-week
+ * comparison has a second week to compare with.
+ *
+ * They live HERE, in the vocabulary module, rather than in ./compose.ts
+ * where they are used, because ./copy.ts needs the second one too (to decide
+ * whether the span is worth mentioning at all) and ./compose.ts imports
+ * ./copy.ts. Declaring them in the module both can reach is the fix; a
+ * second copy in ./copy.ts would be the bug.
+ */
+export const MIN_RESETS_FOR_FULL_REVIEW = 5;
+export const MIN_HISTORY_DAYS_FOR_FULL_REVIEW = 14;
+
+/**
  * Everything a review row stores, beyond its own timestamps. Frozen at
  * composition and rendered from all week.
  *

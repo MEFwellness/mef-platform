@@ -107,6 +107,35 @@ describe('the thin review', () => {
     expect(rendered.adjusting).toContain('one Daily Reset');
   });
 
+  /**
+   * FOUND BY A REAL SEEDED MEMBER, not by reading the code. A local fixture
+   * had two Daily Resets eleven years apart, and the thin sentence read
+   * "2 Daily Resets from you across 4058 days", which turns a statement of
+   * what Root has into an unflattering ratio. The span is now mentioned only
+   * when the SPAN is what made the review thin.
+   */
+  it('names the span only when the span is what made it thin', () => {
+    // Thin on span: the span is relevant and is named.
+    const shortSpan = renderReview(
+      composeWeeklyReview(thinMember({ resets: 4, spanDays: 9 })),
+      WEEK_START,
+      {},
+      false
+    );
+    expect(shortSpan.showed[0]).toContain('across 9 days');
+
+    // Thin on COUNT with a long span: the span is not named at all.
+    const longSpan = renderReview(
+      composeWeeklyReview(thinMember({ resets: 2, spanDays: 4058 })),
+      WEEK_START,
+      {},
+      false
+    );
+    expect(longSpan.showed[0]).toContain('2 Daily Resets');
+    expect(longSpan.showed[0]).not.toContain('4058');
+    expect(longSpan.showed[0]).not.toContain('across');
+  });
+
   it('manufactures no observation for a member with nothing at all', () => {
     const rendered = renderReview(composeWeeklyReview(emptyInputs()), WEEK_START, {}, false);
     expect(rendered.showed).toHaveLength(1);

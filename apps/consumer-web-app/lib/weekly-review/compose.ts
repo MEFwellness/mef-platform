@@ -49,6 +49,10 @@ import {
 import type { QuestionKey } from './questions';
 import { isBiasableFocus } from './focus';
 import { daysBetween, reviewedRangeFor, withinRange } from './week';
+import {
+  MIN_HISTORY_DAYS_FOR_FULL_REVIEW as HISTORY_FLOOR,
+  MIN_RESETS_FOR_FULL_REVIEW as RESETS_FLOOR,
+} from './types';
 import type {
   FocusReason,
   ReviewObservation,
@@ -63,16 +67,14 @@ import type {
 // ---------------------------------------------------------------------
 
 /**
- * Below either of these, the review is thin.
- *
- * Both come straight from the brief, and both are honest rather than
- * arbitrary: five Daily Resets is the smallest number from which the
- * correlation and trend engines in this product will say anything at all,
- * and fourteen days is the shortest span over which a week-against-week
- * comparison has a second week to compare with.
+ * The two thin-data thresholds, declared in ./types.ts (see the note there
+ * on why) and re-exported here, where they are actually applied, so every
+ * existing importer and every test keeps reading them from one place.
  */
-export const MIN_RESETS_FOR_FULL_REVIEW = 5;
-export const MIN_HISTORY_DAYS_FOR_FULL_REVIEW = 14;
+export {
+  MIN_HISTORY_DAYS_FOR_FULL_REVIEW,
+  MIN_RESETS_FOR_FULL_REVIEW,
+} from './types';
 
 /**
  * Days of history, defined as the span from her FIRST Daily Reset to the
@@ -482,8 +484,7 @@ export function composeWeeklyReview(inputs: WeeklyReviewInputs): ReviewPlan {
   const totalResets = inputs.checkinLocalDates.length;
   const historyDays = historyDaysFor(inputs.checkinLocalDates, inputs.weekStart);
 
-  const thin =
-    totalResets < MIN_RESETS_FOR_FULL_REVIEW || historyDays < MIN_HISTORY_DAYS_FOR_FULL_REVIEW;
+  const thin = totalResets < RESETS_FLOOR || historyDays < HISTORY_FLOOR;
 
   if (thin) {
     // A thin review carries exactly one observation, and it is the honest

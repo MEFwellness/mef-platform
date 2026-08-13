@@ -45,6 +45,7 @@ import { buildFrictionReason } from '../priority/copy';
 import type { BehavioralFrictionInput, BehavioralFrictionKind } from '../priority/types';
 import type { CoachingActionType } from '../coaching-direction/types';
 import { QUESTIONS, isQuestionKey } from './questions';
+import { MIN_HISTORY_DAYS_FOR_FULL_REVIEW } from './types';
 import type {
   RenderedQuestion,
   RenderedReview,
@@ -393,11 +394,23 @@ export function buildThinObservation(observation: ReviewObservation | undefined)
   if (resets <= 0) {
     return 'Root does not have a Daily Reset from you yet, so there is no week to read back. That is simply where things are.';
   }
+
   const resetWord = plural(resets, 'Daily Reset', 'Daily Resets');
-  if (spanDays === undefined) {
-    return `Root has ${resets} ${resetWord} from you so far. That is a real start and it is not yet enough to read a pattern from.`;
+  const tail = 'That is a real start and it is not yet enough to read a pattern from.';
+
+  // The span is mentioned ONLY when the review is thin BECAUSE the span is
+  // short. A member who is thin on COUNT can have a span of years, and
+  // "2 Daily Resets across 4058 days" turns a statement of what Root has
+  // into an unflattering ratio, which is the scold this feature's copy rules
+  // exist to keep off the screen. Found by seeding a real local member whose
+  // two Daily Resets were eleven years apart.
+  const spanIsTheReason =
+    spanDays !== undefined && spanDays < MIN_HISTORY_DAYS_FOR_FULL_REVIEW;
+
+  if (!spanIsTheReason) {
+    return `Root has ${resets} ${resetWord} from you so far. ${tail}`;
   }
-  return `Root has ${resets} ${resetWord} from you across ${spanDays} ${plural(spanDays, 'day', 'days')} so far. That is a real start and it is not yet enough to read a pattern from.`;
+  return `Root has ${resets} ${resetWord} from you across ${spanDays} ${plural(spanDays, 'day', 'days')} so far. ${tail}`;
 }
 
 /**

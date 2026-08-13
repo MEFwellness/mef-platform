@@ -1,3 +1,143 @@
+## Adaptive Coaching Direction, Part 2 of 3: the Weekly Root Review (2026-08-12)
+
+Once a week, on her first app open on or after her own local Monday, Root reports the week that just finished and sets one focus for the coming week that biases the Part 1 daily engine. Deterministic, no LLM, no new intelligence system, no new registry. Migration 151.
+
+### What it is
+
+A composer over the systems Part 1 already reads, plus two tables to remember what it said. It computes no correlation, no driver state, no trend, no tier, no friction threshold and no score. Every observation it can make is a READ of a conclusion another system published, said at that system's own language tier.
+
+| Section | Built from |
+| --- | --- |
+| What this week showed | 2 to 4 observations: `member_pattern_states` directions and its `conflicting` state, the friction signals service, the Reset Plan's own weekly classification, Daily Reset counts, and the Part 1 outcome ledger |
+| What worked | ledger rows this week with `member_response` of `done` or `help`, Reset Plan daily logs in either completed state, and Daily Resets logged. Absent entirely when the week produced none |
+| What Root is adjusting | one sentence naming the coming week's focus and why, from a closed set of five reasons |
+| Questions | at most 2, on the only two conditions that earn one. Zero on most weeks |
+
+### The structural decision this build turns on
+
+**A review row stores a PLAN, not prose.** Observation kinds, language tiers, signal keys and numbers. `lib/weekly-review/copy.ts` renders the words from that plan at read time, deterministically, so the member reads the same review all week and **not one member-facing sentence is ever persisted**.
+
+That is a deliberate departure from migration 147's `member_daily_priorities`, which does store its rendered title. It is affordable here because every sentence in this feature is a template plus numbers, so nothing has to be frozen to stay stable. It also removes the entire class of bug where a stored sentence turns out to have interpolated something it should not have: there is no allowlisted free-string field in either table, so there is no field a sentence could arrive in.
+
+### Three premise mismatches found in the audit, and what was done about them
+
+**1. There is no separate safety pop-up to sit below.** The brief places the review "below safety". In the existing chain, an unresolved check-in safety flag is not a pop-up of its own: it is the Priority Card's strongest OVERRIDE (Part 1's `safety` rule), so it arrives as the `priority_card` message far lower down. Moving the safety card up the chain to make "below safety" literal would have changed existing behavior. Instead the review DECLINES explicitly when that override has fired (`priorityViewRaw?.selected.rule === 'safety'`), so it is below safety without safety moving. A member with something unresolved open is not shown a weekly report while Root has stopped asking anything of her.
+
+**2. The Part 1 ladder has no ties.** The brief says the focus breaks a tie "when two candidates are otherwise equal in the hierarchy". `PRIORITY_LADDER` admits at most one candidate per rung, so two candidates are only ever equal when they sit on the SAME rung, which happens when that rung's own source produced several equally-ranked items. Two such places are real: Case View's `likelyInvolved` bucket is a list and rule 2 always took `[0]`, and `selectQualifiedPattern` sorts tier 3 findings then takes the top, so findings identical on confidence AND observation count are indistinguishable to the hierarchy. Those alternates are now passed to the engine (`implicatedDriverAlternates`, `qualifiedPatternAlternates`, both optional, both read by nothing except the tie-break) and the reorder is a stable partition INSIDE each rung group. A test asserts the sequence of RULES is byte-identical with and without a focus, which is what "the hierarchy order itself does not change" means as a property rather than a promise.
+
+A finding that is merely CLOSE is not tied and is not returned. Treating near-equal as equal would let a weekly preference override a real strength difference, which would be the focus changing the hierarchy rather than breaking a tie in it.
+
+**3. The friction window is not a week.** The friction signals service measures over its own rolling window ending today. The review reads it through Part 1's own `loadBehavioralFriction` unchanged rather than re-cutting it to seven days: a behavior stuck for three weeks is stuck this week too, and narrowing its evidence would silently raise its threshold.
+
+### The week focus, and the three rules it can never touch
+
+`safety`, `re_entry` and `reset_plan_commitment` are exempt, structurally, in `lib/weekly-review/focus.ts`. The two overrides are not on the ladder so the reorder cannot reach them; the commitment rung is exempted by name, because a commitment she explicitly agreed to must not be reordered by a preference Root formed on her behalf. The exemption is applied to the rung group rather than per candidate, and it is also why a focus may never NAME an exempt rule: a focus the engine is forbidden to act on would look like a decision while being inert.
+
+The focus is chosen deterministically in five branches, in order: a stuck behavior, then a tier 2-or-above worsening direction, then "nothing landed so make next week smaller", then "something landed so continue that kind", then the core loop. Tier 1 is explicitly not enough to steer a week by.
+
+**Order of the two reorders matters.** The focus resolves ties inside a rung; the Part 1 follow-on guardrail promotes one candidate across rungs. The focus runs FIRST, so a thread she finished yesterday still outranks a focus-aligned tie. Running it second would let a weekly preference outrank something she actually completed a day ago. A test covers exactly that.
+
+### Delivery
+
+One new kind in the existing chain (`app/actions/rootPopupMessages.ts`), keyed `weekly_review:<her own local Monday>`. The week-scoped key IS the once-per-week rule: the existing one-time-ever dismissal lifetime applied to a week-scoped key means this week's key can be dismissed once and next Monday's is a genuinely new message. No fourth dismissal lifetime, no new column, no schedule, no cron. Exactly the mechanism the Priority Card's date-scoped key already uses, one scale up.
+
+Position, with all four boundaries guarded by tests: below the welcome-back takeover, below coach assignments and every finite day-3/day-7 follow-up, below safety (see above), above the ordinary daily priority card, above the free-arc invitation. **The finite-item deferral case needs no rule of its own**: on a week it loses the slot, its key simply has no dismissal row yet, so it is still due on the next open.
+
+Afterwards the review persists as a collapsed entry on Home for the rest of the week, rendering the identical `WeeklyReviewBody` from the identical row, so acknowledging in either place shows acknowledged in both with no syncing. Collapsed by default and below the priority card: it has already interrupted her once this week, and today's one thing outranks last week's report on every day except the one the pop-up owned.
+
+**The trigger is her own first render, not a job.** Same discipline as Part 1 resolving the previous day's outcomes on the first render of a new day. A weekly job would have to guess her timezone and would compose reviews for members who never came back.
+
+**A member whose account did not exist before this week started gets no review.** Someone who signed up on Tuesday would otherwise meet a "look back at your week" on Wednesday about a week that was mostly not hers. The thin review is for a member with little data, not for a member with no elapsed week.
+
+### Thin data
+
+Below 5 Daily Resets or below 14 days of history, the review is `thin`: one honest sentence about what Root has, no manufactured observation, no claim that anything worked, no question, and one thing worth doing. History is measured from her FIRST Daily Reset rather than from account creation, because an account that existed for a year with nothing in it has no history to read.
+
+A full review that turns out to have fewer than 2 renderable observations becomes thin rather than a full review with one line.
+
+### Analytics
+
+Four new event types on the existing `member_wellness_events` pipeline through `trackProductEvent`, the one write path. No new tracking infrastructure. Each rides its own atomic claim, so each is exactly one per member per week:
+
+- `weekly_review_delivered` on the insert that composed it (server side; a client could not honestly assert it).
+- `weekly_review_viewed` on the `viewed_at is null` claim. Home can render the pop-up and the persistent entry in the same pass, so no client-side dedupe could decide this.
+- `weekly_review_completed` on the `acknowledged_at is null` claim, so a double tap records one completion.
+- `weekly_review_question_answered` carries the QUESTION KEY only.
+
+`delivered`, `viewed` and `acknowledged` are three genuinely different facts. A review composed and never seen must stay distinguishable from one read and ignored, for the same reason migration 150 keeps `ignored` and `not_seen` apart.
+
+### Privacy
+
+Stricter than migration 150 in one respect: **nothing in either table may be a string except a slug from a closed set declared in this codebase.** `lib/weekly-review/plan.ts` enforces it with the same drop-do-not-throw discipline as the analytics sanitizer and Part 1's evidence sanitizer. Her answers are option slugs from fixed sets, stored as behavioral context about how coaching is landing; there is deliberately no analytics field an answer could travel in.
+
+`tests/weekly-review-privacy.test.ts` (25 tests) checks four layers: the vocabulary against the health systems' own field names, the sanitizers against hostile input, the composer's real output with a member-facing sentence and a pain location and a sleep number planted in the inputs it reads, and the analytics payload shape. One test proves non-vacuity by showing a real sentence reaches the RENDERED review and never the stored plan, which is the whole architecture in one assertion.
+
+`reason` is deliberately NOT on the banned-field-name list: a plan has a legitimate `focus.reason` holding a slug from the closed set, and banning the name would have been a weaker check dressed up as a stronger one. A dedicated test asserts the value instead.
+
+### What was reused, and what is new
+
+Reused unchanged: the pop-up chain and its dismissal table, `isOfferPopupDue`, `getMyPriorityView`'s request-cache pattern, `trackProductEvent`, Part 1's `loadBehavioralFriction` (including its service-role client and graceful null), `listMemberPatternStates`, the Reset Plan's own logs and classifier, `describeSignalForMember` and its tier rules, `WELLNESS_METRIC_LABEL`, `SIGNAL_LABEL`, and `weekBoundsFor` from the Food Lens weekly report (so two weekly features cannot disagree about where a week begins).
+
+Two things were EXTRACTED rather than duplicated: `resetPlanWeekReflectionFor(pattern, focusSignal)` out of `buildResetPlanDay7Reflection`, so there is still exactly one place in the product where a week of plan logs is described in words; and `frictionActionType` is now exported from `lib/priority/select.ts`, so a week focus can never point at a kind of action the rule it came from would not emit. The review also calls `buildFrictionReason` from the Priority Card's own copy, so the weekly review and the daily card cannot describe the same stuck behavior differently.
+
+New: `lib/weekly-review/` (types, week, plan, questions, copy, compose, focus, data, signals, service, view), `app/actions/weeklyReview.ts`, `app/api/test-only/weekly-review-reset/route.ts`, four components under `components/weekly-review/`, five test files, and `scripts/screenshots/verify-weekly-review-live.mjs`.
+
+### The test-account-only force mechanism
+
+The review's trigger is the calendar, which is correct and also unverifiable on demand. `POST /api/test-only/weekly-review-reset` clears the caller's own current week. Four independent gates, no two the same mechanism: a session is required; `profiles.is_test` must be true for the caller, checked server side, fail-closed; migration 151's own DELETE policies grant the delete only to a member whose `is_test` is true, so removing the handler's check would still be refused by the database; and it takes no member id and no week parameter, so there is nothing to tamper with. It composes nothing, so a forced review is the same review a real Monday produces over the same real data.
+
+### Tests
+
+- `tests/weekly-review-composer.test.ts` 58 tests, no database. All five fixtures the brief names, each asserting what the composer WROTE. The week-boundary arithmetic. The thin-data line from both directions. The tier limit at both layers. Determinism. The copy rules over every fixture (no em dash, no missed, no streak, no "you should", no blank line).
+- `tests/weekly-review-focus.test.ts` 15 tests, no database. The tie broken toward the focus with the panel's own winner shown to win without it; the rule sequence byte-identical either way; a lower rung never promoted; a single-candidate rung a no-op; source order preserved among all-aligned and none-aligned; thread match preferred over action type; safety, re-entry and the commitment unaffected; the follow-on guardrail still outranking the focus.
+- `tests/weekly-review-delivery.test.ts` 31 tests, no database. The once-per-week key, the dismissal lifetime, the reviewable-week gate in her own timezone, all four chain positions, the safety decline, the persistent entry sharing one accessor and one body component, all four analytics events on the one write path, and every gate on the test-only route.
+- `tests/weekly-review-privacy.test.ts` 25 tests, no database.
+- `tests/weekly-review-integration.test.ts` 23 tests, real local Supabase. One row per week under a second concurrent claim with a deliberately different plan; the read distinguishing "no row" from "the read did not work"; all three atomic claims winning exactly once; answers accepted only for a question this review asked and only with an option it offers; the focus read back through the daily engine's own accessor; both check constraints refusing; RLS keeping one member out of another's review and focus; the `is_test` delete policy refusing a real member and admitting a test account; and all four event types accepted by the real constraint and reaching `product_analytics_events`.
+
+**Two guards proved non-vacuous by breaking the code.** Removing the `tier === null` refusal from `renderMetricDirection` failed the renderer's tier test (the untiered signal came out wearing the tier 1 opener). Emptying `FOCUS_EXEMPT_RULES` failed 3 exemption tests. Both restored, confirmed byte-identical with `diff`, and the suites re-verified green.
+
+Worth recording accurately: a THIRD attempt at a break-test did not fail anything. Removing the `signal.tier !== null` filter from `buildCandidateObservations` changed no result, because the renderer's own guard already caught it. That is defence in depth working, and the test for that layer was rewritten to assert the thing only it can be responsible for (absence from the stored plan) rather than left claiming a proof it did not have.
+
+One existing test was widened rather than left broken: `priority-card-delivery.test.ts`'s auto-dismiss-on-mount guard asserted the exact expression `if (isOffer || isPriorityCard)`. It now matches membership of that group, so a fourth kind that legitimately belongs there does not break a test about the Priority Card.
+
+### A copy problem a real seeded member found
+
+The local fixture used for the browser pass had two Daily Resets eleven years apart. The thin sentence rendered as "2 Daily Resets from you across 4058 days", which turns a statement of what Root HAS into an unflattering ratio, which is the scold this feature's copy rules exist to prevent. The span is now named only when the SPAN is what made the review thin; a member thin on COUNT is not told her span. Guarded by a test in both directions. Reading the code would not have found this.
+
+That fix moved the two thin-data thresholds into `types.ts`, because `copy.ts` needed one and `compose.ts` already imports `copy.ts`; a second copy in `copy.ts` would have been the bug.
+
+### Verified locally
+
+Typecheck clean. Repo-root lint 0 errors, the same 90 pre-existing warnings, none in new or touched files. Production build compiled successfully, with the one new route dynamic. Full suite after a fresh `supabase db reset`: **4404 of 4405 passing**, the single failure being the documented pre-existing `correlation-engine-integration.test.ts` Spearman date-math flake (confirmed pre-existing by running it against the tree with this build stashed).
+
+**22 of 22 browser checks against a real dev server and local Supabase**, twice, the second time from a cleared slate. On a `thin` account: the review arrived as the pop-up, read correctly for her real data, contained no em dash and nothing that scolds, offered one acknowledge action, acknowledging worked and closed it, a reload did not re-deliver, the persistent entry was reachable from Home and collapsed by default, opening it showed the same review already acknowledged, and the Priority Card still worked on Today with the week focus present. No console errors, page errors or 5xx responses.
+
+**The row and event counts were then read directly out of Postgres**, not inferred: exactly 1 `member_weekly_reviews` row and exactly 1 `member_week_focus` row. The stored plan verbatim was `{"focus":{"reason":"thin_history","threadKey":null,"weekStart":"2026-08-10","actionType":"reset","sourceEvidence":{"thisWeekResets":2}},"shape":"thin","worked":[],"observations":[{"kind":"reset_consistency","tier":1,"state":null,"metrics":{"spanDays":6,"thisWeekResets":2},"signalKey":null}],"questionKeys":[]}` — keys and numbers, no sentence. Events: `weekly_review_delivered` twice and `weekly_review_viewed` twice, one of each per COMPOSITION (the script deliberately forces a second delivery), and `weekly_review_completed` once for the one acknowledgement. **Three further Home loads with no reset in between added no pop-up, no row and no event**, which is the once-per-week rule proved numerically rather than behaviorally.
+
+The local database was reset to pristine afterwards and confirmed empty of all three.
+
+### Deployed, and what is NOT done
+
+Two commits pushed to `origin/main` (`MEFwellness/mef-platform`, branch `main`): `ff3cedb` (the build) and `a6330a3` (the verification fixes below). Confirmed via `vercel inspect` that both produced Production deployments for the `mef-platform` project (`.vercel/project.json`'s linked `projectId`), each Ready, target `production` not Preview, and that the newest (`dpl_FGzbVm3ws5gKXbhrsa99GRGGccDL`) is aliased to `app.mefwellness.com` alongside `mef-platform.vercel.app`. Confirmed the live domain is serving THIS code, not an older build: `POST https://app.mefwellness.com/api/test-only/weekly-review-reset` returns a 307 to `/login` for an anonymous request rather than a 404, so the new route exists.
+
+**MIGRATION 151 IS NOT APPLIED TO PRODUCTION.** No production database password was available in this session, and there is none stored anywhere in this environment (`supabase/.temp/pooler-url` holds the `[YOUR-PASSWORD]` placeholder, and the CLI has no linked access token). Per this repo's own documented procedure the password is supplied fresh each session and never written to a file. The command needed, with the session-mode pooler port that migration 109's own notes recorded as the one that works:
+
+```
+npx supabase db push --db-url "postgresql://postgres.piafgqstbibvllsnuike:<Settings-Database-password>@aws-1-us-west-2.pooler.supabase.com:5432/postgres"
+```
+
+**Shipping the code ahead of the migration is safe, and that was verified live rather than assumed.** Every read fails closed: `fetchWeeklyReview` returns `ok: false`, `buildWeeklyReviewState` returns null before composing anything, `getWeekFocus` returns null so the daily engine is unbiased, and the four event types only fire when a review exists. **6 of 7 Phase A checks passed against `app.mefwellness.com`** on the real `memberBelowThreshold` account: logged in, at most one pop-up owning the screen, Home rendering real content, the Priority Card still present, the test-only route deployed and admitting the account, no console errors, no page errors, no 5xx. The seventh check is the migration itself, and production reported the reason in its own words: `Could not find the table 'public.member_weekly_reviews' in the schema cache`.
+
+**Phase B on production is therefore outstanding, not passed and not failed.** Re-running `SCREENSHOT_TARGET=live node scripts/screenshots/verify-weekly-review-live.mjs` after the migration lands will run it; it skips itself with a named reason until then.
+
+### The three fixes the first live pass found
+
+Running it, rather than reading it, found all three.
+
+- **A verification pass could not say why it failed.** The review correctly did not appear, and that looked identical to "the review composed and something else won the slot". The reset route now also reports whether the two tables are reachable at all, so the script names the migration state instead of inferring it.
+- **`deleteWeeklyReviewForWeek` swallowed its error.** A delete that matched nothing and a delete that could not run both reported a clean zero. It now returns the error, which is exactly what turned the production run from a bare failure into a quoted diagnosis.
+- **The script's own session check read `localStorage`.** This app does not keep its session there. It was a false failure and was deleted; the login itself is the real proof.
+
 ## Adaptive Coaching Direction, Part 1 of 3: the decision engine behind the Priority Card (2026-08-12)
 
 The Priority Card looks and behaves exactly as it did. What changed is how its content gets chosen, and that every decision is now recorded with its outcome window. No new UI, no new intelligence system, no new registry, no LLM. Migration 150.
