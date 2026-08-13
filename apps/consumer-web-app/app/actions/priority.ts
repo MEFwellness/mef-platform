@@ -230,7 +230,15 @@ export async function completePriorityAction(): Promise<{ ok: boolean }> {
     const ok = await setDailyPriorityStatus(supabase, ctx.memberId, ctx.localDate, 'done');
     await trackPriorityAction(supabase, ctx, record.rule, 'done');
     await recordCoachingOutcome(supabase, ctx, 'done');
-    revalidatePath('/today');
+    // Narrowed to the page itself. The only thing this answer changes on
+    // /today is the card inside that page; the bare `revalidatePath('/today')`
+    // this replaced also invalidated the layout above it, so every tap
+    // threw away more of the member's warm client-side cache than the tap
+    // had actually changed and her next few navigations all went back to
+    // the server. Measured on production under Slow 3G: the first
+    // navigation after a Done took roughly twice as long as after an
+    // answer that revalidates nothing.
+    revalidatePath('/today', 'page');
     return { ok };
   } catch (error) {
     console.error('completePriorityAction failed', error);
@@ -256,7 +264,8 @@ export async function savePriorityForLaterAction(): Promise<{ ok: boolean }> {
     const ok = await setDailyPriorityStatus(supabase, ctx.memberId, ctx.localDate, 'saved');
     await trackPriorityAction(supabase, ctx, record.rule, 'save');
     await recordCoachingOutcome(supabase, ctx, 'later');
-    revalidatePath('/today');
+    // The page itself only. See completePriorityAction for why.
+    revalidatePath('/today', 'page');
     return { ok };
   } catch (error) {
     console.error('savePriorityForLaterAction failed', error);
@@ -270,19 +279,25 @@ export async function savePriorityForLaterAction(): Promise<{ ok: boolean }> {
  * render), so expanding it is pure client state with no round trip and no
  * navigation. This action exists only so the analytics requirement is met
  * honestly rather than by inferring the tap from something else.
+ *
+ * It reports whether it landed, unlike the fire-and-forget shape it had at
+ * first, because it also writes the outcome ledger row that says she took
+ * the smaller way in — and the caller retries anything that did not land.
  */
-export async function trackPriorityHelpAction(): Promise<void> {
+export async function trackPriorityHelpAction(): Promise<{ ok: boolean }> {
   try {
     const supabase = createClient();
     const ctx = await memberContext(supabase);
-    if (!ctx) return;
+    if (!ctx) return { ok: false };
 
     const record = await getDailyPriority(supabase, ctx.memberId, ctx.localDate);
-    if (!record) return;
+    if (!record) return { ok: false };
 
     await trackPriorityAction(supabase, ctx, record.rule, 'help');
     await recordCoachingOutcome(supabase, ctx, 'help');
+    return { ok: true };
   } catch (error) {
     console.error('trackPriorityHelpAction failed', error);
+    return { ok: false };
   }
 }

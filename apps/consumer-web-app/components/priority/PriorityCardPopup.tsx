@@ -61,7 +61,7 @@ export function PriorityCardPopup({
   closed: boolean;
   onClose: () => void;
 }) {
-  const { status, helpOpen, pending, onDone, onSave, onHelp } = usePriorityCardActions(view);
+  const { status, helpOpen, onDone, onSave, onHelp } = usePriorityCardActions(view);
   const motion = usePriorityCardMotion(view, status, 'popup');
   const { selected, isReEntry, welcomeLine, bridge } = view;
 
@@ -194,7 +194,6 @@ export function PriorityCardPopup({
               >
                 <button
                   type="button"
-                  disabled={pending}
                   onClick={onDone}
                   className="mef-focus-ring mef-press inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-50"
                 >
@@ -217,7 +216,6 @@ export function PriorityCardPopup({
                 </button>
                 <button
                   type="button"
-                  disabled={pending}
                   onClick={onSave}
                   className="mef-focus-ring mef-press inline-flex w-full items-center justify-center rounded-2xl px-6 py-3 text-sm font-medium text-[#F5F0E4]/70 transition hover:text-[#F5F0E4] disabled:opacity-50"
                 >

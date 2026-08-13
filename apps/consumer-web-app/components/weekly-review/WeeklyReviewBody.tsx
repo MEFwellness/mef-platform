@@ -19,12 +19,10 @@
  * rather than spread across a React tree.
  */
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import type { RenderedReview } from '@/lib/weekly-review/types';
-import {
-  acknowledgeWeeklyReviewAction,
-  answerWeeklyReviewQuestionAction,
-} from '@/app/actions/weeklyReview';
+import { optimisticWrite } from '@/lib/client/optimisticWrite';
+import { deliverPopupResponse } from '@/lib/client/popupResponse';
 
 /** Which visual weight the review is being given. Content is identical. */
 export type WeeklyReviewTone = 'popup' | 'inline';
@@ -41,7 +39,6 @@ export function WeeklyReviewBody({
   showHeading?: boolean;
   onAcknowledged?: () => void;
 }) {
-  const [isPending, startTransition] = useTransition();
   const [acknowledged, setAcknowledged] = useState(review.acknowledged);
   const [answers, setAnswers] = useState<Record<string, string>>(
     Object.fromEntries(
@@ -57,29 +54,49 @@ export function WeeklyReviewBody({
   const accentText = tone === 'popup' ? 'text-[#C4A050]' : 'text-[#8A6D1F]';
   const ruleColor = tone === 'popup' ? 'border-[#F5F0E4]/10' : 'border-[#1B3A2D]/10';
 
+  // Every handler below acknowledges the tap synchronously and lets the
+  // write finish behind her, retrying on its own if the first attempt does
+  // not land. See lib/client/optimisticWrite.ts for the freeze this
+  // replaced: the answer used to be sequenced after the network, with every
+  // button in the pop-up disabled and the page behind it locked for the
+  // whole round trip.
+
   function handleAnswer(questionKey: string, option: string) {
-    setError(null);
-    // Optimistic, because the answer is behavioral context rather than
-    // something a later screen depends on. A failed write shows the real
-    // error and leaves her selection visible so she can try again.
-    setAnswers((previous) => ({ ...previous, [questionKey]: option }));
-    startTransition(async () => {
-      const result = await answerWeeklyReviewQuestionAction(questionKey, option);
-      if (!result.ok) setError('Could not save that.');
+    void optimisticWrite({
+      acknowledge: () => {
+        setError(null);
+        // The answer is behavioral context rather than something a later
+        // screen depends on, so her selection is simply shown as chosen.
+        setAnswers((previous) => ({ ...previous, [questionKey]: option }));
+      },
+      write: () =>
+        deliverPopupResponse({ kind: 'weekly_review_answer', questionKey, option }),
+      // Only after every retry has failed, and her selection stays visible
+      // so tapping it again is the obvious thing to do.
+      onLost: () => setError('Could not save that.'),
     });
   }
 
   function handleAcknowledge() {
-    setError(null);
-    setAcknowledged(true);
-    startTransition(async () => {
-      const result = await acknowledgeWeeklyReviewAction();
-      if (!result.ok) {
-        setError('Could not save that.');
+    void optimisticWrite({
+      acknowledge: () => {
+        setError(null);
+        setAcknowledged(true);
+        // Closes the pop-up on the same tick as the tap. The claim behind
+        // it is conditional on `acknowledged_at IS NULL`, so it lands
+        // exactly once however many times it is retried, and the review
+        // stays on Home for the rest of the week either way.
+        onAcknowledged?.();
+      },
+      write: () => deliverPopupResponse({ kind: 'weekly_review_acknowledge' }),
+      // Rolls back to unacknowledged so Home tells her the truth and she
+      // can acknowledge it there. In the pop-up presentation she has
+      // already moved on by now, which is exactly why this is a rollback
+      // and not an interruption.
+      onLost: () => {
         setAcknowledged(false);
-        return;
-      }
-      onAcknowledged?.();
+        setError('Could not save that.');
+      },
     });
   }
 
@@ -128,7 +145,10 @@ export function WeeklyReviewBody({
                 <button
                   key={option.value}
                   type="button"
-                  disabled={isPending}
+                  // Deliberately never disabled. It was `disabled={isPending}`,
+                  // which meant one answer switched all of them off for the
+                  // length of a round trip; changing her mind is a member
+                  // decision, not something a network wait gets to veto.
                   aria-pressed={chosen}
                   onClick={() => handleAnswer(question.key, option.value)}
                   className={
@@ -162,7 +182,10 @@ export function WeeklyReviewBody({
       ) : (
         <button
           type="button"
-          disabled={isPending}
+          // Not disabled while the write runs, for the same reason as the
+          // option buttons above. It is replaced by the acknowledged line
+          // on the same tick as the tap, so there is nothing left to
+          // double-tap anyway.
           onClick={handleAcknowledge}
           className={
             tone === 'popup'

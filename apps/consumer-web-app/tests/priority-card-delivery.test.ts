@@ -227,9 +227,20 @@ describe('chain ordering: a takeover when it should be, and never a starver', ()
 describe('one card, one state, three surfaces', () => {
   it('the pop-up and the inline card share their behavior rather than copying it', () => {
     const hook = read('components/priority/usePriorityCardActions.ts');
-    expect(hook).toContain('completePriorityAction');
-    expect(hook).toContain('savePriorityForLaterAction');
-    expect(hook).toContain('trackPriorityHelpAction');
+    // The three writes still live in this one hook, one per button. They
+    // now leave the browser through app/api/popup-response/route.ts rather
+    // than as direct server-action calls (a navigation cancels those, and
+    // cancelled the write with them), so what the hook names is the kind
+    // rather than the function. The route below is where each kind is
+    // still handed to the same server action it always was.
+    expect(hook).toContain("kind: 'priority_done'");
+    expect(hook).toContain("kind: 'priority_save'");
+    expect(hook).toContain("kind: 'priority_help'");
+
+    const route = read('app/api/popup-response/route.ts');
+    expect(route).toContain('completePriorityAction');
+    expect(route).toContain('savePriorityForLaterAction');
+    expect(route).toContain('trackPriorityHelpAction');
 
     for (const file of [
       'components/priority/PriorityCard.tsx',

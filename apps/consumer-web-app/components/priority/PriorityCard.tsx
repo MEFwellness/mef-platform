@@ -65,7 +65,7 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
   // Behavior lives in the shared hook so the inline card and the pop-up
   // can never disagree about what Done means. See
   // components/priority/usePriorityCardActions.ts.
-  const { status, helpOpen, pending, onDone, onSave, onHelp } = usePriorityCardActions(view);
+  const { status, helpOpen, onDone, onSave, onHelp } = usePriorityCardActions(view);
   // Motion lives in its own shared hook for the same reason, and holds no
   // behavior: it reads `status` and never writes anything.
   const motion = usePriorityCardMotion(view, status, 'inline');
@@ -118,7 +118,6 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
         <button
           type="button"
           onClick={onDone}
-          disabled={pending}
           className="mef-press mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
         >
           <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
@@ -230,7 +229,6 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
             <button
               type="button"
               onClick={onDone}
-              disabled={pending}
               className="mef-press inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
             >
               <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
@@ -248,7 +246,6 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
             <button
               type="button"
               onClick={onSave}
-              disabled={pending}
               className="mef-press inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
             >
               {PRIORITY_BUTTON_LABELS.save}
