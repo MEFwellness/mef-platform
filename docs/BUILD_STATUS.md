@@ -96,7 +96,50 @@ Five existing suites were updated in place rather than weakened. `coaching-direc
 1. **The hierarchy protection.** Moving `movement_session` one place up the ladder, above `todays_focus`, turned **8** tests red across both hierarchy suites, including "moved no rung" and Part 1's own "every ladder rule can both win and lose". Restored immediately; all green.
 2. **The fallback condition.** Changing `inputs.fallback.checkinDoneToday` to a bare `true` turned 2 tests red, including "never fires when the Daily Reset is not done". Restored immediately; all green.
 
+### Verified live, on production
+
+`app.mefwellness.com`, commit `2b57ec0`, via `scripts/screenshots/verify-movement-flip-live.mjs` (new, committed). **23 passed, 0 failed, 2 skipped.**
+
+**Phase A, regression.** Home renders in full (4790 chars), the Priority Card is present, the Weekly Root Review entry is reachable, at most one pop-up owns the screen, and there were zero console errors, page errors or 5xx responses across the whole run. `memberPopulated`'s own priority today is her Reset Plan commitment, and with her Daily Reset outstanding she was correctly offered no session.
+
+**Phase B, the flip.** On `memberEmpty`, whose ladder genuinely reaches the fallback: the Daily Reset was completed by answering it for real, today's claim was cleared through the test-only route, and the next render offered **`/movement/sessions/desk_reset`** reading *"Desk Reset is there if you want it today. Your Daily Reset is already done for today."* The copy was scanned live for diagnosis, promise, scold and em dash and carried none. The link opened the real session player with its real lineup. The session was walked Begin to Finish, and `/today` then read **"Done today."** with no Done tapped anywhere in the run.
+
+**The least-recent rule proved itself unprompted.** The first live run offered Morning Mobility. The second run, after that one had been completed, offered Desk Reset. Nothing in the script asked for a different session.
+
+**Read back out of the production database afterwards:**
+
+| | value |
+| --- | --- |
+| `member_coaching_decisions` | `rule: movement_session`, `action_type: movement`, `thread_key: movement_session::desk_reset`, `member_response: done`, `responded_at` set |
+| its `signal_evidence` | `{rule, sessionKey: "desk_reset", checkinDoneToday: true}` and nothing else |
+| `member_daily_priorities` | `status: done`, `priority_href: /movement/sessions/desk_reset` |
+| `coaching_action_delivered` | `{rule: movement_session, actionType: movement}` |
+| `coaching_action_acted` | `{rule: movement_session, actionType: movement, action: done}` |
+| `movement_session_completed` | `{sessionKey: desk_reset, skipCount: "0"}` |
+
+Every payload value is a slug or digits. No health content anywhere.
+
+**Phase C, discipline.** An account with the Daily Reset NOT done got the reset fallback pointing at `/checkin`, never a session, confirmed live on the run before the reset was completed. **Not forceable live**: safety, re-engagement and the Reset Plan commitment beating a session would require writing a safety classification or falsifying an absence, which no test-only route here will do. That half is proved instead against the real engine in `tests/movement-coaching-flip.test.ts`, over a fixture with a mapped movement driver genuinely present.
+
+**One script bug found and fixed, reported because it initially looked like a regression.** The first run against the fresh deployment read Home 600ms after dismissing a pop-up and got 101 characters of a half-rendered page, reporting three Phase A failures. Home was verified by hand immediately afterwards and was completely fine. The script now waits for the Priority Card's own label rather than for a guess at how long a cold start takes. A second script bug was real and worth naming: the test-only probe read `daily_checkins` on `member_id` and reported the Daily Reset as not done for an account the engine had correctly seen as done. It now reads `daily_checkins_current` on `user_id`, the same view `/today` itself reads.
+
+### Click by click, to check it yourself
+
+1. **Home, signed in as any account.** The Priority Card is where it was. Nothing about it should look different unless the card itself is a movement one.
+2. **Any day your Daily Reset is not yet done.** The card should never offer a session. If yours is outstanding and you see one, that is a bug worth telling me about.
+3. **Finish your Daily Reset, then open Today.** If nothing higher applies to you, the card should read *"<session name> is there if you want it today."* with *"Your Daily Reset is already done for today."* underneath and an **Open it** link.
+4. **Tap Open it.** It should land on that exact session's player, showing its name, its description, its length and its exercise list, with a **Begin** button.
+5. **Walk it to the end** (Begin, then Next through each exercise, then Finish).
+6. **Go back to Today.** The card should already say **"Done today."** You should never have had to tap Done. That is the whole point of this build.
+7. **Tap Save for later on a movement card instead, on another day.** It should collapse and drop down the page exactly like every other kind of priority.
+8. **Tap Help me on a movement card.** It should expand in place and say nothing has to happen today, with no pressure and no promise about what the session will do.
+9. **If you have a coach-assigned workout scheduled for today**, Root should not offer a session at all that day. You should still get an ordinary priority.
+
 **Verified**: `npm run typecheck` clean. `npm run lint` 0 errors, the same 90 pre-existing warnings. Full `npx vitest run` after a fresh `supabase db reset`: **356/357 files, 4682/4683 tests passing**. The one failure is the same pre-existing `correlation-engine-integration.test.ts` Spearman date-math flake documented throughout this file. (`assessment-runtime-integration.test.ts` also failed on one run and was confirmed failing on unmodified `main` in the same session, then passed on the next run; it is flaky and pre-existing either way.) `npm run build` compiled successfully.
+
+**Deployed**: pushed to `origin/main`, repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-wellness/mef-platform`, target production, status Ready, and `vercel inspect app.mefwellness.com` resolves to that same deployment.
+
+**Migrations 155 and 156 applied to production**, confirmed by a `--dry-run` afterwards reporting "Remote database is up to date."
 
 ## The Root pop-ups stopped answering while they saved (2026-08-13)
 

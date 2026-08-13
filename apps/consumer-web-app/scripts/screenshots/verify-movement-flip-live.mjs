@@ -128,6 +128,31 @@ async function forceNewClaim(page) {
   }, BASE_URL);
 }
 
+/**
+ * Waits for the Priority Card's own label to be on screen before anything
+ * reads the page.
+ *
+ * A fixed timeout is genuinely not good enough here, and this was found the
+ * hard way: the first run against a freshly deployed build read Home 600ms
+ * after dismissing a pop-up and got 101 characters of a half-rendered page,
+ * then reported three failures that were entirely the script's. Home itself
+ * was fine, verified by hand immediately afterwards. So the wait is now for
+ * the thing being asserted about, not for a guess at how long a cold start
+ * takes.
+ */
+async function waitForCard(page, timeout = 20000) {
+  try {
+    await page.waitForFunction(
+      (label) => document.body.innerText.toLowerCase().includes(label),
+      PRIORITY_LABEL,
+      { timeout }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** What /today's card is showing: its text and the link it offers, if any. */
 async function readCard(page) {
   return page.evaluate((label) => {
@@ -243,7 +268,8 @@ async function run() {
   await page.waitForTimeout(600);
 
   await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'load' });
-  await page.waitForTimeout(2500);
+  const homeSettled = await waitForCard(page);
+  check('Home finished rendering within 20s', homeSettled === true, '');
   const homeText = await page.evaluate(() => document.body.innerText);
   check('Home renders real content, not an error page', homeText.length > 400, `${homeText.length} chars`);
   check('the Priority Card is still present on Home', homeText.toLowerCase().includes(PRIORITY_LABEL), '');
@@ -272,7 +298,7 @@ async function run() {
   );
 
   await page.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
-  await page.waitForTimeout(3000);
+  await waitForCard(page);
   const phaseACard = await readCard(page);
   check('the card claimed a fresh priority after the reset', phaseACard.found === true, phaseACard.href ?? 'no link');
   if (probe.body?.checkinDoneToday === false) {
@@ -305,7 +331,7 @@ async function run() {
     );
   } else {
     await second.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
-    await second.waitForTimeout(3000);
+    await waitForCard(second);
     const before = await readCard(second);
     check(
       'with the Daily Reset NOT done she gets the reset, never a session',
@@ -341,7 +367,7 @@ async function run() {
     );
 
     await second.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
-    await second.waitForTimeout(3000);
+    await waitForCard(second);
     const card = await readCard(second);
     const isMovement = (card.href ?? '').includes('/movement/sessions/');
 
@@ -385,7 +411,7 @@ async function run() {
 
       if (walked) {
         await second.goto(`${BASE_URL}/today`, { waitUntil: 'load' });
-        await second.waitForTimeout(3000);
+        await waitForCard(second);
         const after = await readCard(second);
         check(
           'the priority marked itself done, with no Done tapped anywhere in this run',
