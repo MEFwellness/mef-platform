@@ -115,6 +115,10 @@ export const PRIORITY_RULES = [
   'incomplete_action',
   'behavioral_friction',
   'todays_focus',
+  // The movement flip's one new rung: a Root Movement session offered when
+  // today's Daily Reset is already done. It sits directly above the final
+  // fallback and moved nothing.
+  'movement_session',
   'daily_reset',
   'gentle_focus',
 ] as const;
@@ -147,8 +151,9 @@ export function isPriorityPresentation(value: unknown): value is PriorityPresent
  *
  * Re-exported from lib/coaching-direction/types.ts rather than restated,
  * so the analytics allowlist, the database check constraint and the engine
- * can never drift apart. 'movement' appears here because the schema
- * accepts it; the engine is structurally unable to emit one.
+ * can never drift apart. 'movement' is emittable as of the movement flip,
+ * and an action typed 'movement' always has one of the six Root Movement
+ * sessions behind it.
  */
 export { COACHING_ACTION_TYPES } from '../coaching-direction/types';
 export type { CoachingActionType } from '../coaching-direction/types';

@@ -50,6 +50,7 @@ export const ESCALATION_RULE_LABEL: Record<string, string> = {
   incomplete_action: 'Something she started and left unfinished',
   behavioral_friction: 'A behavior she keeps getting stuck on',
   todays_focus: "The Coaching Brain's focus for the day",
+  movement_session: 'A Root Movement session, offered after her Daily Reset was done',
   daily_reset: 'The Daily Reset itself',
   gentle_focus: 'Her own stated goal, offered gently',
 };

@@ -24,7 +24,11 @@
  *   4  incomplete_action      Something high-value she started and left.
  *   5  behavioral_friction    A repeated stuck behavior, made easier.
  *   6  todays_focus           The Coaching Brain's selection for today.
- *   7/8 daily_reset / gentle_focus  The final fallback, unchanged.
+ *   7  movement_session       A Root Movement session, offered ONLY when
+ *                             the Daily Reset is already done. See the
+ *                             movement flip note at the bottom of this
+ *                             header.
+ *   8/9 daily_reset / gentle_focus  The final fallback, unchanged.
  *
  * The fallback is always applicable, so this function is TOTAL for a
  * signed-in member: it always returns a priority, never null. That is what
@@ -58,11 +62,31 @@
  * is unchanged), it removes nothing, and it cannot reach safety, re-entry
  * or the commitment. See lib/coaching-direction/preference.ts.
  *
- * THE MOVEMENT BLOCK. Every candidate carries an action_type, and any
- * candidate typed 'movement' is dropped and the walk continues. Movement
- * sessions do not exist in this product yet, so such an action would have
- * nothing behind it. The block is structural, not a convention: it is
- * applied to every candidate in one place, before any of them can win.
+ * THE MOVEMENT FLIP. The block that used to drop every candidate typed
+ * 'movement' is gone, because the six Root Movement sessions now exist
+ * (migrations 153 and 154). What replaced it is narrower and stricter, and
+ * it is applied in the same one place to every candidate: A MOVEMENT ACTION
+ * MUST CARRY A LIVE SESSION KEY. A movement candidate with nothing behind
+ * it is dropped and the walk continues, exactly as the whole type was
+ * before, so the invariant the old block protected still holds.
+ *
+ * Movement can be reached by exactly TWO paths and no others:
+ *
+ *   1. The implicated-driver rung, when the winning driver is one the
+ *      mapping table in lib/coaching-direction/movement.ts names. The rung
+ *      does not move, the driver still had to be implicated AND
+ *      goal-relevant, and the action becomes that driver's one mapped
+ *      session.
+ *   2. The 'movement_session' rung, which is built ONLY when today's Daily
+ *      Reset is already complete. It sits directly above the final
+ *      fallback, so it can never outrank anything that used to win, and
+ *      when the Daily Reset is NOT done it does not exist at all and the
+ *      reset fallback is reached exactly as before.
+ *
+ * Safety, re-entry, the Reset Plan commitment, the qualified-pattern rung,
+ * the incomplete-action rung and the friction rung cannot produce a
+ * movement action: none of them is domain-typed and none is given a session.
+ * A coach-assigned workout scheduled for today suppresses both paths.
  */
 
 import {
@@ -78,6 +102,13 @@ import { preferGradedActionTypesWithinRung } from '../coaching-direction/prefere
 import type { CoachingGrade } from '../coaching-direction/grading';
 import { isEmittableActionType } from '../coaching-direction/types';
 import type { CoachingActionType, CoachingThreadState } from '../coaching-direction/types';
+import {
+  isMovementSessionKey,
+  movementSessionForDriver,
+  movementSessionHref,
+  selectFallbackMovementSession,
+} from '../coaching-direction/movement';
+import type { MovementSessionKey } from '../coaching-direction/movement';
 import { preferWeekFocusWithinRung } from '../weekly-review/focus';
 import type { WeekFocus } from '../weekly-review/types';
 import type {
@@ -118,6 +149,11 @@ import {
   buildGentleFocusHelp,
   buildGentleFocusReason,
   buildGentleFocusTitle,
+  buildMovementDriverHelp,
+  buildMovementDriverTitle,
+  buildMovementFallbackHelp,
+  buildMovementFallbackReason,
+  buildMovementFallbackTitle,
   frictionHref,
 } from './copy';
 
@@ -129,11 +165,17 @@ import {
  * A driver's domain decides its action type, using the driver library's
  * own domain keys rather than a second mapping table.
  *
- * MOV maps to 'movement' on purpose. It is the one real path by which the
- * blocked type can be produced, and producing it is exactly what makes
- * the block observable: a member whose strongest implicated driver is a
- * movement driver gets the NEXT rule's action, not a movement action, and
- * a test can prove it because the candidate genuinely existed first.
+ * UNCHANGED by the movement flip, deliberately. MOV still maps to
+ * 'movement' whether or not that driver has a session behind it, so a MOV
+ * driver the mapping table does not name still produces a movement
+ * candidate with no session, and the universal session-key guard still
+ * drops it and walks on. That is exactly what the old block did for every
+ * MOV driver, and keeping it means the flip changed the behavior of the
+ * mapped drivers only.
+ *
+ * MEC is not named here and still falls through to 'reflection'. A MEC
+ * driver becomes a movement action through the mapping table below, not
+ * through its domain.
  */
 export function driverActionType(domainKey: string): CoachingActionType {
   switch (domainKey) {
@@ -145,6 +187,36 @@ export function driverActionType(domainKey: string): CoachingActionType {
     default:
       return 'reflection';
   }
+}
+
+/**
+ * The action type for one implicated driver, once the mapping table has
+ * had its say.
+ *
+ * A driver the table names is a movement action regardless of its domain,
+ * which is how the posture drivers (MEC) reach a session at all. Every
+ * other driver keeps exactly the type `driverActionType` always gave it.
+ */
+function driverCandidateActionType(
+  driver: ImplicatedDriverInput,
+  sessionKey: MovementSessionKey | null
+): CoachingActionType {
+  return sessionKey ? 'movement' : driverActionType(driver.domainKey);
+}
+
+/**
+ * The one place that decides whether a candidate has a real session behind
+ * it. A movement action must carry a session key in its evidence; every
+ * other action type is unaffected.
+ *
+ * This is the structural replacement for the movement block, and it is
+ * applied to every candidate in the same loop the block occupied, so
+ * "Root never offers a movement action with nothing behind it" is a
+ * property of the walk rather than of any one rule.
+ */
+function hasSessionBehindIt(item: Candidate): boolean {
+  if (item.actionType !== 'movement') return true;
+  return isMovementSessionKey(item.evidence.sessionKey);
 }
 
 /**
@@ -256,9 +328,27 @@ function buildOverrides(inputs: PriorityInputs): Candidate[] {
   return overrides;
 }
 
+/**
+ * Which Root Movement sessions the engine may offer at all today.
+ *
+ * Empty in three cases, and all three mean the same thing to every caller
+ * below: no movement candidate is built anywhere, on any rung.
+ *   * no movement input at all (before migration 153, or a failed read),
+ *   * no live templates,
+ *   * a coach has a workout scheduled for her today that is not finished.
+ */
+function movementOptions(inputs: PriorityInputs) {
+  const movement = inputs.movement;
+  if (!movement || movement.coachAssignedToday) return [];
+  return movement.sessions;
+}
+
 /** The ladder's candidates, in PRIORITY_LADDER order. */
 function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[] {
   const ladder: Candidate[] = [];
+  const sessions = movementOptions(inputs);
+  const liveSessionKeys = new Set(sessions.map((session) => session.sessionKey));
+  const sessionNameByKey = new Map(sessions.map((session) => [session.sessionKey, session.name]));
 
   if (inputs.resetPlan) {
     const plan = inputs.resetPlan;
@@ -285,18 +375,32 @@ function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[
   if (inputs.implicatedDriver) {
     for (const driver of [inputs.implicatedDriver, ...(inputs.implicatedDriverAlternates ?? [])]) {
       const item: ImplicatedDriverInput = driver;
+      // The mapping table, applied to a candidate the rung already admitted.
+      // It changes what this driver ASKS FOR; it can neither create a
+      // candidate nor move one, so the rung is untouched.
+      const sessionKey = movementSessionForDriver(item.driverId, liveSessionKeys);
+      const sessionName = sessionKey ? sessionNameByKey.get(sessionKey) : undefined;
+      const isMovement = sessionKey !== null && sessionName !== undefined;
+
       ladder.push(
         candidate(
           'implicated_driver',
           item.driverId,
-          driverActionType(item.domainKey),
+          driverCandidateActionType(item, isMovement ? sessionKey : null),
           {
-            title: buildDriverTitle(item),
+            title: isMovement ? buildMovementDriverTitle(item, sessionName!) : buildDriverTitle(item),
+            // The finding sentence either way. A movement priority earns its
+            // reason line on exactly the evidence a noticing one does, and
+            // shows none when that sentence does not exist.
             reason: buildDriverReason(item),
-            help: buildDriverHelp(item),
-            href: null,
+            help: isMovement ? buildMovementDriverHelp(sessionName!) : buildDriverHelp(item),
+            href: isMovement ? movementSessionHref(sessionKey!) : null,
           },
-          { driverId: item.driverId, driverDomain: item.domainKey }
+          {
+            driverId: item.driverId,
+            driverDomain: item.domainKey,
+            ...(isMovement ? { sessionKey } : {}),
+          }
         )
       );
     }
@@ -385,6 +489,42 @@ function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[
           href: null,
         },
         {}
+      )
+    );
+  }
+
+  // The enriched fallback. Root Movement, offered ONLY when today's Daily
+  // Reset is already done, and only above the goal fallback.
+  //
+  // The condition is the whole safety of this rung. When the Daily Reset is
+  // not done, this candidate is not built at all, the daily_reset half below
+  // is, and a member who has not checked in still gets the reset exactly as
+  // she always did. When it IS done, the member has already given Root
+  // everything Root asks of her today, and the alternative on this rung is a
+  // sentence that quotes her own goal back at her. Offering a session she
+  // can open is a better use of that slot, and it still makes no claim about
+  // her.
+  //
+  // The choice is the least-recently-completed session, ties broken by the
+  // seeded order. No scoring, no personalization: this rung is reached
+  // precisely because nothing above it had anything to say.
+  const fallbackSession = inputs.fallback.checkinDoneToday
+    ? selectFallbackMovementSession(sessions)
+    : null;
+
+  if (fallbackSession) {
+    ladder.push(
+      candidate(
+        'movement_session',
+        fallbackSession.sessionKey,
+        'movement',
+        {
+          title: buildMovementFallbackTitle(fallbackSession.name),
+          reason: buildMovementFallbackReason(),
+          help: buildMovementFallbackHelp(fallbackSession.name),
+          href: movementSessionHref(fallbackSession.sessionKey),
+        },
+        { sessionKey: fallbackSession.sessionKey, checkinDoneToday: true }
       )
     );
   }
@@ -582,18 +722,21 @@ export function selectCoachingAction(
 
   const threadChanges: ThreadChange[] = [];
 
-  // Overrides first, and exempt from every guardrail except the movement
-  // block, which is universal. Neither override can ever be typed
-  // 'movement', so in practice they always win when present; the filter
-  // is applied uniformly anyway rather than special-cased, so there is one
-  // place where "no movement action may be emitted" is true.
+  // Overrides first, and exempt from every guardrail except the two
+  // universal filters. Neither override can ever be typed 'movement'
+  // (safety is 'reflection', re-entry is 'reconnect', and neither is given
+  // a session), so in practice they always win when present; the filters
+  // are applied uniformly anyway rather than special-cased, so there is one
+  // place where "no action may be emitted with nothing behind it" is true.
   for (const item of overrides) {
     if (!isEmittableActionType(item.actionType)) continue;
+    if (!hasSessionBehindIt(item)) continue;
     return { selected: item, threadChanges, isFollowOn: false };
   }
 
   for (const item of ladder) {
     if (!isEmittableActionType(item.actionType)) continue;
+    if (!hasSessionBehindIt(item)) continue;
 
     const outcome = adaptThread(adaptation.threads.get(item.threadKey) ?? null, todayLocalDate);
 
@@ -652,10 +795,10 @@ export function selectPriority(
 
 /**
  * Which rules COULD have won for these inputs, ignoring precedence and
- * ignoring the movement block. Exists purely so the guard tests can prove
- * a rule's win was a real precedence decision rather than the only option
- * available, which is what makes those tests non-vacuous. Never used by
- * the app itself.
+ * ignoring the session-key guard. Exists purely so the guard tests can
+ * prove a rule's win was a real precedence decision rather than the only
+ * option available, which is what makes those tests non-vacuous. Never used
+ * by the app itself.
  */
 export function applicableRules(inputs: PriorityInputs): PriorityRule[] {
   const rules: PriorityRule[] = [];
@@ -667,6 +810,12 @@ export function applicableRules(inputs: PriorityInputs): PriorityRule[] {
   if (inputs.incompleteAction) rules.push('incomplete_action');
   if (inputs.behavioralFriction) rules.push('behavioral_friction');
   if (inputs.todaysFocus) rules.push('todays_focus');
+  // Applicable only when today's Daily Reset is already done AND a session
+  // survived the coach-assignment and live-template checks, which is the
+  // whole condition the enriched fallback runs on.
+  if (inputs.fallback.checkinDoneToday && selectFallbackMovementSession(movementOptions(inputs))) {
+    rules.push('movement_session');
+  }
   // The fallback always contributes exactly one applicable rule, which is
   // why the ladder can never come up empty. Included here so the guard
   // tests can show the fallback was genuinely available and genuinely lost

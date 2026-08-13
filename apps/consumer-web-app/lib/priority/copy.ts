@@ -258,6 +258,87 @@ export function frictionHref(input: BehavioralFrictionInput): string | null {
 }
 
 // ---------------------------------------------------------------------
+// Root Movement — the two ways a session can be offered.
+// ---------------------------------------------------------------------
+
+/**
+ * THE COPY RULES FOR MOVEMENT, stated once because they are stricter than
+ * anywhere else in this file and the temptation to break them is stronger.
+ *
+ *   1. Observational, and only at the tier the evidence allows. The driver
+ *      version says what Root is watching, in the driver library's own
+ *      words, and nothing beyond it. The fallback version makes no
+ *      observation at all, because in that state there is none to make:
+ *      every rule with something to say came up empty.
+ *   2. NEVER a diagnosis. Root does not say a body is tight, weak, stiff,
+ *      imbalanced or out of alignment. It has not examined anyone.
+ *   3. NEVER a promise. No session "will help", "will loosen", "will fix"
+ *      or "should sort out" anything. The session is offered, and what it
+ *      does is hers to find out.
+ *   4. NEVER a scold. No "you have not moved", no sitting count, no streak,
+ *      no "time to get moving". The evidence behind this rule is largely a
+ *      record of stillness, and a scoreboard made of that is the single
+ *      worst thing this card could put on a screen.
+ *   5. No em dashes, in common with everything else a member reads here.
+ *
+ * The session's NAME is the template's own, passed through verbatim from
+ * movement_session_templates, so the card can never call a session
+ * something the Root Movement screens do not.
+ */
+
+/**
+ * A mapped driver, offered with its session.
+ *
+ * Deliberately the same opening as `buildDriverTitle` above, because it is
+ * the same rung, the same evidence and the same observation. The only
+ * difference is that this driver has a session behind it, so Root names it
+ * and stops. "if you want it" is doing real work: it is the difference
+ * between an offer and an instruction.
+ */
+export function buildMovementDriverTitle(
+  input: ImplicatedDriverInput,
+  sessionName: string
+): string {
+  return `Keep an eye on ${input.label.toLowerCase()} today. ${sessionName} is there if you want it.`;
+}
+
+/**
+ * "Help me" on a movement priority: the honest smaller version.
+ *
+ * The smaller version of a session is not a shorter session, and pretending
+ * otherwise would be inventing a lineup this product does not have. The
+ * honest smaller version is permission to not do it, which is what this
+ * says.
+ */
+export function buildMovementDriverHelp(sessionName: string): string {
+  return `Nothing has to happen today. ${sessionName} stays where it is, and it is there when you are ready. You can stop it at any point once you start.`;
+}
+
+/**
+ * The enriched fallback: her Daily Reset is done and nothing above had
+ * anything to say.
+ *
+ * Makes no claim about her whatsoever, exactly like the goal fallback it
+ * sits above. It states what is available and leaves it there.
+ */
+export function buildMovementFallbackTitle(sessionName: string): string {
+  return `${sessionName} is there if you want it today.`;
+}
+
+/**
+ * The only fact available, and it is a fact about the day rather than about
+ * her: she has already done the one thing Root asks for. Never a count,
+ * never a streak.
+ */
+export function buildMovementFallbackReason(): string {
+  return 'Your Daily Reset is already done for today.';
+}
+
+export function buildMovementFallbackHelp(sessionName: string): string {
+  return `Nothing is waiting on you. ${sessionName} is there when you want it, and you can stop at any point.`;
+}
+
+// ---------------------------------------------------------------------
 // The two adapted framings.
 // ---------------------------------------------------------------------
 

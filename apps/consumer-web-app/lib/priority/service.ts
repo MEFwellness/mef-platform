@@ -58,6 +58,7 @@ import { actionTypeGradeMap } from '../coaching-direction/gradesData';
 import { loadCoachingGrades } from '../coaching-direction/gradesService';
 import {
   loadBehavioralFriction,
+  loadMovementInput,
   loadUnresolvedSafetyFlag,
   selectQualifiedPattern,
   selectQualifiedPatternTies,
@@ -476,6 +477,7 @@ export async function buildPriorityView(
       rawThreads,
       cooldowns,
       grades,
+      movement,
     ] = await Promise.all([
       loadFindingRules(supabase, memberId),
       loadIncompleteAction(supabase, memberId, resetPlanResult.draftPlanCreatedAt),
@@ -489,6 +491,11 @@ export async function buildPriorityView(
       // lib/coaching-direction/escalationData.ts's header.
       listThreadCooldowns(supabase, memberId),
       loadCoachingGrades(supabase, memberId),
+      // Root Movement (migrations 153 and 154). Its own fail-closed loader,
+      // so an environment without the tables returns null and this engine is
+      // byte-identical to the build before the movement flip. See
+      // lib/coaching-direction/signals.ts's loadMovementInput.
+      loadMovementInput(supabase, memberId, todayLocalDate),
     ]);
 
     // The post-resolution cooldown merged onto the thread state the pure
@@ -514,6 +521,7 @@ export async function buildPriorityView(
       // the ladder for it to matter.
       behavioralFriction: null,
       todaysFocus: context.todaysFocus,
+      movement,
       // The final fallback, which always applies, so the hierarchy can
       // never come up empty and the pop-up always has something to carry.
       // checkinDoneToday comes from the caller, which already knows

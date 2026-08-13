@@ -138,10 +138,11 @@ describe('analytics vocabulary lines up with the database', () => {
     expect([...PRIORITY_RULES].sort()).toEqual([...fromTypes].sort());
   });
 
-  it('matches the rule check constraint as it stands across all three migrations', () => {
+  it('matches the rule check constraint as it stands across every widening migration', () => {
     // 147 created the constraint with the original five rules; 148 widened
     // it with the two fallback halves; 150 widened it again with the
-    // safety override, the tier 3 pattern rule and behavioral friction.
+    // safety override, the tier 3 pattern rule and behavioral friction;
+    // 155 widened it once more with the movement flip's enriched fallback.
     // The LATEST widening migration must carry the current full list,
     // because it is the one that actually defines the constraint now.
     const m147 = readFileSync(
@@ -152,7 +153,16 @@ describe('analytics vocabulary lines up with the database', () => {
       path.join(REPO_ROOT, 'supabase/migrations/00000000000150_adaptive_coaching_direction.sql'),
       'utf8'
     );
+    const m155 = readFileSync(
+      path.join(REPO_ROOT, 'supabase/migrations/00000000000155_movement_priority_rule.sql'),
+      'utf8'
+    );
     for (const rule of PRIORITY_RULES) {
+      expect(m155).toContain(`'${rule}'`);
+    }
+    // And 150 still carries everything that existed before the flip, so an
+    // environment stopped at 150 is internally consistent.
+    for (const rule of PRIORITY_RULES.filter((r) => r !== 'movement_session')) {
       expect(m150).toContain(`'${rule}'`);
     }
     for (const eventType of ['priority_shown', 'priority_action', 're_entry_shown']) {

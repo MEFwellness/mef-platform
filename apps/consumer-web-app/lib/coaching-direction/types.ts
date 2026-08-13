@@ -17,11 +17,14 @@
  * reflection actions" without ever reading what any individual action
  * said.
  *
- * 'movement' is in the schema and is deliberately NOT emittable. There are
- * no movement sessions in this product yet, so an action typed as movement
- * would be an action with nothing behind it. `isEmittableActionType`
- * below is the guard, and lib/priority/select.ts drops any candidate that
- * fails it and carries on down the ladder rather than showing it.
+ * 'movement' was in the schema and deliberately NOT emittable until Root
+ * Movement shipped (migrations 153 and 154), because an action typed as
+ * movement would have been an action with nothing behind it. The six
+ * sessions now exist, so it is emittable, and the invariant that replaced
+ * the block is narrower and stricter: a movement action must carry a live
+ * session key. lib/priority/select.ts applies that in one place, to every
+ * candidate, and drops any that fails it exactly as it dropped the whole
+ * type before.
  */
 export const COACHING_ACTION_TYPES = [
   'reset',
@@ -38,14 +41,21 @@ export function isCoachingActionType(value: unknown): value is CoachingActionTyp
 }
 
 /**
- * The one action type the engine may never emit, named as data rather
- * than inlined as a literal, so the guard, the schema comment and the
- * test all read the same value.
+ * Action types the engine may never emit, named as data rather than
+ * inlined as a literal, so the guard, the schema comment and the test all
+ * read the same value.
+ *
+ * EMPTY as of the movement flip. It is kept rather than deleted because it
+ * is the one structural place where "this kind of action has nothing behind
+ * it" is expressed, and the next type added to the schema ahead of its
+ * feature will need it again. An empty list means the filter in
+ * lib/priority/select.ts admits every type, and the session-key requirement
+ * below is what now does the real work for movement.
  */
-export const BLOCKED_ACTION_TYPES: readonly CoachingActionType[] = ['movement'];
+export const BLOCKED_ACTION_TYPES: readonly CoachingActionType[] = [];
 
 export const BLOCKED_ACTION_TYPE_REASON =
-  'Movement sessions do not exist in this product yet, so a movement action would have nothing behind it.';
+  'No action type is blocked. A movement action is instead required to carry a live session key; see lib/coaching-direction/movement.ts.';
 
 export function isEmittableActionType(value: CoachingActionType): boolean {
   return !BLOCKED_ACTION_TYPES.includes(value);

@@ -22,8 +22,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getMemberFrictionSignals } from '../analytics-service/friction';
 import type { FrictionSignal } from '../analytics-service/types';
 import { coachingServiceRoleClient } from './serviceRole';
+import {
+  getSessionLastCompletedMap,
+  listActiveSessionTemplates,
+} from '../movement-sessions/data';
+import { listAssignedWorkoutsForMember } from '../coach-program-builder/assignments';
+import { isMovementSessionKey } from './movement';
+import type { MovementSessionKey } from './movement';
 import type {
   BehavioralFrictionInput,
+  MovementInput,
   QualifiedPatternInput,
   SafetyFlagInput,
 } from '../priority/types';
@@ -101,6 +109,85 @@ export async function loadUnresolvedSafetyFlag(
 
   const unresolved = ids.find((id) => !resolved.has(id));
   return unresolved ? { safetyClassificationId: unresolved } : null;
+}
+
+// ---------------------------------------------------------------------
+// Root Movement — what the engine is allowed to know about the sessions.
+// ---------------------------------------------------------------------
+
+/**
+ * The movement input, read entirely from systems that already exist:
+ * migration 153's own templates and runs, and migration 82's coach
+ * assignments. Nothing here scores, ranks or interprets anything.
+ *
+ * Returns null when there is nothing to read, and null is the value that
+ * makes the whole engine behave exactly as it did before the movement
+ * flip. Every failure path resolves to null or to an empty list rather
+ * than throwing, for the same reason every other loader in this file does:
+ * a member is on a page render waiting for her card.
+ *
+ * THE COACH CHECK IS NOT A NEW SURFACE. It reads coach_assigned_workouts
+ * through that feature's own accessor and asks one question of it: is
+ * something scheduled for today that she has not finished. When the answer
+ * is yes, no movement priority is built at all, so Root can neither
+ * displace her coach's plan nor offer a second, competing session on the
+ * same day. Every other rule is unaffected and she still gets a priority.
+ */
+export async function loadMovementInput(
+  supabase: SupabaseClient,
+  memberId: string,
+  todayLocalDate: string
+): Promise<MovementInput | null> {
+  try {
+    const [templates, lastCompleted, coachAssignedToday] = await Promise.all([
+      listActiveSessionTemplates(supabase),
+      getSessionLastCompletedMap(supabase, memberId),
+      hasUnfinishedCoachWorkoutToday(supabase, memberId, todayLocalDate),
+    ]);
+
+    const sessions = templates
+      // The templates table is the authority on what is live; this file is
+      // the authority on nothing. A key the code does not recognise (a
+      // seventh session seeded later, before this build knows about it) is
+      // skipped rather than offered with no fixed tie-break position.
+      .filter((template) => isMovementSessionKey(template.session_key))
+      .map((template) => ({
+        sessionKey: template.session_key as MovementSessionKey,
+        name: template.name,
+        lastCompletedLocalDate: lastCompleted.get(template.session_key)?.slice(0, 10) ?? null,
+      }));
+
+    if (sessions.length === 0) return null;
+
+    return { sessions, coachAssignedToday };
+  } catch (error) {
+    console.error('loadMovementInput failed', error);
+    return null;
+  }
+}
+
+/** Statuses that mean the coach's workout for today is still outstanding. */
+const OUTSTANDING_WORKOUT_STATUSES = new Set(['not_started', 'in_progress']);
+
+async function hasUnfinishedCoachWorkoutToday(
+  supabase: SupabaseClient,
+  memberId: string,
+  todayLocalDate: string
+): Promise<boolean> {
+  try {
+    const workouts = await listAssignedWorkoutsForMember(supabase, memberId);
+    return workouts.some(
+      (workout) =>
+        workout.scheduled_date === todayLocalDate &&
+        OUTSTANDING_WORKOUT_STATUSES.has(workout.status)
+    );
+  } catch (error) {
+    // Fail CLOSED toward the coach. A read that failed is not evidence that
+    // she has no assigned workout today, and the cost of not offering a
+    // session is a member seeing her ordinary goal fallback instead.
+    console.error('hasUnfinishedCoachWorkoutToday failed', error);
+    return true;
+  }
 }
 
 // ---------------------------------------------------------------------

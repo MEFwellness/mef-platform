@@ -9,8 +9,8 @@
  * test, and uses `applicableRules` to assert in the test itself that the
  * losing rules really were available and really did lose.
  *
- * Two of these tests were proven by breaking the code and watching them
- * fail. See the notes on `movement is blocked from emission` and
+ * Several of these tests were proven by breaking the code and watching them
+ * fail. See the notes on `no action is emitted with nothing behind it` and
  * `escalates after two approach changes with no response`.
  */
 
@@ -23,7 +23,13 @@ import {
   selectPriority,
   type AdaptationContext,
 } from '@/lib/priority/select';
-import { PRIORITY_LADDER, PRIORITY_OVERRIDES, type PriorityInputs } from '@/lib/priority/types';
+import { MOVEMENT_SESSION_ORDER } from '@/lib/coaching-direction/movement';
+import {
+  PRIORITY_LADDER,
+  PRIORITY_LADDER_BEFORE_MOVEMENT,
+  PRIORITY_OVERRIDES,
+  type PriorityInputs,
+} from '@/lib/priority/types';
 import {
   APPROACH_AS_WRITTEN,
   APPROACH_REFRAMED,
@@ -103,6 +109,19 @@ function everythingApplies(): PriorityInputs {
       reasonText: 'Your last few check-ins pointed at afternoons.',
       suggestedAction: 'Take one short walk after lunch.',
     },
+    // Root Movement is available to this fixture on purpose, so that every
+    // precedence test below is run against an engine that genuinely COULD
+    // have offered a session and did not. Note that 'movement_session'
+    // itself is still not applicable here: it is built only when the Daily
+    // Reset is done, and this fixture's is not. See `onlyFrom`.
+    movement: {
+      sessions: MOVEMENT_SESSION_ORDER.map((sessionKey) => ({
+        sessionKey,
+        name: sessionKey,
+        lastCompletedLocalDate: null,
+      })),
+      coachAssignedToday: false,
+    },
     fallback: { checkinDoneToday: false, totalCheckins: 12, statedGoalLabel: 'Sleep better' },
     hasRealHistory: true,
   };
@@ -122,10 +141,33 @@ function onlyFrom(index: number): PriorityInputs {
   if (index > 3) inputs.incompleteAction = null;
   if (index > 4) inputs.behavioralFriction = null;
   if (index > 5) inputs.todaysFocus = null;
-  if (PRIORITY_LADDER[index] === 'gentle_focus') {
+  // Stripping the movement rung means taking its input away, exactly as
+  // stripping any other rung means taking its own signal away.
+  if (index > 6) inputs.movement = null;
+  // Both of these are only ever applicable once today's Daily Reset is
+  // done, and 'daily_reset' is only ever applicable while it is not. The
+  // three are therefore mutually exclusive by construction, which is what
+  // `nearestCompatibleHigherIndex` below has to account for.
+  if (PRIORITY_LADDER[index] === 'gentle_focus' || PRIORITY_LADDER[index] === 'movement_session') {
     inputs.fallback = { ...inputs.fallback, checkinDoneToday: true };
   }
   return inputs;
+}
+
+/**
+ * The nearest rule ABOVE `index` that can genuinely apply at the same time
+ * as the rule at `index`.
+ *
+ * "Restore the rule above it and watch this one lose" is only a meaningful
+ * precedence test when both can be applicable at once. Three rungs cannot:
+ * 'daily_reset' needs the Daily Reset undone, and 'movement_session' and
+ * 'gentle_focus' both need it done. So each of those reaches past its
+ * incompatible neighbour.
+ */
+function nearestCompatibleHigherIndex(index: number): number {
+  const rule = PRIORITY_LADDER[index];
+  if (rule === 'gentle_focus' || rule === 'daily_reset') return index - 2;
+  return index - 1;
 }
 
 function thread(overrides: Partial<CoachingThreadState> = {}): CoachingThreadState {
@@ -168,15 +210,27 @@ describe('the engine returns exactly one action', () => {
     const available = applicableRules(everythingApplies());
     for (const override of PRIORITY_OVERRIDES) expect(available).toContain(override);
 
-    const realRules = PRIORITY_LADDER.filter(
-      (rule) => rule !== 'daily_reset' && rule !== 'gentle_focus'
-    );
+    // The three rungs that depend on whether the Daily Reset is done are
+    // excluded here and asserted below, because at most one of them can
+    // ever be applicable at a time and this fixture leaves it undone.
+    const dependsOnTheReset = ['daily_reset', 'gentle_focus', 'movement_session'];
+    const realRules = PRIORITY_LADDER.filter((rule) => !dependsOnTheReset.includes(rule));
     for (const rule of realRules) expect(available).toContain(rule);
 
-    const fallbackHalves = available.filter(
-      (rule) => rule === 'daily_reset' || rule === 'gentle_focus'
-    );
-    expect(fallbackHalves).toHaveLength(1);
+    const fallbackHalves = available.filter((rule) => dependsOnTheReset.includes(rule));
+    expect(fallbackHalves).toEqual(['daily_reset']);
+
+    // And with the Daily Reset done, the other two become available and
+    // 'daily_reset' does not, which is what makes the exclusion above a
+    // statement about the fixture rather than a hole in the coverage.
+    const done = applicableRules({
+      ...everythingApplies(),
+      fallback: { ...everythingApplies().fallback, checkinDoneToday: true },
+    });
+    expect(done.filter((rule) => dependsOnTheReset.includes(rule))).toEqual([
+      'movement_session',
+      'gentle_focus',
+    ]);
   });
 
   it('always returns something, even for a member with no signals at all', () => {
@@ -262,10 +316,10 @@ describe('every ladder rule can both win and lose', () => {
     (rule, index) => {
       expect(selectCoachingAction(onlyFrom(index), TODAY).selected.rule).toBe(rule);
 
-      // The two fallback halves can never be applicable at once, so
-      // "restore the rule above it" has to reach past its own twin to the
-      // nearest real rule to be a meaningful precedence test at all.
-      const higherIndex = PRIORITY_LADDER[index] === 'gentle_focus' ? index - 2 : index - 1;
+      // The fallback halves and the movement rung can never be applicable
+      // at once, so "restore the rule above it" has to reach past an
+      // incompatible neighbour to be a meaningful precedence test at all.
+      const higherIndex = nearestCompatibleHigherIndex(index);
       if (higherIndex >= 0) {
         const withHigher: PriorityInputs = {
           ...onlyFrom(higherIndex),
@@ -328,35 +382,48 @@ describe('every ladder rule can both win and lose', () => {
 });
 
 // =====================================================================
-// The movement block.
+// The movement flip. The block that used to drop every movement candidate
+// is gone; what replaced it is the narrower requirement that a movement
+// action carry a live session key.
+//
+// The flip's own behavior (the mapping table, the enriched fallback, the
+// auto-done) has its own suite in tests/movement-coaching-flip.test.ts.
+// What is asserted HERE is only what this file has always asserted: that
+// the hierarchy did not change, and that an action with nothing behind it
+// is still dropped.
 // =====================================================================
 
-describe('movement is blocked from emission', () => {
+describe('no action is emitted with nothing behind it', () => {
   /**
-   * PROVEN BY BREAKING IT. With `BLOCKED_ACTION_TYPES` emptied in
-   * lib/coaching-direction/types.ts, the first test below failed with
-   * "expected 'movement' not to be 'movement'" and the second failed with
-   * "expected 'implicated_driver' to be 'qualified_pattern'". Restored
-   * immediately afterwards.
+   * PROVEN BY BREAKING IT, twice, both after the flip.
+   *
+   * 1. Deleting the `hasSessionBehindIt` call from the ladder walk in
+   *    lib/priority/select.ts turned the third and fourth tests below red
+   *    ("expected 'implicated_driver' to be 'qualified_pattern'" and
+   *    "expected 'movement' not to be 'movement'"). Restored immediately.
+   * 2. Moving 'movement_session' one place UP the ladder in
+   *    lib/priority/types.ts, above 'todays_focus', turned the hierarchy
+   *    order test red. Restored immediately.
    */
-  it('names movement as a real action type in the schema, and as a blocked one', () => {
+  it('leaves movement a real action type in the schema, and now an emittable one', () => {
     expect(COACHING_ACTION_TYPES).toContain('movement');
-    expect(BLOCKED_ACTION_TYPES).toEqual(['movement']);
-    expect(isEmittableActionType('movement')).toBe(false);
-    for (const type of COACHING_ACTION_TYPES.filter((t) => t !== 'movement')) {
+    // The mechanism is kept and empty rather than deleted: the next type
+    // added to the schema ahead of its feature will need it.
+    expect(BLOCKED_ACTION_TYPES).toEqual([]);
+    for (const type of COACHING_ACTION_TYPES) {
       expect(isEmittableActionType(type)).toBe(true);
     }
   });
 
-  it('a movement-domain driver genuinely produces a movement action type', () => {
-    // Non-vacuity: the blocked candidate has to be really constructible,
-    // or the block below proves nothing.
+  it('a movement-domain driver still genuinely produces a movement action type', () => {
+    // Non-vacuity: the candidate that gets dropped below has to be really
+    // constructible, or the drop proves nothing.
     expect(driverActionType('MOV')).toBe('movement');
     expect(driverActionType('FUE')).toBe('nutrition');
     expect(driverActionType('SLP')).toBe('reflection');
   });
 
-  it('drops that candidate and carries on down the ladder rather than emitting it', () => {
+  it('drops a movement candidate with no session behind it and carries on down the ladder', () => {
     const inputs: PriorityInputs = {
       ...ladderOnly(),
       resetPlan: null,
@@ -367,6 +434,9 @@ describe('movement is blocked from emission', () => {
         whatItObserves: 'How much walking a day contains',
         findingSentence: 'On days you move more, your evenings tend to settle sooner.',
       },
+      // No movement input at all: the state of every environment before
+      // migration 153, and of every fixture in this file.
+      movement: null,
     };
 
     // The movement candidate really was the highest applicable rule.
@@ -377,16 +447,29 @@ describe('movement is blocked from emission', () => {
     expect(result.actionType).not.toBe('movement');
   });
 
-  it('never emits a movement action from any input combination the ladder can produce', () => {
+  it('never emits a movement action from any ladder position when no session exists', () => {
     for (let index = 0; index < PRIORITY_LADDER.length; index += 1) {
       const inputs: PriorityInputs = {
         ...onlyFrom(index),
         implicatedDriver: onlyFrom(index).implicatedDriver
           ? { ...onlyFrom(index).implicatedDriver!, domainKey: 'MOV' }
           : null,
+        movement: null,
       };
       expect(selectCoachingAction(inputs, TODAY).selected.actionType).not.toBe('movement');
     }
+  });
+
+  it('moved no rung: the ladder without the new rung is byte-identical to Part 1 through 3', () => {
+    expect(PRIORITY_LADDER.filter((rule) => rule !== 'movement_session')).toEqual([
+      ...PRIORITY_LADDER_BEFORE_MOVEMENT,
+    ]);
+    // And the new rung sits directly above the final fallback, which is the
+    // only position from which it can outrank nothing that used to win.
+    expect(PRIORITY_LADDER.indexOf('movement_session')).toBe(
+      PRIORITY_LADDER.indexOf('daily_reset') - 1
+    );
+    expect(PRIORITY_OVERRIDES).toEqual(['safety', 're_entry']);
   });
 });
 

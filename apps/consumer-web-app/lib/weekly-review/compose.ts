@@ -161,9 +161,12 @@ export type WeeklyReviewInputs = {
  * two real buckets are "this is a noticing thing" and "this is a food and
  * water thing".
  *
- * 'movement' is never produced. The engine cannot emit a movement action
- * (lib/coaching-direction/types.ts's block), so a focus naming one would be
- * inert, and an inert focus is worse than an honest coarser one.
+ * 'movement' is never produced HERE, and that is unchanged by the movement
+ * flip. The engine can now emit a movement action, but only when a mapped
+ * driver or the enriched fallback names one specific session. A wellness
+ * metric moving in a direction names no session and implicates no driver,
+ * so turning "movement trended down this week" into a movement focus would
+ * be precision this observation does not have. The coarse bucket stands.
  */
 export const METRIC_FOCUS_ACTION_TYPE: Record<WellnessMetricKey, CoachingActionType> = {
   sleep: 'reflection',
@@ -530,14 +533,19 @@ export function chooseWeekFocus(
 
   // 4) Something did land. Continue that kind of thing. The most-acted-on
   // kind wins, with the ledger's own chronological order breaking a tie.
+  //
+  // PREMISE MISMATCH FIXED BY THE MOVEMENT FLIP. This used to drop
+  // 'movement' from the count, because the engine could not act on such a
+  // focus and an inert focus is worse than a coarser honest one. The engine
+  // can now act on it, so dropping it would mean a member who acted on
+  // nothing BUT movement sessions got a focus of something she ignored. The
+  // filter is gone and the ledger's own counts stand.
   if (acted.length > 0) {
     const counts = new Map<CoachingActionType, number>();
     for (const decision of acted) {
       counts.set(decision.actionType, (counts.get(decision.actionType) ?? 0) + 1);
     }
-    const best = [...counts.entries()]
-      .filter(([actionType]) => actionType !== 'movement')
-      .sort((a, b) => b[1] - a[1])[0];
+    const best = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
     if (best) {
       return build(best[0], null, 'engagement_strong', {
         delivered: weekDecisions.length,

@@ -35,6 +35,7 @@ import {
 } from '@/lib/coaching-direction/evidence';
 import { selectCoachingAction } from '@/lib/priority/select';
 import { PRIORITY_LADDER, type PriorityInputs } from '@/lib/priority/types';
+import { MOVEMENT_SESSION_ORDER } from '@/lib/coaching-direction/movement';
 
 const APP_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(APP_ROOT, '../..');
@@ -111,6 +112,16 @@ function everythingApplies(): PriorityInputs {
       reasonText: 'Your last few check-ins pointed at afternoons.',
       suggestedAction: 'Take one short walk after lunch.',
     },
+    // Root Movement, present so the movement rung is genuinely exercised by
+    // the sweep below rather than skipped.
+    movement: {
+      sessions: MOVEMENT_SESSION_ORDER.map((sessionKey) => ({
+        sessionKey,
+        name: sessionKey,
+        lastCompletedLocalDate: null,
+      })),
+      coachAssignedToday: false,
+    },
     fallback: { checkinDoneToday: false, totalCheckins: 12, statedGoalLabel: HEALTH_CONTENT.goal },
     hasRealHistory: true,
   };
@@ -124,7 +135,11 @@ function onlyFrom(index: number): PriorityInputs {
   if (index > 3) inputs.incompleteAction = null;
   if (index > 4) inputs.behavioralFriction = null;
   if (index > 5) inputs.todaysFocus = null;
-  if (PRIORITY_LADDER[index] === 'gentle_focus') {
+  if (index > 6) inputs.movement = null;
+  if (
+    PRIORITY_LADDER[index] === 'gentle_focus' ||
+    PRIORITY_LADDER[index] === 'movement_session'
+  ) {
     inputs.fallback = { ...inputs.fallback, checkinDoneToday: true };
   }
   return inputs;

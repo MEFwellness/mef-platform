@@ -23,6 +23,7 @@
  */
 
 import type { CoachingActionType, SignalEvidence } from '../coaching-direction/types';
+import type { MovementSessionOption } from '../coaching-direction/movement';
 
 /**
  * The selection hierarchy, in its own order. 'safety' and 're_entry' are
@@ -51,6 +52,7 @@ export type PriorityRule =
   | 'incomplete_action'
   | 'behavioral_friction'
   | 'todays_focus'
+  | 'movement_session'
   | 'daily_reset'
   | 'gentle_focus';
 
@@ -73,6 +75,28 @@ export type PriorityRule =
  * of "has she done today's Daily Reset yet".
  */
 export const PRIORITY_LADDER = [
+  'reset_plan_commitment',
+  'implicated_driver',
+  'qualified_pattern',
+  'incomplete_action',
+  'behavioral_friction',
+  'todays_focus',
+  'movement_session',
+  'daily_reset',
+  'gentle_focus',
+] as const satisfies readonly PriorityRule[];
+
+/**
+ * The ladder as it stood before the movement flip, frozen as data.
+ *
+ * The flip's whole promise is that it MOVED nothing: 'movement_session' was
+ * inserted directly above the final fallback, so every pre-existing rule
+ * keeps its exact position relative to every other pre-existing rule.
+ * That is a property a test can check byte for byte rather than a claim in
+ * a comment, so the old order lives here rather than being retyped inside
+ * the test.
+ */
+export const PRIORITY_LADDER_BEFORE_MOVEMENT = [
   'reset_plan_commitment',
   'implicated_driver',
   'qualified_pattern',
@@ -257,6 +281,38 @@ export type DailyResetFallbackInput = {
   statedGoalLabel: string | null;
 };
 
+/**
+ * Everything the engine needs to know about Root Movement, read from the
+ * systems that already own it. Null when there is nothing to read: before
+ * migration 153 reaches an environment, when the templates read fails, or
+ * when every template has been retired. A null here leaves the whole engine
+ * byte-identical to the build before the movement flip, which is what lets
+ * this degrade to "no movement is ever offered" rather than to an error.
+ *
+ * NOTHING HERE IS A JUDGEMENT. The sessions are the six rows migration 153
+ * seeded, the completion dates are her own runs, and the coach flag is a
+ * scheduled row's existence. The engine does no scoring over any of it.
+ */
+export type MovementInput = {
+  /**
+   * The live templates, each with her own last completion of it. Only
+   * `is_active` templates ever appear, so a retired session can neither be
+   * mapped to nor fall out of the fallback rotation.
+   */
+  sessions: readonly MovementSessionOption[];
+  /**
+   * True when a coach has a workout scheduled for her TODAY that she has
+   * not finished (coach_assigned_workouts, migration 82).
+   *
+   * When it is true no movement priority is built at all, on any rung. A
+   * coach's own programming is the plan she agreed to with a person; Root
+   * offering a different session on the same day would either displace it
+   * or quietly compete with it, and neither is Root's to do. Every other
+   * rule is untouched by this flag, so she still gets an ordinary priority.
+   */
+  coachAssignedToday: boolean;
+};
+
 /** Rule 4's input — the Coaching Brain's already-selected focus for today. */
 export type TodaysFocusInput = {
   feedItemId: string;
@@ -312,6 +368,12 @@ export type PriorityInputs = {
    */
   behavioralFriction?: BehavioralFrictionInput | null;
   todaysFocus: TodaysFocusInput | null;
+  /**
+   * Root Movement, or null when there is nothing to read. Optional so every
+   * existing caller and every existing fixture compiles and behaves exactly
+   * as it did. See MovementInput above.
+   */
+  movement?: MovementInput | null;
   /**
    * The final fallback. Non-nullable on purpose: this is the field that
    * makes `selectPriority` total for a signed-in member, so the pop-up

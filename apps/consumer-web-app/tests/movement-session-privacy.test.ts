@@ -22,10 +22,12 @@
  *      database and every value that landed anywhere is scanned for
  *      health content by value.
  *
- * It also re-asserts, from this build's own side, that the decision
- * engine's movement action type is still blocked. Shipping the sessions
- * is not the same as letting Root recommend them, and that separation is
- * a thing a future edit could quietly undo.
+ * It also re-asserts, from this build's own side, what the movement flip
+ * changed and what it did NOT. Root may now recommend a session, so the
+ * old "still blocked" assertion is gone. What replaced it is stricter
+ * about the thing that actually mattered: the coaching loop may know a
+ * session KEY and nothing else, and the Weekly Review still holds no
+ * session vocabulary of its own.
  */
 
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
@@ -305,41 +307,52 @@ describe('Root Movement privacy — layer 4, the real output', () => {
   });
 });
 
-describe('Root Movement — the engine still may not recommend any of this', () => {
+describe('Root Movement — what the engine may know about a session', () => {
   /**
-   * GUARD TEST, asserted again from this feature's own side. Part 1's own
-   * guard (tests/coaching-direction-hierarchy.test.ts) proves the ladder
-   * drops a movement candidate; this proves that shipping the sessions
-   * did not quietly flip the switch that would let it emit one. The flip
-   * is a later, deliberate build after the owner has reviewed the
-   * lineups.
-   *
-   * Proven by breaking it: emptying BLOCKED_ACTION_TYPES in
-   * lib/coaching-direction/types.ts fails this test and Part 1's.
+   * GUARD TEST, asserted again from this feature's own side. The movement
+   * flip made 'movement' emittable, so the old "still blocked" assertion
+   * would now be asserting the opposite of the product. What is guarded
+   * instead is the line that always mattered: the coaching loop may carry a
+   * session KEY, and nothing else about a session.
    */
-  it('leaves the movement action type blocked, exactly as Part 1 left it', () => {
-    expect(BLOCKED_ACTION_TYPES).toEqual(['movement']);
-    expect(isEmittableActionType('movement')).toBe(false);
-  });
+  it('blocks no action type, and requires a movement action to carry a session key', () => {
+    expect(BLOCKED_ACTION_TYPES).toEqual([]);
+    expect(isEmittableActionType('movement')).toBe(true);
 
-  it('adds no movement recommendation path to the priority ladder', () => {
     const select = readFileSync(path.join(APP_ROOT, 'lib/priority/select.ts'), 'utf8');
-    // The ladder still routes every candidate through the emittability
-    // guard rather than around it.
+    // Both universal filters are still applied in the walk rather than
+    // special-cased inside a rule.
     expect(select).toMatch(/isEmittableActionType/);
-    // And this build wired nothing about sessions into it.
-    expect(select).not.toMatch(/movement_session/);
-    expect(select).not.toMatch(/movement-sessions/);
+    expect(select).toMatch(/hasSessionBehindIt/);
   });
 
-  it('wires movement into neither the Weekly Review nor the pop-up chain', () => {
-    for (const relative of [
-      'lib/weekly-review/compose.ts',
-      'lib/weekly-review/plan.ts',
+  it('carries a session key into the ledger and nothing else about the session', () => {
+    const evidence = readFileSync(path.join(APP_ROOT, 'lib/coaching-direction/evidence.ts'), 'utf8');
+    expect(evidence).toMatch(/'sessionKey'/);
+    // Nothing that could describe the lineup itself.
+    for (const forbidden of [
+      'exerciseId',
+      'exerciseName',
+      'externalId',
+      'slotOrder',
+      'prescription',
+      'cues',
+      'durationSeconds',
+      'reps',
     ]) {
+      expect(evidence, `${forbidden} reached the evidence allowlist`).not.toMatch(
+        new RegExp(`'${forbidden}'`)
+      );
+    }
+  });
+
+  it('gives the Weekly Review no session vocabulary of its own', () => {
+    // The review speaks about KINDS of action, which it already could. It
+    // still holds no session key, no session route and no lineup.
+    for (const relative of ['lib/weekly-review/compose.ts', 'lib/weekly-review/plan.ts']) {
       const source = readFileSync(path.join(APP_ROOT, relative), 'utf8');
-      expect(source, `${relative} references movement sessions`).not.toMatch(/movement_session/);
-      expect(source, `${relative} references movement sessions`).not.toMatch(/movement-sessions/);
+      expect(source, `${relative} references a session key`).not.toMatch(/sessionKey/);
+      expect(source, `${relative} references the session routes`).not.toMatch(/movement-sessions/);
     }
   });
 });

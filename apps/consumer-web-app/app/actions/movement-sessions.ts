@@ -19,17 +19,26 @@
  * which is what makes "keys, ids, timestamps and counts only" a property
  * of the code rather than a promise about it.
  *
- * NOT HERE, deliberately: nothing writes to member_daily_priorities,
- * member_coaching_decisions, member_weekly_reviews or the pop-up chain.
- * Movement usage stays out of the coaching loop entirely this build.
+ * THE MOVEMENT FLIP changed exactly one of those sentences. Completing a
+ * session now closes today's priority when today's priority WAS that
+ * session, so a member who does the workout never also has to tap Done. It
+ * writes through the same two functions the card's own Done button uses and
+ * adds no second outcome path; see
+ * lib/coaching-direction/movementOutcome.ts. Nothing else changed: starting,
+ * viewing and skipping still touch no coaching table at all, and nothing
+ * here writes to member_weekly_reviews or the pop-up chain.
  */
 
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track';
+import { getCoachingDecision } from '@/lib/coaching-direction/data';
+import { recordMovementSessionCompletion } from '@/lib/coaching-direction/movementOutcome';
+import { resolveLocalDate } from './checkin';
 import {
   appendSessionRunSkip,
   completeSessionRun,
@@ -163,6 +172,13 @@ export async function skipMovementExerciseAction(
  * She reached the end. completeSessionRun only ever claims a run whose
  * completed_at is still null, so a double submit returns null here and
  * the completion event fires exactly once per run.
+ *
+ * And, since the movement flip, this is also where today's priority is
+ * marked done when today's priority WAS this session. That write is
+ * conditional in three independent places and cannot double-count; see
+ * lib/coaching-direction/movementOutcome.ts. It is deliberately AFTER the
+ * completion event and outside anything the member is waiting on: a failure
+ * to close a coaching loop must never cost her the completion itself.
  */
 export async function completeMovementSessionAction(runId: string): Promise<boolean> {
   try {
@@ -182,9 +198,63 @@ export async function completeMovementSessionAction(runId: string): Promise<bool
       },
     });
 
+    await closeMovementPriority(ctx, run.session_key);
+
     return true;
   } catch (error) {
     console.error('completeMovementSessionAction failed', error);
     return false;
+  }
+}
+
+/**
+ * Today's priority, marked done because she did it.
+ *
+ * The `coaching_action_acted` event is the SAME event the card's Done
+ * button fires (app/actions/priority.ts's recordCoachingOutcome), with the
+ * same three behavioral fields and no fourth. It is fired only when the
+ * ledger write genuinely landed, which is what keeps it exactly one per
+ * decision whether she taps Done, opens the smaller step, or simply does
+ * the session.
+ *
+ * `priority_action` is deliberately NOT fired here. That event is about
+ * which BUTTON was tapped on the card, and she tapped none: inventing a
+ * synthetic button press would make a year of card-interaction rollups
+ * quietly wrong.
+ */
+async function closeMovementPriority(ctx: MemberContext, sessionKey: string): Promise<void> {
+  try {
+    const localDate = await resolveLocalDate(
+      new Date(new Date().toLocaleString('en-US', { timeZone: ctx.timezone })),
+      false
+    );
+
+    const decision = await getCoachingDecision(ctx.supabase, ctx.memberId, localDate);
+    if (!decision) return;
+
+    const outcome = await recordMovementSessionCompletion(
+      ctx.supabase,
+      ctx.memberId,
+      localDate,
+      sessionKey
+    );
+    if (outcome !== 'recorded') return;
+
+    await trackProductEvent(ctx.supabase, {
+      memberId: ctx.memberId,
+      eventType: 'coaching_action_acted',
+      timezone: ctx.timezone,
+      payload: {
+        rule: decision.rule,
+        actionType: decision.actionType,
+        action: 'done',
+      },
+    });
+
+    // The card lives inside /today's page, exactly as the Done button's own
+    // action narrows it to.
+    revalidatePath('/today', 'page');
+  } catch (error) {
+    console.error('closeMovementPriority failed', error);
   }
 }

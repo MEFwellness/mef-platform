@@ -258,6 +258,44 @@ export async function appendSessionRunSkip(
 }
 
 /**
+ * Her most recent COMPLETION of each session, as an ISO timestamp, keyed by
+ * session key. Sessions she has never finished are simply absent.
+ *
+ * Read by the coaching engine's enriched fallback, which offers the
+ * least-recently-completed session. A started-and-abandoned run is not a
+ * completion and does not count, which is why this filters on completed_at
+ * rather than reading every run.
+ *
+ * Fails closed to an empty map like every other read in this file. An empty
+ * map means every session looks never-completed, and the fallback then
+ * offers the first in the seeded order, which is a fine answer rather than
+ * a broken one.
+ */
+export async function getSessionLastCompletedMap(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<Map<string, string>> {
+  const { data, error } = await supabase
+    .from('member_movement_session_runs')
+    .select('session_key, completed_at')
+    .eq('member_id', memberId)
+    .not('completed_at', 'is', null)
+    .order('completed_at', { ascending: false });
+
+  if (error) {
+    console.error('getSessionLastCompletedMap failed', error);
+    return new Map();
+  }
+
+  const latest = new Map<string, string>();
+  for (const row of (data as { session_key: string; completed_at: string }[]) ?? []) {
+    // Newest first, so the first sighting of a key is its latest completion.
+    if (!latest.has(row.session_key)) latest.set(row.session_key, row.completed_at);
+  }
+  return latest;
+}
+
+/**
  * Marks a run finished. Only ever sets completed_at when it is still
  * null, so a re-submitted completion cannot move the timestamp or fire a
  * second completion event.

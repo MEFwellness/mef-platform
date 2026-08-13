@@ -75,6 +75,12 @@ export const ALLOWED_EVIDENCE_KEYS = [
   'savedCount',
   'windowDays',
 
+  // Movement. The session key seeded by migration 153 and nothing else:
+  // never a lineup, never an exercise, never a duration, never a rep count.
+  // It is the key that appears in the URL she is about to open, so it
+  // carries no fact about her at all.
+  'sessionKey',
+
   // Fallback.
   'totalCheckins',
   'checkinDoneToday',

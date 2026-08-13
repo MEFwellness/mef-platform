@@ -18,6 +18,7 @@
 import { describe, it, expect } from 'vitest';
 import { applicableRules, selectPriority } from '@/lib/priority/select';
 import { PRIORITY_LADDER, type PriorityInputs } from '@/lib/priority/types';
+import { MOVEMENT_SESSION_ORDER } from '@/lib/coaching-direction/movement';
 import {
   classifyPresence,
   isReEntry,
@@ -79,6 +80,18 @@ function allRulesApply(): PriorityInputs {
       reasonText: 'Your last few check-ins pointed at afternoons.',
       suggestedAction: 'Take one short walk after lunch.',
     },
+    // Root Movement is available on purpose, so every precedence test below
+    // runs against an engine that genuinely COULD have offered a session and
+    // did not. 'movement_session' itself is not applicable here: it is only
+    // built once the Daily Reset is done, and this fixture's is not.
+    movement: {
+      sessions: MOVEMENT_SESSION_ORDER.map((sessionKey) => ({
+        sessionKey,
+        name: sessionKey,
+        lastCompletedLocalDate: null,
+      })),
+      coachAssignedToday: false,
+    },
     // The final fallback always applies, which is exactly why the
     // precedence tests below are meaningful: every real rule that wins
     // does so over a genuinely available alternative, never by default.
@@ -108,20 +121,16 @@ describe('the hierarchy picks exactly one winner', () => {
 
     expect(available).toContain('re_entry');
 
-    // Every real rule is on the table at once. The last two ladder entries
-    // are the two halves of one question and are mutually exclusive by
-    // design, so exactly one of them is available here rather than both.
-    const realRules = PRIORITY_LADDER.filter(
-      (rule) => rule !== 'daily_reset' && rule !== 'gentle_focus'
-    );
+    // Every real rule is on the table at once. Three ladder entries turn on
+    // the same question (has today's Daily Reset been done) and are mutually
+    // exclusive by design, so exactly one of them is available here.
+    const dependsOnTheReset = ['daily_reset', 'gentle_focus', 'movement_session'];
+    const realRules = PRIORITY_LADDER.filter((rule) => !dependsOnTheReset.includes(rule));
     for (const rule of realRules) {
       expect(available).toContain(rule);
     }
 
-    const fallbackHalves = available.filter(
-      (rule) => rule === 'daily_reset' || rule === 'gentle_focus'
-    );
-    expect(fallbackHalves).toHaveLength(1);
+    expect(available.filter((rule) => dependsOnTheReset.includes(rule))).toEqual(['daily_reset']);
 
     // re-entry + every real rule + exactly one fallback half.
     expect(available).toHaveLength(realRules.length + 2);
@@ -478,7 +487,16 @@ describe('non-vacuity: every ladder rule can both win and lose', () => {
     if (index > 3) inputs.incompleteAction = null;
     if (index > 4) inputs.behavioralFriction = null;
     if (index > 5) inputs.todaysFocus = null;
-    if (PRIORITY_LADDER[index] === 'gentle_focus') {
+    // Stripping the movement rung means taking its input away, exactly as
+    // stripping any other rung means taking its own signal away.
+    if (index > 6) inputs.movement = null;
+    // 'movement_session' and 'gentle_focus' are both only ever applicable
+    // once today's Daily Reset is done, and 'daily_reset' only while it is
+    // not. The three are mutually exclusive by construction.
+    if (
+      PRIORITY_LADDER[index] === 'gentle_focus' ||
+      PRIORITY_LADDER[index] === 'movement_session'
+    ) {
       inputs.fallback = { ...inputs.fallback, checkinDoneToday: true };
     }
     return inputs;
@@ -492,11 +510,14 @@ describe('non-vacuity: every ladder rule can both win and lose', () => {
 
       // Loses whenever any higher rule is restored — which is only
       // meaningful because the rule was still applicable at the time.
-      // 'gentle_focus' sits directly below 'daily_reset', but those two can
-      // never be applicable at once, so restoring "the rule above it" has
-      // to reach past its own twin to the nearest REAL rule to be a
-      // meaningful precedence test at all.
-      const higherIndex = PRIORITY_LADDER[index] === 'gentle_focus' ? index - 2 : index - 1;
+      // Three rungs turn on whether the Daily Reset is done and can never
+      // be applicable at once, so restoring "the rule above it" has to
+      // reach past an incompatible neighbour to be a meaningful precedence
+      // test at all.
+      const higherIndex =
+        PRIORITY_LADDER[index] === 'gentle_focus' || PRIORITY_LADDER[index] === 'daily_reset'
+          ? index - 2
+          : index - 1;
       if (higherIndex >= 0) {
         const withHigher: PriorityInputs = {
           ...onlyFrom(higherIndex),
