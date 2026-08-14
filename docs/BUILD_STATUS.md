@@ -1,3 +1,63 @@
+## Home stops competing with itself (2026-08-14)
+
+A cleanup pass over the member Home screen, the Priority Card's shared state, and the Today tab. No new engine, no new schema, no migration. Coach platform untouched.
+
+Home was showing three sets of numbers at once: the Root Score in the hero, then "Daily Reset 60" and "Daily Wellness Score 60" a few hundred pixels below it with nothing explaining either, then a grid of six more numbers under that. Two of the three are gone from Home now.
+
+### What changed
+
+**Today's Wellness is gone from Home.** `DailyWellnessSection` was rendered on Home and nowhere else, so the component went with it. Both scoring libraries (`lib/wellness/morningReadiness.ts`, `lib/wellness/dailyWellnessScore.ts`) and both of their test files are untouched and still passing; nothing else in the product reads those two scores, so this removed a display, not a capability. Home also stopped paying for the `getTodaysEveningReflection` read, which only that block used.
+
+**Today's Numbers moved to the Today tab** (`components/today/TodaysNumbersGrid.tsx`), rendered directly beneath TodayZones. Same tiles, same `lib/wellness/status.ts` classification, same "Not logged yet" states, no redesign.
+
+Water and movement are deliberately NOT in the relocated grid, and this is the one place the build differs from the brief. Today already owns both as live controls inside TodayZones, and they read exactly what the Home tiles read (`getTodaysMovementLevel` returns today's check-in's own `movement_today`; the hydration total is the same one the Home tile used). Copying them into the grid would have put two controls on one number, each with its own local state, disagreeing the moment either was tapped. The five genuinely read-only tiles moved. Water logging is unchanged and still one tap from the bottom nav.
+
+What stays on Home from that block is only the half that was never a number: the honest line for a day with nothing logged yet, now pointing at where the numbers live.
+
+**A completed priority no longer keeps the dominant slot.** Both screens render the card at the top only while `status === 'active'`, and render a compact accomplished card (one row, clamped to two lines, `Done today.`) at the bottom of Home and of Today once it is done. Same `member_daily_priorities` row in both places, so Done in the pop-up, on Home, or on Today all land in the same state everywhere with no syncing. It persists for the rest of her own calendar day because the row is keyed to her local date, and it is gone the next day because tomorrow reads a different key: no expiry job, no hide-after timer.
+
+The inline card now holds a `router.refresh()`, gated on a completion that happened in front of her, delayed by one derived settle beat (`PRIORITY_ACCOMPLISHED_SETTLE_MS`) so the drawn checkmark and the haptic are seen before the card moves. That is a re-render of the current route, never a navigation; the "Help me never navigates" guard was tightened to `router.push`/`router.replace` rather than relaxed.
+
+**Nothing refills the top slot.** The engine already commits to one priority per day and treats the stored row as authoritative, so a finished day leaves the slot genuinely empty. What can appear there next is only something that already had its own card and its own pending state: a coach assignment or the next unstarted conversation (`DashboardInviteCards`, which renders nothing when there is neither), the Weekly Root Review entry, or a day-3/day-7 follow-up through the unchanged Root pop-up chain. The pop-up chain's ordering and its once-per-day delivery are untouched.
+
+**Quick Actions pills** keep their settled capsule shape and gain an illustrated brand-gradient icon tile (forest `#1B3A2D` into gold `#C4A050`, one soft cream highlight) plus a cream-to-white pill fill and a deeper shadow, so they read as doors rather than labels. A trailing chevron was tried and removed: at 390px it truncated "5 of 9 complete" to "5 of 9 com...". Found by screenshotting the real rendered pills, not by reading the markup.
+
+### Three copy fixes, each branching on real state
+
+1. **The shaming math is gone.** `buildTenureCallback` produced the real sentence "You've been checking in with me for 10 days now, 1 check-in so far." Both numbers were true; putting them side by side turned a memory into arithmetic at her expense. The two numbers may now only appear together when she has logged at least half the days since she started. Below that, the sentence names the count alone and never a denominator. On the live account (44 check-ins over 56 days) the steady sentence is still what she sees, which is the intended case: there it reads as recognition.
+2. **"Your sleep looked needs attention last night."** The frame was `Your sleep looked ${STATUS_LABEL[status].toLowerCase()} last night.`, and `STATUS_LABEL.attention` is the badge phrase "Needs attention". Labels written for a badge cannot be conjugated into a clause, so both check-in-derived summaries are now whole sentences per band. The sibling (`checkinStressSummary`) had the identical bug and is fixed with it. The new tests walk every value each metric can take, rather than only the 'good' path that always read fine.
+3. **The hero no longer contradicts the number under it.** "Good start to the day" was rendering directly above a Root Score reading points down. `buildGreetingLine` now takes the same change value the hero's own pill renders (`scoreDirectionFromChange`) and switches to a neutral set whenever the score is down or flat. Up, or no change shown at all, keeps the warm lines.
+
+### Tests
+
+`tests/home-cleanup-pass.test.ts` (18 assertions: the removals, the relocation, the placement rules, and that nothing invents a top-slot replacement) and `tests/priority-completed-placement-integration.test.ts` (5, against real RLS: completing today's priority never produces a second one, the day's row stays authoritative across re-renders, and tomorrow is a genuinely different row). Copy branching is covered in `tests/dashboard-prioritization.test.ts`, `tests/memory-callback-copy.test.ts`, and `tests/coaching-engine-morning-brief.test.ts`.
+
+One unrelated bug fixed on the way: `tests/recommendation-computation-guard.test.ts` leaked exactly one check-in row per run, because its cleanup range stopped one day short of a row it deliberately creates after its as-of date. That leaked row was counted by the correlation engine's own integration suite, failing "30 observations" with 31, in a completely unrelated file.
+
+**Suite: 4781 passing, 362 files. Typecheck clean, lint clean (no new warnings), production build clean.**
+
+### Live verification (app.mefwellness.com, memberPopulated, after deploy)
+
+Repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform`, production target, `app.mefwellness.com` aliased to deployment `mef-platform-6pbe6dtes` (commit 24fbd82).
+
+| Check | Result |
+| --- | --- |
+| Home shows Today's Wellness | no |
+| Home shows Daily Wellness Score | no |
+| Home shows Today's Numbers | no |
+| Quick Actions pills, new treatment, both navigate | yes, `/case` and `/movement`, gradient tile confirmed in computed styles, "5 of 9 complete" not truncated |
+| Today shows the numbers grid | yes: Sleep, Stress, Pain, Mood, Digestion |
+| Water: log a cup, persists on refresh | yes, 0 to 1, still 1 after reload |
+| Priority Card completed: leaves the top | yes, moved from y=514 (first element in `<main>`) to y=6317 of a 6537px page |
+| Compact accomplished card at the bottom of Home and Today | yes, 92px tall on both, from the same row |
+| Top slot refilled | yes, and only by real pending items: the Weekly Root Review entry, then a coach-assigned Health Check-In Questionnaire. This account HAS a pending finite item, so this is the refill case, not the empty case |
+| Hero subtitle vs score direction | score 35, pill "Steady" (flat), subtitle "I have today's check-in from you.", a neutral line, no contradiction |
+| Shaming math in the coaching note | none: 44 check-ins over 56 days is the steady case, which names both numbers as recognition |
+| Em dashes on Home, Today, Case, Movement | zero |
+| Console errors across the whole run | zero |
+
+Not verified: the empty-top-slot case (no pending finite item), because this account genuinely has a coach assignment and a day-3 follow-up waiting. The code path is the same one, and it is covered by the placement tests.
+
 ## The movement flip: Root can now offer a Root Movement session (2026-08-13)
 
 The `movement` action type existed in the schema from the start and was deliberately never emittable, because there were no sessions behind it. There are six now (migrations 153 and 154), so the block is gone. What replaced it is narrower and stricter, and it lives in the same one place the block sat in `lib/priority/select.ts`'s walk: **a movement action must carry a live session key.** A movement candidate with nothing behind it is dropped and the walk continues, exactly as the whole type was before.

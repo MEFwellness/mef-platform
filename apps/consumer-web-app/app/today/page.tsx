@@ -818,7 +818,12 @@ export default async function TodayPage() {
             before, and 'done' as the compact accomplished card, which is
             the same card Home shows at its own bottom, from the same row. */}
         {priority && priority.status !== 'active' && (
-          <div className="mt-6">
+          /* The extra bottom margin is not decoration: this page's own
+             bottom padding is shorter than Home's, and the floating Root
+             launcher is fixed above the nav, so without it the launcher
+             sits on top of this card's right edge once she scrolls to the
+             end. Seen on the live site, not guessed. */
+          <div className="mb-16 mt-6">
             <PriorityCard view={priority} collapsed />
           </div>
         )}
