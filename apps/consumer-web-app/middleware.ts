@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { hasActiveRole } from '@/lib/auth/guards';
+import { isMemberOnlyPath, staffHomePath, staffRedirectFor } from '@/lib/auth/staffRouting';
 import { decideEntryAnimationPlay } from '@/lib/entry-animation/rule';
 import {
   ENTRY_ANIMATION_LAST_ACTIVE_COOKIE,
@@ -222,36 +223,66 @@ export async function middleware(request: NextRequest) {
   // null too (see lib/supabase/middleware.ts), so every branch below that
   // dereferences supabase is already unreachable when it's null. The
   // assertion just tells TypeScript what's already true by construction.
+  //
+  // The "their own dashboard" in that paragraph is now resolved properly
+  // rather than assumed to be /dashboard: a coach who opens /admin belongs
+  // on /coach, not on a member Home that would immediately redirect them
+  // back here. The second lookup only ever runs on the branch that has
+  // already failed, so an authorized coach or administrator still pays for
+  // exactly one.
   if (user && path.startsWith('/admin')) {
     const isAdmin = await hasActiveRole(supabase!, user.id, 'platform_administrator');
-    if (!isAdmin) return NextResponse.redirect(new URL('/dashboard', request.url));
+    if (!isAdmin) {
+      const isCoach = await hasActiveRole(supabase!, user.id, 'coach');
+      return NextResponse.redirect(
+        new URL(staffHomePath({ isCoach, isAdmin }) ?? '/dashboard', request.url)
+      );
+    }
   }
 
   if (user && path.startsWith('/coach')) {
     const isCoach = await hasActiveRole(supabase!, user.id, 'coach');
-    if (!isCoach) return NextResponse.redirect(new URL('/dashboard', request.url));
+    if (!isCoach) {
+      const isAdmin = await hasActiveRole(supabase!, user.id, 'platform_administrator');
+      return NextResponse.redirect(
+        new URL(staffHomePath({ isCoach, isAdmin }) ?? '/dashboard', request.url)
+      );
+    }
   }
 
-  // Coaches never go through the member consent/onboarding assessment —
-  // app/page.tsx already keeps them from ever landing here post-login, but
-  // a coach manually navigating to /onboarding (bookmark, typed URL) should
-  // bounce straight to their own dashboard rather than see the member flow.
-  if (user && path.startsWith('/onboarding')) {
-    const isCoach = await hasActiveRole(supabase!, user.id, 'coach');
-    if (isCoach) return NextResponse.redirect(new URL('/coach', request.url));
-  }
-
-  // Reserved for the future welcome flow (app/welcome/page.tsx), not yet
-  // linked from anywhere, but protected the same way /onboarding is: a
-  // coach or admin who manually navigates here bounces to their own
-  // dashboard rather than seeing a member-only route. The page itself
-  // handles the eligibility check (not a role, so it belongs there).
-  if (user && path.startsWith('/welcome')) {
-    const isCoach = await hasActiveRole(supabase!, user.id, 'coach');
-    if (isCoach) return NextResponse.redirect(new URL('/coach', request.url));
-
-    const isAdmin = await hasActiveRole(supabase!, user.id, 'platform_administrator');
-    if (isAdmin) return NextResponse.redirect(new URL('/admin', request.url));
+  // Role-based home routing. A coach or an administrator never sees a
+  // member engagement screen: Home, Daily Reset, Today, Progress and the
+  // rest of the list in lib/auth/staffRouting.ts all send them to their
+  // own dashboard instead.
+  //
+  // This replaces the two one-off checks that used to live here for
+  // /onboarding and /welcome, which covered two routes out of the twenty
+  // odd member surfaces and left the actual reported problem (an
+  // administrator on the member Home, with the Priority Card) untouched.
+  // signIn() already resolves a staff destination at login
+  // (lib/auth/postLoginRoute.ts); this is what covers every OTHER way of
+  // arriving: a bookmark, a link in an old email or push notification, a
+  // typed URL, a browser tab left open on /dashboard from before this
+  // deployed, and the app's own back button.
+  //
+  // Cost to members, deliberately kept to one round trip: the two role
+  // lookups run concurrently, and only for a request that is actually
+  // headed for a member-only path (never for /api/, static assets, the
+  // auth flow, or the staff platform). Both go through the same
+  // has_active_role() database function the RLS policies use, so this can
+  // never disagree with the real boundary about what an active grant is.
+  //
+  // hasActiveRole() fails closed to false, which here means "treat as a
+  // member": an account with no role rows, a revoked grant, or a failed
+  // RPC keeps the full member app rather than being bounced to a
+  // dashboard it cannot use.
+  if (user && isMemberOnlyPath(path)) {
+    const [isCoach, isAdmin] = await Promise.all([
+      hasActiveRole(supabase!, user.id, 'coach'),
+      hasActiveRole(supabase!, user.id, 'platform_administrator'),
+    ]);
+    const staffDestination = staffRedirectFor({ hasUser: true, isCoach, isAdmin, path });
+    if (staffDestination) return NextResponse.redirect(new URL(staffDestination, request.url));
   }
 
   return response;

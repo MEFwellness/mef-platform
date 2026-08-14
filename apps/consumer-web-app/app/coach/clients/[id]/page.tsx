@@ -736,6 +736,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                   metrics={progressComparison.metrics}
                   summary={progressComparison.summary}
                   hasLatest={progressComparison.latest !== null}
+                  canTakeAssessment={false}
                 />
                 <AssessmentHistoryList
                   history={assessmentHistory}

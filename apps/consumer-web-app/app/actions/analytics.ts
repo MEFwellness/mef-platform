@@ -29,6 +29,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trackProductEvent } from '@/lib/analytics/track';
+import { hasActiveRole } from '@/lib/auth/guards';
+import { shouldRecordMemberAnalytics } from '@/lib/auth/staffRouting';
 import {
   isProductSurface,
   isEngageableFeature,
@@ -37,17 +39,39 @@ import {
   isPaywallFeature,
 } from '@/lib/analytics/surfaces';
 
+/**
+ * Resolves the caller as a member, or refuses.
+ *
+ * Two reasons this can return null, and both are ordinary rather than an
+ * error. There is no signed-in user at all (a locked marker on a public
+ * preview screen). Or the account holds an active coach or administrator
+ * grant, in which case it is staff and nothing it does is member
+ * behavior: recording it would put staff activity into the very
+ * member_wellness_events stream the funnel, retention and drop-off
+ * reports read, inflating exactly the numbers those reports exist to
+ * answer.
+ *
+ * Role-based home routing (lib/auth/staffRouting.ts) already stops staff
+ * reaching the screens that fire these events. This is the second line,
+ * at the write itself, so no future entry point can reintroduce staff
+ * events by accident. hasActiveRole() fails closed to false, so a broken
+ * role lookup records the event as a member's, which is the safe way
+ * round: analytics keeps a real member's data rather than silently
+ * dropping it.
+ */
 async function memberContext(
   supabase: SupabaseClient
 ): Promise<{ memberId: string; timezone: string } | null> {
   const user = await getCachedUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .single();
+  const [{ data: profile }, isCoach, isAdmin] = await Promise.all([
+    supabase.from('profiles').select('timezone').eq('id', user.id).single(),
+    hasActiveRole(supabase, user.id, 'coach'),
+    hasActiveRole(supabase, user.id, 'platform_administrator'),
+  ]);
+
+  if (!shouldRecordMemberAnalytics({ isCoach, isAdmin })) return null;
 
   return { memberId: user.id, timezone: profile?.timezone ?? 'America/New_York' };
 }

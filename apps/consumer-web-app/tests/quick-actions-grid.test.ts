@@ -119,7 +119,7 @@ describe('Quick Actions: exactly two pills, Case and Movement', () => {
   });
 });
 
-describe('Bottom nav: Food Lens and Progress added for members, coach nav unchanged', () => {
+describe('Bottom nav: Food Lens and Progress added for members, coach nav separate', () => {
   it('member left/right items include Home, Food Lens, Progress, Today', () => {
     expect(BOTTOM_NAV).toContain(
       "{ label: 'Food Lens', href: '/food-lens', Icon: UtensilsCrossed }",
@@ -127,16 +127,35 @@ describe('Bottom nav: Food Lens and Progress added for members, coach nav unchan
     expect(BOTTOM_NAV).toContain("{ label: 'Progress', href: '/progress', Icon: BarChart2 }");
   });
 
-  it('coach items are still exactly Home + Coach (left) and Today (right)', () => {
-    expect(BOTTOM_NAV).toContain('const COACH_LEFT_ITEMS: NavItem[] = [{ label: \'Home\', href: \'/dashboard\', Icon: Home }]');
-    expect(BOTTOM_NAV).toContain('const COACH_RIGHT_ITEMS: NavItem[] = [{ label: \'Today\', href: \'/today\', Icon: Sparkles }]');
+  /**
+   * These two assertions used to pin the coach bar as Home (/dashboard) +
+   * Coach (/coach) on the left and Today (/today) on the right, under the
+   * heading "coach nav unchanged" — the point being that the member-side
+   * addition of Food Lens and Progress had not disturbed it.
+   *
+   * Role-based home routing (2026-08-14) changed that deliberately: three
+   * of those four destinations were member engagement screens, a coach
+   * account is now redirected off all of them, and that bar was the most
+   * likely way a coach or an administrator ended up on the member Home in
+   * the first place. So what these now pin is the same underlying
+   * intention, against the new shape: the member bar is untouched, and the
+   * coach bar offers nothing that would bounce. The route-level proof
+   * lives in tests/role-based-home-routing.test.ts.
+   */
+  it('coach items are exactly one Home tab pointing at the coach dashboard', () => {
+    expect(BOTTOM_NAV).toContain(
+      "const COACH_ITEMS: NavItem[] = [{ label: 'Home', href: '/coach', Icon: Users }]"
+    );
+    expect(BOTTOM_NAV).not.toContain('COACH_RIGHT_ITEMS');
   });
 
   it('leftItems/rightItems branch on isCoach so member and coach layouts differ', () => {
     expect(BOTTOM_NAV).toContain(
-      'const leftItems = isCoach ? [...COACH_LEFT_ITEMS, COACH_NAV_ITEM] : MEMBER_LEFT_ITEMS;',
+      'const leftItems: NavItem[] = isCoach ? COACH_ITEMS : MEMBER_LEFT_ITEMS;'
     );
-    expect(BOTTOM_NAV).toContain('const rightItems = isCoach ? COACH_RIGHT_ITEMS : MEMBER_RIGHT_ITEMS;');
+    expect(BOTTOM_NAV).toContain(
+      'const rightItems: NavItem[] = isCoach ? [] : MEMBER_RIGHT_ITEMS;'
+    );
   });
 
   it('the center Check-In button markup is unchanged (gold circle, Plus icon, h-14 w-14)', () => {

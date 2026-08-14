@@ -79,9 +79,26 @@ type Props = {
   metrics: ComparisonMetric[];
   summary: ProgressSummary;
   hasLatest: boolean;
+  /**
+   * Whether the empty state may offer its "Go to Questionnaires" link.
+   *
+   * True on the two member screens that render this (app/progress and
+   * app/profile/reassessments), where the member reading it is the person
+   * who would take the reassessment. False on the coach client detail
+   * page, where the empty state is describing someone else's missing
+   * reassessment and /questionnaires is a member route a coach account is
+   * now redirected away from (lib/auth/staffRouting.ts): the sentence
+   * still explains what is missing, without a button that would bounce.
+   */
+  canTakeAssessment?: boolean;
 };
 
-export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props) {
+export function AssessmentComparisonView({
+  metrics,
+  summary,
+  hasLatest,
+  canTakeAssessment = true,
+}: Props) {
   if (!hasLatest) {
     return (
       <Card as="section">
@@ -94,13 +111,15 @@ export function AssessmentComparisonView({ metrics, summary, hasLatest }: Props)
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
           Complete a reassessment to see how things have changed since the baseline.
         </p>
-        <Link
-          href={'/questionnaires' as Route}
-          className="mt-4 flex items-center gap-1 text-sm font-medium text-[#1B3A2D] hover:underline"
-        >
-          Go to Questionnaires
-          <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
+        {canTakeAssessment && (
+          <Link
+            href={'/questionnaires' as Route}
+            className="mt-4 flex items-center gap-1 text-sm font-medium text-[#1B3A2D] hover:underline"
+          >
+            Go to Questionnaires
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+          </Link>
+        )}
       </Card>
     );
   }
