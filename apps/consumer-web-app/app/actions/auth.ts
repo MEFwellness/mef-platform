@@ -1,8 +1,15 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createStandaloneClient } from '@supabase/supabase-js';
+import { getSupabaseEnv } from '@/lib/supabase/env';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
+import {
+  PASSWORD_RECOVERY_COOKIE,
+  PASSWORD_RECOVERY_MAX_AGE_S,
+  recoveryRedirectTo,
+} from '@/lib/auth/recovery';
 import {
   ENTRY_ANIMATION_LAST_ACTIVE_COOKIE,
   ENTRY_ANIMATION_LOGIN_COOKIE,
@@ -292,6 +299,9 @@ export async function signOut(): Promise<void> {
   cookies().set(ENTRY_ANIMATION_LAST_ACTIVE_COOKIE, '', { path: '/', maxAge: 0 });
   cookies().set(ENTRY_ANIMATION_LOGIN_COOKIE, '', { path: '/', maxAge: 0 });
   cookies().set(ENTRY_ANIMATION_PLAY_COOKIE, '', { path: '/', maxAge: 0 });
+  // Abandoning a recovery by signing out must not leave the next session on
+  // this browser gated behind a set-new-password screen it never triggered.
+  cookies().set(PASSWORD_RECOVERY_COOKIE, '', { path: '/', maxAge: 0 });
   redirect('/login');
 }
 
@@ -300,12 +310,11 @@ export async function requestPasswordReset(formData: FormData): Promise<ActionRe
   try {
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // Routes through the same code-exchange callback signup already uses
-      // (app/api/auth/callback/route.ts) so the recovery code becomes a real
-      // session before the confirm page calls updateUser() — without this,
-      // Supabase's PKCE-style recovery link lands on reset-password/confirm
-      // with only an unexchanged `?code=`, no session, and updateUser fails.
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback?next=/reset-password/confirm`,
+      // A bare path, with the recovery intent carried by the path itself
+      // rather than a `?next=` parameter — see recoveryRedirectTo()'s own
+      // comment for why that parameter was the thing turning a reset link
+      // into a plain sign-in whenever it failed to survive the round trip.
+      redirectTo: recoveryRedirectTo(process.env.NEXT_PUBLIC_SITE_URL ?? ''),
     });
     if (error) {
       logAuthFailure('supabase_request', 'requestPasswordReset', error);
@@ -317,17 +326,126 @@ export async function requestPasswordReset(formData: FormData): Promise<ActionRe
   }
 }
 
+/**
+ * Raises the recovery gate from the browser.
+ *
+ * Only used for the implicit-flow landing, where the tokens arrive in the
+ * URL fragment and the server never sees them: by the time the page can act
+ * on them a session already exists, which is exactly the silent sign-in this
+ * build removes. The two server-visible shapes set the same cookie inside
+ * app/api/auth/recovery/route.ts instead, before any redirect happens.
+ *
+ * Safe to call with no session — the cookie alone grants nothing, and
+ * shouldGateToPasswordReset() ignores it unless a real user is present.
+ */
+export async function beginPasswordRecovery(): Promise<void> {
+  cookies().set(PASSWORD_RECOVERY_COOKIE, crypto.randomUUID(), {
+    path: '/',
+    maxAge: PASSWORD_RECOVERY_MAX_AGE_S,
+    httpOnly: true,
+    sameSite: 'lax',
+  });
+}
+
+function clearRecoveryCookie(): void {
+  cookies().set(PASSWORD_RECOVERY_COOKIE, '', { path: '/', maxAge: 0 });
+}
+
+/**
+ * Completes a reset-by-email. The caller must already hold the recovery
+ * session that app/api/auth/recovery/route.ts (or beginPasswordRecovery)
+ * established — this refuses rather than silently doing nothing if it
+ * doesn't, so an expired link can never present a form that appears to work.
+ */
 export async function updatePassword(formData: FormData): Promise<ActionResult> {
   const password = String(formData.get('password') ?? '');
   try {
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return {
+        error: 'This reset link has expired. Request a new one and it will work straight away.',
+      };
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       logAuthFailure('supabase_request', 'updatePassword', error);
       return toResult(error);
     }
+    // Lower the gate only once the password has genuinely changed, so an
+    // abandoned or failed attempt still can't wander off into the app.
+    clearRecoveryCookie();
     return {};
   } catch (err) {
     return toActionError('updatePassword', err);
+  }
+}
+
+/** Distinguishes a wrong current password from every other failure. */
+export interface ChangePasswordResult extends ActionResult {
+  field?: 'currentPassword' | 'password';
+}
+
+/**
+ * Changes the password of an already-signed-in account. One flow for every
+ * role: it asks Supabase who the caller is and never reads a role, so a
+ * member, a coach and an administrator all run the same code path.
+ *
+ * The current password is verified by actually attempting a sign-in with it,
+ * because Supabase has no "check this password" endpoint — updateUser() will
+ * happily change the password of whoever holds the session without ever
+ * asking what the old one was. That check is what stops a borrowed or
+ * unattended session from being turned into a permanent takeover.
+ *
+ * The verification runs on a throwaway client with persistSession off, so it
+ * cannot touch the cookies carrying the caller's real session. Signing that
+ * throwaway session out uses scope 'local' deliberately: the default is
+ * 'global', which would revoke every session this account holds, including
+ * the one making this request, and log the member out mid-change.
+ */
+export async function changePassword(formData: FormData): Promise<ChangePasswordResult> {
+  const currentPassword = String(formData.get('currentPassword') ?? '');
+  const password = String(formData.get('password') ?? '');
+
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.email) {
+      return { error: 'You are signed out. Please sign in again and retry.' };
+    }
+
+    const { url, anonKey } = getSupabaseEnv();
+    const verifier = createStandaloneClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    const { error: verifyError } = await verifier.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+    if (verifyError) {
+      logAuthFailure('supabase_request', 'changePassword.verify', verifyError);
+      // Anything other than a genuine credential rejection (a rate limit, a
+      // 5xx) must not be reported as "wrong password" — that would send a
+      // member round in circles retyping a password that was correct.
+      if (verifyError.message.toLowerCase().includes('invalid login credentials')) {
+        return { error: 'That is not your current password.', field: 'currentPassword' };
+      }
+      return toResult(verifyError);
+    }
+    await verifier.auth.signOut({ scope: 'local' });
+
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      logAuthFailure('supabase_request', 'changePassword', error);
+      return { ...toResult(error), field: 'password' };
+    }
+    return {};
+  } catch (err) {
+    return toActionError('changePassword', err);
   }
 }

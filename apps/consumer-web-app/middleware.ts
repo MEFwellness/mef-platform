@@ -8,6 +8,11 @@ import {
   ENTRY_ANIMATION_PLAY_COOKIE,
   ENTRY_ANIMATION_PLAY_MAX_AGE_S,
 } from '@/lib/entry-animation/cookies';
+import {
+  PASSWORD_RECOVERY_COOKIE,
+  RESET_CONFIRM_PATH,
+  shouldGateToPasswordReset,
+} from '@/lib/auth/recovery';
 
 // /api/cron/* routes authenticate their own way (a CRON_SECRET bearer
 // token checked inside each route handler — see
@@ -25,6 +30,11 @@ const PUBLIC_PATHS = [
   '/verify',
   '/reset-password',
   '/api/auth/callback',
+  // Where every password-reset email now lands. Necessarily reachable
+  // without a session: the whole point is that the member cannot sign in.
+  // Its own protection is the one-time GoTrue token in the link, which the
+  // route verifies before it grants anything.
+  '/api/auth/recovery',
   '/api/cron/',
   // Pre-signup Quick Wellness Check — reached from marketing/campaign
   // links, not the default login route. Its own page component
@@ -70,6 +80,28 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set('redirectedFrom', path);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Password recovery gate. A session established by a reset-email link is
+  // indistinguishable from an ordinary sign-in once it exists, which is
+  // exactly why members were being signed straight into the app and never
+  // shown a set-new-password screen. app/api/auth/recovery/route.ts (and,
+  // for the fragment-only landing, beginPasswordRecovery()) mark such a
+  // session with a cookie, and this sends it to that screen and nowhere
+  // else until the password has genuinely been changed.
+  //
+  // Placed above every other check so it beats the role gates and the entry
+  // animation: mid-recovery there is exactly one place to be. It is a
+  // routing rule, not an authorization boundary — RLS still decides what
+  // this session may actually touch. See lib/auth/recovery.ts.
+  if (
+    shouldGateToPasswordReset({
+      hasUser: Boolean(user),
+      recoveryPending: Boolean(request.cookies.get(PASSWORD_RECOVERY_COOKIE)?.value),
+      path,
+    })
+  ) {
+    return NextResponse.redirect(new URL(RESET_CONFIRM_PATH, request.url));
   }
 
   // Branded "Reset" entry animation, the *reopened-after-a-gap* trigger

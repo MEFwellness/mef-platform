@@ -24,6 +24,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { ClientListPanel } from './ClientListPanel';
 import { firstNameFrom } from '@/lib/profile/greeting';
+import { ChangePasswordLink } from '@/components/auth/ChangePasswordLink';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const STAT_CARD = `${CARD} flex flex-col p-5`;
@@ -93,6 +94,8 @@ export default async function CoachPage() {
         <p className="mt-2 text-[15px] text-[#6B7A72]">
           Here&apos;s how your clients are doing today.
         </p>
+
+        <ChangePasswordLink className="mt-4" />
 
         {/* ---------------------------------------------------- */}
         {/* Coach Home Dashboard — stats                          */}

@@ -6,6 +6,7 @@ import { listUsers, listActiveCoachUserIds, listAssignmentHistory } from '@/app/
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { AdminPanel } from './AdminPanel';
+import { ChangePasswordLink } from '@/components/auth/ChangePasswordLink';
 
 export default async function AdminPage() {
   const supabase = createClient();
@@ -30,6 +31,8 @@ export default async function AdminPage() {
         <p className="mt-2 text-[15px] text-[#6B7A72]">
           User management, coach roles, and client assignments.
         </p>
+
+        <ChangePasswordLink className="mt-4" />
 
         <Link
           href={'/admin/analytics' as Route}

@@ -18,7 +18,15 @@ port = 54323
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000/api/auth/callback"]
+additional_redirect_urls = [
+  "http://localhost:3000/api/auth/callback",
+  # Where every password-reset email points. Without this, local GoTrue
+  # silently falls back to site_url and the recovery link behaves as a plain
+  # sign-in, which is the exact production failure this path was added to
+  # fix. Production already allows every path on its own domain (verified
+  # directly against the running instance).
+  "http://localhost:3000/api/auth/recovery",
+]
 jwt_expiry = 3600
 enable_signup = true
 

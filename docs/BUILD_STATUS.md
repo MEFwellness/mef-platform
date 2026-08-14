@@ -1,3 +1,64 @@
+## The reset link that was really a sign-in link, and a change-password screen that did not exist (2026-08-14)
+
+Two password gaps, both certain to be hit in week one. The reset email arrived and its link signed the member in without ever asking for a new password, and there was nowhere inside the app to change a password at all. No migration, no schema change, no LLM.
+
+### The reset link, diagnosed rather than guessed at
+
+The set-new-password screen already existed. Nothing ever reached it. `requestPasswordReset()` pointed recovery emails at `/api/auth/callback?next=/reset-password/confirm`, so the entire intent of the link lived in one query parameter, and the callback's fallback for a missing `next` was `'/'`. Anything that dropped that parameter anywhere between the email template, GoTrue's redirect allow list and the trip back turned a password reset into a plain sign-in that landed on the routing hub. That is precisely the reported symptom.
+
+Two things were established by probing the running production instance directly, not by reading documentation:
+
+| Question | Answer |
+| --- | --- |
+| Is `https://app.mefwellness.com/api/auth/callback?next=...` allow-listed? | Yes. So is every other path on the domain. A non-allow-listed URL falls back to the site root, and this one does not |
+| Where does GoTrue report a dead link? | **In the URL fragment**, always: `#error=access_denied&error_code=otp_expired`. Confirmed identical on production and on local v2.193.1 |
+
+The second answer is the one that mattered. **A server can never see a URL fragment.** So an expired or already-used link reached `/api/auth/callback` looking like a request with nothing in it at all: no code, no error, nothing. The route concluded that nothing had happened and redirected to `/login?error=auth_callback_failed`, carrying the fragment along to a login page whose browser Supabase client is perfectly capable of picking tokens out of it. A generic login form was the best outcome that path could produce, and a silent sign-in was the worst.
+
+### The fix, built to survive every landing shape
+
+`lib/auth/recovery.ts` is the one place that decides what a recovery landing is. A recovery can arrive in four shapes and only two are visible to a server: `?code=` (PKCE), `?token_hash=` (verify-OTP), `#access_token=` (implicit), and `#error=` (dead link). Detection is split accordingly, the server handling what it can see and the browser handling the fragment, both funnelling into one marker cookie.
+
+Three changes follow from that:
+
+1. **Reset emails now point at `/api/auth/recovery`, a bare path with no query string.** The intent is in the path, so there is no parameter left to lose. That is the defect removed by construction rather than patched.
+2. **A recovery gate in `middleware.ts`.** Once any detection path recognises a recovery, every route except the set-new-password screen redirects to it until the password has genuinely changed. This is what makes "never a silent sign-in" true even if a session gets established, which under the implicit flow it always does. It is a routing rule, not an authorization boundary; RLS still decides what the session may touch.
+3. **An expired link says so.** A dead link now reaches `/reset-password?reason=expired`, which explains that reset links are single-use and offers the button that sends a fresh one. The confirm screen carries the same state for the fragment case.
+
+Emails already sitting in inboxes still point at the old callback, so that route learned the same two behaviours rather than being left to mis-handle them.
+
+`/reset-password/confirm` requires **both** a session and the recovery marker. A session alone is deliberately not enough: without that second condition any signed-in member could open the URL and set a new password without being asked for their current one, which would quietly undo the entire point of the change-password screen below.
+
+### A defect the tests did not catch and the browser did
+
+Driving the finished flow in a real browser produced a member who saw **"This link has expired" immediately after successfully setting a new password that had in fact been saved.**
+
+Finishing a reset clears the recovery marker, which is correct, because the gate has to come down. But clearing a cookie in a Server Action makes Next.js re-render the route; the confirm screen recomputed "is a recovery in progress", correctly answered no, and re-resolved itself from a URL whose tokens had already been used and stripped. Success was being overwritten by a later, technically accurate reassessment.
+
+The rule that fixes it is that success is terminal, and it lives in `nextRecoveryScreen()` in the shared lib where it can be stated and tested, rather than buried in an effect. Three tests pin it. It is worth recording that no amount of reading the code surfaced this one.
+
+### Change password, one flow for three roles
+
+`/account/password`, role-neutral by construction: it reads no role, renders no role-specific chrome and is gated by nothing but having a session. Members reach it from the Account card on the profile screen; coaches and administrators from a control on their own home pages, neither of which has a settings area of its own. One screen, three doors.
+
+The current password is required, and verifying it is the whole point: Supabase has no "check this password" call, and `updateUser()` will change the password of whoever holds the session without ever asking what the old one was. Without that check, a borrowed or unattended session becomes a permanent takeover. Verification therefore runs a real sign-in attempt on a throwaway client with `persistSession` off so it cannot touch the caller's cookies.
+
+Two details that are easy to get wrong and were:
+
+- Discarding the throwaway session uses `scope: 'local'`. The supabase-js default is `'global'`, which revokes **every** session the account holds, including the one making the request, and would have logged the member out in the middle of changing their password.
+- A wrong current password produces an inline error on the field that has to be fixed, and only for a genuine credential rejection. A rate limit or a 5xx is reported as itself, never as "wrong password", which would send a member round in circles retyping a password that was correct.
+
+### What the tests hold
+
+`tests/password-recovery.test.ts` (27) and `tests/change-password.test.ts` (10). The pure half pins detection, gating and the success-is-terminal rule. The integration half mints **real** recovery tokens through the admin API and redeems them against a real GoTrue, proving the things that actually matter are true rather than mocked: the new password works, the old one is dead, and a link cannot be redeemed twice, which is exactly the expired case. Every role runs the change-password sequence end to end.
+
+**Suite: 4926 passing, 368 files, on a freshly reset database. Typecheck clean, lint 0 errors, production build clean.**
+
+One honest note on the suite: a first run showed a single failure in `tests/assessment-runtime-integration.test.ts`, which passed alone and passed after `supabase db reset`. It was a leftover draft session from an earlier run being resumed, a pre-existing test-isolation issue in that file with nothing to do with this work, and it was left alone rather than changed opportunistically.
+
+### Verified in a real browser, locally, before deploying
+
+28 of 28 checks, **zero console errors**, driving the production build with Playwright: a real recovery link lands on the set-new-password screen rather than a dashboard, the gate refuses `/dashboard` until the password is set, mismatched and weak passwords are refused inline, the old password dies and the new one works, the same link reused shows the expired screen and its fresh-link button, a wrong current password gives the inline error while leaving the member signed in, and coach and administrator accounts both reach the same shared screen. Zero em dashes on all three new screens.
 ## One NULL column took down the admin users API for the whole project (2026-08-14)
 
 A follow-up to the entry below. The administrator-only account it left unable to sign in now signs in, and the cause turned out to be considerably bigger than one account.

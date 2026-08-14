@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ClipboardList, ChevronRight, TrendingUp, Watch, ScanFace, User } from 'lucide-react';
+import type { Route } from 'next';
+import { ClipboardList, ChevronRight, TrendingUp, Watch, ScanFace, User, KeyRound } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
@@ -180,6 +181,22 @@ export default async function ProfilePage() {
           <p className="mt-2 text-sm text-[#6B7A72]">
             Signed in as <span className="text-[#1B3A2D]">{user.email}</span>
           </p>
+          <div className="mt-4 border-t border-[#1B3A2D]/10 pt-4">
+            <Link
+              href={'/account/password' as Route}
+              className="mef-press flex items-center justify-between rounded-2xl border border-[#1B3A2D]/10 px-4 py-3 transition hover:border-[#1B3A2D]/30"
+            >
+              <span className="flex items-center gap-2.5 text-[15px] font-medium text-[#1B3A2D]">
+                <KeyRound className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+                Change password
+              </span>
+              <ChevronRight
+                className="h-5 w-5 shrink-0 text-[#1B3A2D]/40"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+            </Link>
+          </div>
           <div className="mt-4 border-t border-[#1B3A2D]/10 pt-4">
             <PasskeyEnrollment />
           </div>
