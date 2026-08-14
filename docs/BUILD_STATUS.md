@@ -93,6 +93,42 @@ One real bug found by its own test: `clampDays(0)` returned 90 rather than 1, be
 ### Applied to production
 
 Migration 158 pushed and verified: `member_goal_selections` now carries three policies, the two original member-scoped ones and the new coach read.
+
+### Verified on production (app.mefwellness.com)
+
+Repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform`, target Production. `app.mefwellness.com` aliased to `mef-platform-qzr2datwr` (commit `faa1f78`), alongside `mef-platform.vercel.app`. Both new routes answer on the live domain with a 307 to `/login` for an anonymous request rather than a 404, which is how the new code was confirmed to be the code being served.
+
+**18 of 18 browser checks, zero console errors, zero page errors** (`scripts/screenshots/verify-member-detail-and-insights-live.mjs`).
+
+| Check | Result |
+| --- | --- |
+| Signed-out visitor on both new analytics routes | refused to `/login` |
+| Standing test member (`8weeks2fab@gmail.com`) signs in | yes, lands on `/dashboard` |
+| That member on `/admin/analytics`, `/admin/analytics/insights`, `/admin/analytics/members` | refused, `/dashboard` every time |
+| That member on a coach Member Detail URL | refused, `/dashboard` |
+| Coach signs in | lands on `/coach` |
+| Member Detail link on the coach client page | present, above the derived panels |
+| Coach opens Member Detail | yes |
+| Her real check-in answers render | yes |
+| Unanswered questions | say "Not answered", never blank |
+| Look-back range control | works |
+| Em dashes on Member Detail | zero |
+
+**The coach screen surveyed across all three of this coach's real clients**, at 180 days:
+
+| Client | Check-in days | Answers shown | Unanswered, labelled | Goal entries | Completed |
+| --- | --- | --- | --- | --- | --- |
+| Heather (populated) | 45 | 659 | 31 | 1 | 4 |
+| below-threshold | 5 | 73 | 5 | 0 | 0 |
+| empty | 2 | 24 | 10 | 1 | 1 |
+
+The adaptive follow-up questions rendered on all three. **Heather's goal entry rendering is the live proof of migration 158**: before it, that section could only ever have been empty for a coach. The empty and below-threshold accounts are the honest-empty-state case and rendered their explanatory copy rather than blank sections.
+
+**One real copy bug the browser found and no test did.** The heading rendered "What This member entered" for a client with no display name, because one fallback string was being used both to open a sentence and to sit inside one. Fixed in `faa1f78` and confirmed live as "What this member entered".
+
+**The one live check in the brief that could not be run, and why.** The brief asked for the coach to open Member Detail for the standing test member. `8weeks2fab@gmail.com` (Ebony) has real entered data on production (3 check-ins, 1 completed questionnaire, 1 goal selection) but **holds zero active coach assignments**, so no coach can open her Member Detail. That is row level security working exactly as designed, not a fault in this build, and it is why the equivalent proof was taken from Heather instead, who is assigned and has far more history. Nothing was assigned or seeded on production to manufacture the check.
+
+**The administrator half could not be walked live**, because no administrator password is available to this tooling and the newly provisioned `info@mefwellness.com` cannot sign in yet. The six analytics screens are covered by the anonymous and member refusal checks above, the 4880-test suite, and the structural privacy test that reads the pages' own import lists.
 ## Home stops competing with itself (2026-08-14)
 
 A cleanup pass over the member Home screen, the Priority Card's shared state, and the Today tab. No new engine, no new schema, no migration. Coach platform untouched.
