@@ -1,3 +1,66 @@
+## One NULL column took down the admin users API for the whole project (2026-08-14)
+
+A follow-up to the entry below. The administrator-only account it left unable to sign in now signs in, and the cause turned out to be considerably bigger than one account.
+
+### Two symptoms, one fault
+
+| Symptom | Where it showed up |
+| --- | --- |
+| `500 Database error querying schema` when signing in as `info@mefwellness.com` | the live login form |
+| `listUsers failed: {}` at `provision-admin-account.mjs:82` | anyone running the provisioning script |
+
+They were the same fault. GoTrue scans several `auth.users` columns into plain Go strings rather than pointers. A NULL in any of them fails the scan for the **whole query**, not just that row. So a single malformed row makes **every** `listUsers` call in the project return a 500 with an empty body, for every caller, while the rest of the app carries on working normally and gives no hint that auth administration is down.
+
+Exactly one row was malformed, and this build created it: `info@mefwellness.com`, inserted with hand written SQL on 2026-08-14 because the permission environment refused the Auth Admin API four times. A SQL INSERT that omits those columns leaves NULL; the Admin API always writes `''`. Confirmed by counting: of 16 accounts, 1 had NULLs in 4 of those columns, and the 13 healthy rows all held empty strings.
+
+The key was never the problem. The diagnostic decoded the `role` claim of the key actually being used and it read `service_role`, which ruled out the obvious suspects (anon key, wrong project, truncated paste) in one step.
+
+### The repair
+
+`scripts/repair-auth-null-tokens.sql`, applied to production: **1 row repaired, 0 remaining**. Idempotent, safe to re-run, and it only ever rewrites NULL to `''`. It never touches a real token, a password, an email, a confirmation state or a role. Both symptoms cleared on that one change: `listUsers` recovered and the account signed in on the next attempt.
+
+### Three changes so this cannot recur quietly
+
+1. **The script reads the gitignored `.env.local` files** the repo already keeps, so the service-role key never has to be typed on a command line where it would land in shell history. This also fixes the first failure reported: a missing `ADMIN_SUPABASE_URL`.
+2. **A wrong key is rejected before any call is made.** The `role` claim is decoded and checked; an anon key, or the truncated `sb_secret_...` paste the CLI's own table invites by eliding it with dots, is named as the problem rather than surfacing later as an opaque authorization error.
+3. **A 500 with an empty body now explains itself**, names the real cause, and prints the exact repair command. The header carries the rule the whole incident reduces to: never create a user row with SQL.
+
+### What the tests now hold
+
+`tests/admin-only-account.test.ts`, 15 tests. The new ones sign in **as** the admin-only account and assert what it can and cannot do, plus the invariant behind the incident: `listUsers` must succeed, which is precisely the call a malformed row breaks.
+
+**Two of those assertions were wrong on the first pass, and the failures were correct.** `platform_administrator` holds broad `FOR ALL` row level security policies across the schema (migration 16), so an administrator genuinely **can** read onboarding submissions and coach assignments. Asserting otherwise was asserting that the administrator role does not work. What the product actually implements, and what is asserted now, is refusal by **role and route**: the account holds no member and no coach role, so middleware sends it away from `/coach` and `postLoginRoute` never routes it into the member experience; it is in nobody's caseload; and it owns no member data of its own.
+
+**Suite: 4888 passing, 366 files. Typecheck clean, lint 0 errors and the same 90 pre-existing warnings, production build clean.**
+
+### Verified on production
+
+Repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform`, target Production, `app.mefwellness.com` aliased to `mef-platform-9risqn62w` (commit `e90b774`).
+
+**15 of 15 browser checks, zero console errors** (`scripts/screenshots/verify-admin-account-live.mjs`, which reads the password from a file path rather than a command line so it never enters shell history).
+
+| Check | Result |
+| --- | --- |
+| `info@mefwellness.com` signs in | yes |
+| Post-login destination | `/admin` |
+| All seven admin screens open | yes: Admin home, Overview, Member funnel, Feature usage, Drop-off, Member engagement, Product insights |
+| Coach area (`/coach`, `/coach/clients`) | refused, redirected to `/dashboard` |
+| Absent from the member engagement table | yes, 10 real members listed |
+| Absent with test accounts on | yes, 13 listed |
+| Em dashes on the two screens this build added | zero |
+
+Database side, against production: one healthy confirmed account with an identity row, `member` granted then revoked, `platform_administrator` active, `has_active_role` answering false / false / false / true, absent from `analytics_member_scope` under **both** toggles, zero coach assignments, zero check-ins, zero questionnaires, zero goals, and no orphaned rows in any public table.
+
+**An honest finding: the member area does NOT refuse this account.** `middleware.ts` role-gates `/admin` and `/coach` and nothing else, so `/dashboard`, `/today`, `/checkin`, `/case` and `/progress` all render for an administrator, as an empty day-one member experience ("Good afternoon, MEF", "Complete a check-in to start building your Root Score"), with zero console errors. It is cosmetic rather than a data leak: the account is excluded from analytics by its staff role whatever it does. The only practical consequence is that completing a Daily Reset from it would create member rows on an administrator account. Whether member routes should be role-gated is a product decision and was left alone rather than changed unilaterally.
+
+### The exposed key
+
+The service-role key was exposed in a photograph and must be treated as compromised.
+
+**Rotation could not be done from here.** The Supabase CLI has no rotation command (`projects api-keys` only lists), and the Management API needs a personal access token; the CLI stores its own token encrypted in the macOS keychain, and the value there is not a usable bearer token. Creating a personal access token is itself a dashboard action, so there is no path that avoids the dashboard. Exact steps are in the handover report.
+
+**What was done instead, immediately.** Production was audited for signs of misuse and is clean: 16 auth users against 16 profiles, 20 role grants all accounted for, 3 coach assignments, **2 active administrator grants** (the existing one from 2026-08-01 and the one this build created) and **2 active coach grants**, with no unexpected account, no unexpected grant, and every sign-in in the last seven days traceable to a known account or to this build's own verification runs. The repository was also checked: no production key is committed anywhere, and `.env*` is gitignored.
+
 ## A dedicated admin account, product insights, and the coach finally seeing what members typed (2026-08-14)
 
 Three pieces of work in one pass: an administrator-only account for `info@mefwellness.com`, the sixth admin analytics screen plus a sortable member table, and a new coach-side Member Detail that shows what a member actually entered. One migration (158). No LLM anywhere in any of it.
