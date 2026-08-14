@@ -59,6 +59,32 @@ One honest note on the suite: a first run showed a single failure in `tests/asse
 ### Verified in a real browser, locally, before deploying
 
 28 of 28 checks, **zero console errors**, driving the production build with Playwright: a real recovery link lands on the set-new-password screen rather than a dashboard, the gate refuses `/dashboard` until the password is set, mismatched and weak passwords are refused inline, the old password dies and the new one works, the same link reused shows the expired screen and its fresh-link button, a wrong current password gives the inline error while leaving the member signed in, and coach and administrator accounts both reach the same shared screen. Zero em dashes on all three new screens.
+
+### Verified on production
+
+Repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform`, target Production, `app.mefwellness.com` aliased to `mef-platform-gqvjc3uc7` (commit `6c1efae`).
+
+**31 of 32 live checks, zero console errors**, against `app.mefwellness.com` with the standing test member. Recovery tokens were minted through the Auth Admin API, which produces exactly the token the email carries without sending mail, so a real link could be followed the way a member follows it. The service-role key was read from a file path rather than a command line, never printed, and deleted afterwards.
+
+| Check | Result |
+| --- | --- |
+| Forgot-password request from the live form | accepted; GoTrue reports SMTP failures explicitly and did not |
+| Reset links now point at `/api/auth/recovery` | yes, bare path, no query parameter |
+| The link opens the set-new-password screen | yes, not a sign-in and not a dashboard |
+| `/dashboard` before the password is set | refused, redirected back to the reset screen |
+| Old password after the reset | refused |
+| New password after the reset | works |
+| The same link opened again | honest expired screen with a fresh-link button, and no sign-in |
+| Wrong current password in the app | inline field error, member stays signed in, password unchanged |
+| Successful in-app change | plain confirmation, old password refused, new one works |
+| Administrator (`info@mefwellness.com`) | reaches `/admin`, sees the Change password control, opens the same shared screen, gets the same inline error |
+| Em dashes on the three new screens | zero |
+
+The single failure was a first attempt to sign the administrator in by magic link landing on `/login`, where the fragment was not picked up. Re-running with the session installed as the same cookie the app itself writes passed all 8 administrator checks. **The administrator password was deliberately not changed**; only the rejection path was exercised.
+
+**The standing test member's password is now `RootReset2026!`.** `Dusty851@` and the interim value used mid-test are both confirmed refused.
+
+Two limits worth stating plainly rather than glossing. The mailbox for `8weeks2fab@gmail.com` could not be opened from here, so "the email arrives" rests on GoTrue accepting the send rather than on reading the message; every step after the link was exercised with a real token. And the coach role was verified locally and by tests but not separately on production, because doing so would have meant signing into Osei's own account, which was not asked for.
 ## One NULL column took down the admin users API for the whole project (2026-08-14)
 
 A follow-up to the entry below. The administrator-only account it left unable to sign in now signs in, and the cause turned out to be considerably bigger than one account.
