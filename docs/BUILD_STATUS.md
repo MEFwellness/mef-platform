@@ -1,3 +1,81 @@
+## Membership tiers, the 30 day trial, and manual access control (2026-08-14)
+
+People have been signing up for 30 days free and the product had no idea what a trial was. Nothing stopped anyone on day 31. Payment happens entirely outside this application (external Stripe links on Leadpages, and Zelle, which never touches a checkout at all), so the only thing that can decide access today is Osei, by hand. This build is the entitlement layer he runs it through, shaped so the later in-app billing build plugs into the same rows rather than replacing them. Migration 159, applied to production. No LLM.
+
+### The one decision that shaped everything else
+
+`profiles.membership_tier` already existed (migration 69) and was tempting. It is also already read: it is the minimum-tier input to the assessment registry's gating, on a completely different vocabulary (`free_trial` / `membership` / `holistic_reset`). Repurposing it would have silently rewritten which assessments every member can open, which is exactly the thing the brief said not to break. It is untouched, along with its own `membership_tier_changed` trigger.
+
+So `member_subscriptions` is new: one row per account, keyed by the account id, holding the tier, how it was granted, its status, whether it holds a `full_access` grant, and the 30 day trial window. **Entitlement is tied to the account and nothing else.** No session, no cookie, no JWT claim is read anywhere in this feature, so signing out and back in, on any device, cannot change what an account is entitled to.
+
+### Three values for `source`, not two, and the reason matters
+
+The brief names `manual` and `billing`, and both are there meaning exactly what it says. There is a third, `system`, for the automatic trial stamped at account creation.
+
+It is not tidiness. The protection rule below freezes a `manual` row against everything except the admin panel. If the automatic trial were labelled `manual`, every trial account in the product would be frozen, and the future billing build could never convert a trial into a paid subscription, which is the single most important thing it will ever need to do. `system` means "nobody assigned this", and it is the only source a later build is free to convert.
+
+### A manual assignment is protected by Postgres, not by good intentions
+
+"The future billing build must never modify or downgrade a manual assignment" would not have survived as a comment. A trigger on `member_subscriptions` rejects any change to the entitlement fields of a `manual` row unless a transaction-local marker is set, and the only thing that sets that marker is `admin_set_member_access()`, which refuses everyone except a signed in platform administrator. Deliberately **including the service role**, unlike `analytics_assert_admin()` (migration 149): the service role is precisely what an in-app Stripe webhook in this application would run as, so exempting it would hand the future build the one key that opens a manual assignment. Proved on production, not just locally: a service-role `update` against a real manual row came back `A manual membership assignment can only be changed through the admin member access panel.`
+
+**A defect the tests found and reading the code did not.** The first version of that trigger also refused a DELETE, which broke account deletion outright: `on delete cascade` from `auth.users` fires the row trigger, so deleting any manually assigned member's account failed. Probed directly against a real cascade, and the fix is the distinction the probe revealed: during a cascade the parent row is already gone when the child trigger runs, so `exists (select 1 from auth.users where id = old.member_id)` is exactly the difference between somebody deleting an assignment and an account deletion carrying it away.
+
+### The clock, and who it caught
+
+`handle_new_user()` (already the one thing that runs exactly once per account, whatever path created it) now stamps a 30 day trial, in its own exception block for the same reason the `signup_completed` write has one: nothing here may ever break a signup. Existing accounts were backfilled to their **original signup date**, so an account older than 30 days is past its trial the moment this shipped, exactly as the brief intended.
+
+**Sixteen production accounts were backfilled and zero real members landed locked out.** The oldest non-staff account still has eight days left. The only account past its window is `oakomah66@gmail.com`, which holds coach and administrator grants, and staff are redirected off every member surface before the lock is ever consulted.
+
+### The decision, and which way it fails
+
+`lib/membership/access.ts`'s `decideMemberAccess()` is the whole rule, in one pure function. `full_access` wins over everything. An untouched test account is never locked out by the clock, and an administrator's assignment overrules that exemption, which is what makes the lock verifiable on a real account without waiting 30 days. `manual` and `billing` are read identically, tier by tier and status by status, asserted exhaustively rather than by sampling; the difference between them lives entirely at the database, in what may write them.
+
+Every failure direction points at the member. A missing row, an unparseable date, a failed read: all resolve to "let them in", same discipline as `hasActiveRole()` and `staffRedirectFor()`. Nothing in this module can lock a member out because a lookup broke.
+
+### Where the lock sits, and what it costs
+
+In `middleware.ts`, inside the block that was already doing the staff check, on the same `MEMBER_ONLY_PREFIXES` list. The entitlement read runs concurrently with the two role lookups, so a member's request still waits on one round trip on a member-only path, exactly as before. Staff are redirected first, so an administrator past their own trial is never sent to a member lock screen.
+
+The member's data is untouched, and `/api/` is deliberately not covered: RLS governs every one of those and there is nothing there for a routing rule to protect. Login itself still works, and `/account/password` stays reachable, both verified live.
+
+### No new event types
+
+`membership_tier_changed` (migration 146) records every change, written by a trigger on the table rather than by application code, so a change made through psql in an emergency is recorded identically. `paywall_viewed` gained a `trial_expired` **lock reason**, not a new event type. The automatic signup stamp deliberately writes no tier-change event: the account never held another tier, and signup already has its own event.
+
+### The pricing link, flagged
+
+**There is no pricing page URL anywhere in this codebase or in the deployed Vercel project.** Searched the repo, the marketing config and the live environment variables: the only external marketing URLs that exist are the Lead Capture Agent's Calendly and quiz links, and neither is a place to buy a membership. The button reads `MEMBERSHIP_PRICING_URL` and falls back to the visible `#PRICING_LINK` placeholder, with a line of copy beneath it pointing at the support address so nobody reaching that screen is left with nowhere to go. Setting the variable in Vercel points it at the real Leadpages page with no code change and no deploy.
+
+### What the tests hold
+
+`tests/membership-access.test.ts` (54) and `tests/membership-access-integration.test.ts` (49). Two of the pure ones are properties rather than examples: a manual `full_access` grant opens the app in every one of the thirty combinations of tier, status and test flag, and nothing the routing rule returns can itself be redirected, so a loop is impossible. The integration half runs against real Postgres with real RLS, and every denial is asserted alongside the matching success, so a guard that is always closed fails as loudly as one that is always open.
+
+**Suite: 5056 passing, 371 files. Typecheck clean, lint 0 errors, production build clean.** One unrelated failure on the first run was real: the new admin screen used the old low-contrast subhead colour that `tests/subhead-contrast-ratio.test.ts` retired, and that law caught it.
+
+### Verified on production
+
+Repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform`, target Production, `app.mefwellness.com` aliased to `mef-platform-niehrlc8z` (commit `c570714`). Migration 159 applied with `db push --db-url`; a follow-up dry run reports the remote up to date.
+
+**47 of 47 live checks, zero console errors**, driven with Playwright against `app.mefwellness.com` (`scripts/verify-membership-access-live.mjs`).
+
+| Half | Result |
+| --- | --- |
+| The seeded production member signs in and walks eight member screens | all eight render, none redirects, trial active until 2 Sep |
+| A brand new production account | stamped `trial` / `system`, exactly 30 days, automatically |
+| That account as a test account, past its window, unassigned | still let in, the stated exemption |
+| The same account after an administrator assigns it | trial-ended screen, and all eight member screens redirect there |
+| Login while locked | works, lands on the lock screen, not an error |
+| `/account/password` while locked | still reachable |
+| The continue button | present, `#PRICING_LINK`, flagged above |
+| `paywall_viewed` rows with `lockReason: trial_expired` | written |
+| Assign a tier, end access, grant full access | each takes effect on the very next screen |
+| Service role altering a manual assignment | refused by the trigger, row unchanged |
+| Service role calling the administrator function | refused |
+
+The administrator half used the real production administrator account, with no password read or changed: the session was minted from a one-time magic-link token through the Auth Admin API, exactly the token an email carries, and retired with `scope: 'local'` afterwards. The service-role key was read from a file path, never printed, and deleted. The disposable probe account was deleted in a `finally` block and production is back to its original sixteen rows.
+
+One observation, out of scope and pre-existing: `/admin` and `/admin/analytics` already render the member bottom bar for an administrator who is not also a coach, and the new access screen inherits it. Those destinations now bounce back to `/admin` under the role-based home routing that shipped earlier today. It was true before this build and is not made worse by it.
+
 ## Coach and administrator accounts stop being members first (2026-08-14)
 
 Signing in as the administrator landed on the member Home, Priority Card and Daily Reset prompt and all. No migration, no schema change, no LLM, no new role system.
