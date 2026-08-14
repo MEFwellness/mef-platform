@@ -57,6 +57,22 @@ export const PRIORITY_ENTRANCE_TOTAL_MS = revealStepTotalMs(
 export const PRIORITY_RECEDE_MS = MOTION_DURATION_MS.quick;
 
 /**
+ * How long the accomplished state is allowed to sit where she tapped Done
+ * before the page re-renders and the card takes its new place at the
+ * bottom (Home cleanup pass, 2026-08-14).
+ *
+ * The completion is hers to see: the ring draws itself, the haptic fires,
+ * and only then does the card move. Cutting straight to the relocated
+ * card would turn a confirmation into a disappearance.
+ *
+ * Derived, never invented: one Deliberate-tier beat plus the app's own
+ * standardized moment of stillness after a reveal — the identical pairing
+ * PRIORITY_BRIDGE_BEAT_MS below uses, for the identical reason.
+ */
+export const PRIORITY_ACCOMPLISHED_SETTLE_MS =
+  MOTION_DURATION_MS.deliberate + INTRO_REVEAL_TYPEWRITER_SETTLE_MS;
+
+/**
  * "Building on yesterday..." — the adaptation sequence's three beats, as
  * the millisecond each one begins.
  *

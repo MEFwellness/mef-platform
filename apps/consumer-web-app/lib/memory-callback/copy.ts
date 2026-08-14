@@ -35,7 +35,28 @@ export function buildGoalCallback(ctx: GoalCallbackContext | null): string | nul
   return `You told me ${label.toLowerCase()} was what brought you here.`;
 }
 
-/** How long she's been checking in, real count and real first date. Never fires for a member with zero check-ins — there's nothing to remember yet. */
+/**
+ * The share of days since her first check-in that she must actually have
+ * logged before the two numbers are allowed to appear in the same
+ * sentence. Half the days is a genuinely steady rhythm, and naming both
+ * numbers there reads as recognition.
+ *
+ * Below it, the two numbers side by side stop being recognition and start
+ * being arithmetic done at her expense: "You've been checking in with me
+ * for 10 days now, 1 check-in so far" is a real sentence this function
+ * produced, and it is Root pointing out a gap she can already see. The low
+ * branch therefore states only the count, which is the fact worth
+ * remembering, and never sets a denominator next to it.
+ */
+const STEADY_TENURE_SHARE = 0.5;
+
+/**
+ * How long she's been checking in, real count and real first date. Never
+ * fires for a member with zero check-ins — there's nothing to remember
+ * yet. Never mentions a day span her check-in count would be measured
+ * against unless the rhythm behind it is genuinely steady; see
+ * STEADY_TENURE_SHARE.
+ */
 export function buildTenureCallback(ctx: TenureCallbackContext | null): string | null {
   if (!ctx || ctx.totalCheckins === 0 || !ctx.firstCheckinLocalDate) return null;
 
@@ -46,7 +67,15 @@ export function buildTenureCallback(ctx: TenureCallbackContext | null): string |
     return `You've logged ${checkinPhrase} with me so far.`;
   }
 
-  return `You've been checking in with me for ${days} day${days === 1 ? '' : 's'} now, ${checkinPhrase} so far.`;
+  if (ctx.totalCheckins >= days * STEADY_TENURE_SHARE) {
+    return `You've been checking in with me for ${days} day${days === 1 ? '' : 's'} now, ${checkinPhrase} so far.`;
+  }
+
+  if (ctx.totalCheckins === 1) {
+    return `You've logged your first check-in with me, and that's a real start.`;
+  }
+
+  return `You've logged ${checkinPhrase} with me so far, and I still have every one of them.`;
 }
 
 const DAY3_PHRASE: Record<Day3ContrastCallbackContext['day3Response'], string> = {

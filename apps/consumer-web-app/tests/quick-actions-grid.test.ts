@@ -62,20 +62,56 @@ describe('Quick Actions: exactly two pills, Case and Movement', () => {
     expect(GRID).toContain('{status && ');
   });
 
+  it('nothing else competes with the status line for the pill\'s narrow inner width', () => {
+    // A trailing chevron truncated "2 of 9 complete" to "2 of 9 com..." on
+    // a 390px screen. Found by screenshotting the rendered pills.
+    expect(GRID).not.toContain('ChevronRight');
+  });
+
   it('is a capsule pill shape (rounded-full), not icon circles', () => {
     expect(GRID).toContain('rounded-full');
   });
 
-  it('icon sits in a small filled circle for contrast', () => {
-    expect(GRID).toMatch(/ICON_CIRCLE\s*=\s*\n?\s*'flex h-8 w-8.*rounded-full bg-\[#1B3A2D\]/);
+  /**
+   * Home cleanup pass (2026-08-14), task 2. The pills read as plain labels
+   * next to the image-backed cards above them. The SHAPE is settled and
+   * unchanged (asserted above: rounded-full, grid-cols-2, one row); the
+   * treatment is what changed, to the brand-palette gradient option:
+   *
+   *   - the icon now sits in a small illustrated tile (rounded square,
+   *     forest -> gold gradient, one soft highlight), not a flat circle;
+   *   - the pill carries a cream-to-white gradient and a deeper shadow.
+   *
+   * These two assertions replace "icon sits in a small filled circle" and
+   * "gold is not introduced in this section" — both described the older
+   * treatment, and gold (#C4A050) is now deliberately part of this one.
+   */
+  it('the icon sits in an illustrated brand-gradient tile, not a flat circle', () => {
+    expect(GRID).toMatch(/ICON_TILE\s*=\s*\n?\s*'[^']*rounded-\[14px\][^']*from-\[#1B3A2D\][^']*to-\[#C4A050\]/);
+    expect(GRID).not.toContain('ICON_CIRCLE');
+  });
+
+  it('the pill itself is filled from the brand palette and reads as raised', () => {
+    expect(GRID).toContain('bg-gradient-to-br from-[#F5F0E4] to-white');
+    expect(GRID).toContain('shadow-');
   });
 
   it('has a pressed/tap state', () => {
     expect(GRID).toContain('mef-press');
   });
 
-  it('gold (#C4A050) is not introduced in this section', () => {
-    expect(GRID.toUpperCase()).not.toContain('#C4A050');
+  it('uses only the three brand colours, no fourth palette', () => {
+    const hexes = new Set(GRID.toUpperCase().match(/#[0-9A-F]{6}/g) ?? []);
+    for (const hex of hexes) {
+      expect([
+        '#1B3A2D', // forest green
+        '#C4A050', // warm gold
+        '#F5F0E4', // cream
+        '#24503C', // the one mid-stop between forest and gold on the tile's gradient
+        '#6B7A72', // the app's existing muted caption gray, already used for the status line
+        '#F5B700', // the existing focus-ring gold, unchanged
+      ]).toContain(hex);
+    }
   });
 
   it('labels stay in the actions data structure, not hardcoded per-item markup', () => {

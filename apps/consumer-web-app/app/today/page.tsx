@@ -63,6 +63,7 @@ import { getMyNotifications } from '@/app/actions/notifications';
 import { Reading } from '@/components/layout';
 import { FeedInteractions } from './FeedInteractions';
 import { TodayZones } from './TodayZones';
+import { TodaysNumbersGrid } from '@/components/today/TodaysNumbersGrid';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import { PriorityCard } from '@/components/priority/PriorityCard';
 import { TrackPriorityShown } from '@/components/priority/TrackPriorityShown';
@@ -166,6 +167,20 @@ export default async function TodayPage() {
       getTotalMovementLoggedDaysCount(),
     ]);
 
+  /**
+   * Today's Numbers, moved here from Home (2026-08-14). Home keeps the
+   * narrative; this page is the data and logging surface, so the grid now
+   * renders directly beneath the day's zones — immediately under the water
+   * and movement controls that already live there, which is why those two
+   * are not repeated inside the grid (see the component's own header).
+   *
+   * Nothing new is fetched for it: `todaysCheckin` was already loaded above
+   * for this page's own zones. No check-in yet means no numbers to show, and
+   * TodayZones' own "You haven't checked in yet today" card is already the
+   * page's prompt for that, so this renders nothing rather than a second one.
+   */
+  const numbersGridNode = todaysCheckin ? <TodaysNumbersGrid checkin={todaysCheckin} /> : null;
+
   let sectionIndex = 0;
   const modeBadge = decision ? MODE_BADGE[decision.mode] : null;
   const ModeIcon = modeBadge?.icon ?? Compass;
@@ -232,10 +247,20 @@ export default async function TodayPage() {
         {/* THE PRIORITY CARD — the dominant first element of this screen,
             above every other card including the first-check-in welcome.
             One winner, never two, never a list. Rendered here only while
-            it is active or done; a saved card moves below TodayZones
-            instead (see further down), which is what "collapses and moves
-            lower down the page, no longer dominant" means in practice. */}
-        {priority && priority.status !== 'saved' && (
+            it is ACTIVE: a done card and a saved card both move to the
+            bottom of the page (see further down), which is what
+            "collapses and moves lower down the page, no longer dominant"
+            means in practice.
+
+            Completed-priority behavior (2026-08-14): 'done' joins 'saved'
+            in that lower slot rather than staying at the top in its
+            accomplished state. Home does exactly the same thing with the
+            same row, so wherever she finishes it, it leaves the top of
+            both screens and settles at the bottom of both for the rest of
+            her own calendar day. Nothing takes its place at the top:
+            today's decision is already made and stored, and the engine
+            never selects a second one for the same day. */}
+        {priority && priority.status === 'active' && (
           <>
             <TrackPriorityShown
               rule={priority.selected.rule}
@@ -400,6 +425,7 @@ export default async function TodayPage() {
                   totalCheckins={totalCheckins}
                   totalMovementDays={totalMovementDays}
                 />
+                {numbersGridNode}
               </>
             ) : (
               <div className="mt-6 space-y-5">
@@ -493,6 +519,8 @@ export default async function TodayPage() {
                         totalCheckins={totalCheckins}
                         totalMovementDays={totalMovementDays}
                       />
+
+                      {numbersGridNode}
 
                       {/* Today's Lesson — the one card in this scope that
                           needs zero outer padding (the illustration band
@@ -779,12 +807,17 @@ export default async function TodayPage() {
           </>
         )}
 
-        {/* The saved priority's collapsed home. Still available, no longer
-            dominant: it sits below the day's zones rather than above them,
-            and Root does not raise it back to the top again today. Outside
-            the history branch above deliberately, so a member with no
-            check-ins yet who saves her priority can still find it. */}
-        {priority && priority.status === 'saved' && (
+        {/* The resolved priority's collapsed home. Still available, no
+            longer dominant: it sits below the day's zones rather than above
+            them, and Root does not raise it back to the top again today.
+            Outside the history branch above deliberately, so a member with
+            no check-ins yet who saves or completes her priority can still
+            find it.
+
+            Both resolved states live here now (2026-08-14): 'saved' as
+            before, and 'done' as the compact accomplished card, which is
+            the same card Home shows at its own bottom, from the same row. */}
+        {priority && priority.status !== 'active' && (
           <div className="mt-6">
             <PriorityCard view={priority} collapsed />
           </div>

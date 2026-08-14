@@ -99,7 +99,14 @@ afterAll(async () => {
     .delete()
     .eq('user_id', MEMBER_ID)
     .gte('local_date', dateRange(39, 0)[0])
-    .lte('local_date', AS_OF);
+    // AS_OF + 1, not AS_OF: the staleness test below deliberately submits
+    // one check-in AFTER the as-of date, and an upper bound of AS_OF left
+    // that row behind on every run. It is not inert — the correlation
+    // engine's own integration suite counts observations across a member's
+    // whole history, so the leaked 2015-07-01 row turned its "30
+    // observations" assertion into 31 and failed a test in a completely
+    // unrelated file. Found while running the full suite on 2026-08-14.
+    .lte('local_date', addDays(AS_OF, 1));
 });
 
 describe('Recommendation Engine precompute — stored vs. live, and staleness', () => {

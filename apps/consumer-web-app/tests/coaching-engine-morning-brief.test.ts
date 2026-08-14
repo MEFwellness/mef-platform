@@ -180,8 +180,8 @@ describe('composeMorningBrief', () => {
         decision: decision({ wearableBrief: null }),
       })
     );
-    expect(brief.sleepSummary).toMatch(/good/i);
-    expect(brief.stressSummary).toMatch(/good/i);
+    expect(brief.sleepSummary).toBe('Your sleep looked good last night.');
+    expect(brief.stressSummary).toBe('Your stress looked low today.');
     expect(brief.recoverySummary).toBeNull(); // recovery has no check-in-based fallback — wearable-only
   });
 
@@ -340,5 +340,87 @@ describe('composeMorningBrief', () => {
   it('leaves incompleteRecommendation null rather than inventing one', () => {
     const brief = composeMorningBrief(signals({ continuitySentence: null }));
     expect(brief.incompleteRecommendation).toBeNull();
+  });
+});
+
+/**
+ * Copy-and-honesty pass (2026-08-14), fix 2. Both check-in-derived
+ * summaries used to be a sentence FRAME with a status LABEL dropped into
+ * it: `Your sleep looked ${STATUS_LABEL[status].toLowerCase()} last
+ * night.` STATUS_LABEL's 'attention' entry is the phrase "Needs
+ * attention", so an ordinary middling night produced the real, shipped
+ * sentence "Your sleep looked needs attention last night."
+ *
+ * These tests walk every value each metric can actually take, which is the
+ * only way to catch a malformed COMBINATION rather than a malformed
+ * template — the 'good' path always read fine, which is exactly why this
+ * survived.
+ */
+describe('check-in-derived summaries are whole sentences for every band, not a label spliced into a frame', () => {
+  const SLEEP_QUALITIES = [1, 2, 3, 4, 5] as const;
+  const STRESS_LEVELS = [1, 2, 3, 4, 5] as const;
+
+  function summariesFor(sleep_quality: number, stress_level: number) {
+    const brief = composeMorningBrief(
+      signals({
+        recentCheckins: [checkin({ sleep_quality, stress_level })],
+        decision: decision({ wearableBrief: null }),
+      })
+    );
+    return [brief.sleepSummary, brief.stressSummary];
+  }
+
+  it('never emits the status label mid-sentence for any sleep quality or stress level', () => {
+    for (const sleep_quality of SLEEP_QUALITIES) {
+      for (const stress_level of STRESS_LEVELS) {
+        for (const sentence of summariesFor(sleep_quality, stress_level)) {
+          expect(sentence).not.toBeNull();
+          expect(sentence!.toLowerCase()).not.toContain('needs attention');
+          expect(sentence!.toLowerCase()).not.toContain('no data');
+          // "looked needs", "looked poor" style splices: a status label
+          // immediately after the verb is what the old frame produced.
+          expect(sentence!).not.toMatch(/looked (needs|no) /i);
+        }
+      }
+    }
+  });
+
+  it('is a real, complete, punctuated sentence in every band', () => {
+    for (const sleep_quality of SLEEP_QUALITIES) {
+      for (const stress_level of STRESS_LEVELS) {
+        for (const sentence of summariesFor(sleep_quality, stress_level)) {
+          expect(sentence!.startsWith('Your ')).toBe(true);
+          expect(sentence!.endsWith('.')).toBe(true);
+          expect(sentence).not.toContain('—');
+        }
+      }
+    }
+  });
+
+  it('genuinely branches: a middling night and a good night do not say the same thing', () => {
+    const [middling] = summariesFor(3, 3);
+    const [good] = summariesFor(5, 1);
+    const [rough] = summariesFor(1, 5);
+    expect(new Set([middling, good, rough]).size).toBe(3);
+  });
+
+  it('says the honest thing in each band, and never scolds', () => {
+    expect(summariesFor(5, 1)[0]).toBe('Your sleep looked good last night.');
+    expect(summariesFor(3, 3)[0]).toBe('Your sleep was only fair last night.');
+    expect(summariesFor(1, 5)[0]).toBe('Your sleep was rough last night.');
+    expect(summariesFor(5, 1)[1]).toBe('Your stress looked low today.');
+    expect(summariesFor(3, 3)[1]).toBe('Your stress was moderate today.');
+    expect(summariesFor(1, 5)[1]).toBe('Your stress ran high today.');
+  });
+
+  it('still says nothing at all when the value is missing, rather than a no-data sentence', () => {
+    const brief = composeMorningBrief(
+      signals({
+        recentCheckins: [checkin({ sleep_quality: null, stress_level: null })],
+        decision: decision({ wearableBrief: null }),
+      })
+    );
+    expect(brief.sleepSummary).toBeNull();
+    expect(brief.stressSummary).toBeNull();
   });
 });

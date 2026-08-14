@@ -8,24 +8,28 @@
  */
 import { describe, expect, it } from 'vitest';
 import { orderTodayCards, NOTICING_CARD_ORDER } from '../lib/dashboard/prioritization';
-import { buildGreetingLine, greetingBandFromWord } from '../lib/dashboard/greeting';
+import {
+  GREETING_LINES,
+  NEUTRAL_GREETING_LINES,
+  buildGreetingLine,
+  greetingBandFromWord,
+  scoreDirectionFromChange,
+} from '../lib/dashboard/greeting';
 
 describe('orderTodayCards — given state X, the order is always Y', () => {
-  it('promotes the check-in prompt to the lead slot when today has no check-in yet', () => {
+  it('promotes the check-in line to the lead slot when today has no check-in yet', () => {
     expect(orderTodayCards(false)).toEqual([
-      'numbers_or_prompt',
+      'checkin_prompt',
       'morning_brief',
       'assigned_programs',
-      'wellness_reflection',
     ]);
   });
 
-  it('promotes real progress/reflection content to the lead slot once today is checked in', () => {
+  it('falls back to the base order once today is checked in, with Root\'s own brief leading', () => {
     expect(orderTodayCards(true)).toEqual([
-      'wellness_reflection',
       'morning_brief',
       'assigned_programs',
-      'numbers_or_prompt',
+      'checkin_prompt',
     ]);
   });
 
@@ -36,9 +40,19 @@ describe('orderTodayCards — given state X, the order is always Y', () => {
   });
 
   it('never drops or duplicates a card — every card stays reachable in its usual section either way', () => {
-    const allKeys = ['morning_brief', 'assigned_programs', 'wellness_reflection', 'numbers_or_prompt'].sort();
+    const allKeys = ['morning_brief', 'assigned_programs', 'checkin_prompt'].sort();
     expect([...orderTodayCards(true)].sort()).toEqual(allKeys);
     expect([...orderTodayCards(false)].sort()).toEqual(allKeys);
+  });
+
+  it('carries no key for either block that left Home in the 2026-08-14 cleanup pass', () => {
+    // 'wellness_reflection' (Today's Wellness) was removed from Home
+    // outright; the numbers half of 'numbers_or_prompt' moved to the Today
+    // tab. A leftover key here would mean a leftover render slot there.
+    for (const order of [orderTodayCards(true), orderTodayCards(false)]) {
+      expect(order).not.toContain('wellness_reflection');
+      expect(order).not.toContain('numbers_or_prompt');
+    }
   });
 });
 
@@ -116,10 +130,122 @@ describe('buildGreetingLine', () => {
     for (const greetingWord of bands) {
       for (const hasCheckinToday of [true, false]) {
         for (const localDate of localDates) {
-          const line = buildGreetingLine({ greetingWord, hasCheckinToday, localDate });
-          expect(line).not.toContain('—');
+          for (const scoreDirection of ['up', 'down', 'flat', null] as const) {
+            const line = buildGreetingLine({
+              greetingWord,
+              hasCheckinToday,
+              localDate,
+              scoreDirection,
+            });
+            expect(line).not.toContain('—');
+          }
         }
       }
     }
+  });
+});
+
+/**
+ * Copy-and-honesty pass (2026-08-14), fix 3. The hero printed "Good start
+ * to the day" directly above a Root Score reading points down. The line
+ * now branches on the very number the change pill renders.
+ */
+describe('buildGreetingLine — never contradicts the score printed below it', () => {
+  const BANDS = ['Good morning', 'Good afternoon', 'Good evening'] as const;
+  const DATES = ['2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05'];
+
+  it('maps a real change value to a real direction, and nothing to null', () => {
+    expect(scoreDirectionFromChange(3)).toBe('up');
+    expect(scoreDirectionFromChange(-2)).toBe('down');
+    expect(scoreDirectionFromChange(0)).toBe('flat');
+    expect(scoreDirectionFromChange(null)).toBeNull();
+    expect(scoreDirectionFromChange(undefined)).toBeNull();
+  });
+
+  it('never speaks a positive line on a day the score went down or stayed flat', () => {
+    for (const greetingWord of BANDS) {
+      const band = greetingBandFromWord(greetingWord);
+      for (const hasCheckinToday of [true, false]) {
+        const positives = GREETING_LINES[band][hasCheckinToday ? 'done' : 'pending'];
+        const neutrals = NEUTRAL_GREETING_LINES[band][hasCheckinToday ? 'done' : 'pending'];
+        for (const scoreDirection of ['down', 'flat'] as const) {
+          for (const localDate of DATES) {
+            const line = buildGreetingLine({
+              greetingWord,
+              hasCheckinToday,
+              localDate,
+              scoreDirection,
+            });
+            expect(neutrals).toContain(line);
+            // The one line that started this fix, and every other line
+            // that only makes sense over a number that went up.
+            const positiveOnly = positives.filter((p) => !neutrals.includes(p));
+            expect(positiveOnly).not.toContain(line);
+          }
+        }
+      }
+    }
+  });
+
+  it('the specific line that contradicted the number can no longer appear on a down day', () => {
+    for (const localDate of DATES) {
+      expect(
+        buildGreetingLine({
+          greetingWord: 'Good morning',
+          hasCheckinToday: true,
+          localDate,
+          scoreDirection: 'down',
+        })
+      ).not.toBe('Good start to the day.');
+    }
+  });
+
+  it('keeps the warm lines for an up day, and for a day with no change shown at all', () => {
+    for (const greetingWord of BANDS) {
+      const band = greetingBandFromWord(greetingWord);
+      for (const hasCheckinToday of [true, false]) {
+        const positives = GREETING_LINES[band][hasCheckinToday ? 'done' : 'pending'];
+        for (const scoreDirection of ['up', null] as const) {
+          for (const localDate of DATES) {
+            expect(positives).toContain(
+              buildGreetingLine({ greetingWord, hasCheckinToday, localDate, scoreDirection })
+            );
+          }
+        }
+      }
+    }
+  });
+
+  it('defaults to the ordinary lines when no direction is passed at all, so no caller changes behavior by accident', () => {
+    const withoutDirection = buildGreetingLine({
+      greetingWord: 'Good morning',
+      hasCheckinToday: true,
+      localDate: '2026-05-01',
+    });
+    const withNull = buildGreetingLine({
+      greetingWord: 'Good morning',
+      hasCheckinToday: true,
+      localDate: '2026-05-01',
+      scoreDirection: null,
+    });
+    expect(withoutDirection).toBe(withNull);
+  });
+
+  it('a neutral line still branches honestly on whether she has checked in', () => {
+    const pending = buildGreetingLine({
+      greetingWord: 'Good morning',
+      hasCheckinToday: false,
+      localDate: '2026-05-01',
+      scoreDirection: 'down',
+    });
+    const done = buildGreetingLine({
+      greetingWord: 'Good morning',
+      hasCheckinToday: true,
+      localDate: '2026-05-01',
+      scoreDirection: 'down',
+    });
+    expect(pending).not.toBe(done);
+    // Never claims a check-in that does not exist.
+    expect(pending.toLowerCase()).not.toContain('thanks for checking in');
   });
 });

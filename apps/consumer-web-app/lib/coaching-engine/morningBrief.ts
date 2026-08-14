@@ -27,7 +27,7 @@ import type {
   MorningBriefEvidenceRef,
   WellnessInsight,
 } from '@mef/shared-types-contracts';
-import { sleepQualityStatus, stressStatus, STATUS_LABEL } from '../wellness/status';
+import { sleepQualityStatus, stressStatus } from '../wellness/status';
 import { RECOVERY_PROXY_METRICS } from '../intelligence/copy';
 import type { WellnessMetricKey } from '../wellness/wellness-index';
 import { selectHabitToPrioritize } from './habitSelection';
@@ -57,18 +57,48 @@ function trendFor(insights: WellnessInsight[], areas: WellnessMetricKey[]): Well
   );
 }
 
+/**
+ * One whole sentence per status, rather than a status LABEL dropped into a
+ * sentence frame.
+ *
+ * Copy-and-honesty pass (2026-08-14). The frame was
+ * `Your sleep looked ${STATUS_LABEL[status].toLowerCase()} last night.`,
+ * and STATUS_LABEL's 'attention' entry is the phrase "Needs attention", so
+ * a perfectly ordinary middling night produced "Your sleep looked needs
+ * attention last night." The labels are written to sit alone in a badge,
+ * not to be conjugated into a clause, so no sentence frame can be safe for
+ * all four of them. Writing the sentence out per status is the fix; the
+ * classification itself (lib/wellness/status.ts) is untouched and still the
+ * single source of truth for which band a raw value falls in.
+ *
+ * 'no-data' has no entry on purpose: both callers return null before
+ * reaching here, which is this file's own "say nothing rather than
+ * something empty" rule.
+ */
+const SLEEP_SENTENCE: Record<'good' | 'attention' | 'poor', string> = {
+  good: 'Your sleep looked good last night.',
+  attention: 'Your sleep was only fair last night.',
+  poor: 'Your sleep was rough last night.',
+};
+
+const STRESS_SENTENCE: Record<'good' | 'attention' | 'poor', string> = {
+  good: 'Your stress looked low today.',
+  attention: 'Your stress was moderate today.',
+  poor: 'Your stress ran high today.',
+};
+
 function checkinSleepSummary(latest: DailyCheckin | null): string | null {
   if (!latest || latest.sleep_quality === null) return null;
   const status = sleepQualityStatus(latest.sleep_quality);
   if (status === 'no-data') return null;
-  return `Your sleep looked ${STATUS_LABEL[status].toLowerCase()} last night.`;
+  return SLEEP_SENTENCE[status];
 }
 
 function checkinStressSummary(latest: DailyCheckin | null): string | null {
   if (!latest || latest.stress_level === null) return null;
   const status = stressStatus(latest.stress_level);
   if (status === 'no-data') return null;
-  return `Your stress today looked ${STATUS_LABEL[status].toLowerCase()}.`;
+  return STRESS_SENTENCE[status];
 }
 
 /**

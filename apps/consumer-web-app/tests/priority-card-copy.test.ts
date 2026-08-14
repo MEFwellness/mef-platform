@@ -237,20 +237,45 @@ describe('button behavior is real, not decorative', () => {
       // the same `helpOpen` the shared hook owns.
       expect(source).toContain("helpOpen ? 'mef-expand-open' : ''");
       expect(source).toContain('aria-hidden={!helpOpen}');
+      // No navigation, in either presentation, from any of the three
+      // buttons. `router.push` is the assertion that means that; the
+      // pop-up additionally holds no router at all.
       expect(source).not.toContain('router.push');
-      expect(source).not.toContain('useRouter');
+      expect(source).not.toContain('router.replace');
     }
+    expect(read('components/priority/PriorityCardPopup.tsx')).not.toContain('useRouter');
+  });
+
+  /**
+   * Home cleanup pass (2026-08-14). The inline card DOES now hold a router,
+   * for one purpose only: a completed priority leaves the dominant slot and
+   * settles at the bottom of the page, and that placement is decided by the
+   * server, so the page has to re-render for the card to move. That is a
+   * refresh of the current route, never a navigation, and it is gated on a
+   * completion that happened in front of her.
+   */
+  it('the inline card refreshes in place to take its new position, and never navigates', () => {
+    const card = read('components/priority/PriorityCard.tsx');
+    expect(card).toContain('router.refresh()');
+    expect(card).toContain('justCompletedInPlace');
+    expect(card).not.toContain('router.push');
+    expect(card).not.toContain('router.replace');
+    // The delay is a shared, derived token, never a bare millisecond value
+    // in a component (see lib/priority/motion.ts's own header).
+    expect(card).toContain('PRIORITY_ACCOMPLISHED_SETTLE_MS');
+    expect(card).not.toMatch(/setTimeout\([^)]*,\s*\d+\s*\)/);
   });
 
   it('Save for later demotes rather than dismissing', () => {
     const actions = read('app/actions/priority.ts');
     expect(actions).toContain("setDailyPriorityStatus(supabase, ctx.memberId, ctx.localDate, 'saved')");
 
-    // The page renders the dominant slot only while the card is not saved,
-    // and gives the saved card its own place lower down.
+    // The page renders the dominant slot only while the card is ACTIVE, and
+    // gives every resolved card (saved, and since 2026-08-14 done as well)
+    // its own place lower down.
     const page = read('app/today/page.tsx');
-    expect(page).toContain("priority.status !== 'saved'");
-    expect(page).toContain("priority.status === 'saved'");
+    expect(page).toContain("priority.status === 'active'");
+    expect(page).toContain("priority.status !== 'active'");
     expect(page).toContain('collapsed');
   });
 });

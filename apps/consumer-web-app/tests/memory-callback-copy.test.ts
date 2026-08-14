@@ -79,6 +79,75 @@ describe('buildTenureCallback — never fires for a member with zero check-ins',
   });
 });
 
+/**
+ * Copy-and-honesty pass (2026-08-14), fix 1. This builder produced the
+ * real, shipped sentence "You've been checking in with me for 10 days now,
+ * 1 check-in so far." Both numbers were true, and putting them side by
+ * side turned a memory into arithmetic done at her expense: Root pointing
+ * out a gap she can already see.
+ *
+ * The fix branches on real state rather than softening the words: the two
+ * numbers may only appear in the same sentence when the rhythm behind them
+ * is genuinely steady. Everything below asserts that boundary, and that
+ * nothing here ever claims a check-in she did not log.
+ */
+describe('buildTenureCallback — a low count is handled warmly, never as shaming math', () => {
+  it('the exact sentence that started this fix can no longer be produced', () => {
+    const result = buildTenureCallback({
+      totalCheckins: 1,
+      firstCheckinLocalDate: '2026-01-01',
+      todayLocalDate: '2026-01-11',
+    });
+    expect(result).not.toBe("You've been checking in with me for 10 days now, 1 check-in so far.");
+    expect(result).not.toContain('10 days');
+    expect(result).toContain('first check-in');
+  });
+
+  it('never sets a day span next to a low count, at any scale', () => {
+    const cases = [
+      { totalCheckins: 1, firstCheckinLocalDate: '2026-01-01', todayLocalDate: '2026-01-11' },
+      { totalCheckins: 2, firstCheckinLocalDate: '2026-01-01', todayLocalDate: '2026-01-20' },
+      { totalCheckins: 4, firstCheckinLocalDate: '2026-01-01', todayLocalDate: '2026-03-01' },
+    ];
+    for (const ctx of cases) {
+      const result = buildTenureCallback(ctx);
+      expect(result).not.toBeNull();
+      expect(result).not.toMatch(/\d+ days? now/);
+      // One check-in is named in words ("your first check-in"), everything
+      // above it by its real count. Neither ever gets a denominator.
+      expect(result).toContain(ctx.totalCheckins === 1 ? 'first check-in' : `${ctx.totalCheckins} check-in`);
+    }
+  });
+
+  it('still names both numbers when she has genuinely been steady, because there it is recognition', () => {
+    const result = buildTenureCallback({
+      totalCheckins: 9,
+      firstCheckinLocalDate: '2026-01-01',
+      todayLocalDate: '2026-01-11',
+    });
+    expect(result).toBe("You've been checking in with me for 10 days now, 9 check-ins so far.");
+  });
+
+  it('never invents a count, and never claims more than she logged', () => {
+    // Every one of these is a low count against a 31 day span, so the
+    // sentence is only ever allowed to carry her own count.
+    for (const totalCheckins of [1, 2, 3, 5, 8, 13, 15]) {
+      const result = buildTenureCallback({
+        totalCheckins,
+        firstCheckinLocalDate: '2026-01-01',
+        todayLocalDate: '2026-02-01',
+      });
+      expect(result).not.toBeNull();
+      expect(result).toContain(totalCheckins === 1 ? 'first check-in' : String(totalCheckins));
+      expect(result).not.toContain('—');
+      // Every numeral in the sentence is her own real count, never a
+      // second number she would have to compare it against.
+      const numerals = (result!.match(/\d+/g) ?? []).map(Number);
+      for (const numeral of numerals) expect(numeral).toBe(totalCheckins);
+    }
+  });
+});
+
 describe('buildDay3ContrastCallback', () => {
   it('returns null with no day-3 context', () => {
     expect(buildDay3ContrastCallback(null)).toBeNull();

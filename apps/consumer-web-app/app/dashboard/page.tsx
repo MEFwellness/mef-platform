@@ -26,7 +26,7 @@
  */
 
 import { Fragment, Suspense } from 'react';
-import { Moon, Activity, Bone, Calendar, Smile, Utensils, Footprints, TrendingUp } from 'lucide-react';
+import { Calendar, TrendingUp } from 'lucide-react';
 import { getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { redirect } from 'next/navigation';
@@ -60,10 +60,6 @@ import { AssignedProgramsCard } from '@/components/AssignedProgramsCard';
 import { getMyAssignedWorkoutsAction } from '@/app/actions/coach-programs';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
-import { getTodaysHydrationTotal } from '@/app/actions/events';
-import { getTodaysEveningReflection } from '@/app/actions/eveningReflection';
-import { HydrationTracker } from '@/components/checkin/HydrationTracker';
-import { DailyWellnessSection } from '@/components/checkin/DailyWellnessSection';
 import { getMyQuestionnaireCatalog, getMyBodyAssessmentAssignmentCard } from '@/app/actions/questionnaireCatalog';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { QuestionnairesHomeCard } from '@/components/questionnaires/QuestionnairesHomeCard';
@@ -81,30 +77,16 @@ import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid';
 import { RevealOnScroll } from '@/components/dashboard/RevealOnScroll';
 import { ScrollCarousel } from '@/components/carousel/ScrollCarousel';
 import { AnimatedEnergyTrendChart } from '@/components/dashboard/AnimatedEnergyTrendChart';
-import { buildGreetingLine } from '@/lib/dashboard/greeting';
+import { buildGreetingLine, scoreDirectionFromChange } from '@/lib/dashboard/greeting';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { orderTodayCards, type TodayCardKey } from '@/lib/dashboard/prioritization';
 import { pageBackgroundForGreeting } from '@/lib/dashboard/timeOfDayPalette';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
-import {
-  stressStatus,
-  painStatus,
-  sleepQualityStatus,
-  sleepDurationStatus,
-  moodStatus,
-  digestionStatus,
-  movementStatus,
-  STATUS_STYLES,
-} from '@/lib/wellness/status';
-
-// Screen Layout System (Prompt 2): both of these used to be a hand-rolled
+// Screen Layout System (Prompt 2): this used to be a hand-rolled
 // `rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]`
 // literal, duplicated verbatim across a dozen files. `.mef-card`
-// (app/globals.css) is now that one recipe's single definition — these
-// constants just add this zone's own layout modifiers (flex/min-height for
-// the six equal-height tracker tiles) on top of it.
+// (app/globals.css) is now that one recipe's single definition.
 const CARD = 'mef-card';
-const TRACKER_CARD = `${CARD} flex min-h-[172px] flex-col`;
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
 
 /** Suspense fallback for each "What Root Is Noticing" carousel tile, shaped like the real tile so the row doesn't jump once its own fetch resolves. */
@@ -119,43 +101,6 @@ function formatCompletedStatus(completedAt: string): string {
   if (days <= 0) return 'Completed today';
   if (days === 1) return 'Completed yesterday';
   return `Completed ${days} days ago`;
-}
-
-function stressLabel(level: number | null): string {
-  if (level === null) return 'Not logged yet';
-  if (level <= 2) return 'Low';
-  if (level === 3) return 'Moderate';
-  return 'High';
-}
-
-function painLabel(level: number | null): string {
-  if (level === null) return 'Not logged yet';
-  if (level === 0) return 'None';
-  if (level === 1) return 'Mild';
-  if (level <= 3) return 'Moderate';
-  return 'Severe';
-}
-
-function moodLabel(level: number | null): string {
-  if (level === null) return 'Not logged yet';
-  if (level <= 2) return 'Low';
-  if (level === 3) return 'Neutral';
-  return 'Good';
-}
-
-function digestionLabel(level: number | null): string {
-  if (level === null) return 'Not logged yet';
-  if (level <= 2) return 'Poor';
-  if (level === 3) return 'Fair';
-  return 'Good';
-}
-
-function movementLabel(level: 'none' | 'light' | 'moderate' | 'full_session' | null): string {
-  if (level === null) return 'Not logged yet';
-  if (level === 'none') return 'None';
-  if (level === 'light') return 'Light';
-  if (level === 'moderate') return 'Moderate';
-  return 'Full session';
 }
 
 export default async function DashboardPage({
@@ -263,8 +208,6 @@ export default async function DashboardPage({
     todaysCheckin,
     recentCheckins,
     rootScoreSnapshot,
-    hydrationTotal,
-    eveningReflection,
     decision,
     morningBrief,
     lifestyleExperiments,
@@ -272,8 +215,6 @@ export default async function DashboardPage({
     getTodaysCheckin(localDate),
     getRecentCheckins(30),
     getMyRootScore(localDate, timezone),
-    getTodaysHydrationTotal(timezone),
-    getTodaysEveningReflection(timezone),
     getMyCoachingDecision(timezone),
     getMyMorningBrief(timezone, profile?.display_name),
     getMyLifestyleExperiments(),
@@ -297,10 +238,16 @@ export default async function DashboardPage({
   // — no new query, no new state. See lib/dashboard/greeting.ts and
   // lib/dashboard/prioritization.ts for the actual rules.
   const hasCheckinToday = !!todaysCheckin;
+  // Copy-and-honesty pass (2026-08-14): the greeting line sits directly
+  // above the Root Score and its change pill, so it is handed the very
+  // same number the pill renders. A score that is down or flat switches
+  // the line to the neutral set; it can no longer say "Good start to the
+  // day" over a score reading points down. See lib/dashboard/greeting.ts.
   const heroGreetingLine = buildGreetingLine({
     greetingWord: timeContext.greetingWord,
     hasCheckinToday,
     localDate,
+    scoreDirection: scoreDirectionFromChange(rootScoreSnapshot?.root_score_change),
   });
   const todayCardOrder = orderTodayCards(hasCheckinToday);
 
@@ -310,176 +257,25 @@ export default async function DashboardPage({
 
   const assignedProgramsNode = <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />;
 
-  const wellnessReflectionNode = (
-    <DailyWellnessSection checkin={todaysCheckin} eveningReflection={eveningReflection} />
-  );
-
-  const numbersOrPromptNode = todaysCheckin ? (
-    <div>
-      <p className="pb-1 text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40">
-        Today&apos;s Numbers
-      </p>
-      <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-        <HydrationTracker initialTotal={hydrationTotal} />
-
-        <div className={TRACKER_CARD}>
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Moon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Sleep</p>
-          </div>
-          {todaysCheckin?.sleep_duration ? (
-            <>
-              <p
-                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[sleepDurationStatus(todaysCheckin.sleep_duration)].text}`}
-              >
-                {todaysCheckin.sleep_duration}
-              </p>
-              <div className="mt-auto flex gap-1 pt-3">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <div
-                    key={n}
-                    className={`h-2 flex-1 rounded-full ${
-                      todaysCheckin?.sleep_quality && n <= todaysCheckin.sleep_quality
-                        ? STATUS_STYLES[sleepQualityStatus(todaysCheckin.sleep_quality)]
-                            .dot
-                        : 'bg-[#EFE9DB]'
-                    }`}
-                  />
-                ))}
-              </div>
-            </>
-          ) : (
-            <p className="mt-auto text-sm text-[#6B7A72]">Not logged yet</p>
-          )}
-        </div>
-
-        <div className={TRACKER_CARD}>
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Stress</p>
-          </div>
-          <p
-            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[stressStatus(todaysCheckin?.stress_level ?? null)].text}`}
-          >
-            {stressLabel(todaysCheckin?.stress_level ?? null)}
-          </p>
-          <div className="mt-auto flex gap-1 pt-3">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <div
-                key={n}
-                className={`h-2 flex-1 rounded-full ${
-                  todaysCheckin?.stress_level && n <= todaysCheckin.stress_level
-                    ? STATUS_STYLES[stressStatus(todaysCheckin.stress_level)].dot
-                    : 'bg-[#EFE9DB]'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className={TRACKER_CARD}>
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Bone className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Pain</p>
-          </div>
-          <p
-            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[painStatus(todaysCheckin?.pain_discomfort_level ?? null)].text}`}
-          >
-            {painLabel(todaysCheckin?.pain_discomfort_level ?? null)}
-          </p>
-          <div className="mt-auto flex gap-1 pt-3">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <div
-                key={n}
-                className={`h-2 flex-1 rounded-full ${
-                  todaysCheckin?.pain_discomfort_level != null &&
-                  n <= todaysCheckin.pain_discomfort_level
-                    ? STATUS_STYLES[painStatus(todaysCheckin.pain_discomfort_level)].dot
-                    : 'bg-[#EFE9DB]'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className={TRACKER_CARD}>
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Smile className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Mood</p>
-          </div>
-          <p
-            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[moodStatus(todaysCheckin?.mood_level ?? null)].text}`}
-          >
-            {moodLabel(todaysCheckin?.mood_level ?? null)}
-          </p>
-          <div className="mt-auto flex gap-1 pt-3">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <div
-                key={n}
-                className={`h-2 flex-1 rounded-full ${
-                  todaysCheckin?.mood_level && n <= todaysCheckin.mood_level
-                    ? STATUS_STYLES[moodStatus(todaysCheckin.mood_level)].dot
-                    : 'bg-[#EFE9DB]'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className={TRACKER_CARD}>
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Utensils className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Digestion</p>
-          </div>
-          <p
-            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[digestionStatus(todaysCheckin?.digestion_rating ?? null)].text}`}
-          >
-            {digestionLabel(todaysCheckin?.digestion_rating ?? null)}
-          </p>
-          <div className="mt-auto flex gap-1 pt-3">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <div
-                key={n}
-                className={`h-2 flex-1 rounded-full ${
-                  todaysCheckin?.digestion_rating && n <= todaysCheckin.digestion_rating
-                    ? STATUS_STYLES[digestionStatus(todaysCheckin.digestion_rating)].dot
-                    : 'bg-[#EFE9DB]'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className={TRACKER_CARD}>
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Footprints className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Movement</p>
-          </div>
-          <p
-            className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
-          >
-            {movementLabel(todaysCheckin?.movement_today ?? null)}
-          </p>
-          <div className="mt-auto pt-3">
-            <span
-              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].bg} ${STATUS_STYLES[movementStatus(todaysCheckin?.movement_today ?? null)].text}`}
-            >
-              {todaysCheckin?.movement_today
-                ? movementStatus(todaysCheckin.movement_today) === 'good'
-                  ? 'On track'
-                  : movementStatus(todaysCheckin.movement_today) === 'attention'
-                    ? 'Could be more'
-                    : 'Sedentary'
-                : 'No data'}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  ) : (
+  // Home cleanup pass (2026-08-14). Two blocks that used to live in this
+  // zone are gone from Home:
+  //
+  //   Today's Wellness (DailyWellnessSection — "Daily Reset 60", "Daily
+  //   Wellness Score 60") is removed outright. Two unexplained numbers
+  //   competing with the Root Score directly above them is one score too
+  //   many on a narrative screen. The scores themselves
+  //   (lib/wellness/morningReadiness.ts, lib/wellness/dailyWellnessScore.ts)
+  //   and their tests are untouched.
+  //
+  //   Today's Numbers moved to the Today tab
+  //   (components/today/TodaysNumbersGrid.tsx) — Home keeps the narrative,
+  //   Today is the data and logging surface. What remains here is only the
+  //   half of that block that was never a number: the honest line for a day
+  //   with no check-in logged yet.
+  const checkinPromptNode = todaysCheckin ? null : (
     <div className="flex items-center justify-between gap-3 border-b border-[#1B3A2D]/8 py-4">
       <p className="text-sm text-[#6B7A72]">
-        Complete today&apos;s check-in to see today&apos;s numbers here.
+        Once today&apos;s check-in is done, your numbers are on the Today tab.
       </p>
     </div>
   );
@@ -487,8 +283,7 @@ export default async function DashboardPage({
   const TODAY_CARD_NODES: Record<TodayCardKey, React.ReactNode> = {
     morning_brief: morningBriefNode,
     assigned_programs: assignedProgramsNode,
-    wellness_reflection: wellnessReflectionNode,
-    numbers_or_prompt: numbersOrPromptNode,
+    checkin_prompt: checkinPromptNode,
   };
 
   return (
@@ -520,8 +315,29 @@ export default async function DashboardPage({
         {/* is deliberately not rendered here: saving demotes it     */}
         {/* out of the dominant slot, and Today is where it keeps    */}
         {/* its collapsed home.                                     */}
+        {/*                                                          */}
+        {/* Completed-priority behavior (2026-08-14): this dominant   */}
+        {/* slot now holds the card only while it is ACTIVE. Once she */}
+        {/* taps Done it leaves the top and settles as a compact      */}
+        {/* accomplished card at the bottom of this page (see the end */}
+        {/* of <main>) and of Today, for the rest of her own calendar */}
+        {/* day. That is the same single member_daily_priorities row  */}
+        {/* in both places, keyed to her own local date, so it is     */}
+        {/* gone tomorrow with no expiry logic of its own.            */}
+        {/*                                                          */}
+        {/* NOTHING refills this slot. The engine commits to one      */}
+        {/* priority per day (lib/priority/service.ts: today's stored */}
+        {/* row is authoritative and is never re-selected), so a      */}
+        {/* completed day leaves the top genuinely empty rather than  */}
+        {/* inventing a second focus. What may appear here next is    */}
+        {/* only a genuinely pending finite item that already had its */}
+        {/* own card: a coach assignment or the next unstarted        */}
+        {/* conversation (DashboardInviteCards, just below, which     */}
+        {/* renders nothing when there is neither), and the day-3 /    */}
+        {/* day-7 follow-ups, which keep their own place in the Root  */}
+        {/* pop-up chain and in Active Experiments.                   */}
         {/* ==================================================== */}
-        {priority && priority.status !== 'saved' && (
+        {priority && priority.status === 'active' && (
           <div className="pt-3">
             {/* The pop-up and this inline card mount in the same paint on
                 Home, so if both reported themselves the recorded
@@ -808,6 +624,28 @@ export default async function DashboardPage({
                 )}
               </div>
             </RevealOnScroll>
+          </div>
+        )}
+
+        {/* ==================================================== */}
+        {/* THE COMPLETED PRIORITY, in its compact accomplished     */}
+        {/* state, at the very bottom of Home.                      */}
+        {/*                                                          */}
+        {/* One shared state, one row: this is the same              */}
+        {/* member_daily_priorities row the card at the top read, so */}
+        {/* Done in the pop-up, on Home, or on Today all land here.  */}
+        {/* It persists for the rest of her own calendar day because */}
+        {/* the row is keyed to her local date, and tomorrow's row   */}
+        {/* is simply a new one; nothing expires this card by hand.  */}
+        {/* Outside the check-in-history branch above deliberately,  */}
+        {/* so a member with no check-ins yet who completes her      */}
+        {/* priority still sees what she finished.                   */}
+        {/* Only 'done' lands here. A saved card keeps its existing  */}
+        {/* collapsed home on Today, unchanged by this pass.         */}
+        {/* ==================================================== */}
+        {priority && priority.status === 'done' && (
+          <div className="mt-10">
+            <PriorityCard view={priority} collapsed />
           </div>
         )}
       </main>

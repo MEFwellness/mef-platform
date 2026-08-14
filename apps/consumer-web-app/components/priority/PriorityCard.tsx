@@ -43,13 +43,15 @@
  * `@media (prefers-reduced-motion: reduce)` override in app/globals.css.
  */
 
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { CheckCircle2, Compass, Lightbulb, ArrowRight } from 'lucide-react';
 import { SuccessCheck } from '@/components/motion/SuccessCheck';
 import { revealStep } from '@/lib/motion/revealStep';
 import type { PriorityView } from '@/lib/priority/types';
-import { PRIORITY_REVEAL_INDEX } from '@/lib/priority/motion';
+import { PRIORITY_ACCOMPLISHED_SETTLE_MS, PRIORITY_REVEAL_INDEX } from '@/lib/priority/motion';
 import {
   PRIORITY_BUTTON_LABELS,
   PRIORITY_CARD_LABEL,
@@ -71,6 +73,60 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
   const motion = usePriorityCardMotion(view, status, 'inline');
 
   const { selected, isReEntry, welcomeLine, bridge } = view;
+
+  const router = useRouter();
+
+  // ---- The move to the bottom of the page ----------------------------
+  // Home cleanup pass (2026-08-14). A completed priority no longer keeps
+  // the dominant slot: both pages render this card at the top only while
+  // it is active, and render the compact accomplished card at the bottom
+  // once it is done. That is a SERVER decision (see app/dashboard/page.tsx
+  // and app/today/page.tsx), so the page has to re-render for the card to
+  // actually take its new place — otherwise she taps Done and the
+  // accomplished card sits at the top until her next navigation.
+  //
+  // The refresh waits one settle beat so the completion she just earned
+  // (the drawn ring, the haptic) is seen before the card moves, and it
+  // only ever runs for a completion that happened in front of her in the
+  // dominant slot: `justResolved` is false on an ordinary page load, and
+  // the collapsed card at the bottom is already where it belongs.
+  const justCompletedInPlace = !collapsed && status === 'done' && motion.justResolved;
+  useEffect(() => {
+    if (!justCompletedInPlace) return;
+    const timer = setTimeout(() => router.refresh(), PRIORITY_ACCOMPLISHED_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [justCompletedInPlace, router]);
+
+  // ---- Compact accomplished state (bottom of the page) ---------------
+  // Where a completed priority lives for the rest of her own calendar
+  // day, on Home and on Today alike, from the same
+  // member_daily_priorities row. One quiet line, not a second card
+  // competing for attention: what she finished, and that she finished it.
+  if (collapsed && status === 'done') {
+    return (
+      <section className="mef-card mef-settle-down flex items-center gap-3 border-green-600/20 bg-green-50/40 py-4">
+        <CheckCircle2
+          className="h-5 w-5 shrink-0 text-green-600"
+          strokeWidth={1.75}
+          aria-hidden="true"
+        />
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7A72]">
+            {PRIORITY_CARD_LABEL}
+          </p>
+          {/* Two lines at most. Some priorities are a full sentence, and
+              an unclamped one turns this quiet closing row back into a
+              card the size of the active one. */}
+          <p className="mt-0.5 line-clamp-2 text-[15px] leading-snug text-[#1B3A2D]">
+            {selected.title}
+          </p>
+        </div>
+        <span className="ml-auto shrink-0 text-xs font-medium text-green-700">
+          {PRIORITY_DONE_TEXT}
+        </span>
+      </section>
+    );
+  }
 
   // ---- Accomplished state -------------------------------------------
   // Reached either by tapping Done in front of her (resolvePhase walked

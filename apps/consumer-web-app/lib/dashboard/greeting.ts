@@ -28,8 +28,16 @@ export function greetingBandFromWord(word: TimeContext['greetingWord']): Greetin
   return 'evening';
 }
 
+/**
+ * Which way the Root Score printed directly below this line has moved
+ * since its last snapshot. 'flat' is a real, shown state ("Steady" on the
+ * hero's change pill), and null means no change is being shown at all
+ * (no score yet, or no previous snapshot to compare against).
+ */
+export type ScoreDirection = 'up' | 'down' | 'flat' | null;
+
 /** Keyed by [band][hasCheckinToday]. Every line is a short, standalone clause meant to sit under "{greetingWord}, {firstName}" — never repeats the greeting word itself, and never claims anything beyond "a check-in exists for today or it doesn't." */
-const GREETING_LINES: Record<GreetingBand, { pending: string[]; done: string[] }> = {
+export const GREETING_LINES: Record<GreetingBand, { pending: string[]; done: string[] }> = {
   morning: {
     pending: [
       "Ready when you are.",
@@ -69,6 +77,61 @@ const GREETING_LINES: Record<GreetingBand, { pending: string[]; done: string[] }
   },
 };
 
+/**
+ * The same three bands, for a day the Root Score printed underneath this
+ * line has gone DOWN or stayed FLAT.
+ *
+ * Copy-and-honesty pass (2026-08-14). The hero showed "Good start to the
+ * day" directly above a score reading points down, which is the one thing
+ * a greeting must never do: contradict the number on the same screen. The
+ * fix is not to remove the line, it is to branch it on the same real fact
+ * the pill is already rendering.
+ *
+ * Every line here is neutral rather than negative. A score that slipped is
+ * not a failing and Root does not comment on it here; these lines simply
+ * orient her ("here is where things stand") or acknowledge only what is
+ * unambiguously true (she checked in), so they sit honestly next to a
+ * down, a flat, or (were it ever shown here) an up number alike.
+ */
+export const NEUTRAL_GREETING_LINES: Record<GreetingBand, { pending: string[]; done: string[] }> = {
+  morning: {
+    pending: [
+      "Here's where things stand.",
+      "Let's take today as it comes.",
+      'Ready when you are.',
+    ],
+    done: [
+      "Thanks for checking in.",
+      "Here's where things stand today.",
+      "I have today's check-in from you.",
+    ],
+  },
+  afternoon: {
+    pending: [
+      "Here's where things stand.",
+      'Still time to check in today.',
+      "Let's take a look at today.",
+    ],
+    done: [
+      'Thanks for checking in earlier.',
+      "Here's where things stand this afternoon.",
+      "Here's what today looks like so far.",
+    ],
+  },
+  evening: {
+    pending: [
+      "Here's where things stand tonight.",
+      "There's still time for today's check-in.",
+      "Let's take a look at today.",
+    ],
+    done: [
+      'Thanks for checking in today.',
+      "Here's where today landed.",
+      "Here's where things stand tonight.",
+    ],
+  },
+};
+
 /** A small, stable non-negative integer derived from a YYYY-MM-DD local date string — deterministic across requests for the same day, with no dependency on request timing or randomness. */
 function dailySeed(localDate: string): number {
   const digitsOnly = localDate.replace(/-/g, '');
@@ -80,13 +143,31 @@ export function buildGreetingLine({
   greetingWord,
   hasCheckinToday,
   localDate,
+  scoreDirection = null,
 }: {
   greetingWord: TimeContext['greetingWord'];
   hasCheckinToday: boolean;
   localDate: string;
+  /**
+   * Which way the Root Score shown directly below this line has moved.
+   * 'down' and 'flat' switch to the neutral set above; 'up' and null (no
+   * change shown at all) keep the ordinary warm lines. Defaults to null so
+   * every existing caller and fixture behaves exactly as it did.
+   */
+  scoreDirection?: ScoreDirection;
 }): string {
   const band = greetingBandFromWord(greetingWord);
-  const variants = GREETING_LINES[band][hasCheckinToday ? 'done' : 'pending'];
+  const contradictsScore = scoreDirection === 'down' || scoreDirection === 'flat';
+  const source = contradictsScore ? NEUTRAL_GREETING_LINES : GREETING_LINES;
+  const variants = source[band][hasCheckinToday ? 'done' : 'pending'];
   const index = dailySeed(localDate) % variants.length;
   return variants[index]!;
+}
+
+/** The hero's own change pill and this line read the same number, so they can never disagree about which way it went. Null in, null out: no change shown means no direction to respect. */
+export function scoreDirectionFromChange(change: number | null | undefined): ScoreDirection {
+  if (change === null || change === undefined) return null;
+  if (change > 0) return 'up';
+  if (change < 0) return 'down';
+  return 'flat';
 }
