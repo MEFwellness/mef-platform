@@ -35,6 +35,21 @@ export default async function AdminPage() {
         <ChangePasswordLink className="mt-4" />
 
         <Link
+          href={'/admin/access' as Route}
+          className="mef-focus-ring mt-6 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Access</p>
+          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
+            Member access: tiers, trials, and full access grants
+          </p>
+          <p className="mt-1 text-sm text-[#6B7A72]">
+            Who can open the app and why. Assign a tier, grant or revoke full access, extend a
+            trial, or end someone&apos;s access. This is where members who pay outside the app are
+            handled.
+          </p>
+        </Link>
+
+        <Link
           href={'/admin/analytics' as Route}
           className="mef-focus-ring mt-6 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
         >

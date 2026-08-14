@@ -210,6 +210,15 @@ export const PAYWALL_LOCK_REASONS = [
   'program_phase',
   'prerequisite',
   'free_tier_preview',
+  /**
+   * The 30 day trial is over and the account holds no active tier and no
+   * full_access grant (migration 159, lib/membership/access.ts). The only
+   * lock reason in this list that shuts the whole member app rather than
+   * one assessment, and the one the trial-ended screen reports. Added as a
+   * VALUE on the existing paywall_viewed event, deliberately not as a new
+   * event type: the funnel already counts paywall views and this is one.
+   */
+  'trial_expired',
 ] as const;
 
 export type PaywallLockReason = (typeof PAYWALL_LOCK_REASONS)[number];

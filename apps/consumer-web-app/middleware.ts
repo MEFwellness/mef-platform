@@ -14,6 +14,9 @@ import {
   RESET_CONFIRM_PATH,
   shouldGateToPasswordReset,
 } from '@/lib/auth/recovery';
+import { fetchMemberAccessFacts } from '@/lib/membership/service';
+import { decideMemberAccess } from '@/lib/membership/access';
+import { memberAccessRedirectFor } from '@/lib/membership/routing';
 
 // /api/cron/* routes authenticate their own way (a CRON_SECRET bearer
 // token checked inside each route handler — see
@@ -276,13 +279,37 @@ export async function middleware(request: NextRequest) {
   // member": an account with no role rows, a revoked grant, or a failed
   // RPC keeps the full member app rather than being bounced to a
   // dashboard it cannot use.
+  // Membership access. The trial lock (migration 159) sits here, in the
+  // same block and on the same route list as the staff rule above, for two
+  // reasons. It is the same question asked one layer further in ("is this
+  // person allowed on a member screen"), and sharing the block means the
+  // entitlement read runs concurrently with the two role lookups rather
+  // than adding a second round trip: a member's request still waits for one
+  // trip to the database on a member-only path, exactly as it did before.
+  //
+  // Order matters. Staff are redirected off member screens first, so an
+  // administrator whose own account happens to be past its trial window is
+  // never sent to a member lock screen. Nothing here can reach an account
+  // that is allowed in: memberAccessRedirectFor returns null for every one
+  // of them, and fetchMemberAccessFacts fails towards the member, so a
+  // broken read leaves the app open rather than shut.
   if (user && isMemberOnlyPath(path)) {
-    const [isCoach, isAdmin] = await Promise.all([
+    const [isCoach, isAdmin, accessFacts] = await Promise.all([
       hasActiveRole(supabase!, user.id, 'coach'),
       hasActiveRole(supabase!, user.id, 'platform_administrator'),
+      fetchMemberAccessFacts(supabase!, user.id),
     ]);
     const staffDestination = staffRedirectFor({ hasUser: true, isCoach, isAdmin, path });
     if (staffDestination) return NextResponse.redirect(new URL(staffDestination, request.url));
+
+    const decision = decideMemberAccess({ ...accessFacts, now: new Date() });
+    const lockDestination = memberAccessRedirectFor({
+      hasUser: true,
+      isStaff: false,
+      allowed: decision.allowed,
+      path,
+    });
+    if (lockDestination) return NextResponse.redirect(new URL(lockDestination, request.url));
   }
 
   return response;
