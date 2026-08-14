@@ -24,8 +24,25 @@ export type CheckinMode = 'cinematic' | 'section';
 export type CheckinUnit = {
   key: string;
   section: string;
-  /** Whether this unit gates auto-advance / the final submit. Optional units (rotating probes, notes, the concern flag) never block moving on. */
-  required: boolean;
+  /**
+   * The one field that decides whether this unit gates Continue, AND the
+   * short member-facing line shown when it does. `null` means optional
+   * (rotating probes, notes, the concern flag) and never blocks moving on.
+   *
+   * 2026-08-14 fix, "Continue must never silently do nothing": this used
+   * to be a plain `required: boolean`, so a screen could block Continue
+   * with nothing on screen saying why — which is exactly how the reported
+   * "Continue is dead and gives no feedback" bug felt from the member's
+   * side. Fusing the two into a single field makes a silent block
+   * structurally impossible to write: there is no way to mark a unit
+   * blocking without also supplying the sentence the member reads. That
+   * is a stronger guarantee than any test, because it fails at compile
+   * time rather than at review time.
+   *
+   * Keep it short, second person, and free of em dashes (member-facing
+   * copy rule), e.g. 'Select 2 meals.'
+   */
+  blockedReason: string | null;
   answered: boolean;
   render: () => ReactNode;
 };
@@ -44,9 +61,21 @@ export function groupUnitsIntoScreens(
     .filter((group) => group.length > 0);
 }
 
-/** A screen (array of units) is "complete" for auto-advance purposes once every REQUIRED unit on it is answered — optional units (rotating probes, notes, concern) never block moving on, in either mode. */
+/** A screen (array of units) is "complete" once every blocking unit on it is answered — optional units (rotating probes, notes, concern) never block moving on, in either mode. */
 export function isScreenComplete(screen: readonly CheckinUnit[]): boolean {
-  return screen.every((unit) => !unit.required || unit.answered);
+  return screen.every((unit) => unit.blockedReason === null || unit.answered);
+}
+
+/**
+ * The first blocking-and-unanswered unit's reason, or null when the screen
+ * is complete — what the wizard shows above a disabled Continue so the
+ * member is never left tapping a dead control with no explanation
+ * (2026-08-14 fix). One line, not a list: the topmost missing thing is the
+ * one she should deal with first, and a stack of four sentences under the
+ * button reads as an error state rather than a nudge.
+ */
+export function screenBlockedReason(screen: readonly CheckinUnit[]): string | null {
+  return screen.find((unit) => unit.blockedReason !== null && !unit.answered)?.blockedReason ?? null;
 }
 
 /**

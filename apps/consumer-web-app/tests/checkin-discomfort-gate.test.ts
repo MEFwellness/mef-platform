@@ -82,7 +82,8 @@ describe('(a)/(b) the discomfort gate owns the whole section — nothing renders
     expect(start).toBeGreaterThan(-1);
     const block = MORNING_FORM.slice(start, MORNING_FORM.indexOf("key: '", start + 1));
     expect(block).toContain("section: 'body'");
-    expect(block).toContain('required: true');
+    // 2026-08-14: `required: true` became `blockedReason: '<reason>'`.
+    expect(block).toMatch(/blockedReason: '[^']+'/);
     expect(block).toContain("question=\"Any discomfort today?\"");
     expect(block).toContain('hasDiscomfort !== null');
   });

@@ -70,10 +70,12 @@ describe('all six protected core questions survive the screen split', () => {
     expect(night).toContain('setSleepDuration');
   });
 
-  it('the combined body-severity gesture is in the "body" section and required', () => {
+  it('the combined body-severity gesture is in the "body" section and blocks Continue with a stated reason', () => {
     const body = unitBlock('body-severity');
     expect(body).toContain("section: 'body'");
-    expect(body).toContain('required: true');
+    // 2026-08-14: `required: true` became `blockedReason: '<the line the
+    // member reads>'`, so a blocking unit can no longer exist without one.
+    expect(body).toMatch(/blockedReason: '[^']+'/);
     expect(body).toContain('BodySeverityOutline');
   });
 

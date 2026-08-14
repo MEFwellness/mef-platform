@@ -8,10 +8,12 @@ import { submitDailyCheckin, saveDailyCheckinDraft, logHabitCompletion } from '@
 import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
 import { PAIN_FOLLOWUP_THRESHOLD } from '@/lib/daily-checkin-adaptive/constants';
 import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
+import { countMatchBlockedReason } from '@/lib/daily-checkin-adaptive/followUpValidation';
 import { morningScreenForQuestion, type MorningScreenKey } from '@/lib/daily-checkin-adaptive/screenGrouping';
 import {
   groupUnitsIntoScreens,
   isScreenComplete,
+  screenBlockedReason,
   interleaveFollowUps,
   type CheckinUnit,
 } from '@/lib/daily-checkin-adaptive/wizardUnits';
@@ -131,6 +133,14 @@ export function CheckinForm({
     rotatingProbes.find((q) => q.questionKey === 'checkin_probe.digestion_rating') ?? null;
 
   const genericRotatingProbes = rotatingProbes.filter((q) => !SPECIALLY_HANDLED_QUESTION_KEYS.has(q.questionKey));
+
+  /**
+   * Every question the member could meet on this screen today, parents
+   * included. followUpValidation needs a follow-up's PARENT row (to read
+   * its response_type), and a parent can be a specially-handled key or a
+   * rotating probe, so neither list on its own is enough.
+   */
+  const allProbeQuestions = [...rotatingProbes, ...localFollowUps];
 
   // Root-cause fix (2026-07-29, found live): a specially-handled key
   // (pain_location, pain_aggravating_factor, bowel_movement_status,
@@ -282,6 +292,25 @@ export function CheckinForm({
       isLocalFollowUpEligible(question, answeredIncludingSpecialFields)
   );
 
+  /**
+   * Follow-ups that are NO LONGER being asked but already have an answer
+   * on file, in state or from an earlier save today (2026-08-14 fix, same
+   * bug class as the meals count mismatch). Answer "2 meals skipped" then
+   * "breakfast, lunch", then change the count back to 0: the follow-up
+   * correctly disappears, but without this its two selections were still
+   * submitted, leaving the database saying she skipped no meals AND that
+   * the ones she skipped were breakfast and lunch. Every case is handled
+   * the same way, generically, rather than per question: the stored row
+   * is overwritten with an empty answer so it can never be read back as
+   * a real one.
+   */
+  const stalePersistedFollowUpKeys = localFollowUps
+    .filter((question) => !SPECIALLY_HANDLED_QUESTION_KEYS.has(question.questionKey))
+    .filter((question) => !isLocalFollowUpEligible(question, answeredIncludingSpecialFields))
+    .filter(
+      (question) => question.questionKey in probeAnswers || question.questionKey in initialProbeAnswers
+    );
+
   const mode = isFirstCheckin ? ('cinematic' as const) : ('section' as const);
 
   const units: CheckinUnit[] = useMemo(() => {
@@ -289,7 +318,7 @@ export function CheckinForm({
       {
         key: 'mood',
         section: 'feeling',
-        required: true,
+        blockedReason: 'Choose how you are feeling emotionally.',
         answered: moodLevel !== null,
         render: () => (
           <FiveFacesScale
@@ -303,7 +332,7 @@ export function CheckinForm({
       {
         key: 'energy',
         section: 'feeling',
-        required: true,
+        blockedReason: 'Choose how energized you feel.',
         answered: energyLevel !== null,
         render: () => (
           <VerticalFillScale
@@ -317,7 +346,7 @@ export function CheckinForm({
       {
         key: 'stress',
         section: 'feeling',
-        required: true,
+        blockedReason: 'Choose how much stress you are carrying.',
         answered: stressLevel !== null,
         render: () => (
           <CompressingRings
@@ -331,7 +360,7 @@ export function CheckinForm({
       {
         key: 'night',
         section: 'night',
-        required: true,
+        blockedReason: 'Add your sleep quality, bedtime, and wake time.',
         answered: sleepQuality !== null && actualBedtime !== '' && actualWakeTime !== '',
         render: () => (
           <div className="space-y-6">
@@ -388,7 +417,7 @@ export function CheckinForm({
       list.push({
         key: digestionQuestion.questionKey,
         section: 'body',
-        required: false,
+        blockedReason: null,
         answered: digestionRating !== null,
         render: () => (
           <DriverProbeField
@@ -403,19 +432,34 @@ export function CheckinForm({
     // Every follow-up must render directly beneath the question that
     // triggered it (2026-07-28 fix) — see interleaveFollowUps' own doc
     // comment for why this used to fail (two separate loops/arrays).
-    const probeUnit = (question: DriverProbeQuestion): CheckinUnit => ({
-      key: question.questionKey,
-      section: morningScreenForQuestion(question),
-      required: false,
-      answered: question.questionKey in probeAnswers,
-      render: () => (
-        <DriverProbeField
-          question={question}
-          value={probeAnswers[question.questionKey] ?? null}
-          onChange={(value) => setProbeAnswer(question.questionKey, value)}
-        />
-      ),
-    });
+    const probeUnit = (question: DriverProbeQuestion): CheckinUnit => {
+      // A rotating probe is optional and never blocks Continue — with one
+      // data-driven exception (2026-08-14 fix): a multi_select follow-up
+      // hanging off a `count` parent must match the number that parent
+      // recorded, or the two answers contradict each other on the way
+      // into the database. countMatchBlockedReason returns null for every
+      // other question in the bank, so nothing else changes.
+      const value = probeAnswers[question.questionKey] ?? null;
+      const countReason = countMatchBlockedReason(
+        question,
+        allProbeQuestions,
+        answeredIncludingSpecialFields,
+        value
+      );
+      return {
+        key: question.questionKey,
+        section: morningScreenForQuestion(question),
+        blockedReason: countReason,
+        answered: question.questionKey in probeAnswers && countReason === null,
+        render: () => (
+          <DriverProbeField
+            question={question}
+            value={value}
+            onChange={(newValue) => setProbeAnswer(question.questionKey, newValue)}
+          />
+        ),
+      };
+    };
 
     for (const question of interleaveFollowUps(genericRotatingProbes, eligibleLocalFollowUps)) {
       list.push(probeUnit(question));
@@ -431,7 +475,7 @@ export function CheckinForm({
     list.push({
       key: 'discomfort-gate',
       section: 'body',
-      required: true,
+      blockedReason: 'Answer whether you had any discomfort today.',
       answered: hasDiscomfort !== null,
       render: () => (
         <div>
@@ -469,7 +513,7 @@ export function CheckinForm({
       list.push({
         key: 'body-severity',
         section: 'body',
-        required: true,
+        blockedReason: 'Tap where the discomfort is, then how strong it is.',
         answered: painLocation.length > 0 && severity !== null,
         render: () => (
           <BodySeverityOutline
@@ -503,7 +547,7 @@ export function CheckinForm({
         list.push({
           key: 'pain-aggravating-factor',
           section: 'body',
-          required: false,
+          blockedReason: null,
           answered: painAggravatingFactor !== null,
           render: () => (
             <div>
@@ -538,7 +582,7 @@ export function CheckinForm({
       list.push({
         key: bowelMovementQuestion.questionKey,
         section: 'body',
-        required: false,
+        blockedReason: null,
         answered: bowelMovementStatus !== null,
         render: () => (
           <DigestionIconTiles
@@ -557,7 +601,7 @@ export function CheckinForm({
       list.push({
         key: 'habits',
         section: 'other',
-        required: false,
+        blockedReason: null,
         answered: true,
         render: () => (
           <div>
@@ -590,7 +634,7 @@ export function CheckinForm({
     list.push({
       key: 'concern',
       section: 'other',
-      required: false,
+      blockedReason: null,
       answered: true,
       render: () => <ConcernToCoach coachFirstName={coachFirstName} checked={concern} onChange={setConcern} />,
     });
@@ -598,7 +642,7 @@ export function CheckinForm({
     list.push({
       key: 'notes',
       section: 'other',
-      required: false,
+      blockedReason: null,
       answered: true,
       render: () => (
         <div>
@@ -665,6 +709,7 @@ export function CheckinForm({
   const clampedIndex = Math.min(screenIndex, screenCount - 1);
   const currentScreen = screens[clampedIndex] ?? [];
   const screenComplete = isScreenComplete(currentScreen);
+  const blockedReason = screenBlockedReason(currentScreen);
 
   function goNext() {
     goToScreenClamped(clampedIndex + 1);
@@ -725,8 +770,21 @@ export function CheckinForm({
     if (painAggravatingFactor) {
       await submitProbeAnswerAction(localDate, 'checkin_probe.pain_aggravating_factor', painAggravatingFactor);
     }
+    // See stalePersistedFollowUpKeys above: a follow-up her current
+    // answers no longer ask must not leave a contradicting row behind.
+    // An empty array (multi_select) / JSON null (everything else) is what
+    // every reader in this app already treats as "not answered" — the
+    // same convention the pain-location write above relies on.
+    const staleKeys = new Set(stalePersistedFollowUpKeys.map((q) => q.questionKey));
     await Promise.all(
-      Object.entries(probeAnswers).map(([questionKey, value]) => submitProbeAnswerAction(localDate, questionKey, value))
+      stalePersistedFollowUpKeys.map((question) =>
+        submitProbeAnswerAction(localDate, question.questionKey, question.responseType === 'multi_select' ? [] : null)
+      )
+    );
+    await Promise.all(
+      Object.entries(probeAnswers)
+        .filter(([questionKey]) => !staleKeys.has(questionKey))
+        .map(([questionKey, value]) => submitProbeAnswerAction(localDate, questionKey, value))
     );
   }
 
@@ -842,7 +900,9 @@ export function CheckinForm({
           exitLabel={exiting ? 'Saving…' : 'Home'}
           onContinue={handleContinue}
           continueLabel={isLastScreen ? (submitting ? 'Saving…' : existingCheckin ? 'Update check-in' : 'Save check-in') : 'Continue'}
-          continueDisabled={isLastScreen ? submitting : !screenComplete}
+          continueDisabled={submitting || !screenComplete}
+          continueBusy={submitting}
+          continueBlockedReason={blockedReason}
           renderScreen={(index) => {
             const screen = screens[index] ?? [];
             const section = sectionKeyForScreen(index);

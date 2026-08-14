@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import {
   groupUnitsIntoScreens,
   isScreenComplete,
+  screenBlockedReason,
   interleaveFollowUps,
   type CheckinUnit,
 } from '../lib/daily-checkin-adaptive/wizardUnits';
@@ -41,7 +42,7 @@ function unit(overrides: Partial<CheckinUnit> = {}): CheckinUnit {
   return {
     key: 'example',
     section: 'feeling',
-    required: true,
+    blockedReason: 'Answer this one.',
     answered: false,
     render: () => null,
     ...overrides,
@@ -66,7 +67,7 @@ describe('groupUnitsIntoScreens — section mode', () => {
   it('a rotating probe slots into its own screen\'s group alongside the fixed units, not a screen of its own', () => {
     const units = [
       unit({ key: 'mood', section: 'feeling' }),
-      unit({ key: 'checkin_probe.some_sleep_probe', section: 'night', required: false }),
+      unit({ key: 'checkin_probe.some_sleep_probe', section: 'night', blockedReason: null }),
       unit({ key: 'night', section: 'night' }),
     ];
     const screens = groupUnitsIntoScreens(units, 'section', ['feeling', 'night', 'body', 'other']);
@@ -173,17 +174,62 @@ describe('interleaveFollowUps — a follow-up renders directly beneath the quest
 });
 
 describe('isScreenComplete', () => {
-  it('is false while any required unit is unanswered', () => {
-    const screen = [unit({ required: true, answered: true }), unit({ required: true, answered: false })];
+  it('is false while any blocking unit is unanswered', () => {
+    const screen = [unit({ answered: true }), unit({ answered: false })];
     expect(isScreenComplete(screen)).toBe(false);
   });
 
-  it('is true once every required unit is answered, regardless of optional ones', () => {
-    const screen = [unit({ required: true, answered: true }), unit({ required: false, answered: false })];
+  it('is true once every blocking unit is answered, regardless of optional ones', () => {
+    const screen = [unit({ answered: true }), unit({ blockedReason: null, answered: false })];
     expect(isScreenComplete(screen)).toBe(true);
   });
 
   it('an empty screen is trivially complete', () => {
     expect(isScreenComplete([])).toBe(true);
+  });
+});
+
+/**
+ * 2026-08-14 fix — "Continue must never silently do nothing." A screen
+ * that blocks Continue must always be able to say what is missing, which
+ * is why `blockedReason` replaced the old `required: boolean`: there is no
+ * longer a way to express "this blocks" without also supplying the line
+ * the member reads.
+ */
+describe('screenBlockedReason', () => {
+  it('returns the reason of the first blocking unit that is not answered', () => {
+    const screen = [
+      unit({ key: 'a', blockedReason: 'Answer A.', answered: true }),
+      unit({ key: 'b', blockedReason: 'Answer B.', answered: false }),
+      unit({ key: 'c', blockedReason: 'Answer C.', answered: false }),
+    ];
+    expect(screenBlockedReason(screen)).toBe('Answer B.');
+  });
+
+  it('is null once the screen is complete, so nothing is shown when nothing is missing', () => {
+    const screen = [unit({ answered: true }), unit({ blockedReason: null, answered: false })];
+    expect(screenBlockedReason(screen)).toBeNull();
+    expect(isScreenComplete(screen)).toBe(true);
+  });
+
+  it('ignores optional units entirely, answered or not', () => {
+    const screen = [unit({ blockedReason: null, answered: false })];
+    expect(screenBlockedReason(screen)).toBeNull();
+  });
+
+  it('an incomplete screen ALWAYS has a reason, and a complete one never does (the invariant, over every combination)', () => {
+    for (const blockedReason of ['Answer this one.', null]) {
+      for (const answered of [true, false]) {
+        const screen = [unit({ blockedReason, answered })];
+        const complete = isScreenComplete(screen);
+        const reason = screenBlockedReason(screen);
+        if (complete) expect(reason).toBeNull();
+        else expect(typeof reason === 'string' && reason.length > 0).toBe(true);
+      }
+    }
+  });
+
+  it('an empty screen has nothing to report', () => {
+    expect(screenBlockedReason([])).toBeNull();
   });
 });

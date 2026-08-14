@@ -25,6 +25,11 @@
  *   (useScreenAutoAdvance) was removed entirely — two systems racing to
  *   control the same transition was what caused screens to jump and
  *   controls to stop responding;
+ * - the reason a disabled Continue is disabled: whenever it cannot be
+ *   tapped for any reason other than an in-flight save, a short line
+ *   appears directly above it saying what is missing (2026-08-14 fix).
+ *   A tap that does nothing with no explanation is not a state this
+ *   component can be put into any more — see continueHelperText below;
  * - the screen-to-screen transition: outgoing content fades up and out,
  *   then incoming content fades in from below — never a hard swap, no
  *   flash of white, since the exiting/entering screen is rendered via
@@ -43,6 +48,41 @@ import { ChevronLeft, Home } from 'lucide-react';
 const EXIT_MS = 180;
 const ENTER_MS = 320;
 
+/**
+ * Shown when Continue is disabled and the caller had nothing more
+ * specific to say. Its only job is to make "Continue does nothing" an
+ * impossible state — a screen should always pass a real reason, and every
+ * screen in both flows does today (see each unit's `blockedReason` in
+ * CheckinForm/EveningReflectionForm), but a future screen that forgets
+ * degrades to a vague nudge rather than back to silence.
+ */
+export const FALLBACK_CONTINUE_REASON = 'Answer the questions above to continue.';
+
+/**
+ * The whole "Continue must never silently do nothing" rule, as one pure
+ * decision (2026-08-14 fix). Returns the line to show beneath the
+ * question content, or null when there is nothing to say.
+ *
+ * `busy` is the in-flight save: Continue is legitimately disabled there,
+ * and the button's own label has already changed to "Saving…", so a
+ * second explanation under it would be noise. Every OTHER disabled state
+ * returns a non-empty string, which is exactly what makes the guard test
+ * meaningful: `disabled && !busy` can never map to null.
+ */
+export function continueHelperText({
+  disabled,
+  busy,
+  reason,
+}: {
+  disabled: boolean;
+  busy: boolean;
+  reason: string | null;
+}): string | null {
+  if (!disabled) return null;
+  if (busy) return null;
+  return reason && reason.trim() ? reason : FALLBACK_CONTINUE_REASON;
+}
+
 export function CheckinWizard({
   screenCount,
   screenIndex,
@@ -55,6 +95,8 @@ export function CheckinWizard({
   onContinue,
   continueLabel,
   continueDisabled,
+  continueBusy = false,
+  continueBlockedReason = null,
   renderScreen,
 }: {
   screenCount: number;
@@ -80,6 +122,10 @@ export function CheckinWizard({
   onContinue: () => void;
   continueLabel: string;
   continueDisabled: boolean;
+  /** True while a save is in flight — the only disabled state allowed to show no reason, since the button's own label already says "Saving…". */
+  continueBusy?: boolean;
+  /** Why Continue is disabled, in the member's words. Falls back to FALLBACK_CONTINUE_REASON rather than showing nothing. */
+  continueBlockedReason?: string | null;
   renderScreen: (index: number) => ReactNode;
 }) {
   const [displayIndex, setDisplayIndex] = useState(screenIndex);
@@ -107,6 +153,11 @@ export function CheckinWizard({
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   const fillPercent = ((screenIndex + 1) / screenCount) * 100;
+  const helperText = continueHelperText({
+    disabled: continueDisabled,
+    busy: continueBusy,
+    reason: continueBlockedReason,
+  });
 
   return (
     <div>
@@ -202,10 +253,32 @@ export function CheckinWizard({
        * for the duration of the flow.
        */}
       <div className="sticky bottom-4 z-10 mt-6">
+        {/*
+         * The reason line (2026-08-14 fix). Sits inside the sticky
+         * container, directly above the button, so it travels with the
+         * control it explains instead of scrolling away from it — a
+         * message pinned to the question would be off-screen at exactly
+         * the moment she taps a dead Continue, which is the whole
+         * failure being fixed. Opaque background because it floats over
+         * real content on any screen taller than the viewport.
+         * `aria-live="polite"` announces it when it appears, and
+         * `aria-describedby` ties it to the button for screen readers,
+         * without stealing focus mid-answer.
+         */}
+        {helperText && (
+          <p
+            id="checkin-continue-reason"
+            aria-live="polite"
+            className="mx-auto mb-2 w-fit max-w-full rounded-full bg-[#FAFAF8] px-4 py-1.5 text-center text-[13px] font-medium text-[#4F645A] shadow-[0_2px_10px_-4px_rgba(27,58,45,0.25)]"
+          >
+            {helperText}
+          </p>
+        )}
         <button
           type="button"
           onClick={onContinue}
           disabled={continueDisabled}
+          aria-describedby={helperText ? 'checkin-continue-reason' : undefined}
           className="mef-press flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white shadow-[0_8px_24px_-8px_rgba(27,58,45,0.5)] transition-all duration-200 ease-out hover:brightness-110 disabled:opacity-40"
         >
           {continueLabel}

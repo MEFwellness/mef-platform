@@ -23,10 +23,12 @@ import {
 } from '@/app/actions/eveningReflection';
 import { submitProbeAnswerAction } from '@/app/actions/dailyCheckinPlan';
 import { isLocalFollowUpEligible } from '@/lib/daily-checkin-adaptive/localFollowUps';
+import { countMatchBlockedReason } from '@/lib/daily-checkin-adaptive/followUpValidation';
 import { eveningScreenForQuestion, type EveningScreenKey } from '@/lib/daily-checkin-adaptive/screenGrouping';
 import {
   groupUnitsIntoScreens,
   isScreenComplete,
+  screenBlockedReason,
   interleaveFollowUps,
   type CheckinUnit,
 } from '@/lib/daily-checkin-adaptive/wizardUnits';
@@ -122,6 +124,9 @@ export function EveningReflectionForm({
     isLocalFollowUpEligible(question, probeAnswers)
   );
 
+  /** Every question available on this screen today, parents included — see the morning form's own comment on why both lists are needed. */
+  const allProbeQuestions = [...rotatingProbes, ...localFollowUps];
+
   const router = useRouter();
   // Elapsed-time instrumentation (task requirement 3), same approach as
   // CheckinForm — captured once at first render, read only at a genuine
@@ -146,7 +151,7 @@ export function EveningReflectionForm({
       {
         key: 'overall-day',
         section: 'day',
-        required: true,
+        blockedReason: 'Choose how your day was overall.',
         answered: overallDayRating !== null,
         render: () => (
           <SunPathArc
@@ -160,7 +165,7 @@ export function EveningReflectionForm({
       {
         key: 'daytime-stress',
         section: 'day',
-        required: true,
+        blockedReason: 'Choose how much stress you carried today.',
         answered: daytimeStress !== null,
         render: () => (
           <CompressingRings
@@ -174,7 +179,7 @@ export function EveningReflectionForm({
       {
         key: 'energy-pattern',
         section: 'day',
-        required: true,
+        blockedReason: 'Choose how your energy moved through the day.',
         answered: energyPattern !== null,
         render: () => (
           <EnergyPatternLines
@@ -187,7 +192,7 @@ export function EveningReflectionForm({
       {
         key: 'recovery',
         section: 'day',
-        required: true,
+        blockedReason: 'Choose how recovered you feel.',
         answered: recovery !== null,
         render: () => (
           <RecoveryFill
@@ -206,19 +211,28 @@ export function EveningReflectionForm({
     // all onto 'morning'), so this had no visible symptom today, but the
     // same two-groups-concatenated shape was here and would have
     // misplaced the first evening-screen follow-up ever added.
-    const probeUnit = (question: DriverProbeQuestion): CheckinUnit => ({
-      key: question.questionKey,
-      section: eveningScreenForQuestion(question),
-      required: false,
-      answered: question.questionKey in probeAnswers,
-      render: () => (
-        <DriverProbeField
-          question={question}
-          value={probeAnswers[question.questionKey] ?? null}
-          onChange={(value) => setProbeAnswer(question.questionKey, value)}
-        />
-      ),
-    });
+    // Same count-match rule as the morning form (2026-08-14 fix) — no
+    // evening-screen question pairs a count parent with a multi_select
+    // follow-up today, so this changes nothing visible right now, but
+    // leaving it out is how the morning form ended up being the only
+    // place a shared bug class was guarded against.
+    const probeUnit = (question: DriverProbeQuestion): CheckinUnit => {
+      const value = probeAnswers[question.questionKey] ?? null;
+      const countReason = countMatchBlockedReason(question, allProbeQuestions, probeAnswers, value);
+      return {
+        key: question.questionKey,
+        section: eveningScreenForQuestion(question),
+        blockedReason: countReason,
+        answered: question.questionKey in probeAnswers && countReason === null,
+        render: () => (
+          <DriverProbeField
+            question={question}
+            value={value}
+            onChange={(newValue) => setProbeAnswer(question.questionKey, newValue)}
+          />
+        ),
+      };
+    };
 
     for (const question of interleaveFollowUps(rotatingProbes, eligibleLocalFollowUps)) {
       list.push(probeUnit(question));
@@ -227,7 +241,7 @@ export function EveningReflectionForm({
     list.push({
       key: 'symptoms',
       section: 'other',
-      required: false,
+      blockedReason: null,
       answered: true,
       render: () => (
         <div>
@@ -249,7 +263,7 @@ export function EveningReflectionForm({
     list.push({
       key: 'forecast',
       section: 'other',
-      required: false,
+      blockedReason: null,
       answered: true,
       render: () => (
         <div>
@@ -297,6 +311,7 @@ export function EveningReflectionForm({
   const clampedIndex = Math.min(screenIndex, screenCount - 1);
   const currentScreen = screens[clampedIndex] ?? [];
   const screenComplete = isScreenComplete(currentScreen);
+  const blockedReason = screenBlockedReason(currentScreen);
   const isLastScreen = clampedIndex === screenCount - 1;
 
   function goToScreenClamped(index: number) {
@@ -417,7 +432,9 @@ export function EveningReflectionForm({
           exitLabel={exiting ? 'Saving…' : 'Home'}
           onContinue={handleContinue}
           continueLabel={isLastScreen ? (isPending ? 'Saving…' : existing ? 'Update Evening Reflection' : 'Save Evening Reflection') : 'Continue'}
-          continueDisabled={isLastScreen ? isPending : !screenComplete}
+          continueDisabled={isPending || !screenComplete}
+          continueBusy={isPending}
+          continueBlockedReason={blockedReason}
           renderScreen={(index) => {
             const screen = screens[index] ?? [];
             const section = sectionKeyForScreen(index);
