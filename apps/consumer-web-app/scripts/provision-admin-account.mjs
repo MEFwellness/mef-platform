@@ -41,27 +41,101 @@
  * recreated; its password is reset to ADMIN_ACCOUNT_PASSWORD and its roles
  * are re-converged to admin-only. Re-running it is always safe.
  *
+ * NEVER CREATE A USER ROW WITH SQL. GoTrue writes '' into several auth.users
+ * columns that it later scans into plain Go strings. A hand written INSERT
+ * that omits them leaves NULL, and one such row makes EVERY listUsers call in
+ * the project fail with a 500 and an empty body, as well as making that
+ * account unable to sign in. If that has already happened, the fix is
+ * scripts/repair-auth-null-tokens.sql at the repo root, which is idempotent
+ * and safe to run at any time.
+ *
  * Prints no secret. The password is never echoed, and the service-role key
- * is never logged.
+ * is never logged. Credentials are read from the gitignored .env.local files
+ * the repo already keeps, so the key never has to be typed on a command line.
  */
 import { createClient } from '@supabase/supabase-js';
+import { readFileSync, existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-function requiredEnv(name) {
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Reads the gitignored env files the repo already keeps, so the operator does
+ * not have to export anything by hand and, more importantly, does not have to
+ * handle the service-role key on a command line where it would land in shell
+ * history. Anything already exported wins, so a deliberate override still
+ * works.
+ */
+function loadEnvFiles() {
+  const candidates = [
+    path.resolve(__dirname, '../.env.local'),
+    path.resolve(__dirname, '../../../.env.local'),
+  ];
+  for (const file of candidates) {
+    if (!existsSync(file)) continue;
+    for (const line of readFileSync(file, 'utf-8').split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq === -1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      if (!(key in process.env)) process.env[key] = trimmed.slice(eq + 1).trim();
+    }
+  }
+}
+loadEnvFiles();
+
+function requiredEnv(name, hint) {
   const value = process.env[name];
   if (!value) {
     throw new Error(
       `Missing required env var ${name}. This script refuses to guess or fall back to a ` +
-        "local/dev value when provisioning an administrator — see this file's own header comment."
+        `local/dev value when provisioning an administrator.${hint ? ` ${hint}` : ''}`
     );
   }
   return value;
 }
 
-const SUPABASE_URL = requiredEnv('ADMIN_SUPABASE_URL');
-const SERVICE_ROLE_KEY = requiredEnv('ADMIN_SUPABASE_SERVICE_ROLE_KEY');
+const SUPABASE_URL = requiredEnv(
+  'ADMIN_SUPABASE_URL',
+  'This is the project API URL, for example https://<project-ref>.supabase.co, NOT the database connection string.'
+);
+const SERVICE_ROLE_KEY = requiredEnv(
+  'ADMIN_SUPABASE_SERVICE_ROLE_KEY',
+  'Get it with: npx supabase projects api-keys --project-ref <ref>. It must be the service_role key; the anon key cannot create users.'
+);
 const EMAIL = requiredEnv('ADMIN_ACCOUNT_EMAIL').toLowerCase();
 const PASSWORD = requiredEnv('ADMIN_ACCOUNT_PASSWORD');
 const DISPLAY_NAME = process.env.ADMIN_ACCOUNT_DISPLAY_NAME || 'MEF Wellness Admin';
+
+/**
+ * Fails early and in plain language when the wrong key was supplied, rather
+ * than letting it surface later as an opaque authorization error from the
+ * API. Only ever inspects the role claim; the key itself is never logged.
+ */
+function assertServiceRoleKey(key) {
+  const segments = key.split('.');
+  if (segments.length !== 3) {
+    throw new Error(
+      'ADMIN_SUPABASE_SERVICE_ROLE_KEY is not a JWT. A truncated paste (the CLI table elides the ' +
+        'newer sb_secret_... key with dots) is the usual cause. Re-copy the full service_role value.'
+    );
+  }
+  let role;
+  try {
+    role = JSON.parse(Buffer.from(segments[1], 'base64').toString()).role;
+  } catch {
+    throw new Error('ADMIN_SUPABASE_SERVICE_ROLE_KEY could not be decoded. Re-copy it in full.');
+  }
+  if (role !== 'service_role') {
+    throw new Error(
+      `ADMIN_SUPABASE_SERVICE_ROLE_KEY carries role "${role}", not "service_role". ` +
+        'The anon key cannot create users or read user_roles past RLS.'
+    );
+  }
+}
+assertServiceRoleKey(SERVICE_ROLE_KEY);
 
 /** Every role this account must NOT hold. Anything active here is revoked. */
 const NON_ADMIN_ROLES = ['member', 'coach', 'clinician_reviewer'];
@@ -72,6 +146,43 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 /**
+ * Turns an auth error into something an operator can act on.
+ *
+ * A 500 with an empty body from any user-listing call has one overwhelmingly
+ * likely cause, and it is not this script: an auth.users row somewhere in the
+ * project has NULL in a column GoTrue scans into a plain Go string. That makes
+ * the scan fail for the WHOLE query, so ONE malformed row takes out the admin
+ * users API for every caller. It happens when a user row is inserted with SQL
+ * instead of through this API, which is exactly why this script exists.
+ *
+ * This was a real incident on 2026-08-14: info@mefwellness.com was created
+ * with a hand written INSERT, and from then until it was repaired, every
+ * listUsers call for the entire project returned `{}`. The message below is
+ * what would have turned a two hour diagnosis into a two minute one.
+ */
+function explainAuthError(label, error) {
+  const status = error?.status;
+  const message = typeof error?.message === 'string' ? error.message : JSON.stringify(error);
+  const empty = !message || message === '{}' || message === '{}\n';
+
+  if (status === 500 && empty) {
+    return (
+      `${label} failed with a 500 and an empty body.\n\n` +
+      'This almost always means an auth.users row has NULL where GoTrue expects an empty string, ' +
+      'which breaks the query for every row, not just that one. It is a project-wide fault and it ' +
+      'is not caused by the arguments you passed.\n\n' +
+      'Repair it with the documented, idempotent script, then re-run this one:\n' +
+      '  export $(grep -E "^SUPABASE_DB_URL=" .env.local | head -1)\n' +
+      '  psql "$SUPABASE_DB_URL" -f scripts/repair-auth-null-tokens.sql\n'
+    );
+  }
+  if (status === 401 || status === 403) {
+    return `${label} failed with ${status}: ${message}. The key was accepted as a service_role JWT, so check it belongs to THIS project (${SUPABASE_URL}).`;
+  }
+  return `${label} failed${status ? ` (${status})` : ''}: ${message}`;
+}
+
+/**
  * listUsers is paged; an address that exists past page one still has to be
  * found, or the script would create a duplicate and break its own idempotency
  * claim.
@@ -79,7 +190,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 async function findUserByEmail(email) {
   for (let page = 1; page <= 50; page += 1) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
-    if (error) throw new Error(`listUsers failed: ${error.message}`);
+    if (error) throw new Error(explainAuthError('listUsers', error));
     const match = data.users.find((u) => (u.email ?? '').toLowerCase() === email);
     if (match) return match;
     if (data.users.length < 200) return null;
@@ -95,7 +206,7 @@ async function ensureUser() {
       email_confirm: true,
       user_metadata: { ...existing.user_metadata, display_name: DISPLAY_NAME },
     });
-    if (error) throw new Error(`updateUserById failed: ${error.message}`);
+    if (error) throw new Error(explainAuthError('updateUserById', error));
     console.log(`reused existing account ${existing.id} (password reset, email confirmed)`);
     return existing.id;
   }
@@ -108,7 +219,7 @@ async function ensureUser() {
     email_confirm: true,
     user_metadata: { display_name: DISPLAY_NAME },
   });
-  if (error) throw new Error(`createUser failed: ${error.message}`);
+  if (error) throw new Error(explainAuthError('createUser', error));
   console.log(`created account ${data.user.id}`);
   return data.user.id;
 }

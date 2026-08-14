@@ -29,7 +29,10 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { serviceRoleClient } from './setup/test-clients';
+import { anonClient, serviceRoleClient } from './setup/test-clients';
+import { getMemberEngagementStates } from '../lib/analytics-service/detections';
+import { getOverviewMetrics } from '../lib/analytics-service/reports';
+import { AnalyticsAccessDeniedError } from '../lib/analytics-service/client';
 
 const EMAIL = 'admin.only.fixture@example.test';
 const PASSWORD = 'DevPassword123!';
@@ -184,5 +187,147 @@ describe('an administrator-only account', () => {
     // email_confirm was set at creation, so there is no verification step
     // standing between provisioning the account and using it.
     expect(user.user?.email_confirmed_at).toBeTruthy();
+  });
+
+  // -------------------------------------------------------------------
+  // What the account can and cannot actually DO, signed in as itself
+  // -------------------------------------------------------------------
+
+  describe('signed in as the admin-only account', () => {
+    let admin: SupabaseClient;
+
+    beforeAll(async () => {
+      admin = anonClient();
+      const { error } = await admin.auth.signInWithPassword({ email: EMAIL, password: PASSWORD });
+      if (error) throw new Error(`admin-only account could not sign in: ${error.message}`);
+    });
+
+    it('is admitted to the admin analytics surfaces', async () => {
+      // analytics_assert_admin() runs first inside every one of these and
+      // raises 42501 for anyone without the role, so getting a result at all
+      // is the admission.
+      const overview = await getOverviewMetrics(admin, { period: { preset: 'last_30_days' } });
+      expect(overview).toBeDefined();
+
+      const states = await getMemberEngagementStates(admin, { period: { preset: 'last_30_days' } });
+      expect(Array.isArray(states)).toBe(true);
+    });
+
+    it('does not appear in the member engagement table it can itself read', async () => {
+      for (const includeTestAccounts of [false, true]) {
+        const states = await getMemberEngagementStates(admin, {
+          period: { preset: 'last_30_days' },
+          includeTestAccounts,
+        });
+        expect(
+          states.map((member) => member.memberId),
+          `includeTestAccounts=${includeTestAccounts}`
+        ).not.toContain(userId);
+      }
+    });
+
+    /**
+     * WHAT "REFUSED AS MEMBER AND COACH" ACTUALLY MEANS HERE, because it is
+     * not what it first sounds like.
+     *
+     * `platform_administrator` holds broad FOR ALL row level security policies
+     * across the schema (migration 16). That is the deliberate meaning of the
+     * role and it long predates this account: an administrator CAN read
+     * onboarding submissions and coach assignments, and asserting otherwise
+     * would be asserting that the platform administrator role does not work.
+     *
+     * The refusal that matters, and the one the product actually implements,
+     * is at the level of ROLE and ROUTE:
+     *
+     *   - it holds no member role and no coach role, so middleware.ts sends it
+     *     away from /coach, and lib/auth/postLoginRoute.ts never routes it
+     *     into the member experience
+     *   - it is not a member for any counting purpose
+     *   - it is nobody's client
+     *
+     * Those are the three asserted below.
+     */
+    it('is refused from the coach area, because the role check middleware runs is false', async () => {
+      // middleware.ts gates /coach on exactly this call.
+      const { data: isCoach } = await admin.rpc('has_active_role', {
+        p_user: userId,
+        p_role: 'coach',
+      });
+      expect(isCoach).toBe(false);
+    });
+
+    it('is never routed into the member experience, because it holds no member role', async () => {
+      // lib/auth/postLoginRoute.ts checks coach, then administrator, and
+      // returns /admin before any member branch is reached.
+      const { data: isMember } = await admin.rpc('has_active_role', {
+        p_user: userId,
+        p_role: 'member',
+      });
+      expect(isMember).toBe(false);
+
+      const { data: isAdmin } = await admin.rpc('has_active_role', {
+        p_user: userId,
+        p_role: 'platform_administrator',
+      });
+      expect(isAdmin).toBe(true);
+    });
+
+    it('is nobody client: it appears in no coach caseload', async () => {
+      // Reading the table is allowed for an administrator. What must be true
+      // is that this account is not a CLIENT in any row of it.
+      const { data: assignments } = await admin
+        .from('coach_client_assignments')
+        .select('client_id');
+      expect((assignments ?? []).map((row) => row.client_id)).not.toContain(userId);
+    });
+
+    it('owns no member data of its own', async () => {
+      // An administrator can read these tables; the point is that none of the
+      // rows are this account's, so it can never be mistaken for a member with
+      // a history.
+      for (const [table, column] of [
+        ['daily_checkins', 'user_id'],
+        ['member_goal_selections', 'member_id'],
+        ['onboarding_submissions', 'user_id'],
+      ] as const) {
+        const { data } = await admin.from(table).select('id').eq(column, userId);
+        expect(data ?? [], table).toHaveLength(0);
+      }
+    });
+
+    it('a signed-out visitor is still refused from the same analytics reads', async () => {
+      const visitor = anonClient();
+      await expect(
+        getOverviewMetrics(visitor, { period: { preset: 'last_30_days' } })
+      ).rejects.toBeInstanceOf(AnalyticsAccessDeniedError);
+    });
+  });
+});
+
+/**
+ * The hazard that caused the 2026-08-14 incident, guarded directly.
+ *
+ * GoTrue scans several auth.users columns into plain Go strings. A NULL in any
+ * of them breaks the scan for the WHOLE query, so a single malformed row makes
+ * every admin listUsers call in the project fail with a 500 and an empty body,
+ * and makes that account unable to sign in. Only a hand written SQL INSERT can
+ * produce such a row; the Auth Admin API always writes ''.
+ *
+ * This test asserts the invariant rather than the incident, so it will catch
+ * the next hand written INSERT too, whatever it is for.
+ */
+describe('no auth.users row has a NULL where GoTrue expects an empty string', () => {
+  it('every account has empty strings, not nulls, in the token columns', async () => {
+    const service = serviceRoleClient();
+
+    // listUsers is itself the canary: it is the call that fails when a
+    // malformed row exists, so a clean result here is the invariant holding.
+    const { data, error } = await service.auth.admin.listUsers({ page: 1, perPage: 200 });
+    expect(
+      error,
+      'listUsers failed. If this is a 500 with an empty body, an auth.users row has NULL token ' +
+        'columns. Repair with scripts/repair-auth-null-tokens.sql.'
+    ).toBeNull();
+    expect((data?.users ?? []).length).toBeGreaterThan(0);
   });
 });
