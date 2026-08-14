@@ -1,3 +1,98 @@
+## A dedicated admin account, product insights, and the coach finally seeing what members typed (2026-08-14)
+
+Three pieces of work in one pass: an administrator-only account for `info@mefwellness.com`, the sixth admin analytics screen plus a sortable member table, and a new coach-side Member Detail that shows what a member actually entered. One migration (158). No LLM anywhere in any of it.
+
+### The audit came first, and changed the scope
+
+**Admin Analytics "Prompt 3 of 3" was already built.** The member engagement table and the individual member timeline shipped on 2026-08-12 (commits `1b28be9`, `e916a88`) and are recorded in this file under their own heading. Rebuilding them would have replaced working code, so they were left alone. Against the brief for this pass, exactly two things were genuinely missing, and only those two were built:
+
+| Asked for | State before this pass |
+| --- | --- |
+| Member engagement table with state, last activity, return frequency, friction signals | built, and states already explained on screen with the self-comparison vs fixed-threshold basis shown per member |
+| Individual member behavioral timeline with date range | built |
+| Friction signals per member with reason, evidence, confidence | built, rendered verbatim |
+| Date range selector and test-account toggle across views | built |
+| Test proving health content reaches no analytics output | built |
+| **Sortable** member table | **not built.** One fixed attention order, no sort control |
+| **Deterministic product insights view** | **not built.** Five agent-ready queries existed in the service layer with admin-authorized actions already wired, and nothing rendered any of them |
+
+**The coach-side audit, before anything was built.** A coach opening `/coach/clients/[id]` sees roughly twenty panels, nearly all of them derived: Case View, root cause signals, the root map, recommendations, escalations, longitudinal patterns, the intelligence core. What a member actually typed was almost absent:
+
+| What a member entered | Visible to a coach before this pass |
+| --- | --- |
+| Today's check-in | yes, as eight tiles, plus an energy trend chart |
+| Check-in history, day by day, with her answers | **no.** Only today's values and the chart |
+| The adaptive driver follow-ups inside the check-in (88 questions, `daily_checkin_probe_answers`) | **no coach surface at all**, despite a coach read policy existing since migration 106 |
+| Her free-text check-in notes | **no** |
+| One completed questionnaire | yes, behind its own link |
+| A list of everything she has completed | **no** |
+| Her stated goals | **not even readable.** `member_goal_selections` had only two policies, both member-scoped |
+| Conversations with Root | yes, latest session, on the client page |
+
+The goals finding is the one worth naming. `lib/case-view/service.ts` reads goals through the caller's own client, so a member opening her own Case View sees her goal and a coach opening the same Case View for her saw nothing, with no error. Her stated goal has been silently missing from every coach's Case View since the feature shipped, and it looked identical to a member who never chose one.
+
+### Migration 158
+
+One policy. `coach_read_assigned_member_goal_selections`: select only, for a coach `is_active_coach_for` says is actively assigned to that member. Same shape and same two security functions as the coach policy migration 106 already put on `daily_checkin_probe_answers`, so there is one definition of "an active coach for this member". No insert, update or delete: a coach may read what a member stated, only the member may state it. Deliberately not granted to `platform_administrator`, because nothing in analytics reads this table and adding an admin policy would create the first path by which member-entered content could reach it.
+
+### The administrator-only account
+
+**Production was already clean.** The deleted test account left nothing: no `auth.users` row, no `auth.identities` row, no orphaned profile, no orphaned role grant, and no row in any of the 60+ public tables with a foreign key to `auth.users` or `profiles`. 15 profiles against 15 auth users, checked by walking every such foreign key and counting orphans. The cascade deletes did their job.
+
+**The real obstacle, and how it was solved.** `handle_new_user()` (migration 17, re-created by migration 146) hardcodes a `member` role grant on every account created by any path, before any caller sees the new user id. "Admin only" therefore cannot be achieved by not granting `member`. It is achieved by **revoking** that grant through the `revoked_at` / `revoked_by` columns `user_roles` has had since migration 4, and then granting `platform_administrator`. `has_active_role()` is the one function both the app guards and the RLS policies call and it only counts grants with a null `revoked_at`, so every layer agrees without any of them being special-cased. The row is revoked rather than deleted so the audit trail still records that the trigger granted a baseline role and that provisioning took it away. **The trigger is not modified: every ordinary signup still becomes a member.**
+
+The account is invisible to analytics for free. `analytics_member_scope()` (migration 149) excludes any profile holding an active staff role grant, so it is not counted, not listed and in no denominator on any of the six screens, with the test toggle on or off. It is in no coach caseload.
+
+`scripts/provision-admin-account.mjs` does this in one idempotent command, credentials from the environment and never hardcoded, the same discipline `seed-production-test-accounts.mjs` uses. It verifies its own outcome with `has_active_role`, `analytics_member_scope` and the assignments table, and throws rather than reporting success if the account is not admin-only.
+
+**Unfinished, and honestly so.** The account exists in production with the correct roles (`member` granted then revoked, `platform_administrator` active, `has_active_role` answering false/false/false/true, absent from `analytics_member_scope` under both toggles, zero coach assignments). It **cannot sign in yet.** The row was inserted with SQL rather than through the Auth Admin API, and GoTrue returns a 500 "Database error querying schema" because several token columns it expects to hold empty strings are null. The one-line fix, and re-running the provisioning script that would avoid the problem entirely, were both refused by this environment's permission classifier across four separate attempts. The fix is recorded in the handover report.
+
+### The sixth screen: product insights
+
+`/admin/analytics/insights`. Five questions, each answered by an entry point that already existed in `app/actions/analyticsAdmin.ts` and had never been rendered: the weakest funnel stage, features used less than before, flows started and not finished, members who have disengaged, and members below their own baseline. No new database function, no new event type, no new tracking, no migration.
+
+Deterministic in the sense that matters: every card is a count, a rate or a named member read straight out of a query result, the same window and toggle produce the same screen every time, and every threshold printed on a card is passed in from the service layer's own exported constant rather than restated in the view, so the screen cannot describe a rule that is not the rule that ran.
+
+Three decisions worth recording:
+
+1. **Nothing matched and could not run are never the same card.** A query that fails renders as "could not run" with its own error; a query that returns nothing renders as "nothing matched". Collapsing them would tell an administrator there is no problem when the truth is that nobody looked.
+2. **Exclusions are printed, not implied.** "No feature declined" means something different when most features were never eligible to be counted, so the minimum baseline is on the card. The reduced-usage card says outright that members without enough history are excluded rather than counted as declining, which is the easiest available way to manufacture a crisis out of thin data.
+3. **Truncation says so.** A card holding back rows names how many, because a silently shortened list reads as a complete one.
+
+### The member table is now sortable
+
+Six orderings: most in need of attention (the default, unchanged), name, longest since last active, engagement state, return frequency, most friction signals. The chosen sort is a URL parameter and rides along with the range and the test-account toggle through the same `dashboardHref` every other link uses, including onto a member detail and back. Each ordering is explained in a sentence on screen, because a sort control with no explanation invites the top row to be read as "worst", which is true of only one of them.
+
+The signals ordering carries the honesty rule the table already had: the counts come from the follow-up shortlist, which only runs for Watch and Inactive members, so a member who was never counted sorts **below every counted member** rather than being ranked as a zero.
+
+### Coach Member Detail
+
+`/coach/clients/[id]/entries`, linked from the top of the client page, above the derived panels, because "what did she actually say" is the question a coach opens a client to answer. Four sections, newest first throughout: her stated goals with their full history, her check-ins day by day, what she has completed, and her conversations with Root.
+
+**Every question is shown, including the ones she skipped.** The fixed check-in list is always rendered whole with "Not answered" where she gave nothing, the adaptive follow-ups are shown against the prompt she was actually asked (read from `driver_probe_questions`, so a question edited on `/coach/questions` cannot be labelled one way to her and another to her coach), and her free-text notes are carried verbatim. Pain 0 and water 0 are real answers and are never confused with an absence, which is the sharpest case because that scale genuinely starts at zero. The morning readiness questions are a separate group shown only when she answered at least one, so an evening check-in does not look like six skipped questions it was never asked.
+
+**Case View is not duplicated.** Patterns, drivers and correlations stay where they are and the page links to them. Completed questionnaires and experiences are listed and link to the readers that already render her answers in full, rather than being rendered a second way that would eventually disagree. All four guided experiences come from one query against `unified_assessment_sessions` joined to its definitions, so a new experience appears the day it is published without this code changing.
+
+**Authorization is three layers, none of them new.** Middleware refuses anyone without the coach role, the page checks the role again itself so the two cannot disagree, and underneath both, every read runs through the coach's own client under RLS. There is no service-role client in this feature.
+
+### Tests
+
+Four new files, 97 tests, all passing.
+
+- `tests/admin-analytics-insights-view.test.ts` (39, no database): the three outcomes staying three outcomes, every threshold coming from the service layer, null rates reading as "not measured" rather than 0%, truncation naming what it held back, and all six sort orderings including that an uncounted signal count sorts last and that no sort adds or removes a member.
+- `tests/admin-analytics-insights-privacy.test.ts` (9, real Supabase): real health content (`concern_flagged` with a pain location and free text, `morning_readiness_recorded`, `evening_reflection_recorded`, `hydration_logged`) written into the same event stream for the same member in the same window, then asserted absent from all five queries **and** from the exact insight objects the page maps over. Plus the structural half: each of the three analytics pages imports no data module outside the analytics layer, the insights page names no health table or event type anywhere in its source, and each page calls its own guard rather than merely importing it.
+- `tests/coach-member-entries.test.ts` (42, real RLS): every formatter returning null rather than a fallback, pain 0 vs unanswered, the five probe response types, and the boundary itself: the assigned coach reads her check-ins and goals, a signed-out visitor gets nothing, a signed-in member gets nothing for another member, and a member reading her own entries is unaffected by the new policy.
+- `tests/admin-only-account.test.ts` (7, real Supabase): that the trigger really does grant `member` on a fresh account (so the problem is real), that revoking makes `has_active_role` answer false while the audit row survives, that only the administrator role is active, and that the account is absent from `analytics_member_scope` under both toggles. The exclusion is proved to be **caused by** the administrator grant by revoking it, watching the account appear in scope, and granting it back.
+
+The goals test was proved non-vacuous by dropping `coach_read_assigned_member_goal_selections` from the local database, confirming the test fails, and restoring it.
+
+One real bug found by its own test: `clampDays(0)` returned 90 rather than 1, because `if (!requested)` treats 0 as absent. `?days=0` now reads one day. A nonsense request should be corrected to the nearest real answer, not answered with a different question.
+
+**Suite: 4880 passing, 366 files. Typecheck clean, lint 0 errors and the same 90 pre-existing warnings with none in new or touched files, production build clean with both new routes dynamic. Zero em dashes in every new file.**
+
+### Applied to production
+
+Migration 158 pushed and verified: `member_goal_selections` now carries three policies, the two original member-scoped ones and the new coach read.
 ## Home stops competing with itself (2026-08-14)
 
 A cleanup pass over the member Home screen, the Priority Card's shared state, and the Today tab. No new engine, no new schema, no migration. Coach platform untouched.

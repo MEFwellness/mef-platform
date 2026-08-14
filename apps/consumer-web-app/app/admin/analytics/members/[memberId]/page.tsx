@@ -52,6 +52,7 @@ import {
   membersTableHref,
   orderSignals,
   parseComparisonControls,
+  parseMemberSort,
   parseMemberStateFilter,
   rhythmLabel,
 } from '@/lib/analytics-dashboard/memberView';
@@ -87,11 +88,12 @@ export default async function AdminAnalyticsMemberDetailPage({
 
   const view = parseDashboardView(searchParams);
   const filter = parseMemberStateFilter(searchParams?.state);
+  const sort = parseMemberSort(searchParams?.sort);
   const options = analyticsOptionsFor(view);
   const memberId = params.memberId;
   const comparison = parseComparisonControls(searchParams, view);
 
-  const backHref = membersTableHref(view, filter) as Route;
+  const backHref = membersTableHref(view, filter, sort) as Route;
   const chrome = {
     current: `/admin/analytics/members/${memberId}` as AnalyticsSectionHref,
     view,

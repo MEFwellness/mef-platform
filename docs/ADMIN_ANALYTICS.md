@@ -30,21 +30,24 @@ layer. They consume the entry points above and nothing else.
 | `/admin/analytics/drop-off` | `analytics_drop_off` |
 | `/admin/analytics/members` | `getMemberEngagementStates`, and `findMembersForCoachFollowUp` for the signal counts |
 | `/admin/analytics/members/[memberId]` | `getMemberFrictionSignals`, `getMemberActivityTimeline`, `analytics_member_window_comparison` |
+| `/admin/analytics/insights` | `findWeakestFunnelStage`, `findFeaturesWithUnusualUsageDrops`, `findMembersWithIncompleteFlows`, `findDisengagedMembers`, `findMembersWithReducedUsage` |
 
 The chosen window and the test-account toggle live in the URL
 (`?range=7d|30d|90d|custom&from=&to=&test=on`), so changing either is a
 navigation and the aggregation re-runs in Postgres. The member views add
-`&state=` for the engagement filter and `&ref=`/`&window=` for the
-before/after comparison, on the same principle. Nothing in the section is a
+`&state=` for the engagement filter, `&sort=` for the table ordering, and
+`&ref=`/`&window=` for the before/after comparison, on the same principle. Nothing in the section is a
 client component; no event row reaches a browser.
 
-`lib/analytics-dashboard/` holds the four pure modules the screens depend
+`lib/analytics-dashboard/` holds the five pure modules the screens depend
 on: `viewState.ts` (what a URL means, and the previous equivalent period),
 `trend.ts` (comparison against that period, with no percentage invented
 from a zero baseline), `presentation.ts` (formatting, the "too few to rate"
-rule, and the empty-state copy), and `memberView.ts` (engagement sorting and
-filtering, the basis and signal labels, the before/after readout, and the
-member views' empty copy). The screens themselves cannot be unit-rendered in
+rule, and the empty-state copy), `memberView.ts` (engagement sorting and
+filtering, the six table orderings, the basis and signal labels, the
+before/after readout, and the member views' empty copy), and
+`insightsView.ts` (the product insights cards, and the rule that an empty
+result and a failed query are never rendered the same way). The screens themselves cannot be unit-rendered in
 this repo, so those rules live there and are tested directly.
 
 ### The member views

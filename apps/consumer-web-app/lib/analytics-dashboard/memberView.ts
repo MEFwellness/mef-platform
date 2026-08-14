@@ -152,6 +152,132 @@ export function filterMembersByState<T extends { state: EngagementState }>(
   return members.filter((member) => member.state === filter);
 }
 
+// ---------------------------------------------------------------------
+// Sorting the table
+// ---------------------------------------------------------------------
+
+/**
+ * The columns the table can be ordered by.
+ *
+ * `attention` is the default and is the ordering the build originally
+ * specified: state first, longest away inside a state. The rest exist
+ * because an administrator scanning the table has other real questions
+ * ("who joined and never came back", "whose rhythm is fastest"), and every
+ * one of them is a plain reordering of facts already on the row. No sort
+ * computes anything, and no sort can change which members are listed.
+ */
+export type MemberSortKey = 'attention' | 'name' | 'lastActive' | 'state' | 'rhythm' | 'signals';
+
+export const MEMBER_SORT_KEYS: MemberSortKey[] = [
+  'attention',
+  'name',
+  'lastActive',
+  'state',
+  'rhythm',
+  'signals',
+];
+
+export const DEFAULT_MEMBER_SORT: MemberSortKey = 'attention';
+
+export const MEMBER_SORT_LABEL: Record<MemberSortKey, string> = {
+  attention: 'Most in need of attention',
+  name: 'Name',
+  lastActive: 'Longest since last active',
+  state: 'Engagement state',
+  rhythm: 'Return frequency',
+  signals: 'Most friction signals',
+};
+
+/**
+ * What each ordering actually does, said on the screen. A sort control with
+ * no explanation invites an administrator to read the top row as "worst",
+ * which is only true for one of these.
+ */
+export const MEMBER_SORT_MEANING: Record<MemberSortKey, string> = {
+  attention:
+    'Inactive first, then Watch, then Active, then New, and inside each of those the longest away first.',
+  name: 'Alphabetical by display name. A member with no name on file sorts by her id.',
+  lastActive:
+    'Longest absence first. Never active counts as the longest absence there is, so those members sort above every finite one.',
+  state: 'Grouped by state in the same order as above, then alphabetically inside each state.',
+  rhythm:
+    'Fastest known rhythm first. A member with no known rhythm has no gap to sort by and is placed last rather than given an invented one.',
+  signals:
+    'Most raised signals first. Members whose signals were not counted are placed last, because an uncounted member is not the same as a member with none.',
+};
+
+export function parseMemberSort(value: string | string[] | undefined): MemberSortKey {
+  const first = Array.isArray(value) ? value[0] : value;
+  if (first && (MEMBER_SORT_KEYS as string[]).includes(first)) return first as MemberSortKey;
+  return DEFAULT_MEMBER_SORT;
+}
+
+type SortableMember = { state: EngagementState; facts: MemberEngagementFacts };
+
+/** Display name, or the id when there is no name, so the tiebreak is always defined. */
+function nameKey(member: SortableMember): string {
+  return (member.facts.displayName ?? member.facts.memberId).toLowerCase();
+}
+
+/** A member with no known rhythm has nothing to compare, so she goes last rather than being treated as gap zero. */
+function rhythmRank(facts: MemberEngagementFacts): number {
+  const gap = facts.typicalGapDays;
+  if (gap === null || !Number.isFinite(gap)) return Number.MAX_SAFE_INTEGER;
+  return gap;
+}
+
+/**
+ * Orders the table.
+ *
+ * `signalCounts` only has entries for members the follow-up shortlist
+ * actually ran over. A member missing from it was never counted, which is a
+ * different fact from having zero signals, so she sorts below every counted
+ * member instead of being ranked as a zero.
+ *
+ * Every branch ends in the same name tiebreak, so two renders of the same
+ * data always produce the same order rather than depending on the order the
+ * database happened to return.
+ */
+export function sortMembers<T extends SortableMember>(
+  members: T[],
+  sort: MemberSortKey,
+  signalCounts?: Map<string, number>
+): T[] {
+  if (sort === 'attention') return sortMembersByAttention(members);
+
+  const byName = (a: T, b: T) => nameKey(a).localeCompare(nameKey(b));
+
+  return [...members].sort((a, b) => {
+    switch (sort) {
+      case 'name':
+        return byName(a, b);
+      case 'lastActive': {
+        const byAbsence =
+          absenceRank(b.facts.daysSinceLastActivity) - absenceRank(a.facts.daysSinceLastActivity);
+        return byAbsence !== 0 ? byAbsence : byName(a, b);
+      }
+      case 'state': {
+        const byState =
+          ENGAGEMENT_STATE_ORDER.indexOf(a.state) - ENGAGEMENT_STATE_ORDER.indexOf(b.state);
+        return byState !== 0 ? byState : byName(a, b);
+      }
+      case 'rhythm': {
+        const byRhythm = rhythmRank(a.facts) - rhythmRank(b.facts);
+        return byRhythm !== 0 ? byRhythm : byName(a, b);
+      }
+      case 'signals': {
+        const counted = (member: T) => signalCounts?.has(member.facts.memberId) === true;
+        if (counted(a) !== counted(b)) return counted(a) ? -1 : 1;
+        const countOf = (member: T) => signalCounts?.get(member.facts.memberId) ?? 0;
+        const byCount = countOf(b) - countOf(a);
+        return byCount !== 0 ? byCount : byName(a, b);
+      }
+      default:
+        return byName(a, b);
+    }
+  });
+}
+
 /** How many members are in each state, for the filter chips. Every state is counted, including the empty ones. */
 export function countMembersByState<T extends { state: EngagementState }>(
   members: T[]
@@ -177,18 +303,30 @@ export function countMembersByState<T extends { state: EngagementState }>(
  * opening a member and coming back never silently changes the window her
  * numbers were read over.
  */
-export function membersTableHref(view: DashboardView, filter: MemberStateFilter = 'all'): string {
+export function membersTableHref(
+  view: DashboardView,
+  filter: MemberStateFilter = 'all',
+  sort: MemberSortKey = DEFAULT_MEMBER_SORT
+): string {
   const base = dashboardHref(MEMBERS_TABLE_PATH, view);
-  return filter === 'all' ? base : `${base}&state=${filter}`;
+  let href = filter === 'all' ? base : `${base}&state=${filter}`;
+  if (sort !== DEFAULT_MEMBER_SORT) href += `&sort=${sort}`;
+  return href;
 }
 
 export function memberDetailHref(
   memberId: string,
   view: DashboardView,
-  extra: { state?: MemberStateFilter; referenceDate?: string; windowDays?: number } = {}
+  extra: {
+    state?: MemberStateFilter;
+    sort?: MemberSortKey;
+    referenceDate?: string;
+    windowDays?: number;
+  } = {}
 ): string {
   let href = dashboardHref(`${MEMBERS_TABLE_PATH}/${memberId}`, view);
   if (extra.state && extra.state !== 'all') href += `&state=${extra.state}`;
+  if (extra.sort && extra.sort !== DEFAULT_MEMBER_SORT) href += `&sort=${extra.sort}`;
   if (extra.referenceDate) href += `&ref=${extra.referenceDate}`;
   if (extra.windowDays) href += `&window=${extra.windowDays}`;
   return href;

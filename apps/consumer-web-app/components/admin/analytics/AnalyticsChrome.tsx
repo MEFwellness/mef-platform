@@ -33,6 +33,7 @@ export const ANALYTICS_TABS = [
   { href: '/admin/analytics/features', label: 'Feature usage' },
   { href: '/admin/analytics/drop-off', label: 'Drop-off' },
   { href: '/admin/analytics/members', label: 'Members' },
+  { href: '/admin/analytics/insights', label: 'Product insights' },
 ] as const;
 
 export type AnalyticsTabHref = (typeof ANALYTICS_TABS)[number]['href'];

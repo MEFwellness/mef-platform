@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import {
   ChevronLeft,
+  ChevronRight,
   Droplet,
   Moon,
   Activity,
@@ -17,6 +18,7 @@ import {
   History,
   ClipboardList,
 } from 'lucide-react';
+import type { Route } from 'next';
 import type { Profile } from '@mef/shared-types-contracts';
 import {
   getClientHabits,
@@ -314,6 +316,30 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           )}
         </div>
 
+        {/* Member Detail — the one place a coach reads what this member
+            actually entered (her check-in answers day by day, the adaptive
+            follow-ups, her stated goals, her completed questionnaires and
+            her conversations with Root). Everything derived from those
+            answers stays in the panels below; this link is deliberately
+            above them because "what did she actually say" is the question a
+            coach opens a client to answer. */}
+        <Link
+          href={`/coach/clients/${params.id}/entries` as Route}
+          data-member-entries-link="true"
+          className="mef-focus-ring mt-5 flex items-center justify-between gap-4 rounded-[28px] bg-white px-5 py-4 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition-colors hover:bg-[#1B3A2D]/[0.03]"
+        >
+          <span>
+            <span className="block text-sm font-semibold uppercase tracking-wider text-[#3E5C46]">
+              What {profile.display_name?.split(' ')[0] ?? 'she'} entered
+            </span>
+            <span className="mt-1 block text-xs leading-relaxed text-[#6B7A72]">
+              Her check-in answers day by day, her stated goals, what she has completed, and her
+              conversations with Root. Nothing scored or inferred.
+            </span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
         <div className="mt-6 space-y-5">
           {/* Daily Wellness Index, Today's Priority, Strongest Area — coach voice */}
           <WellnessIndexCard
@@ -515,7 +541,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               finding (observation count, span, rho, split-window
               agreement). Same builder as the member sees, nothing
               computed here. Coach-only. */}
-          <CaseViewPanel caseView={clientCaseView} localDate={summary.todaysLocalDate} />
+          <div id="case-view">
+            <CaseViewPanel caseView={clientCaseView} localDate={summary.todaysLocalDate} />
+          </div>
 
           {/* Recommendations (Prompt 11) — the Recommendation Engine's
               persisted, explainable suggestions and any Lifestyle

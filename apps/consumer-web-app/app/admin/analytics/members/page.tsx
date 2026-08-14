@@ -38,6 +38,9 @@ import {
   ENGAGEMENT_STATE_MEANING,
   ENGAGEMENT_STATE_ORDER,
   MEMBER_EMPTY_COPY,
+  MEMBER_SORT_KEYS,
+  MEMBER_SORT_LABEL,
+  MEMBER_SORT_MEANING,
   MEMBER_STATE_FILTERS,
   MEMBER_STATE_FILTER_LABEL,
   SIGNALS_NOT_COUNTED,
@@ -49,9 +52,10 @@ import {
   memberDetailHref,
   memberName,
   membersTableHref,
+  parseMemberSort,
   parseMemberStateFilter,
   rhythmLabel,
-  sortMembersByAttention,
+  sortMembers,
 } from '@/lib/analytics-dashboard/memberView';
 import { AnalyticsChrome } from '@/components/admin/analytics/AnalyticsChrome';
 import {
@@ -75,6 +79,7 @@ export default async function AdminAnalyticsMembersPage({
   await requireAnalyticsAdmin();
   const view = parseDashboardView(searchParams);
   const filter = parseMemberStateFilter(searchParams?.state);
+  const sort = parseMemberSort(searchParams?.sort);
   const options = analyticsOptionsFor(view);
 
   const [statesResult, followUpResult] = await Promise.all([
@@ -98,29 +103,32 @@ export default async function AdminAnalyticsMembersPage({
     );
   }
 
-  const members = sortMembersByAttention(statesResult.data);
-  const counts = countMembersByState(members);
-  const shown = filterMembersByState(members, filter);
-
   // Signal counts exist only for the members the follow-up shortlist ran
-  // over. Everyone else is "not counted", never a zero.
+  // over. Everyone else is "not counted", never a zero. Built before the
+  // sort because the by-signals ordering has to know which members were
+  // counted at all, so an uncounted member is placed last rather than
+  // ranked as a zero.
   const signalCounts = new Map<string, number>();
   if (followUpResult.ok) {
     for (const candidate of followUpResult.data) {
       signalCounts.set(candidate.memberId, candidate.signalTypes.length);
     }
   }
+
+  const members = sortMembers(statesResult.data, sort, signalCounts);
+  const counts = countMembersByState(members);
+  const shown = filterMembersByState(members, filter);
   const shortlistSize = counts.INACTIVE + counts.WATCH;
 
   return (
     <AnalyticsChrome {...chrome}>
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         {MEMBER_STATE_FILTERS.map((key) => {
           const selected = key === filter;
           return (
             <Link
               key={key}
-              href={membersTableHref(view, key) as Route}
+              href={membersTableHref(view, key, sort) as Route}
               aria-current={selected ? 'true' : undefined}
               data-state-filter={key}
               data-selected={selected ? 'true' : 'false'}
@@ -136,6 +144,35 @@ export default async function AdminAnalyticsMembersPage({
           );
         })}
       </div>
+
+      <div className="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1B3A2D]/45">
+          Sort by
+        </span>
+        {MEMBER_SORT_KEYS.map((key) => {
+          const selected = key === sort;
+          return (
+            <Link
+              key={key}
+              href={membersTableHref(view, filter, key) as Route}
+              aria-current={selected ? 'true' : undefined}
+              data-sort={key}
+              data-selected={selected ? 'true' : 'false'}
+              className={`mef-focus-ring inline-flex items-center rounded-full px-3 py-1 text-[12px] transition-colors ${
+                selected
+                  ? 'bg-[#C4A050] font-medium text-[#1B3A2D]'
+                  : 'bg-white/70 text-[#1B3A2D]/65 hover:text-[#1B3A2D]'
+              }`}
+            >
+              {MEMBER_SORT_LABEL[key]}
+            </Link>
+          );
+        })}
+      </div>
+
+      <p data-sort-meaning={sort} className="mb-5 text-[12px] leading-relaxed text-[#6B7A72]">
+        {MEMBER_SORT_MEANING[sort]}
+      </p>
 
       {members.length === 0 ? (
         <EmptyState
@@ -160,7 +197,7 @@ export default async function AdminAnalyticsMembersPage({
                 return (
                   <li key={member.memberId}>
                     <Link
-                      href={memberDetailHref(member.memberId, view, { state: filter }) as Route}
+                      href={memberDetailHref(member.memberId, view, { state: filter, sort }) as Route}
                       data-member-row={member.memberId}
                       data-member-state={member.state}
                       className="mef-focus-ring block rounded-2xl bg-[#1B3A2D]/[0.035] px-4 py-3.5 transition-colors hover:bg-[#1B3A2D]/[0.06]"
