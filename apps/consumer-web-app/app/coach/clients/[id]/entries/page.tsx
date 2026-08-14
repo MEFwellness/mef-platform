@@ -164,7 +164,12 @@ export default async function CoachMemberEntriesPage({
     .single();
   if (!clientProfile) notFound();
 
-  const firstName = clientProfile.display_name?.split(' ')[0] ?? 'This member';
+  // Two fallbacks, not one: the same phrase cannot open a sentence and sit
+  // inside one. Found by reading the live heading, which rendered
+  // "What This member entered" for a client with no name on file.
+  const firstName = clientProfile.display_name?.split(' ')[0] ?? null;
+  const nameInSentence = firstName ?? 'this member';
+  const nameAtStart = firstName ?? 'This member';
   const timezone = clientProfile.timezone ?? 'America/New_York';
   const today = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }))
     .toISOString()
@@ -189,11 +194,11 @@ export default async function CoachMemberEntriesPage({
           className="inline-flex items-center gap-1 text-sm font-medium text-[#6B7A72] hover:text-[#1B3A2D]"
         >
           <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          Back to {firstName}
+          Back to {nameAtStart}
         </Link>
 
         <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          What {firstName} entered
+          What {nameInSentence} entered
         </h1>
         <p className="mt-2 text-[14px] leading-relaxed text-[#6B7A72]">{ENTRIES_INTRO}</p>
         <p className="mt-2 text-[13px] leading-relaxed text-[#6B7A72]">
@@ -445,7 +450,7 @@ export default async function CoachMemberEntriesPage({
                           {session.messages.map((message) => (
                             <li key={message.id} data-message-role={message.role}>
                               <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#1B3A2D]/45">
-                                {message.role === 'member' ? firstName : 'Root'}
+                                {message.role === 'member' ? nameAtStart : 'Root'}
                               </p>
                               <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-[#1B3A2D]">
                                 {message.content}
