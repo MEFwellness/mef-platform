@@ -135,19 +135,34 @@ function watch(page, label) {
     );
   }
 
-  // The Priority Card and the rest of Home's engagement content, by the
-  // text a member actually sees rather than by a CSS class that could
-  // change for cosmetic reasons.
+  // The member's Home, in full: the whole bottom bar and the engagement
+  // content on the screen itself.
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(6000);
+
+  // Asserted on the hrefs rather than the labels. The labels are
+  // uppercased by CSS, so innerText returns "FOOD LENS" and a check
+  // against "Food Lens" fails for a reason that has nothing to do with
+  // the nav being right, which is exactly what happened on the first
+  // live run of this script.
+  const navHrefs = await page
+    .locator('nav[aria-label="Primary"] a')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('href')));
+  for (const expected of ['/dashboard', '/food-lens', '/checkin', '/progress', '/today']) {
+    check(`member bottom nav still offers ${expected}`, navHrefs.includes(expected), navHrefs.join(' '));
+  }
+
   const homeText = await page.locator('body').innerText();
-  check('member Home renders a bottom nav with Food Lens', homeText.includes('Food Lens'), '');
-  check('member Home renders the Check-In button', homeText.includes('Check-In'), '');
-  check('member Home renders Progress and Today tabs', homeText.includes('Progress') && homeText.includes('Today'), '');
+  const collapsed = homeText.replace(/\s+/g, ' ').trim();
   check(
     'member Home shows engagement content, not an empty shell',
-    homeText.replace(/\s+/g, ' ').trim().length > 400,
-    `${homeText.replace(/\s+/g, ' ').trim().length} chars`
+    collapsed.length > 400,
+    `${collapsed.length} chars`
+  );
+  check(
+    'member Home still shows the Priority Card',
+    /WAITING ON YOU|Start now|TODAY'S FOCUS/i.test(collapsed),
+    ''
   );
 
   await context.close();

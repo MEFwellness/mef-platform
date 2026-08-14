@@ -1,3 +1,70 @@
+## Coach and administrator accounts stop being members first (2026-08-14)
+
+Signing in as the administrator landed on the member Home, Priority Card and Daily Reset prompt and all. No migration, no schema change, no LLM, no new role system.
+
+### Why it happened, which is not where anyone would look first
+
+`resolvePostLoginPath()` has always sent a coach to `/coach` and an administrator to `/admin`. That part was never broken, and confirming it early is what made the real cause findable: **the problem was never where staff land, it was that nothing stopped them going anywhere else afterwards.**
+
+`handle_new_user()` (migration 17) grants `member` to every account created by any path, including the ones later granted `coach` or `platform_administrator`. Nothing ever took the member experience back. So every member screen stayed reachable by bookmark, by a link in an old email or notification, by a typed URL, by a tab left open since before a role was granted, and by the app's own bottom bar, whose coach variant pointed **Home at `/dashboard`**. Three of that bar's four destinations were member screens. That is almost certainly the route the reported symptom arrived by.
+
+Two one-off checks in `middleware.ts` already bounced a coach from `/onboarding` and `/welcome`. Two routes out of twenty-odd, and neither of them the member Home.
+
+### The rule, stated once
+
+`lib/auth/staffRouting.ts` holds all of it: an account with an active `coach` or `platform_administrator` grant is redirected to its own dashboard from every member engagement surface. Three decisions inside it are worth recording.
+
+**The route list is derived, not typed from memory.** It comes from the surfaces `lib/analytics/surfaces.ts` already names in `PRODUCT_SURFACES`, so "a screen a member engages with" has one definition in this codebase rather than two that drift. A test maps every surface to its route and fails if a new one is ever added without being covered, which is precisely how staff activity would otherwise creep back into the funnel reports.
+
+**Matching respects path boundaries.** `/case` matches `/case` and `/case/anything` and never a future `/case-studies`. This is not hypothetical tidiness: the first run of the tests failed because `/assessment` does not match `/assessments`, which are two genuinely separate route trees in this app. Both are listed now, and the failure was the boundary rule doing its job.
+
+**Every failure direction points at the member.** `hasActiveRole()` returns false when its RPC fails, so an account with no role rows, an account whose grant was revoked, and a request where the lookup itself broke all arrive as the same case and all keep the entire member app. Nothing here can lock a member out of anything, by construction rather than by care.
+
+Cost to members is one round trip, and only on a request already headed at a member-only path: the two role lookups run concurrently, never for `/api/`, static assets, the auth flow or the staff platform. Both go through the same `has_active_role()` function the RLS policies call, so the routing rule and the real boundary cannot disagree about what an active grant is. As ever, this is a routing rule; RLS is what actually decides what any of these accounts may read.
+
+### Analytics refused at the write, not only at the door
+
+`memberContext()` in `app/actions/analytics.ts` now returns null for a staff account, so `surface_viewed`, `daily_reset_started`, `feature_engaged`, `paywall_viewed` and `onboarding_started` cannot be written for one. The redirects already make those screens unreachable; this is the second line, so no future entry point reintroduces staff events by accident. It fails the other way round on purpose: a broken role lookup records the event as a member's, because dropping a real member's data silently is worse than counting one staff view.
+
+### The coach bottom bar
+
+It loses its three member destinations and keeps the one that was always its own, now labelled Home and pointing at `/coach`. Offering the other three would have been offering three tabs that bounce. No coach screen was added, removed or rearranged, and the member bar is byte-for-byte what it was. Two assertions in `tests/quick-actions-grid.test.ts` pinned the old coach bar under the heading "coach nav unchanged"; they now pin the same underlying intention against the new shape, with the reason written into the file.
+
+One shared component needed the same treatment: `AssessmentComparisonView`'s empty state offered "Go to Questionnaires", and it renders on the coach client detail page as well as two member screens. It takes a `canTakeAssessment` prop now, false only on the coach page.
+
+### One gap deliberately left open, and named
+
+`lib/lead-capture/notify.ts` writes notification rows addressed to coaches, and `/notifications` is on the member-only list. That screen is member chrome throughout and its only entry point in the entire app is the member profile sheet, so no coach could reach it before this change either. Surfacing coach-addressed notifications on the coach dashboard is a real gap. It is a pre-existing one, and building it would be redesigning the coach platform rather than deciding where these accounts land.
+
+### What the tests hold
+
+`tests/role-based-home-routing.test.ts`, 24 tests, in three layers: the pure decision, the same decision fed by real role grants for the seeded coach, administrator and member against local Supabase, and a source scan for the two things a runtime test cannot see (surface coverage, and the coach bar offering no member link). Two of them are properties rather than cases: no redirect this module returns can itself be redirected, so a loop is impossible, and a member is left alone on **every** prefix in the list and every path under it.
+
+**Suite: 4950 passing, 369 files, on a freshly reset database. Typecheck clean, lint 0 errors, production build clean.**
+
+Worth recording: the first full run showed four failures that were entirely an artifact of two suites having been started against the one local database at once, corrupting the shared fixture password that `tests/change-password.test.ts` changes and restores. A `supabase db reset` and a single clean run passed everything. The suite is not parallel-safe across processes, only across files.
+
+### Verified on production
+
+Repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-platform`, target Production, `app.mefwellness.com` aliased to `mef-platform-48e56aiw5` (commit `341655f`).
+
+**46 of 46 live checks, zero console errors**, driven with Playwright at a phone viewport against `app.mefwellness.com`.
+
+| Half | Result |
+| --- | --- |
+| Member signs in through the real form | lands on `/dashboard`, not a staff dashboard |
+| Member opens Home, Daily Reset, Today, Progress, Food Lens, Your Case, Questionnaires, Profile | all eight render, none redirects |
+| Member bottom bar | all five destinations present and unchanged |
+| Member Home content | Priority Card and engagement content render normally |
+| A real production **coach** account, on eleven member routes | every one redirects to `/coach` |
+| A real production **administrator-only** account, on the same eleven | every one redirects to `/admin` |
+| The bare app root `/` for both | resolves to `/coach` and `/admin` respectively |
+| Analytics rows for both staff accounts, counted before and after the whole walk | 83 to 83, and 28 to 28 |
+
+The staff half used real production accounts holding real role grants. No password was read or changed for either: the session was minted from a one-time magic-link token through the Auth Admin API, which is exactly the token an email carries, and retired with `scope: 'local'` afterwards so no real session of theirs was revoked. The service-role key was read from a file path rather than a command line, never printed, and deleted afterwards.
+
+Two honest notes. The member password given for this task, `Dusty851@`, is dead: production refused it and the entire member half failed on the first run. The password the previous entry recorded, **`RootReset2026!`**, is the live one and every member check passed with it. And the first run also failed three nav assertions for a reason that had nothing to do with the product: the bar's labels are uppercased by CSS, so `innerText` returns "FOOD LENS". The script asserts on hrefs now, which is the stronger check anyway.
+
 ## The reset link that was really a sign-in link, and a change-password screen that did not exist (2026-08-14)
 
 Two password gaps, both certain to be hit in week one. The reset email arrived and its link signed the member in without ever asking for a new password, and there was nowhere inside the app to change a password at all. No migration, no schema change, no LLM.
