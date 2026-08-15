@@ -172,6 +172,8 @@ export type RecordCaptureInput = {
   lumbarAngleDegrees?: number;
   lumbarAngleConfidence?: number;
   spinalCurveQuality?: SpinalCurveQuality;
+  /** Optional — set only when the member used the manual facing confirmation (migration 162), so a reviewing coach can see the orientation rested on the member's word rather than on detection. */
+  facingManuallyConfirmed?: boolean;
 };
 
 /** Called after the browser has already uploaded the capture's bytes directly to Supabase Storage (see components/body-assessment/CameraCapture.tsx) — this only records the metadata row. captureId must be the same id buildCaptureUploadPathAction generated the storage path from. */
@@ -209,6 +211,7 @@ export async function recordCaptureAction(
     lumbarAngleDegrees: input.lumbarAngleDegrees ?? null,
     lumbarAngleConfidence: input.lumbarAngleConfidence ?? null,
     spinalCurveQuality: input.spinalCurveQuality ?? null,
+    facingManuallyConfirmed: input.facingManuallyConfirmed ?? null,
   });
   if (!capture) return { error: 'Could not save capture.' };
   return { capture };

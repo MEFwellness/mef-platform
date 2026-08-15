@@ -81,6 +81,7 @@
 
 import { toCoreLandmarks, type CorePoseLandmarks, type RawPoseLandmark } from './poseTypes';
 import { computePoseMetrics, type Point, type PoseMetrics } from './poseMetrics';
+import { evaluateFacing, isFacingAway, isFacingToward } from './facing';
 
 export type PoseValidationStatus =
   | 'no_person'
@@ -583,14 +584,23 @@ export function validatePoseFrame(
     return fail('off_center', 'Move slightly to your right.', metrics, core, subject.points);
   }
 
-  // Orientation: front/back need a wide shoulder line; side views need a narrow one.
-  const faceVisibility = averageVisibility([
-    core.nose,
-    core.leftEye,
-    core.rightEye,
-    core.leftEar,
-    core.rightEar,
-  ]);
+  // Orientation: front/back need a wide shoulder line; side views need a
+  // narrow one. WHICH WAY a front/back subject is turned is then decided by
+  // lib/body-assessment/facing.ts, from left/right landmark ordering rather
+  // than from face-landmark visibility. See that file for the bug this
+  // replaces: waiting for a turned-away member's face to stop being
+  // reported is a wait that never ends, because the model reports the face
+  // either way.
+  //
+  // The side-view branch below deliberately does NOT consult facing at all,
+  // and never did: a side view is defined by the shoulder line collapsing,
+  // which is a magnitude, not a direction, and the left/right ordering is
+  // near zero and meaningless at exactly that attitude. It therefore never
+  // shared the broken pattern and is left alone.
+  const facing =
+    options.captureType === 'front' || options.captureType === 'back'
+      ? evaluateFacing(core, metrics)
+      : null;
 
   if (options.captureType === 'left_side' || options.captureType === 'right_side') {
     if (metrics.frontalRatioShoulders >= FRONTAL_MIN_RATIO) {
@@ -612,10 +622,12 @@ export function validatePoseFrame(
         subject.points
       );
     }
-    if (faceVisibility < CONFIDENCE_THRESHOLD) {
+    if (facing && !isFacingToward(facing)) {
       return fail(
         'wrong_orientation',
-        'Turn to face the camera directly.',
+        facing.direction === 'away'
+          ? 'Turn around to face the camera.'
+          : 'Square up to face the camera directly.',
         metrics,
         core,
         subject.points
@@ -643,16 +655,23 @@ export function validatePoseFrame(
     if (metrics.frontalRatioShoulders < FRONTAL_MIN_RATIO) {
       return fail(
         'wrong_orientation',
-        'Please turn your back to the camera.',
+        'Turn so your shoulders are square to the camera.',
         metrics,
         core,
         subject.points
       );
     }
-    if (faceVisibility >= CONFIDENCE_THRESHOLD) {
+    // The two failures below say DIFFERENT things on purpose. Both used to
+    // say "Please turn your back to the camera", so a member who had
+    // already turned around passed the first check and then failed the
+    // second with the identical sentence, which is what made the loop
+    // impossible to reason about from the outside.
+    if (facing && !isFacingAway(facing)) {
       return fail(
         'wrong_orientation',
-        'Please turn your back to the camera.',
+        facing.direction === 'toward'
+          ? 'Turn around so your back faces the camera.'
+          : 'Turn a little further so your back is square to the camera.',
         metrics,
         core,
         subject.points

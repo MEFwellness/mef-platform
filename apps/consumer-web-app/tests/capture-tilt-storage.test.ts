@@ -155,3 +155,41 @@ describe('camera setup values — what reaches the database', () => {
     );
   });
 });
+
+describe('manual facing confirmation — what reaches the database', () => {
+  it('stores the flag when the member confirmed their own orientation', async () => {
+    const { client, assessmentId } = await newAssessment();
+
+    await insertCapture(client, {
+      assessmentId,
+      memberId: TEST_USERS.memberOne.id,
+      captureType: 'back',
+      sequenceIndex: 0,
+      mediaType: 'image',
+      storagePath: buildCaptureStoragePath(TEST_USERS.memberOne.id, assessmentId, 'facing-1', 'jpg'),
+      facingManuallyConfirmed: true,
+    });
+
+    const [stored] = await listCaptures(client, assessmentId);
+    expect(stored!.capture_type).toBe('back');
+    expect(stored!.facing_manually_confirmed).toBe(true);
+  });
+
+  it('leaves the flag unset on the normal path, where facing was detected', async () => {
+    const { client, assessmentId } = await newAssessment();
+
+    await insertCapture(client, {
+      assessmentId,
+      memberId: TEST_USERS.memberOne.id,
+      captureType: 'back',
+      sequenceIndex: 0,
+      mediaType: 'image',
+      storagePath: buildCaptureStoragePath(TEST_USERS.memberOne.id, assessmentId, 'facing-2', 'jpg'),
+    });
+
+    const [stored] = await listCaptures(client, assessmentId);
+    // Null, not false: a row that never had the column set is
+    // distinguishable from one that explicitly recorded "not confirmed".
+    expect(stored!.facing_manually_confirmed).toBeNull();
+  });
+});

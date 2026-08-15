@@ -312,6 +312,10 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
             }
           : {}),
         ...(media.spinalCurveQuality ? { spinalCurveQuality: media.spinalCurveQuality } : {}),
+        // Only ever sent when the member actually took the manual facing
+        // confirmation (migration 162), so an absent value keeps meaning
+        // "the facing check passed on its own", which is the normal path.
+        ...(media.facingManuallyConfirmed ? { facingManuallyConfirmed: true } : {}),
       });
       if (result.error) throw new Error(result.error);
 

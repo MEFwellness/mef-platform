@@ -25,8 +25,15 @@
  *    if the member hasn't corrected it yet, they still don't need to
  *    hear the same sentence every second; a longer, calmer cadence reads
  *    as coach-like rather than nagging.
+ * 5. And if the same instruction still has not been acted on after
+ *    MAX_CONSECUTIVE_UTTERANCES tries, the voice stops saying it
+ *    altogether and leaves it to the screen. Repeating a sentence a
+ *    member has already heard three times and evidently cannot act on is
+ *    not guidance, it is nagging, and it drowns out the moment the
+ *    instruction finally does change. A different instruction resets the
+ *    count immediately, so this only ever silences a line that is stuck.
  *
- * All four values are UX pacing choices tuned to how long it takes a
+ * All of these values are UX pacing choices tuned to how long it takes a
  * person to hear a sentence and physically respond — not clinical
  * constants, and not derived from any measurement literature.
  */
@@ -36,7 +43,9 @@ export const COOLDOWN_MS = 3000;
 /** A candidate problem must be detected continuously for this long before it's spoken — filters single-frame detection noise. */
 export const CONFIRM_WINDOW_MS = 500;
 /** Floor between two instances of the exact same instruction. */
-export const REPEAT_SUPPRESS_MS = 5000;
+export const REPEAT_SUPPRESS_MS = 8000;
+/** How many times in a row the same instruction may be spoken before the voice gives up on it and lets the on-screen guidance carry it: the first saying plus two repeats. */
+export const MAX_CONSECUTIVE_UTTERANCES = 3;
 
 export type GuidanceMemory = {
   isSpeaking: boolean;
@@ -45,6 +54,8 @@ export type GuidanceMemory = {
   lastSpokenKey: string | null;
   /** Timestamp the last utterance FINISHED (not started) — cooldown counts from when the member could actually start reacting. */
   lastSpokenAt: number | null;
+  /** How many times in a row lastSpokenKey has now been spoken. Reset to 1 whenever a different instruction is spoken. */
+  consecutiveUtterances: number;
 };
 
 export const INITIAL_GUIDANCE_MEMORY: GuidanceMemory = {
@@ -53,6 +64,7 @@ export const INITIAL_GUIDANCE_MEMORY: GuidanceMemory = {
   pendingSince: null,
   lastSpokenKey: null,
   lastSpokenAt: null,
+  consecutiveUtterances: 0,
 };
 
 export type GuidanceStep = {
@@ -113,6 +125,15 @@ export function stepGuidance(
     return { memory, decision: 'silent', keyToSpeak: null };
   }
 
+  // Said its piece and been ignored. Stay quiet and let the screen carry
+  // it, until something else genuinely changes.
+  if (
+    memory.lastSpokenKey === detectedKey &&
+    memory.consecutiveUtterances >= MAX_CONSECUTIVE_UTTERANCES
+  ) {
+    return { memory, decision: 'silent', keyToSpeak: null };
+  }
+
   return { memory, decision: 'speak', keyToSpeak: detectedKey };
 }
 
@@ -127,7 +148,13 @@ export function markSpeechEnded(
   spokenKey: string,
   now: number
 ): GuidanceMemory {
-  return { ...memory, isSpeaking: false, lastSpokenKey: spokenKey, lastSpokenAt: now };
+  return {
+    ...memory,
+    isSpeaking: false,
+    lastSpokenKey: spokenKey,
+    lastSpokenAt: now,
+    consecutiveUtterances: memory.lastSpokenKey === spokenKey ? memory.consecutiveUtterances + 1 : 1,
+  };
 }
 
 /** Emergency-only reset (camera closing, step changing) — the one path allowed to abandon in-flight state without a natural utterance end. */

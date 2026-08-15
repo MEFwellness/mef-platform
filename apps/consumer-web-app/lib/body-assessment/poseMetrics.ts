@@ -87,6 +87,28 @@ export type PoseMetrics = {
   frontalRatioShoulders: number;
   frontalRatioHips: number;
 
+  /**
+   * SIGNED horizontal offset of the anatomical left shoulder from the
+   * anatomical right one, normalized by body span. This is the signal that
+   * actually flips when a person turns around, and it is deliberately kept
+   * separate from `shoulderWidth` above, which takes an absolute value and
+   * therefore throws exactly this information away.
+   *
+   * The pose model labels landmarks ANATOMICALLY (the subject's own left
+   * and right), not by where they appear in the frame. So a person facing
+   * the camera has their left shoulder on the viewer's right, at a LARGER
+   * x, giving a positive value; a person facing away has it on the
+   * viewer's left, giving a negative one. Near a side view both shoulders
+   * sit at nearly the same x and this collapses toward zero, which is why
+   * lib/body-assessment/facing.ts requires a minimum magnitude before
+   * trusting the sign.
+   *
+   * Positive = facing toward the camera. Negative = facing away.
+   */
+  shoulderOrderRatio: number;
+  /** The same signal across the hips. Weaker than the shoulders (the hips are narrower, so the offset is smaller and noisier) but independent of it. */
+  hipOrderRatio: number;
+
   /** Ear-visibility asymmetry: 1.0 = both ears equally visible (facing camera), toward 0 = one ear far less visible than the other (head turned/profile). */
   earVisibilityRatio: number;
   /** Signed horizontal offset of the nose from the shoulder-line midpoint, normalized by shoulder width. */
@@ -141,6 +163,10 @@ export function computePoseMetrics(core: CorePoseLandmarks): PoseMetrics {
 
   const frontalRatioShoulders = shoulderWidth / Math.max(bodySpan, 1e-4);
   const frontalRatioHips = hipWidth / Math.max(bodySpan, 1e-4);
+
+  const span = Math.max(bodySpan, 1e-4);
+  const shoulderOrderRatio = (core.leftShoulder.x - core.rightShoulder.x) / span;
+  const hipOrderRatio = (core.leftHip.x - core.rightHip.x) / span;
 
   const leftEarVis = core.leftEar.visibility ?? 1;
   const rightEarVis = core.rightEar.visibility ?? 1;
@@ -216,6 +242,8 @@ export function computePoseMetrics(core: CorePoseLandmarks): PoseMetrics {
     hipHeightDiffRatio,
     frontalRatioShoulders,
     frontalRatioHips,
+    shoulderOrderRatio,
+    hipOrderRatio,
     earVisibilityRatio,
     noseOffsetRatio,
     boundingBox,

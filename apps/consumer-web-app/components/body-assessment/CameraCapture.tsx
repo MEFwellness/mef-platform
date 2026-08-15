@@ -72,6 +72,7 @@ import {
 } from '@/lib/body-assessment/steadyHold';
 import { TiltLevelIndicator } from './TiltLevelIndicator';
 import { ManualLevelBubble } from './ManualLevelBubble';
+import { ManualFacingConfirm } from './ManualFacingConfirm';
 import {
   SetupReplicationPanel,
   type ReplicationSetupValues,
@@ -170,6 +171,8 @@ export type CapturedMedia = {
   lumbarAngleDegrees?: number;
   lumbarAngleConfidence?: number;
   spinalCurveQuality?: SpinalCurveQuality;
+  /** Set only when the member used the manual facing confirmation because the automatic check had not settled (migration 162). Absent on the normal path. */
+  facingManuallyConfirmed?: boolean;
 };
 
 /** The member's most recent accepted capture of this exact view, if any — fetched by AssessmentWizard.tsx via getMostRecentCaptureSetupAction and passed down so this step's live setup can be guided to replicate it. Null/undefined when no prior capture of this view exists yet (first-ever capture) or the step doesn't require standing. */
@@ -206,6 +209,15 @@ const PERSON_LOST_CONFIRM_MS = 450;
 /** Beyond this, "briefly lost" no longer applies and the messaging switches to the more directive "step into the frame." */
 const PERSON_LOST_LONG_MS = 3000;
 const PERSON_LOST_RELEASE_MS = 200;
+
+/**
+ * How long the facing check may be the ONLY thing still refusing, with
+ * framing, distance and tilt all passing, before the member is offered a
+ * manual way through (see ManualFacingConfirm.tsx). A capture step whose
+ * gate cannot be satisfied leaves the member with nowhere to go, which is
+ * the failure mode the back view hit.
+ */
+const FACING_STRUGGLE_TIMEOUT_MS = 20_000;
 
 /** How long to wait for a first real DeviceOrientationEvent before concluding this device/browser genuinely isn't going to supply one and switching to the manual bubble-level fallback — covers the case where permission wasn't required (so no upfront prep-screen signal either way) but no motion hardware actually exists (e.g. a desktop browser). */
 const ORIENTATION_SENSOR_GRACE_MS = 2000;
@@ -375,6 +387,13 @@ export function CameraCapture({
   const [manualFallbackActive, setManualFallbackActive] = useState(false);
   /** The member's explicit attestation that they've manually leveled the phone, via ManualLevelBubble — stands in for evaluateCameraTilt()'s `ok` while manualFallbackActive. */
   const [manualLevelConfirmed, setManualLevelConfirmed] = useState(false);
+  /** When the facing check first became the only thing still blocking, with framing, distance and tilt all passing. Null whenever that is not the situation, so a brief detour resets the clock. */
+  const facingStruggleSinceRef = useRef<number | null>(null);
+  /** True once the member has taken the manual facing confirmation for this step. Stored with the capture so a coach can see it. */
+  const [manualFacingConfirmed, setManualFacingConfirmed] = useState(false);
+  /** True once the struggle timeout has elapsed and the manual path is being offered. */
+  const [facingStruggling, setFacingStruggling] = useState(false);
+
   /**
    * The fixed-order gate's single verdict for the current frame: which
    * check is being asked about, and the one instruction that goes with it.
@@ -584,6 +603,11 @@ export function CameraCapture({
     // start over: within a step an interruption only ever pauses them.
     steadyHoldRef.current = INITIAL_STEADY_HOLD_STATE;
     gateStateRef.current = INITIAL_CAPTURE_GATE_STATE;
+    // Facing confirmation is per-step: turning for the back view says
+    // nothing about whether the next view's orientation is right.
+    facingStruggleSinceRef.current = null;
+    setManualFacingConfirmed(false);
+    setFacingStruggling(false);
     setGateGuidance({ step: null, instruction: '' });
     lastResolvedProblemKeyRef.current = null;
     lastCountdownTickRef.current = null;
@@ -841,6 +865,7 @@ export function CameraCapture({
               }
             : {}),
           orientationSource,
+          ...(manualFacingConfirmed ? { facingManuallyConfirmed: true } : {}),
           validationSummary: {
             categoryFailureCounts: validationFailureCountsRef.current,
             multiPersonEvents: multiPersonEventCountRef.current,
@@ -925,11 +950,31 @@ export function CameraCapture({
       ? now - personLostStateRef.current.activeSince
       : 0;
 
+    // Facing is the one check with no physical escape hatch: if the
+    // detector will not agree, no amount of turning helps. Track how long
+    // it has been the ONLY thing refusing (everything ahead of it in the
+    // validator already passed to reach it, and tilt is checked here), and
+    // offer the manual path once that has gone on too long.
+    const facingIsOnlyBlocker = result.status === 'wrong_orientation' && tilt.ok;
+    if (facingIsOnlyBlocker) {
+      if (facingStruggleSinceRef.current === null) facingStruggleSinceRef.current = now;
+      if (now - facingStruggleSinceRef.current >= FACING_STRUGGLE_TIMEOUT_MS) {
+        setFacingStruggling(true);
+      }
+    } else {
+      facingStruggleSinceRef.current = null;
+    }
+
+    // The member's own confirmation stands in for the facing check, and
+    // for nothing else: every other check still has to pass on its own.
+    const facingOverridden = manualFacingConfirmed && result.status === 'wrong_orientation';
+    const poseOk = result.ok || facingOverridden;
+
     // `tilt` (component-level, above) already accounts for the manual
     // bubble-level fallback; `replicationMatched` gates on the prior
     // capture's exact setup when one exists (see ReplicationTarget).
     const locked =
-      result.ok &&
+      poseOk &&
       tilt.ok &&
       frameQuality.ok &&
       !multiPersonConfirmed &&
@@ -1000,7 +1045,7 @@ export function CameraCapture({
       multiPersonConfirmed ||
       multiPersonPending ||
       !replicationMatched ||
-      (!result.ok && !heightFailing);
+      (!poseOk && !heightFailing);
 
     const gate = stepCaptureGate(
       gateStateRef.current,
@@ -1196,6 +1241,7 @@ export function CameraCapture({
     tilt.ok,
     tilt.message,
     replicationMatched,
+    manualFacingConfirmed,
   ]);
 
   // Passive hip-line-angle sampling during a tracksPelvicDrop recording —
@@ -1686,6 +1732,13 @@ export function CameraCapture({
           <div className="absolute inset-x-0 bottom-0 bg-amber-500/90 p-2">
             <p className="text-center text-xs font-medium text-white">{poseLoadError}</p>
           </div>
+        )}
+
+        {requiresStanding && phase === 'ready' && facingStruggling && !manualFallbackActive && (
+          <ManualFacingConfirm
+            confirmed={manualFacingConfirmed}
+            onConfirm={() => setManualFacingConfirmed(true)}
+          />
         )}
 
         {requiresStanding && phase === 'ready' && manualFallbackActive && (

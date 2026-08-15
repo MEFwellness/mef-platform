@@ -171,6 +171,8 @@ export interface BodyAssessmentCapture {
   lumbar_angle_confidence: number | null;
   /** Mask-edge quality metadata behind the two angles above. */
   spinal_curve_quality: SpinalCurveQuality | null;
+  /** True when the member manually confirmed their orientation because the automatic facing check had not settled after 20 seconds of otherwise-passing framing, distance and tilt (migration 162). Null or false is the normal path, where facing was detected. */
+  facing_manually_confirmed: boolean | null;
   captured_at: string;
   created_at: string;
 }

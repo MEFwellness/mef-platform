@@ -183,6 +183,8 @@ export type CaptureInput = {
   lumbarAngleDegrees?: number | null;
   lumbarAngleConfidence?: number | null;
   spinalCurveQuality?: SpinalCurveQuality | null;
+  /** Optional — set only when the member used the manual facing confirmation (migration 162). Same backward-compatibility note as deviceInfo. */
+  facingManuallyConfirmed?: boolean | null;
 };
 
 export async function insertCapture(
@@ -208,6 +210,7 @@ export async function insertCapture(
   const lumbarAngleDegrees = input.lumbarAngleDegrees ?? null;
   const lumbarAngleConfidence = input.lumbarAngleConfidence ?? null;
   const spinalCurveQuality = input.spinalCurveQuality ?? null;
+  const facingManuallyConfirmed = input.facingManuallyConfirmed ?? null;
 
   const { error } = await supabase.from('body_assessment_captures').insert({
     id,
@@ -234,6 +237,7 @@ export async function insertCapture(
     lumbar_angle_degrees: lumbarAngleDegrees,
     lumbar_angle_confidence: lumbarAngleConfidence,
     spinal_curve_quality: spinalCurveQuality,
+    facing_manually_confirmed: facingManuallyConfirmed,
     captured_at: now,
   });
 
@@ -267,6 +271,7 @@ export async function insertCapture(
     lumbar_angle_degrees: lumbarAngleDegrees,
     lumbar_angle_confidence: lumbarAngleConfidence,
     spinal_curve_quality: spinalCurveQuality,
+    facing_manually_confirmed: facingManuallyConfirmed,
     captured_at: now,
     created_at: now,
   };
