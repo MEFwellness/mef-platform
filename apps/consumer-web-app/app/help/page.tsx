@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { LifeBuoy, Mail, MessageCircle } from 'lucide-react';
-import { hasActiveRole } from '@/lib/auth/guards';
+import { getStaffRoles } from '@/lib/auth/staffRoles';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
@@ -31,7 +31,10 @@ export default async function HelpPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
+  // Role-neutral screen: members, coaches and administrators all reach it.
+  // Whoever this is gets their own bar, so a coach or an administrator is
+  // never handed a member tab here.
+  const { isCoach, isAdmin } = await getStaffRoles();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -97,7 +100,7 @@ export default async function HelpPage() {
         </Card>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <BottomNav isCoach={isCoach} isAdmin={isAdmin} />
 
       <FloatingCoachLauncher entryPoint="nav" entryContext="Member opened Help & Support." />
     </div>

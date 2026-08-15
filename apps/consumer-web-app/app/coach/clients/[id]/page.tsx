@@ -71,7 +71,6 @@ import {
   listAssignableAssessments,
 } from '@/lib/assessment-registry/registry';
 import { buildClientSummary } from '../../lib';
-import { BottomNav } from '@/components/BottomNav';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from '@/app/dashboard/WellnessIndexCard';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
@@ -777,9 +776,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         </div>
       </main>
 
-      {/* middleware.ts already redirected anyone without the coach role
-          before this page rendered, so isCoach is always true here. */}
-      <BottomNav isCoach />
     </div>
   );
 }

@@ -2,7 +2,6 @@ import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft, Dumbbell } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { BottomNav } from '@/components/BottomNav';
 import {
   getClientProgramAssignmentSummariesAction,
   getClientAssignedWorkoutsAction,
@@ -74,7 +73,6 @@ export default async function ClientProgramsPage({ params }: { params: { id: str
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

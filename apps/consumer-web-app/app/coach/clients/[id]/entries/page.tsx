@@ -40,7 +40,6 @@ import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
 import { readMemberEntries, DEFAULT_ENTRY_DAYS, clampDays } from '@/lib/coach-member-entries/data';
 import {
   CASE_VIEW_POINTER,
@@ -468,9 +467,6 @@ export default async function CoachMemberEntriesPage({
         </div>
       </main>
 
-      {/* middleware.ts and this page's own guard both already required the
-          coach role, so isCoach is always true here. */}
-      <BottomNav isCoach />
     </div>
   );
 }

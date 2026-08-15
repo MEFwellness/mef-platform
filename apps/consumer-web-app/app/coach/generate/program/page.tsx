@@ -3,7 +3,6 @@ import { CalendarRange } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { listDistinctCatalogValues } from '@/lib/your-move/catalog';
 import { GenerateProgramFlow } from '@/components/your-move-generation/GenerateProgramFlow';
 
@@ -40,7 +39,6 @@ export default async function GenerateProgramPage() {
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

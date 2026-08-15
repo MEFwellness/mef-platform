@@ -2,7 +2,6 @@ import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { BottomNav } from '@/components/BottomNav';
 import {
   listPrescriptionSnapshotsForClientAction,
   getPrescriptionSnapshotAction,
@@ -97,7 +96,6 @@ export default async function ClientPrescriptionPage({ params }: { params: { id:
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

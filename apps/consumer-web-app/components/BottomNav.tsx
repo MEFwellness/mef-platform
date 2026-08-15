@@ -1,12 +1,27 @@
 'use client';
 
 /**
- * Primary navigation. Member bar: Home, Food Lens (left) — Check-In
- * (center) — Progress, Today (right), two evenly-weighted tabs on each
- * side of the center button. Coach accounts render a separate, single-tab
- * layout (Home, pointing at the coach dashboard) — see `isCoach` below.
- * Root is reached through the floating "Ask Root" launcher
- * (FloatingCoachLauncher.tsx) — never a bottom-nav tab.
+ * The MEMBER bar, and only the member bar: Home, Food Lens (left), the
+ * Check-In button (center), Progress, Today (right), two evenly-weighted
+ * tabs on each side of the center button. Root is reached through the
+ * floating "Ask Root" launcher (FloatingCoachLauncher.tsx), never a
+ * bottom-nav tab.
+ *
+ * IT NO LONGER DRAWS A STAFF BAR. This component used to take an
+ * `isCoach` boolean and draw a small coach bar when it was true. Coach and
+ * admin screens now get their navigation from their own route layouts
+ * (app/coach/layout.tsx, app/admin/layout.tsx) instead, and no screen
+ * under /coach or /admin imports this file at all. That is the fix for an
+ * administrator who did not also hold the coach grant seeing the full
+ * member bar, five member doors wide, underneath the admin screens: the
+ * page was passing `isCoach: false` and false meant "member".
+ *
+ * The `isCoach`/`isAdmin` props that remain are a net, not the mechanism.
+ * middleware.ts redirects staff off every member surface already, and the
+ * staff screens no longer render this component, so the only way a staff
+ * account reaches this code is a role-neutral screen (/about, /help) that
+ * genuinely serves all three roles. Those get StaffNav, so a coach or an
+ * administrator is never handed a member tab to tap.
  *
  * Mobile alignment: two independent `flex-1` halves (left items, right
  * items) with the Check-In button as a fixed-width sibling between them,
@@ -22,7 +37,8 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Plus, Users, UtensilsCrossed, BarChart2 } from 'lucide-react';
+import { Home, Sparkles, Plus, UtensilsCrossed, BarChart2 } from 'lucide-react';
+import { StaffNav } from '@/components/StaffNav';
 
 type NavItem = { label: string; href: string; Icon: typeof Home };
 
@@ -35,23 +51,6 @@ const MEMBER_RIGHT_ITEMS: NavItem[] = [
   { label: 'Progress', href: '/progress', Icon: BarChart2 },
   { label: 'Today', href: '/today', Icon: Sparkles },
 ];
-
-/**
- * The coach bar, in full. It used to be Home (/dashboard), Coach (/coach),
- * the center Check-In button (/checkin) and Today (/today): three of its
- * four destinations were member engagement screens, and it was the most
- * likely way a coach or an administrator ended up looking at the member
- * Home with a Priority Card on it. Those routes now redirect straight back
- * to the coach dashboard (lib/auth/staffRouting.ts), so offering them here
- * would be offering three tabs that bounce.
- *
- * What is left is the one destination that was always coach-owned, keeping
- * its own route and simply taking over the "Home" label, since the coach
- * dashboard is now genuinely this account's home. No coach screen was
- * added, removed or rearranged: this is only the removal of the member
- * doors from the coach's own navigation.
- */
-const COACH_ITEMS: NavItem[] = [{ label: 'Home', href: '/coach', Icon: Users }];
 
 const MORNING_HREF = '/checkin';
 const EVENING_HREF = '/checkin/evening';
@@ -76,22 +75,31 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 type Props = {
   /**
-   * Whether the signed-in user actually holds the coach role. True renders
-   * the coach bar (a single Home tab pointing at the coach-only /coach
-   * dashboard, middleware- and RLS-gated); false renders the full member
-   * bar. Neither ever shows the other's destinations, because in both
-   * directions the link would immediately redirect the person who tapped
-   * it (lib/auth/staffRouting.ts), and a dead end is worse than an absent
-   * tab. Defaults to false so any caller that forgets to pass it gets the
-   * member nav, which is the only one an ordinary account can use anyway.
+   * Whether the signed-in account holds the coach grant, and whether it
+   * holds the platform administrator grant. Either one true means this is
+   * a staff account, and a staff account never gets a member tab: StaffNav
+   * is rendered in place of this bar. Both default to false, so any caller
+   * that passes nothing gets the member bar, which is the only one an
+   * ordinary account can use anyway.
+   *
+   * Every screen under /coach and /admin gets StaffNav from its own layout
+   * and does not render this component at all, so these props only decide
+   * the role-neutral screens (/about, /help) that all three roles share.
    */
   isCoach?: boolean;
+  isAdmin?: boolean;
 };
 
-export function BottomNav({ isCoach = false }: Props) {
+export function BottomNav({ isCoach = false, isAdmin = false }: Props) {
   const pathname = usePathname();
-  const leftItems: NavItem[] = isCoach ? COACH_ITEMS : MEMBER_LEFT_ITEMS;
-  const rightItems: NavItem[] = isCoach ? [] : MEMBER_RIGHT_ITEMS;
+
+  // A staff account gets the staff bar and nothing else. Returned before
+  // any member item is even built, so there is no arrangement of props
+  // that produces a member tab for a coach or an administrator.
+  if (isCoach || isAdmin) return <StaffNav isCoach={isCoach} isAdmin={isAdmin} />;
+
+  const leftItems: NavItem[] = MEMBER_LEFT_ITEMS;
+  const rightItems: NavItem[] = MEMBER_RIGHT_ITEMS;
   const checkInActive = pathname === MORNING_HREF || pathname === EVENING_HREF;
 
   // One required check-in a day (task requirement 2): the primary nav
@@ -123,42 +131,31 @@ export function BottomNav({ isCoach = false }: Props) {
         ))}
       </div>
 
-      {/*
-       * The Check-In button and the right-hand group are the member half of
-       * this bar, and both are omitted entirely for a coach rather than
-       * rendered pointing at routes that would redirect. Omitting them also
-       * keeps the grid honest: a right group with no items would compute
-       * `repeat(0, ...)`, which is not a valid track list.
-       */}
-      {!isCoach && (
-        <>
-          <Link
-            href={checkInHref as Route}
-            aria-label="Check In"
-            className="flex shrink-0 flex-col items-center gap-1.5 px-2 -mt-7 md:mt-0 md:gap-2"
-          >
-            <span
-              className={`flex h-14 w-14 items-center justify-center rounded-full bg-[#F5B700] text-[#1B3A2D] shadow-[0_10px_24px_-6px_rgba(245,183,0,0.55)] transition-transform ${
-                checkInActive ? 'scale-105 ring-4 ring-[#1B3A2D]/15' : 'hover:scale-105'
-              }`}
-            >
-              <Plus className="h-7 w-7" strokeWidth={2.25} aria-hidden="true" />
-            </span>
-            <span className="text-[9px] font-bold uppercase tracking-wide text-[#1B3A2D] md:text-[11px]">
-              Check-In
-            </span>
-          </Link>
+      <Link
+        href={checkInHref as Route}
+        aria-label="Check In"
+        className="flex shrink-0 flex-col items-center gap-1.5 px-2 -mt-7 md:mt-0 md:gap-2"
+      >
+        <span
+          className={`flex h-14 w-14 items-center justify-center rounded-full bg-[#F5B700] text-[#1B3A2D] shadow-[0_10px_24px_-6px_rgba(245,183,0,0.55)] transition-transform ${
+            checkInActive ? 'scale-105 ring-4 ring-[#1B3A2D]/15' : 'hover:scale-105'
+          }`}
+        >
+          <Plus className="h-7 w-7" strokeWidth={2.25} aria-hidden="true" />
+        </span>
+        <span className="text-[9px] font-bold uppercase tracking-wide text-[#1B3A2D] md:text-[11px]">
+          Check-In
+        </span>
+      </Link>
 
-          <div
-            className="grid min-w-0 flex-1 items-start gap-0.5 px-1 md:contents"
-            style={{ gridTemplateColumns: `repeat(${rightItems.length}, minmax(0, 1fr))` }}
-          >
-            {rightItems.map((item) => (
-              <NavLink key={item.label} item={item} active={pathname === item.href} />
-            ))}
-          </div>
-        </>
-      )}
+      <div
+        className="grid min-w-0 flex-1 items-start gap-0.5 px-1 md:contents"
+        style={{ gridTemplateColumns: `repeat(${rightItems.length}, minmax(0, 1fr))` }}
+      >
+        {rightItems.map((item) => (
+          <NavLink key={item.label} item={item} active={pathname === item.href} />
+        ))}
+      </div>
     </nav>
   );
 }

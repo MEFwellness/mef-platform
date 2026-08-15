@@ -11,7 +11,6 @@ import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { listResetPlanTestableMembersAction } from '@/app/actions/resetPlanAdmin';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { ResetPlanTestToolsPanel } from '@/components/admin/ResetPlanTestToolsPanel';
 
 export default async function ResetPlanTestToolsPage() {
@@ -24,7 +23,7 @@ export default async function ResetPlanTestToolsPage() {
   const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
   if (!isAdmin) redirect('/dashboard');
 
-  const [isCoach, members] = await Promise.all([hasActiveRole(supabase, user.id, 'coach'), listResetPlanTestableMembersAction()]);
+  const members = await listResetPlanTestableMembersAction();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -42,7 +41,6 @@ export default async function ResetPlanTestToolsPage() {
 
         <ResetPlanTestToolsPanel members={members} />
       </main>
-      <BottomNav isCoach={isCoach} />
     </div>
   );
 }

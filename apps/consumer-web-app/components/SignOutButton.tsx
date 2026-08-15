@@ -1,18 +1,37 @@
 'use client';
 
 /**
- * Premium Dashboard Experience milestone — the one Sign Out control, used
- * both inside ProfileSheet.tsx and on the full Profile page, so there's a
- * single confirmation experience instead of each place inventing its own.
- * Sign Out itself is destructive (ends the session) and irreversible from
- * the member's side, hence the confirmation step before it fires.
+ * Premium Dashboard Experience milestone: the one Sign Out control, used
+ * from the member Profile sheet, the full member Profile page, the
+ * trial-ended lock screen and (as the `nav` variant) the coach and admin
+ * navigation bar, so there's a single confirmation experience instead of
+ * each place inventing its own. Sign Out itself is destructive (ends the
+ * session) and irreversible from the member's side, hence the confirmation
+ * step before it fires.
+ *
+ * Variants, all three the same button and the same dialog:
+ *   - `row`   a full-width list row, for a sheet or a settings list.
+ *   - `block` a standalone pill, for the bottom of a page.
+ *   - `nav`   one tab inside components/StaffNav.tsx, shaped exactly like
+ *             the Coach and Admin tabs beside it. This is how a coach or
+ *             an administrator signs out: it is the last tab of their own
+ *             bar, on every staff screen, rather than a control they have
+ *             to find on a member screen they are not allowed to open.
  */
 
 import { useState, useTransition } from 'react';
 import { LogOut } from 'lucide-react';
 import { signOut } from '@/app/actions/auth';
+import { STAFF_NAV_ITEM_CLASS, STAFF_NAV_ITEM_IDLE_CLASS } from '@/components/staffNavStyles';
 
-export function SignOutButton({ variant = 'row' }: { variant?: 'row' | 'block' }) {
+const VARIANT_CLASS: Record<'row' | 'block' | 'nav', string> = {
+  row: 'mef-press flex w-full items-center gap-3 rounded-2xl px-5 py-3.5 text-left text-[15px] font-medium text-red-600 transition hover:bg-red-50',
+  block:
+    'mef-press w-full rounded-full border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50',
+  nav: `mef-press ${STAFF_NAV_ITEM_CLASS} ${STAFF_NAV_ITEM_IDLE_CLASS}`,
+};
+
+export function SignOutButton({ variant = 'row' }: { variant?: 'row' | 'block' | 'nav' }) {
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -27,16 +46,12 @@ export function SignOutButton({ variant = 'row' }: { variant?: 'row' | 'block' }
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className={
-          variant === 'row'
-            ? 'mef-press flex w-full items-center gap-3 rounded-2xl px-5 py-3.5 text-left text-[15px] font-medium text-red-600 transition hover:bg-red-50'
-            : 'mef-press w-full rounded-full border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50'
-        }
+        className={VARIANT_CLASS[variant]}
       >
-        {variant === 'row' && (
+        {variant !== 'block' && (
           <LogOut className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
         )}
-        Sign Out
+        {variant === 'nav' ? <span className="w-full truncate">Sign Out</span> : 'Sign Out'}
       </button>
 
       {confirming && (

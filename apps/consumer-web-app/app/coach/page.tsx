@@ -20,7 +20,6 @@ import { listAssignedClients } from '@/app/actions/coach';
 import { listCoachReviewQueue } from '@/app/actions/safety';
 import { listPendingProteinTargetsAction } from '@/app/actions/protein-review';
 import { buildAllClientSummaries } from './lib';
-import { BottomNav } from '@/components/BottomNav';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { ClientListPanel } from './ClientListPanel';
 import { firstNameFrom } from '@/lib/profile/greeting';
@@ -357,9 +356,6 @@ export default async function CoachPage() {
         </section>
       </main>
 
-      {/* middleware.ts already redirected anyone without the coach role
-          before this page rendered, so isCoach is always true here. */}
-      <BottomNav isCoach />
     </div>
   );
 }

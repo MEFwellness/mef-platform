@@ -4,7 +4,6 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { ChevronLeft, Beef } from 'lucide-react';
 import { getProteinTargetForReviewAction } from '@/app/actions/protein-review';
-import { BottomNav } from '@/components/BottomNav';
 import { ACTIVITY_LEVELS } from '@/lib/protein/calculation';
 import { ProteinApprovalControls } from '../ProteinApprovalControls';
 
@@ -80,7 +79,6 @@ export default async function ProteinReviewDetailPage({ params }: { params: { id
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

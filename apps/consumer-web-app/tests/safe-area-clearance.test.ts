@@ -67,11 +67,25 @@ describe('every page with a <main> wrapper clears the status bar/notch', () => {
   });
 });
 
-describe('every page that renders <BottomNav /> clears the nav bar and the gold Check-In button', () => {
-  const files = listPageFilesWithMain().filter((file) => {
-    const source = readFileSync(path.resolve(path.resolve(__dirname, '..'), file), 'utf-8');
-    return /<BottomNav\b/.test(source);
-  });
+/**
+ * "Renders a fixed bottom bar" stopped meaning "contains the string
+ * <BottomNav" on 2026-08-14. Coach and admin screens no longer render a
+ * navigation component themselves: they inherit StaffNav from
+ * app/coach/layout.tsx and app/admin/layout.tsx, which is the whole point
+ * of that change. StaffNav is pinned to the bottom of the viewport exactly
+ * like BottomNav is, so those pages need the same clearance they always
+ * did, and dropping them out of this sweep would have quietly stopped
+ * checking about forty screens.
+ */
+function rendersAFixedBottomBar(file: string, source: string): boolean {
+  if (/<BottomNav\b/.test(source)) return true;
+  return file.startsWith('app/coach/') || file.startsWith('app/admin/');
+}
+
+describe('every page under a fixed bottom bar clears it and the gold Check-In button', () => {
+  const files = listPageFilesWithMain().filter((file) =>
+    rendersAFixedBottomBar(file, readFileSync(path.resolve(path.resolve(__dirname, '..'), file), 'utf-8'))
+  );
 
   it('found a real, non-trivial set of nav-rendering pages to check', () => {
     expect(files.length).toBeGreaterThanOrEqual(60);

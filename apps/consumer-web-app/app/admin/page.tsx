@@ -3,8 +3,6 @@ import type { Route } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { listUsers, listActiveCoachUserIds, listAssignmentHistory } from '@/app/actions/admin';
-import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
 import { AdminPanel } from './AdminPanel';
 import { ChangePasswordLink } from '@/components/auth/ChangePasswordLink';
 
@@ -14,7 +12,6 @@ export default async function AdminPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 
   const [users, coachIds, assignments] = await Promise.all([
     listUsers(),
@@ -88,7 +85,6 @@ export default async function AdminPage() {
         <AdminPanel users={users} coachIds={coachIds} assignments={assignments} />
       </main>
 
-      <BottomNav isCoach={isCoach} />
     </div>
   );
 }

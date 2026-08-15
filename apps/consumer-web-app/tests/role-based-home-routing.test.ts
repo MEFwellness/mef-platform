@@ -211,20 +211,35 @@ describe('member analytics', () => {
 
 describe('the coach navigation bar', () => {
   const source = fs.readFileSync(path.join(ROOT, 'components/BottomNav.tsx'), 'utf-8');
+  // The coach bar moved out of BottomNav.tsx and into its own component on
+  // 2026-08-14, rendered by the coach and admin route layouts rather than
+  // by each page. Same assertion, new address.
+  const staffNav = fs.readFileSync(path.join(ROOT, 'components/StaffNav.tsx'), 'utf-8');
 
   it('offers no member destination, so nothing a coach can tap bounces', () => {
     // The coach bar used to be Home (/dashboard), Coach (/coach), the
     // Check-In button (/checkin) and Today (/today). Three of those four
     // are member routes that now redirect, and that bar was the most
     // likely way a coach ended up on the member Home in the first place.
-    const coachSection = source.slice(
-      source.indexOf('const COACH_ITEMS'),
-      source.indexOf('const MORNING_HREF')
+    const items = staffNav.slice(
+      staffNav.indexOf('const items: StaffNavItem[]'),
+      staffNav.indexOf('return (', staffNav.indexOf('const items: StaffNavItem[]'))
     );
-    expect(coachSection).toContain(COACH_HOME_PATH);
+    expect(items).toContain('COACH_HOME_PATH');
+    expect(COACH_HOME_PATH).toBe('/coach');
     for (const memberPath of ['/dashboard', '/today', '/checkin', '/progress', '/food-lens']) {
-      expect(coachSection).not.toContain(memberPath);
+      expect(staffNav).not.toContain(memberPath);
     }
+  });
+
+  it('is the only bar a staff account can be shown, from either component', () => {
+    // BottomNav is the member bar now. It hands any staff account straight
+    // to StaffNav before it builds a single member item, and no screen
+    // under /coach or /admin imports it at all.
+    expect(source).toContain(
+      'if (isCoach || isAdmin) return <StaffNav isCoach={isCoach} isAdmin={isAdmin} />;'
+    );
+    expect(source).not.toContain('COACH_ITEMS');
   });
 
   it('still renders the Check-In button and both member groups for a member', () => {

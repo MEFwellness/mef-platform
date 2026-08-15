@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createStandaloneClient } from '@supabase/supabase-js';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import {
   PASSWORD_RECOVERY_COOKIE,
@@ -286,6 +287,12 @@ export async function completePasskeyLogin(redirectedFrom?: string | null): Prom
   redirectWithEntryAnimation(destination);
 }
 
+/**
+ * Ends the session for every role: member, coach and administrator all
+ * reach this same action (components/SignOutButton.tsx is the only control
+ * that calls it, from the member profile sheet, the member Profile page,
+ * the trial-ended lock screen and the staff navigation bar).
+ */
 export async function signOut(): Promise<void> {
   try {
     const supabase = createClient();
@@ -302,6 +309,17 @@ export async function signOut(): Promise<void> {
   // Abandoning a recovery by signing out must not leave the next session on
   // this browser gated behind a set-new-password screen it never triggered.
   cookies().set(PASSWORD_RECOVERY_COOKIE, '', { path: '/', maxAge: 0 });
+  // Back button after signing out. Ending the Supabase session is what
+  // makes the next REQUEST bounce to /login (middleware.ts), but the
+  // browser going Back does not necessarily make a request: Next.js keeps
+  // a client side Router Cache of the RSC payloads for screens visited in
+  // this session, and Back is exactly the navigation it is designed to
+  // serve from memory. Without this, tapping Back after signing out could
+  // repaint the previous screen, name, numbers and all, from a payload
+  // rendered while the session was still alive. Invalidating from the root
+  // layout down empties that cache for every route at once, so Back has
+  // nothing cached to show and has to ask the server, which redirects it.
+  revalidatePath('/', 'layout');
   redirect('/login');
 }
 

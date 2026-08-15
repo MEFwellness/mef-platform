@@ -32,8 +32,6 @@ import { hasActiveRole } from '@/lib/auth/guards';
 
 export type AdminAnalyticsViewer = {
   userId: string;
-  /** Only so the shared bottom navigation renders the same way it does everywhere else. */
-  isCoach: boolean;
 };
 
 export async function requireAnalyticsAdmin(): Promise<AdminAnalyticsViewer> {
@@ -44,6 +42,11 @@ export async function requireAnalyticsAdmin(): Promise<AdminAnalyticsViewer> {
   const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
   if (!isAdmin) redirect('/dashboard');
 
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
-  return { userId: user.id, isCoach };
+  // This used to also look up the coach role, purely so it could hand the
+  // answer to the bottom navigation. That is what made an administrator who
+  // is not also a coach get the member bar under the analytics screens. The
+  // navigation is now decided by app/admin/layout.tsx, which knows both
+  // roles, so this guard is back to answering only the question it is named
+  // after.
+  return { userId: user.id };
 }

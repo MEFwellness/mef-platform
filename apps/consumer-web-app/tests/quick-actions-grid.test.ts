@@ -142,19 +142,32 @@ describe('Bottom nav: Food Lens and Progress added for members, coach nav separa
    * coach bar offers nothing that would bounce. The route-level proof
    * lives in tests/role-based-home-routing.test.ts.
    */
-  it('coach items are exactly one Home tab pointing at the coach dashboard', () => {
-    expect(BOTTOM_NAV).toContain(
-      "const COACH_ITEMS: NavItem[] = [{ label: 'Home', href: '/coach', Icon: Users }]"
-    );
+  /**
+   * Admin/coach chrome cleanup (2026-08-14) took the last step: the coach
+   * bar left this file entirely and became components/StaffNav.tsx,
+   * rendered by app/coach/layout.tsx and app/admin/layout.tsx. What broke
+   * before that was an administrator who did NOT also hold the coach
+   * grant: the page passed isCoach false, false meant member, and the full
+   * member bar appeared under the admin screens. So what these pin now is
+   * the same intention against the new shape: this file builds the member
+   * bar and nothing else, and it never builds a member item for a staff
+   * account.
+   */
+  it('holds no coach bar of its own any more', () => {
+    expect(BOTTOM_NAV).not.toContain('COACH_ITEMS');
     expect(BOTTOM_NAV).not.toContain('COACH_RIGHT_ITEMS');
   });
 
-  it('leftItems/rightItems branch on isCoach so member and coach layouts differ', () => {
+  it('builds the member groups unconditionally, and hands a staff account to StaffNav first', () => {
+    expect(BOTTOM_NAV).toContain('const leftItems: NavItem[] = MEMBER_LEFT_ITEMS;');
+    expect(BOTTOM_NAV).toContain('const rightItems: NavItem[] = MEMBER_RIGHT_ITEMS;');
+    // The staff hand-off returns before either of those lines runs, so no
+    // combination of props can produce a member tab for staff.
     expect(BOTTOM_NAV).toContain(
-      'const leftItems: NavItem[] = isCoach ? COACH_ITEMS : MEMBER_LEFT_ITEMS;'
+      'if (isCoach || isAdmin) return <StaffNav isCoach={isCoach} isAdmin={isAdmin} />;'
     );
-    expect(BOTTOM_NAV).toContain(
-      'const rightItems: NavItem[] = isCoach ? [] : MEMBER_RIGHT_ITEMS;'
+    expect(BOTTOM_NAV.indexOf('if (isCoach || isAdmin) return')).toBeLessThan(
+      BOTTOM_NAV.indexOf('const leftItems: NavItem[] = MEMBER_LEFT_ITEMS;')
     );
   });
 

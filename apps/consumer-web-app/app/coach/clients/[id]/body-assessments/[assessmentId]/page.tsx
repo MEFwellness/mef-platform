@@ -179,7 +179,7 @@ export default async function CoachBodyAssessmentDetailPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <main className="mx-auto w-full max-w-md px-5 pb-16 pt-safe-header sm:px-6 md:max-w-3xl md:px-10 md:pl-28 lg:max-w-6xl">
+      <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-3xl md:px-10 md:pl-28 lg:max-w-6xl">
         <Link
           href={`/coach/clients/${params.id}`}
           className="inline-flex items-center gap-1 text-sm font-medium text-[#6B7A72] hover:text-[#1B3A2D]"

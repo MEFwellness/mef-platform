@@ -2,7 +2,6 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { BottomNav } from '@/components/BottomNav';
 import { getAssignedWorkoutDetailAction } from '@/app/actions/coach-programs';
 import { CoachAssignedWorkoutDetail } from '@/components/coach-program-builder/CoachAssignedWorkoutDetail';
 
@@ -44,7 +43,6 @@ export default async function CoachAssignedWorkoutPage({
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

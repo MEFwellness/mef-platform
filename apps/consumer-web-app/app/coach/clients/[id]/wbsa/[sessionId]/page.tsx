@@ -46,7 +46,7 @@ export default async function CoachWbsaSessionDetailPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
-      <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-safe-header sm:px-6 md:px-10">
+      <main className="mx-auto w-full max-w-3xl px-5 pb-safe-nav pt-safe-header sm:px-6 md:px-10 md:pl-28">
         <Link
           href={`/coach/clients/${params.id}` as Route}
           className="mef-focus-ring inline-flex items-center gap-1 rounded-lg text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D]"

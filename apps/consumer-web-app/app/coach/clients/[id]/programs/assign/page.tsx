@@ -2,7 +2,6 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Dumbbell } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { BottomNav } from '@/components/BottomNav';
 import { listMyProgramTemplatesAction } from '@/app/actions/coach-programs';
 import { AssignProgramPanel } from '@/components/coach-program-builder/AssignProgramPanel';
 
@@ -54,7 +53,6 @@ export default async function AssignProgramPage({ params }: { params: { id: stri
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

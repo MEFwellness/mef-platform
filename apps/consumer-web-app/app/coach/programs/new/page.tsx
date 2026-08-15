@@ -3,7 +3,6 @@ import { Dumbbell } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { NewProgramForm } from '@/components/coach-program-builder/NewProgramForm';
 
 export default async function NewProgramPage({
@@ -41,7 +40,6 @@ export default async function NewProgramPage({
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

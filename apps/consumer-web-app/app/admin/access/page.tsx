@@ -26,7 +26,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { listMemberAccessAction } from '@/app/actions/memberAccess';
 import type { MemberAccessRow } from '@/app/actions/memberAccess';
@@ -79,7 +78,6 @@ export default async function AdminMemberAccessPage({
   if (!user) redirect('/login');
   const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
   if (!isAdmin) redirect('/dashboard');
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 
   const includeTest = searchParams?.includeTest === '1';
   const result = await listMemberAccessAction(includeTest);
@@ -113,7 +111,6 @@ export default async function AdminMemberAccessPage({
         <MemberAccessPanel rows={rows} includeTest={includeTest} />
       </main>
 
-      <BottomNav isCoach={isCoach} />
     </div>
   );
 }

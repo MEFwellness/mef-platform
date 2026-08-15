@@ -12,7 +12,6 @@ import { Dumbbell } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { listMyProgramTemplatesAction } from '@/app/actions/coach-programs';
 import { ProgramLibraryPanel } from '@/components/coach-program-builder/ProgramLibraryPanel';
 
@@ -52,7 +51,6 @@ export default async function CoachProgramsPage() {
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

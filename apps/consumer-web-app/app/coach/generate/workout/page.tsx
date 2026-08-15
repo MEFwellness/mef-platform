@@ -3,7 +3,6 @@ import { Dumbbell } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { listDistinctCatalogValues } from '@/lib/your-move/catalog';
 import { GenerateWorkoutFlow } from '@/components/your-move-generation/GenerateWorkoutFlow';
 
@@ -48,7 +47,6 @@ export default async function GenerateWorkoutPage() {
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

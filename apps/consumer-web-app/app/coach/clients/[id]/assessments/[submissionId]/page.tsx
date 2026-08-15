@@ -3,7 +3,6 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { getClientAssessmentById, getCoachNotes } from '@/app/actions/coach';
-import { BottomNav } from '@/components/BottomNav';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
 import { CoachNotesPanel } from '../../CoachNotesPanel';
 
@@ -75,9 +74,6 @@ export default async function CoachAssessmentDetailPage({
         </div>
       </main>
 
-      {/* middleware.ts already redirected anyone without the coach role
-          before this page rendered, so isCoach is always true here. */}
-      <BottomNav isCoach />
     </div>
   );
 }

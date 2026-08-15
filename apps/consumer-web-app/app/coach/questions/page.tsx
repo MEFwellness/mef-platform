@@ -12,7 +12,6 @@ import { ClipboardList } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { getQuestionBankDataAction } from '@/app/actions/driverProbeAdmin';
 import { QuestionBankPanel } from '@/components/coach-questions/QuestionBankPanel';
 
@@ -65,7 +64,6 @@ export default async function CoachQuestionsPage() {
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

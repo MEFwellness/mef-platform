@@ -12,7 +12,6 @@ import { Sparkles, Dumbbell, CalendarRange, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -77,7 +76,6 @@ export default async function GenerateEntryPage() {
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

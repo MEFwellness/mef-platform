@@ -92,7 +92,7 @@ export default async function BodyAssessmentReportPage({
   return (
     <div className="min-h-screen bg-[#FAFAF8] font-[family-name:var(--font-dm-sans)] print:bg-white">
       <PrintButton />
-      <main className="mx-auto max-w-2xl px-8 py-14 print:max-w-none print:px-0 print:py-0">
+      <main className="mx-auto max-w-2xl px-8 pt-14 pb-safe-nav print:max-w-none print:px-0 print:py-0">
         <div className="border-b border-[#1B3A2D]/10 pb-6 print:border-black/20">
           <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E] print:text-black">
             Posture Assessment Report

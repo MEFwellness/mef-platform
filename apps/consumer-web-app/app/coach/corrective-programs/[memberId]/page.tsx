@@ -11,7 +11,6 @@ import { Activity, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { getMemberCorrectiveOverviewAction } from '@/app/actions/corrective-programs';
 import { FINDING_TYPE_CONFIG, SEVERITY_LABEL } from '@/lib/body-assessment/findings';
 import { CORRECTIVE_BLUEPRINTS } from '@/lib/corrective-engine/blueprints';
@@ -175,7 +174,6 @@ export default async function CorrectiveProgramsMemberPage({
         )}
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

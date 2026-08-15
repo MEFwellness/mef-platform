@@ -11,7 +11,6 @@ import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { listCvsTestableMembersAction } from '@/app/actions/coreValuesSnapshotAdmin';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { CvsTestToolsPanel } from '@/components/admin/CvsTestToolsPanel';
 
 export default async function CvsTestToolsPage() {
@@ -24,10 +23,7 @@ export default async function CvsTestToolsPage() {
   const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');
   if (!isAdmin) redirect('/dashboard');
 
-  const [isCoach, members] = await Promise.all([
-    hasActiveRole(supabase, user.id, 'coach'),
-    listCvsTestableMembersAction(),
-  ]);
+  const members = await listCvsTestableMembersAction();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -44,7 +40,6 @@ export default async function CvsTestToolsPage() {
 
         <CvsTestToolsPanel members={members} />
       </main>
-      <BottomNav isCoach={isCoach} />
     </div>
   );
 }

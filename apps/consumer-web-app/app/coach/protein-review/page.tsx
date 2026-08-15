@@ -4,7 +4,6 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { Beef, ChevronLeft } from 'lucide-react';
 import { listPendingProteinTargetsAction } from '@/app/actions/protein-review';
-import { BottomNav } from '@/components/BottomNav';
 import { ACTIVITY_LEVELS } from '@/lib/protein/calculation';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 
@@ -77,7 +76,6 @@ export default async function ProteinReviewQueuePage() {
         </section>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

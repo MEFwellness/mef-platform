@@ -4,7 +4,6 @@ import { Dumbbell } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { getProgramTemplateWithContentAction } from '@/app/actions/coach-programs';
 import { ProgramBuilder } from '@/components/coach-program-builder/ProgramBuilder';
 
@@ -61,7 +60,6 @@ export default async function ProgramBuilderPage({
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

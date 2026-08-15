@@ -10,7 +10,6 @@ import { Activity } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
 import { listAssignedClients } from '@/app/actions/coach';
 import { CorrectiveMemberPickerPanel } from './CorrectiveMemberPickerPanel';
 
@@ -59,7 +58,6 @@ export default async function CorrectiveProgramsPage() {
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

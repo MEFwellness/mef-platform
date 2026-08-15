@@ -3,7 +3,6 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, ShieldAlert, History } from 'lucide-react';
 import { getCoachReviewQueueEntry } from '@/app/actions/safety';
-import { BottomNav } from '@/components/BottomNav';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { ReviewCaseControls } from '../ReviewCaseControls';
 import { formatDisplayDate } from '@/lib/time/displayDate';
@@ -143,7 +142,6 @@ export default async function ReviewCaseDetailPage({ params }: { params: { id: s
         </div>
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }

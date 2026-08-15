@@ -8,7 +8,6 @@
 import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
 import { getCorrectiveDraftGroupAction } from '@/app/actions/corrective-programs';
 import { DraftReviewPanel } from './DraftReviewPanel';
 
@@ -46,7 +45,6 @@ export default async function CorrectiveDraftReviewPage({
         />
       </main>
 
-      <BottomNav isCoach />
     </div>
   );
 }
