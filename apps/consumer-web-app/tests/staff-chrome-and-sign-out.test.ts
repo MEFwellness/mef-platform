@@ -181,8 +181,12 @@ describe('Sign Out exists for every role, and is one control rather than three',
   });
 
   it('a coach or an administrator signs out from their own navigation bar', () => {
-    expect(STAFF_NAV).toContain('<SignOutButton variant="nav" />');
-    expect(SIGN_OUT_BUTTON).toContain("variant?: 'row' | 'block' | 'nav'");
+    // The `audience` argument arrived later, with the dialog fix: the
+    // confirmation copy named check-ins and Root Score to everyone, which
+    // is member language on a coach screen. See tests/sign-out-dialog.test.ts.
+    expect(STAFF_NAV).toContain('<SignOutButton variant="nav"');
+    expect(SIGN_OUT_BUTTON).toContain("variant?: SignOutVariant;");
+    expect(SIGN_OUT_BUTTON).toContain("export type SignOutVariant = 'row' | 'block' | 'nav';");
   });
 
   it('a member signs out from the profile sheet and from the Profile screen', () => {

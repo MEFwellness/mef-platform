@@ -1252,6 +1252,43 @@
 }
 
 /*
+ * The frame a centered modal is centered inside.
+ *
+ * `position: fixed; inset: 0` is NOT the visible viewport on iOS Safari:
+ * fixed positioning resolves against the LARGE viewport, the one measured
+ * with the browser bars hidden, so a dialog centered in it has its lower
+ * half sitting underneath Safari's own bottom bar whenever that bar is
+ * showing. That is how the sign-out confirmation's two buttons ended up
+ * unreachable on a real iPhone: the dialog was centered correctly, in a
+ * box taller than the screen.
+ *
+ * `100dvh` is the dynamic viewport: it shrinks and grows as the browser
+ * chrome does, so whatever is centered inside it is fully visible in both
+ * the collapsed and the expanded bar state. The `vh` line above it is the
+ * fallback for anything that does not parse `dvh`, which is the same
+ * two-line technique this file already uses for the check-in sheet
+ * heights.
+ *
+ * The safe-area padding is on top of that, so a dialog can never sit under
+ * the home indicator or the notch either.
+ */
+.mef-modal-viewport {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100vh;
+  padding-top: max(1.25rem, calc(env(safe-area-inset-top) + 0.75rem));
+  padding-bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+}
+
+@supports (height: 100dvh) {
+  .mef-modal-viewport {
+    height: 100dvh;
+  }
+}
+
+/*
  * ============================================================
  * SCREEN LAYOUT SYSTEM — spacing, reading-width, and card tokens (Prompt 2)
  * ============================================================

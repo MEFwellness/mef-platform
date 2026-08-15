@@ -90,7 +90,13 @@ export function StaffNav({ isCoach, isAdmin }: StaffNavProps) {
             active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
           />
         ))}
-        <SignOutButton variant="nav" />
+        {/*
+         * The confirmation copy follows the same coach-wins-over-admin
+         * order staffHomePath() uses, so an account holding both grants is
+         * told about the clients it actually has rather than about the
+         * platform tools it reaches one tap away.
+         */}
+        <SignOutButton variant="nav" audience={isCoach ? 'coach' : 'admin'} />
       </div>
     </nav>
   );
