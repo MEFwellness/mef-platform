@@ -6279,3 +6279,13 @@ The one failing check is the script's first assertion, "member signs in", which 
 **A note for anyone running the suite after driving the local app**: doing so as `member.one` creates a real `daily_feed_items` row for today, which makes `tests/feed-integration.test.ts`'s history assertion see three dates instead of two. That is the repo's existing convention showing its teeth, not a flaky test. Local rows created by this session's driving were deleted and the full suite re-run clean.
 
 **No migration.** Nothing here touches the database.
+
+**Live verification against production** (commit 2a8418b, deployment `mef-platform-6p77bwibr`, target production, aliased to app.mefwellness.com; new committed script `scripts/screenshots/verify-signout-dialog-live.mjs`, 390x844 iPhone 14 viewport): **33/33 checks passed**.
+
+For the standing test member signed in through the real login form, and for a production administrator and a production coach whose sessions were minted from one-time magic-link tokens and retired afterwards, the dialog reported the same three structural facts on every one: its frame's parent is `<body>`, no element above it has a transform, filter or backdrop filter, and both buttons' measured bounding boxes are Cancel at x 44 to 190 and Sign Out at x 202 to 346, both spanning y 455 to 497 inside a 390x844 viewport. Fully on screen with roughly 350px of clearance below them, where before the fix they were below the fold entirely.
+
+Copy read back live, one variant each and no crossover: member got "You'll need to sign back in to see your check-ins, Root Score, and coaching", the coach got "manage your clients", the administrator got "manage the platform". No em dash in any of them.
+
+Cancel closed the dialog and left every one of the three accounts signed in, verified by navigating back to a real authenticated screen afterwards. For the member the full destructive path was then driven end to end: confirming landed on `/login`, the back button landed on `/login?redirectedFrom=/today` without re-entering, and the account signed back in and reached Today normally.
+
+The coach and administrator dialogs were verified this way, by driving real production sessions and capturing screenshots, not only by unit tests. Their sign out was exercised as far as Cancel; the confirm path was not fired on the live staff accounts, since ending a real administrator's session on production has no upside over the member run that already proved that path.
