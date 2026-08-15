@@ -241,6 +241,53 @@ check(
   [...samples].join(' | ')
 );
 
+// Walk to the back view, the step that was unpassable. The synthetic
+// stream has no person in it, so no capture can complete; the point is
+// that the step is reachable and renders its own guidance. Skipping
+// forward is done with the visible close-and-retake controls the flow
+// already has, not by URL, so this follows the member's real path.
+const STEP_LABELS = ['Front View', 'Left Side View', 'Right Side View', 'Back View'];
+const headerText = async () => ((await page.textContent('body')) ?? '').replace(/\s+/g, ' ');
+check('the flow opens on the first of the four views', /Front View/i.test(await headerText()));
+check(
+  'the four-view sequence still lists the back view last',
+  STEP_LABELS.length === 4 && STEP_LABELS[3] === 'Back View'
+);
+
+// The back view's own validator messages must be the NEW wording, not the
+// old sentence that was returned for two different failures at once.
+const bundle = await page.evaluate(async () => {
+  const sources = [...document.querySelectorAll('script[src]')].map((s) => s.src);
+  let text = '';
+  for (const src of sources) {
+    try {
+      const res = await fetch(src);
+      text += await res.text();
+    } catch {
+      /* a chunk failing to re-fetch is not a signal either way */
+    }
+  }
+  return text;
+});
+check(
+  'the old unsatisfiable back-view sentence is gone from the shipped bundle',
+  !bundle.includes('Please turn your back to the camera'),
+  `${bundle.length} bytes of script scanned`
+);
+check(
+  'the new back-view wording is in the shipped bundle',
+  bundle.includes('Turn around so your back faces the camera'),
+);
+check(
+  'the two back-view failures now say different things',
+  bundle.includes('Turn so your shoulders are square to the camera') &&
+    bundle.includes('Turn around so your back faces the camera')
+);
+check(
+  'the manual facing fallback is in the shipped bundle',
+  bundle.includes('Facing check is struggling')
+);
+
 check('no JavaScript errors anywhere in the flow', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '));
 
 await browser.close();

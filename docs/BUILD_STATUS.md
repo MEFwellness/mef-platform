@@ -6364,3 +6364,48 @@ What production did answer: the member session (minted from a one-time magic-lin
 A first run stopped one screen short of the camera: the script looked for a "Next" button on the final preparation screen, which actually reads "Let's go". That was the script's assumption being wrong, not the app; corrected, and the run reached the camera.
 
 Production was left as found: the temporary assessment assignment created for the run was deleted.
+
+## Fix: the back view of the Body Assessment was unpassable (2026-08-15)
+
+**The report.** Standing with their back fully turned to the camera, the member was told "Please turn your back to the camera" indefinitely, no matter how they turned or repositioned. Front and side views passed fine.
+
+**What the back view was actually checking.** Two things, in `poseValidation.ts`. First, that the shoulder line was wide enough for a squared-up view, which turning around does satisfy. Second, and fatally, **that the member's face landmarks had stopped being visible**: it required the average `visibility` of the nose, both eyes and both ears to fall below 0.5.
+
+That second condition can never be met. The pose model predicts all 33 landmarks for every person it detects whether or not it can actually see them, and its `visibility` score answers "is this point inside the frame and not hidden behind some other object", not "can the camera see this person's face". A person with their back turned is still a whole person in frame, so their face landmarks stay confidently reported.
+
+**Confirmed with the real model, not assumed.** New committed scripts `scripts/audit-facing-landmarks.mjs` and `scripts/generate-facing-audit-figures.mjs` run the actual MediaPipe model against a figure drawn from behind that has **no face drawn on it at all** (committed at `tests/fixtures/facing/back-facing-figure.png`). It reports:
+
+| landmark | visibility |
+|---|---|
+| nose | **0.960** |
+| left eye / right eye | 0.946 / 0.954 |
+| left ear / right ear | 0.939 / 0.957 |
+| **average** | **0.951** |
+
+The check needed that below 0.5 and got 0.951 on an image with no face in it. This was never a tuning problem: there is no threshold that makes "wait for the face to disappear" work.
+
+**A second defect made it unreadable from the outside.** Both back-view failures returned the *identical* sentence. A member who correctly turned around satisfied the first check and then failed the second with exactly the same words, so the screen never acknowledged that anything had changed. That is what an endless loop feels like even when a real check is being evaluated.
+
+**What it checks now.** New `lib/body-assessment/facing.ts`. **Primary, and sufficient on its own: left/right ordering.** The model labels landmarks anatomically (the subject's own left and right), so where they land in the frame genuinely reverses on a turn: facing the camera the subject's left shoulder is on the viewer's right, facing away it is on the viewer's left. New `shoulderOrderRatio` / `hipOrderRatio` in `poseMetrics.ts` carry that signed value, which the existing `shoulderWidth` had been throwing away by taking an absolute value. **Supporting, and never required: face visibility.** It does sag when someone turns away, nowhere near far enough to gate on, so it is worth one point when low and **costs nothing when high**. That asymmetry is the whole lesson of the bug: a confidently-reported face can no longer block a member who has plainly turned around.
+
+The signals are combined into a score rather than ANDed, so no single noisy value blocks on its own, and shoulders alone can carry the decision. The **front view now reads the same score from the opposite end**, which is what makes it structurally impossible for both views to accept the same pose. The two back-view failures now say different things ("Turn so your shoulders are square to the camera" versus "Turn around so your back faces the camera"), so turning around visibly changes something.
+
+**The side views did not share the pattern and are left alone.** They gate only on the shoulder line collapsing, which is a magnitude, never a direction, and they never consulted face visibility. Tests pin that they still accept a side-on pose regardless of face visibility, so the finding is recorded rather than merely asserted.
+
+**Never loop forever.** New `components/body-assessment/ManualFacingConfirm.tsx`. When framing, distance and tilt have all been passing and **only** facing is still refusing for 20 seconds, the member is offered "Facing check is struggling. If you are in position, tap Confirm and hold still." Taking it stands in for the facing check and for nothing else: every other check still has to pass on its own. **Migration 162** records `facing_manually_confirmed` on the capture so a reviewing coach can see the orientation rested on the member's word rather than on detection. It is per-step (turning for the back view says nothing about the next view) and is expected to stay rare; a run of them on one member is a signal worth looking at.
+
+**Voice repeat throttle.** `REPEAT_SUPPRESS_MS` raised from 5s to **8s**, and a new `MAX_CONSECUTIVE_UTTERANCES` of 3 (the first saying plus two repeats) after which the voice gives up on that line entirely and lets the screen carry it. A different instruction resets the count immediately, so this only ever silences a line that is stuck, which is precisely what the back-view loop sounded like from across the room. No em dash in any of the new copy.
+
+**Tests**: new `tests/facing-detection.test.ts` (13) and `tests/voice-repeat-throttle.test.ts` (5), plus 2 added to `tests/capture-tilt-storage.test.ts` for the manual-confirm flag against real local Supabase and real RLS. The fixtures use the **measured** 0.95 face visibility rather than a convenient number, so the tests fail the way the real phone did if the old pattern returns. Proven: a facing-away pose passes the back view and fails the front, a facing-toward pose does the reverse, predicted-but-invisible face landmarks do not block the back view, a near-side-on pose is called ambiguous rather than guessed, the manual-confirm flag stores correctly (and stays null on the normal path), and the voice throttle suppresses immediate repeats then goes quiet.
+
+**The deliberate break.** Face visibility was re-weighted to count as positive evidence of facing the camera, which is the original bug's assumption. Seven tests failed, including the exact live symptom: "a facing-away pose passes the back view" reported `expected false to be true`. Reverted, and all pass.
+
+**One flaky run, not reproduced.** The first full-suite run had `tests/assessment-runtime-integration.test.ts` fail; it passed in isolation, passed on a clean re-run of the whole suite, and passed when run alongside the new storage tests specifically. That file shares seeded members with others, which `vitest.config.ts` already documents as a known hazard of this DB-backed suite. Recorded rather than dismissed. Full suite **5203 passing across 380 files**, typecheck clean, lint 0 errors, production build compiled successfully. **Migration 162 applied to production and confirmed.**
+
+**Live verification against production** (commit `c0f933a`, deployment `mef-platform-i826d62on`, target production, aliased to app.mefwellness.com; `scripts/screenshots/verify-capture-gate-live.mjs` extended, 390x844 iPhone viewport): **19/19 checks passed**.
+
+Stated plainly: **real facing detection cannot be exercised without a camera and a real body.** The synthetic video stream is a test pattern, so the validator correctly reports it cannot see anyone. Facing detection itself is proven by the section 5 tests, which run the same pure module the phone runs.
+
+What production answered: the member journey opened the flow, advanced through all five preparation screens, and reached the camera step with a live preview and no camera error; exactly one instruction was on screen and stayed put across six samples rather than alternating; the four-view sequence still ends with the back view; and, checked by fetching and scanning all 1.19MB of the shipped script bundle, **the old unsatisfiable "Please turn your back to the camera" sentence is gone**, the new distinct back-view wording is present, both new back-view messages are present and different from each other, and the manual facing fallback is present. No JavaScript error anywhere in the flow.
+
+An earlier run of the same script reported 15/19, with all four bundle checks failing. That was correct and useful: the deployment was still building, and the domain was still being served by the previous one. Re-run once the new build took the alias, it passed 19/19. Production was left as found: the temporary assessment assignment created for the run was deleted.
