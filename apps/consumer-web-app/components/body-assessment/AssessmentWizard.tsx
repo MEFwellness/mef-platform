@@ -52,6 +52,7 @@ import {
   type CaptureSetupTarget,
 } from '@/app/actions/body-assessment';
 import { CameraCapture, type CapturedMedia } from './CameraCapture';
+import { StartOverControl } from './StartOverControl';
 import {
   requestDeviceTiltPermission,
   type OrientationPermissionStatus,
@@ -394,6 +395,38 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
     }
   }
 
+  /**
+   * Discards every capture in this attempt and returns to the first view.
+   * The assessment ROW is deliberately kept and reused: it holds nothing
+   * but a start time and a status until captures are attached, so there is
+   * no stale data to leak, and reusing it keeps the resume path (which
+   * looks the assessment up by id) working exactly as before.
+   *
+   * Deletions are best-effort per capture: if one fails to delete, the
+   * member should still get their fresh start rather than being stuck on a
+   * half-cleared attempt, and the orphan is a storage row a coach will
+   * never see because it is no longer attached to anything they read.
+   */
+  async function handleStartOver() {
+    setBusy(true);
+    setErrorMessage(null);
+    try {
+      for (const record of records) {
+        try {
+          await deleteCaptureAction(record.captureId);
+        } catch (deleteError) {
+          console.error('Could not delete capture during start over', deleteError);
+        }
+        URL.revokeObjectURL(record.previewUrl);
+      }
+      setRecords([]);
+      setCaptureIndex(0);
+      setPhase('capture');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleSubmit() {
     if (!assessmentId) return;
     setPhase('submitting');
@@ -604,9 +637,16 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             {step.title}
           </p>
-          <p className="text-xs text-[#9AA79F]">
-            Step {captureIndex + 1} of {typeConfig.captureSteps.length}
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-[#9AA79F]">
+              Step {captureIndex + 1} of {typeConfig.captureSteps.length}
+            </p>
+            <StartOverControl
+              photoCount={records.length}
+              busy={busy}
+              onStartOver={handleStartOver}
+            />
+          </div>
         </div>
         {busy ? (
           <Card className="flex flex-col items-center gap-3">
@@ -681,6 +721,17 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
         >
           Submit assessment
         </button>
+
+        {/* Also offered here, not only during capture: the review screen is
+            where a member actually decides the whole set is not good enough,
+            and retaking four photos one at a time is not the same thing. */}
+        <div className="mt-3 flex justify-center">
+          <StartOverControl
+            photoCount={records.length}
+            busy={busy}
+            onStartOver={handleStartOver}
+          />
+        </div>
       </Card>
     );
   }

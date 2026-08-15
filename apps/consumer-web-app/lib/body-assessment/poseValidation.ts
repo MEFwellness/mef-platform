@@ -82,6 +82,8 @@
 import { toCoreLandmarks, type CorePoseLandmarks, type RawPoseLandmark } from './poseTypes';
 import { computePoseMetrics, type Point, type PoseMetrics } from './poseMetrics';
 import { evaluateFacing, isFacingAway, isFacingToward } from './facing';
+import { evaluateViewVisibility, describePair } from './viewVisibility';
+import { bandVerdict, ceilingVerdict, type PassingChecks } from './hysteresis';
 
 export type PoseValidationStatus =
   | 'no_person'
@@ -312,6 +314,14 @@ export type PoseValidationOptions = {
    * complete on a different person than it started with.
    */
   previousSubjectCenter?: Point | null;
+  /**
+   * Which two-directional checks were already satisfied on the previous
+   * frame. Threaded in (rather than remembered here, which would break
+   * this function's per-frame purity) so a check the member has already
+   * cleared does not re-raise its instruction on ordinary drift. See
+   * lib/body-assessment/hysteresis.ts. Omit on the first frame.
+   */
+  previouslyPassing?: PassingChecks;
 };
 
 const CONFIDENCE_THRESHOLD = 0.5;
@@ -351,6 +361,30 @@ const SUBJECT_JUMP_RATIO_MAX = 0.4;
  */
 const SUBJECT_FRAME_HEIGHT_MIN = 0.65;
 const SUBJECT_FRAME_HEIGHT_MAX = 0.9;
+/**
+ * How far past the frame-fill band an already-satisfied distance reading
+ * must drift before "move closer" or "step farther away" comes back. A
+ * standing person's measured body span wanders by a couple of percent from
+ * breathing and ordinary sway alone, and re-issuing an instruction they
+ * have already acted on for that is what makes the guidance feel like it
+ * is changing its mind.
+ *
+ * The band itself (0.65 to 0.90) is deliberately NOT narrowed. It has to
+ * stay wide enough to overlap the range the hip-height and feet-clipping
+ * rules also allow, or the checks fight each other again: see this file's
+ * top docblock for the arithmetic behind the 0.65 floor specifically,
+ * which a higher floor would re-break.
+ */
+const FRAME_FILL_RELEASE_MARGIN = 0.04;
+
+/** Horizontal band the body's centre must sit inside, and the drift an already-centred member is allowed before being nudged again. */
+const CENTERING_MIN = 0.35;
+const CENTERING_MAX = 0.65;
+const CENTERING_RELEASE_MARGIN = 0.03;
+
+/** How close to the bottom edge the ankle midpoint may sit before the feet count as clipped, plus the drift allowed once framing is already satisfied. */
+const ANKLE_CLIP_LIMIT = 0.97;
+const ANKLE_CLIP_RELEASE_MARGIN = 0.01;
 /** The hip-landmark midpoint's normalized-y must land in this middle-10%-of-frame band — "camera at roughly hip height." Tightened from the old head+ankle-based verticalCenter proxy's much wider 0.38-0.62 band. */
 const HIP_MID_TARGET_MIN = 0.45;
 const HIP_MID_TARGET_MAX = 0.55;
@@ -525,27 +559,61 @@ export function validatePoseFrame(
     }
   }
 
-  // Full-body framing: knees/ankles must be visible and not clipped at the frame edge.
-  const lowerBodyVisibility = averageVisibility([
-    core.leftKnee,
-    core.rightKnee,
-    core.leftAnkle,
-    core.rightAnkle,
-  ]);
-  const headTop = Math.min(core.nose.y, core.leftEye.y, core.rightEye.y);
-  if (lowerBodyVisibility < CONFIDENCE_THRESHOLD || metrics.ankleMid.y > 0.97) {
+  // Full-body framing. Two DIFFERENT problems used to share one verdict
+  // and one instruction here, which is what produced the contradiction
+  // loop: "the legs are not being detected" and "the feet are clipped at
+  // the bottom edge" both said "Step back until your entire body is
+  // visible", and only the second one is a distance problem at all.
+  // Stepping back for the first makes the body smaller, which then trips
+  // the "Move closer" check further down, and round it goes.
+  //
+  // They are now separated. Clipping is a framing instruction. Landmarks
+  // that simply are not being detected, while sitting well inside the
+  // frame, are a detection problem, and telling someone to step back for
+  // that is advice that cannot work.
+  const viewVisibility = evaluateViewVisibility(core, options.captureType);
+  const wasFramingPassing = options.previouslyPassing?.framing === true;
+
+  if (ceilingVerdict(metrics.ankleMid.y, ANKLE_CLIP_LIMIT, ANKLE_CLIP_RELEASE_MARGIN, wasFramingPassing)) {
     return fail(
       'not_full_body',
-      'Step back until your entire body is visible.',
+      'Step back until your feet are fully in frame.',
       metrics,
       core,
       subject.points
     );
   }
-  if (headTop < 0.04) {
+
+  if (!viewVisibility.ok) {
+    // Deliberately not a distance instruction. The body is inside the
+    // frame; the model just cannot make out this part of it, which is
+    // usually lighting, or clothing that blends into the background.
+    return fail(
+      'low_confidence',
+      `We can't make out ${describePair(viewVisibility.weakestPair)} clearly. Try more light, or clothing that stands out from the wall behind you.`,
+      metrics,
+      core,
+      subject.points
+    );
+  }
+
+  // Head clipping at the TOP edge, a position check. Only applied when the
+  // head landmarks are actually confident: on a view where the model is
+  // guessing where the face is, their predicted position is not evidence
+  // of anything, and acting on it produced instructions the member could
+  // not act on.
+  const headConfidence = Math.max(
+    core.nose.visibility ?? 1,
+    core.leftEye.visibility ?? 1,
+    core.rightEye.visibility ?? 1,
+    core.leftEar.visibility ?? 1,
+    core.rightEar.visibility ?? 1
+  );
+  const headTop = Math.min(core.nose.y, core.leftEye.y, core.rightEye.y);
+  if (headConfidence >= CONFIDENCE_THRESHOLD && headTop < 0.04) {
     return fail(
       'not_full_body',
-      'Step back so your head is fully visible.',
+      'Step back so your head is fully in frame.',
       metrics,
       core,
       subject.points
@@ -564,10 +632,19 @@ export function validatePoseFrame(
   // just a coarse "not absurdly close/far" screen: every capture of the
   // same view needs to fill roughly the same fraction of the frame for
   // before-and-after angles to actually be comparable.
-  if (metrics.bodySpan > SUBJECT_FRAME_HEIGHT_MAX) {
+  const distanceVerdict = bandVerdict(
+    metrics.bodySpan,
+    {
+      failBelow: SUBJECT_FRAME_HEIGHT_MIN,
+      failAbove: SUBJECT_FRAME_HEIGHT_MAX,
+      releaseMargin: FRAME_FILL_RELEASE_MARGIN,
+    },
+    options.previouslyPassing?.distance === true
+  );
+  if (distanceVerdict === 'above') {
     return fail('too_close', 'Step farther away.', metrics, core, subject.points);
   }
-  if (metrics.bodySpan < SUBJECT_FRAME_HEIGHT_MIN) {
+  if (distanceVerdict === 'below') {
     return fail('too_far', 'Move closer.', metrics, core, subject.points);
   }
 
@@ -577,10 +654,19 @@ export function validatePoseFrame(
   // toward *their own* left/right (not the raw frame's) matches what they
   // see, the same way a bathroom mirror does.
   const centerX = (metrics.shoulderMid.x + metrics.hipMid.x) / 2;
-  if (centerX < 0.35) {
+  const centeringVerdict = bandVerdict(
+    centerX,
+    {
+      failBelow: CENTERING_MIN,
+      failAbove: CENTERING_MAX,
+      releaseMargin: CENTERING_RELEASE_MARGIN,
+    },
+    options.previouslyPassing?.centering === true
+  );
+  if (centeringVerdict === 'below') {
     return fail('off_center', 'Move slightly to your left.', metrics, core, subject.points);
   }
-  if (centerX > 0.65) {
+  if (centeringVerdict === 'above') {
     return fail('off_center', 'Move slightly to your right.', metrics, core, subject.points);
   }
 

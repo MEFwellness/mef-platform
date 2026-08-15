@@ -138,12 +138,18 @@ describe('validatePoseFrame', () => {
     // Same marginal overall confidence as above, but this time the member
     // is also genuinely off-center — the specific, actionable problem
     // must win over the generic "can't get a clear reading" catch-all.
+    // The landmarks the centering verdict is actually READ FROM (shoulders
+    // and hips) have to be trustworthy for that verdict to mean anything,
+    // so they are confident here; overall subject confidence is what is
+    // marginal. Nudging someone left or right from landmarks the model is
+    // 30% sure of is the "acting on unreliable data" pattern the per-view
+    // visibility check now refuses (see viewVisibility.ts).
     const marginalAndOffCenter = makePose({
       nose: { visibility: 0.3 },
-      leftShoulder: { visibility: 0.3, x: 0.85 },
-      rightShoulder: { visibility: 0.3, x: 0.65 },
-      leftHip: { visibility: 0.3, x: 0.85 },
-      rightHip: { visibility: 0.3, x: 0.65 },
+      leftShoulder: { visibility: 0.6, x: 0.85 },
+      rightShoulder: { visibility: 0.6, x: 0.65 },
+      leftHip: { visibility: 0.6, x: 0.85 },
+      rightHip: { visibility: 0.6, x: 0.65 },
       leftKnee: { visibility: 0.6 },
       rightKnee: { visibility: 0.6 },
       leftAnkle: { visibility: 0.6 },
@@ -153,15 +159,35 @@ describe('validatePoseFrame', () => {
     expect(result.status).toBe('off_center');
   });
 
-  it('reports not_full_body when feet are out of frame', () => {
+  it('reports not_full_body when the feet are genuinely clipped at the bottom edge', () => {
+    // Position, not visibility. The old fixture for this lowered the
+    // knee/ankle VISIBILITY and expected "step back", which conflated two
+    // different problems: a landmark the model cannot make out is not the
+    // same as a landmark that has left the frame, and only the second one
+    // is fixed by stepping back. See the next test.
     const cutOff = makePose({
-      leftKnee: { visibility: 0.1 },
-      rightKnee: { visibility: 0.1 },
-      leftAnkle: { visibility: 0.1 },
-      rightAnkle: { visibility: 0.1 },
+      leftAnkle: { y: 0.99 },
+      rightAnkle: { y: 0.99 },
     });
     const result = validatePoseFrame([cutOff], FRONT);
     expect(result.status).toBe('not_full_body');
+    expect(result.message).toContain('Step back');
+  });
+
+  it('does NOT say step back when a body part is simply not being detected', () => {
+    // This is the half of the old contradiction loop that could never be
+    // resolved by moving: the legs are inside the frame, the model just
+    // cannot make them out. Stepping back makes the body smaller, which
+    // then trips "Move closer", and round it went.
+    const undetected = makePose({
+      leftAnkle: { visibility: 0.1 },
+      rightAnkle: { visibility: 0.1 },
+    });
+    const result = validatePoseFrame([undetected], FRONT);
+    expect(result.status).toBe('low_confidence');
+    expect(result.message).not.toContain('Step back');
+    expect(result.message).not.toContain('Move closer');
+    expect(result.message).toContain('your feet');
   });
 
   it('reports too_close when the body fills almost the whole frame', () => {

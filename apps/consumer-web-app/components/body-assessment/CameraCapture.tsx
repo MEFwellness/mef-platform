@@ -70,6 +70,7 @@ import {
   REQUIRED_STABLE_MS,
   type SteadyHoldState,
 } from '@/lib/body-assessment/steadyHold';
+import { NOTHING_PASSING, type PassingChecks } from '@/lib/body-assessment/hysteresis';
 import { TiltLevelIndicator } from './TiltLevelIndicator';
 import { ManualLevelBubble } from './ManualLevelBubble';
 import { ManualFacingConfirm } from './ManualFacingConfirm';
@@ -367,6 +368,14 @@ export function CameraCapture({
   const steadyHoldRef = useRef<SteadyHoldState>(INITIAL_STEADY_HOLD_STATE);
   /** Fixed-order gate progress across frames — see lib/body-assessment/captureGate.ts. */
   const gateStateRef = useRef<CaptureGateState>(INITIAL_CAPTURE_GATE_STATE);
+  /**
+   * Which two-directional checks were satisfied on the previous frame, fed
+   * back into the next one so an already-cleared check does not re-raise
+   * its instruction on ordinary drift. See lib/body-assessment/hysteresis.ts.
+   */
+  const previouslyPassingRef = useRef<PassingChecks>(NOTHING_PASSING);
+  /** Same idea for tilt, which owns its own release margin inside evaluateCameraTilt. */
+  const tiltWasPassingRef = useRef(false);
   /** The last problem key actually spoken aloud — lets the next, DIFFERENT correction open with a brief acknowledgment ("Good — now...") instead of jumping straight from one issue to the next with no sense of progress. */
   const lastResolvedProblemKeyRef = useRef<string | null>(null);
   /** The last whole-second countdown value a haptic tick fired for, so each second gets exactly one tick rather than one per animation frame. */
@@ -507,7 +516,7 @@ export function CameraCapture({
         offByDegrees: 0,
         brokenBadly: false,
       }
-    : evaluateCameraTilt(tiltAngles);
+    : evaluateCameraTilt(tiltAngles, tiltWasPassingRef.current);
 
   function withinReplicationTolerance(
     live: number | null,
@@ -606,6 +615,8 @@ export function CameraCapture({
     // Facing confirmation is per-step: turning for the back view says
     // nothing about whether the next view's orientation is right.
     facingStruggleSinceRef.current = null;
+    previouslyPassingRef.current = NOTHING_PASSING;
+    tiltWasPassingRef.current = false;
     setManualFacingConfirmed(false);
     setFacingStruggling(false);
     setGateGuidance({ step: null, instruction: '' });
@@ -898,8 +909,19 @@ export function CameraCapture({
       requiresStanding,
       captureType: step.captureType,
       previousSubjectCenter,
+      previouslyPassing: previouslyPassingRef.current,
     });
     setValidation(result);
+
+    // Record which two-directional checks are satisfied NOW, for the next
+    // frame's release margins. A check counts as satisfied once the
+    // validator has got past it, which is exactly what "the returned
+    // status is something later in the pipeline, or ready" means.
+    previouslyPassingRef.current = {
+      framing: result.status !== 'not_full_body',
+      distance: result.status !== 'too_close' && result.status !== 'too_far',
+      centering: result.status !== 'off_center',
+    };
     subjectCenterRef.current = result.metrics?.hipMid ?? null;
     if (!result.ok) {
       validationFailureCountsRef.current[result.category] =
@@ -955,6 +977,8 @@ export function CameraCapture({
     // it has been the ONLY thing refusing (everything ahead of it in the
     // validator already passed to reach it, and tilt is checked here), and
     // offer the manual path once that has gone on too long.
+    tiltWasPassingRef.current = tilt.ok;
+
     const facingIsOnlyBlocker = result.status === 'wrong_orientation' && tilt.ok;
     if (facingIsOnlyBlocker) {
       if (facingStruggleSinceRef.current === null) facingStruggleSinceRef.current = now;

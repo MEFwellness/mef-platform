@@ -195,12 +195,24 @@ function describePitch(pitchDegrees: number): string {
  * are out, since a rolled phone tips the whole image and is the more
  * consequential of the two for measurement.
  */
-export function evaluateCameraTilt(angles: DeviceTiltAngles | null): TiltCheckResult {
+export function evaluateCameraTilt(
+  angles: DeviceTiltAngles | null,
+  /**
+   * Whether the tilt check was already satisfied on the previous frame. A
+   * phone that has been set down and accepted still drifts by a fraction
+   * of a degree, and re-raising a correction the member has already acted
+   * on for that reads as the app changing its mind, so an ALREADY-PASSING
+   * check has to break by TILT_RELEASE_MARGIN_DEGREES before it speaks up
+   * again. A check that has not been satisfied yet gets no such grace.
+   */
+  wasPassing = false
+): TiltCheckResult {
   if (!angles) return PASSING;
 
   const { rollDegrees, pitchDegrees } = angles;
+  const grace = wasPassing ? TILT_RELEASE_MARGIN_DEGREES : 0;
 
-  if (Math.abs(rollDegrees) > ROLL_TOLERANCE_DEGREES) {
+  if (Math.abs(rollDegrees) > ROLL_TOLERANCE_DEGREES + grace) {
     return {
       ok: false,
       message: describeRoll(rollDegrees),
@@ -210,7 +222,7 @@ export function evaluateCameraTilt(angles: DeviceTiltAngles | null): TiltCheckRe
     };
   }
 
-  if (Math.abs(pitchDegrees) > PITCH_TOLERANCE_DEGREES) {
+  if (Math.abs(pitchDegrees) > PITCH_TOLERANCE_DEGREES + grace) {
     return {
       ok: false,
       message: describePitch(pitchDegrees),
