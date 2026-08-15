@@ -52,10 +52,25 @@ import {
   type DistanceZoneState,
 } from '@/lib/body-assessment/poseValidation';
 import {
+  deviceTiltAngles,
   evaluateCameraTilt,
   ROLL_TOLERANCE_DEGREES,
   PITCH_TOLERANCE_DEGREES,
+  type TiltCheckResult,
 } from '@/lib/body-assessment/cameraTilt';
+import {
+  stepCaptureGate,
+  INITIAL_CAPTURE_GATE_STATE,
+  type CaptureGateState,
+  type GateStepId,
+} from '@/lib/body-assessment/captureGate';
+import {
+  stepSteadyHold,
+  INITIAL_STEADY_HOLD_STATE,
+  REQUIRED_STABLE_MS,
+  type SteadyHoldState,
+} from '@/lib/body-assessment/steadyHold';
+import { TiltLevelIndicator } from './TiltLevelIndicator';
 import { ManualLevelBubble } from './ManualLevelBubble';
 import {
   SetupReplicationPanel,
@@ -174,10 +189,9 @@ type Props = {
 type CameraPhase =
   'requesting' | 'ready' | 'recording' | 'analyzing' | 'preview' | 'denied' | 'unsupported';
 
-/** How long a valid, stable pose must hold before the final capture countdown begins — separate from voice-guidance timing (which governs how often we SPEAK, not when we capture). */
-const REQUIRED_STABLE_MS = 1750;
-/** A calm, visible 3-2-1 before the shutter actually fires, once REQUIRED_STABLE_MS has already been satisfied — real elapsed time, not a fake delay layered on top of already-real stability. */
-const COUNTDOWN_MS = 3000;
+/** Shown when a re-assessment's live setup does not yet match the setup the member's previous capture of this same view was taken with. SetupReplicationPanel shows which measurement is off; this is the one-line instruction that goes with it. */
+const REPLICATION_ADJUST_PROMPT =
+  'Match your previous setup: adjust your distance and the phone height until both markers line up.';
 /** "Alignment captured" confirmation beat, immediately after the shutter fires. */
 const CAPTURED_CONFIRM_MS = 500;
 /** "Analyzing alignment…" beat that follows — the computation itself is near-instant (pure arithmetic on landmarks already in memory), so this is a UX pacing choice, not processing time. */
@@ -192,8 +206,6 @@ const PERSON_LOST_CONFIRM_MS = 450;
 /** Beyond this, "briefly lost" no longer applies and the messaging switches to the more directive "step into the frame." */
 const PERSON_LOST_LONG_MS = 3000;
 const PERSON_LOST_RELEASE_MS = 200;
-/** A single failing frame in the middle of an already-stable hold is absorbed without resetting accumulated stability — MediaPipe has occasional single-frame misses even for a genuinely still, correctly-positioned member; only a failure that persists past this counts as a real interruption. */
-const STABILITY_GRACE_MS = 400;
 
 /** How long to wait for a first real DeviceOrientationEvent before concluding this device/browser genuinely isn't going to supply one and switching to the manual bubble-level fallback — covers the case where permission wasn't required (so no upfront prep-screen signal either way) but no motion hardware actually exists (e.g. a desktop browser). */
 const ORIENTATION_SENSOR_GRACE_MS = 2000;
@@ -320,7 +332,6 @@ export function CameraCapture({
   /** Which beat of the post-capture moment is showing — "Alignment captured" then "Analyzing alignment…", both over the same frozen frame. */
   const [analyzingSubphase, setAnalyzingSubphase] = useState<'captured' | 'analyzing'>('captured');
 
-  const readySinceRef = useRef<number | null>(null);
   const introQueueStartedRef = useRef(false);
   /** The full intro script for the current step and where the chain has gotten to — refs (not closure locals) specifically so the "tap to enable voice" banner can resume the exact same chain from outside the effect that started it. */
   const introLinesRef = useRef<string[]>([]);
@@ -331,7 +342,7 @@ export function CameraCapture({
   const guidanceMemoryRef = useRef<GuidanceMemory>(resetGuidanceMemory());
   /** Hip-line-angle samples collected during a tracksPelvicDrop recording — see pelvicDropScreening.ts's docblock for exactly what this passive analysis does and doesn't cover. */
   const pelvicSamplesRef = useRef<PelvicDropSample[]>([]);
-  /** The confident subject's hip midpoint from the last mid-hold frame — see poseValidation.ts's previousSubjectCenter docblock. Only populated/consulted while readySinceRef is active. */
+  /** The confident subject's hip midpoint from the last mid-hold frame — see poseValidation.ts's previousSubjectCenter docblock. Only consulted once a hold is actually building (steadyHoldRef.heldMs > 0). */
   const subjectCenterRef = useRef<Point | null>(null);
   /** Tracks whether the previous frame was locked (result.ok && tilt.ok && frameQuality.ok, plus no confirmed/pending second person) so the lock-acquired haptic fires once on the rising edge, not every frame while held. */
   const wasLockedRef = useRef(false);
@@ -340,10 +351,10 @@ export function CameraCapture({
   const multiPersonStateRef = useRef<TemporalSignalState>(INITIAL_TEMPORAL_SIGNAL_STATE);
   /** Same hysteresis treatment for "no person detected," so a single missed detection frame doesn't read as "you left the frame." */
   const personLostStateRef = useRef<TemporalSignalState>(INITIAL_TEMPORAL_SIGNAL_STATE);
-  /** When the current not-locked streak started, mid-hold — see STABILITY_GRACE_MS. Null whenever not mid-hold or currently locked. */
-  const lockLostAtRef = useRef<number | null>(null);
-  /** When the current stable hold crossed REQUIRED_STABLE_MS and the final visible countdown began — null before that point or after a genuine (past-grace) interruption. */
-  const countdownStartRef = useRef<number | null>(null);
+  /** Hold-and-countdown progress across frames — see lib/body-assessment/steadyHold.ts for why both timers are accumulated totals rather than start timestamps. */
+  const steadyHoldRef = useRef<SteadyHoldState>(INITIAL_STEADY_HOLD_STATE);
+  /** Fixed-order gate progress across frames — see lib/body-assessment/captureGate.ts. */
+  const gateStateRef = useRef<CaptureGateState>(INITIAL_CAPTURE_GATE_STATE);
   /** The last problem key actually spoken aloud — lets the next, DIFFERENT correction open with a brief acknowledgment ("Good — now...") instead of jumping straight from one issue to the next with no sense of progress. */
   const lastResolvedProblemKeyRef = useRef<string | null>(null);
   /** The last whole-second countdown value a haptic tick fired for, so each second gets exactly one tick rather than one per animation frame. */
@@ -364,6 +375,18 @@ export function CameraCapture({
   const [manualFallbackActive, setManualFallbackActive] = useState(false);
   /** The member's explicit attestation that they've manually leveled the phone, via ManualLevelBubble — stands in for evaluateCameraTilt()'s `ok` while manualFallbackActive. */
   const [manualLevelConfirmed, setManualLevelConfirmed] = useState(false);
+  /**
+   * The fixed-order gate's single verdict for the current frame: which
+   * check is being asked about, and the one instruction that goes with it.
+   * Both the spoken guidance and the on-screen line read from this, so
+   * they can never disagree with each other or show two instructions at
+   * once (they previously had separate if/else chains that could, and did,
+   * pick different messages from the same frame).
+   */
+  const [gateGuidance, setGateGuidance] = useState<{
+    step: GateStepId | null;
+    instruction: string;
+  }>({ step: null, instruction: '' });
   const orientationSensorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Smooths validatePoseFrame's raw too_close/too_far verdict — see poseValidation.ts's stepDistanceZone docblock for why this lives as cross-frame state here rather than inside that (deliberately memory-free) function. */
   const distanceZoneStateRef = useRef<DistanceZoneState>(INITIAL_DISTANCE_ZONE_STATE);
@@ -396,6 +419,21 @@ export function CameraCapture({
   const guidedVoice = useGuidedVoice('assessment-guidance');
   const { gamma: tiltGamma, beta: tiltBeta, hasReading: tiltHasReading } = useDeviceTilt(poseActive);
 
+  // Roll has to be measured against whichever edge is currently the top of
+  // the interface. The assessment runs in portrait (angle 0), so this is
+  // normally a no-op, but reading it rather than assuming it means a member
+  // who rotates their phone gets a correct reading instead of a confusing
+  // one.
+  const [screenAngle, setScreenAngle] = useState(0);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.screen?.orientation) return;
+    const orientation = window.screen.orientation;
+    const read = () => setScreenAngle(orientation.angle ?? 0);
+    read();
+    orientation.addEventListener('change', read);
+    return () => orientation.removeEventListener('change', read);
+  }, []);
+
   // Decide whether sensor-based tilt gating is realistically ever going to
   // work for this step: an upfront denied/unavailable permission result
   // means immediately, otherwise give the sensor ORIENTATION_SENSOR_GRACE_MS
@@ -419,9 +457,19 @@ export function CameraCapture({
     };
   }, [poseActive, requiresStanding, tiltHasReading, orientationPermission]);
 
-  /** Roll/pitch in the same degrees-of-deviation-from-target convention migration 103 persists — pitch as deviation from vertical (0 = perfectly vertical), not raw beta. */
-  const rollDegrees = tiltGamma;
-  const pitchDegrees = tiltBeta !== null ? tiltBeta - 90 : null;
+  /**
+   * Roll/pitch derived from where gravity actually points, not read
+   * straight off a single Euler angle. `gamma` is NOT roll for a phone
+   * standing upright in portrait, which is the whole point of this
+   * assessment's setup: see cameraTilt.ts's docblock for the gimbal-lock
+   * explanation and the bug it caused. Stored in the same
+   * degrees-of-deviation-from-target convention migration 103 already
+   * persists (pitch 0 = perfectly vertical), so old and new rows stay
+   * comparable.
+   */
+  const tiltAngles = deviceTiltAngles(tiltBeta, tiltGamma, screenAngle);
+  const rollDegrees = tiltAngles?.rollDegrees ?? null;
+  const pitchDegrees = tiltAngles?.pitchDegrees ?? null;
 
   // A fresh object every render (a new literal or a new evaluateCameraTilt()
   // return value) — NEVER put `tilt` itself in an effect's dependency array
@@ -432,12 +480,15 @@ export function CameraCapture({
   // each call canceled the previous utterance before any audio could
   // finish playing — the voice guidance code path ran, but nothing was ever
   // audible. Depend on tilt.ok/tilt.message (stable primitives) instead.
-  const tilt = manualFallbackActive
+  const tilt: TiltCheckResult = manualFallbackActive
     ? {
         ok: manualLevelConfirmed,
         message: manualLevelConfirmed ? '' : 'Confirm your phone is level and steady.',
+        failing: manualLevelConfirmed ? null : 'roll',
+        offByDegrees: 0,
+        brokenBadly: false,
       }
-    : evaluateCameraTilt(tiltGamma, tiltBeta);
+    : evaluateCameraTilt(tiltAngles);
 
   function withinReplicationTolerance(
     live: number | null,
@@ -525,13 +576,15 @@ export function CameraCapture({
     introQueueStartedRef.current = false;
     introGenerationRef.current += 1;
     introIndexRef.current = 0;
-    readySinceRef.current = null;
     subjectCenterRef.current = null;
     wasLockedRef.current = false;
     multiPersonStateRef.current = INITIAL_TEMPORAL_SIGNAL_STATE;
     personLostStateRef.current = INITIAL_TEMPORAL_SIGNAL_STATE;
-    lockLostAtRef.current = null;
-    countdownStartRef.current = null;
+    // A new step is the one place the hold and the countdown genuinely
+    // start over: within a step an interruption only ever pauses them.
+    steadyHoldRef.current = INITIAL_STEADY_HOLD_STATE;
+    gateStateRef.current = INITIAL_CAPTURE_GATE_STATE;
+    setGateGuidance({ step: null, instruction: '' });
     lastResolvedProblemKeyRef.current = null;
     lastCountdownTickRef.current = null;
     guidanceMemoryRef.current = resetGuidanceMemory();
@@ -815,7 +868,7 @@ export function CameraCapture({
     if (!poseActive || !requiresStanding || poseLoading || poseLoadError || autoCaptureTriggered)
       return;
 
-    const previousSubjectCenter = readySinceRef.current !== null ? subjectCenterRef.current : null;
+    const previousSubjectCenter = steadyHoldRef.current.heldMs > 0 ? subjectCenterRef.current : null;
     const result = validatePoseFrame(poses ?? [], {
       requiresStanding,
       captureType: step.captureType,
@@ -886,17 +939,18 @@ export function CameraCapture({
     if (locked && !wasLockedRef.current) triggerHaptic(HAPTIC_PATTERNS.lockAcquired);
     wasLockedRef.current = locked;
 
-    // Priority: a CONFIRMED second person overrides everything else — no
-    // point discussing framing when the frame itself is invalid. Then the
-    // subject's own pose result (with "no_person" reframed by how long the
-    // gap has actually persisted — see personLostConfirmed/personLostElapsedMs),
-    // then tilt, then frame quality.
-    let effectiveKey: string | null = null;
-    let effectiveMessage = '';
+    // Which single instruction to give. The pose validator already reduces
+    // the whole body/framing side to one status and one message; what this
+    // block does is pick that message, and then hand the choice BETWEEN
+    // the independent checks (framing, camera height, tilt, image quality)
+    // to the fixed-order gate below, so two of them failing at once can
+    // never produce competing instructions or an alternating loop.
+    let poseKey: string | null = null;
+    let poseMessage = '';
     let activeRule: string;
     if (multiPersonConfirmed) {
-      effectiveKey = 'multiple_people';
-      effectiveMessage = spokenMessageFor(
+      poseKey = 'multiple_people';
+      poseMessage = spokenMessageFor(
         'multiple_people',
         'Another person is visible in the frame.'
       );
@@ -904,12 +958,12 @@ export function CameraCapture({
     } else if (!result.ok) {
       if (result.status === 'no_person') {
         if (personLostConfirmed && personLostElapsedMs >= PERSON_LOST_LONG_MS) {
-          effectiveKey = 'tracking_lost_long';
-          effectiveMessage = TRACKING_LOST_PROMPT;
+          poseKey = 'tracking_lost_long';
+          poseMessage = TRACKING_LOST_PROMPT;
           activeRule = 'tracking_lost';
         } else if (personLostConfirmed) {
-          effectiveKey = 'tracking_lost_brief';
-          effectiveMessage = TRACKING_BRIEFLY_LOST_PROMPT;
+          poseKey = 'tracking_lost_brief';
+          poseMessage = TRACKING_BRIEFLY_LOST_PROMPT;
           activeRule = 'tracking_lost';
         } else {
           activeRule = 'uncertain'; // within the initial grace window — stay silent, not yet worth mentioning
@@ -922,25 +976,93 @@ export function CameraCapture({
         // never applies to not_full_body (the hard requirement, handled in
         // the branch below, always immediate) — only this soft pair.
         const zone = distanceZoneStateRef.current.zone;
-        effectiveKey = zone === 'ok' ? result.status : zone;
-        effectiveMessage = zone === 'too_close' ? 'Step farther away.' : 'Move closer.';
+        poseKey = zone === 'ok' ? result.status : zone;
+        poseMessage = zone === 'too_close' ? 'Step farther away.' : 'Move closer.';
         activeRule = 'low_confidence';
       } else {
-        effectiveKey = result.status;
-        effectiveMessage = result.message;
+        poseKey = result.status;
+        poseMessage = result.message;
         activeRule = result.status === 'subject_changed' ? 'subject_changed' : 'low_confidence';
       }
-    } else if (!tilt.ok) {
-      effectiveKey = 'camera_tilted';
-      effectiveMessage = tilt.message;
-      activeRule = 'low_confidence';
-    } else if (!frameQuality.ok) {
-      effectiveKey = frameQuality.status;
-      effectiveMessage = frameQuality.message;
-      activeRule = 'low_confidence';
     } else {
       activeRule = multiPersonPending ? 'uncertain' : 'stable';
     }
+
+    // The fixed-order gate. Camera height is lifted out of the pose result
+    // into its own step so the order the member is walked through is the
+    // order a person would physically work in: get the body framed, then
+    // set the phone's height, then its tilt, then worry about the picture.
+    // The gate returns exactly one instruction and remembers how far the
+    // member has got, so a check that wobbles by a hair after being
+    // satisfied cannot reclaim the message and undo visible progress.
+    const heightFailing = !result.ok && result.status === 'camera_position';
+    const framingFailing =
+      multiPersonConfirmed ||
+      multiPersonPending ||
+      !replicationMatched ||
+      (!result.ok && !heightFailing);
+
+    const gate = stepCaptureGate(
+      gateStateRef.current,
+      [
+        {
+          id: 'framing',
+          passing: !framingFailing,
+          instruction: poseMessage || (!replicationMatched ? REPLICATION_ADJUST_PROMPT : ''),
+        },
+        {
+          id: 'camera_height',
+          passing: !heightFailing,
+          instruction: heightFailing ? result.message : '',
+        },
+        {
+          id: 'tilt',
+          passing: tilt.ok,
+          instruction: tilt.message,
+          brokenBadly: tilt.brokenBadly,
+        },
+        {
+          id: 'image_quality',
+          passing: frameQuality.ok,
+          instruction: frameQuality.message,
+        },
+      ],
+      now
+    );
+    gateStateRef.current = gate.state;
+
+    let effectiveKey: string | null = null;
+    let effectiveMessage = gate.instruction;
+    switch (gate.activeStep) {
+      case 'framing':
+        effectiveKey = poseKey ?? (!replicationMatched ? 'replication_setup' : null);
+        break;
+      case 'camera_height':
+        effectiveKey = 'camera_position';
+        activeRule = 'low_confidence';
+        break;
+      case 'tilt':
+        // Roll and pitch get distinct keys so the guidance machine's
+        // repeat-suppression treats "turn the phone" and "tilt the phone"
+        // as the different corrections they are, rather than swallowing
+        // the second because the first was just spoken.
+        effectiveKey = tilt.failing === 'pitch' ? 'camera_pitch' : 'camera_roll';
+        activeRule = 'low_confidence';
+        break;
+      case 'image_quality':
+        effectiveKey = frameQuality.status;
+        activeRule = 'low_confidence';
+        break;
+      default:
+        effectiveMessage = '';
+        break;
+    }
+
+    setGateGuidance((prev) =>
+      prev.step === gate.activeStep && prev.instruction === effectiveMessage
+        ? prev
+        : { step: gate.activeStep, instruction: effectiveMessage }
+    );
 
     if (effectiveMessage) latestBlockingMessageRef.current = effectiveMessage;
 
@@ -972,12 +1094,23 @@ export function CameraCapture({
       });
     }
 
+    // The hold and countdown, as one pure state machine — see
+    // steadyHold.ts for why both timers are accumulated totals (so an
+    // interruption can pause the countdown rather than cancel it) and how
+    // a momentary blip is absorbed without either advancing or resetting.
+    // The countdown is withheld while voice guidance is mid-sentence, so
+    // the shutter never fires over an instruction still being spoken.
+    const hold = stepSteadyHold(steadyHoldRef.current, {
+      passing: locked,
+      nowMs: now,
+      countdownAllowed: !guidanceMemoryRef.current.isSpeaking,
+    });
+    steadyHoldRef.current = hold.state;
+    setStableForMs(hold.heldMs);
+    setCountdownRemainingMs(hold.phase === 'capture' ? null : hold.countdownRemainingMs);
+
     if (locked) {
-      lockLostAtRef.current = null;
       lastResolvedProblemKeyRef.current = null;
-      if (readySinceRef.current === null) readySinceRef.current = now;
-      const elapsed = now - readySinceRef.current;
-      setStableForMs(Math.min(elapsed, REQUIRED_STABLE_MS));
 
       // Speak the one-time positive confirmation via the same guidance
       // machine (so it still respects "don't interrupt," "wait after
@@ -995,53 +1128,32 @@ export function CameraCapture({
           );
         });
       }
+    }
 
-      if (elapsed >= REQUIRED_STABLE_MS && !guidanceMemoryRef.current.isSpeaking) {
-        if (countdownStartRef.current === null) countdownStartRef.current = now;
-        const countdownElapsed = now - countdownStartRef.current;
-
-        if (countdownElapsed >= COUNTDOWN_MS) {
-          setAutoCaptureTriggered(true);
-          setCountdownRemainingMs(null);
-          triggerHaptic(HAPTIC_PATTERNS.captured);
-          guidanceMemoryRef.current = markSpeechStarted(guidanceMemoryRef.current);
-          guidedVoice.speak(TAKING_PHOTO_PROMPT, () => {
-            guidanceMemoryRef.current = markSpeechEnded(
-              guidanceMemoryRef.current,
-              'capturing',
-              Date.now()
-            );
-          });
-          autoCaptureTimeoutRef.current = setTimeout(() => capturePhoto(result), 250);
-        } else {
-          const remaining = COUNTDOWN_MS - countdownElapsed;
-          setCountdownRemainingMs(remaining);
-          const wholeSecond = Math.ceil(remaining / 1000);
-          if (lastCountdownTickRef.current !== wholeSecond) {
-            lastCountdownTickRef.current = wholeSecond;
-            triggerHaptic(HAPTIC_PATTERNS.lockAcquired);
-          }
-        }
-      }
+    if (hold.phase === 'capture') {
+      setAutoCaptureTriggered(true);
+      triggerHaptic(HAPTIC_PATTERNS.captured);
+      guidanceMemoryRef.current = markSpeechStarted(guidanceMemoryRef.current);
+      guidedVoice.speak(TAKING_PHOTO_PROMPT, () => {
+        guidanceMemoryRef.current = markSpeechEnded(guidanceMemoryRef.current, 'capturing', Date.now());
+      });
+      autoCaptureTimeoutRef.current = setTimeout(() => capturePhoto(result), 250);
       return;
     }
 
-    // Not locked this frame — but if we were already mid-hold, absorb a
-    // brief blip before treating it as a real interruption (see
-    // STABILITY_GRACE_MS's docblock).
-    if (readySinceRef.current !== null) {
-      if (lockLostAtRef.current === null) lockLostAtRef.current = now;
-      if (now - lockLostAtRef.current < STABILITY_GRACE_MS) {
-        return; // silently hold position — no reset, no correction spoken, countdown (if any) keeps running
+    if (hold.phase === 'counting_down' && hold.countdownRemainingMs !== null) {
+      const wholeSecond = Math.ceil(hold.countdownRemainingMs / 1000);
+      if (lastCountdownTickRef.current !== wholeSecond) {
+        lastCountdownTickRef.current = wholeSecond;
+        triggerHaptic(HAPTIC_PATTERNS.lockAcquired);
       }
     }
 
-    lockLostAtRef.current = null;
-    readySinceRef.current = null;
-    countdownStartRef.current = null;
+    // Holding, counting down, or absorbing a blip: nothing to correct, so
+    // say nothing. Only a genuine interruption reaches the guidance below.
+    if (hold.phase !== 'guiding') return;
+
     lastCountdownTickRef.current = null;
-    setStableForMs(0);
-    setCountdownRemainingMs(null);
     if (!effectiveKey) return;
 
     const decision = stepGuidance(guidanceMemoryRef.current, effectiveKey, now);
@@ -1281,18 +1393,14 @@ export function CameraCapture({
                 ? { label: CAPTURE_STATUS_LABEL.ready, tone: 'success' as const }
                 : { label: CAPTURE_STATUS_LABEL.hold_still, tone: 'success' as const };
 
+  // One source of truth: whatever single instruction the fixed-order gate
+  // settled on this frame. Deliberately NOT its own chain of checks, which
+  // is what used to let the screen show one correction while the voice
+  // said another.
   const currentScreenLine = requiresStanding
     ? poseLoadError
       ? step.instructions[0]
-      : continuityOverride
-        ? continuityOverride.message
-        : !validation.ok && validation.message
-          ? validation.message
-          : !tilt.ok
-            ? tilt.message
-            : !frameQuality.ok
-              ? frameQuality.message
-              : screenLine
+      : gateGuidance.instruction || screenLine
     : step.instructions[instructionIndex];
 
   const captureGateOk = !requiresStanding || poseLoadError || (!poseLoading && overallOk);
@@ -1465,6 +1573,15 @@ export function CameraCapture({
         >
           <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
         </button>
+
+        {/* Live spirit level, shown exactly while tilt is the check being
+            worked on. It moves with the phone, so an adjustment can be seen
+            to be helping instead of guessed at. */}
+        {requiresStanding && phase === 'ready' && tiltAngles && gateGuidance.step === 'tilt' && (
+          <div className="absolute right-4 top-16 z-20">
+            <TiltLevelIndicator angles={tiltAngles} level={tilt.ok} />
+          </div>
+        )}
 
         {stuckModeActive && requiresStanding && phase === 'ready' && !overallOk && (
           <StuckGuidance message={currentScreenLine || 'Adjust your position to continue.'} />
