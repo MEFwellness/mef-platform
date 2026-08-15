@@ -288,6 +288,102 @@ check(
   bundle.includes('Facing check is struggling')
 );
 
+// The contradiction loop: the two instructions that used to fight must no
+// longer be reachable from the same cause. "Step back" is now reserved for
+// a genuine clipping problem, and a body part the model cannot make out
+// gets its own, non-distance instruction.
+// NOTE on a check that is deliberately NOT made here: "Step back until
+// your entire body is visible" does still appear in the bundle, and
+// should. It survives only as the one-time SPOKEN SETUP HINT played
+// before pose validation starts (voiceGuidance.ts's CAMERA_SETUP_INTRO),
+// where it is accurate and competes with nothing. It is gone as a
+// validation FAILURE message, which is what mattered, but the two were
+// the same string, so a bundle scan cannot tell them apart. That fact is
+// pinned at the source instead, in tests/pose-validation.test.ts, which
+// asserts an undetected body part produces no "Step back" at all.
+check(
+  'the setup hint is still spoken at the start, where it is not competing with anything',
+  bundle.includes('Step back until your entire body is visible')
+);
+check(
+  'step back is now reserved for genuinely clipped feet',
+  bundle.includes('Step back until your feet are fully in frame')
+);
+check(
+  'an undetected body part gets a non-distance instruction',
+  bundle.includes("We can't make out") && bundle.includes('Try more light')
+);
+
+// Start over: the control, its dialog, and that the dialog opens, dismisses
+// and does not fire anything destructive on Cancel.
+const startOver = page.getByRole('button', { name: /^Start over$/ });
+check('the Start over control is visible during capture', (await startOver.count()) > 0);
+
+if ((await startOver.count()) > 0) {
+  await startOver.first().click();
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/06-start-over-dialog.png`, fullPage: true });
+
+  const dialog = page.getByRole('dialog', { name: /confirm start over/i });
+  check('its confirmation dialog opens', (await dialog.count()) > 0);
+
+  const dialogText = ((await dialog.textContent()) ?? '').replace(/\s+/g, ' ');
+  check(
+    'the dialog says what will happen and that it cannot be undone',
+    /start this assessment over/i.test(dialogText) && /cannot be undone|begin again/i.test(dialogText),
+    dialogText.slice(0, 90)
+  );
+  check('the dialog has no em dash', !dialogText.includes('\u2014'));
+
+  // Both buttons must be fully on screen, the property the portalled
+  // dialog pattern exists to guarantee.
+  const cancel = dialog.getByRole('button', { name: /^Cancel$/ });
+  const confirm = dialog.getByRole('button', { name: /^Start over$/ });
+  const viewport = page.viewportSize();
+  for (const [label, locator] of [['Cancel', cancel], ['Start over', confirm]]) {
+    const box = await locator.first().boundingBox();
+    const onScreen =
+      box !== null && box.y >= 0 && box.y + box.height <= (viewport?.height ?? 0);
+    check(
+      `the dialog's ${label} button is fully on screen`,
+      onScreen,
+      box ? `y ${Math.round(box.y)} to ${Math.round(box.y + box.height)} of ${viewport?.height}` : 'no box'
+    );
+  }
+
+  // Walk the DOM up from the dialog frame: nothing above it may transform
+  // or filter, or `fixed` would resolve against that ancestor instead.
+  const ancestry = await page.evaluate(() => {
+    const frame = document.querySelector('.mef-modal-viewport');
+    if (!frame) return { parentIsBody: false, offenders: ['no frame'] };
+    const offenders = [];
+    let node = frame.parentElement;
+    while (node && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      if (style.transform !== 'none' || style.filter !== 'none' || style.backdropFilter !== 'none') {
+        offenders.push(node.tagName.toLowerCase());
+      }
+      node = node.parentElement;
+    }
+    return { parentIsBody: frame.parentElement === document.body, offenders };
+  });
+  check("the dialog's frame is a direct child of body", ancestry.parentIsBody);
+  check(
+    'no transformed or filtered ancestor above the dialog',
+    ancestry.offenders.length === 0,
+    ancestry.offenders.join(', ')
+  );
+
+  // Cancel closes it and discards nothing.
+  await cancel.first().click();
+  await page.waitForTimeout(700);
+  check('Cancel closes the dialog', (await page.getByRole('dialog').count()) === 0);
+  check(
+    'the capture flow is still running after Cancel',
+    (await page.locator('video').count()) > 0
+  );
+}
+
 check('no JavaScript errors anywhere in the flow', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '));
 
 await browser.close();
