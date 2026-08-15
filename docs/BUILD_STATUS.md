@@ -76,6 +76,10 @@ The administrator half used the real production administrator account, with no p
 
 One observation, out of scope and pre-existing: `/admin` and `/admin/analytics` already render the member bottom bar for an administrator who is not also a coach, and the new access screen inherits it. Those destinations now bounce back to `/admin` under the role-based home routing that shipped earlier today. It was true before this build and is not made worse by it.
 
+### The pricing link is now set, and the whole chain was walked on production (2026-08-14, verification only)
+
+`MEMBERSHIP_PRICING_URL` was set in Vercel (Preview and Production) and the site redeployed, so the row above that reads "the continue button, present, `#PRICING_LINK`" is superseded: the live button now points at `https://pages.mefwellness.com/root-payment`. A verification-only pass (no code, no migration) drove trial expiry to payment end to end on `app.mefwellness.com` with one disposable `is_test` account, deleted afterwards, production back to sixteen accounts: lock screen renders, six member screens redirect to it, a `paywall_viewed` row with `lockReason: trial_expired` is written, the pricing page loads with the $290 annual and $29 monthly options and a "Not right now" link back to `app.mefwellness.com`, both plan buttons resolve to live `buy.stripe.com` checkout pages (no `#STRIPE_*` placeholders, nothing purchased), and assigning a tier restores access on the next screen. One thing for the owner, not a defect in this codebase: the annual link is a **one-time $290 payment** in Stripe ("Pay MEF Wellness", "Total due"), while the monthly link is a real subscription ("Billed monthly", "until you cancel"), so an annual member will not auto-renew.
+
 ## Coach and administrator accounts stop being members first (2026-08-14)
 
 Signing in as the administrator landed on the member Home, Priority Card and Daily Reset prompt and all. No migration, no schema change, no LLM, no new role system.
