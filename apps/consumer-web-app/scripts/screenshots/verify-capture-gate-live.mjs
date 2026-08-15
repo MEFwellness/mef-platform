@@ -384,6 +384,83 @@ if ((await startOver.count()) > 0) {
   );
 }
 
+// Voice guidance. A headless browser has a speech engine but no audio
+// device, so whether sound is AUDIBLE cannot be checked here. What can be
+// checked is the thing that was broken: that a tap on the recovery
+// control actually reaches the speech engine instead of returning early.
+// speechSynthesis is instrumented so every real speak() call is counted.
+const voice = await page.evaluate(() => {
+  const w = window;
+  return {
+    hasEngine: 'speechSynthesis' in w,
+    calls: w.__mefSpeakCalls ?? null,
+  };
+});
+check('the browser exposes a speech engine at all', voice.hasEngine);
+
+const bundleHasGate =
+  bundle.includes('fromUserGesture') && bundle.includes('skip_blocked');
+check(
+  'the speak gate shipped, so a tap is no longer skipped for being blocked',
+  bundleHasGate
+);
+check(
+  'the recovery prompt is still in the bundle for when it is needed',
+  bundle.includes('Tap once to enable voice guidance')
+);
+
+// Drive the prep screen's Enable voice guidance button on a fresh page and
+// count real engine calls, which is the fix's observable effect.
+const voicePage = await context.newPage();
+await voicePage.addInitScript(() => {
+  const w = window;
+  w.__mefSpeakCalls = 0;
+  const original = w.speechSynthesis?.speak?.bind(w.speechSynthesis);
+  if (original) {
+    w.speechSynthesis.speak = (utterance) => {
+      w.__mefSpeakCalls += 1;
+      return original(utterance);
+    };
+  }
+});
+await voicePage.goto(`${BASE}/assessment/new?type=static_posture`, { waitUntil: 'domcontentloaded' });
+await voicePage.waitForTimeout(3500);
+const voiceBegin = voicePage.getByRole('button', { name: /^Begin$/ });
+if (await voiceBegin.count()) {
+  await voiceBegin.first().click();
+  await voicePage.waitForTimeout(1800);
+}
+const enable = voicePage.getByRole('button', { name: /enable voice guidance|play voice guidance again/i });
+check('the prep screen offers the voice control', (await enable.count()) > 0);
+
+if (await enable.count()) {
+  const before = await voicePage.evaluate(() => window.__mefSpeakCalls ?? 0);
+  await enable.first().click();
+  await voicePage.waitForTimeout(1200);
+  const afterFirst = await voicePage.evaluate(() => window.__mefSpeakCalls ?? 0);
+  check(
+    'tapping it reaches the speech engine',
+    afterFirst > before,
+    `${before} then ${afterFirst} calls`
+  );
+
+  // The heart of the bug: after the watchdog has had time to mark the
+  // engine blocked, a SECOND tap must still reach it. Before the fix this
+  // was a guaranteed no-op.
+  await voicePage.waitForTimeout(2500);
+  const beforeSecond = await voicePage.evaluate(() => window.__mefSpeakCalls ?? 0);
+  await enable.first().click();
+  await voicePage.waitForTimeout(1200);
+  const afterSecond = await voicePage.evaluate(() => window.__mefSpeakCalls ?? 0);
+  check(
+    'tapping it AGAIN, after the blocked watchdog has run, still reaches the engine',
+    afterSecond > beforeSecond,
+    `${beforeSecond} then ${afterSecond} calls`
+  );
+  await voicePage.screenshot({ path: `${OUT}/07-voice-control.png`, fullPage: true });
+}
+await voicePage.close();
+
 check('no JavaScript errors anywhere in the flow', pageErrors.length === 0, pageErrors.slice(0, 2).join(' | '));
 
 await browser.close();
