@@ -541,7 +541,9 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
               type="button"
               onClick={() =>
                 guidedVoice.speak(
-                  "Voice guidance is ready. You'll hear spoken directions throughout your photos."
+                  "Voice guidance is ready. You'll hear spoken directions throughout your photos.",
+                  undefined,
+                  { fromUserGesture: true }
                 )
               }
               className="mt-3 w-full rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-medium text-white hover:brightness-110"

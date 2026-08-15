@@ -701,7 +701,7 @@ export function CameraCapture({
   // handleEnableVoiceTap below can resume this exact same chain if the
   // very first automatic speak() call gets silently blocked by a mobile
   // autoplay policy (see useGuidedVoice.ts's docblock).
-  function speakIntroLine(generation: number) {
+  function speakIntroLine(generation: number, fromUserGesture = false) {
     if (generation !== introGenerationRef.current) return;
     const lines = introLinesRef.current;
     const i = introIndexRef.current;
@@ -709,7 +709,11 @@ export function CameraCapture({
     const line = lines[i]!;
     introIndexRef.current = i + 1;
     setScreenLine(line);
-    guidedVoice.speak(line, () => speakIntroLine(generation));
+    // Only the FIRST line of a gesture-resumed chain is itself inside the
+    // tap's call stack; the rest are callbacks. That is fine and is the
+    // point: the first one unlocks the engine, and every line after it is
+    // an ordinary automatic call that now succeeds.
+    guidedVoice.speak(line, () => speakIntroLine(generation), { fromUserGesture });
   }
 
   useEffect(() => {
@@ -730,9 +734,11 @@ export function CameraCapture({
     const generation = introGenerationRef.current;
     if (introIndexRef.current > 0 && introIndexRef.current <= introLinesRef.current.length) {
       introIndexRef.current -= 1;
-      speakIntroLine(generation);
+      speakIntroLine(generation, true);
     } else {
-      guidedVoice.speak(currentScreenLine || screenLine || 'Voice guidance enabled.');
+      guidedVoice.speak(currentScreenLine || screenLine || 'Voice guidance enabled.', undefined, {
+        fromUserGesture: true,
+      });
     }
   }
 

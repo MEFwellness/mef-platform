@@ -49,8 +49,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getBrowserTextToSpeechProvider } from '@/lib/speech/browserTextToSpeech';
 import { sanitizeForSpeech } from '@/lib/speech/sanitizeForSpeech';
 import { getCurrentlyPlayingId, reportStopped, requestPlay } from '@/lib/speech/playbackRegistry';
+import { decideSpeak, shouldRetryBlocked } from '@/lib/speech/speakGate';
 
 export type GuidedVoiceStatus = 'unavailable' | 'idle' | 'unlocked' | 'blocked' | 'muted';
+
+export type SpeakOptions = {
+  /**
+   * Set ONLY when this call is made synchronously inside a real click or
+   * tap handler. A gesture is the one condition under which a browser that
+   * has been silently refusing speech will accept a call, so it bypasses
+   * the blocked short-circuit and gets a genuine fresh attempt.
+   */
+  fromUserGesture?: boolean;
+};
 
 /** How long to wait for a real 'playing' event before assuming a speak() call was silently blocked by a mobile autoplay policy. Generous — speechSynthesis's onstart normally fires within tens of milliseconds when allowed. */
 const UNLOCK_DETECT_MS = 1500;
@@ -93,12 +104,32 @@ export function useGuidedVoice(id: string) {
   // logic below reads refs (mutedRef/blockedRef/confirmedUnlockedRef), not
   // React state, specifically so it's never a render behind reality.
   const speak = useCallback(
-    (text: string, onDone?: () => void) => {
+    (text: string, onDone?: () => void, options?: SpeakOptions) => {
       const clean = sanitizeForSpeech(text);
       if (!clean) return;
       lastTextRef.current = clean;
 
-      if (mutedRef.current) {
+      const fromUserGesture = options?.fromUserGesture === true;
+      const gateState = {
+        muted: mutedRef.current,
+        blocked: blockedRef.current,
+        supported: providerRef.current.isSupported,
+      };
+
+      // A gesture is exactly the condition a blocked engine will accept a
+      // call under, so it gets a real fresh attempt: drop the flag and let
+      // the watchdog below re-arm and learn the truth. Without this the
+      // "Tap once to enable voice guidance" button called straight into
+      // the blocked short-circuit and could never do anything. See
+      // lib/speech/speakGate.ts.
+      if (shouldRetryBlocked(gateState, fromUserGesture)) {
+        blockedRef.current = false;
+        gateState.blocked = false;
+      }
+
+      const decision = decideSpeak(gateState, fromUserGesture);
+
+      if (decision === 'skip_muted') {
         // No real playback, but still simulate a completion so callers
         // relying on onDone for pacing keep working correctly while muted.
         const myGeneration = ++generationRef.current;
@@ -108,17 +139,16 @@ export function useGuidedVoice(id: string) {
         return;
       }
 
-      if (!providerRef.current.isSupported) {
+      if (decision === 'skip_unsupported') {
         setStatus('unavailable');
         if (onDone) onDone();
         return;
       }
 
-      if (blockedRef.current) {
-        // Skip repeated automatic attempts once we know we're blocked —
-        // CameraCapture shows a one-time prompt instead; the actual retry
-        // is a fresh speak() call made directly inside that tap's click
-        // handler (a real gesture), not a background call like this one.
+      if (decision === 'skip_blocked') {
+        // Retrying automatically can only fail again — CameraCapture shows
+        // the one-time tap prompt instead, and that tap comes back through
+        // here with fromUserGesture set.
         if (onDone) onDone();
         return;
       }
@@ -196,7 +226,8 @@ export function useGuidedVoice(id: string) {
       setStatus(
         confirmedUnlockedRef.current ? 'unlocked' : blockedRef.current ? 'blocked' : 'idle'
       );
-      if (lastTextRef.current) speak(lastTextRef.current);
+      // Unmuting is a tap, and its whole purpose is to make sound happen.
+      if (lastTextRef.current) speak(lastTextRef.current, undefined, { fromUserGesture: true });
     }
   }, [id, clearTimers, speak]);
 
