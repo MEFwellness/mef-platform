@@ -39,6 +39,7 @@ import type {
   FindingSeverity,
   FindingSide,
   PostureFindingType,
+  SpinalCurveQuality,
 } from '@mef/shared-types-contracts';
 import { resolveLocalDate } from './checkin';
 import { performCoachIntelligenceAnalysis } from '@/lib/coach-intelligence/analysis';
@@ -157,6 +158,20 @@ export type RecordCaptureInput = {
   hipMidYRatio?: number;
   subjectFrameHeightRatio?: number;
   orientationSource?: CaptureOrientationSource;
+  /**
+   * Optional — the silhouette spinal curve measurement (migration 160),
+   * sent only for a side-view standing photo. Each angle is omitted
+   * individually when its confidence did not clear the measurement floor,
+   * so a stored null always means "not measured", never "measured as
+   * zero". The quality object is sent whenever the mask was read at all,
+   * including when both angles were withheld, so a rejection stays
+   * auditable. Same backward-compatibility note as deviceInfo.
+   */
+  thoracicAngleDegrees?: number;
+  thoracicAngleConfidence?: number;
+  lumbarAngleDegrees?: number;
+  lumbarAngleConfidence?: number;
+  spinalCurveQuality?: SpinalCurveQuality;
 };
 
 /** Called after the browser has already uploaded the capture's bytes directly to Supabase Storage (see components/body-assessment/CameraCapture.tsx) — this only records the metadata row. captureId must be the same id buildCaptureUploadPathAction generated the storage path from. */
@@ -189,6 +204,11 @@ export async function recordCaptureAction(
     hipMidYRatio: input.hipMidYRatio ?? null,
     subjectFrameHeightRatio: input.subjectFrameHeightRatio ?? null,
     orientationSource: input.orientationSource ?? null,
+    thoracicAngleDegrees: input.thoracicAngleDegrees ?? null,
+    thoracicAngleConfidence: input.thoracicAngleConfidence ?? null,
+    lumbarAngleDegrees: input.lumbarAngleDegrees ?? null,
+    lumbarAngleConfidence: input.lumbarAngleConfidence ?? null,
+    spinalCurveQuality: input.spinalCurveQuality ?? null,
   });
   if (!capture) return { error: 'Could not save capture.' };
   return { capture };

@@ -89,6 +89,36 @@ export interface CaptureValidationSummary {
   multiPersonEvents: number;
 }
 
+/**
+ * Mask-edge quality behind a side-view capture's spinal curve angles
+ * (migration 160). Stored so a reading can be audited rather than merely
+ * trusted: it records how much of the back outline was actually traceable,
+ * how clean that outline was, and — when an angle was withheld — why.
+ * See apps/consumer-web-app/lib/body-assessment/spinalCurve.ts.
+ */
+export interface SpinalCurveQuality {
+  /** Which horizontal side of the frame the back of the body was found on. */
+  backSide: 'left' | 'right';
+  /** Height in mask pixels of the shoulder-to-pelvis band that was measured. */
+  bandHeightPx: number;
+  /** Pixel rows in that band the edge scan attempted. */
+  rowsRequested: number;
+  /** Rows that produced a usable back-edge crossing and survived outlier rejection. */
+  rowsUsable: number;
+  /** rowsUsable / rowsRequested, 0-1. */
+  rowCoverage: number;
+  /** 0-1 crispness of the mask transition at the back edge. Low contrast with the background smears it and scores low. */
+  edgeSharpness: number;
+  /** RMS distance in pixels from the traced edge to the fitted curve. Loose clothing and a ragged outline push it up. */
+  edgeRoughnessPx: number;
+  /** Rows dropped by the single outlier-rejection pass. */
+  rowsRejectedAsOutliers: number;
+  /** Which generation of the measurement geometry produced this reading. */
+  methodVersion: string;
+  /** Plain-language reason an angle was withheld, or null when both were reported. */
+  rejectionReason: string | null;
+}
+
 export interface BodyAssessmentCapture {
   id: string;
   assessment_id: string;
@@ -124,6 +154,23 @@ export interface BodyAssessmentCapture {
   subject_frame_height_ratio: number | null;
   /** Whether roll_degrees/pitch_degrees came from a real device-orientation sensor reading or the member manually attesting a level phone (ManualLevelBubble.tsx). Null for movement/video captures and pre-migration-103 rows. */
   orientation_source: CaptureOrientationSource | null;
+  /**
+   * Spinal curve fields (migration 160) — populated only for a side-view
+   * standing photo whose segmentation mask gave a clear enough back
+   * outline. Null for every other capture type, for pre-migration-160
+   * rows, and, individually, whenever that angle's confidence did not
+   * clear the measurement floor. Never a guessed number.
+   */
+  /** Degrees the back surface turns between the base of the neck and the fixed 60% thoracolumbar split. An external surface measurement, not a spinal or radiographic one. */
+  thoracic_angle_degrees: number | null;
+  /** 0-1 trust in thoracic_angle_degrees. Recorded even when the angle itself was withheld. */
+  thoracic_angle_confidence: number | null;
+  /** Degrees the back surface turns between the 60% split and the top of the pelvis. */
+  lumbar_angle_degrees: number | null;
+  /** 0-1 trust in lumbar_angle_degrees. */
+  lumbar_angle_confidence: number | null;
+  /** Mask-edge quality metadata behind the two angles above. */
+  spinal_curve_quality: SpinalCurveQuality | null;
   captured_at: string;
   created_at: string;
 }

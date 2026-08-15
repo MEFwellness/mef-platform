@@ -36,6 +36,7 @@ import type {
   FindingSeverity,
   FindingSide,
   PostureFindingType,
+  SpinalCurveQuality,
 } from '@mef/shared-types-contracts';
 
 // ---- body_assessments ----
@@ -176,6 +177,12 @@ export type CaptureInput = {
   hipMidYRatio?: number | null;
   subjectFrameHeightRatio?: number | null;
   orientationSource?: CaptureOrientationSource | null;
+  /** Optional — silhouette spinal curve measurement (migration 160), populated only for a side-view standing photo with a clear enough back outline. Same backward-compatibility note as deviceInfo. */
+  thoracicAngleDegrees?: number | null;
+  thoracicAngleConfidence?: number | null;
+  lumbarAngleDegrees?: number | null;
+  lumbarAngleConfidence?: number | null;
+  spinalCurveQuality?: SpinalCurveQuality | null;
 };
 
 export async function insertCapture(
@@ -196,6 +203,11 @@ export async function insertCapture(
   const hipMidYRatio = input.hipMidYRatio ?? null;
   const subjectFrameHeightRatio = input.subjectFrameHeightRatio ?? null;
   const orientationSource = input.orientationSource ?? null;
+  const thoracicAngleDegrees = input.thoracicAngleDegrees ?? null;
+  const thoracicAngleConfidence = input.thoracicAngleConfidence ?? null;
+  const lumbarAngleDegrees = input.lumbarAngleDegrees ?? null;
+  const lumbarAngleConfidence = input.lumbarAngleConfidence ?? null;
+  const spinalCurveQuality = input.spinalCurveQuality ?? null;
 
   const { error } = await supabase.from('body_assessment_captures').insert({
     id,
@@ -217,6 +229,11 @@ export async function insertCapture(
     hip_mid_y_ratio: hipMidYRatio,
     subject_frame_height_ratio: subjectFrameHeightRatio,
     orientation_source: orientationSource,
+    thoracic_angle_degrees: thoracicAngleDegrees,
+    thoracic_angle_confidence: thoracicAngleConfidence,
+    lumbar_angle_degrees: lumbarAngleDegrees,
+    lumbar_angle_confidence: lumbarAngleConfidence,
+    spinal_curve_quality: spinalCurveQuality,
     captured_at: now,
   });
 
@@ -245,6 +262,11 @@ export async function insertCapture(
     hip_mid_y_ratio: hipMidYRatio,
     subject_frame_height_ratio: subjectFrameHeightRatio,
     orientation_source: orientationSource,
+    thoracic_angle_degrees: thoracicAngleDegrees,
+    thoracic_angle_confidence: thoracicAngleConfidence,
+    lumbar_angle_degrees: lumbarAngleDegrees,
+    lumbar_angle_confidence: lumbarAngleConfidence,
+    spinal_curve_quality: spinalCurveQuality,
     captured_at: now,
     created_at: now,
   };

@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { RawPoseLandmark } from '@/lib/body-assessment/poseTypes';
+import type { SegmentationMask } from '@/lib/body-assessment/spinalCurve';
 
 const WASM_FILESET_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL =
@@ -28,11 +29,29 @@ export type PoseLandmarkerState = {
   isLoading: boolean;
   /** Set when the model itself failed to load (e.g. no network on first use) — distinct from "no person in frame," which is a normal, expected poses=[] state. */
   loadError: string | null;
+  /**
+   * The most recent frame's body-outline mask, or null when segmentation
+   * wasn't requested (see `segmentation` below) or no frame has produced
+   * one yet. Deliberately a ref rather than state: this is a
+   * full-resolution pixel buffer refreshed on every animation frame, and
+   * re-rendering the camera screen that often would be pointless — the one
+   * consumer (CameraCapture.tsx's capturePhoto) reads it exactly once, at
+   * the moment of capture, alongside the same frame's landmarks.
+   */
+  latestMaskRef: RefObject<SegmentationMask | null>;
 };
 
 export function usePoseLandmarker(
   videoRef: RefObject<HTMLVideoElement>,
-  active: boolean
+  active: boolean,
+  /**
+   * Whether to also produce a per-pixel body-outline mask each frame. Off
+   * by default and switched on only for the side-view standing photos that
+   * lib/body-assessment/spinalCurve.ts measures, because asking the model
+   * for a mask costs real per-frame work on a phone and no other capture
+   * step has any use for it.
+   */
+  segmentation = false
 ): PoseLandmarkerState {
   const [poses, setPoses] = useState<RawPoseLandmark[][] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +60,7 @@ export function usePoseLandmarker(
   const landmarkerRef = useRef<import('@mediapipe/tasks-vision').PoseLandmarker | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastVideoTimeRef = useRef<number>(-1);
+  const latestMaskRef = useRef<SegmentationMask | null>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -57,6 +77,7 @@ export function usePoseLandmarker(
           baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
           runningMode: 'VIDEO',
           numPoses: 2,
+          outputSegmentationMasks: segmentation,
         });
         if (cancelled) {
           landmarker.close();
@@ -81,8 +102,9 @@ export function usePoseLandmarker(
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
+      latestMaskRef.current = null;
     };
-  }, [active]);
+  }, [active, segmentation]);
 
   useEffect(() => {
     if (!active || isLoading || loadError) return;
@@ -100,6 +122,7 @@ export function usePoseLandmarker(
         try {
           const result = landmarker.detectForVideo(video, performance.now());
           setPoses(result.landmarks as RawPoseLandmark[][]);
+          if (segmentation) captureMask(result, latestMaskRef);
         } catch (err) {
           console.error('[pose-landmarker:detect]', err);
         }
@@ -111,7 +134,48 @@ export function usePoseLandmarker(
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [active, isLoading, loadError, videoRef]);
+  }, [active, isLoading, loadError, videoRef, segmentation]);
 
-  return { poses, isLoading, loadError };
+  return { poses, isLoading, loadError, latestMaskRef };
+}
+
+/**
+ * Copies this frame's body-outline mask out of MediaPipe's own memory and
+ * into a plain array the rest of the app can hold onto.
+ *
+ * The copy is not optional: an MPMask is only valid until the next
+ * detectForVideo call, so a reference kept past this frame would read
+ * whatever the model overwrote it with. The destination buffer is reused
+ * across frames rather than reallocated, because at video rate a fresh
+ * multi-hundred-kilobyte allocation every frame is exactly the kind of
+ * garbage-collector pressure that shows up as camera-preview stutter on a
+ * phone.
+ */
+function captureMask(
+  result: import('@mediapipe/tasks-vision').PoseLandmarkerResult,
+  targetRef: { current: SegmentationMask | null }
+): void {
+  const mask = result.segmentationMasks?.[0];
+  if (!mask) return;
+  try {
+    const source = mask.getAsFloat32Array();
+    const existing = targetRef.current;
+    const buffer =
+      existing &&
+      existing.width === mask.width &&
+      existing.height === mask.height &&
+      existing.data instanceof Float32Array &&
+      existing.data.length === source.length
+        ? (existing.data as Float32Array)
+        : new Float32Array(source.length);
+    buffer.set(source);
+    targetRef.current = { data: buffer, width: mask.width, height: mask.height };
+  } catch (err) {
+    // A mask read failing is never a reason to break the capture the
+    // member is in the middle of — the silhouette measurement simply
+    // doesn't happen for this frame, same as any other optional signal.
+    console.error('[pose-landmarker:segmentation]', err);
+  } finally {
+    mask.close();
+  }
 }

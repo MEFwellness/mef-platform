@@ -1,0 +1,19 @@
+{
+  "note": "Pose-landmark anchors every fixture in this folder was drawn around, in normalized [0,1] image coordinates. Regenerate with scripts/generate-spinal-curve-fixtures.mjs.",
+  "width": 720,
+  "height": 1280,
+  "anchors": {
+    "shoulder": {
+      "x": 0.5,
+      "y": 0.235
+    },
+    "hip": {
+      "x": 0.5,
+      "y": 0.545
+    },
+    "facePoint": {
+      "x": 0.6,
+      "y": 0.075
+    }
+  }
+}

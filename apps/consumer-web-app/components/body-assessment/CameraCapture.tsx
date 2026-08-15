@@ -34,7 +34,11 @@ import {
   X,
 } from 'lucide-react';
 import type { CaptureStepConfig } from '@/lib/body-assessment/assessmentTypes';
-import type { BodyLandmarkPoint, CaptureOrientationSource } from '@mef/shared-types-contracts';
+import type {
+  BodyLandmarkPoint,
+  CaptureOrientationSource,
+  SpinalCurveQuality,
+} from '@mef/shared-types-contracts';
 import { usePoseLandmarker } from '@/hooks/usePoseLandmarker';
 import { useGuidedVoice } from '@/hooks/useGuidedVoice';
 import { useDeviceTilt, type OrientationPermissionStatus } from '@/hooks/useDeviceTilt';
@@ -95,6 +99,11 @@ import {
   computePelvicDropScreening,
   type PelvicDropSample,
 } from '@/lib/body-assessment/pelvicDropScreening';
+import {
+  isSpinalCurveView,
+  measureSpinalCurve,
+  spinalCurveAnchorsFromLandmarks,
+} from '@/lib/body-assessment/spinalCurve';
 import { toCoreLandmarks } from '@/lib/body-assessment/poseTypes';
 import { computePoseMetrics, type Point } from '@/lib/body-assessment/poseMetrics';
 import { PoseOverlay, type AngleLabel, type OverlayTone } from './PoseOverlay';
@@ -132,6 +141,20 @@ export type CapturedMedia = {
   hipMidYRatio?: number;
   subjectFrameHeightRatio?: number;
   orientationSource?: CaptureOrientationSource;
+  /**
+   * Silhouette spinal curve measurement (migration 160) — present only for
+   * a side-view standing photo whose body-outline mask was readable. Each
+   * angle is omitted individually when its own confidence fell below the
+   * measurement floor, so an absent angle always means "not measured",
+   * never "measured as zero". `spinalCurveQuality` is present whenever the
+   * mask was read at all, including when both angles were withheld, so the
+   * reason for a rejection is still recorded.
+   */
+  thoracicAngleDegrees?: number;
+  thoracicAngleConfidence?: number;
+  lumbarAngleDegrees?: number;
+  lumbarAngleConfidence?: number;
+  spinalCurveQuality?: SpinalCurveQuality;
 };
 
 /** The member's most recent accepted capture of this exact view, if any — fetched by AssessmentWizard.tsx via getMostRecentCaptureSetupAction and passed down so this step's live setup can be guided to replicate it. Null/undefined when no prior capture of this view exists yet (first-ever capture) or the step doesn't require standing. */
@@ -359,11 +382,17 @@ export function CameraCapture({
   const poseActive =
     (phase === 'ready' && requiresStanding) || (phase === 'recording' && tracksPelvicDrop);
 
+  // The body-outline mask is only asked for on the two side-view photo
+  // steps, the only ones lib/body-assessment/spinalCurve.ts can measure a
+  // back curve from. Every other step runs the model exactly as before.
+  const measuresSpinalCurve = isSpinalCurveView(step.captureType, step.mediaType);
+
   const {
     poses,
     isLoading: poseLoading,
     loadError: poseLoadError,
-  } = usePoseLandmarker(videoRef, poseActive);
+    latestMaskRef,
+  } = usePoseLandmarker(videoRef, poseActive, measuresSpinalCurve);
   const guidedVoice = useGuidedVoice('assessment-guidance');
   const { gamma: tiltGamma, beta: tiltBeta, hasReading: tiltHasReading } = useDeviceTilt(poseActive);
 
@@ -688,6 +717,20 @@ export function CameraCapture({
             ? toBodyLandmarkPoints(finalValidation.rawPoints)
             : undefined;
         const postureEstimates = core ? computePostureEstimates(core, step.captureType) : undefined;
+
+        // Silhouette spinal curve, side-view photo steps only. Purely
+        // additive: it reads the same validated frame's mask and landmarks
+        // that everything above already used, and nothing it does can
+        // change postureEstimates or landmarks. Anything missing — no
+        // mask, anchors not confidently visible, an outline too poor to
+        // trust — simply means no angle is sent, never a guessed one.
+        const spinalAnchors =
+          measuresSpinalCurve && core ? spinalCurveAnchorsFromLandmarks(core) : null;
+        const spinalCurve =
+          spinalAnchors && latestMaskRef.current
+            ? measureSpinalCurve(latestMaskRef.current, spinalAnchors)
+            : null;
+
         const deviceInfo =
           typeof navigator !== 'undefined' && typeof screen !== 'undefined'
             ? {
@@ -723,6 +766,27 @@ export function CameraCapture({
           ...(!manualFallbackActive && pitchDegrees !== null ? { pitchDegrees } : {}),
           ...(hipMidYRatio !== undefined ? { hipMidYRatio } : {}),
           ...(subjectFrameHeightRatio !== undefined ? { subjectFrameHeightRatio } : {}),
+          ...(spinalCurve?.thoracicAngleDegrees != null
+            ? {
+                thoracicAngleDegrees: spinalCurve.thoracicAngleDegrees,
+                thoracicAngleConfidence: spinalCurve.thoracicConfidence,
+              }
+            : {}),
+          ...(spinalCurve?.lumbarAngleDegrees != null
+            ? {
+                lumbarAngleDegrees: spinalCurve.lumbarAngleDegrees,
+                lumbarAngleConfidence: spinalCurve.lumbarConfidence,
+              }
+            : {}),
+          ...(spinalCurve?.maskQuality
+            ? {
+                spinalCurveQuality: {
+                  ...spinalCurve.maskQuality,
+                  methodVersion: spinalCurve.methodVersion,
+                  rejectionReason: spinalCurve.rejectionReason,
+                },
+              }
+            : {}),
           orientationSource,
           validationSummary: {
             categoryFailureCounts: validationFailureCountsRef.current,

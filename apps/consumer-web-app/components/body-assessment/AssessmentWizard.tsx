@@ -295,6 +295,23 @@ export function AssessmentWizard({ assessmentType }: { assessmentType: BodyAsses
           ? { subjectFrameHeightRatio: media.subjectFrameHeightRatio }
           : {}),
         ...(media.orientationSource ? { orientationSource: media.orientationSource } : {}),
+        // Silhouette spinal curve (migration 160) — side-view photos only,
+        // and each field only when it was actually measured. Passed through
+        // exactly as received: an angle the camera step withheld for low
+        // confidence must stay withheld here, never defaulted to a number.
+        ...(media.thoracicAngleDegrees !== undefined
+          ? {
+              thoracicAngleDegrees: media.thoracicAngleDegrees,
+              thoracicAngleConfidence: media.thoracicAngleConfidence,
+            }
+          : {}),
+        ...(media.lumbarAngleDegrees !== undefined
+          ? {
+              lumbarAngleDegrees: media.lumbarAngleDegrees,
+              lumbarAngleConfidence: media.lumbarAngleConfidence,
+            }
+          : {}),
+        ...(media.spinalCurveQuality ? { spinalCurveQuality: media.spinalCurveQuality } : {}),
       });
       if (result.error) throw new Error(result.error);
 
