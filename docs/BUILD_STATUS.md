@@ -1,3 +1,37 @@
+## The app could not be scrolled after logging in (2026-08-16)
+
+Reported live: after signing in, no screen scrolled. Not Home, not Today, not Progress, not the check-in. It reproduced locally on the first run and the cause was one line in a shared hook. No migration, no schema change, no LLM.
+
+### What was actually happening
+
+`<body>` was left holding `position: fixed; top: 0px; overflow: hidden` while nothing was on screen. That is the pin every modal in this app applies to stop the page rubber-banding underneath it, and it was outliving the modal. Because it is an inline style on the body and the app navigates client side, it survived every tap on the bottom bar — so one closed pop-up broke every screen at once, until a full page reload.
+
+### The cause, exactly
+
+`hooks/useBodyScrollLock.ts` saved the body's inline styles **per caller** and put them back on cleanup. That is correct for one caller and wrong the moment two overlap, which in this app they routinely do: `components/dashboard/RootMessagePopupClient.tsx` locks for the whole Root pop-up chain, and `components/priority/PriorityCardPopup.tsx` and `components/weekly-review/WeeklyReviewPopup.tsx` — the two members of that chain that are their own components — each lock again for the same modal.
+
+React runs child effects before parent effects. So the child saved the clean styles and applied the pin; the parent then saved the **pinned** styles as its idea of "before". On close, cleanups run in that same child-first order, so the parent's cleanup ran **last** and faithfully restored what it had seen. The pin.
+
+That is why it looked like it arrived with the recent nav and sign-out work: the Priority Card pop-up fires once per calendar day on Home, right after login, and closing it is what stranded the page.
+
+### The fix, in the shared place
+
+`lib/scroll-lock/bodyScrollLock.ts` is new and holds the one lock, reference counted. The real styles are captured once, on the transition from no locks to one, and restored once, on the transition back to none. Acquire and release order no longer matter. `hooks/useBodyScrollLock.ts` is now just the React lifetime wrapper around it, and **no call site changed** — the eleven components that lock scroll (the sign-out confirmation, the coach sheet, the Noticing sheet, the wearable welcome, Start over, the profile avatar, the first check-in transition and the pop-up chain) all got the fix for free. A modal opened on top of another modal is now simply a count of two.
+
+A stray release can no longer drive the count negative, which would have stranded the *next* lock instead.
+
+### Proof it was real, and proof it is fixed
+
+Driving the local app as a member, before the fix: the Priority Card pop-up opens (`bodyPos="fixed"`, correct), it closes (`dialogs=0`), and the body is still `position: fixed; overflow: hidden` with the page refusing to move. After the fix, the same sequence ends `bodyPos=""` and `scrollY=341`.
+
+`tests/body-scroll-lock.test.ts` (10) drives the counted lock directly against a fake document in the exact orders React produces, including the nested child-then-parent order that caused this. It was proved non-vacuous twice: restoring the old per-caller save/restore fails the three overlap tests, and making release stop restoring fails six of the ten. Both breaks were reverted and all ten pass.
+
+`scripts/screenshots/verify-scroll-lock.mjs` drives a real browser: every member screen on a fresh load, after an in-app navigation, with the Root pop-up open and after it closes, and the sign-out confirmation opened and dismissed three ways — Cancel, Escape and a backdrop tap — at iPhone 14 and iPhone SE widths. **44 of 44 checks passed locally.** `scripts/screenshots/verify-scroll-lock-live.mjs` is the production twin.
+
+### One thing that could not be done, and why
+
+The live check could not be run as the standing test member. Production refuses `RootReset2026!` for `8weeks2fab@gmail.com` with "Incorrect email or password" — the password this file recorded as live on 2026-08-14. Something has changed it since. Nothing on production was altered to work around that; the account was left exactly as found. Everything above is local and unit-level evidence, and the live run is still owed.
+
 ## Membership tiers, the 30 day trial, and manual access control (2026-08-14)
 
 People have been signing up for 30 days free and the product had no idea what a trial was. Nothing stopped anyone on day 31. Payment happens entirely outside this application (external Stripe links on Leadpages, and Zelle, which never touches a checkout at all), so the only thing that can decide access today is Osei, by hand. This build is the entitlement layer he runs it through, shaped so the later in-app billing build plugs into the same rows rather than replacing them. Migration 159, applied to production. No LLM.
