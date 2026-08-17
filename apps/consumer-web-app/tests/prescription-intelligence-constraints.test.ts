@@ -98,11 +98,17 @@ describe('deriveConstraints', () => {
     });
     const constraints = deriveConstraints(facts);
     expect(constraints.find((c) => c.constraintType === 'poor_breathing')).toBeDefined();
-    expect(constraints.find((c) => c.description.includes('forward head'))?.constraintType).toBe(
-      'limited_mobility'
-    );
-    expect(constraints.find((c) => c.description.includes('knee valgus'))?.constraintType).toBe(
-      'movement_dysfunction'
+    // The description now carries the finding's NAME rather than its enum
+    // with the underscores swapped out (docs/NAMING-STANDARD.md). The
+    // constraint classification itself is keyed on the CODE and is
+    // unchanged, which is what these assertions are really about.
+    expect(
+      constraints.find((c) => c.description.includes('Head sitting forward of your shoulders'))
+        ?.constraintType
+    ).toBe('limited_mobility');
+    expect(
+      constraints.find((c) => c.description.includes('Knees drifting inward'))?.constraintType
+    ).toBe('movement_dysfunction'
     );
   });
 

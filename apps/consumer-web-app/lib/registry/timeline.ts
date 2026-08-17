@@ -14,6 +14,7 @@
  */
 
 import type { RegistryEntry } from '@mef/shared-types-contracts';
+import { findingDisplayName } from '../naming/findingNames';
 
 export type FindingTimelineEntry = {
   domain: RegistryEntry['domain'];
@@ -50,7 +51,12 @@ export function buildFindingTimeline(entries: RegistryEntry[]): FindingTimelineE
     timeline.push({
       domain: latest.domain,
       code: latest.code,
-      label: latest.label,
+      // The NAME, not the stored label. Rows in this chain go back months
+      // and several carry retired clinical wording ("Digestive Complaints",
+      // "Elevated Stress"); the name is looked up by the finding's stable
+      // domain::code so every reader of this timeline, member and coach,
+      // gets the current one. See docs/NAMING-STANDARD.md.
+      label: findingDisplayName(latest.domain, latest.code, latest.label),
       firstObservedAt: chronological[0]!.recorded_at,
       lastObservedAt: latest.recorded_at,
       occurrenceCount: chronological.length,

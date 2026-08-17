@@ -31,7 +31,14 @@ export function buildRegistryPatternInsights(profile: MemberHealthProfile): Patt
       key: `registry_${entry.domain}_${entry.code}`,
       kind: 'body_assessment_finding' as const,
       label: findingDisplayName(entry.domain, entry.code, entry.label),
-      description: entry.narrative ?? findingDisplayName(entry.domain, entry.code, entry.label),
+      // The stored narrative is deliberately NOT passed through. Those
+      // sentences were written per-adapter years apart, several of them
+      // interpolate a raw enum into the text ("Elevated Stress reported as
+      // 'poor' on the latest onboarding submission"), and they carry the
+      // retired clinical names. The description is authored from the
+      // current name instead. Migration 169 clears the worst of the stored
+      // ones; this makes the screens correct without waiting for it.
+      description: findingDisplayName(entry.domain, entry.code, entry.label),
       confidence: entry.confidence,
       evidenceRefs: [...entry.evidence_refs, { type: 'registry_entry', id: entry.id }],
       sourceInsightId: null,
@@ -47,9 +54,7 @@ export function buildRegistryCoachAlertDrafts(profile: MemberHealthProfile): Coa
       alertType: 'assessment_finding_requires_attention' as const,
       severity: storedSeverityForTier(alertTier('assessment_finding_requires_attention')),
       title: `Worth picking up: ${findingDisplayName(entry.domain, entry.code, entry.label)}`,
-      reason:
-        entry.narrative ??
-        `"${findingDisplayName(entry.domain, entry.code, entry.label)}" came back strongly on ${displayName('registry_domain', entry.domain).toLowerCase()}, from an assessment she completed.`,
+      reason: `"${findingDisplayName(entry.domain, entry.code, entry.label)}" came back strongly on ${displayName('registry_domain', entry.domain).toLowerCase()}, from an assessment she completed.`,
       alertKey: `assessment_finding_${entry.code}`,
       evidenceRefs: [...entry.evidence_refs, { type: 'registry_entry', id: entry.id }],
       sourceRefs: [{ type: 'registry_entry', id: entry.id }],

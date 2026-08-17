@@ -34,6 +34,7 @@ import type {
 import { MOVEMENT_SESSION_SECTION_ORDER } from '@mef/shared-types-contracts';
 import type { MovementExerciseFilter, MovementExerciseProvider } from '../providers/types';
 import type { MovementFacts } from './facts';
+import { findingDisplayName } from '../../naming/findingNames';
 
 export function decideRecoveryStatus(facts: MovementFacts): MovementRecoveryStatus {
   if (facts.wearableSnapshot?.recoveryScore != null) {
@@ -221,7 +222,7 @@ export function buildSelectionReasons(
 
   for (const finding of facts.activeFindings.slice(0, 3)) {
     reasons.push({
-      label: finding.label.replace(/_/g, ' '),
+      label: findingDisplayName(finding.domain, finding.code, finding.label),
       domain: 'posture_finding',
       detail: 'From your Guided Posture & Movement Assessment results.',
     });

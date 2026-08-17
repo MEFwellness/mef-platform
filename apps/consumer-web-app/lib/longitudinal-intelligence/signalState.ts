@@ -50,6 +50,10 @@ export function classifyRegistryFindingSignal(
   const base = {
     signalKey,
     signalKind: 'registry_finding' as const,
+    // Already the current NAME rather than the stored label: the finding
+    // timeline resolves it through lib/naming/findingNames.ts before this
+    // ever sees it. Kept as a pass-through so there is one place that
+    // decision is made.
     signalLabel: entry.label,
     occurrenceCount: entry.occurrenceCount,
     firstObservedAt: entry.firstObservedAt,

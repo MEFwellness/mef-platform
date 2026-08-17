@@ -14,6 +14,8 @@ import type {
   PrescriptionConstraintType,
 } from '@mef/shared-types-contracts';
 import type { PrescriptionFacts } from './facts';
+import { displayName } from '../naming/displayNames';
+import { findingDisplayName } from '../naming/findingNames';
 
 export type PrescriptionConstraintDraft = {
   constraintType: PrescriptionConstraintType;
@@ -82,7 +84,7 @@ export function deriveConstraints(facts: PrescriptionFacts): PrescriptionConstra
       constraintType: MOBILITY_RELATED_CODES.has(finding.code)
         ? 'limited_mobility'
         : 'movement_dysfunction',
-      description: `Active ${finding.domain} finding: ${finding.label.replace(/_/g, ' ')}.`,
+      description: `Active finding in ${displayName('registry_domain', finding.domain).toLowerCase()}: ${findingDisplayName(finding.domain, finding.code, finding.label)}.`,
       severity: severityFromFindingSeverity(finding.severity),
       evidenceRefs: [{ type: 'registry_entry', id: finding.code, note: finding.domain }],
     });
