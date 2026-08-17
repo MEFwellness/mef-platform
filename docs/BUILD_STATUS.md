@@ -7113,3 +7113,77 @@ Against `app.mefwellness.com`, commit `a318ef4`, deployment `mef-platform-pdjhb2
 export $(grep -E "^SUPABASE_DB_URL=" .env.local | head -1)
 npx supabase db push --db-url "$SUPABASE_DB_URL"
 ```
+
+## Migrations 167 and 168 applied, and what the live runs then found (2026-08-17)
+
+Both applied by the user. Verified against production, read-only apart from three writes the database was required to refuse.
+
+### 167 and 168, verified
+
+`scripts/verify-visibility-migrations-live.mjs`, **14 of 14**. 185 visibility rows across 14 members, every one of them `grandfathered`, every one `revealed`, every one carrying a timestamp, and **every one already acknowledged**, which is what stops an existing member being told about a dozen features she has been using for weeks. Zero duplicate rows.
+
+**Proven by refusal**, which is the only way to show a constraint is enforcing rather than declared: a `state` outside the two and a `source` outside the five were both rejected, and the target row was byte-identical afterwards. `set_member_feature_visibility()` exists and refuses a caller who is not the member's coach.
+
+**Coverage checked against the real tables rather than trusted.** 14 members have history the backfill covers and all 14 have rows. All 11 members who have ever logged a check-in kept all six of their check-in features. All 34 assessment attempts in the project were kept for their owners.
+
+Per member, largest first: Heather 25 features kept, Cat 20, Lauren 17, Osei 16, Ebony 15, Omar 15, two unnamed accounts 13 each, Tommy 12, Peter 12, one unnamed 9, and Alex, Priscilla and the throwaway account 6 each.
+
+### The three intake profiles, live
+
+`scripts/verify-intake-profiles-live.mjs`, **25 of 25**. Three full runs of the real fourteen-question wizard on production, each preceded by a reset through the sanctioned route, each with its stored answers read back from the database so the report states what she answered rather than what the driver meant to make her answer.
+
+| | Sleep and stress | Pain and movement | Minimal issues |
+|---|---|---|---|
+| Main concern | sleep | pain | general wellbeing |
+| Sleep / stress / energy / digestion | 1 / 5 / 2 / 5 | 5 / 1 / 5 / 5 | 5 / 1 / 5 / 5 |
+| Where it hurts | nowhere | lower back, hips | nowhere |
+| Movement days | 5+ | 5+ | 5+ |
+| Water | very little | plenty | plenty |
+| **Features revealed** | **23** | **27** | **19** |
+
+**Only she gets these:**
+
+- Sleep and stress: the sleep check, the stress check, the food check, and **the water tracker**.
+- Pain and movement: the Body Assessment and its screen, the Movement screen, the movement card on Home, the movement shortcut, the posture and discomfort check, the movement check, and **the movement tracker**.
+- Minimal issues: nothing of its own. It is the floor.
+
+Nineteen features are common to all three, and being honest about them matters: most are **grandfathered**, not rule-revealed. The throwaway account accumulated thirteen completed assessment attempts and a set of registry findings across the repeated runs, so her Root Map, Case and noticing surfaces are kept because she has real history there, exactly as rule 2 requires. A genuinely fresh account gets fewer, which is what the earlier zero-intake run showed: priority card, check-in, and one conversation.
+
+Every profile keeps the priority card, the check-in and the opening conversation. No profile gets the retired next-session row or the unbuilt Readiness to Change placeholder.
+
+### A real bug the live runs found: a resolved finding was revealing things
+
+The first run of the three profiles came back **identical**, and the cause was real rather than an artifact.
+
+When a member answers that something is now fine, the registry records that by writing a **live** row with severity `none`. Every visibility rule asking for "a finding that has reached this tier" was satisfied by those rows. So answering that her sleep was fine opened a sleep check for her, and the minimal-issues profile came out looking exactly like the pain-and-movement one.
+
+Exactly backwards, and invisible to every local test, because a fixture finding is written with the severity the test author had in mind rather than the one the registry writes when a member improves. The interpretation layer already draws this line for its own readers (`liveFindings`); the same line is now drawn in the rule evaluator, so no reveal rule can ever be satisfied by the news that a problem went away. Two tests pin it, one at the rule level and one over the whole real catalog.
+
+### A measurement that was lying, twice
+
+**The profile script fingerprinted Home's zones.** Home suppresses every one of them until a member's first check-in, a gate that predates this build entirely. It reported three identical profiles that were never identical. It now reads the stored visibility rows, which is the same thing the coach's screen reads and the complete answer.
+
+**Counting reveal sentences on one screen undercounts.** The notice shows at most three at a time and marks those three as said, and the wizard's own completion screen lands on Home, which consumes the first batch before the script takes its capture. Sentences are still reported, as a secondary observation of what she actually read; the stored rows are what is asserted.
+
+### Two defects found by reading the output back
+
+**A rule that was true of everyone.** `home.invite_cards` carried "days since signup of at least 0". The coach's visibility screen duly explained the card with that sentence, which tells nobody anything. It is a placeholder wearing a real rule's clothes. The card is in fact always eligible and gates itself on having genuine content, so it moved to the short deliberate `always` list, and a new test refuses any behaviour rule with a threshold of zero.
+
+**An assertion that quietly goes false as the table grows.** `verify-friction-armed-live.mjs` asserted that EVERY finding row in production carries migration 165's two audit columns. True the day it was written; false the moment anything writes a new finding, because 165 was a one-time backfill and nothing maintains those columns on insert. That is deliberate (no screen renders either, and the layer recomputes the tier live) but the check did not know it. It now asserts what the migration actually promised over the rows it ran over, **78 of 78 and 54 of 54, unchanged**, and reports any later gap by member. Its duplicate check also built its key from a column that is now sometimes null, which made five distinct findings look like four duplicates; it reads domain and code directly and finds zero.
+
+**Neither affects a real member.** All 61 rows with a null key and all 5 with a null tier belong to the throwaway account and were created that afternoon. There are zero duplicate active findings anywhere in production.
+
+### Standing verification, re-run after the migrations
+
+| Script | Result |
+|---|---|
+| `verify-trust-cleanup-live.mjs` | **10 / 10** unchanged |
+| `verify-display-guards-live.mjs` | **6 / 6** unchanged |
+| `verify-priority-card-normal-live.mjs` | **9 / 9** unchanged |
+| `verify-interpretation-layer-live.mjs` | **20 / 20** unchanged |
+| `verify-friction-armed-live.mjs` | **14 / 14** (was 13; one check added) |
+| `verify-friction-question-live.mjs` | **15 / 15** |
+| `verify-visibility-migrations-live.mjs` | **14 / 14** new |
+| `verify-intake-profiles-live.mjs` | **25 / 25** new |
+
+Full suite **5,564 passing** (394 files). Typecheck clean, lint clean (0 errors), production build clean.
