@@ -136,6 +136,21 @@ function findingTierSatisfied(
 ): boolean {
   const wanted = tierRank(rule.minTier as EvidenceTier);
   return context.findings.some((finding) => {
+    // A RESOLVED finding may never reveal anything.
+    //
+    // Found by running three contrasting intakes on production. The third
+    // profile answered that everything was fine, and the registry correctly
+    // recorded that her earlier sleep and pain findings had RESOLVED, which
+    // it does by writing a live row with severity 'none'. Those rows were
+    // then satisfying every rule that asked for "a finding at early
+    // indication or better", so answering that her sleep was fine opened a
+    // sleep check for her. Exactly backwards, and it is the kind of thing
+    // only a real run with real answers catches.
+    //
+    // The interpretation layer already draws this line for its own readers
+    // (`liveFindings`); this is the same line, drawn here, so no reveal rule
+    // can ever be satisfied by the news that a problem went away.
+    if (finding.verdict === 'resolved' || finding.severity === 'none') return false;
     if (rule.domain && finding.primaryDomain !== rule.domain) {
       // A cross-referenced domain is a genuine relevance, so a rule about
       // "anything going on in sleep" should see a finding filed under

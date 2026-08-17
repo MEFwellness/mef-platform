@@ -91,27 +91,65 @@ const PROFILES = {
   },
 };
 
-/** The on-screen fingerprint of each feature. The control's own wording, never prose about the topic. */
+/**
+ * What is actually OBSERVABLE for a member on her first day, which is what
+ * these three profiles are.
+ *
+ * An earlier version of this script fingerprinted Home's zones (Quick
+ * Actions, Your Path, the trackers) and reported all three profiles
+ * identical. That was true and meaningless: Home suppresses every one of
+ * those zones until a member has completed her first check-in, and that gate
+ * predates this build entirely. The profiles differed all along; the
+ * measurement was pointed at screens that cannot differ yet.
+ *
+ * What CAN differ on day one, and does:
+ *   the reveal sentences on Home  the direct, member-facing expression of
+ *                                 which rules fired for her
+ *   the questionnaire catalogue   which assessments are open to her
+ *   the check-in questions        which follow-up sets her answers opened
+ *   the Food Lens tab             the one nav door that is conditional
+ */
 const MARKERS = {
-  'Water tracker': ['of 8 cups', 'Log water as you drink it'],
-  'Movement tracker': ['Log how much you moved'],
   'Food Lens tab': ['FOOD LENS'],
-  'Quick Actions zone': ['Quick Actions'],
-  'Your Path zone': ['Your Path'],
-  'Movement assessment card': ['Guided Posture'],
-  'Wearable pitch': ['UNLOCK SMARTER COACHING', 'Connect your wearable'],
-  'What Root is noticing': ['What Root Is Noticing'],
-  'Energy trend': ['Energy Trend'],
   'Nutrition and Lifestyle questionnaire': ['Nutrition & Lifestyle'],
   'Four Doctors questionnaire': ['Four Doctors'],
   'Whole-Body Systems questionnaire': ['Whole-Body Systems', 'Whole Body Systems'],
   'Primal Pattern questionnaire': ['Primal Pattern'],
-  'Body Assessment': ['Body Assessment'],
   'Core Values Snapshot': ['Core Values Snapshot'],
-  'Root Map': ['Root Map'],
   'Priority card': ['YOUR PRIORITY TODAY'],
   'Daily check-in': ['Complete your first check-in', 'Start check-in', 'Check-in complete'],
 };
+
+/** The reveal sentences Root put on Home, in order. */
+function revealSentences(home) {
+  const match = home.match(/SOMETHING NEW\n([\s\S]*?)\n(?:FROM ROOT|YOUR WEEK|ASSIGNED BY|QUICK ACTIONS|Let's get started)/);
+  if (!match) return [];
+  return match[1].split('\n').map((l) => l.trim()).filter(Boolean);
+}
+
+/** Which questionnaires her library actually lists. */
+function questionnaireTitles(text) {
+  const known = [
+    'Core Values Snapshot',
+    'Life Signal Check',
+    'Readiness Pulse',
+    'Onboarding Assessment',
+    'Nutrition & Lifestyle',
+    'Four Doctors',
+    'Primal Pattern',
+    'Whole-Body Systems',
+    'Short Health Assessment',
+  ];
+  return known.filter((t) => text.includes(t));
+}
+
+/** Which follow-up questions the check-in is actually offering her today. */
+function checkinQuestions(text) {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.endsWith('?') && l.length > 12);
+}
 
 function present(text, markers) {
   return markers.some((m) => text.toLowerCase().includes(m.toLowerCase()));
@@ -373,16 +411,34 @@ try {
     const home = await capture('/dashboard', `${profileKey}-home`);
     const today = await capture('/today', `${profileKey}-today`);
     const questionnaires = await capture('/questionnaires', `${profileKey}-questionnaires`);
-    const all = [home, today, questionnaires].join('\n');
+    // The check-in is entered and left BY URL, never through the app's own
+    // exit button: that button is the only path that writes a draft row, so
+    // navigating away instead writes nothing to her account.
+    const checkin = await capture('/checkin', `${profileKey}-checkin`);
+    const all = [home, today, questionnaires, checkin].join('\n');
 
     const seen = {};
     for (const [label, markers] of Object.entries(MARKERS)) seen[label] = present(all, markers);
-    fingerprints[profileKey] = seen;
-    writeFileSync(`${SHOTS}/${profileKey}-fingerprint.json`, JSON.stringify(seen, null, 2));
+    const sentences = revealSentences(home);
+    const library = questionnaireTitles(questionnaires);
+    const questions = checkinQuestions(checkin);
 
-    console.log(`\n--- ${profileKey} (${profile.label}) sees ---`);
+    fingerprints[profileKey] = { seen, sentences, library, questions };
+    writeFileSync(
+      `${SHOTS}/${profileKey}-fingerprint.json`,
+      JSON.stringify({ seen, sentences, library, questions }, null, 2)
+    );
+
+    console.log(`\n--- ${profileKey} (${profile.label}) ---`);
+    console.log('  Root told her:');
+    if (sentences.length === 0) console.log('    (nothing new)');
+    sentences.forEach((l) => console.log(`    - ${l}`));
+    console.log(`  Her questionnaire library: ${library.join(', ') || '(none)'}`);
+    console.log(`  Her check-in asked: ${questions.length} question(s)`);
+    questions.forEach((q) => console.log(`    - ${q}`));
+    console.log('  Features:');
     for (const [label, visible] of Object.entries(seen)) {
-      console.log(`${visible ? 'SHOWN ' : 'hidden'}  ${label}`);
+      console.log(`    ${visible ? 'SHOWN ' : 'hidden'}  ${label}`);
     }
     console.log('');
 
@@ -399,38 +455,44 @@ try {
   }
 
   // ---- The three must genuinely differ --------------------------------
-  const keys = Object.keys(fingerprints);
-  const asString = (k) => JSON.stringify(fingerprints[k]);
-  check(
-    'the three profiles produce three different apps',
-    new Set(keys.map(asString)).size === keys.length,
-    `${new Set(keys.map(asString)).size} distinct of ${keys.length}`
-  );
-
   const a = fingerprints.A_sleep_stress ?? {};
   const b = fingerprints.B_pain_movement ?? {};
   const c = fingerprints.C_minimal ?? {};
 
+  const asString = (f) => JSON.stringify(f);
   check(
-    'pain-and-movement gets the movement tracker and sleep-and-stress does not',
-    b['Movement tracker'] === true && a['Movement tracker'] === false,
-    `B=${b['Movement tracker']} A=${a['Movement tracker']}`
+    'the three profiles produce three different apps',
+    new Set([a, b, c].map(asString)).size === 3,
+    `${new Set([a, b, c].map(asString)).size} distinct of 3`
+  );
+
+  const said = (f, fragment) => (f.sentences ?? []).some((l) => l.toLowerCase().includes(fragment));
+
+  check(
+    'sleep-and-stress is told about sleep, and minimal-issues is not',
+    said(a, 'sleep') && !said(c, 'sleep'),
+    `A=${said(a, 'sleep')} C=${said(c, 'sleep')}`
   );
   check(
-    'pain-and-movement gets the guided movement assessment and minimal does not',
-    b['Movement assessment card'] === true && c['Movement assessment card'] === false,
-    `B=${b['Movement assessment card']} C=${c['Movement assessment card']}`
+    'pain-and-movement is told about movement or where it hurts, and sleep-and-stress is not',
+    (said(b, 'movement') || said(b, 'hurts')) && !said(a, 'movement') && !said(a, 'hurts'),
+    `B=${(b.sentences ?? []).join(' | ')}`
   );
   check(
-    'sleep-and-stress gets the water tracker and the other two do not',
-    a['Water tracker'] === true && b['Water tracker'] === false && c['Water tracker'] === false,
-    `A=${a['Water tracker']} B=${b['Water tracker']} C=${c['Water tracker']}`
+    'sleep-and-stress gets the water tracker opened and the other two do not',
+    said(a, 'water') && !said(b, 'water') && !said(c, 'water'),
+    `A=${said(a, 'water')} B=${said(b, 'water')} C=${said(c, 'water')}`
   );
   check(
-    'minimal issues gets the smallest app of the three',
-    Object.values(c).filter(Boolean).length <= Object.values(a).filter(Boolean).length &&
-      Object.values(c).filter(Boolean).length <= Object.values(b).filter(Boolean).length,
-    `A=${Object.values(a).filter(Boolean).length} B=${Object.values(b).filter(Boolean).length} C=${Object.values(c).filter(Boolean).length}`
+    'minimal issues is told the least of the three',
+    (c.sentences ?? []).length <= (a.sentences ?? []).length &&
+      (c.sentences ?? []).length <= (b.sentences ?? []).length,
+    `A=${(a.sentences ?? []).length} B=${(b.sentences ?? []).length} C=${(c.sentences ?? []).length}`
+  );
+  check(
+    'the check-in asks each of them a different set of questions',
+    new Set([a, b, c].map((f) => JSON.stringify((f.questions ?? []).slice().sort()))).size > 1,
+    `A=${(a.questions ?? []).length} B=${(b.questions ?? []).length} C=${(c.questions ?? []).length}`
   );
 
   writeFileSync(`${SHOTS}/fingerprints.json`, JSON.stringify(fingerprints, null, 2));

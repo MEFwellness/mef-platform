@@ -283,6 +283,42 @@ describe('rule types', () => {
     expect(isRuleSatisfied(rule, crossReferenced, 'anything')).toBe(true);
   });
 
+  it('a RESOLVED finding never reveals anything', () => {
+    // Found on production: the registry records a resolution by writing a
+    // live row with severity 'none', and those rows were satisfying every
+    // "a finding reached this tier" rule. Answering that her sleep was fine
+    // was opening a sleep check for her.
+    const rule = { kind: 'finding_tier', minTier: 'early_indication' } as const;
+    const resolvedBySeverity = context({ findings: [finding({ severity: 'none' })] });
+    const resolvedByVerdict = context({ findings: [finding({ verdict: 'resolved' })] });
+    const live = context({ findings: [finding({ severity: 'mild', verdict: 'noted' })] });
+
+    expect(isRuleSatisfied(rule, resolvedBySeverity, 'anything')).toBe(false);
+    expect(isRuleSatisfied(rule, resolvedByVerdict, 'anything')).toBe(false);
+    expect(isRuleSatisfied(rule, live, 'anything')).toBe(true);
+  });
+
+  it('a resolved finding does not reveal anything over the real catalog either', () => {
+    const allResolved = context({
+      findings: [
+        finding({ sourceKey: 'sleep::poor_sleep_quality', severity: 'none', primaryDomain: 'sleep_circadian_rhythm' }),
+        finding({ sourceKey: 'movement::pain_hips', severity: 'none', primaryDomain: 'pain_structural_integrity' }),
+        finding({ sourceKey: 'stress::elevated_stress', severity: 'none', primaryDomain: 'stress_nervous_system' }),
+      ],
+    });
+    const visibility = resolveVisibility({ context: allResolved, stored: new Map() });
+    for (const key of [
+      F.questionsSleep,
+      F.questionsMechanics,
+      F.questionsStress,
+      F.featureRootMap,
+      F.featureMovement,
+      F.homeNoticingCarousel,
+    ]) {
+      expect(visibility.byKey.get(key)?.visible, key).toBe(false);
+    }
+  });
+
   it('a finding in an unrelated domain does not satisfy a domain-scoped rule', () => {
     const rule = { kind: 'finding_tier', domain: 'digestion_gut_health', minTier: 'early_indication' } as const;
     expect(isRuleSatisfied(rule, context({ findings: [finding()] }), 'anything')).toBe(false);
