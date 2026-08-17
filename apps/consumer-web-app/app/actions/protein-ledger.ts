@@ -1,21 +1,44 @@
 'use server';
 
 /**
- * Protein Ledger (Phase 1b) — member-facing actions for the Today view,
- * its three confirm-before-it-counts entry lanes (barcode scan, search by
- * name, quick add), and the 7-day history. Deliberately reuses the food log
- * that already exists (member_food_log/food_products/product_nutrients,
+ * Protein Ledger — member-facing actions for the Today view, its three
+ * confirm-before-it-counts entry lanes (barcode scan, search by name,
+ * quick add), and the 7-day history. Deliberately reuses the food log that
+ * already exists (member_food_log/food_products/product_nutrients,
  * migration 59, lib/food-products/data.ts) rather than a parallel ledger
  * schema — see lib/protein/ledger.ts's header. No rules-engine/Root
  * coaching analysis runs here (analyzeProductScanAction/
  * runProductAnalysisForScan): the ledger only needs a product's protein
  * grams, not a full nutrition-quality review, so it skips that heavier
  * pipeline entirely rather than reuse it wastefully.
+ *
+ * EVERY LANE, ONE READ. Because it reads member_food_log directly, this
+ * ledger sees every way a member can log food in this app, not only the
+ * three lanes on the ledger screen itself. The full list, audited:
+ *
+ *   1. Food Lens barcode scan          -> AddToFoodLogSheet -> addFoodLogEntryAction
+ *   2. Food Lens Nutrition Facts label -> same result screen, same action
+ *   3. Food Lens search by name        -> same result screen, same action
+ *   4. Food Lens manual entry          -> same result screen, same action
+ *   5. Food Lens meal photo            -> logMealScanToFoodLogAction
+ *   6. Saved meal repeat               -> repeatSavedMealAction
+ *   7. Duplicate a previous entry      -> duplicateFoodLogEntryAction
+ *   8. Ledger barcode lane             -> logProteinLedgerEntryAction
+ *   9. Ledger search lane              -> logProteinLedgerEntryAction
+ *  10. Ledger quick add                -> quickAddProteinLedgerEntryAction
+ *
+ * All ten write one member_food_log row per logged item, so one logged
+ * meal is one ledger contribution and nothing needs deduplicating. Lanes
+ * 1 through 4 and 6 through 10 carry real per-serving protein grams and
+ * count. Lane 5 carries no gram data anywhere in this application (the
+ * vision provider returns a relative Low/Moderate/High read, never grams)
+ * so it contributes zero, and is shown with that relative read rather than
+ * a fabricated number.
  */
 
 import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
-import type { MemberFoodLogEntry } from '@mef/shared-types-contracts';
+import type { FoodLensMealMacroLevel, MemberFoodLogEntry } from '@mef/shared-types-contracts';
 import {
   findCachedFoodProduct,
   getFoodProductWithDetails,
@@ -31,13 +54,13 @@ import { validateBarcode } from '@/lib/food-products/barcode';
 import { todaysLocalDate, localDateStringFor } from '@/lib/time/localDate';
 import {
   buildDailyTotals,
-  entryProteinGrams,
+  buildLedgerEntries,
   lastNLocalDates,
-  resolveEntrySource,
   roundGrams,
   sumProteinGrams,
   type DailyProteinTotal,
   type LedgerEntryWithProtein,
+  type LedgerProductFacts,
 } from '@/lib/protein/ledger';
 import { getMyProteinSetupState, type ProteinSetupState } from './protein';
 
@@ -64,11 +87,17 @@ async function memberTimezone(
 }
 
 /**
- * Every product-linked entry in [startLocalDate, endLocalDate] (inclusive),
+ * Every food log entry in [startLocalDate, endLocalDate) from every lane,
  * each tagged with its own protein grams and which local date it belongs
- * to. Deliberately excludes entries with product_id null — those are
- * meal-photo AI estimates (food_lens_macro_estimates), never confirmed
- * grams, and this build's rule is confirmed grams only.
+ * to.
+ *
+ * No lane filter. This used to exclude `product_id is null`, which meant a
+ * member could photograph a meal, confirm every food in it, add it to her
+ * log, and find her protein ledger showing nothing at all — not a zero
+ * against a logged meal, but no trace that she had logged anything. Those
+ * rows are read now. They still contribute no grams (there are none to
+ * contribute) and carry Root's relative protein read instead, so the day's
+ * list and the 7-day history reflect what she actually did.
  */
 async function listProteinEntriesForLocalDateRange(
   supabase: ReturnType<typeof createClient>,
@@ -92,7 +121,6 @@ async function listProteinEntriesForLocalDateRange(
     .from('member_food_log')
     .select('*')
     .eq('member_id', memberId)
-    .not('product_id', 'is', null)
     .gte('consumed_at', bufferedStart.toISOString())
     .lt('consumed_at', bufferedEnd.toISOString())
     .order('consumed_at', { ascending: true });
@@ -107,17 +135,35 @@ async function listProteinEntriesForLocalDateRange(
   });
   if (entries.length === 0) return [];
 
-  const productIds = [...new Set(entries.map((e) => e.product_id as string))];
-  const { data: products } = await supabase
-    .from('food_products')
-    .select('id, name, barcode, data_source')
-    .in('id', productIds);
-  const { data: nutrients } = await supabase
-    .from('product_nutrients')
-    .select('product_id, protein_g')
-    .in('product_id', productIds);
+  const productIds = [...new Set(entries.map((e) => e.product_id).filter((id): id is string => id !== null))];
+  // Only the meal-photo rows need a macro estimate looked up, and only
+  // those rows: a product-linked entry has real grams and never falls back
+  // to a relative read.
+  const estimateScanIds = [
+    ...new Set(
+      entries
+        .filter((e) => e.product_id === null && e.scan_id !== null)
+        .map((e) => e.scan_id as string)
+    ),
+  ];
 
-  const productById = new Map(
+  const [{ data: products }, { data: nutrients }, { data: estimates }] = await Promise.all([
+    productIds.length > 0
+      ? supabase.from('food_products').select('id, name, barcode, data_source').in('id', productIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    productIds.length > 0
+      ? supabase.from('product_nutrients').select('product_id, protein_g').in('product_id', productIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    estimateScanIds.length > 0
+      ? supabase
+          .from('food_lens_macro_estimates')
+          .select('scan_id, protein_level, created_at')
+          .in('scan_id', estimateScanIds)
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+  ]);
+
+  const productById = new Map<string, LedgerProductFacts>(
     (products ?? []).map((p) => [
       p.id as string,
       { name: p.name as string | null, barcode: p.barcode as string | null, dataSource: p.data_source as string | null },
@@ -126,21 +172,22 @@ async function listProteinEntriesForLocalDateRange(
   const proteinById = new Map(
     (nutrients ?? []).map((n) => [n.product_id as string, n.protein_g as number | null])
   );
+  // Ordered oldest first above, so the last write for a scan wins — the
+  // same "latest estimate" rule getLatestFoodLensMacroEstimate applies,
+  // held here for a whole batch of scans instead of one query per row.
+  const proteinLevelByScanId = new Map(
+    (estimates ?? []).map((e) => [
+      e.scan_id as string,
+      e.protein_level as FoodLensMealMacroLevel | null,
+    ])
+  );
 
-  return entries.map((entry) => {
-    const product = productById.get(entry.product_id as string) ?? null;
-    const proteinPerServing = proteinById.get(entry.product_id as string) ?? null;
-    return {
-      ...entry,
-      productName: product?.name ?? entry.manual_label ?? null,
-      proteinGrams: entryProteinGrams(entry, { proteinG: proteinPerServing }),
-      source: resolveEntrySource({
-        scanId: entry.scan_id,
-        productBarcode: product?.barcode ?? null,
-        productDataSource: product?.dataSource ?? null,
-      }),
-      localDate: localDateStringFor(entry.consumed_at, timezone),
-    };
+  return buildLedgerEntries({
+    rows: entries,
+    productById,
+    proteinPerServingByProductId: proteinById,
+    proteinLevelByScanId,
+    localDateFor: (consumedAt) => localDateStringFor(consumedAt, timezone),
   });
 }
 

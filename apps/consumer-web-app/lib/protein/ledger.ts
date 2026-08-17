@@ -1,15 +1,35 @@
 /**
- * Protein Ledger (Phase 1b) — pure grams/rounding/grouping logic. No
- * persistence, no new tables: the ledger is a protein-focused read over
- * the food log that already exists (member_food_log + food_products +
- * product_nutrients, migration 59), the same store barcode/search/manual
- * entries already write to. Deliberately excludes any member_food_log row
- * with product_id null — those are meal-photo AI *estimates*
- * (food_lens_macro_estimates), and this build's rule is confirmed grams
- * only (no estimates).
+ * Protein Ledger — pure grams/rounding/grouping logic. No persistence, no
+ * new tables: the ledger is a protein-focused read over the food log that
+ * already exists (member_food_log + food_products + product_nutrients,
+ * migration 59), the same table every logging lane in this app writes to.
+ *
+ * ONE LOG, NOT TWO. Because every entry point writes the same
+ * member_food_log row — the Food Lens barcode/label/search/manual result
+ * screen (AddToFoodLogSheet), the meal-photo "add this meal to my log"
+ * action, saved-meal repeats, duplicates, and the ledger's own three
+ * lanes — a member never logs a meal twice to get protein credit, and a
+ * row can never be counted twice. One row is one contribution, by
+ * construction rather than by a deduplication pass.
+ *
+ * WHAT COUNTS AS GRAMS. Confirmed grams only. A row linked to a product
+ * whose product_nutrients row carries protein contributes
+ * servings x protein_g. A row with no known protein value contributes
+ * nothing and is never silently treated as 0g.
+ *
+ * WHAT DOES NOT. Meal-photo rows (product_id null) carry no gram data
+ * anywhere in this application: the vision provider returns a relative
+ * Low/Moderate/High read per meal (food_lens_macro_estimates), never a
+ * gram figure, which is a deliberate product rule, see
+ * lib/food-lens/providers/types.ts. Those rows are now READ by the ledger
+ * so today's list and the 7-day history show the member's complete day,
+ * but they contribute exactly zero grams and are labeled with Root's
+ * relative read instead of a number. They were previously filtered out of
+ * every ledger query entirely, which is what made a logged photo meal look
+ * like nothing had been logged at all.
  */
 
-import type { MemberFoodLogEntry } from '@mef/shared-types-contracts';
+import type { FoodLensMealMacroLevel, MemberFoodLogEntry } from '@mef/shared-types-contracts';
 import type { ProteinSetupState } from '@/app/actions/protein';
 
 /** Rounds to the nearest whole gram for display — never shows a raw floating-point artifact like 189.9999999999998. */
@@ -28,33 +48,96 @@ export function entryProteinGrams(
   return nutrients.proteinG * entry.servings;
 }
 
-export type LedgerEntrySource = 'scan' | 'search' | 'quick_add';
+export type LedgerEntrySource = 'scan' | 'search' | 'quick_add' | 'meal_photo';
 
 export type LedgerEntryWithProtein = MemberFoodLogEntry & {
   proteinGrams: number | null;
   productName: string | null;
   source: LedgerEntrySource;
+  /**
+   * Root's relative protein read for a meal-photo entry, the only protein
+   * information that exists for one. Always null for a product-linked
+   * entry, which has real grams instead. Never converted to grams: a
+   * relative level is not a measurement.
+   */
+  estimatedProteinLevel: FoodLensMealMacroLevel | null;
 };
 
 /**
  * Which lane an entry came from, inferred from what's already on the row —
- * no new column needed. A scan always creates a food_lens_scans row first
- * (scan_id set); a quick add's product is always private (data_source
- * 'mef_verified', barcode null, per insertVerifiedFoodProductFromLabelScan);
- * anything else product-linked came from search (or from Food Lens's own
- * barcode/search/manual flows elsewhere in the app, which share this same
- * table by design — see app/actions/protein-ledger.ts's header).
+ * no new column needed.
+ *
+ * A row with no linked product is a meal photo: the only writer that
+ * leaves product_id null is logMealScanToFoodLogAction (one row per
+ * confirmed item in the photo). A scan always creates a food_lens_scans
+ * row first (scan_id set); a quick add's product is always private
+ * (data_source 'mef_verified', barcode null, per
+ * insertVerifiedFoodProductFromLabelScan); anything else product-linked
+ * came from search (or from Food Lens's own barcode/label/manual flows
+ * elsewhere in the app, which share this same table by design — see this
+ * module's header).
  */
 export function resolveEntrySource(entry: {
+  productId?: string | null;
   scanId: string | null;
   productBarcode: string | null;
   productDataSource: string | null;
 }): LedgerEntrySource {
+  if (entry.productId === null) return 'meal_photo';
   if (entry.scanId) return 'scan';
   if (entry.productDataSource === 'mef_verified' && entry.productBarcode === null) {
     return 'quick_add';
   }
   return 'search';
+}
+
+export type LedgerProductFacts = {
+  name: string | null;
+  barcode: string | null;
+  dataSource: string | null;
+};
+
+/**
+ * Turns raw member_food_log rows into ledger entries. Pure, so the rule
+ * that decides what counts is testable without a database or a Next.js
+ * request scope, and so there is exactly one copy of it: the server action
+ * fetches, this decides.
+ *
+ * Every row in, every row out, in the same order. Nothing is filtered by
+ * lane here or anywhere upstream, which is what makes "one logged meal is
+ * one ledger contribution" true by construction: the row either resolves
+ * to grams or it does not, and it is present either way.
+ */
+export function buildLedgerEntries<T extends MemberFoodLogEntry>(input: {
+  rows: T[];
+  productById: Map<string, LedgerProductFacts>;
+  proteinPerServingByProductId: Map<string, number | null>;
+  proteinLevelByScanId: Map<string, FoodLensMealMacroLevel | null>;
+  localDateFor: (consumedAt: string) => string;
+}): Array<LedgerEntryWithProtein & { localDate: string }> {
+  return input.rows.map((row) => {
+    const product = row.product_id ? (input.productById.get(row.product_id) ?? null) : null;
+    const proteinPerServing = row.product_id
+      ? (input.proteinPerServingByProductId.get(row.product_id) ?? null)
+      : null;
+    const source = resolveEntrySource({
+      productId: row.product_id,
+      scanId: row.scan_id,
+      productBarcode: product?.barcode ?? null,
+      productDataSource: product?.dataSource ?? null,
+    });
+    return {
+      ...row,
+      productName: product?.name ?? row.manual_label ?? null,
+      proteinGrams: entryProteinGrams(row, { proteinG: proteinPerServing }),
+      source,
+      estimatedProteinLevel:
+        source === 'meal_photo' && row.scan_id
+          ? (input.proteinLevelByScanId.get(row.scan_id) ?? null)
+          : null,
+      localDate: input.localDateFor(row.consumed_at),
+    };
+  });
 }
 
 /** Sum of every entry's protein grams, ignoring entries with no known value — an unresolved entry should never silently count as 0g. */

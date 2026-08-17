@@ -15,6 +15,7 @@ import {
   Sparkles,
   Activity,
   Beef,
+  Compass,
 } from 'lucide-react';
 import { listAssignedClients } from '@/app/actions/coach';
 import { listCoachReviewQueue } from '@/app/actions/safety';
@@ -200,6 +201,37 @@ export default async function CoachPage() {
           <div className="flex items-center gap-2 text-[#854D0E]">
             <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Generate</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
+        {/* ---------------------------------------------------- */}
+        {/* Exercise Library and Movement Profile — the two internal   */}
+        {/* movement tools. Both used to sit on the member Movement    */}
+        {/* screen and are now coach/admin only (see                   */}
+        {/* lib/auth/staffRouting.ts's STAFF_ONLY_PREFIXES), so they   */}
+        {/* are surfaced here instead: nothing was removed from the    */}
+        {/* platform, only from the member app. Same "reached from the */}
+        {/* coach dashboard" convention as Program Library above.      */}
+        {/* ---------------------------------------------------- */}
+        <Link
+          href={'/exercises' as Route}
+          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:opacity-90`}
+        >
+          <div className="flex items-center gap-2 text-[#854D0E]">
+            <Dumbbell className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Exercise Library</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+
+        <Link
+          href={'/movement/profile' as Route}
+          className={`${CARD} mt-5 flex items-center justify-between p-6 transition hover:opacity-90`}
+        >
+          <div className="flex items-center gap-2 text-[#854D0E]">
+            <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">Movement Profile</p>
           </div>
           <ChevronRight className="h-4 w-4 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
         </Link>

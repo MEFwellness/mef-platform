@@ -80,12 +80,14 @@ export const MEMBER_ONLY_PREFIXES = [
   // would be redesigning the coach platform rather than deciding where
   // these accounts land.
   '/notifications',
-  // Member-facing features.
+  // Member-facing features. '/movement' owns its subtree here EXCEPT
+  // '/movement/profile', which is staff-only (see STAFF_ONLY_PREFIXES
+  // below) — isMemberOnlyPath subtracts the staff-only list, so the two
+  // can never both claim the same path.
   '/food-lens',
   '/movement',
   '/conversation',
   '/programs',
-  '/exercises',
   '/connections',
   '/membership',
   '/profile',
@@ -109,16 +111,59 @@ export const MEMBER_ONLY_PREFIXES = [
 ] as const;
 
 /**
- * Prefix match, not equality: a member surface owns its whole subtree
- * (/checkin/evening, /food-lens/protein/ledger, /assessments/wbsa/take).
- * The boundary check keeps a prefix from swallowing an unrelated sibling
- * route added later, so `/case` never matches a future `/cases-study`
- * while still matching `/case` and `/case/anything`.
+ * The internal movement tooling, by route prefix. The mirror image of the
+ * list above: these belong to coaches and administrators, and a member
+ * never sees them at all.
+ *
+ * WHY THESE TWO. The Exercise Library is a browsable catalog of every
+ * exercise in the system, and the Movement Profile is the permanent
+ * movement record a coach builds a prescription from. Both were built as
+ * member-facing screens and reached from the Movement dashboard; both are
+ * really coaching instruments, and a member browsing raw catalog entries
+ * or editing the record their programming is derived from is not the
+ * experience this product wants to offer. They are removed from the member
+ * app entirely rather than locked or teased, so a member has no reason to
+ * know they exist.
+ *
+ * WHAT A MEMBER KEEPS. Everything a coach has actually prescribed. A
+ * program or session still renders each exercise's own media and cues
+ * inline (components/movement/MovementExerciseCard.tsx,
+ * components/movement-sessions/MovementSessionPlayer.tsx) — none of which
+ * routes through /exercises. Only the browsable library and the profile
+ * page are gone.
+ *
+ * SAME KIND OF RULE AS ABOVE, POINTED THE OTHER WAY. This is routing, not
+ * authorization: RLS still decides which rows any account may read or
+ * write. The pages themselves each re-check the role server-side too, so a
+ * request that somehow bypasses middleware still does not render.
  */
-export function isMemberOnlyPath(path: string): boolean {
-  return MEMBER_ONLY_PREFIXES.some(
+export const STAFF_ONLY_PREFIXES = ['/exercises', '/movement/profile'] as const;
+
+/** Shared prefix-boundary match, so `/case` never swallows a future `/cases-study` while still matching `/case` and `/case/anything`. */
+function matchesPrefix(path: string, prefixes: readonly string[]): boolean {
+  return prefixes.some(
     (prefix) => path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(`${prefix}?`)
   );
+}
+
+/** Whether this path is one of the internal movement tools. */
+export function isStaffOnlyPath(path: string): boolean {
+  return matchesPrefix(path, STAFF_ONLY_PREFIXES);
+}
+
+/**
+ * Prefix match, not equality: a member surface owns its whole subtree
+ * (/checkin/evening, /food-lens/protein/ledger, /assessments/wbsa/take).
+ *
+ * The staff-only list is subtracted rather than the member list being
+ * hand-pruned, so `/movement` can keep owning its subtree in one entry and
+ * `/movement/profile` can still be staff-only. A path is one kind or the
+ * other, never both, which is what keeps the two middleware gates from
+ * fighting over the same request.
+ */
+export function isMemberOnlyPath(path: string): boolean {
+  if (isStaffOnlyPath(path)) return false;
+  return matchesPrefix(path, MEMBER_ONLY_PREFIXES);
 }
 
 export interface StaffRoles {
@@ -169,6 +214,32 @@ export function staffRedirectFor(input: StaffRoutingInput): string | null {
   if (input.path === home) return null;
 
   return home;
+}
+
+/** Where a member who typed an internal movement tool's URL is sent instead. Their own Movement screen, not a dead end and not an error. */
+export const MEMBER_FALLBACK_PATH = '/movement';
+
+/**
+ * Where this request must be redirected because the path is an internal
+ * movement tool and this account is not staff, or null to let it through.
+ *
+ * The same shape and the same failure posture as staffRedirectFor above,
+ * pointed the other way: null for every signed-out request (middleware's
+ * own sign-in redirect runs first), and null for every coach or
+ * administrator, who reach the tool untouched.
+ *
+ * hasActiveRole() fails closed to false, which HERE means "treat as a
+ * member" and redirect. That is the safe direction for this rule: a broken
+ * role lookup sends a coach to the Movement screen for one request, which
+ * is a small annoyance, rather than opening an internal tool to a member.
+ * It is the opposite trade-off from the member-only rule above, and
+ * deliberately so, because the consequence of being wrong is not symmetric.
+ */
+export function memberRedirectForStaffOnlyPath(input: StaffRoutingInput): string | null {
+  if (!input.hasUser) return null;
+  if (!isStaffOnlyPath(input.path)) return null;
+  if (input.isCoach || input.isAdmin) return null;
+  return MEMBER_FALLBACK_PATH;
 }
 
 /**

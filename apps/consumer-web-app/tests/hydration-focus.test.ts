@@ -641,12 +641,12 @@ describe('the paths that do NOT go through the Daily Wellness Index', () => {
     // not 'hydration' — the domain records which engine produced it, not
     // what it is about. Filtering on domain alone missed it completely.
     const daily = {
-      sourceDomain: 'daily_coaching',
+      sourceDomain: 'daily_coaching' as const,
       title: "Today's coaching focus: Hydration",
       explanation: 'Your recent check-ins point to hydration as today’s most useful place to focus.',
     };
     const stress = {
-      sourceDomain: 'daily_coaching',
+      sourceDomain: 'daily_coaching' as const,
       title: "Today's coaching focus: Stress",
       explanation: 'Your recent check-ins point to stress as today’s most useful place to focus.',
     };

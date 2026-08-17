@@ -35,6 +35,7 @@ export default async function ProteinLedgerPage() {
     consumedAt: e.consumed_at,
     proteinGrams: e.proteinGrams,
     source: e.source,
+    estimatedProteinLevel: e.estimatedProteinLevel,
   }));
 
   const targetDisplay = resolveLedgerTargetDisplay(today.targetState);

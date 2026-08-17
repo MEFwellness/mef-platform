@@ -5,10 +5,10 @@
  * personalization: every member sees the same six, in the same order, and
  * picks one. That is the whole screen.
  *
- * Reached from the Movement screen's existing nav-link card stack, which
- * is where the audit for this build put it: /movement already carries the
- * Exercise Library and Movement Profile entry points, and this is the
- * third thing of that kind.
+ * Reached from the Movement screen's nav-link card stack, and now the only
+ * entry in it: the Exercise Library and Movement Profile cards that used
+ * to sit alongside this one were removed from the member app when both
+ * became internal coaching tools (lib/auth/staffRouting.ts).
  *
  * The sessions themselves are rows (migration 153), so this page has no
  * knowledge of what is in any of them. If the templates table is not

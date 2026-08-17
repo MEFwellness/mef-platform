@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { isMemberOnlyPath, staffHomePath, staffRedirectFor } from '@/lib/auth/staffRouting';
+import {
+  isMemberOnlyPath,
+  isStaffOnlyPath,
+  memberRedirectForStaffOnlyPath,
+  staffHomePath,
+  staffRedirectFor,
+} from '@/lib/auth/staffRouting';
 import { decideEntryAnimationPlay } from '@/lib/entry-animation/rule';
 import {
   ENTRY_ANIMATION_LAST_ACTIVE_COOKIE,
@@ -250,6 +256,37 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(
         new URL(staffHomePath({ isCoach, isAdmin }) ?? '/dashboard', request.url)
       );
+    }
+  }
+
+  // The internal movement tools, gated the other way round: the Exercise
+  // Library and the Movement Profile are coaching instruments, and a
+  // member who types either URL is sent back to their own Movement screen.
+  //
+  // Placed immediately before the member-only rule below, and mutually
+  // exclusive with it by construction — isMemberOnlyPath() subtracts
+  // STAFF_ONLY_PREFIXES, so exactly one of these two blocks can ever claim
+  // a given request and a coach on /movement/profile is not bounced to
+  // /coach by the rule underneath.
+  //
+  // Costs a member one round trip on exactly these two prefixes, which
+  // they have no way to reach from anywhere in the app anymore, so in
+  // practice this is paid only by a typed URL or an old bookmark. Both
+  // pages re-check the same role server-side before rendering; this is the
+  // clean redirect, not the boundary.
+  if (user && isStaffOnlyPath(path)) {
+    const [isCoach, isAdmin] = await Promise.all([
+      hasActiveRole(supabase!, user.id, 'coach'),
+      hasActiveRole(supabase!, user.id, 'platform_administrator'),
+    ]);
+    const memberDestination = memberRedirectForStaffOnlyPath({
+      hasUser: true,
+      isCoach,
+      isAdmin,
+      path,
+    });
+    if (memberDestination) {
+      return NextResponse.redirect(new URL(memberDestination, request.url));
     }
   }
 

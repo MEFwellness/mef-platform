@@ -135,7 +135,7 @@ describe('the staff bar comes from a route layout, so future staff pages inherit
 });
 
 describe('the admin and coach chrome never renders for a member', () => {
-  it('StaffNav is reached from exactly three places, and none of them is a member page', () => {
+  it('StaffNav is reached only from staff surfaces, never from a member page', () => {
     const importers = execSync("grep -rl \"from '@/components/StaffNav'\" app components", {
       cwd: ROOT,
       encoding: 'utf-8',
@@ -149,6 +149,16 @@ describe('the admin and coach chrome never renders for a member', () => {
       'components/BottomNav.tsx',
       'app/admin/layout.tsx',
       'app/coach/layout.tsx',
+      // The two internal movement tools (2026-08-16). These live outside
+      // the /coach and /admin route groups, at URLs they held when they
+      // were member screens, so no layout draws their chrome for them and
+      // each names StaffNav itself. Both are gated coach/administrator
+      // only, in middleware.ts and again server-side in the page — see
+      // lib/auth/staffRouting.ts's STAFF_ONLY_PREFIXES and
+      // lib/auth/staffOnlyPage.ts.
+      'app/exercises/page.tsx',
+      'app/exercises/[id]/page.tsx',
+      'app/movement/profile/page.tsx',
     ].sort());
   });
 

@@ -82,6 +82,34 @@ export default async function AdminPage() {
           </p>
         </Link>
 
+        {/* The two internal movement tools. Both used to sit on the member
+            Movement screen and are now coach/admin only (see
+            lib/auth/staffRouting.ts's STAFF_ONLY_PREFIXES), so an
+            administrator who is not also a coach still has a way in. */}
+        <Link
+          href={'/exercises' as Route}
+          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Movement</p>
+          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">Exercise Library</p>
+          <p className="mt-1 text-sm text-[#6B7A72]">
+            Search and browse every exercise in the catalog: videos, instructions, and muscles
+            worked. Internal tool, not visible to members.
+          </p>
+        </Link>
+
+        <Link
+          href={'/movement/profile' as Route}
+          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Movement</p>
+          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">Movement Profile</p>
+          <p className="mt-1 text-sm text-[#6B7A72]">
+            The movement record recommendations are built from. A specific client&apos;s profile is
+            edited from that client&apos;s own page on the coach dashboard.
+          </p>
+        </Link>
+
         <AdminPanel users={users} coachIds={coachIds} assignments={assignments} />
       </main>
 

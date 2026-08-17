@@ -1,35 +1,43 @@
 /**
- * Movement Profile — the permanent movement record every future Program,
- * Root recommendation, Progress view, and Coach tool reads from (migration
- * 81). A member edits their own goals/equipment/priorities here; anything
+ * Movement Profile — the permanent movement record every Program, Root
+ * recommendation, Progress view, and Coach tool reads from (migration 81).
+ * The goals/equipment/priorities half is editable here; anything
  * coach-authored (limitations, restrictions, clearance) is shown read-only
  * — see MovementProfileCoachSummary's own doc comment for why.
+ *
+ * COACH AND ADMINISTRATOR ONLY, and this screen shows the signed-in
+ * account's OWN record. A coach editing a CLIENT's Movement Profile does
+ * it where the rest of that client's record lives, on
+ * app/coach/clients/[id] (MovementProfilePanel) — that panel is untouched
+ * by this change and is still the real per-client tool.
+ *
+ * See lib/auth/staffRouting.ts's STAFF_ONLY_PREFIXES for why this left the
+ * member app, and lib/auth/staffOnlyPage.ts for the server-side half of
+ * the gate middleware.ts also enforces.
  */
 
-import { redirect } from 'next/navigation';
+import type { Route } from 'next';
 import { Compass } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { getCachedUser } from '@/lib/supabase/currentUser';
+import { StaffNav } from '@/components/StaffNav';
+import { requireStaffForInternalTool } from '@/lib/auth/staffOnlyPage';
 import { BackButton } from '@/components/BackButton';
 import { getOrCreateMovementProfile } from '@/lib/movement-profile/data';
 import { MovementProfileForm } from '@/components/movement-profile/MovementProfileForm';
 import { MovementProfileCoachSummary } from '@/components/movement-profile/MovementProfileCoachSummary';
 
 export default async function MovementProfilePage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  const { isCoach, isAdmin } = await requireStaffForInternalTool();
 
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
-  const profile = await getOrCreateMovementProfile(supabase, user.id);
+  const supabase = createClient();
+  const user = await getCachedUser();
+  const profile = user ? await getOrCreateMovementProfile(supabase, user.id) : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
-        <BackButton fallbackHref="/movement" label="Movement" />
+        <BackButton fallbackHref={(isCoach ? '/coach' : '/admin') as Route} label="Back" forceFallback />
 
         <div className="mt-4 flex items-center gap-2 text-[#6B7A72]">
           <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -38,11 +46,12 @@ export default async function MovementProfilePage() {
 
         <div className="mt-2">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-            Your Movement Profile
+            Movement Profile
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
-            The foundation for how MEF Wellness recommends movement for you: goals, equipment, and
-            priorities you control, plus anything your coach has added.
+            The record movement recommendations are built from: goals, equipment, and priorities,
+            plus anything a coach has added. To edit a client&apos;s profile, open that client from
+            the coach dashboard.
           </p>
         </div>
 
@@ -59,12 +68,12 @@ export default async function MovementProfilePage() {
           </div>
         ) : (
           <div className="mt-7 rounded-2xl border border-dashed border-[#1B3A2D]/15 px-4 py-6 text-center text-sm text-[#6B7A72]">
-            Could not load your Movement Profile. Please try again.
+            Could not load this Movement Profile. Please try again.
           </div>
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <StaffNav isCoach={isCoach} isAdmin={isAdmin} />
     </div>
   );
 }

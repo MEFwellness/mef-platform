@@ -1,14 +1,17 @@
 /**
  * Exercise detail — read entirely from our own database (exercise_catalog
  * + mef_exercise_metadata), never a live vendor call, merged with the
- * member's favorite state before render. A missing exercise id renders an
+ * viewer's favorite state before render. A missing exercise id renders an
  * inline "not found" state instead of throwing.
+ *
+ * Coach and administrator only, exactly like the library index it is
+ * reached from — see app/exercises/page.tsx's own header.
  */
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { StaffNav } from '@/components/StaffNav';
+import { requireStaffForInternalTool } from '@/lib/auth/staffOnlyPage';
 import { BackButton } from '@/components/BackButton';
 import { ExerciseDetailView } from '@/components/exercise-library/ExerciseDetailView';
 import { ErrorBanner, type ExerciseApiErrorShape } from '@/components/exercise-library/StateBanners';
@@ -28,7 +31,7 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
+  const { isCoach, isAdmin } = await requireStaffForInternalTool();
 
   let error: ExerciseApiErrorShape | null = null;
   let content: React.ReactNode = null;
@@ -88,7 +91,7 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
         <div className="mt-6">{error ? <ErrorBanner error={error} /> : content}</div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <StaffNav isCoach={isCoach} isAdmin={isAdmin} />
     </div>
   );
 }

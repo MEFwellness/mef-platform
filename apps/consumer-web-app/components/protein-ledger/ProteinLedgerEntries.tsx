@@ -18,6 +18,7 @@ import {
 } from '@/app/actions/food-products';
 import { roundGrams } from '@/lib/protein/ledger';
 import type { LedgerEntrySource } from '@/lib/protein/ledger';
+import type { FoodLensMealMacroLevel } from '@mef/shared-types-contracts';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -25,6 +26,21 @@ const SOURCE_LABEL: Record<LedgerEntrySource, string> = {
   scan: 'Scanned',
   search: 'Searched',
   quick_add: 'Quick add',
+  meal_photo: 'Meal photo',
+};
+
+/**
+ * What a meal-photo entry shows in place of a gram figure. Root reads a
+ * meal photo as a relative level, never as a measurement, so this is the
+ * honest answer rather than a number: the row is present (the meal was
+ * logged, and the member can see that it was) and it adds nothing to the
+ * tally.
+ */
+const ESTIMATED_LEVEL_LABEL: Record<FoodLensMealMacroLevel, string> = {
+  none: 'No protein read',
+  low: 'Low protein',
+  moderate: 'Moderate protein',
+  high: 'High protein',
 };
 
 export type LedgerEntryRow = {
@@ -35,6 +51,7 @@ export type LedgerEntryRow = {
   consumedAt: string;
   proteinGrams: number | null;
   source: LedgerEntrySource;
+  estimatedProteinLevel: FoodLensMealMacroLevel | null;
 };
 
 function formatTime(iso: string): string {
@@ -117,19 +134,38 @@ export function ProteinLedgerEntries({ entries: initial }: { entries: LedgerEntr
               <p className="mt-0.5 text-xs text-[#6B7A72]">
                 {formatTime(entry.consumedAt)} · {SOURCE_LABEL[entry.source]}
               </p>
+              {entry.source === 'meal_photo' && (
+                <p className="mt-0.5 text-xs text-[#9AA79F]">
+                  Estimated from your photo, so it isn&apos;t counted in grams.
+                </p>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-3">
-              <p className="text-sm font-semibold text-[#1B3A2D]">
-                {entry.proteinGrams !== null ? `${roundGrams(entry.proteinGrams)}g` : '-'}
-              </p>
-              <button
-                type="button"
-                onClick={() => setEditingId(entry.id)}
-                aria-label="Edit entry"
-                className="mef-press rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] hover:text-[#1B3A2D]"
+              <p
+                className={
+                  entry.source === 'meal_photo'
+                    ? 'text-right text-xs font-medium text-[#9AA79F]'
+                    : 'text-sm font-semibold text-[#1B3A2D]'
+                }
               >
-                <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-              </button>
+                {entry.source === 'meal_photo'
+                  ? (entry.estimatedProteinLevel
+                      ? ESTIMATED_LEVEL_LABEL[entry.estimatedProteinLevel]
+                      : 'Estimated')
+                  : entry.proteinGrams !== null
+                    ? `${roundGrams(entry.proteinGrams)}g`
+                    : '-'}
+              </p>
+              {entry.source !== 'meal_photo' && (
+                <button
+                  type="button"
+                  onClick={() => setEditingId(entry.id)}
+                  aria-label="Edit entry"
+                  className="mef-press rounded-full p-2 text-[#9AA79F] hover:bg-[#1B3A2D]/[0.06] hover:text-[#1B3A2D]"
+                >
+                  <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleRemove(entry.id)}
