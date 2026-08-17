@@ -12,6 +12,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import type { WellnessInsight, WellnessInsightStatus } from '@mef/shared-types-contracts';
 import type { WellnessInsightDraft } from './types';
+import { isHydrationTracked } from '../hydration/data';
+import { HYDRATION_WELLNESS_METRIC_KEY as HYDRATION_WELLNESS_AREA } from '../hydration/constants';
 
 export async function insertWellnessInsight(
   supabase: SupabaseClient,
@@ -178,13 +180,28 @@ export async function listInsightsForMember(
     query = query.in('status', options.statusFilter);
   }
 
-  const { data, error } = await query;
+  const [{ data, error }, hydrationTracked] = await Promise.all([
+    query,
+    isHydrationTracked(supabase, memberId),
+  ]);
   if (error) {
     console.error('listInsightsForMember failed', error);
     return [];
   }
 
-  return (data as WellnessInsight[]).sort(
+  // Conditional water tracking (migration 163). wellness_insights are
+  // persisted rows, so a hydration insight written before she turned water
+  // off would keep being read afterwards — by her Morning Brief's "notable
+  // pattern" callout, by her coach's screens, and by the AI rule facts.
+  // Withheld at read, never deleted, exactly as with recommendations and
+  // pattern states. The insights this member can still earn are unaffected:
+  // detectInsights stopped producing hydration ones the moment the flag
+  // flipped (lib/wellness/wellness-index.ts's own gate).
+  const rows = (data as WellnessInsight[]).filter(
+    (row) => hydrationTracked || row.wellness_area !== HYDRATION_WELLNESS_AREA
+  );
+
+  return rows.sort(
     (a, b) =>
       Number(b.is_pinned) - Number(a.is_pinned) ||
       SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]
