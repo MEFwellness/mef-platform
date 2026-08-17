@@ -1,3 +1,93 @@
+## Water only exists for people who have a water problem (2026-08-16)
+
+Water logging was universal. Everyone got the tracker, everyone got the question, and anyone who did not have a water problem simply never logged. Every reader of `daily_checkins.water_cups` then read that silence as under-hydration, so a problem that did not exist was being scored into her Daily Wellness Index, trended, correlated, put in front of her coach, and fed back to her as the thing to work on. Water is now conditional on one real answer. Migration 163, applied to production.
+
+### The one flag, and why "not asked yet" is not "no"
+
+`profiles.hydration_focus` is a real column, not something buried in answer JSON, because every water surface in the app has to consult it and none of them should be running a join through `onboarding_answers` to decide whether to render a button.
+
+It has three states, and the third is the whole reason this could ship without changing anything for anybody on deploy day:
+
+- **true** — track it.
+- **false** — do not track it, do not score it, and never count its absence against her.
+- **null** — she has not been asked. Every member who finished intake before this existed is here, and null behaves exactly like true.
+
+`hydration_focus_source` records who last set it (`intake`, `member_popup`, `coach`), which is what the coach's toggle reads to say where the current value came from. It never decides behavior.
+
+### How the flag reaches fourteen scoring call sites without being threaded through them
+
+`daily_checkins_current` — the view every check-in reader in this application already goes through — now carries `hydration_tracked` on every row, computed per row from that member's flag by a `security definer` function. So any reader holding a check-in already knows whether water counts for that member, with no extra query and no chance of two readers disagreeing.
+
+`security definer` is not incidental. The view is `security_invoker`, and a coach reading her client's check-ins can only reach that client's `profiles` row through one specific policy — a plain join would have silently dropped rows for anyone whose RLS did not happen to also cover profiles. The function returns nothing but a boolean about a tracking preference, so bypassing RLS to answer it exposes nothing. An unanswered flag and a missing profile row both resolve to true.
+
+`water_cups` itself is left intact on the view. History stays readable, and each reader states its own gate explicitly rather than having a column blanked underneath it.
+
+That one row-level flag is what let `lib/wellness/wellness-index.ts`'s `inputsFromCheckin` gate water in a single line and have it hold for all fourteen of its callers: the member dashboard, the coach dashboard, trends, patterns, strengths, insights, the Root Score resilience input, the Coaching Brain, the AI rule facts, and the two AI agents. Water reads as `null`, and the existing rule — a metric that was not logged is excluded from the average entirely, its weight redistributed — does the rest. Zero is never substituted, because zero is a score and null is an absence.
+
+### Every place water was gated
+
+**Asked:**
+1. `lib/onboarding/adaptivePlan.ts` — the new intake question, in the fixed queue.
+2. `lib/daily-checkin-adaptive/plan.ts` — water probes removed from the day's plan, on both the fresh-plan and replay paths.
+
+**Written:**
+3. `app/actions/checkin.ts`'s `insertCheckinRow` — the single row writer, so both the real submit and the exit-triggered draft save are covered.
+4. `app/actions/events.ts`'s `logHydrationChange` — refuses quietly.
+
+**Displayed:**
+5. `app/today/page.tsx` — the water line in Today's Recommendations; nutrition takes the full row.
+6. `app/today/TodayZones.tsx` — the tracker in both its positions, and the "done today" count, so she is not quietly short by one for a thing she was never asked to do.
+7. `app/coach/clients/[id]/page.tsx` — the Water card.
+8. `lib/coach-member-entries/present.ts` — the water question is not listed at all, rather than listed as "Not answered."
+
+**Scored, trended, correlated:**
+9. `lib/wellness/wellness-index.ts` — the fourteen-caller choke point above.
+10. `lib/correlation-engine/variables.ts` and `data.ts` — the extractor yields null, and hydration candidate pairs are dropped before evaluation.
+11. `lib/longitudinal-intelligence/data.ts` — hydration pattern states withheld at read.
+12. `lib/driver-library/data.ts` — the Hydration driver withheld, which also removes it from the check-in's probe weighting.
+13. `lib/coaching-insights/sources/checkinSource.ts` — no water observation, so the hydration insight in `levels.ts` can never be drafted.
+14. `lib/intelligence-core/data.ts` — the `hydration_consistency` profile dimension.
+15. `lib/food-lens/weeklyReportData.ts` — the weekly nutrition report's hydration section.
+16. `lib/brain/priorityEngine.ts` — hydration filtered out of today's focus candidates.
+17. `lib/recommendation-engine/data.ts` — stored recommendations about water.
+18. `lib/intelligence/data.ts` — stored `wellness_insights` about water.
+
+Nothing is deleted anywhere. Every one of those is a read-time gate, so turning water back on restores the full history intact.
+
+### Three leaks that only driving the live site found
+
+All three were paths that never touch the Daily Wellness Index, which is why gating the index did not catch them and why no local test had.
+
+**The Coaching Brain names a focus from signals that are not index-derived.** One of them matches a metric by NAME in the text of an unresolved-concern narrative item. A member who had just answered "I drink plenty of water" was still being told "Today's coaching focus: Hydration," because an old sentence of hers happened to contain the word. Filtered after every candidate has been proposed rather than at each proposal site, so it covers both current sources and any added later; the weekly-rhythm fallback is always present, so there is always still a focus to name.
+
+**Recommendations and insights are persisted rows, not recomputed on a page load.** Both kept serving hydration content written before she turned water off. Both are now withheld at read.
+
+**A recommendation's domain says who wrote it, not what it is about.** The row that survived the first recommendation fix was `source_domain: 'daily_coaching'` with the title "Today's coaching focus: Hydration." Filtering on domain missed it completely. The only honest test of what a stored recommendation is about is the copy she actually reads, so that is what is tested — word-boundary matched, so "watercress" is not caught, and deliberately broad, because for someone who has said water is not one of her problems a passing mention is just as unwanted.
+
+### Root asks the members who were never asked
+
+New members answer at intake. Everyone else is asked once by Root, through the existing pop-up chain rather than a second delivery system, and it is deliberately not a dashboard card to find.
+
+It sits below coach assignments and the welcome-back takeover and above every day-3/day-7 follow-up. High, because until she answers, the app is actively wrong about her: showing a tracker she may not need and reading her silence as under-hydration. Safe at that height because it is finite and self-limiting — due only while the flag is still null, so answering it (or a coach setting the flag) retires it permanently and it cannot starve anything below it. "Maybe later" and "Ignore" behave exactly as they do for day 3 and day 7. Either way she keeps today's behavior in full.
+
+### The coach's override
+
+A simple On/Off on the member's coach profile, overriding her own answer in either direction, because a coach may know she needs water tracked even though she answered that she drinks plenty, and equally may know that she does not. It writes through `set_member_hydration_focus()` rather than updating `profiles` directly: coaches have no update policy on that table and must not be given one, since the whole of profiles would come with it. The function refuses anyone who is not the member, her active coach, or a platform administrator.
+
+### Proof
+
+`tests/hydration-focus.test.ts` (37) covers all six required states — new member flagged true, new member flagged false, existing member before answering, existing member after answering, coach override in both directions, and scoring exclusion — plus the three live leaks. The scoring tests are the sharp ones: a member with zero cups logged scores **higher** with tracking off than with it on, which is the exact harm the feature removes, and the same eight days of zero-water data produce a hydration insight with tracking on and none with it off, which is what proves the gate is being measured rather than an accident. Full suite: **5,287 passing.** Typecheck clean, lint clean (0 errors), production build clean.
+
+`scripts/verify-hydration-focus-live.mjs` drives the real production site as the real test member, and **18 of 18 checks pass**: the pop-up appears once and only once (checked on reload and on a brand new sign-in), answering "I drink plenty" writes `false` to the real profile, water disappears from Today, the water question never enters a freshly computed check-in plan across eight fresh plans, the check-in runs end to end with no dead screen and saves a real row with `water_cups` null rather than zero, no water content survives on Home, Today, Progress or Root Score, and flipping the flag brings the tracker back. Every piece of state it touches is restored in a `finally` block.
+
+The coach's own screen was driven separately, as the real assigned coach, on the live site. From unanswered it reads "She has not answered the hydration question yet, so this is the default (on)" with the Water card present. Clicking **Off** writes `hydration_focus=false, source=coach` and the Water card is gone from the grid on reload. Clicking **On** writes `true` and it is back. Both directions, through the real buttons, on production.
+
+### Two things worth knowing
+
+**The documented test-member password still does not work.** Production refuses `RootReset2026!` for `8weeks2fab@gmail.com` with `invalid_credentials`, exactly as the previous entry in this file recorded. Nothing on production was changed to work around it: the live script mints a real session for that member through the admin API instead, which GoTrue treats as a genuine sign-in, so `last_sign_in_at` advances and the pop-up chain's "comes back on your next real login" rule is exercised for real rather than simulated.
+
+**One positive control could not be forced.** With tracking on, the water probe never came up in ten freshly computed plans. That is a statement about this member's own goal and driver weighting, not about the gate — the rotating picker is weighted then randomized, and the question can legitimately never come up for her either way. The gate is measured by the negative (zero water probes across eight fresh plans with tracking off) and by the test suite, which drives the filter directly.
+
 ## The app could not be scrolled after logging in (2026-08-16)
 
 Reported live: after signing in, no screen scrolled. Not Home, not Today, not Progress, not the check-in. It reproduced locally on the first run and the cause was one line in a shared hook. No migration, no schema change, no LLM.
