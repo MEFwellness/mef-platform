@@ -451,10 +451,20 @@ async function run() {
       !screensSeen.some((t) => /how much water|cups of water|drank enough water|hydration/i.test(t)),
       `${screensSeen.length} screens walked`
     );
+    // A screen only counts as dead if it never advanced AND the check-in
+    // never landed. The final screen's button reads "Save check-in" and
+    // becomes "Saving..."; treating that as a dead end is what an earlier
+    // version of this script did, and it was wrong both times it said so.
+    const saved = await service
+      .from('daily_checkins_current')
+      .select('local_date')
+      .eq('user_id', id)
+      .eq('local_date', localDate)
+      .maybeSingle();
     check(
       'the check-in has no dead screen: every screen advanced',
-      stuckOn === null,
-      stuckOn ?? ''
+      stuckOn === null || Boolean(saved.data),
+      stuckOn && !saved.data ? stuckOn : ''
     );
     // The decisive proof that it really completed: a real row for today,
     // with water absent rather than zeroed.

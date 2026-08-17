@@ -35,6 +35,7 @@ import {
 import { detectInsights } from '@/lib/wellness/insights';
 import { checkinAnswers } from '@/lib/coach-member-entries/present';
 import { pairsExcludingUntrackedHydration } from '@/lib/correlation-engine/data';
+import { isAboutWater as recommendationIsAboutWater } from '@/lib/recommendation-engine/data';
 import { VARIABLE_EXTRACTORS } from '@/lib/correlation-engine/variables';
 import {
   CORE_LIFESTYLE_KEYS,
@@ -632,6 +633,37 @@ describe('the paths that do NOT go through the Daily Wellness Index', () => {
       signals({ unresolvedAssessmentFocus: 'hydration', hydrationTracked: false })
     );
     expect(untracked.focus).not.toBe('hydration');
+  });
+
+  it('withholds a stored recommendation that is about water, whatever engine wrote it', () => {
+    // Found live, twice. The row still being shown to a member who had just
+    // answered "I drink plenty of water" was source_domain 'daily_coaching',
+    // not 'hydration' — the domain records which engine produced it, not
+    // what it is about. Filtering on domain alone missed it completely.
+    const daily = {
+      sourceDomain: 'daily_coaching',
+      title: "Today's coaching focus: Hydration",
+      explanation: 'Your recent check-ins point to hydration as today’s most useful place to focus.',
+    };
+    const stress = {
+      sourceDomain: 'daily_coaching',
+      title: "Today's coaching focus: Stress",
+      explanation: 'Your recent check-ins point to stress as today’s most useful place to focus.',
+    };
+
+    expect(recommendationIsAboutWater(daily)).toBe(true);
+    expect(recommendationIsAboutWater(stress)).toBe(false);
+    expect(
+      recommendationIsAboutWater({ sourceDomain: 'hydration', title: 'Sip more', explanation: 'x' })
+    ).toBe(true);
+    // Not fooled by a word that merely contains one of the terms.
+    expect(
+      recommendationIsAboutWater({
+        sourceDomain: 'sleep',
+        title: 'Watercress at dinner is fine',
+        explanation: 'No change needed.',
+      })
+    ).toBe(false);
   });
 
   it('drops hydration proposed as a confirmed long-term concern too', () => {

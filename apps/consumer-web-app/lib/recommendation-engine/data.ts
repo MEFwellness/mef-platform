@@ -13,6 +13,37 @@ import { isHydrationTracked } from '../hydration/data';
 /** RecommendationDomain for water (lib/intelligence-engine/recommendations.ts's AREA_DOMAINS). */
 const HYDRATION_RECOMMENDATION_DOMAIN = 'hydration';
 
+/**
+ * Conditional water tracking (migration 163) — which stored recommendations
+ * must not be shown to a member who does not track water.
+ *
+ * The domain alone is not enough, which a live run proved: the row still
+ * being shown to a member who had just answered "I drink plenty of water"
+ * was `source_domain: 'daily_coaching'` with the title "Today's coaching
+ * focus: Hydration". Its domain records which engine produced it, not what
+ * it is about, so the only honest test of what it is about is the copy the
+ * member actually reads.
+ *
+ * Recommendations are persisted rows and are not recomputed on a page load,
+ * so this is a read-time filter over history rather than a fix at the point
+ * of generation (which is also fixed: lib/brain/priorityEngine.ts can no
+ * longer choose hydration as her focus, so no new such row can be written).
+ * Nothing is deleted; turning water back on restores every one of them.
+ *
+ * Deliberately broad. For a member who has told us water is not one of her
+ * problems, a recommendation that merely mentions water in passing is
+ * exactly as unwanted as one about nothing else.
+ */
+const WATER_COPY = /\b(hydration|hydrated|hydrate|water)\b/i;
+
+export function isAboutWater(row: Pick<MemberRecommendationRow, 'sourceDomain' | 'title' | 'explanation'>): boolean {
+  return (
+    row.sourceDomain === HYDRATION_RECOMMENDATION_DOMAIN ||
+    WATER_COPY.test(row.title) ||
+    WATER_COPY.test(row.explanation)
+  );
+}
+
 type Row = {
   id: string;
   member_id: string;
@@ -162,16 +193,9 @@ export async function listMemberRecommendations(
     return [];
   }
 
-  // Conditional water tracking (migration 163). A member who turns water off
-  // may already have a hydration recommendation persisted from before she
-  // did, and recommendations are not recomputed on a page load — a real leak
-  // found on the live site, where "Today's coaching focus: Hydration" was
-  // still being recommended to a member who had just said she drinks plenty
-  // of water. Withheld at read, never deleted: turning water back on brings
-  // it and its whole history back.
   const rows = (data as Row[]).map(fromRow);
   if (hydrationTracked) return rows;
-  return rows.filter((row) => row.sourceDomain !== HYDRATION_RECOMMENDATION_DOMAIN);
+  return rows.filter((row) => !isAboutWater(row));
 }
 
 /** Fetches one recommendation by its real DB row id, scoped to the member — the lookup Lifestyle Experiments' startMyExperiment needs to validate category and copy title/protocol verbatim. */
