@@ -6,11 +6,17 @@ import { useSearchParams } from 'next/navigation';
 import { signIn } from '../../actions/auth';
 import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { PasskeyLoginButton } from '@/components/auth/PasskeyLoginButton';
+import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
+import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  // Null on every deployment where NEXT_PUBLIC_TURNSTILE_SITE_KEY is unset:
+  // TurnstileGate renders nothing, getToken() is never reached through a
+  // real widget, and the form submits the exact fields it always has.
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
   // middleware.ts sets this when a signed-out visit to a protected page
   // (a deep link) got bounced here — carried through so signIn() can send
   // the member back to it instead of always landing on the default
@@ -30,6 +36,8 @@ export default function LoginPage() {
           submittingRef.current = true;
           setError(null);
           setSubmitting(true);
+          const token = await turnstileRef.current?.getToken();
+          if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
           const result = await signIn(formData);
           if (result?.error) {
             setError(
@@ -39,6 +47,12 @@ export default function LoginPage() {
               })
             );
           }
+          // Turnstile tokens are single use. Getting here at all means the
+          // submission failed (a success redirects and unmounts this), so a
+          // fresh challenge has to be running before the member retries or
+          // the second attempt would be refused for spending a used token
+          // rather than for whatever they actually got wrong.
+          turnstileRef.current?.reset();
           submittingRef.current = false;
           setSubmitting(false);
         }}
@@ -68,6 +82,7 @@ export default function LoginPage() {
             className="mt-1.5 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
           />
         </div>
+        <TurnstileGate ref={turnstileRef} />
         {error && (
           <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -81,7 +96,14 @@ export default function LoginPage() {
           {submitting ? 'Logging in…' : 'Log in'}
         </button>
       </form>
-      <PasskeyLoginButton redirectedFrom={redirectedFrom} onError={setError} />
+      {/* Shares the one widget the form above already renders rather than
+          starting a second challenge: Face ID sign-in goes through the same
+          protected Supabase endpoint family and needs the same token. */}
+      <PasskeyLoginButton
+        redirectedFrom={redirectedFrom}
+        onError={setError}
+        turnstile={turnstileRef}
+      />
       <div className="mt-5 space-y-1.5 text-center text-sm">
         <p>
           <Link href="/signup" className="font-medium text-[#6B7A72] underline underline-offset-2">

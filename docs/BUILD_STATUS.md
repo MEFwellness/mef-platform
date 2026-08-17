@@ -7376,3 +7376,66 @@ Against `app.mefwellness.com`, commit `bcf7517`, deployment `mef-platform-r3rvvu
 | `verify-naming-decisions-live` | **15 / 15** new |
 
 No migrations were needed for any of the three decisions: all three are code, and the domain keys never moved.
+
+## Bot protection, shipped switched off (2026-08-17)
+
+Every auth screen can now carry a Cloudflare Turnstile token to Supabase. None of them does anything with it yet, and nothing about signing in, signing up or resetting a password changes until the switch is flipped in the Supabase dashboard.
+
+### Why it had to ship in this order
+
+Supabase enforces captcha at the endpoint. The moment "Enable Captcha protection" is turned on in the dashboard, GoTrue rejects every request to a protected endpoint that arrives without a valid token, immediately, for everybody. There is no grace period and no partial mode. So the token has to already be arriving before the switch is flipped, not after. Shipping the code first, dormant, is the only order in which nobody gets locked out.
+
+### The switch is one environment variable
+
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY`, read in exactly one place (`lib/turnstile/env.ts`). Unset means: no widget renders, no script is fetched from Cloudflare, no hidden field is added to any form, and every Server Action calls Supabase with the arguments it called before this existed.
+
+That last part is a real claim about the wire, not about the code, and it is tested as one. `captchaOptions()` returns `{}` when there is no token; supabase-js drops an absent `captchaToken` before serialising; the test captures both request bodies through a stubbed fetch and asserts they are identical strings.
+
+The SECRET key is not in this repository and is not in Vercel. It is pasted into the Supabase dashboard, and Supabase's auth server is the only thing that ever holds it. A test walks `lib/`, `app/` and `components/` and fails if anything ever reads one.
+
+### Every place a token now goes
+
+Found by asking which Supabase endpoints enforce a captcha, then finding every call to them.
+
+| Screen | Supabase call | Why it is protected |
+|---|---|---|
+| `/login` | `signInWithPassword` | One login screen serves member, coach and administrator, so this single call covers all three roles |
+| `/login` (Face ID) | `signInWithPasskey` | Accepts a token like every other sign-in method; borrows the form's widget rather than starting a second challenge |
+| `/signup` | `signUp` | The endpoint bot protection exists for: anonymous, creates rows, sends mail |
+| `/reset-password` | `resetPasswordForEmail` | Anonymous request that makes this app send mail to an address someone else typed |
+| `/verify` | `auth.resend` | Same shape as above |
+| `/account/password` | `signInWithPassword` | See below |
+
+**The change-password screen is the one that is easy to miss.** It is behind a session, so it looks exempt. It is not, because the way it proves you know your current password is a real sign-in attempt against the same protected endpoint the login screen uses. Without a token there, that screen would have started telling everybody "that is not your current password" the moment captcha was switched on, for a password that was correct.
+
+**`updateUser` needs nothing, confirmed rather than assumed.** Read directly from the installed `@supabase/auth-js` (2.112.0): `_updateUser` sends `PUT /user` with no `gotrue_meta_security` field at all, and its options carry only `emailRedirectTo`. So `/reset-password/confirm`, which sets a new password and nothing else, is deliberately left alone.
+
+### What a member sees
+
+Nothing, almost always. The widget runs in Cloudflare's interaction-only appearance: invisible, solved in the background, painting something on screen only for a visitor it cannot clear silently. When it does appear it sits in a cream card with a gold hairline in the app's own type, above one line of plain copy.
+
+When the check refuses a request, the member is told "We could not confirm that in time. Please try again." GoTrue's own wording for this is `captcha protection: request disallowed (invalid-input-response)`, which names internals and reads as an accusation. The match is checked before every other case in `getFriendlyAuthError`, specifically because signup opts into showing raw GoTrue text on fallback and this is exactly what must never land there. The same substitution is made for Face ID in `lib/passkey/errors.ts`.
+
+### The safety property
+
+A missing token is submitted as a missing token, never as a blocked submission.
+
+`getToken()` returns null rather than throwing or hanging if Cloudflare is slow, unreachable, or never answers, and every call site submits anyway. While the Supabase switch is off, that request succeeds exactly as it always did, so a bad day at Cloudflare cannot lock anybody out of an app that is not yet asking for a token. Once the switch is on, Supabase refuses it and the calm message explains it. The decision about whether a token is genuine belongs to Supabase, which holds the secret; this app only carries it.
+
+Tokens are single use, so every form resets its widget after any submission that reached Supabase, successful or not. A form that skipped that would refuse a member's second attempt for spending a used token rather than for whatever they actually got wrong. The sweep test asserts all five forms do it, with no exceptions list.
+
+### Proof
+
+Full suite **5,703 passing** (400 files), 28 of them new. Typecheck clean, lint clean (0 errors), production build clean.
+
+The dormant path was also proved against a real running server rather than only in tests. With the variable unset, `/login`, `/signup`, `/reset-password` and `/verify` all return 200 and contain zero widget markup and zero references to `challenges.cloudflare.com`. With it set, all four render the widget container, and the site key is confirmed inlined into the login page's client chunk, which is the mechanism the whole feature depends on.
+
+### Two things that were investigated, not built
+
+**Email confirmation is required on new signups.** Read from production `auth.users`, read-only. Eleven accounts were sent a confirmation email; **not one of them was auto-confirmed**. Every one shows `email_confirmed_at` landing 13 to 88 seconds after `created_at`, which is a person going to their inbox and clicking. The contrast within the same table is the proof: the seven admin and script provisioned accounts have gaps of 0 to 0.28 seconds and were never sent an email at all. One account created 2026-07-24 is still unconfirmed today, which could not happen if confirmation were optional.
+
+**Rate limits live in the Supabase dashboard, not in this repository.** Authentication, then Rate Limits. The email send limit is the one that binds first, and it is counted per hour across the whole project, shared by signup confirmations, resends and password resets. If the project is still on Supabase's built-in email service rather than its own SMTP, that ceiling is only a handful of messages an hour, which is fine at today's volume and is the first thing that breaks under a signup rush. Whether SMTP is configured could not be read from here (it needs a Management API token this environment does not hold), so it is on the owner checklist rather than asserted.
+
+### Vercel
+
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` was added to Production and Preview via the CLI. The widget is therefore live on the auth screens while the Supabase switch is still off, which is the intended dormant state: token offered, not yet required.

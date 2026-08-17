@@ -17,18 +17,26 @@
  * routing and entry-animation handoff signIn() does for a password login.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { isPasskeySupported } from '@/lib/passkey/support';
 import { getFriendlyPasskeyError, isPasskeyCancelled } from '@/lib/passkey/errors';
 import { completePasskeyLogin } from '@/app/actions/auth';
+import type { TurnstileHandle } from '@/components/auth/TurnstileGate';
 
 export function PasskeyLoginButton({
   redirectedFrom,
   onError,
+  turnstile,
 }: {
   redirectedFrom: string | null;
   onError: (message: string | null) => void;
+  /**
+   * The login form's own bot-check widget, borrowed rather than duplicated.
+   * Optional, and null on every deployment with no site key configured, in
+   * which case the passkey call below is byte-identical to what it was.
+   */
+  turnstile?: RefObject<TurnstileHandle | null>;
 }) {
   const [supported, setSupported] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -51,7 +59,10 @@ export function PasskeyLoginButton({
     setBusy(true);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPasskey();
+      const token = await turnstile?.current?.getToken();
+      const { data, error } = await supabase.auth.signInWithPasskey(
+        token ? { options: { captchaToken: token } } : undefined
+      );
       if (error) {
         // A cancelled/timed-out ceremony is not a member-facing error —
         // land back on normal login calmly, no error drama.
@@ -71,6 +82,10 @@ export function PasskeyLoginButton({
     } catch {
       onError('Face ID sign-in did not go through. Please try again or use your password.');
     } finally {
+      // Single-use token spent, whatever the outcome. Reaching here means
+      // the member is still on this screen and may try again, either with
+      // Face ID or with the password form that shares this same widget.
+      turnstile?.current?.reset();
       setBusy(false);
     }
   };

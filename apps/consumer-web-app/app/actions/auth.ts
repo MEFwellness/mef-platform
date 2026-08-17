@@ -18,6 +18,7 @@ import {
   ENTRY_ANIMATION_PLAY_COOKIE,
 } from '@/lib/entry-animation/cookies';
 import { resolvePostLoginPath, isSafePostLoginRedirect } from '@/lib/auth/postLoginRoute';
+import { captchaOptions, readCaptchaToken } from '@/lib/turnstile/captcha';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track';
 
@@ -124,11 +125,18 @@ function toResult(error: { message: string; status?: number | undefined }): Acti
  * (app/api/auth/callback/route.ts) redirects a brand-new member with no
  * display_name to app/name/page.tsx once, right after their account
  * actually exists, instead of asking for it before it does.
+ *
+ * Signup is the endpoint bot protection exists for — it is the one that
+ * creates rows and sends email on an anonymous request. The captcha token
+ * rides in the same FormData as everything else and is absent whenever
+ * NEXT_PUBLIC_TURNSTILE_SITE_KEY is unset, in which case captchaOptions()
+ * contributes nothing and this call is unchanged.
  */
 export async function signUp(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get('email') ?? '');
   const password = String(formData.get('password') ?? '');
   const timezone = String(formData.get('timezone') ?? 'America/New_York');
+  const captchaToken = readCaptchaToken(formData);
 
   try {
     const supabase = createClient();
@@ -138,6 +146,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
       options: {
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
         data: { timezone },
+        ...captchaOptions(captchaToken),
       },
     });
     if (error) {
@@ -150,8 +159,17 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   redirect(`/verify?email=${encodeURIComponent(email)}`);
 }
 
-/** Re-sends the signup confirmation email. Supabase enforces its own resend cooldown. */
-export async function resendVerificationEmail(email: string): Promise<ActionResult> {
+/**
+ * Re-sends the signup confirmation email. Supabase enforces its own resend
+ * cooldown. Takes the captcha token as a plain argument rather than reading
+ * FormData, because the verify screen's resend is a button, not a form —
+ * the token is still the same one the widget on that screen produced, and
+ * is undefined whenever bot protection is not configured.
+ */
+export async function resendVerificationEmail(
+  email: string,
+  captchaToken?: string
+): Promise<ActionResult> {
   try {
     const supabase = createClient();
     const { error } = await supabase.auth.resend({
@@ -159,6 +177,7 @@ export async function resendVerificationEmail(email: string): Promise<ActionResu
       email,
       options: {
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+        ...captchaOptions(captchaToken),
       },
     });
     if (error) {
@@ -209,11 +228,20 @@ export async function signIn(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get('email') ?? '');
   const password = String(formData.get('password') ?? '');
   const redirectedFrom = formData.get('redirectedFrom');
+  const captchaToken = readCaptchaToken(formData);
 
   let destination = '/';
   try {
     const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // One login screen serves members, coaches and administrators (role is
+    // resolved afterwards by resolvePostLoginPath), so this single call is
+    // every password sign-in in the app and carrying the token here covers
+    // all three roles at once.
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: captchaOptions(captchaToken),
+    });
     if (error) {
       logAuthFailure('supabase_request', 'signIn', error);
       return toResult(error);
@@ -325,9 +353,11 @@ export async function signOut(): Promise<void> {
 
 export async function requestPasswordReset(formData: FormData): Promise<ActionResult> {
   const email = String(formData.get('email') ?? '');
+  const captchaToken = readCaptchaToken(formData);
   try {
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      ...captchaOptions(captchaToken),
       // A bare path, with the recovery intent carried by the path itself
       // rather than a `?next=` parameter — see recoveryRedirectTo()'s own
       // comment for why that parameter was the thing turning a reset link
@@ -423,10 +453,21 @@ export interface ChangePasswordResult extends ActionResult {
  * throwaway session out uses scope 'local' deliberately: the default is
  * 'global', which would revoke every session this account holds, including
  * the one making this request, and log the member out mid-change.
+ *
+ * That verification step is why this screen carries a captcha token even
+ * though changing a password is something only a signed-in person can do.
+ * The token is not for the password change itself — updateUser() is not one
+ * of the endpoints Supabase protects with a captcha, and takes no token —
+ * it is for the signInWithPassword() call one line above it, which is the
+ * same protected endpoint the login screen uses. Without a token here, this
+ * screen would start reporting "that is not your current password" to
+ * everybody the moment captcha was switched on, for a password that was
+ * correct.
  */
 export async function changePassword(formData: FormData): Promise<ChangePasswordResult> {
   const currentPassword = String(formData.get('currentPassword') ?? '');
   const password = String(formData.get('password') ?? '');
+  const captchaToken = readCaptchaToken(formData);
 
   try {
     const supabase = createClient();
@@ -444,12 +485,14 @@ export async function changePassword(formData: FormData): Promise<ChangePassword
     const { error: verifyError } = await verifier.auth.signInWithPassword({
       email: user.email,
       password: currentPassword,
+      options: captchaOptions(captchaToken),
     });
     if (verifyError) {
       logAuthFailure('supabase_request', 'changePassword.verify', verifyError);
       // Anything other than a genuine credential rejection (a rate limit, a
-      // 5xx) must not be reported as "wrong password" — that would send a
-      // member round in circles retyping a password that was correct.
+      // 5xx, a refused captcha) must not be reported as "wrong password" —
+      // that would send a member round in circles retyping a password that
+      // was correct.
       if (verifyError.message.toLowerCase().includes('invalid login credentials')) {
         return { error: 'That is not your current password.', field: 'currentPassword' };
       }

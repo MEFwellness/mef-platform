@@ -9,6 +9,8 @@ import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { PasswordStrengthHint } from '@/components/auth/PasswordStrengthHint';
 import { hasPendingGuestOnboardingData } from '@/lib/onboarding/guestStorage';
+import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
+import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
 
 const JOURNEY_REASSURANCES = [
   "Save today's assessment",
@@ -46,6 +48,10 @@ export default function SignUpPage() {
   // visitor who lands here directly (no prior assessment) sees the
   // unchanged, generic form.
   const [fromOnboarding, setFromOnboarding] = useState(false);
+  // Renders nothing and yields no token unless a Turnstile site key is
+  // configured, which is what keeps signup identical while bot protection
+  // is dormant.
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   useEffect(() => {
     setFromOnboarding(hasPendingGuestOnboardingData());
@@ -70,6 +76,8 @@ export default function SignUpPage() {
 
     submittingRef.current = true;
     setSubmitting(true);
+    const token = await turnstileRef.current?.getToken();
+    if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
     const result = await signUp(formData);
     if (result?.error) {
       setFormError(
@@ -79,6 +87,10 @@ export default function SignUpPage() {
         })
       );
     }
+    // A successful signup redirects to /verify and unmounts this form, so
+    // reaching here means a retry is possible and the spent single-use
+    // token must be replaced first.
+    turnstileRef.current?.reset();
     submittingRef.current = false;
     setSubmitting(false);
   }
@@ -185,6 +197,8 @@ export default function SignUpPage() {
           Your wellness information stays private: only you, and your coach if you choose to
           share it, can see it.
         </p>
+
+        <TurnstileGate ref={turnstileRef} />
 
         {formError && (
           <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">

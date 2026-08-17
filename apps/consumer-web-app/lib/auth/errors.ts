@@ -1,3 +1,6 @@
+import { isCaptchaError } from '@/lib/turnstile/captcha';
+import { TURNSTILE_UNVERIFIED_MESSAGE } from '@/lib/turnstile/env';
+
 export interface FriendlyAuthErrorOptions {
   /**
    * When a raw message doesn't match any known case below, the default
@@ -26,6 +29,14 @@ export function getFriendlyAuthError(
 ): string {
   if (!rawMessage) return 'Something went wrong. Please try again.';
   const message = rawMessage.toLowerCase();
+
+  // The bot check refused the request. GoTrue's own wording here names
+  // internals ("captcha protection: request disallowed
+  // (invalid-input-response)") that mean nothing to a member and would read
+  // as an accusation. Checked before every other case because it is the one
+  // failure that is never about what was typed, and because signup opts into
+  // showing raw text on fallback, which is exactly where this must not land.
+  if (isCaptchaError(rawMessage)) return TURNSTILE_UNVERIFIED_MESSAGE;
 
   if (message.includes('already registered') || message.includes('already exists')) {
     return 'An account with this email already exists. Try logging in instead.';

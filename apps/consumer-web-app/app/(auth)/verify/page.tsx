@@ -11,6 +11,7 @@ import {
   secondsRemaining,
   writeNextAllowedAt,
 } from '@/lib/auth/resendCooldown';
+import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
 
 const INITIAL_COOLDOWN_SECONDS = 60;
 const PENDING_EMAIL_KEY = 'mef.auth.pendingEmail';
@@ -24,6 +25,10 @@ function VerifyPageContent() {
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [resendError, setResendError] = useState<string | null>(null);
   const resendingRef = useRef(false);
+  // Resending a confirmation email is an anonymous request that makes this
+  // app send mail, so it is one of the endpoints Supabase protects. Dormant
+  // with no site key set.
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   useEffect(() => {
     const paramEmail = searchParams.get('email');
@@ -60,7 +65,9 @@ function VerifyPageContent() {
     setResendMessage(null);
     setResendError(null);
 
-    const result = await resendVerificationEmail(email);
+    const token = await turnstileRef.current?.getToken();
+    const result = await resendVerificationEmail(email, token ?? undefined);
+    turnstileRef.current?.reset();
     if (result?.error) {
       setResendError(getFriendlyAuthError(result.error));
       const retryAfter = extractRetryAfterSeconds(result.error) ?? INITIAL_COOLDOWN_SECONDS;
@@ -108,6 +115,7 @@ function VerifyPageContent() {
       )}
 
       <div className="mt-6 space-y-3">
+        <TurnstileGate ref={turnstileRef} />
         <button
           type="button"
           onClick={handleResend}

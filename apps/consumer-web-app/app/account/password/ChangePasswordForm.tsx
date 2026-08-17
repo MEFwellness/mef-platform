@@ -8,6 +8,8 @@ import { checkPasswordStrength, passwordsMatch } from '@/lib/auth/validation';
 import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { PasswordStrengthHint } from '@/components/auth/PasswordStrengthHint';
+import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
+import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
 
 interface FieldErrors {
   currentPassword?: string | undefined;
@@ -25,6 +27,11 @@ export function ChangePasswordForm() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const submittingRef = useRef(false);
+  // This screen is behind a session, but the way it proves you know your
+  // current password is a real sign-in attempt, and sign-in is one of the
+  // endpoints Supabase protects with a captcha. See changePassword() in
+  // app/actions/auth.ts. Dormant with no site key set.
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   function confirmPasswordError(pw: string, confirm: string): string | undefined {
     if (!confirm) return undefined;
@@ -57,7 +64,12 @@ export function ChangePasswordForm() {
 
     submittingRef.current = true;
     setSubmitting(true);
+    const token = await turnstileRef.current?.getToken();
+    if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
     const result = await changePassword(formData);
+    // Spent whatever the outcome: this form stays mounted on success too
+    // (it swaps to a confirmation with a "Change it again" button).
+    turnstileRef.current?.reset();
 
     if (result?.error && result.field) {
       // A wrong current password belongs on the field the member has to fix,
@@ -176,6 +188,8 @@ export function ChangePasswordForm() {
           }));
         }}
       />
+
+      <TurnstileGate ref={turnstileRef} />
 
       {formError && (
         <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">

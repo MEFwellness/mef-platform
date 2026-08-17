@@ -4,11 +4,17 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { requestPasswordReset } from '../../actions/auth';
 import { getFriendlyAuthError } from '@/lib/auth/errors';
+import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
+import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
 
 export function ResetPasswordForm({ expiredLink = false }: { expiredLink?: boolean }) {
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  // Reset-by-email is an anonymous request that makes this app send mail to
+  // an address someone else typed, which is exactly the shape of abuse the
+  // bot check is here for. Dormant with no site key set, like everywhere else.
+  const turnstileRef = useRef<TurnstileHandle | null>(null);
 
   return (
     <>
@@ -33,12 +39,17 @@ export function ResetPasswordForm({ expiredLink = false }: { expiredLink?: boole
           if (submittingRef.current) return;
           submittingRef.current = true;
           setSubmitting(true);
+          const token = await turnstileRef.current?.getToken();
+          if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
           const result = await requestPasswordReset(formData);
           setMessage(
             result?.error
               ? getFriendlyAuthError(result.error)
               : 'If that email exists, a reset link has been sent.'
           );
+          // This form stays on screen after a success, so the spent
+          // single-use token is replaced whatever the outcome.
+          turnstileRef.current?.reset();
           submittingRef.current = false;
           setSubmitting(false);
         }}
@@ -56,6 +67,7 @@ export function ResetPasswordForm({ expiredLink = false }: { expiredLink?: boole
             className="mt-1.5 w-full rounded-2xl border border-[#1B3A2D]/10 p-3 text-base text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
           />
         </div>
+        <TurnstileGate ref={turnstileRef} />
         <button
           type="submit"
           disabled={submitting}

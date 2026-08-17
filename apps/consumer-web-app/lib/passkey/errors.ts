@@ -11,6 +11,9 @@
  * message-matching convention used for password auth.
  */
 
+import { isCaptchaError } from '@/lib/turnstile/captcha';
+import { TURNSTILE_UNVERIFIED_MESSAGE } from '@/lib/turnstile/env';
+
 interface ErrorLike {
   code?: unknown;
   message?: unknown;
@@ -44,6 +47,14 @@ export function isPasskeyCancelled(error: unknown): boolean {
 /** Maps a passkey registration/sign-in error to member-friendly copy. */
 export function getFriendlyPasskeyError(error: unknown): string {
   const code = codeOf(error);
+
+  // Supabase's passkey sign-in accepts a captcha token like every other
+  // sign-in method, so it can also be refused by the bot check. Handled
+  // before the code switch because that refusal arrives as a message, not
+  // a passkey-specific code, and would otherwise fall through to the
+  // generic "try again or use your password", which points a member at a
+  // password form that would refuse them for the same reason.
+  if (isCaptchaError(messageOf(error))) return TURNSTILE_UNVERIFIED_MESSAGE;
 
   switch (code) {
     case 'passkey_disabled':
