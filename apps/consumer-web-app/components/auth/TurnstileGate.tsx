@@ -34,7 +34,7 @@
  * only carries it.
  */
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { getTurnstileSiteKey } from '@/lib/turnstile/env';
 
 const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
@@ -55,8 +55,6 @@ interface TurnstileRenderOptions {
   'error-callback'?: () => void;
   'expired-callback'?: () => void;
   'timeout-callback'?: () => void;
-  'before-interactive-callback'?: () => void;
-  'after-interactive-callback'?: () => void;
 }
 
 interface TurnstileApi {
@@ -125,7 +123,6 @@ export const TurnstileGate = forwardRef<TurnstileHandle>(function TurnstileGate(
   const tokenRef = useRef<string | null>(null);
   /** Resolvers for getToken() calls made while a challenge is still running. */
   const waitersRef = useRef<Array<(token: string | null) => void>>([]);
-  const [needsInteraction, setNeedsInteraction] = useState(false);
 
   const settle = useCallback((token: string | null) => {
     tokenRef.current = token;
@@ -151,10 +148,7 @@ export const TurnstileGate = forwardRef<TurnstileHandle>(function TurnstileGate(
           appearance: 'interaction-only',
           theme: 'light',
           retry: 'auto',
-          callback: (token: string) => {
-            setNeedsInteraction(false);
-            settle(token);
-          },
+          callback: (token: string) => settle(token),
           // A failed or expired challenge resolves waiters with null rather
           // than leaving them pending: the submission proceeds without a
           // token and Supabase decides, which is the same rule as everywhere
@@ -162,8 +156,6 @@ export const TurnstileGate = forwardRef<TurnstileHandle>(function TurnstileGate(
           'error-callback': () => settle(null),
           'expired-callback': () => settle(null),
           'timeout-callback': () => settle(null),
-          'before-interactive-callback': () => setNeedsInteraction(true),
-          'after-interactive-callback': () => setNeedsInteraction(false),
         });
       })
       .catch(() => {
@@ -219,21 +211,31 @@ export const TurnstileGate = forwardRef<TurnstileHandle>(function TurnstileGate(
 
   if (!siteKey) return null;
 
+  /**
+   * Deliberately no card, no border, no caption of our own.
+   *
+   * The first live run of this against production caught exactly why. A
+   * headless browser is automation, Turnstile correctly refused to clear it
+   * silently, and Cloudflare's own interactive challenge never painted
+   * anything into the container. Anything this component had drawn around
+   * that container on the strength of "a challenge is coming" would have
+   * been a cream box with a sentence in it and nothing to click, on every
+   * auth screen, for anyone Turnstile decides to look at twice. A label
+   * over an empty space is worse than no label.
+   *
+   * So the container is only ever a container. Empty, it has no height and
+   * no member can tell it is there. Occupied, what fills it is Cloudflare's
+   * own familiar "Verify you are human" control, which explains itself and
+   * cannot be restyled from here in any case. This element carries the
+   * app's typeface and the vertical rhythm of the form it sits in, and
+   * nothing else, so the two states are honest: invisible, or a real
+   * control.
+   */
   return (
     <div
+      ref={containerRef}
       data-testid="turnstile-gate"
-      className={
-        needsInteraction
-          ? 'rounded-2xl border border-[#C4A050]/40 bg-[#F5F0E4] px-4 py-3 font-[family-name:var(--font-dm-sans)]'
-          : undefined
-      }
-    >
-      {needsInteraction && (
-        <p className="mb-2 text-sm leading-relaxed text-[#1B3A2D]">
-          One quick check to confirm you are a person, then we will carry on.
-        </p>
-      )}
-      <div ref={containerRef} />
-    </div>
+      className="empty:hidden font-[family-name:var(--font-dm-sans)]"
+    />
   );
 });

@@ -120,12 +120,22 @@ describe('configured mode (site key present)', () => {
     expect(html).toContain('turnstile-gate');
   });
 
-  it('renders nothing visible until Cloudflare asks for interaction', () => {
-    // The interaction prompt is state the browser sets, never the server, so
-    // the first paint a member gets carries no message and no styling box.
+  it('draws no chrome of its own around the container', () => {
+    // The live run that caught this: a headless browser was correctly
+    // refused by Turnstile, Cloudflare's challenge painted nothing into the
+    // container, and any card or caption this component had drawn on the
+    // strength of "a challenge is coming" would have been a labelled empty
+    // box on every auth screen. The container is only ever a container.
     const html = renderToStaticMarkup(<TurnstileGate />);
     expect(html).not.toContain('One quick check');
-    expect(html).not.toContain('#F5F0E4');
+    expect(html).not.toMatch(/\bborder-\[/);
+    expect(html).not.toMatch(/\bbg-\[/);
+    // Empty means genuinely absent, not an empty box taking up space.
+    expect(html).toContain('empty:hidden');
+    // Exactly one element, with nothing inside it: there is no wrapper that
+    // could survive Cloudflare rendering nothing.
+    expect(html.match(/<div/g)).toHaveLength(1);
+    expect(html).toMatch(/><\/div>$/);
   });
 
   it('reads the token a form carries', () => {
