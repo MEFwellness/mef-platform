@@ -6787,3 +6787,163 @@ Run against `app.mefwellness.com` after the deploy went Ready and the domain was
 - **The sections that were wrapped still render**: Root Score's Domain Breakdown, Trends, and the "From your check-ins" pills were each confirmed present, since wrapping a heading in a guard is exactly the change that could make it vanish when it should not.
 
 **Regression check on the earlier fixes:** `scripts/verify-trust-cleanup-live.mjs` re-run against this deploy, **9 of 10**, identical to before. Nothing from the confidence removal, the food finding retirement, the single coaching focus, the pattern heading split or the zero-data guard regressed. The tenth is unchanged and still the same known cause: `coach_morning_briefs` is a per-day cache and today's row was written at 04:02 UTC, before yesterday's deploy. It corrects itself when the local date rolls over. Deleting that one row would show it sooner; that delete is blocked by this environment's permission classifier and was not forced.
+
+## The Member Interpretation Layer (2026-08-17)
+
+The audit found nine systems each reading raw member data and reaching their own verdict, with no two of them agreeing. `lib/member-interpretation/` is now the one place that decision is made. Raw data flows in; verdicts flow out; no surface computes one from raw data any more.
+
+Shipped, deployed and verified live on `app.mefwellness.com` the same day. Two migrations are written and **not applied** (165 and 166) and are listed at the end of this entry.
+
+### The layer, in one paragraph
+
+Every finding a member has is now a **canonical finding**: one plain statement, one evidence tier, the evidence behind it, one primary domain, and a list of domains it is also relevant to. It is built once per request from the active registry rows and the member's own logged check-ins, and every screen renders the same objects. `getMemberInterpretation()` is the single entry point.
+
+### One source answer, one finding
+
+Findings dedupe on `(domain, code)`, which is the ANSWER. Not the row id (a supersede chain has many rows for one answer), not the producer (two producers reporting the same finding are still reporting one finding), and not the narrative text (which was worded differently per adapter while meaning the same thing).
+
+The audit's duplication was at RENDER time, not in the data: `COACHING_DOMAIN_TO_REGISTRY_DOMAIN` is one-to-many in the direction that duplicates, so one hip-discomfort slider answer appeared under Recovery & Energy Regulation, Movement & Physical Capacity AND Pain & Structural Integrity, three times, with nothing saying they were the same answer. `lib/member-interpretation/domainMap.ts` is the other direction and is one-to-ONE. Every code-level override in it comes from a real live example: pain written to domain `movement` belongs under Pain, `low_energy` written to domain `sleep` belongs under Recovery, `digestive_complaints` written to domain `nutrition` belongs under Digestion, `emotional_wellbeing_concern` written to domain `stress` belongs under Mood.
+
+Confirmed live: the hip discomfort is one statement, on the Pain card, reading "Also shown under Movement & Physical Capacity", and the Movement card carries it as "Shown in full under Pain & Structural Integrity". The total across all twelve cards equals the real number of findings rather than two or three times it.
+
+### Four evidence tiers, and a rule that is structural rather than promised
+
+`Early indication` / `Emerging pattern` / `Supported by repeated check-ins` / `Coach verified`. Nothing else, and no number.
+
+**A tier can only rise on member-provided evidence or coach confirmation.** `computeEvidenceTier` counts only member kinds. A `background_computation` item can be passed in, is carried as real provenance, and contributes nothing: there is no argument to that function a computation could supply that would move its answer. Coach verification arrives as a TIMESTAMP a coach action wrote, not a boolean a caller can compute.
+
+That is the old HIGH CONFIDENCE bug made unrepresentable. `computeRootConfidence` blended coverage with `min(1, priorSnapshotCount / 5)`, and snapshots accrue from a daily cron whether or not the member logs anything, so after five days of doing nothing every member was maxed. It is retired; `computeRootEvidence` counts her own logged days and nothing else. `root_confidence` and `root_confidence_level` survive as audit columns because 150-plus days of snapshots have them, and nothing renders either.
+
+Tiers rise for real because the layer reads her actual check-in days: a finding that says "elevated stress" counts the days she logged stress in the concerning band, using `lib/wellness/status.ts` rather than a second threshold table. A code with no daily question can never reach the supported tier, which is honest and is the same distinction Case View already draws about what is "not trackable yet".
+
+### The thresholds, and why they are what they are
+
+All in `lib/member-interpretation/config.ts`, one comment each.
+
+| Constant | Value | Why |
+|---|---|---|
+| `EVENTS_FOR_EMERGING_PATTERN` | 2 | The smallest number that can be a repeat. The three-tier longitudinal module already draws its first line here, and two systems disagreeing about what a repeat is would put two sentences about one signal on two screens. |
+| `CHECKIN_DAYS_FOR_SUPPORTED` | 5 | The label says "repeated check-ins", so the count is of check-in days specifically. Five assessments in one afternoon is not five days of living with something. |
+| `MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM` | 7 | The number this app already tells members is enough: Trends says "Your trend and typical-day view appear once you have 7." A verdict built on three days would contradict a sentence she can read on another screen the same morning. |
+| `MIN_LOGGED_DAYS_FOR_DOMAIN_STATE` | 3 | "Here is what you have logged" is a much weaker claim than "this is a strength". Below three a domain says it is early. |
+| `EVIDENCE_WINDOW_DAYS` | 21 | Matches `lib/root-map/coverage.ts` exactly, so a card reading "4 of 21 days logged" and a tier computed from those days cannot be counting different windows. |
+
+### Language must match tier
+
+Below the supported tier, copy about a finding may not use pattern, strength, corroborated, confirmed, or their synonyms. Two mechanisms, and the first is the one that matters: the layer AUTHORS its own statements from tier-scoped templates, so the ordinary path is compliant by construction. `enforceTierLanguage` is the backstop for copy that came from elsewhere, and it swaps the whole statement rather than find-and-replacing words in a sentence about health.
+
+The statement is authored rather than passed through from the producer. Those stored narratives were written per-adapter years apart, one of them interpolated a raw enum into member copy ("reported as 'poor' on the latest onboarding submission"), and none of them knew anything about tiers.
+
+### A domain with active findings can never read as quiet
+
+The Pain & Structural Integrity contradiction the trust cleanup deliberately left for this build: three of twenty-one days logged, two active discomfort findings, and the card said "LOOKING STEADY. Nothing specific needed here right now." No display guard could reach it, because it was not a zero-data problem: both findings were `mild` and `computeCoachingDomainPriority` only promotes on `moderate` and above.
+
+Fixed in the layer, so it holds for all twelve domains. `deriveState` cannot return a quiet state when live findings exist; the branch is followed by a second check over `QUIET_DOMAIN_STATES` that is deliberately not removable. The phrase "Looking steady" is gone from the Root Map builder's vocabulary entirely.
+
+Confirmed live: Pain now reads "2 things noted here so far. Nothing urgent in it, and it is not nothing either." and "NOTED, AND NOT URGENT".
+
+### The data floor
+
+"Your recovery is a real strength, while movement consistency is your clearest opportunity" was printed from three check-ins in thirteen days over a recovery score of 50 out of 100. Recovery was not a strength; it was the least bad of five thin numbers, and a ranking was being printed as a verdict.
+
+`buildExplanation` respects the floor now, and so does the Wellness Story panel. And, because a Root Score snapshot is a per-day row holding a VERDICT, the floor is **re-applied at read time on every read**, so a stale flattering verdict written by the old code cannot survive a page load. Only the two verdict fields are replaced; the per-domain facts ("0 completed sessions against a target of 17 this window") are facts, not verdicts, and are untouched.
+
+Confirmed live: Home now reads "You have 4 logged days so far. I do not usually have enough to call something a strength or a problem this early, and that is expected, not a problem. It takes about 7 logged days."
+
+### One focus, everywhere
+
+Six surfaces named five different focuses on one morning. The Priority Card decision engine is the only author now.
+
+- **Home's Daily Brief** no longer names a focus at all. It reports her real readings, which is what it was always best at.
+- **The noticing carousel tile** said the hard-coded string "Today's focus: Consistency". It says "What Root suggests next".
+- **Root Score's "Prioritized Next Action"**, **Movement's "TODAY'S FOCUS"**, **Today's "Today's Focus"** and the **Root Map's** implied one all render `TodaysFocusLine`, which has exactly one source and no fallback: when the engine has no focus it renders nothing rather than inventing one, which is how five answers happened.
+- **Home when the card is not active.** The card is only on Home while it is ACTIVE, so on a day she has set hers aside Home named nothing while four other screens named it. It states the same one now, as a pointer with no buttons, so there is still exactly one place to act on it.
+- Two more authors retired under honest names: the persisted row titled "Today's coaching focus: X", and the Wellness Story panel's "Your Focus" section.
+- The Root Score band "Priority Focus" now reads "Lots of room to build". It was a score band sitting inches from the card whose job is to name the day's priority.
+
+**Talk to Root** told a member her score "hasn't calculated yet today" while Home displayed 27 out of 100 on the same load, because the score was not in its context at all and it filled the gap. Both the focus title and the real score are in the prompt now, as the exact values her screens render, with explicit instructions never to guess or restate either differently. The score is read from the stored snapshot, deliberately NOT through `getMyRootScore`, so asking Root a question cannot trigger a score recalculation.
+
+Confirmed live: Home, Root Score, Today, Movement, Root Map and Recommendations all name "Take a few minutes for your Daily Reset.", and Root says the same score Home shows.
+
+### The friction question
+
+Rule 7 requires that when an action is not completed before a new one is assigned, the member is asked what got in the way. **Nothing asked.** The engine had a silent counter: three ignored days changed the framing, two framing changes escalated to a coach and stopped offering it. Root drew conclusions from her silence and never put a question to her.
+
+Root asks now, on the card, **before it rewords and before it escalates**, with five tappable answers and a free-text box. Every option is a fact about the day or the suggestion, never about her: there is no "did not feel like it" and there will not be one.
+
+Her answer decides which framing comes next, where the engine used to walk an order it had guessed. No time and too much to take on both get the smaller step. Not what I need gets the reframe. I forgot leaves the wording alone, because rewording something she never read answers a question she did not ask. Something else falls back to the engine's own order.
+
+Asked once per thread, ever. Ignoring it is a valid answer with a defined meaning and the engine proceeds exactly as before. The answer lives on the outcome ledger, not a second table, and the engine reads only the tapped reason, so free text can never become a decision about her.
+
+**Dormant until migration 166 lands.** `listThreadFriction` fails closed, and the engine will not ask a question whose answer it could not store.
+
+### Food comes back as data
+
+The two retired adapters stay retired. What was missing was the other side: Root could no longer see that a member had logged anything at all. `lib/conversation-coach/nutritionActivity.ts` closes that on the correct side of the line. The type carries three numbers and no strings, so there is no field a food name could travel in, and the query selects only `consumed_at`. A query that cannot return a name cannot leak one. The Intelligence Engine already read food this way.
+
+### Home updates the same day
+
+`coach_morning_briefs` is a per-day cache written on first open, usually before she checks in, so "Yesterday you logged moderate stress" stayed on Home all day after she had checked in.
+
+**Read-time composition, not a rewrite.** The alternative was an UPDATE or DELETE policy on that table so the row could be regenerated; migration 53 grants a member insert and select only, and taking a new write permission to fix a display staleness is a bigger change with a bigger blast radius than composing two sentences on the way out. The substitution is narrow: only a line this module's own check-in vocabulary produced, never a trend or wearable line, and never turning a line into nothing.
+
+The live walk found the same staleness one field further down, in `coaching_recommendation`, still saying "today's most useful place to focus" hours after that sentence had been rewritten. It is recomposed on the way out too, from the same request-memoized Coaching Brain decision every page rendering the brief already asks for.
+
+Confirmed live, end to end: a real check-in was completed on the test account, after which Home read "Your sleep was only fair last night." and "Your stress was moderate today." in the present tense, and the logged-day count moved from 3 to 4.
+
+### No percentage confidence renders anywhere, member or coach
+
+Eleven coach sites: Recommendations, Intelligence, Intelligence Core, Root Cause Signals (two), Member Intelligence (three), posture findings, prescriptions (two), Case View, and the alert prose in `alerts.ts` and `recommendations.ts`. Where the number measured something real it was replaced with that thing (observation counts, data-point counts, how clearly the photos read); where it was a hard-coded per-rule constant it is simply gone. The coach's Root Map card reads the same four tier labels the member does, so the two of them can discuss one finding in one vocabulary.
+
+### Every production finding this touches
+
+Read from production, read-only, on 2026-08-17: **78 finding rows, 54 of them active, across 11 members.**
+
+**54 distinct source answers, and 0 duplicates.** The registry's own `(domain, code)` supersede chain already prevented duplicate rows at write time, so migration 165's dedupe step will supersede nothing. The duplication the audit found was entirely at render time and is fixed in the layer, which is verified live above. Every one of the 54 gets a `canonical_source_key` and an honest `evidence_tier`; none is merged, because none was duplicated.
+
+Tiers the migration will write, by source answer:
+
+| Source answer | Rows | Tier(s) |
+|---|---|---|
+| `nutrition::digestive_complaints` | 10 | 9 early indication, 1 supported by repeated check-ins |
+| `stress::elevated_stress` | 9 | 8 early indication, 1 supported |
+| `sleep::low_energy` | 9 | 8 early indication, 1 supported |
+| `sleep::poor_sleep_quality` | 7 | 6 early indication, 1 supported |
+| `movement::pain_lower_back` | 7 | 6 early indication, 1 supported |
+| `movement::pain_hips` | 5 | 5 early indication |
+| `movement::pain_neck` | 2 | 2 early indication |
+| `stress::emotional_wellbeing_concern` | 1 | 1 supported |
+| `movement::movement_deficiency` | 1 | 1 supported |
+| `nutrition::diet_quality_concern` | 1 | 1 early indication |
+| `nutrition::gut_fungal_parasite_concern` | 1 | 1 early indication |
+| `nutrition::detoxification_load_concern` | 1 | 1 early indication |
+
+47 land at early indication and 7 at supported by repeated check-ins. **0 become coach verified**, because no row in production has ever been coach-reviewed. That is the honest count, and it is exactly the number the old system would have called "high confidence" for anyone five days in.
+
+### Migrations, written and NOT applied
+
+- `00000000000165_canonical_finding_registry.sql` — adds `canonical_source_key`, `evidence_tier` and `coach_verified_at` to `registry_entries`, backfills all three, indexes the source key for active rows, and supersedes any duplicate active row per source answer. Deletes nothing.
+- `00000000000166_priority_friction_question.sql` — adds `friction_asked_at`, `friction_reason`, `friction_note` and `friction_answered_at` to `member_coaching_decisions`, with a check constraint on the closed reason set and a constraint that a note requires a reason. No new RLS policy: members already hold update on their own decisions from migration 150.
+
+Both are safe to ship before or after the code, which is why the code fails closed without them. `evidence_tier` is an audit column and nothing renders from it; the layer recomputes the tier from live evidence on every read.
+
+### Proof
+
+`tests/member-interpretation-layer.test.ts` (45), `tests/one-focus.test.ts` (26), `tests/inherited-fixes-interpretation-build.test.ts` (28). The sharp ones: one hundred background computations leave a tier at the floor; one member answer plus a fortnight of cron runs is still an early indication; every authored statement at every tier for every verdict is language-compliant; the quiet-verdict block is asserted for all twelve domains against all four severities; and the friction question is proven to fire before both the reword and the escalation.
+
+Existing tests updated where behaviour genuinely moved rather than where an assertion was inconvenient: the retired `computeRootConfidence` pair, the `worthAttention` list, the Root Map builder's inputs, the Today heading, the ring's colour key, and the narrative generator's pattern wording.
+
+Full suite **5,488 passing** (392 files). Typecheck clean, lint clean, production build clean.
+
+### Live verification (2026-08-17)
+
+Run against `app.mefwellness.com` after the deploy went Ready and the domain was confirmed aliased to it, signed in as the standing test member through the real login form.
+
+- `scripts/verify-interpretation-layer-live.mjs` — **20 of 20**. Reads only.
+- `scripts/verify-checkin-then-home-live.mjs` — the one deliberately writing check. One real daily check-in completed (emotional "Okay", energy and stress "Moderate", sleep quality "Fair", protein "Plant-based", activity "Fairly active", discomfort "No", no coach note, no free text). Home then reflected it the same day.
+- `scripts/verify-trust-cleanup-live.mjs` re-run: **10 of 10**, up from 9 of 10. The tenth was the stale Daily Brief, which read-time composition fixed.
+- `scripts/verify-display-guards-live.mjs` re-run: **6 of 6**, unchanged.
+
+**Two things the live walk found that local tests could not**, both fixed and redeployed: a per-day cache holding a verdict (the Root Score explanation, and then the brief's coaching line), and Home naming no focus at all on a day the priority had been set aside.
+
+**Known and deliberately not fixed here.** The brief's memory-callback line still says "You've logged 3 check-ins with me so far" after the fourth. It is the same per-day cache, one field further down, and unlike the other two it is a count of a real past event rather than a claim about today, so it corrects itself tomorrow. The Today page's "Still putting today's lesson together" placeholder (audit 3.8) and the remaining medical-sounding finding labels are the language pass, not this build.
