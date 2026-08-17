@@ -19,7 +19,7 @@ import { PendingCoachReviewCard } from './PendingCoachReviewCard';
 import { ClientReportView } from './ClientReportView';
 import { MemberFindingsSummary } from '@/components/body-assessment/MemberFindingsSummary';
 import { SpinalCurveMeasurements } from '@/components/body-assessment/SpinalCurveMeasurements';
-import { Card } from '@/components/layout';
+import { Card, WhenNotEmpty } from '@/components/layout';
 
 export default async function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -117,6 +117,9 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
               <PendingCoachReviewCard typeLabel={typeConfig.label} />
               <MemberFindingsSummary findings={findings} />
               <SpinalCurveMeasurements captures={captures} />
+              {/* Honesty guard: no "YOUR CAPTURES" heading over an empty grid. */}
+              <WhenNotEmpty items={signedCaptures}>
+                {(signedCaptures) => (
               <section>
                 <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                   Your captures
@@ -147,6 +150,8 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
                   ))}
                 </div>
               </section>
+                )}
+              </WhenNotEmpty>
             </>
           )}
 

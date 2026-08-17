@@ -1,5 +1,6 @@
 import type { DailyProteinTotal } from '@/lib/protein/ledger';
 import { GrowBar } from '@/components/motion/GrowBar';
+import { isNotEmpty } from '@/components/layout';
 
 const CARD = 'rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -13,7 +14,14 @@ function formatDay(localDate: string): string {
   });
 }
 
-/** Simple last-7-days view — each day's total vs. target, no trends or streaks yet (later phase). */
+/**
+ * Simple last-7-days view — each day's total vs. target, no trends or
+ * streaks yet (later phase).
+ *
+ * Honesty guard, 2026-08-17: with no days behind it the card is gone
+ * rather than showing "LAST 7 DAYS" over an empty box. See
+ * components/layout/WhenNotEmpty.tsx.
+ */
 export function ProteinLedgerHistory({
   days,
   targetGrams,
@@ -21,6 +29,8 @@ export function ProteinLedgerHistory({
   days: DailyProteinTotal[];
   targetGrams: number | null;
 }) {
+  if (!isNotEmpty(days)) return null;
+
   return (
     <div className={CARD}>
       <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">Last 7 days</p>

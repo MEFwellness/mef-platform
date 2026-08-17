@@ -25,6 +25,7 @@ import { PriorityBadge } from '@/components/assessments/PriorityBadge';
 import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
 import { KeyFindingReveal } from '@/components/closing-screen/KeyFindingReveal';
+import { WhenNotEmpty } from '@/components/layout';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -112,7 +113,9 @@ export default async function AssessmentResultsPage({
           <CategoryRadarChart points={radarPoints} />
         </section>
 
-        {/* Category cards */}
+        {/* Category cards. Honesty guard: heading and cards together or not at all. */}
+        <WhenNotEmpty items={orderedScores}>
+          {(orderedScores) => (
         <section className="mt-5">
           <p className="px-1 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             Your Categories
@@ -133,6 +136,8 @@ export default async function AssessmentResultsPage({
             ))}
           </div>
         </section>
+          )}
+        </WhenNotEmpty>
 
         <Link
           href={`/assessments/${toPublicSlug(questionnaire.id)}/history` as Route}

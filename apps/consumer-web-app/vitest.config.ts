@@ -7,9 +7,21 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     },
   },
+  // Components in this app are written for React's automatic JSX runtime
+  // (Next.js's default), so none of them import React by name. esbuild's
+  // own default here is the classic runtime, which compiles their JSX into
+  // `React.createElement` calls and makes every one of them throw
+  // "React is not defined" the moment a test imports it. That is why this
+  // suite had no component tests at all until now, and why the honesty
+  // guards in tests/display-guards-headings-and-windows.test.ts can assert
+  // a heading is really absent from rendered HTML instead of grepping the
+  // source for it.
+  esbuild: { jsx: 'automatic' },
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    // .tsx included so a test can render a real component and assert on
+    // its real HTML. See the esbuild note above.
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     testTimeout: 20000,
     setupFiles: ['./tests/setup/test-clients.ts'],
     // Integration test files share real, mutable fixtures (the seeded

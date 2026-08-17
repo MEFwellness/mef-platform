@@ -37,6 +37,7 @@ import { useRouter } from 'next/navigation';
 import { Activity, ChevronRight, Clock, X } from 'lucide-react';
 import type { MovementSessionDetail } from '@mef/shared-types-contracts';
 import { TapToPlayVideo } from '@/components/exercise-library/TapToPlayVideo';
+import { WhenNotEmpty } from '@/components/layout';
 import {
   formatPrescription,
   formatRest,
@@ -310,25 +311,32 @@ export function MovementSessionPlayer({ detail }: { detail: MovementSessionDetai
         Begin
       </button>
 
-      <div className={`${CARD} mt-7 p-6`}>
-        <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-          What is in it
-        </p>
-        <ol className="mt-3 space-y-3">
-          {slots.map((slot, i) => (
-            <li key={slot.id} className="flex items-baseline gap-3">
-              <span className="w-5 shrink-0 text-xs tabular-nums text-[#1B3A2D]/35">{i + 1}</span>
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-[#1B3A2D]">{slot.name}</span>
-                <span className="mt-0.5 block text-xs text-[#6B7A72]">
-                  {formatPrescription(slot)}
-                  {slot.primaryMuscle ? ` · ${slot.primaryMuscle.replace(/_/g, ' ')}` : ''}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </div>
+      {/* Honesty guard: no "WHAT IS IN IT" heading over an empty list. */}
+      <WhenNotEmpty items={slots}>
+        {(slots) => (
+          <div className={`${CARD} mt-7 p-6`}>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+              What is in it
+            </p>
+            <ol className="mt-3 space-y-3">
+              {slots.map((slot, i) => (
+                <li key={slot.id} className="flex items-baseline gap-3">
+                  <span className="w-5 shrink-0 text-xs tabular-nums text-[#1B3A2D]/35">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-[#1B3A2D]">{slot.name}</span>
+                    <span className="mt-0.5 block text-xs text-[#6B7A72]">
+                      {formatPrescription(slot)}
+                      {slot.primaryMuscle ? ` · ${slot.primaryMuscle.replace(/_/g, ' ')}` : ''}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </WhenNotEmpty>
     </div>
   );
 }

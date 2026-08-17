@@ -29,7 +29,7 @@ import { getMyRootScore, getMyRootScoreHistory } from '@/app/actions/scoring';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
-import { CenterStage } from '@/components/layout';
+import { CenterStage, WhenNotEmpty } from '@/components/layout';
 import { scoreLabel } from '@/lib/wellness/wellness-index';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { RootScoreDomainRow } from '@/components/RootScoreDomainRow';
@@ -266,17 +266,21 @@ export default async function RootScorePage() {
               </section>
             </div>
 
-            {/* Domain breakdown */}
-            <section className="mef-card mt-5 p-6">
-              <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-                Domain Breakdown
-              </p>
-              <div className="mt-1 divide-y divide-[#1B3A2D]/8">
-                {orderedDomains.map((domain) => (
-                  <RootScoreDomainRow key={domain.domain} domain={domain} />
-                ))}
-              </div>
-            </section>
+            {/* Domain breakdown. Honesty guard: heading and rows together or not at all. */}
+            <WhenNotEmpty items={orderedDomains}>
+              {(domains) => (
+                <section className="mef-card mt-5 p-6">
+                  <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+                    Domain Breakdown
+                  </p>
+                  <div className="mt-1 divide-y divide-[#1B3A2D]/8">
+                    {domains.map((domain) => (
+                      <RootScoreDomainRow key={domain.domain} domain={domain} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </WhenNotEmpty>
 
             {/* Factors */}
             {(snapshot!.positive_factors.length > 0 || snapshot!.limiting_factors.length > 0) && (

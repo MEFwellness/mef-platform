@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, Sparkles } from 'lucide-react';
 import type { MovementSelectionFactor } from '@mef/shared-types-contracts';
+import { isNotEmpty } from '@/components/layout';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -13,9 +14,19 @@ const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10
  * (lib/movement/rules/engine.ts's buildSelectionReasons), never a canned
  * explanation, so a member can always see exactly which real data point
  * shaped today's session.
+ *
+ * Honesty guard, 2026-08-17: with no reasons behind it, the whole card is
+ * gone rather than rendering a heading that opens onto nothing. This is
+ * the case the audit caught live: "WHY THIS SESSION WAS SELECTED" on the
+ * Movement screen with no body underneath it. A disclosure that promises
+ * an explanation has to have one; there is no honest empty state for this
+ * card, because "we picked this for no reason we can name" is not
+ * something to put in a box, it is something to not claim.
  */
 export function WhySessionCard({ reasons }: { reasons: MovementSelectionFactor[] }) {
   const [open, setOpen] = useState(false);
+
+  if (!isNotEmpty(reasons)) return null;
 
   return (
     <section className={`${CARD} p-6`}>

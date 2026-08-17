@@ -77,6 +77,7 @@ import type { DailyCheckin, WearableDailyMetric } from '@mef/shared-types-contra
 import { MetricTrendChart, type TrendPoint } from './MetricTrendChart';
 import { WeeklyAverageTrendChart } from './WeeklyAverageTrendChart';
 import { chartWindowDirectionSentence } from './directionSentence';
+import { WhenNotEmpty } from '@/components/layout';
 import {
   MetricDistributionCard,
   hasEnoughForDistribution,
@@ -303,6 +304,10 @@ export function TrendsPanel({
       </div>
 
       <div className="mt-4">
+        {/* Honesty guard: heading and its pills appear together or not at all. */}
+        <WhenNotEmpty items={checkinSegments}>
+          {(checkinSegments) => (
+            <>
         <p className="text-[11px] font-medium uppercase tracking-wider text-[#1B3A2D]/40">
           From your check-ins
         </p>
@@ -324,8 +329,10 @@ export function TrendsPanel({
           ))}
         </div>
 
-        {wearableDataPresent && (
-          <>
+        {/* Honesty guard, same rule: the wearable heading needs wearable pills under it. */}
+        <WhenNotEmpty items={wearableDataPresent ? wearableSegments : []}>
+          {(wearableSegments) => (
+            <>
             <p className="mt-3 text-[11px] font-medium uppercase tracking-wider text-[#1B3A2D]/40">
               From your wearable
             </p>
@@ -347,8 +354,12 @@ export function TrendsPanel({
                 </button>
               ))}
             </div>
-          </>
-        )}
+            </>
+          )}
+        </WhenNotEmpty>
+            </>
+          )}
+        </WhenNotEmpty>
       </div>
 
       {active.group === 'checkin' && active.levelLabel ? (

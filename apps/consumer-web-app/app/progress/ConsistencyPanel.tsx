@@ -22,19 +22,36 @@
  *
  * app/progress/streak.ts (calculateStreak) is deleted outright along with
  * this — it had exactly one consumer (this page) and no longer has any.
+ *
+ * Honesty guard, 2026-08-17: the caption used to read "in the last 30
+ * recorded days" no matter what, and 30 is the query's cap, not the
+ * member's history. A member with three check-ins read "3.0 / 5 in the
+ * last 30 recorded days" while the Trends card a few inches above said "You
+ * have 3 recorded days for energy in the last 30 days". The caption now
+ * states the real number the average was divided by. See
+ * lib/progress/statWindow.ts.
  */
-export function ConsistencyPanel({ averageEnergy }: { averageEnergy: number | null }) {
+import { recordedDaysLabel } from '@/lib/progress/statWindow';
+
+export function ConsistencyPanel({
+  averageEnergy,
+  recordedDays,
+}: {
+  averageEnergy: number | null;
+  /** The average's own denominator: how many check-ins it was computed from. */
+  recordedDays: number;
+}) {
   return (
     <section className="mt-5 rounded-[28px] border border-[#1B3A2D]/10 bg-white p-6">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7A72]">
         Avg energy
       </p>
-      {averageEnergy !== null ? (
+      {averageEnergy !== null && recordedDays > 0 ? (
         <p className="mt-2 text-2xl font-semibold text-[#1B3A2D]">
           {averageEnergy.toFixed(1)}
           <span className="text-sm font-normal text-[#6B7A72]"> / 5</span>
           <span className="ml-2 text-xs font-normal text-[#6B7A72]">
-            in the last 30 recorded days
+            {recordedDaysLabel(recordedDays)}
           </span>
         </p>
       ) : (

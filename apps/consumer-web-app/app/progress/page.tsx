@@ -230,7 +230,7 @@ export default async function ProgressPage() {
             removed (distribution card task, 2026-07-28) after confirming
             both appear elsewhere in the app. See ConsistencyPanel.tsx's
             own doc comment for the full accounting. */}
-        <ConsistencyPanel averageEnergy={averageEnergy} />
+        <ConsistencyPanel averageEnergy={averageEnergy} recordedDays={recentCheckins.length} />
 
         {/* Assessment block: From Your Assessments + Baseline vs. Latest
             Comparison, grouped together since both read assessment data. */}

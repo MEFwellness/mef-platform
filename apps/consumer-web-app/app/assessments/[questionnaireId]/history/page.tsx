@@ -22,7 +22,7 @@ import {
 } from '@/components/assessments/CategoryScoreTrendChart';
 import { AssessmentComparisonPanel } from '@/components/assessments/AssessmentComparisonPanel';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
-import { CenterStage, Card } from '@/components/layout';
+import { CenterStage, Card, WhenNotEmpty } from '@/components/layout';
 
 export default async function AssessmentHistoryPage({
   params,
@@ -109,6 +109,9 @@ export default async function AssessmentHistoryPage({
               </Card>
             )}
 
+            {/* Honesty guard: heading and list appear together or not at all. */}
+            <WhenNotEmpty items={mostRecentFirst}>
+              {(mostRecentFirst) => (
             <Card className="mt-5">
               <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Every Completed Assessment
@@ -133,6 +136,8 @@ export default async function AssessmentHistoryPage({
                 ))}
               </div>
             </Card>
+              )}
+            </WhenNotEmpty>
           </>
         )}
       </main>

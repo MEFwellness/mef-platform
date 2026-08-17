@@ -20,6 +20,7 @@ import { getDoctorIcon } from '@/lib/assessments/four-doctors/premium/icons';
 import { zoneForPriority } from '@/lib/assessments/four-doctors/premium/zones';
 import { getGuidance } from '@/lib/assessments/four-doctors/premium/guidance';
 import type { AssessmentCopy, CategoryScoreResult } from '@/lib/assessments/engine/types';
+import { WhenNotEmpty, isNotEmpty } from '@/components/layout';
 
 type Props = {
   categories: CategoryScoreResult[];
@@ -27,6 +28,9 @@ type Props = {
 };
 
 export function DoctorSummaryCards({ categories, copy }: Props) {
+  // Honesty guard: no heading over an empty grid.
+  if (!isNotEmpty(categories)) return null;
+
   return (
     <section>
       <p className="px-1 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
@@ -164,27 +168,32 @@ function DoctorCard({ category, copy }: { category: CategoryScoreResult; copy: A
           <p className="mt-1.5 text-sm leading-relaxed text-[#1B3A2D]">{guidance.opportunity}</p>
         </div>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-            Three ways to move this forward
-          </p>
-          <ul className="mt-2 space-y-2.5">
-            {guidance.recommendations.map((recommendation) => (
-              <li
-                key={recommendation}
-                className="flex items-start gap-2.5 text-sm leading-relaxed text-[#1B3A2D]"
-              >
-                <span
-                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: zone.tint, color: zone.color }}
-                >
-                  <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
-                </span>
-                {recommendation}
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* Honesty guard: a heading that promises three ways cannot stand over zero of them. */}
+        <WhenNotEmpty items={guidance.recommendations}>
+          {(recommendations) => (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                Three ways to move this forward
+              </p>
+              <ul className="mt-2 space-y-2.5">
+                {recommendations.map((recommendation) => (
+                  <li
+                    key={recommendation}
+                    className="flex items-start gap-2.5 text-sm leading-relaxed text-[#1B3A2D]"
+                  >
+                    <span
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                      style={{ backgroundColor: zone.tint, color: zone.color }}
+                    >
+                      <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                    </span>
+                    {recommendation}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </WhenNotEmpty>
 
         <div className="rounded-2xl p-4" style={{ backgroundColor: zone.tint }}>
           <p

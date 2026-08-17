@@ -287,19 +287,23 @@ describe('Removed: the Streak/Check-ins/Avg Energy stats card below Trends — A
   const CONSISTENCY_PANEL = source('app/progress/ConsistencyPanel.tsx');
   const PROGRESS_PAGE = source('app/progress/page.tsx');
 
-  it('ConsistencyPanel only accepts averageEnergy now — Streak and Check-ins are gone from its props and markup', () => {
-    expect(CONSISTENCY_PANEL).toContain(
-      'export function ConsistencyPanel({ averageEnergy }: { averageEnergy: number | null })'
-    );
+  // `recordedDays` was added 2026-08-17 by the stat-window honesty guard:
+  // the caption used to hardcode "in the last 30 recorded days" and now
+  // states the average's real denominator. The point of these two tests is
+  // unchanged and still enforced: Streak and Check-ins are gone.
+  it('ConsistencyPanel carries no Streak or Check-ins props or markup', () => {
+    expect(CONSISTENCY_PANEL).toContain('export function ConsistencyPanel({');
+    expect(CONSISTENCY_PANEL).toContain('averageEnergy: number | null;');
     expect(CONSISTENCY_PANEL).not.toContain('checkinCount');
     expect(CONSISTENCY_PANEL).not.toContain('Flame');
     expect(CONSISTENCY_PANEL).not.toMatch(/grid-cols-3/);
   });
 
-  it('the page no longer computes or imports a streak, and passes only averageEnergy to the panel', () => {
+  it('the page no longer computes or imports a streak, and passes the panel only its energy figures', () => {
     expect(PROGRESS_PAGE).not.toContain('calculateStreak');
     expect(PROGRESS_PAGE).not.toContain("from './streak'");
-    expect(PROGRESS_PAGE).toContain('<ConsistencyPanel averageEnergy={averageEnergy} />');
+    expect(PROGRESS_PAGE).toContain('<ConsistencyPanel averageEnergy={averageEnergy}');
+    expect(PROGRESS_PAGE).not.toContain('streak={');
   });
 
   it('app/progress/streak.ts is deleted — it had exactly one consumer (this page) and no longer has any', () => {

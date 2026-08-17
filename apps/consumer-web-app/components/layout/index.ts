@@ -6,3 +6,4 @@
 export { CenterStage } from './CenterStage';
 export { Card, CardStack } from './Card';
 export { Reading } from './Reading';
+export { WhenNotEmpty, isNotEmpty, type NonEmptyArray } from './WhenNotEmpty';

@@ -6738,3 +6738,41 @@ Confirmed on the real screens: Home reads "27 /100 Steady" with no confidence la
 **Worth knowing before Prompt 2, and deliberately not fixed here.** Pain & Structural Integrity shows "3 of 21 days logged", lists two active discomfort findings, and then says "LOOKING STEADY. Nothing specific needed here right now." That is not a zero-data problem, so no display guard reaches it: a domain with two active findings is resolving to `quiet` in `computeCoachingDomainPriority`. It is an interpretation bug and belongs to the interpretation rebuild. The audit did not catch it because it only cited the zero-day cards.
 
 **A limitation of the fix 5a guard, pre-existing and now visible.** The brief is frozen for the day at first open, which is normally before the member checks in. So after she checks in, Home keeps the dated wording ("Yesterday you logged moderate stress") until the next day rather than switching to the present tense. That staleness is not new (the row never updated after a check-in before either); what changed is that it is now labelled honestly instead of being called "today". Making it live would mean either regenerating the brief after a check-in, which needs an UPDATE/DELETE policy `coach_morning_briefs` does not have (migration 53 grants members insert and select only), or composing those two lines at read time. Both are real changes rather than display guards, so neither was done here.
+
+## Two more display guards: empty headings, and stat labels that overstate their data (2026-08-17)
+
+The last two guards from the trust cleanup. Both are display only. No score, severity, priority or interpretation changed, and the Pain & Structural Integrity contradiction flagged in the previous entry is deliberately still there, waiting for the interpretation build.
+
+### A heading may not render with nothing under it
+
+The audit caught "WHY THIS SESSION WAS SELECTED" on the Movement screen with no body at all. That is not a one-off, it is a shape: a heading rendered unconditionally, immediately followed by `items.map(...)` over a list that is sometimes empty. When the list empties the heading survives, and the member reads a promise of content that is not there.
+
+`components/layout/WhenNotEmpty.tsx` is the one place that rule now lives. It wraps the heading AND its body together so the two can only appear as a pair, and its callback receives a `NonEmptyArray`, so a caller cannot reach the body branch with an empty list even by accident. `isNotEmpty` is the same rule for components that can return early. Nothing is rendered when the list is empty: not an empty box, not a placeholder. This is deliberately not an empty state. An empty state is a designed thing a screen chooses to say, and several screens rightly have one. This is for the case where nobody chose anything and a heading was simply left behind.
+
+**Eleven sites, found by sweeping rather than by guessing.** A scan of every `.tsx` under `app/` and `components/`, excluding staff surfaces, produced 91 raw heading-above-a-map hits. Most were module constants that can never empty, and tightening the pairing rule (the list must be the heading's own next content, allowing one wrapper element) plus resolving indirect guards (`const hasWins = summary.recentWins.length > 0` counts) cut it to eleven real ones. All eleven are guarded, including the several where the list is non-empty by construction: a guard on a list that never empties costs nothing, and guarding all of them means the standing sweep needs **no exceptions list**, which is the difference between a check that holds and a check that rots.
+
+Guarded: `WhySessionCard` (the audit's own case, the whole card is gone with no reasons), `ProteinLedgerHistory` ("Last 7 days"), `MovementSessionPlayer` ("What is in it"), `DoctorSummaryCards` (both "Your Four Doctors" and "Three ways to move this forward", the second being a heading that names a count), `BaselineAssessmentView` (a domain heading now needs its answers), Root Score's "Domain Breakdown", the body assessment's "Your captures", the assessment history list, the results page's "Your Categories", and both Trends pill headings.
+
+### A stat label states the data behind the number, not the window it was capped at
+
+Progress showed "AVG ENERGY 3.0 / 5 in the last 30 recorded days" to a member with three recorded days. Thirty was the query's cap. The same screen a few inches above already said the true number out loud ("You have 3 recorded days for energy in the last 30 days"), so the page contradicted itself about the same member on the same load.
+
+`lib/progress/statWindow.ts`'s `recordedDaysLabel` is the rule: whatever fed the number is what the label says. The caption now reads "from 3 recorded days", and the count passed in is the average's own denominator (`recentCheckins.length`), so the caption and the number can never describe different data. A test asserts the page passes that exact expression rather than a constant.
+
+**The other windowed labels on member screens were checked and are already honest.** Trends' below-threshold sentence states the real recorded count. `MetricTrendChart`'s accessible label uses `withValues.length`. `MetricDistributionCard` prints real per-level day counts and is only mounted above the seven-day threshold.
+
+**Not changed, and worth knowing.** Root Score's Momentum says "Your last 7 days compared with the 7 before that." That describes the two comparison windows rather than claiming a count, and the snapshot carries no field for how many days actually fed each window, so stating a real number there would mean computing one. That is a scoring change, not a display guard. Separately, the energy average counts a check-in with a null energy value as a zero (`c.energy_level ?? 0`). Energy is a required check-in question so this does not bite today, but it is a computation detail this pass deliberately left alone.
+
+### The suite can render components now
+
+These guards are about absence, and absence is the one thing a source-text assertion is worst at proving. The tests render the real components through `react-dom/server` and assert the heading string is not in the HTML.
+
+That did not work before. Components here are written for React's automatic JSX runtime (Next's default) and none import React by name, while esbuild's default in vitest is the classic runtime, so importing any component into a test threw "React is not defined". `vitest.config.ts` now sets `esbuild: { jsx: 'automatic' }` and includes `tests/**/*.test.tsx`. This is why the suite had no component tests at all until now.
+
+### Proof
+
+`tests/display-guards-headings-and-windows.test.tsx`, 20 tests. Guard 1 is proven three ways: the primitive rendered for real (empty list renders the empty string, not an empty shell), the adopting components rendered with empty data, and a standing sweep of every member-facing screen that fails the build on a new occurrence. The sweep also tests itself: it writes a deliberately-bad fixture component and asserts it catches it, because a sweep that cannot see the bug is worse than no sweep. Guard 2 covers pluralisation and asserts no window size is ever hardcoded into a label.
+
+Two existing assertions in `tests/metric-distribution-card.test.ts` pinned `ConsistencyPanel`'s exact prop signature and were updated for the new `recordedDays` prop; what they were actually protecting (Streak and Check-ins staying gone) is unchanged and still enforced.
+
+Full suite **5,384 passing** (389 files). Typecheck clean, lint clean (0 errors), production build clean. No migration.

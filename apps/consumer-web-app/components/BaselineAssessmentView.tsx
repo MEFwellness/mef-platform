@@ -4,7 +4,7 @@ import {
   formatAnswerValue,
   type BaselineAssessment,
 } from '@/lib/onboarding/baseline';
-import { Card } from '@/components/layout';
+import { Card, isNotEmpty } from '@/components/layout';
 
 function formatDate(localDate: string): string {
   const [year, month, day] = localDate.split('-').map(Number);
@@ -45,7 +45,8 @@ export function BaselineAssessmentView({ baseline, description }: Props) {
         <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">{description}</p>
       </Card>
 
-      {groups.map((group) => (
+      {/* Honesty guard: a domain heading only appears with its answers under it. */}
+      {groups.filter((group) => isNotEmpty(group.answers)).map((group) => (
         <Card as="section" key={group.domain}>
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
             {group.label}
