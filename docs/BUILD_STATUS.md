@@ -7439,3 +7439,32 @@ The dormant path was also proved against a real running server rather than only 
 ### Vercel
 
 `NEXT_PUBLIC_TURNSTILE_SITE_KEY` was added to Production and Preview via the CLI. The widget is therefore live on the auth screens while the Supabase switch is still off, which is the intended dormant state: token offered, not yet required.
+
+### Live verification (2026-08-17)
+
+Against `app.mefwellness.com`, deployment `mef-platform-g3pmacvnm`, confirmed Ready and confirmed to be what the domain resolves to.
+
+`scripts/verify-turnstile-dormant-live.mjs`, **22 of 22**, with the Supabase switch still off.
+
+The dormant promise, on the real site, as the real standing test member:
+
+- Password login as `8weeks2fab@gmail.com` succeeded and landed on `/dashboard`, with no error shown.
+- The forgot-password form submitted for real and returned "If that email exists, a reset link has been sent."
+- Signup loads, still asks for email and password, button enabled.
+- All four screens, plus `/account/password` behind the session, show the member nothing at all: no stray box, no error text.
+
+And on all four screens, Cloudflare built its widget, which is the proof the site key is valid for this domain. A key rejected for a hostname never gets that far.
+
+### What the first live run caught, which no test could have
+
+The run was done twice, because the first one found a real bug.
+
+A headless browser is automation, and Turnstile did exactly what it exists to do: it declined to clear it silently and escalated to an interactive challenge, which then painted nothing into the container. Meanwhile the component had already drawn a cream card and the line "One quick check to confirm you are a person" the moment `before-interactive-callback` fired. That is a labelled empty box, on every auth screen, for anyone Turnstile decides to look at twice.
+
+A label over an empty space is worse than no label. Both interaction callbacks and all of the component's own chrome are gone. The container is now only a container: `empty:hidden`, so it has no height at all when Cloudflare puts nothing in it, and when Cloudflare does put something there it is Cloudflare's own "Verify you are human" control, which explains itself and could never have been restyled from this side anyway. A test now asserts the rendered output is exactly one empty element with no card and no caption.
+
+**The same failure was also the strongest possible proof of the safety property.** Every screen in that run was exercised with no token at all, which is the worst case a real member could hit if Cloudflare were unreachable, and every one of them still worked.
+
+### One thing that cannot be claimed from here
+
+Whether a real person on a real phone is ever shown a challenge. A headless run cannot answer that, because it is not a real person on a real phone, and the widget's mode is configured in the Cloudflare dashboard where this environment cannot read it. It is on the owner checklist as a thing to look at, not asserted here.
