@@ -6776,3 +6776,14 @@ That did not work before. Components here are written for React's automatic JSX 
 Two existing assertions in `tests/metric-distribution-card.test.ts` pinned `ConsistencyPanel`'s exact prop signature and were updated for the new `recordedDays` prop; what they were actually protecting (Streak and Check-ins staying gone) is unchanged and still enforced.
 
 Full suite **5,384 passing** (389 files). Typecheck clean, lint clean (0 errors), production build clean. No migration.
+
+### Live verification of the two display guards (2026-08-17)
+
+Run against `app.mefwellness.com` after the deploy went Ready and the domain was confirmed aliased to it, signed in as the standing test member through the real login form. `scripts/verify-display-guards-live.mjs`, **6 of 6 passing**. Reads only.
+
+- **The Movement heading.** "WHY THIS SESSION WAS SELECTED" is present today with three real reasons under it, which is the honest case, so the guard correctly leaves it alone. Worth being precise: this member's current session has reasons, so the empty case the audit caught could not be reproduced live. That case is proven by rendering the component with no reasons and asserting the HTML is empty, not by the live walk.
+- **A structural sweep of the rendered page**, not just that one heading: every element carrying the app's heading styling was checked for whether anything with real text follows it inside its own card. None on Movement is alone in its card.
+- **The Progress energy stat** reads "3.0 / 5 from 3 recorded days". The Trends card on the same screen independently says "You have 3 recorded days for energy". They agree, which is the specific contradiction this guard existed to remove.
+- **The sections that were wrapped still render**: Root Score's Domain Breakdown, Trends, and the "From your check-ins" pills were each confirmed present, since wrapping a heading in a guard is exactly the change that could make it vanish when it should not.
+
+**Regression check on the earlier fixes:** `scripts/verify-trust-cleanup-live.mjs` re-run against this deploy, **9 of 10**, identical to before. Nothing from the confidence removal, the food finding retirement, the single coaching focus, the pattern heading split or the zero-data guard regressed. The tenth is unchanged and still the same known cause: `coach_morning_briefs` is a per-day cache and today's row was written at 04:02 UTC, before yesterday's deploy. It corrects itself when the local date rolls over. Deleting that one row would show it sooner; that delete is blocked by this environment's permission classifier and was not forced.
