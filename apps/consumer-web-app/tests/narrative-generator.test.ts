@@ -74,7 +74,17 @@ describe('deriveStressSleepPattern — correlation, not fabrication', () => {
     expect(draft!.category).toBe('recurring_patterns');
     expect(draft!.provenance).toBe('inferred');
     expect(draft!.summary).not.toMatch(/because|causes|caused by/i);
-    expect(draft!.summary).toMatch(/pattern/i);
+    // Language must match tier (Member Interpretation Layer, 2026-08-17).
+    // This used to assert the summary called itself "a pattern worth
+    // watching". The template no longer claims a pattern at all, because the
+    // same sentence is emitted at every sample size above the minimum and
+    // most of those sizes are nowhere near a pattern. The
+    // correlation-not-causation discipline is unchanged, and the draft now
+    // carries the real tier so a smaller sample is caught by
+    // enforceTierLanguage rather than by a reviewer's eye.
+    expect(draft!.summary).toMatch(/worth watching/i);
+    expect(draft!.summary).not.toMatch(/\bpattern\b/i);
+    expect(draft!.tier).toBe('supported_by_checkins');
     expect(draft!.confidence).toBeGreaterThan(0);
     expect(draft!.confidence).toBeLessThanOrEqual(1);
   });

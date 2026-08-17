@@ -46,7 +46,6 @@ export async function calculateAndPersistRootScore(
     bodyAssessments,
     activeRegistryFindings,
     previousSnapshot,
-    priorSnapshotCount,
   ] = await Promise.all([
     fetchCheckinsForScoring(supabase, memberId, params.localDate),
     fetchMealQualityEventsForScoring(supabase, memberId, params.localDate),
@@ -54,7 +53,6 @@ export async function calculateAndPersistRootScore(
     fetchBodyAssessmentsForScoring(supabase, memberId, params.localDate),
     fetchActiveRegistryFindingsForScoring(supabase, memberId),
     getLatestSnapshotBefore(supabase, memberId, params.localDate),
-    countSnapshotsBefore(supabase, memberId, params.localDate),
   ]);
 
   const calculated = calculateRootScoreSnapshot({
@@ -66,7 +64,9 @@ export async function calculateAndPersistRootScore(
     bodyAssessments,
     activeRegistryFindings,
     previousSnapshot: previousSnapshot ? { root_score: previousSnapshot.root_score } : null,
-    priorSnapshotCount,
+    // loggedDays is left to calculateRootScoreSnapshot's own count over the
+    // check-ins it was already handed, rather than a second query that
+    // could disagree with them.
   });
 
   return upsertSnapshot(supabase, memberId, params.localDate, params.timezone, calculated);

@@ -1,56 +1,58 @@
 /**
- * Unit tests for the Root Map builder (Prompt 10) — pure functions only, no
- * Supabase client, same convention as investigation-engine.test.ts. Covers
- * the "always all twelve domains" guarantee, the uninstrumented-domain
- * empty state, corroborated-confidence -> stage inference, and safety
- * suppression for the member view vs. the coach view.
+ * The Root Map builder, after the Member Interpretation Layer migration.
+ *
+ * The builder no longer computes domain confidence or domain priority over
+ * raw registry rows; it renders the layer's `DomainInterpretation[]`. So
+ * these tests feed it interpretations. What used to be asserted here about
+ * corroboration and severity is asserted one level down, in
+ * tests/member-interpretation-layer.test.ts.
+ *
+ * Still covered here, because they are this module's own guarantees: always
+ * all twelve domains, the uninstrumented empty state, safety suppression
+ * for the member view versus the coach view, and every domain always having
+ * a real next step.
  */
 import { describe, it, expect } from 'vitest';
-import type { RegistryEntry } from '@mef/shared-types-contracts';
 import { buildRootMap } from '../lib/root-map';
 import type { RootRouterOutcomeView } from '../lib/investigation-engine/routerOutcome';
+import { buildDomainInterpretations } from '../lib/member-interpretation/domains';
+import type { CanonicalFinding } from '../lib/member-interpretation/types';
 
-function finding(overrides: Partial<RegistryEntry> = {}): RegistryEntry {
+function finding(overrides: Partial<CanonicalFinding> = {}): CanonicalFinding {
   return {
-    id: 'e1',
-    member_id: 'u1',
-    entry_kind: 'finding',
-    domain: 'stress',
-    code: 'elevated_stress',
+    id: 'stress::elevated_stress',
+    sourceKey: 'stress::elevated_stress',
     label: 'Elevated Stress',
+    statement: 'Elevated Stress came up in your intake answers. One signal so far.',
+    tier: 'early_indication',
+    tierLabel: 'Early indication',
+    evidence: [],
+    verdict: 'worth_watching',
     severity: 'moderate',
-    numeric_value: null,
-    unit: null,
-    confidence: 0.6,
-    narrative: null,
-    evidence_refs: [],
-    source_feature: 'questionnaire_category_finding',
-    source_record_id: 'r1',
-    status: 'active',
-    trend_status: 'new',
-    member_visible: true,
-    coach_context: null,
-    coach_reviewed_by: null,
-    coach_reviewed_at: null,
-    supersedes_id: null,
-    superseded_by_id: null,
-    recorded_at: '2026-01-01T00:00:00.000Z',
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
+    primaryDomain: 'stress_nervous_system',
+    primaryDomainLabel: 'Stress & Nervous System Regulation',
+    alsoRelevantDomains: ['emotional_resilience_mood'],
+    crossReferenceNote: 'Also shown under Emotional Resilience & Mood.',
+    memberVisible: true,
+    registryEntryId: 'e1',
     ...overrides,
   };
 }
 
+function domains(findings: CanonicalFinding[], suppressed = false) {
+  return buildDomainInterpretations({ findings, loggedDaysByDomain: {}, suppressed });
+}
+
 const NO_ACTION_OUTCOME: RootRouterOutcomeView = {
   outcome: 'no_action_needed',
-  memberMessage: 'Nothing urgent right now — things look steady.',
+  memberMessage: 'Nothing urgent right now, things look steady.',
   investigation: null,
 };
 
 describe('buildRootMap', () => {
   it('always returns all twelve Coaching Domains, regardless of input', () => {
     const view = buildRootMap({
-      activeFindings: [],
+      domains: domains([]),
       patterns: [],
       routerOutcome: NO_ACTION_OUTCOME,
       safetyGated: false,
@@ -61,7 +63,7 @@ describe('buildRootMap', () => {
 
   it('shows the uninstrumented-domain empty state, never a blank/undefined section', () => {
     const view = buildRootMap({
-      activeFindings: [],
+      domains: domains([]),
       patterns: [],
       routerOutcome: NO_ACTION_OUTCOME,
       safetyGated: false,
@@ -71,30 +73,44 @@ describe('buildRootMap', () => {
     expect(identity.isUninstrumented).toBe(true);
     expect(identity.stage).toBe('discovery');
     expect(identity.whatWeUnderstand).toEqual([]);
-    expect(identity.whatWereStillLearning).toMatch(/doesn't have a dedicated assessment/);
+    expect(identity.state).toBe('not_covered');
+    expect(identity.whatWereStillLearning).toMatch(/no assessment covering/i);
   });
 
-  it('reaches at least moderate confidence and a non-discovery stage once two distinct investigations corroborate', () => {
+  it('renders a finding in full on its primary domain and as a reference elsewhere', () => {
     const view = buildRootMap({
-      activeFindings: [
-        finding({ domain: 'stress', confidence: 0.3, source_feature: 'questionnaire_category_finding' }),
-        finding({ domain: 'stress', confidence: 0.3, source_feature: 'onboarding_baseline_finding', code: 'b' }),
-      ],
+      domains: domains([finding()]),
       patterns: [],
       routerOutcome: NO_ACTION_OUTCOME,
       safetyGated: false,
       restrictedTopics: [],
     });
     const stress = view.domains.find((d) => d.domain === 'stress_nervous_system')!;
-    expect(stress.confidence.label).toBe('moderate');
-    expect(stress.confidence.corroborated).toBe(true);
-    expect(stress.stage).not.toBe('discovery');
-    expect(stress.whatWeUnderstand.length).toBeGreaterThan(0);
+    const mood = view.domains.find((d) => d.domain === 'emotional_resilience_mood')!;
+
+    expect(stress.canonicalFindings).toHaveLength(1);
+    expect(stress.whatWeUnderstand).toHaveLength(1);
+    expect(mood.canonicalFindings).toHaveLength(0);
+    expect(mood.crossReferenced).toHaveLength(1);
+    expect(view.domains.reduce((n, d) => n + d.whatWeUnderstand.length, 0)).toBe(1);
+  });
+
+  it('maps the layer state onto the legacy priority shim without ever landing on quiet over a live finding', () => {
+    const view = buildRootMap({
+      domains: domains([finding({ verdict: 'noted', severity: 'mild' })]),
+      patterns: [],
+      routerOutcome: NO_ACTION_OUTCOME,
+      safetyGated: false,
+      restrictedTopics: [],
+    });
+    const stress = view.domains.find((d) => d.domain === 'stress_nervous_system')!;
+    expect(stress.state).toBe('acknowledged');
+    expect(stress.priority).not.toBe('quiet');
   });
 
   it('suppresses detail across every domain for the member view when a safety topic is restricted', () => {
     const view = buildRootMap({
-      activeFindings: [finding({ domain: 'stress', confidence: 0.8 })],
+      domains: domains([], true),
       patterns: [],
       routerOutcome: NO_ACTION_OUTCOME,
       safetyGated: true,
@@ -110,7 +126,7 @@ describe('buildRootMap', () => {
 
   it('does not suppress detail for the coach view, and echoes restrictedTopics back', () => {
     const view = buildRootMap({
-      activeFindings: [finding({ domain: 'stress', confidence: 0.8 })],
+      domains: domains([finding()]),
       patterns: [],
       routerOutcome: NO_ACTION_OUTCOME,
       safetyGated: true,
@@ -124,7 +140,7 @@ describe('buildRootMap', () => {
 
   it('every domain always has non-empty currentRecommendation and nextSuggestedStep', () => {
     const view = buildRootMap({
-      activeFindings: [],
+      domains: domains([]),
       patterns: [],
       routerOutcome: NO_ACTION_OUTCOME,
       safetyGated: false,
@@ -133,6 +149,26 @@ describe('buildRootMap', () => {
     for (const domain of view.domains) {
       expect(domain.currentRecommendation.length).toBeGreaterThan(0);
       expect(domain.nextSuggestedStep.length).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * The phrase the audit caught on a card that listed two active findings.
+   * It is gone from the builder's own vocabulary, not merely unreachable.
+   */
+  it('no domain can ever say "looking steady" or "nothing specific needed"', () => {
+    const view = buildRootMap({
+      domains: domains([finding({ verdict: 'noted', severity: 'mild' })]),
+      patterns: [],
+      routerOutcome: NO_ACTION_OUTCOME,
+      safetyGated: false,
+      restrictedTopics: [],
+    });
+    for (const domain of view.domains) {
+      const text =
+        `${domain.currentRecommendation} ${domain.nextSuggestedStep} ${domain.whatWereStillLearning}`.toLowerCase();
+      expect(text).not.toContain('looking steady');
+      expect(text).not.toContain('nothing specific needed');
     }
   });
 });

@@ -1,107 +1,131 @@
+/**
+ * "What We're Noticing", after the Member Interpretation Layer migration.
+ *
+ * This module no longer reads registry rows and no longer decides what any
+ * of them mean, so these tests feed it canonical findings, which is the
+ * only thing it takes now. Everything that used to be asserted here about
+ * severity, trend and visibility is asserted one level down, in
+ * tests/member-interpretation-layer.test.ts, where those decisions moved.
+ */
 import { describe, it, expect } from 'vitest';
-import type { RegistryEntry } from '@mef/shared-types-contracts';
 import { buildMemberFacingNoticing } from '../lib/intelligence-engine/memberFacingNoticing';
+import type { CanonicalFinding } from '../lib/member-interpretation/types';
 
-function finding(overrides: Partial<RegistryEntry> = {}): RegistryEntry {
+function finding(overrides: Partial<CanonicalFinding> = {}): CanonicalFinding {
   return {
-    id: 'e1',
-    member_id: 'u1',
-    entry_kind: 'finding',
-    domain: 'sleep',
-    code: 'poor_sleep_quality',
+    id: 'sleep::poor_sleep_quality',
+    sourceKey: 'sleep::poor_sleep_quality',
     label: 'Poor Sleep Quality',
+    statement: 'Poor Sleep Quality came up in your intake answers. One signal so far.',
+    tier: 'early_indication',
+    tierLabel: 'Early indication',
+    evidence: [],
+    verdict: 'worth_watching',
     severity: 'moderate',
-    numeric_value: null,
-    unit: null,
-    confidence: 0.6,
-    narrative: 'Sleep quality has been poor recently.',
-    evidence_refs: [],
-    source_feature: 'onboarding_baseline_finding',
-    source_record_id: 'r1',
-    status: 'active',
-    trend_status: 'new',
-    member_visible: true,
-    coach_context: null,
-    coach_reviewed_by: null,
-    coach_reviewed_at: null,
-    supersedes_id: null,
-    superseded_by_id: null,
-    recorded_at: '2026-01-01T00:00:00.000Z',
-    created_at: '2026-01-01T00:00:00.000Z',
-    updated_at: '2026-01-01T00:00:00.000Z',
+    primaryDomain: 'sleep_circadian_rhythm',
+    primaryDomainLabel: 'Sleep & Circadian Rhythm',
+    alsoRelevantDomains: ['recovery_energy_regulation'],
+    crossReferenceNote: 'Also shown under Recovery & Energy Regulation.',
+    memberVisible: true,
+    registryEntryId: 'e1',
     ...overrides,
   };
 }
 
 describe('buildMemberFacingNoticing', () => {
-  it('surfaces an active, member-visible finding under "noticing"', () => {
-    const result = buildMemberFacingNoticing([finding()]);
-    expect(result.noticing).toEqual(['Sleep quality has been poor recently.']);
+  it('surfaces a member-visible finding under "noticing", with its tier', () => {
+    const result = buildMemberFacingNoticing({ findings: [finding()], dataFloorNote: null });
+    expect(result.noticing).toHaveLength(1);
+    expect(result.noticing[0]!.statement).toContain('Poor Sleep Quality');
+    expect(result.noticing[0]!.tierLabel).toBe('Early indication');
   });
 
-  it('excludes a coach-only (member_visible=false) finding entirely', () => {
-    const result = buildMemberFacingNoticing([finding({ member_visible: false })]);
+  it('excludes a coach-only finding entirely', () => {
+    const result = buildMemberFacingNoticing({
+      findings: [finding({ memberVisible: false })],
+      dataFloorNote: null,
+    });
     expect(result.noticing).toHaveLength(0);
     expect(result.improving).toHaveLength(0);
   });
 
-  it('surfaces an improving-trend finding under "improving"', () => {
-    const result = buildMemberFacingNoticing([finding({ trend_status: 'improving' })]);
-    expect(result.improving[0]).toContain('improving');
+  it('puts an improving finding under "improving" and not under "noticing"', () => {
+    const result = buildMemberFacingNoticing({
+      findings: [finding({ verdict: 'improving' })],
+      dataFloorNote: null,
+    });
+    expect(result.improving).toHaveLength(1);
+    expect(result.noticing).toHaveLength(0);
   });
 
-  // Honesty guard (2026-08-17). This used to assert the opposite: that a
-  // severity 'none' finding counted as improving. It does not. Severity
-  // 'none' means the producer found nothing, not that something got better,
-  // and it was reaching the member as "Packaged food scan has been
-  // improving." off a single barcode scan with no second data point and no
-  // trend of any kind. Improving now requires a real computed
-  // trend_status of 'improving' (lib/registry/trendStatus.ts).
-  it('does not call a severity "none" finding improving, since nothing found is not progress', () => {
-    const result = buildMemberFacingNoticing([finding({ severity: 'none' })]);
+  it('does not list a resolved finding at all', () => {
+    const result = buildMemberFacingNoticing({
+      findings: [finding({ verdict: 'resolved' })],
+      dataFloorNote: null,
+    });
+    expect(result.noticing).toHaveLength(0);
     expect(result.improving).toHaveLength(0);
   });
 
-  it('still calls a severity "none" finding improving when it carries a real improving trend', () => {
-    const result = buildMemberFacingNoticing([
-      finding({ severity: 'none', trend_status: 'improving' }),
-    ]);
-    expect(result.improving).toHaveLength(1);
+  /**
+   * The audit's own duplication, and why the field is gone rather than
+   * filtered. `worthAttention` mapped the moderate/significant subset of the
+   * SAME list to its bare label, so four of six bullets appeared twice on
+   * one screen. Urgency is a flag on the finding now.
+   */
+  it('has no second list that could repeat the first', () => {
+    const result = buildMemberFacingNoticing({
+      findings: [finding({ verdict: 'needs_attention' })],
+      dataFloorNote: null,
+    });
+    expect(result).not.toHaveProperty('worthAttention');
+    expect(result.noticing).toHaveLength(1);
+    expect(result.noticing[0]!.needsAttention).toBe(true);
   });
 
-  it('puts moderate/significant findings under "worthAttention"', () => {
-    const result = buildMemberFacingNoticing([finding({ severity: 'significant' })]);
-    expect(result.worthAttention).toEqual(['Poor Sleep Quality']);
+  it('marks a non-urgent finding as not needing attention rather than dropping it', () => {
+    const result = buildMemberFacingNoticing({
+      findings: [finding({ verdict: 'noted' })],
+      dataFloorNote: null,
+    });
+    expect(result.noticing[0]!.needsAttention).toBe(false);
   });
 
-  it('does not put mild findings under "worthAttention"', () => {
-    const result = buildMemberFacingNoticing([finding({ severity: 'mild' })]);
-    expect(result.worthAttention).toHaveLength(0);
+  it('carries the cross reference through, so one answer reads as one finding', () => {
+    const result = buildMemberFacingNoticing({ findings: [finding()], dataFloorNote: null });
+    expect(result.noticing[0]!.crossReferenceNote).toBe(
+      'Also shown under Recovery & Energy Regulation.'
+    );
   });
 
-  // Guard for the "Suggested Next Steps" bug (confirmed live on
-  // app.mefwellness.com): the view used to carry a `nextSteps` field built
-  // from FindingBasedSuggestion.reason — only ever the WHY ("Based on
-  // stress and lifestyle balance noticed recently."), never an actual
-  // step, because no step/title/link was ever computed anywhere in that
-  // pipeline. There is no fix that "restores" a step that was never
-  // computed, so the field itself is gone — this pins that down instead
-  // of leaving a heading with only reasoning text under it.
-  it('has no nextSteps field at all — there was never a real step behind it', () => {
-    const result = buildMemberFacingNoticing([finding({ severity: 'significant' })]);
+  it('has no nextSteps field at all, there was never a real step behind it', () => {
+    const result = buildMemberFacingNoticing({ findings: [finding()], dataFloorNote: null });
     expect(result).not.toHaveProperty('nextSteps');
   });
 
-  it('includes an educational note for a touched domain', () => {
-    const result = buildMemberFacingNoticing([finding()]);
-    expect(result.educationalNotes.length).toBeGreaterThan(0);
+  it('includes one educational note per touched domain, never one per finding', () => {
+    const result = buildMemberFacingNoticing({
+      findings: [
+        finding({ id: 'a', sourceKey: 'a' }),
+        finding({ id: 'b', sourceKey: 'b', label: 'Something else' }),
+      ],
+      dataFloorNote: null,
+    });
+    expect(result.educationalNotes).toHaveLength(1);
+  });
+
+  it('carries the data floor note through when the floor is not met', () => {
+    const result = buildMemberFacingNoticing({
+      findings: [finding()],
+      dataFloorNote: 'You have 3 logged days so far.',
+    });
+    expect(result.dataFloorNote).toBe('You have 3 logged days so far.');
   });
 
   it('returns all-empty when there are no findings', () => {
-    const result = buildMemberFacingNoticing([]);
+    const result = buildMemberFacingNoticing({ findings: [], dataFloorNote: null });
     expect(result.noticing).toHaveLength(0);
     expect(result.improving).toHaveLength(0);
-    expect(result.worthAttention).toHaveLength(0);
     expect(result.educationalNotes).toHaveLength(0);
   });
 });

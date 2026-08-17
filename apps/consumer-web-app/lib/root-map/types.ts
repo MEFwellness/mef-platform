@@ -14,6 +14,11 @@ import type { CoachingPriorityLevel } from '../investigation-engine/types';
 import type { DomainConfidence } from '../investigation-engine/confidence';
 import type { PatternInsight } from '../intelligence-engine/types';
 import type { RootRouterOutcomeView } from '../investigation-engine/routerOutcome';
+import type {
+  CanonicalFinding,
+  DomainState,
+  EvidenceTier,
+} from '../member-interpretation/types';
 
 /**
  * A lightweight, non-persisted inference over today's signals only —
@@ -34,8 +39,39 @@ export type RootMapDomainView = {
   memberDescription: string;
   isUninstrumented: boolean;
   stage: RootMapStage;
-  confidence: DomainConfidence;
+  /**
+   * The Member Interpretation Layer's one state for this domain. This is
+   * the verdict now; everything below that looks like a verdict is derived
+   * from it rather than computed here.
+   */
+  state: DomainState;
+  /** Highest tier of any finding filed here, and its member-facing label. Null when there are none. */
+  tier: EvidenceTier | null;
+  tierLabel: string | null;
+  /** The canonical findings filed under this domain. Rendered in full. */
+  canonicalFindings: CanonicalFinding[];
+  /**
+   * Canonical findings primarily filed elsewhere that are genuinely
+   * relevant here. Rendered as one cross reference line each, NEVER as
+   * findings. This is the half of the fix that stops one intake answer
+   * reading as three separate observations.
+   */
+  crossReferenced: CanonicalFinding[];
+  /**
+   * Legacy shim, derived from `state`. Kept because the coach card, the
+   * Root Map ring and the named-area resolver all still read it, and
+   * changing all three at once would be a bigger, riskier edit than the
+   * one this build is making. It is no longer computed from raw findings by
+   * this module: buildRootMap maps it out of the layer's state, so it can
+   * never disagree with the verdict shown beside it.
+   */
   priority: CoachingPriorityLevel;
+  /**
+   * Legacy shim, derived from `tier`. Same reasoning as `priority`. The
+   * member's own Root Map has not rendered a confidence chip since the
+   * trust cleanup; the coach card still reads this field.
+   */
+  confidence: DomainConfidence;
   /** Plain-language observations already gathered — empty when nothing qualifies yet. */
   whatWeUnderstand: string[];
   /** Always present — an honest, member-safe sentence about what's still uncertain here. */

@@ -30,12 +30,29 @@ const CHIP_CLASS =
  * to Root" section — they sit directly beneath the insight text, in
  * context with what they're about.
  */
+/**
+ * Interpretation-layer migration (2026-08-17). Two surfaces one tap apart
+ * used to disagree about whether Root had noticed anything at all: this
+ * panel said "Complete a few check-ins and Root will start noticing
+ * patterns worth surfacing here" while /insights, on the very next screen,
+ * listed three things it had noticed. They read different systems.
+ *
+ * They still read different systems, because they are genuinely about
+ * different things: this is today's generated coaching insight, /insights
+ * is the longitudinal picture. What changed is that this panel is now told
+ * whether the shared interpretation layer has anything for this member, so
+ * it can no longer claim there is nothing when there is. It does not
+ * borrow the other screen's content; it stops contradicting it.
+ */
 export function CoachingInsightsPanel({
   insights,
   entryContext,
+  hasInterpretationFindings = false,
 }: {
   insights: CoachingInsightView[];
   entryContext: string;
+  /** True when the Member Interpretation Layer has at least one canonical finding. */
+  hasInterpretationFindings?: boolean;
 }) {
   const featured = insights.find((i) => i.category === 'todays_insight') ?? insights[0] ?? null;
 
@@ -68,7 +85,9 @@ export function CoachingInsightsPanel({
         </p>
       ) : (
         <p className="mt-4 max-w-[var(--mef-reading-max-width)] text-sm leading-relaxed text-[#F5F0E4]/80">
-          Complete a few check-ins and Root will start noticing patterns worth surfacing here.
+          {hasInterpretationFindings
+            ? "Nothing new from today's check-ins yet. What Root has noticed so far is under See all."
+            : 'Complete a few check-ins and Root will start noticing things worth surfacing here.'}
         </p>
       )}
 
@@ -78,7 +97,7 @@ export function CoachingInsightsPanel({
           entryContext={entryContext}
           className={CHIP_CLASS}
         >
-          Help me understand this pattern
+          Help me understand this
         </RootQuickLink>
         <RootQuickLink
           entryPoint="progress_improved"

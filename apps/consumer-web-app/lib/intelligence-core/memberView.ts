@@ -8,6 +8,7 @@
  */
 
 import type { WellnessIdentityObservation } from '@mef/shared-types-contracts';
+import type { DataFloor } from '../member-interpretation/types';
 import type {
   IntelligenceCoreSummary,
   MemberWellnessHighlight,
@@ -29,18 +30,36 @@ export function toMemberWellnessHighlights(
     .map((o) => ({ id: o.id, statement: o.statement }));
 }
 
-/** Same stripping discipline as toMemberWellnessHighlights, for the Wellness Story dashboard's strengths/opportunities/priorities sections. */
+/**
+ * Same stripping discipline as toMemberWellnessHighlights, for the Wellness
+ * Story dashboard's strengths/opportunities/priorities sections.
+ *
+ * DATA FLOOR (Member Interpretation Layer, 2026-08-17). "Strengths" and
+ * "Opportunities" are the two claims on this screen that say something
+ * about the member rather than reporting something she did, so they are
+ * held to the layer's floor: below it they are not shown at all, and the
+ * honest sentence about how little there is takes their place.
+ *
+ * Everything else on the panel survives the floor untouched, because none
+ * of it is a verdict. Recent wins are things she actually did, the
+ * motivation profile is her own stated preference, and the priority comes
+ * from the Priority Card engine.
+ */
 export function toMemberWellnessStorySummary(
-  summary: IntelligenceCoreSummary
+  summary: IntelligenceCoreSummary,
+  dataFloor?: DataFloor
 ): MemberWellnessStorySummary {
+  const belowFloor = dataFloor !== undefined && !dataFloor.met;
+
   return {
-    topStrengths: summary.topStrengths.map((s) => s.title),
-    biggestOpportunities: summary.biggestOpportunities.map((o) => o.title),
+    topStrengths: belowFloor ? [] : summary.topStrengths.map((s) => s.title),
+    biggestOpportunities: belowFloor ? [] : summary.biggestOpportunities.map((o) => o.title),
     emergingConcerns: summary.emergingConcerns,
     recentWins: summary.recentWins,
     longTermTrendSummary: summary.longTermTrendSummary,
     motivationProfile: summary.motivationProfile,
     primaryPriorityTitle: summary.prioritization.primary?.title ?? null,
     secondaryPriorityTitles: summary.prioritization.secondary.map((s) => s.title),
+    dataFloorNote: belowFloor ? dataFloor.statement : null,
   };
 }

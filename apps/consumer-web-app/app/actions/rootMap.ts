@@ -34,6 +34,7 @@ import {
   type RootRouterOutcomeView,
 } from '@/lib/investigation-engine/routerOutcome';
 import { buildRootMap, fetchDomainCoverage, type DomainCoverage, type RootMapView } from '@/lib/root-map';
+import { buildMemberInterpretation } from '@/lib/member-interpretation';
 import type { CoachingDomain } from '@/lib/investigation-engine/domains';
 import {
   listPendingReassessments,
@@ -179,10 +180,17 @@ async function assembleRootMap(
   localDate: string,
   coachView: boolean
 ): Promise<{ view: RootMapView; inputs: RootMapInputs }> {
-  const inputs = await gatherRootMapInputs(supabase, memberId, localDate, coachView);
+  const [inputs, interpretation] = await Promise.all([
+    gatherRootMapInputs(supabase, memberId, localDate, coachView),
+    // The one place the Root Map's verdicts come from now. It used to
+    // compute domain confidence and domain priority itself over raw
+    // registry rows, which is how one intake answer became three findings
+    // and how two active pain findings resolved to "Looking steady".
+    buildMemberInterpretation(supabase, memberId, localDate, { coachView }),
+  ]);
 
   const view = buildRootMap({
-    activeFindings: inputs.activeFindings,
+    domains: interpretation.domains,
     patterns: inputs.report.patterns,
     routerOutcome: inputs.routerOutcome,
     safetyGated: inputs.decision.safetyGated,

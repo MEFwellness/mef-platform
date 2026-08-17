@@ -33,15 +33,27 @@ describe('"What We\'re Noticing" — full page instead of a sheet over Home', ()
     expect(noticingCard).not.toMatch(/sheetTitle/);
   });
 
-  it('the /noticing page exists and keeps the original section copy/order', () => {
+  it('the /noticing page exists and keeps its section order', () => {
     expect(existsSync(noticingPagePath)).toBe(true);
     const page = stripLeadingDocComment(readFileSync(noticingPagePath, 'utf-8'));
-    const noticingIdx = page.indexOf("What&apos;s Improving");
-    const attentionIdx = page.indexOf('Areas Worth Paying Attention To');
+    const improvingIdx = page.indexOf("What&apos;s Improving");
     const recommendedIdx = page.indexOf('Recommended For You');
-    expect(noticingIdx).toBeGreaterThan(-1);
-    expect(attentionIdx).toBeGreaterThan(noticingIdx);
-    expect(recommendedIdx).toBeGreaterThan(attentionIdx);
+    expect(improvingIdx).toBeGreaterThan(-1);
+    expect(recommendedIdx).toBeGreaterThan(improvingIdx);
+  });
+
+  /**
+   * "Areas Worth Paying Attention To" is GONE, and its removal is the fix
+   * rather than a copy edit. Live on 2026-08-17 this screen showed six
+   * bullets under WHAT WE'RE NOTICING and then repeated four of the same
+   * six as bare labels under this heading. It was a strict subset of the
+   * list above it by construction, so it could not carry information the
+   * first list did not already have. Urgency is a marker on the finding now.
+   */
+  it('does not render a second heading that repeats the first list', () => {
+    const page = stripLeadingDocComment(readFileSync(noticingPagePath, 'utf-8'));
+    expect(page).not.toMatch(/Areas Worth Paying Attention To/);
+    expect(page).toMatch(/needsAttention/);
   });
 
   // Confirmed live: the suggestion "reason" sentence was the only thing

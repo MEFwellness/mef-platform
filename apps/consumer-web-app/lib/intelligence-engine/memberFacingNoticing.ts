@@ -1,78 +1,112 @@
 /**
- * Member Experience — "What We're Noticing" (Prompt 6). Members never see
- * diagnostic language, internal questionnaire names, or severity/priority
- * jargon — this reshapes the same active, member-visible registry
- * findings the coach's Root Cause Signals panel uses into plain,
- * wellness-coaching-scope sections. Every source finding was already
- * gated member_visible=true and status='active' by RLS/the adapter that
- * wrote it (migration 40's own member_read_own_registry_entries policy
- * already filters this — this module doesn't re-check visibility, it
- * trusts what it's given, same as every other member-facing reshape in
- * this codebase).
+ * Member Experience — "What We're Noticing".
  *
- * There is no `nextSteps` field here on purpose. An earlier version
- * mapped `FindingBasedSuggestion.reason` (findingRecommendations.ts) into
- * a "Suggested Next Steps" list — but `reason` is only ever the WHY
- * ("Based on stress and lifestyle balance noticed recently."), never a
- * real action; no step/title/link was ever computed anywhere in that
- * pipeline. The member-visible action is `recommendedInvestigation`
- * (app/actions/memberNoticing.ts, sourced from the Root Router), which
- * already carries a real display name and route.
+ * MIGRATED to the Member Interpretation Layer (2026-08-17). This module no
+ * longer reads registry rows and no longer decides anything. It reshapes
+ * the layer's canonical findings into the sections this screen renders.
+ *
+ * The audit's finding, live on 2026-08-17: six bullets under WHAT WE'RE
+ * NOTICING, then four of the same six repeated as bare labels under AREAS
+ * WORTH PAYING ATTENTION TO. That happened because `noticing` mapped every
+ * active finding to its narrative and `worthAttention` mapped the
+ * moderate/significant subset to its label, and both rendered on one
+ * screen. A moderate finding was therefore stated twice, in two different
+ * forms, with nothing saying they were the same thing.
+ *
+ * `worthAttention` is GONE, and its removal is the fix rather than a
+ * simplification. It could not carry information the first list did not
+ * already have: it was a strict subset by construction. What it was
+ * genuinely doing, marking which findings are urgent, is now a flag on the
+ * finding itself, rendered in place. One finding, one line, one screen.
+ *
+ * There is no `nextSteps` field here, on purpose, and that is unchanged.
  */
 
-import type { RegistryDomain, RegistryEntry } from '@mef/shared-types-contracts';
+import type { CanonicalFinding } from '../member-interpretation/types';
 
-const EDUCATIONAL_NOTE_BY_DOMAIN: Partial<Record<RegistryDomain, string>> = {
-  sleep:
-    'Sleep quality and energy are closely linked. Small, consistent changes to a wind-down routine tend to help both.',
-  stress:
-    'Stress often shows up in the body before it shows up in mood. Tracking it alongside sleep and digestion can reveal patterns.',
-  nutrition:
-    'Digestion and nutrition often improve together when meal timing and food quality are addressed as one habit, not two.',
-  movement:
-    'Movement patterns noticed early are usually easiest to address with small, targeted adjustments.',
-  posture: 'Posture-related patterns often respond well to short, consistent daily mobility work.',
-  breathing:
-    'Breathing mechanics and posture are closely connected. Improving one often helps the other.',
+/** One finding as this screen renders it. */
+export type MemberNoticingItem = {
+  id: string;
+  statement: string;
+  tierLabel: string;
+  /** "Also shown under Movement & Physical Capacity." Null when it lives in one place. */
+  crossReferenceNote: string | null;
+  /** Rendered as an inline marker, not as a second list. */
+  needsAttention: boolean;
 };
 
 export type MemberNoticingView = {
-  noticing: string[];
-  improving: string[];
-  worthAttention: string[];
+  noticing: MemberNoticingItem[];
+  improving: MemberNoticingItem[];
   educationalNotes: string[];
+  /**
+   * The honest sentence to show when the member has not logged enough for
+   * any of this to be more than early. Null when the floor is met.
+   */
+  dataFloorNote: string | null;
 };
 
-const ATTENTION_SEVERITIES = new Set(['moderate', 'significant']);
+/**
+ * Educational notes, keyed on the coaching domain a finding is filed under
+ * rather than on its registry domain.
+ *
+ * Keyed on the primary domain and deduplicated, so a member with three
+ * findings that all live in one domain reads one note, not three.
+ */
+const EDUCATIONAL_NOTE_BY_DOMAIN: Record<string, string> = {
+  sleep_circadian_rhythm:
+    'Sleep quality and energy are closely linked. Small, consistent changes to a wind-down routine tend to help both.',
+  recovery_energy_regulation:
+    'Energy through the day usually tracks sleep, stress and food together, not any one of them on its own.',
+  stress_nervous_system:
+    'Stress often shows up in the body before it shows up in mood. Tracking it alongside sleep and digestion can be revealing.',
+  emotional_resilience_mood:
+    'Mood and stress load are related but not the same thing, which is why they are asked about separately.',
+  nutrition_metabolic_health:
+    'Digestion and nutrition often improve together when meal timing and food quality are addressed as one habit, not two.',
+  digestion_gut_health:
+    'Digestive comfort tends to respond to meal timing and consistency before it responds to what is on the plate.',
+  movement_physical_capacity:
+    'Movement noticed early is usually easiest to address with small, targeted adjustments.',
+  pain_structural_integrity:
+    'Discomfort often responds well to short, consistent daily mobility work, and it is always worth mentioning to your coach.',
+};
 
-export function buildMemberFacingNoticing(memberVisibleFindings: RegistryEntry[]): MemberNoticingView {
-  const active = memberVisibleFindings.filter(
-    (f) => f.status === 'active' && f.member_visible && f.severity && f.severity !== 'none'
-  );
+function toItem(finding: CanonicalFinding): MemberNoticingItem {
+  return {
+    id: finding.id,
+    statement: finding.statement,
+    tierLabel: finding.tierLabel,
+    crossReferenceNote: finding.crossReferenceNote,
+    needsAttention: finding.verdict === 'needs_attention',
+  };
+}
 
-  const noticing = active.map((f) => f.narrative ?? f.label);
+export function buildMemberFacingNoticing(input: {
+  findings: readonly CanonicalFinding[];
+  /** Null when the member has logged enough for the layer to describe her. */
+  dataFloorNote: string | null;
+}): MemberNoticingView {
+  const visible = input.findings.filter((f) => f.memberVisible);
 
-  // Honesty guard, 2026-08-17: improving means a real, computed improving
-  // trend (lib/registry/trendStatus.ts compares a new entry against the one
-  // it supersedes), and nothing else.
-  //
-  // This used to also count `severity === 'none'`, which does not mean
-  // "getting better", it means "this producer found nothing". A single
-  // barcode scan on its own, with no second data point and no trend of any
-  // kind, was therefore printed to the member as "Packaged food scan has
-  // been improving." Absence of a finding is not progress.
-  const improving = memberVisibleFindings
-    .filter((f) => f.member_visible && f.trend_status === 'improving')
-    .map((f) => `${f.label} has been improving.`);
+  // Improving is a real, computed trend and nothing else. It used to also
+  // count `severity === 'none'`, which is what printed "Packaged food scan
+  // has been improving." off one barcode scan with no second data point.
+  // The layer's verdict carries that rule now; this only sorts.
+  const improving = visible.filter((f) => f.verdict === 'improving');
+  const noticing = visible.filter((f) => f.verdict !== 'improving' && f.verdict !== 'resolved');
 
-  const worthAttention = active
-    .filter((f) => f.severity && ATTENTION_SEVERITIES.has(f.severity))
-    .map((f) => f.label);
+  const touchedDomains = new Set<string>();
+  for (const f of noticing) if (f.primaryDomain) touchedDomains.add(f.primaryDomain);
 
-  const touchedDomains = new Set(active.map((f) => f.domain));
   const educationalNotes = [...touchedDomains]
     .map((domain) => EDUCATIONAL_NOTE_BY_DOMAIN[domain])
     .filter((note): note is string => Boolean(note));
 
-  return { noticing, improving, worthAttention, educationalNotes };
+  return {
+    noticing: noticing.map(toItem),
+    improving: improving.map(toItem),
+    educationalNotes,
+    dataFloorNote: input.dataFloorNote,
+  };
 }

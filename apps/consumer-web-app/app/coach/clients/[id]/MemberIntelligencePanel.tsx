@@ -312,9 +312,6 @@ export function MemberIntelligencePanel({
                   {trend.direction.replaceAll('_', ' ')}
                 </span>
                 <span className="text-xs text-[#6B7A72]">
-                  {Math.round(trend.confidence * 100)}% confidence
-                </span>
-                <span className="text-xs text-[#6B7A72]">
                   {trend.points
                     .filter((p) => p.averageScore !== null)
                     .map(
@@ -340,9 +337,6 @@ export function MemberIntelligencePanel({
                   <span className="rounded-full bg-[#FAFAF8] px-2.5 py-1 text-xs capitalize text-[#6B7A72]">
                     {pattern.kind.replaceAll('_', ' ')}
                   </span>
-                  <span className="text-xs text-[#6B7A72]">
-                    {Math.round(pattern.confidence * 100)}% confidence
-                  </span>
                 </div>
                 <p className="mt-1 font-medium text-[#1B3A2D]">{pattern.label}</p>
                 <p className="mt-0.5 text-[#1B3A2D]/80">{pattern.description}</p>
@@ -365,9 +359,6 @@ export function MemberIntelligencePanel({
               <li key={h.id} className="rounded-2xl bg-[#FAFAF8] p-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-[#1B3A2D]">{h.statement}</p>
-                  <span className="shrink-0 text-xs text-[#6B7A72]">
-                    {Math.round(h.confidence * 100)}%
-                  </span>
                 </div>
                 <p className="mt-1.5 text-xs text-[#6B7A72]">
                   <span className="font-medium">Known facts:</span> {h.knownFacts.join(' ')}

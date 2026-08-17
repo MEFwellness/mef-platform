@@ -45,10 +45,6 @@ function FindingCard({ finding, coachMode }: { finding: FindingView; coachMode: 
             <dd className="font-medium text-[#1B3A2D]">{finding.direction ?? '-'}</dd>
           </div>
           <div>
-            <dt className="text-[#9AA79F]">Confidence</dt>
-            <dd className="font-medium text-[#1B3A2D]">{Math.round(finding.confidence * 100)}%</dd>
-          </div>
-          <div>
             <dt className="text-[#9AA79F]">Computed</dt>
             <dd className="font-medium text-[#1B3A2D]">{finding.computedAt.slice(0, 10)}</dd>
           </div>

@@ -22,17 +22,22 @@ const STAGE_STYLE: Record<RootMapStage, string> = {
   optimization: 'bg-[#EAF3EC] text-[#2F5D3A]',
 };
 
-const CONFIDENCE_LABEL: Record<RootMapDomainView['confidence']['label'], string> = {
-  building: 'Building confidence',
-  low: 'Low confidence',
-  moderate: 'Moderate confidence',
-  high: 'High confidence',
-};
-
-const PRIORITY_LABEL: Record<RootMapDomainView['priority'], string> = {
-  quiet: 'Quiet',
+/**
+ * The coach reads the SAME four evidence tiers the member does, so the two
+ * of them can talk about one finding using one vocabulary. This replaced
+ * "Building / Low / Moderate / High confidence", which was a different
+ * formula from the identically-labelled chip on the Root Score screen and
+ * told the reader nothing about what either measured.
+ */
+const STATE_LABEL: Record<RootMapDomainView['state'], string> = {
+  needs_attention: 'Needs attention now',
   worth_watching: 'Worth watching',
-  needs_attention_now: 'Needs attention now',
+  acknowledged: 'Noted, not urgent',
+  nothing_flagged_yet: 'Nothing flagged yet',
+  too_early: 'Still early here',
+  no_data_yet: 'Nothing logged yet',
+  not_covered: 'Not covered by an assessment yet',
+  paused_for_coach: 'Paused for coach review',
 };
 
 export function RootMapDomainCard({ domain }: { domain: RootMapDomainView }) {
@@ -49,21 +54,25 @@ export function RootMapDomainCard({ domain }: { domain: RootMapDomainView }) {
       <p className="mt-1 text-xs leading-relaxed text-[#6B7A72]">{domain.definition}</p>
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#6B7A72]">
-        <span className="rounded-full bg-[#F3F6F4] px-2.5 py-1">
-          {CONFIDENCE_LABEL[domain.confidence.label]}
-        </span>
-        <span className="rounded-full bg-[#F3F6F4] px-2.5 py-1">{PRIORITY_LABEL[domain.priority]}</span>
+        <span className="rounded-full bg-[#F3F6F4] px-2.5 py-1">{STATE_LABEL[domain.state]}</span>
+        {domain.tierLabel && (
+          <span className="rounded-full bg-[#F3F6F4] px-2.5 py-1">{domain.tierLabel}</span>
+        )}
       </div>
 
-      {domain.whatWeUnderstand.length > 0 && (
+      {domain.canonicalFindings.length > 0 && (
         <div className="mt-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
             What We Understand
           </p>
-          <ul className="mt-1.5 space-y-1.5">
-            {domain.whatWeUnderstand.map((item, i) => (
-              <li key={i} className="text-sm leading-relaxed text-[#1B3A2D]">
-                {item}
+          <ul className="mt-1.5 space-y-3">
+            {domain.canonicalFindings.map((f) => (
+              <li key={f.id} className="text-sm leading-relaxed text-[#1B3A2D]">
+                <p>{f.statement}</p>
+                <p className="mt-1 text-xs text-[#6B7A72]">
+                  {f.tierLabel}
+                  {f.crossReferenceNote ? ` · ${f.crossReferenceNote}` : ''}
+                </p>
               </li>
             ))}
           </ul>

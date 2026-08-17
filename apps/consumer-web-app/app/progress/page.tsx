@@ -55,6 +55,7 @@ import { buildProgressEntryContext } from '@/lib/conversation-coach/entryContext
 import { WellnessIdentityPanel } from './WellnessIdentityPanel';
 import { ProgressRootScorePanel } from './ProgressRootScorePanel';
 import { CoachingInsightsPanel } from './CoachingInsightsPanel';
+import { getMemberInterpretation } from '@/lib/member-interpretation';
 import { TrendsPanel } from './TrendsPanel';
 import { ConsistencyPanel } from './ConsistencyPanel';
 import { WellnessStorySection, WellnessStorySectionSkeleton } from './WellnessStorySection';
@@ -112,6 +113,7 @@ export default async function ProgressPage() {
     rootScoreHistory,
     coachingInsights,
     bodyAssessmentAccess,
+    interpretation,
   ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
@@ -129,6 +131,10 @@ export default async function ProgressPage() {
     // Explore row below when this member has no Body Assessment history
     // and no pending coach assignment for it.
     checkAssessmentAccess(supabase, user.id, 'body-assessment'),
+    // The shared interpretation layer, so this page's Coaching Insights
+    // empty state can never claim Root has noticed nothing on a day the
+    // Insights screen one tap away is listing things it has noticed.
+    getMemberInterpretation(),
   ]);
   const firstName = firstNameFrom(profile?.display_name);
   const timezone = profile?.timezone ?? 'America/New_York';
@@ -200,7 +206,11 @@ export default async function ProgressPage() {
             Identity. Wellness Patterns gets its own Suspense boundary for
             the same reason as Wellness Story above
             (recalculateWellnessIntelligence). */}
-        <CoachingInsightsPanel insights={coachingInsights.insights} entryContext={entryContext} />
+        <CoachingInsightsPanel
+          insights={coachingInsights.insights}
+          entryContext={entryContext}
+          hasInterpretationFindings={interpretation.findings.length > 0}
+        />
         <Suspense fallback={<WellnessPatternsSectionSkeleton />}>
           <WellnessPatternsSection />
         </Suspense>

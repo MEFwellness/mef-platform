@@ -71,12 +71,17 @@ const CATEGORY_ORDER: AiObservationCategory[] = [
   'red_flag',
 ];
 
-function confidenceLabel(confidence: number): { text: string; className: string } {
-  if (confidence >= 0.75)
-    return { text: 'High confidence', className: 'bg-emerald-50 text-emerald-700' };
-  if (confidence >= 0.5)
-    return { text: 'Moderate confidence', className: 'bg-amber-50 text-amber-700' };
-  return { text: 'Low confidence', className: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]' };
+/**
+ * How clear the model's own read of the photographs was. Deliberately not
+ * called confidence and deliberately not a percentage: this measures how
+ * legible the images were to the model, which is a fact about the pictures,
+ * not evidence about the member. Rendering it as "78% confidence" invited
+ * exactly the reading it does not support.
+ */
+function imageReadLabel(confidence: number): { text: string; className: string } {
+  if (confidence >= 0.75) return { text: 'Clear read', className: 'bg-emerald-50 text-emerald-700' };
+  if (confidence >= 0.5) return { text: 'Mixed read', className: 'bg-amber-50 text-amber-700' };
+  return { text: 'Weak read, check this yourself', className: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]' };
 }
 
 export function AIAssistantSection({
@@ -186,13 +191,11 @@ export function AIAssistantSection({
       {analysis.overall_confidence !== null && (
         <div className="flex items-center gap-2">
           <span
-            className={`rounded-full px-2.5 py-1 text-xs font-medium ${confidenceLabel(analysis.overall_confidence).className}`}
+            className={`rounded-full px-2.5 py-1 text-xs font-medium ${imageReadLabel(analysis.overall_confidence).className}`}
           >
-            {confidenceLabel(analysis.overall_confidence).text}
+            {imageReadLabel(analysis.overall_confidence).text}
           </span>
-          <span className="text-xs text-[#6B7A72]">
-            Overall confidence · {Math.round(analysis.overall_confidence * 100)}%
-          </span>
+          <span className="text-xs text-[#6B7A72]">How clearly the photos read</span>
         </div>
       )}
 
@@ -398,9 +401,9 @@ function ObservationCard({
       )}
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {observation.confidence !== null && (
+        {observation.confidence !== null && observation.confidence < 0.5 && (
           <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-[#6B7A72]">
-            {Math.round(observation.confidence * 100)}% confidence
+            Weak read, check this
           </span>
         )}
         {observation.severity &&

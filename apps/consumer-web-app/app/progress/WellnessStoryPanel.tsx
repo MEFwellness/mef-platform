@@ -19,7 +19,14 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
   const hasNarrative =
     summary.motivationProfile.length > 0 || summary.longTermTrendSummary !== null;
 
-  if (!hasStrengths && !hasOpportunities && !hasPriority && !hasWins && !hasNarrative) {
+  if (
+    !hasStrengths &&
+    !hasOpportunities &&
+    !hasPriority &&
+    !hasWins &&
+    !hasNarrative &&
+    !summary.dataFloorNote
+  ) {
     return null;
   }
 
@@ -101,6 +108,15 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {/* Below the data floor there is no strength and no opportunity to
+          show, so this says how much there is instead of ranking thin
+          numbers. Case View's voice: it is early, that is expected. */}
+      {summary.dataFloorNote && (
+        <section className="mef-card mef-animate-in p-6">
+          <p className="text-sm leading-relaxed text-[#1B3A2D]/85">{summary.dataFloorNote}</p>
         </section>
       )}
 

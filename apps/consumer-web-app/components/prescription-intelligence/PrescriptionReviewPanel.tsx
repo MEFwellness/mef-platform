@@ -137,7 +137,11 @@ function ExerciseRow({
                 : CONFIDENCE_STYLE.low
           }`}
         >
-          Confidence {Math.round(exercise.confidence * 100)}%
+          {exercise.confidence >= 0.6
+            ? 'Strong match'
+            : exercise.confidence >= 0.4
+              ? 'Reasonable match'
+              : 'Check this one'}
         </span>
       </div>
 
@@ -227,7 +231,7 @@ function ConfidencePanel({ snapshot }: { snapshot: PrescriptionSnapshotWithConte
         <span
           className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase ${CONFIDENCE_STYLE[snapshot.confidence_level]}`}
         >
-          {snapshot.confidence_level} · {Math.round(snapshot.confidence * 100)}%
+          {snapshot.confidence_level.replaceAll('_', ' ')}
         </span>
       </button>
       {expanded && (

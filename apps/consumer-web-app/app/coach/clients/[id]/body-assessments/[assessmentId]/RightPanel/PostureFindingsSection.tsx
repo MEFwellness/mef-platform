@@ -139,9 +139,7 @@ function FindingRow({
       )}
 
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-[11px] text-[#9AA79F]">
-          Confidence: {Math.round(finding.confidence * 100)}%
-        </span>
+        <span className="text-[11px] text-[#9AA79F]" />
         {status === 'pending_review' ? (
           <div className="flex gap-1.5">
             <button

@@ -110,6 +110,7 @@ function finding(overrides: Partial<CanonicalFinding> = {}): CanonicalFinding {
     verdict: 'noted',
     severity: 'mild',
     primaryDomain: 'pain_structural_integrity',
+    primaryDomainLabel: 'Pain & Structural Integrity',
     alsoRelevantDomains: ['movement_physical_capacity'],
     crossReferenceNote: 'Also shown under Movement & Physical Capacity.',
     memberVisible: true,

@@ -50,9 +50,6 @@ export function RootCauseSignalsPanel({ signals }: { signals: RootCauseSignalsVi
               <li key={s.hypothesis.id} className="rounded-2xl bg-[#FAFAF8] p-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-[#1B3A2D]">{s.hypothesis.statement}</p>
-                  <span className="shrink-0 text-xs text-[#6B7A72]">
-                    {Math.round(s.hypothesis.confidence * 100)}%
-                  </span>
                 </div>
                 {s.supportingAssessments.length > 0 && (
                   <p className="mt-1.5 text-xs text-[#6B7A72]">
@@ -80,9 +77,6 @@ export function RootCauseSignalsPanel({ signals }: { signals: RootCauseSignalsVi
               <li key={c.key} className="py-2.5 text-sm">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="font-medium text-[#1B3A2D]">{c.label}</span>
-                  <span className="text-xs text-[#6B7A72]">
-                    {Math.round(c.confidence * 100)}% confidence
-                  </span>
                 </div>
                 <p className="mt-0.5 text-[#1B3A2D]/80">{c.description}</p>
               </li>

@@ -221,8 +221,7 @@ export function IntelligenceCorePanel({
                     {o.trendDirection}
                   </span>
                   <span className="text-xs text-[#6B7A72]">
-                    {Math.round(o.confidence * 100)}% confidence · {o.evidenceCount} data point
-                    {o.evidenceCount === 1 ? '' : 's'}
+                    {o.evidenceCount} data point{o.evidenceCount === 1 ? '' : 's'}
                   </span>
                 </div>
                 <p className="mt-1 font-medium text-[#1B3A2D]">{o.statement}</p>

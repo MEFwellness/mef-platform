@@ -22,6 +22,7 @@
  */
 
 import type { RegistryEntry, RegistryEntrySeverity } from '@mef/shared-types-contracts';
+import { getCoachingDomainInfo } from '../investigation-engine/domains';
 import { assignDomains, crossReferenceNote } from './domainMap';
 import { checkinEvidenceForCode, evidenceFromRegistryEntry, type InterpretationCheckin } from './evidence';
 import { findingStatement } from './copy';
@@ -177,6 +178,7 @@ function toCanonicalFinding(
     verdict,
     severity: severityOf(entry),
     primaryDomain: primary,
+    primaryDomainLabel: primary ? getCoachingDomainInfo(primary).label : null,
     alsoRelevantDomains: alsoRelevant,
     crossReferenceNote: crossReferenceNote(alsoRelevant),
     memberVisible: entry.member_visible,

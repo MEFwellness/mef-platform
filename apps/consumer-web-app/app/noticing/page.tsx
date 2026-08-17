@@ -58,7 +58,6 @@ export default async function NoticingPage() {
     !!view &&
     (view.noticing.length > 0 ||
       view.improving.length > 0 ||
-      view.worthAttention.length > 0 ||
       view.recommendedInvestigation !== null);
 
   return (
@@ -84,44 +83,45 @@ export default async function NoticingPage() {
           </CenterStage>
         ) : (
           <section className="mef-card mef-animate-in mt-3 p-7">
+            {/* One finding, one line. The old "Areas Worth Paying Attention
+                To" list under this one restated four of these same six
+                bullets as bare labels; urgency is an inline marker now, so
+                the repeat is structurally gone rather than filtered out. */}
             {view.noticing.length > 0 && (
-              <ul className="space-y-2.5">
-                {view.noticing.map((item, i) => (
-                  <li key={i} className="text-[15px] leading-relaxed text-[#1B3A2D]">
-                    {item}
+              <ul className="space-y-4">
+                {view.noticing.map((item) => (
+                  <li key={item.id} className="text-[15px] leading-relaxed text-[#1B3A2D]">
+                    <p>{item.statement}</p>
+                    <p className="mt-1 text-xs text-[#6B7A72]">
+                      {item.needsAttention ? 'Worth attention · ' : ''}
+                      {item.tierLabel}
+                      {item.crossReferenceNote ? ` · ${item.crossReferenceNote}` : ''}
+                    </p>
                   </li>
                 ))}
               </ul>
             )}
 
             {view.improving.length > 0 && (
-              <div className="mt-4">
+              <div className="mt-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
                   What&apos;s Improving
                 </p>
-                <ul className="mt-2 space-y-2">
-                  {view.improving.map((item, i) => (
-                    <li key={i} className="text-sm leading-relaxed text-[#1B3A2D]">
-                      {item}
+                <ul className="mt-2 space-y-3">
+                  {view.improving.map((item) => (
+                    <li key={item.id} className="text-sm leading-relaxed text-[#1B3A2D]">
+                      <p>{item.statement}</p>
+                      <p className="mt-1 text-xs text-[#6B7A72]">{item.tierLabel}</p>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
 
-            {view.worthAttention.length > 0 && (
-              <div className="mt-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-                  Areas Worth Paying Attention To
-                </p>
-                <ul className="mt-2 space-y-2">
-                  {view.worthAttention.map((item, i) => (
-                    <li key={i} className="text-sm leading-relaxed text-[#1B3A2D]">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {view.dataFloorNote && (
+              <p className="mt-5 rounded-2xl bg-[#F3F6F4] p-4 text-sm leading-relaxed text-[#1B3A2D]/85">
+                {view.dataFloorNote}
+              </p>
             )}
 
             {view.recommendedInvestigation && (

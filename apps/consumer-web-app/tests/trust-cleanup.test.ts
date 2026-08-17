@@ -26,6 +26,7 @@ import type { LongitudinalSignal, SignalState } from '../lib/longitudinal-intell
 import { buildFindingCardViewModel } from '../lib/root-map/cardViewModel';
 import type { RootMapDomainView } from '../lib/root-map/types';
 import { buildMemberFacingNoticing } from '../lib/intelligence-engine/memberFacingNoticing';
+import { buildCanonicalFindings } from '../lib/member-interpretation/findings';
 import type { RegistryEntry } from '@mef/shared-types-contracts';
 
 const ROOT = path.resolve(__dirname, '..');
@@ -275,12 +276,18 @@ describe('the confidence display', () => {
   }
 
   /**
-   * Prompt 2 rebuilds this. It cannot rebuild what was deleted, so the
-   * calculation has to still be here and still be running.
+   * Updated by the interpretation build, which is what "Prompt 2 rebuilds
+   * this" turned into. `computeRootConfidence` is retired: its history term
+   * counted cron runs, which is the whole bug. What is asserted now is that
+   * the replacement exists and that the retired formula's inputs cannot
+   * come back.
    */
-  it('leaves the underlying calculation intact for the rebuild', () => {
+  it('has retired the calculation that counted cron runs as evidence', () => {
     expect(exists('lib/scoring/confidence.ts')).toBe(true);
-    expect(read('lib/scoring/confidence.ts')).toContain('computeRootConfidence');
+    const source = read('lib/scoring/confidence.ts');
+    expect(source).toContain('computeRootEvidence');
+    expect(source).toContain('rootEvidenceTier');
+    expect(read('lib/scoring/calculate.ts')).not.toContain('priorSnapshotCount:');
     expect(read('lib/scoring/domains.ts')).toContain('confidence');
   });
 });
@@ -411,6 +418,11 @@ function domainView(overrides: Partial<RootMapDomainView> = {}): RootMapDomainVi
     memberDescription: 'How you move.',
     isUninstrumented: false,
     stage: 'optimization',
+    state: 'acknowledged',
+    tier: null,
+    tierLabel: null,
+    canonicalFindings: [],
+    crossReferenced: [],
     confidence: { label: 'moderate', numeric: 0.5, corroborated: false },
     priority: 'quiet',
     whatWeUnderstand: ['Ongoing discomfort in the hips.'],
@@ -510,20 +522,34 @@ function registryFinding(overrides: Partial<RegistryEntry> = {}): RegistryEntry 
   };
 }
 
+/**
+ * The rule is unchanged and still holds; it moved one level down. Since the
+ * interpretation build, `buildMemberFacingNoticing` takes canonical findings
+ * rather than registry rows, and "a producer that found nothing is resolved,
+ * never improving" is now decided by the layer's `verdictFor`. These build
+ * the canonical set from the same registry rows and assert the same thing on
+ * the other side of that move.
+ */
 describe('"What’s Improving"', () => {
+  const noticingFor = (entry: RegistryEntry) =>
+    buildMemberFacingNoticing({
+      findings: buildCanonicalFindings({ entries: [entry], checkins: [] }),
+      dataFloorNote: null,
+    });
+
   /** "Packaged food scan has been improving." off one scan, from severity 'none'. */
   it('does not read a producer finding nothing as the member improving', () => {
-    const view = buildMemberFacingNoticing([registryFinding({ severity: 'none' })]);
-
-    expect(view.improving).toHaveLength(0);
+    expect(noticingFor(registryFinding({ severity: 'none' })).improving).toHaveLength(0);
   });
 
   it('still reports a real computed improving trend', () => {
-    const view = buildMemberFacingNoticing([
-      registryFinding({ severity: 'mild', trend_status: 'improving', label: 'Poor Sleep Quality' }),
-    ]);
+    const view = noticingFor(
+      registryFinding({ severity: 'mild', trend_status: 'improving', label: 'Poor Sleep Quality' })
+    );
 
-    expect(view.improving).toEqual(['Poor Sleep Quality has been improving.']);
+    expect(view.improving).toHaveLength(1);
+    expect(view.improving[0]!.statement).toContain('Poor Sleep Quality');
+    expect(view.improving[0]!.statement.toLowerCase()).toContain('better');
   });
 });
 

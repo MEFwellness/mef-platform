@@ -231,8 +231,6 @@ function InsightRow({ insight }: { insight: WellnessInsight }) {
       )}
 
       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-[#6B7A72]">
-        <span>{Math.round(insight.confidence * 100)}% confidence</span>
-        <span>·</span>
         <span>
           {insight.evidence_refs.length} evidence reference
           {insight.evidence_refs.length === 1 ? '' : 's'}

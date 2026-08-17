@@ -156,6 +156,12 @@ export type MemberWellnessStorySummary = {
   motivationProfile: string;
   primaryPriorityTitle: string | null;
   secondaryPriorityTitles: string[];
+  /**
+   * The Member Interpretation Layer's honest sentence for a member below
+   * the data floor, shown in place of strengths and opportunities. Null
+   * when the floor is met, which is the ordinary case.
+   */
+  dataFloorNote: string | null;
 };
 
 /** A plain title/detail/confidence highlight — used for strengths/opportunities the Coach Dashboard shows that aren't necessarily tied to a specific RecommendationDomain (unlike PrioritizedOpportunity, which always is). */

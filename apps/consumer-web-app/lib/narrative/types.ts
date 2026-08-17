@@ -13,6 +13,7 @@ import type {
   NarrativeProvenance,
   NarrativeSourceRef,
 } from '@mef/shared-types-contracts';
+import type { EvidenceTier } from '../member-interpretation/types';
 
 export type NarrativeItemDraft = {
   category: NarrativeCategory;
@@ -21,6 +22,16 @@ export type NarrativeItemDraft = {
   summary: string;
   provenance: NarrativeProvenance;
   confidence: number | null;
+  /**
+   * The Member Interpretation Layer's evidence tier for this item, computed
+   * from the real sample count behind it. Never rendered as a number, and
+   * it is what decides whether this item's own wording is allowed to use
+   * the word pattern (see lib/member-interpretation/language.ts).
+   *
+   * Optional so a draft written before the layer existed still compiles;
+   * every generator in lib/narrative/generator.ts sets it.
+   */
+  tier?: EvidenceTier;
   memberVisible: boolean;
   sourceRefs: NarrativeSourceRef[];
 };

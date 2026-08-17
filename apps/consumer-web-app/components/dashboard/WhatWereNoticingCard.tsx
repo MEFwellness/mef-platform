@@ -41,7 +41,6 @@ export async function WhatWereNoticingCard() {
   const hasAnything =
     view.noticing.length > 0 ||
     view.improving.length > 0 ||
-    view.worthAttention.length > 0 ||
     view.recommendedInvestigation !== null;
   if (!hasAnything) return null;
 

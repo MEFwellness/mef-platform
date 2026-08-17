@@ -1,20 +1,24 @@
 'use server';
 
 /**
- * Member Experience — "What We're Noticing" (Prompt 6). The member's own
- * view over their own active, member-visible Universal Registry findings —
- * RLS (migration 40's member_read_own_registry_entries) is what actually
- * restricts this to member_visible=true, status='active' rows; this
- * action makes no additional visibility decision of its own.
+ * Member Experience — "What We're Noticing".
+ *
+ * MIGRATED to the Member Interpretation Layer (2026-08-17): this action no
+ * longer reads registry rows and no longer decides what any of them mean.
+ * It asks the layer for the member's canonical findings and hands them to
+ * the screen's own reshape.
+ *
+ * The Root Router's single next-step pick is unchanged and still comes from
+ * the Root Router, which is the one system that decides it.
  */
 
 import { getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
-import { listRegistryEntriesForMember } from '@/lib/registry/data';
 import {
   buildMemberFacingNoticing,
   type MemberNoticingView,
 } from '@/lib/intelligence-engine/memberFacingNoticing';
+import { getMemberInterpretation } from '@/lib/member-interpretation';
 import {
   decideNextAction,
   describeRecommendation,
@@ -31,10 +35,15 @@ export async function getMyNoticingView(): Promise<MemberNoticingViewWithRecomme
   const user = await getCachedUser();
   if (!user) return null;
 
-  const entries = await listRegistryEntriesForMember(supabase, user.id);
-  const noticing = buildMemberFacingNoticing(entries);
+  const [interpretation, routerDecision] = await Promise.all([
+    getMemberInterpretation(),
+    decideNextAction(supabase, user.id),
+  ]);
 
-  const routerDecision = await decideNextAction(supabase, user.id);
+  const noticing = buildMemberFacingNoticing({
+    findings: interpretation.findings,
+    dataFloorNote: interpretation.dataFloor.met ? null : interpretation.dataFloor.statement,
+  });
 
   return { ...noticing, recommendedInvestigation: describeRecommendation(routerDecision) };
 }

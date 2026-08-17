@@ -21,7 +21,8 @@ import type {
 import { addDaysToLocalDate } from '@/lib/feed/dateMath';
 import { applySmoothingCap, computeComposite } from './aggregate';
 import { applyFindingAdjustments } from './findingAdjustments';
-import { computeRootConfidence } from './confidence';
+import { computeRootEvidence } from './confidence';
+import { EVIDENCE_WINDOW_DAYS } from '../member-interpretation/config';
 import {
   MOMENTUM_PRIOR_WINDOW_DAYS,
   MOMENTUM_RECENT_WINDOW_DAYS,
@@ -59,8 +60,20 @@ export type CalculateRootScoreInput = {
   bodyAssessments: BodyAssessment[];
   /** The member's most recent snapshot strictly before localDate, or null on a first-ever calculation. */
   previousSnapshot: { root_score: number | null } | null;
-  /** Count of snapshots strictly before localDate — feeds root confidence's history factor. */
-  priorSnapshotCount: number;
+  /**
+   * Distinct days inside the evidence window on which this member logged a
+   * check-in.
+   *
+   * This REPLACED `priorSnapshotCount`, which counted how many times the
+   * score had been calculated and was the whole cause of the HIGH
+   * CONFIDENCE bug: snapshots accrue from a daily cron whether or not the
+   * member logs anything. A count of her own logged days cannot be moved
+   * by a background run, which is the property that matters.
+   *
+   * Optional and defaulted to 0 so an existing caller that does not pass it
+   * gets the most conservative honest answer rather than a flattering one.
+   */
+  loggedDays?: number;
   /**
    * Active Universal Registry findings (Root Score Integration, Prompt 6)
    * — optional and defaulted to empty so every existing caller/test that
@@ -78,6 +91,19 @@ export type CalculatedSnapshot = Omit<
 
 function firstEverCheckinDate(checkinsOldestFirst: DailyCheckin[]): string | null {
   return checkinsOldestFirst.length > 0 ? checkinsOldestFirst[0]!.local_date : null;
+}
+
+/**
+ * Distinct DAYS with a logged check-in inside a window. Two check-ins on
+ * one afternoon are one day, which is the only counting rule that makes
+ * "how much has she logged" mean what it says.
+ */
+function distinctLoggedDays(checkins: DailyCheckin[], window: DateWindow): number {
+  const days = new Set<string>();
+  for (const c of checkins) {
+    if (c.local_date >= window.startDate && c.local_date <= window.endDate) days.add(c.local_date);
+  }
+  return days.size;
 }
 
 function computeAllDomains(
@@ -111,10 +137,20 @@ export function calculateRootScoreSnapshot(input: CalculateRootScoreInput): Calc
   const previousRootScore = input.previousSnapshot?.root_score ?? null;
   const rootScore =
     composite.score === null ? null : applySmoothingCap(composite.score, previousRootScore);
+  // The evidence window, NOT the 30-day scoring window. The interpretation
+  // layer counts logged days over 21 days and the Root Map's coverage
+  // labels say "N of 21 days logged" on the same screen; counting over a
+  // different window here would put two different answers to "how much
+  // have you logged" on one page.
+  const evidenceWindow: DateWindow = {
+    startDate: addDaysToLocalDate(input.localDate, -(EVIDENCE_WINDOW_DAYS - 1)),
+    endDate: input.localDate,
+  };
+  const loggedDays = input.loggedDays ?? distinctLoggedDays(input.checkins, evidenceWindow);
   const { confidence: rootConfidence, level: rootConfidenceLevel } =
     composite.score === null
       ? { confidence: 0, level: 'building' as const }
-      : computeRootConfidence(composite.coverageRatio, input.priorSnapshotCount);
+      : computeRootEvidence(composite.coverageRatio, loggedDays);
   const rootScoreChange =
     rootScore === null || previousRootScore === null ? null : rootScore - previousRootScore;
 
@@ -140,7 +176,7 @@ export function calculateRootScoreSnapshot(input: CalculateRootScoreInput): Calc
   const resilience = computeResilience(resilienceCheckins, input.localDate);
 
   // ---- Explanation, factors, next action — all deterministic ----
-  const explanation = buildExplanation(domainScores);
+  const explanation = buildExplanation(domainScores, loggedDays);
   const inputCoverage: InputCoverageEntry[] = domainScores.map((d) => ({
     domain: d.domain,
     available: d.score !== null,

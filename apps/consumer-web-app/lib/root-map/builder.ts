@@ -1,105 +1,134 @@
 /**
  * Root Map builder — assembles the plain-language, per-domain view Method
  * §2 defines ("what a member sees; a human-readable projection of the Root
- * Model") entirely from data already computed elsewhere: domain Confidence
- * and Priority (lib/investigation-engine/), active Universal Registry
- * findings (lib/registry/), pattern insights (lib/intelligence-engine/),
- * and the Root Router's outcome classification (routerOutcome.ts). No new
- * scoring, no new persisted table — the same computed-view precedent
- * MemberHealthProfile and Root Score already established.
+ * Model").
  *
- * Patterns are matched to a domain by checking whether a PatternInsight's
- * key/label/description mentions one of that domain's own real vocabulary
- * tokens (its WellnessMetricKey(s) or RegistryDomain(s), from
- * investigation-engine/domains.ts's reconciliation tables) — a best-effort
- * text match, not a strict foreign key, because PatternInsight carries no
- * CoachingDomain field of its own today. Flagged here rather than silently
- * assumed reliable; a pattern that doesn't textually reference a domain's
- * vocabulary simply won't surface there, which under-attributes rather
- * than mis-attributes.
+ * MIGRATED to the Member Interpretation Layer (2026-08-17). This module no
+ * longer computes a verdict of its own. It used to call
+ * `computeDomainConfidence` and `computeCoachingDomainPriority` directly
+ * over raw registry rows, and to fan a single finding out across every
+ * coaching domain whose registry-domain list happened to contain that
+ * finding's domain. Both of those are what the audit caught:
+ *
+ *   - "Ongoing discomfort in the hips" appeared under Recovery & Energy
+ *     Regulation, Movement & Physical Capacity AND Pain & Structural
+ *     Integrity, three times, from one slider answer.
+ *   - Pain & Structural Integrity listed two active discomfort findings and
+ *     said "LOOKING STEADY. Nothing specific needed here right now",
+ *     because both were 'mild' and the priority function only promotes on
+ *     'moderate' and above.
+ *
+ * Now it renders `DomainInterpretation[]` (lib/member-interpretation/), and
+ * the two shim fields it still exposes (`priority`, `confidence`) are
+ * mapped OUT of the layer's state and tier rather than computed here, so
+ * the chip and the sentence beside it cannot disagree.
+ *
+ * Patterns are still matched to a domain by checking whether a
+ * PatternInsight's key/label/description mentions one of that domain's own
+ * real vocabulary tokens. That is unchanged and still a best-effort text
+ * match, because PatternInsight carries no CoachingDomain field of its own
+ * today. It under-attributes rather than mis-attributes.
  */
 
-import type { RegistryEntry } from '@mef/shared-types-contracts';
 import {
-  COACHING_DOMAINS,
   COACHING_DOMAIN_TO_REGISTRY_DOMAIN,
   COACHING_DOMAIN_TO_WELLNESS_METRIC,
+  getCoachingDomainInfo,
   type CoachingDomain,
 } from '../investigation-engine/domains';
-import { computeDomainConfidence, type DomainConfidence } from '../investigation-engine/confidence';
-import { computeCoachingDomainPriority } from '../investigation-engine/unlockEngine';
+import type { DomainConfidence } from '../investigation-engine/confidence';
 import type { CoachingPriorityLevel } from '../investigation-engine/types';
 import type { PatternInsight } from '../intelligence-engine/types';
 import type { RootRouterOutcomeView } from '../investigation-engine/routerOutcome';
+import type { DomainInterpretation, DomainState, EvidenceTier } from '../member-interpretation/types';
 import type { RootMapDomainView, RootMapStage, RootMapView } from './types';
 import { MEMBER_DOMAIN_DESCRIPTIONS } from './memberCopy';
 
-const GATHERING_INFO_MESSAGE =
-  "Rooted Reset is still gathering information here, as you complete assessments and check-ins, this section will fill in.";
-
-const UNINSTRUMENTED_MESSAGE =
-  "This is real coaching territory: Rooted Reset doesn't have a dedicated assessment for it yet, so nothing here is tracked from your activity today.";
-
-const SAFETY_SUPPRESSED_MESSAGE =
-  'Your coach is reviewing something in this area with you right now, so specific details are paused here for the moment.';
-
-function inferStage(
-  isUninstrumented: boolean,
-  confidence: DomainConfidence,
-  priority: CoachingPriorityLevel
-): RootMapStage {
-  if (isUninstrumented || confidence.label === 'building' || confidence.label === 'low') {
-    return 'discovery';
-  }
-  return priority === 'quiet' ? 'optimization' : 'stabilization';
-}
+/**
+ * `state` -> the legacy CoachingPriorityLevel three-value scale.
+ *
+ * Note the shape of this table: no state that carries an active finding
+ * maps to 'quiet'. That is what makes the "a domain with active findings
+ * can never read as quiet" rule survive the trip through this shim, rather
+ * than being reintroduced by the mapping itself.
+ */
+const PRIORITY_FOR_STATE: Record<DomainState, CoachingPriorityLevel> = {
+  needs_attention: 'needs_attention_now',
+  worth_watching: 'worth_watching',
+  acknowledged: 'worth_watching',
+  paused_for_coach: 'quiet',
+  nothing_flagged_yet: 'quiet',
+  too_early: 'quiet',
+  no_data_yet: 'quiet',
+  not_covered: 'quiet',
+};
 
 /**
- * Per-domain "Current Recommendation" / "Next Suggested Step" — derived
- * only from this domain's own already-computed Confidence and Priority,
- * never from a fuzzy match against the Intelligence Engine's 14-value
- * RecommendationDomain vocabulary (which doesn't reconcile cleanly onto
- * the 12 Coaching Domains — see domains.ts's own reconciliation-table
- * discipline). Reliable and always honest, at the cost of being general
- * rather than maximally specific; the one specific, evidence-backed
- * recommendation the Root Map does surface is the member-wide
- * `routerOutcome` at the top of the view.
+ * `tier` -> the legacy DomainConfidence shape the coach card still reads.
+ *
+ * The numeric is a presentation artefact of that component's own chip and
+ * is never shown to a member; it is derived from the tier so that the two
+ * cannot drift, rather than being a second calculation.
  */
-function recommendationCopyForDomain(
-  isUninstrumented: boolean,
-  confidence: DomainConfidence,
-  priority: CoachingPriorityLevel
-): { currentRecommendation: string; nextSuggestedStep: string } {
-  if (isUninstrumented) {
-    return {
-      currentRecommendation: 'No assessment covers this yet',
-      nextSuggestedStep:
-        "This will be added as Rooted Reset's assessment library expands, nothing to do here for now.",
-    };
-  }
-  if (confidence.label === 'building') {
-    return {
-      currentRecommendation: 'Still gathering information',
-      nextSuggestedStep: 'Complete more check-ins and assessments to build a clearer picture here.',
-    };
-  }
-  if (priority === 'needs_attention_now') {
-    return {
-      currentRecommendation: 'Worth focused attention soon',
-      nextSuggestedStep:
-        'Your coach will likely bring this up, or a focused assessment may be suggested next.',
-    };
-  }
-  if (priority === 'worth_watching') {
-    return {
-      currentRecommendation: 'Worth keeping an eye on',
-      nextSuggestedStep: 'Keep tracking here, no urgent action needed yet.',
-    };
-  }
-  return {
-    currentRecommendation: 'Looking steady',
-    nextSuggestedStep: 'Nothing specific needed here right now.',
-  };
+const CONFIDENCE_FOR_TIER: Record<EvidenceTier, DomainConfidence> = {
+  early_indication: { label: 'low', numeric: 0.25, corroborated: false },
+  emerging_pattern: { label: 'moderate', numeric: 0.5, corroborated: false },
+  supported_by_checkins: { label: 'high', numeric: 0.75, corroborated: true },
+  coach_verified: { label: 'high', numeric: 0.9, corroborated: true },
+};
+
+const NO_TIER_CONFIDENCE: DomainConfidence = { label: 'building', numeric: 0, corroborated: false };
+
+/**
+ * The per-domain next step. One line per state, and there is no "Looking
+ * steady / Nothing specific needed here right now" among them: that phrase
+ * was the audit's own example of an absence of data being reported as an
+ * absence of a problem, and it does not come back.
+ */
+const NEXT_STEP_FOR_STATE: Record<DomainState, { currentRecommendation: string; nextSuggestedStep: string }> = {
+  needs_attention: {
+    currentRecommendation: 'Worth focused attention soon',
+    nextSuggestedStep:
+      'Your coach will likely bring this up, or a focused assessment may be suggested next.',
+  },
+  worth_watching: {
+    currentRecommendation: 'Worth keeping an eye on',
+    nextSuggestedStep: 'Keep logging this in your check-ins, that is what turns it into a clear read.',
+  },
+  acknowledged: {
+    currentRecommendation: 'Noted, and not urgent',
+    nextSuggestedStep:
+      'Nothing here is asking for action today. Keep logging it and Root will say so if that changes.',
+  },
+  nothing_flagged_yet: {
+    currentRecommendation: 'Nothing has flagged here yet',
+    nextSuggestedStep:
+      'You have logged real days here and nothing has come up. That is worth knowing, and it is not the same as this being finished.',
+  },
+  too_early: {
+    currentRecommendation: 'Still early here',
+    nextSuggestedStep: 'A few more logged days is what turns this into something worth reading.',
+  },
+  no_data_yet: {
+    currentRecommendation: 'Nothing logged here yet',
+    nextSuggestedStep:
+      'There are no logged days behind this one, so there is nothing here to call good or otherwise. Logging it in a check-in is what starts the picture.',
+  },
+  not_covered: {
+    currentRecommendation: 'No assessment covers this yet',
+    nextSuggestedStep:
+      "This will be added as Rooted Reset's assessment library expands, nothing to do here for now.",
+  },
+  paused_for_coach: {
+    currentRecommendation: 'Paused for coach review',
+    nextSuggestedStep:
+      'Your coach is reviewing something in this area with you right now, so specific details are paused here for the moment.',
+  },
+};
+
+function inferStage(state: DomainState, tier: EvidenceTier | null): RootMapStage {
+  if (state === 'not_covered' || tier === null || tier === 'early_indication') return 'discovery';
+  return state === 'needs_attention' || state === 'worth_watching' ? 'stabilization' : 'optimization';
 }
 
 function patternsForDomain(domain: CoachingDomain, patterns: PatternInsight[]): PatternInsight[] {
@@ -116,94 +145,69 @@ function patternsForDomain(domain: CoachingDomain, patterns: PatternInsight[]): 
 }
 
 function buildDomainView(
-  domain: CoachingDomain,
-  activeFindings: RegistryEntry[],
-  patterns: PatternInsight[],
-  suppressDetail: boolean
+  interpretation: DomainInterpretation,
+  patterns: PatternInsight[]
 ): RootMapDomainView {
-  const info = COACHING_DOMAINS.find((d) => d.domain === domain)!;
-  const confidence = computeDomainConfidence(domain, activeFindings);
-  const priority = computeCoachingDomainPriority(domain, activeFindings);
-  const stage = inferStage(info.isUninstrumented, confidence, priority);
+  const info = getCoachingDomainInfo(interpretation.domain);
+  const { state, tier } = interpretation;
+  const suppressed = state === 'paused_for_coach';
 
-  const registryDomains = new Set(COACHING_DOMAIN_TO_REGISTRY_DOMAIN[domain]);
-  const matchingFindings = activeFindings.filter(
-    (f) => f.status === 'active' && f.member_visible && registryDomains.has(f.domain)
+  // Only findings the member may see reach the member Root Map. A coach
+  // reading the coach variant gets the full set, which is exactly the
+  // distinction the layer's own memberVisible flag exists for.
+  const visible = interpretation.findings.filter((f) => f.memberVisible && f.verdict !== 'resolved');
+  const crossReferenced = interpretation.crossReferenced.filter(
+    (f) => f.memberVisible && f.verdict !== 'resolved'
   );
 
-  let whatWeUnderstand: string[] = [];
-  let whatWereStillLearning: string;
-
-  if (suppressDetail) {
-    whatWereStillLearning = SAFETY_SUPPRESSED_MESSAGE;
-  } else if (info.isUninstrumented) {
-    whatWereStillLearning = UNINSTRUMENTED_MESSAGE;
-  } else if (matchingFindings.length === 0) {
-    whatWereStillLearning = GATHERING_INFO_MESSAGE;
-  } else {
-    whatWeUnderstand = matchingFindings.map((f) => f.narrative ?? f.label);
-    whatWereStillLearning =
-      confidence.label === 'high'
-        ? "We have a clear, corroborated picture here, we'll keep watching for anything that changes."
-        : "We're building a clearer picture here as more information comes in.";
-  }
-
-  const { currentRecommendation, nextSuggestedStep } = suppressDetail
-    ? { currentRecommendation: 'Paused for coach review', nextSuggestedStep: SAFETY_SUPPRESSED_MESSAGE }
-    : recommendationCopyForDomain(info.isUninstrumented, confidence, priority);
+  const { currentRecommendation, nextSuggestedStep } = NEXT_STEP_FOR_STATE[state];
 
   return {
-    domain,
+    domain: interpretation.domain,
     label: info.label,
     definition: info.definition,
-    memberDescription: MEMBER_DOMAIN_DESCRIPTIONS[domain],
+    memberDescription: MEMBER_DOMAIN_DESCRIPTIONS[interpretation.domain],
     isUninstrumented: info.isUninstrumented,
-    stage,
-    confidence,
-    priority,
-    whatWeUnderstand,
-    whatWereStillLearning,
+    stage: inferStage(state, tier),
+    state,
+    tier,
+    tierLabel: interpretation.tierLabel,
+    canonicalFindings: visible,
+    crossReferenced,
+    priority: PRIORITY_FOR_STATE[state],
+    confidence: tier ? CONFIDENCE_FOR_TIER[tier] : NO_TIER_CONFIDENCE,
+    // The statements the LAYER authored, not the narratives each adapter
+    // stored years apart. One of those interpolated a raw enum into member
+    // copy ("reported as 'poor' on the latest onboarding submission"); none
+    // of them knew anything about tiers.
+    whatWeUnderstand: visible.map((f) => f.statement),
+    whatWereStillLearning: interpretation.statement,
     currentRecommendation,
     nextSuggestedStep,
-    patterns: suppressDetail ? [] : patternsForDomain(domain, patterns),
+    patterns: suppressed ? [] : patternsForDomain(interpretation.domain, patterns),
   };
 }
 
-const PRIORITY_RANK: Record<CoachingPriorityLevel, number> = {
-  needs_attention_now: 2,
-  worth_watching: 1,
-  quiet: 0,
-};
-
-const CONFIDENCE_RANK: Record<DomainConfidence['label'], number> = {
-  building: 0,
-  low: 1,
-  moderate: 2,
-  high: 3,
-};
-
+/**
+ * The Root Map, from the interpretation layer.
+ *
+ * `domains` arrives already ordered by the layer (urgency, then label), and
+ * that order is kept rather than re-sorted here: two systems sorting the
+ * same list by two rules is how the same member ends up with a different
+ * "top area" on two screens.
+ */
 export function buildRootMap(input: {
-  activeFindings: RegistryEntry[];
+  domains: DomainInterpretation[];
   patterns: PatternInsight[];
   routerOutcome: RootRouterOutcomeView;
   safetyGated: boolean;
   restrictedTopics: string[];
-  /** Coach-view: no suppression, and restrictedTopics is echoed back for the coach's own awareness. Member-view (default): suppressed when any restricted topic is open. */
+  /** Coach-view: restrictedTopics is echoed back for the coach's own awareness. Member-view (default) never shows a member her own restricted-topic list. */
   coachView?: boolean;
 }): RootMapView {
-  const suppressDetail = !input.coachView && input.restrictedTopics.length > 0;
-
-  const domains = COACHING_DOMAINS.map((info) =>
-    buildDomainView(info.domain, input.activeFindings, input.patterns, suppressDetail)
-  ).sort((a, b) => {
-    const priorityDiff = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
-    if (priorityDiff !== 0) return priorityDiff;
-    return CONFIDENCE_RANK[a.confidence.label] - CONFIDENCE_RANK[b.confidence.label];
-  });
-
   return {
     generatedAt: new Date().toISOString(),
-    domains,
+    domains: input.domains.map((d) => buildDomainView(d, input.patterns)),
     routerOutcome: input.routerOutcome,
     safetyGated: input.safetyGated,
     restrictedTopics: input.coachView ? input.restrictedTopics : [],

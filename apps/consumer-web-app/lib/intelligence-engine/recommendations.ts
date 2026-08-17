@@ -59,7 +59,7 @@ function areaDrivenRecommendations(
     const domains = AREA_DOMAINS[trend.area] ?? [];
     const copy = WELLNESS_COACHING[trend.area];
     const evidence = [
-      `${areaLabel(trend.area)} trend: ${trend.direction} (${Math.round(trend.confidence * 100)}% confidence).`,
+      `${areaLabel(trend.area)} trend: ${trend.direction}, across ${trend.evidenceRefs.length} recorded observation${trend.evidenceRefs.length === 1 ? '' : 's'}.`,
     ];
 
     return domains.map((domain) => ({

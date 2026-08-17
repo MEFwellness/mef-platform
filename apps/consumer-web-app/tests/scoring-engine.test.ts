@@ -19,7 +19,7 @@ import {
   type MealQualityEvent,
 } from '../lib/scoring/domains';
 import { applySmoothingCap, computeComposite } from '../lib/scoring/aggregate';
-import { computeRootConfidence, confidenceLevelFromRatio } from '../lib/scoring/confidence';
+import { computeRootEvidence, rootEvidenceTier, confidenceLevelFromRatio } from '../lib/scoring/confidence';
 import { computeMomentum } from '../lib/scoring/momentum';
 import { computeResilience } from '../lib/scoring/resilience';
 import { buildExplanation } from '../lib/scoring/explain';
@@ -232,15 +232,29 @@ describe('confidence', () => {
     expect(confidenceLevelFromRatio(0.9)).toBe('high');
   });
 
-  it('a first-ever calculation (zero prior snapshots) is never "high" confidence even with perfect coverage', () => {
-    const { level } = computeRootConfidence(1, 0);
-    expect(level).not.toBe('high');
+  /**
+   * The old formula's history term was `min(1, priorSnapshotCount / 5)`,
+   * and snapshots accrue from a daily cron whether or not the member logs
+   * anything. These two replace the pair of tests that used to assert that
+   * behaviour, with the rule that replaced it: only the member's own logged
+   * days move this, and there is no argument a cron could supply that does.
+   */
+  it('a member with no logged days is at the floor, whatever the coverage ratio says', () => {
+    expect(computeRootEvidence(1, 0).tier).toBe('early_indication');
+    expect(computeRootEvidence(1, 0).level).toBe('building');
   });
 
-  it('confidence climbs as more prior snapshots accumulate, coverage held constant', () => {
-    const fresh = computeRootConfidence(0.8, 0);
-    const established = computeRootConfidence(0.8, 10);
+  it('evidence climbs only with real logged days', () => {
+    const fresh = computeRootEvidence(0.8, 0);
+    const established = computeRootEvidence(0.8, 10);
     expect(established.confidence).toBeGreaterThan(fresh.confidence);
+    expect(rootEvidenceTier(10)).toBe('supported_by_checkins');
+    expect(rootEvidenceTier(0)).toBe('early_indication');
+  });
+
+  it('thin coverage can lower the tier but never raise it', () => {
+    expect(computeRootEvidence(0.1, 30).tier).toBe('emerging_pattern');
+    expect(computeRootEvidence(1, 30).tier).toBe('supported_by_checkins');
   });
 });
 
@@ -436,7 +450,6 @@ describe('calculateRootScoreSnapshot — full orchestration', () => {
       movementSessions: [],
       bodyAssessments: [] as BodyAssessment[],
       previousSnapshot: null,
-      priorSnapshotCount: 0,
     });
     expect(result.root_score).toBeNull();
     expect(result.root_confidence_level).toBe('building');
@@ -455,7 +468,6 @@ describe('calculateRootScoreSnapshot — full orchestration', () => {
       movementSessions: [],
       bodyAssessments: [] as BodyAssessment[],
       previousSnapshot: null,
-      priorSnapshotCount: 0,
     });
     expect(result.root_score).not.toBeNull();
     expect(result.root_score!).toBeGreaterThanOrEqual(0);
@@ -480,7 +492,6 @@ describe('calculateRootScoreSnapshot — full orchestration', () => {
       movementSessions: [],
       bodyAssessments: [] as BodyAssessment[],
       previousSnapshot: { root_score: 80 },
-      priorSnapshotCount: 12,
     });
 
     expect(result.root_score_change).not.toBeNull();

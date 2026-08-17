@@ -37,10 +37,33 @@ export function RootMapFindingCard({
           <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
             What We&apos;re Seeing
           </p>
+          <ul className="mt-1.5 space-y-3">
+            {view.findings.map((item) => (
+              <li key={item.id} className="text-sm leading-relaxed text-[#1B3A2D]">
+                <p>{item.statement}</p>
+                <p className="mt-1 text-xs text-[#6B7A72]">
+                  {item.tierLabel}
+                  {item.crossReferenceNote ? ` · ${item.crossReferenceNote}` : ''}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* One finding, filed in one place. Anything relevant here but living
+          somewhere else is named as a reference, never restated as a second
+          observation. */}
+      {view.crossReferences.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+            Also Relevant Here
+          </p>
           <ul className="mt-1.5 space-y-1.5">
-            {view.findings.map((item, i) => (
-              <li key={i} className="text-sm leading-relaxed text-[#1B3A2D]">
-                {item}
+            {view.crossReferences.map((item) => (
+              <li key={item.id} className="text-sm leading-relaxed text-[#1B3A2D]">
+                {item.label}
+                <span className="text-[#6B7A72]"> {item.note}</span>
               </li>
             ))}
           </ul>

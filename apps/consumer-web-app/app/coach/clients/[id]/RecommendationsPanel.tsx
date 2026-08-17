@@ -89,9 +89,6 @@ export function RecommendationsPanel({
                 <span className="rounded-full bg-[#FAFAF8] px-2.5 py-1 text-xs capitalize text-[#6B7A72]">
                   {r.category.replaceAll('_', ' ')}
                 </span>
-                <span className="rounded-full bg-[#FAFAF8] px-2.5 py-1 text-xs text-[#6B7A72]">
-                  {Math.round(r.confidence * 100)}% confidence
-                </span>
               </div>
               <p className="mt-1.5 font-medium text-[#1B3A2D]">{r.title}</p>
               <p className="mt-0.5 text-[#1B3A2D]/80">{r.explanation}</p>

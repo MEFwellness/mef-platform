@@ -13,9 +13,35 @@
 
 import type { DailyCheckin, SafetyClassification } from '@mef/shared-types-contracts';
 import type { NarrativeItemDraft } from './types';
+import { rootEvidenceTier } from '../scoring/confidence';
+import { enforceTierLanguage } from '../member-interpretation/language';
+import type { EvidenceTier } from '../member-interpretation/types';
 import { detectInsights } from '../wellness/insights';
 import { WELLNESS_METRIC_LABEL } from '../wellness/wellness-index';
 import type { ComparisonMetric, ProgressSummary } from '../onboarding/comparison';
+
+/**
+ * Language must match tier (Member Interpretation Layer, 2026-08-17).
+ *
+ * Every draft below is derived from a real sample count with a real minimum
+ * guard, and every one of those guards predates this build and is unchanged.
+ * What is new is that the count now decides what the draft is ALLOWED to
+ * call itself: a six-day read may not call itself a pattern, however
+ * carefully the sentence is written around it.
+ *
+ * `rootEvidenceTier` is reused rather than a second threshold table, so a
+ * narrative item and the Root Score agree about what a given number of
+ * logged days means.
+ */
+function atTier<T extends NarrativeItemDraft>(draft: T, loggedDays: number): T {
+  const tier: EvidenceTier = rootEvidenceTier(loggedDays);
+  return {
+    ...draft,
+    tier,
+    title: enforceTierLanguage(draft.title, tier, draft.title),
+    summary: enforceTierLanguage(draft.summary, tier, draft.title),
+  };
+}
 
 const LOW_SLEEP_DURATIONS = new Set(['<5h', '5-6h']);
 const MIN_SAMPLE_PER_BUCKET = 3;
@@ -58,20 +84,23 @@ export function deriveStressSleepPattern(
 
   if (delta < MEANINGFUL_STRESS_DELTA) return null;
 
-  return {
-    category: 'recurring_patterns',
-    title: 'Stress tends to rise on lower-sleep days',
-    summary: `On days with less than 6 hours of sleep, stress has averaged ${lowSleepAvg.toFixed(1)}/5, compared to ${adequateSleepAvg.toFixed(1)}/5 on days with more sleep. This is a pattern worth watching, not a guaranteed cause.`,
-    provenance: 'inferred',
-    confidence: Math.min(0.5 + (lowSleepStress.length + adequateSleepStress.length) / 40, 0.85),
-    memberVisible: true,
-    sourceRefs: [
-      {
-        type: 'daily_checkin_range',
-        id: `${checkinsOldestFirst[0]?.id ?? ''}..${checkinsOldestFirst[checkinsOldestFirst.length - 1]?.id ?? ''}`,
-      },
-    ],
-  };
+  return atTier(
+    {
+      category: 'recurring_patterns',
+      title: 'Stress tends to rise on lower-sleep days',
+      summary: `On days with less than 6 hours of sleep, stress has averaged ${lowSleepAvg.toFixed(1)}/5, compared to ${adequateSleepAvg.toFixed(1)}/5 on days with more sleep. Worth watching, and not a guaranteed cause.`,
+      provenance: 'inferred',
+      confidence: Math.min(0.5 + (lowSleepStress.length + adequateSleepStress.length) / 40, 0.85),
+      memberVisible: true,
+      sourceRefs: [
+        {
+          type: 'daily_checkin_range',
+          id: `${checkinsOldestFirst[0]?.id ?? ''}..${checkinsOldestFirst[checkinsOldestFirst.length - 1]?.id ?? ''}`,
+        },
+      ],
+    },
+    lowSleepStress.length + adequateSleepStress.length
+  );
 }
 
 const MIN_TREND_SAMPLE = 4;
@@ -85,15 +114,22 @@ export function deriveFromWellnessInsights(
   const insights = detectInsights(checkinsOldestFirst);
   const latestIds = checkinsOldestFirst.slice(-MIN_TREND_SAMPLE).map((c) => c.id);
 
-  return insights.map((insight) => ({
-    category: insight.kind === 'sustained' ? 'recurring_patterns' : 'recent_changes',
-    title: `${WELLNESS_METRIC_LABEL[insight.key]} ${insight.kind === 'sustained' ? 'has been a sustained concern' : `is ${insight.direction}`}`,
-    summary: insight.message,
-    provenance: 'system_observed',
-    confidence: insight.kind === 'sustained' ? 0.75 : 0.6,
-    memberVisible: true,
-    sourceRefs: latestIds.map((id) => ({ type: 'daily_checkin', id })),
-  }));
+  const loggedDays = new Set(checkinsOldestFirst.map((c) => c.local_date)).size;
+
+  return insights.map((insight) =>
+    atTier(
+      {
+        category: insight.kind === 'sustained' ? 'recurring_patterns' : 'recent_changes',
+        title: `${WELLNESS_METRIC_LABEL[insight.key]} ${insight.kind === 'sustained' ? 'has been a sustained concern' : `is ${insight.direction}`}`,
+        summary: insight.message,
+        provenance: 'system_observed',
+        confidence: insight.kind === 'sustained' ? 0.75 : 0.6,
+        memberVisible: true,
+        sourceRefs: latestIds.map((id) => ({ type: 'daily_checkin', id })),
+      },
+      loggedDays
+    )
+  );
 }
 
 /** Reuses buildComparison/buildProgressSummary's output directly — a progress_trends/unresolved_concerns narrative item is only ever created for a metric that computation already decided was the biggest mover. */

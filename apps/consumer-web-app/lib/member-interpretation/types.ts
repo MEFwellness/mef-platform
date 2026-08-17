@@ -151,6 +151,8 @@ export type CanonicalFinding = {
    * domain card.
    */
   primaryDomain: CoachingDomain | null;
+  /** The primary domain's own display label, so a cross-referencing card can name where the finding actually lives. Null when it has no domain. */
+  primaryDomainLabel: string | null;
   /** Other domains it is genuinely relevant to. It appears there as a cross-reference, never as a second finding. */
   alsoRelevantDomains: CoachingDomain[];
   /** "Also shown under Movement & Physical Capacity." Null when it belongs to one domain only. */

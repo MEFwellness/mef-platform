@@ -21,6 +21,7 @@ import {
   toMemberWellnessHighlights,
   toMemberWellnessStorySummary,
 } from '@/lib/intelligence-core/memberView';
+import { getMemberInterpretation } from '@/lib/member-interpretation';
 import type {
   IntelligenceCoreSummary,
   MemberWellnessHighlight,
@@ -74,8 +75,13 @@ export async function getMyWellnessStorySummary(): Promise<MemberWellnessStorySu
 
   const localDate = await localDateFor(supabase, user.id);
   await recalculateIntelligenceCore(supabase, user.id, localDate);
-  const summary = await getIntelligenceCoreSummary(supabase, user.id, localDate);
-  return toMemberWellnessStorySummary(summary);
+  const [summary, interpretation] = await Promise.all([
+    getIntelligenceCoreSummary(supabase, user.id, localDate),
+    // The one place "has she logged enough for us to call anything a
+    // strength" is decided, for this screen and for every other one.
+    getMemberInterpretation(),
+  ]);
+  return toMemberWellnessStorySummary(summary, interpretation.dataFloor);
 }
 
 /** The coach's full Intelligence Core summary for a client — RLS (migration 36, plus every table this composes) is what actually authorizes this, same trust boundary as getClientIntelligenceReport. */
