@@ -54,28 +54,58 @@ const findings = await service
   // member_id is in this list because the duplicate check below keys on it.
   // Leaving it out made every member's rows collide with every other
   // member's and reported 42 duplicates that do not exist.
-  .select('id, member_id, domain, code, status, canonical_source_key, evidence_tier, coach_verified_at')
+  .select('id, member_id, domain, code, status, canonical_source_key, evidence_tier, coach_verified_at, created_at')
   .eq('entry_kind', 'finding');
 
 check('migration 165 columns exist on registry_entries', !findings.error, findings.error?.message);
 
+// Which accounts are test accounts, so a gap on one can be named as such
+// rather than counted against the product.
+const { data: testProfiles } = await service.from('profiles').select('id, is_test');
+
 if (!findings.error) {
   const rows = findings.data;
-  const active = rows.filter((r) => r.status === 'active');
+
+  /**
+   * WHAT MIGRATION 165 ACTUALLY PROMISED, and what it did not.
+   *
+   * It was a one-time backfill: it set canonical_source_key and
+   * evidence_tier on every finding row that existed when it ran. Nothing
+   * writes those two columns on new inserts, and deliberately so, because
+   * they are audit columns and no screen renders either of them: the
+   * interpretation layer recomputes the tier from live evidence on every
+   * read. So a row created after the backfill legitimately has them null.
+   *
+   * The first version of this script asserted "every row, forever", which
+   * was true on the day it was written and quietly goes false the moment
+   * anybody's app writes a finding. Re-running it after the Visibility
+   * Layer's own live intake runs reported five failures that were entirely
+   * this: 61 rows on the throwaway test account, created that afternoon.
+   *
+   * So the guarantee is now stated as the two separate things it really is:
+   * the backfill covered everything it ran over, and any later gap is
+   * reported by member rather than silently failing.
+   */
+  const BACKFILL_APPLIED_AT = '2026-08-17T14:00:00Z';
+  const backfilled = rows.filter((r) => r.created_at < BACKFILL_APPLIED_AT);
+  const later = rows.filter((r) => r.created_at >= BACKFILL_APPLIED_AT);
+
   check(
-    'every finding row carries a canonical source key',
-    rows.every((r) => r.canonical_source_key),
-    `${rows.filter((r) => r.canonical_source_key).length} of ${rows.length}`
+    'migration 165 backfilled every finding row it ran over with a canonical source key',
+    backfilled.every((r) => r.canonical_source_key),
+    `${backfilled.filter((r) => r.canonical_source_key).length} of ${backfilled.length}`
   );
   check(
-    'every source key is exactly its own domain::code',
-    rows.every((r) => r.canonical_source_key === `${r.domain}::${r.code}`),
+    'every backfilled source key is exactly its own domain::code',
+    backfilled.every((r) => r.canonical_source_key === `${r.domain}::${r.code}`),
     'no mismatches'
   );
+
+  const activeBackfilled = backfilled.filter((r) => r.status === 'active');
   check(
-    'every active finding carries an evidence tier',
-    active.every((r) => r.evidence_tier),
-    `${active.filter((r) => r.evidence_tier).length} of ${active.length}`
+    'every active finding the backfill ran over carries an evidence tier',
+    activeBackfilled.every((r) => r.evidence_tier),
+    `${activeBackfilled.filter((r) => r.evidence_tier).length} of ${activeBackfilled.length}`
   );
 
   const TIERS = new Set([
@@ -86,20 +116,41 @@ if (!findings.error) {
   ]);
   check(
     'every stored tier is one of the four',
-    active.every((r) => TIERS.has(r.evidence_tier)),
+    activeBackfilled.every((r) => TIERS.has(r.evidence_tier)),
     Object.entries(
-      active.reduce((acc, r) => ({ ...acc, [r.evidence_tier]: (acc[r.evidence_tier] ?? 0) + 1 }), {})
+      activeBackfilled.reduce(
+        (acc, r) => ({ ...acc, [r.evidence_tier]: (acc[r.evidence_tier] ?? 0) + 1 }),
+        {}
+      )
     )
       .map(([k, v]) => `${k}=${v}`)
       .join(' ')
   );
 
+  // The maintenance gap, reported rather than hidden. Audit columns that
+  // nothing maintains will be null on every row written from here on. That
+  // is fine while nothing renders them and worth knowing the moment
+  // anything wants to.
+  const laterMissing = later.filter((r) => !r.canonical_source_key);
+  const testMemberIds = new Set(
+    (testProfiles ?? []).filter((p) => p.is_test).map((p) => p.id)
+  );
+  check(
+    'no REAL member has a finding missing its canonical key',
+    laterMissing.every((r) => testMemberIds.has(r.member_id)),
+    laterMissing.length === 0
+      ? 'none missing at all'
+      : `${laterMissing.length} missing, all on test accounts: ${laterMissing.every((r) => testMemberIds.has(r.member_id))}`
+  );
+
   // The dedupe step. One active row per (member, source answer), which is
-  // the whole point of the key.
+  // the whole point of the key. Computed from domain and code rather than
+  // from the stored key, so a null key cannot make five distinct findings
+  // look like four duplicates, which is exactly what it did on the re-run.
   const seen = new Map();
   let duplicates = 0;
-  for (const r of active) {
-    const k = `${r.member_id}|${r.canonical_source_key}`;
+  for (const r of rows.filter((x) => x.status === 'active')) {
+    const k = `${r.member_id}|${r.domain}::${r.code}`;
     if (seen.has(k)) duplicates += 1;
     seen.set(k, true);
   }

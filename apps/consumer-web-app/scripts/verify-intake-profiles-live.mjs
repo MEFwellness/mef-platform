@@ -26,7 +26,91 @@
  *   node scripts/verify-intake-profiles-live.mjs
  */
 import { chromium } from 'playwright';
+import { createClient } from '@supabase/supabase-js';
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+
+// Service role, READ ONLY. Used for one thing: reading back what the wizard
+// actually stored, so this script reports what she answered rather than what
+// it meant to make her answer. A driver that silently mis-clicks one option
+// would otherwise produce a confident, wrong report.
+for (const line of readFileSync(process.env.PROD_KEYS_FILE, 'utf8').split('\n')) {
+  const eq = line.indexOf('=');
+  if (eq > 0) process.env[line.slice(0, eq)] = line.slice(eq + 1).trim();
+}
+const service = createClient(
+  'https://piafgqstbibvllsnuike.supabase.co',
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false, autoRefreshToken: false } }
+);
+
+const INTAKE_KEYS = [
+  'primary_concern',
+  'baseline_sleep_quality',
+  'baseline_stress_level',
+  'baseline_energy_level',
+  'baseline_digestion',
+  'baseline_pain_areas',
+  'baseline_movement_frequency',
+  'baseline_hydration',
+];
+
+/**
+ * What her rules ACTUALLY revealed, from the stored decisions.
+ *
+ * This is the definitive measurement and the reason it replaced counting
+ * sentences on one screen. The reveal notice shows at most three at a time
+ * and marks those three as said, and the wizard's own completion screen
+ * lands on Home, which consumes the first batch before this script ever
+ * takes its capture. Counting sentences therefore measured "what was left
+ * over after the app already told her some", not "what her answers
+ * revealed". These rows are the same thing the coach's visibility screen
+ * reads.
+ */
+async function revealedFeatures(memberId) {
+  const { data } = await service
+    .from('member_feature_visibility')
+    .select('feature_key, state, source, rule_kind')
+    .eq('member_id', memberId)
+    .eq('state', 'revealed');
+  return (data ?? []).map((r) => r.feature_key).sort();
+}
+
+async function storedIntakeAnswers(memberId) {
+  const { data: sub } = await service
+    .from('onboarding_submissions')
+    .select('id, assessment_version_id')
+    .eq('user_id', memberId)
+    .order('submitted_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!sub) return {};
+
+  const [{ data: rows }, { data: questions }] = await Promise.all([
+    service
+      .from('onboarding_answers')
+      .select('question_id, answer_status, value_numeric, value_enum, value_multi_select, value_boolean, value_free_text')
+      .eq('submission_id', sub.id),
+    service
+      .from('onboarding_questions')
+      .select('id, question_key, answer_type')
+      .eq('assessment_version_id', sub.assessment_version_id),
+  ]);
+
+  const byId = new Map((questions ?? []).map((q) => [q.id, q]));
+  const out = {};
+  for (const row of rows ?? []) {
+    const q = byId.get(row.question_id);
+    if (!q || !INTAKE_KEYS.includes(q.question_key)) continue;
+    if (row.answer_status !== 'answered') continue;
+    out[q.question_key] =
+      q.answer_type === 'numeric' ? row.value_numeric
+      : q.answer_type === 'enum' ? row.value_enum
+      : q.answer_type === 'multi_select' ? row.value_multi_select
+      : q.answer_type === 'boolean' ? row.value_boolean
+      : row.value_free_text;
+  }
+  return out;
+}
 
 const BASE = process.env.BASE_URL ?? 'https://app.mefwellness.com';
 const EMAIL = process.env.VIS_MEMBER_EMAIL ?? 'routing.test@mefwellness.com';
@@ -168,6 +252,15 @@ try {
   await page.click('button[type="submit"]');
   await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 60000 });
   check('signed in as the throwaway routing-test member', true, EMAIL);
+
+  const { data: profileRow } = await service
+    .from('profiles')
+    .select('id')
+    .eq('display_name', 'Routing Test')
+    .eq('is_test', true)
+    .maybeSingle();
+  const memberId = profileRow?.id ?? null;
+  check('the throwaway account was resolvable for the read-back', Boolean(memberId), memberId ?? 'not found');
 
   const post = async (path, body) =>
     page.evaluate(
@@ -417,20 +510,28 @@ try {
     const checkin = await capture('/checkin', `${profileKey}-checkin`);
     const all = [home, today, questionnaires, checkin].join('\n');
 
+    const answers = await storedIntakeAnswers(memberId);
+    const revealed = await revealedFeatures(memberId);
     const seen = {};
     for (const [label, markers] of Object.entries(MARKERS)) seen[label] = present(all, markers);
     const sentences = revealSentences(home);
     const library = questionnaireTitles(questionnaires);
     const questions = checkinQuestions(checkin);
 
-    fingerprints[profileKey] = { seen, sentences, library, questions };
+    fingerprints[profileKey] = { answers, revealed, seen, sentences, library, questions };
     writeFileSync(
       `${SHOTS}/${profileKey}-fingerprint.json`,
-      JSON.stringify({ seen, sentences, library, questions }, null, 2)
+      JSON.stringify({ answers, revealed, seen, sentences, library, questions }, null, 2)
     );
 
     console.log(`\n--- ${profileKey} (${profile.label}) ---`);
-    console.log('  Root told her:');
+    console.log('  What she actually answered, read back from the database:');
+    for (const key of INTAKE_KEYS) {
+      console.log(`    ${key} = ${JSON.stringify(answers[key] ?? null)}`);
+    }
+    console.log(`  Her rules revealed ${revealed.length} features:`);
+    revealed.forEach((k) => console.log(`    + ${k}`));
+    console.log('  Root told her, on the load this script captured:');
     if (sentences.length === 0) console.log('    (nothing new)');
     sentences.forEach((l) => console.log(`    - ${l}`));
     console.log(`  Her questionnaire library: ${library.join(', ') || '(none)'}`);
@@ -459,40 +560,72 @@ try {
   const b = fingerprints.B_pain_movement ?? {};
   const c = fingerprints.C_minimal ?? {};
 
-  const asString = (f) => JSON.stringify(f);
+  const has = (f, key) => (f.revealed ?? []).includes(key);
+
+  check(
+    'the three answer profiles are genuinely different answers, not the same run three times',
+    new Set([a, b, c].map((f) => JSON.stringify(f.answers ?? {}))).size === 3,
+    [a, b, c].map((f) => (f.answers ?? {}).primary_concern ?? '?').join(' / ')
+  );
   check(
     'the three profiles produce three different apps',
-    new Set([a, b, c].map(asString)).size === 3,
-    `${new Set([a, b, c].map(asString)).size} distinct of 3`
+    new Set([a, b, c].map((f) => JSON.stringify(f.revealed ?? []))).size === 3,
+    `${(a.revealed ?? []).length} / ${(b.revealed ?? []).length} / ${(c.revealed ?? []).length} features`
   );
 
-  const said = (f, fragment) => (f.sentences ?? []).some((l) => l.toLowerCase().includes(fragment));
-
+  // Each prediction below names a rule and the answer that must fire it.
   check(
-    'sleep-and-stress is told about sleep, and minimal-issues is not',
-    said(a, 'sleep') && !said(c, 'sleep'),
-    `A=${said(a, 'sleep')} C=${said(c, 'sleep')}`
+    'sleep-and-stress opens the sleep check, and neither of the others does',
+    has(a, 'questions.sleep') && !has(b, 'questions.sleep') && !has(c, 'questions.sleep'),
+    `A=${has(a, 'questions.sleep')} B=${has(b, 'questions.sleep')} C=${has(c, 'questions.sleep')}`
   );
   check(
-    'pain-and-movement is told about movement or where it hurts, and sleep-and-stress is not',
-    (said(b, 'movement') || said(b, 'hurts')) && !said(a, 'movement') && !said(a, 'hurts'),
-    `B=${(b.sentences ?? []).join(' | ')}`
+    'sleep-and-stress opens the stress check, and neither of the others does',
+    has(a, 'questions.stress') && !has(b, 'questions.stress') && !has(c, 'questions.stress'),
+    `A=${has(a, 'questions.stress')} B=${has(b, 'questions.stress')} C=${has(c, 'questions.stress')}`
   );
   check(
-    'sleep-and-stress gets the water tracker opened and the other two do not',
-    said(a, 'water') && !said(b, 'water') && !said(c, 'water'),
-    `A=${said(a, 'water')} B=${said(b, 'water')} C=${said(c, 'water')}`
+    'sleep-and-stress gets the water tracker, and neither of the others does',
+    has(a, 'tracker.water') && !has(b, 'tracker.water') && !has(c, 'tracker.water'),
+    `A=${has(a, 'tracker.water')} B=${has(b, 'tracker.water')} C=${has(c, 'tracker.water')}`
   );
   check(
-    'minimal issues is told the least of the three',
-    (c.sentences ?? []).length <= (a.sentences ?? []).length &&
-      (c.sentences ?? []).length <= (b.sentences ?? []).length,
-    `A=${(a.sentences ?? []).length} B=${(b.sentences ?? []).length} C=${(c.sentences ?? []).length}`
+    'pain-and-movement gets the movement tracker, and neither of the others does',
+    has(b, 'tracker.movement_level') && !has(a, 'tracker.movement_level') && !has(c, 'tracker.movement_level'),
+    `A=${has(a, 'tracker.movement_level')} B=${has(b, 'tracker.movement_level')} C=${has(c, 'tracker.movement_level')}`
   );
   check(
-    'the check-in asks each of them a different set of questions',
-    new Set([a, b, c].map((f) => JSON.stringify((f.questions ?? []).slice().sort()))).size > 1,
-    `A=${(a.questions ?? []).length} B=${(b.questions ?? []).length} C=${(c.questions ?? []).length}`
+    'pain-and-movement gets the guided movement assessment, and neither of the others does',
+    has(b, 'home.movement_assessment_card') &&
+      !has(a, 'home.movement_assessment_card') &&
+      !has(c, 'home.movement_assessment_card'),
+    `A=${has(a, 'home.movement_assessment_card')} B=${has(b, 'home.movement_assessment_card')} C=${has(c, 'home.movement_assessment_card')}`
+  );
+  check(
+    'pain-and-movement opens the posture and discomfort check, and neither of the others does',
+    has(b, 'questions.mechanics') && !has(a, 'questions.mechanics') && !has(c, 'questions.mechanics'),
+    `A=${has(a, 'questions.mechanics')} B=${has(b, 'questions.mechanics')} C=${has(c, 'questions.mechanics')}`
+  );
+  check(
+    'minimal issues gets the smallest app of the three',
+    (c.revealed ?? []).length < (a.revealed ?? []).length &&
+      (c.revealed ?? []).length < (b.revealed ?? []).length,
+    `A=${(a.revealed ?? []).length} B=${(b.revealed ?? []).length} C=${(c.revealed ?? []).length}`
+  );
+  check(
+    'every profile keeps the priority card, the check-in and the opening conversation',
+    [a, b, c].every(
+      (f) =>
+        has(f, 'home.priority_card') &&
+        has(f, 'assessment.core-values-snapshot') &&
+        has(f, 'assessment.onboarding-health-history')
+    ),
+    'the floor every member is owed'
+  );
+  check(
+    'no profile gets the retired next-session row or the unbuilt assessment',
+    [a, b, c].every((f) => !has(f, 'home.next_session') && !has(f, 'assessment.readiness-to-change')),
+    'retired stays retired'
   );
 
   writeFileSync(`${SHOTS}/fingerprints.json`, JSON.stringify(fingerprints, null, 2));

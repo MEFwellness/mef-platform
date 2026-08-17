@@ -290,11 +290,24 @@ export const VISIBILITY_CATALOG: FeatureDefinition[] = [
     surface: 'home',
     label: 'Invitations from your coach and from Root',
     whoNeedsThis:
-      'A member with something genuinely waiting for her: a coach assignment, or the next unstarted conversation in the opening arc.',
-    revealWhen: [
-      { kind: 'coach_assigned' },
-      { kind: 'behavior', signal: 'days_since_signup', atLeast: 0 },
-    ],
+      'A member with something genuinely waiting for her: a coach assignment, or the next unstarted conversation in the opening arc. It renders nothing at all when there is neither, which is why it is on the short "always" list rather than carrying a rule.',
+    /**
+     * ALWAYS, and stated as such on purpose.
+     *
+     * This carried `{ kind: 'behavior', signal: 'days_since_signup',
+     * atLeast: 0 }`, which is true of every member who has ever existed. It
+     * was a placeholder wearing a real rule's clothes, and the coach's
+     * visibility screen duly reported "She has days since signup of at
+     * least 0", which explains nothing to anybody.
+     *
+     * The honest answer is that this card is always eligible and gates
+     * itself on having genuine content: `DashboardInviteCards` renders
+     * nothing when there is neither a coach assignment nor an unstarted
+     * opening conversation. Both of those are things she is owed rather
+     * than things she has to earn, so a rule to earn them would be wrong
+     * too. Found by reading the coach screen's own explanation back.
+     */
+    revealWhen: [{ kind: 'always' }],
     revealSentence: null,
     touchedBy: { kind: 'none' },
   },

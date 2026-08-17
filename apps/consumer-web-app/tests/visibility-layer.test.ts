@@ -760,8 +760,26 @@ describe('catalog integrity', () => {
         F.assessmentOnboarding,
         F.assessmentCoreValues,
         F.questionsContext,
+        // The invite card is eligible for everyone and gates itself on
+        // having genuine content. It used to carry "days since signup of at
+        // least 0", which is true of every member alive: a placeholder
+        // wearing a rule's clothes, which the coach screen reported back
+        // verbatim and meaninglessly.
+        F.homeInviteCards,
       ].sort()
     );
+  });
+
+  it('no rule in the catalog is trivially true for every member', () => {
+    // A behaviour rule with a threshold of zero is not a rule, it is
+    // "always" in disguise, and the coach's screen would explain it as one.
+    for (const feature of VISIBILITY_CATALOG) {
+      for (const rule of feature.revealWhen) {
+        if (rule.kind === 'behavior') {
+          expect(rule.atLeast, `${feature.key} -> ${rule.signal}`).toBeGreaterThan(0);
+        }
+      }
+    }
   });
 
   it('every key named in the existing-member migration is a real catalog key', () => {
