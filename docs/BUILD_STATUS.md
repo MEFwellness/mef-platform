@@ -116,11 +116,15 @@ Driving the local app as a member, before the fix: the Priority Card pop-up open
 
 `tests/body-scroll-lock.test.ts` (10) drives the counted lock directly against a fake document in the exact orders React produces, including the nested child-then-parent order that caused this. It was proved non-vacuous twice: restoring the old per-caller save/restore fails the three overlap tests, and making release stop restoring fails six of the ten. Both breaks were reverted and all ten pass.
 
-`scripts/screenshots/verify-scroll-lock.mjs` drives a real browser: every member screen on a fresh load, after an in-app navigation, with the Root pop-up open and after it closes, and the sign-out confirmation opened and dismissed three ways — Cancel, Escape and a backdrop tap — at iPhone 14 and iPhone SE widths. **44 of 44 checks passed locally.** `scripts/screenshots/verify-scroll-lock-live.mjs` is the production twin.
+`scripts/screenshots/verify-scroll-lock.mjs` drives a real browser: every member screen on a fresh load, after an in-app navigation, with the Root pop-up open and after it closes, and the sign-out confirmation opened and dismissed three ways — Cancel, Escape and a backdrop tap — at iPhone 14 and iPhone SE widths. **48 of 48 checks passed locally.**
 
-### One thing that could not be done, and why
+### On production, signed in as a real member
 
-The live check could not be run as the standing test member. Production refuses `RootReset2026!` for `8weeks2fab@gmail.com` with "Incorrect email or password" — the password this file recorded as live on 2026-08-14. Something has changed it since. Nothing on production was altered to work around that; the account was left exactly as found. Everything above is local and unit-level evidence, and the live run is still owed.
+`scripts/screenshots/verify-scroll-lock-live.mjs` ran the identical checks against `app.mefwellness.com` as `8weeks2fab@gmail.com`: **46 of 46 passed**, at both widths. Home, Today, Progress, Food Lens, the Daily Reset check-in and Your Case all scroll on a fresh load; the Root pop-up waiting on that account pins the page while open and releases it on close; the sign-out confirmation pins and releases on Cancel, on Escape and on a backdrop tap. The shipped bundle was read directly too — the counted lock is in it, guards and all.
+
+**A note on the password.** `RootReset2026!`, which this file recorded as live on 2026-08-14, is refused by production now; `Dusty851@` is the working one again. Whatever changed it was not this build. Nothing on production was altered to get in.
+
+**A false alarm the first live run raised, worth recording.** Four checks failed on the first pass and none of them were the product. `components/wearables/WearableWelcomeModal.tsx` says "Maybe Later" where the Root chain says "Maybe later", so the script's exact-match dismissal could not close it — and that modal reveals itself once the member scrolls past 55% of the viewport, which means the verification's own 500px scroll probe was **summoning** the modal it then reported as a stuck page. The script now matches case-insensitively, closes whatever is open before measuring, and re-reads the page after scrolling so a modal that legitimately arrives mid-probe is dismissed rather than blamed.
 
 ## Membership tiers, the 30 day trial, and manual access control (2026-08-14)
 

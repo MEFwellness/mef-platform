@@ -49,30 +49,49 @@ function check(name, passed, detail = '') {
  * its own state rather than counted as a failure.
  */
 async function readScrollState(page) {
-  const before = await page.evaluate(() => ({
-    pinned: document.body.style.position === 'fixed' || document.body.style.overflow === 'hidden',
-    docHeight: document.documentElement.scrollHeight,
-    viewport: document.documentElement.clientHeight,
-    dialogs: document.querySelectorAll('[role="dialog"]').length,
-  }));
+  const read = () =>
+    page.evaluate(() => ({
+      pinned: document.body.style.position === 'fixed' || document.body.style.overflow === 'hidden',
+      docHeight: document.documentElement.scrollHeight,
+      viewport: document.documentElement.clientHeight,
+      dialogs: document.querySelectorAll('[role="dialog"]').length,
+    }));
+  const before = await read();
   await page.evaluate(() => window.scrollTo(0, 500));
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(300);
   const moved = await page.evaluate(() => window.scrollY);
+  // Read again AFTER scrolling: components/wearables/WearableWelcomeModal.tsx
+  // reveals itself once the member scrolls past 55% of the viewport, so the
+  // probe itself can summon a modal that then legitimately pins the page.
+  const after = await read();
   await page.evaluate(() => window.scrollTo(0, 0));
   return {
     ...before,
+    dialogsAfter: after.dialogs,
+    pinnedAfter: after.pinned,
     moved,
     taller: before.docHeight > before.viewport + 20,
   };
 }
 
+/**
+ * A page with a modal on it is supposed to be pinned, so this closes
+ * whatever is open first and measures the bare page — including a modal
+ * that only appeared because of the scroll.
+ */
 async function expectScrolls(page, label) {
-  const s = await readScrollState(page);
-  const ok = !s.pinned && (!s.taller || s.moved > 0);
+  if (await page.locator('[role="dialog"]').count()) await dismissRootPopup(page);
+  let s = await readScrollState(page);
+  if (s.dialogsAfter > 0) {
+    await dismissRootPopup(page);
+    s = await readScrollState(page);
+  }
+  const ok = !s.pinned && !s.pinnedAfter && (!s.taller || s.moved > 0);
   check(
     `${label}: page scrolls`,
     ok,
-    `pinned=${s.pinned} scrollY=${s.moved} doc=${s.docHeight}/${s.viewport}${s.taller ? '' : ' (page fits viewport)'}`
+    `pinned=${s.pinned} scrollY=${s.moved} doc=${s.docHeight}/${s.viewport}` +
+      `${s.taller ? '' : ' (page fits viewport)'}${s.dialogsAfter ? ` dialogsAfterScroll=${s.dialogsAfter}` : ''}`
   );
   return ok;
 }
@@ -95,13 +114,16 @@ async function signIn(page) {
 
 /** Clicks whatever this pop-up offers as a way out, until it is gone. */
 async function dismissRootPopup(page) {
-  const LABELS = ['Close', 'Ignore', 'Got it', 'Not now', 'Maybe later', 'Done'];
+  // Case-insensitive on purpose: the wearable welcome modal says "Maybe
+  // Later" and the Root pop-up chain says "Maybe later", and a script that
+  // cannot close a modal reads as a scroll bug that is not there.
+  const LABELS = [/^close$/i, /^ignore$/i, /^got it$/i, /^not now$/i, /^maybe later$/i, /^done$/i];
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const dialog = page.locator('[role="dialog"]').first();
     if (!(await dialog.count())) return true;
     let clicked = false;
     for (const label of LABELS) {
-      const button = dialog.getByRole('button', { name: label, exact: true });
+      const button = dialog.getByRole('button', { name: label });
       if (await button.count()) {
         await button.first().click({ timeout: 5000 }).catch(() => {});
         clicked = true;
@@ -171,8 +193,15 @@ async function runViewport(browser, name, viewport) {
   }
 
   // In-app navigation, which is how the stranded lock spread across screens.
+  // Home may be showing the next message in the pop-up chain by now — a
+  // member would close it before tapping the bar, so this does too.
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
+  if (await page.locator('[role="dialog"]').count()) {
+    const gone = await dismissRootPopup(page);
+    check(`${name} second Root pop-up closes`, gone);
+    await expectScrolls(page, `${name} after second Root pop-up closed`);
+  }
   const navLink = page.locator('a[href="/today"]').first();
   if (await navLink.count()) {
     await navLink.click();
@@ -182,6 +211,7 @@ async function runViewport(browser, name, viewport) {
 
   await page.goto(`${BASE}/profile`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2500);
+  if (await page.locator('[role="dialog"]').count()) await dismissRootPopup(page);
   await runSignOutDialogChecks(page, name);
   await page.screenshot({ path: `${OUT}/${name}-03-profile.png` });
 
