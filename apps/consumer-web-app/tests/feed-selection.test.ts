@@ -263,7 +263,10 @@ describe('selectContentItem — personalization priority and determinism', () =>
 describe('copy — templated, never freeform', () => {
   it('builds focus/why text for a priority_metric reason', () => {
     const item = contentItem({});
-    expect(buildFocusText(item, { kind: 'priority_metric', metric: 'stress' })).toContain('Stress');
+    // Lower-cased in the sentence since the interpretation build (the
+    // metric label used to lead the sentence as a proper noun, "Stress is
+    // today's focus", which is also the phrasing that had to go).
+    expect(buildFocusText(item, { kind: 'priority_metric', metric: 'stress' })).toContain('stress');
     expect(buildWhyText({ kind: 'priority_metric', metric: 'stress' })).toContain('stress');
   });
 

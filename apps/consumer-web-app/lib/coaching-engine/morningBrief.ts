@@ -132,6 +132,84 @@ function datedSentence(phrase: string, recency: 'yesterday' | 'earlier'): string
     : `You logged ${phrase} at your last check-in.`;
 }
 
+/**
+ * Every sentence this module can produce about sleep or stress FROM A
+ * CHECK-IN, as data.
+ *
+ * It exists so read-time recomposition (below) can tell a line that came
+ * from a check-in apart from one that came from a real longitudinal trend
+ * or from a wearable. Only the first kind goes stale within the day; the
+ * other two are about a window, not about this morning, and must be left
+ * exactly as the brief composed them.
+ *
+ * Enumerable because the vocabulary is closed: three statuses times four
+ * shapes (today, yesterday, earlier, and the phrase alone).
+ */
+function allCheckinSentences(
+  present: Record<'good' | 'attention' | 'poor', string>,
+  phrase: Record<'good' | 'attention' | 'poor', string>
+): Set<string> {
+  const out = new Set<string>();
+  for (const status of ['good', 'attention', 'poor'] as const) {
+    out.add(present[status]);
+    out.add(datedSentence(phrase[status], 'yesterday'));
+    out.add(datedSentence(phrase[status], 'earlier'));
+  }
+  return out;
+}
+
+const CHECKIN_SLEEP_SENTENCES = allCheckinSentences(SLEEP_SENTENCE, SLEEP_PHRASE);
+const CHECKIN_STRESS_SENTENCES = allCheckinSentences(STRESS_SENTENCE, STRESS_PHRASE);
+
+/**
+ * The Daily Brief, brought up to date at READ time.
+ *
+ * The brief is a per-day cache: one row per (member, local_date), composed
+ * on the member's first open of the day and never rewritten. That is almost
+ * always before she has checked in, so the two lines that speak about her
+ * most recent check-in were frozen at "Yesterday you logged moderate
+ * stress" and stayed that way for the rest of the day even after she
+ * checked in. Home did not update.
+ *
+ * Two ways to fix that were possible. Regenerating and rewriting the row
+ * needs an UPDATE or DELETE policy on `coach_morning_briefs`, which
+ * migration 53 deliberately does not grant a member (insert and select
+ * only). Composing at read time needs neither a new write permission nor a
+ * schema change, and it cannot leave a member with a half-written row if it
+ * fails. This is the read-time version.
+ *
+ * It is deliberately NARROW. It only ever replaces a line this module's own
+ * check-in vocabulary produced, so a line that came from a longitudinal
+ * trend or from a wearable is untouched, and it never invents a line where
+ * the brief had none. Everything else in the brief is exactly what was
+ * composed and stored.
+ */
+export function recomposeCheckinLines<T extends { sleep_summary: string | null; stress_summary: string | null }>(
+  brief: T,
+  latestCheckin: DailyCheckin | null,
+  localDate: string
+): T {
+  const recency = checkinRecency(latestCheckin, localDate);
+
+  const sleep =
+    brief.sleep_summary === null || CHECKIN_SLEEP_SENTENCES.has(brief.sleep_summary)
+      ? checkinSleepSummary(latestCheckin, recency)
+      : brief.sleep_summary;
+  const stress =
+    brief.stress_summary === null || CHECKIN_STRESS_SENTENCES.has(brief.stress_summary)
+      ? checkinStressSummary(latestCheckin, recency)
+      : brief.stress_summary;
+
+  // Never turn a line the brief had into nothing: if the recomposition
+  // comes up empty (a check-in with no sleep value logged, say), the stored
+  // line stands rather than the section disappearing mid-day.
+  return {
+    ...brief,
+    sleep_summary: sleep ?? brief.sleep_summary,
+    stress_summary: stress ?? brief.stress_summary,
+  };
+}
+
 function checkinSleepSummary(latest: DailyCheckin | null, recency: CheckinRecency | null): string | null {
   if (!latest || recency === null || latest.sleep_quality === null) return null;
   const status = sleepQualityStatus(latest.sleep_quality);

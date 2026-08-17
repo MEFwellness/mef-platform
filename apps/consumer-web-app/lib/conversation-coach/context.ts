@@ -27,7 +27,8 @@ import { getOrCreateTodaysFeed } from '@/lib/feed/service';
 import { buildTimeContext } from '@/lib/feed/timeContext';
 import { getConversationContextIntelligence } from '@/lib/intelligence-engine/engine';
 import { getMemberFocus } from '@/lib/member-interpretation/focus';
-import { getMyRootScore } from '@/app/actions/scoring';
+import { fetchNutritionActivity, type NutritionActivity } from './nutritionActivity';
+import { getSnapshotForDate, getLatestSnapshotBefore } from '@/lib/scoring/data';
 import { scoreLabel } from '@/lib/wellness/wellness-index';
 import type { CoachingPriorities } from '@/lib/intelligence-engine/types';
 import { getConversationCoachingContext } from '@/lib/intelligence-core/service';
@@ -64,6 +65,13 @@ export type ConversationContext = {
    * in its context at all and filled the gap. It has one now.
    */
   rootScore: { score: number | null; label: string | null } | null;
+  /**
+   * What she has actually logged about food, as counts. Three numbers and
+   * no strings, by design: see ./nutritionActivity.ts for the line between
+   * food as DATA and food as a finding, and why a logged food may never
+   * cross it.
+   */
+  nutritionActivity: NutritionActivity;
   todaysLessonTitle: string | null;
   todaysAction: string | null;
   restrictedTopics: string[];
@@ -91,6 +99,17 @@ export type ConversationContext = {
   recentMessages: ConversationMessage[];
 };
 
+async function readRootScoreSnapshot(
+  supabase: SupabaseClient,
+  memberId: string,
+  localDate: string
+) {
+  return (
+    (await getSnapshotForDate(supabase, memberId, localDate)) ??
+    (await getLatestSnapshotBefore(supabase, memberId, localDate))
+  );
+}
+
 function timeOfDayLabel(hour: number): string {
   if (hour < 12) return 'morning';
   if (hour < 18) return 'afternoon';
@@ -109,8 +128,16 @@ export async function gatherConversationContext(
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const timeContext = buildTimeContext(nowInTz);
 
-  const [intelligence, coachingContext, feedItem, activeMemory, recentMessages, focus, snapshot] =
-    await Promise.all([
+  const [
+    intelligence,
+    coachingContext,
+    feedItem,
+    activeMemory,
+    recentMessages,
+    focus,
+    snapshot,
+    nutritionActivity,
+  ] = await Promise.all([
       getConversationContextIntelligence(supabase, memberId, localDate),
       getConversationCoachingContext(supabase, memberId),
       getOrCreateTodaysFeed(supabase, memberId, localDate),
@@ -119,7 +146,17 @@ export async function gatherConversationContext(
       // The one focus and the real score, so a reply can never disagree
       // with the screen the member was just looking at.
       getMemberFocus(),
-      getMyRootScore(localDate, timezone),
+      // The snapshot as it already stands, READ ONLY. Deliberately not
+      // getMyRootScore, which creates its own cookie-scoped client and can
+      // calculate a fresh snapshot as a side effect: a member asking Root a
+      // question should not trigger a score recalculation, and this module
+      // is already holding the right client. Falls back to her most recent
+      // snapshot when today's has not been written yet, which is the number
+      // Home is showing her in exactly that situation.
+      readRootScoreSnapshot(supabase, memberId, localDate),
+      // Food read as data rather than as a standing finding: counts only,
+      // never a product name.
+      fetchNutritionActivity(supabase, memberId, localDate),
     ]);
 
   const content = feedItem ? await getContentItem(supabase, feedItem.content_item_id) : null;
@@ -132,6 +169,7 @@ export async function gatherConversationContext(
     decision: intelligence.decision,
     focusLabel: intelligence.focusLabel,
     focusTitle: focus?.title ?? null,
+    nutritionActivity,
     rootScore: snapshot
       ? {
           score: snapshot.root_score,

@@ -57,6 +57,12 @@ import { listThreadCooldowns } from '../coaching-direction/escalationData';
 import { actionTypeGradeMap } from '../coaching-direction/gradesData';
 import { loadCoachingGrades } from '../coaching-direction/gradesService';
 import {
+  FRICTION_OPTIONS,
+  FRICTION_QUESTION,
+  FRICTION_NOTE_PLACEHOLDER,
+} from '../coaching-direction/friction';
+import { listThreadFriction, markFrictionAsked } from '../coaching-direction/frictionData';
+import {
   loadBehavioralFriction,
   loadMovementInput,
   loadUnresolvedSafetyFlag,
@@ -72,6 +78,7 @@ import { getWeekFocus } from '../weekly-review/data';
 import { weekStartFor } from '../weekly-review/week';
 import { PRIORITY_LADDER, PRIORITY_OVERRIDES } from './types';
 import type {
+  PriorityFrictionQuestion,
   BehavioralFrictionInput,
   ImplicatedDriverInput,
   IncompleteActionInput,
@@ -478,6 +485,7 @@ export async function buildPriorityView(
       cooldowns,
       grades,
       movement,
+      friction,
     ] = await Promise.all([
       loadFindingRules(supabase, memberId),
       loadIncompleteAction(supabase, memberId, resetPlanResult.draftPlanCreatedAt),
@@ -496,6 +504,11 @@ export async function buildPriorityView(
       // byte-identical to the build before the movement flip. See
       // lib/coaching-direction/signals.ts's loadMovementInput.
       loadMovementInput(supabase, memberId, todayLocalDate),
+      // The friction question's own fail-closed read (migration 166). Before
+      // that migration exists this returns `available: false`, which makes
+      // the engine decline to ask and leaves it byte-identical to the build
+      // before the question existed. See lib/coaching-direction/frictionData.ts.
+      listThreadFriction(supabase, memberId),
     ]);
 
     // The post-resolution cooldown merged onto the thread state the pure
@@ -563,6 +576,10 @@ export async function buildPriorityView(
       // than a filter here: see lib/coaching-direction/preference.ts on why
       // a thread-scoped grade must not reach the within-rung reorder.
       grades: actionTypeGradeMap(grades),
+      // What she has already told Root got in the way, and whether an answer
+      // could be stored at all.
+      friction: friction.byThread,
+      frictionAvailable: friction.available,
     };
 
     let decision = selectCoachingAction(inputs, todayLocalDate, adaptation);
@@ -605,6 +622,17 @@ export async function buildPriorityView(
     // rule and the words; only the reason line is regenerated, and only
     // when the live hierarchy still agrees which rule is in play. When it
     // does not, there is no honest current reason and the card shows none.
+    // The question, when one is live. Built once here from the engine's own
+    // verdict so both branches below render the identical object.
+    const frictionQuestion: PriorityFrictionQuestion | null = decision.askFriction
+      ? {
+          threadKey: decision.askFriction.threadKey,
+          question: FRICTION_QUESTION,
+          options: FRICTION_OPTIONS,
+          notePlaceholder: FRICTION_NOTE_PLACEHOLDER,
+        }
+      : null;
+
     if (existing) {
       const shown: typeof fresh = {
         ...fresh,
@@ -625,6 +653,7 @@ export async function buildPriorityView(
         bridge: buildPriorityBridge(yesterday, shown, todayLocalDate),
         isReEntry,
         welcomeLine: isReEntry ? RETURN_GREETING_TEXT : null,
+        frictionQuestion,
       };
     }
 
@@ -656,12 +685,21 @@ export async function buildPriorityView(
       await notifyCoachOfSafetyFlag(supabase, memberId, safetyFlag.safetyClassificationId);
     }
 
+    // Record that the question genuinely reached her, on the same decision
+    // row `persistCoachingDecision` just wrote. Best-effort: if this fails,
+    // the question simply gets asked again tomorrow rather than the render
+    // breaking.
+    if (decision.askFriction) {
+      await markFrictionAsked(supabase, memberId, todayLocalDate);
+    }
+
     return {
       selected: fresh,
       status: record.status,
       localDate: todayLocalDate,
       bridge: buildPriorityBridge(yesterday, fresh, todayLocalDate),
       isReEntry,
+      frictionQuestion,
       // Root's one established return sentence, never a second welcome
       // authored by this feature. See lib/return-greeting/absence.ts for
       // why the card speaks the Root Presence System's own words here.

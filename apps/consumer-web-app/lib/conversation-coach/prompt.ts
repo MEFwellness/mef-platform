@@ -14,6 +14,7 @@
 
 import type { SafetyClassificationLevel } from '@mef/shared-types-contracts';
 import { areaLabel } from '@/lib/intelligence/copy';
+import { nutritionActivityLine } from './nutritionActivity';
 import type { ConversationContext } from './context';
 
 export type PromptSafetyMode = Extract<
@@ -202,6 +203,7 @@ MEMBER CONTEXT (use only what's relevant to this message, do not recite all of i
 ${nameLine}- Local time: ${context.dayOfWeek} ${context.timeOfDayLabel}
 ${focusLine}
 ${scoreLine}
+${nutritionActivityLine(context.nutritionActivity)}
 - The coaching area her lesson is drawn from today: ${context.focusLabel} (mode: ${context.decision.mode}, why: ${context.decision.reasonText}). This is background for the lesson, it is NOT her focus, do not present it as one.
 - Today's lesson: ${context.todaysLessonTitle ?? 'none prepared yet'}
 - Today's suggested action: ${context.todaysAction ?? 'none prepared yet'}

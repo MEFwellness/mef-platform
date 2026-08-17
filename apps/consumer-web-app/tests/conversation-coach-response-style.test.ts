@@ -64,6 +64,7 @@ function fakeContext(overrides: Partial<ConversationContext> = {}): Conversation
     decision: fakeDecision(),
   focusTitle: 'Take a few minutes for your Daily Reset.',
   rootScore: { score: 27, label: 'Steady' },
+  nutritionActivity: { entriesLogged: 0, daysLogged: 0, windowDays: 7 },
     focusLabel: 'Movement',
     todaysLessonTitle: 'Why a short walk helps',
     todaysAction: 'Take a 10-minute walk today, at whatever pace feels comfortable.',

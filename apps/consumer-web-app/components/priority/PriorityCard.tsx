@@ -62,6 +62,7 @@ import {
 import { usePriorityCardActions } from './usePriorityCardActions';
 import { usePriorityCardMotion } from './usePriorityCardMotion';
 import { PriorityBridge } from './PriorityBridge';
+import { FrictionQuestion } from './FrictionQuestion';
 
 export function PriorityCard({ view, collapsed = false }: { view: PriorityView; collapsed?: boolean }) {
   // Behavior lives in the shared hook so the inline card and the pop-up
@@ -72,7 +73,7 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
   // behavior: it reads `status` and never writes anything.
   const motion = usePriorityCardMotion(view, status, 'inline');
 
-  const { selected, isReEntry, welcomeLine, bridge } = view;
+  const { selected, isReEntry, welcomeLine, bridge, frictionQuestion } = view;
 
   const router = useRouter();
 
@@ -278,6 +279,14 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
               </div>
             </div>
           </div>
+
+          {/* ROOT ASKS WHAT GOT IN THE WAY (AUDIT-ADAPTIVE-REVEAL.md 2.17).
+              Non-null only on a day the ignore window has closed and she has
+              not answered yet. Placed above the buttons deliberately: the
+              question is about this card, and Done / Help me / Save for later
+              are still right there, so answering it is never the only way
+              forward. */}
+          {frictionQuestion && <FrictionQuestion question={frictionQuestion} />}
 
           <div
             {...revealStep(PRIORITY_REVEAL_INDEX.buttons, "relative mt-5 flex flex-wrap gap-2")}

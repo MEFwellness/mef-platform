@@ -30,7 +30,7 @@ import {
   fetchFindingCallbackContext,
 } from '../memory-callback/data';
 import { buildTenureCallback, buildDay3ContrastCallback, buildFindingCallback, pickMemoryCallback } from '../memory-callback/copy';
-import { composeMorningBrief } from './morningBrief';
+import { composeMorningBrief, recomposeCheckinLines } from './morningBrief';
 import {
   getHabitLogsForDateForMember,
   getMorningBrief,
@@ -98,6 +98,22 @@ async function resolveReturnGreeting(
   return wonThisGap ? RETURN_GREETING_TEXT : null;
 }
 
+/**
+ * Home updates after a check-in instead of freezing at first open.
+ *
+ * `coach_morning_briefs` is a per-day cache, written once on the member's
+ * first open of the day and never rewritten, which is normally before she
+ * has checked in. So the two lines that speak about her latest check-in
+ * stayed at "Yesterday you logged moderate stress" for the rest of the day,
+ * even after she checked in. Home did not move.
+ *
+ * Read-time composition, not a rewrite. The alternative was an UPDATE or
+ * DELETE policy on this table so the row could be regenerated; migration 53
+ * grants a member insert and select only, and adding a write permission to
+ * fix a display staleness is a larger change with a larger blast radius
+ * than composing two sentences on the way out. See recomposeCheckinLines
+ * for how narrow the substitution is.
+ */
 export async function getOrCreateTodaysMorningBrief(
   supabase: SupabaseClient,
   memberId: string,
@@ -105,7 +121,14 @@ export async function getOrCreateTodaysMorningBrief(
   firstName: string
 ): Promise<MorningBrief | null> {
   const existing = await getMorningBrief(supabase, memberId, localDate);
-  if (existing) return existing;
+  if (existing) {
+    const recentCheckins = await listRecentCheckinsForMember(supabase, memberId, localDate);
+    return recomposeCheckinLines(
+      existing,
+      recentCheckins[recentCheckins.length - 1] ?? null,
+      localDate
+    );
+  }
 
   try {
     const [

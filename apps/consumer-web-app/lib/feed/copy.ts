@@ -24,16 +24,23 @@ export const FOUR_DOCTORS_PLAIN_LABEL: Record<FourDoctorsCategory, string> = {
   doctor_happiness: 'mood and connection',
 };
 
+/**
+ * ONE FOCUS (Member Interpretation Layer, 2026-08-17). These sentences said
+ * "X is today's focus" and "Today's focus is on Y" on the Today screen,
+ * which is the same screen where the Priority Card names her actual one
+ * thing. The lesson is a lesson: it has a theme, and the theme is what
+ * these describe. Only the Priority Card decision engine names a focus.
+ */
 export function buildFocusText(item: MefContentItem, reason: SelectionReason): string {
   if (reason.kind === 'priority_metric') {
     const label = WELLNESS_METRIC_LABEL[reason.metric];
-    return `${label} is today's focus. It's shown up in your recent check-ins, so let's give it a little extra attention. Small, consistent wins here matter far more than trying to do everything at once.`;
+    return `Today's lesson is about ${label.toLowerCase()}. It's shown up in your recent check-ins, so it's worth a little extra attention. Small, consistent wins here matter far more than trying to do everything at once.`;
   }
   if (reason.kind === 'coach_assigned') {
     return `Your coach hand-picked today's lesson for you: ${item.title}.`;
   }
   const plain = FOUR_DOCTORS_PLAIN_LABEL[item.four_doctors_category] ?? 'your wellness';
-  return `Today's focus is on ${plain}: ${item.title}. One small, consistent step here is worth more than trying to do everything at once.`;
+  return `Today's lesson is about ${plain}: ${item.title}. One small, consistent step here is worth more than trying to do everything at once.`;
 }
 
 export function buildWhyText(reason: SelectionReason): string {

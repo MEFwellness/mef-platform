@@ -466,6 +466,25 @@ export type PriorityBridge = {
   yesterdayTitle: string;
 };
 
+/**
+ * The friction question, when it is live for this member today.
+ *
+ * AUDIT-ADAPTIVE-REVEAL.md 2.17: rule 7 requires that when an action is not
+ * completed before a new one is assigned, the member is asked what got in
+ * the way. Nothing asked. This is the asking, and it appears on the card
+ * itself rather than as a separate interruption, because it is a question
+ * about that card.
+ */
+export type PriorityFrictionQuestion = {
+  /** Which continuing thread the question is about. Never rendered. */
+  threadKey: string;
+  /** Root's own words. */
+  question: string;
+  /** The tappable answers, in order. */
+  options: readonly { reason: string; label: string }[];
+  notePlaceholder: string;
+};
+
 /** What the Today page renders. */
 export type PriorityView = {
   selected: SelectedPriority;
@@ -486,4 +505,11 @@ export type PriorityView = {
    * never a second welcome authored here.
    */
   welcomeLine: string | null;
+  /**
+   * Non-null only on a day Root has asked what got in the way and she has
+   * not answered yet. Null is the ordinary case, and null is also what a
+   * member sees before migration 166 lands, since the engine will not ask a
+   * question whose answer it cannot store.
+   */
+  frictionQuestion: PriorityFrictionQuestion | null;
 };

@@ -97,6 +97,13 @@ import {
   adaptThread,
   threadKeyFor,
 } from '../coaching-direction/adaptation';
+import {
+  isFrictionQuestionOpen,
+  approachAfterFriction,
+  shouldAskFriction,
+  NO_FRICTION_STATE,
+  type ThreadFrictionState,
+} from '../coaching-direction/friction';
 import { sanitizeSignalEvidence } from '../coaching-direction/evidence';
 import { preferGradedActionTypesWithinRung } from '../coaching-direction/preference';
 import type { CoachingGrade } from '../coaching-direction/grading';
@@ -629,6 +636,31 @@ export type AdaptationContext = {
    * An empty map leaves the engine byte-identical to Part 2.
    */
   grades?: ReadonlyMap<string, CoachingGrade>;
+  /**
+   * What the member has already told Root got in the way, per thread
+   * (AUDIT-ADAPTIVE-REVEAL.md 2.17).
+   *
+   * Read INSIDE a rung and nothing more: it can only change which FRAMING a
+   * candidate the ladder already admitted is offered in. It cannot create a
+   * candidate, cannot remove one, cannot reorder the ladder, and cannot
+   * touch safety, re-entry or the Reset Plan commitment, because it is only
+   * consulted at the point `adaptThread` had already decided to change the
+   * approach.
+   *
+   * An empty map leaves the engine byte-identical to the build before the
+   * friction question existed.
+   */
+  friction?: ReadonlyMap<string, ThreadFrictionState>;
+  /**
+   * Whether the friction question can be RECORDED at all, i.e. whether
+   * migration 166 has landed.
+   *
+   * False makes the whole feature dormant. Asking a member what got in the
+   * way and then being unable to store her answer is worse than not asking,
+   * so when this is false the engine never asks and behaves exactly as it
+   * did before.
+   */
+  frictionAvailable?: boolean;
 };
 
 export const NO_ADAPTATION: AdaptationContext = {
@@ -636,6 +668,8 @@ export const NO_ADAPTATION: AdaptationContext = {
   completedYesterdayThreadKey: null,
   weekFocus: null,
   grades: new Map(),
+  friction: new Map(),
+  frictionAvailable: false,
 };
 
 export type CoachingSelection = {
@@ -644,6 +678,15 @@ export type CoachingSelection = {
   threadChanges: ThreadChange[];
   /** True when this decision continues something she finished yesterday. */
   isFollowOn: boolean;
+  /**
+   * Non-null on the one run where Root should ask what got in the way,
+   * instead of rewording or escalating (AUDIT-ADAPTIVE-REVEAL.md 2.17).
+   *
+   * The card renders the question; the caller records that it was asked.
+   * Exactly one thread can be in this state at a time, because exactly one
+   * candidate is ever selected.
+   */
+  askFriction: { threadKey: string } | null;
 };
 
 /**
@@ -731,14 +774,50 @@ export function selectCoachingAction(
   for (const item of overrides) {
     if (!isEmittableActionType(item.actionType)) continue;
     if (!hasSessionBehindIt(item)) continue;
-    return { selected: item, threadChanges, isFollowOn: false };
+    return { selected: item, threadChanges, isFollowOn: false, askFriction: null };
   }
 
   for (const item of ladder) {
     if (!isEmittableActionType(item.actionType)) continue;
     if (!hasSessionBehindIt(item)) continue;
 
-    const outcome = adaptThread(adaptation.threads.get(item.threadKey) ?? null, todayLocalDate);
+    const thread = adaptation.threads.get(item.threadKey) ?? null;
+    const outcome = adaptThread(thread, todayLocalDate);
+    const friction = adaptation.friction?.get(item.threadKey) ?? NO_FRICTION_STATE;
+
+    // ROOT ASKS BEFORE IT ADAPTS (AUDIT-ADAPTIVE-REVEAL.md 2.17).
+    //
+    // The ignore window has closed. Before this existed, that meant the
+    // approach silently changed, and two silent changes later the thread
+    // went to a coach and stopped being offered, with the member never once
+    // asked why. She is asked now, and the reword waits a day for her
+    // answer.
+    //
+    // Placed above BOTH branches on purpose: the rule is "before the engine
+    // rewords the approach or escalates", so an escalation is delayed by the
+    // same one day the reword is. Once per thread, ever: shouldAskFriction is
+    // false the moment she has been asked, whether or not she answered, so a
+    // member who ignores the question is never nagged with it again and the
+    // ordinary silent behaviour resumes on the next run.
+    //
+    // Gated on frictionAvailable, which is false until migration 166 has
+    // landed. Asking a question whose answer cannot be stored is worse than
+    // not asking.
+    if (
+      (outcome.changed || outcome.escalate) &&
+      adaptation.frictionAvailable === true &&
+      shouldAskFriction({ wouldChangeApproach: true, friction })
+    ) {
+      return {
+        // Unchanged framing. The card she is looking at is the one the
+        // question is about, so it must not change out from under the
+        // question being asked about it.
+        selected: applyApproach(item, thread?.approach ?? APPROACH_AS_WRITTEN),
+        threadChanges,
+        isFollowOn: item.threadKey === adaptation.completedYesterdayThreadKey,
+        askFriction: { threadKey: item.threadKey },
+      };
+    }
 
     if (outcome.escalate) {
       threadChanges.push({
@@ -752,18 +831,30 @@ export function selectCoachingAction(
     }
     if (outcome.blocked) continue;
 
+    // Her answer decides WHICH framing, where the engine used to walk a
+    // fixed order. Silence, whether she was never asked or was asked and did
+    // not reply, falls back to exactly the order it always used.
+    const approach = outcome.changed
+      ? approachAfterFriction(friction, outcome.approach, thread?.approach ?? APPROACH_AS_WRITTEN)
+      : outcome.approach;
+
     if (outcome.changed) {
       threadChanges.push({
         threadKey: item.threadKey,
         kind: 'approach_change',
-        approach: outcome.approach,
+        approach,
       });
     }
 
     return {
-      selected: applyApproach(item, outcome.approach),
+      selected: applyApproach(item, approach),
       threadChanges,
       isFollowOn: item.threadKey === adaptation.completedYesterdayThreadKey,
+      // The question stays on the card for the rest of the day she was asked
+      // on, so a member who reloads Home does not lose it.
+      askFriction: isFrictionQuestionOpen(friction, todayLocalDate)
+        ? { threadKey: item.threadKey }
+        : null,
     };
   }
 
@@ -778,6 +869,7 @@ export function selectCoachingAction(
     selected: rebuilt[rebuilt.length - 1]!,
     threadChanges,
     isFollowOn: false,
+    askFriction: null,
   };
 }
 

@@ -626,6 +626,7 @@ describe('the one focus', () => {
       bridge: null,
       isReEntry: false,
       welcomeLine: null,
+      frictionQuestion: null,
     });
 
     expect(focus).toEqual({

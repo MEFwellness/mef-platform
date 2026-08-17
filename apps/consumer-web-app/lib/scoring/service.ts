@@ -18,7 +18,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { calculateRootScoreSnapshot } from './calculate';
 import {
-  countSnapshotsBefore,
   getLatestSnapshotBefore,
   getSnapshotForDate,
   listSnapshotHistory,

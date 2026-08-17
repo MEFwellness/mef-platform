@@ -31,10 +31,19 @@ function source(relativePath: string): string {
 const TODAY_PAGE = source('app/today/page.tsx');
 const TODAY_ZONES = source('app/today/TodayZones.tsx');
 
-describe('Today page: "Today\'s Focus" and "A Note from Root" are one merged card', () => {
-  it('there is exactly one section heading for "Today\'s Focus" and none for "A Note from Root" as its own section', () => {
-    const focusHeadingMatches = TODAY_PAGE.match(/Today&apos;s Focus/g) ?? [];
-    expect(focusHeadingMatches.length).toBe(1);
+describe('Today page: the daily lesson and "A Note from Root" are one merged card', () => {
+  /**
+   * The card is unchanged and the merge is unchanged. Its HEADING changed,
+   * from "Today's Focus" to "Today's Lesson" (Member Interpretation Layer,
+   * 2026-08-17): this card renders the Daily Coaching Feed's lesson, and it
+   * called itself the day's focus on the same screen where "Your Priority
+   * Today" named something different. The Priority Card engine is the only
+   * author of the focus now, so this says what it actually is.
+   */
+  it('has exactly one heading for the merged card, and it no longer claims to be the focus', () => {
+    const lessonHeadingMatches = TODAY_PAGE.match(/Today&apos;s Lesson/g) ?? [];
+    expect(lessonHeadingMatches.length).toBe(1);
+    expect(TODAY_PAGE).not.toMatch(/>\s*Today&apos;s Focus\s*</);
   });
 
   it('focus_text renders before coachNote within the same section (focus leads, the note carries beneath it)', () => {

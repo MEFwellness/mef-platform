@@ -188,11 +188,12 @@ describe('the focus itself', () => {
       bridge: null,
       isReEntry: false,
       welcomeLine: null,
+      frictionQuestion: null,
     };
   }
 
   it('is exactly the engine\'s title, never re-worded', () => {
-    expect(toMemberFocus(view()).title).toBe('Take a few minutes for your Daily Reset.');
+    expect(toMemberFocus(view())!.title).toBe('Take a few minutes for your Daily Reset.');
   });
 
   it('is null rather than a substitute when the engine has none', () => {
