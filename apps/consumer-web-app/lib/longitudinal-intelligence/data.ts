@@ -7,6 +7,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LongitudinalSignal, LongitudinalSignalRow } from './types';
+import { isHydrationTracked } from '../hydration/data';
+import { HYDRATION_DRIVER_ID, HYDRATION_WELLNESS_METRIC_KEY } from '../hydration/constants';
 
 type PatternStateRow = {
   id: string;
@@ -44,21 +46,45 @@ function fromRow(row: PatternStateRow): LongitudinalSignalRow {
   };
 }
 
-/** Every previously-persisted signal state for this member, keyed by signal_key — what the pure classifiers in signalState.ts read as `priorRow` for occurrence continuity. */
+/**
+ * Conditional water tracking (migration 163). A member who turns water off
+ * may already have hydration signals persisted from before she did —
+ * "Energy and hydration," a hydration check-in trend. They must stop being
+ * read, or her Case View, her Weekly Root Review, her discovery moments and
+ * her coach's screens would all keep discussing a metric she has been told
+ * does not apply to her. The rows are left in place, not deleted: turning
+ * water back on restores every one of them intact.
+ *
+ * A correlation signal names its driver in evidence_summary
+ * (lib/correlation-engine/classify.ts), so this needs no join and no
+ * knowledge of which pair keys happen to be hydration ones today.
+ */
+function isHydrationSignal(row: LongitudinalSignalRow): boolean {
+  if (row.signalKey === `checkin_metric::${HYDRATION_WELLNESS_METRIC_KEY}`) return true;
+  return (
+    row.signalKind === 'correlation_finding' &&
+    row.evidenceSummary?.driverId === HYDRATION_DRIVER_ID
+  );
+}
+
+/** Every previously-persisted signal state for this member, keyed by signal_key — what the pure classifiers in signalState.ts read as `priorRow` for occurrence continuity. Hydration signals are withheld for a member who does not track water (see isHydrationSignal). */
 export async function listMemberPatternStates(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, LongitudinalSignalRow>> {
-  const { data, error } = await supabase
-    .from('member_pattern_states')
-    .select('*')
-    .eq('member_id', memberId);
+  const [{ data, error }, hydrationTracked] = await Promise.all([
+    supabase.from('member_pattern_states').select('*').eq('member_id', memberId),
+    isHydrationTracked(supabase, memberId),
+  ]);
 
   if (error) {
     console.error('listMemberPatternStates failed', error);
     return new Map();
   }
-  return new Map((data as PatternStateRow[]).map((row) => [row.signal_key, fromRow(row)]));
+
+  const rows = (data as PatternStateRow[]).map(fromRow);
+  const visible = hydrationTracked ? rows : rows.filter((row) => !isHydrationSignal(row));
+  return new Map(visible.map((row) => [row.signalKey, row]));
 }
 
 /** Upsert-by-(member, signal_key) — same "recompute cheap, persist the resulting state" discipline as upsertMemberRecommendation. */

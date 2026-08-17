@@ -42,6 +42,7 @@ import { PriorityCardPopup } from '@/components/priority/PriorityCardPopup';
 import { TrackPriorityShown } from '@/components/priority/TrackPriorityShown';
 import { WeeklyReviewPopup } from '@/components/weekly-review/WeeklyReviewPopup';
 import { TrackWeeklyReviewViewed } from '@/components/weekly-review/TrackWeeklyReviewViewed';
+import { HydrationFocusPopup } from '@/components/hydration/HydrationFocusPopup';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
@@ -49,6 +50,7 @@ type QuestionnaireAssignedMessage = Extract<RootPopupMessage, { kind: 'questionn
 type FreeArcMessage = Extract<RootPopupMessage, { kind: 'free_arc_available' }>;
 type PriorityCardMessage = Extract<RootPopupMessage, { kind: 'priority_card' }>;
 type WeeklyReviewMessage = Extract<RootPopupMessage, { kind: 'weekly_review' }>;
+type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
@@ -184,6 +186,31 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     return <ResetPlanPopup message={message} onClose={() => setClosed(true)} closed={closed} />;
   }
 
+  // Conditional water tracking's one-time question (migration 163). Its own
+  // component for the same reason the Reset Plan has one: its answers write
+  // a profile flag, not an experiment response, so none of the CVS/LSC/RPL
+  // ternary chains below fit it. Deliberately NOT in the
+  // auto-dismiss-on-mount group above — this is a real question with a real
+  // "Maybe later" (ask again next login) and "Ignore" (never again), same
+  // as day3/day7, and it must not be silently retired by a member who
+  // simply closed the tab before reading it.
+  // Placed after every hook above so this early return never changes hook
+  // call order between renders.
+  if (message.kind === 'hydration_focus') {
+    if (closed) return null;
+    return (
+      <HydrationFocusPopup
+        isPending={isPending}
+        onMaybeLater={handleMaybeLater}
+        onIgnore={handleIgnore}
+        onClose={() => {
+          setClosed(true);
+          router.refresh();
+        }}
+      />
+    );
+  }
+
   if (closed) return null;
 
   if (isQuestionnaireAssigned) {
@@ -236,6 +263,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | FreeArcMessage
     | PriorityCardMessage
     | WeeklyReviewMessage
+    | HydrationFocusMessage
   >;
 
   const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' || day3Or7Message.kind === 'rpl_day3';

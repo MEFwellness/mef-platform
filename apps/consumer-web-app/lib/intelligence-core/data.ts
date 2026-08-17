@@ -12,6 +12,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { isHydrationTracked } from '../hydration/data';
+
+/** wellness_profile_dimensions.dimension for water (lib/intelligence-core/dimensions.ts). */
+const HYDRATION_PROFILE_DIMENSION = 'hydration_consistency';
 import type {
   RecommendationFeedbackOutcome,
   WellnessCoachingStyleProfile,
@@ -225,15 +229,23 @@ export async function listProfileDimensionsForMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<WellnessProfileDimension[]> {
-  const { data, error } = await supabase
-    .from('wellness_profile_dimensions')
-    .select('*')
-    .eq('member_id', memberId);
+  const [{ data, error }, hydrationTracked] = await Promise.all([
+    supabase.from('wellness_profile_dimensions').select('*').eq('member_id', memberId),
+    isHydrationTracked(supabase, memberId),
+  ]);
   if (error) {
     console.error('listProfileDimensionsForMember failed', error);
     return [];
   }
-  return data as WellnessProfileDimension[];
+  const rows = data as WellnessProfileDimension[];
+  // Conditional water tracking (migration 163). hydration_consistency is
+  // withheld for a member who does not track water. Its "insufficient data"
+  // form is not harmless for her: it renders as "Not enough hydration
+  // check-ins yet to compute this dimension," which is water content in a
+  // coach-facing summary about a member who was deliberately never asked.
+  // The row is left in place so turning water back on restores it.
+  if (hydrationTracked) return rows;
+  return rows.filter((row) => row.dimension !== HYDRATION_PROFILE_DIMENSION);
 }
 
 // ---------------------------------------------------------------

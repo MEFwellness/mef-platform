@@ -24,6 +24,8 @@ import { buildRuleFacts } from '@/lib/ai/rules/facts';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { upsertRegistryEntriesFromOnboardingSubmission } from '@/lib/registry/adapters/onboarding';
 import { trackProductEvent } from '@/lib/analytics/track';
+import { setHydrationFocus } from '@/lib/hydration/data';
+import { HYDRATION_QUESTION_KEY, hydrationFocusFromAnswer } from '@/lib/hydration/constants';
 
 const ASSESSMENT_VERSION = 1;
 
@@ -214,6 +216,27 @@ export async function submitOnboarding(
       error:
         'Something went wrong submitting your assessment. Please try again, or contact support if it keeps happening.',
     };
+  }
+
+  // Conditional water tracking (migration 163). The intake answer to
+  // baseline_hydration is lifted onto profiles.hydration_focus as a real
+  // column rather than being left inside the answer rows, because every
+  // water surface in the app has to consult it — the check-in plan, the
+  // Today tracker, the Daily Wellness Index, the correlation engine, the
+  // coach's screens — and none of them should be running a join through
+  // onboarding_answers to find out whether to render a button.
+  //
+  // Deliberately tolerant: a skipped question, a "not sure", or a
+  // reassessment (which re-asks only the fixed legacy 12 and so never
+  // carries this key) all leave the flag exactly as it was.
+  // hydrationFocusFromAnswer owns that rule.
+  const hydrationAnswer = answers.find((a) => a.question_key === HYDRATION_QUESTION_KEY);
+  const hydrationFocus =
+    hydrationAnswer?.answer_status === 'answered'
+      ? hydrationFocusFromAnswer(hydrationAnswer.value)
+      : null;
+  if (hydrationFocus !== null) {
+    await setHydrationFocus(supabase, user.id, hydrationFocus, 'intake');
   }
 
   // submit_onboarding() itself already decided baseline vs reassessment

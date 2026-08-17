@@ -21,6 +21,7 @@
 import type { DailyCheckin } from '@mef/shared-types-contracts';
 import { WELCOME_GOALS } from '@/lib/welcome/goals';
 import type { EnteredAnswer, GoalEntry } from './types';
+import { checkinHydrationTracked } from '@/lib/hydration/gate';
 
 // ---------------------------------------------------------------------
 // The fixed check-in questions
@@ -177,11 +178,20 @@ export function checkinAnswers(checkin: DailyCheckin): EnteredAnswer[] {
       question: 'Have you moved today?',
       answer: choiceAnswer(checkin.movement_today, MOVEMENT),
     },
-    {
-      key: 'water_cups',
-      question: 'How much water have you had?',
-      answer: checkin.water_cups === null ? null : `${checkin.water_cups} cups`,
-    },
+    // Conditional water tracking (migration 163). For a member who does not
+    // track water this question is not listed at all, rather than listed
+    // with "Not answered" against it. This screen's contract is "every
+    // question she was actually asked" — she was not asked this one, and
+    // showing it unanswered would read to her coach as a skipped question.
+    ...(checkinHydrationTracked(checkin)
+      ? [
+          {
+            key: 'water_cups',
+            question: 'How much water have you had?',
+            answer: checkin.water_cups === null ? null : `${checkin.water_cups} cups`,
+          },
+        ]
+      : []),
   ];
 }
 

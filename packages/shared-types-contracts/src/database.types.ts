@@ -165,6 +165,19 @@ export interface DailyCheckin extends DailyCheckinInput {
   user_id: string;
   recorded_at: string;
   checkin_version: number;
+  /**
+   * Conditional water tracking (migration 163). Not a stored column: the
+   * daily_checkins_current view computes it per row from the member's
+   * profiles.hydration_focus, so any reader holding a check-in already
+   * knows whether water counts for that member without a second query.
+   * False means water must not be displayed or scored for her; water_cups
+   * itself still carries whatever history she logged before that.
+   *
+   * Optional because plenty of fixtures and hand-built rows in this
+   * codebase predate it. Undefined reads as tracked — see
+   * lib/hydration/gate.ts, the one place that decides that.
+   */
+  hydration_tracked?: boolean | null;
   edited_at: string | null;
   sleep_observation_period_start: string | null;
   sleep_observation_period_end: string | null;

@@ -24,6 +24,10 @@
 import type { OnboardingQuestion } from '@mef/shared-types-contracts';
 import { selectNext } from '../adaptive-assessment-engine';
 import type { AdaptiveQuestion, AnsweredMap, AnswerValue, Boost, Rule } from '../adaptive-assessment-engine';
+import {
+  HYDRATION_CONCERN_BANK_DUPLICATE_KEY,
+  HYDRATION_QUESTION_KEY,
+} from '../hydration/constants';
 
 export const PRIMARY_CONCERN_QUESTION_KEY = 'primary_concern';
 
@@ -41,6 +45,22 @@ export type AnchorKey = (typeof ANCHOR_KEYS)[number];
 
 /** Always asked last, unchanged from today. */
 export const READINESS_KEYS = ['readiness_importance', 'readiness_confidence', 'readiness_actively_working'] as const;
+
+/**
+ * Conditional water tracking (migration 163). Asked of every member,
+ * exactly once, at the end of Phase 3a — immediately after the lifestyle
+ * anchors (sleep, stress, energy, digestion, pain, movement) and before the
+ * zoom-out sampler and the readiness triplet, which is where it reads as
+ * one more everyday-habits question rather than a topic change.
+ *
+ * It sits in the fixed queue rather than either adaptive pool on purpose:
+ * her answer is what decides whether water exists in her app at all, so
+ * "she happened not to get picked for it" is not an acceptable outcome.
+ * The one question it makes redundant (the digestion bank's own water
+ * question) is excluded from her deep dive below rather than left to ask
+ * her the same thing twice on two different scales.
+ */
+export const CORE_LIFESTYLE_KEYS = [HYDRATION_QUESTION_KEY] as const;
 
 /** Not comparison anchors — safe to let them compete for Phase 3b's single slot instead of always being asked. */
 const PHASE3B_LEGACY_EXTRAS = ['baseline_sleep_hours', 'baseline_goals'];
@@ -88,7 +108,7 @@ export function concernConfigFor(primaryConcern: string | null | undefined): Con
 export function estimatedTotalQuestions(primaryConcern: string | null | undefined): number {
   const config = concernConfigFor(primaryConcern);
   const remainingAnchors = ANCHOR_KEYS.length - (config.homeAnchor ? 1 : 0);
-  return 1 + config.phase2Count + remainingAnchors + 1 + READINESS_KEYS.length;
+  return 1 + config.phase2Count + remainingAnchors + CORE_LIFESTYLE_KEYS.length + 1 + READINESS_KEYS.length;
 }
 
 /** Builds the engine's AnsweredMap from OnboardingForm's answers state — only real 'answered' entries count as signal for requires/boosts rules. */
@@ -147,8 +167,12 @@ export function initAdaptiveEngineState(primaryConcern: string | null | undefine
     bankKey: config.bankKey,
     homeAnchorPending: config.homeAnchor,
     bankPicksRemaining: config.phase2Count - (config.homeAnchor ? 1 : 0),
-    bankExcluded: [],
-    phase3aQueue: [...remainingAnchors],
+    // Pre-excluded, not "excluded once picked": the core hydration question
+    // at the end of phase3aQueue already covers this ground for every
+    // member, so the digestion deep dive must never spend one of its three
+    // slots asking the same thing again in a different scale.
+    bankExcluded: [HYDRATION_CONCERN_BANK_DUPLICATE_KEY],
+    phase3aQueue: [...remainingAnchors, ...CORE_LIFESTYLE_KEYS],
     phase3bDone: false,
     phase3cQueue: [...READINESS_KEYS],
     lastPhase: null,

@@ -41,6 +41,7 @@ import {
   energyStatus,
   type MetricStatus,
 } from './status';
+import { gatedWaterCups } from '../hydration/gate';
 
 export type WellnessMetricKey =
   'sleep' | 'stress' | 'energy' | 'mood' | 'hydration' | 'digestion' | 'movement' | 'pain';
@@ -80,7 +81,24 @@ export type WellnessIndexInputs = {
   painLevel: number | null;
 };
 
-/** The only place that knows how to pull index inputs out of a single day's check-in row. */
+/**
+ * The only place that knows how to pull index inputs out of a single day's
+ * check-in row.
+ *
+ * Conditional water tracking (migration 163) is enforced here, once, rather
+ * than in each of the fourteen call sites that reach this function: a
+ * member who does not track water has waterCups read as null, which the
+ * existing "a metric that wasn't logged is excluded from the average
+ * entirely, its weight redistributed" rule below then handles correctly and
+ * automatically. That single line is what keeps water out of her Daily
+ * Wellness Index, her priority/strongest area, her trends
+ * (lib/intelligence/trendEngine.ts), her patterns (patternEngine.ts), her
+ * strengths (strengthEngine.ts), her insights (lib/wellness/insights.ts),
+ * her Root Score resilience input (lib/scoring/resilience.ts), the coaching
+ * brain's focus pick, the AI rule facts, and every coach-facing surface
+ * that renders the same index. Zero is never substituted, because zero is a
+ * score and null is an absence.
+ */
 export function inputsFromCheckin(checkin: DailyCheckin | null): WellnessIndexInputs {
   return {
     sleepQuality: checkin?.sleep_quality ?? null,
@@ -88,7 +106,7 @@ export function inputsFromCheckin(checkin: DailyCheckin | null): WellnessIndexIn
     stressLevel: checkin?.stress_level ?? null,
     energyLevel: checkin?.energy_level ?? null,
     moodLevel: checkin?.mood_level ?? null,
-    waterCups: checkin?.water_cups ?? null,
+    waterCups: gatedWaterCups(checkin),
     digestionRating: checkin?.digestion_rating ?? null,
     movementToday: checkin?.movement_today ?? null,
     painLevel: checkin?.pain_discomfort_level ?? null,

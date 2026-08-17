@@ -83,6 +83,16 @@ export function weeklyReviewPopupMessageKey(weekStart: string): string {
   return `weekly_review:${weekStart}`;
 }
 
+/**
+ * Conditional water tracking's own one-time question, for members who
+ * finished intake before it existed (migration 163). A fixed constant key,
+ * unlike every other key in this file: this is not scoped to a row, a date
+ * or a week, because it is asked once in a membership and then never again.
+ * Lives in lib/hydration/constants.ts alongside the rest of that feature's
+ * vocabulary; re-exported here so the pop-up chain reads consistently.
+ */
+export { HYDRATION_POPUP_MESSAGE_KEY as hydrationFocusPopupMessageKey } from '../hydration/constants';
+
 export async function getRootPopupDismissal(
   supabase: SupabaseClient,
   memberId: string,

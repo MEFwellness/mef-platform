@@ -169,6 +169,7 @@ function DoneTodayRow({
 
 export function TodayZones({
   todaysCheckinDone,
+  hydrationTracked,
   hydrationInitialTotal,
   movementInitialLevel,
   habits,
@@ -178,6 +179,14 @@ export function TodayZones({
   totalMovementDays,
 }: {
   todaysCheckinDone: boolean;
+  /**
+   * Conditional water tracking (migration 163). False removes the water
+   * tracker from this screen outright — not disabled, not empty, absent —
+   * for a member who told us water is not one of her problems. The movement
+   * tracker then owns the full row on its own rather than sitting beside a
+   * gap.
+   */
+  hydrationTracked: boolean;
   hydrationInitialTotal: number;
   movementInitialLevel: MovementLevel | null;
   habits: Habit[];
@@ -202,27 +211,37 @@ export function TodayZones({
   }, [movementLevel]);
 
   const waterLoggedToday = waterTotal > 0;
+  /**
+   * Conditional water tracking (migration 163). Every water decision below
+   * asks these two, never `hydrationTracked` directly, so a member who does
+   * not track water is treated as having no water action open (nothing
+   * nagging her in the Forward zone) AND nothing water-shaped completed
+   * (her "done today" count is not quietly short by one for a thing she was
+   * never asked to do).
+   */
+  const showWaterOpen = hydrationTracked && !waterLoggedToday;
+  const showWaterDone = hydrationTracked && waterLoggedToday;
   const movementLoggedToday = movementLevel !== null;
   const openHabits = habits.filter((habit) => !(habitLogs[habit.id] ?? false));
   const doneHabits = habits.filter((habit) => habitLogs[habit.id] ?? false);
 
   const hasOpenQuickActions =
     !todaysCheckinDone ||
-    !waterLoggedToday ||
+    showWaterOpen ||
     !movementLoggedToday ||
     openHabits.length > 0 ||
     notifications.length > 0;
 
   const doneTodayCount =
     (todaysCheckinDone ? 1 : 0) +
-    (waterLoggedToday ? 1 : 0) +
+    (showWaterDone ? 1 : 0) +
     (movementLoggedToday ? 1 : 0) +
     doneHabits.length;
 
   const capability = capabilityProgress(totalCheckins);
   const justUnlocked = useCapabilityJustUnlocked(capability.unlocked);
 
-  const showBothTrackers = !waterLoggedToday && !movementLoggedToday;
+  const showBothTrackers = showWaterOpen && !movementLoggedToday;
 
   return (
     <div className="mt-6 space-y-6">
@@ -262,9 +281,9 @@ export function TodayZones({
 
           {notifications.length > 0 && <CoachMessages notifications={notifications} />}
 
-          {(!waterLoggedToday || !movementLoggedToday) && (
+          {(showWaterOpen || !movementLoggedToday) && (
             <div className={`grid gap-3 sm:gap-5 ${showBothTrackers ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {!waterLoggedToday && (
+              {showWaterOpen && (
                 <div ref={flipRef('water')}>
                   <HydrationTracker initialTotal={waterTotal} onTotalChange={setWaterTotal} />
                 </div>
@@ -334,13 +353,13 @@ export function TodayZones({
                 <DoneTodayRow key={habit.id} flipRef={flipRef(`habit-${habit.id}`)} label={habit.title} />
               ))}
             </ul>
-            {(waterLoggedToday || movementLoggedToday) && (
+            {(showWaterDone || movementLoggedToday) && (
               <div
                 className={`mt-3 grid gap-3 sm:gap-5 ${
-                  waterLoggedToday && movementLoggedToday ? 'grid-cols-2' : 'grid-cols-1'
+                  showWaterDone && movementLoggedToday ? 'grid-cols-2' : 'grid-cols-1'
                 }`}
               >
-                {waterLoggedToday && (
+                {showWaterDone && (
                   <div ref={flipRef('water')}>
                     <HydrationTracker initialTotal={waterTotal} onTotalChange={setWaterTotal} />
                   </div>

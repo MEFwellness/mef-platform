@@ -25,6 +25,7 @@ import type {
   CoachingObservation,
   CoachingObservationDirection,
 } from '../types';
+import { checkinHydrationTracked } from '../../hydration/gate';
 
 type CheckinRow = {
   id: string;
@@ -35,6 +36,7 @@ type CheckinRow = {
   mood_level: number | null;
   sleep_quality: number | null;
   water_cups: number | null;
+  hydration_tracked?: boolean | null;
 };
 
 /** value<=2 -> low, value>=4 -> high, 3 -> neutral — the member's own fixed 1-5 self-rating scale, not an external guideline. */
@@ -60,7 +62,7 @@ async function fetchObservations(
   const { data, error } = await supabase
     .from('daily_checkins_current')
     .select(
-      'id, local_date, digestion_rating, energy_level, stress_level, mood_level, sleep_quality, water_cups'
+      'id, local_date, digestion_rating, energy_level, stress_level, mood_level, sleep_quality, water_cups, hydration_tracked'
     )
     .eq('user_id', memberId)
     .gte('local_date', range.from)
@@ -88,7 +90,12 @@ async function fetchObservations(
       });
     }
 
-    if (typeof row.water_cups === 'number') {
+    // Conditional water tracking (migration 163). No water observation is
+    // recorded for a member who does not track water, which is what keeps
+    // the hydration insight in levels.ts ("your hydration is lower on the
+    // days...") from ever being drafted about her — it needs five water
+    // readings and now finds none. Her stored cups are untouched.
+    if (checkinHydrationTracked(row) && typeof row.water_cups === 'number') {
       observations.push({
         sourceId: 'daily_checkin',
         localDate: row.local_date,

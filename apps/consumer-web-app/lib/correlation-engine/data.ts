@@ -6,6 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CandidatePair, CorrelationFindingRow } from './types';
+import { HYDRATION_CORRELATION_VARIABLE, HYDRATION_DRIVER_ID } from '../hydration/constants';
 
 type CandidatePairRow = {
   pair_key: string;
@@ -57,6 +58,31 @@ export function candidatePairsForGoals(
   if (memberGoalKeys.length === 0) return allPairs;
   const goalSet = new Set(memberGoalKeys);
   return allPairs.filter((pair) => pair.goalKeys.some((key) => goalSet.has(key)));
+}
+
+/**
+ * Conditional water tracking (migration 163) — drops every hydration pair
+ * for a member who does not track water, so no finding and no pattern
+ * state is ever computed for a metric she has been told does not apply to
+ * her. Without this the engine would still evaluate "Energy and hydration"
+ * against a column of nulls and persist an insufficient_data signal that
+ * her Case View would then find and label.
+ *
+ * Matched on the Hydration driver AND on either variable being the water
+ * variable, so a pair filed under some other driver that still reads water
+ * (none today, but seed data is data) is caught too.
+ */
+export function pairsExcludingUntrackedHydration(
+  pairs: CandidatePair[],
+  hydrationTracked: boolean
+): CandidatePair[] {
+  if (hydrationTracked) return pairs;
+  return pairs.filter(
+    (pair) =>
+      pair.driverId !== HYDRATION_DRIVER_ID &&
+      pair.outcomeVariable !== HYDRATION_CORRELATION_VARIABLE &&
+      pair.driverVariable !== HYDRATION_CORRELATION_VARIABLE
+  );
 }
 
 type FindingRow = {

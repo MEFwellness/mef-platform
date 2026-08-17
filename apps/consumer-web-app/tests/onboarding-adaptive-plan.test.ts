@@ -3,6 +3,7 @@ import {
   ANCHOR_KEYS,
   CONCERN_CONFIG,
   READINESS_KEYS,
+  CORE_LIFESTYLE_KEYS,
   advanceAdaptivePlan,
   answersToAnsweredMap,
   concernConfigFor,
@@ -145,9 +146,19 @@ describe('CONCERN_CONFIG', () => {
 });
 
 describe('estimatedTotalQuestions', () => {
-  it('is 1 + phase2Count + remaining anchors + 1 + 3 readiness for every concern', () => {
+  it('is 1 + phase2Count + remaining anchors + the core lifestyle question + 1 + 3 readiness for every concern', () => {
+    // CORE_LIFESTYLE_KEYS is the always-asked hydration question added by
+    // conditional water tracking (migration 163) — a real extra question in
+    // every member's flow, so the progress denominator counts it rather than
+    // letting it appear as a surprise beyond "the last one."
     for (const [concern, config] of Object.entries(CONCERN_CONFIG)) {
-      const expected = 1 + config.phase2Count + (ANCHOR_KEYS.length - (config.homeAnchor ? 1 : 0)) + 1 + READINESS_KEYS.length;
+      const expected =
+        1 +
+        config.phase2Count +
+        (ANCHOR_KEYS.length - (config.homeAnchor ? 1 : 0)) +
+        CORE_LIFESTYLE_KEYS.length +
+        1 +
+        READINESS_KEYS.length;
       expect(estimatedTotalQuestions(concern), concern).toBe(expected);
     }
   });

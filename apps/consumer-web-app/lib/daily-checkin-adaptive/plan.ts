@@ -21,6 +21,32 @@ import {
 import { buildProbeBank, followUpParentKeys, selectRotatingProbesWithBudget } from './probeBank';
 import type { DriverProbeQuestion, TodaysCheckinPlan } from './types';
 import { wearableSuppliedQuestionKeys } from './wearableSupply';
+import { isHydrationTracked } from '../hydration/data';
+import { HYDRATION_CHECKIN_COLUMN, HYDRATION_DRIVER_ID } from '../hydration/constants';
+
+/**
+ * Conditional water tracking (migration 163) — the water questions, gone
+ * from the check-in entirely for a member who does not track water.
+ *
+ * Matched two ways, not one. A question belongs to the Hydration driver, or
+ * it writes to the water column. Either is enough: coaches can add and edit
+ * questions on /coach/questions without a deploy, so a rule that only knew
+ * today's one seeded question key (checkin_probe.hydration_felt_adequate)
+ * would quietly stop working the first time somebody wrote a second one.
+ *
+ * Applied to BOTH paths below — the fresh plan and the replay of an already
+ * recorded one — so a member who turned water off after today's plan was
+ * computed does not still get asked today.
+ */
+function withoutUntrackedHydrationQuestions(
+  questions: DriverProbeQuestion[],
+  hydrationTracked: boolean
+): DriverProbeQuestion[] {
+  if (hydrationTracked) return questions;
+  return questions.filter(
+    (q) => q.driverId !== HYDRATION_DRIVER_ID && q.dailyCheckinsColumn !== HYDRATION_CHECKIN_COLUMN
+  );
+}
 
 async function computeFreshPlan(
   supabase: SupabaseClient,
@@ -28,13 +54,17 @@ async function computeFreshPlan(
   localDate: string,
   random: () => number
 ): Promise<TodaysCheckinPlan> {
-  const [questions, goalSelection, goalWeights, driverStateRows, lastAskedDates] = await Promise.all([
-    listActiveDriverProbeQuestions(supabase),
-    fetchLatestMemberGoalSelection(supabase, memberId),
-    listDriverGoalWeights(supabase),
-    listMemberDriverStates(supabase, memberId),
-    lastAskedDatesForMember(supabase, memberId),
-  ]);
+  const [allQuestions, goalSelection, goalWeights, driverStateRows, lastAskedDates, hydrationTracked] =
+    await Promise.all([
+      listActiveDriverProbeQuestions(supabase),
+      fetchLatestMemberGoalSelection(supabase, memberId),
+      listDriverGoalWeights(supabase),
+      listMemberDriverStates(supabase, memberId),
+      lastAskedDatesForMember(supabase, memberId),
+      isHydrationTracked(supabase, memberId),
+    ]);
+
+  const questions = withoutUntrackedHydrationQuestions(allQuestions, hydrationTracked);
 
   const driverStates = new Map<string, DriverState>(
     [...driverStateRows.entries()].map(([driverId, row]) => [driverId, row.state])
@@ -86,8 +116,14 @@ export async function getTodaysCheckinPlan(
     if (rotatingKeys.size === 0) {
       return { localDate, fixedCoreQuestionKeys: FIXED_CORE_QUESTION_KEYS, rotatingProbes: [] };
     }
-    const questions = await listActiveDriverProbeQuestions(supabase);
-    const rotatingProbes = questions.filter((q) => rotatingKeys.has(q.questionKey));
+    const [questions, hydrationTracked] = await Promise.all([
+      listActiveDriverProbeQuestions(supabase),
+      isHydrationTracked(supabase, memberId),
+    ]);
+    const rotatingProbes = withoutUntrackedHydrationQuestions(
+      questions.filter((q) => rotatingKeys.has(q.questionKey)),
+      hydrationTracked
+    );
     return { localDate, fixedCoreQuestionKeys: FIXED_CORE_QUESTION_KEYS, rotatingProbes };
   }
 

@@ -6,6 +6,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Driver, DriverDomain, DriverGoalWeight, MemberDriverState, DriverState } from './types';
+import { isHydrationTracked } from '../hydration/data';
+import { HYDRATION_DRIVER_ID } from '../hydration/constants';
 
 type DriverDomainRow = { key: string; label: string; sort_order: number };
 
@@ -95,20 +97,30 @@ function fromStateRow(row: MemberDriverStateRow): MemberDriverState {
 }
 
 /** This member's current state for every driver that has one — a driver with no row is 'unknown' by definition (never persisted until the driver-state engine has something to say about it). */
+/**
+ * Conditional water tracking (migration 163): the Hydration driver is
+ * withheld entirely for a member who does not track water. That keeps it
+ * out of her check-in's probe weighting (lib/daily-checkin-adaptive/plan.ts
+ * reads this map) and out of every driver-state surface, without deleting
+ * the row — turning water back on brings the driver and its history back.
+ */
 export async function listMemberDriverStates(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, MemberDriverState>> {
-  const { data, error } = await supabase
-    .from('member_driver_states')
-    .select('*')
-    .eq('member_id', memberId);
+  const [{ data, error }, hydrationTracked] = await Promise.all([
+    supabase.from('member_driver_states').select('*').eq('member_id', memberId),
+    isHydrationTracked(supabase, memberId),
+  ]);
 
   if (error) {
     console.error('listMemberDriverStates failed', error);
     return new Map();
   }
-  return new Map((data as MemberDriverStateRow[]).map((row) => [row.driver_id, fromStateRow(row)]));
+  const rows = (data as MemberDriverStateRow[]).filter(
+    (row) => hydrationTracked || row.driver_id !== HYDRATION_DRIVER_ID
+  );
+  return new Map(rows.map((row) => [row.driver_id, fromStateRow(row)]));
 }
 
 /** Upsert-by-(member, driver) — written only by lib/driver-state-engine/service.ts's scheduled job. */

@@ -16,6 +16,7 @@
  */
 
 import type { DailyCheckin } from '@mef/shared-types-contracts';
+import { gatedWaterCups } from '../hydration/gate';
 
 export type WearableDayValues = Map<string, number>;
 
@@ -67,7 +68,13 @@ const CHECKIN_EXTRACTORS: Record<string, Extractor> = {
   'checkin.sleep_quality': (c) => c?.sleep_quality ?? null,
   'checkin.digestion': (c) => c?.digestion_rating ?? null,
   'checkin.mood': (c) => c?.mood_level ?? null,
-  'checkin.hydration': (c) => c?.water_cups ?? null,
+  // Conditional water tracking (migration 163). Null for a member who does
+  // not track water, so no day of hers ever becomes a paired observation on
+  // this variable and no hydration correlation can reach the evidence
+  // gates. lib/correlation-engine/service.ts skips those pairs outright as
+  // well; this is the belt to that braces, and the thing that keeps a pair
+  // added later (by seed data or a coach) from slipping past.
+  'checkin.hydration': (c) => gatedWaterCups(c),
   'checkin.night_wakings': (c) => c?.night_waking_count ?? null,
   'checkin.night_sweats': (c) => (c?.night_sweats == null ? null : c.night_sweats ? 1 : 0),
   'checkin.bowel_irregularity': (c) =>

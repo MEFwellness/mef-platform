@@ -16,6 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { checkinHydrationTracked } from '../hydration/gate';
 import type { FoodRulesEngineResult } from '@mef/shared-types-contracts';
 import type {
   WeeklyNutritionReport,
@@ -337,7 +338,7 @@ export async function listWeeklyWaterCupsByLocalDate(
   // resubmitted check-in doesn't double-count or read a stale water_cups.
   const { data, error } = await supabase
     .from('daily_checkins_current')
-    .select('local_date, water_cups')
+    .select('local_date, water_cups, hydration_tracked')
     .eq('user_id', memberId)
     .gte('local_date', weekStart)
     .lt('local_date', weekEnd)
@@ -348,8 +349,19 @@ export async function listWeeklyWaterCupsByLocalDate(
     return {};
   }
 
+  // Conditional water tracking (migration 163). The empty case this
+  // function's own contract already describes ("returns {} when hydration
+  // isn't tracked") now has a second, real cause: a member who told us she
+  // does not need water tracked. weeklyReport.ts's hydration section is
+  // already written to appear only when there are water days, so returning
+  // nothing here is all it takes to keep water out of her weekly report.
   const result: Record<string, number> = {};
-  for (const row of data as Array<{ local_date: string; water_cups: number }>) {
+  for (const row of data as Array<{
+    local_date: string;
+    water_cups: number;
+    hydration_tracked?: boolean | null;
+  }>) {
+    if (!checkinHydrationTracked(row)) continue;
     result[row.local_date] = row.water_cups;
   }
   return result;

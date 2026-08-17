@@ -23,6 +23,7 @@ import { recordMemberEvent } from '@/lib/events/service';
 import { trackProductEvent } from '@/lib/analytics/track';
 import { resolveAssignedCoach } from '@/lib/safety/data';
 import { getTodaysHydrationTotal } from './events';
+import { isHydrationTracked } from '@/lib/hydration/data';
 import { recomputeMyRecommendations } from './recommendations';
 import { recomputeCoachingGrades } from '@/lib/coaching-direction/gradesService';
 
@@ -70,10 +71,28 @@ export async function resolveLocalDate(
 
 // ---- Check-in read/write ----
 
+/**
+ * The single row writer for daily_checkins — both the real submit and the
+ * exit-triggered draft save land here.
+ *
+ * Conditional water tracking (migration 163) is gated here rather than in
+ * either caller, because there are two callers and only one of them is the
+ * obvious one. Both check-in forms fill water_cups by reading today's live
+ * hydration total rather than by asking a question, so without this a
+ * member who does not track water would still accumulate a water number on
+ * every row she saved.
+ *
+ * Null, never 0: 0 is a real logged answer meaning "none today," and this
+ * member was never asked. Read gating handles the history she already has;
+ * this is what stops that history from growing.
+ */
 async function insertCheckinRow(
   supabase: ReturnType<typeof createClient>,
-  input: DailyCheckinInput
+  input: DailyCheckinInput,
+  memberId: string
 ): Promise<{ id: string | null; error: string | null }> {
+  const waterCups = (await isHydrationTracked(supabase, memberId)) ? input.water_cups : null;
+
   const { data: newCheckinId, error } = await supabase.rpc('submit_daily_checkin', {
     p_timezone: input.timezone,
     p_local_date: input.local_date,
@@ -82,7 +101,7 @@ async function insertCheckinRow(
     p_sleep_duration: input.sleep_duration,
     p_energy_level: input.energy_level,
     p_stress_level: input.stress_level,
-    p_water_cups: input.water_cups,
+    p_water_cups: waterCups,
     p_digestion_rating: input.digestion_rating,
     p_pain_discomfort_level: input.pain_discomfort_level,
     p_movement_today: input.movement_today,
@@ -107,7 +126,7 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
 
   if (!user) return { error: 'Not signed in.' };
 
-  const { id: newCheckinId, error } = await insertCheckinRow(supabase, input);
+  const { id: newCheckinId, error } = await insertCheckinRow(supabase, input, user.id);
 
   if (error) return { error };
 
@@ -280,7 +299,11 @@ export async function saveDailyCheckinDraft(
   const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
-  const { error } = await insertCheckinRow(supabase, { ...input, completion_seconds: null });
+  const { error } = await insertCheckinRow(
+    supabase,
+    { ...input, completion_seconds: null },
+    user.id
+  );
   if (error) return { error };
 
   try {

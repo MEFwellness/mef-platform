@@ -40,6 +40,7 @@ import { getClientRootCauseSignals } from '@/app/actions/rootCauseSignals';
 import { getClientRootMap } from '@/app/actions/rootMap';
 import { getClientCaseViewAction } from '@/app/actions/caseView';
 import { getClientCoachingEscalationsAction } from '@/app/actions/coachingEscalations';
+import { getClientHydrationFocusState } from '@/app/actions/hydration';
 import { getClientRecommendations } from '@/app/actions/recommendations';
 import { getClientLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import {
@@ -77,6 +78,7 @@ import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { AssessmentHistoryList } from '@/components/AssessmentHistoryList';
 import { CoachNotesPanel } from './CoachNotesPanel';
+import { HydrationTrackingToggle } from './HydrationTrackingToggle';
 import { NarrativePanel } from './NarrativePanel';
 import { FeedPanel } from './FeedPanel';
 import { BrainPanel } from './BrainPanel';
@@ -222,6 +224,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     coachWorkspaceSummary,
     clientCaseView,
     coachingEscalations,
+    hydrationFocusState,
   ] = await Promise.all([
     getClientHabits(profile.id),
     getClientHabitLogs(profile.id, summary.todaysLocalDate),
@@ -258,7 +261,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     getClientCoachWorkspaceSummary(profile.id),
     getClientCaseViewAction(profile.id),
     getClientCoachingEscalationsAction(profile.id),
+    getClientHydrationFocusState(profile.id),
   ]);
+
+  // Conditional water tracking (migration 163). One value, used both to
+  // decide whether the Water tracker card below exists for this client and
+  // as the current position of the coach's own toggle, so the card and the
+  // control can never contradict each other.
+  const hydrationTracked = hydrationFocusState.focus !== false;
 
   const assignableAssessments = listAssignableAssessments().map((e) => ({
     key: e.key,
@@ -347,6 +357,16 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             clientFirstName={firstName}
           />
 
+          {/* Conditional water tracking (migration 163) — the coach's
+              override of what this member said about her own water intake.
+              Placed with the day's trackers rather than buried in a settings
+              panel, because it changes what those trackers show. */}
+          <HydrationTrackingToggle
+            memberId={profile.id}
+            focus={hydrationFocusState.focus}
+            source={hydrationFocusState.source}
+          />
+
           {/* Mood / Energy / Sleep / Stress / Water / Pain / Digestion / Movement */}
           <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
             <div className={TRACKER_CARD}>
@@ -402,17 +422,24 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               </p>
             </div>
 
-            <div className={TRACKER_CARD}>
-              <div className="flex items-center gap-2 text-[#854D0E]">
-                <Droplet className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Water</p>
+            {/* Conditional water tracking (migration 163) — no Water card at
+                all for a client who does not track water. "Not logged" here
+                would read as a missed day rather than a metric that does not
+                apply to her, which is exactly the false signal this feature
+                exists to remove. */}
+            {hydrationTracked && (
+              <div className={TRACKER_CARD}>
+                <div className="flex items-center gap-2 text-[#854D0E]">
+                  <Droplet className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <p className="text-sm font-semibold uppercase tracking-wider">Water</p>
+                </div>
+                <p
+                  className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[waterStatus(checkin?.water_cups ?? null)].text}`}
+                >
+                  {checkin?.water_cups != null ? `${checkin.water_cups} cups` : 'Not logged'}
+                </p>
               </div>
-              <p
-                className={`mt-3 text-2xl font-semibold ${STATUS_STYLES[waterStatus(checkin?.water_cups ?? null)].text}`}
-              >
-                {checkin?.water_cups != null ? `${checkin.water_cups} cups` : 'Not logged'}
-              </p>
-            </div>
+            )}
 
             <div className={TRACKER_CARD}>
               <div className="flex items-center gap-2 text-[#854D0E]">

@@ -26,6 +26,7 @@ import {
   sumHydrationForDate,
   listMemberEventsForDate,
 } from '@/lib/events/service';
+import { isHydrationTracked } from '@/lib/hydration/data';
 import { evaluateConcern } from '@/lib/safety/service';
 import { nowInTimezone, todaysLocalDate } from '@/lib/time/localDate';
 import { getTodaysCheckin, submitEveningBodyCheckin } from './checkin';
@@ -85,6 +86,15 @@ export async function logHydrationChange(
   const supabase = createClient();
   const ctx = await requireMemberContext(supabase);
   if (!ctx) return { error: 'Not signed in.' };
+
+  // Conditional water tracking (migration 163). The tracker is not rendered
+  // at all for a member who does not track water, so reaching here means
+  // either a stale page open across a flag change or a direct call. Either
+  // way, refusing quietly (her current total, unchanged, with no error to
+  // explain) is the honest response: there is nothing wrong for her to fix.
+  if (!(await isHydrationTracked(supabase, ctx.memberId))) {
+    return { total: 0 };
+  }
 
   const localDate = todaysLocalDate(ctx.timezone);
   const current = await sumHydrationForDate(supabase, ctx.memberId, localDate);

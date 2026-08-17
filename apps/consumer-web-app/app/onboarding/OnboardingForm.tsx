@@ -115,6 +115,12 @@ const ENUM_OPTION_LABELS: Record<string, string> = {
   habits: 'Build healthier habits',
   general_optimization: 'Overall wellness',
   other: 'Something else',
+  // baseline_hydration (migration 163) — the answer that decides whether
+  // water exists in this member's app at all, so the three options are
+  // spelled out in full rather than left to the underscore fallback.
+  very_little: 'Very little, I often forget',
+  a_few_glasses: 'A few glasses, but not consistently',
+  plenty: 'I drink plenty of water throughout the day',
 };
 
 function enumOptionLabel(option: string): string {

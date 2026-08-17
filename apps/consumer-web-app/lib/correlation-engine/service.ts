@@ -14,7 +14,13 @@ import { listRecentCheckinsForMember } from '../coaching-engine/data';
 import { listWearableMetricHistory } from '../wearables/data';
 import { fetchLatestMemberGoalSelection } from '../member-goals/data';
 import { listMemberPatternStates, upsertMemberPatternState } from '../longitudinal-intelligence/data';
-import { candidatePairsForGoals, listActiveCandidatePairs, upsertMemberCorrelationFinding } from './data';
+import {
+  candidatePairsForGoals,
+  listActiveCandidatePairs,
+  pairsExcludingUntrackedHydration,
+  upsertMemberCorrelationFinding,
+} from './data';
+import { isHydrationTracked } from '../hydration/data';
 import { classifyCorrelationFindingSignal, type PriorCorrelationState } from './classify';
 import { evaluatePair } from './evidence';
 import { extractDailySeries, wearableMetricCodesFor, type WearableDayValues } from './variables';
@@ -99,14 +105,18 @@ export async function runCorrelationEngineForMember(
   memberId: string,
   asOfLocalDate: string
 ): Promise<CorrelationEngineResult> {
-  const [allPairs, goalSelection, checkinsByDate, priorSignals] = await Promise.all([
+  const [allPairs, goalSelection, checkinsByDate, priorSignals, hydrationTracked] = await Promise.all([
     listActiveCandidatePairs(supabase),
     fetchLatestMemberGoalSelection(supabase, memberId),
     buildCheckinsByDate(supabase, memberId, asOfLocalDate),
     listMemberPatternStates(supabase, memberId),
+    isHydrationTracked(supabase, memberId),
   ]);
 
-  const pairs = candidatePairsForGoals(allPairs, goalSelection?.goals ?? []);
+  const pairs = pairsExcludingUntrackedHydration(
+    candidatePairsForGoals(allPairs, goalSelection?.goals ?? []),
+    hydrationTracked
+  );
   if (pairs.length === 0) return { memberId, pairsEvaluated: 0, findings: [] };
 
   const variableKeys = [...new Set(pairs.flatMap((p) => [p.outcomeVariable, p.driverVariable]))];

@@ -69,6 +69,7 @@ import {
   questionnaireAssignedPopupMessageKey,
   priorityCardPopupMessageKey,
   weeklyReviewPopupMessageKey,
+  hydrationFocusPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
   isOfferPopupDue,
@@ -86,6 +87,7 @@ import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
 import { fetchGoalCallbackContext } from '@/lib/memory-callback/data';
 import { buildGoalCallback } from '@/lib/memory-callback/copy';
+import { fetchHydrationFocus } from '@/lib/hydration/data';
 
 export type RootPopupMessage =
   | { kind: 'cvs_day3'; messageKey: string; experimentId: string; topLabelText: string }
@@ -161,7 +163,15 @@ export type RootPopupMessage =
       weekStart: string;
       label: string;
       review: RenderedReview;
-    };
+    }
+  /**
+   * Conditional water tracking (migration 163). The one question every
+   * member who finished intake before that question existed never got
+   * asked. Carries no payload: it is a fixed three-option question in
+   * Root's voice, identical for everyone, and its answer writes
+   * profiles.hydration_focus.
+   */
+  | { kind: 'hydration_focus'; messageKey: string };
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -346,6 +356,38 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
       messageKey: priorityCardPopupMessageKey(await currentMemberLocalDate()),
       view: priorityView,
     };
+  }
+
+  // Conditional water tracking (migration 163) — the one-time hydration
+  // question, for members who finished intake before the question existed.
+  //
+  // Position: below the coach-assignment check and the welcome-back
+  // takeover, above every day-3/day-7 follow-up.
+  //
+  // High, because until she answers it the app is actively wrong about
+  // her: it is showing her a tracker she may not need and reading her
+  // silence on it as under-hydration in her score, her trends and her
+  // coach's summary. That correction is worth one screen ahead of an
+  // experiment follow-up.
+  //
+  // Safe at that height for the same reason the re-entry takeover is:
+  // it is finite and self-limiting. It is due only while
+  // profiles.hydration_focus is still null, so answering it (or a coach
+  // setting the flag from her profile) retires it permanently, and it can
+  // never starve anything below it the way a perpetual daily message
+  // would. New members never see it at all — their intake answer already
+  // wrote the flag.
+  //
+  // "Maybe later" and "Ignore" behave exactly as they do for day3/day7
+  // (isRecurringMessageDue): snoozed comes back on her next real login,
+  // ignored never comes back. Either way she keeps today's behavior in
+  // full, water included, because an unanswered flag reads as tracked
+  // everywhere.
+  if (memberId && supabase) {
+    const { focus } = await fetchHydrationFocus(supabase, memberId);
+    if (focus === null && (await isRecurringMessageDue(hydrationFocusPopupMessageKey))) {
+      return { kind: 'hydration_focus', messageKey: hydrationFocusPopupMessageKey };
+    }
   }
 
   const cvsStatus = await getMyCvsExperimentStatusAction();

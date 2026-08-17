@@ -44,6 +44,7 @@ import {
 } from '@/app/actions/checkin';
 import { getMyCoachingDecision } from '@/app/actions/coaching-brain';
 import { getTodaysHydrationTotal, getTodaysMovementLevel } from '@/app/actions/events';
+import { getMyHydrationTracked } from '@/app/actions/hydration';
 import { waterStatus, digestionStatus, STATUS_STYLES } from '@/lib/wellness/status';
 import type { CoachingMode } from '@/lib/brain/types';
 import { buildCoachNote, buildBonusChallenge, parseSelectionReason } from '@/lib/feed/copy';
@@ -156,11 +157,17 @@ export default async function TodayPage() {
   const GreetingIcon = timeContext.hour < 12 ? Sunrise : timeContext.hour < 18 ? Sun : Moon;
 
   const localDate = await resolveLocalDate(nowInTz, false);
+  // Conditional water tracking (migration 163). One read, used by all three
+  // water surfaces on this page (the line in Today's Recommendations, and
+  // the tracker in both of TodayZones' positions) so they can never
+  // disagree with each other.
+  const hydrationTracked = await getMyHydrationTracked();
+
   const [todaysCheckin, habitLogs, hydrationTotal, movementLevel, totalCheckins, totalMovementDays] =
     await Promise.all([
       getTodaysCheckin(localDate),
       getHabitLogsForDate(localDate),
-      getTodaysHydrationTotal(),
+      hydrationTracked ? getTodaysHydrationTotal() : Promise.resolve(0),
       getTodaysMovementLevel(),
       // Accomplished zone's cumulative totals — all-time, never a windowed read like getRecentCheckins above.
       getTotalCheckinCount(),
@@ -368,27 +375,34 @@ export default async function TodayPage() {
               )}
 
               <div
-                className={`mt-4 grid grid-cols-2 gap-3 ${decision?.wearableBrief ? 'border-t border-[#1B3A2D]/5 pt-4' : ''}`}
+                className={`mt-4 grid gap-3 ${hydrationTracked ? 'grid-cols-2' : 'grid-cols-1'} ${decision?.wearableBrief ? 'border-t border-[#1B3A2D]/5 pt-4' : ''}`}
               >
-                <div className="flex items-start gap-2">
-                  <Droplet
-                    className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
-                    strokeWidth={1.75}
-                    aria-hidden="true"
-                  />
-                  <p
-                    className={`text-sm leading-relaxed ${
-                      /* UX audit fix (batch 1, item 3): 0 cups so far today
-                         is neutral, not a failure — see HydrationTracker.tsx's
-                         matching fix for the full explanation. */
-                      STATUS_STYLES[hydrationTotal === 0 ? 'no-data' : waterStatus(hydrationTotal)].text
-                    }`}
-                  >
-                    {hydrationTotal > 0
-                      ? `${hydrationTotal} of 8 cups of water today.`
-                      : 'Log water as you drink it, any time today.'}
-                  </p>
-                </div>
+                {/* Conditional water tracking (migration 163) — water is not
+                    a universal recommendation. For a member who told us she
+                    already drinks plenty, this cell does not exist and
+                    nutrition takes the full row, rather than her being shown
+                    a nudge for a problem she does not have. */}
+                {hydrationTracked && (
+                  <div className="flex items-start gap-2">
+                    <Droplet
+                      className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                    <p
+                      className={`text-sm leading-relaxed ${
+                        /* UX audit fix (batch 1, item 3): 0 cups so far today
+                           is neutral, not a failure — see HydrationTracker.tsx's
+                           matching fix for the full explanation. */
+                        STATUS_STYLES[hydrationTotal === 0 ? 'no-data' : waterStatus(hydrationTotal)].text
+                      }`}
+                    >
+                      {hydrationTotal > 0
+                        ? `${hydrationTotal} of 8 cups of water today.`
+                        : 'Log water as you drink it, any time today.'}
+                    </p>
+                  </div>
+                )}
                 <div className="flex items-start gap-2">
                   <Utensils
                     className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
@@ -417,6 +431,7 @@ export default async function TodayPage() {
                 </section>
                 <TodayZones
                   todaysCheckinDone={Boolean(todaysCheckin)}
+                  hydrationTracked={hydrationTracked}
                   hydrationInitialTotal={hydrationTotal}
                   movementInitialLevel={movementLevel}
                   habits={habits}
@@ -511,6 +526,7 @@ export default async function TodayPage() {
 
                       <TodayZones
                         todaysCheckinDone={Boolean(todaysCheckin)}
+                        hydrationTracked={hydrationTracked}
                         hydrationInitialTotal={hydrationTotal}
                         movementInitialLevel={movementLevel}
                         habits={habits}
