@@ -52,7 +52,17 @@ export function buildFindingCardViewModel(
   // `coverage` is null for a domain with no trackable per-day source at
   // all (lib/root-map/coverage.ts), which is a different thing from a real
   // zero and must not be treated as one.
-  const positiveVerdictWithNothingBehindIt = domain.priority === 'quiet' && coverage?.count === 0;
+  //
+  // Both reassuring priorities are covered, which the live walk is what
+  // showed: Movement was 'quiet' ("Looking steady. Nothing specific needed
+  // here right now.") and Digestion was 'worth_watching' ("Keep tracking
+  // here, no urgent action needed yet."), and both had 0 of 21 days
+  // logged. The second is quieter than the first but it is the same
+  // mistake, an absence of urgency reported from an absence of data.
+  // 'needs_attention_now' is never overridden: that one is not reassurance
+  // and never needed a guard.
+  const positiveVerdictWithNothingBehindIt =
+    coverage?.count === 0 && (domain.priority === 'quiet' || domain.priority === 'worth_watching');
 
   const nextStep = positiveVerdictWithNothingBehindIt
     ? NOTHING_LOGGED_STEP

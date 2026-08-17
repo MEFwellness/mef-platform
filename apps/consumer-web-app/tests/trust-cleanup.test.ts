@@ -411,7 +411,7 @@ function domainView(overrides: Partial<RootMapDomainView> = {}): RootMapDomainVi
     memberDescription: 'How you move.',
     isUninstrumented: false,
     stage: 'optimization',
-    confidence: { label: 'moderate', score: 0.5, dataPoints: 2 } as RootMapDomainView['confidence'],
+    confidence: { label: 'moderate', numeric: 0.5, corroborated: false },
     priority: 'quiet',
     whatWeUnderstand: ['Ongoing discomfort in the hips.'],
     whatWereStillLearning: "We're building a clearer picture here as more information comes in.",
@@ -436,6 +436,20 @@ describe('a Root Map domain with nothing logged behind it', () => {
 
     expect(view.nextStep?.title).toBe('Nothing logged here yet');
     expect(view.nextStep?.body).toContain('no logged days');
+  });
+
+  /** Confirmed live on Digestion & Gut Health: 0 of 21 days logged, "Keep tracking here, no urgent action needed yet." */
+  it('does not report an absence of urgency from an absence of data either', () => {
+    const view = buildFindingCardViewModel(
+      domainView({
+        priority: 'worth_watching',
+        currentRecommendation: 'Worth keeping an eye on',
+        nextSuggestedStep: 'Keep tracking here, no urgent action needed yet.',
+      }),
+      { count: 0, windowDays: 21 }
+    );
+
+    expect(view.nextStep?.title).toBe('Nothing logged here yet');
   });
 
   it('leaves the verdict alone as soon as there is a single logged day', () => {
