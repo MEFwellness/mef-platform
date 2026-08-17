@@ -32,7 +32,7 @@ import {
   WBSA_SKIPPED_QUESTIONS_NOTE,
 } from '@/lib/wbsa/copy';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { KeyFindingReveal } from '@/components/closing-screen/KeyFindingReveal';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -192,7 +192,7 @@ export default async function WbsaResultsPage({ params }: { params: { sessionId:
         </Link>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

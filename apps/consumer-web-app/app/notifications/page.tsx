@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { Bell } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { getMyNotifications } from '@/app/actions/notifications';
 import { NotificationsList } from './NotificationsList';
@@ -53,7 +53,7 @@ export default async function NotificationsPage() {
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

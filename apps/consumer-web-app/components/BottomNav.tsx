@@ -88,9 +88,25 @@ type Props = {
    */
   isCoach?: boolean;
   isAdmin?: boolean;
+  /**
+   * VISIBILITY LAYER (2026-08-17). The bar is on every member screen, so a
+   * tab in it is the most persistent advertisement in the app. Food Lens is
+   * a real feature with a real audience (a member working on what she eats)
+   * and no audience at all for someone who came here about her lower back,
+   * so the tab exists only when her own rule reveals it. Home is the tab
+   * that takes its place, which keeps the left half of the bar balanced
+   * against the right rather than leaving a hole beside the check-in
+   * button.
+   *
+   * Defaults to true so that any caller which has not been given the
+   * server-resolved answer behaves exactly as this bar always has. The
+   * server component that DOES resolve it is components/MemberBottomNav.tsx,
+   * and it is what every member screen renders.
+   */
+  showFoodLens?: boolean;
 };
 
-export function BottomNav({ isCoach = false, isAdmin = false }: Props) {
+export function BottomNav({ isCoach = false, isAdmin = false, showFoodLens = true }: Props) {
   const pathname = usePathname();
 
   // A staff account gets the staff bar and nothing else. Returned before
@@ -98,7 +114,9 @@ export function BottomNav({ isCoach = false, isAdmin = false }: Props) {
   // that produces a member tab for a coach or an administrator.
   if (isCoach || isAdmin) return <StaffNav isCoach={isCoach} isAdmin={isAdmin} />;
 
-  const leftItems: NavItem[] = MEMBER_LEFT_ITEMS;
+  const leftItems: NavItem[] = showFoodLens
+    ? MEMBER_LEFT_ITEMS
+    : MEMBER_LEFT_ITEMS.filter((item) => item.href !== '/food-lens');
   const rightItems: NavItem[] = MEMBER_RIGHT_ITEMS;
   const checkInActive = pathname === MORNING_HREF || pathname === EVENING_HREF;
 

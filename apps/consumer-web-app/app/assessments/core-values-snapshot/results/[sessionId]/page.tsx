@@ -15,7 +15,7 @@ import { getSessionById } from '@/lib/assessment-runtime';
 import { computeCvsScoring } from '@/lib/core-values-snapshot/scoring';
 import { getMyCvsExperimentStatusAction } from '@/app/actions/coreValuesSnapshot';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { WhatRootLearnedSection, ResourceSection, ReturnToDashboardButton } from '@/components/core-values-snapshot/CvsResultsView';
@@ -70,7 +70,7 @@ export default async function CoreValuesSnapshotResultsPage({ params }: { params
 
         <ReturnToDashboardButton />
       </main>
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

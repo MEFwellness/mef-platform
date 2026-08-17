@@ -23,7 +23,7 @@ import {
 } from '@/lib/assessment-foundation/repository';
 import { findInProgressSession } from '@/lib/assessment-runtime';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { WBSA_INTRO_COPY, WBSA_SAFETY_STATEMENT, WBSA_DISPLAY_TITLE } from '@/lib/wbsa/copy';
 import { WBSA_KEY } from '@/lib/wbsa/constants';
 import { CenterStage, Card } from '@/components/layout';
@@ -80,7 +80,7 @@ export default async function WbsaOverviewPage({
           </CenterStage>
         </main>
 
-        <BottomNav isCoach={isCoach} />
+        <MemberBottomNav isCoach={isCoach} />
       </div>
     );
   }
@@ -213,7 +213,7 @@ export default async function WbsaOverviewPage({
         </section>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

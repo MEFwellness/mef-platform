@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ChevronLeft, CalendarClock } from 'lucide-react';
 import { getMyAssessmentHistory, getMyProgressComparison } from '@/app/actions/onboarding';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { AssessmentHistoryList } from '@/components/AssessmentHistoryList';
 import { CenterStage, Card } from '@/components/layout';
@@ -118,7 +118,7 @@ export default async function ReassessmentsPage() {
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

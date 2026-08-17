@@ -23,22 +23,43 @@ describe('Quick Actions: exactly two pills, Case and Movement', () => {
     expect(DASHBOARD_PAGE).toContain(
       "import { QuickActionsGrid } from '@/components/dashboard/QuickActionsGrid'",
     );
-    expect(DASHBOARD_PAGE).toContain(
-      '<QuickActionsGrid caseStatus={caseStatus} movementStatus={movementActionStatus} />',
-    );
+    // VISIBILITY LAYER (2026-08-17): the two status props are unchanged and
+    // two visibility props joined them, one per pill. Each pill is a door
+    // into a feature, so each is decided by that feature's own rule rather
+    // than always drawn.
+    expect(DASHBOARD_PAGE).toContain('caseStatus={caseStatus}');
+    expect(DASHBOARD_PAGE).toContain('movementStatus={movementActionStatus}');
+    expect(DASHBOARD_PAGE).toContain('showCase={shows(F.homeQuickActionCase)}');
+    expect(DASHBOARD_PAGE).toContain('showMovement={shows(F.homeQuickActionMovement)}');
   });
 
   it('the "Quick Actions" zone header is unchanged', () => {
     expect(DASHBOARD_PAGE).toContain('<p className={ZONE_LABEL}>Quick Actions</p>');
   });
 
-  it('renders exactly two actions, Case and Movement, with their original hrefs and icons', () => {
-    expect(GRID).toContain("{ label: 'Case', href: '/case', Icon: Compass, status: caseStatus }");
+  it('knows exactly two actions, Case and Movement, with their original hrefs and icons', () => {
+    // Each is now conditional on its own visibility prop, and neither its
+    // label, href nor icon changed. A third pill was never added.
+    expect(GRID).toContain("label: 'Case', href: '/case' as Route, Icon: Compass, status: caseStatus");
     expect(GRID).toContain(
-      "{ label: 'Movement', href: '/movement', Icon: Activity, status: movementStatus }",
+      "label: 'Movement', href: '/movement' as Route, Icon: Activity, status: movementStatus",
     );
     expect(GRID).not.toContain("'/food-lens'");
     expect(GRID).not.toContain("href: '/progress'");
+  });
+
+  it('renders nothing at all when neither pill is revealed, rather than an empty row', () => {
+    expect(GRID).toContain('if (ACTIONS.length === 0) return null;');
+  });
+
+  it('the surviving pill takes the full width when only one is revealed', () => {
+    expect(GRID).toContain("ACTIONS.length === 2 ? 'grid-cols-2' : 'grid-cols-1'");
+  });
+
+  it('Home drops the zone label too, so no heading is left over nothing', () => {
+    expect(DASHBOARD_PAGE).toContain(
+      '{(shows(F.homeQuickActionCase) || shows(F.homeQuickActionMovement)) && (',
+    );
   });
 
   it('Flag a Concern was removed from Quick Actions (but not deleted from the app)', () => {
@@ -158,8 +179,13 @@ describe('Bottom nav: Food Lens and Progress added for members, coach nav separa
     expect(BOTTOM_NAV).not.toContain('COACH_RIGHT_ITEMS');
   });
 
-  it('builds the member groups unconditionally, and hands a staff account to StaffNav first', () => {
-    expect(BOTTOM_NAV).toContain('const leftItems: NavItem[] = MEMBER_LEFT_ITEMS;');
+  it('builds the member groups from the member lists, and hands a staff account to StaffNav first', () => {
+    // VISIBILITY LAYER (2026-08-17): the left group is now MEMBER_LEFT_ITEMS
+    // with Food Lens filtered out when that feature is not revealed for
+    // her. The bar is on every member screen, so a tab in it is the most
+    // persistent advertisement in the app. The right group is unchanged.
+    expect(BOTTOM_NAV).toContain('MEMBER_LEFT_ITEMS');
+    expect(BOTTOM_NAV).toContain("MEMBER_LEFT_ITEMS.filter((item) => item.href !== '/food-lens')");
     expect(BOTTOM_NAV).toContain('const rightItems: NavItem[] = MEMBER_RIGHT_ITEMS;');
     // The staff hand-off returns before either of those lines runs, so no
     // combination of props can produce a member tab for staff.
@@ -167,7 +193,19 @@ describe('Bottom nav: Food Lens and Progress added for members, coach nav separa
       'if (isCoach || isAdmin) return <StaffNav isCoach={isCoach} isAdmin={isAdmin} />;'
     );
     expect(BOTTOM_NAV.indexOf('if (isCoach || isAdmin) return')).toBeLessThan(
-      BOTTOM_NAV.indexOf('const leftItems: NavItem[] = MEMBER_LEFT_ITEMS;')
+      BOTTOM_NAV.indexOf('const leftItems: NavItem[]')
+    );
+  });
+
+  it('showFoodLens defaults to true, so a caller that has not been given the answer behaves as the bar always has', () => {
+    expect(BOTTOM_NAV).toContain('showFoodLens = true');
+  });
+
+  it('the server component that resolves it hands staff straight through without a visibility read', () => {
+    const wrapper = source('components/MemberBottomNav.tsx');
+    expect(wrapper).toContain('if (isCoach || isAdmin) return <BottomNav isCoach={isCoach} isAdmin={isAdmin} />;');
+    expect(wrapper.indexOf('if (isCoach || isAdmin) return')).toBeLessThan(
+      wrapper.indexOf('await getMemberVisibility()')
     );
   });
 

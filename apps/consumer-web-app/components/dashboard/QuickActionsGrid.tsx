@@ -61,20 +61,36 @@ const STATUS = 'mt-0.5 text-[11px] leading-tight text-[#6B7A72]';
 
 type QuickAction = { label: string; href: Route; Icon: typeof Activity; status: string | null };
 
+/**
+ * VISIBILITY LAYER (2026-08-17): each pill is a door into a feature, so
+ * each one is decided by that feature's own rule rather than always drawn.
+ * A member with nothing found yet has no case to open; a member for whom
+ * movement is not a topic has no movement screen. The grid collapses to one
+ * full-width pill when only one survives, rather than leaving a gap where
+ * the other was, and Home drops the whole zone when neither does.
+ */
 export function QuickActionsGrid({
   caseStatus,
   movementStatus,
+  showCase,
+  showMovement,
 }: {
   caseStatus: string | null;
   movementStatus: string | null;
+  showCase: boolean;
+  showMovement: boolean;
 }) {
   const ACTIONS: QuickAction[] = [
-    { label: 'Case', href: '/case', Icon: Compass, status: caseStatus },
-    { label: 'Movement', href: '/movement', Icon: Activity, status: movementStatus },
+    ...(showCase ? [{ label: 'Case', href: '/case' as Route, Icon: Compass, status: caseStatus }] : []),
+    ...(showMovement
+      ? [{ label: 'Movement', href: '/movement' as Route, Icon: Activity, status: movementStatus }]
+      : []),
   ];
 
+  if (ACTIONS.length === 0) return null;
+
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className={`grid gap-3 ${ACTIONS.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
       {ACTIONS.map(({ label, href, Icon, status }) => (
         <Link key={href} href={href} className={PILL}>
           <span className={ICON_TILE}>

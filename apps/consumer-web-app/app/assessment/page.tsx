@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ScanFace, ChevronRight } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
@@ -83,7 +83,7 @@ export default async function BodyAssessmentPage() {
           </CenterStage>
         </main>
 
-        <BottomNav isCoach={isCoach} />
+        <MemberBottomNav isCoach={isCoach} />
       </div>
     );
   }
@@ -177,7 +177,7 @@ export default async function BodyAssessmentPage() {
         </section>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

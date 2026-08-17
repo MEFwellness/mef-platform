@@ -15,7 +15,7 @@ import { getMyRecommendationsWithFreshness } from '@/app/actions/recommendations
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { RecommendationsClient } from '@/components/recommendations/RecommendationsClient';
 
@@ -68,7 +68,7 @@ export default async function RecommendationsPage() {
         </section>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

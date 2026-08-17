@@ -32,6 +32,7 @@ import {
 import type { AssessmentDefinition, AssessmentKey } from '@/lib/assessment-registry/types';
 import { getUnifiedAssessmentDefinitionByKey, getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
 import { findInProgressSession } from '@/lib/assessment-runtime';
+import { getMemberVisibility } from '@/lib/visibility';
 
 export type CatalogCard = {
   key: AssessmentKey;
@@ -284,8 +285,33 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
     });
   }
 
+  /**
+   * VISIBILITY LAYER (2026-08-17). The catalogue used to be identical for
+   * every member: a member whose intake said sleep was her problem and a
+   * member whose intake said digestion was hers saw the same six
+   * questionnaires in the same order, two of them locked by position in a
+   * fixed chain rather than by anything about her.
+   *
+   * Each assessment now carries its own rule (lib/visibility/catalog.ts),
+   * and a card whose rule has not fired is absent rather than locked. That
+   * is the whole change of posture in this build: a lock is still an
+   * advertisement for something she cannot have, and a member reading
+   * "Complete a prior step first to unlock this" is being told about a
+   * questionnaire that may never be for her at all.
+   *
+   * Nothing she has started or completed can be filtered out, because the
+   * visibility layer grandfathers every touched feature before any rule is
+   * consulted (rule 2). The counts below are computed AFTER the filter, so
+   * "2 of 9 complete" counts the library she actually has rather than the
+   * library the product has.
+   */
+  const visibility = await getMemberVisibility();
+  const visibleCards = cards.filter(
+    (card) => visibility.byKey.get(`assessment.${card.key}`)?.visible ?? false
+  );
+
   const catalog: QuestionnaireCatalog = emptyCatalog();
-  for (const card of cards) {
+  for (const card of visibleCards) {
     catalog[card.section].push(card);
     if (!card.flags.comingSoon) catalog.totalCount += 1;
   }

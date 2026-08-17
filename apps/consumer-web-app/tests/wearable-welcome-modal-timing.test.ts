@@ -88,12 +88,31 @@ describe('WearableWelcomeModal: copy and structure are untouched — motion/timi
   });
 });
 
-describe('app/dashboard/page.tsx: the first-time-member suppression gate is preserved', () => {
-  it('still gates the modal behind hasCheckins and the other pre-existing conditions, now passed through HomeScreenPopups (components/dashboard/HomeScreenPopups.tsx) rather than an inline render, so the Root message pop-up can arbitrate against it', () => {
-    expect(DASHBOARD_PAGE).toMatch(
-      /showWearablePrompt={!hasConnectedWearable && hasCheckins && searchParams\.firstCheckin !== '1'}/
-    );
+describe('app/dashboard/page.tsx: the wearable pitch is delivered once, not twice', () => {
+  /**
+   * VISIBILITY LAYER (2026-08-17). The audit caught the same wearable pitch
+   * on Home twice on one load, for a member thirteen days in with no
+   * device: a full-bleed "Unlock Smarter Coaching" panel, and this modal
+   * over the top of it. Two deliveries of one pitch is one too many, and
+   * the panel is the one that survives because it is the one that can be
+   * gated on her own sleep and recovery actually having come up.
+   *
+   * So the modal is switched off at the call site rather than deleted: the
+   * component, its copy and the pop-up chain's arbitration are all
+   * untouched, which is what the rest of this file still pins. What changed
+   * is that Home never asks for it.
+   */
+  it('never asks the pop-up chain to deliver the wearable modal', () => {
+    expect(DASHBOARD_PAGE).toContain('showWearablePrompt={false}');
+    expect(DASHBOARD_PAGE).not.toMatch(/showWearablePrompt={!hasConnectedWearable/);
+  });
+
+  it('still delivers everything else through HomeScreenPopups, never an inline modal', () => {
     expect(DASHBOARD_PAGE).toContain('<HomeScreenPopups');
     expect(DASHBOARD_PAGE).not.toContain('<WearableWelcomeModal />');
+  });
+
+  it('the surviving panel is gated by the visibility layer rather than shown to everyone', () => {
+    expect(DASHBOARD_PAGE).toContain('{shows(F.homeWearableConnect) && (');
   });
 });

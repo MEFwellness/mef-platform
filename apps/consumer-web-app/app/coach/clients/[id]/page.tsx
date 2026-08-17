@@ -79,6 +79,8 @@ import { AssessmentComparisonView } from '@/components/AssessmentComparisonView'
 import { AssessmentHistoryList } from '@/components/AssessmentHistoryList';
 import { CoachNotesPanel } from './CoachNotesPanel';
 import { HydrationTrackingToggle } from './HydrationTrackingToggle';
+import { MemberVisibilityPanel } from './MemberVisibilityPanel';
+import { getMemberVisibilityForCoachAction } from '@/app/actions/visibility';
 import { NarrativePanel } from './NarrativePanel';
 import { FeedPanel } from './FeedPanel';
 import { BrainPanel } from './BrainPanel';
@@ -365,6 +367,16 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             memberId={profile.id}
             focus={hydrationFocusState.focus}
             source={hydrationFocusState.source}
+          />
+
+          {/* VISIBILITY LAYER (2026-08-17) — which of her features are on,
+              which are off, and the reason for each. Sits directly beneath
+              the hydration toggle because that toggle is the same kind of
+              decision, made one feature at a time; this is every other
+              feature in the app on the same terms. */}
+          <MemberVisibilityPanel
+            memberId={profile.id}
+            features={await getMemberVisibilityForCoachAction(profile.id)}
           />
 
           {/* Mood / Energy / Sleep / Stress / Water / Pain / Digestion / Movement */}

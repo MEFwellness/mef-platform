@@ -4,7 +4,7 @@ import { Sprout } from 'lucide-react';
 import type { ConversationEntryPoint } from '@mef/shared-types-contracts';
 import { getOrStartConversationAction } from '@/app/actions/conversation-coach';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { BackButton } from '@/components/BackButton';
@@ -96,7 +96,7 @@ export default async function CoachingConversationPage({
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

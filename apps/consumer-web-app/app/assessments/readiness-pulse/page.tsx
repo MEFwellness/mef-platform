@@ -19,7 +19,7 @@ import { describeLockReason } from '@/lib/assessment-registry/status';
 import { getUnifiedAssessmentDefinitionByKey, getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
 import { findInProgressSession } from '@/lib/assessment-runtime';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { RPL_KEY } from '@/lib/readiness-pulse/constants';
 import { CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { CenterStage, Card } from '@/components/layout';
@@ -51,7 +51,7 @@ export default async function ReadinessPulseOverviewPage() {
             </Card>
           </CenterStage>
         </main>
-        <BottomNav isCoach={isCoach} />
+        <MemberBottomNav isCoach={isCoach} />
       </div>
     );
   }
@@ -104,7 +104,7 @@ export default async function ReadinessPulseOverviewPage() {
           </Link>
         </Card>
       </main>
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

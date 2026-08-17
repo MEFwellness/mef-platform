@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getMyAssignedWorkoutDetailAction } from '@/app/actions/coach-programs';
 import { MemberAssignedWorkoutDetail } from '@/components/coach-program-builder/MemberAssignedWorkoutDetail';
 
@@ -37,7 +37,7 @@ export default async function MyAssignedWorkoutPage({ params }: { params: { id: 
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

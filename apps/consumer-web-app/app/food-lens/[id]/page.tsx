@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildFoodLensEntryContext } from '@/lib/conversation-coach/entryContext';
 import { getFoodLensScanAction } from '@/app/actions/food-lens';
@@ -175,7 +175,7 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       {comparison && (
         <FloatingCoachLauncher

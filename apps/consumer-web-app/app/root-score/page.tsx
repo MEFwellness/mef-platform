@@ -27,7 +27,7 @@ import { resolveLocalDate } from '@/app/actions/checkin';
 import { getMyRootScore, getMyRootScoreHistory } from '@/app/actions/scoring';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { CenterStage, WhenNotEmpty } from '@/components/layout';
 import { scoreLabel } from '@/lib/wellness/wellness-index';
@@ -338,7 +338,7 @@ export default async function RootScorePage() {
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

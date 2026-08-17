@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import type { HealthTimelineEvent } from '@mef/shared-types-contracts';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getMyTimelineEvents } from '@/app/actions/health-profile';
 import { getAnalysisById } from '@/lib/coach-intelligence/data';
 
@@ -215,7 +215,7 @@ export default async function HealthTimelinePage() {
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

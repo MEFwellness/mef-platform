@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { LifeBuoy, Mail, MessageCircle } from 'lucide-react';
 import { getStaffRoles } from '@/lib/auth/staffRoles';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { Card } from '@/components/layout';
@@ -100,7 +100,7 @@ export default async function HelpPage() {
         </Card>
       </main>
 
-      <BottomNav isCoach={isCoach} isAdmin={isAdmin} />
+      <MemberBottomNav isCoach={isCoach} isAdmin={isAdmin} />
 
       <FloatingCoachLauncher entryPoint="nav" entryContext="Member opened Help & Support." />
     </div>

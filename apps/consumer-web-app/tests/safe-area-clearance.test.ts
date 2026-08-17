@@ -78,7 +78,11 @@ describe('every page with a <main> wrapper clears the status bar/notch', () => {
  * checking about forty screens.
  */
 function rendersAFixedBottomBar(file: string, source: string): boolean {
-  if (/<BottomNav\b/.test(source)) return true;
+  // VISIBILITY LAYER (2026-08-17): member screens render MemberBottomNav,
+  // the server wrapper that decides the Food Lens tab, which renders the
+  // same fixed BottomNav underneath. Matching only the old name here would
+  // have quietly stopped checking every member screen in the app.
+  if (/<(Member)?BottomNav\b/.test(source)) return true;
   return file.startsWith('app/coach/') || file.startsWith('app/admin/');
 }
 

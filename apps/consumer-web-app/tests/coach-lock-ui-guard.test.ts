@@ -22,10 +22,20 @@ function read(relPath: string): string {
 }
 
 describe('locked-card UI actually wires in LockedCardButton + CoachLockBadge', () => {
+  /**
+   * VISIBILITY LAYER (2026-08-17): app/progress/page.tsx left this list.
+   * Its Assessments row used to render for every member either as a link or
+   * as a dimmed, greyed locked card with a gold coach badge. Under the new
+   * rule a lock is still an advertisement for a feature the member's own
+   * rules have not revealed, so the row is now present or absent, never
+   * locked. The primitives themselves are unchanged and are still the right
+   * treatment on the three surfaces below, where the lock genuinely means
+   * "your coach will open this for you" rather than "this may never be for
+   * you at all".
+   */
   const FILES_WITH_LOCKED_CARD_TREATMENT = [
     'components/questionnaires/CatalogQuestionnaireCard.tsx',
     'components/MovementAssessmentCard.tsx',
-    'app/progress/page.tsx',
     'app/profile/page.tsx',
   ];
 
@@ -35,6 +45,14 @@ describe('locked-card UI actually wires in LockedCardButton + CoachLockBadge', (
     expect(source).toContain("from '@/components/locked/CoachLockBadge'");
     expect(source).toContain('LockedCardButton');
     expect(source).toContain('CoachLockBadge');
+  });
+
+  it('the Progress page shows no locked card at all any more', () => {
+    const source = read('app/progress/page.tsx');
+    expect(source).not.toContain('LockedCardButton');
+    expect(source).not.toContain('CoachLockBadge');
+    // And the row it used to lock is now decided by the visibility layer.
+    expect(source).toContain('shows(F.featureBodyAssessment)');
   });
 
   it('CatalogQuestionnaireCard never shows a primary action / take link for a coach-locked card', () => {

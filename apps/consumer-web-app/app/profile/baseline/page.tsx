@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildAssessmentEntryContext } from '@/lib/conversation-coach/entryContext';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
@@ -60,7 +60,7 @@ export default async function BaselineAssessmentPage() {
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       {baseline && (
         <FloatingCoachLauncher

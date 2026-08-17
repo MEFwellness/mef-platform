@@ -119,12 +119,28 @@ export type ProgramRules = {
   phaseOrder: number | null;
 };
 
+/**
+ * WHAT THIS IS, AND WHAT IT IS NOT (Visibility Layer, 2026-08-17).
+ *
+ * `prerequisiteKeys` is a real, live, server-enforced ACCESS rule: a member
+ * may not open Life Signal Check until Core Values Snapshot is done, and
+ * lib/assessment-registry/access.ts refuses her at the server if she tries.
+ * It stays exactly as it is. Access is permission, and permission must not
+ * depend on a rendering decision.
+ *
+ * Two free-text siblings used to sit beside it, `unlockRule` and
+ * `recommendationRule`. Both were null on all fourteen registered
+ * assessments, neither had an evaluator, and together they formed the
+ * second of the two competing unlock vocabularies the audit found. They are
+ * DELETED rather than left in place, so that no future feature can write a
+ * rule into a field nothing reads. Visibility is decided in exactly one
+ * place now: lib/visibility/catalog.ts, where every assessment carries a
+ * structured, evaluable rule, and where this same prerequisite chain is
+ * mirrored as `{ kind: 'completed_assessment' }` so the library shows her
+ * the next conversation at the moment she has earned it.
+ */
 export type PrerequisiteRules = {
   prerequisiteKeys: AssessmentKey[];
-  /** Free-text description of any unlock condition beyond "prerequisite completed" — no runtime logic implied yet. */
-  unlockRule: string | null;
-  /** Free-text description of when this assessment should be recommended to a member — no runtime logic implied yet. */
-  recommendationRule: string | null;
 };
 
 /**

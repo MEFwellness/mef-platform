@@ -9,7 +9,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { getMyLscExperimentStatusAction } from '@/app/actions/lifeSignalCheck';
 import { SIGNALS, SIGNAL_LABEL, type Signal } from '@/lib/life-signal-check/constants';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { LscExperimentPanel } from '@/components/life-signal-check/LscExperimentPanel';
 import { CenterStage, Card } from '@/components/layout';
@@ -50,7 +50,7 @@ export default async function LscExperimentPage() {
           </CenterStage>
         )}
       </main>
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

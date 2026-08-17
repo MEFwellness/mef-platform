@@ -4,10 +4,14 @@
  * reassessment-intelligence.test.ts. RLS/integration behavior for the new
  * migration and the short-haq registry adapter is covered separately in
  * short-haq-registry-adapter.test.ts.
+ *
+ * The `computeCoachingDomainPriority` and `isInvestigationUnlocked` suites
+ * that used to live here are gone with the module they drove. Unlock
+ * evaluation moved to lib/visibility/ (Visibility Layer, 2026-08-17) and is
+ * covered, running for real rather than dead, in visibility-layer.test.ts.
  */
 import { describe, it, expect } from 'vitest';
 import type { RegistryEntry } from '@mef/shared-types-contracts';
-import { computeCoachingDomainPriority, isInvestigationUnlocked } from '../lib/investigation-engine/unlockEngine';
 import { computeDomainConfidence } from '../lib/investigation-engine/confidence';
 import { INVESTIGATION_METADATA, getInvestigationMetadata } from '../lib/investigation-engine/registry';
 import { COACHING_DOMAINS, COACHING_DOMAIN_TO_REGISTRY_DOMAIN } from '../lib/investigation-engine/domains';
@@ -88,74 +92,6 @@ describe('registry.ts INVESTIGATION_METADATA', () => {
 
   it('getInvestigationMetadata returns the matching record', () => {
     expect(getInvestigationMetadata('short-haq').key).toBe('short-haq');
-  });
-});
-
-describe('computeCoachingDomainPriority', () => {
-  it('is quiet with no matching findings', () => {
-    expect(computeCoachingDomainPriority('stress_nervous_system', [])).toBe('quiet');
-  });
-
-  it('is worth_watching with a moderate active finding in the mapped domain', () => {
-    const level = computeCoachingDomainPriority('stress_nervous_system', [
-      finding({ domain: 'stress', severity: 'moderate' }),
-    ]);
-    expect(level).toBe('worth_watching');
-  });
-
-  it('is needs_attention_now with a significant active finding', () => {
-    const level = computeCoachingDomainPriority('stress_nervous_system', [
-      finding({ domain: 'stress', severity: 'significant' }),
-    ]);
-    expect(level).toBe('needs_attention_now');
-  });
-
-  it('ignores a superseded finding', () => {
-    const level = computeCoachingDomainPriority('stress_nervous_system', [
-      finding({ domain: 'stress', severity: 'significant', status: 'superseded' }),
-    ]);
-    expect(level).toBe('quiet');
-  });
-
-  it('is quiet for a domain with no RegistryDomain mapping (e.g. Identity)', () => {
-    const level = computeCoachingDomainPriority('identity_self_concept', [
-      finding({ domain: 'stress', severity: 'significant' }),
-    ]);
-    expect(level).toBe('quiet');
-  });
-});
-
-describe('isInvestigationUnlocked', () => {
-  it('blocks a Focused investigation whose required prior is not completed', () => {
-    const unlocked = isInvestigationUnlocked(getInvestigationMetadata('short-haq'), {
-      activeFindings: [],
-      completedInvestigationKeys: new Set(),
-    });
-    expect(unlocked).toBe(false);
-  });
-
-  it('unlocks once the required prior is completed and member_initiated is always available', () => {
-    const unlocked = isInvestigationUnlocked(getInvestigationMetadata('short-haq'), {
-      activeFindings: [],
-      completedInvestigationKeys: new Set(['onboarding-health-history']),
-    });
-    expect(unlocked).toBe(true);
-  });
-
-  it('a Core investigation with zero declared triggers unlocks with no priors required', () => {
-    const unlocked = isInvestigationUnlocked(getInvestigationMetadata('onboarding-health-history'), {
-      activeFindings: [],
-      completedInvestigationKeys: new Set(),
-    });
-    expect(unlocked).toBe(true);
-  });
-
-  it('unlocks four-doctors via a priority trigger once the Foundational Investigation flags a mapped domain', () => {
-    const unlocked = isInvestigationUnlocked(getInvestigationMetadata('four-doctors'), {
-      activeFindings: [finding({ domain: 'sleep', code: 'poor_sleep_quality', severity: 'significant' })],
-      completedInvestigationKeys: new Set(['onboarding-health-history']),
-    });
-    expect(unlocked).toBe(true);
   });
 });
 

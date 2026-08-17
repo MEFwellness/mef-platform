@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { describeLockReason } from '@/lib/assessment-registry/status';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { NutritionSafetyFlagsForm } from '@/components/health-safety/NutritionSafetyFlagsForm';
 import { CenterStage, Card } from '@/components/layout';
 
@@ -75,7 +75,7 @@ export default async function PrimalPatternOverviewPage() {
           </CenterStage>
         </main>
 
-        <BottomNav isCoach={isCoach} />
+        <MemberBottomNav isCoach={isCoach} />
       </div>
     );
   }
@@ -159,7 +159,7 @@ export default async function PrimalPatternOverviewPage() {
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

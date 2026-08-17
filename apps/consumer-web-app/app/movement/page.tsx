@@ -22,7 +22,7 @@ import {
 } from '@/app/actions/movement';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildMovementEntryContext } from '@/lib/conversation-coach/entryContext';
@@ -201,7 +201,7 @@ export default async function MovementPage() {
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       <FloatingCoachLauncher
         entryPoint="movement"

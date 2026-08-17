@@ -23,16 +23,43 @@
  *
  * Nothing about data fetching, the two Promise.all batches, or any
  * server action call changed — only the JSX below them.
+ *
+ * ===================================================================
+ * THE VISIBILITY LAYER (2026-08-17). Home shows three things now: the
+ * day's one priority, one plain sentence about anything newly revealed,
+ * and the features this member's own rules have actually revealed.
+ * Nothing else.
+ *
+ * The audit counted TEN simultaneous calls to action on this screen for
+ * one member on one morning, and the Priority Card was not among them.
+ * Every zone below now asks lib/visibility before it renders, and a zone
+ * whose contents are all hidden disappears along with its label rather
+ * than leaving an empty heading. There are no locked states and no teaser
+ * states on this page: an entry point for a feature her rules have not
+ * revealed does not exist, because a lock is still an advertisement.
+ *
+ * Two things left outright rather than being gated:
+ *
+ *   The "Next session: nothing scheduled yet, Coming soon" row. There is
+ *   no booking system, so it has only ever told every member that nothing
+ *   is scheduled. A row that can never say anything else is not a feature
+ *   waiting for an audience.
+ *
+ *   The wearable welcome MODAL. The same pitch was on this screen twice on
+ *   one load, as a full-bleed panel and as a pop-up over it. The panel
+ *   survives, gated on her own sleep or recovery actually having come up
+ *   more than once; the modal is gone.
+ * ===================================================================
  */
 
 import { Fragment, Suspense } from 'react';
-import { Calendar, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { redirect } from 'next/navigation';
 import { getTodaysCheckin, getRecentCheckins, resolveLocalDate } from '@/app/actions/checkin';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { calculateWellnessIndex, inputsFromCheckin } from '@/lib/wellness/wellness-index';
 import { getMyRootScore } from '@/app/actions/scoring';
@@ -83,6 +110,9 @@ import { firstNameFrom } from '@/lib/profile/greeting';
 import { orderTodayCards, type TodayCardKey } from '@/lib/dashboard/prioritization';
 import { pageBackgroundForGreeting } from '@/lib/dashboard/timeOfDayPalette';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { getMemberVisibility } from '@/lib/visibility';
+import { F } from '@/lib/visibility/catalog';
+import { NewlyRevealedNotice } from '@/components/visibility/NewlyRevealedNotice';
 // Screen Layout System (Prompt 2): this used to be a hand-rolled
 // `rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]`
 // literal, duplicated verbatim across a dozen files. `.mef-card`
@@ -139,6 +169,7 @@ export default async function DashboardPage({
     bodyAssessmentAssignmentCard,
     priority,
     weeklyReview,
+    visibility,
   ] = await Promise.all([
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
@@ -166,7 +197,14 @@ export default async function DashboardPage({
     // so the pop-up chain's own call above and this persistent entry share
     // one composition and are handed the identical review.
     getMyWeeklyReview(),
+    // The Visibility Layer. Request-memoized for the same reason the
+    // interpretation layer is: several Suspense boundaries on this page
+    // want the same answer, and two cards on one screen must not be able to
+    // disagree about whether a third exists.
+    getMemberVisibility(),
   ]);
+  /** The one question every zone below asks before it renders. */
+  const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
   // Whether the Root pop-up chain is delivering the Priority Card on this
   // very load. Mirrors exactly the condition HomeScreenPopups renders on
   // below, so the two can never disagree about which presentation the
@@ -252,11 +290,14 @@ export default async function DashboardPage({
   });
   const todayCardOrder = orderTodayCards(hasCheckinToday);
 
-  const morningBriefNode = morningBrief ? (
-    <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
-  ) : null;
+  const morningBriefNode =
+    morningBrief && shows(F.dailyBrief) ? (
+      <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
+    ) : null;
 
-  const assignedProgramsNode = <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />;
+  const assignedProgramsNode = shows(F.homeAssignedPrograms) ? (
+    <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />
+  ) : null;
 
   // Home cleanup pass (2026-08-14). Two blocks that used to live in this
   // zone are gone from Home:
@@ -302,7 +343,12 @@ export default async function DashboardPage({
         greetingWord={timeContext.greetingWord}
         greetingLine={heroGreetingLine}
         snapshot={rootScoreSnapshot}
-        hasCheckins={hasCheckins}
+        // VISIBILITY LAYER: one authority for whether the score exists on
+        // this screen. The hero's own gate ("has she ever checked in") and
+        // the score's reveal rule ("at least one logged day") are the same
+        // fact, and this is which of the two the hero now reads, so they
+        // cannot drift apart later.
+        hasCheckins={hasCheckins && shows(F.rootScore)}
       />
 
       <main className="mx-auto w-full max-w-md px-5 pb-[calc(8rem+env(safe-area-inset-bottom))] sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
@@ -374,6 +420,15 @@ export default async function DashboardPage({
         )}
 
         {/* ==================================================== */}
+        {/* THE ONE PLAIN SENTENCE. Anything her rules revealed     */}
+        {/* that she has not been told about yet, in Root's voice,  */}
+        {/* directly under the day's one priority and above         */}
+        {/* everything else. No buttons: this explains, it does not  */}
+        {/* compete with the card above it for the day's action.     */}
+        {/* ==================================================== */}
+        <NewlyRevealedNotice reveals={visibility.newlyRevealed} />
+
+        {/* ==================================================== */}
         {/* THE WEEKLY ROOT REVIEW, persistent (Adaptive Coaching  */}
         {/* Direction, Part 2). After the pop-up has had its one    */}
         {/* showing this week, the review stays reachable here for  */}
@@ -386,7 +441,7 @@ export default async function DashboardPage({
         {/* one thing outranks last week's report on every day      */}
         {/* except the one the pop-up owned.                        */}
         {/* ==================================================== */}
-        {weeklyReview && (
+        {weeklyReview && shows(F.homeWeeklyReview) && (
           <div className="pt-3">
             <WeeklyReviewEntry
               review={weeklyReview.review}
@@ -407,9 +462,11 @@ export default async function DashboardPage({
         {/* this reachable. Renders nothing when there is neither.  */}
         {/* See components/dashboard/DashboardInviteCards.tsx.      */}
         {/* ==================================================== */}
-        <Suspense fallback={null}>
-          <DashboardInviteCards catalog={questionnaireCatalog} bodyAssessmentCard={bodyAssessmentAssignmentCard} />
-        </Suspense>
+        {shows(F.homeInviteCards) && (
+          <Suspense fallback={null}>
+            <DashboardInviteCards catalog={questionnaireCatalog} bodyAssessmentCard={bodyAssessmentAssignmentCard} />
+          </Suspense>
+        )}
 
         {!hasCheckins && !hasActiveExperiment ? (
           /* Premium UX Milestone 2: before a member's first completed
@@ -432,12 +489,19 @@ export default async function DashboardPage({
             {/* Flag a Concern moved out of Quick Actions entirely.     */}
             {/* See components/dashboard/QuickActionsGrid.tsx.          */}
             {/* ==================================================== */}
-            <RevealOnScroll>
-              <p className={ZONE_LABEL}>Quick Actions</p>
-              <div className="mt-3">
-                <QuickActionsGrid caseStatus={caseStatus} movementStatus={movementActionStatus} />
-              </div>
-            </RevealOnScroll>
+            {(shows(F.homeQuickActionCase) || shows(F.homeQuickActionMovement)) && (
+              <RevealOnScroll>
+                <p className={ZONE_LABEL}>Quick Actions</p>
+                <div className="mt-3">
+                  <QuickActionsGrid
+                    caseStatus={caseStatus}
+                    movementStatus={movementActionStatus}
+                    showCase={shows(F.homeQuickActionCase)}
+                    showMovement={shows(F.homeQuickActionMovement)}
+                  />
+                </div>
+              </RevealOnScroll>
+            )}
 
             {/* ==================================================== */}
             {/* Today — Root's Daily Brief, coach-assigned workouts,    */}
@@ -447,6 +511,9 @@ export default async function DashboardPage({
             {/* treatment (card / row / tinted panel / grid) so         */}
             {/* nothing repeats back to back.                           */}
             {/* ==================================================== */}
+            {/* The zone disappears with its label when every block in it is
+                hidden, rather than leaving a heading over nothing. */}
+            {todayCardOrder.some((key) => TODAY_CARD_NODES[key] !== null) && (
             <RevealOnScroll delayMs={60} className="mt-8 md:mt-10">
               <p className={ZONE_LABEL}>Today</p>
               {/* Dashboard Evolution (Prompt 5), requirement 3: card
@@ -463,6 +530,7 @@ export default async function DashboardPage({
                 ))}
               </div>
             </RevealOnScroll>
+            )}
 
             {/* ==================================================== */}
             {/* Active Experiments — every currently-running Weekly     */}
@@ -474,11 +542,13 @@ export default async function DashboardPage({
             {/* show, so this zone silently disappears rather than      */}
             {/* leaving an empty heading.                                */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={30} className="mt-14 md:mt-20">
-              <Suspense fallback={null}>
-                <ActiveExperimentsSection />
-              </Suspense>
-            </RevealOnScroll>
+            {shows(F.homeActiveExperiments) && (
+              <RevealOnScroll delayMs={30} className="mt-14 md:mt-20">
+                <Suspense fallback={null}>
+                  <ActiveExperimentsSection />
+                </Suspense>
+              </RevealOnScroll>
+            )}
 
             {/* ==================================================== */}
             {/* Personal Reset Plan — its own permanent section, never  */}
@@ -487,11 +557,13 @@ export default async function DashboardPage({
             {/* profiles.reset_plan_granted_at, see                     */}
             {/* components/reset-plan/PersonalResetPlanCard.tsx.        */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={30} className="mt-14 md:mt-20">
-              <Suspense fallback={null}>
-                <PersonalResetPlanCard />
-              </Suspense>
-            </RevealOnScroll>
+            {shows(F.homeResetPlan) && (
+              <RevealOnScroll delayMs={30} className="mt-14 md:mt-20">
+                <Suspense fallback={null}>
+                  <PersonalResetPlanCard />
+                </Suspense>
+              </RevealOnScroll>
+            )}
 
             {/* ==================================================== */}
             {/* Your Path — Guided Posture & Movement Assessment        */}
@@ -507,24 +579,41 @@ export default async function DashboardPage({
             {/* Questionnaires (row), never image-backed, regardless of   */}
             {/* which cards are present.                                 */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
-              <p className={ZONE_LABEL}>Your Path</p>
-              <div className="mt-4 space-y-4">
-                <MovementAssessmentCard
-                  assessments={bodyAssessments}
-                  variant="imageBacked"
-                  locked={!bodyAssessmentAccess.allowed}
-                />
-                <QuestionnairesHomeCard
-                  completedCount={questionnaireCatalog.completedCount}
-                  totalCount={questionnaireCatalog.totalCount}
-                />
-                <ComprehensiveAssessmentCard
-                  baseline={baseline}
-                  movementCompleted={movementAnalyzed}
-                />
-              </div>
-            </RevealOnScroll>
+            {/* VISIBILITY LAYER: no locked card ever renders here now. The
+                Movement Assessment used to appear for every member with a
+                "Locked" treatment, which is still an advertisement for
+                something she cannot have. It appears when her own rule
+                reveals it and does not exist otherwise, and
+                `bodyAssessmentAccess` remains the independent server-side
+                permission check behind the route itself. */}
+            {(shows(F.homeMovementAssessmentCard) ||
+              shows(F.homeQuestionnairesCard) ||
+              shows(F.homeComprehensiveCard)) && (
+              <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
+                <p className={ZONE_LABEL}>Your Path</p>
+                <div className="mt-4 space-y-4">
+                  {shows(F.homeMovementAssessmentCard) && (
+                    <MovementAssessmentCard
+                      assessments={bodyAssessments}
+                      variant="imageBacked"
+                      locked={!bodyAssessmentAccess.allowed}
+                    />
+                  )}
+                  {shows(F.homeQuestionnairesCard) && (
+                    <QuestionnairesHomeCard
+                      completedCount={questionnaireCatalog.completedCount}
+                      totalCount={questionnaireCatalog.totalCount}
+                    />
+                  )}
+                  {shows(F.homeComprehensiveCard) && (
+                    <ComprehensiveAssessmentCard
+                      baseline={baseline}
+                      movementCompleted={movementAnalyzed}
+                    />
+                  )}
+                </div>
+              </RevealOnScroll>
+            )}
 
             {/* ==================================================== */}
             {/* What Root Is Noticing — What We're Noticing, Your Root  */}
@@ -543,6 +632,7 @@ export default async function DashboardPage({
             {/* the Discovery card all previously/never had a dedicated   */}
             {/* destination page).                                        */}
             {/* ==================================================== */}
+            {shows(F.homeNoticingCarousel) && (
             <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
               <p className={ZONE_LABEL}>What Root Is Noticing</p>
               {/* Dashboard Evolution (Prompt 5), requirement 3: a new
@@ -573,6 +663,7 @@ export default async function DashboardPage({
                 </ScrollCarousel>
               </div>
             </RevealOnScroll>
+            )}
 
             {/* ==================================================== */}
             {/* Trends — Energy Trend, real recent check-ins, the       */}
@@ -580,65 +671,65 @@ export default async function DashboardPage({
             {/* (a wrapper around the unmodified, coach-shared            */}
             {/* EnergyTrendChart — see that wrapper's own comment).       */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
-              <p className={ZONE_LABEL}>Trends</p>
-              <section className={`${CARD} mt-4`}>
-                <div className="flex items-center gap-2 text-[#6B7A72]">
-                  <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                  <p className="text-sm font-semibold uppercase tracking-wider">Energy Trend</p>
-                </div>
-                <AnimatedEnergyTrendChart checkins={recentCheckins} todayLocalDate={localDate} />
-              </section>
-            </RevealOnScroll>
+            {shows(F.homeTrendsEnergy) && (
+              <RevealOnScroll delayMs={0} className="mt-14 md:mt-20">
+                <p className={ZONE_LABEL}>Trends</p>
+                <section className={`${CARD} mt-4`}>
+                  <div className="flex items-center gap-2 text-[#6B7A72]">
+                    <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                    <p className="text-sm font-semibold uppercase tracking-wider">Energy Trend</p>
+                  </div>
+                  <AnimatedEnergyTrendChart checkins={recentCheckins} todayLocalDate={localDate} />
+                </section>
+              </RevealOnScroll>
+            )}
 
             {/* ==================================================== */}
-            {/* Coming Up — next session (a small quiet row; there's    */}
-            {/* no bookings table yet, so this honestly says nothing's  */}
-            {/* scheduled instead of inventing one) and wearable         */}
-            {/* status: today's real recovery numbers once connected,   */}
-            {/* or the full-bleed "Unlock Smarter Coaching" panel        */}
-            {/* until then. See                                          */}
+            {/* Your Device. Was "Coming Up", and held two things: a    */}
+            {/* permanently empty "Next session: nothing scheduled yet  */}
+            {/* / Coming soon" row, and the wearable panel.             */}
+            {/*                                                          */}
+            {/* The next-session row is GONE. There is no booking        */}
+            {/* system, so it could only ever tell every member that     */}
+            {/* nothing is scheduled. A row that can never say anything  */}
+            {/* else is not a feature waiting for an audience, and       */}
+            {/* "Coming soon" on a member's first screen is a promise    */}
+            {/* nobody made.                                             */}
+            {/*                                                          */}
+            {/* The wearable panel survives, and is now revealed only    */}
+            {/* when her own sleep or recovery has come up more than     */}
+            {/* once, or she already has a device. See                   */}
             {/* components/wearables/ConnectWearableCard.tsx.            */}
             {/* ==================================================== */}
-            <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
-              <p className={ZONE_LABEL}>Coming Up</p>
-              <div className="mt-4 space-y-4">
-                <div className="flex items-center justify-between gap-3 border-b border-[#1B3A2D]/8 py-4">
-                  <div className="flex items-center gap-2 text-[#6B7A72]">
-                    <Calendar className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
-                    <p className="text-sm">
-                      Next session: <span className="text-[#1B3A2D]/70">nothing scheduled yet</span>
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-[#1B3A2D]/35">
-                    Coming soon
-                  </span>
-                </div>
-
-                {hasConnectedWearable ? (
-                  decision?.wearableSnapshot ? (
-                    <section className={CARD}>
-                      <div className="flex items-center gap-2 text-[#6B7A72]">
-                        <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                        <p className="text-sm font-semibold uppercase tracking-wider">
-                          Today&apos;s Recovery
+            {shows(F.homeWearableConnect) && (
+              <RevealOnScroll delayMs={60} className="mt-14 md:mt-20">
+                <p className={ZONE_LABEL}>Your Device</p>
+                <div className="mt-4 space-y-4">
+                  {hasConnectedWearable ? (
+                    decision?.wearableSnapshot ? (
+                      <section className={CARD}>
+                        <div className="flex items-center gap-2 text-[#6B7A72]">
+                          <TrendingUp className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                          <p className="text-sm font-semibold uppercase tracking-wider">
+                            Today&apos;s Recovery
+                          </p>
+                        </div>
+                        <WearableStatsRow snapshot={decision.wearableSnapshot} />
+                      </section>
+                    ) : (
+                      <div className="flex items-center gap-3 border-b border-[#1B3A2D]/8 py-4">
+                        <p className="text-sm leading-relaxed text-[#6B7A72]">
+                          Your device is connected. Recovery numbers will appear here after your
+                          first sync.
                         </p>
                       </div>
-                      <WearableStatsRow snapshot={decision.wearableSnapshot} />
-                    </section>
+                    )
                   ) : (
-                    <div className="flex items-center gap-3 border-b border-[#1B3A2D]/8 py-4">
-                      <p className="text-sm leading-relaxed text-[#6B7A72]">
-                        Your device is connected. Recovery numbers will appear here after your first
-                        sync.
-                      </p>
-                    </div>
-                  )
-                ) : (
-                  <ConnectWearableCard variant="dashboard" />
-                )}
-              </div>
-            </RevealOnScroll>
+                    <ConnectWearableCard variant="dashboard" />
+                  )}
+                </div>
+              </RevealOnScroll>
+            )}
           </div>
         )}
 
@@ -670,7 +761,7 @@ export default async function DashboardPage({
       {/* Same classes as before, now real Link navigation with a    */}
       {/* real active state — see components/BottomNav.tsx.          */}
       {/* -------------------------------------------------------- */}
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       <FloatingCoachLauncher
         entryPoint="dashboard"
@@ -690,9 +781,16 @@ export default async function DashboardPage({
           (never alongside another pop-up), and the wearable prompt keeps
           its own unchanged hasCheckins gate (today's real recovery numbers
           have nothing to show before a first check-in exists). */}
+      {/* VISIBILITY LAYER (2026-08-17): `showWearablePrompt` is now always
+          false and the prop is left in place only so the pop-up chain's own
+          arbitration code is untouched by this build. The same wearable
+          pitch was on this screen twice on one load, as a full-bleed panel
+          and as a modal over it, for a member thirteen days in with no
+          device. The panel above is the one that survives, and it is gated;
+          a second delivery of a gated pitch would defeat the gate. */}
       <HomeScreenPopups
         rootPopupMessage={searchParams.firstCheckin !== '1' ? rootPopupMessage : null}
-        showWearablePrompt={!hasConnectedWearable && hasCheckins && searchParams.firstCheckin !== '1'}
+        showWearablePrompt={false}
       />
 
       {/* Premium UX Milestone 4, part 6 — the one-time transition shown

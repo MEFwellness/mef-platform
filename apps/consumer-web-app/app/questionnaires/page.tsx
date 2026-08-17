@@ -23,7 +23,7 @@ import { createClient } from '@/lib/supabase/server';
 import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { QuestionnaireCatalogView } from '@/components/questionnaires/QuestionnaireCatalogView';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 
@@ -68,7 +68,7 @@ export default async function QuestionnairesPage() {
         <QuestionnaireCatalogView catalog={catalog} />
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

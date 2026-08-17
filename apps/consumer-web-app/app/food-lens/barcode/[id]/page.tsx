@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildFoodProductEntryContext } from '@/lib/conversation-coach/entryContext';
 import { getProductScanAction } from '@/app/actions/food-products';
@@ -163,7 +163,7 @@ export default async function BarcodeScanResultPage({ params }: { params: { id: 
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       {analysis && (
         <FloatingCoachLauncher

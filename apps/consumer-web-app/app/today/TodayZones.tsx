@@ -172,6 +172,10 @@ export function TodayZones({
   hydrationTracked,
   hydrationInitialTotal,
   movementInitialLevel,
+  showMovementTracker,
+  showHabits,
+  showTotals,
+  showCapability,
   habits,
   habitLogs,
   notifications,
@@ -189,6 +193,20 @@ export function TodayZones({
   hydrationTracked: boolean;
   hydrationInitialTotal: number;
   movementInitialLevel: MovementLevel | null;
+  /**
+   * VISIBILITY LAYER (2026-08-17). Water proved the shape; these four are
+   * the same shape for the rest of this screen.
+   *
+   * The audit found the movement tracker rendered every day to a member
+   * with zero movement days logged in thirteen, next to a totals panel
+   * reading "0 Days movement logged". That is a tracker asking her to fail
+   * at something she never said she wanted. It now appears when movement is
+   * genuinely a topic for her, and does not exist otherwise.
+   */
+  showMovementTracker: boolean;
+  showHabits: boolean;
+  showTotals: boolean;
+  showCapability: boolean;
   habits: Habit[];
   habitLogs: Record<string, boolean>;
   notifications: Notification[];
@@ -222,26 +240,35 @@ export function TodayZones({
   const showWaterOpen = hydrationTracked && !waterLoggedToday;
   const showWaterDone = hydrationTracked && waterLoggedToday;
   const movementLoggedToday = movementLevel !== null;
-  const openHabits = habits.filter((habit) => !(habitLogs[habit.id] ?? false));
-  const doneHabits = habits.filter((habit) => habitLogs[habit.id] ?? false);
+  /**
+   * Same two-question discipline the water gate uses, for the same reason:
+   * a member who does not track movement has no movement action open
+   * (nothing nagging her in the Forward zone) AND nothing movement-shaped
+   * completed, so her "done today" count is not quietly short by one for a
+   * thing she was never asked to do.
+   */
+  const showMovementOpen = showMovementTracker && !movementLoggedToday;
+  const showMovementDone = showMovementTracker && movementLoggedToday;
+  const openHabits = showHabits ? habits.filter((habit) => !(habitLogs[habit.id] ?? false)) : [];
+  const doneHabits = showHabits ? habits.filter((habit) => habitLogs[habit.id] ?? false) : [];
 
   const hasOpenQuickActions =
     !todaysCheckinDone ||
     showWaterOpen ||
-    !movementLoggedToday ||
+    showMovementOpen ||
     openHabits.length > 0 ||
     notifications.length > 0;
 
   const doneTodayCount =
     (todaysCheckinDone ? 1 : 0) +
     (showWaterDone ? 1 : 0) +
-    (movementLoggedToday ? 1 : 0) +
+    (showMovementDone ? 1 : 0) +
     doneHabits.length;
 
   const capability = capabilityProgress(totalCheckins);
   const justUnlocked = useCapabilityJustUnlocked(capability.unlocked);
 
-  const showBothTrackers = showWaterOpen && !movementLoggedToday;
+  const showBothTrackers = showWaterOpen && showMovementOpen;
 
   return (
     <div className="mt-6 space-y-6">
@@ -281,14 +308,14 @@ export function TodayZones({
 
           {notifications.length > 0 && <CoachMessages notifications={notifications} />}
 
-          {(showWaterOpen || !movementLoggedToday) && (
+          {(showWaterOpen || showMovementOpen) && (
             <div className={`grid gap-3 sm:gap-5 ${showBothTrackers ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {showWaterOpen && (
                 <div ref={flipRef('water')}>
                   <HydrationTracker initialTotal={waterTotal} onTotalChange={setWaterTotal} />
                 </div>
               )}
-              {!movementLoggedToday && (
+              {showMovementOpen && (
                 <div ref={flipRef('movement')}>
                   <MovementLevelTracker initialLevel={movementLevel} onLevelChange={setMovementLevel} />
                 </div>
@@ -353,10 +380,10 @@ export function TodayZones({
                 <DoneTodayRow key={habit.id} flipRef={flipRef(`habit-${habit.id}`)} label={habit.title} />
               ))}
             </ul>
-            {(showWaterDone || movementLoggedToday) && (
+            {(showWaterDone || showMovementDone) && (
               <div
                 className={`mt-3 grid gap-3 sm:gap-5 ${
-                  showWaterDone && movementLoggedToday ? 'grid-cols-2' : 'grid-cols-1'
+                  showWaterDone && showMovementDone ? 'grid-cols-2' : 'grid-cols-1'
                 }`}
               >
                 {showWaterDone && (
@@ -364,7 +391,7 @@ export function TodayZones({
                     <HydrationTracker initialTotal={waterTotal} onTotalChange={setWaterTotal} />
                   </div>
                 )}
-                {movementLoggedToday && (
+                {showMovementDone && (
                   <div ref={flipRef('movement')}>
                     <MovementLevelTracker initialLevel={movementLevel} onLevelChange={setMovementLevel} />
                   </div>
@@ -374,31 +401,41 @@ export function TodayZones({
           </section>
         )}
 
-        <section className={`${CARD}`}>
-          <div className="flex items-center gap-2 text-[#6B7A72]">
-            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Your Totals</p>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-4">
-            <div>
-              <p className="font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
-                <TickingNumber value={totalCheckins} />
-              </p>
-              <p className="mt-1 text-xs text-[#6B7A72]">
-                {totalCheckins === 1 ? 'Check-in logged' : 'Check-ins logged'}
-              </p>
+        {/* VISIBILITY LAYER: the totals panel only counts what she is
+            actually being asked to do. A member who does not track movement
+            no longer gets a "0 Days movement logged" column for something
+            nobody invited her to, and the remaining figure takes the full
+            width rather than sitting beside a gap. */}
+        {showTotals && (
+          <section className={`${CARD}`}>
+            <div className="flex items-center gap-2 text-[#6B7A72]">
+              <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold uppercase tracking-wider">Your Totals</p>
             </div>
-            <div>
-              <p className="font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
-                <TickingNumber value={cumulativeMovementDays} />
-              </p>
-              <p className="mt-1 text-xs text-[#6B7A72]">
-                {cumulativeMovementDays === 1 ? 'Day movement logged' : 'Days movement logged'}
-              </p>
+            <div className={`mt-3 grid gap-4 ${showMovementTracker ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <div>
+                <p className="font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
+                  <TickingNumber value={totalCheckins} />
+                </p>
+                <p className="mt-1 text-xs text-[#6B7A72]">
+                  {totalCheckins === 1 ? 'Check-in logged' : 'Check-ins logged'}
+                </p>
+              </div>
+              {showMovementTracker && (
+                <div>
+                  <p className="font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
+                    <TickingNumber value={cumulativeMovementDays} />
+                  </p>
+                  <p className="mt-1 text-xs text-[#6B7A72]">
+                    {cumulativeMovementDays === 1 ? 'Day movement logged' : 'Days movement logged'}
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
+        {showCapability && (
         <section className={`${CARD} ${justUnlocked ? 'mef-scale-settle' : ''}`}>
           <div className="flex items-center gap-2 text-[#6B7A72]">
             {capability.unlocked ? (
@@ -416,6 +453,7 @@ export function TodayZones({
               : `Log ${capability.remaining} more day${capability.remaining === 1 ? '' : 's'} and Root can start testing what you log for real, confirmed patterns, not just showing you the numbers.`}
           </p>
         </section>
+        )}
       </div>
     </div>
   );

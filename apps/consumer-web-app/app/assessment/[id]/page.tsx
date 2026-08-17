@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildBodyAssessmentReportEntryContext } from '@/lib/conversation-coach/entryContext';
 import {
@@ -176,7 +176,7 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       {aiWorkspace && (
         <FloatingCoachLauncher

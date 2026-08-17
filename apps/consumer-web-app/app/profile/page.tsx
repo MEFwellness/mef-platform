@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { ClipboardList, ChevronRight, TrendingUp, Watch, ScanFace, User, KeyRound } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { SignOutButton } from '@/components/SignOutButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
@@ -206,7 +206,7 @@ export default async function ProfilePage() {
         </Card>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       <FloatingCoachLauncher entryPoint="profile" entryContext={buildProfileEntryContext()} />
     </div>

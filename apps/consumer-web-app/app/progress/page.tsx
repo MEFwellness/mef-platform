@@ -41,7 +41,7 @@ import { getMyWearableMetricHistory } from '@/app/actions/wearables';
 import { getMyRootScoreHistory } from '@/app/actions/scoring';
 import { getMyCoachingInsightsAction } from '@/app/actions/coaching-insights';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { BackButton } from '@/components/BackButton';
@@ -49,8 +49,6 @@ import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { CardStack } from '@/components/layout';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
-import { LockedCardButton } from '@/components/locked/LockedCardButton';
-import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
 import { buildProgressEntryContext } from '@/lib/conversation-coach/entryContext';
 import { WellnessIdentityPanel } from './WellnessIdentityPanel';
 import { ProgressRootScorePanel } from './ProgressRootScorePanel';
@@ -62,6 +60,8 @@ import { WellnessStorySection, WellnessStorySectionSkeleton } from './WellnessSt
 import { WellnessPatternsSection, WellnessPatternsSectionSkeleton } from './WellnessPatternsSection';
 import { RecommendationsSection, RecommendationsSectionSkeleton } from './RecommendationsSection';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { getMemberVisibility } from '@/lib/visibility';
+import { F } from '@/lib/visibility/catalog';
 
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
 
@@ -114,6 +114,7 @@ export default async function ProgressPage() {
     coachingInsights,
     bodyAssessmentAccess,
     interpretation,
+    visibility,
   ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
@@ -135,7 +136,12 @@ export default async function ProgressPage() {
     // empty state can never claim Root has noticed nothing on a day the
     // Insights screen one tap away is listing things it has noticed.
     getMemberInterpretation(),
+    // VISIBILITY LAYER (2026-08-17). Same rule as Home and Today: no hub
+    // screen may advertise a feature her rules have not revealed.
+    getMemberVisibility(),
   ]);
+  /** The one question every panel below asks before it renders. */
+  const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
   const firstName = firstNameFrom(profile?.display_name);
   const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
@@ -196,9 +202,11 @@ export default async function ProgressPage() {
             Own Suspense boundary: recalculateIntelligenceCore is the
             slowest thing this page does, so it streams in independently
             instead of holding up everything below. */}
-        <Suspense fallback={<WellnessStorySectionSkeleton />}>
-          <WellnessStorySection />
-        </Suspense>
+        {shows(F.progressWellnessStory) && (
+          <Suspense fallback={<WellnessStorySectionSkeleton />}>
+            <WellnessStorySection />
+          </Suspense>
+        )}
 
         {/* One interpretive block: Coaching Insights (promoted to a
             content card, its chips moved here from the old "Talk to
@@ -206,15 +214,21 @@ export default async function ProgressPage() {
             Identity. Wellness Patterns gets its own Suspense boundary for
             the same reason as Wellness Story above
             (recalculateWellnessIntelligence). */}
-        <CoachingInsightsPanel
-          insights={coachingInsights.insights}
-          entryContext={entryContext}
-          hasInterpretationFindings={interpretation.findings.length > 0}
-        />
-        <Suspense fallback={<WellnessPatternsSectionSkeleton />}>
-          <WellnessPatternsSection />
-        </Suspense>
-        <WellnessIdentityPanel highlights={wellnessIdentity} />
+        {shows(F.progressCoachingInsights) && (
+          <CoachingInsightsPanel
+            insights={coachingInsights.insights}
+            entryContext={entryContext}
+            hasInterpretationFindings={interpretation.findings.length > 0}
+          />
+        )}
+        {shows(F.progressWellnessPatterns) && (
+          <Suspense fallback={<WellnessPatternsSectionSkeleton />}>
+            <WellnessPatternsSection />
+          </Suspense>
+        )}
+        {shows(F.progressWellnessIdentity) && (
+          <WellnessIdentityPanel highlights={wellnessIdentity} />
+        )}
 
         {/* Recommendations — reads the Recommendation Engine's precomputed
             result (member_recommendation_computations) instead of
@@ -222,29 +236,35 @@ export default async function ProgressPage() {
             result and staleness rule the Dashboard and /recommendations
             read from. Own Suspense boundary for the rare live-compute
             path (a member's first-ever visit with nothing stored yet). */}
-        <Suspense fallback={<RecommendationsSectionSkeleton />}>
-          <RecommendationsSection />
-        </Suspense>
+        {shows(F.progressRecommendations) && (
+          <Suspense fallback={<RecommendationsSectionSkeleton />}>
+            <RecommendationsSection />
+          </Suspense>
+        )}
 
         {/* Trends — one card, a segmented control across every metric
             the check-in and any connected wearable actually capture. */}
-        <TrendsPanel
-          checkins={recentCheckins}
-          readinessHistory={readinessHistory}
-          sleepHistory={sleepHistory}
-          stepsHistory={stepsHistory}
-          stressHistory={stressHistory}
-        />
+        {shows(F.progressTrends) && (
+          <TrendsPanel
+            checkins={recentCheckins}
+            readinessHistory={readinessHistory}
+            sleepHistory={sleepHistory}
+            stepsHistory={stepsHistory}
+            stressHistory={stressHistory}
+          />
+        )}
 
         {/* Consistency — Avg Energy only now; Streak and Check-ins were
             removed (distribution card task, 2026-07-28) after confirming
             both appear elsewhere in the app. See ConsistencyPanel.tsx's
             own doc comment for the full accounting. */}
-        <ConsistencyPanel averageEnergy={averageEnergy} recordedDays={recentCheckins.length} />
+        {shows(F.progressConsistency) && (
+          <ConsistencyPanel averageEnergy={averageEnergy} recordedDays={recentCheckins.length} />
+        )}
 
         {/* Assessment block: From Your Assessments + Baseline vs. Latest
             Comparison, grouped together since both read assessment data. */}
-        {healthProfileSummary && activeFindingSeverities.length > 0 && (
+        {healthProfileSummary && activeFindingSeverities.length > 0 && shows(F.progressAssessmentFindings) && (
           <section className="mef-card mef-animate-in mt-5 p-6">
             {/* Reading width (Prompt 2), capped without auto-centering (see
                 the identical note in WellnessStoryPanel.tsx): this card is
@@ -273,78 +293,102 @@ export default async function ProgressPage() {
           </section>
         )}
 
-        <div className="mt-5">
-          <AssessmentComparisonView
-            metrics={progressComparison.metrics}
-            summary={progressComparison.summary}
-            hasLatest={Boolean(progressComparison.latest)}
-          />
-        </div>
+        {shows(F.progressComparison) && (
+          <div className="mt-5">
+            <AssessmentComparisonView
+              metrics={progressComparison.metrics}
+              summary={progressComparison.summary}
+              hasLatest={Boolean(progressComparison.latest)}
+            />
+          </div>
+        )}
 
         {/* Explore — Health Timeline, Assessments, Questionnaires as
             plain nav rows beneath one small section header, distinct
-            from the card blocks above. */}
-        <p className={`${ZONE_LABEL} mt-8`}>Explore</p>
+            from the card blocks above.
 
-        <div className="mt-3">
-          <CardStack>
-            <Link
-              href="/progress/timeline"
-              className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
-            >
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <HistoryIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Your Health Timeline</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-            </Link>
+            VISIBILITY LAYER (2026-08-17): the Assessments row used to render
+            for every member either as a link or as a dimmed, greyed
+            "locked" card with a gold coach badge. A lock is still an
+            advertisement, and this build's rule is that an entry point for
+            a feature her rules have not revealed does not exist. The row
+            is now present when her Body Assessment is revealed and absent
+            otherwise, and `bodyAssessmentAccess` remains the independent
+            server-side permission check behind the route.
 
-            {bodyAssessmentAccess.allowed ? (
-              <Link
-                href="/assessment"
-                className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
-              >
-                <div className="flex items-center gap-2 text-[#6B7A72]">
-                  <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                  <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-              </Link>
-            ) : (
-              <div className="relative">
-                <LockedCardButton
-                  ariaLabel="Assessments, locked. Tap to hear from Root about it."
-                  analyticsFeature="body-assessment"
-                >
-                  <div className="mef-card mef-animate-in flex items-center justify-between p-6 opacity-55 grayscale-[0.4]">
+            The whole zone, label included, disappears when all three rows
+            are hidden rather than leaving a heading over nothing. */}
+        {(shows(F.progressTimeline) ||
+          shows(F.featureBodyAssessment) ||
+          shows(F.featureQuestionnaires)) && (
+          <>
+            <p className={`${ZONE_LABEL} mt-8`}>Explore</p>
+
+            <div className="mt-3">
+              <CardStack>
+                {shows(F.progressTimeline) && (
+                  <Link
+                    href="/progress/timeline"
+                    className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
+                  >
+                    <div className="flex items-center gap-2 text-[#6B7A72]">
+                      <HistoryIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                      <p className="text-sm font-semibold uppercase tracking-wider">
+                        Your Health Timeline
+                      </p>
+                    </div>
+                    <ArrowRight
+                      className="h-4 w-4 text-[#1B3A2D]"
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                  </Link>
+                )}
+
+                {shows(F.featureBodyAssessment) && bodyAssessmentAccess.allowed && (
+                  <Link
+                    href="/assessment"
+                    className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
+                  >
                     <div className="flex items-center gap-2 text-[#6B7A72]">
                       <ScanFace className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
                       <p className="text-sm font-semibold uppercase tracking-wider">Assessments</p>
                     </div>
-                  </div>
-                </LockedCardButton>
-                <CoachLockBadge />
-              </div>
-            )}
+                    <ArrowRight
+                      className="h-4 w-4 text-[#1B3A2D]"
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                  </Link>
+                )}
 
-            <Link
-              href={'/questionnaires' as Route}
-              className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
-            >
-              <div className="flex items-center gap-2 text-[#6B7A72]">
-                <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                <p className="text-sm font-semibold uppercase tracking-wider">Questionnaires</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-            </Link>
-          </CardStack>
-        </div>
+                {shows(F.featureQuestionnaires) && (
+                  <Link
+                    href={'/questionnaires' as Route}
+                    className="mef-card mef-animate-in flex items-center justify-between p-6 transition hover:bg-[#FAFAF8]"
+                  >
+                    <div className="flex items-center gap-2 text-[#6B7A72]">
+                      <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                      <p className="text-sm font-semibold uppercase tracking-wider">Questionnaires</p>
+                    </div>
+                    <ArrowRight
+                      className="h-4 w-4 text-[#1B3A2D]"
+                      strokeWidth={1.75}
+                      aria-hidden="true"
+                    />
+                  </Link>
+                )}
+              </CardStack>
+            </div>
+          </>
+        )}
 
         {/* History — moved to the very bottom of the page (below Explore):
             a log of past check-ins reads as an appendix/reference, not
             part of the page's main narrative arc, and used to interrupt
             that arc by sitting in the middle of it. Position change only —
             same content, same "edited" badge, same styling. */}
+        {shows(F.progressHistory) && (
         <section className="mt-8 rounded-[28px] bg-[#FAFAF8] p-6">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">History</p>
           {history.length > 0 ? (
@@ -373,9 +417,10 @@ export default async function ProgressPage() {
             </p>
           )}
         </section>
+        )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       <FloatingCoachLauncher entryPoint="progress_pattern" entryContext={entryContext} />
     </div>

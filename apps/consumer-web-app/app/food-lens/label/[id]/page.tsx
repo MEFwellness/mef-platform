@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getFoodLensLabelScanAction } from '@/app/actions/food-label';
 import { LabelConfirmForm } from '@/components/food-lens/LabelConfirmForm';
 
@@ -86,7 +86,7 @@ export default async function FoodLensLabelScanPage({ params }: { params: { id: 
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

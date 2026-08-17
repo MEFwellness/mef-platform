@@ -53,7 +53,7 @@ import { buildFeedMemory } from '@/lib/feed/memory';
 import { computeStreakInsight, buildStreakMessage } from '@/lib/feed/streakIntelligence';
 import { buildContinuitySentence, buildChallengeCarryover } from '@/lib/feed/continuity';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
@@ -70,6 +70,8 @@ import { PriorityCard } from '@/components/priority/PriorityCard';
 import { TrackPriorityShown } from '@/components/priority/TrackPriorityShown';
 import { buildPriorityView } from '@/lib/priority/service';
 import type { TodaysFocusInput } from '@/lib/priority/types';
+import { getMemberVisibility } from '@/lib/visibility';
+import { F } from '@/lib/visibility/catalog';
 
 // Screen Layout System (Prompt 2): was a hand-rolled duplicate of
 // `.mef-card` (app/globals.css) — now the one shared recipe.
@@ -138,17 +140,31 @@ export default async function TodayPage() {
   // getRecentCheckins and getActiveHabits don't depend on the
   // profile/timezone lookups below, so they join this first batch
   // instead of paying their own, separate round trips afterward.
-  const [isCoach, { data: profile }, decision, history, notifications, recentCheckins, habits] =
-    await Promise.all([
-      hasActiveRole(supabase, user.id, 'coach'),
-      supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
-      getMyCoachingDecision(),
-      getFeedHistory(),
-      getMyNotifications(5),
-      // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
-      getRecentCheckins(30),
-      getActiveHabits(),
-    ]);
+  const [
+    isCoach,
+    { data: profile },
+    decision,
+    history,
+    notifications,
+    recentCheckins,
+    habits,
+    visibility,
+  ] = await Promise.all([
+    hasActiveRole(supabase, user.id, 'coach'),
+    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+    getMyCoachingDecision(),
+    getFeedHistory(),
+    getMyNotifications(5),
+    // Oldest-first, per getRecentCheckins' contract — exactly what streak/trend detection expects.
+    getRecentCheckins(30),
+    getActiveHabits(),
+    // VISIBILITY LAYER (2026-08-17). Same rule as Home: this screen may not
+    // advertise a feature her rules have not revealed. Request-memoized, so
+    // Today asking and Home asking on the same navigation cost one gather.
+    getMemberVisibility(),
+  ]);
+  /** The one question every block below asks before it renders. */
+  const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
 
   const firstName = firstNameFrom(profile?.display_name);
   const timezone = profile?.timezone ?? 'America/New_York';
@@ -161,18 +177,30 @@ export default async function TodayPage() {
   // water surfaces on this page (the line in Today's Recommendations, and
   // the tracker in both of TodayZones' positions) so they can never
   // disagree with each other.
-  const hydrationTracked = await getMyHydrationTracked();
+  const hydrationFocusOn = await getMyHydrationTracked();
 
   const [todaysCheckin, habitLogs, hydrationTotal, movementLevel, totalCheckins, totalMovementDays] =
     await Promise.all([
       getTodaysCheckin(localDate),
       getHabitLogsForDate(localDate),
-      hydrationTracked ? getTodaysHydrationTotal() : Promise.resolve(0),
+      hydrationFocusOn ? getTodaysHydrationTotal() : Promise.resolve(0),
       getTodaysMovementLevel(),
       // Accomplished zone's cumulative totals — all-time, never a windowed read like getRecentCheckins above.
       getTotalCheckinCount(),
       getTotalMovementLoggedDaysCount(),
     ]);
+
+  /**
+   * Water, decided once for this whole screen.
+   *
+   * Two facts, both real, and both have to agree before a member sees a
+   * water control: her own hydration answer (profiles.hydration_focus,
+   * migration 163, which is what stops water being SCORED against her) and
+   * the visibility layer's rule for the tracker (which is what stops it
+   * being SHOWN). One variable, so the recommendation line and the tracker
+   * in both of TodayZones' positions can never disagree with each other.
+   */
+  const showWater = hydrationFocusOn && shows(F.trackerWater);
 
   /**
    * Today's Numbers, moved here from Home (2026-08-14). Home keeps the
@@ -186,7 +214,8 @@ export default async function TodayPage() {
    * TodayZones' own "You haven't checked in yet today" card is already the
    * page's prompt for that, so this renders nothing rather than a second one.
    */
-  const numbersGridNode = todaysCheckin ? <TodaysNumbersGrid checkin={todaysCheckin} /> : null;
+  const numbersGridNode =
+    todaysCheckin && shows(F.todayNumbers) ? <TodaysNumbersGrid checkin={todaysCheckin} /> : null;
 
   let sectionIndex = 0;
   const modeBadge = decision ? MODE_BADGE[decision.mode] : null;
@@ -296,13 +325,20 @@ export default async function TodayPage() {
                 movement), so it isn't folded into TodayZones below — it
                 stays its own low-emphasis link, same copy/behavior as
                 before. */}
-            <Link
-              href={'/checkin/evening' as Route}
-              className="mef-card-lift mt-6 flex items-center justify-between rounded-2xl border border-[#1B3A2D]/10 px-5 py-3.5 text-sm text-[#1B3A2D] transition hover:border-[#1B3A2D]/25"
-            >
-              <span className="font-medium">Evening Reflection</span>
-              <span className="text-xs text-[#6B7A72]">Optional · a short close to the day</span>
-            </Link>
+            {/* Safety exemption: the evening reflection carries the same
+                free-text box that routes into safety classification, so it
+                is one of the features that can never be hidden from anyone.
+                The check asks the layer rather than assuming, so the
+                exemption is visible here rather than implied. */}
+            {shows(F.checkinEvening) && (
+              <Link
+                href={'/checkin/evening' as Route}
+                className="mef-card-lift mt-6 flex items-center justify-between rounded-2xl border border-[#1B3A2D]/10 px-5 py-3.5 text-sm text-[#1B3A2D] transition hover:border-[#1B3A2D]/25"
+              >
+                <span className="font-medium">Evening Reflection</span>
+                <span className="text-xs text-[#6B7A72]">Optional · a short close to the day</span>
+              </Link>
+            )}
 
             {/* Today's Recommendations (renamed from "Today's Coaching
                 Brief," Milestone 2) — recovery/movement/stress/sleep lines
@@ -313,6 +349,7 @@ export default async function TodayPage() {
                 so they're not shown here a second time. Hydration/
                 nutrition always show — they reuse the same check-in
                 status classification the Dashboard already uses. */}
+            {shows(F.todayRecommendations) && (
             <section className={`${CARD} mef-animate-in mt-6`}>
               <div className="flex items-center gap-2 text-[#6B7A72]">
                 <Watch className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -375,14 +412,14 @@ export default async function TodayPage() {
               )}
 
               <div
-                className={`mt-4 grid gap-3 ${hydrationTracked ? 'grid-cols-2' : 'grid-cols-1'} ${decision?.wearableBrief ? 'border-t border-[#1B3A2D]/5 pt-4' : ''}`}
+                className={`mt-4 grid gap-3 ${showWater ? 'grid-cols-2' : 'grid-cols-1'} ${decision?.wearableBrief ? 'border-t border-[#1B3A2D]/5 pt-4' : ''}`}
               >
                 {/* Conditional water tracking (migration 163) — water is not
                     a universal recommendation. For a member who told us she
                     already drinks plenty, this cell does not exist and
                     nutrition takes the full row, rather than her being shown
                     a nudge for a problem she does not have. */}
-                {hydrationTracked && (
+                {showWater && (
                   <div className="flex items-start gap-2">
                     <Droplet
                       className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]/50"
@@ -419,21 +456,36 @@ export default async function TodayPage() {
                 </div>
               </div>
             </section>
+            )}
 
-            {!decision || !decision.feedItem || !decision.content ? (
+            {!decision || !decision.feedItem || !decision.content || !shows(F.todayLesson) ? (
               <>
-                <section className={`${CARD} mt-6`}>
-                  <p className="text-base text-[#1B3A2D]">Still putting today&apos;s lesson together.</p>
-                  <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-                    I don&apos;t have it ready quite yet. Check back shortly and I&apos;ll have
-                    something for you.
-                  </p>
-                </section>
+                {/* The "still putting today's lesson together" card only
+                    appears for a member whose lesson IS revealed and whose
+                    content genuinely is not ready. A member the lesson has
+                    not been revealed to is not waiting for anything, so
+                    telling her something is coming would be inventing a
+                    feature to apologise for. */}
+                {shows(F.todayLesson) && (
+                  <section className={`${CARD} mt-6`}>
+                    <p className="text-base text-[#1B3A2D]">
+                      Still putting today&apos;s lesson together.
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
+                      I don&apos;t have it ready quite yet. Check back shortly and I&apos;ll have
+                      something for you.
+                    </p>
+                  </section>
+                )}
                 <TodayZones
                   todaysCheckinDone={Boolean(todaysCheckin)}
-                  hydrationTracked={hydrationTracked}
+                  hydrationTracked={showWater}
                   hydrationInitialTotal={hydrationTotal}
                   movementInitialLevel={movementLevel}
+                  showMovementTracker={shows(F.trackerMovementLevel)}
+                  showHabits={shows(F.trackerHabits)}
+                  showTotals={shows(F.todayTotals)}
+                  showCapability={shows(F.todayCapability)}
                   habits={habits}
                   habitLogs={habitLogs}
                   notifications={notifications}
@@ -536,9 +588,13 @@ export default async function TodayPage() {
 
                       <TodayZones
                         todaysCheckinDone={Boolean(todaysCheckin)}
-                        hydrationTracked={hydrationTracked}
+                        hydrationTracked={showWater}
                         hydrationInitialTotal={hydrationTotal}
                         movementInitialLevel={movementLevel}
+                        showMovementTracker={shows(F.trackerMovementLevel)}
+                        showHabits={shows(F.trackerHabits)}
+                        showTotals={shows(F.todayTotals)}
+                        showCapability={shows(F.todayCapability)}
                         habits={habits}
                         habitLogs={habitLogs}
                         notifications={notifications}
@@ -800,7 +856,7 @@ export default async function TodayPage() {
                 absence is precisely who must not be handed a column of
                 them. Nothing is lost, it returns on her next ordinary
                 visit. */}
-            {history.length > 0 && !priority?.isReEntry && (
+            {history.length > 0 && !priority?.isReEntry && shows(F.todayPastLessons) && (
               <section className="mt-6">
                 <div className="flex items-center gap-2 text-[#6B7A72]">
                   <History className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -855,7 +911,7 @@ export default async function TodayPage() {
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       <FloatingCoachLauncher
         entryPoint="today_focus"

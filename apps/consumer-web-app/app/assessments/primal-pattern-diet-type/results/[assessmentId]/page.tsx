@@ -20,7 +20,7 @@ import { getMemberNutritionProfile } from '@/lib/nutrition-intelligence/service'
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { HeroResultCard } from '@/components/primal-pattern/results/HeroResultCard';
 import { FuelBalanceVisual } from '@/components/primal-pattern/results/FuelBalanceVisual';
 import { DailyPlateGuide } from '@/components/primal-pattern/results/DailyPlateGuide';
@@ -129,7 +129,7 @@ export default async function PrimalPatternResultsPage({
         </p>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

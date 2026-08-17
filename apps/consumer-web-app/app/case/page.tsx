@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getMyCaseViewAction } from '@/app/actions/caseView';
 import { todaysLocalDate } from '@/lib/time/localDate';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { CenterStage } from '@/components/layout';
 import { CaseViewBody } from '@/components/case-view/CaseViewBody';
@@ -91,7 +91,7 @@ export default async function CaseViewPage() {
         <p className="mt-6 text-[11px] leading-relaxed text-[#9AA79F]">{SAFETY_STATEMENT}</p>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

@@ -17,7 +17,7 @@ import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { ScoreRing } from '@/components/assessments/ScoreRing';
 import { CategoryRadarChart, type RadarDatum } from '@/components/assessments/CategoryRadarChart';
 import { CategoryCard } from '@/components/assessments/CategoryCard';
@@ -161,7 +161,7 @@ export default async function AssessmentResultsPage({
         </section>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

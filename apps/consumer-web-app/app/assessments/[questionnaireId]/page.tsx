@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/server';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { describeLockReason } from '@/lib/assessment-registry/status';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { PriorityBadge } from '@/components/assessments/PriorityBadge';
 import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
 import { formatAssessmentDate, formatLastSaved } from '@/lib/assessments/presentation';
@@ -82,7 +82,7 @@ export default async function AssessmentOverviewPage({
           </CenterStage>
         </main>
 
-        <BottomNav isCoach={isCoach} />
+        <MemberBottomNav isCoach={isCoach} />
       </div>
     );
   }
@@ -218,7 +218,7 @@ export default async function AssessmentOverviewPage({
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

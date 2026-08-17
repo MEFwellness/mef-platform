@@ -25,7 +25,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getMyRootMap } from '@/app/actions/rootMap';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { CenterStage, CardStack } from '@/components/layout';
 import { groupRootMapDomains, resolveNamedAreaRecommendation } from '@/lib/root-map';
@@ -204,7 +204,7 @@ export default async function RootMapPage() {
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

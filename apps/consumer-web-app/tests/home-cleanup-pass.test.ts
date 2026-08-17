@@ -131,7 +131,11 @@ describe("Today's Numbers moved from Home to the Today tab", () => {
   });
 
   it('the grid never renders without a real check-in behind it', () => {
-    expect(TODAY).toContain('todaysCheckin ? <TodaysNumbersGrid');
+    // VISIBILITY LAYER (2026-08-17): a second condition joined the first.
+    // The check-in must exist AND the numbers grid must be revealed for
+    // her, so a member on day one is not handed a readout before she has
+    // anything in it. The original condition is unchanged and still leads.
+    expect(TODAY).toMatch(/todaysCheckin && shows\(F\.todayNumbers\) \? <TodaysNumbersGrid/);
   });
 
   it('water logging is still on the Today tab, one tap from the bottom nav, with its own +/- control', () => {

@@ -12,7 +12,7 @@ import { Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getTodaysMovementSession } from '@/app/actions/movement';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
@@ -121,7 +121,7 @@ export default async function MovementSessionPage() {
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       <FloatingCoachLauncher
         entryPoint="movement"

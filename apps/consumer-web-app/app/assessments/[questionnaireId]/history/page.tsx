@@ -14,7 +14,7 @@ import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { PriorityBadge } from '@/components/assessments/PriorityBadge';
 import {
   CategoryScoreTrendChart,
@@ -142,7 +142,7 @@ export default async function AssessmentHistoryPage({
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

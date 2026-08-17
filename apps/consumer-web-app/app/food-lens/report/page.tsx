@@ -12,7 +12,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getOrGenerateWeeklyNutritionReportAction } from '@/app/actions/nutrition-reports';
 import { INSUFFICIENT_DATA_MESSAGE } from '@/lib/food-lens/weeklyReport';
 import { getHistoryPatternsAction } from '@/app/actions/food-insights';
@@ -199,7 +199,7 @@ export default async function WeeklyNutritionReportPage() {
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

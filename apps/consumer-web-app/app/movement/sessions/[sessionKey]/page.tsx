@@ -15,7 +15,7 @@
 import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getSessionDetail } from '@/lib/movement-sessions/data';
 import { MovementSessionPlayer } from '@/components/movement-sessions/MovementSessionPlayer';
 
@@ -43,7 +43,7 @@ export default async function MovementSessionPage({
         <MovementSessionPlayer detail={detail} />
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

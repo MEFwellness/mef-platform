@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft, ShieldCheck } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { getRestaurantMealEntryAction } from '@/app/actions/restaurant';
 import { getFoodLensScanAction } from '@/app/actions/food-lens';
@@ -184,7 +184,7 @@ export default async function RestaurantMealEntryResultPage({
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
 
       {analysis && (
         <FloatingCoachLauncher

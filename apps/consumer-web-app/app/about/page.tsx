@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { Info, Mail } from 'lucide-react';
 import { getStaffRoles } from '@/lib/auth/staffRoles';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -72,7 +72,7 @@ export default async function AboutPage() {
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} isAdmin={isAdmin} />
+      <MemberBottomNav isCoach={isCoach} isAdmin={isAdmin} />
     </div>
   );
 }

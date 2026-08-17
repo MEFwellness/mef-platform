@@ -12,7 +12,7 @@ import { Dumbbell } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getMyAssignedWorkoutsAction } from '@/app/actions/coach-programs';
 import { MemberProgramsList } from '@/components/coach-program-builder/MemberProgramsList';
 
@@ -50,7 +50,7 @@ export default async function MyProgramsPage() {
         </div>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

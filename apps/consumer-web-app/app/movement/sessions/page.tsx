@@ -22,7 +22,7 @@ import { redirect } from 'next/navigation';
 import { Activity, ChevronRight, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { CardStack } from '@/components/layout';
 import { listSessionSummaries } from '@/lib/movement-sessions/data';
@@ -106,7 +106,7 @@ export default async function MovementSessionsPage() {
         </p>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

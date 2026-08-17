@@ -16,7 +16,7 @@ import { describeLockReason } from '@/lib/assessment-registry/status';
 import { getUnifiedAssessmentDefinitionByKey, getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
 import { findInProgressSession } from '@/lib/assessment-runtime';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { CVS_KEY } from '@/lib/core-values-snapshot/constants';
 import { CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { CenterStage, Card } from '@/components/layout';
@@ -51,7 +51,7 @@ export default async function CoreValuesSnapshotOverviewPage() {
             </Card>
           </CenterStage>
         </main>
-        <BottomNav isCoach={isCoach} />
+        <MemberBottomNav isCoach={isCoach} />
       </div>
     );
   }
@@ -106,7 +106,7 @@ export default async function CoreValuesSnapshotOverviewPage() {
           </Link>
         </Card>
       </main>
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

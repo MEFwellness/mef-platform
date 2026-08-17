@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { Gem, HeartPulse, Sparkles, Activity, UtensilsCrossed, ScanFace, Mail } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/layout';
 import { TrackSurfaceView, TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
@@ -87,7 +87,7 @@ export default async function MembershipPage() {
         </Card>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

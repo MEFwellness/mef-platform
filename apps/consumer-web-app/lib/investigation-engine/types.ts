@@ -27,41 +27,12 @@ export type InvestigationCategory =
   | 'behavioral_readiness'
   | 'advanced_synthesis';
 
-/** Member-facing three-value Priority (Method §4), the scale unlock triggers reason over. */
+/**
+ * Member-facing three-value Priority (Method §4). Still read by the Root
+ * Map's chip; no longer the scale any unlock rule reasons over, since
+ * visibility rules read canonical findings and evidence tiers instead.
+ */
 export type CoachingPriorityLevel = 'quiet' | 'worth_watching' | 'needs_attention_now';
-
-/**
- * Per-domain Stage (Method §10). Deliberately not persisted anywhere yet —
- * Method Recommendation 8 calls for pressure-testing this against real
- * member data before committing it to schema. This type exists so the
- * unlock-trigger contract is complete and forward-compatible; no
- * `InvestigationMetadata` entry in this phase actually declares a
- * `stage_gated` trigger (see registry.ts) — that's the Performance-tier
- * work explicitly deferred per the Investigation Library's own phased
- * rollout (§12).
- */
-export type CoachingStage =
-  | 'discovery'
-  | 'stabilization'
-  | 'optimization'
-  | 'integration'
-  | 'renewal';
-
-/**
- * The five reusable unlock-trigger types (Investigation Library §1.3).
- * `unlockEngine.ts` evaluates each of these against a member's current
- * state; an investigation can declare more than one (any one satisfied is
- * enough to unlock it — this mirrors how the real Root Router fragments
- * already combine independently-sufficient conditions, e.g.
- * `pickRecommendation`'s coach-assigned tier vs. its due-reassessment
- * tier).
- */
-export type UnlockTrigger =
-  | { kind: 'priority'; domain: CoachingDomain; minPriority: CoachingPriorityLevel }
-  | { kind: 'finding_routed'; domain: RegistryDomain; minSeverity: 'moderate' | 'significant' }
-  | { kind: 'stage_gated'; requiredDomains: CoachingDomain[]; minStage: CoachingStage }
-  | { kind: 'cadence_triggered' }
-  | { kind: 'member_initiated' };
 
 /** Method §6 field 4 — what shape of signal an investigation hands back to the Root Model. */
 export type RootModelContributionShape =
@@ -76,13 +47,20 @@ export type ReassessmentCadence =
   | { kind: 'open_ended' };
 
 /**
- * The full 13-field contract (Investigation Library §0 / Method §6),
- * expressed as real, evaluable TypeScript rather than markdown prose.
- * Everything here is additive metadata joined onto an existing
- * `AssessmentDefinition` by `key` — no field on that type is duplicated
- * unless its *meaning* here is genuinely different (e.g. `unlockTriggers`
- * is structured where `AssessmentDefinition.prerequisites.unlockRule` is
- * still free-text/null).
+ * The Investigation Contract (Investigation Library §0 / Method §6),
+ * expressed as real TypeScript rather than markdown prose. Everything here
+ * is additive metadata joined onto an existing `AssessmentDefinition` by
+ * `key`.
+ *
+ * THREE FIELDS LEFT THIS TYPE (Visibility Layer, 2026-08-17):
+ * `unlockTriggers`, `requiredPriorInvestigationKeys` and
+ * `optionalPriorInvestigationKeys`. They described who should see an
+ * assessment, which is now decided in exactly one place
+ * (lib/visibility/catalog.ts) for assessments, trackers, cards, screens and
+ * follow-up question sets alike. Leaving a second declaration site here was
+ * the specific hazard the audit named: two designed-but-inert unlock
+ * vocabularies side by side, either of which a future feature could
+ * innocently build on.
  */
 export type InvestigationMetadata = {
   key: AssessmentKey;
@@ -90,9 +68,6 @@ export type InvestigationMetadata = {
   category: InvestigationCategory;
   primaryObjective: string;
   whyItExists: string;
-  unlockTriggers: UnlockTrigger[];
-  requiredPriorInvestigationKeys: AssessmentKey[];
-  optionalPriorInvestigationKeys: AssessmentKey[];
   hypothesesInvestigated: string[];
   /** Which Coaching Domain(s) a completed attempt raises confidence in. */
   confidenceContributionDomains: CoachingDomain[];

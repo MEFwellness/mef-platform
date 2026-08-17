@@ -13,7 +13,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { getMyCvsExperimentStatusAction } from '@/app/actions/coreValuesSnapshot';
 import { areaFromLabel } from '@/lib/core-values-snapshot/constants';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperimentPanel';
 import { CenterStage, Card } from '@/components/layout';
@@ -53,7 +53,7 @@ export default async function CvsExperimentPage() {
           </CenterStage>
         )}
       </main>
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

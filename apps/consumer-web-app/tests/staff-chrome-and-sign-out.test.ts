@@ -86,8 +86,21 @@ describe('the member bottom navigation never renders for a coach or an administr
     const handOff = 'if (isCoach || isAdmin) return <StaffNav isCoach={isCoach} isAdmin={isAdmin} />;';
     expect(BOTTOM_NAV).toContain(handOff);
     expect(BOTTOM_NAV.indexOf(handOff)).toBeLessThan(
-      BOTTOM_NAV.indexOf('const leftItems: NavItem[] = MEMBER_LEFT_ITEMS;')
+      BOTTOM_NAV.indexOf('const leftItems: NavItem[]')
     );
+  });
+
+  it('the server wrapper hands staff through before it ever asks the visibility layer', () => {
+    // VISIBILITY LAYER (2026-08-17). MemberBottomNav is what member screens
+    // render now, so the staff hand-off has to hold there too, and it has to
+    // hold BEFORE any member-shaped read runs.
+    const wrapper = fs.readFileSync(
+      path.resolve(__dirname, '..', 'components/MemberBottomNav.tsx'),
+      'utf-8'
+    );
+    const handOff = 'if (isCoach || isAdmin) return <BottomNav isCoach={isCoach} isAdmin={isAdmin} />;';
+    expect(wrapper).toContain(handOff);
+    expect(wrapper.indexOf(handOff)).toBeLessThan(wrapper.indexOf('await getMemberVisibility()'));
   });
 
   it('BottomNav no longer carries a coach bar of its own, so there is one staff bar and not two', () => {
@@ -162,8 +175,12 @@ describe('the admin and coach chrome never renders for a member', () => {
     ].sort());
   });
 
-  it('a member sees the member bar: both props default to false, so nothing has to be passed', () => {
-    expect(BOTTOM_NAV).toContain('export function BottomNav({ isCoach = false, isAdmin = false }');
+  it('a member sees the member bar: the role props default to false, so nothing has to be passed', () => {
+    // A third prop joined them (Visibility Layer, 2026-08-17) and it also
+    // defaults safely: showFoodLens defaults to true, so a caller that has
+    // not been given the server-resolved answer behaves as this bar always
+    // has, and no default combination produces a member tab for staff.
+    expect(BOTTOM_NAV).toContain('export function BottomNav({ isCoach = false, isAdmin = false, showFoodLens = true }');
   });
 
   it('the member bar itself is unchanged: the same five destinations, in the same places', () => {

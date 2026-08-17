@@ -18,7 +18,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import {
   listMyFoodLensScansAction,
@@ -297,7 +297,7 @@ export default async function FoodLensPage() {
         </section>
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

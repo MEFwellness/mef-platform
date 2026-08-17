@@ -25,7 +25,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { resolveMembershipKey } from '@/lib/assessment-registry/membership';
 import { BackButton } from '@/components/BackButton';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
 import { HealthSnapshotHero } from '@/components/assessments/four-doctors-results/HealthSnapshotHero';
 import { BalanceOverview } from '@/components/assessments/four-doctors-results/BalanceOverview';
@@ -148,7 +148,7 @@ export default async function FourDoctorsResultsPage({
         )}
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }

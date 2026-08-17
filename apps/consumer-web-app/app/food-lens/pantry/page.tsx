@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { BottomNav } from '@/components/BottomNav';
+import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { listMyPantryAction } from '@/app/actions/pantry';
 import { PantryDashboard } from '@/components/pantry/PantryDashboard';
 
@@ -42,7 +42,7 @@ export default async function PantryPage() {
         <PantryDashboard initialActive={overview.active} />
       </main>
 
-      <BottomNav isCoach={isCoach} />
+      <MemberBottomNav isCoach={isCoach} />
     </div>
   );
 }
