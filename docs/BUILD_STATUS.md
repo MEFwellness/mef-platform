@@ -6947,3 +6947,36 @@ Run against `app.mefwellness.com` after the deploy went Ready and the domain was
 **Two things the live walk found that local tests could not**, both fixed and redeployed: a per-day cache holding a verdict (the Root Score explanation, and then the brief's coaching line), and Home naming no focus at all on a day the priority had been set aside.
 
 **Known and deliberately not fixed here.** The brief's memory-callback line still says "You've logged 3 check-ins with me so far" after the fourth. It is the same per-day cache, one field further down, and unlike the other two it is a count of a real past event rather than a claim about today, so it corrects itself tomorrow. The Today page's "Still putting today's lesson together" placeholder (audit 3.8) and the remaining medical-sounding finding labels are the language pass, not this build.
+
+### Migrations 165 and 166 applied and verified (2026-08-17)
+
+Both applied by the user. `supabase migration list` shows local and remote in step through 166.
+
+**165, verified against production:** all 78 finding rows carry a `canonical_source_key`, every one of which is exactly its own `domain::code` (0 mismatches). All 54 active findings carry an `evidence_tier`, distributed 47 `early_indication` / 7 `supported_by_checkins`, which matches the pre-application prediction in the entry above exactly. 0 rows are `coach_verified`, because no coach has confirmed anything. 0 members hold two active rows for one source answer.
+
+**166, verified against production:** the four `friction_*` columns exist, and, more to the point, **the member's own session can select them under RLS**, which is the thing `listThreadFriction` actually tests to decide whether the engine may ask. That is what "armed" means here. Confirmed by minting her real session and issuing the exact select the code issues.
+
+**Constraints proven by refusal.** Three writes the database must reject, each attempted for real: a `friction_reason` outside the closed set, a `friction_note` with no reason behind it, and an `evidence_tier` outside the four. All three rejected, and both target rows were confirmed byte-identical afterwards. A rejected write is the only way to prove a check constraint is enforcing rather than merely declared.
+
+`scripts/verify-friction-armed-live.mjs`, **13 of 13**.
+
+### The friction question is armed and correctly silent
+
+`scripts/verify-priority-card-normal-live.mjs`, **9 of 9**. Her card still carries "Take a few minutes for your Daily Reset.", still reads "Saved for later", still offers Done, and Home still names the same one thing. None of the six strings the friction question can put on screen appears anywhere.
+
+That silence is the correct behaviour and is worth stating as a result rather than an absence: **the production test member has responded to her priority card on every single day it has been shown to her** (2026-08-12 done, 08-13 help, 08-14 done, 08-15 done, 08-16 done, 08-17 later). Her `consecutive_ignored` is 0. Armed must not mean trigger-happy.
+
+### Why the three-day state was not simulated on her account
+
+It cannot be created without lying about her, and the lie would not sit still: writing a 3 into `member_coaching_threads.consecutive_ignored` asserts three days of ignoring that did not happen, and the engine would then act on it, changing how it speaks to her and, two changes later, handing her thread to a coach. Her profile also has `is_test = false`, so the test-account-only reset policies from migration 156 do not apply to her.
+
+`tests/friction-question-three-day-walk.test.ts` (19 tests) is the honest substitute. It drives the REAL engine (`selectCoachingAction`) through the actual sequence, one day at a time, with the shape of her real inputs, stubbing only the counters the database would have been holding on each of those mornings:
+
+- days one and two of silence: nothing asked, nothing changed
+- day three: the question, and the card deliberately NOT reworded at the same time
+- each of the five answers mapped to the framing it earns
+- she ignores the question: the engine's own original reword proceeds, silently, exactly as before
+- never asked twice, on any path
+- the arming switch proven in both positions on the same member and the same day
+
+Full suite **5,507 passing** (393 files).
