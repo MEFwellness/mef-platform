@@ -7173,6 +7173,14 @@ Exactly backwards, and invisible to every local test, because a fixture finding 
 
 **Neither affects a real member.** All 61 rows with a null key and all 5 with a null tier belong to the throwaway account and were created that afternoon. There are zero duplicate active findings anywhere in production.
 
+### Rule 2 proved the hard way, on production
+
+The migration verification flagged the throwaway account as having assessment history with no grandfather rows. It was correct, and the reason is the strongest demonstration of rule 2 in this build: her rows had been cleared to **zero** seconds earlier by a sanctioned reset. **One page load put back 19 of them, fifteen grandfathered, her completed intake among them.**
+
+Grandfathering is never read from `member_feature_visibility`. It is recomputed from her real rows on every single page load, precisely so it cannot be lost by a bad write, a delete, or a migration that missed somebody. A member cannot lose access to something she has touched even if that table is emptied underneath her.
+
+Both migration-coverage checks now exclude test accounts, because those are reset by these very scripts and asserting over them measures the timing of the harness rather than the migration. Real members: **14 of 14 covered, 25 of 25 real assessment attempts kept.**
+
 ### Standing verification, re-run after the migrations
 
 | Script | Result |

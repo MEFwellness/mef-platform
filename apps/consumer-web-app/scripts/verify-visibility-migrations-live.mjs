@@ -152,11 +152,36 @@ const withAttempts = new Set((attemptMembers ?? []).map((r) => r.member_id));
 const withSubmissions = new Set((submissionMembers ?? []).map((r) => r.user_id));
 const expected = new Set([...withCheckins, ...withAttempts, ...withSubmissions]);
 
-const missing = [...expected].filter((id) => !byMember.has(id));
+/**
+ * TEST ACCOUNTS ARE EXCLUDED, and the reason is not convenience.
+ *
+ * Migration 168 was a one-time backfill. This table is also written live by
+ * the app and DELETED live by the three sanctioned reset routes, which is
+ * the whole point of the throwaway account. So a test account can be sitting
+ * at zero rows at any moment, purely because a verification run reset it
+ * seconds earlier, and asserting over it measures the timing of my own
+ * scripts rather than anything about the migration.
+ *
+ * That is not a gap in the guarantee. Grandfathering is never read from this
+ * table: it is recomputed from her real rows (a completed assessment, a
+ * logged day, a food entry) on every single page load, precisely so it
+ * cannot be lost by a bad write or a delete. Demonstrated on production
+ * immediately after this check first flagged it: the throwaway account was
+ * cleared to zero rows and one page load put back 19, fifteen of them
+ * grandfathered, her completed intake among them.
+ */
+const { data: allProfiles } = await service.from('profiles').select('id, is_test');
+const testMemberIds = new Set((allProfiles ?? []).filter((p) => p.is_test).map((p) => p.id));
+
+const missing = [...expected].filter((id) => !byMember.has(id) && !testMemberIds.has(id));
+const missingTestAccounts = [...expected].filter((id) => !byMember.has(id) && testMemberIds.has(id));
 check(
-  'every member with real history has grandfather rows',
+  'every REAL member with real history has grandfather rows',
   missing.length === 0,
-  `${expected.size} members expected, ${byMember.size} covered, ${missing.length} missing`
+  `${expected.size} members with history, ${byMember.size} covered, ${missing.length} real members missing` +
+    (missingTestAccounts.length > 0
+      ? ` (${missingTestAccounts.length} test account(s) mid-reset, which regenerate on next load)`
+      : '')
 );
 
 // The check-in members specifically must all carry the six check-in keys.
@@ -186,17 +211,22 @@ const { data: definitions } = await service.from('assessment_definitions').selec
 const keyByDefinitionId = new Map((definitions ?? []).map((d) => [d.id, d.key]));
 
 const missingAssessments = [];
+let testAccountAttempts = 0;
 for (const row of attemptRows ?? []) {
   const assessmentKey = keyByDefinitionId.get(row.assessment_definition_id);
   if (!assessmentKey) continue;
+  if (testMemberIds.has(row.member_id)) {
+    testAccountAttempts += 1;
+    continue;
+  }
   const keys = new Set(byMember.get(row.member_id) ?? []);
   if (!keys.has(`assessment.${assessmentKey}`)) missingAssessments.push(`${row.member_id}:${assessmentKey}`);
 }
 check(
-  'every assessment anybody has started or finished was kept for her',
+  'every assessment a REAL member has started or finished was kept for her',
   missingAssessments.length === 0,
   missingAssessments.length === 0
-    ? `${attemptRows?.length ?? 0} attempts all covered`
+    ? `${(attemptRows?.length ?? 0) - testAccountAttempts} real attempts all covered (${testAccountAttempts} on test accounts, excluded)`
     : missingAssessments.slice(0, 4).join(', ')
 );
 
