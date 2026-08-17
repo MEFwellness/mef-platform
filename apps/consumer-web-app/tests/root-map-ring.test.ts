@@ -194,7 +194,11 @@ describe('RootMapRing color key — explains gold vs. green in plain language (2
   // match what colorFor/fillFractionFor actually encode (a real earned
   // finding vs. not yet), not a guess at "tracked vs. untracked."
   it('renders both color states in plain language, above the numbered legend', () => {
-    const keyIndex = SOURCE.indexOf('we&apos;ve noticed a real pattern');
+    // The gold key said "we've noticed a real pattern here" for a member
+    // whose findings are all at the emerging tier. A colour key may not make
+    // a claim the findings under it are not allowed to make (Member
+    // Interpretation Layer, 2026-08-17).
+    const keyIndex = SOURCE.indexOf('we&apos;ve noticed something here');
     const legendIndex = SOURCE.indexOf('<ul className="mt-3 grid');
     expect(keyIndex).toBeGreaterThan(-1);
     expect(SOURCE).toMatch(/still gathering information/);

@@ -332,7 +332,7 @@ export function RootMapRing({
       <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] leading-snug text-[#6B7A72]">
         <span className="flex items-center gap-1.5">
           <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: GOLD }} />
-          Gold: we&apos;ve noticed a real pattern here
+          Gold: we&apos;ve noticed something here
         </span>
         <span className="flex items-center gap-1.5">
           <span

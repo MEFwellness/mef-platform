@@ -172,11 +172,19 @@ export function scoreToStatus(score: number): MetricStatus {
 }
 
 /** Wording matches the app-wide status vocabulary: green=Healthy/On Track, gold=Needs Attention, red=Priority. */
+/**
+ * The band a score falls in.
+ *
+ * ONE FOCUS (Member Interpretation Layer, 2026-08-17). The bottom band was
+ * called "Priority Focus", which reads as the day's priority rather than as
+ * a score band, and sat inches from a card whose entire job is to name that.
+ * It describes how much room there is, so it says that.
+ */
 export function scoreLabel(score: number): string {
   if (score >= 85) return 'Excellent';
   if (score >= 70) return 'On Track';
   if (score >= 55) return 'Needs Attention';
-  return 'Priority Focus';
+  return 'Lots of room to build';
 }
 
 export type WellnessMetricScore = {

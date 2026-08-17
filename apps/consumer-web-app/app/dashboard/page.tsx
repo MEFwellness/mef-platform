@@ -45,6 +45,7 @@ import { ConnectWearableCard } from '@/components/wearables/ConnectWearableCard'
 import { WearableStatsRow } from '@/app/today/WearableStatsRow';
 import { HomeScreenPopups } from '@/components/dashboard/HomeScreenPopups';
 import { PriorityCard } from '@/components/priority/PriorityCard';
+import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
 import { TrackPriorityShown } from '@/components/priority/TrackPriorityShown';
 import { getMyPriorityView } from '@/lib/priority/view';
 import { getMyWeeklyReview } from '@/lib/weekly-review/view';
@@ -337,6 +338,20 @@ export default async function DashboardPage({
         {/* day-7 follow-ups, which keep their own place in the Root  */}
         {/* pop-up chain and in Active Experiments.                   */}
         {/* ==================================================== */}
+        {/* ONE FOCUS (Member Interpretation Layer, 2026-08-17). Home holds
+            the card itself only while it is ACTIVE; a saved card keeps its
+            collapsed home on Today and a completed one settles at the bottom
+            of this page. That left Home naming no focus at all on a day she
+            had set hers aside, while Root Score, Today and Talk to Root all
+            named it. This states the same one, from the same engine, and
+            points at where the card actually is. It is a pointer with no
+            buttons: there is still exactly one place to act on it. */}
+        {priority && priority.status !== 'active' && (
+          <div className="pt-3">
+            <TodaysFocusLine href="/today" />
+          </div>
+        )}
+
         {priority && priority.status === 'active' && (
           <div className="pt-3">
             {/* The pop-up and this inline card mount in the same paint on

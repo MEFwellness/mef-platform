@@ -45,7 +45,11 @@ export function buildReasonText(
 
   switch (reason) {
     case 'recent_checkins':
-      return `Your recent check-ins point to ${label} as today's most useful place to focus.`;
+      // ONE FOCUS (Member Interpretation Layer, 2026-08-17). This sentence
+      // named a place to focus on Home, where only the Priority Card may.
+      // It reports what the check-ins say, which is what it always did, and
+      // stops calling it a focus.
+      return `Your recent check-ins keep pointing at ${label}.`;
     case 'incomplete_habits':
       return 'Something you saved for later is still waiting. Today is a good day to finish it.';
     case 'low_adherence':
