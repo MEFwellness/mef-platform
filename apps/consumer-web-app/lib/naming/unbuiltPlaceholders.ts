@@ -1,8 +1,7 @@
 /**
  * What the app says about things that do not exist yet.
  *
- * JUDGMENT ITEM 3, AWAITING A DECISION. See docs/BUILD_STATUS.md for the
- * two options written out in full.
+ * DECIDED 2026-08-17: they do not render.
  *
  * Three member surfaces advertise unbuilt features: the questionnaire
  * catalogue's placeholder cards, and the two results screens' next-step
@@ -12,29 +11,26 @@
  * (Readiness to Change, Finding 1 Love) have no questions and no route, so
  * "soon" is not a claim anybody can stand behind.
  *
- * It is a judgment rather than a rename because the two answers serve
- * different people. Removing them entirely gives a member a catalogue where
- * everything she sees she can actually do, and gives up the one honest
- * signal that this library is still growing. Keeping them, worded
- * accurately, keeps that signal at the cost of shelf space occupied by
- * things she cannot open.
+ * The visibility layer's whole principle is that nothing renders unless she
+ * needs it now, and she cannot need something that does not exist. So the
+ * placeholder cards do not render at all: her library contains only what
+ * she can open. The signal that the library is still growing is given up
+ * deliberately, and it is the cheaper of the two losses.
  *
- * What IS done, so either answer is a one-line change:
- *
- *   - `UNBUILT_PLACEHOLDER_POLICY` is the switch, and `showUnbuiltPlaceholder()`
- *     is what all three surfaces call.
- *   - The literal "Coming soon" is gone from every member surface. The
- *     wording lives here, once, so the three surfaces cannot say three
- *     different things about the same situation.
+ * The wording below survives the decision on purpose. `showUnbuiltPlaceholder()`
+ * is the one gate all three surfaces call, and the label is kept beside it
+ * so that if an unbuilt feature is ever worth previewing again, there is one
+ * place to turn it on and one wording to turn on, rather than three surfaces
+ * each inventing a promise.
  */
 
 /**
- * 'show_honestly' (current): the placeholder renders, worded as not built
- * rather than as imminent.
- * 'hide': the placeholder does not render at all. A member's library
- * contains only what she can open.
+ * 'hide' (decided): the placeholder does not render at all. A member's
+ * library contains only what she can open.
+ * 'show_honestly': the retired option, kept named so the alternative is
+ * legible rather than merely absent.
  */
-export const UNBUILT_PLACEHOLDER_POLICY: 'show_honestly' | 'hide' = 'show_honestly';
+export const UNBUILT_PLACEHOLDER_POLICY: 'show_honestly' | 'hide' = 'hide';
 
 /**
  * The one wording. "Coming soon" is deliberately not among the candidates:

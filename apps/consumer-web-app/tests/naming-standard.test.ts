@@ -28,7 +28,7 @@ import {
   meetsNamingStandard,
 } from '../lib/naming/standard';
 import { FINDING_DISPLAY_NAMES, POSTURE_MEMBER_NAMES, findingDisplayName } from '../lib/naming/findingNames';
-import { PLAIN_DOMAIN_NAMES, coachingDomainLabel } from '../lib/naming/domainNames';
+import { allCoachingDomainLabels, coachingDomainLabel } from '../lib/naming/domainNames';
 import { WBSA_RETIRED_SECTION_TITLES, WBSA_SECTION_TITLES } from '../lib/wbsa/constants';
 import { CONCERN_CATEGORIES } from '../lib/safety/categories';
 import { COACHING_DOMAINS } from '../lib/investigation-engine/domains';
@@ -203,9 +203,15 @@ describe('every live name meets the standard', () => {
     }
   });
 
-  it('the plain domain name set, which is one half of an undecided question and must be finished copy either way', () => {
-    for (const [domain, name] of Object.entries(PLAIN_DOMAIN_NAMES)) {
-      expect(checkNamingStandard(name), `${domain} -> "${name}"`).toEqual([]);
+  it('all twelve coaching domain names, which are now one shared vocabulary', () => {
+    for (const name of allCoachingDomainLabels()) {
+      expect(checkNamingStandard(name), name).toEqual([]);
+    }
+  });
+
+  it('every coaching domain definition too, since the coach reads those on the Root Map card', () => {
+    for (const info of COACHING_DOMAINS) {
+      expect(checkNamingStandard(info.definition), `${info.domain}: ${info.definition}`).toEqual([]);
     }
   });
 
@@ -225,23 +231,61 @@ describe('every live name meets the standard', () => {
   });
 });
 
-describe('the three judgment items are exactly three, and named', () => {
-  it('has three, no more', () => {
-    expect(NAMES_PENDING_DECISION).toHaveLength(3);
+describe('nothing is parked as pending any more', () => {
+  it('the pending list is empty', () => {
+    // All three judgment items were answered and applied on 2026-08-17.
+    // This list is not an exception anybody may grant themselves: an open
+    // question about a name belongs in a report, not in the code that
+    // enforces the rule.
+    expect(NAMES_PENDING_DECISION).toEqual([]);
+  });
+});
+
+describe('one vocabulary, for everybody', () => {
+  it('the three clinical domain names are gone and the plain ones took their place', () => {
+    expect(coachingDomainLabel('pain_structural_integrity')).toBe('Aches and how you hold yourself');
+    expect(coachingDomainLabel('nutrition_metabolic_health')).toBe('Food and how it fuels you');
+    expect(coachingDomainLabel('stress_nervous_system')).toBe('Stress and how you settle');
   });
 
-  it('names the three the report asks about', () => {
-    expect([...NAMES_PENDING_DECISION].sort()).toEqual([
-      'coaching_domain_labels',
-      'movement_score',
-      'unbuilt_placeholders',
+  it('a coach and a member are handed the identical name, which is the whole point', () => {
+    for (const info of COACHING_DOMAINS) {
+      expect(coachingDomainLabel(info.domain, 'member')).toBe(
+        coachingDomainLabel(info.domain, 'coach')
+      );
+    }
+  });
+
+  it('all twelve read the same on both sides, and none of the old twelve survives', () => {
+    const labels = allCoachingDomainLabels();
+    expect(labels).toHaveLength(12);
+    for (const retired of [
+      'Pain & Structural Integrity',
+      'Nutrition & Metabolic Health',
+      'Stress & Nervous System Regulation',
+      'Sleep & Circadian Rhythm',
+      'Digestion & Gut Health',
+    ]) {
+      expect(labels).not.toContain(retired);
+      expect(BANNED_NAMES).toContain(retired);
+    }
+  });
+
+  it('the domain KEYS are untouched, so nothing stored moved', () => {
+    expect(COACHING_DOMAINS.map((d) => d.domain)).toEqual([
+      'identity_self_concept',
+      'purpose_motivation',
+      'stress_nervous_system',
+      'emotional_resilience_mood',
+      'sleep_circadian_rhythm',
+      'movement_physical_capacity',
+      'recovery_energy_regulation',
+      'pain_structural_integrity',
+      'nutrition_metabolic_health',
+      'digestion_gut_health',
+      'relationships_social_connection',
+      'environment_daily_rhythm',
     ]);
-  });
-
-  it('the coaching domain labels are still the shared taxonomy, so the decision genuinely has not been made', () => {
-    expect(coachingDomainLabel('pain_structural_integrity')).toBe(
-      COACHING_DOMAINS.find((d) => d.domain === 'pain_structural_integrity')!.label
-    );
   });
 });
 

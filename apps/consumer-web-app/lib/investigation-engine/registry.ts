@@ -86,11 +86,11 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     primaryObjective:
       'A real depth pass on eating patterns, digestion, and the stress/circadian factors that interact with them.',
     whyItExists:
-      'Nutrition & Metabolic Health deserves a dedicated deep dive beyond the Foundational Investigation light touch.',
+      'Food and how it fuels you deserves a dedicated deep dive beyond the Foundational Investigation light touch.',
     hypothesesInvestigated: [
       'Is eating pattern or quality the driver of concern',
       'Is stress independently elevated alongside nutrition findings',
-      'Is circadian rhythm disrupted',
+      'Is her sleep and wake rhythm irregular',
     ],
     confidenceContributionDomains: [
       'nutrition_metabolic_health',

@@ -1,8 +1,7 @@
 /**
  * Whether the Movement Score renders at all, and what it is called.
  *
- * JUDGMENT ITEM 2, AWAITING A DECISION. See docs/BUILD_STATUS.md for the
- * two options written out in full.
+ * DECIDED 2026-08-17: the score does not render.
  *
  * Live on the Movement screen the audit found: "MOVEMENT SCORE / 0 / 100 /
  * Just getting started / EARLY VERSION, MORE DEPTH COMING". Three separate
@@ -15,25 +14,28 @@
  * the only at-a-glance number on that screen; keeping it means a member
  * with a busy week reads "25 / 100" about her body.
  *
- * What IS done, so either answer is a one-line change:
+ * A completion ratio presented as a score out of 100 is the same
+ * overstatement this whole direction exists to remove, and the tile beside
+ * it already says the honest version: "2 of 4 sessions", counting real
+ * completed sessions against a real weekly target. So the score tile does
+ * not render, the Weekly Goal tile takes the row on its own, and the score
+ * comes back when it measures something a score should measure.
  *
- *   - `movementScoreDisplay()` is the single place the tile's contents are
- *     decided, including returning null for "do not render the tile at
- *     all", which components/layout/WhenNotEmpty.tsx's rule already
- *     requires of every other section.
- *   - The development caveat is deleted from the component.
- *   - Both wordings are written out below and both are covered by tests.
+ * `computeMovementScore` in ./score.ts is deliberately NOT deleted. It is a
+ * real computation over real history, it is what a future version would
+ * build on, and nothing is served by throwing it away because today's
+ * presentation of it was wrong.
  */
 
 import { movementScoreLabel } from './score';
 
 /**
- * 'score_out_of_100' (current): the number, over 100, with its band label.
- * 'sessions_this_week': no score at all. The tile is not rendered and the
- * Weekly Goal tile, which counts real completed sessions against a real
- * target, takes the row on its own.
+ * 'sessions_this_week' (decided): no score at all. The tile is not
+ * rendered and the Weekly Goal tile takes the row on its own.
+ * 'score_out_of_100': the retired presentation, kept named so the
+ * behaviour that was removed is legible rather than merely absent.
  */
-export const MOVEMENT_SCORE_MODE: 'score_out_of_100' | 'sessions_this_week' = 'score_out_of_100';
+export const MOVEMENT_SCORE_MODE: 'score_out_of_100' | 'sessions_this_week' = 'sessions_this_week';
 
 export type MovementScoreDisplay = {
   heading: string;

@@ -16,6 +16,21 @@
  * is the source of truth for four of these five vocabularies; this file is
  * the first place they're expressed as real, importable TypeScript rather
  * than a markdown table.
+ *
+ * ONE VOCABULARY, 2026-08-17. These twelve labels used to be the coaching
+ * taxonomy's own wording, and three of them read clinically on a member's
+ * own screen ("Pain & Structural Integrity", "Nutrition & Metabolic
+ * Health", "Stress & Nervous System Regulation"). The choice was between
+ * one shared vocabulary and two, one per audience, and one won: two
+ * vocabularies is the shape that produced most of the problems the
+ * adaptive-reveal audit found, and a member and her coach discussing one
+ * finding under two different names is the exact failure this direction
+ * exists to remove. Every label here now follows docs/NAMING-STANDARD.md,
+ * and the DOMAIN KEYS are untouched, so nothing stored changed.
+ *
+ * The definitions moved with them. They render on the coach's Root Map
+ * card, so "circadian alignment" and "GI symptoms" were the same problem
+ * one line further down.
  */
 
 import type { RegistryDomain } from '@mef/shared-types-contracts';
@@ -51,76 +66,76 @@ export type CoachingDomainInfo = {
 export const COACHING_DOMAINS: CoachingDomainInfo[] = [
   {
     domain: 'identity_self_concept',
-    label: 'Identity & Self-Concept',
+    label: 'How you see yourself',
     definition:
-      'How the member sees themselves in relation to their body and health; history of past attempts; self-efficacy.',
+      'How she sees herself in relation to her body and her health, what she has tried before, and how much she believes it can work.',
     isUninstrumented: true,
   },
   {
     domain: 'purpose_motivation',
-    label: 'Purpose & Motivation',
-    definition: "The member's why; values; what a meaningful day/week looks like to them.",
+    label: 'What matters to you',
+    definition: 'What she is doing this for, what she values, and what a good week looks like to her.',
     isUninstrumented: true,
   },
   {
     domain: 'stress_nervous_system',
-    label: 'Stress & Nervous System Regulation',
-    definition: 'Perceived stress, regulation capacity, activation/recovery balance.',
+    label: 'Stress and how you settle',
+    definition: 'How much stress she is carrying, and how well she comes back down from it.',
     isUninstrumented: false,
   },
   {
     domain: 'emotional_resilience_mood',
-    label: 'Emotional Resilience & Mood',
+    label: 'Mood and steadiness',
     definition:
-      'Mood patterns and emotional-regulation strategies, distinct from acute stress load.',
+      'How her mood runs day to day and what she does with it, separate from how much is on her plate.',
     isUninstrumented: false,
   },
   {
     domain: 'sleep_circadian_rhythm',
-    label: 'Sleep & Circadian Rhythm',
-    definition: 'Sleep quality, timing, and consistency; circadian alignment.',
+    label: 'Sleep and your daily rhythm',
+    definition: 'How well she sleeps, when she sleeps, and how steady that is from night to night.',
     isUninstrumented: false,
   },
   {
     domain: 'movement_physical_capacity',
-    label: 'Movement & Physical Capacity',
-    definition: 'Strength, mobility, movement variety and frequency.',
+    label: 'Movement and what your body can do',
+    definition: 'Strength, how freely she moves, and how varied and frequent her movement is.',
     isUninstrumented: false,
   },
   {
     domain: 'recovery_energy_regulation',
-    label: 'Recovery & Energy Regulation',
-    definition: 'Energy availability across the day/week; recovery from training and life load.',
+    label: 'Energy and recovery',
+    definition: 'How much energy she has across the day and the week, and how well she recovers from both training and life.',
     isUninstrumented: false,
   },
   {
     domain: 'pain_structural_integrity',
-    label: 'Pain & Structural Integrity',
-    definition: 'Pain patterns, posture, structural findings.',
+    label: 'Aches and how you hold yourself',
+    definition: 'Where and when she hurts, how she holds herself, and what the movement checks show.',
     isUninstrumented: false,
   },
   {
     domain: 'nutrition_metabolic_health',
-    label: 'Nutrition & Metabolic Health',
-    definition: 'Eating patterns, macronutrient balance, metabolic markers where available.',
+    label: 'Food and how it fuels you',
+    definition: 'What and how she eats, the balance of it, and how her body seems to run on it.',
     isUninstrumented: false,
   },
   {
     domain: 'digestion_gut_health',
-    label: 'Digestion & Gut Health',
-    definition: 'GI symptoms, digestive comfort, gut-related patterns.',
+    label: 'Digestion and how it settles',
+    definition: 'Bloating, regularity, and how comfortable she is after eating.',
     isUninstrumented: false,
   },
   {
     domain: 'relationships_social_connection',
-    label: 'Relationships & Social Connection',
-    definition: "Quality and depth of the member's social support and relationships.",
+    label: 'People around you',
+    definition: 'How much real support she has around her, and how close it is.',
     isUninstrumented: true,
   },
   {
     domain: 'environment_daily_rhythm',
-    label: 'Environment & Daily Rhythm',
-    definition: 'Home/work environment, daily routine structure, light and time-of-day exposure.',
+    label: 'Your surroundings and daily routine',
+    definition: 'Her home and work surroundings, the shape of her day, and when she gets light and quiet.',
     isUninstrumented: true,
   },
 ];

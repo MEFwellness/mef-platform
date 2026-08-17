@@ -174,7 +174,10 @@ describe('one source answer, one canonical finding', () => {
     const hip = findings[0]!;
     expect(hip.primaryDomain).toBe('pain_structural_integrity');
     expect(hip.alsoRelevantDomains).toEqual(['movement_physical_capacity']);
-    expect(hip.crossReferenceNote).toBe('Also shown under Movement & Physical Capacity.');
+    // The twelve domains were renamed for everybody 2026-08-17 (one shared
+    // vocabulary, member and coach). The cross-reference mechanism is
+    // unchanged; only the name it prints moved.
+    expect(hip.crossReferenceNote).toBe('Also shown under Movement and what your body can do.');
 
     const domains = buildDomainInterpretations({
       findings,

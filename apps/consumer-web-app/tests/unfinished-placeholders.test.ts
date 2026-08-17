@@ -83,29 +83,55 @@ describe('development-status copy is off the member Movement screen', () => {
   });
 });
 
-describe('judgment item 2: the Movement Score', () => {
-  it('currently shows the score, which is the option awaiting a decision', () => {
-    expect(MOVEMENT_SCORE_MODE).toBe('score_out_of_100');
-    expect(movementScoreDisplay(40)).not.toBeNull();
+describe('decided: the Movement Score does not render', () => {
+  it('the tile is gone, whatever the score would have been', () => {
+    expect(MOVEMENT_SCORE_MODE).toBe('sessions_this_week');
+    for (const score of [null, 0, 25, 40, 100]) {
+      expect(movementScoreDisplay(score), `score ${score}`).toBeNull();
+    }
   });
 
-  it('the other option genuinely removes the tile rather than emptying it', () => {
-    // Proved by the shape of the function: a mode that returns null is the
-    // whole implementation of "the section does not render", which is the
-    // same rule components/layout/WhenNotEmpty.tsx enforces for headings.
-    expect(movementScoreDisplay(null)?.value).toBeNull();
-    expect(movementScoreDisplay(null)?.emptyStatement).toContain('no score yet');
+  it('the tile is REMOVED rather than emptied, which is the same rule as an empty heading', () => {
+    // Returning null is what the grid checks, so there is no card, no
+    // heading, and no dash where a number used to be.
+    expect(movementScoreDisplay(40)).toBeNull();
   });
 
-  it('says nothing about development status in either mode', () => {
-    const display = movementScoreDisplay(0);
-    const text = [display?.heading, display?.caption, display?.emptyStatement].join(' ');
-    expect(text.toLowerCase()).not.toContain('early version');
-    expect(text.toLowerCase()).not.toContain('coming');
+  it('the underlying computation is deliberately kept, not deleted', () => {
+    // The number was a real calculation over real history. What was wrong
+    // was presenting a completion ratio as a score out of 100, and that is
+    // a presentation decision this build reversed; the calculation is what
+    // a better version would be built on.
+    const score = read('lib/movement/score.ts');
+    expect(score).toContain('export function computeMovementScore');
   });
 });
 
-describe('judgment item 3: unbuilt placeholders', () => {
+describe('decided: unbuilt placeholders do not render', () => {
+  it('the policy is to hide them', () => {
+    expect(UNBUILT_PLACEHOLDER_POLICY).toBe('hide');
+    expect(showUnbuiltPlaceholder()).toBe(false);
+  });
+
+  it('they are dropped from the questionnaire catalogue itself, so the counts are right too', () => {
+    // Skipped where the card is built rather than hidden where it renders,
+    // which is what makes "1 of 2 complete" count the library she actually
+    // has instead of one padded with things she cannot open.
+    const action = read('app/actions/questionnaireCatalog.ts');
+    expect(action).toContain('if (!showUnbuiltPlaceholder()) continue;');
+  });
+
+  it('the two results screens drop the cards, and the whole section when nothing is left', () => {
+    for (const file of [
+      'components/primal-pattern/results/NextStepsCards.tsx',
+      'components/assessments/four-doctors-results/NextStepsCards.tsx',
+    ]) {
+      const source = read(file);
+      expect(source, file).toContain("card.status !== 'coming_soon' || showUnbuiltPlaceholder()");
+      expect(source, file).toContain('if (visibleCards.length === 0) return null;');
+    }
+  });
+
   it('the promise wording is gone from every member surface', () => {
     for (const file of [
       'components/questionnaires/CatalogQuestionnaireCard.tsx',
@@ -115,17 +141,10 @@ describe('judgment item 3: unbuilt placeholders', () => {
       const source = read(file);
       expect(source, file).not.toContain('>Coming soon<');
       expect(source, file).not.toContain('>Coming Soon<');
-      expect(source, file).toContain('UNBUILT_PLACEHOLDER_LABEL');
-      expect(source, file).toContain('showUnbuiltPlaceholder()');
     }
   });
 
-  it('the wording lives in one place, so three surfaces cannot say three different things', () => {
+  it('the wording survives the decision, in one place, in case a preview is ever wanted again', () => {
     expect(UNBUILT_PLACEHOLDER_LABEL).toBe('Not built yet');
-  });
-
-  it('currently shows the placeholders, honestly worded, which is the option awaiting a decision', () => {
-    expect(UNBUILT_PLACEHOLDER_POLICY).toBe('show_honestly');
-    expect(showUnbuiltPlaceholder()).toBe(true);
   });
 });

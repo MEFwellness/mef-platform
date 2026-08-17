@@ -116,6 +116,19 @@ export const BANNED_NAMES: readonly string[] = [
   'Sleep Quality Pattern',
   'Stress & Mood Pattern',
   'Cognitive Clarity Pattern',
+  // The twelve coaching domain names, renamed for everybody 2026-08-17
+  'Identity & Self-Concept',
+  'Purpose & Motivation',
+  'Stress & Nervous System Regulation',
+  'Emotional Resilience & Mood',
+  'Sleep & Circadian Rhythm',
+  'Movement & Physical Capacity',
+  'Recovery & Energy Regulation',
+  'Pain & Structural Integrity',
+  'Nutrition & Metabolic Health',
+  'Digestion & Gut Health',
+  'Relationships & Social Connection',
+  'Environment & Daily Rhythm',
   // Whole-Body Systems Assessment section titles
   'Upper Digestive Function',
   'Lower Digestive & Elimination Function',
@@ -189,15 +202,22 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * The three names still carrying a decision, and nothing else.
+ * Names still carrying a decision. Empty, and it must stay that way.
  *
- * These are not exceptions anybody may grant themselves. Each one is a
- * standing question with two written options in docs/BUILD_STATUS.md, and
- * `tests/naming-standard.test.ts` asserts this list is exactly these three
- * entries, so a fourth name cannot be quietly parked here.
+ * There were three. All three were answered on 2026-08-17 and all three
+ * were applied:
+ *
+ *   coaching_domain_labels  one vocabulary. The twelve domains were renamed
+ *                           for everybody in lib/investigation-engine/domains.ts,
+ *                           and their old names are on BANNED_NAMES above.
+ *   movement_score          removed. The tile does not render
+ *                           (lib/movement/scoreDisplay.ts).
+ *   unbuilt_placeholders    hidden. They do not enter the catalogue
+ *                           (lib/naming/unbuiltPlaceholders.ts).
+ *
+ * This is not an exception list anybody may grant themselves an entry on.
+ * `tests/naming-standard.test.ts` asserts it is empty, so a name cannot be
+ * parked here to dodge the standard: an open question about a name belongs
+ * in a report, not in the code that enforces the rule.
  */
-export const NAMES_PENDING_DECISION: readonly string[] = [
-  'coaching_domain_labels',
-  'movement_score',
-  'unbuilt_placeholders',
-];
+export const NAMES_PENDING_DECISION: readonly string[] = [];

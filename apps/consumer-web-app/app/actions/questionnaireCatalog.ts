@@ -33,6 +33,7 @@ import type { AssessmentDefinition, AssessmentKey } from '@/lib/assessment-regis
 import { getUnifiedAssessmentDefinitionByKey, getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
 import { findInProgressSession } from '@/lib/assessment-runtime';
 import { getMemberVisibility } from '@/lib/visibility';
+import { showUnbuiltPlaceholder } from '@/lib/naming/unbuiltPlaceholders';
 
 export type CatalogCard = {
   key: AssessmentKey;
@@ -267,7 +268,17 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
       continue;
     }
 
-    // Coming Soon placeholders (readiness-to-change, short-haq, finding-1-love).
+    // Unbuilt placeholders (readiness-to-change, short-haq, finding-1-love).
+    //
+    // DECIDED 2026-08-17: they do not enter the catalogue at all. Two of the
+    // three have no questions and no route, so a card for them is an
+    // advertisement for something nobody can open, and the visibility
+    // layer's own rule is that nothing renders unless she needs it now.
+    // Skipped here rather than hidden in the card component so the counts
+    // ("1 of 2 complete") count the library she actually has.
+    // See lib/naming/unbuiltPlaceholders.ts.
+    if (!showUnbuiltPlaceholder()) continue;
+
     cards.push({
       key: entry.key,
       title: entry.displayName,

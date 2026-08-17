@@ -21,13 +21,24 @@ const ICON: Record<string, typeof Moon> = {
 };
 
 export function NextStepsCards() {
+  // DECIDED 2026-08-17: an unbuilt assessment is not previewed. A card for
+  // something nobody can open is an advertisement, and two of these have no
+  // questions and no route at all. The whole section disappears when every
+  // card in it is unbuilt, rather than leaving a heading over nothing (the
+  // same rule components/layout/WhenNotEmpty.tsx enforces everywhere else).
+  // See lib/naming/unbuiltPlaceholders.ts.
+  const visibleCards = NEXT_STEP_CARDS.filter(
+    (card) => card.status !== 'coming_soon' || showUnbuiltPlaceholder()
+  );
+  if (visibleCards.length === 0) return null;
+
   return (
     <section>
       <p className="px-1 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
         Continue Your Journey
       </p>
       <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {NEXT_STEP_CARDS.map((card) => (
+        {visibleCards.map((card) => (
           <NextStepCardItem key={card.id} card={card} />
         ))}
       </div>
