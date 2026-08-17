@@ -24,12 +24,39 @@ export type FindingCardViewModel = {
   nextStep: { title: string; body: string } | null;
 };
 
+/**
+ * Honesty guard, 2026-08-17: what a domain says when it has a real finding
+ * against it and not one logged day behind it.
+ *
+ * The Root Map was showing "Movement & Physical Capacity, 0 of 21 days
+ * logged" and, in the same card, "LOOKING STEADY. Nothing specific needed
+ * here right now." Steady is a verdict, and it was being read off a
+ * 'quiet' priority, which is what a domain resolves to when nothing has
+ * been found in it. Nothing found is not the same as nothing there, and it
+ * is certainly not "nothing needed", least of all in a domain the member
+ * has two active pain findings in.
+ *
+ * This is a display swap only. The priority, the confidence and the
+ * findings themselves are untouched: the card just stops calling an empty
+ * record a good one.
+ */
+const NOTHING_LOGGED_STEP = {
+  title: 'Nothing logged here yet',
+  body: 'There are no logged days behind this one, so there is nothing here to call steady or otherwise. Logging it in a check-in is what starts the picture.',
+};
+
 export function buildFindingCardViewModel(
   domain: RootMapDomainView,
   coverage: DomainCoverage | null
 ): FindingCardViewModel {
-  const nextStep =
-    domain.nextSuggestedStep !== domain.whatWereStillLearning
+  // `coverage` is null for a domain with no trackable per-day source at
+  // all (lib/root-map/coverage.ts), which is a different thing from a real
+  // zero and must not be treated as one.
+  const positiveVerdictWithNothingBehindIt = domain.priority === 'quiet' && coverage?.count === 0;
+
+  const nextStep = positiveVerdictWithNothingBehindIt
+    ? NOTHING_LOGGED_STEP
+    : domain.nextSuggestedStep !== domain.whatWereStillLearning
       ? { title: domain.currentRecommendation, body: domain.nextSuggestedStep }
       : null;
 

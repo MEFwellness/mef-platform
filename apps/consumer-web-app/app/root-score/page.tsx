@@ -36,11 +36,7 @@ import { RootScoreDomainRow } from '@/components/RootScoreDomainRow';
 import { AnimatedRootScoreTrendChart } from '@/components/AnimatedRootScoreTrendChart';
 import { DOMAIN_ORDER } from '@/lib/scoring/config';
 import { SAFETY_STATEMENT } from '@/lib/scoring/copy';
-import type {
-  MomentumState,
-  ResilienceState,
-  ScoreConfidenceLevel,
-} from '@mef/shared-types-contracts';
+import type { MomentumState, ResilienceState } from '@mef/shared-types-contracts';
 
 /**
  * Screen Layout System (Prompt 2): the "Building your Root Score" state is
@@ -52,12 +48,16 @@ import type {
  */
 const EMPTY_STATE_CHROME_OFFSET_PX = 200;
 
-const CONFIDENCE_LABEL: Record<ScoreConfidenceLevel, string> = {
-  building: 'Building your baseline',
-  low: 'Low confidence',
-  moderate: 'Moderate confidence',
-  high: 'High confidence',
-};
+/**
+ * Trust cleanup, 2026-08-17: the score line no longer prints a confidence
+ * label. It read "High confidence" directly above a domain breakdown where
+ * all five domains read "Building", because the roll-up's history term
+ * counts calculations (a daily cron) rather than the member's own evidence.
+ * The calculation is untouched and still stored; only the on-screen claim
+ * is gone. The baseline state is the one thing still worth saying, and it
+ * claims nothing about how sure we are.
+ */
+const BASELINE_NOTE = 'Still building your baseline';
 
 const MOMENTUM_LABEL: Record<MomentumState, string> = {
   improving: 'Improving',
@@ -173,8 +173,8 @@ export default async function RootScorePage() {
                 <ChangeBadge change={snapshot!.root_score_change} />
               </div>
               <p className="mt-2 text-sm font-medium text-[#6B7A72]">
-                {scoreLabel(snapshot!.root_score!)} ·{' '}
-                {CONFIDENCE_LABEL[snapshot!.root_confidence_level]}
+                {scoreLabel(snapshot!.root_score!)}
+                {snapshot!.root_confidence_level === 'building' ? ` · ${BASELINE_NOTE}` : ''}
               </p>
               <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">
                 {snapshot!.explanation_summary}
@@ -319,8 +319,9 @@ export default async function RootScorePage() {
               <p className="mt-3 text-sm leading-relaxed text-[#6B7A72]">
                 Root Score blends up to five areas (recovery, stress, nutrition, movement, and
                 consistency) using a rolling 30-day window, so no single day, meal, or workout can
-                move it very far. A domain only counts when there&apos;s real data behind it;
-                missing data lowers confidence, never the score itself. Momentum looks at your most
+                move it very far. A domain only counts when there&apos;s real data behind it, so
+                missing data narrows what the score is built from rather than lowering the score
+                itself. Momentum looks at your most
                 recent 7 days against the 7 before that. Resilience only shows a real number once
                 MEF Wellness has seen enough of your history to understand how you recover after a
                 disrupted stretch.

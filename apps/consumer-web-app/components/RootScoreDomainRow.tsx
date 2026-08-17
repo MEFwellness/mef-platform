@@ -12,12 +12,18 @@ import { scoreToStatus } from '@/lib/wellness/wellness-index';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { DOMAIN_COPY } from '@/lib/scoring/copy';
 
-const CONFIDENCE_LABEL: Record<DomainScore['confidence_level'], string> = {
-  building: 'Building',
-  low: 'Low confidence',
-  moderate: 'Moderate confidence',
-  high: 'High confidence',
-};
+/**
+ * Trust cleanup, 2026-08-17: this row no longer prints a per-domain
+ * confidence label. Five of these reading "Building" sat directly under a
+ * roll-up that read "High confidence", computed a different way, under the
+ * same word. `domain.confidence_level` still exists and is still computed
+ * (lib/scoring/domains.ts); nothing renders it to a member until the two
+ * calculations mean the same thing.
+ *
+ * "Building" was the one entry here that described the member's data rather
+ * than our certainty about it, so it is the one that stays, said plainly.
+ */
+const BASELINE_NOTE = 'Still building';
 
 function DirectionIcon({ direction }: { direction: DomainScore['direction'] }) {
   if (direction === 'improving')
@@ -46,9 +52,9 @@ export function RootScoreDomainRow({ domain }: { domain: DomainScore }) {
         </div>
         <p className="mt-1 text-sm leading-relaxed text-[#6B7A72]">{domain.explanation}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-xs text-[#1B3A2D]/50">
-            {CONFIDENCE_LABEL[domain.confidence_level]}
-          </span>
+          {domain.confidence_level === 'building' && (
+            <span className="text-xs text-[#1B3A2D]/50">{BASELINE_NOTE}</span>
+          )}
           <Link
             href={copy.linkHref}
             className="inline-flex items-center gap-0.5 text-xs font-medium text-[#1B3A2D] hover:underline"

@@ -34,6 +34,11 @@ const STATUS_LABEL: Record<CoachMemberRecommendationView['status'], string> = {
   completed: 'Completed',
   ignored: 'Ignored by member',
   expired: 'Expired',
+  // Migration 164 — replaced by a newer recommendation of the same kind,
+  // which today means a coaching focus that a later run rewrote. Kept
+  // visible here on purpose: this panel is the coach's history view, and a
+  // retired row is never deleted.
+  superseded: 'Replaced by a newer one',
 };
 
 const STATUS_STYLE: Record<CoachMemberRecommendationView['status'], string> = {
@@ -41,6 +46,7 @@ const STATUS_STYLE: Record<CoachMemberRecommendationView['status'], string> = {
   completed: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]/70',
   ignored: 'bg-[#FDF2E3] text-[#8A5A1F]',
   expired: 'bg-[#FAFAF8] text-[#6B7A72]',
+  superseded: 'bg-[#FAFAF8] text-[#6B7A72]',
 };
 
 export function RecommendationsPanel({

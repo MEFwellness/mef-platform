@@ -76,13 +76,24 @@ const MACRO_FIELDS: Array<{ key: NumericFieldKey; label: string; unit: string }>
   { key: 'potassiumMg', label: 'Potassium', unit: 'mg' },
 ];
 
-function confidenceLabel(value: number | undefined): { text: string; className: string } {
+/**
+ * Trust cleanup, 2026-08-17: no member screen states a confidence level any
+ * more, this form included. Each field used to carry a badge reading "High
+ * confidence" / "Likely" / "Needs confirmation" off the OCR score for that
+ * one number.
+ *
+ * What that badge was actually for is telling her which numbers to look at
+ * before she confirms the label, so that is all it says now: nothing when
+ * the read was clean, and a plain ask when it wasn't. The scores are
+ * untouched and still stored per field.
+ */
+const FIELD_READ_CLEAN_AT_OR_ABOVE = 0.75;
+
+function fieldBadge(value: number | undefined): { text: string; className: string } | null {
   if (value === undefined)
     return { text: 'Not read', className: 'bg-[#1B3A2D]/[0.06] text-[#6B7A72]' };
-  if (value >= 0.75)
-    return { text: 'High confidence', className: 'bg-[#1B3A2D]/[0.08] text-[#1B3A2D]' };
-  if (value >= 0.4) return { text: 'Likely', className: 'bg-[#F5B700]/15 text-[#854D0E]' };
-  return { text: 'Needs confirmation', className: 'bg-[#B45309]/15 text-[#B45309]' };
+  if (value >= FIELD_READ_CLEAN_AT_OR_ABOVE) return null;
+  return { text: 'Please check', className: 'bg-[#F5B700]/15 text-[#854D0E]' };
 }
 
 type Props = {
@@ -276,16 +287,18 @@ function FieldShell({
   confidence: number | undefined;
   children: React.ReactNode;
 }) {
-  const badge = confidenceLabel(confidence);
+  const badge = fieldBadge(confidence);
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <label className="text-sm font-medium text-[#1B3A2D]">{label}</label>
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.className}`}
-        >
-          {badge.text}
-        </span>
+        {badge && (
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.className}`}
+          >
+            {badge.text}
+          </span>
+        )}
       </div>
       {children}
     </div>

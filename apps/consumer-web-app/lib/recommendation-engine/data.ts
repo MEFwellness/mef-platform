@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { completionTrackingForCategory } from './classifier';
+import { isDailyCoachingFocus } from './lifecycle';
 import type { MemberRecommendation, MemberRecommendationRow } from './types';
 import { isHydrationTracked } from '../hydration/data';
 
@@ -167,6 +168,71 @@ export async function upsertMemberRecommendation(
     status: 'shown',
   });
   if (error) console.error('upsertMemberRecommendation insert failed', error);
+}
+
+/**
+ * Collapses the member's daily coaching focus down to exactly one live
+ * row, retiring the rest.
+ *
+ * Why this is needed at all: the focus row's dedup key is built from its
+ * own title (classifier.ts's buildRecommendationKey), and the title
+ * contains the focus label, so a focus of Stress and a focus of Hydration
+ * are two different keys. The upsert path therefore never saw them as the
+ * same thing, both stayed at 'shown', and the Recommendations screen
+ * rendered both, each saying "today".
+ *
+ * Retiring means status 'superseded' (migration 164). Rows are never
+ * deleted, and a row the member herself resolved (completed / ignored) is
+ * never touched — her decision is hers, and outcomeHistory reads it.
+ *
+ * `keepRecommendationKey` is the focus this run just wrote, when there was
+ * one. When it is null (a run that produced no focus at all, e.g. under a
+ * safety gate) the newest surviving focus is kept instead, so the
+ * "exactly one" invariant holds either way rather than depending on a
+ * recompute having succeeded.
+ *
+ * Best-effort by design, and it can legitimately no-op: recomputation also
+ * runs under an assigned coach's session, and migration 91 deliberately
+ * gives a coach no UPDATE policy on a member's recommendations. The
+ * read-side collapse in app/actions/recommendations.ts is what makes the
+ * screen invariant hold regardless.
+ *
+ * Returns the row ids it retired.
+ */
+export async function retireSupersededCoachingFocus(
+  supabase: SupabaseClient,
+  memberId: string,
+  keepRecommendationKey: string | null
+): Promise<string[]> {
+  const shown = (await listMemberRecommendations(supabase, memberId, { statusFilter: ['shown'] }))
+    .filter(isDailyCoachingFocus)
+    // listMemberRecommendations orders created_at desc, so index 0 is newest.
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+
+  if (shown.length <= 1) return [];
+
+  // shown.length > 1 above, so shown[0] exists.
+  const keeper =
+    (keepRecommendationKey ? shown.find((r) => r.recommendationId === keepRecommendationKey) : null) ??
+    shown[0]!;
+
+  const toRetire = shown.filter((row) => row.id !== keeper.id);
+  if (toRetire.length === 0) return [];
+
+  const { error } = await supabase
+    .from('member_recommendations')
+    .update({ status: 'superseded', updated_at: new Date().toISOString() })
+    .eq('member_id', memberId)
+    .in(
+      'id',
+      toRetire.map((row) => row.id)
+    );
+
+  if (error) {
+    console.error('retireSupersededCoachingFocus failed', error);
+    return [];
+  }
+  return toRetire.map((row) => row.id);
 }
 
 export async function listMemberRecommendations(

@@ -33,6 +33,29 @@ export function describeSignalAsPictureItem(signal: LongitudinalSignal): Longitu
   return { subject: capitalize(subject), sentence: describeSignalForMember(signal) };
 }
 
+/**
+ * Honesty guard, 2026-08-17. The Coaching Insights page used to put
+ * `one_time_observation`, `repeated_signal` and `emerging_pattern` into one
+ * list and head it "Patterns We're Beginning to Notice", so a line whose
+ * own sentence read "We noticed this once" was filed under a heading that
+ * called it a pattern. The three-tier language module (copy.ts) was always
+ * right about the sentence; only the grouping above it was wrong.
+ *
+ * A single mention is a single mention. It gets its own group and its own
+ * honest heading; only repeated signals sit under the word pattern.
+ */
+export function splitObservationsAndPatterns(signals: LongitudinalSignal[]): {
+  singleObservations: LongitudinalSignal[];
+  repeatedPatterns: LongitudinalSignal[];
+} {
+  return {
+    singleObservations: signals.filter((s) => s.state === 'one_time_observation'),
+    repeatedPatterns: signals.filter(
+      (s) => s.state === 'repeated_signal' || s.state === 'emerging_pattern'
+    ),
+  };
+}
+
 export type NextBestStepView = {
   message: string;
   investigation: { displayName: string; route: string } | null;

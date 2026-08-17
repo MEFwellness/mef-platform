@@ -45,6 +45,7 @@ export default async function CoachingInsightsPage() {
   const picture = safetyMessage ? null : await getMyLongitudinalPicture();
   const pictureHasContent = picture
     ? picture.whatsChanging.length > 0 ||
+      picture.singleObservations.length > 0 ||
       picture.emergingPatterns.length > 0 ||
       picture.whatSeemsToBeHelping.length > 0 ||
       picture.stillLearning.length > 0 ||
@@ -134,6 +135,10 @@ function LongitudinalPictureSection({
 }) {
   const groups: Array<{ title: string; items: LongitudinalPictureItem[] }> = [
     { title: "What's Changing", items: picture.whatsChanging },
+    // Two headings, not one. Single mentions used to sit under the pattern
+    // heading below, which turned an honest "We noticed this once" into a
+    // claim that a pattern existed.
+    { title: "What We're Noticing So Far", items: picture.singleObservations },
     { title: "Patterns We're Beginning to Notice", items: picture.emergingPatterns },
     { title: 'What Seems to Be Helping', items: picture.whatSeemsToBeHelping },
     { title: "What We're Still Learning", items: picture.stillLearning },

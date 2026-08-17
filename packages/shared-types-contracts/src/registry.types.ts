@@ -60,7 +60,29 @@ export type RegistryEntryStatus = 'active' | 'resolved' | 'superseded' | 'dismis
  */
 export type FindingTrendStatus = 'new' | 'improving' | 'stable' | 'worsening' | 'resolved';
 
-/** Ten real producers now — body assessment and coach intelligence from the original milestone, wearable_daily_metric (see lib/registry/adapters/wearables.ts), food_lens_pattern_comparison (see lib/registry/adapters/foodLens.ts), movement_session_completed (see lib/registry/adapters/movement.ts), food_analysis_result, the three Universal Assessment Intelligence Engine adapters (questionnaire_category_finding, onboarding_baseline_finding, primal_pattern_classification — see lib/registry/adapters/{questionnaireEngine,onboarding,primalPattern}.ts), and unified_assessment_finding (the Unified Adaptive Assessment Runtime, migration 99 — see lib/registry/adapters/unifiedAssessment.ts). Extend alongside the migration's check constraint as future adapters land. */
+/**
+ * Eight live producers — body assessment and coach intelligence from the
+ * original milestone, wearable_daily_metric (see
+ * lib/registry/adapters/wearables.ts), movement_session_completed (see
+ * lib/registry/adapters/movement.ts), the three Universal Assessment
+ * Intelligence Engine adapters (questionnaire_category_finding,
+ * onboarding_baseline_finding, primal_pattern_classification — see
+ * lib/registry/adapters/{questionnaireEngine,onboarding,primalPattern}.ts),
+ * and unified_assessment_finding (the Unified Adaptive Assessment Runtime,
+ * migration 99 — see lib/registry/adapters/unifiedAssessment.ts). Extend
+ * alongside the migration's check constraint as future adapters land.
+ *
+ * Two producers are RETIRED and must not be reintroduced:
+ * `food_analysis_result` and `food_lens_pattern_comparison`. Both turned a
+ * single logged food into a permanent, member-visible Root Map finding
+ * whose narrative carried the food's own name, so a product name a member
+ * typed became a standing statement about her health in two domains at
+ * once. Their values stay in this union because historical rows still
+ * reference them; nothing writes them any more, and the rows that exist
+ * were retired to status 'dismissed'. A logged food is data, and it lives
+ * in member_food_log / food_analysis_results / food_lens_pattern_comparisons
+ * where it can still be read as data.
+ */
 export type RegistrySourceFeature =
   | 'body_assessment_finding'
   | 'assessment_ai_observation'

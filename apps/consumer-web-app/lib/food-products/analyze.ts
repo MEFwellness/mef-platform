@@ -19,7 +19,6 @@ import {
 import { runFoodRulesEngine, resolveNutritionThresholds } from './rulesEngine';
 import { matchMemberAllergens } from './rulesEngine/allergenCheck';
 import { generateFoodCoachingNarrative } from './coachingNarrative';
-import { upsertRegistryEntryFromFoodAnalysis } from '@/lib/registry/adapters/foodProducts';
 
 export type RunProductAnalysisResult = {
   status: 'analyzed' | 'failed';
@@ -98,11 +97,14 @@ export async function runProductAnalysisForScan(
   });
   if (!analysis) return { status: 'failed', error: 'Could not save the analysis.' };
 
-  try {
-    await upsertRegistryEntryFromFoodAnalysis(supabase, memberId, analysis, details.product.name);
-  } catch (err) {
-    console.error('upsertRegistryEntryFromFoodAnalysis failed', err);
-  }
-
+  // A logged food is data, not a finding. This used to also write a
+  // registry_entries row whose narrative interpolated `details.product.name`
+  // (a name the member types or a barcode returns), which then rendered on
+  // her Root Map under "What We're Seeing" with the same weight as an
+  // assessment finding, permanently, in two domains at once. The analysis
+  // itself is still saved and still drives the Food Lens result screen and
+  // the protein ledger; it simply no longer becomes a standing finding
+  // about her. See tests/food-log-never-becomes-a-finding.test.ts, which
+  // fails the build if a registry adapter is imported here again.
   return { status: 'analyzed', analysis };
 }

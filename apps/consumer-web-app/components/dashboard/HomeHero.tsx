@@ -29,12 +29,21 @@ import { greetingHeadline } from '@/lib/profile/greeting';
 import { RootScoreCountUp } from './RootScoreCountUp';
 import { HeroAmbientGlow } from './HeroAmbientGlow';
 
-const CONFIDENCE_LABEL: Record<RootScoreSnapshot['root_confidence_level'], string> = {
-  building: 'Building your baseline',
-  low: 'Low confidence',
-  moderate: 'Moderate confidence',
-  high: 'High confidence',
-};
+/**
+ * Trust cleanup, 2026-08-17: Home no longer prints a confidence label
+ * beside the Root Score. It read "HIGH CONFIDENCE" on the first screen
+ * after login while all five domains underneath it read "Building", because
+ * the roll-up's history term counts how many times the score has been
+ * calculated (a daily cron, whether or not the member logs anything), not
+ * how much of her evidence exists. lib/scoring/confidence.ts still runs and
+ * `snapshot.root_confidence_level` is still stored and still read by
+ * everything that isn't a member's screen; it is the *claim* that is gone,
+ * so that nothing tells her how sure we are until that number means it.
+ *
+ * The one state still worth saying out loud is the baseline state, and it
+ * says only that: no confidence level, no ranking.
+ */
+const BASELINE_NOTE = 'Still building your baseline';
 
 const TREND_TINT: Record<'good' | 'attention' | 'poor', string> = {
   good: 'text-emerald-300',
@@ -264,9 +273,11 @@ export function HomeHero({
         <ChangePill change={snapshot.root_score_change} />
       </div>
 
-      <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-[#F5B700]">
-        {CONFIDENCE_LABEL[snapshot.root_confidence_level]}
-      </p>
+      {snapshot.root_confidence_level === 'building' && (
+        <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-[#F5B700]">
+          {BASELINE_NOTE}
+        </p>
+      )}
       <p className="mt-2 max-w-md text-[15px] leading-relaxed text-[#FAFAF8]/85">
         {snapshot.explanation_summary}
       </p>

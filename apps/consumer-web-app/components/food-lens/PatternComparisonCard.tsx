@@ -25,26 +25,24 @@ export function PatternComparisonCard({
   patternLabel,
   narrative,
   signals,
-  confidence,
   isThinBaseline = false,
 }: {
   patternLabel: string;
   narrative: string;
   signals: FoodLensComparisonSignal[];
-  confidence: number;
   /** True when the member's Primal Pattern target is still at its untouched defaults — lib/food-lens/comparison.ts's isPatternBaselineThin. There's no real eating-pattern data behind a match/heavier/lighter claim yet, so the chips are skipped and the caption points at setup instead of claiming a comparison happened. */
   isThinBaseline?: boolean;
 }) {
   return (
     <div className="rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-          Root&apos;s take
-        </p>
-        <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs font-medium text-[#1B3A2D]">
-          {(confidence * 100).toFixed(0)}% confidence
-        </span>
-      </div>
+      {/* Trust cleanup, 2026-08-17: the "78% confidence" chip that used to
+          sit opposite this heading is gone, with every other confidence
+          claim on a member screen. The comparison's confidence is still
+          computed and still stored on the row; the card just no longer
+          tells her a number whose meaning nothing on screen explains. */}
+      <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+        Root&apos;s take
+      </p>
 
       <p className="mt-3 text-[15px] leading-relaxed text-[#1B3A2D]">{narrative}</p>
 

@@ -28,6 +28,7 @@ import type {
   WellnessInsight,
 } from '@mef/shared-types-contracts';
 import { sleepQualityStatus, stressStatus } from '../wellness/status';
+import { daysBetweenLocalDates } from '../feed/dateMath';
 import { RECOVERY_PROXY_METRICS } from '../intelligence/copy';
 import type { WellnessMetricKey } from '../wellness/wellness-index';
 import { selectHabitToPrioritize } from './habitSelection';
@@ -87,18 +88,66 @@ const STRESS_SENTENCE: Record<'good' | 'attention' | 'poor', string> = {
   poor: 'Your stress ran high today.',
 };
 
-function checkinSleepSummary(latest: DailyCheckin | null): string | null {
-  if (!latest || latest.sleep_quality === null) return null;
-  const status = sleepQualityStatus(latest.sleep_quality);
-  if (status === 'no-data') return null;
-  return SLEEP_SENTENCE[status];
+/**
+ * Honesty guard, 2026-08-17. The sentences above say "last night" and
+ * "today", and both were being written from `recentCheckins`'s last
+ * element, which is the member's most recent check-in whenever it
+ * happened. On a morning before she had checked in, Home said "Your stress
+ * was moderate today" from a check-in logged the previous day, while Today,
+ * on the same load, said "You haven't checked in yet today."
+ *
+ * So: the "today" sentences are only used on a day she has actually
+ * checked in. Otherwise the same reading is still shown, because it is real
+ * and it is hers, but it is dated. Nothing here changes which status a
+ * value falls into (lib/wellness/status.ts is still the only thing that
+ * decides that) and nothing is withheld that was previously shown; the
+ * claim about *when* is the only thing that changes.
+ */
+const SLEEP_PHRASE: Record<'good' | 'attention' | 'poor', string> = {
+  good: 'good sleep',
+  attention: 'only fair sleep',
+  poor: 'rough sleep',
+};
+
+const STRESS_PHRASE: Record<'good' | 'attention' | 'poor', string> = {
+  good: 'low stress',
+  attention: 'moderate stress',
+  poor: 'high stress',
+};
+
+/** 'today' when the latest check-in is this local date, 'yesterday' when it is the day before, otherwise 'earlier'. */
+type CheckinRecency = 'today' | 'yesterday' | 'earlier';
+
+export function checkinRecency(latest: DailyCheckin | null, localDate: string): CheckinRecency | null {
+  if (!latest) return null;
+  const days = daysBetweenLocalDates(latest.local_date, localDate);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return 'earlier';
 }
 
-function checkinStressSummary(latest: DailyCheckin | null): string | null {
-  if (!latest || latest.stress_level === null) return null;
+function datedSentence(phrase: string, recency: 'yesterday' | 'earlier'): string {
+  return recency === 'yesterday'
+    ? `Yesterday you logged ${phrase}.`
+    : `You logged ${phrase} at your last check-in.`;
+}
+
+function checkinSleepSummary(latest: DailyCheckin | null, recency: CheckinRecency | null): string | null {
+  if (!latest || recency === null || latest.sleep_quality === null) return null;
+  const status = sleepQualityStatus(latest.sleep_quality);
+  if (status === 'no-data') return null;
+  return recency === 'today'
+    ? SLEEP_SENTENCE[status]
+    : datedSentence(SLEEP_PHRASE[status], recency);
+}
+
+function checkinStressSummary(latest: DailyCheckin | null, recency: CheckinRecency | null): string | null {
+  if (!latest || recency === null || latest.stress_level === null) return null;
   const status = stressStatus(latest.stress_level);
   if (status === 'no-data') return null;
-  return STRESS_SENTENCE[status];
+  return recency === 'today'
+    ? STRESS_SENTENCE[status]
+    : datedSentence(STRESS_PHRASE[status], recency);
 }
 
 /**
@@ -127,6 +176,7 @@ function pickEncouragingMessage(
 export function composeMorningBrief(signals: MorningBriefSignals): ComposedMorningBrief {
   const {
     firstName,
+    localDate,
     decision,
     recentCheckins,
     activeHabits,
@@ -138,6 +188,7 @@ export function composeMorningBrief(signals: MorningBriefSignals): ComposedMorni
     memoryCallback,
   } = signals;
   const latestCheckin = recentCheckins[recentCheckins.length - 1] ?? null;
+  const recency = checkinRecency(latestCheckin, localDate);
 
   // A real, multi-week/multi-day trend always outranks today's snapshot —
   // this is the difference between "here are today's numbers" and "I've
@@ -149,11 +200,11 @@ export function composeMorningBrief(signals: MorningBriefSignals): ComposedMorni
   const sleepSummary =
     sleepTrend?.member_summary ??
     decision.wearableBrief?.sleepRecommendation ??
-    checkinSleepSummary(latestCheckin);
+    checkinSleepSummary(latestCheckin, recency);
   const stressSummary =
     stressTrend?.member_summary ??
     decision.wearableBrief?.stressRecommendation ??
-    checkinStressSummary(latestCheckin);
+    checkinStressSummary(latestCheckin, recency);
   const recoverySummary =
     decision.wearableBrief?.recoveryStatus ?? recoveryTrend?.member_summary ?? null;
 

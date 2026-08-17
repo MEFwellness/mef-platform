@@ -27,6 +27,9 @@ import {
   markRecommendationsComputed,
   getLatestCheckinRecordedAt,
   isRecommendationComputationStale,
+  retireSupersededCoachingFocus,
+  isDailyCoachingFocus,
+  onlyCurrentCoachingFocus,
   type MemberRecommendationCategory,
   type RecommendationLifecycleStatus,
   type MemberRecommendationRow,
@@ -97,6 +100,17 @@ async function recomputeAndPersist(
     // Independent rows (each keyed by its own recommendation_key) — no
     // reason for these to wait on each other one at a time.
     await Promise.all(built.map((rec) => upsertMemberRecommendation(supabase, memberId, rec)));
+
+    // The daily coaching focus is rewritten every run, and its dedup key
+    // contains the focus label, so yesterday's focus never collided with
+    // today's and simply stayed live. Retire the ones this run replaced,
+    // now that this run's own row exists.
+    await retireSupersededCoachingFocus(
+      supabase,
+      memberId,
+      built.find(isDailyCoachingFocus)?.recommendationId ?? null
+    );
+
     await markRecommendationsComputed(supabase, memberId, trigger);
   } catch (err) {
     console.error('recomputeAndPersist (recommendations) failed', err instanceof Error ? err.message : err);
@@ -155,7 +169,9 @@ async function readMyRecommendationRows(
   memberId: string
 ): Promise<MemberRecommendationView[]> {
   const rows = await listMemberRecommendations(supabase, memberId, { statusFilter: ['shown'] });
-  return rows.map((row) => toView(row, new Date())).filter((view) => view.status !== 'expired');
+  return onlyCurrentCoachingFocus(rows)
+    .map((row) => toView(row, new Date()))
+    .filter((view) => view.status !== 'expired');
 }
 
 export type MemberRecommendationsWithFreshness = {

@@ -149,7 +149,6 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
               patternLabel={pattern.pattern_label}
               narrative={comparison.narrative}
               signals={comparison.signals}
-              confidence={comparison.confidence}
               isThinBaseline={isPatternBaselineThin(pattern)}
             />
           ) : macroEstimate ? (

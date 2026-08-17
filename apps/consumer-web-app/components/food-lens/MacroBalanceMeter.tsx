@@ -53,9 +53,14 @@ function Bar({ dimension }: { dimension: Dimension }) {
         <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
           {dimension.label}
         </p>
-        <p className="text-right text-xs text-[#6B7A72]">
-          {LEVEL_LABEL[dimension.level]} · {(dimension.confidence * 100).toFixed(0)}% confidence
-        </p>
+        {/* Trust cleanup, 2026-08-17: the "· 62% confidence" that used to
+            follow the level is gone, with every other confidence claim on
+            a member screen. The per-macro score still arrives and still
+            sets the fill's weight below; it is no longer stated as a
+            number, because a member has no way to know that this number
+            and the one the Root Score used to print are different
+            quantities under the same word. */}
+        <p className="text-right text-xs text-[#6B7A72]">{LEVEL_LABEL[dimension.level]}</p>
       </div>
       <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-[#E7E9E7]">
         {/* No filled portion at all when the macro is effectively absent — a

@@ -6648,3 +6648,79 @@ The Movement dashboard opened with three nav cards: Root Movement, Exercise Libr
 **Left on the production test member deliberately**: the two entries that run created, "Live check food 04:05:02" (31g) and "Live check shake" (12g), so the result is visible on the real screen. Both are ordinary food log entries and can be removed with the trash icon on the ledger.
 
 **Cosmetic, not fixed here**: a food typed through Food Lens manual entry is labeled "Scanned" in the ledger's entry list, because manual entry creates a `food_lens_scans` row (`scan_type: 'manual_entry'`) and `resolveEntrySource` reads only the presence of a scan id, not its type. Pre-existing, wrong in wording only, and telling it apart needs a scan-type join the ledger does not otherwise make.
+
+## Trust cleanup: five things the app was telling members that were not true (2026-08-17)
+
+The audit in `AUDIT-ADAPTIVE-REVEAL.md` found a lot. This pass fixed only the small, visible, provably-wrong ones. Nothing about scoring, interpretation or visibility was rebuilt; those are the next prompts, and everything the audit marked already compliant (the Priority Card decision engine, Case View, the safety tiering, the per-screen disclaimers) was left exactly as it was.
+
+### A food a member logs is data, and it is no longer a finding about her
+
+The Root Map was showing, under both Nutrition & Metabolic Health and Digestion & Gut Health, a bullet reading "Live check food 04:05:02: This product offers 31g of protein per serving..." That string is the name a verification script typed into Food Lens two weeks ago. It was on her wellness map with the same weight as an assessment finding because `lib/registry/adapters/foodProducts.ts` interpolated the product name straight into a registry finding narrative.
+
+Deleting the row would have left the pipeline that produced it. Both food registry adapters are gone instead: `foodProducts.ts` (barcode and manual product analysis) and `foodLens.ts` (the meal-vs-pattern comparison, whose LLM narrative names the meal just as plainly, "That pistachio-vanilla matcha looks like a treat..."). Neither pipeline writes to `registry_entries` any more.
+
+The scans themselves are untouched. `food_analysis_results`, `food_lens_pattern_comparisons` and `member_food_log` all still get written, the Food Lens result screen still shows the full analysis, and the protein ledger still reads every lane. What changed is that a single meal no longer becomes a standing, domain-attributed, permanent statement about the member's health. The one real cost is that Root's Conversation Coach and the Intelligence Engine no longer see food scans through the registry; the Coaching Intelligence Engine's nutrition source never did (it reads the comparison rows directly, which was always the better read) and is unaffected.
+
+`RegistrySourceFeature` keeps both values, because 20 historical rows reference them, with a comment saying they are retired and must not come back. A test fails the build if either pipeline imports a registry adapter again, and a second test scans every surviving adapter for a `productName` argument.
+
+### Every food-derived finding in production, retired
+
+Twenty rows across three members, all set to `status: 'dismissed'`. **Zero deleted.** Four were live and member-facing; sixteen were already superseded and retired alongside them so none can resurface.
+
+The four that were live on a member's screen:
+
+| Recorded | Member | Row | What it said |
+|---|---|---|---|
+| 2026-08-17 | ab25b880 | `2d55f597-737e-400d-9f65-c1e33ef9ceb6` | "Live check food 04:05:02: This product offers 31g of protein per serving..." |
+| 2026-08-16 | 3e7af809 | `adc7dbc3-5e16-49bc-bef1-5e8d5c9fae1f` | "Omelette: This omelette starts with a recognizable whole-food ingredient..." |
+| 2026-08-16 | 3e7af809 | `6fa5c3ec-4765-4f47-bb42-0850f334922f` | "You haven't set up the real details of your eating pattern yet..." |
+| 2026-07-31 | f37aa4a6 | `7bcd39ff-94fe-4422-825e-d31c2968ced4` | "That pistachio-vanilla matcha looks like a treat, but it's landing high on carbs..." |
+
+The sixteen already-superseded rows retired with them: `c6fdf9c8`, `2013725e`, `3b3b59f8`, `144a9c50`, `9259a37f`, `892dc006` ("Western omelette with potatoes"), `13743d6a` ("Pasta bolognese"), `0177e0fc` ("Overnight oats with crushed chia, flax and hemp"), `37ab93b2` ("Chicken cutlets with marinara sauce"), `4dbe8e9b` ("Overnight oats, matcha granola"), `f91127ad` ("3 eggs, spinach, on sourdough bread"), `3d2b1344` ("Home made Italian Wedding Soup"), `7a32bd09` ("Egg, turkey, potato, wrap"), `ec08d050` ("Chicken cutlet Parmesan"), `c4dc4f46` ("Western omlet"), `0800ea7a` ("That iced matcha...").
+
+### Only one thing can call itself today's coaching focus
+
+Recommendations showed two cards, "Today's coaching focus: Stress" and "Today's coaching focus: Hydration", both saying "today". The dedup key for a focus row is built from its own title (`buildRecommendationKey`), the title contains the focus label, so Stress and Hydration were never the same key, the partial unique index on `(member, key) where status = 'shown'` never collided, and every focus the Brain had ever picked was still live.
+
+Migration 164 adds a fifth lifecycle state, `superseded`. Deliberately not `expired` (that means "untouched for 30 days") and deliberately not `ignored` (that means the member said it wasn't helpful, which `outcomeHistory` reads as real negative feedback and which this system must never write on her behalf).
+
+Two mechanisms, on purpose:
+
+- **Write:** `retireSupersededCoachingFocus` runs at the end of every recompute and retires every focus row except the one that run just wrote.
+- **Read:** `onlyCurrentCoachingFocus` keeps only the newest focus row at render time and passes everything else through untouched.
+
+The second exists because the first can legitimately not happen. A coach viewing a client triggers the same recompute, and migration 91 gives a coach no UPDATE policy on a member's recommendations; every recompute is also best-effort and swallows its own errors. A display rule that depends on a write having succeeded is not a guarantee.
+
+**Backfilled in production:** 13 stale rows across 6 members retired to `superseded`, 0 deleted. Twelve members had a live focus; the worst had six. Every member now has exactly one. The coach's Recommendations panel labels the retired ones "Replaced by a newer one" and still shows them, because that panel is the history view.
+
+### A single mention is not a pattern
+
+Coaching Insights headed a list "Patterns We're Beginning to Notice" and put "Discomfort: hips: We noticed this once." under it. The three-tier language module was right at the sentence level; the grouping above it overrode it.
+
+`one_time_observation` now has its own group under "What We're Noticing So Far". Only `repeated_signal` and `emerging_pattern` sit under the pattern heading. The split is a pure function, `splitObservationsAndPatterns`, so it is tested rather than inspected.
+
+### Nothing on a member screen states a confidence level
+
+Home said "27 /100 · Steady · HIGH CONFIDENCE" while every one of the five domains underneath read "Building", because the roll-up's history term is `min(1, priorSnapshotCount / 5)` and snapshots accrue from a daily cron whether or not the member logs anything. After five days every member is maxed.
+
+Every confidence label and percentage is off the member's screens: Home's hero, the Root Score line, the per-domain rows, and the four Food Lens surfaces (detected items, portion, macro meter, pattern comparison, label confirmation). `computeRootConfidence` and the per-domain coverage confidence are untouched and still running, so Prompt 2 has something to rebuild against.
+
+Where a label was doing a real job it was replaced with the job rather than deleted. "Building your baseline" survives as a data statement, not a certainty claim. The Food Lens per-field OCR badge now says "Please check" on a weak read and nothing at all on a clean one, which is what a member actually needed from it. `RootMapDomainCard.tsx` still carries confidence chips and was left alone: it is coach-only now, the member Root Map has used `components/root-map/` since the 2026-07-28 redesign. The Case View confidence percentage is already `coachMode`-gated. The Root Score explainer's sentence about missing data lowering confidence was rewritten, since it pointed at something no longer on screen.
+
+### Three honesty guards, display only
+
+**Nothing claims "today" before she has checked in today.** Root's Daily Brief said "Your stress was moderate today" from a check-in logged the day before, on the same load where Today said "You haven't checked in yet today". `composeMorningBrief` already received `localDate` and never compared it to the check-in it was speaking from. It does now: the present-tense sentences are used only on a day she actually checked in, and otherwise the same real reading is shown, dated. "Yesterday you logged moderate stress." "You logged moderate stress at your last check-in." Nothing is withheld that used to be shown, and no status classification changed.
+
+**Zero logged data is never a positive verdict.** The Root Map showed "Movement & Physical Capacity, 0 of 21 days logged" and in the same card "LOOKING STEADY. Nothing specific needed here right now", for a member with two active pain findings and no movement sessions in 13 days. A `quiet` priority with a real zero coverage count now says so plainly instead. Null coverage (a domain with no per-day source at all) is not a real zero and is not touched, and a domain genuinely asking for attention is never overridden.
+
+Same guard on "What's Improving", which was reading `severity === 'none'` as improvement and printing "Packaged food scan has been improving." off one barcode scan. Improving now requires a real computed `trend_status`.
+
+### Not done
+
+The prompt's fix 5 said "three small honesty guards" and listed two; **5c was cut off in transmission and was not built.** The two most likely candidates from the audit are 2.14 (Progress prints "AVG ENERGY 3.0 / 5 in the last 30 recorded days" from 3 days, having just correctly withheld the trend below 7) and 2.12 (the improving list, which this pass fixed anyway as part of 5b).
+
+### Proof
+
+`tests/trust-cleanup.test.ts`, 37 tests, one group per fix. The sharp ones: the two deleted adapters proven gone and both pipelines proven not to import a registry adapter; a Stress row and a Hydration row collapsing to one in either input order while a sleep and a movement recommendation pass through untouched; every one of seven member surfaces scanned for seven confidence phrasings with comments stripped first, so a comment explaining the removal cannot mask a live one; the brief's four recency cases; and a zero-coverage card checked against both the real-zero and the no-source-at-all case. One existing test was inverted on purpose: `intelligence-engine-member-facing-noticing` used to assert that severity 'none' counted as improving.
+
+Full suite **5,363 passing** (388 files). Typecheck clean, lint clean (0 errors), production build clean. Migration 164 applied to production.

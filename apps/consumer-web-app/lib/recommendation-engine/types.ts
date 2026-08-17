@@ -38,7 +38,22 @@ export type MemberRecommendationCategory =
   | 'coach_review'
   | 'medical_referral_flag';
 
-export type RecommendationLifecycleStatus = 'shown' | 'completed' | 'ignored' | 'expired';
+/**
+ * 'superseded' (migration 164) means "a newer recommendation of this kind
+ * replaced this one" — the daily coaching focus is rewritten on every
+ * recompute, and before this existed each previous focus stayed at 'shown'
+ * forever, so the Recommendations screen accumulated several cards all
+ * titled "Today's coaching focus". Distinct from 'expired' (nothing touched
+ * it for 30 days) and from 'ignored' (the member said it wasn't helpful,
+ * which outcomeHistory reads as real negative feedback and which this
+ * system must never fake on her behalf).
+ */
+export type RecommendationLifecycleStatus =
+  | 'shown'
+  | 'completed'
+  | 'ignored'
+  | 'expired'
+  | 'superseded';
 
 export type RecommendedDuration = 'daily' | 'weekly' | 'one_time' | 'ongoing';
 

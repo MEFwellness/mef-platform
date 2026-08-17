@@ -52,8 +52,17 @@ export function buildMemberFacingNoticing(memberVisibleFindings: RegistryEntry[]
 
   const noticing = active.map((f) => f.narrative ?? f.label);
 
+  // Honesty guard, 2026-08-17: improving means a real, computed improving
+  // trend (lib/registry/trendStatus.ts compares a new entry against the one
+  // it supersedes), and nothing else.
+  //
+  // This used to also count `severity === 'none'`, which does not mean
+  // "getting better", it means "this producer found nothing". A single
+  // barcode scan on its own, with no second data point and no trend of any
+  // kind, was therefore printed to the member as "Packaged food scan has
+  // been improving." Absence of a finding is not progress.
   const improving = memberVisibleFindings
-    .filter((f) => f.member_visible && (f.trend_status === 'improving' || f.severity === 'none'))
+    .filter((f) => f.member_visible && f.trend_status === 'improving')
     .map((f) => `${f.label} has been improving.`);
 
   const worthAttention = active

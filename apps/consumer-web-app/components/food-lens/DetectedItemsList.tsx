@@ -58,11 +58,21 @@ const UNIT_OPTIONS: FoodLensPortionUnit[] = [
   'ounces',
 ];
 
-function portionConfidenceLabel(confidence: number | null): string | null {
+/**
+ * Trust cleanup, 2026-08-17: no member screen states a confidence level any
+ * more, here included. This used to read "High confidence" / "Likely" /
+ * "Needs confirmation" off the model's own portion score, three tiers of a
+ * certainty claim next to a portion the member is being asked to check.
+ *
+ * The only part of that worth showing is the part that asks her to do
+ * something, so the two confident tiers say nothing at all and the bottom
+ * one asks. The score itself is untouched and still stored.
+ */
+const PORTION_NEEDS_CHECK_BELOW = 0.4;
+
+function portionCheckPrompt(confidence: number | null): string | null {
   if (confidence === null) return null;
-  if (confidence >= 0.7) return 'High confidence';
-  if (confidence >= 0.4) return 'Likely';
-  return 'Needs confirmation';
+  return confidence < PORTION_NEEDS_CHECK_BELOW ? 'Worth a check' : null;
 }
 
 const STATUS_LABEL: Record<FoodLensDetectedItem['status'], string> = {
@@ -198,8 +208,7 @@ export function DetectedItemsList({
                     )}
                   </p>
                   <p className="mt-0.5 text-xs text-[#6B7A72]">
-                    {item.category} · {(item.confidence * 100).toFixed(0)}% confident this is right
-                    · {STATUS_LABEL[item.status]}
+                    {item.category} · {STATUS_LABEL[item.status]}
                   </p>
                   {(item.portion_description || item.cooking_method) && (
                     <p className="mt-0.5 text-xs text-[#9AA79F]">
@@ -207,8 +216,8 @@ export function DetectedItemsList({
                       {item.cooking_method && item.cooking_method !== 'unknown'
                         ? ` · ${item.cooking_method}`
                         : ''}
-                      {portionConfidenceLabel(item.portion_confidence)
-                        ? ` · ${portionConfidenceLabel(item.portion_confidence)}`
+                      {portionCheckPrompt(item.portion_confidence)
+                        ? ` · ${portionCheckPrompt(item.portion_confidence)}`
                         : ''}
                     </p>
                   )}

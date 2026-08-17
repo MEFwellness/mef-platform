@@ -2,13 +2,12 @@
  * Coaching Intelligence Engine — Food Lens data source. Reads
  * food_lens_pattern_comparisons (via the same accessor Food Lens's own
  * coaching narrative uses, lib/food-lens/data.ts's
- * listRecentFoodLensComparisonsForMember) rather than registry_entries:
- * the registry's Food Lens adapter (lib/registry/adapters/foodLens.ts)
- * deliberately collapses a comparison down to one coarse
- * severity ('none'/'mild'), which is enough for the Intelligence Engine's
- * purposes but not enough here — a Level 1/2/3 statement needs to say
- * *which* macro dimension (protein/carb/fat) ran heavy or light, and only
- * the source comparison row's own `signals` array carries that. This is
+ * listRecentFoodLensComparisonsForMember) rather than registry_entries.
+ * Reading the source rows was always the better choice here (a Level 1/2/3
+ * statement needs to say *which* macro dimension ran heavy or light, and
+ * only the comparison row's own `signals` array carries that), and it is
+ * now the only choice: the registry's Food Lens adapter was retired, since
+ * a logged meal should not become a standing Root Map finding. This is
  * still real, already-computed, deterministic data (lib/food-lens/
  * comparison.ts) — never re-derived or guessed at by this source.
  *

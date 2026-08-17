@@ -31,10 +31,25 @@ import {
 import { listMyLifestyleExperiments } from '@/lib/lifestyle-experiments';
 import { insertCoachRequestedReassessmentSchedule } from '@/lib/reassessment-intelligence/data';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
-import { describeSignalAsPictureItem, nextBestStepView, type LongitudinalPictureItem, type NextBestStepView } from '@/lib/longitudinal-intelligence/picture';
+import {
+  describeSignalAsPictureItem,
+  nextBestStepView,
+  splitObservationsAndPatterns,
+  type LongitudinalPictureItem,
+  type NextBestStepView,
+} from '@/lib/longitudinal-intelligence/picture';
 
 export type LongitudinalPictureView = {
   whatsChanging: LongitudinalPictureItem[];
+  /**
+   * Things seen exactly once. Kept apart from `emergingPatterns` because a
+   * single mention is not a pattern, and grouping the two put sentences
+   * that honestly say "We noticed this once" under a heading that called
+   * them patterns. The tiering underneath (lib/longitudinal-intelligence/)
+   * was always right about this; only the grouping was wrong.
+   */
+  singleObservations: LongitudinalPictureItem[];
+  /** Repeated signals only: seen more than once, so "pattern" is fair. */
   emergingPatterns: LongitudinalPictureItem[];
   whatSeemsToBeHelping: LongitudinalPictureItem[];
   stillLearning: LongitudinalPictureItem[];
@@ -55,6 +70,7 @@ function toNamedItems(signals: LongitudinalSignal[]): LongitudinalPictureItem[] 
 export async function getMyLongitudinalPicture(): Promise<LongitudinalPictureView> {
   const empty: LongitudinalPictureView = {
     whatsChanging: [],
+    singleObservations: [],
     emergingPatterns: [],
     whatSeemsToBeHelping: [],
     stillLearning: [],
@@ -78,11 +94,12 @@ export async function getMyLongitudinalPicture(): Promise<LongitudinalPictureVie
     signals.filter((s) => (s.state === 'worsening' || s.state === 'improving') && s.tier !== null && s.tier >= 2)
   ).slice(0, MAX_ITEMS_PER_SECTION);
 
-  const emergingPatterns = toNamedItems(
-    signals.filter(
-      (s) => s.state === 'one_time_observation' || s.state === 'repeated_signal' || s.state === 'emerging_pattern'
-    )
-  ).slice(0, MAX_ITEMS_PER_SECTION);
+  // Split, not merged. 'one_time_observation' is exactly what its name
+  // says, and its own sentence says so too ("We noticed this once"), so it
+  // cannot sit under a heading that calls it a pattern.
+  const split = splitObservationsAndPatterns(signals);
+  const singleObservations = toNamedItems(split.singleObservations).slice(0, MAX_ITEMS_PER_SECTION);
+  const emergingPatterns = toNamedItems(split.repeatedPatterns).slice(0, MAX_ITEMS_PER_SECTION);
 
   const whatSeemsToBeHelping: LongitudinalPictureItem[] = experiments
     .filter((e) => e.outcome === 'worked' || e.outcome === 'partially_worked')
@@ -98,6 +115,7 @@ export async function getMyLongitudinalPicture(): Promise<LongitudinalPictureVie
 
   return {
     whatsChanging,
+    singleObservations,
     emergingPatterns,
     whatSeemsToBeHelping,
     stillLearning,

@@ -55,7 +55,6 @@ import {
 } from '@/lib/food-lens/comparison';
 import { computeMealQualityRating, primaryMealSubjectLabel } from '@/lib/food-lens/mealQuality';
 import { generateFoodLensCoachingNarrative } from '@/lib/food-lens/coachingNarrative';
-import { upsertRegistryEntryFromFoodLensComparison } from '@/lib/registry/adapters/foodLens';
 import {
   getActivePrimalPatternProfile,
   getFoodLensScan,
@@ -376,17 +375,13 @@ async function runComparisonAndNarrative(
     confidence,
   });
 
-  if (comparison) {
-    try {
-      await upsertRegistryEntryFromFoodLensComparison(supabase, userId, comparison);
-    } catch (err) {
-      // Best-effort, same discipline as every other registry-write call
-      // site in this app — a member's own scan result must never fail
-      // because the downstream Intelligence Engine feed had a problem.
-      console.error('upsertRegistryEntryFromFoodLensComparison failed', err);
-    }
-  }
-
+  // A logged meal is data, not a finding. This used to also write a
+  // registry_entries row carrying this comparison's narrative, which names
+  // the food the member logged ("That pistachio-vanilla matcha looks like a
+  // treat..."), and that row then rendered on her Root Map as a standing
+  // finding about her nutrition, forever, from one meal. The comparison is
+  // still saved and still shown on the scan's own result screen, where it
+  // is about that meal and is read as being about that meal.
   return comparison ?? undefined;
 }
 

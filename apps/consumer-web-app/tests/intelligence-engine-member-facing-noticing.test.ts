@@ -50,8 +50,22 @@ describe('buildMemberFacingNoticing', () => {
     expect(result.improving[0]).toContain('improving');
   });
 
-  it('surfaces a resolved (severity: none) finding under "improving"', () => {
+  // Honesty guard (2026-08-17). This used to assert the opposite: that a
+  // severity 'none' finding counted as improving. It does not. Severity
+  // 'none' means the producer found nothing, not that something got better,
+  // and it was reaching the member as "Packaged food scan has been
+  // improving." off a single barcode scan with no second data point and no
+  // trend of any kind. Improving now requires a real computed
+  // trend_status of 'improving' (lib/registry/trendStatus.ts).
+  it('does not call a severity "none" finding improving, since nothing found is not progress', () => {
     const result = buildMemberFacingNoticing([finding({ severity: 'none' })]);
+    expect(result.improving).toHaveLength(0);
+  });
+
+  it('still calls a severity "none" finding improving when it carries a real improving trend', () => {
+    const result = buildMemberFacingNoticing([
+      finding({ severity: 'none', trend_status: 'improving' }),
+    ]);
     expect(result.improving).toHaveLength(1);
   });
 
