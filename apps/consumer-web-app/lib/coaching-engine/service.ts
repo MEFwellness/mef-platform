@@ -122,11 +122,18 @@ export async function getOrCreateTodaysMorningBrief(
 ): Promise<MorningBrief | null> {
   const existing = await getMorningBrief(supabase, memberId, localDate);
   if (existing) {
-    const recentCheckins = await listRecentCheckinsForMember(supabase, memberId, localDate);
+    // getCoachingFocusDecision is request-memoized (lib/brain/service.ts), and
+    // every page that renders this brief already asks for the decision, so
+    // this costs one shared computation rather than a second one.
+    const [recentCheckins, decision] = await Promise.all([
+      listRecentCheckinsForMember(supabase, memberId, localDate),
+      getCoachingFocusDecision(supabase, memberId, localDate).catch(() => null),
+    ]);
     return recomposeCheckinLines(
       existing,
       recentCheckins[recentCheckins.length - 1] ?? null,
-      localDate
+      localDate,
+      decision ? (decision.coachInsight ?? decision.reasonText) : null
     );
   }
 

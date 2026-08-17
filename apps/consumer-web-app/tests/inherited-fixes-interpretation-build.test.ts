@@ -148,6 +148,7 @@ describe('Home updates the same day she checks in', () => {
     const frozen = {
       sleep_summary: 'Yesterday you logged only fair sleep.',
       stress_summary: 'Yesterday you logged moderate stress.',
+      coaching_recommendation: 'Root said something.',
     };
 
     const refreshed = recomposeCheckinLines(
@@ -164,6 +165,7 @@ describe('Home updates the same day she checks in', () => {
     const frozen = {
       sleep_summary: 'Yesterday you logged only fair sleep.',
       stress_summary: 'Yesterday you logged moderate stress.',
+      coaching_recommendation: 'Root said something.',
     };
     const refreshed = recomposeCheckinLines(
       frozen,
@@ -182,6 +184,7 @@ describe('Home updates the same day she checks in', () => {
     const fromTrend = {
       sleep_summary: 'Your sleep has been declining across the last three weeks.',
       stress_summary: 'Your recovery score is trending up.',
+      coaching_recommendation: 'Root said something.',
     };
     const refreshed = recomposeCheckinLines(fromTrend, checkin({ local_date: TODAY }), TODAY);
     expect(refreshed).toEqual(fromTrend);
@@ -191,6 +194,7 @@ describe('Home updates the same day she checks in', () => {
     const frozen = {
       sleep_summary: 'Yesterday you logged only fair sleep.',
       stress_summary: 'Yesterday you logged moderate stress.',
+      coaching_recommendation: 'Root said something.',
     };
     // Today's check-in has no sleep value, so there is nothing to recompose.
     const refreshed = recomposeCheckinLines(
@@ -203,7 +207,7 @@ describe('Home updates the same day she checks in', () => {
 
   it('fills a line the brief did not have once she checks in', () => {
     const refreshed = recomposeCheckinLines(
-      { sleep_summary: null, stress_summary: null },
+      { sleep_summary: null, stress_summary: null, coaching_recommendation: 'Root said something.' },
       checkin({ local_date: TODAY, stress_level: 5 }),
       TODAY
     );

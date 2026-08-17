@@ -184,10 +184,29 @@ const CHECKIN_STRESS_SENTENCES = allCheckinSentences(STRESS_SENTENCE, STRESS_PHR
  * the brief had none. Everything else in the brief is exactly what was
  * composed and stored.
  */
-export function recomposeCheckinLines<T extends { sleep_summary: string | null; stress_summary: string | null }>(
+export function recomposeCheckinLines<
+  T extends {
+    sleep_summary: string | null;
+    stress_summary: string | null;
+    coaching_recommendation: string;
+  },
+>(
   brief: T,
   latestCheckin: DailyCheckin | null,
-  localDate: string
+  localDate: string,
+  /**
+   * Today's Coaching Brain sentence, when the caller has one.
+   *
+   * The same staleness, in the same row: `coaching_recommendation` is
+   * whatever the Brain said when the row was written, so a change to that
+   * copy took a day to reach a member who had already opened the app. The
+   * live walk found it still saying "today's most useful place to focus" on
+   * Home hours after the sentence had been rewritten.
+   *
+   * Optional: a caller without a decision in hand leaves the stored line
+   * alone rather than blanking it.
+   */
+  coachingRecommendation?: string | null
 ): T {
   const recency = checkinRecency(latestCheckin, localDate);
 
@@ -207,6 +226,7 @@ export function recomposeCheckinLines<T extends { sleep_summary: string | null; 
     ...brief,
     sleep_summary: sleep ?? brief.sleep_summary,
     stress_summary: stress ?? brief.stress_summary,
+    coaching_recommendation: coachingRecommendation ?? brief.coaching_recommendation,
   };
 }
 
