@@ -7195,3 +7195,109 @@ Both migration-coverage checks now exclude test accounts, because those are rese
 | `verify-intake-profiles-live.mjs` | **25 / 25** new |
 
 Full suite **5,564 passing** (394 files). Typecheck clean, lint clean (0 errors), production build clean.
+
+## The language pass, and a coach dashboard that answers the right questions (2026-08-17)
+
+The fourth and final build against AUDIT-ADAPTIVE-REVEAL.md. Prompts 1 through 3 built the interpretation layer, the evidence tiers, the one-focus rule, the friction question and the visibility routing. This one fixes how all of it is worded, and rebuilds the coach's member view around the six questions a coach actually opens a member to answer.
+
+Shipped, deployed and verified live on `app.mefwellness.com` the same day. One migration is written and **not applied** (169) and the command is at the end of this entry.
+
+### The naming standard
+
+`docs/NAMING-STANDARD.md`. One rule: **a name describes what the member experiences, or what the check looks at. It never names a condition, a pathogen, an organ dysfunction, or a deficiency.** A member reading any name in this app must not be able to conclude that the app found a disease.
+
+`lib/naming/standard.ts` is the enforceable half: six categories of banned vocabulary (condition, pathogen, organ, clinical process, clinical grade, blame), the full list of retired names, and `checkNamingStandard()`. `tests/naming-standard.test.ts` walks every string literal in `app/`, `components/` and `lib/` with the TypeScript compiler API looking for a retired name, and separately runs every live name in every map through the checker, so a NEW clinical name cannot be added either. Comments are deliberately not scanned: the rename tables carry the old wording beside each new name, which is what makes them auditable.
+
+### Why one edit renames everything at once
+
+The name was stored on the row that produced it, and rows in production go back months. Renaming a finding by editing the adapter would rename it only for members who trigger it again.
+
+So the stored label is treated as history, and the NAME is looked up by the finding's stable identity, `domain::code`, in `lib/naming/findingNames.ts`. Every screen renders findings through the Member Interpretation Layer, the layer authors its sentence from this map, and a rename is one edit that lands everywhere on the next page load. **Migration 169 exists so the historical row agrees with what she is being shown, not so the screens work.**
+
+### The renames
+
+Twenty-seven finding names, fifteen posture findings that were reaching members as a raw enum with its underscores swapped for spaces ("thoracic kyphosis"), the sixteen Whole-Body Check-In section titles, and the questionnaire copy that named organs and clinical processes. The full before-and-after table is in the report accompanying this build.
+
+The Whole-Body Systems Assessment is the **Whole-Body Check-In** now, and its sixteen sections say what their own questions ask about: "Adrenal & Stress-Response Patterns" is "How you handle stress and demand", "Liver & Detoxification Support" is "Skin, headaches and strong smells", "Nutrient Insufficiency Patterns" is "Cravings, and what your body seems short of". The questions underneath are untouched.
+
+### Three items left as decisions
+
+Each one has both options written out, both asserted against the standard by the test suite, and a single switch, so applying an answer is a one-line change:
+
+- `lib/naming/domainNames.ts` — the twelve coaching domain names. They are also the coach's taxonomy from the methodology doc, so this is a choice between one shared vocabulary and two.
+- `lib/movement/scoreDisplay.ts` — the Movement Score. Not a rename: whether a "score out of 100" that is really a completion ratio should render at all.
+- `lib/naming/unbuiltPlaceholders.ts` — the unbuilt-feature placeholders. Not a rename: whether to advertise things nobody can open.
+
+`NAMES_PENDING_DECISION` in `lib/naming/standard.ts` names exactly these three and a test asserts the list is exactly three entries, so a fourth cannot be quietly parked there.
+
+### The leakage sweep
+
+`lib/naming/displayNames.ts` holds every raw stored value's plain-language name, in eighteen vocabularies named after the column they belong to. `displayName(vocabulary, value)` **throws in development** on an unmapped value and degrades to a humanized string in production, because a coach reading "Self harm crisis" beats a crashed page. All sixteen coach-screen spots the audit counted now read through it, plus the safety review screen's concern categories, which had carried real written labels in `lib/safety/categories.ts` all along and were simply not being used.
+
+Two producers were writing leaks rather than rendering them: the body assessment adapter wrote `finding_type.replace(/_/g, ' ')` as a `member_visible` label, and the intake adapter interpolated a raw `MetricStatus` into member copy ("reported as 'poor' on the latest onboarding submission"). Both fixed at the source.
+
+The "Still putting today's lesson together" card is **deleted**, not reworded. Nothing was being put together, there is no job that produces a lesson later in the day, and a member returning an hour later read the same words again. The section does not render, which is the rule `components/layout/WhenNotEmpty.tsx` already enforces for headings.
+
+### Two tiers, and no middle
+
+`lib/intelligence-engine/alertTiers.ts`. Every alert resolves to `urgent_safety` or `routine_follow_up`, keyed on `alert_type`, which is a stored column, so an alert written months ago tiers the same way one written today does. The map is an exhaustive `Record`, so a new alert type is a type error rather than an alert with no tier.
+
+Exactly two types are urgent, and both because a safety classification already exists behind them: `medical_evaluation_recommended` and `repeated_safety_flags`. A burnout signal is routine, worded as routine. No producer chooses its own severity any more; the stored three-value column is derived from the tier and nothing renders it. The safety system itself is untouched.
+
+### The coach dashboard
+
+`app/coach/clients/[id]/page.tsx` is the six answers, in order: what is improving, what needs attention, how much is behind each one, what she is working on, what may be getting in the way, and what to ask next. Every one of them is read from the Member Interpretation Layer, the Visibility Layer, the Priority Card engine or the safety system. Nothing on it computes a verdict, which is what keeps it from disagreeing with her own screens.
+
+"What to ask next" comes from four real states and nothing else: an unresolved friction answer, a finding at `supported_by_checkins` that only a coach can raise further, a priority ignored two days running, and a feature her rules revealed that she has never opened. When none is true the list is empty and says so.
+
+Her friction answer appears **in her own words**, verbatim, untouched.
+
+Everything the old page showed moved to `./detail`, unchanged, all thirty-two panels. The Visibility Layer's "what her app contains" panel is there and is also linked directly from the first screen.
+
+### Proof
+
+`tests/naming-standard.test.ts` (25), `tests/display-names-mapping.test.ts` (22), `tests/alert-tiers.test.ts` (13), `tests/coach-dashboard.test.tsx` (30), `tests/unfinished-placeholders.test.ts` (12). The sharp ones: the mapping is proved to throw in development and to degrade in production on the same machine; every alert the engine can actually produce is tiered in one full run; the six sections are proved in order and each in its empty state; and the retired-name scan reads string literals through the compiler rather than grepping, so it cannot be fooled by a comment.
+
+Full suite **5,668 passing** (399 files). Typecheck clean, lint clean (0 errors), production build clean.
+
+### Live verification (2026-08-17)
+
+Against `app.mefwellness.com`, commit `d6bfb8e`, deployment `mef-platform-gmcw3l8jv`, confirmed Ready and aliased.
+
+`scripts/verify-language-pass-live.mjs`, **22 of 22**. Twelve member screens walked as the standing test member through the real login form, then the coach view opened on the real coach account for the same member. The retired-name list is duplicated inside the script deliberately: a live check importing the app's own list would pass by construction if somebody shortened it.
+
+**The coach dashboard is verified live, for real.** `oakomah66@gmail.com` is the active coach for the standing test member, so the session was minted without a password and the real screen was read: all six sections, in the right order, no raw codes, no percentages, and the same four tier labels the member reads.
+
+### Four things the live run found
+
+**The finding timeline was still handing out stored labels.** `lib/registry/timeline.ts` built its label from `latest.label`, so the member's Insights screen still read "Digestive Complaints" and "Discomfort: hips", and so did the coach's longitudinal panel. Fixed at the timeline, so every reader of it follows.
+
+**The coach's pattern list read the stored NARRATIVE.** That is where "Elevated Stress reported as 'poor' on the latest onboarding submission" was still coming from: a sentence written per-adapter years ago with a raw enum interpolated into it. It is authored from the current name now, so the screens are correct without waiting for migration 169.
+
+**Two more hand-rolled de-underscorings**, in the prescription constraint description and the movement rules engine.
+
+**And two defects in the check itself**, worth recording because both would have failed over a working app: section headings render uppercase through CSS, so `innerText` returns them uppercased and a title-case match found nothing.
+
+### Migration, written and NOT applied
+
+`00000000000169_naming_standard_renames.sql` — renames the Whole-Body Check-In and its sixteen section titles, **supersedes** every affected finding row with a new row carrying the new wording (pointers set both ways, nothing deleted, nothing overwritten in place), and clears the stored narratives that quoted a raw enum. Idempotent.
+
+```
+export $(grep -E "^SUPABASE_DB_URL=" .env.local | head -1)
+npx supabase db push --db-url "$SUPABASE_DB_URL"
+```
+
+### Standing verification, re-run after this build
+
+| Script | Result |
+|---|---|
+| `verify-trust-cleanup-live` | **10 / 10** unchanged |
+| `verify-display-guards-live` | **6 / 6** unchanged |
+| `verify-priority-card-normal-live` | **9 / 9** unchanged |
+| `verify-interpretation-layer-live` | **20 / 20** unchanged |
+| `verify-friction-armed-live` | **14 / 14** unchanged |
+| `verify-friction-question-live` | **15 / 15** unchanged |
+| `verify-visibility-migrations-live` | **14 / 14** unchanged |
+| `verify-visibility-layer-live` | **6 / 6** unchanged |
+| `verify-intake-profiles-live` | **25 / 25** unchanged |
+| `verify-language-pass-live` | **22 / 22** new |
