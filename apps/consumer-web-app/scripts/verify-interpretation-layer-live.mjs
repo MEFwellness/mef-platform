@@ -229,14 +229,23 @@ try {
   );
 
   // -----------------------------------------------------------------
-  // 7. Pain & Structural Integrity no longer reads "looking steady".
+  // 7. The pain card no longer reads "looking steady".
+  //
+  // The card is named "Aches and how you hold yourself" since the twelve
+  // coaching domains were renamed for everybody on 2026-08-17. The old name
+  // is kept as a fallback so this check finds the card whichever build it
+  // is pointed at, and so a rename can never quietly turn this into a
+  // vacuous pass by simply not locating the card.
   // -----------------------------------------------------------------
   const painSection = (() => {
-    const idx = rootMap.indexOf('Pain & Structural Integrity');
-    return idx === -1 ? '' : rootMap.slice(idx, idx + 900);
+    for (const name of ['Aches and how you hold yourself', 'Pain & Structural Integrity']) {
+      const idx = rootMap.indexOf(name);
+      if (idx !== -1) return rootMap.slice(idx, idx + 900);
+    }
+    return '';
   })();
   check(
-    'Pain & Structural Integrity does not read "looking steady"',
+    'the pain card does not read "looking steady"',
     painSection !== '' && !/looking steady/i.test(painSection),
     painSection === ''
       ? 'Pain card not found on the Root Map'

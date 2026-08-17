@@ -7301,3 +7301,78 @@ npx supabase db push --db-url "$SUPABASE_DB_URL"
 | `verify-visibility-layer-live` | **6 / 6** unchanged |
 | `verify-intake-profiles-live` | **25 / 25** unchanged |
 | `verify-language-pass-live` | **22 / 22** new |
+
+## Migration 169 verified, and the three decisions applied (2026-08-17)
+
+### Migration 169, verified against production
+
+`scripts/verify-naming-migration-live.mjs`, **18 of 18**. Read-only.
+
+All sixteen Whole-Body Check-In section titles carry their new wording and **not one old title survives in the table**. The assessment's own title and description are renamed. All 64 questions are still attached to their sections, which is the check that matters most: a rename that orphaned a question would have been a far worse bug than the wording it fixed.
+
+**59 active findings** carry their new names. **119 historical rows still carry what she was told at the time**, which is the difference between superseding and rewriting and is the whole reason the migration is shaped the way it is. **84 supersede chains** have their pointers set in both directions. Zero members hold two active rows for one source answer. Zero rows still quote a raw status into a narrative.
+
+**One thing that could not be read off a live screen, stated plainly.** The Whole-Body Check-In is coach-assign-only and always has been (`lib/assessment-registry/access.ts`, which predates this direction entirely), and nobody on production is currently assigned it, so its section headings are on no screen any member can open. The app says so itself: "Not assigned yet. Your coach will assign this when the time is right." What was proved instead: production stores exactly the sixteen headings the take flow renders, in display order, byte-identical to `WBSA_SECTION_TITLES`, and `components/wbsa/WbsaTaker.tsx` passes `section.title` through with no transformation. That chain is complete; it simply is not a screenshot.
+
+### The three decisions: A, A, A
+
+**One vocabulary.** The twelve coaching domains are renamed for everybody, in `lib/investigation-engine/domains.ts`, the one place the taxonomy is defined. Their definitions moved with them, because those render on the coach's Root Map card and "circadian alignment" was the same problem one line down. The domain KEYS are untouched, so nothing stored moved. `lib/naming/domainNames.ts` keeps its accessor and loses its switch: there is only one set of names again, which is what the decision means.
+
+| Before | After |
+|---|---|
+| Identity & Self-Concept | How you see yourself |
+| Purpose & Motivation | What matters to you |
+| Stress & Nervous System Regulation | Stress and how you settle |
+| Emotional Resilience & Mood | Mood and steadiness |
+| Sleep & Circadian Rhythm | Sleep and your daily rhythm |
+| Movement & Physical Capacity | Movement and what your body can do |
+| Recovery & Energy Regulation | Energy and recovery |
+| Pain & Structural Integrity | Aches and how you hold yourself |
+| Nutrition & Metabolic Health | Food and how it fuels you |
+| Digestion & Gut Health | Digestion and how it settles |
+| Relationships & Social Connection | People around you |
+| Environment & Daily Rhythm | Your surroundings and daily routine |
+
+**The Movement Score is gone.** A completion ratio presented as a score out of 100 is the overstatement this direction exists to remove, and the tile beside it already says the honest version: "2 of 4 sessions", counting real completed sessions against a real weekly target. The tile is REMOVED rather than emptied, so there is no heading over nothing. `computeMovementScore` is deliberately kept: the calculation was never the problem, only the presentation of it.
+
+**Unbuilt placeholders are hidden.** Dropped where the catalogue is BUILT rather than where the card renders, so "1 of 6 complete" counts the library she actually has instead of one padded with things she cannot open. Both results screens drop their cards and the whole section when nothing is left, which is the same empty-heading rule everywhere else.
+
+`NAMES_PENDING_DECISION` is now empty, and a test asserts it stays empty. It is not an exception list anybody may grant themselves an entry on: an open question about a name belongs in a report, not in the code that enforces the rule. The twelve old domain names joined `BANNED_NAMES`.
+
+### Proof
+
+Full suite **5,675 passing** (399 files). Typecheck clean, lint clean (0 errors), production build clean. The sharp new ones: every coaching domain DEFINITION is checked against the standard, not just the label, because the coach reads those; `coachingDomainLabel(d, 'member')` is asserted identical to `coachingDomainLabel(d, 'coach')` for all twelve, which is the decision expressed as a property; and the domain KEYS are pinned in order so a rename can never quietly move stored data.
+
+### Live verification (2026-08-17)
+
+Against `app.mefwellness.com`, commit `bcf7517`, deployment `mef-platform-r3rvvudd4`, confirmed Ready and aliased.
+
+`scripts/verify-naming-decisions-live.mjs`, **15 of 15**. Both sides of every decision, on the real site.
+
+- All twelve renamed areas on her Root Map; not one of the twelve old names on any member screen.
+- The Movement Score tile gone, no "x / 100" anywhere on that screen, Weekly Goal still there reading "0 of 4 sessions".
+- No unbuilt assessment listed, no "Not built yet" badge, no "Coming soon". Her library reads "1 of 6 complete".
+- **And the check the whole decision was about:** all twelve names confirmed present on her screen AND on her coach's, identical. That is one vocabulary demonstrated rather than asserted.
+
+### One standing check that knew an old name
+
+`verify-interpretation-layer-live.mjs` went 19 of 20, and it was the check, not the app. It located the pain card by the string "Pain & Structural Integrity" and could no longer find it, so it reported "Pain card not found" rather than a real failure. It now looks for the new name first and falls back to the old one, so it finds the card whichever build it is pointed at and can never turn into a vacuous pass by failing to locate it. Back to 20 of 20.
+
+### Standing verification, re-run after the decisions
+
+| Script | Result |
+|---|---|
+| `verify-trust-cleanup-live` | **10 / 10** unchanged |
+| `verify-display-guards-live` | **6 / 6** unchanged |
+| `verify-priority-card-normal-live` | **9 / 9** unchanged |
+| `verify-interpretation-layer-live` | **20 / 20** (one check repointed at the renamed card) |
+| `verify-friction-armed-live` | **14 / 14** unchanged |
+| `verify-friction-question-live` | **15 / 15** unchanged |
+| `verify-visibility-migrations-live` | **14 / 14** unchanged |
+| `verify-visibility-layer-live` | **6 / 6** unchanged |
+| `verify-intake-profiles-live` | **25 / 25** unchanged |
+| `verify-language-pass-live` | **22 / 22** unchanged |
+| `verify-naming-migration-live` | **18 / 18** new |
+| `verify-naming-decisions-live` | **15 / 15** new |
+
+No migrations were needed for any of the three decisions: all three are code, and the domain keys never moved.
