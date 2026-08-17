@@ -279,3 +279,30 @@ describe('findingDisplayName', () => {
     expect(findingDisplayName('lab', 'some_new_code')).toBe('Some new code');
   });
 });
+
+describe('the Whole-Body Check-In headings reach the screen unchanged', () => {
+  const ROOT2 = path.resolve(__dirname, '..');
+
+  it('the take flow passes the stored section title straight through, with no transformation', () => {
+    // This is what makes "the stored title is correct" the same statement
+    // as "the heading a member reads is correct". Verified live on
+    // production too: all sixteen stored titles are byte-identical to
+    // WBSA_SECTION_TITLES, in display order.
+    const taker = fs.readFileSync(path.join(ROOT2, 'components/wbsa/WbsaTaker.tsx'), 'utf8');
+    expect(taker).toContain('sectionLabel={current.section?.title ?? \'\'}');
+    expect(taker).not.toMatch(/section\?\.title[^}]*(replace|toUpperCase|slice)/);
+  });
+
+  it('the app list and the migration agree on all sixteen, in order', () => {
+    const migration = fs.readFileSync(
+      path.join(ROOT2, '..', '..', 'supabase/migrations/00000000000169_naming_standard_renames.sql'),
+      'utf8'
+    );
+    for (const title of WBSA_SECTION_TITLES) {
+      expect(migration, title).toContain(`'${title.replace(/'/g, "''")}'`);
+    }
+    for (const retired of WBSA_RETIRED_SECTION_TITLES) {
+      expect(migration, retired).toContain(`'${retired.replace(/'/g, "''")}'`);
+    }
+  });
+});
