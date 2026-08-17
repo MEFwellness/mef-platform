@@ -10,6 +10,7 @@
 
 import { MessageCircle, HelpCircle } from 'lucide-react';
 import type { CoachWorkspaceSummary } from '@/lib/root-coaching-engine';
+import { displayName } from '@/lib/naming/displayNames';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -62,7 +63,9 @@ export function CoachWorkspacePanel({ summary }: { summary: CoachWorkspaceSummar
             {summary.suggestedDiscussionTopics.map((topic) => (
               <li key={`${topic.conversationType}-${topic.topicLabel}`} className="py-2.5">
                 <p className="text-sm font-medium text-[#1B3A2D]">{topic.topicLabel}</p>
-                <p className="text-xs text-[#6B7A72]">{topic.sourceState.replaceAll('_', ' ')}</p>
+                <p className="text-xs text-[#6B7A72]">
+                  {displayName('coaching_topic_source_state', topic.sourceState)}
+                </p>
                 {topic.questions.map((question) => (
                   <p key={question} className="mt-1 flex items-start gap-1.5 text-xs text-[#6B7A72]">
                     <HelpCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />

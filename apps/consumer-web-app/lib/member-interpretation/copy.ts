@@ -12,10 +12,11 @@
  * something, and never clinical. No em dashes anywhere.
  */
 
-import { getCoachingDomainInfo, type CoachingDomain } from '../investigation-engine/domains';
+import type { CoachingDomain } from '../investigation-engine/domains';
 import { MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM } from './config';
 import { distinctCheckinDays } from './tiers';
 import type { DomainState, EvidenceItem, EvidenceTier, FindingVerdict } from './types';
+import { coachingDomainLabel } from '../naming/domainNames';
 
 /**
  * Where the evidence came from, in the member's own terms. Built from what
@@ -104,7 +105,7 @@ export function domainStatement(input: {
   windowDays: number;
 }): string {
   const { state, findingCount, loggedDays, windowDays } = input;
-  const label = getCoachingDomainInfo(input.domain).label;
+  const label = coachingDomainLabel(input.domain);
   const findingPhrase = findingCount === 1 ? 'one thing' : `${findingCount} things`;
 
   switch (state) {

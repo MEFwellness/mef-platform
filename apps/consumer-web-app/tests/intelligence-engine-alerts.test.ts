@@ -209,8 +209,14 @@ describe('buildCoachAlertDrafts', () => {
     );
     const shortAlert = short.find((a) => a.alertType === 'no_checkin')!;
     const longAlert = long.find((a) => a.alertType === 'no_checkin')!;
+    // Two tiers, not three (lib/intelligence-engine/alertTiers.ts). A gap in
+    // check-ins is a routine follow-up however long it is: the length of the
+    // gap is in the reason sentence, where a coach can read it, rather than
+    // silently promoting the badge. The stored severity is derived from the
+    // tier and nothing renders it.
     expect(shortAlert.severity).toBe('notable');
-    expect(longAlert.severity).toBe('important');
+    expect(longAlert.severity).toBe('notable');
+    expect(longAlert.reason).toContain('12 days');
   });
 
   it('flags symptoms_worsening for a declining pain or digestion trend, not for other declining areas', () => {
@@ -237,7 +243,9 @@ describe('buildCoachAlertDrafts', () => {
   it('flags rapid_improvement for a strong improving trend', () => {
     const trends = [trend({ area: 'mood', trendState: 'improving', trendStrength: 'strong' })];
     const alerts = buildCoachAlertDrafts(profile(), trends, []);
-    expect(alerts.some((a) => a.alertType === 'rapid_improvement' && a.severity === 'info')).toBe(
+    // 'info' is gone with the third tier. Rapid improvement is a routine
+    // follow-up: something good to acknowledge at the next conversation.
+    expect(alerts.some((a) => a.alertType === 'rapid_improvement' && a.severity === 'notable')).toBe(
       true
     );
   });

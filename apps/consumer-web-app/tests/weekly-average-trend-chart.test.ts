@@ -237,7 +237,7 @@ describe('scope isolation — the daily-dot chart is untouched outside this page
   });
 
   it('the coach client view still renders the daily-dot EnergyTrendChart directly, not the new weekly chart', () => {
-    const src = source('app/coach/clients/[id]/page.tsx');
+    const src = source('app/coach/clients/[id]/detail/page.tsx');
     expect(src).toContain('<EnergyTrendChart');
     expect(src).not.toContain('WeeklyAverageTrendChart');
   });

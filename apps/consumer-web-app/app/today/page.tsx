@@ -460,23 +460,19 @@ export default async function TodayPage() {
 
             {!decision || !decision.feedItem || !decision.content || !shows(F.todayLesson) ? (
               <>
-                {/* The "still putting today's lesson together" card only
-                    appears for a member whose lesson IS revealed and whose
-                    content genuinely is not ready. A member the lesson has
-                    not been revealed to is not waiting for anything, so
-                    telling her something is coming would be inventing a
-                    feature to apologise for. */}
-                {shows(F.todayLesson) && (
-                  <section className={`${CARD} mt-6`}>
-                    <p className="text-base text-[#1B3A2D]">
-                      Still putting today&apos;s lesson together.
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
-                      I don&apos;t have it ready quite yet. Check back shortly and I&apos;ll have
-                      something for you.
-                    </p>
-                  </section>
-                )}
+                {/* NO PLACEHOLDER HERE, DELIBERATELY.
+                    This slot used to hold an apology saying the day's lesson
+                    was still being assembled and to check back shortly. That
+                    was not true: nothing was being assembled, there is no
+                    background job that produces a lesson later in the day,
+                    and a member who came back an hour later read the same
+                    words again. It was an unfinished state describing itself
+                    as work in progress.
+                    The section simply does not render when there is no
+                    lesson, which is the same rule components/layout/
+                    WhenNotEmpty.tsx already enforces for headings: a heading
+                    over nothing, and an apology for nothing, are the same
+                    mistake. Everything else on Today is unaffected. */}
                 <TodayZones
                   todaysCheckinDone={Boolean(todaysCheckin)}
                   hydrationTracked={showWater}

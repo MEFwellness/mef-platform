@@ -56,7 +56,7 @@ export default async function CoachWbsaSessionDetailPage({
         </Link>
 
         <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl text-[#1B3A2D]">
-          Whole-Body Systems Assessment
+          Whole-Body Check-In
         </h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
           Completed {session.completedAt ? formatDisplayDate(session.completedAt, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}

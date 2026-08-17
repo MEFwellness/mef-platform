@@ -125,7 +125,7 @@ export async function completeWbsaAssessmentAction(sessionId: string): Promise<C
       memberId,
       eventType: 'assessment_published',
       localDate: completedAt.slice(0, 10),
-      title: 'Completed your Whole-Body Systems Assessment',
+      title: 'Completed your Whole-Body Check-In',
       sourceFeature: 'unified_assessment_finding',
       sourceRecordId: sessionId,
     });

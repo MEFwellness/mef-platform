@@ -43,6 +43,7 @@ import type { RootRouterOutcomeView } from '../investigation-engine/routerOutcom
 import type { DomainInterpretation, DomainState, EvidenceTier } from '../member-interpretation/types';
 import type { RootMapDomainView, RootMapStage, RootMapView } from './types';
 import { MEMBER_DOMAIN_DESCRIPTIONS } from './memberCopy';
+import { coachingDomainLabel } from '../naming/domainNames';
 
 /**
  * `state` -> the legacy CoachingPriorityLevel three-value scale.
@@ -164,7 +165,7 @@ function buildDomainView(
 
   return {
     domain: interpretation.domain,
-    label: info.label,
+    label: coachingDomainLabel(interpretation.domain),
     definition: info.definition,
     memberDescription: MEMBER_DOMAIN_DESCRIPTIONS[interpretation.domain],
     isUninstrumented: info.isUninstrumented,

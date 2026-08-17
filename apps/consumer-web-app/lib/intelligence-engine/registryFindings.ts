@@ -11,6 +11,9 @@
  * elsewhere.
  */
 
+import { findingDisplayName } from '../naming/findingNames';
+import { displayName } from '../naming/displayNames';
+import { alertTier, storedSeverityForTier } from './alertTiers';
 import type { MemberHealthProfile, CoachAlertDraft, PatternInsight } from './types';
 
 const PATTERN_SEVERITIES = new Set(['mild', 'moderate', 'significant']);
@@ -27,8 +30,8 @@ export function buildRegistryPatternInsights(profile: MemberHealthProfile): Patt
     .map((entry) => ({
       key: `registry_${entry.domain}_${entry.code}`,
       kind: 'body_assessment_finding' as const,
-      label: entry.label,
-      description: entry.narrative ?? entry.label,
+      label: findingDisplayName(entry.domain, entry.code, entry.label),
+      description: entry.narrative ?? findingDisplayName(entry.domain, entry.code, entry.label),
       confidence: entry.confidence,
       evidenceRefs: [...entry.evidence_refs, { type: 'registry_entry', id: entry.id }],
       sourceInsightId: null,
@@ -42,11 +45,11 @@ export function buildRegistryCoachAlertDrafts(profile: MemberHealthProfile): Coa
     )
     .map((entry) => ({
       alertType: 'assessment_finding_requires_attention' as const,
-      severity: 'important' as const,
-      title: `Assessment finding needs attention: ${entry.label}`,
+      severity: storedSeverityForTier(alertTier('assessment_finding_requires_attention')),
+      title: `Worth picking up: ${findingDisplayName(entry.domain, entry.code, entry.label)}`,
       reason:
         entry.narrative ??
-        `A significant-severity ${entry.domain} finding ("${entry.label}") was registered from ${entry.source_feature}.`,
+        `"${findingDisplayName(entry.domain, entry.code, entry.label)}" came back strongly on ${displayName('registry_domain', entry.domain).toLowerCase()}, from an assessment she completed.`,
       alertKey: `assessment_finding_${entry.code}`,
       evidenceRefs: [...entry.evidence_refs, { type: 'registry_entry', id: entry.id }],
       sourceRefs: [{ type: 'registry_entry', id: entry.id }],

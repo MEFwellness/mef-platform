@@ -3,10 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Radar, RefreshCw, AlertTriangle, Check, X, CheckCheck, Sparkles } from 'lucide-react';
-import type {
-  IntelligenceCoachAlert,
-  IntelligenceAlertSeverity,
-} from '@mef/shared-types-contracts';
+import type { IntelligenceCoachAlert } from '@mef/shared-types-contracts';
 import type { MemberIntelligenceReport } from '@/lib/intelligence-engine/types';
 import {
   requestIntelligenceRecalculation,
@@ -14,13 +11,25 @@ import {
   resolveCoachAlertAction,
   dismissCoachAlertAction,
 } from '@/app/actions/intelligence-engine';
+import { displayName } from '@/lib/naming/displayNames';
+import { ALERT_TIER_LABEL, alertTier, type AlertTier } from '@/lib/intelligence-engine/alertTiers';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
-const SEVERITY_STYLE: Record<IntelligenceAlertSeverity, string> = {
-  important: 'bg-red-50 text-red-700',
-  notable: 'bg-amber-50 text-amber-700',
-  info: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]/70',
+/**
+ * Two tiers, two treatments. There is no third style because there is no
+ * third tier: see lib/intelligence-engine/alertTiers.ts.
+ */
+const TIER_STYLE: Record<AlertTier, string> = {
+  urgent_safety: 'bg-red-50 text-red-700',
+  routine_follow_up: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]/70',
+};
+
+/** Recommendation priority is its own three-value scale and is unrelated to alerts. */
+const PRIORITY_STYLE: Record<string, string> = {
+  high: 'bg-red-50 text-red-700',
+  medium: 'bg-amber-50 text-amber-700',
+  low: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]/70',
 };
 
 const DIRECTION_STYLE: Record<string, string> = {
@@ -65,17 +74,21 @@ function AlertRow({ alert }: { alert: IntelligenceCoachAlert }) {
   return (
     <li className="py-3">
       <div className="flex flex-wrap items-center gap-1.5">
+        {/* Two tiers, never three. lib/intelligence-engine/alertTiers.ts is
+            the one place that decision is made, and the stored `severity`
+            column is deliberately not read here: it carries three legacy
+            values that meant nothing consistent to a coach. */}
         <span
-          className={`rounded-full px-2.5 py-1 text-xs font-medium ${SEVERITY_STYLE[alert.severity]}`}
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${TIER_STYLE[alertTier(alert.alert_type)]}`}
         >
-          {alert.severity}
+          {ALERT_TIER_LABEL[alertTier(alert.alert_type)]}
         </span>
-        <span className="rounded-full bg-[#FAFAF8] px-2.5 py-1 text-xs capitalize text-[#6B7A72]">
-          {alert.alert_type.replaceAll('_', ' ')}
+        <span className="rounded-full bg-[#FAFAF8] px-2.5 py-1 text-xs text-[#6B7A72]">
+          {displayName('coach_alert_type', alert.alert_type)}
         </span>
         {alert.status !== 'open' && (
-          <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs capitalize text-[#1B3A2D]/70">
-            {alert.status}
+          <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs text-[#1B3A2D]/70">
+            {displayName('coach_alert_status', alert.status)}
           </span>
         )}
       </div>
@@ -384,16 +397,12 @@ export function MemberIntelligencePanel({
             {recommendations.map((r, i) => (
               <li key={`${r.domain}-${i}`} className="py-2.5 text-sm">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs font-medium capitalize text-[#1B3A2D]">
-                    {r.domain.replaceAll('_', ' ')}
+                  <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs font-medium text-[#1B3A2D]">
+                    {displayName('recommendation_domain', r.domain)}
                   </span>
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${
-                      r.priority === 'high'
-                        ? SEVERITY_STYLE.important
-                        : r.priority === 'medium'
-                          ? SEVERITY_STYLE.notable
-                          : SEVERITY_STYLE.info
+                      PRIORITY_STYLE[r.priority] ?? PRIORITY_STYLE.low
                     }`}
                   >
                     {r.priority}

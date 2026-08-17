@@ -50,31 +50,31 @@ const RELATIONSHIP_RULES: { categories: string[]; focusCategoryId: string; sente
     categories: ['stress', 'circadian_health', 'digestive_system_health'],
     focusCategoryId: 'circadian_health',
     sentence:
-      'Your stress, circadian rhythm, and digestive scores all indicate they deserve greater attention. These areas commonly influence one another, and improving sleep consistency may positively support stress recovery and digestive wellness.',
+      'Your stress, your daily rhythm, and your digestion all came back asking for more attention. These three tend to move together, so a steadier sleep and wake time is usually the one change that helps all three.',
   },
   {
     categories: ['circadian_health', 'you_are_when_you_eat'],
     focusCategoryId: 'circadian_health',
     sentence:
-      'Your circadian rhythm and meal-timing scores both indicate they deserve greater attention. A more consistent wake time and a regular meal schedule tend to reinforce each other.',
+      'Your daily rhythm and your meal timing both came back asking for more attention. A steadier wake time and a regular meal schedule tend to reinforce each other.',
   },
   {
     categories: ['stress', 'detoxification_system_health'],
     focusCategoryId: 'stress',
     sentence:
-      'Your stress and detoxification scores both indicate they deserve greater attention. Chronic stress and a taxed detox system commonly show up together, so building in real recovery time is usually the highest-leverage first step.',
+      'Your stress, and what you noticed around skin, headaches and strong smells, both came back asking for more attention. These often show up together, so building in real recovery time is usually the best first step.',
   },
   {
     categories: ['you_are_what_you_eat', 'digestive_system_health'],
     focusCategoryId: 'you_are_what_you_eat',
     sentence:
-      'Your food-choices and digestive scores both indicate they deserve greater attention. Shifting toward fresher, less processed meals often eases digestive discomfort within a few weeks.',
+      'Your food choices and your digestion both came back asking for more attention. Shifting toward fresher, less processed meals often eases discomfort within a few weeks.',
   },
   {
     categories: ['fungus_and_parasites', 'digestive_system_health'],
     focusCategoryId: 'digestive_system_health',
     sentence:
-      "Your gut-balance and digestive scores both indicate they deserve greater attention, since they're closely linked. Easing off sugar and processed foods tends to support both together.",
+      "What you reported about bloating and cravings, and about your digestion, both came back asking for more attention. They are closely linked, and easing off sugar and processed foods tends to help both together.",
   },
 ];
 
@@ -106,7 +106,7 @@ export function buildWellnessInsight(
     return {
       headline,
       summary:
-        "Every area of this assessment currently falls in the low-priority range, a strong overall pattern across nutrition, stress, rhythm, and digestion. Keep doing what's working.",
+        "Every area of this one currently sits in the low-priority range, which is a strong overall picture across food, stress, rhythm, and digestion. Keep doing what's working.",
       focusCategoryIds: [],
     };
   }

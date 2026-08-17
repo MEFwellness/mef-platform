@@ -20,9 +20,9 @@ import type { AssessmentCopy } from '../engine/types';
 export const CHEK_HLC1_COPY: AssessmentCopy = {
   displayTitle: 'Nutrition & Lifestyle Questionnaire',
   listDescription:
-    'A MEF Wellness check-in across nutrition, stress, circadian rhythm, meal timing, and digestion.',
+    'A MEF Wellness check-in across food, stress, your daily rhythm, meal timing, and digestion.',
   welcomeSubtitle:
-    'A whole-lifestyle wellness check-in across nutrition, stress, circadian rhythm, meal timing, digestion, and more. The same framework MEF Wellness coaches use to find where your next win is hiding.',
+    'A whole-lifestyle wellness check-in across food, stress, your daily rhythm, meal timing, digestion, and more. The same framework MEF Wellness coaches use to find where your next win is hiding.',
   estimatedMinutes: 15,
   attribution: 'Based on a CHEK Practitioner questionnaire.',
   categoryCopy: {
@@ -41,9 +41,9 @@ export const CHEK_HLC1_COPY: AssessmentCopy = {
         'Naming your biggest stress source and building one small recovery habit around it (breath work, a walk, an honest conversation) is usually the highest-leverage place to start.',
     },
     circadian_health: {
-      shortLabel: 'circadian rhythm',
+      shortLabel: 'your daily rhythm',
       shortDescription:
-        "How well your sleep and wake timing, meal timing, and daily rhythm line up with your body's natural clock.",
+        "How well your sleep and wake timing, meal timing, and daily rhythm line up with each other.",
       coachingFocus:
         'Anchoring a consistent wake time and getting morning light tends to realign this rhythm faster than any single evening change.',
     },
@@ -55,25 +55,25 @@ export const CHEK_HLC1_COPY: AssessmentCopy = {
         'Eating on a more regular rhythm, and giving meals your full attention, is usually more impactful here than any specific food swap.',
     },
     digestive_system_health: {
-      shortLabel: 'digestive wellness',
+      shortLabel: 'how digestion feels',
       shortDescription:
-        'How your digestive system is responding day to day: bloating, regularity, and comfort after meals.',
+        'How your digestion is going day to day: bloating, regularity, and comfort after meals.',
       coachingFocus:
         'Slowing down at meals and noticing which foods reliably trigger discomfort is often the fastest way to bring this down.',
     },
     fungus_and_parasites: {
-      shortLabel: 'gut balance',
+      shortLabel: 'bloating and cravings',
       shortDescription:
-        'Historical exposures (antibiotics, medications, dental metals) and everyday habits that can burden gut microbial balance over time.',
+        'Things from your history (past medications, dental work) and everyday habits that can leave your gut less settled over time.',
       coachingFocus:
-        'This category reflects history more than daily choices. The habits worth focusing on now are the sugar and processed-food patterns that keep feeding an imbalance.',
+        'This one reflects your history more than your daily choices. The habits worth focusing on now are the sugar and processed-food patterns that keep it going.',
     },
     detoxification_system_health: {
-      shortLabel: 'detoxification',
+      shortLabel: 'skin, headaches and strong smells',
       shortDescription:
-        "Signs your body's detox pathways may be under extra load: energy, skin, and sensitivity to chemicals or fragrances.",
+        "What you notice around energy, skin, headaches, and how you react to strong chemical or fragrance smells.",
       coachingFocus:
-        'Reducing your heaviest chemical and fragrance exposures and supporting basic detox pathways (hydration, movement, sleep) is the most direct lever here.',
+        'Cutting back on the strongest chemical and fragrance exposures around you, and covering the basics of water, movement and sleep, is the most direct thing to try here.',
     },
   },
 };

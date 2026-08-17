@@ -34,6 +34,7 @@ import {
   type DomainInterpretation,
   type DomainState,
 } from './types';
+import { coachingDomainLabel } from '../naming/domainNames';
 
 /**
  * The state, from findings and coverage and nothing else.
@@ -109,7 +110,7 @@ export function buildDomainInterpretations(input: {
 
     return {
       domain,
-      label: info.label,
+      label: coachingDomainLabel(info.domain),
       state,
       statement: domainStatement({
         domain,

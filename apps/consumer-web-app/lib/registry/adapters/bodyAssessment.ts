@@ -19,6 +19,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PostureFindingType, RegistryDomain } from '@mef/shared-types-contracts';
 import { listFindings } from '../../body-assessment/data';
+import { findingDisplayName } from '../../naming/findingNames';
 import { findActiveRegistryEntry, insertRegistryEntry } from '../data';
 import type { RegistryEntryDraft } from '../types';
 
@@ -58,7 +59,11 @@ export async function upsertRegistryEntriesFromBodyAssessment(
       entry_kind: 'finding',
       domain,
       code: finding.finding_type,
-      label: finding.finding_type.replace(/_/g, ' '),
+      // Was `finding.finding_type.replace(/_/g, ' ')`, which is how a member
+      // came to read "thoracic kyphosis" as a finding about herself: a raw
+      // enum, member_visible, with its underscores swapped for spaces. The
+      // name now comes from the one naming map (docs/NAMING-STANDARD.md).
+      label: findingDisplayName(domain, finding.finding_type),
       severity: finding.severity,
       numeric_value: null,
       unit: null,

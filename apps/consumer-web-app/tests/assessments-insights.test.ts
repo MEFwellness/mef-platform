@@ -96,7 +96,7 @@ describe('buildWellnessInsight', () => {
       CHEK_HLC1_COPY
     );
     expect(insight.summary).toBe(
-      'Your stress, circadian rhythm, and digestive scores all indicate they deserve greater attention. These areas commonly influence one another, and improving sleep consistency may positively support stress recovery and digestive wellness.'
+      'Your stress, your daily rhythm, and your digestion all came back asking for more attention. These three tend to move together, so a steadier sleep and wake time is usually the one change that helps all three.'
     );
     expect(insight.focusCategoryIds).toEqual(
       expect.arrayContaining(['stress', 'circadian_health', 'digestive_system_health'])
@@ -110,7 +110,9 @@ describe('buildWellnessInsight', () => {
       CHEK_HLC1_COPY
     );
     expect(insight.summary).toContain('food choices');
-    expect(insight.summary).toContain('gut balance');
+    // Renamed under docs/NAMING-STANDARD.md: "gut balance" implied an
+    // imbalance the app had found. It names what she actually reported.
+    expect(insight.summary).toContain('bloating and cravings');
     expect(insight.summary).toMatch(/deserve greater attention/);
   });
 

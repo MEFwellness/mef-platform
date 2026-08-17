@@ -1,6 +1,6 @@
 import { Gauge, Target } from 'lucide-react';
 import type { MovementWeeklyGoal } from '@mef/shared-types-contracts';
-import { movementScoreLabel } from '@/lib/movement/score';
+import { movementScoreDisplay } from '@/lib/movement/scoreDisplay';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const TRACKER_CARD = `${CARD} flex min-h-[172px] flex-col p-5`;
@@ -17,30 +17,35 @@ export function MovementStatsGrid({
     Math.round((weeklyGoal.completedThisWeek / weeklyGoal.targetSessionsPerWeek) * 100)
   );
 
+  // One place decides whether this tile exists and what it says. The
+  // development-status caveat that used to sit under the number is gone:
+  // how finished a feature is, is not something a member should be reading
+  // on her own screen.
+  const scoreTile = movementScoreDisplay(movementScore);
+
   return (
-    <div className="grid grid-cols-2 gap-5">
-      <div className={TRACKER_CARD}>
-        <div className="flex items-center gap-2 text-[#6B7A72]">
-          <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-          <p className="text-sm font-semibold uppercase tracking-wider">Movement Score</p>
+    <div className={`grid gap-5 ${scoreTile ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      {scoreTile && (
+        <div className={TRACKER_CARD}>
+          <div className="flex items-center gap-2 text-[#6B7A72]">
+            <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <p className="text-sm font-semibold uppercase tracking-wider">{scoreTile.heading}</p>
+          </div>
+          {scoreTile.value !== null ? (
+            <>
+              <p className="mt-3 text-2xl font-semibold text-[#1B3A2D]">
+                {scoreTile.value}
+                <span className="text-sm font-normal text-[#6B7A72]"> / 100</span>
+              </p>
+              {scoreTile.caption && (
+                <p className="mt-auto pt-3 text-xs text-[#6B7A72]">{scoreTile.caption}</p>
+              )}
+            </>
+          ) : (
+            <p className="mt-auto text-sm text-[#6B7A72]">{scoreTile.emptyStatement}</p>
+          )}
         </div>
-        {movementScore != null ? (
-          <>
-            <p className="mt-3 text-2xl font-semibold text-[#1B3A2D]">
-              {movementScore}
-              <span className="text-sm font-normal text-[#6B7A72]"> / 100</span>
-            </p>
-            <p className="mt-auto pt-3 text-xs text-[#6B7A72]">
-              {movementScoreLabel(movementScore)}
-            </p>
-          </>
-        ) : (
-          <p className="mt-auto text-sm text-[#6B7A72]">Building your score</p>
-        )}
-        <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-[#1B3A2D]/35">
-          Early version, more depth coming
-        </p>
-      </div>
+      )}
 
       <div className={TRACKER_CARD}>
         <div className="flex items-center gap-2 text-[#6B7A72]">

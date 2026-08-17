@@ -20,6 +20,7 @@ import { Card } from '@/components/layout';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
 import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
 import { TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
+import { UNBUILT_PLACEHOLDER_LABEL, showUnbuiltPlaceholder } from '@/lib/naming/unbuiltPlaceholders';
 
 const PRIMARY_BUTTON =
   'block w-full rounded-2xl bg-[#1B3A2D] px-5 py-3 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]';
@@ -81,9 +82,9 @@ function CardBody({ card, action, isCoachLocked }: { card: CatalogCard; action: 
             About {card.estimatedMinutes} min
           </span>
         )}
-        {card.flags.comingSoon && (
+        {card.flags.comingSoon && showUnbuiltPlaceholder() && (
           <span className="rounded-full bg-[#F3F6F4] px-3 py-1.5 font-semibold text-[#1B3A2D]/70">
-            Coming Soon
+            {UNBUILT_PLACEHOLDER_LABEL}
           </span>
         )}
         {card.flags.locked && !isCoachLocked && (

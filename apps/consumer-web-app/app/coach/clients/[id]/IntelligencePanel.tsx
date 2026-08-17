@@ -23,6 +23,7 @@ import {
   addInsightCoachContextAction,
   requestWellnessIntelligenceRecalculation,
 } from '@/app/actions/wellness-intelligence';
+import { displayName, humanizeRawValue } from '@/lib/naming/displayNames';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -141,13 +142,13 @@ function InsightRow({ insight }: { insight: WellnessInsight }) {
           </span>
           {insight.wellness_area && (
             <span className="rounded-full bg-[#FAFAF8] px-2.5 py-1 text-xs capitalize text-[#6B7A72]">
-              {insight.wellness_area.replaceAll('_', ' ')}
+              {humanizeRawValue(insight.wellness_area)}
             </span>
           )}
           <span
             className={`rounded-full px-2.5 py-1 text-xs font-medium ${SEVERITY_STYLE[insight.severity]}`}
           >
-            {insight.severity}
+            {displayName('wellness_insight_severity', insight.severity)}
           </span>
           <span className="rounded-full bg-[#FAFAF8] px-2.5 py-1 text-xs text-[#6B7A72]">
             {TIME_WINDOW_LABEL[insight.time_window]}
@@ -159,8 +160,8 @@ function InsightRow({ insight }: { insight: WellnessInsight }) {
             </span>
           )}
           {insight.status !== 'active' && (
-            <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs capitalize text-[#1B3A2D]/70">
-              {insight.status}
+            <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs text-[#1B3A2D]/70">
+              {displayName('wellness_insight_status', insight.status)}
             </span>
           )}
         </div>

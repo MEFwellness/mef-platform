@@ -23,7 +23,8 @@
  */
 
 import type { RegistryDomain } from '@mef/shared-types-contracts';
-import { getCoachingDomainInfo, type CoachingDomain } from '../investigation-engine/domains';
+import type { CoachingDomain } from '../investigation-engine/domains';
+import { coachingDomainLabel } from '../naming/domainNames';
 
 export type DomainAssignment = {
   /** Null when no coaching domain honestly covers this registry domain. */
@@ -177,7 +178,7 @@ export function assignDomains(registryDomain: RegistryDomain, code: string): Dom
  */
 export function crossReferenceNote(alsoRelevant: readonly CoachingDomain[]): string | null {
   if (alsoRelevant.length === 0) return null;
-  const labels = alsoRelevant.map((d) => getCoachingDomainInfo(d).label);
+  const labels = alsoRelevant.map((d) => coachingDomainLabel(d));
   if (labels.length === 1) return `Also shown under ${labels[0]}.`;
   const last = labels[labels.length - 1]!;
   return `Also shown under ${labels.slice(0, -1).join(', ')} and ${last}.`;

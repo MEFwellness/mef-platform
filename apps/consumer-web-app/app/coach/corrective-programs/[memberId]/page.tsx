@@ -16,6 +16,7 @@ import { FINDING_TYPE_CONFIG, SEVERITY_LABEL } from '@/lib/body-assessment/findi
 import { CORRECTIVE_BLUEPRINTS } from '@/lib/corrective-engine/blueprints';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 import { GenerateDraftPanel } from './GenerateDraftPanel';
+import { displayName } from '@/lib/naming/displayNames';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -118,7 +119,7 @@ export default async function CorrectiveProgramsMemberPage({
                       key={p.blueprint}
                       className="rounded-full bg-[#F5B700]/[0.15] px-3 py-1 text-xs font-medium text-[#854D0E]"
                     >
-                      {CORRECTIVE_BLUEPRINTS[p.blueprint].name} · {p.severity}
+                      {CORRECTIVE_BLUEPRINTS[p.blueprint].name} · {displayName('posture_finding_severity', p.severity)}
                     </span>
                   ))}
                 </div>

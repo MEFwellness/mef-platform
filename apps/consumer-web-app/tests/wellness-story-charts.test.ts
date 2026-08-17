@@ -54,7 +54,8 @@ const ANIMATED_ENERGY_CHART = source('components/dashboard/AnimatedEnergyTrendCh
 const TREND_CHART = source('components/TrendChart.tsx');
 const TREND_CHART_CARD = source('components/TrendChartCard.tsx');
 const ROOT_SCORE_PAGE = source('app/root-score/page.tsx');
-const COACH_CLIENT_PAGE = source('app/coach/clients/[id]/page.tsx');
+// Split 2026-08-17: the panels moved to ./detail, unchanged.
+const COACH_CLIENT_PAGE = source('app/coach/clients/[id]/detail/page.tsx');
 const SCORING_ACTIONS = source('app/actions/scoring.ts');
 
 describe('Energy Trend on Progress: retired as its own card, still a segment of the unified Trends card — untouched by this task', () => {

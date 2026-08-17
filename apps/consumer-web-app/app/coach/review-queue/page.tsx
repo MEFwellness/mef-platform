@@ -5,18 +5,17 @@ import { ShieldAlert, ChevronLeft } from 'lucide-react';
 import { listCoachReviewQueue } from '@/app/actions/safety';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { displayName } from '@/lib/naming/displayNames';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
-const STATUS_LABEL: Record<string, string> = {
-  new: 'New',
-  reviewing: 'Reviewing',
-  approved_for_limited_coaching: 'Approved (limited)',
-  referred_out: 'Referred out',
-  urgent_follow_up: 'Urgent follow-up',
-  closed: 'Closed',
-};
-
+/**
+ * The status wording used to live here, as a second copy of a table that
+ * also existed one directory down. It lives in lib/naming/displayNames.ts
+ * now, with every other stored value's name, so two screens showing the
+ * same column cannot drift apart. Only the colours are local, because
+ * colour is a styling decision and wording is not.
+ */
 const URGENCY_BADGE: Record<string, { bg: string; text: string }> = {
   critical: { bg: STATUS_STYLES.poor.bg, text: STATUS_STYLES.poor.text },
   high: { bg: STATUS_STYLES.poor.bg, text: STATUS_STYLES.poor.text },
@@ -96,10 +95,10 @@ export default async function ReviewQueuePage() {
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-medium ${urgencyBadge.bg} ${urgencyBadge.text}`}
                       >
-                        {entry.urgency}
+                        {displayName('safety_urgency', entry.urgency)}
                       </span>
                       <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs font-medium text-[#1B3A2D]">
-                        {STATUS_LABEL[entry.status] ?? entry.status}
+                        {displayName('safety_review_status', entry.status)}
                       </span>
                     </div>
                   </Link>
@@ -125,7 +124,7 @@ export default async function ReviewQueuePage() {
                     {nameById.get(entry.member_id) ?? 'Unnamed client'}
                   </span>
                   <span className="text-[#6B7A72]">
-                    {STATUS_LABEL[entry.status] ?? entry.status}
+                    {displayName('safety_review_status', entry.status)}
                   </span>
                 </Link>
               ))}

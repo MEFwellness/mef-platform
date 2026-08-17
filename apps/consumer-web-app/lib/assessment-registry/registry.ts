@@ -506,7 +506,7 @@ const FINDING_1_LOVE = comingSoon({
 });
 
 /**
- * Whole-Body Systems Assessment — the first real content on the Unified
+ * Whole-Body Check-In — the first real content on the Unified
  * Adaptive Assessment Foundation/Runtime (migrations 98-100), rather than
  * the older generic questionnaire engine every other live points-scored
  * assessment above uses. `databaseId` matches migration 100's
@@ -525,9 +525,9 @@ const WBSA: AssessmentDefinition = {
   key: 'wbsa',
   type: 'intake_questionnaire',
 
-  displayName: 'Whole-Body Systems Assessment',
+  displayName: 'Whole-Body Check-In',
   shortDescription:
-    'A whole-body check-in across 16 connected functional systems: digestion, energy, immune, circulation, hormones, mood, and more, to help surface patterns worth a closer look.',
+    'A walk through 16 short areas of everyday life: how meals sit with you, how your energy holds up, sleep, aches, mood, recovery, and more. It helps show what is worth a closer look.',
   category: 'whole_body_systems',
   estimatedMinutes: 20,
 

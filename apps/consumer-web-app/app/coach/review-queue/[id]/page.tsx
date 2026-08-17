@@ -6,6 +6,8 @@ import { getCoachReviewQueueEntry } from '@/app/actions/safety';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { ReviewCaseControls } from '../ReviewCaseControls';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { displayName } from '@/lib/naming/displayNames';
+import { concernCategoryLabel } from '@/lib/safety/categories';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -58,15 +60,15 @@ export default async function ReviewCaseDetailPage({ params }: { params: { id: s
             <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-xs uppercase tracking-wider text-[#6B7A72]">Classification</dt>
-                <dd className="mt-1 font-medium text-[#1B3A2D]">{entry.classification_level}</dd>
+                <dd className="mt-1 font-medium text-[#1B3A2D]">{displayName('safety_classification_level', entry.classification_level)}</dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wider text-[#6B7A72]">Urgency</dt>
-                <dd className="mt-1 font-medium text-[#1B3A2D]">{entry.urgency}</dd>
+                <dd className="mt-1 font-medium text-[#1B3A2D]">{displayName('safety_urgency', entry.urgency)}</dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wider text-[#6B7A72]">Source</dt>
-                <dd className="mt-1 font-medium text-[#1B3A2D]">{entry.source_feature}</dd>
+                <dd className="mt-1 font-medium text-[#1B3A2D]">{displayName('safety_source_feature', entry.source_feature)}</dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wider text-[#6B7A72]">Created</dt>
@@ -82,7 +84,7 @@ export default async function ReviewCaseDetailPage({ params }: { params: { id: s
                       key={category}
                       className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES.attention.bg} ${STATUS_STYLES.attention.text}`}
                     >
-                      {category}
+                      {concernCategoryLabel(category)}
                     </span>
                   ))}
                 </dd>

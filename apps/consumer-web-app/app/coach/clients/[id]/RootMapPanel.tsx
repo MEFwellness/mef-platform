@@ -13,6 +13,7 @@ import type { CoachRootMapView } from '@/app/actions/rootMap';
 import { RootMapDomainCard } from '@/components/RootMapDomainCard';
 import { findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { displayName } from '@/lib/naming/displayNames';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -60,7 +61,7 @@ export function RootMapPanel({ rootMap }: { rootMap: CoachRootMapView }) {
           <ul className="mt-2 space-y-1.5">
             {rootMap.pendingReassessments.map((r) => (
               <li key={r.assessmentKey} className="text-sm text-[#1B3A2D]/80">
-                · {r.displayName}: due {formatDisplayDate(r.dueAt, { month: 'short', day: 'numeric', year: 'numeric' })} ({r.triggerSource})
+                · {r.displayName}: due {formatDisplayDate(r.dueAt, { month: 'short', day: 'numeric', year: 'numeric' })} ({displayName('reassessment_trigger_source', r.triggerSource)})
               </li>
             ))}
           </ul>

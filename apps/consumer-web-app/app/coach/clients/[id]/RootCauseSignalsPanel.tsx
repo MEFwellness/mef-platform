@@ -9,6 +9,8 @@
 import { GitMerge } from 'lucide-react';
 import type { RootCauseSignalsView } from '@/lib/intelligence-engine/rootCauseSignals';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { findingDisplayName } from '@/lib/naming/findingNames';
+import { humanizeRawValue } from '@/lib/naming/displayNames';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -94,9 +96,11 @@ export function RootCauseSignalsPanel({ signals }: { signals: RootCauseSignalsVi
                 key={`${f.domain}-${f.code}`}
                 className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
               >
-                <span className="font-medium text-[#1B3A2D]">{f.label}</span>
-                <span className="text-xs capitalize text-[#6B7A72]">
-                  {f.currentTrendStatus ?? f.currentStatus} · first seen{' '}
+                <span className="font-medium text-[#1B3A2D]">
+                  {findingDisplayName(f.domain, f.code, f.label)}
+                </span>
+                <span className="text-xs text-[#6B7A72]">
+                  {humanizeRawValue(f.currentTrendStatus ?? f.currentStatus)} · first seen{' '}
                   {formatDisplayDate(f.firstObservedAt, { month: 'short', day: 'numeric', year: 'numeric' })} · {f.occurrenceCount}x observed
                 </span>
               </li>

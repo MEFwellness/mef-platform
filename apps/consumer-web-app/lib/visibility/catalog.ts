@@ -982,7 +982,7 @@ export const VISIBILITY_CATALOG: FeatureDefinition[] = [
     key: F.assessmentWbsa,
     kind: 'assessment',
     surface: 'questionnaires',
-    label: 'Whole-Body Systems Assessment',
+    label: 'Whole-Body Check-In',
     whoNeedsThis:
       'A member with a broad, repeated picture. It is the widest instrument in the library and is wasted on a member with one early indication.',
     revealWhen: [

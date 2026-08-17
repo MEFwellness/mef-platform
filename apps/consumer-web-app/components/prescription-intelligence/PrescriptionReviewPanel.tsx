@@ -19,6 +19,7 @@ import {
 } from '@/app/actions/prescription-intelligence';
 import type { BlockExerciseDraft } from '@/lib/prescription-intelligence/exerciseSelection';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { displayName } from '@/lib/naming/displayNames';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const INPUT =
@@ -231,7 +232,7 @@ function ConfidencePanel({ snapshot }: { snapshot: PrescriptionSnapshotWithConte
         <span
           className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase ${CONFIDENCE_STYLE[snapshot.confidence_level]}`}
         >
-          {snapshot.confidence_level.replaceAll('_', ' ')}
+          {displayName('prescription_confidence_level', snapshot.confidence_level)}
         </span>
       </button>
       {expanded && (

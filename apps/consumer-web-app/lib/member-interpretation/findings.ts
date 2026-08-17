@@ -22,13 +22,14 @@
  */
 
 import type { RegistryEntry, RegistryEntrySeverity } from '@mef/shared-types-contracts';
-import { getCoachingDomainInfo } from '../investigation-engine/domains';
+import { findingDisplayName } from '../naming/findingNames';
 import { assignDomains, crossReferenceNote } from './domainMap';
 import { checkinEvidenceForCode, evidenceFromRegistryEntry, type InterpretationCheckin } from './evidence';
 import { findingStatement } from './copy';
 import { enforceTierLanguage } from './language';
 import { computeEvidenceTier, tierLabel } from './tiers';
 import type { CanonicalFinding, EvidenceItem, FindingVerdict } from './types';
+import { coachingDomainLabel } from '../naming/domainNames';
 
 /**
  * The dedup key: what answer produced this.
@@ -154,6 +155,16 @@ function toCanonicalFinding(
   const verdict = verdictFor(entry);
   const { primary, alsoRelevant } = assignDomains(entry.domain, entry.code);
 
+  // The NAME is looked up by the finding's stable identity rather than read
+  // off the row. `entry.label` is the wording the adapter used on the day the
+  // row was written, and rows in production go back months: some carry
+  // retired clinical names ("Gut Fungal & Parasite Concerns"), one carries a
+  // raw enum with its underscores swapped for spaces ("thoracic kyphosis").
+  // Renaming a finding is one edit in lib/naming/findingNames.ts and it lands
+  // on every screen at once, because every screen renders findings through
+  // this layer. See docs/NAMING-STANDARD.md.
+  const label = findingDisplayName(entry.domain, entry.code, entry.label);
+
   // The statement is AUTHORED here rather than passed through from the
   // producer. The stored narratives were written per-adapter years apart:
   // one of them interpolated a raw enum into member copy ("reported as
@@ -162,15 +173,15 @@ function toCanonicalFinding(
   // from the tier and the verdict, is what makes "language matches tier" a
   // property rather than an aspiration.
   const statement = enforceTierLanguage(
-    findingStatement({ label: entry.label, tier, verdict, evidence }),
+    findingStatement({ label, tier, verdict, evidence }),
     tier,
-    entry.label
+    label
   );
 
   return {
     id: sourceKeyFor(entry),
     sourceKey: sourceKeyFor(entry),
-    label: entry.label,
+    label,
     statement,
     tier,
     tierLabel: tierLabel(tier),
@@ -178,7 +189,7 @@ function toCanonicalFinding(
     verdict,
     severity: severityOf(entry),
     primaryDomain: primary,
-    primaryDomainLabel: primary ? getCoachingDomainInfo(primary).label : null,
+    primaryDomainLabel: primary ? coachingDomainLabel(primary) : null,
     alsoRelevantDomains: alsoRelevant,
     crossReferenceNote: crossReferenceNote(alsoRelevant),
     memberVisible: entry.member_visible,

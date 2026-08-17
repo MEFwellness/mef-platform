@@ -19,6 +19,7 @@ import type {
   SafetyUrgency,
   SafetyEscalationAction,
 } from '@mef/shared-types-contracts';
+import { humanizeRawValue } from '../naming/displayNames';
 
 export type ConcernCategoryKey =
   | 'self_harm_crisis'
@@ -323,4 +324,20 @@ export function getConcernCategory(key: ConcernCategoryKey): ConcernCategoryConf
   const category = CONCERN_CATEGORIES.find((c) => c.key === key);
   if (!category) throw new Error(`Unknown concern category: ${key}`);
   return category;
+}
+
+/**
+ * The plain-language name for a stored concern category.
+ *
+ * Every category above has carried a real `label` since this file was
+ * written; the safety review screen was simply printing the stored key
+ * instead, so a coach opening a case read `self_harm_crisis` on the one
+ * screen in the app where wording matters most. Tolerant of an unknown key
+ * (an older stored row, a category since retired) because a safety case
+ * must render whatever it holds rather than throw.
+ */
+export function concernCategoryLabel(key: string): string {
+  const category = CONCERN_CATEGORIES.find((c) => c.key === key);
+  if (category) return category.label;
+  return humanizeRawValue(key);
 }

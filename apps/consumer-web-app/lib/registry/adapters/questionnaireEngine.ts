@@ -28,6 +28,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RegistryDomain, RegistryEntrySeverity } from '@mef/shared-types-contracts';
 import type { CategoryScoreResult } from '../../assessments/engine/types';
+import { findingDisplayName } from '../../naming/findingNames';
 import { findActiveRegistryEntry, insertRegistryEntry } from '../data';
 import { computeFindingTrendStatus } from '../trendStatus';
 import type { RegistryEntryDraft } from '../types';
@@ -35,7 +36,6 @@ import type { RegistryEntryDraft } from '../types';
 type CategoryFindingConfig = {
   domain: RegistryDomain;
   code: string;
-  label: string;
   moderateBand: [number, number];
   highBand: [number, number];
 };
@@ -45,49 +45,42 @@ const CATEGORY_FINDING_MAP: Record<string, Record<string, CategoryFindingConfig>
     you_are_what_you_eat: {
       domain: 'nutrition',
       code: 'nutrition_quality_concern',
-      label: 'Nutrition Quality Concerns',
       moderateBand: [30, 49],
       highBand: [50, 130],
     },
     stress: {
       domain: 'stress',
       code: 'elevated_stress',
-      label: 'Elevated Stress',
       moderateBand: [20, 39],
       highBand: [40, 81],
     },
     circadian_health: {
       domain: 'sleep',
       code: 'circadian_disruption',
-      label: 'Circadian Rhythm Disruption',
       moderateBand: [30, 49],
       highBand: [50, 90],
     },
     you_are_when_you_eat: {
       domain: 'nutrition',
       code: 'meal_timing_irregularity',
-      label: 'Irregular Meal Timing',
       moderateBand: [10, 19],
       highBand: [20, 50],
     },
     digestive_system_health: {
       domain: 'nutrition',
       code: 'digestive_complaints',
-      label: 'Digestive Complaints',
       moderateBand: [20, 39],
       highBand: [40, 81],
     },
     fungus_and_parasites: {
       domain: 'nutrition',
       code: 'gut_fungal_parasite_concern',
-      label: 'Gut Fungal & Parasite Concerns',
       moderateBand: [40, 59],
       highBand: [60, 115],
     },
     detoxification_system_health: {
       domain: 'nutrition',
       code: 'detoxification_load_concern',
-      label: 'Detoxification Load Concerns',
       moderateBand: [20, 39],
       highBand: [40, 88],
     },
@@ -96,28 +89,24 @@ const CATEGORY_FINDING_MAP: Record<string, Record<string, CategoryFindingConfig>
     dr_happiness: {
       domain: 'stress',
       code: 'emotional_wellbeing_concern',
-      label: 'Emotional Wellbeing Concern',
       moderateBand: [55, 74],
       highBand: [75, 160],
     },
     dr_quiet: {
       domain: 'sleep',
       code: 'poor_sleep_quality',
-      label: 'Poor Sleep Quality',
       moderateBand: [30, 49],
       highBand: [50, 80],
     },
     dr_diet: {
       domain: 'nutrition',
       code: 'diet_quality_concern',
-      label: 'Diet Quality Concern',
       moderateBand: [50, 94],
       highBand: [95, 220],
     },
     dr_movement: {
       domain: 'movement',
       code: 'movement_deficiency',
-      label: 'Movement Deficiency',
       moderateBand: [50, 69],
       highBand: [70, 150],
     },
@@ -139,63 +128,54 @@ const CATEGORY_FINDING_MAP: Record<string, Record<string, CategoryFindingConfig>
     digestive_wellness: {
       domain: 'nutrition',
       code: 'digestive_wellness_concern',
-      label: 'Digestive Wellness Concerns',
       moderateBand: [7, 13],
       highBand: [14, 21],
     },
     energy_and_fatigue: {
       domain: 'movement',
       code: 'energy_fatigue_pattern',
-      label: 'Energy & Fatigue Pattern',
       moderateBand: [6, 11],
       highBand: [12, 18],
     },
     sleep_quality: {
       domain: 'sleep',
       code: 'sleep_quality_pattern',
-      label: 'Sleep Quality Pattern',
       moderateBand: [6, 11],
       highBand: [12, 18],
     },
     stress_and_mood: {
       domain: 'stress',
       code: 'stress_and_mood_pattern',
-      label: 'Stress & Mood Pattern',
       moderateBand: [7, 13],
       highBand: [14, 21],
     },
     immune_and_respiratory: {
       domain: 'breathing',
       code: 'immune_respiratory_pattern',
-      label: 'Immune & Respiratory Pattern',
       moderateBand: [6, 11],
       highBand: [12, 18],
     },
     musculoskeletal_comfort: {
       domain: 'movement',
       code: 'musculoskeletal_discomfort_pattern',
-      label: 'Musculoskeletal Discomfort Pattern',
       moderateBand: [6, 11],
       highBand: [12, 18],
     },
     cardiovascular_and_circulation: {
       domain: 'movement',
       code: 'cardiovascular_circulation_pattern',
-      label: 'Cardiovascular & Circulation Pattern',
       moderateBand: [5, 9],
       highBand: [10, 15],
     },
     cognitive_clarity: {
       domain: 'stress',
       code: 'cognitive_clarity_pattern',
-      label: 'Cognitive Clarity Pattern',
       moderateBand: [6, 11],
       highBand: [12, 18],
     },
     hormonal_balance: {
       domain: 'hormone',
       code: 'hormonal_balance_pattern',
-      label: 'Hormonal Balance Pattern',
       moderateBand: [5, 9],
       highBand: [10, 15],
     },
@@ -224,6 +204,12 @@ export async function upsertRegistryEntriesFromQuestionnaireAttempt(
 
     const existing = await findActiveRegistryEntry(supabase, memberId, config.domain, config.code);
 
+    // The one place a finding's name is decided (docs/NAMING-STANDARD.md).
+    // The adapter used to hold its own hand-typed label, which is how
+    // "Gut Fungal & Parasite Concerns" reached a member screen and stayed
+    // there once it was written to a row.
+    const label = findingDisplayName(config.domain, config.code);
+
     if (category.priority === 'low') {
       // Nothing wrong to report — resolve a prior active finding rather than leaving it stale.
       if (existing) {
@@ -234,12 +220,12 @@ export async function upsertRegistryEntriesFromQuestionnaireAttempt(
             entry_kind: 'finding',
             domain: config.domain,
             code: config.code,
-            label: config.label,
+            label,
             severity: 'none',
             numeric_value: null,
             unit: null,
             confidence: existing.confidence,
-            narrative: `${config.label} has resolved to a low-priority range on the latest attempt.`,
+            narrative: `${label} has resolved to a low-priority range on the latest attempt.`,
             evidence_refs: [{ type: 'wellness_assessment', id: assessmentId }],
             source_feature: 'questionnaire_category_finding',
             source_record_id: assessmentId,
@@ -267,12 +253,12 @@ export async function upsertRegistryEntriesFromQuestionnaireAttempt(
       entry_kind: 'finding',
       domain: config.domain,
       code: config.code,
-      label: config.label,
+      label,
       severity,
       numeric_value: category.score,
       unit: 'points',
       confidence,
-      narrative: `${config.label} scored ${category.score}/${category.maxScore} (${category.priority} priority) on the latest attempt.`,
+      narrative: `${label} scored ${category.score}/${category.maxScore} (${category.priority} priority) on the latest attempt.`,
       evidence_refs: [{ type: 'wellness_assessment', id: assessmentId }],
       source_feature: 'questionnaire_category_finding',
       source_record_id: assessmentId,

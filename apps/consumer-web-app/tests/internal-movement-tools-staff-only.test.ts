@@ -293,7 +293,7 @@ describe('nothing was lost from the staff platform', () => {
     expect(fs.existsSync(path.join(ROOT, 'app/coach/clients/[id]/MovementProfilePanel.tsx'))).toBe(
       true
     );
-    expect(read('app/coach/clients/[id]/page.tsx')).toContain('MovementProfilePanel');
+    expect(read('app/coach/clients/[id]/detail/page.tsx')).toContain('MovementProfilePanel');
   });
 
   it('a coach-assigned program still renders its exercises inline, with no trip through the library', () => {

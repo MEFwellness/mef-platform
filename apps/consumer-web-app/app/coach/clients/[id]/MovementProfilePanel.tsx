@@ -20,6 +20,7 @@ import {
 import { TagListEditor } from '@/components/movement-profile/TagListEditor';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 import type { MemberMovementProfile, MovementProfileReviewItem } from '@mef/shared-types-contracts';
+import { displayName } from '@/lib/naming/displayNames';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -77,7 +78,9 @@ function ReviewItemRow({ item, clientId }: { item: MovementProfileReviewItem; cl
           </button>
         </div>
       ) : (
-        <p className="mt-1.5 text-xs font-medium capitalize text-[#6B7A72]">{item.status}</p>
+        <p className="mt-1.5 text-xs font-medium text-[#6B7A72]">
+          {displayName('movement_profile_review_status', item.status, { fallback: 'Resolved' })}
+        </p>
       )}
     </li>
   );

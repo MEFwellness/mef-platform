@@ -105,7 +105,9 @@ describe('buildRegistryCoachAlertDrafts', () => {
     const alerts = buildRegistryCoachAlertDrafts(profile);
     expect(alerts).toHaveLength(1);
     expect(alerts[0]!.alertType).toBe('assessment_finding_requires_attention');
-    expect(alerts[0]!.severity).toBe('important');
+    // Routine follow-up tier, so the stored severity is 'notable'. An
+    // assessment answer needing attention is not a safety event.
+    expect(alerts[0]!.severity).toBe('notable');
     expect(alerts[0]!.alertKey).toBe('assessment_finding_significant_finding');
   });
 

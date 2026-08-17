@@ -226,7 +226,7 @@ export const INVESTIGATION_METADATA: Record<AssessmentKey, InvestigationMetadata
     ],
     category: 'multi_domain_screener',
     primaryObjective:
-      'A whole-body check-in across 16 connected functional systems: digestive, metabolic, immune, respiratory, circulatory, renal, thyroid, adrenal, reproductive, neurological, musculoskeletal, dermatological, nutrient, and recovery patterns.',
+      'A walk through 16 short areas of everyday life: how meals sit with you, how things move through, energy between meals, breathing, circulation, temperature and pace, stress and demand, monthly changes, focus, aches, skin, cravings, and recovery.',
     whyItExists:
       'The first real content on the Unified Adaptive Assessment Runtime; gives the Root Router the widest simultaneous body-system signal of any live instrument.',
     hypothesesInvestigated: [

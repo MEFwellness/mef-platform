@@ -50,6 +50,7 @@ import {
 } from '@/lib/coach-member-entries/present';
 import type { EnteredAnswer, SectionResult } from '@/lib/coach-member-entries/types';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { displayName } from '@/lib/naming/displayNames';
 
 /** One date format for the whole screen, so a check-in day and a completion date never read differently. */
 const ENTRY_DATE: Intl.DateTimeFormatOptions = {
@@ -398,7 +399,7 @@ export default async function CoachMemberEntriesPage({
                             </span>
                           </div>
                           <p className="mt-0.5 text-[12px] text-[#6B7A72]">
-                            {submission.kind}. Open to read her answers.
+                            {displayName('member_submission_kind', submission.kind)}. Open to read her answers.
                           </p>
                         </Link>
                       ) : (

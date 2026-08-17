@@ -6,21 +6,42 @@
  * the milestone's explicit "every alert must explain WHY." Persistence
  * (dedup by alertKey, reopen/protect-from-reopen) lives in data.ts, not
  * here — this module only produces the pure drafts.
+ *
+ * TIERS, 2026-08-17. Every draft's `severity` is now DERIVED from its alert
+ * type through lib/intelligence-engine/alertTiers.ts rather than chosen
+ * here, one rule at a time. It used to be chosen here, and the result was
+ * that "possible burnout risk" and "reassessment overdue" both landed on
+ * `notable`, so the badge told a coach nothing. Nothing renders the stored
+ * severity any more; it is kept because a check constraint and a hundred
+ * existing rows carry it. What a coach reads is the tier.
  */
 
 import { areaLabel } from '../intelligence/copy';
+import { alertTier, storedSeverityForTier } from './alertTiers';
 import { buildRegistryCoachAlertDrafts } from './registryFindings';
 import {
   ASSESSMENT_OVERDUE_DAYS,
   NO_CHECKIN_ALERT_DAYS,
   REPEATED_SAFETY_FLAGS_MIN,
 } from './thresholds';
+import type { IntelligenceAlertType } from '@mef/shared-types-contracts';
 import type {
   CoachAlertDraft,
   LongitudinalTrend,
   MemberHealthProfile,
   PatternInsight,
 } from './types';
+
+/**
+ * The stored severity for one alert type, derived from its tier.
+ *
+ * The one place the legacy three-value column and the two real tiers meet.
+ * No rule below chooses a severity for itself any more, which is what made
+ * the old scale incoherent.
+ */
+function severityForType(alertType: IntelligenceAlertType) {
+  return storedSeverityForTier(alertTier(alertType));
+}
 
 function needsReviewAlerts(profile: MemberHealthProfile): CoachAlertDraft[] {
   return profile.wellnessInsights
@@ -32,9 +53,9 @@ function needsReviewAlerts(profile: MemberHealthProfile): CoachAlertDraft[] {
     )
     .map((insight) => ({
       alertType: 'needs_review' as const,
-      severity: 'important' as const,
+      severity: severityForType('needs_review'),
       title: `Needs review: ${insight.title}`,
-      reason: `An important-severity insight ("${insight.title}") has been active since ${insight.created_at.slice(0, 10)} and hasn't been reviewed by a coach yet.`,
+      reason: `"${insight.title}" has been open since ${insight.created_at.slice(0, 10)} and no coach has looked at it yet.`,
       alertKey: `needs_review_${insight.pattern_key}`,
       evidenceRefs: insight.evidence_refs,
       sourceRefs: [{ type: 'wellness_insight', id: insight.id }],
@@ -47,9 +68,9 @@ function burnoutRiskAlert(patterns: PatternInsight[]): CoachAlertDraft | null {
 
   return {
     alertType: 'burnout_risk',
-    severity: burnout.confidence >= 0.7 ? 'important' : 'notable',
-    title: 'Possible burnout risk',
-    reason: burnout.description,
+    severity: severityForType('burnout_risk'),
+    title: 'She may be carrying a lot right now',
+    reason: `${burnout.description} Worth asking about at your next conversation.`,
     alertKey: 'burnout_risk',
     evidenceRefs: burnout.evidenceRefs,
     sourceRefs: [],
@@ -66,8 +87,8 @@ function assessmentOverdueAlert(profile: MemberHealthProfile): CoachAlertDraft |
 
   return {
     alertType: 'assessment_overdue',
-    severity: 'notable',
-    title: 'Reassessment overdue',
+    severity: severityForType('assessment_overdue'),
+    title: 'Time for a reassessment',
     reason: `It has been ${profile.daysSinceLastReassessmentOrBaseline} days since this member's last baseline or reassessment (overdue past ${ASSESSMENT_OVERDUE_DAYS} days).`,
     alertKey: 'assessment_overdue',
     evidenceRefs: [],
@@ -85,8 +106,7 @@ function noCheckinAlert(profile: MemberHealthProfile): CoachAlertDraft | null {
 
   return {
     alertType: 'no_checkin',
-    severity:
-      profile.streak.daysSinceLastCheckin >= NO_CHECKIN_ALERT_DAYS * 2 ? 'important' : 'notable',
+    severity: severityForType('no_checkin'),
     title: 'No recent check-in',
     reason: `This member hasn't checked in for ${profile.streak.daysSinceLastCheckin} days.`,
     alertKey: 'no_checkin',
@@ -107,8 +127,8 @@ function symptomsWorseningAlerts(trends: LongitudinalTrend[]): CoachAlertDraft[]
     )
     .map((t) => ({
       alertType: 'symptoms_worsening' as const,
-      severity: t.trendStrength === 'strong' ? ('important' as const) : ('notable' as const),
-      title: `${areaLabel(t.area)} worsening`,
+      severity: severityForType('symptoms_worsening'),
+      title: `${areaLabel(t.area)} has been getting worse`,
       reason: `${areaLabel(t.area)} has been declining over the last 30 days, with a ${t.trendStrength} fit across ${t.evidenceRefs.length} recorded observation${t.evidenceRefs.length === 1 ? '' : 's'}.`,
       alertKey: `symptoms_worsening_${t.area}`,
       evidenceRefs: t.evidenceRefs,
@@ -121,8 +141,8 @@ function rapidImprovementAlerts(trends: LongitudinalTrend[]): CoachAlertDraft[] 
     .filter((t) => t.trendState === 'improving' && t.trendStrength === 'strong')
     .map((t) => ({
       alertType: 'rapid_improvement' as const,
-      severity: 'info' as const,
-      title: `${areaLabel(t.area)} improving rapidly`,
+      severity: severityForType('rapid_improvement'),
+      title: `${areaLabel(t.area)} is clearly improving`,
       reason: `${areaLabel(t.area)} has improved sharply over the last 30 days, across ${t.evidenceRefs.length} recorded observation${t.evidenceRefs.length === 1 ? '' : 's'}. A good moment to acknowledge this with the member.`,
       alertKey: `rapid_improvement_${t.area}`,
       evidenceRefs: t.evidenceRefs,
@@ -135,7 +155,7 @@ function plateauAlerts(patterns: PatternInsight[]): CoachAlertDraft[] {
     .filter((p) => p.kind === 'plateau')
     .map((p) => ({
       alertType: 'plateau' as const,
-      severity: 'notable' as const,
+      severity: severityForType('plateau'),
       title: p.label,
       reason: p.description,
       alertKey: p.key,
@@ -154,8 +174,8 @@ function recurringBarriersAlert(
 
   return {
     alertType: 'recurring_barriers',
-    severity: 'notable',
-    title: 'Recurring barrier to adherence',
+    severity: severityForType('recurring_barriers'),
+    title: 'The same thing keeps getting in the way',
     reason:
       barrier?.description ??
       `Completion of suggested daily coaching actions has been low across ${profile.adherence.sampleSize} recent days.`,
@@ -170,8 +190,8 @@ function repeatedSafetyFlagsAlert(profile: MemberHealthProfile): CoachAlertDraft
 
   return {
     alertType: 'repeated_safety_flags',
-    severity: 'important',
-    title: 'Repeated safety flags open',
+    severity: severityForType('repeated_safety_flags'),
+    title: 'Safety cases open for this member',
     reason: `This member currently has ${profile.openSafetyReviewCount} open Coach Review Queue cases.`,
     alertKey: 'repeated_safety_flags',
     evidenceRefs: [],
@@ -190,9 +210,9 @@ function medicalEvaluationRecommendedAlerts(
     .filter((i) => i.safety_classification_level === MEDICAL_EVAL_CLASSIFICATION_LEVEL)
     .map((i) => ({
       alertType: 'medical_evaluation_recommended' as const,
-      severity: 'important' as const,
-      title: `Consider recommending a medical evaluation: ${i.title}`,
-      reason: `A safety classification on this member's record ("${i.title}") was flagged at the medical_evaluation_recommended level.`,
+      severity: severityForType('medical_evaluation_recommended'),
+      title: `Suggest she sees a healthcare professional: ${i.title}`,
+      reason: `The safety system flagged something on her record ("${i.title}") as worth a healthcare professional's opinion. Reach her today and record what happened in the review queue.`,
       alertKey: `medical_evaluation_${i.pattern_key}`,
       evidenceRefs: i.evidence_refs,
       sourceRefs: [
@@ -215,8 +235,8 @@ function medicalEvaluationRecommendedAlerts(
     ? [
         {
           alertType: 'medical_evaluation_recommended' as const,
-          severity: 'notable' as const,
-          title: 'Sustained pain pattern: consider a medical evaluation',
+          severity: severityForType('medical_evaluation_recommended'),
+          title: 'Ongoing pain: suggest she sees a healthcare professional',
           reason:
             'Pain/discomfort has been a sustained, strong concern across both the last 30 and prior 30 days, worth suggesting the member speak with a healthcare provider, never a diagnosis from this app.',
           alertKey: 'medical_evaluation_sustained_pain',

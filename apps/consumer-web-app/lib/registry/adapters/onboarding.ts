@@ -11,7 +11,7 @@
  * just the first one) and registers a finding for anything that lands in
  * 'attention' or 'poor', using the same domain vocabulary the other two
  * new adapters (questionnaireEngine.ts, primalPattern.ts) use, so a
- * "Digestive Complaints" finding reported by Onboarding and one later
+ * digestion finding reported by Onboarding and one later
  * reported by the Nutrition & Lifestyle Questionnaire supersede the same
  * (domain, code) chain rather than existing as two disconnected facts.
  *
@@ -36,19 +36,26 @@ import {
   stressStatus,
   type MetricStatus,
 } from '../../wellness/status';
+import { findingDisplayName } from '../../naming/findingNames';
 import { findActiveRegistryEntry, insertRegistryEntry } from '../data';
 import { computeFindingTrendStatus } from '../trendStatus';
 import type { RegistryEntryDraft } from '../types';
 
 const PAIN_AREAS = ['neck', 'shoulders', 'upper_back', 'lower_back', 'hips', 'knees'] as const;
 
-type SimpleFindingConfig = { domain: RegistryDomain; code: string; label: string };
+type SimpleFindingConfig = { domain: RegistryDomain; code: string };
 
+/**
+ * Names are NOT here. They live in lib/naming/findingNames.ts, keyed by the
+ * finding's stable `domain::code`, so a rename is one edit that lands on
+ * every screen at once instead of applying only to members who happen to
+ * answer intake again. See docs/NAMING-STANDARD.md.
+ */
 const METRIC_FINDING_CONFIG: Record<string, SimpleFindingConfig> = {
-  sleep: { domain: 'sleep', code: 'poor_sleep_quality', label: 'Poor Sleep Quality' },
-  stress: { domain: 'stress', code: 'elevated_stress', label: 'Elevated Stress' },
-  energy: { domain: 'sleep', code: 'low_energy', label: 'Low Energy' },
-  digestion: { domain: 'nutrition', code: 'digestive_complaints', label: 'Digestive Complaints' },
+  sleep: { domain: 'sleep', code: 'poor_sleep_quality' },
+  stress: { domain: 'stress', code: 'elevated_stress' },
+  energy: { domain: 'sleep', code: 'low_energy' },
+  digestion: { domain: 'nutrition', code: 'digestive_complaints' },
 };
 
 function severityForStatus(status: MetricStatus): RegistryEntrySeverity | null {
@@ -95,6 +102,7 @@ async function upsertMetricFinding(
   if (severity === null) return; // no-data — leave any prior finding untouched
 
   const existing = await findActiveRegistryEntry(supabase, memberId, config.domain, config.code);
+  const label = findingDisplayName(config.domain, config.code);
 
   if (severity === 'none') {
     if (!existing) return;
@@ -105,12 +113,12 @@ async function upsertMetricFinding(
         entry_kind: 'finding',
         domain: config.domain,
         code: config.code,
-        label: config.label,
+        label,
         severity: 'none',
         numeric_value: null,
         unit: null,
         confidence: existing.confidence,
-        narrative: `${config.label} has resolved on the latest onboarding submission.`,
+        narrative: `${label} is no longer being reported on the latest intake answers.`,
         evidence_refs: [{ type: 'onboarding_submission', id: submissionId }],
         source_feature: 'onboarding_baseline_finding',
         source_record_id: submissionId,
@@ -133,12 +141,12 @@ async function upsertMetricFinding(
     entry_kind: 'finding',
     domain: config.domain,
     code: config.code,
-    label: config.label,
+    label,
     severity,
     numeric_value: null,
     unit: null,
     confidence,
-    narrative: `${config.label} reported as '${status}' on the latest onboarding submission.`,
+    narrative: `${label}, from her latest intake answers.`,
     evidence_refs: [{ type: 'onboarding_submission', id: submissionId }],
     source_feature: 'onboarding_baseline_finding',
     source_record_id: submissionId,
@@ -175,12 +183,12 @@ async function upsertPainAreaFindings(
             entry_kind: 'finding',
             domain: 'movement',
             code,
-            label: `Discomfort: ${area.replaceAll('_', ' ')}`,
+            label: findingDisplayName('movement', code),
             severity: 'none',
             numeric_value: null,
             unit: null,
             confidence: existing.confidence,
-            narrative: `No longer reported on the latest onboarding submission.`,
+            narrative: `No longer reported in her latest intake answers.`,
             evidence_refs: [{ type: 'onboarding_submission', id: submissionId }],
             source_feature: 'onboarding_baseline_finding',
             source_record_id: submissionId,
@@ -203,12 +211,12 @@ async function upsertPainAreaFindings(
       entry_kind: 'finding',
       domain: 'movement',
       code,
-      label: `Discomfort: ${area.replaceAll('_', ' ')}`,
+      label: findingDisplayName('movement', code),
       severity,
       numeric_value: null,
       unit: null,
       confidence: severity === 'moderate' ? 0.6 : 0.45,
-      narrative: `Ongoing discomfort in the ${area.replaceAll('_', ' ')} reported on the latest onboarding submission.`,
+      narrative: `Ongoing discomfort in the ${area.replaceAll('_', ' ')}, from her latest intake answers.`,
       evidence_refs: [{ type: 'onboarding_submission', id: submissionId }],
       source_feature: 'onboarding_baseline_finding',
       source_record_id: submissionId,

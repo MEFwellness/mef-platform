@@ -186,7 +186,10 @@ describe('Bars are enabled on all three surfaces via the one shared component', 
   const PROGRESS_PAGE = source('app/progress/page.tsx');
   const TRENDS_PANEL = source('app/progress/TrendsPanel.tsx');
   const METRIC_TREND_CHART = source('app/progress/MetricTrendChart.tsx');
-  const COACH_CLIENT_PAGE = source('app/coach/clients/[id]/page.tsx');
+  // The coach's client view was split 2026-08-17: the first screen answers
+  // the six coaching questions, and every panel that used to be on it,
+  // including this chart, moved to ./detail unchanged.
+  const COACH_CLIENT_PAGE = source('app/coach/clients/[id]/detail/page.tsx');
   const DASHBOARD_PAGE = source('app/dashboard/page.tsx');
 
   it('Progress renders Energy through the unified TrendsPanel, whose MetricTrendChart always draws bars', () => {

@@ -10,6 +10,7 @@
 
 import { Brain, ClipboardList, Footprints, Leaf, Moon } from 'lucide-react';
 import { NEXT_STEP_CARDS, type NextStepCard } from '@/lib/primal-pattern/premium/content';
+import { UNBUILT_PLACEHOLDER_LABEL, showUnbuiltPlaceholder } from '@/lib/naming/unbuiltPlaceholders';
 
 const ICON: Record<string, typeof Moon> = {
   sleep: Moon,
@@ -43,9 +44,9 @@ function NextStepCardItem({ card }: { card: NextStepCard }) {
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F3F6F4] text-[#1B3A2D]">
           <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
         </span>
-        {card.status === 'coming_soon' && (
+        {card.status === 'coming_soon' && showUnbuiltPlaceholder() && (
           <span className="rounded-full bg-[#F3F6F4] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#6B7A72]">
-            Coming soon
+            {UNBUILT_PLACEHOLDER_LABEL}
           </span>
         )}
       </div>

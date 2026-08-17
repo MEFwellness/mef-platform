@@ -17,7 +17,7 @@ export function WbsaPanel({ clientId, sessions }: { clientId: string; sessions: 
     <section className={`${CARD} p-6`}>
       <div className="flex items-center gap-2 text-[#854D0E]">
         <HeartPulse className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        <p className="text-sm font-semibold uppercase tracking-wider">Whole-Body Systems Assessment</p>
+        <p className="text-sm font-semibold uppercase tracking-wider">Whole-Body Check-In</p>
       </div>
 
       {sessions.length === 0 ? (

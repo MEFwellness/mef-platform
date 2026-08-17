@@ -31,6 +31,7 @@ import {
   updateAiObservationAction,
 } from '@/app/actions/coach-intelligence';
 import { EmptyState } from './EmptyState';
+import { displayName } from '@/lib/naming/displayNames';
 
 const CATEGORY_META: Record<
   AiObservationCategory,
@@ -233,11 +234,11 @@ export function AIAssistantSection({
       <button
         type="button"
         disabled
-        title="Coming soon"
+        title="Not built yet"
         className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border border-dashed border-[#1B3A2D]/15 px-4 py-2.5 text-sm font-medium text-[#6B7A72] opacity-60"
       >
         <Mic className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-        Record Voice Message (Coming soon)
+        Record Voice Message (not built yet)
       </button>
 
       <PublishBar
@@ -409,8 +410,8 @@ function ObservationCard({
         {observation.severity &&
           observation.severity !== 'unknown' &&
           observation.severity !== 'none' && (
-            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium capitalize text-[#6B7A72]">
-              {observation.severity}
+            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-[#6B7A72]">
+              {displayName('posture_finding_severity', observation.severity)}
             </span>
           )}
 
