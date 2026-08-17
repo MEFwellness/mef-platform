@@ -212,3 +212,41 @@ create policy test_member_delete_own_feature_visibility on member_feature_visibi
       select 1 from profiles p where p.id = auth.uid() and p.is_test = true
     )
   );
+
+-- ---------------------------------------------------------------------
+-- The throwaway member has to be able to re-answer intake.
+-- ---------------------------------------------------------------------
+-- Same shape and same restriction as the policy above, and needed for the
+-- same reason. The whole claim of this build is that a member's own answers
+-- decide what her app contains, and the only way to check that is to answer
+-- differently and watch the app change shape. That means running intake
+-- more than once on one account, which means her submission has to be
+-- clearable.
+--
+-- A submission is a permanent record for a REAL member and stays one: this
+-- is restricted to profiles.is_test = true in the database itself, not only
+-- in the route handler, so it survives someone forgetting it at a call
+-- site. No real member's intake can be deleted by any session.
+--
+-- Answers are deleted through their submission's own cascade rather than by
+-- a second policy, so a half-deleted intake is not a state anything can
+-- reach.
+create policy test_member_delete_own_onboarding_submissions on onboarding_submissions
+  for delete using (
+    user_id = auth.uid()
+    and exists (
+      select 1 from profiles p where p.id = auth.uid() and p.is_test = true
+    )
+  );
+
+create policy test_member_delete_own_onboarding_answers on onboarding_answers
+  for delete using (
+    exists (
+      select 1
+        from onboarding_submissions s
+        join profiles p on p.id = s.user_id
+       where s.id = onboarding_answers.submission_id
+         and s.user_id = auth.uid()
+         and p.is_test = true
+    )
+  );

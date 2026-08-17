@@ -27,6 +27,7 @@ import {
   type VisibilityContext,
 } from '../lib/visibility/rules';
 import {
+  MAX_REVEAL_SENTENCES_AT_ONCE,
   pendingReveals,
   resolveVisibility,
   type StoredVisibility,
@@ -490,6 +491,32 @@ describe('the reveal sentence', () => {
     expect(resolveTest({ context: touched }).newlyRevealed.map((f) => f.key)).not.toContain('test.intake');
   });
 
+  it('a member is never handed more than three sentences at once', () => {
+    // Driving the live site found twelve stacked on one Home. Twelve short
+    // kind sentences in a column is a wall of text, which is the exact
+    // failure this build exists to fix.
+    const everythingRevealed = context({
+      intakeAnswers: new Map<string, string | number | string[]>([
+        ['primary_concern', 'pain'],
+        ['baseline_sleep_quality', 1],
+        ['baseline_stress_level', 5],
+        ['baseline_energy_level', 1],
+        ['baseline_digestion', 1],
+        ['baseline_pain_areas', ['lower_back', 'hips', 'neck']],
+        ['baseline_movement_frequency', '0'],
+        ['baseline_hydration', 'very_little'],
+      ]),
+      findings: [finding({ tier: 'coach_verified' })],
+      behavior: { ...emptyVisibilityContext().behavior, checkin_days: 30 },
+    });
+    const visibility = resolveVisibility({ context: everythingRevealed, stored: new Map() });
+    expect(visibility.newlyRevealed.length).toBeLessThanOrEqual(MAX_REVEAL_SENTENCES_AT_ONCE);
+    // And the ones not shown are not lost: they are still visible features
+    // with unacknowledged sentences, so they come round on her next visits.
+    const owing = visibility.features.filter((f) => f.newlyRevealed && f.revealSentence);
+    expect(owing.length).toBeGreaterThan(MAX_REVEAL_SENTENCES_AT_ONCE);
+  });
+
   it('no reveal sentence in the real catalog uses an em dash, a tier name, or jargon', () => {
     const forbidden = [
       '—',
@@ -542,7 +569,7 @@ describe('rule 6: follow-up question sets obey the same system', () => {
 
   it('a sleep answer opens the sleep set and nothing else', () => {
     const sleepy = context({
-      intakeAnswers: new Map([
+      intakeAnswers: new Map<string, string | number | string[]>([
         ['primary_concern', 'sleep'],
         ['baseline_sleep_quality', 2],
       ]),

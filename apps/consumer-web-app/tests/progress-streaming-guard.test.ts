@@ -49,7 +49,7 @@ describe('/progress — slow sections stream independently instead of blocking t
     // The batch is followed by a one-line `shows` helper now (Visibility
     // Layer, 2026-08-17), so this anchors on the batch's own closing rather
     // than on whatever happens to be the next statement.
-    const batchMatch = source.match(/await Promise\.all\(\[([\s\S]*?)\n  \]\);/);
+    const batchMatch = source.match(/await Promise\.all\(\[([\s\S]*?)\n {2}\]\);/);
     expect(batchMatch).not.toBeNull();
     expect(batchMatch![1]).not.toMatch(/getMyWellnessStorySummary|getMyWellnessPatterns/);
   });

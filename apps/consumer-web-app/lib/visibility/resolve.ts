@@ -186,13 +186,32 @@ function decideOne(
   };
 }
 
+/**
+ * How many reveal sentences a member may be told about at once.
+ *
+ * THREE, and the number is the whole point. Driving the live site as the
+ * standing test member found twelve sentences stacked on her Home in one
+ * block, because her real answers legitimately revealed twelve things at
+ * once on the first load after this build. Twelve short kind sentences in a
+ * column is not twelve explanations, it is a wall of text, and it is the
+ * exact failure this build exists to fix: Home competing with itself.
+ *
+ * The rest are not lost and are not silently swallowed. Only the ones
+ * actually shown are marked as said, so the remainder are simply told to
+ * her over her next few visits, a few at a time, which is also how a person
+ * would introduce them.
+ */
+export const MAX_REVEAL_SENTENCES_AT_ONCE = 3;
+
 export function resolveVisibility(input: ResolveInput): MemberVisibility {
   const catalog = input.catalog ?? VISIBILITY_CATALOG;
   const features = catalog.map((definition) => decideOne(definition, input));
   return {
     features,
     byKey: new Map(features.map((f) => [f.key, f] as const)),
-    newlyRevealed: features.filter((f) => f.newlyRevealed && f.revealSentence !== null),
+    newlyRevealed: features
+      .filter((f) => f.newlyRevealed && f.revealSentence !== null)
+      .slice(0, MAX_REVEAL_SENTENCES_AT_ONCE),
     safetyActive: input.context.safetyActive,
   };
 }

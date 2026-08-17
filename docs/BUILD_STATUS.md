@@ -6980,3 +6980,136 @@ It cannot be created without lying about her, and the lie would not sit still: w
 - the arming switch proven in both positions on the same member and the same day
 
 Full suite **5,507 passing** (393 files).
+
+## The Visibility Layer: intake decides what her app contains (2026-08-17)
+
+The audit found exactly one feature in the whole app that changed what a member saw based on something she said: water tracking, gated on `profiles.hydration_focus` (migration 163). Meanwhile an unlock engine and a declaration table sat in the codebase, fully written and reviewed, and had never once been called. `lib/visibility/` is now the single place that decides what renders, and it runs.
+
+Shipped and deployed to `app.mefwellness.com` the same day. Two migrations are written and **not applied** (167 and 168) and are listed at the end of this entry.
+
+### Which prerequisite system won, and why
+
+Two competing vocabularies existed side by side, which the audit correctly called a hazard in itself: pick one before writing rules into either.
+
+**The structured one won.** `UnlockTrigger` in `lib/investigation-engine` was a real, evaluable union with a real, written evaluator, declaring things like "reveal the Nutrition questionnaire once the nutrition domain is worth watching". It had never run, but it was a rule a computer could execute.
+
+**The free-text pair lost.** `AssessmentDefinition.prerequisites.unlockRule` and `.recommendationRule` were `string | null`, both `null` on all fourteen registered assessments, with no evaluator anywhere. A sentence a human reads is not a rule. They are **deleted** from the type and from every entry, so no future feature can write into a field nothing reads.
+
+**What the loser uniquely covered, migrated.** `prerequisiteKeys` sat in the same type and is genuinely live and server-enforced: a member may not open Life Signal Check until Core Values Snapshot is done, and `lib/assessment-registry/access.ts` refuses her at the server. It stays exactly as it is, because access is permission and permission must never depend on a rendering decision. It is now also mirrored into the winner as a structured `{ kind: 'completed_assessment' }` rule, so the library shows her the next conversation at the moment she has earned it, from the same one place every other visibility decision is made.
+
+**The winner moved house.** `unlockEngine.ts` is deleted, along with `unlockTriggers`, `requiredPriorInvestigationKeys`, `optionalPriorInvestigationKeys` and the `UnlockTrigger`/`CoachingStage` types. Its vocabulary survives, generalized off assessments, as `RevealRule` in `lib/visibility/rules.ts`, where a tracker, a card, a hub screen and a follow-up question set can all carry one. There is now exactly one place a visibility rule may be written.
+
+### How the layer decides, in one paragraph
+
+Every thing in the member app is a catalog entry (`lib/visibility/catalog.ts`) carrying one plain sentence about who genuinely needs it and a list of reveal rules, any one of which is enough. A rule reads her intake answers, something she actually did, a canonical finding reaching an evidence tier, a completed prior assessment, or a coach assignment. Reveal conditions read the Member Interpretation Layer's findings and tiers, **never raw data**, which is what makes it impossible for what she is shown and what she is told to disagree. The resolver walks a fixed precedence: safety first and in both directions, then a coach override, then her own hide, then grandfathering, then an existing stored reveal, then a rule firing now, then hidden. Hidden is the default, and it is the answer whenever nothing above it applied.
+
+### The five rules, and where each one lives
+
+| Rule | Where it is held | Why there |
+|---|---|---|
+| 1. Default hidden | `resolveVisibility`'s final branch | It is the fall-through, so no feature can be added that quietly skips it. |
+| 2. Nothing touched disappears | `hasTouched`, checked before any rule | Grandfathering is recomputed from her real rows on every read and is never stored, so a bad write to the visibility table cannot lose it. |
+| 3. Revealed stays revealed | `member_feature_visibility`, migration 167 | A stored reveal is never re-litigated against today's data, so a card cannot blink out on a quiet week and back in on a bad one. |
+| 4. A coach override wins | `set_member_feature_visibility()`, migration 167 | Same shape as the hydration flag's function, and for the same reason: row level security can say who may write a row, not what they may write into it. A coach update policy would make `source = 'member'` forgeable. |
+| 5. Safety exempt both ways | `safetyCritical` on the catalog entry, checked first | Safety-critical features are never written to the visibility table at all, because they are not a decision anybody may make. |
+
+### The rule table for the whole catalog
+
+Seventy-one entries. Every one carries a written reason; none was left with no inferable rule, and `tests/visibility-layer.test.ts` asserts that list is empty.
+
+**Always on, and each one says why.** The daily check-in, the evening reflection, Flag a Concern, messages from a coach, Talk to Root and Notifications are safety-critical: they feed safety monitoring and can never be hidden by a rule, a coach, or the member. The Priority Card is always on because it is the single primary action on Home. The intake and the Core Values Snapshot are always on because they are how a member starts. The "everything else" check-in question set is always on because it is the one place she can tell Root something the rules do not know about.
+
+**Revealed by an intake answer.** Water (she said water is hard to stay on top of), the movement tracker and the Movement screen (pain, weight, movement, performance or healthy aging as her main concern, or 0-2 days a week, or somewhere that hurts), Food Lens (digestion, weight, energy or performance, or digestion at 3 or worse), the guided movement assessment and the Body Assessment (somewhere that hurts), the Nutrition and Lifestyle questionnaire (digestion, weight or energy), Primal Pattern (a nutrition reason), and each of the six concern-scoped check-in question sets.
+
+**Revealed by behaviour.** The Root Score and Root's daily brief at 1 logged day. The weekly review, Your Totals, What Unlocks Next, Past Lessons and the health timeline at 3. The energy trend, Progress's trends, consistency, wellness story and wellness identity at 7, which is the number this app already tells her is enough. The comprehensive reassessment at 21.
+
+**Revealed by a finding reaching a tier.** The Root Map and What We're Noticing at early indication. The Case shortcut, Case View, Insights, Recommendations, the noticing carousel, coaching insights and Four Doctors at emerging pattern. Wellness Patterns and the Whole-Body Systems Assessment at supported by repeated check-ins, which is the same threshold the interpretation layer requires before it will say the word "pattern". The wearable pitch at emerging pattern in recovery or sleep, where a device would genuinely add something.
+
+**Revealed by a coach.** Assigned programs, the reset plan, and every assignable assessment.
+
+**Revealed by a completed prior.** Life Signal Check after Core Values Snapshot, Readiness Pulse after Life Signal Check. The live chain, now structured.
+
+**Revealed by nothing, deliberately.** The "Next session: nothing scheduled yet, Coming soon" row on Home is retired: there is no booking system, so it has only ever told every member that nothing is scheduled, and a row that can never say anything else is not a feature waiting for an audience. The Readiness to Change placeholder is a catalog row with no questions and no route, so there is nothing to reveal. Active experiments and the habit list have no rule either, and correctly so: they exist only for a member who has already started one, which grandfathering handles.
+
+### The declutter
+
+Home shows the day's one priority, one plain sentence about anything newly revealed, and her own revealed features. Nothing else. Every zone asks the layer before it renders and a zone whose contents are all hidden disappears **with its label**, rather than leaving a heading over nothing.
+
+**No locked states and no teaser states.** The Movement Assessment used to render for every member with a dimmed, greyed "Locked" treatment and a gold coach badge; the Progress page's Assessments row did the same. Both are now present or absent. A lock is still an advertisement, and worse, it advertises something that may never be for her at all. `checkAssessmentAccess` remains the independent server-side permission check behind those routes, untouched.
+
+**The wearable modal is gone.** The same pitch was on Home twice on one load, as a full-bleed panel and as a pop-up over it, for a member thirteen days in with no device. The panel survives, gated; the modal is switched off at the call site, with the component and the pop-up chain's own arbitration untouched.
+
+**The Food Lens tab.** The bottom bar is on every member screen, so a tab in it is the most persistent advertisement in the app. `components/MemberBottomNav.tsx` is a thin server wrapper that resolves the answer and hands it to the unchanged presentational bar; 53 member screens now render it. Staff short-circuit to StaffNav before any visibility read.
+
+**The questionnaire library.** The catalogue was identical for every member: a member whose intake said sleep and a member whose intake said digestion saw the same six, two of them locked by position in a fixed chain rather than by anything about her. Each assessment now carries its own rule and the counts are computed after the filter, so "2 of 9 complete" counts the library she actually has.
+
+### The follow-up question sets
+
+"An answer can open a short follow-up set, and unanswered branches simply never appear." The sets already existed in this app: the rotating driver probes, grouped by driver domain (`driver_domains`, migration 106). What was missing is that every domain was offered to everyone.
+
+Each driver domain now maps to one catalog entry, and a probe whose domain is not revealed never enters the bank. Matched by the driver's DOMAIN and never by question key, deliberately and for exactly the reason the hydration gate is matched two ways: coaches add and edit questions on `/coach/questions` without a deploy, so a rule that knew today's eighty-eight keys would stop working on the eighty-ninth. A probe with no driver, or one in a domain the catalog does not know, is kept: failing open is right here, because the alternative is a member silently losing a question a coach wrote.
+
+### The one plain sentence, and why there are at most three of it
+
+`components/visibility/NewlyRevealedNotice.tsx`, on Home only, directly under the day's priority, with no buttons. The sentences live on each catalog entry so whoever retunes a rule writes the sentence in the same place. `tests/visibility-layer.test.ts` asserts that no sentence in the catalog contains an em dash, a tier name, or any of eleven jargon terms.
+
+**Three at once, maximum.** Driving the live site as the standing test member found **twelve** sentences stacked on her Home in one block, because her real answers legitimately revealed twelve things at once on the first load. Twelve short kind sentences in a column is not twelve explanations, it is a wall of text, and it is the exact failure this build exists to fix. Only the ones actually shown are marked as said, so the rest come round over her next few visits.
+
+### The coach's screen
+
+`app/coach/clients/[id]/MemberVisibilityPanel.tsx`, directly beneath the hydration toggle because that toggle is the same kind of decision made one feature at a time. It lists **every** feature, shown or hidden, grouped by kind, each with the plain-language reason the layer reached that answer and a Show/Hide pair. Safety-critical rows carry no buttons at all, which is not a styling choice: there is no override for a coach to make and offering one would imply a power nobody has.
+
+### Existing members
+
+Migration 168 writes one `grandfathered` row per feature each member has genuinely touched, and **inserts only**. It deliberately does not try to evaluate the reveal rules in SQL: those read canonical findings and evidence tiers computed at read time, and re-implementing them in a second language would create exactly the thing this build removes. Untouched features are left with no row and resolve against her real answers and findings on her next page load.
+
+Every row is written already acknowledged, so no existing member is told about a dozen features she has been using for weeks.
+
+**Per-member hiding, from the live site.** For the standing production test member (4 logged days, 1 of 6 questionnaires complete, active findings in sleep, stress, nutrition and pain), what her rules revealed: Quick Actions with both pills, Your Path with all three cards, the noticing carousel, the wearable panel, the Food Lens tab, and her coach's Body Assessment assignment. What is now **hidden** for her: the energy trend chart on Home and the trends and consistency panels on Progress (she has 4 logged days, and 7 is the number this app already tells her is enough), and the retired next-session row. Nothing she has touched moved. Her focus, her findings and her Root Score are unchanged, confirmed by all four standing verification scripts.
+
+### The throwaway member
+
+`routing.test@mefwellness.com` / `RouteMe2026!`, `is_test = true`, provisioned by `scripts/provision-visibility-test-member.mjs`. It exists because the build's whole claim is only checkable by answering intake more than once with contrasting answers, which a real member's account can never be used for.
+
+Three sanctioned reset routes, each with the same four independent gates the movement-priority and weekly-review reset routes already use: a session, `profiles.is_test` checked on the server, RLS plus a test-account-only database policy, and no member id parameter anywhere.
+
+### The friction question, demonstrated live
+
+**This is the one verification the previous build could not do.** The question fires at three consecutive ignored days. The standing test member has responded to her card on every day it has ever been shown to her, so there was no honest way to reach that state on her account. On a throwaway member there is no real person for the counter to be wrong about.
+
+`scripts/verify-friction-question-live.mjs`, **15 of 15**, on production. The counter is set up; everything after it is real. Root put "This one has not landed. What got in the way?" on the card with all five tappable answers. "Too much to take on" was tapped through the actual button, and the read-back from the database shows `friction_reason = 'too_hard'` with `friction_answered_at` set. Reloading her day did not ask again, and a fresh engine run afterwards shows `approach = 1`, which is `APPROACH_SMALLER`, the framing that answer specifically earns. "I forgot" would have left it at 0, which is what makes that number the falsifiable half.
+
+**One real thing this found.** The existing `movement-priority-reset` route deletes today's `member_coaching_decisions` row, which is the row holding her friction answer. An earlier version of the script used it to simulate the next day and then correctly watched Root ask the same question again. The script now clears only the daily claim.
+
+### Proof
+
+`tests/visibility-layer.test.ts` (55). The sharp ones: a brand-new member over the REAL catalog sees no tracker, no trend chart, no noticing carousel and exactly two assessments; a coach cannot hide a safety feature and neither can the member; a touched feature stays when no rule would reveal it, but a coach hide still beats it; a stored reveal survives the data that produced it going away; three contrasting intake profiles are each asserted to differ from the other two in the specific ways the rules predict; and every reveal sentence in the catalog is checked for em dashes, tier names and jargon.
+
+Existing tests updated where behaviour genuinely moved: the Progress page's locked card is gone, the Quick Actions grid is conditional, `BottomNav` filters its left group, `MemberBottomNav` is what member screens render, and the wearable modal is switched off.
+
+Full suite **5,561 passing** (394 files). Typecheck clean, lint clean (0 errors), production build clean.
+
+### Live verification (2026-08-17)
+
+Against `app.mefwellness.com`, commit `a318ef4`, deployment `mef-platform-pdjhb2axh`, confirmed Ready and aliased.
+
+- `scripts/verify-trust-cleanup-live.mjs` — **10 of 10**, unchanged.
+- `scripts/verify-display-guards-live.mjs` — **6 of 6**, unchanged.
+- `scripts/verify-priority-card-normal-live.mjs` — **9 of 9**, unchanged.
+- `scripts/verify-interpretation-layer-live.mjs` — **20 of 20**, unchanged.
+- `scripts/verify-friction-question-live.mjs` — **15 of 15**, new.
+- `scripts/verify-visibility-layer-live.mjs` — **6 of 6**, new. A brand-new member with no intake sees the priority card, the check-in and the Core Values Snapshot, and nothing else: no water tracker, no movement tracker, no Food Lens tab, no trend chart, no noticing carousel, no wearable pitch, no Your Path zone, no Quick Actions zone. Her questionnaire library reads "0 of 2 complete" where it used to read six with two locked.
+
+**One live check honestly incomplete.** The three contrasting intake profiles run end to end in `scripts/verify-intake-profiles-live.mjs`, and the first profile completed the real fourteen-question wizard on production. The second and third could not, because clearing an intake submission needs the test-account delete policy that is in migration 167 and 167 is not applied yet. The script is written and ready; the same three profiles are asserted against the real resolver in the test suite today.
+
+**Two real bugs the live runs found in the verification harness itself**, both worth recording because both would have produced a passing check over a broken app: matching the word "water" inside Root's hydration pop-up and reporting a tracker present that was on no screen, and answering the readiness slider with this profile's STRESS value because the whole page body was being matched instead of the question line.
+
+### Migrations, written and NOT applied
+
+- `00000000000167_member_feature_visibility.sql` — the table, its indexes, its RLS, the coach override function, and three test-account-only delete policies (visibility rows, and intake submissions and answers so the throwaway member can genuinely re-answer). Creates only; deletes nothing.
+- `00000000000168_visibility_backfill_existing_members.sql` — one grandfathered row per feature each existing member has touched. Inserts only, `on conflict do nothing` throughout, and every row already acknowledged.
+
+```
+export $(grep -E "^SUPABASE_DB_URL=" .env.local | head -1)
+npx supabase db push --db-url "$SUPABASE_DB_URL"
+```
