@@ -42,6 +42,7 @@ import {
   initAdaptiveEngineState,
 } from '@/lib/onboarding/adaptivePlan';
 import { isRootPopupDueThisLogin } from '@/lib/root-popup-messages/data';
+import { pickPriority } from '@/lib/brain/priorityEngine';
 import type { DailyCheckin } from '@mef/shared-types-contracts';
 
 const MEMBER = TEST_USERS.memberOne;
@@ -592,6 +593,67 @@ describe('SCORING EXCLUSION: water never counts against a member who does not tr
 
     expect(data!.water_cups).toBeNull();
     expect(data!.hydration_tracked).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4b. The two leaks the live site found, which no unit test had covered
+// ---------------------------------------------------------------------------
+
+describe('the paths that do NOT go through the Daily Wellness Index', () => {
+  function signals(overrides = {}) {
+    return {
+      localDate: '2020-05-11',
+      dayOfWeek: 'monday',
+      wellnessIndex: null,
+      insights: [],
+      adherence: { level: 'medium', completed: 1, total: 2 },
+      streak: { current: 1, best: 1, daysSinceLastCheckin: 0, justRecovered: false },
+      hasSavedCarryover: false,
+      hasActiveSafetyConcern: false,
+      unresolvedAssessmentFocus: null,
+      recentWin: null,
+      confirmedLongTermConcern: null,
+      wearableSnapshot: null,
+      ...overrides,
+    } as unknown as Parameters<typeof pickPriority>[0];
+  }
+
+  it('never names hydration as today’s focus for a member who does not track water', () => {
+    // Found live: an old narrative sentence containing the word "Hydration"
+    // was matched by name (lib/brain/priorityEngine.ts's matchMetricInText)
+    // and shown as "Today's coaching focus: Hydration" to a member who had
+    // just answered that she drinks plenty of water. That path never touches
+    // the wellness index, so the index's own gate could not catch it.
+    const tracked = pickPriority(signals({ unresolvedAssessmentFocus: 'hydration' }));
+    expect(tracked.focus).toBe('hydration');
+
+    const untracked = pickPriority(
+      signals({ unresolvedAssessmentFocus: 'hydration', hydrationTracked: false })
+    );
+    expect(untracked.focus).not.toBe('hydration');
+  });
+
+  it('drops hydration proposed as a confirmed long-term concern too', () => {
+    const untracked = pickPriority(
+      signals({ confirmedLongTermConcern: 'hydration', hydrationTracked: false })
+    );
+    expect(untracked.focus).not.toBe('hydration');
+  });
+
+  it('always still has a focus to name, because the weekly fallback survives the filter', () => {
+    const result = pickPriority(
+      signals({ unresolvedAssessmentFocus: 'hydration', hydrationTracked: false })
+    );
+    expect(result.focus).toBeTruthy();
+    expect(result.reason).toBeTruthy();
+  });
+
+  it('leaves every other metric alone', () => {
+    const result = pickPriority(
+      signals({ unresolvedAssessmentFocus: 'sleep', hydrationTracked: false })
+    );
+    expect(result.focus).toBe('sleep');
   });
 });
 

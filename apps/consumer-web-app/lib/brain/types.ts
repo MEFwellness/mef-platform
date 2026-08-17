@@ -92,6 +92,22 @@ export type CoachingSignals = {
    * stale.
    */
   confirmedLongTermConcern: WellnessMetricKey | null;
+  /**
+   * Conditional water tracking (migration 163). False for a member who
+   * does not track water, in which case hydration can never be today's
+   * focus no matter which signal proposed it.
+   *
+   * Optional, defaulting to tracked, because most of what feeds this
+   * object is already gated upstream (every wellness-index-derived signal
+   * reads null for water) — this exists for the two candidate sources that
+   * are NOT index-derived and would otherwise slip through:
+   * `unresolvedAssessmentFocus`, which matches a metric by NAME in a
+   * narrative sentence, and `confirmedLongTermConcern`. A real leak found
+   * on the live site: "Today's coaching focus: Hydration" was still being
+   * shown to a member who had just said she drinks plenty of water,
+   * because an old narrative item happened to contain the word.
+   */
+  hydrationTracked?: boolean;
   /** Today's real wearable numbers (from registry_entries, domain='wearable'), or null when the member has no connected/synced wearable yet — the Part 5 Daily Coaching Brief's recovery/movement/stress/sleep lines render nothing rather than a guess when this is null. */
   wearableSnapshot: WearableDailySnapshot | null;
 };

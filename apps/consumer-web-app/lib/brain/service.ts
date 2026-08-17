@@ -19,6 +19,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DailyCheckin, NarrativeItem } from '@mef/shared-types-contracts';
 import { calculateWellnessIndex, inputsFromCheckin } from '../wellness/wellness-index';
+import { isHydrationTracked } from '../hydration/data';
 import { detectInsights } from '../wellness/insights';
 import { computeAdherence } from '../feed/adaptiveDifficulty';
 import { computeStreakInsight } from '../feed/streakIntelligence';
@@ -116,6 +117,7 @@ async function assembleContext(
     restrictedTopics,
     confirmedLongTermConcern,
     registryEntries,
+    hydrationTracked,
   ] = await Promise.all([
     fetchRecentCheckins(supabase, memberId, localDate),
     listFeedHistory(supabase, memberId, RECENT_CHECKIN_WINDOW_DAYS),
@@ -123,6 +125,7 @@ async function assembleContext(
     getMemberRestrictedTopics(supabase, memberId),
     fetchConfirmedLongTermConcern(supabase, memberId, localDate),
     listRegistryEntriesForMember(supabase, memberId, { statusFilter: ['active'] }),
+    isHydrationTracked(supabase, memberId),
   ]);
 
   const pastFeedItems = feedHistory.filter((item) => item.local_date < localDate);
@@ -159,6 +162,9 @@ async function assembleContext(
       : null,
     recentWin: pickRecentWin(memberVisibleNarrative),
     confirmedLongTermConcern,
+    // Conditional water tracking (migration 163) — see CoachingSignals'
+    // own comment for the live leak this closes.
+    hydrationTracked,
     wearableSnapshot: buildWearableSnapshot(registryEntries),
   };
 

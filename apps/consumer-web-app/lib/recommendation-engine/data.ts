@@ -8,6 +8,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { completionTrackingForCategory } from './classifier';
 import type { MemberRecommendation, MemberRecommendationRow } from './types';
+import { isHydrationTracked } from '../hydration/data';
+
+/** RecommendationDomain for water (lib/intelligence-engine/recommendations.ts's AREA_DOMAINS). */
+const HYDRATION_RECOMMENDATION_DOMAIN = 'hydration';
 
 type Row = {
   id: string;
@@ -149,12 +153,25 @@ export async function listMemberRecommendations(
     query = query.in('status', options.statusFilter);
   }
 
-  const { data, error } = await query;
+  const [{ data, error }, hydrationTracked] = await Promise.all([
+    query,
+    isHydrationTracked(supabase, memberId),
+  ]);
   if (error) {
     console.error('listMemberRecommendations failed', error);
     return [];
   }
-  return (data as Row[]).map(fromRow);
+
+  // Conditional water tracking (migration 163). A member who turns water off
+  // may already have a hydration recommendation persisted from before she
+  // did, and recommendations are not recomputed on a page load — a real leak
+  // found on the live site, where "Today's coaching focus: Hydration" was
+  // still being recommended to a member who had just said she drinks plenty
+  // of water. Withheld at read, never deleted: turning water back on brings
+  // it and its whole history back.
+  const rows = (data as Row[]).map(fromRow);
+  if (hydrationTracked) return rows;
+  return rows.filter((row) => row.sourceDomain !== HYDRATION_RECOMMENDATION_DOMAIN);
 }
 
 /** Fetches one recommendation by its real DB row id, scoped to the member — the lookup Lifestyle Experiments' startMyExperiment needs to validate category and copy title/protocol verbatim. */

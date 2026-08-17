@@ -147,5 +147,18 @@ function buildCandidates(signals: CoachingSignals): PriorityCandidate[] {
 /** Highest score wins; ties keep the earlier (higher in buildCandidates) entry — deterministic, never random. */
 export function pickPriority(signals: CoachingSignals): PriorityCandidate {
   const candidates = buildCandidates(signals);
-  return candidates.reduce((best, candidate) => (candidate.score > best.score ? candidate : best));
+
+  // Conditional water tracking (migration 163). Filtered here, after every
+  // candidate has been proposed, rather than at each proposal site: two of
+  // the sources above (a metric matched by NAME in a narrative sentence, and
+  // the confirmed long-term concern) do not come through the Daily Wellness
+  // Index and so are not covered by its own gate. One guard at the end
+  // covers all of them, including any added later. The weekly-rhythm
+  // fallback is always present, so this can never empty the list.
+  const allowed =
+    signals.hydrationTracked === false
+      ? candidates.filter((c) => c.focus !== 'hydration')
+      : candidates;
+
+  return allowed.reduce((best, candidate) => (candidate.score > best.score ? candidate : best));
 }
