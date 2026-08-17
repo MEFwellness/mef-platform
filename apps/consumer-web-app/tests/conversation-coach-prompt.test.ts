@@ -51,6 +51,8 @@ function fakeContext(overrides: Partial<ConversationContext> = {}): Conversation
     dayOfWeek: 'Sunday',
     timeOfDayLabel: 'morning',
     decision: fakeDecision(),
+  focusTitle: 'Take a few minutes for your Daily Reset.',
+  rootScore: { score: 27, label: 'Steady' },
     focusLabel: 'Sleep',
     todaysLessonTitle: 'Why sleep consistency matters',
     todaysAction: 'Go to bed 30 minutes earlier tonight.',

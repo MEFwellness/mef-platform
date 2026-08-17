@@ -24,6 +24,7 @@ import { Compass, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getMyRootMap } from '@/app/actions/rootMap';
 import { hasActiveRole } from '@/lib/auth/guards';
+import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { CenterStage, CardStack } from '@/components/layout';
@@ -88,6 +89,16 @@ export default async function RootMapPage() {
           </CenterStage>
         ) : (
           <>
+            {/* ONE FOCUS (Member Interpretation Layer, 2026-08-17). The Root
+                Map used to imply a focus of its own by naming its top domain
+                ("Stress & Nervous System Regulation looks like a specific
+                area worth exploring further"), which on 2026-08-17 was one of
+                five different answers across six screens. The map still names
+                the area worth exploring, because that is a real and different
+                thing, and the member's actual one thing today is stated here
+                from the single engine that authors it. */}
+            <TodaysFocusLine className="mt-3" />
+
             <section className="mef-card mef-animate-in mt-3 p-7">
               <RootMapRing
                 domains={rootMap.domains.map((d) => ({

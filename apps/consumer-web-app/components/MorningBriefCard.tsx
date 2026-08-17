@@ -17,8 +17,17 @@
  *
  * UX refinement: this card no longer repeats its own "{greeting},
  * {name}" — the page header right above it (app/dashboard/page.tsx)
- * already says that once. The card now starts straight at Today's
- * Focus, so it reads as insight rather than a second hello.
+ * already says that once.
+ *
+ * ONE FOCUS (Member Interpretation Layer, 2026-08-17). This card used to
+ * open with "TODAY'S FOCUS, Stress", from the Coaching Brain, while the
+ * Priority Card directly above it on the same screen named a different one
+ * and the noticing carousel below it named a third. The Priority Card
+ * decision engine is the only author of the member's focus now, so this
+ * card names none: it reports her real readings (sleep, stress, recovery)
+ * and Root's note, which is what it was always best at. Nothing on Home
+ * outside the Priority Card uses the words focus, priority, or today's
+ * anything.
  */
 
 import Link from 'next/link';
@@ -26,7 +35,6 @@ import {
   Sparkles,
   HeartPulse,
   Moon,
-  Flame,
   ListChecks,
   MessageCircleHeart,
   TrendingUp,
@@ -80,7 +88,6 @@ export function MorningBriefCard({ brief, rootScoreSnapshot }: Props) {
       </div>
 
       <div className="mt-5 space-y-4">
-        <BriefLine icon={Flame} label="Today's Focus" text={brief.focus_label} />
         {rootScoreSnapshot?.root_score !== null && rootScoreSnapshot && (
           <Link
             href="/root-score"
@@ -121,7 +128,7 @@ export function MorningBriefCard({ brief, rootScoreSnapshot }: Props) {
         {brief.habit_to_prioritize && (
           <BriefLine
             icon={ListChecks}
-            label="Habit to Prioritize Today"
+            label="One Habit Worth Doing"
             text={brief.habit_to_prioritize}
           />
         )}

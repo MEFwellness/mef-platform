@@ -501,8 +501,14 @@ export default async function TodayPage() {
                         />
                         <div className="relative flex items-center gap-2 text-[#6B7A72]">
                           <ListChecks className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                          {/* ONE FOCUS (Member Interpretation Layer,
+                              2026-08-17). This is the day's LESSON, from the
+                              Daily Coaching Feed, and it used to call itself
+                              "Today's Focus" on the same screen where "Your
+                              Priority Today" named something different. It is
+                              a lesson, so it says so. */}
                           <p className="text-sm font-semibold uppercase tracking-wider">
-                            Today&apos;s Focus
+                            Today&apos;s Lesson
                           </p>
                         </div>
                         <p className="relative mt-3 text-lg leading-relaxed text-[#1B3A2D]">

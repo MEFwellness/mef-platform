@@ -15,6 +15,12 @@
  * of shown up front. The card-face headline is a fixed, hand-written
  * short label for this card, not derived from whichever recommendation
  * happens to be first that day.
+ *
+ * ONE FOCUS (Member Interpretation Layer, 2026-08-17). That fixed headline
+ * was the literal string "Today's focus: Consistency", hard-coded, on a
+ * screen where the Priority Card was naming something else entirely. A
+ * recommendation is a suggestion, not the day's focus, and this card says
+ * so now.
  */
 
 import { getMyRecommendations } from '@/app/actions/recommendations';
@@ -29,7 +35,7 @@ export async function RecommendationsCard() {
     <NoticingTile
       imageSrc="/images/card-habit.jpg"
       kicker="Recommended For You"
-      headline="Today's focus: Consistency"
+      headline="What Root suggests next"
       href="/recommendations"
     />
   );

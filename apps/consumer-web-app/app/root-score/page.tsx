@@ -18,7 +18,6 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Target,
   ShieldCheck,
   Gauge,
   Activity,
@@ -27,6 +26,7 @@ import { createClient } from '@/lib/supabase/server';
 import { resolveLocalDate } from '@/app/actions/checkin';
 import { getMyRootScore, getMyRootScoreHistory } from '@/app/actions/scoring';
 import { hasActiveRole } from '@/lib/auth/guards';
+import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { CenterStage, WhenNotEmpty } from '@/components/layout';
@@ -180,23 +180,16 @@ export default async function RootScorePage() {
                 {snapshot!.explanation_summary}
               </p>
 
-              {snapshot!.next_action && (
-                <div className="mt-5 flex items-start gap-3 rounded-2xl bg-[#F3F6F4] p-5">
-                  <Target
-                    className="mt-0.5 h-4 w-4 shrink-0 text-[#1B3A2D]"
-                    strokeWidth={1.75}
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-                      Prioritized Next Action
-                    </p>
-                    <p className="mt-1 text-sm leading-relaxed text-[#1B3A2D]">
-                      {snapshot!.next_action}
-                    </p>
-                  </div>
-                </div>
-              )}
+              {/* ONE FOCUS (Member Interpretation Layer, 2026-08-17). This
+                  box used to render `snapshot.next_action`, which is a fixed
+                  sentence per Root Score domain ("Complete today's movement
+                  session, even a short one."), chosen by the scoring engine.
+                  On 2026-08-17 it said that while Home's brief said Stress,
+                  Today said Daily Reset, and the noticing carousel said
+                  Consistency. It reads the Priority Card engine now, like
+                  every other surface that names a focus, so it can only ever
+                  say what Home says. */}
+              <TodaysFocusLine className="mt-5" />
             </section>
 
             {/* Trend */}

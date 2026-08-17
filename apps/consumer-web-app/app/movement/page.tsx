@@ -21,6 +21,7 @@ import {
   getWeeklyMovementProgress,
 } from '@/app/actions/movement';
 import { hasActiveRole } from '@/lib/auth/guards';
+import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
@@ -152,8 +153,14 @@ export default async function MovementPage() {
                   className="pointer-events-none absolute -bottom-16 -left-16 h-52 w-52 rounded-full bg-[#1B3A2D]/[0.04]"
                   aria-hidden="true"
                 />
+                {/* ONE FOCUS (Member Interpretation Layer, 2026-08-17).
+                    This line described the SESSION ("Strength & conditioning")
+                    under the heading "TODAY'S FOCUS", on a morning when four
+                    other screens each named a different focus. It says what it
+                    actually is now; TodaysFocusLine below carries the one real
+                    focus, read from the Priority Card engine. */}
                 <p className="relative text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-                  Today&apos;s Focus
+                  This Session
                 </p>
                 <h2 className="relative mt-2 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-4xl">
                   {session.focus_summary}
@@ -183,6 +190,8 @@ export default async function MovementPage() {
                   {SESSION_CTA_LABEL[session.status]}
                 </Link>
               </section>
+
+              <TodaysFocusLine />
 
               <WhySessionCard reasons={session.selection_reasons} />
 

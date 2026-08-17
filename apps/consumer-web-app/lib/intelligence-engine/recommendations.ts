@@ -145,11 +145,24 @@ function coachFollowUpRecommendation(priorities: CoachingPriorities): Recommenda
   };
 }
 
+/**
+ * ONE FOCUS (Member Interpretation Layer, 2026-08-17). This row used to be
+ * titled "Today's coaching focus: {label}", which put a second thing
+ * calling itself the day's focus on the Recommendations screen, competing
+ * with the Priority Card engine's actual one. The Coaching Brain's area
+ * pick is real and worth surfacing; it is simply not the focus, and the
+ * title says what it is instead.
+ *
+ * The lifecycle rule that keeps exactly one of these live is unaffected:
+ * `isDailyCoachingFocus` keys on the domain the row was written under
+ * ('daily_coaching'), never on its title, which is exactly why that fix was
+ * written that way.
+ */
 function dailyCoachingRecommendation(profile: MemberHealthProfile): Recommendation {
   const decision = profile.brainDecision;
   return {
     domain: 'daily_coaching',
-    title: `Today's coaching focus: ${decision.focusLabel}`,
+    title: `Worth a little extra attention: ${decision.focusLabel}`,
     detail: decision.reasonText,
     priority:
       decision.riskLevel === 'elevated'

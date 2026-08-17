@@ -51,11 +51,19 @@ export function WellnessStoryPanel({ summary }: { summary: MemberWellnessStorySu
         </section>
       )}
 
+      {/* ONE FOCUS (Member Interpretation Layer, 2026-08-17). This section
+          was headed "Your Focus" and rendered the Intelligence Core's own
+          prioritization, which is a sixth independent answer to a question
+          only the Priority Card engine may answer. The Core's picture is
+          real and stays; it is called what it is, and the day's actual one
+          thing is stated above it from the one engine that authors it. */}
       {hasPriority && (
         <section className="mef-card mef-animate-in p-6">
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <Target className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <p className="text-sm font-semibold uppercase tracking-wider">Your Focus</p>
+            <p className="text-sm font-semibold uppercase tracking-wider">
+              Areas Root Is Watching
+            </p>
           </div>
           {summary.primaryPriorityTitle && (
             <p className="mt-3 rounded-2xl bg-[#EFF6F1] p-4 text-sm font-medium leading-relaxed text-[#1B3A2D]">

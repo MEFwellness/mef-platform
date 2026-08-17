@@ -177,10 +177,32 @@ export function buildSystemPrompt(
   // placeholder it might parrot back ("Hi there") in a reply.
   const nameLine = context.memberFirstName ? `- Name: ${context.memberFirstName}\n` : '';
 
+  // ONE FOCUS, ONE SCORE (Member Interpretation Layer, 2026-08-17).
+  //
+  // Two facts Root used to be missing, and filled in for itself. Asked
+  // "What does my root score mean?" it answered "yours hasn't calculated
+  // yet today since there's no check-in logged" while Home displayed
+  // "27 /100 · Steady" on the same load, because the score was simply not
+  // in its context. And the focus it was given was the Coaching Brain's
+  // area label, which is not what any screen calls the member's focus.
+  //
+  // Both are now the same values the member's own screens render, and the
+  // instruction is explicit that Root may not compute or guess either.
+  const focusLine = context.focusTitle
+    ? `- The member's one thing today (this is what her Home screen shows, state it exactly this way if she asks, never invent a different one): ${context.focusTitle}`
+    : "- The member has no single focus set today. If she asks what to focus on, say plainly that nothing is set today rather than choosing one for her.";
+
+  const scoreLine =
+    context.rootScore && context.rootScore.score !== null
+      ? `- Her Root Score right now: ${context.rootScore.score} out of 100${context.rootScore.label ? ` (${context.rootScore.label})` : ''}. This is the exact number her Home screen and Root Score screen are showing. Never say it has not calculated, never estimate it, and never state a different number.`
+      : '- Her Root Score has not been calculated yet. Say that plainly if she asks, and do not guess a number.';
+
   const contextBlock = `
 MEMBER CONTEXT (use only what's relevant to this message, do not recite all of it back):
 ${nameLine}- Local time: ${context.dayOfWeek} ${context.timeOfDayLabel}
-- Today's coaching focus: ${context.focusLabel} (mode: ${context.decision.mode}, why: ${context.decision.reasonText})
+${focusLine}
+${scoreLine}
+- The coaching area her lesson is drawn from today: ${context.focusLabel} (mode: ${context.decision.mode}, why: ${context.decision.reasonText}). This is background for the lesson, it is NOT her focus, do not present it as one.
 - Today's lesson: ${context.todaysLessonTitle ?? 'none prepared yet'}
 - Today's suggested action: ${context.todaysAction ?? 'none prepared yet'}
 - Encouragement for today: ${context.decision.encouragement}

@@ -26,6 +26,9 @@ import { getContentItem } from '@/lib/feed/data';
 import { getOrCreateTodaysFeed } from '@/lib/feed/service';
 import { buildTimeContext } from '@/lib/feed/timeContext';
 import { getConversationContextIntelligence } from '@/lib/intelligence-engine/engine';
+import { getMemberFocus } from '@/lib/member-interpretation/focus';
+import { getMyRootScore } from '@/app/actions/scoring';
+import { scoreLabel } from '@/lib/wellness/wellness-index';
 import type { CoachingPriorities } from '@/lib/intelligence-engine/types';
 import { getConversationCoachingContext } from '@/lib/intelligence-core/service';
 import { listActiveMemory, listRecentMessages } from './data';
@@ -38,7 +41,29 @@ export type ConversationContext = {
   dayOfWeek: string;
   timeOfDayLabel: string;
   decision: CoachingFocusDecision;
+  /**
+   * The Coaching Brain's area label. Kept because the lesson and the
+   * encouragement are built from it, but it is NO LONGER what Root calls
+   * the member's focus. See `focusTitle`.
+   */
   focusLabel: string;
+  /**
+   * The member's one focus, verbatim from the Priority Card decision
+   * engine through the Member Interpretation Layer. Null when the engine
+   * has none, in which case the prompt says so rather than substituting the
+   * area label, which is how Root and Home came to disagree.
+   */
+  focusTitle: string | null;
+  /**
+   * The member's Root Score exactly as Home renders it, and when it was
+   * last calculated.
+   *
+   * Live on 2026-08-17, asked "What does my root score mean?", Root said
+   * "yours hasn't calculated yet today since there's no check-in logged"
+   * while Home displayed 27 out of 100 on the same load. Root had no score
+   * in its context at all and filled the gap. It has one now.
+   */
+  rootScore: { score: number | null; label: string | null } | null;
   todaysLessonTitle: string | null;
   todaysAction: string | null;
   restrictedTopics: string[];
@@ -84,15 +109,18 @@ export async function gatherConversationContext(
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const timeContext = buildTimeContext(nowInTz);
 
-  const [intelligence, coachingContext, feedItem, activeMemory, recentMessages] = await Promise.all(
-    [
+  const [intelligence, coachingContext, feedItem, activeMemory, recentMessages, focus, snapshot] =
+    await Promise.all([
       getConversationContextIntelligence(supabase, memberId, localDate),
       getConversationCoachingContext(supabase, memberId),
       getOrCreateTodaysFeed(supabase, memberId, localDate),
       listActiveMemory(supabase, memberId, 8),
       listRecentMessages(supabase, sessionId, RECENT_MESSAGE_WINDOW),
-    ]
-  );
+      // The one focus and the real score, so a reply can never disagree
+      // with the screen the member was just looking at.
+      getMemberFocus(),
+      getMyRootScore(localDate, timezone),
+    ]);
 
   const content = feedItem ? await getContentItem(supabase, feedItem.content_item_id) : null;
 
@@ -103,6 +131,13 @@ export async function gatherConversationContext(
     timeOfDayLabel: timeOfDayLabel(timeContext.hour),
     decision: intelligence.decision,
     focusLabel: intelligence.focusLabel,
+    focusTitle: focus?.title ?? null,
+    rootScore: snapshot
+      ? {
+          score: snapshot.root_score,
+          label: snapshot.root_score === null ? null : scoreLabel(snapshot.root_score),
+        }
+      : null,
     todaysLessonTitle: content?.title ?? null,
     todaysAction: content?.suggested_action ?? feedItem?.focus_text ?? null,
     restrictedTopics: intelligence.restrictedTopics,

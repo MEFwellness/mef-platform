@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getMyRecommendationsWithFreshness } from '@/app/actions/recommendations';
 import { getMyLifestyleExperiments } from '@/app/actions/lifestyleExperiments';
 import { hasActiveRole } from '@/lib/auth/guards';
+import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
 import { BottomNav } from '@/components/BottomNav';
 import { BackButton } from '@/components/BackButton';
 import { RecommendationsClient } from '@/components/recommendations/RecommendationsClient';
@@ -43,6 +44,13 @@ export default async function RecommendationsPage() {
           <Compass className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Recommendations</p>
         </div>
+
+        {/* ONE FOCUS (Member Interpretation Layer, 2026-08-17). This screen
+            carried rows literally titled "Today's coaching focus: Stress" and
+            "Today's coaching focus: Hydration". The trust cleanup made it one
+            row; this makes that row stop competing with the day's real focus,
+            which is stated here, from the one engine that authors it. */}
+        <TodaysFocusLine className="mt-4" />
 
         <RecommendationsClient
           recommendations={recommendations}
