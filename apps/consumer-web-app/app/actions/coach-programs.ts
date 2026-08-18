@@ -39,6 +39,7 @@ import {
   updateAssignedWorkoutExercise,
   updateAssignedWorkoutCoachNotes,
   getAssignmentLifecycle,
+  listAssignmentsInProgramGroup,
   pauseAssignment,
   resumeAssignment,
   listMyProgramLifecycles,
@@ -338,11 +339,17 @@ export async function publishProgramAssignmentAction(
   return {};
 }
 
+/** Stops a program. Unchanged since migration 82 except that, like pause and resume, it now acts on every weekly session of the program rather than on one of them. */
 export async function cancelProgramAssignmentAction(assignmentId: string): Promise<ActionResult> {
   const context = await resolveUserId();
   if (!context) return { error: 'Sign in required.' };
-  const ok = await cancelAssignment(context.supabase, assignmentId, context.userId);
-  if (!ok) return { error: 'Could not cancel this assignment. Please try again.' };
+
+  const rows = await listAssignmentsInProgramGroup(context.supabase, assignmentId);
+  const targets = rows.length > 0 ? rows.map((r) => r.id) : [assignmentId];
+  for (const id of targets) {
+    const ok = await cancelAssignment(context.supabase, id, context.userId);
+    if (!ok) return { error: 'Could not cancel this assignment. Please try again.' };
+  }
   return {};
 }
 
@@ -350,55 +357,74 @@ export async function cancelProgramAssignmentAction(assignmentId: string): Promi
  * Holds a program where it is. The member's screen says it is paused, the
  * weeks stop advancing, and nothing about what she was given changes.
  * Reversible by resumeProgramAssignmentAction below.
+ *
+ * Acts on the whole program, not on the one assignment the coach happened
+ * to click. A corrective program is two or three weekly-session
+ * assignments, and pausing a third of a program is not a state this
+ * product has: the live run that found this had a coach screen reading
+ * "Paused" while the member's screen still, correctly, said the program
+ * was running.
  */
 export async function pauseProgramAssignmentAction(assignmentId: string): Promise<ActionResult> {
   const context = await resolveUserId();
   if (!context) return { error: 'Sign in required.' };
 
-  const row = await getAssignmentLifecycle(context.supabase, assignmentId);
-  if (!row) return { error: 'Could not find this program.' };
+  const rows = await listAssignmentsInProgramGroup(context.supabase, assignmentId);
+  if (rows.length === 0) return { error: 'Could not find this program.' };
 
-  const ok = await pauseAssignment(context.supabase, assignmentId);
-  if (!ok) return { error: 'Only a program that is running or about to start can be paused.' };
+  const timezone = await resolveMemberTimezone(context.supabase, rows[0]!.member_id);
+  let paused = 0;
+  for (const row of rows) {
+    if (row.status !== 'active' && row.status !== 'upcoming') continue;
+    if (!(await pauseAssignment(context.supabase, row.id))) continue;
+    paused += 1;
+    await recordProgramLifecycleEvent(context.supabase, {
+      memberId: row.member_id,
+      assignmentId: row.id,
+      eventType: 'program_paused',
+      timezone,
+      fromStatus: row.status,
+      toStatus: 'paused',
+      week: row.current_week,
+      durationWeeks: row.duration_weeks,
+    });
+  }
 
-  await recordProgramLifecycleEvent(context.supabase, {
-    memberId: row.member_id,
-    assignmentId,
-    eventType: 'program_paused',
-    timezone: await resolveMemberTimezone(context.supabase, row.member_id),
-    fromStatus: row.status,
-    toStatus: 'paused',
-    week: row.current_week,
-    durationWeeks: row.duration_weeks,
-  });
-
+  if (paused === 0) {
+    return { error: 'Only a program that is running or about to start can be paused.' };
+  }
   return {};
 }
 
-/** Restarts a held program and gives back the days it was held, so a pause never costs the member part of her program. */
+/** Restarts a held program and gives back the days it was held, so a pause never costs the member part of her program. Acts on the whole program, same reason pause does. */
 export async function resumeProgramAssignmentAction(assignmentId: string): Promise<ActionResult> {
   const context = await resolveUserId();
   if (!context) return { error: 'Sign in required.' };
 
-  const row = await getAssignmentLifecycle(context.supabase, assignmentId);
-  if (!row) return { error: 'Could not find this program.' };
+  const rows = await listAssignmentsInProgramGroup(context.supabase, assignmentId);
+  if (rows.length === 0) return { error: 'Could not find this program.' };
 
-  const timezone = await resolveMemberTimezone(context.supabase, row.member_id);
-  const ok = await resumeAssignment(context.supabase, assignmentId, todaysLocalDate(timezone));
-  if (!ok) return { error: 'Only a paused program can be resumed.' };
+  const timezone = await resolveMemberTimezone(context.supabase, rows[0]!.member_id);
+  const today = todaysLocalDate(timezone);
+  let resumed = 0;
+  for (const row of rows) {
+    if (row.status !== 'paused') continue;
+    if (!(await resumeAssignment(context.supabase, row.id, today))) continue;
+    resumed += 1;
+    const after = await getAssignmentLifecycle(context.supabase, row.id);
+    await recordProgramLifecycleEvent(context.supabase, {
+      memberId: row.member_id,
+      assignmentId: row.id,
+      eventType: 'program_resumed',
+      timezone,
+      fromStatus: 'paused',
+      toStatus: after?.status ?? 'active',
+      week: after?.current_week ?? row.current_week,
+      durationWeeks: row.duration_weeks,
+    });
+  }
 
-  const after = await getAssignmentLifecycle(context.supabase, assignmentId);
-  await recordProgramLifecycleEvent(context.supabase, {
-    memberId: row.member_id,
-    assignmentId,
-    eventType: 'program_resumed',
-    timezone,
-    fromStatus: 'paused',
-    toStatus: after?.status ?? 'active',
-    week: after?.current_week ?? row.current_week,
-    durationWeeks: row.duration_weeks,
-  });
-
+  if (resumed === 0) return { error: 'Only a paused program can be resumed.' };
   return {};
 }
 

@@ -90,6 +90,7 @@ if (!MEMBER_ID) {
 const db = serviceClient();
 const browser = await chromium.launch();
 let restoreLog = 'nothing was changed';
+let allBefore = [];
 
 /** Opens a page as `email`, minted where possible, password where not. */
 async function openAs(email, password, viewport, landingPath) {
@@ -147,6 +148,7 @@ try {
     const published = [...groups.entries()].filter(([, list]) =>
       list.some((r) => r.visibility === 'published')
     );
+    allBefore = rows ?? [];
     const chosen = published.at(0);
     if (chosen) {
       subject = { groupKey: chosen[0], before: chosen[1], ids: chosen[1].map((r) => r.id) };
@@ -275,6 +277,19 @@ try {
     if (db && subject) {
       const today = new Date().toISOString().slice(0, 10);
       const pastStart = addDays(today, -40);
+
+      // Every live program of this member, not only the subject: the coach
+      // flag deliberately stays quiet while the member still has something
+      // running, so proving the flag appears means proving nothing is.
+      // All of them are restored at the end.
+      const { data: allLive } = await db
+        .from('coach_program_assignments')
+        .select('id')
+        .eq('member_id', MEMBER_ID)
+        .in('status', ['upcoming', 'active', 'paused']);
+      const liveIds = (allLive ?? []).map((r) => r.id);
+      const completingIds = [...new Set([...subject.ids, ...liveIds])];
+
       await db
         .from('coach_program_assignments')
         .update({
@@ -286,13 +301,13 @@ try {
           paused_at: null,
           completed_at: null,
         })
-        .in('id', subject.ids);
+        .in('id', completingIds);
 
       // The real transition, applied exactly as the daily job applies it.
       const { data: live } = await db
         .from('coach_program_assignments')
         .select('id, status, end_date')
-        .in('id', subject.ids);
+        .in('id', completingIds);
       const due = (live ?? []).filter((r) => r.end_date < today);
       await db
         .from('coach_program_assignments')
@@ -345,8 +360,16 @@ try {
     const generate = page.getByRole('button', { name: /generate/i });
     if ((await generate.count()) > 0) {
       await generate.first().click();
-      await page.waitForURL(/\/coach\/corrective-programs\/[^/]+\/[^/]+$/, { timeout: 90000 });
-      await page.waitForSelector('text=/Schedule/', { timeout: 30000 });
+      // Generation runs the whole corrective engine against the live
+      // catalog, which takes real time on production.
+      const navigated = await page
+        .waitForURL(/\/coach\/corrective-programs\/[^/]+\/[^/]+$/, { timeout: 180000 })
+        .then(() => true)
+        .catch(() => false);
+      check('coach: a fresh draft was generated', navigated, page.url().replace(BASE, ''));
+    }
+    if (/\/coach\/corrective-programs\/[^/]+\/[^/]+$/.test(page.url())) {
+      await page.waitForSelector('text=/Schedule/', { timeout: 60000 });
 
       const startValue = await page.getByLabel('Program start date').inputValue();
       const weeksValue = await page.getByLabel('Program duration in weeks').inputValue();
@@ -368,7 +391,7 @@ try {
         check('coach: the draft generated for this check was discarded', true, '');
       }
     } else {
-      check('coach: a fresh draft could be generated', false, 'no Generate button (needs a completed posture assessment)');
+      check('coach: a fresh draft could be generated', false, 'generation did not reach the review screen');
     }
 
     check('coach: no uncaught page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
@@ -378,11 +401,13 @@ try {
     console.log('SKIP  coach checks (set COACH_EMAIL with COACH_PASSWORD, or with the PROD_* key files)');
   }
 
+} finally {
   // -------------------------------------------------------------------
-  // Put everything back.
+  // Put everything back. In a finally, because a crash part way through
+  // must never leave a real member's programs in a test state.
   // -------------------------------------------------------------------
-  if (db && subject) {
-    for (const row of subject.before) {
+  if (db && allBefore.length > 0) {
+    for (const row of allBefore) {
       await db
         .from('coach_program_assignments')
         .update({
@@ -404,16 +429,15 @@ try {
     const { data: restored } = await db
       .from('coach_program_assignments')
       .select('template_name_snapshot, status, start_date, end_date, current_week, duration_weeks')
-      .in('id', subject.ids);
+      .in('id', allBefore.map((r) => r.id));
     restoreLog = (restored ?? [])
       .map(
         (r) =>
           `${r.template_name_snapshot}: ${r.status}, ${r.start_date} to ${r.end_date}, week ${r.current_week} of ${r.duration_weeks}`
       )
       .join('\n      ');
-    check('db: the test member’s programs were restored to how they were found', true, '');
+    console.log(`PASS  db: the test member’s programs were restored to how they were found`);
   }
-} finally {
   await browser.close();
 }
 

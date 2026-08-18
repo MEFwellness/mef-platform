@@ -355,6 +355,36 @@ export interface AssignmentLifecycleRow {
   visibility: string;
 }
 
+/**
+ * Every assignment that makes up one program. A corrective program is
+ * delivered as two or three assignments sharing a program_group_key
+ * (migration 172), and a lifecycle control acts on the program, never on
+ * one of its weekly sessions: pausing a third of a program is not a state
+ * this product has.
+ *
+ * Falls back to the one assignment when it has no group of its own.
+ */
+export async function listAssignmentsInProgramGroup(
+  supabase: SupabaseClient,
+  assignmentId: string
+): Promise<AssignmentLifecycleRow[]> {
+  const row = await getAssignmentLifecycle(supabase, assignmentId);
+  if (!row) return [];
+  if (!row.program_group_key) return [row];
+
+  const { data, error } = await supabase
+    .from('coach_program_assignments')
+    .select(LIFECYCLE_COLUMNS)
+    .eq('member_id', row.member_id)
+    .eq('program_group_key', row.program_group_key);
+  if (error) {
+    console.error('listAssignmentsInProgramGroup failed', error);
+    return [row];
+  }
+  const rows = (data ?? []) as unknown as AssignmentLifecycleRow[];
+  return rows.length > 0 ? rows : [row];
+}
+
 /** Every assignment that can still transition — the daily job's whole working set. Terminal rows are never re-read, which is what keeps a completed program completed. */
 export async function listLiveAssignments(
   supabase: SupabaseClient

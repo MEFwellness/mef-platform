@@ -35,6 +35,10 @@ import {
   programHeadline,
 } from '../lib/program-lifecycle/memberView';
 import {
+  buildCoachProgramGroups,
+  isLiveProgramStatus,
+} from '../lib/program-lifecycle/coachView';
+import {
   PROGRAM_COMPLETE_REASON,
   PROGRAM_ENDING_REASON,
   programAttentionReasons,
@@ -569,5 +573,123 @@ describe('the coach’s needs-attention flags', () => {
       today
     );
     expect(notYet).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// What the coach reads. One card per program, not per weekly session — the
+// live run found that listing sessions separately made Pause act on a third
+// of a program.
+// ---------------------------------------------------------------------------
+
+function summary(overrides: {
+  id: string;
+  name: string;
+  groupKey: string;
+  status?: MemberProgramLifecycle['status'];
+  startDate?: string;
+  endDate?: string;
+  currentWeek?: number;
+  total?: number;
+  completed?: number;
+  visibility?: 'draft' | 'published';
+}) {
+  return {
+    assignment: {
+      id: overrides.id,
+      member_id: 'm1',
+      coach_id: 'c1',
+      template_id: null,
+      template_name_snapshot: overrides.name,
+      schedule_type: 'weekly' as const,
+      schedule_config: {
+        type: 'weekly' as const,
+        startDate: overrides.startDate ?? '2026-08-03',
+        daysOfWeek: [1],
+        weeks: 4,
+      },
+      visibility: overrides.visibility ?? ('published' as const),
+      published_at: '2026-08-01T00:00:00Z',
+      assignment_notes: null,
+      internal_notes: null,
+      status: overrides.status ?? ('active' as const),
+      created_at: '2026-08-01T00:00:00Z',
+      updated_at: '2026-08-01T00:00:00Z',
+      cancelled_at: null,
+      cancelled_by: null,
+      start_date: overrides.startDate ?? '2026-08-03',
+      end_date: overrides.endDate ?? '2026-08-30',
+      duration_weeks: 4,
+      current_week: overrides.currentWeek ?? 2,
+      paused_days: 0,
+      started_at: null,
+      completed_at: null,
+      paused_at: null,
+      resumed_at: null,
+      replaced_at: null,
+      replaced_by_assignment_id: null,
+      program_group_key: overrides.groupKey,
+    },
+    totalWorkouts: overrides.total ?? 4,
+    completedWorkouts: overrides.completed ?? 1,
+    completionPercent: 25,
+    lastCompletedAt: null,
+    nextScheduledDate: null,
+  };
+}
+
+describe('the coach’s view of a client’s programs', () => {
+  it('three weekly sessions are one card, with one status and one set of controls', () => {
+    const groups = buildCoachProgramGroups([
+      summary({ id: 'a1', name: 'Corrective: Lower Cross: Session A', groupKey: 'g1' }),
+      summary({ id: 'a2', name: 'Corrective: Lower Cross: Session B', groupKey: 'g1' }),
+      summary({ id: 'a3', name: 'Corrective: Lower Cross: Session C', groupKey: 'g1' }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.name).toBe('Corrective: Lower Cross');
+    expect(groups[0]!.status).toBe('active');
+    expect(groups[0]!.sessions).toHaveLength(3);
+    expect(groups[0]!.currentWeek).toBe(2);
+    expect(groups[0]!.durationWeeks).toBe(4);
+  });
+
+  it('completion is counted across the whole program, not one session', () => {
+    const groups = buildCoachProgramGroups([
+      summary({ id: 'a1', name: 'P: Session A', groupKey: 'g1', total: 4, completed: 3 }),
+      summary({ id: 'a2', name: 'P: Session B', groupKey: 'g1', total: 4, completed: 1 }),
+    ]);
+    expect(groups[0]!.totalWorkouts).toBe(8);
+    expect(groups[0]!.completedWorkouts).toBe(4);
+    expect(groups[0]!.completionPercent).toBe(50);
+  });
+
+  it('the program’s span is the span of all its sessions', () => {
+    const groups = buildCoachProgramGroups([
+      summary({ id: 'a1', name: 'P: Session A', groupKey: 'g1', startDate: '2026-08-24', endDate: '2026-09-20' }),
+      summary({ id: 'a2', name: 'P: Session B', groupKey: 'g1', startDate: '2026-08-19', endDate: '2026-09-15' }),
+    ]);
+    expect(groups[0]!.startDate).toBe('2026-08-19');
+    expect(groups[0]!.endDate).toBe('2026-09-20');
+  });
+
+  it('at most one program is live, and finished ones sort into history', () => {
+    const groups = buildCoachProgramGroups([
+      summary({ id: 'a1', name: 'Old program', groupKey: 'g-old', status: 'replaced' }),
+      summary({ id: 'a2', name: 'Finished program', groupKey: 'g-done', status: 'completed' }),
+      summary({ id: 'a3', name: 'Current program', groupKey: 'g-now', status: 'active' }),
+    ]);
+    const live = groups.filter((g) => isLiveProgramStatus(g.status));
+    const history = groups.filter((g) => !isLiveProgramStatus(g.status));
+    expect(live.map((g) => g.name)).toEqual(['Current program']);
+    expect(history.map((g) => g.name).sort()).toEqual(['Finished program', 'Old program']);
+    expect(groups[0]!.name).toBe('Current program');
+  });
+
+  it('a program with any unpublished session is marked as carrying a draft', () => {
+    const groups = buildCoachProgramGroups([
+      summary({ id: 'a1', name: 'P: Session A', groupKey: 'g1' }),
+      summary({ id: 'a2', name: 'P: Session B', groupKey: 'g1', visibility: 'draft' }),
+    ]);
+    expect(groups[0]!.hasDraft).toBe(true);
   });
 });
