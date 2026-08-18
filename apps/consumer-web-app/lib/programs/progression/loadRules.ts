@@ -11,48 +11,129 @@
  * screen, editable and clearable, and nothing reaches a member until the
  * coach approves a draft.
  *
- * THE TWO MODELS.
+ * PROGRESSION IS EARNED, NEVER SCHEDULED. This is the whole revision the
+ * coach asked for, and it is one sentence: a load goes up because she did
+ * the work at the weight she is on, and never because the program reached
+ * another week. There is no calendar in this file. Nothing below reads a
+ * week number, a start date or a phase position, and the test suite asserts
+ * that feeding a different week produces an identical number.
  *
- *   LINEAR       Steady, small weekly increases while the signals stay
- *                green. One increment at a time, from the table below, out
- *                of the range the member is actually working in. This is
- *                the model almost everyone is on, and it is the model
- *                corrective and rehab work is ALWAYS on.
+ * THE FIVE GATES ON AN INCREASE. All five have to hold. Any one of them
+ * failing is a hold, and a hold means "stay on the weight she is on", not
+ * "she is doing badly".
  *
- *   UNDULATING   A planned heavier and lighter wave across the weeks of a
- *                phase rather than a straight line. The wave is a table of
- *                percentages, one per week, and the last week of a phase is
- *                the heaviest. A member on this model still only ever moves
- *                up when the signals are green: the wave describes the
- *                SHAPE of a phase, never permission to load somebody who
- *                reported pain.
+ *   1. TWO SUCCESSFUL LOGS AT THIS WEIGHT. One logged weight establishes a
+ *      baseline and nothing else. Two completed sessions at the same number
+ *      is the first moment the weight has been shown to be hers.
+ *   2. NO PAIN ON IT. Resolved or not. A resolved report is history the
+ *      coach weighs by hand; an unreviewed one removes the suggestion
+ *      entirely, which is gate 1 of the suppression rule below.
+ *   3. NO "TOO DIFFICULT" ON IT. Her own word about the weight beats any
+ *      count of completions.
+ *   4. NO REPEATED SKIPPING. Twice is a pattern, the same threshold
+ *      signals/insights.ts tells a coach at.
+ *   5. REASONABLE PROGRAM COMPLETION. Below half the sessions, the phase is
+ *      not a fair read of anything, which is the same line
+ *      signals/insights.ts already draws at LOW_COMPLETION_PERCENT.
  *
- * WHICH MODEL APPLIES comes from the blueprint's own `periodization` field
- * (migration 175). A program with no periodization recorded is linear,
- * because linear is the conservative reading of silence. A corrective
- * program and a member in a rehab context are linear and conservative
- * whatever the blueprint says, and that override is not configurable here:
- * see resolveModel below.
+ * UNREVIEWED PAIN REMOVES THE SUGGESTION. Not "hold at current weight",
+ * because a held number beside an unreviewed pain report reads as an
+ * endorsement to repeat the thing that hurt. The column says so in words
+ * instead, and the exercise re-enters normal gating the moment the coach
+ * marks the report reviewed.
+ *
+ * THE MODEL SLOT.
+ *
+ *   LINEAR       The only model the engine currently applies. One increment
+ *                at a time, from the tables below, out of the band she is
+ *                actually working in, and only once the five gates hold.
+ *
+ *   UNDULATING   PARKED, pending coach-approved design. See
+ *                UNDULATING_MODEL_PARKED below. The blueprint's own
+ *                `periodization` field is still read and still reported, so
+ *                nothing is lost, but the engine treats every program as
+ *                performance-gated linear. When the wave returns it will
+ *                also be performance-gated: a wave describes the SHAPE a
+ *                coach approved, never permission to add weight on a date.
  *
  * THREE THINGS THIS FILE WILL NEVER DO.
  *
  *   It never suggests a weight for an exercise she has not logged one for.
- *   No logged weight means no suggestion, on any model, in any signal
- *   state. A first number is a coaching decision made with a person in the
- *   room, and an app guessing at it would be prescribing.
+ *   No logged weight means no suggestion, in any signal state. A first
+ *   number is a coaching decision made with a person in the room, and an app
+ *   guessing at it would be prescribing.
  *
  *   It never suggests an increase over pain or over "too difficult". Those
- *   two produce a hold or a reduction and nothing else, whatever the
+ *   two produce a hold, a reduction or nothing at all, whatever the
  *   completion rate says.
  *
- *   It never rounds to something she cannot load. Every number it produces
- *   lands on a half unit, which is what the field she types into accepts
- *   and what the column stores.
+ *   It never rounds UP. Every computed number lands on a practical increment
+ *   (2.5 lb, 1 kg) by rounding DOWN off the safe value, so a suggestion is
+ *   always at or below what the rules calculated and always something she
+ *   can actually load.
  *
  * NO EM DASHES, per the house rule.
  */
 import type { BlueprintBlock, BlueprintPeriodization } from '@mef/shared-types-contracts';
 import type { LoggedLoadUnit } from '../weightLogging';
+
+// ---------------------------------------------------------------------
+// The practical grid. What she can actually pick up.
+// ---------------------------------------------------------------------
+
+/**
+ * THE SMALLEST REAL STEP, per unit. A rack goes up in 2.5 lb dumbbells and
+ * a kilo rack goes up in 1 kg plates, so 23.5 lbs is not a weight, it is a
+ * rounding artefact. Every computed suggestion lands on this grid.
+ */
+export const PRACTICAL_INCREMENT: Record<LoggedLoadUnit, number> = { lbs: 2.5, kg: 1 };
+
+/**
+ * EXTENSION POINT, DELIBERATELY NOT BUILT.
+ *
+ * Real gyms are not one grid. A fixed dumbbell rack jumps 5 lbs above 30, a
+ * plate-loaded barbell moves in 2.5 lb pairs, a selectorised machine has
+ * whatever the pin offers and a kettlebell is 4 kg to the next bell. When
+ * that lands, it lands HERE: an equipment profile per exercise, resolved
+ * into a step, and everything downstream keeps working unchanged because
+ * every rounding call already goes through practicalIncrementFor.
+ *
+ * Nothing is built for it yet, and nothing should be until a coach has said
+ * which racks the members actually have. Until then there is one profile.
+ */
+export type EquipmentIncrementProfile = 'default';
+
+/** The step for one unit, and eventually for one piece of equipment. See EquipmentIncrementProfile. */
+export function practicalIncrementFor(
+  unit: LoggedLoadUnit,
+  _equipment: EquipmentIncrementProfile = 'default'
+): number {
+  return PRACTICAL_INCREMENT[unit];
+}
+
+/**
+ * Rounds a safe value DOWN onto the practical grid. Down and never nearest,
+ * because rounding up hands her more weight than the rules calculated, and
+ * the whole point of a safe value is that nothing exceeds it.
+ */
+export function roundDownToPracticalStep(
+  value: number,
+  unit: LoggedLoadUnit,
+  equipment: EquipmentIncrementProfile = 'default'
+): number {
+  const step = practicalIncrementFor(unit, equipment);
+  // The epsilon is for binary floating point only: 26 / 2.5 can arrive as
+  // 10.399999999999999 and floor it to a step she did not earn.
+  const steps = Math.floor(value / step + 1e-9);
+  return Math.round(steps * step * 1e6) / 1e6;
+}
+
+/** True when a number is a weight rather than a rounding artefact. The rounding law, as a predicate a test can read. */
+export function landsOnPracticalIncrement(value: number, unit: LoggedLoadUnit): boolean {
+  const step = practicalIncrementFor(unit);
+  const steps = value / step;
+  return Math.abs(steps - Math.round(steps)) < 1e-6;
+}
 
 // ---------------------------------------------------------------------
 // The tables.
@@ -62,6 +143,11 @@ import type { LoggedLoadUnit } from '../weightLogging';
  * One row of an increment table: how much to add, for loads at or below
  * `throughUnits`. Rows are read in order and the first match wins, so the
  * last row of every table must be the open-ended one.
+ *
+ * EVERY INCREMENT IS ITSELF A WHOLE NUMBER OF PRACTICAL STEPS. A 1 lb
+ * increment on a 2.5 lb grid would round back down to where she started and
+ * stall her forever, which is the bug the practical grid would otherwise
+ * introduce. A test asserts it for every row of every table.
  */
 export interface LoadIncrementRule {
   /** The top of this band, in the same unit as `incrementUnits`. */
@@ -70,13 +156,13 @@ export interface LoadIncrementRule {
 }
 
 /**
- * STANDARD INCREMENTS, POUNDS. What a healthy member on a normal strength
- * program is offered when everything is green.
+ * STANDARD INCREMENTS, POUNDS. What a member on a normal strength program
+ * is offered once all five gates hold.
  *
- * The bands exist because a 5 lb jump on a 15 lb goblet squat is a third
- * more work and a 5 lb jump on a 135 lb deadlift is nothing. Percentages
- * were rejected on purpose: a coach cannot look at a percentage and know
- * what plate that is.
+ * The bands exist because a 2.5 lb jump on a 15 lb goblet squat is real work
+ * and a 2.5 lb jump on a 135 lb deadlift is nothing. Percentages were
+ * rejected on purpose: a coach cannot look at a percentage and know what
+ * plate that is.
  */
 export const STANDARD_INCREMENTS_LBS: Record<BlueprintBlock, LoadIncrementRule[]> = {
   // Rolling and release work is never loaded. No band, no suggestion.
@@ -85,10 +171,7 @@ export const STANDARD_INCREMENTS_LBS: Record<BlueprintBlock, LoadIncrementRule[]
   mobility: [],
   // Corrective and activation work: the smallest step there is, because the
   // point of the block is control and a jump buys nothing.
-  stability: [
-    { throughUnits: 20, incrementUnits: 1 },
-    { throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 2.5 },
-  ],
+  stability: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 2.5 }],
   strength: [
     // A member working at 22.5 lbs is on a dumbbell, and the next dumbbell
     // up is 2.5 lbs away. The band runs to 30 for that reason and not
@@ -104,23 +187,20 @@ export const STANDARD_INCREMENTS_LBS: Record<BlueprintBlock, LoadIncrementRule[]
   ],
 };
 
-/** STANDARD INCREMENTS, KILOS. The same shape, in the units a kilo member reads. */
+/** STANDARD INCREMENTS, KILOS. The same shape, on the 1 kg grid a kilo member loads from. */
 export const STANDARD_INCREMENTS_KG: Record<BlueprintBlock, LoadIncrementRule[]> = {
   release: [],
   mobility: [],
-  stability: [
-    { throughUnits: 10, incrementUnits: 0.5 },
-    { throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 1 },
-  ],
+  stability: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 1 }],
   strength: [
     { throughUnits: 15, incrementUnits: 1 },
-    { throughUnits: 30, incrementUnits: 2.5 },
-    { throughUnits: 55, incrementUnits: 2.5 },
+    { throughUnits: 30, incrementUnits: 2 },
+    { throughUnits: 55, incrementUnits: 2 },
     { throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 5 },
   ],
   core: [
     { throughUnits: 12, incrementUnits: 1 },
-    { throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 2.5 },
+    { throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 2 },
   ],
 };
 
@@ -128,54 +208,67 @@ export const STANDARD_INCREMENTS_KG: Record<BlueprintBlock, LoadIncrementRule[]>
  * CONSERVATIVE INCREMENTS, POUNDS. Corrective programs, and any member with
  * a live pain history on the program being reviewed.
  *
- * Half the standard step, floored at the smallest thing a person can
- * actually pick up. This is not a different philosophy, it is the same
- * table walked more slowly, which is what "conservative" means when
- * somebody is rebuilding.
+ * The same table walked more slowly, floored at the practical grid, which is
+ * what "conservative" means when somebody is rebuilding. On the light blocks
+ * standard is ALREADY at the smallest real step, so conservative matches it
+ * there rather than inventing a half-dumbbell.
  */
 export const CONSERVATIVE_INCREMENTS_LBS: Record<BlueprintBlock, LoadIncrementRule[]> = {
   release: [],
   mobility: [],
-  stability: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 1 }],
+  stability: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 2.5 }],
   strength: [
-    { throughUnits: 30, incrementUnits: 1 },
-    { throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 2.5 },
+    { throughUnits: 30, incrementUnits: 2.5 },
+    { throughUnits: 60, incrementUnits: 2.5 },
+    { throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 5 },
   ],
-  core: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 1 }],
+  core: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 2.5 }],
 };
 
 /** CONSERVATIVE INCREMENTS, KILOS. */
 export const CONSERVATIVE_INCREMENTS_KG: Record<BlueprintBlock, LoadIncrementRule[]> = {
   release: [],
   mobility: [],
-  stability: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 0.5 }],
+  stability: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 1 }],
   strength: [
-    { throughUnits: 15, incrementUnits: 0.5 },
-    { throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 1 },
+    { throughUnits: 15, incrementUnits: 1 },
+    { throughUnits: 55, incrementUnits: 1 },
+    { throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 2 },
   ],
-  core: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 0.5 }],
+  core: [{ throughUnits: Number.POSITIVE_INFINITY, incrementUnits: 1 }],
 };
 
 /**
- * THE UNDULATING WAVE. Percentage of the member's own last logged weight,
- * by week of the phase.
+ * THE UNDULATING MODEL IS PARKED, pending coach-approved design.
  *
- * Read as a shape rather than as four separate decisions: week 1 repeats
- * what she finished the last phase on so the new phase opens on a number
- * she has already done, week 2 steps up, week 3 backs off, week 4 is the
- * heaviest thing in the phase. A phase longer than this table wraps around
- * it, which keeps an eight week phase as two four week waves rather than
- * one that runs off the end.
+ * What was here was a weekly wave of percentages (100 / 107 / 95 / 112) that
+ * moved a member's weight because the program had entered another week. The
+ * coach's review rejected it, and rightly: nothing about a date says she is
+ * ready for more.
  *
- * The whole wave is scaled DOWN when the signals are not green, and is
- * never applied at all over pain or "too difficult".
+ * The slot stays because the model is worth having. A phase genuinely does
+ * have a shape, and a coach who plans a heavy week and a back-off week is
+ * doing real coaching. What a returning wave must satisfy:
+ *
+ *   it may only ever scale a load the FIVE GATES have already released, so
+ *   the wave shapes an earned increase and never creates one;
+ *
+ *   it may not read a calendar. Week position in a phase is a plan, not a
+ *   performance, and it must be expressed as "her Nth qualifying session on
+ *   this exercise" or as a coach's explicit per-week table she approved;
+ *
+ *   it must round down onto the practical grid like everything else here.
+ *
+ * Until a coach has approved that design, this flag stays false, the
+ * blueprint's `periodization` field is read and REPORTED but not applied,
+ * and every program is treated as performance-gated linear.
  */
-export const UNDULATING_WAVE_PERCENT: readonly number[] = [100, 107, 95, 112];
+export const UNDULATING_MODEL_PARKED = true;
 
 /**
  * How far back a "too difficult" report pulls the load, as a percentage of
- * what she last logged. Rounded DOWN onto the increment grid, so a
- * reduction is never accidentally a rounding-up.
+ * what she last logged. Rounded DOWN onto the practical grid, so a reduction
+ * is never accidentally a rounding-up.
  */
 export const TOO_DIFFICULT_REDUCTION_PERCENT = 90;
 
@@ -186,14 +279,37 @@ export const TOO_DIFFICULT_REDUCTION_PERCENT = 90;
  */
 export const MIN_SUGGESTED_LOAD: Record<LoggedLoadUnit, number> = { lbs: 2.5, kg: 1 };
 
-/** Every suggestion lands on a half unit, which is what her field accepts and what the column stores. */
-export const LOAD_ROUNDING_STEP = 0.5;
+// ---------------------------------------------------------------------
+// The gate thresholds. Each one is a number a coach can change.
+// ---------------------------------------------------------------------
+
+/**
+ * How many COMPLETED sessions at the weight she is on before an increase is
+ * offered. Two, because one is a baseline: she picked the weight up once and
+ * that is all anybody knows. Two is the first evidence the weight is hers.
+ */
+export const MIN_SUCCESSFUL_LOGS_AT_LOAD = 2;
+
+/**
+ * How many misses of one exercise counts as repeated skipping. Two, the same
+ * threshold signals/insights.ts uses to tell a coach about it: once is a
+ * Tuesday, twice is a pattern.
+ */
+export const REPEATED_SKIP_THRESHOLD_FOR_LOAD = 2;
+
+/**
+ * The program completion an increase needs behind it, as a percentage. Fifty
+ * is the same line signals/insights.ts already draws: below half the
+ * sessions the phase is not a fair read of anything, so a number derived
+ * from it would be a guess wearing a decimal point.
+ */
+export const MIN_PROGRAM_COMPLETION_FOR_INCREASE = 50;
 
 // ---------------------------------------------------------------------
 // Reading the tables.
 // ---------------------------------------------------------------------
 
-export type LoadSuggestionDirection = 'increase' | 'hold' | 'reduce' | 'none';
+export type LoadSuggestionDirection = 'increase' | 'hold' | 'reduce' | 'needs_review' | 'none';
 
 /** Which table applies, in one word a coach can read on the screen. */
 export type LoadPace = 'standard' | 'conservative';
@@ -225,66 +341,65 @@ export function incrementFor(input: {
   return rule.incrementUnits;
 }
 
-/** Rounds onto the grid her field accepts. `direction` decides which way a number between two steps goes. */
-export function roundToLoadStep(value: number, direction: 'nearest' | 'down' = 'nearest'): number {
-  const steps = value / LOAD_ROUNDING_STEP;
-  const rounded = direction === 'down' ? Math.floor(steps) : Math.round(steps);
-  return rounded * LOAD_ROUNDING_STEP;
-}
-
 /**
- * The model this program's loads move on.
+ * The model this program's loads move on, and the pace they move at.
  *
- * The blueprint's own field decides, with two overrides that are rules
- * rather than settings:
+ * The blueprint's own field is read and reported, and while
+ * UNDULATING_MODEL_PARKED is true the APPLIED model is always linear. Two
+ * overrides on the pace are rules rather than settings:
  *
- *   a corrective program is always linear and always conservative, because
- *   a program built from a posture finding is not a strength phase and a
- *   wave through it would be loading a correction;
+ *   a corrective program is always conservative, because a program built
+ *   from a posture finding is not a strength phase;
  *
- *   a member with an unresolved pain report on this program is always
+ *   a member with an unreviewed pain report on this program is always
  *   conservative, whatever the program is.
  */
 export function resolveModel(input: {
   periodization: BlueprintPeriodization | null | undefined;
   isCorrectiveProgram: boolean;
   hasOpenPainReport: boolean;
-}): { model: BlueprintPeriodization; pace: LoadPace; why: string } {
+}): {
+  /** The model actually applied. Linear, while the wave is parked. */
+  model: BlueprintPeriodization;
+  /** What the blueprint itself records, whether or not it is applied. Null when it records nothing. */
+  blueprintModel: BlueprintPeriodization | null;
+  pace: LoadPace;
+  why: string;
+} {
+  const blueprintModel = input.periodization ?? null;
+  const parkedNote =
+    blueprintModel === 'undulating' && UNDULATING_MODEL_PARKED
+      ? ' This program is written as a wave, and the wave is parked until you approve how it should work, so loads move the steady way for now.'
+      : '';
+
   if (input.isCorrectiveProgram) {
     return {
       model: 'linear',
+      blueprintModel,
       pace: 'conservative',
-      why: 'This is a corrective program, so loads move in the smallest steps and never in a wave.',
+      why:
+        'This is a corrective program, so loads move in the smallest steps and only after she has done the weight twice.' +
+        parkedNote,
     };
   }
   if (input.hasOpenPainReport) {
     return {
-      model: input.periodization ?? 'linear',
+      model: 'linear',
+      blueprintModel,
       pace: 'conservative',
-      why: 'She has a pain report on this program that has not been reviewed, so the steps are the small ones.',
-    };
-  }
-  if (input.periodization === 'undulating') {
-    return {
-      model: 'undulating',
-      pace: 'standard',
-      why: 'This program is written as a wave, so the weeks plan heavier and lighter rather than climbing in a line.',
+      why:
+        'She has a pain report on this program that has not been reviewed, so the steps are the small ones and the exercise she reported has no suggestion at all.' +
+        parkedNote,
     };
   }
   return {
     model: 'linear',
+    blueprintModel,
     pace: 'standard',
-    why: input.periodization
-      ? 'This program adds a little each week while the signals stay green.'
-      : 'This program does not record a periodization plan, so loads move the steady way.',
+    why:
+      'Weight goes up because she did the work at the weight she is on, never because the program reached another week.' +
+      parkedNote,
   };
-}
-
-/** The percentage the wave prescribes for one week of a phase. Weeks past the end of the table wrap around it. */
-export function wavePercentForWeek(week: number): number {
-  const length = UNDULATING_WAVE_PERCENT.length;
-  const index = ((Math.max(1, Math.floor(week)) - 1) % length + length) % length;
-  return UNDULATING_WAVE_PERCENT[index]!;
 }
 
 // ---------------------------------------------------------------------
@@ -296,69 +411,117 @@ export function wavePercentForWeek(week: number): number {
  * here is read off rows a member actually wrote; none of it is inferred.
  */
 export interface ExerciseLoadSignals {
-  /** True when she reported pain on this exercise, or stopped it, in the phase being reviewed. */
+  /**
+   * True when she reported pain on this exercise, or stopped it, in the
+   * phase being reviewed. Resolved reports still count: a resolved report is
+   * history the coach weighs by hand, not history that disappears.
+   */
   reportedPain: boolean;
+  /**
+   * True when at least one of those pain reports has NOT been marked
+   * reviewed. This is the one that removes the suggestion entirely, so it is
+   * deliberately narrower than reportedPain: it means there is a report on
+   * the table for the coach to act on.
+   */
+  hasUnreviewedPain: boolean;
   /** True when she reported it too difficult, or rated a completion very difficult. */
   reportedTooDifficult: boolean;
   /** True when she reported it too easy, or rated completions easy. */
   reportedTooEasy: boolean;
-  /** How many occurrences of this exercise she actually completed. */
+  /** How many occurrences of this exercise she actually completed, at any weight. */
   completedOccurrences: number;
   /** How many she skipped or stopped. */
   missedOccurrences: number;
+  /** How many she COMPLETED at the weight she is on right now. The two-exposure gate reads this and nothing else. */
+  successfulLogsAtCurrentLoad: number;
+  /** The whole program's completion, 0 to 100. A load decision made from a phase she barely did is a guess. */
+  programCompletionPercent: number;
 }
 
 /**
- * THE SIGNAL RULES, as one ordered ladder. Read top to bottom; the first
- * rule that matches decides, and nothing below it can overturn it.
- *
- *   1. Pain              hold. Never an increase, whatever else is true.
- *   2. Too difficult     reduce.
- *   3. Nothing completed hold. There is no evidence either way, and a
- *                        suggestion made from no completions is a guess.
- *   4. Too easy          increase. This is the coach-approved answer to
- *                        the "too easy" flag a member raises: she tells
- *                        the app, the app tells the coach, the coach
- *                        decides. Nothing in the member's flow ever moves
- *                        a number by itself.
- *   5. Completed clean   increase.
- *   6. Otherwise         hold.
+ * THE EXACT SENTENCE for an exercise whose pain report nobody has looked at
+ * yet. It says there is no suggestion, because there is not one, and it
+ * never says "hold at current weight": a held number beside an unreviewed
+ * pain report reads as permission to repeat the thing that hurt.
  */
-export function directionForSignals(signals: ExerciseLoadSignals): LoadSuggestionDirection {
-  if (signals.reportedPain) return 'hold';
-  if (signals.reportedTooDifficult) return 'reduce';
-  if (signals.completedOccurrences === 0) return 'hold';
-  if (signals.reportedTooEasy) return 'increase';
-  // "Clean" is deliberately generous: she did it more often than she missed
-  // it, and nothing about it went wrong. A member who did three of four
-  // sessions has earned the next step.
-  if (signals.completedOccurrences > signals.missedOccurrences) return 'increase';
-  return 'hold';
-}
+export const NO_SUGGESTION_PENDING_PAIN_REVIEW =
+  'No load suggestion. Pain feedback needs coach review first.';
 
-/** The one sentence a coach reads beside the number, in plain words. */
-export function directionReason(
-  direction: LoadSuggestionDirection,
-  signals: ExerciseLoadSignals
-): string {
-  switch (direction) {
-    case 'reduce':
-      return 'She said this one was too difficult, so this is a step back rather than forward.';
-    case 'increase':
-      return signals.reportedTooEasy
-        ? 'She said this one felt too easy and nothing went wrong with it.'
-        : `She completed it ${signals.completedOccurrences} time${signals.completedOccurrences === 1 ? '' : 's'} with nothing to flag.`;
-    case 'hold':
-      if (signals.reportedPain) {
-        return 'She reported pain on this one, so it holds where it is until you have looked at it.';
-      }
-      if (signals.completedOccurrences === 0) {
-        return 'She has not completed this one yet, so there is nothing to move it on.';
-      }
-      return 'The signals are mixed, so this holds where it is.';
-    case 'none':
-      return 'She has not logged a weight for this one yet.';
+/** What the column says while she is still establishing the weight. Warm, and honest that it means "not yet" rather than "no". */
+export const SUGGESTIONS_BEGIN_AFTER_TWO_LOGS =
+  'Suggestions begin after she logs this weight a couple of times.';
+
+/**
+ * THE GATE, as one ordered ladder. Read top to bottom; the first rule that
+ * matches decides, and nothing below it can overturn it.
+ *
+ *   1. Unreviewed pain    NO SUGGESTION. Not a hold. See
+ *                         NO_SUGGESTION_PENDING_PAIN_REVIEW.
+ *   2. Too difficult      reduce. Her own word about the weight, and a step
+ *                         back is more conservative than a hold, which is
+ *                         why it sits above the pain-history rung.
+ *   3. Pain in history    hold. The report has been reviewed, so the coach
+ *                         has already weighed it; the engine still refuses
+ *                         to add weight to something that hurt her.
+ *   4. Nothing completed  hold. There is no evidence either way.
+ *   5. Repeated skipping  hold. She is working around it, not through it.
+ *   6. Low completion     hold. The phase is not a fair read.
+ *   7. Under two logs at
+ *      this weight        hold. One log is a baseline and nothing else.
+ *   8. All gates hold     increase.
+ *
+ * "Too easy" is NOT a rung. She can say it as often as she likes and it will
+ * not move a number by itself; it earns its place in the reason beside the
+ * suggestion, so the coach sees her asking and decides. That is the change
+ * the coach's review asked for.
+ */
+export function gateForSignals(signals: ExerciseLoadSignals): {
+  direction: LoadSuggestionDirection;
+  reason: string;
+} {
+  if (signals.hasUnreviewedPain) {
+    return { direction: 'needs_review', reason: NO_SUGGESTION_PENDING_PAIN_REVIEW };
   }
+  if (signals.reportedTooDifficult) {
+    return {
+      direction: 'reduce',
+      reason: 'She said this one was too difficult, so this is a step back rather than forward.',
+    };
+  }
+  if (signals.reportedPain) {
+    return {
+      direction: 'hold',
+      reason:
+        'She reported pain on this one earlier in the phase. You have reviewed it, and it still holds where it is until you decide otherwise.',
+    };
+  }
+  if (signals.completedOccurrences === 0) {
+    return {
+      direction: 'hold',
+      reason: 'She has not completed this one yet, so there is nothing to move it on.',
+    };
+  }
+  if (signals.missedOccurrences >= REPEATED_SKIP_THRESHOLD_FOR_LOAD) {
+    return {
+      direction: 'hold',
+      reason: `She has missed this one ${signals.missedOccurrences} times, so it holds where it is until it is going in again.`,
+    };
+  }
+  if (signals.programCompletionPercent < MIN_PROGRAM_COMPLETION_FOR_INCREASE) {
+    return {
+      direction: 'hold',
+      reason: `She has finished ${signals.programCompletionPercent}% of the program, which is not enough of it to add weight from.`,
+    };
+  }
+  if (signals.successfulLogsAtCurrentLoad < MIN_SUCCESSFUL_LOGS_AT_LOAD) {
+    return { direction: 'hold', reason: SUGGESTIONS_BEGIN_AFTER_TWO_LOGS };
+  }
+  return {
+    direction: 'increase',
+    reason:
+      `She has completed this weight ${signals.successfulLogsAtCurrentLoad} times with nothing to flag.` +
+      (signals.reportedTooEasy ? ' She also said it felt too easy.' : ''),
+  };
 }
 
 // ---------------------------------------------------------------------
@@ -371,16 +534,22 @@ export interface LoadSuggestionInput {
   lastLoggedLoad: number | null;
   lastLoggedUnit: LoggedLoadUnit | null;
   lastLoggedPerSide: boolean;
+  /** The APPLIED model. Linear while the wave is parked, and read by nothing below. */
   model: BlueprintPeriodization;
   pace: LoadPace;
   signals: ExerciseLoadSignals;
-  /** Which week of the NEXT phase this number is for. Only the undulating model reads it. */
+  /**
+   * PARKED AND IGNORED. It was the undulating wave's week index and no
+   * arithmetic in this file reads it, because no load may change on a date.
+   * Kept on the type, rather than deleted, so that the parked model has a
+   * visible slot and so a test can assert that changing it changes nothing.
+   */
   weekOfNextPhase?: number;
 }
 
 export interface LoadSuggestion {
   direction: LoadSuggestionDirection;
-  /** Null whenever direction is 'none'. Otherwise the number the coach is offered, already rounded. */
+  /** Null for 'none' and for 'needs_review'. Otherwise the number the coach is offered, already on the practical grid. */
   suggestedLoad: number | null;
   unit: LoggedLoadUnit;
   perSide: boolean;
@@ -402,14 +571,28 @@ export function suggestLoad(input: LoadSuggestionInput): LoadSuggestion | null {
 
   const unit: LoggedLoadUnit = input.lastLoggedUnit ?? 'lbs';
   const last = input.lastLoggedLoad;
-  const direction = directionForSignals(input.signals);
+  const gate = gateForSignals(input.signals);
   const base = {
-    direction,
+    direction: gate.direction,
     unit,
     perSide: input.lastLoggedPerSide,
     lastLoggedLoad: last,
-    reason: directionReason(direction, input.signals),
+    reason: gate.reason,
   };
+
+  // Unreviewed pain. No number, in any direction, at any weight. The
+  // sentence the SCREEN shows is NO_SUGGESTION_PENDING_PAIN_REVIEW, composed
+  // by suggest.ts's describeSuggestion. The reason beside it hands the coach
+  // the last logged weight as a fact, clearly labelled as one, because she
+  // needs to know what hurt without being told to repeat it.
+  if (gate.direction === 'needs_review') {
+    const side = input.lastLoggedPerSide ? ' per side' : '';
+    return {
+      ...base,
+      suggestedLoad: null,
+      reason: `She reported pain on this one and nobody has reviewed it yet. She last logged ${last} ${unit}${side}, which is a fact rather than a suggestion.`,
+    };
+  }
 
   const increment = incrementFor({
     block: input.block,
@@ -418,39 +601,37 @@ export function suggestLoad(input: LoadSuggestionInput): LoadSuggestion | null {
     pace: input.pace,
   });
 
-  // A block that is never loaded gets no number even when she somehow
-  // logged one against it. The table is the authority on what is loadable.
+  // A block that is never loaded gets no movement even when she somehow
+  // logged a number against it. The table is the authority on what is
+  // loadable.
   if (increment === null) {
-    return { ...base, direction: 'hold', suggestedLoad: last, reason: base.reason };
-  }
-
-  if (direction === 'hold') {
-    return { ...base, suggestedLoad: last };
-  }
-
-  if (direction === 'reduce') {
-    const reduced = roundToLoadStep((last * TOO_DIFFICULT_REDUCTION_PERCENT) / 100, 'down');
     return {
       ...base,
-      suggestedLoad: Math.max(MIN_SUGGESTED_LOAD[unit], Math.min(reduced, last - increment / 2)),
+      direction: 'hold',
+      suggestedLoad: last,
+      reason: 'This block is never loaded, so there is no weight to move.',
     };
   }
 
-  // An increase. Linear adds one step; undulating shapes the phase around
-  // the step it would have added, so a wave and a line start from the same
-  // honest place.
-  const linearTarget = last + increment;
-  if (input.model === 'linear') {
-    return { ...base, suggestedLoad: roundToLoadStep(linearTarget) };
+  // A hold is her own number, exactly. It is NOT rounded onto the practical
+  // grid: rounding a hold down would quietly take weight off her for no
+  // reason anybody could explain. The grid governs numbers this file
+  // CALCULATES, and a hold calculates nothing.
+  if (gate.direction === 'hold') {
+    return { ...base, suggestedLoad: last };
   }
 
-  const percent = wavePercentForWeek(input.weekOfNextPhase ?? 1);
-  const waved = roundToLoadStep((linearTarget * percent) / 100);
-  return {
-    ...base,
-    suggestedLoad: Math.max(MIN_SUGGESTED_LOAD[unit], waved),
-    reason: `${base.reason} Week ${Math.max(1, Math.floor(input.weekOfNextPhase ?? 1))} of the wave runs at ${percent}%.`,
-  };
+  if (gate.direction === 'reduce') {
+    const safe = Math.min((last * TOO_DIFFICULT_REDUCTION_PERCENT) / 100, last - increment);
+    const reduced = roundDownToPracticalStep(safe, unit);
+    return { ...base, suggestedLoad: Math.max(MIN_SUGGESTED_LOAD[unit], reduced) };
+  }
+
+  // An increase, and the only path in this file that produces a bigger
+  // number. One step out of her band, rounded DOWN onto the practical grid.
+  // No week, no percentage, no calendar.
+  const safe = last + increment;
+  return { ...base, suggestedLoad: roundDownToPracticalStep(safe, unit) };
 }
 
 /**

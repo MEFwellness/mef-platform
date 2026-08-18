@@ -10,6 +10,8 @@
 import { describe, it, expect } from 'vitest';
 import type { ProgramSignals } from '../lib/programs/signals/aggregate';
 import {
+  COACH_REVIEW_REQUIRED,
+  COACH_REVIEW_REQUIRED_HEADLINE,
   ROTATE_FRICTION_THRESHOLD,
   STRONG_COMPLETION_PERCENT,
   frictionExerciseCount,
@@ -75,8 +77,8 @@ const BLOCKED: ReadinessGateResult = {
   recommendedAlternative: 'recovery_session',
 };
 
-describe('rung 1: safety leads', () => {
-  it('an unreviewed pain report recommends rotating, whatever the completion rate says', () => {
+describe('rung 1: safety leads by recommending nothing', () => {
+  it('an unreviewed pain report recommends NO outcome, whatever the completion rate says', () => {
     const result = recommendNextPhase({
       signals: signals({
         completionPercent: 100,
@@ -87,9 +89,51 @@ describe('rung 1: safety leads', () => {
       readiness: NOT_BLOCKED,
       phaseIsOver: true,
     });
-    expect(result.outcome).toBe('rotate_exercises');
+    expect(result.outcome).toBeNull();
+    expect(result.headline).toBe(COACH_REVIEW_REQUIRED_HEADLINE);
+    expect(result.headline).toBe('Coach review required');
+    expect(result.requiresCoachReview).toBe(true);
     expect(result.reasoning).toContain('Bird Dog');
-    expect(result.reasoning).toContain('Resolve the report first');
+  });
+
+  it('never recommends rotate, progress or repeat while pain is unreviewed', () => {
+    // The old behaviour rotated a whole phase because one movement hurt.
+    // Every one of the three is now off the table until a person has read it.
+    for (const state of [
+      signals({ completionPercent: 100, completedSessions: 12 }),
+      signals({ completionPercent: 20, completedSessions: 2 }),
+      signals({ completionPercent: 60, completedSessions: 7, tooDifficultFlags: [flag('A'), flag('B')] }),
+      signals({
+        completionPercent: 60,
+        completedSessions: 7,
+        skippedExercises: [
+          { provider: 'your_move', externalId: 'ex-1', exerciseName: 'Dead Bug', count: 3 },
+          { provider: 'your_move', externalId: 'ex-2', exerciseName: 'Plank', count: 2 },
+        ],
+      }),
+    ]) {
+      const result = recommendNextPhase({
+        signals: { ...state, painReports: [painReport('Bird Dog')], hasOpenPainReport: true },
+        readiness: NOT_BLOCKED,
+        phaseIsOver: true,
+      });
+      expect(result.outcome).toBeNull();
+      expect(result.reasoning.toLowerCase()).not.toContain('rotating keeps');
+    }
+  });
+
+  it('lists the pain reports first, so the coach reads them before the paragraph', () => {
+    const result = recommendNextPhase({
+      signals: signals({
+        painReports: [painReport('Bird Dog'), painReport('Split Squat')],
+        hasOpenPainReport: true,
+      }),
+      readiness: NOT_BLOCKED,
+      phaseIsOver: true,
+    });
+    expect(result.painFirst.map((r) => r.exerciseName)).toEqual(['Bird Dog', 'Split Squat']);
+    expect(result.painFirst[0]!.feedbackId).toBe('f-Bird Dog');
+    expect(result.basis.openPainReports).toBe(2);
   });
 
   it('beats a blocked readiness gate too', () => {
@@ -98,10 +142,10 @@ describe('rung 1: safety leads', () => {
       readiness: BLOCKED,
       phaseIsOver: true,
     });
-    expect(result.outcome).toBe('rotate_exercises');
+    expect(result.outcome).toBeNull();
   });
 
-  it('a RESOLVED pain report no longer drives the recommendation', () => {
+  it('a RESOLVED pain report no longer drives the recommendation, and gating resumes', () => {
     const result = recommendNextPhase({
       signals: signals({
         painReports: [painReport('Bird Dog', '2026-08-10T00:00:00Z')],
@@ -111,6 +155,26 @@ describe('rung 1: safety leads', () => {
       phaseIsOver: true,
     });
     expect(result.outcome).toBe('progress_next_phase');
+    expect(result.requiresCoachReview).toBe(false);
+    expect(result.painFirst).toEqual([]);
+  });
+
+  it('every other rung recommends a real outcome and lists no pain', () => {
+    const everyOtherRung = [
+      recommendNextPhase({ signals: signals(), readiness: NOT_BLOCKED, phaseIsOver: true }),
+      recommendNextPhase({ signals: signals(), readiness: BLOCKED, phaseIsOver: true }),
+      recommendNextPhase({
+        signals: signals({ completedSessions: 0, completionPercent: 0 }),
+        readiness: NOT_BLOCKED,
+        phaseIsOver: true,
+      }),
+    ];
+    for (const result of everyOtherRung) {
+      expect(result.outcome).not.toBeNull();
+      expect(result.requiresCoachReview).toBe(false);
+      expect(result.painFirst).toEqual([]);
+      expect(result.headline).not.toBe(COACH_REVIEW_REQUIRED_HEADLINE);
+    }
   });
 });
 
@@ -279,6 +343,26 @@ describe('the vocabulary', () => {
       'different_program',
       'complete_and_archive',
     ]);
+  });
+
+  it('"coach review required" is not one of the six a coach may choose', () => {
+    // It is what the ENGINE stored when it recommended nothing. It is not an
+    // outcome: no button offers it, and no draft is built from it.
+    expect(REVIEW_OUTCOME_KEYS).not.toContain(COACH_REVIEW_REQUIRED);
+    expect(REVIEW_OUTCOMES.some((o) => o.key === (COACH_REVIEW_REQUIRED as never))).toBe(false);
+  });
+
+  it('all six stay available even while pain is unreviewed', () => {
+    // The engine recommends nothing, and blocks nothing. A coach who has
+    // read the report can still take any of the six in one tap.
+    const result = recommendNextPhase({
+      signals: signals({ painReports: [painReport('Bird Dog')], hasOpenPainReport: true }),
+      readiness: NOT_BLOCKED,
+      phaseIsOver: true,
+    });
+    expect(result.outcome).toBeNull();
+    expect(REVIEW_OUTCOMES).toHaveLength(6);
+    expect(result.reasoning).toContain('which stay available whatever this says');
   });
 
   it('states as data that no outcome publishes', () => {

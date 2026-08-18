@@ -19,6 +19,14 @@ export type ProgramReviewOutcome =
   | 'different_program'
   | 'complete_and_archive';
 
+/**
+ * What the engine recommended: one of the six, or the deliberate refusal to
+ * recommend anything while a pain report is waiting on a coach (migration
+ * 181). It is NOT a seventh outcome. A coach cannot choose it, no draft is
+ * built from it, and `chosen_outcome` below still allows exactly the six.
+ */
+export type ProgramRecommendedOutcome = ProgramReviewOutcome | 'coach_review_required';
+
 export type ProgramReviewStatus = 'open' | 'drafted' | 'approved' | 'discarded';
 
 export interface ProgramPhaseReview {
@@ -34,7 +42,7 @@ export interface ProgramPhaseReview {
   /** The signals as they read when the review was opened. Frozen, because a recommendation has to stay readable beside the numbers it was made from. */
   signal_snapshot: Record<string, unknown>;
 
-  recommended_outcome: ProgramReviewOutcome;
+  recommended_outcome: ProgramRecommendedOutcome;
   recommendation_reasoning: string;
 
   /** Null until the coach picks. Never defaulted to the recommendation. */

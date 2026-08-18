@@ -44,8 +44,13 @@ import {
 import { releaseAvoidance, resolveFeedbackReport, loadProgramSignals } from '../lib/programs/signals/data';
 import { loadAvoidedExternalIds } from '../lib/programs/feedback/candidates';
 import { feedbackAttentionReasons } from '../lib/programs/feedback/attention';
-import { suggestProgramLoads } from '../lib/programs/progression/suggest';
+import { describeSuggestion, suggestProgramLoads } from '../lib/programs/progression/suggest';
 import type { ExerciseLoadSuggestion } from '../lib/programs/progression/suggest';
+import {
+  NO_SUGGESTION_PENDING_PAIN_REVIEW,
+  SUGGESTIONS_BEGIN_AFTER_TWO_LOGS,
+} from '../lib/programs/progression/loadRules';
+import { recommendNextPhase } from '../lib/programs/review/recommend';
 import type { SwapCandidate } from '../lib/programs/blueprints/swap';
 import type { BlueprintBlock } from '@mef/shared-types-contracts';
 
@@ -676,6 +681,16 @@ describe('the signals read end to end from real rows', () => {
       )
       .order('assigned_workout_id', { ascending: true });
 
+    // The sessions themselves are completed too, so the program completion
+    // gate is not the thing under test here.
+    await supabase
+      .from('coach_assigned_workouts')
+      .update({ status: 'completed' })
+      .in(
+        'id',
+        workouts!.map((w) => w.id)
+      );
+
     await supabase
       .from('coach_assigned_workout_exercises')
       .update({
@@ -706,15 +721,151 @@ describe('the signals read end to end from real rows', () => {
     expect(bundle!.signals.loadTrends).toHaveLength(1);
     expect(bundle!.signals.loadTrends[0]!.line).toBe('20 to 22.5 lbs');
 
-    // And a suggestion appears for that exercise and for no other.
+    // And a suggestion appears for that exercise and for no other. She has
+    // done 22.5 exactly ONCE, so the suggestion is a hold at that weight and
+    // the warm sentence about suggestions beginning, however easy she said
+    // it felt. One logged weight is a baseline and nothing else.
     const loads = suggestProgramLoads({
       signals: bundle!.signals,
       exercises: bundle!.exercises,
       periodization: 'linear',
     });
     expect(loads.suggestions.map((s) => s.externalId)).toEqual([exerciseB.external_id]);
-    expect(loads.suggestions[0]!.suggestedLoad).toBe(25);
+    expect(loads.suggestions[0]!.direction).toBe('hold');
+    expect(loads.suggestions[0]!.suggestedLoad).toBe(22.5);
+    expect(loads.suggestions[0]!.reason).toBe(SUGGESTIONS_BEGIN_AFTER_TWO_LOGS);
     expect(loads.noLoggedWeights).toBe(false);
+
+    // A second completed session at the SAME weight is the moment the weight
+    // has been shown to be hers, and the suggestion becomes 25.
+    await supabase
+      .from('coach_assigned_workout_exercises')
+      .update({
+        logged_load: 22.5,
+        logged_load_unit: 'lbs',
+        logged_load_at: '2026-07-16T10:00:00Z',
+        status: 'completed',
+      })
+      .eq('id', rows![2]!.id);
+
+    const secondBundle = await loadProgramSignals(asCoach, {
+      memberId: MEMBER,
+      groupKey: GROUP_KEY,
+      programName: 'Phase Review Test',
+    });
+    const earned = suggestProgramLoads({
+      signals: secondBundle!.signals,
+      exercises: secondBundle!.exercises,
+      periodization: 'linear',
+    });
+    expect(earned.suggestions[0]!.direction).toBe('increase');
+    expect(earned.suggestions[0]!.suggestedLoad).toBe(25);
+
+    // Put the third occurrence back the way it was found.
+    await supabase
+      .from('coach_assigned_workout_exercises')
+      .update({
+        logged_load: null,
+        logged_load_unit: null,
+        logged_load_at: null,
+        status: 'pending',
+      })
+      .eq('id', rows![2]!.id);
+  });
+
+  it('an unreviewed pain report removes the suggestion, and resolving it gives it back', async () => {
+    const supabase = serviceRoleClient();
+
+    const { data: workouts } = await supabase
+      .from('coach_assigned_workouts')
+      .select('id')
+      .in('assignment_id', assignmentIds)
+      .order('scheduled_date', { ascending: true });
+
+    // She reported pain on the exercise she has been logging weights for.
+    const { data: report } = await supabase
+      .from('member_exercise_feedback')
+      .insert({
+        member_id: MEMBER,
+        coach_id: COACH,
+        assignment_id: assignmentIds[0]!,
+        assigned_workout_id: workouts![0]!.id,
+        program_group_key: GROUP_KEY,
+        program_week: 2,
+        provider: exerciseB.provider,
+        external_id: exerciseB.external_id,
+        exercise_name: exerciseB.name,
+        reason: 'pain',
+        branch: 'safety',
+        outcome: 'stopped_for_pain',
+        initiated_by: 'member',
+      })
+      .select('id')
+      .single();
+    expect(report).not.toBeNull();
+
+    const asCoach = await signInAs(TEST_USERS.coachOne);
+    const withPain = await loadProgramSignals(asCoach, {
+      memberId: MEMBER,
+      groupKey: GROUP_KEY,
+      programName: 'Phase Review Test',
+    });
+    const suppressed = suggestProgramLoads({
+      signals: withPain!.signals,
+      exercises: withPain!.exercises,
+      periodization: 'linear',
+    });
+    const suppressedRow = suppressed.suggestions.find(
+      (s) => s.externalId === exerciseB.external_id
+    )!;
+    expect(suppressedRow.direction).toBe('needs_review');
+    expect(suppressedRow.suggestedLoad).toBeNull();
+    expect(describeSuggestion(suppressedRow)).toBe(NO_SUGGESTION_PENDING_PAIN_REVIEW);
+
+    // The whole review recommends nothing at all while it is unread.
+    const blocked = recommendNextPhase({
+      signals: withPain!.signals,
+      readiness: null,
+      phaseIsOver: true,
+    });
+    expect(blocked.outcome).toBeNull();
+    expect(blocked.headline).toBe('Coach review required');
+    expect(blocked.painFirst.map((r) => r.exerciseName)).toEqual([exerciseB.name]);
+
+    // The coach marks it reviewed. Ordinary gating resumes.
+    const resolved = await resolveFeedbackReport(asCoach, {
+      feedbackId: report!.id,
+      coachId: COACH,
+      note: null,
+    });
+    expect(resolved).not.toBeNull();
+
+    const after = await loadProgramSignals(asCoach, {
+      memberId: MEMBER,
+      groupKey: GROUP_KEY,
+      programName: 'Phase Review Test',
+    });
+    const released = suggestProgramLoads({
+      signals: after!.signals,
+      exercises: after!.exercises,
+      periodization: 'linear',
+    });
+    const releasedRow = released.suggestions.find(
+      (s) => s.externalId === exerciseB.external_id
+    )!;
+    expect(releasedRow.direction).not.toBe('needs_review');
+    expect(releasedRow.suggestedLoad).not.toBeNull();
+
+    const unblocked = recommendNextPhase({
+      signals: after!.signals,
+      readiness: null,
+      phaseIsOver: true,
+    });
+    expect(unblocked.outcome).not.toBeNull();
+    expect(unblocked.requiresCoachReview).toBe(false);
+
+    // Leave the program exactly as it was found.
+    await supabase.from('member_exercise_feedback').delete().eq('id', report!.id);
   });
 });
 

@@ -10,7 +10,17 @@
  *
  *   1. What the rules recommend, and WHY, in a paragraph she can argue
  *      with. The basis numbers sit under it so she can check the paragraph
- *      rather than trust it.
+ *      rather than trust it. When a pain report is unread the rules
+ *      recommend NOTHING: the heading is "Coach review required", the
+ *      reports are listed first, and each one carries the two things a coach
+ *      can do about one exercise without touching the other three weeks.
+ *
+ *      THE SINGLE-EXERCISE ACTIONS ARE WIRED, NOT BUILT. "Mark reviewed" is
+ *      the existing resolveFeedbackReportAction, the same one the signal
+ *      panel uses. "Replace it, regress it or change its dose" is a link
+ *      into the existing program editor at /coach/programs/[templateId],
+ *      which already edits one exercise's sets, reps, load and tempo and
+ *      already swaps one exercise for another. No new machinery.
  *   2. The signals themselves, which is the same panel she came from.
  *   3. The weights. Only for exercises she has logged one for; the rest of
  *      the program simply has no row here, and the panel says so in words.
@@ -27,6 +37,7 @@
  */
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { AlertTriangle, Check, Sparkles, Trash2 } from 'lucide-react';
@@ -35,8 +46,10 @@ import {
   approveReviewDraftAction,
   chooseReviewOutcomeAction,
   discardReviewDraftAction,
+  resolveFeedbackReportAction,
 } from '@/app/actions/program-review';
 import type { ReviewOutcome } from '@/lib/programs/review/outcomes';
+import { COACH_REVIEW_REQUIRED } from '@/lib/programs/review/recommend';
 import { describeSuggestion, type ApprovedLoadMap } from '@/lib/programs/progression/suggest';
 import { NO_INSIGHTS_YET, NO_LOGGED_WEIGHTS_YET } from '@/lib/programs/signals/insights';
 import { LOGGED_LOAD_UNITS, parseLoggedLoad, type LoggedLoadUnit } from '@/lib/programs/weightLogging';
@@ -83,6 +96,27 @@ export function ProgramReviewPanel({
   const [error, setError] = useState<string | null>(null);
   const [approved, setApproved] = useState(review.status === 'approved');
   const [notes, setNotes] = useState(review.coach_notes ?? '');
+  // Pain reports she has marked reviewed without leaving this screen. The
+  // suggestions they release are computed on the server, so the row says to
+  // reload rather than pretending a number appeared.
+  const [resolvedReports, setResolvedReports] = useState<Set<string>>(new Set());
+  const templateIds = panel.templateIds;
+
+  function resolveReport(feedbackId: string) {
+    startTransition(async () => {
+      const result = await resolveFeedbackReportAction({
+        feedbackId,
+        memberId: review.member_id,
+      });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setError(null);
+      setResolvedReports((current) => new Set(current).add(feedbackId));
+      router.refresh();
+    });
+  }
 
   // The coach's edits, keyed by external id. A key present with `null`
   // means she cleared the field on purpose.
@@ -173,17 +207,86 @@ export function ProgramReviewPanel({
       )}
 
       {/* 1. The recommendation. */}
-      <section className={`${CARD} p-5`} data-review-recommendation={recommendation.outcome}>
+      <section
+        className={`${CARD} p-5`}
+        data-review-recommendation={recommendation.outcome ?? COACH_REVIEW_REQUIRED}
+      >
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-[#3E5C46]" strokeWidth={1.75} aria-hidden="true" />
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#3E5C46]">
-            What the signals suggest
+          {recommendation.requiresCoachReview ? (
+            <AlertTriangle className="h-4 w-4 text-red-600" strokeWidth={2} aria-hidden="true" />
+          ) : (
+            <Sparkles className="h-4 w-4 text-[#3E5C46]" strokeWidth={1.75} aria-hidden="true" />
+          )}
+          <p
+            className={`text-xs font-semibold uppercase tracking-wider ${
+              recommendation.requiresCoachReview ? 'text-red-700' : 'text-[#3E5C46]'
+            }`}
+          >
+            {recommendation.requiresCoachReview
+              ? 'Waiting on you'
+              : 'What the signals suggest'}
           </p>
         </div>
         <h2 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-2xl leading-tight text-[#1B3A2D]">
-          {outcomes.find((o) => o.key === recommendation.outcome)?.label}
+          {recommendation.headline}
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-[#1B3A2D]">{recommendation.reasoning}</p>
+
+        {/* The reports themselves, above the paragraph, because they are the
+            thing to read. Each one carries the two single-exercise actions. */}
+        {recommendation.painFirst.length > 0 && (
+          <ul className="mt-3 space-y-2" data-review-pain-first="true">
+            {recommendation.painFirst.map((report) => (
+              <li
+                key={report.feedbackId}
+                data-review-pain-report={report.feedbackId}
+                className="rounded-2xl border border-red-200 bg-red-50/60 p-3"
+              >
+                <p className="text-sm font-medium text-[#1B3A2D]">
+                  {report.exerciseName}
+                  {report.programWeek ? `, week ${report.programWeek}` : ''}
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">
+                  She reported pain on this one and it has not been reviewed. There is no load
+                  suggestion for it until you have.
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {resolvedReports.has(report.feedbackId) ? (
+                    <span
+                      data-pain-reviewed={report.feedbackId}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700"
+                    >
+                      <Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                      Marked reviewed. Reload to see the suggestions it releases.
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      data-resolve-pain={report.feedbackId}
+                      disabled={isPending}
+                      onClick={() => resolveReport(report.feedbackId)}
+                      className="mef-focus-ring rounded-full border border-[#1B3A2D]/20 px-3 py-1 text-xs font-medium text-[#1B3A2D] disabled:opacity-50"
+                    >
+                      Mark reviewed
+                    </button>
+                  )}
+                  {templateIds.map((templateId, index) => (
+                    <Link
+                      key={templateId}
+                      href={`/coach/programs/${templateId}` as Route}
+                      data-edit-one-exercise={report.feedbackId}
+                      className="mef-focus-ring rounded-full border border-[#1B3A2D]/20 px-3 py-1 text-xs font-medium text-[#1B3A2D]"
+                    >
+                      Replace it, regress it or change its dose
+                      {templateIds.length > 1 ? ` (session ${index + 1})` : ''}
+                    </Link>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p className="mt-3 text-sm leading-relaxed text-[#1B3A2D]">{recommendation.reasoning}</p>
         <p className="mt-3 text-xs leading-relaxed text-[#6B7A72]">
           Read from: {recommendation.basis.completedSessions} of{' '}
           {recommendation.basis.totalSessions} sessions ({recommendation.basis.completionPercent}%),{' '}
@@ -195,8 +298,9 @@ export function ProgramReviewPanel({
           {review.opened_early ? ' You opened this before the phase ended.' : ''}
         </p>
         <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">
-          This is a suggestion. All six options below are available, and none of them gives{' '}
-          {firstName} anything until you approve the draft it writes.
+          {recommendation.requiresCoachReview
+            ? `Nothing is recommended while a pain report is unread, and nothing is blocked either. All six options below are still available, and none of them gives ${firstName} anything until you approve the draft it writes.`
+            : `This is a suggestion. All six options below are available, and none of them gives ${firstName} anything until you approve the draft it writes.`}
         </p>
       </section>
 
@@ -243,9 +347,17 @@ export function ProgramReviewPanel({
             <p className="mt-1.5 text-xs leading-relaxed text-[#6B7A72]">{panel.loads.modelReason}</p>
             <ul className="mt-3 space-y-4">
               {panel.loads.suggestions.map((suggestion) => (
-                <li key={suggestion.externalId} data-load-suggestion={suggestion.externalId}>
+                <li
+                  key={suggestion.externalId}
+                  data-load-suggestion={suggestion.externalId}
+                  data-load-direction={suggestion.direction}
+                >
                   <p className="text-sm font-medium text-[#1B3A2D]">{suggestion.exerciseName}</p>
-                  <p className="mt-0.5 text-xs text-[#6B7A72]">
+                  <p
+                    className={`mt-0.5 text-xs ${
+                      suggestion.direction === 'needs_review' ? 'text-red-700' : 'text-[#6B7A72]'
+                    }`}
+                  >
                     {describeSuggestion(suggestion)} {suggestion.reason}
                   </p>
                   <div className="mt-1.5 flex items-center gap-2">

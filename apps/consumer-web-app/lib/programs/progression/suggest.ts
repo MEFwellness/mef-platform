@@ -24,6 +24,7 @@ import type { ProgramSignals } from '../signals/aggregate';
 import { loadSignalsForExercise } from '../signals/aggregate';
 import type { LoggedLoadUnit } from '../weightLogging';
 import {
+  NO_SUGGESTION_PENDING_PAIN_REVIEW,
   resolveModel,
   suggestLoad,
   type LoadPace,
@@ -37,7 +38,10 @@ export interface ExerciseLoadSuggestion extends LoadSuggestion {
 }
 
 export interface ProgramLoadSuggestions {
+  /** The model actually applied. Linear, while the undulating wave is parked. */
   model: BlueprintPeriodization;
+  /** What the blueprint itself records, applied or not. Null when it records nothing. */
+  blueprintModel: BlueprintPeriodization | null;
   pace: LoadPace;
   /** Why this model and this pace, in one sentence for the coach's screen. */
   modelReason: string;
@@ -53,7 +57,11 @@ export interface SuggestProgramLoadsInput {
   exercises: CoachAssignedWorkoutExercise[];
   /** The blueprint's own field. Null for a program that never recorded one, which reads as linear. */
   periodization: BlueprintPeriodization | null;
-  /** Which week of the NEXT phase each number is for. Only the undulating model reads it. */
+  /**
+   * PARKED AND IGNORED, exactly as on LoadSuggestionInput. It was the
+   * undulating wave's week index. No load changes because the program
+   * reached another week, so nothing downstream reads it.
+   */
   weekOfNextPhase?: number;
 }
 
@@ -62,7 +70,7 @@ export interface SuggestProgramLoadsInput {
  * them. Exercises with no logged weight are simply not in the list.
  */
 export function suggestProgramLoads(input: SuggestProgramLoadsInput): ProgramLoadSuggestions {
-  const { model, pace, why } = resolveModel({
+  const { model, blueprintModel, pace, why } = resolveModel({
     periodization: input.periodization,
     isCorrectiveProgram: input.signals.isCorrectiveProgram,
     hasOpenPainReport: input.signals.hasOpenPainReport,
@@ -77,7 +85,12 @@ export function suggestProgramLoads(input: SuggestProgramLoadsInput): ProgramLoa
       lastLoggedPerSide: trend.perSide,
       model,
       pace,
-      signals: loadSignalsForExercise(input.signals, trend.externalId, input.exercises),
+      signals: loadSignalsForExercise(
+        input.signals,
+        trend.externalId,
+        input.exercises,
+        trend.lastLoad
+      ),
       ...(input.weekOfNextPhase === undefined ? {} : { weekOfNextPhase: input.weekOfNextPhase }),
     });
     if (!suggestion) continue;
@@ -93,6 +106,7 @@ export function suggestProgramLoads(input: SuggestProgramLoadsInput): ProgramLoa
 
   return {
     model,
+    blueprintModel,
     pace,
     modelReason: why,
     suggestions,
@@ -104,9 +118,17 @@ export function suggestProgramLoads(input: SuggestProgramLoadsInput): ProgramLoa
  * "Suggested: 25 lbs, last logged 22.5". The one line the coach reads
  * beside the editable field, composed here so the review screen and the
  * program panel say it the same way.
+ *
+ * An exercise waiting on a pain review says ONLY the suppression sentence.
+ * No "suggested", no "hold at", and no number dressed up as advice. The last
+ * logged weight is still available to the coach, as a fact, in the reason
+ * line beside it.
  */
 export function describeSuggestion(suggestion: ExerciseLoadSuggestion): string {
   const side = suggestion.perSide ? ' per side' : '';
+  if (suggestion.direction === 'needs_review') {
+    return NO_SUGGESTION_PENDING_PAIN_REVIEW;
+  }
   if (suggestion.suggestedLoad === null) {
     return `Last logged ${suggestion.lastLoggedLoad} ${suggestion.unit}${side}.`;
   }

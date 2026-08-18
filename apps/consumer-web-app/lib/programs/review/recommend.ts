@@ -21,7 +21,7 @@
  * THE LADDER. First rule that matches decides, and nothing below it can
  * overturn it. Read top to bottom; that order IS the coaching.
  *
- *   1. She reported pain and nobody has looked at it   rotate
+ *   1. She reported pain and nobody has looked at it   coach review required
  *   2. She did none of it and the phase is over        complete and archive
  *   3. Readiness says do not load anybody today        recovery week
  *   4. She finished less than half of it               repeat
@@ -29,6 +29,16 @@
  *   6. She kept skipping or swapping specific things   rotate
  *   7. She did most of it and nothing went wrong       progress
  *   8. Anything else                                   repeat
+ *
+ * RUNG 1 RECOMMENDS NOTHING, and that is the coach's own correction. It used
+ * to recommend rotating the exercises, which is a whole-phase answer to what
+ * may be one movement on one day, and which quietly rewrote her program
+ * because something hurt. Pain is not a programming signal until a person
+ * has read it. So the engine names the reports, says "Coach review required"
+ * and stops: it recommends no outcome at all while an unreviewed pain report
+ * exists. Every one of the six outcomes stays one tap away, and the review
+ * screen additionally offers the SINGLE-EXERCISE actions, so one painful
+ * movement never forces rotating four weeks of work.
  *
  * IT IS A RECOMMENDATION AND NOTHING ELSE. It writes nothing, it selects
  * nothing, and every one of the six outcomes stays one tap away on the
@@ -43,7 +53,7 @@
 import type { ProgramSignals } from '../signals/aggregate';
 import { LOW_COMPLETION_PERCENT } from '../signals/insights';
 import type { ReadinessGateResult } from '../readiness/gate';
-import type { ReviewOutcome } from './outcomes';
+import { reviewOutcomeLabel, type ReviewOutcome } from './outcomes';
 
 /** Above this, with nothing flagged, she has earned the next phase. */
 export const STRONG_COMPLETION_PERCENT = 70;
@@ -63,8 +73,34 @@ export interface RecommendationInput {
   phaseIsOver: boolean;
 }
 
+/**
+ * What the screen writes into program_phase_reviews.recommended_outcome when
+ * the engine deliberately recommends nothing. It is NOT a seventh outcome: a
+ * coach cannot choose it, chosen_outcome's own check constraint still allows
+ * exactly the six, and no draft is ever built from it.
+ */
+export const COACH_REVIEW_REQUIRED = 'coach_review_required';
+
+/** The headline over the recommendation, in the coach's words. */
+export const COACH_REVIEW_REQUIRED_HEADLINE = 'Coach review required';
+
 export interface ProgramRecommendation {
-  outcome: ReviewOutcome;
+  /**
+   * The outcome the ladder recommends, or NULL when it deliberately
+   * recommends none. Null is the unreviewed-pain state and nothing else.
+   */
+  outcome: ReviewOutcome | null;
+  /** The heading on the screen: the outcome's label, or "Coach review required". */
+  headline: string;
+  /** True while an unreviewed pain report exists. The screen leads with the reports when it is. */
+  requiresCoachReview: boolean;
+  /** The unreviewed pain reports, listed first because they are the thing to read. Empty in every other state. */
+  painFirst: {
+    feedbackId: string;
+    exerciseName: string;
+    externalId: string;
+    programWeek: number | null;
+  }[];
   /** The paragraph on the screen. Plain words, and it always names the thing it is reasoning from. */
   reasoning: string;
   /** The numbers the paragraph was built from, so a coach can check it rather than trust it. */
@@ -108,15 +144,34 @@ export function recommendNextPhase(input: RecommendationInput): ProgramRecommend
     readinessBlocked,
   };
 
-  // 1. Safety leads, exactly as it does everywhere else in this product.
+  /** Every rung below rung 1 recommends a real outcome and has nothing waiting on a coach. */
+  const decided = (outcome: ReviewOutcome, reasoning: string): ProgramRecommendation => ({
+    outcome,
+    headline: reviewOutcomeLabel(outcome),
+    requiresCoachReview: false,
+    painFirst: [],
+    reasoning,
+    basis,
+  });
+
+  // 1. Safety leads, exactly as it does everywhere else in this product, and
+  //    it leads by recommending NOTHING. See this file's header.
   if (openPain.length > 0) {
     const names = [...new Set(openPain.map((r) => r.exerciseName))];
     return {
-      outcome: 'rotate_exercises',
+      outcome: null,
+      headline: COACH_REVIEW_REQUIRED_HEADLINE,
+      requiresCoachReview: true,
+      painFirst: openPain.map((r) => ({
+        feedbackId: r.feedbackId,
+        exerciseName: r.exerciseName,
+        externalId: r.externalId,
+        programWeek: r.programWeek,
+      })),
       reasoning:
         `She reported pain on ${listNames(names)} and ${openPain.length === 1 ? 'that report has' : 'those reports have'} not been marked reviewed. ` +
-        `Rotating keeps the same work in the same blocks with different movements, and ${names.length === 1 ? 'that exercise stays' : 'those exercises stay'} off her list until you release ${names.length === 1 ? 'it' : 'them'}. ` +
-        'Resolve the report first so the next phase is built from a clean read.',
+        'Nothing is recommended until you have read it. Pain is not a programming signal on its own, and rotating a whole phase, progressing it or repeating it would all be answers to a question nobody has asked her yet. ' +
+        `Read the ${openPain.length === 1 ? 'report' : 'reports'} above, then either handle the ${names.length === 1 ? 'exercise' : 'exercises'} on ${names.length === 1 ? 'its' : 'their'} own or choose any of the six options, which stay available whatever this says.`,
       basis,
     };
   }
@@ -124,36 +179,30 @@ export function recommendNextPhase(input: RecommendationInput): ProgramRecommend
   // 2. A program nothing happened in. Only at the end, because a program
   //    with three weeks left has not failed, it has not finished.
   if (input.phaseIsOver && signals.totalSessions > 0 && signals.completedSessions === 0) {
-    return {
-      outcome: 'complete_and_archive',
-      reasoning:
-        `The phase has run its span and she did not complete any of its ${signals.totalSessions} sessions. ` +
-        'Closing it out keeps her history honest, and whatever comes next is worth starting from a conversation rather than from this.',
-      basis,
-    };
+    return decided(
+      'complete_and_archive',
+      `The phase has run its span and she did not complete any of its ${signals.totalSessions} sessions. ` +
+        'Closing it out keeps her history honest, and whatever comes next is worth starting from a conversation rather than from this.'
+    );
   }
 
   // 3. Readiness. The harvested gate's own answer, and the reason its
   //    'recovery_session' verb is the review's 'recovery_week' outcome.
   if (input.readiness?.blocked) {
-    return {
-      outcome: 'recovery_week',
-      reasoning:
-        `Her readiness signals say do not add load right now (${readinessReason(input.readiness)}). ` +
-        'A recovery week is the honest next step, and the phase after it will read a lot more clearly.',
-      basis,
-    };
+    return decided(
+      'recovery_week',
+      `Her readiness signals say do not add load right now (${readinessReason(input.readiness)}). ` +
+        'A recovery week is the honest next step, and the phase after it will read a lot more clearly.'
+    );
   }
 
   // 4. She missed too much of it for the last four weeks to be a fair read.
   if (signals.totalSessions > 0 && signals.completionPercent < LOW_COMPLETION_PERCENT) {
-    return {
-      outcome: 'repeat_phase',
-      reasoning:
-        `She finished ${signals.completedSessions} of ${signals.totalSessions} sessions, which is ${signals.completionPercent}%. ` +
-        'There is not enough here to progress from, and repeating gives her the same four weeks without treating the gap as failure.',
-      basis,
-    };
+    return decided(
+      'repeat_phase',
+      `She finished ${signals.completedSessions} of ${signals.totalSessions} sessions, which is ${signals.completionPercent}%. ` +
+        'There is not enough here to progress from, and repeating gives her the same four weeks without treating the gap as failure.'
+    );
   }
 
   // 5. It was too hard. Harvested rung: progression.ts regressed on a
@@ -161,25 +210,21 @@ export function recommendNextPhase(input: RecommendationInput): ProgramRecommend
   //    running the phase again rather than adding to it.
   if (signals.tooDifficultFlags.length >= 2) {
     const names = [...new Set(signals.tooDifficultFlags.map((f) => f.exerciseName))];
-    return {
-      outcome: 'repeat_phase',
-      reasoning:
-        `She said ${listNames(names)} ${names.length === 1 ? 'was' : 'were'} too difficult. ` +
-        'Repeating the phase lets the same work settle before anything gets heavier, and the load suggestions below step back rather than forward on those.',
-      basis,
-    };
+    return decided(
+      'repeat_phase',
+      `She said ${listNames(names)} ${names.length === 1 ? 'was' : 'were'} too difficult. ` +
+        'Repeating the phase lets the same work settle before anything gets heavier, and the load suggestions below step back rather than forward on those.'
+    );
   }
 
   // 6. She keeps working around specific movements. The program is fine,
   //    the lineup is not.
   if (friction >= ROTATE_FRICTION_THRESHOLD) {
-    return {
-      outcome: 'rotate_exercises',
-      reasoning:
-        `She has skipped, swapped or asked about ${friction} different exercises in this phase. ` +
-        'The shape of the program is working and the lineup is not, so rotating the movements keeps the goals and changes what she is actually asked to do.',
-      basis,
-    };
+    return decided(
+      'rotate_exercises',
+      `She has skipped, swapped or asked about ${friction} different exercises in this phase. ` +
+        'The shape of the program is working and the lineup is not, so rotating the movements keeps the goals and changes what she is actually asked to do.'
+    );
   }
 
   // 7. The green path. Harvested rung: progression.ts progressed on two
@@ -190,24 +235,20 @@ export function recommendNextPhase(input: RecommendationInput): ProgramRecommend
       signals.tooEasyFlags.length > 0
         ? ` She also said ${listNames([...new Set(signals.tooEasyFlags.map((f) => f.exerciseName))])} felt too easy, which is her asking for more.`
         : '';
-    return {
-      outcome: 'progress_next_phase',
-      reasoning:
-        `She finished ${signals.completedSessions} of ${signals.totalSessions} sessions with no pain reports and nothing rated too difficult.${easy} ` +
-        'Progressing builds the next four weeks from this one, with a suggested weight on every exercise she has logged one for.',
-      basis,
-    };
+    return decided(
+      'progress_next_phase',
+      `She finished ${signals.completedSessions} of ${signals.totalSessions} sessions with no unreviewed pain reports and nothing rated too difficult.${easy} ` +
+        'Progressing builds the next four weeks from this one, with a suggested weight on every exercise she has done the current weight at least twice.'
+    );
   }
 
   // 8. Mixed. Repeating is the conservative reading of mixed, and it is
   //    the reading a coach can most easily overrule.
-  return {
-    outcome: 'repeat_phase',
-    reasoning:
-      `She finished ${signals.completedSessions} of ${signals.totalSessions} sessions, which is ${signals.completionPercent}%, with nothing clearly flagged either way. ` +
-      'Repeating is the conservative read of a mixed phase. If you saw something in her sessions that the numbers here do not show, any of the other options is one tap away.',
-    basis,
-  };
+  return decided(
+    'repeat_phase',
+    `She finished ${signals.completedSessions} of ${signals.totalSessions} sessions, which is ${signals.completionPercent}%, with nothing clearly flagged either way. ` +
+      'Repeating is the conservative read of a mixed phase. If you saw something in her sessions that the numbers here do not show, any of the other options is one tap away.'
+  );
 }
 
 function listNames(names: string[]): string {

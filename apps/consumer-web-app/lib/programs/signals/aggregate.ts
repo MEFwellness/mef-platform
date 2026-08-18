@@ -429,23 +429,42 @@ export function buildProgramSignals(input: SignalInput): ProgramSignals {
  * One exercise's signals, in the shape the load rules take. Pulled out of
  * the aggregate rather than recomputed by the caller, so "she reported pain
  * on this one" means exactly the same thing on the panel and in the number.
+ *
+ * TWO KINDS OF PAIN, and the difference decides whether a number appears at
+ * all. `reportedPain` is any pain on this exercise, resolved or not, and it
+ * blocks an increase. `hasUnreviewedPain` is narrower: there is a pain
+ * REPORT with no coach review on it, which removes the suggestion entirely
+ * (see progression/loadRules.ts). It is deliberately tied to a report rather
+ * than to a bare stopped row, because a coach can only mark a report
+ * reviewed, and suppressing a number nobody can ever unsuppress would be a
+ * trap.
+ *
+ * `currentLoad` is the weight she is on right now, and the two-exposure gate
+ * counts completions AT THAT WEIGHT. Pass null when she has logged nothing,
+ * in which case the count is zero and no suggestion is produced anyway.
  */
 export function loadSignalsForExercise(
   signals: ProgramSignals,
   externalId: string,
-  exercises: CoachAssignedWorkoutExercise[]
+  exercises: CoachAssignedWorkoutExercise[],
+  currentLoad: number | null = null
 ): {
   reportedPain: boolean;
+  hasUnreviewedPain: boolean;
   reportedTooDifficult: boolean;
   reportedTooEasy: boolean;
   completedOccurrences: number;
   missedOccurrences: number;
+  successfulLogsAtCurrentLoad: number;
+  programCompletionPercent: number;
 } {
   const mine = exercises.filter((row) => row.external_id === externalId);
+  const painReports = signals.painReports.filter((report) => report.externalId === externalId);
   return {
     reportedPain:
-      signals.painReports.some((report) => report.externalId === externalId) ||
+      painReports.length > 0 ||
       mine.some((row) => row.status === 'stopped' || row.comfort_rating === 'pain'),
+    hasUnreviewedPain: painReports.some((report) => report.resolvedAt === null),
     reportedTooDifficult:
       signals.tooDifficultFlags.some((flag) => flag.externalId === externalId) ||
       mine.some((row) => row.difficulty_rating === 'very_difficult'),
@@ -457,5 +476,18 @@ export function loadSignalsForExercise(
     ).length,
     missedOccurrences: mine.filter((row) => row.status === 'skipped' || row.status === 'stopped')
       .length,
+    // Completed, and only completed. A partially completed session is not
+    // the weight being shown to be hers, which is what this gate is for.
+    successfulLogsAtCurrentLoad:
+      currentLoad === null
+        ? 0
+        : mine.filter(
+            (row) =>
+              row.status === 'completed' &&
+              row.logged_load !== null &&
+              row.logged_load !== undefined &&
+              Math.abs(Number(row.logged_load) - currentLoad) < 1e-6
+          ).length,
+    programCompletionPercent: signals.completionPercent,
   };
 }

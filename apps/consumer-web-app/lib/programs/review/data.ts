@@ -28,6 +28,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   ProgramPhaseReview,
+  ProgramRecommendedOutcome,
   ProgramReviewOutcome,
   ProgramReviewStatus,
 } from '@mef/shared-types-contracts';
@@ -98,7 +99,8 @@ export interface CreateReviewInput {
   programName: string;
   openedEarly: boolean;
   signalSnapshot: Record<string, unknown>;
-  recommendedOutcome: ProgramReviewOutcome;
+  /** One of the six, or 'coach_review_required' when the engine deliberately recommended nothing (migration 181). */
+  recommendedOutcome: ProgramRecommendedOutcome;
   recommendationReasoning: string;
 }
 

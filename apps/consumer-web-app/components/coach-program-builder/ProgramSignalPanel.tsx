@@ -354,12 +354,20 @@ export function ProgramSignalPanel({
                   (s) => s.externalId === trend.externalId
                 );
                 return (
-                  <li key={trend.externalId} data-load-trend={trend.externalId}>
+                  <li
+                    key={trend.externalId}
+                    data-load-trend={trend.externalId}
+                    data-load-direction={suggestion?.direction ?? 'none'}
+                  >
                     <p className="text-sm text-[#1B3A2D]">
                       {trend.exerciseName}: {trend.line}
                     </p>
                     {suggestion && (
-                      <p className="mt-0.5 text-xs text-[#6B7A72]">
+                      <p
+                        className={`mt-0.5 text-xs ${
+                          suggestion.direction === 'needs_review' ? 'text-red-700' : 'text-[#6B7A72]'
+                        }`}
+                      >
                         {describeSuggestion(suggestion)} {suggestion.reason}
                       </p>
                     )}

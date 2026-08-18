@@ -546,5 +546,77 @@ describe('one exercise, as the load rules see it', () => {
     const exercises = [exercise('e1', 'w1', 'ex-1', 'Goblet Squat', { status: 'stopped' })];
     const read = loadSignalsForExercise(build({ exercises }), 'ex-1', exercises);
     expect(read.reportedPain).toBe(true);
+    // But it is not "unreviewed pain", because there is no report for a
+    // coach to mark reviewed and a suggestion nobody could ever unsuppress
+    // would be a trap.
+    expect(read.hasUnreviewedPain).toBe(false);
+  });
+
+  it('separates pain a coach has read from pain she has not', () => {
+    const exercises = [exercise('e1', 'w1', 'ex-1', 'Goblet Squat', { status: 'completed' })];
+
+    const unreviewed = loadSignalsForExercise(
+      build({
+        exercises,
+        feedback: [feedback('f1', { branch: 'safety', reason: 'pain', external_id: 'ex-1' })],
+      }),
+      'ex-1',
+      exercises
+    );
+    expect(unreviewed.reportedPain).toBe(true);
+    expect(unreviewed.hasUnreviewedPain).toBe(true);
+
+    const reviewed = loadSignalsForExercise(
+      build({
+        exercises,
+        feedback: [
+          feedback('f1', {
+            branch: 'safety',
+            reason: 'pain',
+            external_id: 'ex-1',
+            coach_reviewed_at: '2026-08-10T00:00:00Z',
+          }),
+        ],
+      }),
+      'ex-1',
+      exercises
+    );
+    // Still history the coach weighs. No longer a suppression.
+    expect(reviewed.reportedPain).toBe(true);
+    expect(reviewed.hasUnreviewedPain).toBe(false);
+  });
+
+  it('counts completions AT THE CURRENT WEIGHT, and nothing else', () => {
+    const exercises = [
+      // Two at 20, which is the weight she has moved on from.
+      exercise('e1', 'w1', 'ex-1', 'Goblet Squat', { status: 'completed', logged_load: 20 }),
+      exercise('e2', 'w2', 'ex-1', 'Goblet Squat', { status: 'completed', logged_load: 20 }),
+      // One at 22.5, which is where she is now.
+      exercise('e3', 'w3', 'ex-1', 'Goblet Squat', { status: 'completed', logged_load: 22.5 }),
+      // A skipped one at the current weight is not a performance.
+      exercise('e4', 'w4', 'ex-1', 'Goblet Squat', { status: 'skipped', logged_load: 22.5 }),
+      // Neither is a partially completed one.
+      exercise('e5', 'w5', 'ex-1', 'Goblet Squat', {
+        status: 'partially_completed',
+        logged_load: 22.5,
+      }),
+    ];
+    const signals = build({ exercises });
+    expect(loadSignalsForExercise(signals, 'ex-1', exercises, 22.5).successfulLogsAtCurrentLoad).toBe(1);
+    expect(loadSignalsForExercise(signals, 'ex-1', exercises, 20).successfulLogsAtCurrentLoad).toBe(2);
+    // No current weight passed means no evidence, which is the honest zero.
+    expect(loadSignalsForExercise(signals, 'ex-1', exercises).successfulLogsAtCurrentLoad).toBe(0);
+  });
+
+  it('carries the program completion the load gate reads', () => {
+    const workouts = [
+      workout('w1', 1, 'completed'),
+      workout('w2', 1, 'completed'),
+      workout('w3', 1, 'skipped'),
+      workout('w4', 1, 'skipped'),
+    ];
+    const exercises = [exercise('e1', 'w1', 'ex-1', 'Goblet Squat', { status: 'completed' })];
+    const read = loadSignalsForExercise(build({ workouts, exercises }), 'ex-1', exercises);
+    expect(read.programCompletionPercent).toBe(50);
   });
 });

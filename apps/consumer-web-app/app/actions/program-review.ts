@@ -47,7 +47,11 @@ import {
   type ProgramLoadSuggestions,
 } from '@/lib/programs/progression/suggest';
 import { loadRuleRows, type LoadRuleRow } from '@/lib/programs/progression/loadRules';
-import { recommendNextPhase, type ProgramRecommendation } from '@/lib/programs/review/recommend';
+import {
+  COACH_REVIEW_REQUIRED,
+  recommendNextPhase,
+  type ProgramRecommendation,
+} from '@/lib/programs/review/recommend';
 import { REVIEW_OUTCOMES, isReviewOutcome, type ReviewOutcome } from '@/lib/programs/review/outcomes';
 import {
   getReview,
@@ -141,6 +145,13 @@ export interface ProgramSignalPanel {
   phaseIsOver: boolean;
   /** The review a coach is part way through on this program, when there is one. Open or drafted; both mean unfinished. */
   openReviewId: string | null;
+  /**
+   * The program templates behind this program. Carried so the review screen
+   * can send a coach straight to the EXISTING program editor to replace one
+   * exercise, regress it or change its dose, rather than making her rotate a
+   * whole phase because one movement hurt.
+   */
+  templateIds: string[];
 }
 
 export async function getProgramSignalPanelAction(input: {
@@ -185,6 +196,13 @@ export async function getProgramSignalPanelAction(input: {
     nudges: readyForMoreNudges(loads),
     phaseIsOver: endDate !== null && today > endDate,
     openReviewId: reviews.find((r) => r.status === 'open' || r.status === 'drafted')?.id ?? null,
+    templateIds: [
+      ...new Set(
+        bundle.assignments
+          .map((a) => a.template_id)
+          .filter((id): id is string => typeof id === 'string')
+      ),
+    ],
   };
 }
 
@@ -324,9 +342,14 @@ export async function openProgramReviewAction(input: {
         line: t.line,
       })),
       model: panel.loads.model,
+      blueprintModel: panel.loads.blueprintModel,
       pace: panel.loads.pace,
     },
-    recommendedOutcome: recommendation.outcome,
+    // Null is the engine deliberately recommending nothing while a pain
+    // report is unread. It is stored as its own value rather than as one of
+    // the six, so a review read back months later cannot be mistaken for a
+    // recommendation nobody acted on.
+    recommendedOutcome: recommendation.outcome ?? COACH_REVIEW_REQUIRED,
     recommendationReasoning: recommendation.reasoning,
   });
   if (!review) return { error: 'Could not open a review for this program.' };
@@ -343,7 +366,7 @@ export async function openProgramReviewAction(input: {
       source: 'coach',
       sourceRecordId: review.id,
       payload: {
-        recommended: recommendation.outcome,
+        recommended: recommendation.outcome ?? COACH_REVIEW_REQUIRED,
         openedEarly: String(review.opened_early),
       },
     }).catch(() => null);
@@ -503,11 +526,13 @@ export async function chooseReviewOutcomeAction(
         supabase,
         bundle.assignments.map((a) => a.source_blueprint_version_id).find((id) => id) ?? null
       );
+      // No week is passed, and none would be read if it were: a load moves
+      // because she did the work at the weight she is on, never because the
+      // program reached another week.
       const loads = suggestProgramLoads({
         signals: bundle.signals,
         exercises: bundle.exercises,
         periodization,
-        weekOfNextPhase: 1,
       });
       sessions = planForProgress(basePlan, loads.suggestions, input.approvedLoads ?? {});
       for (const session of sessions) {
