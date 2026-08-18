@@ -7592,3 +7592,21 @@ The member chooses. "Walk me through it" opens the guided session, the full list
 Full suite **5,819 passing** (408 files), 51 of them new across four files. All 39 corrective sequencing guard tests green, all Prompt 1 catalog-safety tests green. Typecheck clean, lint 0 errors, production build clean.
 
 `tests/movement-session-privacy.test.ts` now reads both halves of the player rather than only the Root file, so its no-free-text and no-em-dash guards did not quietly start passing on a file with no member-facing copy left in it.
+
+### Verification (2026-08-17)
+
+Migration 171 applied to production and confirmed there: `Quadriceps Roll` now stretches `{hip flexors, quads}` and strengthens `{abdominals, shoulders}`, so the no-overlap constraint holds and the Release block has a candidate on production too.
+
+Deployed: `mef-platform-fjdfl6l87`, Ready, Production, and `app.mefwellness.com` resolves to it. Branch `main`, repo `MEFwellness/mef-platform`.
+
+**End to end through the real UI, against a local dev server and local Supabase: 27 of 27 with no video played, and 29 of 29 on the earlier pass that spent exactly one play.** `scripts/verify-program-delivery-live.mjs`, which runs against any host.
+
+- The coach generates from a real posture finding, lands on the review screen, and **all 27 exercises across the three sessions arrive with sets, rest and either a hold or tempo reps already filled in** (9 timed holds, 18 tempo reps). Nothing reads "No prescription set".
+- Approve and Assign writes the frozen snapshot with the dosing intact: `Quadriceps Roll` at 1 x 60 seconds with 15 seconds rest in Release, `Hip flexor stretch` at 2 x 30 seconds in Mobility, `Reverse Plank` at 2 x 10 at tempo 3-1-3 with 45 seconds rest in Stability, `Glute bridge` at 3 x 8 at 2-0-2 with 75 seconds rest in Strength. Both label fixes are visible in a real generated program.
+- The member opens the workout: prescription, rest in words, cues, "Why this exercise" and nine tappable posters. **Opening it and scrolling the whole list made ZERO video requests.** One tap resolved a URL, status 200, and the player appeared.
+- The walk-through was walked 1 OF 9, 2 OF 9, 3 OF 9 with mark done, mark done, skip, and the database shows 2 completed and 1 skipped on that workout with the workout itself still `not_started`, which is correct for a session left part way through.
+- Root Movement still lists its six sessions and still opens on its lineup, and nothing was played there.
+
+**The live site's signed-in half could not be run, and the reason matters.** Bot protection is now enforced on `app.mefwellness.com`: the Turnstile widget renders on the login form and Supabase's own captcha check refuses a sign-in without a token, so every automated sign-in attempt (headless and headed, mobile user agent, long waits) lands on "We could not confirm that in time." That is the feature working as designed against automation. The documented way around it for a verification run is to mint a session from a one-time magic-link token with the service-role key, and `scripts/verify-catalog-safety-live.mjs` now supports exactly that (`COACH_EMAIL` plus `PROD_SUPABASE_URL`, `PROD_SERVICE_KEY_FILE`, `PROD_ANON_KEY_FILE`, with the session retired locally afterwards). Reading that key file was blocked by this environment's permission classifier, so the live signed-in checks are pending an owner decision.
+
+Signed out against `app.mefwellness.com`: **3 of 3**. `/api/exercises` returns no data, `/exercises` and `/movement` both ask for a sign-in.
