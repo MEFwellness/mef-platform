@@ -1,3 +1,57 @@
+## Progression is earned, never scheduled: the coach's corrections to the load rules (2026-08-18)
+
+Prompt 8 shipped a working coach workflow and a load engine the coach then reviewed and did not approve. This build is her corrections, and nothing else: the rules module, the pain-related recommendation copy, and their tests. Migration 181, applied to production. The signal panel layout, the review outcomes, the avoidance and resolve flows, the member surfaces and the program snapshots were not touched.
+
+### The calendar is gone
+
+The weekly wave (100 / 107 / 95 / 112 percent of her last logged weight, by week of the phase) is deleted. **No load changes because the program entered another week.** Nothing in `lib/programs/progression/loadRules.ts` reads a week number, a start date or a phase position, and a test feeds weeks 1 through 13 into every signal state in both models and asserts an identical number, direction and sentence every time.
+
+The undulating model keeps its slot, marked `UNDULATING_MODEL_PARKED = true`, with the design a returning wave has to satisfy written beside it: it may only ever scale a load the gates have already released, it may not read a calendar, and it must round down onto the practical grid like everything else. The blueprint's own `periodization` field is still read and still reported (`blueprintModel`), so a coach can see her program is written as a wave and see that the wave is parked. The engine applies performance-gated linear to everything.
+
+### An increase is earned, five gates at a time
+
+All five have to hold, and any one failing is a hold rather than a verdict about her:
+
+| Gate | Threshold | Why there |
+| --- | --- | --- |
+| Completed sessions at the weight she is on | 2 | One logged weight is a baseline. Two is the first evidence the weight is hers. |
+| Pain on this exercise | none, resolved or not | A resolved report is history the coach weighs by hand. An unreviewed one removes the suggestion entirely. |
+| "Too difficult" on it | none | Her own word about the weight beats any count of completions. |
+| Misses of this exercise | under 2 | Once is a Tuesday. Twice is a pattern, and it is the same number `signals/insights.ts` tells a coach at. |
+| Program completion | at least 50% | The same line `insights.ts` already draws. Below half the sessions the phase is not a fair read of anything. |
+
+**"Too easy" is no longer a rung.** She can say it as often as she likes and it will not move a number by itself; it earns a mention in the sentence beside the suggestion, so the coach sees her asking and decides. That is the change the review asked for, and it replaces the previous build's "too easy increases".
+
+An exercise short of the two-exposure gate reads: "Suggestions begin after she logs this weight a couple of times." It holds at the weight she logged, so a Progress draft carries her current number forward rather than dropping it.
+
+### Numbers she can actually load
+
+Every calculated number rounds **down** onto a practical increment: 2.5 lb, or 1 kg. Down and never nearest, because rounding up hands her more than the rules calculated. A suggestion like 23.5 lbs cannot render, and a test walks both units, both paces, every loadable block, thirteen weights on and off the grid and five signal states, asserting every produced number lands on the grid and never exceeds the safe value.
+
+That forced a table change. A 1 lb increment on a 2.5 lb grid would round straight back to where she started and stall her forever, so every increment in every table is now itself a whole number of practical steps (a test asserts it row by row). The kilo tables lost their 0.5 and 2.5 kg steps for the same reason. Conservative is still smaller than standard where there is room for it to be, and matches standard on the light blocks, because 2.5 lb is the smallest real step and there is no half-dumbbell.
+
+There is a marked extension point for equipment-specific increments (fixed racks, plate pairs, machine pins, kettlebells) and **nothing is built for it**: one `practicalIncrementFor(unit, equipment)` that every rounding call already goes through, and one profile until a coach has said which racks the members actually have.
+
+### Unreviewed pain removes the suggestion, and the recommendation
+
+An exercise with a pain report nobody has read gets **no number at all**. Not a hold: a held number beside an unreviewed pain report reads as an endorsement to repeat the thing that hurt. The column says exactly "No load suggestion. Pain feedback needs coach review first.", the weight field opens empty, and the sentence beside it hands the coach the last logged weight clearly labelled as a fact rather than a suggestion. The moment the coach marks the report reviewed, the exercise re-enters normal gating with its pain history still visible.
+
+**The review now recommends nothing while a pain report is unread.** It used to recommend "Rotate exercises", which is a whole-phase answer to what may be one movement on one day, and which quietly rewrote her program because something hurt. The heading is "Coach review required", the reports are listed first, above the paragraph, and the engine returns a null outcome: not rotate, not progress, not repeat. All six outcomes stay one tap away and none is badged Suggested.
+
+**The single-exercise actions are wired, not built.** Each unreviewed report on the review screen carries "Mark reviewed" (the existing `resolveFeedbackReportAction`, the same one the signal panel uses) and a link into the existing program editor at `/coach/programs/[templateId]`, which already edits one exercise's sets, reps, load and tempo and already swaps one exercise for another. No new machinery, and one painful movement never forces rotating four weeks of work.
+
+Migration 181 lets `program_phase_reviews.recommended_outcome` hold `coach_review_required`. **It is not a seventh outcome**: `chosen_outcome`'s check constraint is untouched and still allows exactly the six, so a coach cannot choose it and no draft is built from it.
+
+### Live verification
+
+46 of 46 checks against `app.mefwellness.com`, on the test member's own real corrective program, with every row restored to exactly what production carried before the run and the restore verified against those counts rather than against zero.
+
+The review screen headed "Coach review required", named the painful exercise above the reasoning paragraph, badged none of the six as Suggested and offered all six. The three seeded load rows read as the rules say they should: the exercise completed twice at 22.5 lbs suggested 25, on the 2.5 lb grid; the exercise logged once at 30 lbs, rated easy, held at 30 with "Suggestions begin after she logs this weight a couple of times"; the exercise with the unreviewed pain report said "No load suggestion. Pain feedback needs coach review first.", never "hold", and its weight field opened empty. Nothing on the screen mentioned a wave or a week percentage. Marking the report reviewed from that same screen put the exercise back under normal gating (a hold, with its pain history still on the coach's screen) and the recommendation became a real outcome with one of the six badged Suggested again. Migration 181 was proved both ways: a review row can store `coach_review_required`, and an attempt to set it as a coach's `chosen_outcome` is refused by the database. Nothing drafted, nothing published, zero videos played.
+
+### Out of scope here, still open
+
+The exercise-name cleanup is a separate prompt, and the live run picked "Warrior I (left)" as its qualifying exercise, which is one of the catalog names still carrying a vendor side suffix. The signal panel layout, the review outcomes, the avoidance and resolve flows, the member surfaces and the program snapshots were not touched by this build.
+
 ## The coaching brain: signals, the end of a phase, and load progression (2026-08-18)
 
 Everything a member said in the previous build had nowhere to go. She could log a weight and no rule read it. She could say an exercise hurt and the only thing that happened was a flag nobody could clear. An exercise could enter her avoidance list and never leave it. A program could reach its last week with no moment at which anybody decided what came next. Migrations 178, 179 and 180, all applied to production.
