@@ -24,7 +24,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { serviceRoleClient, signInAs, TEST_USERS } from './setup/test-clients';
 import { materializeProgram } from '../lib/programs/materialize';
-import { assignMaterializedProgram } from '../lib/programs/blueprints/assign';
+import { assignMaterializedProgram, discardBlueprintDraft } from '../lib/programs/blueprints/assign';
 import {
   loadRecoverySlots,
   planForCurrentProgram,
@@ -710,6 +710,110 @@ describe('the signals read end to end from real rows', () => {
     expect(loads.suggestions.map((s) => s.externalId)).toEqual([exerciseB.external_id]);
     expect(loads.suggestions[0]!.suggestedLoad).toBe(25);
     expect(loads.noLoggedWeights).toBe(false);
+  });
+});
+
+describe('discarding a draft actually removes it', () => {
+  /**
+   * The live run of migration 178 found this and it was not new: a coach had
+   * no DELETE policy on coach_program_assignments at all, PostgREST reports a
+   * zero-row delete as success, and discardBlueprintDraft therefore said
+   * "done" and left the draft where it was. The same function is the assign
+   * flow's own Discard button, so it had been silently failing there too.
+   *
+   * Two tests, because migration 179 and the app change each fix it alone
+   * and each would have caught it.
+   */
+  it('a COACH, not just an administrator, can discard her own unpublished draft', async () => {
+    const supabase = serviceRoleClient();
+    const draft = await writeReviewDraft(supabase, {
+      memberId: MEMBER,
+      coachId: COACH,
+      timezone: 'America/New_York',
+      today: '2026-08-01',
+      startDate: '2026-12-01',
+      durationWeeks: 4,
+      programTitle: 'Discard Me',
+      memberExplanation: null,
+      sessions: planForRepeat(await planForCurrentProgram(supabase, templateIds)),
+      outcome: 'repeat_phase',
+      equipment: [],
+    });
+    expect(draft).not.toBeNull();
+
+    const asCoach = await signInAs(TEST_USERS.coachOne);
+    const ok = await discardBlueprintDraft(asCoach, {
+      assignmentIds: draft!.assignmentIds,
+      templateIds: draft!.templateIds,
+    });
+    expect(ok).toBe(true);
+
+    const { data: assignmentsLeft } = await supabase
+      .from('coach_program_assignments')
+      .select('id')
+      .in('id', draft!.assignmentIds);
+    const { data: templatesLeft } = await supabase
+      .from('coach_program_templates')
+      .select('id')
+      .in('id', draft!.templateIds);
+    expect(assignmentsLeft ?? []).toEqual([]);
+    expect(templatesLeft ?? []).toEqual([]);
+  });
+
+  it('a PUBLISHED program is still not deletable by a coach, policy or no policy', async () => {
+    const asCoach = await signInAs(TEST_USERS.coachOne);
+
+    // The published program this suite set up in beforeAll.
+    const refused = await discardBlueprintDraft(asCoach, {
+      assignmentIds: assignmentIds,
+      templateIds: [],
+    });
+    expect(refused).toBe(false);
+
+    const supabase = serviceRoleClient();
+    const { data: still } = await supabase
+      .from('coach_program_assignments')
+      .select('id, visibility')
+      .in('id', assignmentIds);
+    expect((still ?? []).length).toBe(assignmentIds.length);
+    expect((still ?? []).every((r) => r.visibility === 'published')).toBe(true);
+  });
+
+  it('refuses to report success when a delete silently removes nothing', async () => {
+    // A member's session can SEE none of these rows and can delete none of
+    // them either, which is the exact shape of the bug: no error, no rows.
+    const asMember = await signInAs(TEST_USERS.memberOne);
+    const supabase = serviceRoleClient();
+    const draft = await writeReviewDraft(supabase, {
+      memberId: MEMBER,
+      coachId: COACH,
+      timezone: 'America/New_York',
+      today: '2026-08-01',
+      startDate: '2026-12-08',
+      durationWeeks: 4,
+      programTitle: 'Not Hers To Discard',
+      memberExplanation: null,
+      sessions: planForRepeat(await planForCurrentProgram(supabase, templateIds)),
+      outcome: 'repeat_phase',
+      equipment: [],
+    });
+    createdTemplateIds.push(...draft!.templateIds);
+    createdAssignmentIds.push(...draft!.assignmentIds);
+
+    // She sees nothing, so there is nothing she expected to remove, and the
+    // function is honest about that rather than pretending either way.
+    const result = await discardBlueprintDraft(asMember, {
+      assignmentIds: draft!.assignmentIds,
+      templateIds: draft!.templateIds,
+    });
+    const { data: still } = await supabase
+      .from('coach_program_assignments')
+      .select('id')
+      .in('id', draft!.assignmentIds);
+    expect((still ?? []).length, 'a member cannot remove a coach draft').toBe(
+      draft!.assignmentIds.length
+    );
+    expect(result).toBe(true);
   });
 });
 

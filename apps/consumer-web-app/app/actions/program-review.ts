@@ -580,9 +580,17 @@ export async function discardReviewDraftAction(reviewId: string): Promise<Action
     assignmentIds: review.draft_assignment_ids,
     templateIds: review.draft_template_ids,
   });
-  if (!ok) return { error: 'Could not discard this. A published program is never quietly removed.' };
+  if (!ok) {
+    return {
+      error:
+        'Could not discard this draft. Nothing was removed, and a published program is never quietly removed either way.',
+    };
+  }
 
-  await setReviewStatus(supabase, reviewId, 'discarded');
+  const marked = await setReviewStatus(supabase, reviewId, 'discarded');
+  if (!marked) {
+    return { error: 'The draft was removed but the review could not be closed. Please reload.' };
+  }
   return {};
 }
 

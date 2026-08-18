@@ -368,7 +368,7 @@ try {
   );
   check(
     'coach: it says she took the weight up',
-    new RegExp(`taken ${loggedName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')} from 20 to 22\\.5 lbs`, 'i').test(panelText),
+    panelText.includes(`taken ${loggedName} from 20 to 22.5 lbs`),
     ''
   );
   check('coach: completion is stated as a fraction and a percent', /\d+ of \d+ sessions, \d+%/.test(panelText), '');

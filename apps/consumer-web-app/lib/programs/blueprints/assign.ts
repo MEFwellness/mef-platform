@@ -193,7 +193,23 @@ export async function assignBlueprintToMember(
   });
 }
 
-/** Deletes an unpublished trial assignment and the templates it came from. Refuses to touch anything published: a program a member has been given is never quietly removed. */
+/**
+ * Deletes an unpublished trial assignment and the templates it came from.
+ * Refuses to touch anything published: a program a member has been given is
+ * never quietly removed.
+ *
+ * "NO ERROR" IS NOT "IT WORKED", and this function learned that the hard
+ * way. A DELETE that matches no RLS policy is not an error in PostgREST, it
+ * is a successful statement affecting zero rows. Until migration 179 a
+ * coach had no DELETE policy on coach_program_assignments at all, so every
+ * discard a coach pressed reported success and left the draft exactly where
+ * it was, on this path and on the assign flow's own Discard button.
+ *
+ * So both deletes now READ BACK what they removed and this function refuses
+ * to claim success when a row survived. The policy is the fix; this is the
+ * check that would have caught the missing policy on the first run instead
+ * of the tenth.
+ */
 export async function discardBlueprintDraft(
   supabase: SupabaseClient,
   input: { assignmentIds: string[]; templateIds: string[] }
@@ -215,23 +231,50 @@ export async function discardBlueprintDraft(
       return false;
     }
 
-    const { error: deleteError } = await supabase
+    const { data: deleted, error: deleteError } = await supabase
       .from('coach_program_assignments')
       .delete()
-      .in('id', input.assignmentIds);
+      .in('id', input.assignmentIds)
+      .select('id');
     if (deleteError) {
       console.error('discardBlueprintDraft (assignments) failed', deleteError);
+      return false;
+    }
+    // The rows this caller could SEE are the rows it expected to remove.
+    // Anything it saw and did not delete was refused by a policy, silently.
+    const expected = (rows ?? []).length;
+    if ((deleted ?? []).length < expected) {
+      console.error(
+        `discardBlueprintDraft: deleted ${(deleted ?? []).length} of ${expected} assignments. ` +
+          'The rest were refused by row level security, which reports no error.'
+      );
       return false;
     }
   }
 
   if (input.templateIds.length > 0) {
-    const { error } = await supabase
+    const { data: visible, error: readError } = await supabase
+      .from('coach_program_templates')
+      .select('id')
+      .in('id', input.templateIds);
+    if (readError) {
+      console.error('discardBlueprintDraft (template read) failed', readError);
+      return false;
+    }
+
+    const { data: deleted, error } = await supabase
       .from('coach_program_templates')
       .delete()
-      .in('id', input.templateIds);
+      .in('id', input.templateIds)
+      .select('id');
     if (error) {
       console.error('discardBlueprintDraft (templates) failed', error);
+      return false;
+    }
+    if ((deleted ?? []).length < (visible ?? []).length) {
+      console.error(
+        `discardBlueprintDraft: deleted ${(deleted ?? []).length} of ${(visible ?? []).length} templates.`
+      );
       return false;
     }
   }
