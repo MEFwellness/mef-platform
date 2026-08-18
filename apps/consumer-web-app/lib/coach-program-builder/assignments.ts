@@ -43,6 +43,7 @@ import {
   resumedStatus,
   weekOn,
 } from '../program-lifecycle/transitions';
+import { applyWeekOverride, overrideForWeek, programWeekOf } from '../programs/weekProgression';
 
 /** The `corrective-program:<uuid>` tag a corrective program's session templates already share (lib/corrective-engine/save.ts). Reused as the assignment's program_group_key rather than a second grouping identity being invented — see migration 172. */
 const CORRECTIVE_GROUP_TAG_PREFIX = 'corrective-program:';
@@ -59,6 +60,8 @@ export type CreateAssignmentInput = {
   publishImmediately: boolean;
   /** Lineage only — set when this assignment materializes an approved Prescription Intelligence Engine snapshot. */
   sourcePrescriptionSnapshotId?: string | null;
+  /** Lineage only — set when this assignment materializes a named program blueprint (migration 174). Never read to render a workout. */
+  sourceBlueprintVersionId?: string | null;
   /** Lifecycle (migration 172). Omit and the program's own schedule decides: the first scheduled date, and `weeks` from the schedule config. */
   lifecycle?: {
     startDate?: string;
@@ -152,6 +155,7 @@ export async function createAssignment(
       started_at: opening.status === 'upcoming' ? null : new Date().toISOString(),
       program_group_key:
         input.lifecycle?.programGroupKey ?? correctiveGroupTagOf(input.template) ?? null,
+      source_blueprint_version_id: input.sourceBlueprintVersionId ?? null,
     })
     .select('*')
     .single();
@@ -174,6 +178,12 @@ export async function createAssignment(
   const publishedAt = input.publishImmediately ? new Date().toISOString() : null;
 
   for (const date of dates) {
+    // Which week of the program this occurrence is. Stored, and used to
+    // resolve any per-week progression the template carries, so week 3's
+    // frozen rows say what week 3 prescribes rather than pointing at a
+    // plan somewhere else (migration 174).
+    const programWeek = programWeekOf(startDate, date);
+
     const { data: workout, error: workoutError } = await supabase
       .from('coach_assigned_workouts')
       .insert({
@@ -197,6 +207,7 @@ export async function createAssignment(
         internal_notes: input.template.internal_notes,
         published_at: publishedAt,
         source_prescription_snapshot_id: input.sourcePrescriptionSnapshotId ?? null,
+        program_week: programWeek,
       })
       .select('id')
       .single();
@@ -231,40 +242,49 @@ export async function createAssignment(
       const { error: exercisesError } = await supabase
         .from('coach_assigned_workout_exercises')
         .insert(
-          section.exercises.map((exercise) => ({
-            assigned_workout_id: workout.id,
-            section_id: sectionRow.id,
-            member_id: input.memberId,
-            coach_id: input.coachId,
-            provider: exercise.provider,
-            external_id: exercise.external_id,
-            exercise_name: exercise.exercise_name,
-            sequence_index: exercise.sequence_index,
-            sets: exercise.sets,
-            reps: exercise.reps,
-            rep_range_low: exercise.rep_range_low,
-            rep_range_high: exercise.rep_range_high,
-            time_seconds: exercise.time_seconds,
-            distance_meters: exercise.distance_meters,
-            rest_seconds: exercise.rest_seconds,
-            tempo: exercise.tempo,
-            rpe: exercise.rpe,
-            load: exercise.load,
-            load_unit: exercise.load_unit,
-            resistance: exercise.resistance,
-            band_color: exercise.band_color,
-            side: exercise.side,
-            unilateral: exercise.unilateral,
-            hold_duration_seconds: exercise.hold_duration_seconds,
-            frequency: exercise.frequency,
-            priority: exercise.priority,
-            is_required: exercise.is_required,
-            notes: exercise.notes,
-            coaching_cues: exercise.coaching_cues,
-            pain_modification_notes: exercise.pain_modification_notes,
-            alternate_exercises: exercise.alternate_exercises,
-            selection_reasoning: exercise.selection_reasoning,
-          }))
+          section.exercises.map((exercise) => {
+            // The prescription this occurrence actually gets: the
+            // template's own, with this week's progression applied over
+            // it. Both are frozen here; nothing re-reads the plan later.
+            const dosed = applyWeekOverride(
+              exercise,
+              overrideForWeek(exercise.week_overrides, programWeek)
+            );
+            return {
+              assigned_workout_id: workout.id,
+              section_id: sectionRow.id,
+              member_id: input.memberId,
+              coach_id: input.coachId,
+              provider: exercise.provider,
+              external_id: exercise.external_id,
+              exercise_name: exercise.exercise_name,
+              sequence_index: exercise.sequence_index,
+              sets: dosed.sets,
+              reps: dosed.reps,
+              rep_range_low: dosed.rep_range_low,
+              rep_range_high: dosed.rep_range_high,
+              time_seconds: exercise.time_seconds,
+              distance_meters: exercise.distance_meters,
+              rest_seconds: dosed.rest_seconds,
+              tempo: dosed.tempo,
+              rpe: exercise.rpe,
+              load: exercise.load,
+              load_unit: exercise.load_unit,
+              resistance: exercise.resistance,
+              band_color: exercise.band_color,
+              side: exercise.side,
+              unilateral: exercise.unilateral,
+              hold_duration_seconds: dosed.hold_duration_seconds,
+              frequency: exercise.frequency,
+              priority: exercise.priority,
+              is_required: exercise.is_required,
+              notes: exercise.notes,
+              coaching_cues: exercise.coaching_cues,
+              pain_modification_notes: exercise.pain_modification_notes,
+              alternate_exercises: exercise.alternate_exercises,
+              selection_reasoning: exercise.selection_reasoning,
+            };
+          })
         );
 
       if (exercisesError) {

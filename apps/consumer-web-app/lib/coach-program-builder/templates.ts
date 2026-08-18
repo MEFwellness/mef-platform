@@ -28,6 +28,7 @@ import type {
   ProgramDifficulty,
   ProgramSectionType,
   ProgramTemplateStatus,
+  ProgramWeekOverride,
 } from '@mef/shared-types-contracts';
 
 export type TemplateMetaInput = {
@@ -54,6 +55,14 @@ export type TemplateContentExerciseInput = ExercisePrescriptionFields & {
   selectionReasoning?: string | null;
   /** True only when a coach picked this via the Corrective Programs review screen's "show full library" override picker. Defaults to false. */
   isCoachOverride?: boolean;
+  /**
+   * Per scheduled week prescription changes, e.g. { "3": { sets: 4 } }
+   * (migration 174). Set only by the named-program blueprint path; the
+   * corrective engine and the builder UI leave it empty, which is why
+   * their assignments are still four identical weeks. Resolved into the
+   * frozen snapshot by createAssignment, never at read time.
+   */
+  weekOverrides?: Record<string, ProgramWeekOverride>;
 };
 
 export type TemplateContentSectionInput = {
@@ -340,6 +349,7 @@ export async function replaceTemplateContent(
       alternate_exercises: exercise.alternate_exercises,
       selection_reasoning: exercise.selectionReasoning ?? null,
       is_coach_override: exercise.isCoachOverride ?? false,
+      week_overrides: exercise.weekOverrides ?? {},
     }));
   });
 
@@ -467,6 +477,7 @@ export async function duplicateTemplate(
       alternate_exercises: exercise.alternate_exercises,
       selectionReasoning: exercise.selection_reasoning,
       isCoachOverride: exercise.is_coach_override,
+      weekOverrides: exercise.week_overrides,
     })),
   }));
 

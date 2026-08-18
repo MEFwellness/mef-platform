@@ -125,8 +125,24 @@ export interface CoachProgramTemplateExercise extends ExercisePrescriptionFields
   selection_reasoning: string | null;
   /** True only when a coach explicitly chose this via the Corrective Programs review screen's "show full library" override picker instead of the slot's engine-qualified default candidates (migration 132). Always false for anything else. */
   is_coach_override: boolean;
+  /**
+   * Per scheduled week prescription changes carried from a blueprint slot,
+   * e.g. { "3": { sets: 4 } } (migration 174). Resolved into the frozen
+   * assigned-workout rows at assignment time, never consulted at read time.
+   * Empty for everything the corrective engine and the builder UI write.
+   */
+  week_overrides: Record<string, ProgramWeekOverride>;
   created_at: string;
   updated_at: string;
+}
+
+/** The prescription fields a per-week progression may change. Anything else would make week 3 a different program rather than a progression. */
+export interface ProgramWeekOverride {
+  sets?: number;
+  reps?: number;
+  hold_duration_seconds?: number;
+  tempo?: string;
+  rest_seconds?: number;
 }
 
 /** A full template hydrated with its sections and exercises, ordered — the shape the builder UI and the assignment snapshot logic both work with. */
@@ -225,6 +241,9 @@ export interface CoachProgramAssignment {
   replaced_by_assignment_id: string | null;
   /** Which assignments are one program. A corrective program is one assignment per weekly session; they share this key. */
   program_group_key: string | null;
+
+  /** Lineage only (migration 174) — which blueprint version this program was materialized from. Null for a corrective or hand-built program, and never read to render a workout. */
+  source_blueprint_version_id: string | null;
 }
 
 /**
@@ -289,6 +308,8 @@ export interface CoachAssignedWorkout {
   published_at: string | null;
   /** Lineage only — the engine run this workout was materialized from, when it came from the Prescription Intelligence Engine; null for anything a coach built from scratch. Never re-read to render this workout. */
   source_prescription_snapshot_id: string | null;
+  /** Which week of the program this occurrence belongs to, counted from the assignment's start date (migration 174). Written once at assignment time, alongside the resolved per-week prescription. */
+  program_week: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -161,27 +161,13 @@ export interface ExerciseExtractedPoster {
   created_at: string;
 }
 
-export type MovementProgramVersionStatus = 'draft' | 'published' | 'archived';
-
-/** Program Version Foundation only — no Program Builder reads or writes these yet. */
-export interface MovementProgram {
-  id: string;
-  key: string;
-  display_name: string;
-  created_at: string;
-}
-
-export interface MovementProgramVersion {
-  id: string;
-  program_id: string;
-  version_number: number;
-  display_name: string;
-  status: MovementProgramVersionStatus;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  published_at: string | null;
-}
+/*
+ * movement_programs / movement_program_versions used to be typed here as
+ * the empty "Program Version Foundation" migration 80 created. Migration
+ * 174 activated that reservation as the named program blueprint store, so
+ * their real, filled-in shape lives with the rest of that concept in
+ * program-blueprints.types.ts. Not two shapes for one pair of tables.
+ */
 
 /**
  * The hydrated shape the Exercise Library UI actually renders — one

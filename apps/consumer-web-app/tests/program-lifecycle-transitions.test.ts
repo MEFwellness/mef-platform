@@ -631,6 +631,7 @@ function summary(overrides: {
       replaced_at: null,
       replaced_by_assignment_id: null,
       program_group_key: overrides.groupKey,
+      source_blueprint_version_id: null,
     },
     totalWorkouts: overrides.total ?? 4,
     completedWorkouts: overrides.completed ?? 1,
