@@ -8387,3 +8387,34 @@ Nothing else moved: same routes, same hrefs, same entry, same fetches (plus one 
 Full suite **6,277 passing** (423 files). Typecheck clean, lint 0 errors, production build clean. Migration 185 applied to local, then to production.
 
 New: `tests/program-opened-integration.test.ts` (9, real local Supabase, real RLS), `tests/home-program-hero-placement.test.tsx` (8), plus the state-by-state hero tests and the "New from your coach" tests in `tests/member-program-presentation.test.tsx`, and eight more zero-request renders in `tests/program-screens-no-video-requests.test.tsx` covering all four states with and without the mark.
+
+### Verification (2026-08-18)
+
+Deployed: `mef-platform-8n8y2jzka`, Ready, Production, and `app.mefwellness.com` is aliased to it. Repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-wellness/mef-platform`. (The first of the two commits deployed as `mef-platform-c1ypl0mri`, which is the build the live run below was made against; the second commit changes a verification script only and touches no shipped code.)
+
+**Migration 185 applied to production.** The backfill was then checked directly against the production database rather than trusted: **2 program groups exist across 6 assignments, 2 carry an opened event, 0 unmarked.** So no member's existing program can read as "New from your coach".
+
+**`scripts/verify-program-hero-live.mjs` reports 35 of 35 against `app.mefwellness.com`, with zero videos played and no page error on any screen.** It seeds one program for the test member, walks every presentation Home and Movement can reach, and restores in a `finally`.
+
+| check | result |
+| --- | --- |
+| Home, upcoming: card present, named, "Starts Wednesday, August 26" | yes |
+| Home, upcoming: "First session: Session A, Wednesday, August 26" and "See your first session" | yes |
+| Home, upcoming: marked "New from your coach" | yes |
+| Movement: the same card, same program, same status, same mark | yes |
+| Movement: the duplicate "Your program from your coach" heading is gone | yes |
+| opening it wrote exactly one `program_opened` event | 1 row |
+| the mark cleared on Home and on Movement, card otherwise identical | yes |
+| revisiting Home, Movement and `/programs` wrote nothing more | still 1 row |
+| Home, active: "Week 2 of 4", "Next up: Session A, Wednesday, August 19", "Open your next session" | yes |
+| Home, paused: "Paused", "put this on hold ... pick up where you left off", no "Next up" | yes |
+| Home, completed: Home stops pointing at it, unchanged from before this pass | yes |
+| `/programs`, completed: "Your coach is reviewing your next phase." | yes |
+| nothing clinical, no em dash, on any of the six screens | clean |
+| videos played | 0 |
+
+**Order on production Home, read off the screenshot:** the day's priority card (white), then the program hero (deep green), then the Weekly Root Review row (white), then the coach-assigned questionnaire invite (deep green). The hero leads, and the two green panels are not adjacent.
+
+**State production was left in:** exactly as found. The test member has 0 assignments, 0 assigned workouts and 0 `program_opened` events, the same three numbers the run started from. Production-wide: 6 assignments, 22 workouts, 2 `program_opened` events, all of them the migration's backfill. No real member's data was touched at any point.
+
+**One thing not screenshotted, and why.** The completed state was proved by the test suite and by the `/programs` screen, not by Home, because Home does not point at a completed program and this pass deliberately did not change that. Surfacing it there needs a rule for how long "Your coach is reviewing your next phase" stays on the home screen, and a completed program stays completed until a new one replaces it, so "forever" would be the accidental answer. That decision is the coach's to make, not this pass's.
