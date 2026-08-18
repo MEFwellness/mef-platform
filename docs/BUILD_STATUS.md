@@ -7526,3 +7526,28 @@ Written up in full in `docs/CORRECTIVE_RECLASSIFICATION_CANDIDATES.md`, a propos
 Full suite **5,768 passing** (404 files), 60 of them new across five files. All 39 corrective sequencing guard tests green. Typecheck clean, lint 0 errors, production build clean.
 
 One pre-existing test changed meaning rather than being weakened: `forward_head moderate` no longer meets the 8-exercise floor, because the library genuinely cannot supply eight. The ceiling stays unconditional, the floor is exempted for that one case by name, and `tests/corrective-slot-coverage.test.ts` pins exactly which slots are empty so the exemption cannot quietly grow.
+
+### Verification (2026-08-17)
+
+Migration 170 applied to production and confirmed there: the generated column exists, both new SELECT policies are in place, `member_may_read_exercise` is SECURITY DEFINER, and `member_exercise_cues` carries exactly three columns. Production holds **861** catalog rows, **824** assignable.
+
+**The historical-assignment audit found nothing, because there is nothing.** Production has **zero** `coach_assigned_workouts` rows, zero assigned exercise rows and zero coach program template exercises pointing at a non-assignable exercise. No member's history was touched, and none needed to be.
+
+**The retired path had also never recorded a completion.** `movement_sessions` holds 30 rows in production, 29 `ready` and 1 `in_progress`, and **not one `completed`**. So the movement input to the Root Score was reading nothing before this change and reads nothing after it. `member_movement_session_runs`, the real Root Movement table, holds 17.
+
+**Production RLS, measured by impersonating real production roles:**
+
+| Reader | exercise_catalog | mef_exercise_metadata | member_exercise_cues |
+|---|---|---|---|
+| A real member | **39** of 861 | **0** of 853 | 39, all with real cues |
+| A signed-out visitor | **0** | **0** | **0** |
+| A real coach | 861 | 853 | n/a |
+
+39 is exactly the number of distinct exercises across the six published Root Movement sessions. Zero non-assignable exercises are visible to a member.
+
+**Against the running app.** `scripts/verify-catalog-safety-live.mjs`, which runs against any host.
+
+- `app.mefwellness.com`, deployment `mef-platform-ayqrkagge`, confirmed Ready and confirmed to be what the domain resolves to: **3 of 3** signed-out checks. `/api/exercises` returns no exercise data, `/exercises` and `/movement` both ask for a sign-in.
+- A local dev server against local Supabase, real Next server, real RLS, real seeded member and coach accounts: **23 of 23**, including one real video play that resolved 200. A member gets 403 from `/api/exercises` and from its filter-vocabulary variant, cannot reach `/exercises`, lands on the Movement screen offering a real Root Movement session with no trace of the retired one, opens the player on a 9-exercise lineup, and still loads `/programs`. A coach still gets 200 and 20 results, every one carrying its assignability, and both the Exercise Library and Corrective Programs still open. Zero uncaught page errors in either run.
+
+**Not yet done: the signed-in half against the live site.** The prompt's credentials block was left unfilled, and this repo's standing test-member password rotates, so the member and coach passes on `app.mefwellness.com` are pending. The script takes `MEMBER_EMAIL` / `MEMBER_PASSWORD` / `COACH_EMAIL` / `COACH_PASSWORD` and runs the same 23 checks against the live host unchanged.
