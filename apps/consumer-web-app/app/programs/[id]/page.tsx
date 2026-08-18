@@ -4,6 +4,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getMyAssignedWorkoutDetailAction } from '@/app/actions/coach-programs';
+import { loadAssignedWorkoutMedia } from '@/lib/coach-program-builder/assignedWorkoutMedia';
 import { MemberAssignedWorkoutDetail } from '@/components/coach-program-builder/MemberAssignedWorkoutDetail';
 
 export default async function MyAssignedWorkoutPage({ params }: { params: { id: string } }) {
@@ -21,6 +22,10 @@ export default async function MyAssignedWorkoutPage({ params }: { params: { id: 
   const workout = await getMyAssignedWorkoutDetailAction(params.id);
   if (!workout) notFound();
 
+  // Poster frames and cues only. No video URL is resolved here or anywhere
+  // else on this screen until she taps play on one exercise.
+  const media = await loadAssignedWorkoutMedia(supabase, workout);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28">
@@ -33,7 +38,7 @@ export default async function MyAssignedWorkoutPage({ params }: { params: { id: 
         </div>
 
         <div className="mt-7">
-          <MemberAssignedWorkoutDetail workout={workout} />
+          <MemberAssignedWorkoutDetail workout={workout} media={media} />
         </div>
       </main>
 

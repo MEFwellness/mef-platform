@@ -24,10 +24,16 @@ import { VideoPosterPlaceholder } from './VideoPosterPlaceholder';
  * the product that can spend Your Move quota, and one place where the
  * poster/cues fallback behaviour is defined.
  *
- * `heightClassName` is the only thing the two call sites disagree about:
- * the detail screen renders a fixed 224px media band, a session player
- * gives the video a taller, aspect-driven stage. Everything else, the
- * fetch, the cache behaviour, the fallbacks, is shared verbatim.
+ * `heightClassName` is the only thing the call sites disagree about: the
+ * detail screen renders a fixed 224px media band, a guided player gives
+ * the video a taller, aspect-driven stage. Everything else, the fetch, the
+ * cache behaviour, the fallbacks, is shared verbatim.
+ *
+ * THERE IS NO AUTOPLAY AND NO RESET PROP. A guided player moving to the
+ * next exercise mounts a fresh copy of this component with a new React
+ * key, which starts idle and showing a poster. That is a stronger
+ * guarantee than a reset prop was: there is no code path in this file that
+ * can begin a fetch other than a member's tap on the play button.
  */
 export function TapToPlayVideo({
   externalId,
@@ -37,7 +43,6 @@ export function TapToPlayVideo({
   posterUrl,
   cues,
   heightClassName = 'h-56',
-  autoPlayKey,
 }: {
   externalId: string;
   name: string;
@@ -47,14 +52,6 @@ export function TapToPlayVideo({
   cues: string[];
   /** Tailwind height for the pre-play surface and the cues fallback. */
   heightClassName?: string;
-  /**
-   * Changing this resets the player back to its idle, not-yet-fetched
-   * state. A session player advancing to the next exercise passes the new
-   * exercise id here so the previous clip is torn down and, critically,
-   * so the next one is NOT fetched until the member taps play again.
-   * Quota is spent by taps, never by advancing.
-   */
-  autoPlayKey?: string;
 }) {
   const [state, setState] = useState<
     | { status: 'idle' }
@@ -62,15 +59,6 @@ export function TapToPlayVideo({
     | { status: 'ready'; videoUrl: string }
     | { status: 'error' }
   >({ status: 'idle' });
-  const [resetKey, setResetKey] = useState(autoPlayKey);
-
-  // Deriving the reset during render rather than in an effect: the player
-  // must never briefly show the previous exercise's video under the new
-  // exercise's name.
-  if (autoPlayKey !== resetKey) {
-    setResetKey(autoPlayKey);
-    setState({ status: 'idle' });
-  }
 
   async function handlePlay() {
     setState({ status: 'loading' });

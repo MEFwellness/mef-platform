@@ -351,5 +351,5 @@ export function buildSession(
     exercises: pickCoreBlock(pool, patterns, budget.core, usedIds, rng),
   });
 
-  return { label, blocks };
+  return { label, severity, blocks };
 }

@@ -201,10 +201,17 @@ describe('Root Movement privacy — layer 2, the sanitizer', () => {
 
 describe('Root Movement privacy — layer 3, the call sites', () => {
   const actionsSource = readFileSync(path.join(APP_ROOT, 'app/actions/movement-sessions.ts'), 'utf8');
-  const playerSource = readFileSync(
-    path.join(APP_ROOT, 'components/movement-sessions/MovementSessionPlayer.tsx'),
-    'utf8'
-  );
+  // Both halves of the player. The screen itself now lives in
+  // GuidedSessionPlayer (an assigned program workout is walked through the
+  // same one), so reading only the Root file would leave these two
+  // assertions passing on a file that no longer contains any member-facing
+  // copy at all.
+  const playerSource = [
+    'components/movement-sessions/MovementSessionPlayer.tsx',
+    'components/movement-sessions/GuidedSessionPlayer.tsx',
+  ]
+    .map((relative) => readFileSync(path.join(APP_ROOT, relative), 'utf8'))
+    .join('\n');
 
   it('gives the server actions no parameter that could carry health content', () => {
     // Parameter lists only, not prose in the file's own comments.

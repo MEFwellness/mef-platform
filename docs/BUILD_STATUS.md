@@ -7551,3 +7551,44 @@ Migration 170 applied to production and confirmed there: the generated column ex
 - A local dev server against local Supabase, real Next server, real RLS, real seeded member and coach accounts: **23 of 23**, including one real video play that resolved 200. A member gets 403 from `/api/exercises` and from its filter-vocabulary variant, cannot reach `/exercises`, lands on the Movement screen offering a real Root Movement session with no trace of the retired one, opens the player on a 9-exercise lineup, and still loads `/programs`. A coach still gets 200 and 20 results, every one carrying its assignability, and both the Exercise Library and Corrective Programs still open. Zero uncaught page errors in either run.
 
 **Not yet done: the signed-in half against the live site.** The prompt's credentials block was left unfilled, and this repo's standing test-member password rotates, so the member and coach passes on `app.mefwellness.com` are pending. The script takes `MEMBER_EMAIL` / `MEMBER_PASSWORD` / `COACH_EMAIL` / `COACH_PASSWORD` and runs the same 23 checks against the live host unchanged.
+
+## Program delivery: video, real dosing, and a walk-through (2026-08-17)
+
+A member could open a program her coach had approved and read a list of exercise names. No video, and no prescription, because the generator wrote `null` into `sets`, `reps`, `hold_duration_seconds`, `tempo` and `rest_seconds` for every exercise it produced. Both are fixed. She now sees the video, on tap, and the full prescription, and she can be walked through the session one exercise at a time.
+
+### The two approved label fixes, and only those two
+
+From `docs/CORRECTIVE_RECLASSIFICATION_CANDIDATES.md`. Candidates 3 to 12 are untouched, and a test asserts they are still reported as gaps so that stays true by force rather than by memory.
+
+- **Candidate 1, migration 171.** `Quadriceps Roll` is the only client-assignable exercise carrying the `release` role, and its `muscles_stretched` array was empty, so the Release block had zero candidates system-wide and every generated program opened with an empty first block. It now stretches `hip flexors` and `quads`. Two entries had to leave `muscles_strengthened` to satisfy migration 127's no-overlap constraint, and they were wrong anyway: lying on a foam roller does not strengthen the quads.
+- **Candidate 2, `blueprints.ts`.** The Lower Cross TFL slot asked for the label `TFL`, which only the three unfilmable MEF rows use, while every video-backed row spells out `tensor fasciae latae`. Both spellings are canonical for that slot now, which is what `canonicalLabels` has always been for.
+
+One consequence is stated rather than discovered: `hip flexors` is a LONG muscle for Flat Back, so the engine's hard "never stretch a long muscle" backstop keeps excluding Quadriceps Roll for any member with Flat Back detected. That is the rule working, and a test holds it.
+
+### Real dosing, in one file a coach can edit
+
+`lib/corrective-engine/dosing.ts` is one table and nothing else: block by severity, giving sets, a hold or reps, a tempo where the speed is part of the exercise, and rest. `sessionToSections` reads it, so every exercise of every generated program now carries a real prescription and the fields the engine has no opinion about (load, band colour, RPE, side) stay null rather than being invented.
+
+Conventions the table follows: release and mobility are time-based holds, stability is moderate sets of slow controlled reps with an explicit tempo, strength is conventional sets and reps, core is timed anti-movement holds. **Severity may reduce volume, never increase it** — a severe pattern already receives more exercises per session, so per-exercise volume holds flat or drops. A test computes volume for every block at every tier and fails if that ever inverts.
+
+Changing the file changes future generations only. An approved program is a frozen snapshot in `coach_assigned_workout_exercises` and nothing re-reads the table for it.
+
+The coach review screen shows the prescription for every exercise, in the exact sentence the member will read (same formatter), and offers five editable fields per exercise: sets, reps, hold, tempo, rest. **This closed a real bug**: `toSectionsInput` wrote null for all five, so Save Draft and Approve & Assign both erased the dosing on their way past. An exercise a coach ADDS to a block starts from the same table at the same tier, read from a new `corrective-severity:` program tag rather than from prose inside `coach_notes`.
+
+### One player, two kinds of session
+
+`MovementSessionPlayer` was the Root Movement screen. The screen itself moved to `components/movement-sessions/GuidedSessionPlayer.tsx` and both features now render it: `MovementSessionPlayer` is a thin adapter carrying the view event, the run row and its own copy, and `AssignedWorkoutGuidedSession` is the same for a coach-assigned workout, marking each exercise done or skipped through the action the list view already used. There is no second player.
+
+The member chooses. "Walk me through it" opens the guided session, the full list is still there, and both work.
+
+### Zero video requests, proved twice
+
+`autoPlayKey` is gone from `TapToPlayVideo` entirely. A guided player advancing mounts a fresh copy with a new React key, which starts idle showing a poster, and there is now no code path in that file that can begin a fetch other than a member's tap.
+
+`tests/program-screens-no-video-requests.test.tsx` proves it structurally (no `fetch`, no `<video>`, no autoplay or preload hint in any program screen, and a sweep of the whole app tree confirming `TapToPlayVideo` is still the only file that requests a video URL) and by rendering (real components, real data, a spy on global `fetch`, zero calls while opening the workout, expanding every exercise, and reaching every exercise of the walk-through).
+
+### Proof
+
+Full suite **5,819 passing** (408 files), 51 of them new across four files. All 39 corrective sequencing guard tests green, all Prompt 1 catalog-safety tests green. Typecheck clean, lint 0 errors, production build clean.
+
+`tests/movement-session-privacy.test.ts` now reads both halves of the player rather than only the Root file, so its no-free-text and no-em-dash guards did not quietly start passing on a file with no member-facing copy left in it.

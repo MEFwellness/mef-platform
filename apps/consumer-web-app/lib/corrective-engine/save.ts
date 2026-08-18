@@ -10,7 +10,9 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CorrectiveProgramDraft, SessionDraft } from './types';
+import { SEVERITY_TAG_PREFIX } from './types';
 import { CORRECTIVE_BLUEPRINTS } from './blueprints';
+import { blockPrescription } from './dosing';
 import {
   createTemplate,
   replaceTemplateContent,
@@ -47,42 +49,56 @@ function patternSummary(draft: CorrectiveProgramDraft): string {
     .join(', ');
 }
 
-/** Also reused by review.ts's regenerate path, so a regenerated draft is written through the exact same shape a fresh save uses. */
+/**
+ * Also reused by review.ts's regenerate path, so a regenerated draft is
+ * written through the exact same shape a fresh save uses.
+ *
+ * Every exercise carries a real prescription, read from
+ * lib/corrective-engine/dosing.ts for this block at this session's
+ * severity. It used to write null for all of them, which reached the
+ * member as an exercise name and nothing else. The fields this engine has
+ * no opinion about (load, band colour, RPE, side) stay null on purpose:
+ * a coach fills those in, and a fabricated number would be worse than a
+ * blank.
+ */
 export function sessionToSections(session: SessionDraft): TemplateContentSectionInput[] {
-  return session.blocks.map((block) => ({
-    name: block.name,
-    sectionType: SECTION_TYPE_BY_BLOCK[block.block],
-    blockReasoning: block.blockReasoning,
-    exercises: block.exercises.map((exercise) => ({
-      provider: exercise.provider,
-      externalId: exercise.externalId,
-      exerciseName: exercise.exerciseName,
-      selectionReasoning: exercise.selectionReasoning,
-      sets: null,
-      reps: null,
-      rep_range_low: null,
-      rep_range_high: null,
-      time_seconds: null,
-      distance_meters: null,
-      rest_seconds: null,
-      tempo: null,
-      rpe: null,
-      load: null,
-      load_unit: null,
-      resistance: null,
-      band_color: null,
-      side: null,
-      unilateral: false,
-      hold_duration_seconds: null,
-      frequency: null,
-      priority: 'medium',
-      is_required: true,
-      notes: null,
-      coaching_cues: exercise.coachingCues,
-      pain_modification_notes: null,
-      alternate_exercises: {},
-    })),
-  }));
+  return session.blocks.map((block) => {
+    const dose = blockPrescription(block.block, session.severity);
+    return {
+      name: block.name,
+      sectionType: SECTION_TYPE_BY_BLOCK[block.block],
+      blockReasoning: block.blockReasoning,
+      exercises: block.exercises.map((exercise) => ({
+        provider: exercise.provider,
+        externalId: exercise.externalId,
+        exerciseName: exercise.exerciseName,
+        selectionReasoning: exercise.selectionReasoning,
+        sets: dose.sets,
+        reps: dose.reps,
+        rep_range_low: dose.rep_range_low,
+        rep_range_high: dose.rep_range_high,
+        time_seconds: null,
+        distance_meters: null,
+        rest_seconds: dose.rest_seconds,
+        tempo: dose.tempo,
+        rpe: null,
+        load: null,
+        load_unit: null,
+        resistance: null,
+        band_color: null,
+        side: null,
+        unilateral: false,
+        hold_duration_seconds: dose.hold_duration_seconds,
+        frequency: null,
+        priority: 'medium',
+        is_required: true,
+        notes: null,
+        coaching_cues: exercise.coachingCues,
+        pain_modification_notes: null,
+        alternate_exercises: {},
+      })),
+    };
+  });
 }
 
 /**
@@ -131,7 +147,17 @@ export async function saveCorrectiveProgramDraft(
       difficulty: draft.overallSeverity === 'severe' ? 'beginner' : 'intermediate',
       estimatedDurationMinutes: null,
       equipment: draft.equipment,
-      programTags: [programGroupTag, 'corrective-generated', `corrective-member:${memberId}`],
+      programTags: [
+        programGroupTag,
+        'corrective-generated',
+        `corrective-member:${memberId}`,
+        // The tier this draft's dosing was read at, as structured data
+        // rather than as a sentence inside coach_notes (which a coach
+        // edits freely). The review screen reads it back so an exercise a
+        // coach ADDS to a block gets the same starting prescription the
+        // generated ones got, instead of an invented one.
+        `${SEVERITY_TAG_PREFIX}${draft.overallSeverity}`,
+      ],
       correctiveTags: draft.patterns.map((p) => p.blueprint),
       movementTags: [],
       targetMuscles,

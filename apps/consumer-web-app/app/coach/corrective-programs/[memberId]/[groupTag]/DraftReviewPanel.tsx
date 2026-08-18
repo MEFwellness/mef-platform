@@ -8,8 +8,11 @@ import type {
   CoachProgramTemplateWithContent,
   ProgramSectionType,
 } from '@mef/shared-types-contracts';
-import type { BlueprintKey, SessionBlockType } from '@/lib/corrective-engine/types';
+import type { BlueprintKey, CorrectiveSeverity, SessionBlockType } from '@/lib/corrective-engine/types';
 import { CORRECTIVE_BLUEPRINTS } from '@/lib/corrective-engine/blueprints';
+import { blockPrescription } from '@/lib/corrective-engine/dosing';
+import { readSeverityTag } from '@/lib/corrective-engine/types';
+import { formatPrescriptionLine } from '@/lib/coach-program-builder/prescription';
 import {
   saveProgramTemplateContentAction,
   updateProgramTemplateMetaAction,
@@ -45,6 +48,33 @@ const BLOCK_LABEL: Record<SessionBlockType, string> = {
   core: 'Core',
 };
 
+/**
+ * The prescription as the coach edits it: strings, because these are text
+ * inputs and an empty input is a real state a number cannot hold. They are
+ * parsed back to numbers on save, and a field left blank is written as
+ * null rather than as zero.
+ */
+type EditablePrescription = {
+  sets: string;
+  reps: string;
+  holdSeconds: string;
+  tempo: string;
+  restSeconds: string;
+};
+
+/** The five fields a coach edits, in the order they are read aloud. Hold and reps are both offered because a block uses one or the other, and a coach changing a stability exercise into a hold should not need a developer. */
+const PRESCRIPTION_FIELDS: {
+  field: keyof EditablePrescription;
+  label: string;
+  inputMode: 'numeric' | 'text';
+}[] = [
+  { field: 'sets', label: 'Sets', inputMode: 'numeric' },
+  { field: 'reps', label: 'Reps', inputMode: 'numeric' },
+  { field: 'holdSeconds', label: 'Hold (s)', inputMode: 'numeric' },
+  { field: 'tempo', label: 'Tempo', inputMode: 'text' },
+  { field: 'restSeconds', label: 'Rest (s)', inputMode: 'numeric' },
+];
+
 type EditableExercise = {
   key: string;
   provider: string;
@@ -53,6 +83,7 @@ type EditableExercise = {
   coachingCues: string | null;
   selectionReasoning: string | null;
   isCoachOverride: boolean;
+  prescription: EditablePrescription;
 };
 
 type EditableSectionRow = {
@@ -75,6 +106,32 @@ function sessionLabelOf(template: CoachProgramTemplateWithContent): string {
   return match?.[1] ?? template.name;
 }
 
+function numberField(value: number | null | undefined): string {
+  return value === null || value === undefined ? '' : String(value);
+}
+
+function toNumber(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+/** A block's starting prescription, for an exercise a coach ADDS to a draft — the same table the generator read, at the same severity, so an added exercise and a generated one are dosed alike. */
+function defaultPrescriptionFor(
+  block: SessionBlockType,
+  severity: CorrectiveSeverity
+): EditablePrescription {
+  const dose = blockPrescription(block, severity);
+  return {
+    sets: numberField(dose.sets),
+    reps: dose.reps ?? '',
+    holdSeconds: numberField(dose.hold_duration_seconds),
+    tempo: dose.tempo ?? '',
+    restSeconds: numberField(dose.rest_seconds),
+  };
+}
+
 function toEditableSessions(templates: CoachProgramTemplateWithContent[]): EditableSession[] {
   return templates.map((template) => ({
     templateId: template.id,
@@ -93,6 +150,13 @@ function toEditableSessions(templates: CoachProgramTemplateWithContent[]): Edita
         coachingCues: exercise.coaching_cues,
         selectionReasoning: exercise.selection_reasoning,
         isCoachOverride: exercise.is_coach_override,
+        prescription: {
+          sets: numberField(exercise.sets),
+          reps: exercise.reps ?? '',
+          holdSeconds: numberField(exercise.hold_duration_seconds),
+          tempo: exercise.tempo ?? '',
+          restSeconds: numberField(exercise.rest_seconds),
+        },
       })),
     })),
   }));
@@ -103,36 +167,43 @@ function toSectionsInput(session: EditableSession): TemplateContentSectionInput[
     name: section.name,
     sectionType: section.sectionType,
     blockReasoning: section.blockReasoning,
-    exercises: section.exercises.map((exercise) => ({
-      provider: exercise.provider,
-      externalId: exercise.externalId,
-      exerciseName: exercise.exerciseName,
-      selectionReasoning: exercise.selectionReasoning,
-      isCoachOverride: exercise.isCoachOverride,
-      sets: null,
-      reps: null,
-      rep_range_low: null,
-      rep_range_high: null,
-      time_seconds: null,
-      distance_meters: null,
-      rest_seconds: null,
-      tempo: null,
-      rpe: null,
-      load: null,
-      load_unit: null,
-      resistance: null,
-      band_color: null,
-      side: null,
-      unilateral: false,
-      hold_duration_seconds: null,
-      frequency: null,
-      priority: 'medium',
-      is_required: true,
-      notes: null,
-      coaching_cues: exercise.coachingCues,
-      pain_modification_notes: null,
-      alternate_exercises: {},
-    })),
+    exercises: section.exercises.map((exercise) => {
+      // Whatever the coach has in the fields right now, saved verbatim.
+      // This used to write null for every one of them, which quietly
+      // erased the generator's dosing on Save Draft and again on Approve.
+      const reps = exercise.prescription.reps.trim();
+      const repsNumber = toNumber(reps);
+      return {
+        provider: exercise.provider,
+        externalId: exercise.externalId,
+        exerciseName: exercise.exerciseName,
+        selectionReasoning: exercise.selectionReasoning,
+        isCoachOverride: exercise.isCoachOverride,
+        sets: toNumber(exercise.prescription.sets),
+        reps: reps === '' ? null : reps,
+        rep_range_low: repsNumber,
+        rep_range_high: repsNumber,
+        time_seconds: null,
+        distance_meters: null,
+        rest_seconds: toNumber(exercise.prescription.restSeconds),
+        tempo: exercise.prescription.tempo.trim() || null,
+        rpe: null,
+        load: null,
+        load_unit: null,
+        resistance: null,
+        band_color: null,
+        side: null,
+        unilateral: false,
+        hold_duration_seconds: toNumber(exercise.prescription.holdSeconds),
+        frequency: null,
+        priority: 'medium',
+        is_required: true,
+        notes: null,
+        coaching_cues: exercise.coachingCues,
+        pain_modification_notes: null,
+        alternate_exercises: {},
+      };
+    }),
   }));
 }
 
@@ -183,6 +254,11 @@ export function DraftReviewPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(nextMonday);
+
+  const severity: CorrectiveSeverity = useMemo(
+    () => readSeverityTag(group.templates[0]?.program_tags ?? []),
+    [group.templates]
+  );
 
   const blueprintKeys = useMemo(
     () => (group.templates[0]?.corrective_tags ?? []) as BlueprintKey[],
@@ -238,9 +314,29 @@ export function DraftReviewPanel({
     );
   }
 
+  function updatePrescription(
+    sessionIndex: number,
+    sectionIndex: number,
+    exerciseIndex: number,
+    field: keyof EditablePrescription,
+    value: string
+  ) {
+    updateExercises(sessionIndex, sectionIndex, (exercises) =>
+      exercises.map((exercise, i) =>
+        i !== exerciseIndex
+          ? exercise
+          : { ...exercise, prescription: { ...exercise.prescription, [field]: value } }
+      )
+    );
+  }
+
   function applyPick(picked: CorrectivePickedExercise) {
     if (!picker) return;
     const { sessionIndex, sectionIndex, exerciseIndex } = picker;
+    const block = sessions[sessionIndex]!.sections[sectionIndex]!.block;
+    const existing = exerciseIndex === null
+      ? null
+      : sessions[sessionIndex]!.sections[sectionIndex]!.exercises[exerciseIndex] ?? null;
     const newExercise: EditableExercise = {
       key: `${picked.provider}:${picked.externalId}:${Date.now()}`,
       provider: picked.provider,
@@ -249,6 +345,10 @@ export function DraftReviewPanel({
       coachingCues: picked.coachingCues,
       selectionReasoning: picked.isCoachOverride ? 'Coach override: picked from the full library.' : null,
       isCoachOverride: picked.isCoachOverride,
+      // A swap keeps whatever dose was already on that slot, since the
+      // coach was replacing the exercise and not the prescription. A new
+      // exercise starts from this block's default at this severity.
+      prescription: existing?.prescription ?? defaultPrescriptionFor(block, severity),
     };
     updateExercises(sessionIndex, sectionIndex, (exercises) => {
       if (exerciseIndex === null) return [...exercises, newExercise];
@@ -406,37 +506,80 @@ export function DraftReviewPanel({
                       {section.exercises.map((exercise, exerciseIndex) => (
                         <div
                           key={exercise.key}
-                          className="flex items-center justify-between gap-3 rounded-2xl bg-[#FAFAF8] px-4 py-2.5"
+                          className="rounded-2xl bg-[#FAFAF8] px-4 py-3"
                         >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="truncate text-sm font-medium text-[#1B3A2D]">
-                                {exercise.exerciseName}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className="truncate text-sm font-medium text-[#1B3A2D]">
+                                  {exercise.exerciseName}
+                                </p>
+                                {exercise.isCoachOverride && (
+                                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                    <ShieldAlert className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                                    Coach override
+                                  </span>
+                                )}
+                              </div>
+                              {/* Exactly the sentence the member will be
+                                  shown, from the same formatter her screen
+                                  uses, so a coach approves what she reads. */}
+                              <p className="mt-0.5 text-[11px] text-[#6B7A72]">
+                                {formatPrescriptionLine({
+                                  sets: toNumber(exercise.prescription.sets),
+                                  reps: exercise.prescription.reps.trim() || null,
+                                  hold_duration_seconds: toNumber(exercise.prescription.holdSeconds),
+                                  tempo: exercise.prescription.tempo.trim() || null,
+                                  rest_seconds: toNumber(exercise.prescription.restSeconds),
+                                }) ?? 'No prescription set'}
                               </p>
-                              {exercise.isCoachOverride && (
-                                <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                                  <ShieldAlert className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-                                  Coach override
-                                </span>
-                              )}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setPicker({ sessionIndex, sectionIndex, exerciseIndex })}
+                                className="rounded-full px-2.5 py-1 text-[11px] font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.08]"
+                              >
+                                Swap
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeExercise(sessionIndex, sectionIndex, exerciseIndex)}
+                                aria-label={`Remove ${exercise.exerciseName}`}
+                                className="rounded-full p-1.5 text-[#6B7A72] hover:bg-red-50 hover:text-red-700"
+                              >
+                                <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                              </button>
                             </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setPicker({ sessionIndex, sectionIndex, exerciseIndex })}
-                              className="rounded-full px-2.5 py-1 text-[11px] font-medium text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.08]"
-                            >
-                              Swap
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeExercise(sessionIndex, sectionIndex, exerciseIndex)}
-                              aria-label={`Remove ${exercise.exerciseName}`}
-                              className="rounded-full p-1.5 text-[#6B7A72] hover:bg-red-50 hover:text-red-700"
-                            >
-                              <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-                            </button>
+
+                          {/* Editable before approval. Whatever is in these
+                              five fields is what is written to the member's
+                              frozen copy when the program is assigned. */}
+                          <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                            {PRESCRIPTION_FIELDS.map(({ field, label, inputMode }) => (
+                              <label key={field} className="block">
+                                <span className="block text-[10px] font-semibold uppercase tracking-wider text-[#6B7A72]">
+                                  {label}
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode={inputMode}
+                                  value={exercise.prescription[field]}
+                                  aria-label={`${label} for ${exercise.exerciseName}`}
+                                  onChange={(e) =>
+                                    updatePrescription(
+                                      sessionIndex,
+                                      sectionIndex,
+                                      exerciseIndex,
+                                      field,
+                                      e.target.value
+                                    )
+                                  }
+                                  className="mt-0.5 w-full rounded-xl border border-[#1B3A2D]/10 bg-white px-2.5 py-1.5 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+                                />
+                              </label>
+                            ))}
                           </div>
                         </div>
                       ))}

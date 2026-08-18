@@ -18,7 +18,15 @@ export const CORRECTIVE_BLUEPRINTS: Record<BlueprintKey, CorrectiveBlueprint> = 
     name: 'Lower Cross',
     tightMuscles: [
       { muscle: 'hip flexors', canonicalLabels: ['hip flexors'] },
-      { muscle: 'TFL', canonicalLabels: ['TFL'] },
+      // Approved label fix (candidate 2 of
+      // docs/CORRECTIVE_RECLASSIFICATION_CANDIDATES.md). "TFL" and
+      // "tensor fasciae latae" are the same muscle written two ways, and
+      // the split was not random: only the three unfilmable MEF rows use
+      // "TFL", while the video-backed Your Move rows all spell it out. The
+      // slot asked for a label that only unassignable exercises carry, so
+      // it could never fill. Both spellings are canonical for this slot
+      // now, which is what canonicalLabels is for.
+      { muscle: 'TFL', canonicalLabels: ['TFL', 'tensor fasciae latae'] },
       { muscle: 'lumbar erectors', canonicalLabels: ['lumbar erectors'] },
     ],
     longMuscles: [

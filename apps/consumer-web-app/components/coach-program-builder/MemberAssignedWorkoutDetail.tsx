@@ -1,8 +1,35 @@
 'use client';
 
+/**
+ * A member's own view of a workout her coach assigned her.
+ *
+ * TWO WAYS TO USE IT, both real:
+ *   the full list    every block and every exercise on one screen, with
+ *                    her own status, difficulty, comfort and notes
+ *                    controls, for a member who wants to see the shape of
+ *                    the whole thing
+ *   the walk-through one exercise at a time, the same guided screen Root
+ *                    Movement uses (AssignedWorkoutGuidedSession)
+ *
+ * WHAT EACH EXERCISE NOW SHOWS. The video, on tap. The full prescription
+ * (sets, reps or hold, tempo, rest). The coaching cues. And why this
+ * exercise was chosen for her. Before this build it showed a name and an
+ * empty line, because every one of those numbers was stored as null.
+ *
+ * VIDEO IS STRICTLY ON TAP. Opening this screen and scrolling it makes
+ * ZERO video requests: every exercise renders a stored poster frame and a
+ * play button, and only a tap resolves a URL. TapToPlayVideo is the single
+ * component in the product allowed to spend the metered video allowance,
+ * and nothing here asks it to preload. Asserted by
+ * tests/program-screens-no-video-requests.test.ts.
+ *
+ * The difficulty, comfort, notes and per-exercise status controls are
+ * exactly as they were. Nothing new reads them.
+ */
+
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, MinusCircle, XCircle, PlayCircle } from 'lucide-react';
+import { CheckCircle2, MinusCircle, XCircle, PlayCircle, Footprints } from 'lucide-react';
 import type {
   AssignedWorkoutStatus,
   CoachAssignedWorkoutExercise,
@@ -10,10 +37,14 @@ import type {
   ExerciseComfortRating,
   ExerciseDifficultyRating,
 } from '@mef/shared-types-contracts';
+import { TapToPlayVideo } from '@/components/exercise-library/TapToPlayVideo';
+import type { AssignedExerciseMediaMap } from '@/lib/coach-program-builder/assignedWorkoutMedia';
+import { formatPrescriptionLine } from '@/lib/coach-program-builder/prescription';
 import {
   updateMyAssignedWorkoutStatusAction,
   updateMyAssignedWorkoutExerciseAction,
 } from '@/app/actions/coach-programs';
+import { AssignedWorkoutGuidedSession } from './AssignedWorkoutGuidedSession';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -75,7 +106,13 @@ function ChipGroup<T extends string>({
   );
 }
 
-function ExerciseRow({ exercise }: { exercise: CoachAssignedWorkoutExercise }) {
+function ExerciseRow({
+  exercise,
+  media,
+}: {
+  exercise: CoachAssignedWorkoutExercise;
+  media: AssignedExerciseMediaMap;
+}) {
   const [expanded, setExpanded] = useState(exercise.status === 'not_started');
   const [status, setStatus] = useState<AssignedWorkoutStatus | null>(
     exercise.status === 'not_started' ? null : exercise.status
@@ -102,36 +139,46 @@ function ExerciseRow({ exercise }: { exercise: CoachAssignedWorkoutExercise }) {
     });
   }
 
+  const assets = media[exercise.external_id];
+  const prescription = formatPrescriptionLine(exercise);
+
   return (
-    <div className="rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-4">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 text-left"
-      >
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[#1B3A2D]">{exercise.exercise_name}</p>
-          <p className="mt-0.5 truncate text-xs text-[#6B7A72]">
-            {[
-              exercise.sets ? `${exercise.sets} sets` : null,
-              exercise.reps ? `${exercise.reps} reps` : null,
-              exercise.rest_seconds ? `${exercise.rest_seconds}s rest` : null,
-              exercise.tempo ? `Tempo ${exercise.tempo}` : null,
-              exercise.hold_duration_seconds ? `Hold ${exercise.hold_duration_seconds}s` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-        </div>
-        {status && (
-          <span className="shrink-0 rounded-full bg-[#1B3A2D]/[0.08] px-2.5 py-1 text-[10px] font-medium uppercase text-[#1B3A2D]">
-            {status.replace('_', ' ')}
-          </span>
-        )}
-      </button>
+    <div className="overflow-hidden rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8]">
+      <div className="p-4">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex w-full items-center justify-between gap-3 text-left"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-[#1B3A2D]">{exercise.exercise_name}</p>
+            {prescription && (
+              <p className="mt-0.5 text-xs leading-relaxed text-[#6B7A72]">{prescription}</p>
+            )}
+          </div>
+          {status && (
+            <span className="shrink-0 rounded-full bg-[#1B3A2D]/[0.08] px-2.5 py-1 text-[10px] font-medium uppercase text-[#1B3A2D]">
+              {status.replace('_', ' ')}
+            </span>
+          )}
+        </button>
+      </div>
 
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-[#1B3A2D]/5 pt-3">
+        <>
+          {/* The poster and a play button. No video URL is requested until
+              she taps it. */}
+          <TapToPlayVideo
+            externalId={exercise.external_id}
+            name={exercise.exercise_name}
+            primaryMuscle={assets?.primaryMuscle ?? null}
+            category={assets?.category ?? null}
+            posterUrl={assets?.posterUrl ?? null}
+            cues={assets?.cues ?? []}
+            heightClassName="h-52"
+          />
+
+          <div className="space-y-3 p-4">
           {exercise.coaching_cues && (
             <p className="rounded-xl bg-white p-3 text-xs text-[#1B3A2D]">
               <span className="font-semibold">Coaching Cue: </span>
@@ -193,7 +240,8 @@ function ExerciseRow({ exercise }: { exercise: CoachAssignedWorkoutExercise }) {
             className="w-full resize-none rounded-xl border border-[#1B3A2D]/10 bg-white p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
           />
           {saved && <p className="text-xs font-medium text-[#1B3A2D]">Saved</p>}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -201,13 +249,35 @@ function ExerciseRow({ exercise }: { exercise: CoachAssignedWorkoutExercise }) {
 
 export function MemberAssignedWorkoutDetail({
   workout,
+  media = {},
 }: {
   workout: CoachAssignedWorkoutWithContent;
+  /** Poster and cues per exercise, loaded server-side. Absent media renders the placeholder poster, never a broken image. */
+  media?: AssignedExerciseMediaMap;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(workout.status);
   const [feedback, setFeedback] = useState(workout.member_feedback ?? '');
+  const [view, setView] = useState<'list' | 'guided'>('list');
   const [isPending, startTransition] = useTransition();
+
+  const exerciseCount = workout.sections.reduce(
+    (total, section) => total + section.exercises.length,
+    0
+  );
+
+  if (view === 'guided') {
+    return (
+      <AssignedWorkoutGuidedSession
+        workout={workout}
+        media={media}
+        onExitToList={() => {
+          setView('list');
+          router.refresh();
+        }}
+      />
+    );
+  }
 
   function handleWorkoutStatus(nextStatus: AssignedWorkoutStatus) {
     setStatus(nextStatus);
@@ -237,6 +307,20 @@ export function MemberAssignedWorkoutDetail({
             {workout.coach_notes}
           </p>
         )}
+
+        {exerciseCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setView('guided')}
+            className="mef-press mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[#1B3A2D] px-6 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
+          >
+            <Footprints className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            Walk me through it
+          </button>
+        )}
+        <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">
+          One exercise at a time, with the video and what to do. Or read the whole thing below.
+        </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {status === 'not_started' && (
@@ -299,7 +383,7 @@ export function MemberAssignedWorkoutDetail({
           )}
           <div className="mt-3 space-y-2">
             {section.exercises.map((exercise) => (
-              <ExerciseRow key={exercise.id} exercise={exercise} />
+              <ExerciseRow key={exercise.id} exercise={exercise} media={media} />
             ))}
           </div>
         </section>

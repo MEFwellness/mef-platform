@@ -3,41 +3,39 @@
 /**
  * Root Movement, Level 1 — the session player.
  *
- * Three states, in one component because they are one continuous
- * experience and a member should never watch a page reload mid-session:
+ * The SCREEN lives in GuidedSessionPlayer, which an assigned program
+ * workout now walks as well. This file is what makes that screen a Root
+ * Movement session and nothing else:
  *
- *   overview   the lineup, and one button to begin
- *   playing    one exercise at a time, with video, prescription, skip
- *   done       a short acknowledgment
+ *   - the view event, fired exactly once per real visit
+ *   - the run row: started on Begin, skips appended as they happen,
+ *     completed at the end
+ *   - this feature's own copy and its way back to the session list
  *
- * The video is the SAME component the Exercise Library detail screen
- * uses (components/exercise-library/TapToPlayVideo). It was extracted
- * from that file rather than reimplemented, so tap-to-play, the ~10min
- * URL cache, and the poster and cues fallbacks all behave here exactly
- * as they do there, and there is still exactly one component in the
- * product that can spend Your Move quota.
+ * Nothing about the member's experience changed when the screen was
+ * extracted: same three states, same tap-to-play video, same prescription
+ * line, same skip, same completion. tests/movement-session-privacy.test.ts
+ * and tests/guided-session-player.test.tsx both read this file and that
+ * one, so the copy rules and the no-free-text rule still hold across the
+ * split.
  *
- * WHAT THIS DELIBERATELY DOES NOT DO:
- *   - No timer counts down and no clock runs. The prescription is stated
- *     and the member decides when she is done with it. A running timer
- *     turns a session into something you can fall behind.
- *   - No streak, no badge, no score, no "you did it" celebration. The
- *     completion state says what happened and offers the way out.
- *   - Nothing at all happens if she leaves part way through. There is no
- *     "are you sure", no saved-progress nag, and no message waiting for
- *     her the next time. Her run row simply has no completed_at, which is
- *     an ordinary fact and not a judgment.
- *   - No copy on this screen uses an em dash or an exclamation mark.
+ * The prescription and rest lines are formatted by
+ * lib/movement-sessions/duration.ts exactly as before. A session slot
+ * carries its own prescription shape (time or reps), which is not the
+ * coach-program prescription shape, and the two are deliberately not
+ * merged: they are different things that happen to read similarly.
  */
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
-import { Activity, ChevronRight, Clock, X } from 'lucide-react';
+import { Activity, Clock } from 'lucide-react';
 import type { MovementSessionDetail } from '@mef/shared-types-contracts';
-import { TapToPlayVideo } from '@/components/exercise-library/TapToPlayVideo';
-import { WhenNotEmpty } from '@/components/layout';
+import {
+  GuidedSessionPlayer,
+  type GuidedExercise,
+} from '@/components/movement-sessions/GuidedSessionPlayer';
 import {
   formatPrescription,
   formatRest,
@@ -49,8 +47,6 @@ import {
   startMovementSessionAction,
   trackMovementSessionViewedAction,
 } from '@/app/actions/movement-sessions';
-
-const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 /**
  * Fires movement_session_viewed once per real visit to this session's
@@ -75,11 +71,8 @@ export function MovementSessionPlayer({ detail }: { detail: MovementSessionDetai
   const { template, slots } = detail;
   const router = useRouter();
 
-  const [phase, setPhase] = useState<'overview' | 'playing' | 'done'>('overview');
-  const [index, setIndex] = useState(0);
   const [runId, setRunId] = useState<string | null>(null);
-  const [skippedCount, setSkippedCount] = useState(0);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   // From a mounted effect, never during render: a server action called
   // mid-render updates the Router while this component is still
@@ -95,248 +88,92 @@ export function MovementSessionPlayer({ detail }: { detail: MovementSessionDetai
     void trackMovementSessionViewedAction(template.session_key, slots.length);
   }, [template.session_key, slots.length]);
 
-  const current = slots[index];
+  const exercises: GuidedExercise[] = slots.map((slot) => ({
+    key: slot.id,
+    externalId: slot.external_id,
+    name: slot.name,
+    primaryMuscle: slot.primaryMuscle,
+    category: slot.category,
+    posterUrl: slot.posterUrl,
+    cues: slot.cues,
+    prescription: formatPrescription(slot),
+    prescriptionSummary: formatPrescription(slot),
+    rest: formatRest(slot),
+  }));
 
   function handleBegin() {
-    // The screen advances immediately and the run row is written behind
-    // it. A slow or failed write must never leave a member staring at a
-    // button that did nothing: if the insert fails, runId stays null,
-    // the session still plays, and nothing is recorded.
-    setPhase('playing');
-    setIndex(0);
+    // If the insert fails, runId stays null, the session still plays, and
+    // nothing is recorded.
     startTransition(async () => {
       const id = await startMovementSessionAction(template.session_key);
       setRunId(id);
     });
   }
 
-  function advance() {
-    if (index + 1 < slots.length) {
-      setIndex(index + 1);
-      return;
-    }
-    setPhase('done');
+  function handleSkip(exercise: GuidedExercise) {
     const id = runId;
-    if (id) {
-      startTransition(async () => {
-        await completeMovementSessionAction(id);
-      });
-    }
+    if (!id) return;
+    startTransition(async () => {
+      await skipMovementExerciseAction(id, exercise.externalId);
+    });
   }
 
-  function handleSkip() {
-    const slot = current;
+  function handleDone() {
     const id = runId;
-    setSkippedCount((count) => count + 1);
-    if (id && slot) {
-      startTransition(async () => {
-        await skipMovementExerciseAction(id, slot.external_id);
-      });
-    }
-    advance();
+    if (!id) return;
+    startTransition(async () => {
+      await completeMovementSessionAction(id);
+    });
   }
 
-  // -------------------------------------------------------------- done
-  if (phase === 'done') {
-    return (
-      <div className="pt-4">
-        <div className={`${CARD} mef-animate-in p-8 sm:p-10`}>
-          <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
-            {template.name}
-          </p>
-          <h1 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-4xl">
-            That is the session.
-          </h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-[#4F645A]">
-            {skippedCount === 0
-              ? 'You went through all of it. Come back to this one whenever it fits.'
-              : 'You went through it. Skipping what did not suit you today is part of using this well.'}
-          </p>
-
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link
-              href={'/movement/sessions' as Route}
-              className="mef-press inline-flex items-center gap-2 rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
-            >
-              Back to sessions
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                setPhase('overview');
-                setIndex(0);
-                setRunId(null);
-                setSkippedCount(0);
-              }}
-              className="mef-press inline-flex items-center gap-2 rounded-full border border-[#1B3A2D]/15 px-7 py-3.5 text-sm font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40"
-            >
-              Do it again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ----------------------------------------------------------- playing
-  if (phase === 'playing' && current) {
-    const rest = formatRest(current);
-    const isLast = index + 1 === slots.length;
-
-    return (
-      <div className="pt-4">
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => setPhase('overview')}
-            aria-label="Leave this session"
-            className="mef-focus-ring flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#6B7A72] shadow-sm transition hover:text-[#1B3A2D]"
-          >
-            <X className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
-          </button>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-            {index + 1} of {slots.length}
-          </p>
-        </div>
-
-        {/* A plain proportion of the session, not a performance bar. */}
-        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-[#1B3A2D]/10">
-          <div
-            className="h-full rounded-full bg-[#1B3A2D]/40 transition-[width] duration-500"
-            style={{ width: `${((index + 1) / slots.length) * 100}%` }}
-            aria-hidden="true"
-          />
-        </div>
-
-        <div className={`${CARD} mt-5 overflow-hidden`}>
-          <TapToPlayVideo
-            externalId={current.external_id}
-            name={current.name}
-            primaryMuscle={current.primaryMuscle}
-            category={current.category}
-            posterUrl={current.posterUrl}
-            cues={current.cues}
-            heightClassName="h-64"
-            autoPlayKey={current.external_id}
-          />
-
-          <div className="p-6">
-            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
-              {current.name}
-            </h1>
-            <p className="mt-2 text-[15px] font-medium text-[#1B3A2D]">
-              {formatPrescription(current)}
-            </p>
-            {current.primaryMuscle && (
-              <p className="mt-1 text-xs uppercase tracking-wider text-[#6B7A72]">
-                {current.primaryMuscle.replace(/_/g, ' ')}
-              </p>
+  return (
+    <GuidedSessionPlayer
+      exercises={exercises}
+      kicker={
+        <>
+          <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+          <p className="text-sm font-semibold uppercase tracking-wider">Root Movement</p>
+        </>
+      }
+      title={template.name}
+      description={template.description}
+      meta={
+        <>
+          <span className="inline-flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+            {formatTargetDuration(
+              template.target_duration_min_minutes,
+              template.target_duration_max_minutes
             )}
-            {rest && <p className="mt-3 text-[13px] text-[#6B7A72]">Then {rest}.</p>}
-
-            {current.cues.length > 0 && (
-              <ul className="mt-4 list-disc space-y-1 pl-4 text-[13px] leading-relaxed text-[#6B7A72]">
-                {current.cues.slice(0, 3).map((cue, i) => (
-                  <li key={i}>{cue}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={advance}
+          </span>
+          <span>{slots.length} exercises</span>
+        </>
+      }
+      exitLabel="Sessions"
+      onExit={() => router.push('/movement/sessions' as Route)}
+      onBegin={handleBegin}
+      onSkip={handleSkip}
+      onDone={handleDone}
+      renderDoneActions={(restart) => (
+        <>
+          <Link
+            href={'/movement/sessions' as Route}
             className="mef-press inline-flex items-center gap-2 rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
           >
-            {isLast ? 'Finish' : 'Next'}
-            {!isLast && <ChevronRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />}
-          </button>
+            Back to sessions
+          </Link>
           <button
             type="button"
-            onClick={handleSkip}
-            className="mef-press inline-flex items-center rounded-full border border-[#1B3A2D]/15 px-6 py-3.5 text-sm font-semibold text-[#6B7A72] transition hover:border-[#1B3A2D]/40 hover:text-[#1B3A2D]"
+            onClick={() => {
+              setRunId(null);
+              restart();
+            }}
+            className="mef-press inline-flex items-center gap-2 rounded-full border border-[#1B3A2D]/15 px-7 py-3.5 text-sm font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40"
           >
-            Skip this one
+            Do it again
           </button>
-        </div>
-
-        <p className="mt-4 text-[13px] leading-relaxed text-[#6B7A72]">
-          Leave whenever you need to. Nothing is lost.
-        </p>
-      </div>
-    );
-  }
-
-  // ---------------------------------------------------------- overview
-  return (
-    <div className="pt-4">
-      <button
-        type="button"
-        onClick={() => router.push('/movement/sessions' as Route)}
-        className="mef-focus-ring -ml-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D]"
-      >
-        <X className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        Sessions
-      </button>
-
-      <div className="mt-4 flex items-center gap-2 text-[#6B7A72]">
-        <Activity className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        <p className="text-sm font-semibold uppercase tracking-wider">Root Movement</p>
-      </div>
-
-      <h1 className="mt-2 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-        {template.name}
-      </h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-[#4F645A]">{template.description}</p>
-
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-[#6B7A72]">
-        <span className="inline-flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-          {formatTargetDuration(
-            template.target_duration_min_minutes,
-            template.target_duration_max_minutes
-          )}
-        </span>
-        <span>{slots.length} exercises</span>
-      </div>
-
-      <button
-        type="button"
-        onClick={handleBegin}
-        disabled={isPending && phase !== 'overview'}
-        className="mef-press mt-6 inline-flex items-center gap-2 rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
-      >
-        Begin
-      </button>
-
-      {/* Honesty guard: no "WHAT IS IN IT" heading over an empty list. */}
-      <WhenNotEmpty items={slots}>
-        {(slots) => (
-          <div className={`${CARD} mt-7 p-6`}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-              What is in it
-            </p>
-            <ol className="mt-3 space-y-3">
-              {slots.map((slot, i) => (
-                <li key={slot.id} className="flex items-baseline gap-3">
-                  <span className="w-5 shrink-0 text-xs tabular-nums text-[#1B3A2D]/35">
-                    {i + 1}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-[#1B3A2D]">{slot.name}</span>
-                    <span className="mt-0.5 block text-xs text-[#6B7A72]">
-                      {formatPrescription(slot)}
-                      {slot.primaryMuscle ? ` · ${slot.primaryMuscle.replace(/_/g, ' ')}` : ''}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-      </WhenNotEmpty>
-    </div>
+        </>
+      )}
+    />
   );
 }
