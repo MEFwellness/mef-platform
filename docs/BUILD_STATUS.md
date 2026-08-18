@@ -1,3 +1,63 @@
+## One engine, two entry points: named program blueprints (2026-08-18)
+
+A corrective program is GENERATED for one member from her own posture findings. A named program is AUTHORED once by MEF and given to many members. Until now only the first existed. Both now arrive at the same place through the same code: `coach_program_templates`, then `coach_program_assignments`, then the frozen `coach_assigned_workouts` a member actually opens. Migration 174, applied to production. Coach-facing plumbing only: nothing a member sees changed, and the one blueprint that exists is a draft nobody can be given.
+
+### The reservation, finally taken
+
+Migration 80 created `movement_programs` / `movement_program_versions` empty and reserved them in its own header for exactly this: "future Program versioning (e.g. 'Low Back Recovery v1', 'Low Back Recovery v2')". Migration 82 read that reservation and deliberately declined to take the pair for the coach-per-client template concept, adding its own tables instead. Two migrations had already agreed what the pair was for, so this is activation, not a third pair beside them. Both tables were empty, and the migration asserts that before touching them rather than assuming it.
+
+Activation means `movement_programs` keeps identity only (a stable key, never versioned) and `movement_program_versions` becomes the blueprint: member-facing title and description, coach-facing purpose, intended population, cautions, duration, sessions per week, equipment mode, and a status vocabulary of `draft | approved | archived`. `published` is gone rather than kept as a synonym for `approved`: a blueprint is never published to anybody, it becomes assignable, and two words for one state is how a status vocabulary rots.
+
+Migration 80 had also given both tables `authenticated_read`, which would have let every signed-in member read the cautions text and the coach-facing purpose the moment content existed. That is the same leak migration 170 closed on `exercise_catalog`, and it is closed here before there was anything to leak: staff read, admin write, and no member policy on any blueprint or slot table. A coach reads blueprints and assigns from them. A coach does not author them.
+
+### The slots
+
+`program_blueprint_slots` follows `movement_session_template_slots` (migration 153) rather than inventing a shape: a parent row plus ordered slots, each keyed to an exercise by the natural `(provider, external_id)` pair every exercise-referencing table in this schema uses. It carries more per slot, because a named program has to survive a member swapping an exercise out and a shortened session being cut from it, and both need to know what the slot was FOR: session designation, block, movement pattern, coach-facing purpose, priority rank, required or optional, equipment, difficulty tier, eligibility rules, locked or replaceable, replacement criteria, the prescription, and the per-week progression.
+
+Two rules hold from day one.
+
+**Every filled slot points at a client-assignable exercise.** That is migration 170's one rule unchanged: a member may only be given an exercise she can be shown how to do. It is asserted at migration time in migration 153's style, and asserted again by `tests/program-blueprint-schema.test.ts` over every blueprint slot in the table, so a slot seeded later cannot break it quietly.
+
+**Every slot carries a priority rank, unique and contiguous from 1 within its session.** Readiness variants are a later prompt, but "give her the top five slots today" has to be answerable from the data the moment the data exists, or the ranks get invented later and are arbitrary. `shortenedSession()` already answers it.
+
+### One materializer, two callers
+
+The write loop moved out of `lib/corrective-engine/save.ts` into `lib/programs/materialize.ts`. `save.ts` still decides what a corrective program SAYS; it no longer decides how a program is written down, because there is now more than one kind of program and exactly one way to write one. `lib/programs/blueprints/materialize.ts` builds the same input from a blueprint and hands it to the same function. Neither caller touches `coach_program_templates` itself.
+
+`tests/program-blueprint-materializer.test.ts` proves the two are the same thing downstream, not merely similar: the same template columns, the same section and exercise columns, the same assignment columns, four occurrences each, and the blueprint-born program pausing, resuming, advancing, completing and being replaced through the whole Prompt 3 lifecycle with its frozen snapshot identical before and after.
+
+Where the numbers come from is the same too. A slot's own prescription wins wherever it is set; where a slot says nothing, `lib/corrective-engine/dosing.ts` fills the gap for that block at its general-population tier. So a blueprint cannot produce an exercise with a name and nothing else, which is the failure the presentation prompt found on production. One refinement: a slot that has already said whether it is reps or a hold never borrows the other from the fallback, because a prescription is either a hold or a rep count, never both.
+
+### Progression, resolved at assignment time
+
+The one thing a named program does that a corrective one does not is progress. A corrective phase is four identical weeks; an authored program adds a set in week 3. That plan lives on the slot as `week_overrides` (`{"3": {"sets": 4}}`), travels to `coach_program_template_exercises.week_overrides`, and is RESOLVED into the frozen snapshot at assignment time. Week 3's exercise row says `sets = 4` outright. A snapshot that needs a second table consulted to know what it prescribed is not a snapshot. `coach_assigned_workouts.program_week` records which week each occurrence is, so nothing has to re-derive it.
+
+It never interpolates. Week 2 with no entry of its own is week 1's prescription, not something halfway to week 3. A progression a coach did not write is not a progression. Corrective programs write an empty object here, which is why their behaviour is unchanged and their four weeks are still asserted identical.
+
+### Home Dumbbell Foundation, as a draft
+
+One blueprint is seeded to prove the pipeline: four weeks, three sessions a week, dumbbells and a floor. 26 slots, every one filled with a video-backed, client-assignable exercise, in the MEF sequence (Preparation, Mobility, Activation, Strength, Core). The main lift of each session gains a set in week 3 and each session's core hold gets longer.
+
+The seed joins `exercise_catalog` BY NAME rather than pasting external ids into the migration, and asserts the join matched all 26. A missing or renamed exercise fails the migration loudly in whichever environment it is missing from, instead of seeding a blueprint with a hole in it.
+
+Its status is `draft`, and only an approved version may be published to a member. A draft may be materialized and inspected as an unpublished assignment, which is what makes it reviewable at all; an unpublished assignment is invisible to the member because `coach_assigned_workouts`' `member_read_own` policy gates on `published_at`. An archived version starts nothing new and changes nothing already running.
+
+### Nothing coach-facing reaches a member
+
+The member-facing title and description are authored on the blueprint and copied through unchanged. They are not mapped: `lib/programs/memberPresentation.ts`'s name mapping exists because the corrective engine names a program after a finding, and a named program has no finding to name itself after. It stays corrective-only, and a blueprint-born program carries no `corrective_tags`, so nothing renames it after a postural pattern it does not have.
+
+The coach-facing fields (purpose, intended population, cautions, and every slot's own purpose) go into `internal_notes`, which is coach-only, and into nothing else. `selection_reasoning` and `block_reasoning` are both member-visible once a workout is published, so both are left null on this path rather than being used as convenient places to put coach vocabulary. Asserted by test, and asserted again against production rows by the live run.
+
+### Live verification, 2026-08-18
+
+`scripts/verify-blueprints-live.mjs` against app.mefwellness.com: 24 of 24. The blueprint tables exist on production with the seed in draft, all 26 slots client-assignable, and the test member's own session reads zero rows from all three tables. Her `/programs`, home and `/movement` screens are byte-for-byte identical before and after the run. The blueprint materialized into three unpublished draft assignments whose columns match a real corrective assignment's exactly, with the week 3 progression frozen into week 3 and nowhere else (`{"1":3,"2":3,"3":4,"4":3}`), and every row it created was deleted afterwards. Production was left with zero pending drafts and the member's six corrective assignments untouched. No video was played.
+
+The home screen comparison needed the capture to wait for the Root Score count-up animation to settle: two loads with nothing at all done in between differed, because the number was caught mid animation. That was the check being wrong, not the screen.
+
+### Known gap
+
+`coach_assigned_workouts.program_week` is written at assignment time and was deliberately not backfilled, so the 22 occurrences that existed before migration 174 carry null. Nothing reads the column yet.
+
 ## Water only exists for people who have a water problem (2026-08-16)
 
 Water logging was universal. Everyone got the tracker, everyone got the question, and anyone who did not have a water problem simply never logged. Every reader of `daily_checkins.water_cups` then read that silence as under-hydration, so a problem that did not exist was being scored into her Daily Wellness Index, trended, correlated, put in front of her coach, and fed back to her as the thing to work on. Water is now conditional on one real answer. Migration 163, applied to production.

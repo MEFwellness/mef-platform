@@ -105,7 +105,8 @@ let restoreLog = 'nothing was created';
 
 /** Every screen text captured before the run, so "unaffected" is compared rather than asserted. */
 const memberScreens = { before: {}, after: {} };
-const MEMBER_PATHS = ['/programs', '/home', '/movement'];
+/** '/' is the member home; there is no /home route in this app. */
+const MEMBER_PATHS = ['/programs', '/', '/movement'];
 
 async function captureMemberScreens(label) {
   const minted = canMintSessions()
@@ -128,10 +129,26 @@ async function captureMemberScreens(label) {
   for (const path of MEMBER_PATHS) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('main', { timeout: 30000 }).catch(() => {});
-    memberScreens[label][path] = await page
-      .locator('main')
-      .innerText()
-      .catch(() => '');
+    // body, not main: not every screen in this app wraps its content in a
+    // <main>, and an empty capture would make "unchanged" mean nothing.
+    //
+    // Settled, not immediate. The home screen's Root Score counts up to
+    // its value on load, so a capture taken mid animation differs from
+    // the next one with nothing at all having changed in between. Waiting
+    // for two identical reads a second apart is what makes the
+    // byte-for-byte comparison below mean something.
+    let text = '';
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const first = await page.locator('body').innerText().catch(() => '');
+      await page.waitForTimeout(1000);
+      const second = await page.locator('body').innerText().catch(() => '');
+      text = second;
+      if (first === second && second.trim().length > 0) break;
+    }
+    memberScreens[label][path] = text;
+    if (text.trim().length === 0) {
+      check(`member: ${path} actually rendered something to compare`, false, 'empty capture');
+    }
   }
 
   const accessToken = minted.session.access_token;
@@ -222,9 +239,16 @@ try {
     .from('coach_client_assignments')
     .select('coach_id')
     .eq('client_id', MEMBER_ID)
-    .eq('is_active', true)
+    .eq('status', 'active')
     .limit(1);
-  const coachId = (coachLink ?? [])[0]?.coach_id;
+  // Falls back to whoever already assigned her a program, so this never
+  // invents a coaching relationship that does not exist.
+  const { data: priorCoach } = await db
+    .from('coach_program_assignments')
+    .select('coach_id')
+    .eq('member_id', MEMBER_ID)
+    .limit(1);
+  const coachId = (coachLink ?? [])[0]?.coach_id ?? (priorCoach ?? [])[0]?.coach_id;
   check('db: the member has an active coach to materialize as', Boolean(coachId), coachId ? String(coachId).slice(0, 8) : 'none');
 
   if (coachId && version) {
