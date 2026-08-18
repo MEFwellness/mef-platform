@@ -38,7 +38,11 @@ describe('the seed blueprint', () => {
     const blueprint = await getBlueprintByKey(supabase, SEED_KEY);
     expect(blueprint).not.toBeNull();
     expect(blueprint!.status).toBe('draft');
-    expect(blueprint!.version_number).toBe(1);
+    // The revision (migration 175) is version 2. v1 is still there and is
+    // asserted separately below; this is the version a reader gets by
+    // default, which is the newest one.
+    expect(blueprint!.version_number).toBe(2);
+    expect(blueprint!.periodization).toBe('linear');
     expect(blueprint!.duration_weeks).toBe(4);
     expect(blueprint!.sessions_per_week).toBe(3);
     expect(blueprint!.equipment_mode).toBe('home');
@@ -234,11 +238,118 @@ describe('who may read a blueprint', () => {
     expect(error).not.toBeNull();
   });
 
-  it('a coach cannot write a blueprint: blueprints are MEF owned', async () => {
+  /**
+   * Migration 175 opened exactly one door: a coach may PROPOSE a blueprint
+   * (insert, drafts only) so Save as template on the assign flow has
+   * somewhere to write. Everything else stayed shut. These two tests are
+   * the boundary, not the door.
+   */
+  it('a coach may propose a draft blueprint, and it lands as a draft', async () => {
     const coach = await signInAs(TEST_USERS.coachOne);
-    const { error } = await coach
+    const key = `coach_proposed_${Date.now()}`;
+    const { data: program, error } = await coach
       .from('movement_programs')
-      .insert({ key: 'coach_invented_program', display_name: 'Coach invented' });
-    expect(error).not.toBeNull();
+      .insert({ key, display_name: 'Coach proposed' })
+      .select('id')
+      .single();
+    expect(error).toBeNull();
+    expect(program).not.toBeNull();
+
+    const { error: approvedInsert } = await coach.from('movement_program_versions').insert({
+      program_id: program!.id,
+      version_number: 1,
+      display_name: 'Coach proposed v1',
+      // Straight to approved is the thing a coach must never be able to do.
+      status: 'approved',
+      approved_at: new Date().toISOString(),
+      approved_by: TEST_USERS.coachOne.id,
+    });
+    expect(approvedInsert).not.toBeNull();
+
+    const { data: version, error: draftInsert } = await coach
+      .from('movement_program_versions')
+      .insert({
+        program_id: program!.id,
+        version_number: 1,
+        display_name: 'Coach proposed v1',
+        status: 'draft',
+      })
+      .select('id, status')
+      .single();
+    expect(draftInsert).toBeNull();
+    expect(version!.status).toBe('draft');
+
+    // And having written it, she cannot approve it, archive it or edit it.
+    const { data: approved } = await coach
+      .from('movement_program_versions')
+      .update({ status: 'approved' })
+      .eq('id', version!.id)
+      .select('id');
+    expect(approved ?? []).toEqual([]);
+
+    const { data: archived } = await coach
+      .from('movement_program_versions')
+      .update({ status: 'archived' })
+      .eq('id', version!.id)
+      .select('id');
+    expect(archived ?? []).toEqual([]);
+
+    const { data: renamed } = await coach
+      .from('movement_program_versions')
+      .update({ display_name: 'Renamed by a coach' })
+      .eq('id', version!.id)
+      .select('id');
+    expect(renamed ?? []).toEqual([]);
+
+    const { data: deleted } = await coach
+      .from('movement_program_versions')
+      .delete()
+      .eq('id', version!.id)
+      .select('id');
+    expect(deleted ?? []).toEqual([]);
+
+    await serviceRoleClient().from('movement_programs').delete().eq('id', program!.id);
+  });
+
+  it('a coach cannot touch a blueprint MEF already approved', async () => {
+    const service = serviceRoleClient();
+    const key = `admin_approved_${Date.now()}`;
+    const { data: program } = await service
+      .from('movement_programs')
+      .insert({ key, display_name: 'Admin approved fixture' })
+      .select('id')
+      .single();
+    const { data: version } = await service
+      .from('movement_program_versions')
+      .insert({
+        program_id: program!.id,
+        version_number: 1,
+        display_name: 'Admin approved fixture v1',
+        status: 'approved',
+        approved_at: new Date().toISOString(),
+        approved_by: TEST_USERS.adminOne.id,
+      })
+      .select('id')
+      .single();
+
+    const coach = await signInAs(TEST_USERS.coachOne);
+    const { data: edited } = await coach
+      .from('movement_program_versions')
+      .update({ member_title: 'Coach rewrote this' })
+      .eq('id', version!.id)
+      .select('id');
+    expect(edited ?? []).toEqual([]);
+
+    // Nor may she add a slot to it, even though she may add slots to a draft.
+    const { error: slotError } = await coach.from('program_blueprint_slots').insert({
+      program_version_id: version!.id,
+      session_designation: 'A',
+      slot_order: 1,
+      block: 'strength',
+      priority_rank: 1,
+    });
+    expect(slotError).not.toBeNull();
+
+    await service.from('movement_programs').delete().eq('id', program!.id);
   });
 });

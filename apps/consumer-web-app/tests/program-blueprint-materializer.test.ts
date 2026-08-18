@@ -66,7 +66,7 @@ let blueprint: BlueprintWithSlots;
 let namedAssignmentIds: string[] = [];
 let namedTemplateIds: string[] = [];
 /** Corrective-born, assigned as an unpublished draft through the same createAssignment. */
-let correctiveAssignmentIds: string[] = [];
+const correctiveAssignmentIds: string[] = [];
 let correctiveTemplateIds: string[] = [];
 
 /**

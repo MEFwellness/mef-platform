@@ -241,6 +241,33 @@ describe('the program screens cannot request a video', () => {
     expect(hits).toEqual(['components/exercise-library/TapToPlayVideo.tsx']);
   });
 
+  /**
+   * The staff screens added with the blueprint library and the unified
+   * assign flow. They are not member screens, but they list exercises by
+   * name, and a screen that lists exercises is exactly where a video
+   * request gets added by accident. None of them may render one.
+   */
+  it('the blueprint and assign screens never render a video either', () => {
+    const STAFF_PROGRAM_SCREENS = [
+      'components/blueprints/BlueprintSessionList.tsx',
+      'app/admin/blueprints/page.tsx',
+      'app/admin/blueprints/[versionId]/page.tsx',
+      'app/admin/blueprints/[versionId]/BlueprintAdminActions.tsx',
+      'app/coach/assign/page.tsx',
+      'app/coach/assign/[memberId]/page.tsx',
+      'app/coach/assign/[memberId]/[versionId]/page.tsx',
+      'app/coach/assign/[memberId]/[versionId]/AssignPlanPanel.tsx',
+      'app/coach/assign/[memberId]/[versionId]/SlotSwapModal.tsx',
+    ];
+    for (const relative of STAFF_PROGRAM_SCREENS) {
+      const source = read(relative);
+      expect(source, `${relative} renders a video element`).not.toMatch(/<video/);
+      expect(source, `${relative} references the video-url route`).not.toMatch(/video-url/);
+      expect(source, `${relative} passes autoPlay`).not.toMatch(/autoPlay/);
+      expect(source, `${relative} preloads media`).not.toMatch(/preload=/);
+    }
+  });
+
   it('TapToPlayVideo still only fetches from its own tap handler', () => {
     const source = read('components/exercise-library/TapToPlayVideo.tsx');
     // The fetch lives inside handlePlay, and handlePlay is only reachable

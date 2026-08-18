@@ -2,14 +2,29 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import type { Route } from 'next';
 import { Search, ChevronRight } from 'lucide-react';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
-export function CorrectiveMemberPickerPanel({
+/**
+ * Pick a client, go to that client's screen.
+ *
+ * Was CorrectiveMemberPickerPanel, which hardcoded the destination. The
+ * unified assign flow needs exactly the same list with a different
+ * destination, so the destination became a prop rather than the file
+ * becoming two files: two copies of a search box is how two search boxes
+ * end up behaving differently.
+ */
+export function MemberPickerPanel({
   clients,
+  basePath,
+  placeholder = 'Search clients by name',
 }: {
   clients: { id: string; name: string }[];
+  /** Each row links to `${basePath}/${client.id}`. */
+  basePath: string;
+  placeholder?: string;
 }) {
   const [query, setQuery] = useState('');
 
@@ -30,8 +45,8 @@ export function CorrectiveMemberPickerPanel({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search clients by name"
-          aria-label="Search clients by name"
+          placeholder={placeholder}
+          aria-label={placeholder}
           className="w-full rounded-full border border-[#1B3A2D]/10 bg-white py-2.5 pl-9 pr-4 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
         />
       </div>
@@ -45,11 +60,15 @@ export function CorrectiveMemberPickerPanel({
           {visible.map((client) => (
             <Link
               key={client.id}
-              href={`/coach/corrective-programs/${client.id}`}
+              href={`${basePath}/${client.id}` as Route}
               className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-[#EFF6F1]"
             >
               <span className="text-sm font-medium text-[#1B3A2D]">{client.name}</span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-[#6B7A72]" strokeWidth={1.75} aria-hidden="true" />
+              <ChevronRight
+                className="h-4 w-4 shrink-0 text-[#6B7A72]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
             </Link>
           ))}
         </div>

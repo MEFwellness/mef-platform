@@ -138,8 +138,11 @@ export function slotToExercise(
     load_unit: null,
     resistance: null,
     band_color: null,
+    // Which side she starts on is hers to choose, so `side` stays null.
+    // Whether the set is per side at all is the blueprint's to say
+    // (migration 175), and it says so here.
     side: null,
-    unilateral: false,
+    unilateral: slot.is_per_side === true,
     frequency: null,
 
     priority: priorityForRank(slot.priority_rank),

@@ -22,6 +22,15 @@ export type BlueprintStatus = 'draft' | 'approved' | 'archived';
 export type BlueprintEquipmentMode = 'home' | 'gym' | 'mixed';
 
 /**
+ * How load progresses across the program's weeks. `linear` moves in one
+ * direction week over week; `undulating` varies within the week.
+ *
+ * Data only (migration 175). Nothing reads it yet: the engine that plans a
+ * progression from it is a later prompt.
+ */
+export type BlueprintPeriodization = 'linear' | 'undulating';
+
+/**
  * The MEF session sequence, shared with the corrective engine
  * (lib/corrective-engine/types.ts SessionBlockType) rather than restated,
  * so one program sequence exists in this system instead of two.
@@ -59,6 +68,8 @@ export interface MovementProgramVersion {
   duration_weeks: number | null;
   sessions_per_week: number | null;
   equipment_mode: BlueprintEquipmentMode | null;
+  /** Null means the blueprint has not said. Nothing reads it yet. */
+  periodization: BlueprintPeriodization | null;
 
   created_by: string | null;
   updated_by: string | null;
@@ -105,6 +116,9 @@ export interface ProgramBlueprintSlot {
   is_locked: boolean;
   replacement_criteria: Record<string, unknown>;
 
+  /** True when the whole set is completed on one side before the other. Travels to the template exercise's `unilateral`. */
+  is_per_side: boolean;
+
   sets: number | null;
   reps: number | null;
   hold_duration_seconds: number | null;
@@ -120,6 +134,28 @@ export interface ProgramBlueprintSlot {
 
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * What a slot will accept in place of the exercise it holds.
+ *
+ * Every field is optional and every one of them narrows. A slot with an
+ * empty `replacement_criteria` (which is every slot seeded so far) still
+ * has a rule: the replacement has to be in the same block and has to be an
+ * exercise a member may be shown how to do. The criteria only ever tighten
+ * that, never loosen it.
+ */
+export interface BlueprintReplacementCriteria {
+  /** Defaults to the slot's own block. */
+  block?: BlueprintBlock;
+  /** When set, the replacement must carry this movement pattern. */
+  movement_pattern?: string;
+  /** When set, the replacement's equipment must be one of these. Defaults to the slot's own equipment requirement. */
+  equipment?: string[];
+  /** When set, nothing harder than this is offered. */
+  max_difficulty?: ProgramDifficulty;
+  /** Specific exercises this slot will never accept. */
+  exclude_external_ids?: string[];
 }
 
 /** A blueprint version hydrated with its slots, ordered by session then slot order. */

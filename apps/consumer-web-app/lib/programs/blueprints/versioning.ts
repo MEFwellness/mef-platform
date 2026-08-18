@@ -22,7 +22,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   BlueprintEquipmentMode,
+  BlueprintPeriodization,
   BlueprintWithSlots,
+  MovementProgram,
   MovementProgramVersion,
   ProgramBlueprintSlot,
 } from '@mef/shared-types-contracts';
@@ -40,6 +42,7 @@ export interface BlueprintVersionEdits {
   durationWeeks?: number | null;
   sessionsPerWeek?: number | null;
   equipmentMode?: BlueprintEquipmentMode | null;
+  periodization?: BlueprintPeriodization | null;
 }
 
 function editsToColumns(edits: BlueprintVersionEdits): Record<string, unknown> {
@@ -54,6 +57,7 @@ function editsToColumns(edits: BlueprintVersionEdits): Record<string, unknown> {
   if (edits.durationWeeks !== undefined) patch.duration_weeks = edits.durationWeeks;
   if (edits.sessionsPerWeek !== undefined) patch.sessions_per_week = edits.sessionsPerWeek;
   if (edits.equipmentMode !== undefined) patch.equipment_mode = edits.equipmentMode;
+  if (edits.periodization !== undefined) patch.periodization = edits.periodization;
   return patch;
 }
 
@@ -79,6 +83,7 @@ async function copySlots(
       eligibility_rules: slot.eligibility_rules,
       is_locked: slot.is_locked,
       replacement_criteria: slot.replacement_criteria,
+      is_per_side: slot.is_per_side,
       sets: slot.sets,
       reps: slot.reps,
       hold_duration_seconds: slot.hold_duration_seconds,
@@ -177,6 +182,7 @@ export async function createNextVersion(
     duration_weeks: current.duration_weeks,
     sessions_per_week: current.sessions_per_week,
     equipment_mode: current.equipment_mode,
+    periodization: current.periodization,
     created_by: editorId,
     updated_by: editorId,
   };
@@ -228,6 +234,120 @@ export async function approveBlueprintVersion(
     return false;
   }
   return true;
+}
+
+/**
+ * A key from a display name: lowercase, words joined by underscores. The
+ * same shape the seeded blueprints use (`home_dumbbell_foundation`), so a
+ * duplicated program looks like an authored one rather than like a copy.
+ */
+export function blueprintKeyFromName(displayName: string): string {
+  const base = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return base || 'blueprint';
+}
+
+/** A key nothing else is using, by adding `_2`, `_3` and so on until one is free. */
+export async function availableBlueprintKey(
+  supabase: SupabaseClient,
+  desired: string
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('movement_programs')
+    .select('key')
+    .like('key', `${desired}%`);
+  if (error) {
+    console.error('availableBlueprintKey failed', error);
+    return `${desired}_${Date.now()}`;
+  }
+  const taken = new Set(((data as { key: string }[] | null) ?? []).map((r) => r.key));
+  if (!taken.has(desired)) return desired;
+  for (let suffix = 2; suffix < 1000; suffix++) {
+    const candidate = `${desired}_${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${desired}_${Date.now()}`;
+}
+
+/**
+ * A whole new named program under a new name, carrying a copy of an
+ * existing version's content as its own version 1, in draft.
+ *
+ * Not the same thing as createNextVersion. That one keeps the program and
+ * moves it forward; this one starts a separate program that happens to
+ * begin from the same lineup. Nothing about the original changes, and an
+ * assignment made from the original still points at the original.
+ */
+export async function duplicateBlueprint(
+  supabase: SupabaseClient,
+  sourceVersionId: string,
+  newDisplayName: string,
+  actorId: string
+): Promise<BlueprintWithSlots | null> {
+  const source = await getBlueprintVersion(supabase, sourceVersionId);
+  if (!source) return null;
+
+  const name = newDisplayName.trim();
+  if (!name) {
+    console.error('duplicateBlueprint: a duplicate needs a name of its own');
+    return null;
+  }
+
+  const key = await availableBlueprintKey(supabase, blueprintKeyFromName(name));
+
+  const { data: program, error: programError } = await supabase
+    .from('movement_programs')
+    .insert({
+      key,
+      display_name: name,
+      internal_name: `${name} (duplicated from ${source.program.display_name} v${source.version_number})`,
+      created_by: actorId,
+    })
+    .select('*')
+    .single();
+  if (programError || !program) {
+    console.error('duplicateBlueprint (program) failed', programError);
+    return null;
+  }
+
+  const { data: version, error: versionError } = await supabase
+    .from('movement_program_versions')
+    .insert({
+      program_id: (program as MovementProgram).id,
+      version_number: 1,
+      display_name: `${name} v1`,
+      status: 'draft',
+      notes: `Duplicated from ${source.program.display_name} v${source.version_number}.`,
+      member_title: name,
+      member_description: source.member_description,
+      coach_purpose: source.coach_purpose,
+      intended_population: source.intended_population,
+      cautions: source.cautions,
+      duration_weeks: source.duration_weeks,
+      sessions_per_week: source.sessions_per_week,
+      equipment_mode: source.equipment_mode,
+      periodization: source.periodization,
+      created_by: actorId,
+      updated_by: actorId,
+    })
+    .select('*')
+    .single();
+  if (versionError || !version) {
+    console.error('duplicateBlueprint (version) failed', versionError);
+    await supabase.from('movement_programs').delete().eq('id', (program as MovementProgram).id);
+    return null;
+  }
+
+  const copied = await copySlots(supabase, source.slots, (version as MovementProgramVersion).id);
+  if (!copied) {
+    // Same rule as createNextVersion: no half a blueprint.
+    await supabase.from('movement_programs').delete().eq('id', (program as MovementProgram).id);
+    return null;
+  }
+
+  return getBlueprintVersion(supabase, (version as MovementProgramVersion).id);
 }
 
 /** Retires a version. Starts nothing new; changes nothing already running. */

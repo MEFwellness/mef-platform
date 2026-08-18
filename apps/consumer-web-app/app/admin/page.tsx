@@ -61,6 +61,21 @@ export default async function AdminPage() {
         </Link>
 
         <Link
+          href={'/admin/blueprints' as Route}
+          className="mef-focus-ring mt-6 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Programs</p>
+          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
+            Blueprint Library: named programs and their versions
+          </p>
+          <p className="mt-1 text-sm text-[#6B7A72]">
+            Programs MEF authors once and gives to many members. Read every session and slot,
+            approve a draft so coaches can assign it, archive one, or duplicate it into a new
+            program.
+          </p>
+        </Link>
+
+        <Link
           href={'/admin/cvs-test-tools' as Route}
           className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
         >
