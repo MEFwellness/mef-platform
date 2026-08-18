@@ -114,7 +114,7 @@ describe('the components the guard was applied to', () => {
  * what a member is shown. These are the staff component directories that
  * do not live under app/coach or app/admin.
  */
-const STAFF_PATHS = /\/(coach|admin|coach-questions|prescription-intelligence|movement-profile)\//;
+const STAFF_PATHS = /\/(coach|admin|coach-questions|movement-profile)\//;
 const SKIP_PATHS = /\/(node_modules|\.next|tests|scripts)\//;
 
 function memberFacingTsxFiles(): string[] {

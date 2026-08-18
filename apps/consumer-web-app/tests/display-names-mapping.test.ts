@@ -245,9 +245,6 @@ describe('the sixteen leaking spots the audit found', () => {
     expect(read('app/coach/corrective-programs/[memberId]/page.tsx')).toContain(
       "displayName('posture_finding_severity'"
     );
-    expect(read('components/prescription-intelligence/PrescriptionReviewPanel.tsx')).toContain(
-      "displayName('prescription_confidence_level'"
-    );
     expect(
       read('app/coach/clients/[id]/body-assessments/[assessmentId]/RightPanel/AIAssistantSection.tsx')
     ).toContain("displayName('posture_finding_severity'");

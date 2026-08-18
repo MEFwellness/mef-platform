@@ -82,7 +82,6 @@ import {
   getClientMovementProfileReviewQueue,
 } from '@/app/actions/movement-profile';
 import { getClientProgramAssignmentSummariesAction } from '@/app/actions/coach-programs';
-import { listPrescriptionSnapshotsForClientAction } from '@/app/actions/prescription-intelligence';
 import {
   listAssessmentRegistryEntries,
   listAssignableAssessments,
@@ -120,7 +119,6 @@ import { PersonalResetPlanPanel } from '../PersonalResetPlanPanel';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
-import { PrescriptionIntelligenceCard } from '@/components/prescription-intelligence/PrescriptionIntelligenceCard';
 import {
   stressStatus,
   painStatus,
@@ -232,7 +230,6 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     movementProfile,
     movementProfileReviewItems,
     programAssignmentSummaries,
-    prescriptionSnapshots,
     rootCauseSignals,
     rootMap,
     clientRecommendations,
@@ -269,7 +266,6 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
     getClientProgramAssignmentSummariesAction(profile.id),
-    listPrescriptionSnapshotsForClientAction(profile.id),
     getClientRootCauseSignals(profile.id),
     getClientRootMap(profile.id),
     getClientRecommendations(profile.id),
@@ -697,12 +693,6 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
               links through to the full assignment list and the Program
               Library (Coach Program Builder milestone) */}
           <ClientProgramsSummaryCard clientId={profile.id} summaries={programAssignmentSummaries} />
-
-          {/* Prescription Intelligence Engine — decides today's movement
-              strategy from Movement Profile + readiness + assessment data
-              before selecting a single exercise; coach reviews and
-              approves before anything reaches the member. */}
-          <PrescriptionIntelligenceCard clientId={profile.id} snapshots={prescriptionSnapshots} />
 
           {/* Coach assignment minimum interface — Assessment Registry framework */}
           <AssessmentAssignmentPanel

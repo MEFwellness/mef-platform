@@ -1,11 +1,26 @@
 /**
- * The Constraint Engine — turns PrescriptionFacts into real, evidence-
- * traceable constraints that must be identified BEFORE any goal is
- * optimized for. Every constraint here traces to an actual fact on
- * PrescriptionFacts (a check-in field, an active Universal Registry
- * finding, a wearable metric, or the absence of an assessment); nothing is
- * invented. Pure function — no Supabase access — so it's fully unit
- * testable against a crafted PrescriptionFacts.
+ * THE CONSTRAINT LADDER. What is true about this member that has to be
+ * respected before anybody decides what she should do next.
+ *
+ * Harvested whole from the retired Prescription Intelligence Engine
+ * (migration 178's cleanup). The engine that read this and generated a
+ * workout is deleted; the ladder is not, because the ladder is real
+ * coaching and it now has two live callers:
+ *
+ *   lib/programs/feedback/safety.ts    a member reporting pain on an
+ *                                      exercise enters this ladder at
+ *                                      `blocking` and ./gate.ts says no.
+ *   lib/programs/review/recommend.ts   the end-of-phase review reads this
+ *                                      before it recommends a next phase,
+ *                                      which is how "readiness where
+ *                                      available" gets into a
+ *                                      recommendation without a second
+ *                                      readiness rule being written.
+ *
+ * Every constraint traces to an actual fact on ReadinessFacts (a check-in
+ * field, an active Universal Registry finding, a wearable metric, or the
+ * absence of an assessment); nothing is invented. Pure function, no
+ * Supabase access, fully unit testable against a crafted ReadinessFacts.
  */
 
 import type {
@@ -13,11 +28,11 @@ import type {
   PrescriptionConstraintSeverity,
   PrescriptionConstraintType,
 } from '@mef/shared-types-contracts';
-import type { PrescriptionFacts } from './facts';
-import { displayName } from '../naming/displayNames';
-import { findingDisplayName } from '../naming/findingNames';
+import type { ReadinessFacts } from './facts';
+import { displayName } from '../../naming/displayNames';
+import { findingDisplayName } from '../../naming/findingNames';
 
-export type PrescriptionConstraintDraft = {
+export type ReadinessConstraintDraft = {
   constraintType: PrescriptionConstraintType;
   description: string;
   severity: PrescriptionConstraintSeverity;
@@ -49,7 +64,7 @@ function severityFromFindingSeverity(severity: string | null): PrescriptionConst
  * not a number about a day, it is a report about one specific thing she
  * was asked to do, and there is no version of it that should be answered
  * by handing her a different exercise to try. So it enters at the top of
- * the ladder and lib/prescription-intelligence/gate.ts's own rule takes it
+ * the ladder and lib/programs/readiness/gate.ts's own rule takes it
  * from there.
  *
  * The evidence ref points at the feedback row her coach will read, so the
@@ -59,7 +74,7 @@ function severityFromFindingSeverity(severity: string | null): PrescriptionConst
 export function painConstraintFromExerciseReport(input: {
   exerciseName: string;
   feedbackId?: string | null;
-}): PrescriptionConstraintDraft {
+}): ReadinessConstraintDraft {
   return {
     constraintType: 'pain',
     description: `Member reported pain or discomfort on ${input.exerciseName} during an assigned session.`,
@@ -70,8 +85,8 @@ export function painConstraintFromExerciseReport(input: {
   };
 }
 
-export function deriveConstraints(facts: PrescriptionFacts): PrescriptionConstraintDraft[] {
-  const constraints: PrescriptionConstraintDraft[] = [];
+export function deriveConstraints(facts: ReadinessFacts): ReadinessConstraintDraft[] {
+  const constraints: ReadinessConstraintDraft[] = [];
   const checkin = facts.latestCheckin;
 
   if (checkin?.newOrWorseningConcern) {

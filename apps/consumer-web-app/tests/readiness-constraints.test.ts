@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { deriveConstraints } from '../lib/prescription-intelligence/constraints';
-import type { PrescriptionFacts } from '../lib/prescription-intelligence/facts';
+import { deriveConstraints } from '../lib/programs/readiness/constraints';
+import type { ReadinessFacts } from '../lib/programs/readiness/facts';
 
-function baseFacts(overrides: Partial<PrescriptionFacts> = {}): PrescriptionFacts {
+function baseFacts(overrides: Partial<ReadinessFacts> = {}): ReadinessFacts {
   return {
     memberId: 'member-1',
     movementProfile: null,

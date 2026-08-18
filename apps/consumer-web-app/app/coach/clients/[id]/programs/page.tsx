@@ -7,6 +7,9 @@ import {
   getClientAssignedWorkoutsAction,
 } from '@/app/actions/coach-programs';
 import { ProgramAssignmentListPanel } from '@/components/coach-program-builder/ProgramAssignmentListPanel';
+import { ProgramSignalPanel } from '@/components/coach-program-builder/ProgramSignalPanel';
+import { getProgramSignalPanelAction } from '@/app/actions/program-review';
+import { buildCoachProgramGroups, isLiveProgramStatus } from '@/lib/program-lifecycle/coachView';
 import type { CoachAssignedWorkout } from '@mef/shared-types-contracts';
 
 export default async function ClientProgramsPage({ params }: { params: { id: string } }) {
@@ -39,6 +42,28 @@ export default async function ClientProgramsPage({ params }: { params: { id: str
     {}
   );
 
+  // One "How the program is going" panel per program she is actually on.
+  // Grouped the same way the list below groups, by program_group_key, so a
+  // corrective program delivered as three weekly sessions gets one panel
+  // and not three. Finished and replaced programs are not panelled: the
+  // question this panel answers is about a program in flight, and the
+  // question about a finished one is the review.
+  const liveGroups = buildCoachProgramGroups(summaries).filter(
+    (group) => isLiveProgramStatus(group.status) && !group.hasDraft
+  );
+  const signalPanels = (
+    await Promise.all(
+      liveGroups.map(async (group) => ({
+        group,
+        panel: await getProgramSignalPanelAction({
+          memberId: params.id,
+          groupKey: group.groupKey,
+          programName: group.name,
+        }),
+      }))
+    )
+  ).filter((entry): entry is { group: (typeof liveGroups)[number]; panel: NonNullable<Awaited<ReturnType<typeof getProgramSignalPanelAction>>> } => entry.panel !== null);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-5xl md:px-10 md:pb-16 md:pl-28">
@@ -62,6 +87,21 @@ export default async function ClientProgramsPage({ params }: { params: { id: str
             Assigned Programs
           </h1>
         </div>
+
+        {signalPanels.length > 0 && (
+          <div className="mt-7 space-y-5">
+            {signalPanels.map(({ group, panel }) => (
+              <ProgramSignalPanel
+                key={group.groupKey}
+                memberId={params.id}
+                groupKey={group.groupKey}
+                programName={group.name}
+                panel={panel}
+                reviewHref={`/coach/clients/${params.id}/programs/review/${encodeURIComponent(group.groupKey)}`}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="mt-7">
           <ProgramAssignmentListPanel

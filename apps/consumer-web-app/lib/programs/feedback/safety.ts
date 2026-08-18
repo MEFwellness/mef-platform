@@ -12,8 +12,8 @@
  *
  * THE PAIN LOGIC IS HARVESTED, NOT REBUILT. The retired prescription
  * engine already answered "does this fact mean we do not prescribe":
- * lib/prescription-intelligence/constraints.ts turns a pain report into a
- * constraint with a severity, and lib/prescription-intelligence/gate.ts
+ * lib/programs/readiness/constraints.ts turns a pain report into a
+ * constraint with a severity, and lib/programs/readiness/gate.ts
  * decides whether a set of constraints blocks. Both are used here as they
  * are. A member's spoken report enters that ladder at `blocking`, and the
  * gate's own predicate is what says no. There is no second pain rule in
@@ -28,8 +28,8 @@
  *
  * NO EM DASHES, per the house rule.
  */
-import { painConstraintFromExerciseReport } from '../../prescription-intelligence/constraints';
-import { hasBlockingConstraint } from '../../prescription-intelligence/gate';
+import { painConstraintFromExerciseReport } from '../readiness/constraints';
+import { hasBlockingConstraint } from '../readiness/gate';
 
 /**
  * Words that mean a body is complaining.

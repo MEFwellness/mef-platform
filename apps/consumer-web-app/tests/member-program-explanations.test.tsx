@@ -898,6 +898,8 @@ describe('a coach’s edits reach the member, frozen', () => {
             holdSeconds: exercise.hold_duration_seconds,
             tempo: exercise.tempo,
             restSeconds: exercise.rest_seconds,
+            load: null,
+            loadUnit: null,
           },
           weekOverrides: {},
         }))

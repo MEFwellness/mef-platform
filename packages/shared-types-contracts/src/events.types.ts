@@ -147,11 +147,24 @@ export type MemberExerciseVoiceEventType =
   | 'exercise_swapped'
   | 'exercise_progression_flagged';
 
+/**
+ * The coaching brain (migration 178). Operational, same family and same
+ * reasons as the two above: not product analytics, and not health content.
+ * The payload carries a program group key, an outcome key and a count.
+ * Never a member's typed words and never a finding.
+ */
+export type CoachingBrainEventType =
+  | 'program_review_opened'
+  | 'program_review_drafted'
+  | 'exercise_feedback_resolved'
+  | 'exercise_avoidance_released';
+
 export type MemberWellnessEventType =
   | MemberWellnessOnlyEventType
   | ProductAnalyticsEventType
   | ProgramLifecycleEventType
-  | MemberExerciseVoiceEventType;
+  | MemberExerciseVoiceEventType
+  | CoachingBrainEventType;
 
 export type MemberWellnessEventSource = 'member' | 'coach' | 'system';
 
@@ -329,7 +342,34 @@ export interface MemberExerciseVoicePayload {
   unit?: string;
 }
 
+/**
+ * What a coaching-brain event may carry (migration 178). Same rule as
+ * MemberExerciseVoicePayload above and for the same reason: bounded keys
+ * and digits only. A review's recommendation, its reasoning paragraph and
+ * a coach's own note are all on program_phase_reviews, where they belong,
+ * and none of them is an event payload.
+ */
+export interface CoachingBrainPayload {
+  /** Which of the six outcomes the rules recommended, as its key. */
+  recommended?: string;
+  /** Which of the six the coach chose, as its key. */
+  outcome?: string;
+  /** 'true' or 'false'. Whether the review was opened before the phase ended. */
+  openedEarly?: string;
+  /** How many weekly sessions the draft contains. Digits. */
+  sessions?: string;
+  /** How many exercises the coach approved a weight for. Digits. */
+  loadsApproved?: string;
+  /** Why an exercise was on the avoidance list that was just released, as its key. */
+  source?: string;
+  /** Which set of rules the resolved report was judged under. */
+  branch?: string;
+  /** Which reason the resolved report carried, as its key. */
+  reason?: string;
+}
+
 export type MemberWellnessEventPayload =
+  | CoachingBrainPayload
   | MemberExerciseVoicePayload
   | ProgramLifecyclePayload
   | HydrationLoggedPayload

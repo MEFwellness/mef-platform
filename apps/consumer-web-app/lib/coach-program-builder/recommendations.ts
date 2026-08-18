@@ -22,7 +22,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MefExerciseMetadata, MemberMovementProfile } from '@mef/shared-types-contracts';
 import { loadAssignableExerciseMetadata } from '../exercise-library/assignable';
 
-/** Exported for reuse by lib/prescription-intelligence/exerciseSelection.ts, which matches the same free-text, coach-curated tag vocabulary against Prescription Blocks' required/preferred/excluded movement tags — same matching problem, same normalization rules, no reason to reimplement it. */
+/** The free-text, coach-curated tag vocabulary matcher. Exported because more than one caller matches against the same tags, and there is no reason to reimplement the normalization rules per caller. */
 export function normalize(value: string): string {
   return value
     .trim()

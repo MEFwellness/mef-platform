@@ -32,9 +32,30 @@ import { SECTION_TYPE_BY_BLOCK } from '../../corrective-engine/save';
 import { blockPrescription } from '../../corrective-engine/dosing';
 import type { CorrectiveSeverity } from '../../corrective-engine/types';
 import { applyWeekOverride, overrideForWeek } from '../weekProgression';
+import type { LoggedLoadUnit } from '../weightLogging';
 import { memberExerciseReasoning } from '../explain/exerciseReasoning';
 import { BLUEPRINT_BLOCK_SECTION_NAME, BLUEPRINT_DEFAULT_DOSING_TIER, priorityForRank } from './materialize';
 import { sessionDesignationsOf, slotsForSession } from './data';
+
+/**
+ * `load` is a TEXT column on both prescription tables and always has been,
+ * because a coach's prescription may say "bodyweight" or "red band" as
+ * easily as it says a number. The plan model works in numbers, so the two
+ * readers below are the only place the text becomes a number and the
+ * writer below is the only place a number becomes text. Anything in that
+ * column that is not a plain weight reads as no weight, which is exactly
+ * what it means to a suggestion engine.
+ */
+function parsePrescribedLoad(raw: string | null): number | null {
+  const trimmed = (raw ?? '').trim();
+  if (trimmed === '') return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function prescribedLoadUnit(raw: string | null): LoggedLoadUnit | null {
+  return raw === 'lbs' || raw === 'kg' ? raw : null;
+}
 
 /** The section_type a coach's block maps to, inverted, for reading a saved template back into this model. */
 const BLOCK_BY_SECTION_TYPE: Record<string, BlueprintBlock> = {
@@ -52,6 +73,22 @@ export interface PlannedPrescription {
   holdSeconds: number | null;
   tempo: string | null;
   restSeconds: number | null;
+  /**
+   * The weight her coach is asking for, when there is one (migration 178).
+   *
+   * A BLUEPRINT NEVER SETS THIS. An authored program describes a movement
+   * and a dose, and the first weight a person picks up is a decision made
+   * with her in the room. It gets written by exactly one path: the
+   * end-of-phase review's Progress outcome, where the number came from her
+   * OWN logged weights, was suggested by lib/programs/progression, and was
+   * read and left or edited by a coach before the draft was approved.
+   *
+   * What she then reads on her screen is "Your coach set: 25 lbs" beside
+   * "Last time: 22.5 lbs", which are two different facts and are shown as
+   * two different facts.
+   */
+  load: number | null;
+  loadUnit: LoggedLoadUnit | null;
 }
 
 export interface PlannedExercise {
@@ -147,6 +184,9 @@ export function planFromBlueprint(
               : fallback.hold_duration_seconds,
             tempo: slot.tempo ?? fallback.tempo,
             restSeconds: slot.rest_seconds ?? fallback.rest_seconds,
+            // Never from a blueprint. See PlannedPrescription.load.
+            load: null,
+            loadUnit: null,
           },
           weekOverrides: slot.week_overrides ?? {},
         };
@@ -206,6 +246,8 @@ export function planFromTemplates(templates: CoachProgramTemplateWithContent[]):
           holdSeconds: exercise.hold_duration_seconds,
           tempo: exercise.tempo,
           restSeconds: exercise.rest_seconds,
+          load: parsePrescribedLoad(exercise.load),
+          loadUnit: prescribedLoadUnit(exercise.load_unit),
         },
         weekOverrides: (exercise.week_overrides ?? {}) as BlueprintWeekOverrides,
       }))
@@ -264,6 +306,12 @@ function resolveForWeek(
     holdSeconds: resolved.hold_duration_seconds,
     tempo: resolved.tempo,
     restSeconds: resolved.rest_seconds,
+    // A per week override changes volume, never load. There is no
+    // week_overrides key for a weight and there deliberately is not one: a
+    // program that quietly adds five pounds in week 3 has prescribed a
+    // progression nobody approved.
+    load: exercise.prescription.load,
+    loadUnit: exercise.prescription.loadUnit,
   };
 }
 
@@ -273,7 +321,8 @@ function samePrescription(a: PlannedPrescription, b: PlannedPrescription): boole
     a.reps === b.reps &&
     a.holdSeconds === b.holdSeconds &&
     a.tempo === b.tempo &&
-    a.restSeconds === b.restSeconds
+    a.restSeconds === b.restSeconds &&
+    a.load === b.load
   );
 }
 
@@ -340,11 +389,12 @@ function plannedToExerciseInput(exercise: PlannedExercise): TemplateContentExerc
     tempo: exercise.prescription.tempo,
     hold_duration_seconds: exercise.prescription.holdSeconds,
 
-    // A program never prescribes a weight. The coach sets loads at the
-    // first session, same rule as the corrective path.
     rpe: null,
-    load: null,
-    load_unit: null,
+    // Null on every path except the end-of-phase review's Progress
+    // outcome, where a coach read a suggestion made from this member's own
+    // logged weights and approved it. See PlannedPrescription.load.
+    load: exercise.prescription.load === null ? null : String(exercise.prescription.load),
+    load_unit: exercise.prescription.loadUnit,
     resistance: null,
     band_color: null,
     side: null,

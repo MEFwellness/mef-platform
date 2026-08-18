@@ -407,7 +407,6 @@ describe('nothing was deleted, only moved', () => {
       'PersonalResetPlanPanel',
       'MovementProfilePanel',
       'ClientProgramsSummaryCard',
-      'PrescriptionIntelligenceCard',
       'AssessmentAssignmentPanel',
       'NarrativePanel',
       'FeedPanel',

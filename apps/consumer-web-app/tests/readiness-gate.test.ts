@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { evaluatePrescriptionGate } from '../lib/prescription-intelligence/gate';
-import type { PrescriptionFacts } from '../lib/prescription-intelligence/facts';
-import type { PrescriptionConstraintDraft } from '../lib/prescription-intelligence/constraints';
+import { evaluateReadinessGate } from '../lib/programs/readiness/gate';
+import type { ReadinessFacts } from '../lib/programs/readiness/facts';
+import type { ReadinessConstraintDraft } from '../lib/programs/readiness/constraints';
 
-function baseFacts(overrides: Partial<PrescriptionFacts> = {}): PrescriptionFacts {
+function baseFacts(overrides: Partial<ReadinessFacts> = {}): ReadinessFacts {
   return {
     memberId: 'member-1',
     movementProfile: {
@@ -51,17 +51,17 @@ function baseFacts(overrides: Partial<PrescriptionFacts> = {}): PrescriptionFact
   };
 }
 
-describe('evaluatePrescriptionGate', () => {
+describe('evaluateReadinessGate', () => {
   it('does not block a member with a complete profile, readiness signal, and no serious constraints', () => {
-    const result = evaluatePrescriptionGate(baseFacts(), []);
+    const result = evaluateReadinessGate(baseFacts(), []);
     expect(result.blocked).toBe(false);
   });
 
   it('blocks with red_flag when a red_flag constraint exists, regardless of severity elsewhere', () => {
-    const constraints: PrescriptionConstraintDraft[] = [
+    const constraints: ReadinessConstraintDraft[] = [
       { constraintType: 'red_flag', description: 'x', severity: 'blocking', evidenceRefs: [] },
     ];
-    const result = evaluatePrescriptionGate(baseFacts(), constraints);
+    const result = evaluateReadinessGate(baseFacts(), constraints);
     expect(result).toEqual({
       blocked: true,
       blockReason: 'red_flag',
@@ -70,10 +70,10 @@ describe('evaluatePrescriptionGate', () => {
   });
 
   it('blocks with extremely_poor_readiness when any constraint is severity blocking (and no red flag)', () => {
-    const constraints: PrescriptionConstraintDraft[] = [
+    const constraints: ReadinessConstraintDraft[] = [
       { constraintType: 'pain', description: 'x', severity: 'blocking', evidenceRefs: [] },
     ];
-    const result = evaluatePrescriptionGate(baseFacts(), constraints);
+    const result = evaluateReadinessGate(baseFacts(), constraints);
     expect(result).toEqual({
       blocked: true,
       blockReason: 'extremely_poor_readiness',
@@ -82,7 +82,7 @@ describe('evaluatePrescriptionGate', () => {
   });
 
   it('blocks with missing_baseline_assessment when there is no Movement Profile', () => {
-    const result = evaluatePrescriptionGate(baseFacts({ movementProfile: null }), []);
+    const result = evaluateReadinessGate(baseFacts({ movementProfile: null }), []);
     expect(result).toEqual({
       blocked: true,
       blockReason: 'missing_baseline_assessment',
@@ -100,7 +100,7 @@ describe('evaluatePrescriptionGate', () => {
         goals: [],
       },
     });
-    const result = evaluatePrescriptionGate(facts, []);
+    const result = evaluateReadinessGate(facts, []);
     expect(result).toEqual({
       blocked: true,
       blockReason: 'insufficient_data',
@@ -120,7 +120,7 @@ describe('evaluatePrescriptionGate', () => {
         newOrWorseningConcern: false,
       },
     });
-    const result = evaluatePrescriptionGate(facts, []);
+    const result = evaluateReadinessGate(facts, []);
     expect(result).toEqual({
       blocked: true,
       blockReason: 'extremely_poor_readiness',

@@ -133,7 +133,6 @@ const FIXED_FILES = [
   "app/coach/clients/[id]/body-assessments/[assessmentId]/RightPanel/PostureFindingsSection.tsx",
   "app/coach/clients/[id]/body-assessments/[assessmentId]/RightPanel/SummarySection.tsx",
   "app/coach/clients/[id]/body-assessments/[assessmentId]/RightPanel/ReviewHistorySection.tsx",
-  "app/coach/clients/[id]/prescription/page.tsx",
   "app/coach/clients/[id]/LifeSignalCheckPanel.tsx",
   "app/coach/clients/[id]/body-assessments/[assessmentId]/RightPanel/TrendChart.tsx",
   "app/coach/clients/[id]/life-signal-check/[sessionId]/page.tsx",
@@ -146,8 +145,6 @@ const FIXED_FILES = [
   "app/coach/protein-review/page.tsx",
   "app/coach/clients/[id]/RootCauseSignalsPanel.tsx",
   "components/coach-questions/QuestionRow.tsx",
-  "components/prescription-intelligence/PrescriptionReviewPanel.tsx",
-  "components/prescription-intelligence/PrescriptionIntelligenceCard.tsx",
   "app/coach/clients/[id]/PersonalResetPlanPanel.tsx",
 ];
 

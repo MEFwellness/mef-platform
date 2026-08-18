@@ -15,6 +15,14 @@
  * "last time: 25 lbs" is a starting point. She can type over it, and only
  * what she leaves in the field is stored.
  *
+ * AND FROM HER COACH, when her coach has set one (migration 178). A phase
+ * her coach progressed her onto carries a target on the exercise row, and
+ * the field opens on it and says whose it is: "Your coach set: 25 lbs",
+ * with "Last time: 22.5 lbs" beside it. Two different facts, shown as two
+ * different facts. It is still not a requirement and still not a floor:
+ * she can type anything over it, including less, and nothing anywhere
+ * remarks on the difference.
+ *
  * WHICH EXERCISES GET ONE is not decided here. lib/programs/weightLogging.ts
  * decides, from the prescription's own shape, and this component is only
  * rendered where that says yes.
@@ -43,15 +51,40 @@ export function ExerciseWeightField({
 }: {
   exercise: Pick<
     CoachAssignedWorkoutExercise,
-    'id' | 'unilateral' | 'load_unit' | 'logged_load' | 'logged_load_unit' | 'logged_load_per_side'
+    | 'id'
+    | 'unilateral'
+    | 'load'
+    | 'load_unit'
+    | 'logged_load'
+    | 'logged_load_unit'
+    | 'logged_load_per_side'
   >;
   /** The walk-through renders one exercise at a time on a big card, so it gets the roomier layout. */
   compact?: boolean;
 }) {
   const perSide = exercise.unilateral === true;
+
+  // The weight her coach asked for, when there is one. `load` is a text
+  // column and may say "bodyweight" or "red band" as easily as a number,
+  // so anything that is not a plain positive number is no target at all.
+  const coachTargetValue = (() => {
+    const raw = (exercise.load ?? '').trim();
+    if (raw === '') return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  })();
+  const coachTargetUnit: LoggedLoadUnit =
+    exercise.load_unit === 'kg' ? 'kg' : 'lbs';
+  const coachTarget =
+    coachTargetValue === null
+      ? null
+      : formatLoggedLoad({ load: coachTargetValue, unit: coachTargetUnit, perSide });
+
   const [value, setValue] = useState(
     exercise.logged_load === null || exercise.logged_load === undefined
-      ? ''
+      ? coachTargetValue === null
+        ? ''
+        : String(coachTargetValue)
       : String(exercise.logged_load)
   );
   const [unit, setUnit] = useState<LoggedLoadUnit>(
@@ -75,13 +108,21 @@ export function ExerciseWeightField({
         setLastTime(
           formatLoggedLoad({ load: prefill.load, unit: prefill.unit, perSide: prefill.perSide })
         );
-        setValue((current) => (current === '' ? String(prefill.load) : current));
+        // Her coach's number wins the field when there is one: it is the
+        // ask for this phase, and last time is the context beside it.
+        setValue((current) =>
+          current === '' && coachTargetValue === null ? String(prefill.load) : current
+        );
       }
-      if (prefill.unit) setUnit(prefill.unit);
+      if (prefill.unit && coachTargetValue === null) setUnit(prefill.unit);
     });
     return () => {
       cancelled = true;
     };
+    // coachTargetValue is read from the frozen row and cannot change while
+    // this field is mounted, so it is deliberately not a dependency: adding
+    // it would re-run the prefill read for no new answer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exercise.id]);
 
   function save(nextUnit: LoggedLoadUnit = unit) {
@@ -138,6 +179,11 @@ export function ExerciseWeightField({
         </div>
         {saved && <span className="text-xs font-medium text-[#1B3A2D]">Saved</span>}
       </div>
+      {coachTarget && (
+        <p className="mt-1.5 text-xs font-medium text-[#3E5C46]" data-coach-set-load="true">
+          Your coach set: {coachTarget}
+        </p>
+      )}
       {lastTime && (
         <p className="mt-1.5 text-xs text-[#6B7A72]">Last time: {lastTime}</p>
       )}
