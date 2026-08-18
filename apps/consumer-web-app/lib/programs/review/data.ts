@@ -1,10 +1,18 @@
 /**
  * The review record itself. One file talks to program_phase_reviews.
  *
- * ONE OPEN REVIEW PER PROGRAM. Enforced by a partial unique index on the
- * table (migration 178) rather than by a read-then-insert here, so a coach
- * double-tapping Open Review lands back on the review she already has
- * instead of starting a second one.
+ * ONE LIVE REVIEW PER PROGRAM, where live means open OR drafted. Enforced
+ * by a partial unique index on the table (migration 180) rather than by a
+ * read-then-insert here, so a coach double-tapping Open Review lands back
+ * on the review she already has instead of starting a second one.
+ *
+ * "LIVE" HAD TO INCLUDE DRAFTED, and the live run is why. The review screen
+ * creates a review as a side effect of rendering, and a Next.js server
+ * action revalidates the route it was called from, so the page re-renders
+ * after every action. Once the coach had chosen an outcome the review was
+ * 'drafted', an open-only reader found nothing, and the re-render inserted
+ * a SECOND review. The screen was then holding a review that had never
+ * drafted anything, and Discard discarded that instead of the real draft.
  *
  * THE STATUS LADDER, and what each rung means.
  *
@@ -24,7 +32,14 @@ import type {
   ProgramReviewStatus,
 } from '@mef/shared-types-contracts';
 
-export async function getOpenReview(
+/** The two states that mean "the coach is still working on this one". Approved and discarded are done. */
+export const LIVE_REVIEW_STATUSES: readonly ProgramReviewStatus[] = ['open', 'drafted'];
+
+/**
+ * The review a coach is working on for this program, whether she has
+ * drafted from it yet or not. At most one, by the index.
+ */
+export async function getLiveReview(
   supabase: SupabaseClient,
   input: { memberId: string; groupKey: string }
 ): Promise<ProgramPhaseReview | null> {
@@ -33,10 +48,10 @@ export async function getOpenReview(
     .select('*')
     .eq('member_id', input.memberId)
     .eq('program_group_key', input.groupKey)
-    .eq('status', 'open')
+    .in('status', LIVE_REVIEW_STATUSES as string[])
     .maybeSingle();
   if (error) {
-    console.error('getOpenReview failed', error);
+    console.error('getLiveReview failed', error);
     return null;
   }
   return (data as ProgramPhaseReview | null) ?? null;
@@ -87,12 +102,16 @@ export interface CreateReviewInput {
   recommendationReasoning: string;
 }
 
-/** Opens a review, or returns the one that is already open. Never two. */
+/**
+ * Opens a review, or returns the LIVE one if there already is one. Never
+ * two, and never a second one just because the first has drafted
+ * something: see this file's header.
+ */
 export async function openReview(
   supabase: SupabaseClient,
   input: CreateReviewInput
 ): Promise<ProgramPhaseReview | null> {
-  const existing = await getOpenReview(supabase, {
+  const existing = await getLiveReview(supabase, {
     memberId: input.memberId,
     groupKey: input.groupKey,
   });
@@ -116,7 +135,7 @@ export async function openReview(
     // The unique index fired, which means somebody else opened it a
     // moment ago. Read theirs rather than reporting a failure.
     if (error.code === '23505') {
-      return getOpenReview(supabase, { memberId: input.memberId, groupKey: input.groupKey });
+      return getLiveReview(supabase, { memberId: input.memberId, groupKey: input.groupKey });
     }
     console.error('openReview failed', error);
     return null;

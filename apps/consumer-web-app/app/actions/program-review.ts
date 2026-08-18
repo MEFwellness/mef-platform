@@ -139,7 +139,7 @@ export interface ProgramSignalPanel {
   nudges: string[];
   /** True once the program has run its whole span, which is when the review stops being early. */
   phaseIsOver: boolean;
-  /** The open review on this program, when there is one. */
+  /** The review a coach is part way through on this program, when there is one. Open or drafted; both mean unfinished. */
   openReviewId: string | null;
 }
 
@@ -184,7 +184,7 @@ export async function getProgramSignalPanelAction(input: {
     loads,
     nudges: readyForMoreNudges(loads),
     phaseIsOver: endDate !== null && today > endDate,
-    openReviewId: reviews.find((r) => r.status === 'open')?.id ?? null,
+    openReviewId: reviews.find((r) => r.status === 'open' || r.status === 'drafted')?.id ?? null,
   };
 }
 
@@ -299,6 +299,10 @@ export async function openProgramReviewAction(input: {
     phaseIsOver: panel.phaseIsOver,
   });
 
+  const before = await listReviewsForProgram(supabase, {
+    memberId: input.memberId,
+    groupKey: input.groupKey,
+  });
   const review = await openReview(supabase, {
     memberId: input.memberId,
     coachId,
@@ -327,17 +331,23 @@ export async function openProgramReviewAction(input: {
   });
   if (!review) return { error: 'Could not open a review for this program.' };
 
-  await recordMemberEvent(supabase, {
-    memberId: input.memberId,
-    eventType: 'program_review_opened',
-    timezone: await memberTimezone(supabase, input.memberId),
-    source: 'coach',
-    sourceRecordId: review.id,
-    payload: {
-      recommended: recommendation.outcome,
-      openedEarly: String(review.opened_early),
-    },
-  }).catch(() => null);
+  // Only when the review is genuinely NEW. The page writes on render and a
+  // server action re-renders it, so an event per render would be an event
+  // per button press on a screen nobody reopened.
+  const isNew = !before.some((r) => r.id === review.id);
+  if (isNew) {
+    await recordMemberEvent(supabase, {
+      memberId: input.memberId,
+      eventType: 'program_review_opened',
+      timezone: await memberTimezone(supabase, input.memberId),
+      source: 'coach',
+      sourceRecordId: review.id,
+      payload: {
+        recommended: recommendation.outcome,
+        openedEarly: String(review.opened_early),
+      },
+    }).catch(() => null);
+  }
 
   const history = (
     await listReviewsForProgram(supabase, { memberId: input.memberId, groupKey: input.groupKey })

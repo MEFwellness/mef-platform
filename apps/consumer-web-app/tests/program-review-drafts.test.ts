@@ -35,7 +35,12 @@ import {
   writeReviewDraft,
   type RotationPool,
 } from '../lib/programs/review/drafts';
-import { openReview, recordReviewOutcome, getOpenReview } from '../lib/programs/review/data';
+import {
+  getLiveReview,
+  openReview,
+  recordReviewOutcome,
+  setReviewStatus,
+} from '../lib/programs/review/data';
 import { releaseAvoidance, resolveFeedbackReport, loadProgramSignals } from '../lib/programs/signals/data';
 import { loadAvoidedExternalIds } from '../lib/programs/feedback/candidates';
 import { feedbackAttentionReasons } from '../lib/programs/feedback/attention';
@@ -817,7 +822,7 @@ describe('discarding a draft actually removes it', () => {
   });
 });
 
-describe('one open review at a time', () => {
+describe('one live review at a time', () => {
   it('opening twice returns the same review rather than starting a second', async () => {
     const supabase = serviceRoleClient();
     const first = await openReview(supabase, {
@@ -856,7 +861,42 @@ describe('one open review at a time', () => {
     expect(recorded!.chosen_outcome).toBe('repeat_phase');
     expect(recorded!.chosen_at).not.toBeNull();
 
-    // Once it is no longer open, a new one may be opened.
-    expect(await getOpenReview(supabase, { memberId: MEMBER, groupKey: GROUP_KEY })).toBeNull();
+    // A DRAFTED review is still the live one. This is the bug the live run
+    // found: the review page writes on render, a server action re-renders
+    // it, and an open-only reader inserted a second review whose Discard
+    // button then pointed at nothing.
+    const stillLive = await getLiveReview(supabase, { memberId: MEMBER, groupKey: GROUP_KEY });
+    expect(stillLive?.id).toBe(first!.id);
+    expect(stillLive?.status).toBe('drafted');
+
+    const reopened = await openReview(supabase, {
+      memberId: MEMBER,
+      coachId: COACH,
+      groupKey: GROUP_KEY,
+      programName: 'Phase Review Test',
+      openedEarly: false,
+      signalSnapshot: {},
+      recommendedOutcome: 'progress_next_phase',
+      recommendationReasoning: 'A re-render, in other words.',
+    });
+    expect(reopened!.id, 'a re-render must not create a second review').toBe(first!.id);
+    expect(reopened!.draft_assignment_ids).toEqual(first!.draft_assignment_ids);
+
+    // Only once it is finished does a fresh one become possible.
+    await setReviewStatus(supabase, first!.id, 'discarded');
+    expect(await getLiveReview(supabase, { memberId: MEMBER, groupKey: GROUP_KEY })).toBeNull();
+
+    const next = await openReview(supabase, {
+      memberId: MEMBER,
+      coachId: COACH,
+      groupKey: GROUP_KEY,
+      programName: 'Phase Review Test',
+      openedEarly: false,
+      signalSnapshot: {},
+      recommendedOutcome: 'repeat_phase',
+      recommendationReasoning: 'A genuinely new review.',
+    });
+    createdReviewIds.push(next!.id);
+    expect(next!.id).not.toBe(first!.id);
   });
 });
