@@ -95,16 +95,17 @@ export default async function MovementPage() {
         </div>
 
         <div className="mt-7 space-y-5">
+          {/* The same hero card Home leads with, from the same entry, so
+              the two screens cannot show her a different program or point
+              at a different session. The label that used to sit above it
+              is gone: the card says "Your program" in its own eyebrow now,
+              and a heading repeating that was one voice too many. */}
           {currentProgram && (
-            <section>
-              <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
-                Your program from your coach
-              </p>
-              <AssignedProgramsCard
-                program={currentProgram.program}
-                nextWorkout={currentProgram.nextWorkout}
-              />
-            </section>
+            <AssignedProgramsCard
+              program={currentProgram.program}
+              nextWorkout={currentProgram.nextWorkout}
+              isNew={currentProgram.isNew}
+            />
           )}
 
           {suggestion && (

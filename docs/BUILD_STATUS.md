@@ -8330,3 +8330,60 @@ The preview reads, to the coach: "Strong After 40. 4 weeks for Heather, 3 sessio
 **State production was left in:** sixteen new approved programs and their 365 slots, plus the existing Home Dumbbell Foundation v2. Zero drafts in the blueprint library. The test member's assignments, workouts and templates are exactly as found (0, 0, 6) and none of her screens moved. No member has been given any of these programs; approving them makes them assignable, and assigning one is a coach's decision, made per member.
 
 **Catalog gaps flagged rather than forced,** in full in `docs/PROGRAM_LIBRARY.md`: there is no assignable anti-rotation press (no Pallof, no band woodchop) which Golf Mobility and Performance Foundation most wants; there is no beginner two-arm supported dumbbell row, so the beginner-stage programs use a band; and the chair-based core list is exactly three movements long, which is why Active Aging and Balance runs one core slot a session rather than two. Nothing was forced into a bad fit and no non-assignable exercise was touched.
+
+---
+
+## The program card becomes the hero of Home (2026-08-18)
+
+Presentation, plus one new fact. The engine, the library and the delivery pipeline were finished; the card that carried all of it to a member was a white rectangle with a small label, two lines of grey text and a button, sitting third inside the "Today" zone below Quick Actions. It is the most personal thing in this product, a prescription a coach wrote for one person, and it read like a row in a list.
+
+### What changed
+
+**`components/AssignedProgramsCard.tsx` is now the screen's hero**, in the app's existing premium language rather than a new one: the deep-green gradient the Movement Assessment panel already uses on Home (`from-[#0F241C] via-[#1B3A2D] to-[#2A4A3A]`), the Cormorant display serif at 2rem, one gold call to action, one soft glow and one almost invisible oversized mark. No photograph, no image request, no new asset.
+
+**Four states, each designed rather than degraded.**
+
+| state | what it says | what it draws | one action |
+| --- | --- | --- | --- |
+| upcoming | "Starts Wednesday, August 26" | an empty week track | See your first session |
+| active | "Week 2 of 4" + "Next up: Session A, Wednesday, August 19" | that many weeks filled in gold | Open your next session |
+| paused | "Paused" + "Your coach has put this on hold. It will pick up where you left off." | the weeks she reached, muted | Open your program |
+| completed | "Program complete" + "Your coach is reviewing your next phase. You finished 8 of 12 sessions." | the whole track filled | See what you finished |
+
+An upcoming program fills **none** of the track. The row carries `current_week = 1` from the day it is assigned, because that is the week it will open on, and drawing a week she has not lived would be the card claiming progress that never happened.
+
+`replaced` and `cancelled` render nothing at all. They are history, and this card is about now.
+
+**Where it sits.** It was promoted out of the Today zone entirely: `assigned_programs` no longer exists as a `TodayCardKey`. It now renders directly under the day's one priority and the sentence explaining it, and **above the invite cards**, which use the same deep green and would otherwise sit on top of the hero. Above Quick Actions, above the Today zone.
+
+**Who sees it did not change.** The card was already inside the has-real-history branch (it was in the Today zone, which is). Promoting it out of that branch would have shown it to a member with a program and no check-ins, who has never seen it. So it is gated on the same `hasRealHistory = hasCheckins || hasActiveExperiment` the welcome-card branch uses, named once and used in both places. `tests/home-program-hero-placement.test.tsx` asserts that.
+
+**One hero, not two.** When a program exists, the Movement Assessment panel gives up `variant="imageBacked"` and renders in the plain white card language it already has and already uses on the Today tab. Two deep-green full-bleed panels on one screen is two heroes and therefore none.
+
+**Movement matches.** Same component, same entry (`getMyCurrentProgramEntryAction`), so the two screens can never show a different program or point at a different session. The "Your program from your coach" heading above it is gone: the card says "Your program" in its own eyebrow now.
+
+### "New from your coach"
+
+The one thing on the card that is about receiving a program rather than about the program. A small gold badge, plus a gold ring on the card and a slightly warmer glow, while her coach has handed her a program and she has never opened it. It clears **permanently** the first time she opens it, not per session and not per device.
+
+**Migration 185** widens `member_wellness_events.event_type` with `program_opened`. A widened constraint, never a second table: migration 63's rule, followed by 146, 147, 150, 151, 152, 153, 172, 177 and 178. Operational, not product analytics, so `is_product_analytics_event_type` is untouched and this never reaches the analytics view.
+
+Which program it was travels on `source_record_id` (the assignment she opened it from), exactly as the lifecycle events do, so "has this program been opened" is a lookup over one program group's assignment ids and needed no new index and no payload convention.
+
+A program is delivered as one assignment per weekly session, so **opened is a property of the group**. Opening Session B marks the whole program opened. `lib/program-lifecycle/opened.ts` is the only file that reads or writes it, and it writes at most one row per program ever.
+
+**The backfill matters.** Without it, every program assigned before this shipped would have been marked "New from your coach" the moment it deployed, because nobody had ever written the event, and the mark would then have cleared on a tap made months ago. Migration 185 records every program group that existed at migration time as already opened, dated to when it was handed to her, and asserts that none was left unmarked. The mark starts meaning something from the next program a coach assigns.
+
+**The write is after paint, never during render.** `components/programs/MarkProgramOpened.tsx` is a mounted-effect tracker in the shape of `TrackSurfaceView`, dropped into `/programs/[id]` and `/programs`. A page render must not insert rows: server actions revalidate their own route, so a render-time insert repeats on every button press on that screen.
+
+### What did NOT change, deliberately
+
+`currentProgramEntry` still selects only a program she is ON: upcoming, active or paused. Home and Movement have never pointed at a completed program and this pass did not change that, because surfacing one needs a rule nobody has written for how long "Your coach is reviewing your next phase" stays on Home, and a completed program never becomes anything else until a new one is assigned. **So the completed state is built, tested and reachable, and no screen routes to it yet.** Her finished program still says exactly that on `/programs`, where it always has.
+
+Nothing else moved: same routes, same hrefs, same entry, same fetches (plus one event-stream read, only when she has a program at all), zero video or media requests from rendering the card in any state.
+
+### Proof
+
+Full suite **6,277 passing** (423 files). Typecheck clean, lint 0 errors, production build clean. Migration 185 applied to local, then to production.
+
+New: `tests/program-opened-integration.test.ts` (9, real local Supabase, real RLS), `tests/home-program-hero-placement.test.tsx` (8), plus the state-by-state hero tests and the "New from your coach" tests in `tests/member-program-presentation.test.tsx`, and eight more zero-request renders in `tests/program-screens-no-video-requests.test.tsx` covering all four states with and without the mark.

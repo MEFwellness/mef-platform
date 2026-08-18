@@ -159,12 +159,26 @@ export type CoachingBrainEventType =
   | 'exercise_feedback_resolved'
   | 'exercise_avoidance_released';
 
+/**
+ * She opened the program her coach gave her (migration 185). One event per
+ * program, written the first time she opens it and never again, which is
+ * what retires the "New from your coach" mark on the home screen's program
+ * card permanently rather than for one session.
+ *
+ * Operational, same family and same reasons as the three above. Which
+ * program it was travels on the event row's own source_record_id (the
+ * assignment she opened it from), exactly as the lifecycle events do, so
+ * the payload carries nothing but the backfill marker.
+ */
+export type ProgramOpenedEventType = 'program_opened';
+
 export type MemberWellnessEventType =
   | MemberWellnessOnlyEventType
   | ProductAnalyticsEventType
   | ProgramLifecycleEventType
   | MemberExerciseVoiceEventType
-  | CoachingBrainEventType;
+  | CoachingBrainEventType
+  | ProgramOpenedEventType;
 
 export type MemberWellnessEventSource = 'member' | 'coach' | 'system';
 
@@ -368,7 +382,19 @@ export interface CoachingBrainPayload {
   reason?: string;
 }
 
+/**
+ * What a program_opened event may carry (migration 185): nothing but the
+ * marker the backfill writes, so a row written by the migration can be told
+ * from one a member's own tap produced. Which program it was is on
+ * source_record_id, and when it was is occurred_at.
+ */
+export interface ProgramOpenedPayload {
+  /** 'true' on the rows migration 185 wrote for programs that already existed. Absent on every real open. */
+  backfilled?: string;
+}
+
 export type MemberWellnessEventPayload =
+  | ProgramOpenedPayload
   | CoachingBrainPayload
   | MemberExerciseVoicePayload
   | ProgramLifecyclePayload

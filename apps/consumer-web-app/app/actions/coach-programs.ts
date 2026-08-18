@@ -48,9 +48,10 @@ import {
 import {
   buildMemberProgramViews,
   currentProgramEntry,
-  type CurrentProgramEntry,
+  type CurrentProgramEntryForMember,
   type MemberProgramView,
 } from '@/lib/program-lifecycle/memberView';
+import { isProgramUnopened, recordProgramOpened } from '@/lib/program-lifecycle/opened';
 import {
   recordProgramLifecycleEvent,
   supersedePreviousPrograms,
@@ -538,8 +539,15 @@ export async function getMyProgramViewsAction(): Promise<MemberProgramView[]> {
   return buildMemberProgramViews(lifecycles, workouts);
 }
 
-/** The program she is on and her next session in it, for the Home card and the Movement screen. Null when she is not on one. */
-export async function getMyCurrentProgramEntryAction(): Promise<CurrentProgramEntry | null> {
+/**
+ * The program she is on and her next session in it, for the Home card and
+ * the Movement screen. Null when she is not on one.
+ *
+ * Also answers "has she opened it yet", which is what decides the "New
+ * from your coach" mark on that card. One extra read, over the event
+ * stream (migration 185), and only when there is a program to ask about.
+ */
+export async function getMyCurrentProgramEntryAction(): Promise<CurrentProgramEntryForMember | null> {
   const context = await resolveUserId();
   if (!context) return null;
   const [lifecycles, workouts] = await Promise.all([
@@ -547,10 +555,45 @@ export async function getMyCurrentProgramEntryAction(): Promise<CurrentProgramEn
     listAssignedWorkoutsForMember(context.supabase, context.userId),
   ]);
   const timezone = await resolveMemberTimezone(context.supabase, context.userId);
-  return currentProgramEntry(
+  const entry = currentProgramEntry(
     buildMemberProgramViews(lifecycles, workouts),
     todaysLocalDate(timezone)
   );
+  if (!entry) return null;
+
+  return { ...entry, isNew: await isProgramUnopened(context.supabase, entry.program.assignmentIds) };
+}
+
+/**
+ * "She opened it." Called once from the screens a program card leads to,
+ * after they have painted, and it writes at most one row per program ever
+ * (see lib/program-lifecycle/opened.ts).
+ *
+ * Takes the assignment she arrived through and resolves its program group
+ * itself, so the caller never has to fetch the group to report the open,
+ * and so opening Session B of a program can never be recorded as a second,
+ * separate program.
+ */
+export async function markProgramOpenedAction(assignmentId: string): Promise<void> {
+  const context = await resolveUserId();
+  if (!context || !assignmentId) return;
+
+  const lifecycles = await listMyProgramLifecycles(context.supabase);
+  const opened = lifecycles.find((row) => row.id === assignmentId);
+  if (!opened) return;
+
+  const groupKey = opened.program_group_key ?? opened.id;
+  const assignmentIds = lifecycles
+    .filter((row) => (row.program_group_key ?? row.id) === groupKey)
+    .map((row) => row.id);
+
+  const timezone = await resolveMemberTimezone(context.supabase, context.userId);
+  await recordProgramOpened(context.supabase, {
+    memberId: context.userId,
+    assignmentIds,
+    openedAssignmentId: assignmentId,
+    timezone,
+  });
 }
 
 export async function getMyAssignedWorkoutDetailAction(

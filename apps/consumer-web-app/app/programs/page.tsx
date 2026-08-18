@@ -18,6 +18,8 @@ import {
   getMyProgramViewsAction,
 } from '@/app/actions/coach-programs';
 import { MemberProgramsList } from '@/components/coach-program-builder/MemberProgramsList';
+import { MarkProgramOpened } from '@/components/programs/MarkProgramOpened';
+import { isCurrentProgramStatus } from '@/lib/program-lifecycle/memberView';
 
 export default async function MyProgramsPage() {
   const supabase = createClient();
@@ -32,8 +34,17 @@ export default async function MyProgramsPage() {
     getMyProgramViewsAction(),
   ]);
 
+  // The other door into her program. The card on Home links here whenever
+  // she has no session ahead of her, so landing on this list is opening the
+  // program just as much as opening a session is, and the "New from your
+  // coach" mark has to retire either way. Read off the views this screen
+  // already fetched, never a second query.
+  const current = programs.find((view) => isCurrentProgramStatus(view.status));
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      <MarkProgramOpened assignmentId={current?.assignmentIds[0] ?? null} />
+
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/dashboard" label="Home" />
 

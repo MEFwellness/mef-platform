@@ -272,6 +272,17 @@ export interface CurrentProgramEntry {
   nextWorkout: CoachAssignedWorkout | null;
 }
 
+/**
+ * The same entry, plus the one fact this pure module cannot know: has she
+ * ever opened this program. It lives on the event stream (migration 185),
+ * so it is decided by the server action that can read it and handed down,
+ * rather than smuggled into the selector above.
+ */
+export interface CurrentProgramEntryForMember extends CurrentProgramEntry {
+  /** True while her coach has handed her this program and she has not opened it once. Clears permanently on the first open. */
+  isNew: boolean;
+}
+
 export function currentProgramEntry(
   views: MemberProgramView[],
   today: string

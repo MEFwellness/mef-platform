@@ -43,6 +43,8 @@ import { BlueprintSessionList } from '../components/blueprints/BlueprintSessionL
 import type { ProgramBlueprintSlot } from '@mef/shared-types-contracts';
 import { AssignedWorkoutGuidedSession } from '../components/coach-program-builder/AssignedWorkoutGuidedSession';
 import { GuidedExerciseStage } from '../components/movement-sessions/GuidedSessionPlayer';
+import { AssignedProgramsCard } from '../components/AssignedProgramsCard';
+import { buildMemberProgramViews } from '../lib/program-lifecycle/memberView';
 import { toGuidedWorkoutExercises } from '../lib/coach-program-builder/guidedWorkout';
 import type { AssignedExerciseMediaMap } from '../lib/coach-program-builder/assignedWorkoutMedia';
 
@@ -56,6 +58,12 @@ const PROGRAM_SCREEN_FILES = [
   'components/movement-sessions/MovementSessionPlayer.tsx',
   'lib/coach-program-builder/assignedWorkoutMedia.ts',
   'lib/coach-program-builder/guidedWorkout.ts',
+  // The hero card on Home and on Movement (polish pass, 2026-08-18). It is
+  // now the largest, most photographic-looking thing on the home screen,
+  // which is exactly why it belongs on this list: a hero is the natural
+  // place for somebody to later reach for a preview clip.
+  'components/AssignedProgramsCard.tsx',
+  'components/programs/MarkProgramOpened.tsx',
 ];
 
 // ---------------------------------------------------------------------------
@@ -489,6 +497,83 @@ describe('opening the workout makes no video request', () => {
     expect(exercises[1]!.prescription).toBe('2 sets of 10 reps · Tempo 3-1-3');
     expect(exercises[1]!.rest).toBe('45 seconds rest');
   });
+});
+
+// ---------------------------------------------------------------------------
+// 2b. The hero card, by rendering
+// ---------------------------------------------------------------------------
+
+/**
+ * The program card is now the hero of the home screen: a full-width deep
+ * green panel that LOOKS like it is backed by a photograph. It is not.
+ * Every part of that treatment is CSS, so looking at Home costs one
+ * request for the page and nothing else, on every one of the card's
+ * states.
+ */
+describe('the program hero costs nothing to look at', () => {
+  let fetchSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const LIFECYCLE = {
+    id: 'assignment-1',
+    member_id: 'member-1',
+    template_name_snapshot: 'Corrective: Lower Cross: Session A',
+    program_group_key: 'corrective-program:46470b1d',
+    start_date: '2026-08-19',
+    end_date: '2026-09-15',
+    duration_weeks: 4,
+    current_week: 2,
+    paused_days: 0,
+    started_at: null,
+    completed_at: null,
+    paused_at: null,
+    resumed_at: null,
+    replaced_at: null,
+    replaced_by_assignment_id: null,
+    schedule_type: 'weekly' as const,
+    schedule_config: { type: 'weekly' as const, startDate: '2026-08-19', daysOfWeek: [1], weeks: 4 },
+    published_at: '2026-08-17T00:00:00Z',
+    member_explanation: null,
+    created_at: '2026-08-17T00:00:00Z',
+    updated_at: '2026-08-17T00:00:00Z',
+  };
+
+  const CARD_WORKOUT = {
+    ...WORKOUT,
+    sections: undefined,
+  } as unknown as Parameters<typeof AssignedProgramsCard>[0]['nextWorkout'];
+
+  for (const status of ['upcoming', 'active', 'paused', 'completed'] as const) {
+    for (const isNew of [false, true]) {
+      it(`renders the ${status} state${isNew ? ', freshly assigned,' : ''} with zero requests and no media at all`, () => {
+        const views = buildMemberProgramViews(
+          [{ ...LIFECYCLE, status } as never],
+          [CARD_WORKOUT as never]
+        );
+        const html = renderToStaticMarkup(
+          <AssignedProgramsCard
+            program={views[0]!}
+            nextWorkout={status === 'completed' ? null : CARD_WORKOUT}
+            isNew={isNew}
+          />
+        );
+
+        expect(fetchSpy, `${status} triggered a fetch`).not.toHaveBeenCalled();
+        expect(html).not.toContain('<video');
+        expect(html).not.toContain('<img');
+        expect(html).not.toContain('background-image');
+        expect(html).not.toContain('url(');
+      });
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------

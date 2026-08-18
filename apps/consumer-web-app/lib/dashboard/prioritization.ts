@@ -24,14 +24,17 @@
  * (components/today/TodaysNumbersGrid.tsx). What is left of that block on
  * Home is only its other half, the honest line for a day with nothing
  * logged yet, so the key now says what it actually is: 'checkin_prompt'.
+ *
+ * The program card polish pass (2026-08-18) removed a third,
+ * 'assigned_programs'. It did not leave Home: it was promoted OUT of this
+ * zone into its own, above Quick Actions, as the screen's hero. A card
+ * that is the hero of the page is not a card whose position within a zone
+ * needs deciding, so it no longer has a key here. See
+ * app/dashboard/page.tsx and components/AssignedProgramsCard.tsx.
  */
-export type TodayCardKey = 'morning_brief' | 'assigned_programs' | 'checkin_prompt';
+export type TodayCardKey = 'morning_brief' | 'checkin_prompt';
 
-const TODAY_BASE_ORDER: TodayCardKey[] = [
-  'morning_brief',
-  'assigned_programs',
-  'checkin_prompt',
-];
+const TODAY_BASE_ORDER: TodayCardKey[] = ['morning_brief', 'checkin_prompt'];
 
 /**
  * The single dynamic rule for the Today zone: whichever block is most

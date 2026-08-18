@@ -18,19 +18,11 @@ import {
 
 describe('orderTodayCards — given state X, the order is always Y', () => {
   it('promotes the check-in line to the lead slot when today has no check-in yet', () => {
-    expect(orderTodayCards(false)).toEqual([
-      'checkin_prompt',
-      'morning_brief',
-      'assigned_programs',
-    ]);
+    expect(orderTodayCards(false)).toEqual(['checkin_prompt', 'morning_brief']);
   });
 
   it('falls back to the base order once today is checked in, with Root\'s own brief leading', () => {
-    expect(orderTodayCards(true)).toEqual([
-      'morning_brief',
-      'assigned_programs',
-      'checkin_prompt',
-    ]);
+    expect(orderTodayCards(true)).toEqual(['morning_brief', 'checkin_prompt']);
   });
 
   it('is deterministic: the exact same state always produces the exact same order', () => {
@@ -40,18 +32,22 @@ describe('orderTodayCards — given state X, the order is always Y', () => {
   });
 
   it('never drops or duplicates a card — every card stays reachable in its usual section either way', () => {
-    const allKeys = ['morning_brief', 'assigned_programs', 'checkin_prompt'].sort();
+    const allKeys = ['morning_brief', 'checkin_prompt'].sort();
     expect([...orderTodayCards(true)].sort()).toEqual(allKeys);
     expect([...orderTodayCards(false)].sort()).toEqual(allKeys);
   });
 
-  it('carries no key for either block that left Home in the 2026-08-14 cleanup pass', () => {
+  it('carries no key for any block that has left this zone', () => {
     // 'wellness_reflection' (Today's Wellness) was removed from Home
-    // outright; the numbers half of 'numbers_or_prompt' moved to the Today
-    // tab. A leftover key here would mean a leftover render slot there.
+    // outright and the numbers half of 'numbers_or_prompt' moved to the
+    // Today tab, both in the 2026-08-14 cleanup pass. 'assigned_programs'
+    // was promoted out of this zone entirely in the 2026-08-18 polish
+    // pass: it is the page's hero now, rendered above Quick Actions, so a
+    // leftover key here would mean a second copy of her program card.
     for (const order of [orderTodayCards(true), orderTodayCards(false)]) {
       expect(order).not.toContain('wellness_reflection');
       expect(order).not.toContain('numbers_or_prompt');
+      expect(order).not.toContain('assigned_programs');
     }
   });
 });

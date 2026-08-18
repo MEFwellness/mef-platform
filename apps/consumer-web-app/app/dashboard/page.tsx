@@ -270,6 +270,12 @@ export default async function DashboardPage({
   // Pulse: a fresh member who completes the whole free arc and starts an
   // experiment saw this empty-state card instead of Active Experiments.
   const hasActiveExperiment = lifestyleExperiments.some((e) => e.status === 'active');
+  // The one condition that decides whether this screen is the welcome card
+  // or the real dashboard. Named because the program hero below is
+  // rendered outside that branch, above the invites, and has to be gated
+  // on exactly the same fact so that promoting it changed where it sits
+  // and not who sees it.
+  const hasRealHistory = hasCheckins || hasActiveExperiment;
 
   // Dashboard Evolution (Prompt 5): both of these are pure functions of
   // facts already fetched above (todaysCheckin, timeContext, localDate)
@@ -294,12 +300,23 @@ export default async function DashboardPage({
       <MorningBriefCard brief={morningBrief} rootScoreSnapshot={rootScoreSnapshot} />
     ) : null;
 
-  const assignedProgramsNode = shows(F.homeAssignedPrograms) ? (
-    <AssignedProgramsCard
-      program={currentProgram?.program ?? null}
-      nextWorkout={currentProgram?.nextWorkout ?? null}
-    />
-  ) : null;
+  // THE HERO (polish pass, 2026-08-18). This used to be one of three
+  // blocks inside the "Today" zone, below Quick Actions, in the same white
+  // card language as everything around it. It is the most personal thing
+  // on this screen, a prescription a coach wrote for one member, and it is
+  // now the zone above Quick Actions rather than a row inside one.
+  //
+  // Nothing about WHO sees it changed: the same visibility key, the same
+  // already-fetched entry, and the same branch of this page (a member with
+  // no check-in history still gets the welcome card and nothing else).
+  const programHero =
+    shows(F.homeAssignedPrograms) && currentProgram?.program ? (
+      <AssignedProgramsCard
+        program={currentProgram.program}
+        nextWorkout={currentProgram.nextWorkout}
+        isNew={currentProgram.isNew}
+      />
+    ) : null;
 
   // Home cleanup pass (2026-08-14). Two blocks that used to live in this
   // zone are gone from Home:
@@ -326,7 +343,6 @@ export default async function DashboardPage({
 
   const TODAY_CARD_NODES: Record<TodayCardKey, React.ReactNode> = {
     morning_brief: morningBriefNode,
-    assigned_programs: assignedProgramsNode,
     checkin_prompt: checkinPromptNode,
   };
 
@@ -431,6 +447,34 @@ export default async function DashboardPage({
         <NewlyRevealedNotice reveals={visibility.newlyRevealed} />
 
         {/* ==================================================== */}
+        {/* HER PROGRAM. The hero of this screen when one exists.   */}
+        {/*                                                          */}
+        {/* It used to be one of three blocks inside the "Today"     */}
+        {/* zone, below Quick Actions, in the same white card        */}
+        {/* language as everything around it. It is the most         */}
+        {/* personal thing on Home, a prescription a coach wrote for */}
+        {/* one member, and it now leads the page.                   */}
+        {/*                                                          */}
+        {/* Above the invites deliberately: those render the same    */}
+        {/* deep green treatment, and a hero sitting underneath      */}
+        {/* another full-bleed green panel is not a hero. The one    */}
+        {/* thing outranking it is still the day's single priority   */}
+        {/* directly above, and the sentence explaining it.          */}
+        {/*                                                          */}
+        {/* WHO sees it did not change. It is gated on the same      */}
+        {/* hasRealHistory the branch below uses, so a member with   */}
+        {/* no check-in history still gets the welcome card and      */}
+        {/* nothing else, exactly as before this pass.               */}
+        {/*                                                          */}
+        {/* No zone label: a heading over a card whose own eyebrow   */}
+        {/* already says "Your program" is a second, quieter voice   */}
+        {/* saying the same thing. No RevealOnScroll either: a hero  */}
+        {/* that fades in as you scroll to it is a hero you already  */}
+        {/* scrolled past.                                           */}
+        {/* ==================================================== */}
+        {hasRealHistory && programHero && <div className="pt-6 md:pt-8">{programHero}</div>}
+
+        {/* ==================================================== */}
         {/* THE WEEKLY ROOT REVIEW, persistent (Adaptive Coaching  */}
         {/* Direction, Part 2). After the pop-up has had its one    */}
         {/* showing this week, the review stays reachable here for  */}
@@ -470,7 +514,7 @@ export default async function DashboardPage({
           </Suspense>
         )}
 
-        {!hasCheckins && !hasActiveExperiment ? (
+        {!hasRealHistory ? (
           /* Premium UX Milestone 2: before a member's first completed
            check-in, Root has nothing real to personalize yet — one
            welcome moment with a single CTA replaces what would
@@ -595,9 +639,18 @@ export default async function DashboardPage({
                 <p className={ZONE_LABEL}>Your Path</p>
                 <div className="mt-4 space-y-4">
                   {shows(F.homeMovementAssessmentCard) && (
+                    /* SECOND, NOT EQUAL (polish pass, 2026-08-18). This
+                       panel and the program hero above share one visual
+                       treatment, the deep-green image-backed one, and two
+                       of them on one screen is two heroes and therefore
+                       none. When her coach has actually given her a
+                       program, that is the screen's hero and this drops to
+                       the plain white card language it already has and
+                       already uses on the Today tab. With no program, it
+                       keeps the full treatment exactly as before. */
                     <MovementAssessmentCard
                       assessments={bodyAssessments}
-                      variant="imageBacked"
+                      variant={programHero ? 'card' : 'imageBacked'}
                       locked={!bodyAssessmentAccess.allowed}
                     />
                   )}

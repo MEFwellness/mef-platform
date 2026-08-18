@@ -409,6 +409,163 @@ describe('the rendered member screens', () => {
   });
 });
 
+/**
+ * The hero, state by state (polish pass, 2026-08-18).
+ *
+ * The card is the same component on Home and on Movement, so proving a
+ * state here proves it on both. Each state has to READ like something
+ * deliberate rather than like a card with fields missing, and that is what
+ * these assert: every state names the program, says where she is in plain
+ * words, and offers exactly one thing to do.
+ */
+describe('the program hero, in each of its states', () => {
+  function heroFor(
+    overrides: Record<string, unknown>,
+    workouts = [workout()],
+    isNew = false
+  ): { text: string; html: string } {
+    const views = buildMemberProgramViews([lifecycleRow(overrides)], workouts);
+    const element = (
+      <AssignedProgramsCard program={views[0]!} nextWorkout={workouts[0] ?? null} isNew={isNew} />
+    );
+    return { text: renderedText(element), html: renderToStaticMarkup(element) };
+  }
+
+  it('upcoming claims no progress it has not made yet', () => {
+    // The row carries current_week = 1 from the day it is assigned. That
+    // is the week it will open on, not a week she has lived, so the track
+    // is drawn empty.
+    const { html } = heroFor({ status: 'upcoming', current_week: 1 });
+    expect(html.match(/h-1\.5 flex-1 rounded-full/g)).toHaveLength(4);
+    expect(html).not.toMatch(/rounded-full bg-\[#F5B700\]"/);
+  });
+
+  it('upcoming says when it starts and offers the first session', () => {
+    const { text } = heroFor({ status: 'upcoming', current_week: null });
+    expect(text).toContain('Your program');
+    expect(text).toContain('Hip and Core Foundation');
+    expect(text).toContain('Starts Wednesday, August 19');
+    expect(text).toContain('First session: Session A, Monday, August 24');
+    expect(text).toContain('See your first session');
+    // Never the running program's wording.
+    expect(text).not.toContain('Next up');
+    assertNothingClinical(text);
+  });
+
+  it('active says the week, draws that same week, and offers the next session', () => {
+    const { text, html } = heroFor({ status: 'active', current_week: 2 });
+    expect(text).toContain('Week 2 of 4');
+    expect(text).toContain('Next up: Session A, Monday, August 24');
+    expect(text).toContain('Open your next session');
+    // Four week marks, two of them filled, and the track is for the eye
+    // only: the words above already say the same thing.
+    expect(html.match(/h-1\.5 flex-1 rounded-full/g)).toHaveLength(4);
+    expect(html.match(/bg-\[#F5B700\]"/g)?.length).toBe(2);
+    assertNothingClinical(text);
+  });
+
+  it('paused says what happened and what happens next, and offers no session', () => {
+    const { text } = heroFor({ status: 'paused' });
+    expect(text).toContain('Paused');
+    expect(text).toContain('Your coach has put this on hold');
+    expect(text).toContain('It will pick up where you left off');
+    expect(text).toContain('Open your program');
+    // A session is not "next up" while the program is on hold.
+    expect(text).not.toContain('Next up');
+    expect(text).not.toContain('First session');
+    assertNothingClinical(text);
+  });
+
+  it('completed reads as a finished thing with something coming, never as an ending', () => {
+    const finished = [workout({ status: 'completed' })];
+    const { text } = heroFor({ status: 'completed' }, finished);
+    expect(text).toContain('Program complete');
+    expect(text).toContain('Your coach is reviewing your next phase');
+    expect(text).toContain('You finished 1 of 1 sessions');
+    expect(text).toContain('See what you finished');
+    assertNothingClinical(text);
+  });
+
+  it('a replaced or cancelled program is never rendered as her program now', () => {
+    for (const status of ['replaced', 'cancelled']) {
+      expect(heroFor({ status }).text).toBe('');
+    }
+  });
+
+  it('every state names the program and offers exactly one action', () => {
+    for (const status of ['upcoming', 'active', 'paused', 'completed']) {
+      const { text, html } = heroFor({ status });
+      expect(text, status).toContain('Hip and Core Foundation');
+      // One link out of the card, and one button inside it.
+      expect(html.match(/<a /g), status).toHaveLength(1);
+      expect(
+        [
+          'See your first session',
+          'Open your next session',
+          'Open your program',
+          'See what you finished',
+        ].filter((label) => text.includes(label)),
+        status
+      ).toHaveLength(1);
+      assertNothingClinical(text);
+    }
+  });
+
+  it('degrades to plain words rather than blanks when the program does not know its own shape', () => {
+    const { text, html } = heroFor({
+      status: 'active',
+      current_week: null,
+      duration_weeks: null,
+      start_date: null,
+      end_date: null,
+    });
+    expect(text).toContain('In progress');
+    // No week track at all, rather than an empty one.
+    expect(html).not.toMatch(/h-1\.5 flex-1 rounded-full/);
+    assertNothingClinical(text);
+  });
+});
+
+/**
+ * "New from your coach" — the one thing on this card that is about the act
+ * of receiving a program rather than about the program.
+ */
+describe('the freshly assigned mark', () => {
+  function card(isNew: boolean) {
+    const views = buildMemberProgramViews([lifecycleRow()], [workout()]);
+    const entry = currentProgramEntry(views, '2026-08-20')!;
+    const element = (
+      <AssignedProgramsCard program={entry.program} nextWorkout={entry.nextWorkout} isNew={isNew} />
+    );
+    return { text: renderedText(element), html: renderToStaticMarkup(element) };
+  }
+
+  it('marks a program she has not opened yet, in her language', () => {
+    const { text } = card(true);
+    expect(text).toContain('New from your coach');
+    assertNothingClinical(text);
+  });
+
+  it('is gone once she has opened it, and the card is otherwise the same card', () => {
+    expect(card(false).text).not.toContain('New from your coach');
+    // The mark is the only difference: everything the card says about the
+    // program itself is identical either way.
+    for (const line of ['Hip and Core Foundation', 'Week 1 of 4', 'Open your next session']) {
+      expect(card(false).text).toContain(line);
+      expect(card(true).text).toContain(line);
+    }
+  });
+
+  it('defaults to unmarked, so a caller that has not been taught about it cannot invent a new program', () => {
+    const views = buildMemberProgramViews([lifecycleRow()], [workout()]);
+    const entry = currentProgramEntry(views, '2026-08-20')!;
+    const text = renderedText(
+      <AssignedProgramsCard program={entry.program} nextWorkout={entry.nextWorkout} />
+    );
+    expect(text).not.toContain('New from your coach');
+  });
+});
+
 describe('what the member reaches, and where from', () => {
   it('the next session is the earliest unfinished one from today onward', () => {
     const views = buildMemberProgramViews(

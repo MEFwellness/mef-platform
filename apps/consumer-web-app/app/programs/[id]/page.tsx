@@ -6,6 +6,7 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getMyAssignedWorkoutDetailAction } from '@/app/actions/coach-programs';
 import { loadAssignedWorkoutMedia } from '@/lib/coach-program-builder/assignedWorkoutMedia';
 import { MemberAssignedWorkoutDetail } from '@/components/coach-program-builder/MemberAssignedWorkoutDetail';
+import { MarkProgramOpened } from '@/components/programs/MarkProgramOpened';
 import { memberProgramName, memberSessionLabel } from '@/lib/programs/memberPresentation';
 
 export default async function MyAssignedWorkoutPage({ params }: { params: { id: string } }) {
@@ -29,6 +30,12 @@ export default async function MyAssignedWorkoutPage({ params }: { params: { id: 
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
+      {/* Reaching a session IS opening the program, so this is where the
+          "New from your coach" mark on the Home card retires, permanently.
+          Fired after paint, writes at most one row per program ever. See
+          components/programs/MarkProgramOpened.tsx. */}
+      <MarkProgramOpened assignmentId={workout.assignment_id} />
+
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/programs" label="My Programs" />
 
