@@ -91,6 +91,23 @@ export const MEMBER_FORBIDDEN_PHRASES: readonly string[] = [
   'blueprint',
   'postural pattern',
   'crossed pattern',
+  // The per-block and per-exercise reasoning the engine writes. Every one
+  // of these is coach vocabulary, and every string of it on production
+  // today contains at least one: "The main corrective work: strengthening
+  // this pattern's long, underactive muscles ... (Lower Cross)",
+  // "Myofascial release for this member's tight muscles", "Core-stability
+  // (anti-movement) work only ... never spinal-flexion".
+  'this pattern',
+  'this member',
+  'myofascial',
+  'underactive',
+  'overactive',
+  'anti-movement',
+  'spinal-flexion',
+  'spinal flexion',
+  'deep-stabilizer',
+  'corrective work',
+  'long/weak',
 ];
 
 /** True when any forbidden phrase appears. The guard behind every member-facing text field on a generated program. */

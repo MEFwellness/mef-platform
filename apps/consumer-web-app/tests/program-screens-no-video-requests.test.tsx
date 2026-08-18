@@ -279,7 +279,7 @@ describe('opening the workout makes no video request', () => {
     expect(html.match(/aria-label="Play exercise video"/g)).toHaveLength(2);
   });
 
-  it('shows the full prescription, the cues and the reasoning for each exercise', () => {
+  it('shows the full prescription and the cues for each exercise', () => {
     const html = renderToStaticMarkup(
       <MemberAssignedWorkoutDetail workout={WORKOUT} media={MEDIA} />
     );
@@ -290,8 +290,44 @@ describe('opening the workout makes no video request', () => {
     expect(html).toContain('Tempo 3-1-3');
     expect(html).toContain('45 seconds rest');
     expect(html).toContain('Keep the roll slow');
+  });
+
+  /**
+   * This assertion changed MEANING rather than being weakened, and the
+   * reason is worth stating. It used to require that the member saw "Why
+   * this exercise" with the engine's own reasoning, and the fixtures above
+   * are the real thing: "Stability work for glutes, long in Lower Cross."
+   * So the test was requiring a pattern name on her screen.
+   *
+   * The rule now is the one in lib/programs/memberPresentation.ts:
+   * reasoning written in coach vocabulary is not shown to her, and
+   * reasoning written in hers is. Both halves are asserted, so this is a
+   * rule about language and not a feature that was quietly deleted.
+   */
+  it('shows reasoning written for her, and never reasoning written for her coach', () => {
+    const coachVocabulary = renderToStaticMarkup(
+      <MemberAssignedWorkoutDetail workout={WORKOUT} media={MEDIA} />
+    );
+    expect(coachVocabulary).not.toContain('Why this exercise');
+    expect(coachVocabulary).not.toContain('Lower Cross');
+
+    const plainLanguage = {
+      ...WORKOUT,
+      sections: WORKOUT.sections.map((section) => ({
+        ...section,
+        block_reasoning: 'Slow work to start, to give your hips a chance to open up.',
+        exercises: section.exercises.map((exercise) => ({
+          ...exercise,
+          selection_reasoning: 'This one wakes up your glutes before the harder work.',
+        })),
+      })),
+    };
+    const html = renderToStaticMarkup(
+      <MemberAssignedWorkoutDetail workout={plainLanguage} media={MEDIA} />
+    );
     expect(html).toContain('Why this exercise');
-    expect(html).toContain('Stability work for glutes');
+    expect(html).toContain('wakes up your glutes');
+    expect(html).toContain('give your hips a chance to open up');
   });
 
   it('keeps the difficulty, comfort, notes and status controls exactly as they were', () => {

@@ -196,10 +196,15 @@ function ExerciseRow({
               {exercise.pain_modification_notes}
             </p>
           )}
-          {exercise.selection_reasoning && (
+          {/* The engine writes this for the coach: "long/underactive in
+              Lower Cross", "Myofascial release for this member's tight
+              muscles". memberSafeText suppresses anything carrying that
+              vocabulary, which today is all of it. The line comes back by
+              itself the day this text is written in her language. */}
+          {memberSafeText(exercise.selection_reasoning) && (
             <p className="rounded-xl bg-white p-3 text-xs text-[#1B3A2D]">
               <span className="font-semibold">Why this exercise: </span>
-              {exercise.selection_reasoning}
+              {memberSafeText(exercise.selection_reasoning)}
             </p>
           )}
 
@@ -394,9 +399,9 @@ export function MemberAssignedWorkoutDetail({
       {workout.sections.map((section) => (
         <section key={section.id} className={`${CARD} p-5`}>
           <p className="text-sm font-semibold text-[#1B3A2D]">{section.name}</p>
-          {section.block_reasoning && (
+          {memberSafeText(section.block_reasoning) && (
             <p className="mt-2 rounded-xl bg-[#EFF6F1] p-3 text-xs text-[#1B3A2D]">
-              {section.block_reasoning}
+              {memberSafeText(section.block_reasoning)}
             </p>
           )}
           <div className="mt-3 space-y-2">
