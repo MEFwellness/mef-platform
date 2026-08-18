@@ -144,12 +144,12 @@ function toEditableSessions(templates: CoachProgramTemplateWithContent[]): Edita
     templateId: template.id,
     label: sessionLabelOf(template),
     coachNotes: template.coach_notes ?? '',
-    sections: template.sections.map((section) => ({
+    sections: template.sections.map((section, sectionIndex) => ({
       sectionType: section.section_type,
       block: BLOCK_BY_SECTION_TYPE[section.section_type] ?? 'strength',
       name: section.name,
       blockReasoning: section.block_reasoning,
-      exercises: section.exercises.map((exercise) => ({
+      exercises: section.exercises.map((exercise, exerciseIndex) => ({
         key: `${exercise.id}`,
         provider: exercise.provider,
         externalId: exercise.external_id,
@@ -166,6 +166,10 @@ function toEditableSessions(templates: CoachProgramTemplateWithContent[]): Edita
             movementPattern: null,
             isPerSide: exercise.unilateral === true,
             priorityRank: null,
+            // The template is the program's identity here, so the opening
+            // sentences vary down the session and stay put on reload.
+            variantSeed: template.id,
+            variantIndex: sectionIndex * 10 + exerciseIndex,
           }),
         isCoachOverride: exercise.is_coach_override,
         prescription: {
@@ -412,7 +416,14 @@ export function DraftReviewPanel({
       // line. A brand new exercise gets one composed from the block.
       memberReasoning:
         existing?.memberReasoning ??
-        memberExerciseReasoning({ block, movementPattern: null, isPerSide: false, priorityRank: null }),
+        memberExerciseReasoning({
+          block,
+          movementPattern: null,
+          isPerSide: false,
+          priorityRank: null,
+          variantSeed: sessions[sessionIndex]!.templateId,
+          variantIndex: sectionIndex * 10 + (exerciseIndex ?? 0),
+        }),
       isCoachOverride: picked.isCoachOverride,
       // A swap keeps whatever dose was already on that slot, since the
       // coach was replacing the exercise and not the prescription. A new

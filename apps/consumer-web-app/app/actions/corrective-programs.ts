@@ -41,6 +41,7 @@ import {
 } from '@/lib/corrective-engine/approvalDefaults';
 import { todaysLocalDate } from '@/lib/time/localDate';
 import { composeProgramExplanation } from '@/lib/programs/explain/programExplanation';
+import { areasFromCorrectiveTags } from '@/lib/programs/explain/programAreas';
 import { loadMemberExplanationFacts } from '@/lib/programs/explain/memberFacts';
 import { memberProgramFocus, memberProgramName } from '@/lib/programs/memberPresentation';
 import type { BodyAssessmentFinding } from '@mef/shared-types-contracts';
@@ -257,7 +258,15 @@ export async function getCorrectiveExplanationDraftAction(input: {
     focus: memberProgramFocus(input.correctiveTags),
     primaryGoal: facts.primaryGoal,
     goals: facts.goals,
+    // A corrective program is selected from her posture findings, never
+    // from her goal. It supports the goal; it was not built around it.
+    goalDroveSelection: false,
     bodyAreas: facts.bodyAreas,
+    // What this program actually works, read from the corrective
+    // blueprints it was generated against: every block of it is built from
+    // those patterns' own muscle slots. A finding pointing somewhere this
+    // program does not go produces no sentence.
+    programAreas: areasFromCorrectiveTags(input.correctiveTags),
     equipment: input.equipment,
     durationWeeks: input.durationWeeks,
     sessionsPerWeek: input.sessionsPerWeek,

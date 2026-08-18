@@ -4,29 +4,50 @@
  *
  * COMPOSED BY RULE, NOT GENERATED. Every sentence below is gated on a fact
  * that is already stored: the program's own shape, the description its
- * author wrote for members, the goal SHE typed, the body areas her last
- * posture check pointed at, the equipment her program actually needs. A
- * fact that is missing produces no sentence at all rather than a hedged
- * one, which is why a member with no goals and no assessment still gets a
- * short, true paragraph instead of a paragraph with holes in it.
+ * author wrote for members, the goal SHE picked, the body areas her last
+ * posture check pointed at AND that this program actually works, the
+ * equipment her program actually needs. A fact that is missing produces no
+ * sentence at all rather than a hedged one, which is why a member with no
+ * goals and no assessment still gets a short, true paragraph instead of a
+ * paragraph with holes in it. There is no model in this path.
  *
  * IT NEVER DIAGNOSES AND NEVER PROMISES. It says what the program is, what
  * she said she wanted, where the work goes and what she needs to do it. It
  * does not say a finding is a problem, does not name one, does not grade
- * one, and does not claim any exercise will fix anything. The strongest
- * claim in here is "this plan is built around that", which is a statement
- * about how the program was chosen and not about her body.
+ * one, and does not claim any exercise will fix anything.
+ *
+ * THREE CORRECTIONS A COACH ASKED FOR, after reading the first draft, are
+ * what this file's current shape is about:
+ *
+ *   1. Her goal is said the way a person says it. The stored value is a
+ *      list option written to be scanned ("Lose weight or improve body
+ *      composition"), and dropping one into the middle of a sentence read
+ *      like a form being played back at her. ./goalPhrases.ts maps every
+ *      option the goals screen offers, and a value with no phrase produces
+ *      no sentence: raw option text never reaches the paragraph.
+ *
+ *   2. The program SUPPORTS her goal. It said "this plan is built around
+ *      that", and nothing in this product selects a program from a goal:
+ *      a corrective program is selected from posture findings and a named
+ *      program is chosen by her coach. "Built around" is available, behind
+ *      `goalDroveSelection`, for the day something really does select on
+ *      it, and it is false everywhere today.
+ *
+ *   3. A posture area is named only when the program WORKS it. See
+ *      ./programAreas.ts. Her check finding something and her program
+ *      going there are two different facts, and only the second one earns
+ *      the sentence.
  *
  * IT IS A DRAFT. The coach reads it before she presses Approve and can
  * rewrite any of it. Whatever she ends up with is what gets stored, and the
- * member reads the stored text, not this function. So this is the starting
- * point of a conversation between a coach and her client, not a
- * substitute for one.
+ * member reads the stored text, not this function.
  *
  * NO EM DASHES, anywhere, per the house rule. Commas, colons and periods.
  */
 import { containsClinicalLanguage } from '../memberPresentation';
-import { equipmentPhrases, joinPhrases } from './bodyAreas';
+import { bodyAreaPhrases, equipmentPhrases, joinPhrases, type BodyAreaKey } from './bodyAreas';
+import { goalPhrase, goalPhrases } from './goalPhrases';
+import { sayableAreas } from './programAreas';
 
 export interface ProgramExplanationInput {
   /** How she is addressed. First name only; null keeps the sentence impersonal rather than guessing. */
@@ -42,12 +63,21 @@ export interface ProgramExplanationInput {
   /** What the work is on, in plain words, when the program is named after a body area rather than authored. */
   focus?: string | null;
 
-  /** What she typed on her goals screen. Used verbatim: these are her words. */
+  /** The goal option she picked as most important. Translated by ./goalPhrases.ts; never printed raw. */
   primaryGoal?: string | null;
+  /** Her other stated goals, same treatment. */
   goals?: readonly string[] | null;
+  /**
+   * True only when the selection logic genuinely used her goal to choose
+   * this program. Nothing in this product does that today, so the sentence
+   * says the program supports her goal, which is what is true.
+   */
+  goalDroveSelection?: boolean;
 
-  /** Plain body areas from her last posture check. See ./bodyAreas.ts. Empty when there is nothing to say. */
-  bodyAreas?: readonly string[] | null;
+  /** Areas her last posture check pointed at. See ./bodyAreas.ts. */
+  bodyAreas?: readonly BodyAreaKey[] | null;
+  /** Areas this program actually works. See ./programAreas.ts. The posture sentence is the intersection of the two, and is dropped when it is empty. */
+  programAreas?: readonly BodyAreaKey[] | null;
 
   /** What the program's own exercises need. */
   equipment?: readonly string[] | null;
@@ -97,21 +127,34 @@ export function programExplanationSentences(input: ProgramExplanationInput): str
     sentences.push(`It works on ${input.focus}.`);
   }
 
-  // 3. Her goal, in her own words.
-  const primary = (input.primaryGoal ?? '').trim();
-  const others = (input.goals ?? []).map((g) => g.trim()).filter((g) => g !== '');
-  if (primary !== '') {
-    sentences.push(`You told us what matters most to you right now is ${primary}, and this plan is built around that.`);
+  // 3. Her goal, in words a person would use rather than in the words of
+  //    the option she tapped.
+  //
+  //    The verb is the coach's correction. Nothing in this product picks a
+  //    program from a goal, so the honest claim is that the program
+  //    supports what she is after, not that it was built around it.
+  const primary = goalPhrase(input.primaryGoal);
+  const others = goalPhrases(input.goals).filter((phrase) => phrase !== primary);
+  const closing = input.goalDroveSelection === true
+    ? 'and this plan is built around that'
+    : 'and this plan supports that';
+  if (primary) {
+    sentences.push(`You told us what matters most to you right now is ${primary}, ${closing}.`);
   } else if (others.length > 0) {
-    sentences.push(`You told us you want to work on ${joinPhrases(others)}, and this plan is built around that.`);
+    sentences.push(`You told us you want to work on ${joinPhrases(others)}, ${closing}.`);
   }
 
-  // 4. Where the work goes. Body areas only, never a finding and never how
-  //    bad it was judged to be.
-  const areas = (input.bodyAreas ?? []).filter((a) => a.trim() !== '');
+  // 4. Where the work goes. Only the areas her check pointed at that this
+  //    program genuinely works, never a finding and never how bad it was
+  //    judged to be. An empty intersection drops the sentence, which is
+  //    the correct answer to "her check found something and this program
+  //    does not go there".
+  const areas = sayableAreas(input.bodyAreas ?? [], input.programAreas ?? []);
   if (areas.length > 0) {
     sentences.push(
-      `Your last posture check pointed at ${joinPhrases(areas)}, so those get attention in every session.`
+      `Your last posture check pointed at ${joinPhrases(bodyAreaPhrases(areas))}, so ${
+        areas.length === 1 ? 'that gets' : 'those get'
+      } attention in every session.`
     );
   }
 

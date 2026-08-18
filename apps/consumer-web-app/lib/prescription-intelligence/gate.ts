@@ -22,6 +22,23 @@ export type PrescriptionGateResult =
       recommendedAlternative: PrescriptionRecommendedAlternative;
     };
 
+/**
+ * "Is there anything here that means we do not prescribe at all." The two
+ * rules the gate opens with, as one predicate, so a caller outside this
+ * engine can ask the question without reconstructing a PrescriptionFacts
+ * it does not have.
+ *
+ * lib/programs/feedback/safety.ts is that caller: a member reporting pain
+ * on an exercise is the same class of fact as a blocking pain constraint,
+ * and the answer to it is the same answer this file has always given, so
+ * it asks this rather than writing a second pain rule beside it.
+ */
+export function hasBlockingConstraint(constraints: PrescriptionConstraintDraft[]): boolean {
+  return constraints.some(
+    (c) => c.constraintType === 'red_flag' || c.severity === 'blocking'
+  );
+}
+
 export function evaluatePrescriptionGate(
   facts: PrescriptionFacts,
   constraints: PrescriptionConstraintDraft[]

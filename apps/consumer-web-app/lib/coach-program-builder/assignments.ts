@@ -297,6 +297,14 @@ export async function createAssignment(
               // day she was given the program, not whatever a template says
               // afterwards.
               member_reasoning: exercise.member_reasoning,
+              // What the slot was for, frozen with everything else
+              // (migration 177). A member-initiated swap reads the lock
+              // and the criteria off this row, so the rules she is held to
+              // are the rules that were true when her coach approved the
+              // program.
+              movement_pattern: exercise.movement_pattern,
+              is_locked: exercise.is_locked === true,
+              replacement_criteria: exercise.replacement_criteria ?? {},
             };
           })
         );

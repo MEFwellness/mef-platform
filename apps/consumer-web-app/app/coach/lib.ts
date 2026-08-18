@@ -20,6 +20,7 @@ import {
 import { detectInsights, type WellnessInsight } from '@/lib/wellness/insights';
 import { createClient } from '@/lib/supabase/server';
 import { loadProgramAttention } from '@/lib/program-lifecycle/coachAttention';
+import { loadFeedbackAttention } from '@/lib/programs/feedback/attention';
 
 export type ClientTrend = 'up' | 'down' | 'stable';
 
@@ -79,7 +80,12 @@ export async function buildClientSummary(
 
   const insights = detectInsights([...checkins].reverse());
 
-  const attentionReasons: string[] = [];
+  // Program lifecycle (migration 172) and a member's own report about an
+  // exercise (migration 177) both reach the coach through the attention
+  // surface that already exists rather than through a second notification
+  // system. They lead the list because a member who reported pain outranks
+  // a missed check-in.
+  const attentionReasons: string[] = [...extraAttentionReasons];
   if (!todaysCheckin) attentionReasons.push('Missed check-in today');
   if (wellnessIndex && wellnessIndex.score < POOR_INDEX_THRESHOLD) {
     attentionReasons.push('Daily Wellness Index below threshold');
@@ -97,11 +103,6 @@ export async function buildClientSummary(
   if (insights.some((i) => i.key === 'stress' && i.direction === 'declining')) {
     attentionReasons.push('Stress increasing');
   }
-  // Program lifecycle (migration 172) reaches the coach through the
-  // attention surface that already exists rather than through a second
-  // notification system. See lib/program-lifecycle/coachAttention.ts.
-  attentionReasons.push(...extraAttentionReasons);
-
   return {
     profile,
     checkins,
@@ -118,14 +119,23 @@ export async function buildClientSummary(
 }
 
 export async function buildAllClientSummaries(clients: Profile[]): Promise<ClientSummary[]> {
-  const programAttention = await loadProgramAttention(
-    createClient(),
-    clients.map((client) => client.id),
-    new Date().toISOString().slice(0, 10)
-  );
+  const supabase = createClient();
+  const memberIds = clients.map((client) => client.id);
+  // Two batched reads, not two per client. Both land on the same
+  // attentionReasons list rather than each inventing a surface: see
+  // lib/program-lifecycle/coachAttention.ts and
+  // lib/programs/feedback/attention.ts.
+  const [programAttention, feedbackAttention] = await Promise.all([
+    loadProgramAttention(supabase, memberIds, new Date().toISOString().slice(0, 10)),
+    loadFeedbackAttention(supabase, memberIds),
+  ]);
   return Promise.all(
     clients.map((client) =>
-      buildClientSummary(client, programAttention.get(client.id) ?? [])
+      buildClientSummary(client, [
+        // Safety first in the list, because it is read top down.
+        ...(feedbackAttention.get(client.id) ?? []),
+        ...(programAttention.get(client.id) ?? []),
+      ])
     )
   );
 }

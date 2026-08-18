@@ -32,13 +32,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getLatestCompletedPostureAssessment } from '../../corrective-engine/findings';
 import { readGoals } from '../../coach-member-entries/data';
-import { bodyAreasFromFindings } from './bodyAreas';
+import { bodyAreaKeysFromFindings, type BodyAreaKey } from './bodyAreas';
 
 export interface MemberExplanationFacts {
   firstName: string | null;
+  /** The goal option she picked, as stored. Translated into a natural phrase by ./goalPhrases.ts, never printed raw. */
   primaryGoal: string | null;
   goals: string[];
-  bodyAreas: string[];
+  /** Where her last posture check pointed, as area keys. Whether any of them is SAID depends on whether the program works that area: see ./programAreas.ts. */
+  bodyAreas: BodyAreaKey[];
 }
 
 export const EMPTY_MEMBER_FACTS: MemberExplanationFacts = {
@@ -69,6 +71,6 @@ export async function loadMemberExplanationFacts(
     // Her stated goals minus the one already named as most important, so
     // the sentence does not say the same thing twice.
     goals: (latestGoals?.goals ?? []).filter((goal) => goal !== latestGoals?.primaryGoal),
-    bodyAreas: bodyAreasFromFindings(assessment?.findings ?? []),
+    bodyAreas: bodyAreaKeysFromFindings(assessment?.findings ?? []),
   };
 }

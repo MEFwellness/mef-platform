@@ -45,6 +45,7 @@ import {
   updateMyAssignedWorkoutExerciseAction,
 } from '@/app/actions/coach-programs';
 import { AssignedWorkoutGuidedSession } from './AssignedWorkoutGuidedSession';
+import { MemberExerciseControls } from './MemberExerciseControls';
 import {
   memberSafeText,
   memberSessionBlurb,
@@ -228,6 +229,11 @@ function ExerciseRow({
               {memberExerciseLine(exercise)}
             </p>
           )}
+
+          {/* What she used, and a way to say it is not working. The same
+              two controls the walk-through offers, from the same file, so
+              the two screens cannot drift apart about what she may say. */}
+          <MemberExerciseControls exercise={exercise} />
 
           <div className="flex flex-wrap gap-1.5">
             {EXERCISE_STATUS_OPTIONS.map(({ value, label, Icon }) => (

@@ -66,14 +66,29 @@ function patternSummary(draft: CorrectiveProgramDraft): string {
  * a coach fills those in, and a fabricated number would be worse than a
  * blank.
  */
-export function sessionToSections(session: SessionDraft): TemplateContentSectionInput[] {
+export function sessionToSections(
+  session: SessionDraft,
+  /**
+   * The program's own identity, so the member-facing line's opening
+   * sentence varies across the 24 exercises of a program rather than
+   * opening every one of them the same way, and stays identical on every
+   * render of THIS program. The generator's own seed is exactly that: one
+   * value per generated program, already stored on the draft.
+   */
+  variantSeed: string | null = null
+): TemplateContentSectionInput[] {
+  // Position within the whole weekly session, not within its block, so
+  // consecutive exercises differ even across a block boundary.
+  let variantIndex = -1;
   return session.blocks.map((block) => {
     const dose = blockPrescription(block.block, session.severity);
     return {
       name: block.name,
       sectionType: SECTION_TYPE_BY_BLOCK[block.block],
       blockReasoning: block.blockReasoning,
-      exercises: block.exercises.map((exercise) => ({
+      exercises: block.exercises.map((exercise) => {
+        variantIndex += 1;
+        return {
         provider: exercise.provider,
         externalId: exercise.externalId,
         exerciseName: exercise.exerciseName,
@@ -89,6 +104,8 @@ export function sessionToSections(session: SessionDraft): TemplateContentSection
           movementPattern: null,
           isPerSide: false,
           priorityRank: null,
+          variantSeed,
+          variantIndex,
         }),
         sets: dose.sets,
         reps: dose.reps,
@@ -113,7 +130,8 @@ export function sessionToSections(session: SessionDraft): TemplateContentSection
         coaching_cues: exercise.coachingCues,
         pain_modification_notes: null,
         alternate_exercises: {},
-      })),
+        };
+      }),
     };
   });
 }
@@ -188,7 +206,7 @@ export async function saveCorrectiveProgramDraft(
     status: 'pending_coach_review',
     sessions: draft.weeklySessions.map((session) => ({
       templateMeta: sessionTemplateMeta(session, input, programName, programGroupTag, targetMuscles),
-      sections: sessionToSections(session),
+      sections: sessionToSections(session, draft.seed),
     })),
   });
 

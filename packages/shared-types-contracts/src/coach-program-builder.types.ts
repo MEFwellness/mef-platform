@@ -141,6 +141,16 @@ export interface CoachProgramTemplateExercise extends ExercisePrescriptionFields
    * Empty for everything the corrective engine and the builder UI write.
    */
   week_overrides: Record<string, ProgramWeekOverride>;
+  /**
+   * What the blueprint slot this exercise came from was FOR (migration
+   * 177), carried down so a swap can be judged against the row itself.
+   * Null / false / empty on everything the corrective engine writes, which
+   * is what "no recorded pattern, no lock, no extra criteria" has always
+   * meant.
+   */
+  movement_pattern: string | null;
+  is_locked: boolean;
+  replacement_criteria: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -297,7 +307,18 @@ export interface MemberProgramLifecycle {
 }
 
 export type AssignedWorkoutStatus =
-  'not_started' | 'in_progress' | 'completed' | 'skipped' | 'partially_completed';
+  | 'not_started'
+  | 'in_progress'
+  | 'completed'
+  | 'skipped'
+  | 'partially_completed'
+  /**
+   * She reported pain or discomfort on this exercise and it was stopped
+   * (migration 177). Deliberately not a synonym for 'skipped': a skip is
+   * "not today", a stop is "this one hurt and I am not doing it until my
+   * coach has looked at it", and the coach is flagged for the second one.
+   */
+  | 'stopped';
 
 export interface CoachAssignedWorkout {
   id: string;
@@ -365,6 +386,29 @@ export interface CoachAssignedWorkoutExercise extends ExercisePrescriptionFields
   selection_reasoning: string | null;
   /** Frozen copy of the template exercise's member_reasoning (migration 176): why this exercise is here, in her language. What her screen renders under "Why this exercise". */
   member_reasoning: string | null;
+
+  // --- The member's own voice on this occurrence (migration 177) ---
+
+  /** What she says she actually used. Optional, never required to complete anything, and never the same thing as `load` above, which is what her coach prescribed. */
+  logged_load: number | null;
+  logged_load_unit: 'lbs' | 'kg' | null;
+  /** True when the number is per side, which is how she reads it on a unilateral exercise. Stored rather than re-derived so a later reader never has to guess what the number meant. */
+  logged_load_per_side: boolean;
+  logged_load_at: string | null;
+
+  /** When she reported pain on this exercise and it was stopped. */
+  stopped_at: string | null;
+
+  /** What the slot was FOR, frozen with the prescription so a swap is judged against the rules that were true when her coach approved the program. */
+  movement_pattern: string | null;
+  is_locked: boolean;
+  replacement_criteria: Record<string, unknown>;
+
+  /** What was here before she swapped it. The row keeps its own history so one occurrence tells the whole story. */
+  swapped_from_external_id: string | null;
+  swapped_from_exercise_name: string | null;
+  swapped_at: string | null;
+
   created_at: string;
 }
 

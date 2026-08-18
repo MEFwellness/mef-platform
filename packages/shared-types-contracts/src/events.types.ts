@@ -132,10 +132,26 @@ export type ProgramLifecycleEventType =
   | 'program_resumed'
   | 'program_replaced';
 
+/**
+ * The member's voice inside her program (migration 177). Operational, the
+ * same family as the lifecycle types above and for the same reasons: not
+ * product analytics (`is_product_analytics_event_type` is untouched, so
+ * none of these reaches the analytics view) and not health content (the
+ * payload carries a reason key, a week and a count, never her typed words
+ * and never a pain location).
+ */
+export type MemberExerciseVoiceEventType =
+  | 'exercise_weight_logged'
+  | 'exercise_feedback_reported'
+  | 'exercise_stopped_for_pain'
+  | 'exercise_swapped'
+  | 'exercise_progression_flagged';
+
 export type MemberWellnessEventType =
   | MemberWellnessOnlyEventType
   | ProductAnalyticsEventType
-  | ProgramLifecycleEventType;
+  | ProgramLifecycleEventType
+  | MemberExerciseVoiceEventType;
 
 export type MemberWellnessEventSource = 'member' | 'coach' | 'system';
 
@@ -289,7 +305,32 @@ export interface ProgramLifecyclePayload {
   durationWeeks?: string;
 }
 
+/**
+ * What a member-voice event may carry. Every value is a bounded key or a
+ * number written as digits, in the ProgramLifecyclePayload style. There is
+ * deliberately no field for her typed words: those live on
+ * member_exercise_feedback.other_text, where her coach reads them, and an
+ * event stream is not the place for free text.
+ */
+export interface MemberExerciseVoicePayload {
+  /** Which reason she picked, as its key. Never her own words. */
+  reason?: string;
+  /** Which set of rules the report was judged under. */
+  branch?: string;
+  /** What the app did about it. */
+  outcome?: string;
+  /** Which week of the program she was in. Digits, same convention as ProgramLifecyclePayload. */
+  week?: string;
+  /** How many future occurrences a swap rewrote. Digits. */
+  occurrencesUpdated?: string;
+  /** Whether the number logged was per side. */
+  perSide?: string;
+  /** 'lbs' or 'kg'. The number itself is on the exercise row, not here. */
+  unit?: string;
+}
+
 export type MemberWellnessEventPayload =
+  | MemberExerciseVoicePayload
   | ProgramLifecyclePayload
   | HydrationLoggedPayload
   | MovementLoggedPayload

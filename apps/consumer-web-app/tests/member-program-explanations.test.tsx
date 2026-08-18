@@ -51,11 +51,17 @@ import type {
 
 import { serviceRoleClient, signInAs, TEST_USERS } from './setup/test-clients';
 import {
-  FINDING_BODY_AREA,
-  bodyAreasFromFindings,
+  BODY_AREA_PHRASE,
+  FINDING_AREA_KEYS,
+  bodyAreaKeysFromFindings,
+  bodyAreaPhrases,
   equipmentPhrases,
   joinPhrases,
 } from '../lib/programs/explain/bodyAreas';
+import {
+  areasFromCorrectiveTags,
+  areasFromSlots,
+} from '../lib/programs/explain/programAreas';
 import {
   memberExerciseReasoning,
   memberExerciseReasoningForOverride,
@@ -112,9 +118,13 @@ const ALL_PATTERNS = [
 ];
 
 /** Her real goals, in the words the goals screen produces. */
+// The labels lib/coach-member-entries/present.ts really returns, which are
+// WELCOME_GOALS' own labels. Written out rather than paraphrased on
+// purpose: the whole point of ./goalPhrases.ts is that these exact strings
+// never reach a member's paragraph.
 const REAL_GOALS = {
-  primaryGoal: 'Build strength',
-  goals: ['Have more energy', 'Sleep better'],
+  primaryGoal: 'Build strength and fitness',
+  goals: ['Increase energy', 'Sleep better'],
 };
 
 const REAL_FINDINGS: { finding_type: PostureFindingType; severity: FindingSeverity; status: string }[] =
@@ -141,7 +151,17 @@ const BLUEPRINT_INPUT = {
   focus: null,
   primaryGoal: REAL_GOALS.primaryGoal,
   goals: REAL_GOALS.goals,
-  bodyAreas: bodyAreasFromFindings(REAL_FINDINGS),
+  bodyAreas: bodyAreaKeysFromFindings(REAL_FINDINGS),
+  // What this program's own slots actually work, read from their recorded
+  // movement patterns. Deliberately does NOT include her neck: there is no
+  // neck work in a dumbbell strength program, and the sentence must not
+  // claim otherwise.
+  programAreas: areasFromSlots([
+    { block: 'strength' as const, movementPattern: 'squat' },
+    { block: 'strength' as const, movementPattern: 'horizontal_pull' },
+    { block: 'strength' as const, movementPattern: 'vertical_push' },
+    { block: 'core' as const, movementPattern: 'anti_extension' },
+  ]),
   equipment: ['dumbbell'],
   durationWeeks: 4,
   sessionsPerWeek: 3,
@@ -156,7 +176,8 @@ const CORRECTIVE_INPUT = {
   focus: 'your hips, deep core and glutes',
   primaryGoal: REAL_GOALS.primaryGoal,
   goals: REAL_GOALS.goals,
-  bodyAreas: bodyAreasFromFindings(REAL_FINDINGS),
+  bodyAreas: bodyAreaKeysFromFindings(REAL_FINDINGS),
+  programAreas: areasFromCorrectiveTags(['lower_cross']),
   equipment: ['bodyweight', 'foam roller'],
   durationWeeks: 4,
   sessionsPerWeek: 3,
@@ -170,45 +191,52 @@ const CORRECTIVE_INPUT = {
 describe('a posture finding, in her words', () => {
   it('maps every finding type this product can produce, or says nothing at all', () => {
     for (const type of ALL_FINDING_TYPES) {
-      expect(type in FINDING_BODY_AREA, `${type} has no body-area mapping`).toBe(true);
+      expect(type in FINDING_AREA_KEYS, `${type} has no body-area mapping`).toBe(true);
     }
   });
 
   it('never names the finding, never grades it, and never leaks a pattern', () => {
-    for (const [type, area] of Object.entries(FINDING_BODY_AREA)) {
-      if (!area) continue;
-      expect(containsClinicalLanguage(area), `${type} maps to clinical language: ${area}`).toBe(
-        false
-      );
-      expect(area, `${type} maps to its own name`).not.toContain(type.replace(/_/g, ' '));
-      for (const grade of ['mild', 'moderate', 'significant', 'severe']) {
-        expect(area.toLowerCase(), `${type} carries a severity`).not.toContain(grade);
+    for (const [type, keys] of Object.entries(FINDING_AREA_KEYS)) {
+      for (const area of bodyAreaPhrases(keys)) {
+        expect(containsClinicalLanguage(area), `${type} maps to clinical language: ${area}`).toBe(
+          false
+        );
+        expect(area, `${type} maps to its own name`).not.toContain(type.replace(/_/g, ' '));
+        for (const grade of ['mild', 'moderate', 'significant', 'severe']) {
+          expect(area.toLowerCase(), `${type} carries a severity`).not.toContain(grade);
+        }
       }
     }
   });
 
   it('reads only what was actually observed and actually stands', () => {
-    const areas = bodyAreasFromFindings(REAL_FINDINGS);
-    expect(areas).toEqual([
-      'your hips and your deep core',
-      'your neck and upper back',
-      'your shoulders and upper back',
-    ]);
+    const keys = bodyAreaKeysFromFindings(REAL_FINDINGS);
+    // Areas, deduplicated: two findings both pointing at the upper back
+    // name it once, which the old phrase-per-finding shape could not do.
+    expect(keys).toEqual(['hips', 'deep_core', 'neck', 'upper_back', 'shoulders']);
     // 'none' observed nothing, 'unknown' could not tell, 'dismissed' was
     // rejected by a coach, and 'custom' is a coach's own free writing.
-    expect(areas.join(' ')).not.toContain('knees');
-    expect(areas.join(' ')).not.toContain('feet');
-    expect(areas.join(' ')).not.toContain('breathing');
+    expect(keys).not.toContain('knees');
+    expect(keys).not.toContain('feet');
+    expect(keys).not.toContain('breathing');
   });
 
   it('says the same words whatever the severity was', () => {
-    const mild = bodyAreasFromFindings([
+    const mild = bodyAreaKeysFromFindings([
       { finding_type: 'pelvic_tilt', severity: 'mild', status: 'confirmed' },
     ]);
-    const significant = bodyAreasFromFindings([
+    const significant = bodyAreaKeysFromFindings([
       { finding_type: 'pelvic_tilt', severity: 'significant', status: 'confirmed' },
     ]);
     expect(mild).toEqual(significant);
+  });
+
+  it('has a plain phrase for every area key it can produce', () => {
+    for (const keys of Object.values(FINDING_AREA_KEYS)) {
+      for (const key of keys) {
+        expect(BODY_AREA_PHRASE[key], `${key} has no phrase`).toBeTruthy();
+      }
+    }
   });
 
   it('names equipment as a person would own it, and drops what is not an object', () => {
@@ -348,22 +376,41 @@ describe('why this program, composed from what is known', () => {
     expect(sentences[1]).toBe('It works on your hips, deep core and glutes.');
   });
 
-  it('quotes her goal back in her own words and says the plan follows it', () => {
+  it('says her goal the way a person says it, never as the option she tapped', () => {
     const text = composeProgramExplanation(BLUEPRINT_INPUT);
-    expect(text).toContain('what matters most to you right now is Build strength');
+    expect(text).toContain('what matters most to you right now is getting stronger and fitter');
+    // The stored option itself must never appear mid-sentence. This is the
+    // correction the coach asked for after reading the first draft.
+    expect(text).not.toContain('Build strength and fitness');
+  });
+
+  it('says the program SUPPORTS her goal, because nothing here selected on it', () => {
+    const text = composeProgramExplanation(BLUEPRINT_INPUT);
+    expect(text).toContain('this plan supports that');
+    expect(text).not.toContain('built around');
+  });
+
+  it('says built around only where the selection logic really used her goal', () => {
+    const text = composeProgramExplanation({ ...BLUEPRINT_INPUT, goalDroveSelection: true });
     expect(text).toContain('this plan is built around that');
   });
 
   it('falls back to her other goals when she named no single most important one', () => {
     const text = composeProgramExplanation({ ...BLUEPRINT_INPUT, primaryGoal: null });
-    expect(text).toContain('you want to work on Have more energy and Sleep better');
+    expect(text).toContain(
+      'you want to work on having more energy through your day and sleeping better'
+    );
   });
 
   it('says where the work goes without naming a finding or grading one', () => {
     const text = composeProgramExplanation(BLUEPRINT_INPUT);
+    // Her check pointed at five areas. The program works four of them, so
+    // four are named and her neck is not: it is the one place this
+    // program does not go. See lib/programs/explain/programAreas.ts.
     expect(text).toContain(
-      'Your last posture check pointed at your hips and your deep core, your neck and upper back and your shoulders and upper back'
+      'Your last posture check pointed at your hips, your deep core, your upper back and your shoulders, so those get attention in every session'
     );
+    expect(text).not.toContain('your neck');
     for (const forbidden of ['lower-crossed', 'moderate', 'significant', 'mild', 'finding']) {
       expect(text.toLowerCase(), `the paragraph says "${forbidden}"`).not.toContain(forbidden);
     }
@@ -548,6 +595,19 @@ function assignedExercise(
     selection_reasoning:
       "The main corrective work: strengthening this pattern's long, underactive muscles (Lower Cross).",
     member_reasoning: null,
+    // Migration 177's member-voice columns. Null and false everywhere is
+    // what a real row carries until she says something.
+    logged_load: null,
+    logged_load_unit: null,
+    logged_load_per_side: false,
+    logged_load_at: null,
+    stopped_at: null,
+    movement_pattern: null,
+    is_locked: false,
+    replacement_criteria: {},
+    swapped_from_external_id: null,
+    swapped_from_exercise_name: null,
+    swapped_at: null,
     created_at: '2026-08-17T00:00:00Z',
     sets: 2,
     reps: '8',

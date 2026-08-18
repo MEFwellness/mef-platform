@@ -39,6 +39,37 @@ function severityFromFindingSeverity(severity: string | null): PrescriptionConst
   return 'moderate';
 }
 
+/**
+ * A member saying an exercise hurts, as a constraint of the same kind this
+ * file has always produced from a check-in's pain score.
+ *
+ * WHY 'blocking'. The check-in ladder above grades pain 3 out of 5 as high
+ * and 4 out of 5 as blocking, because a number on a scale is a report
+ * about a day. A member stopping mid-session to say THIS MOVEMENT hurts is
+ * not a number about a day, it is a report about one specific thing she
+ * was asked to do, and there is no version of it that should be answered
+ * by handing her a different exercise to try. So it enters at the top of
+ * the ladder and lib/prescription-intelligence/gate.ts's own rule takes it
+ * from there.
+ *
+ * The evidence ref points at the feedback row her coach will read, so the
+ * constraint and her actual words are one click apart and neither is a
+ * copy of the other.
+ */
+export function painConstraintFromExerciseReport(input: {
+  exerciseName: string;
+  feedbackId?: string | null;
+}): PrescriptionConstraintDraft {
+  return {
+    constraintType: 'pain',
+    description: `Member reported pain or discomfort on ${input.exerciseName} during an assigned session.`,
+    severity: 'blocking',
+    evidenceRefs: input.feedbackId
+      ? [{ type: 'member_note', id: input.feedbackId, note: 'exercise_feedback' }]
+      : [],
+  };
+}
+
 export function deriveConstraints(facts: PrescriptionFacts): PrescriptionConstraintDraft[] {
   const constraints: PrescriptionConstraintDraft[] = [];
   const checkin = facts.latestCheckin;

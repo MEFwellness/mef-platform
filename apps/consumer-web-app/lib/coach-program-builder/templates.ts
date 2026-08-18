@@ -65,6 +65,17 @@ export type TemplateContentExerciseInput = ExercisePrescriptionFields & {
    * frozen snapshot by createAssignment, never at read time.
    */
   weekOverrides?: Record<string, ProgramWeekOverride>;
+  /**
+   * What the slot this exercise came from was FOR (migration 177). Carried
+   * down from a blueprint slot so that a member-initiated swap can read the
+   * rules off the row in front of her rather than by walking back to a
+   * blueprint that may have been revised, archived or replaced since. The
+   * corrective path leaves all three at their defaults, which is the state
+   * meaning "no lock, no recorded pattern, no extra criteria".
+   */
+  movementPattern?: string | null;
+  isLocked?: boolean;
+  replacementCriteria?: Record<string, unknown>;
 };
 
 export type TemplateContentSectionInput = {
@@ -353,6 +364,9 @@ export async function replaceTemplateContent(
       member_reasoning: exercise.memberReasoning ?? null,
       is_coach_override: exercise.isCoachOverride ?? false,
       week_overrides: exercise.weekOverrides ?? {},
+      movement_pattern: exercise.movementPattern ?? null,
+      is_locked: exercise.isLocked ?? false,
+      replacement_criteria: exercise.replacementCriteria ?? {},
     }));
   });
 
@@ -482,6 +496,9 @@ export async function duplicateTemplate(
       memberReasoning: exercise.member_reasoning,
       isCoachOverride: exercise.is_coach_override,
       weekOverrides: exercise.week_overrides,
+      movementPattern: exercise.movement_pattern,
+      isLocked: exercise.is_locked,
+      replacementCriteria: exercise.replacement_criteria,
     })),
   }));
 

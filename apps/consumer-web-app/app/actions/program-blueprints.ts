@@ -68,6 +68,7 @@ import {
 } from '@/lib/programs/blueprints/materialize';
 import { materializeProgram } from '@/lib/programs/materialize';
 import { composeProgramExplanation } from '@/lib/programs/explain/programExplanation';
+import { areasFromSlots } from '@/lib/programs/explain/programAreas';
 import { loadMemberExplanationFacts } from '@/lib/programs/explain/memberFacts';
 import { todaysLocalDate } from '@/lib/time/localDate';
 
@@ -382,7 +383,19 @@ export async function getBlueprintPlanAction(
       focus: null,
       primaryGoal: facts.primaryGoal,
       goals: facts.goals,
+      // Nothing selects a named program from a goal: a coach chose it. So
+      // the paragraph says the plan supports her goal, which is true.
+      goalDroveSelection: false,
       bodyAreas: facts.bodyAreas,
+      // A posture area is named only where the program's own slots
+      // genuinely work it. Read off the slots' recorded movement patterns,
+      // never off the program's name.
+      programAreas: areasFromSlots(
+        blueprint.slots.map((slot) => ({
+          block: slot.block,
+          movementPattern: slot.movement_pattern,
+        }))
+      ),
       equipment,
       durationWeeks: blueprint.duration_weeks,
       sessionsPerWeek: blueprint.sessions_per_week ?? sessions.length,

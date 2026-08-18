@@ -20,6 +20,7 @@ Applies to every task unless the user says otherwise.
 
 - An exercise name a member can read describes the MOVEMENT. It never mandates equipment, and it never carries vendor plumbing: no `(L)` / `(R)` side suffixes, no provider ids, no internal variant codes. "Split Squat", not "Split squat (R)"; "Goblet Squat", not "Dumbbell Goblet Squat (R)".
 - Which side she works, and whether she works both, is said by the slot's per-side mark and by the exercise's own instructions, never by its name.
+- **One narrow exception, and only this one:** a variant word describing HOW the movement is performed is acceptable when it is what distinguishes a genuine regression from the movement it regresses. "Bodyweight Split Squat" beside "Split Squat" is correct, because the catalog holds two different exercises and the easier one has to be tellable from the harder one on the screen where she is offered it. The test is whether dropping the word would leave two exercises sharing a name. It never licenses a vendor suffix, a provider id or a variant code, and it is not a way to smuggle equipment back into a name: "Dumbbell Goblet Squat" is still wrong, because a goblet squat is already a loaded movement and nothing is being distinguished.
 - The rule applies wherever a name can reach her: `exercise_catalog`, blueprint slots, program templates, and anything a coach picker can insert. Fix it in the catalog. Never paper over it with a display-only alias, because the alias and the real name then disagree on the next screen.
 
 ## Live-site verification

@@ -13,33 +13,75 @@
  * exercises are in her program, and anything beyond it would be a claim
  * this product cannot make.
  *
- * Null means "nothing can truthfully be said in plain words about this
- * one", and a null is dropped rather than guessed at. `custom` is the
+ * AREAS ARE KEYS NOW, NOT PHRASES, and that is the change this pass made.
+ * A posture sentence may only be said about an area the program GENUINELY
+ * works. "Your last posture check pointed at your neck and upper back, so
+ * those get attention in every session" is false on a program with no neck
+ * work in it, and it was being said anyway, because the old check was "is
+ * there a finding at all" rather than "does this program go there".
+ * Answering the real question needs the finding's areas and the PROGRAM's
+ * areas in one vocabulary, and a phrase like "your hips and your deep core"
+ * is two areas glued together, which cannot be intersected with anything.
+ * So the atom is the key, the phrase is derived from the key, and
+ * ./programAreas.ts answers the other half of the question in the same
+ * keys.
+ *
+ * An empty list means "nothing can truthfully be said in plain words about
+ * this one", and it produces silence rather than a guess. `custom` is the
  * obvious case: a coach-typed observation could say anything at all.
  */
 import type { FindingSeverity, PostureFindingType } from '@mef/shared-types-contracts';
 
-/** Where the work goes, per finding type. Never the finding's own name. */
-export const FINDING_BODY_AREA: Record<PostureFindingType, string | null> = {
-  forward_head: 'your neck and upper back',
-  rounded_shoulders: 'your shoulders and upper back',
-  elevated_shoulder: 'your shoulders',
-  pelvic_tilt: 'your hips and lower back',
-  thoracic_kyphosis: 'your upper back',
-  lumbar_posture: 'your lower back',
-  knee_valgus: 'your knees and hips',
-  foot_turnout: 'your feet and ankles',
-  weight_shift: 'your hips and feet',
-  breathing_pattern: 'your breathing',
-  hip_asymmetry: 'your hips',
-  lateral_trunk_asymmetry: 'your hips and the sides of your trunk',
-  lower_crossed_pattern: 'your hips and your deep core',
-  sagittal_trunk_posture: 'your upper back and trunk',
-  pelvic_drop_screening: 'your hips',
+/** One part of the body, as a key. See this file's header for why. */
+export type BodyAreaKey =
+  | 'neck'
+  | 'upper_back'
+  | 'shoulders'
+  | 'lower_back'
+  | 'hips'
+  | 'deep_core'
+  | 'knees'
+  | 'feet'
+  | 'trunk_sides'
+  | 'breathing';
+
+/** How each area is named to her. Never a muscle, never a joint's clinical name. */
+export const BODY_AREA_PHRASE: Record<BodyAreaKey, string> = {
+  neck: 'your neck',
+  upper_back: 'your upper back',
+  shoulders: 'your shoulders',
+  lower_back: 'your lower back',
+  hips: 'your hips',
+  deep_core: 'your deep core',
+  knees: 'your knees',
+  feet: 'your feet and ankles',
+  trunk_sides: 'the sides of your trunk',
+  breathing: 'your breathing',
+};
+
+export const ALL_BODY_AREA_KEYS = Object.keys(BODY_AREA_PHRASE) as BodyAreaKey[];
+
+/** Where the work goes, per finding type. Never the finding's own name. An empty list says nothing at all. */
+export const FINDING_AREA_KEYS: Record<PostureFindingType, BodyAreaKey[]> = {
+  forward_head: ['neck', 'upper_back'],
+  rounded_shoulders: ['shoulders', 'upper_back'],
+  elevated_shoulder: ['shoulders'],
+  pelvic_tilt: ['hips', 'lower_back'],
+  thoracic_kyphosis: ['upper_back'],
+  lumbar_posture: ['lower_back'],
+  knee_valgus: ['knees', 'hips'],
+  foot_turnout: ['feet'],
+  weight_shift: ['hips', 'feet'],
+  breathing_pattern: ['breathing'],
+  hip_asymmetry: ['hips'],
+  lateral_trunk_asymmetry: ['hips', 'trunk_sides'],
+  lower_crossed_pattern: ['hips', 'deep_core'],
+  sagittal_trunk_posture: ['upper_back', 'trunk_sides'],
+  pelvic_drop_screening: ['hips'],
   // A coach-defined observation. Its text is the coach's own free writing,
   // so there is no plain-language area that can be derived from it, and a
   // guess would be a claim nobody made.
-  custom: null,
+  custom: [],
 };
 
 /**
@@ -61,20 +103,25 @@ export interface BodyAreaFindingInput {
  * The body areas a member's program explanation may mention, deduplicated
  * and in the order the findings came back. Severity decides only WHETHER an
  * area is mentioned, never how it is described: a significant finding and a
- * mild one produce exactly the same words.
+ * mild one produce exactly the same keys.
  */
-export function bodyAreasFromFindings(
+export function bodyAreaKeysFromFindings(
   findings: readonly BodyAreaFindingInput[] | null | undefined
-): string[] {
-  const areas: string[] = [];
+): BodyAreaKey[] {
+  const keys: BodyAreaKey[] = [];
   for (const finding of findings ?? []) {
     if (!READABLE_STATUSES.has(finding.status)) continue;
     if (!OBSERVED_SEVERITIES.has(finding.severity)) continue;
-    const area = FINDING_BODY_AREA[finding.finding_type];
-    if (!area) continue;
-    if (!areas.includes(area)) areas.push(area);
+    for (const key of FINDING_AREA_KEYS[finding.finding_type] ?? []) {
+      if (!keys.includes(key)) keys.push(key);
+    }
   }
-  return areas;
+  return keys;
+}
+
+/** The same areas as the words she reads. */
+export function bodyAreaPhrases(keys: readonly BodyAreaKey[]): string[] {
+  return keys.map((key) => BODY_AREA_PHRASE[key]);
 }
 
 /** "a, b and c". Two items get "and" with no comma, which is how a person says it. */

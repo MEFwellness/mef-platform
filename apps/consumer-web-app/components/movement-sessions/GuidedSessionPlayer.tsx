@@ -95,6 +95,16 @@ export interface GuidedSessionPlayerProps {
   onAdvance?: (exercise: GuidedExercise) => void;
   onSkip?: (exercise: GuidedExercise) => void;
   onDone?: (skippedCount: number) => void;
+  /**
+   * Anything the CALLER wants under the exercise it is walking. A Root
+   * Movement session passes nothing and looks exactly as it always has; a
+   * coach-assigned workout passes the weight field and the "Need another
+   * option?" control, so the walk-through offers a member the same two
+   * things the full list view does. Kept as a slot rather than as props on
+   * this component because this player deliberately knows nothing about
+   * programs, statuses or server actions.
+   */
+  renderExerciseExtras?: (exercise: GuidedExercise) => ReactNode;
 }
 
 /**
@@ -118,6 +128,7 @@ export function GuidedExerciseStage({
   onNext,
   onSkip,
   onLeave,
+  extras,
 }: {
   exercise: GuidedExercise;
   index: number;
@@ -128,6 +139,8 @@ export function GuidedExerciseStage({
   onNext: () => void;
   onSkip: () => void;
   onLeave: () => void;
+  /** Caller-supplied controls under the exercise. See renderExerciseExtras. */
+  extras?: ReactNode;
 }) {
   const isLast = index + 1 === total;
 
@@ -192,6 +205,8 @@ export function GuidedExerciseStage({
               ))}
             </ul>
           )}
+
+          {extras}
         </div>
       </div>
 
@@ -241,6 +256,7 @@ export function GuidedSessionPlayer({
   onAdvance,
   onSkip,
   onDone,
+  renderExerciseExtras,
 }: GuidedSessionPlayerProps) {
   const [phase, setPhase] = useState<'overview' | 'playing' | 'done'>('overview');
   const [index, setIndex] = useState(0);
@@ -316,6 +332,7 @@ export function GuidedSessionPlayer({
         onNext={handleAdvance}
         onSkip={handleSkip}
         onLeave={() => setPhase('overview')}
+        extras={renderExerciseExtras?.(current)}
       />
     );
   }

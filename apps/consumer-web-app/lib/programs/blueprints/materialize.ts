@@ -95,7 +95,9 @@ export function priorityForRank(rank: number): ExercisePrescriptionPriority {
 /** One slot as a template exercise. Slot prescription wins; the dosing table fills the gaps. */
 export function slotToExercise(
   slot: ProgramBlueprintSlot,
-  tier: CorrectiveSeverity = BLUEPRINT_DEFAULT_DOSING_TIER
+  tier: CorrectiveSeverity = BLUEPRINT_DEFAULT_DOSING_TIER,
+  /** The program's identity and this slot's position in its session, so the member-facing line's opening sentence varies across the program and stays identical on every render of it. See lib/programs/explain/exerciseReasoning.ts. */
+  variant: { seed: string | null; index: number } = { seed: null, index: 0 }
 ): TemplateContentExerciseInput | null {
   if (!slot.provider || !slot.external_id || !slot.exercise_name) return null;
 
@@ -168,7 +170,18 @@ export function slotToExercise(
       movementPattern: slot.movement_pattern,
       isPerSide: slot.is_per_side === true,
       priorityRank: slot.priority_rank,
+      variantSeed: variant.seed,
+      variantIndex: variant.index,
     }),
+
+    // What the slot was FOR, carried down so a member-initiated swap can
+    // read it off the row she is looking at rather than by walking back to
+    // a blueprint that may have been revised since (migration 177). A
+    // locked slot is one the program is built around, and a locked
+    // exercise offers her no swap.
+    movementPattern: slot.movement_pattern,
+    isLocked: slot.is_locked === true,
+    replacementCriteria: slot.replacement_criteria ?? {},
 
     weekOverrides: slot.week_overrides ?? {},
   };
@@ -180,11 +193,21 @@ export function sessionSections(
   session: string,
   tier: CorrectiveSeverity = BLUEPRINT_DEFAULT_DOSING_TIER
 ): TemplateContentSectionInput[] {
-  const slots = slotsForSession(blueprint.slots, session);
+  // Filled slots only, and counted BEFORE the loop rather than inside it,
+  // so the position used to vary the member-facing line is identical to
+  // the one lib/programs/blueprints/plan.ts uses for the coach's preview.
+  // A preview that composes different words from the ones that get written
+  // is worse than no preview.
+  const slots = slotsForSession(blueprint.slots, session).filter(
+    (slot) => slot.provider && slot.external_id && slot.exercise_name
+  );
   const sections: TemplateContentSectionInput[] = [];
 
-  for (const slot of slots) {
-    const exercise = slotToExercise(slot, tier);
+  for (const [index, slot] of slots.entries()) {
+    // The blueprint version is the program's identity, so every render of
+    // this version composes the same lines, and a different version varies
+    // differently.
+    const exercise = slotToExercise(slot, tier, { seed: blueprint.id, index });
     if (!exercise) continue;
 
     const name = BLUEPRINT_BLOCK_SECTION_NAME[slot.block];

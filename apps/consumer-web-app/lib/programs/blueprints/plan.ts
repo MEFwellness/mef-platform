@@ -113,7 +113,7 @@ export function planFromBlueprint(
     coachNotes: '',
     exercises: slotsForSession(blueprint.slots, session)
       .filter((slot) => slot.provider && slot.external_id && slot.exercise_name)
-      .map((slot) => {
+      .map((slot, index) => {
         const fallback = blockPrescription(slot.block, tier);
         const statesVolume = slot.reps !== null || slot.hold_duration_seconds !== null;
         return {
@@ -127,11 +127,16 @@ export function planFromBlueprint(
           isLocked: slot.is_locked,
           isPerSide: slot.is_per_side === true,
           purpose: slot.purpose,
+          // Composed with the same seed and the same position the
+          // materializer will use, so the paragraph a coach previews is
+          // the paragraph that gets written.
           memberReasoning: memberExerciseReasoning({
             block: slot.block,
             movementPattern: slot.movement_pattern,
             isPerSide: slot.is_per_side === true,
             priorityRank: slot.priority_rank,
+            variantSeed: blueprint.id,
+            variantIndex: index,
           }),
           isCoachOverride: false,
           prescription: {
@@ -165,8 +170,8 @@ export function planFromTemplates(templates: CoachProgramTemplateWithContent[]):
     templateId: template.id,
     label: `Session ${sessionLetterOf(template.name, index)}`,
     coachNotes: template.coach_notes ?? '',
-    exercises: template.sections.flatMap((section) =>
-      section.exercises.map((exercise) => ({
+    exercises: template.sections.flatMap((section, sectionIndex) =>
+      section.exercises.map((exercise, exerciseIndex) => ({
         key: exercise.id,
         provider: exercise.provider,
         externalId: exercise.external_id,
@@ -174,7 +179,10 @@ export function planFromTemplates(templates: CoachProgramTemplateWithContent[]):
         block: BLOCK_BY_SECTION_TYPE[section.section_type] ?? 'strength',
         slotId: null,
         priorityRank: null,
-        isLocked: false,
+        // A template written from a blueprint carries the slot's lock
+        // (migration 177); a corrective-born one carries false, which is
+        // what it has always meant.
+        isLocked: exercise.is_locked === true,
         isPerSide: exercise.unilateral === true,
         purpose: null,
         // A saved template carries its own line already. Where it does not
@@ -185,9 +193,11 @@ export function planFromTemplates(templates: CoachProgramTemplateWithContent[]):
           exercise.member_reasoning ??
           memberExerciseReasoning({
             block: BLOCK_BY_SECTION_TYPE[section.section_type] ?? 'strength',
-            movementPattern: null,
+            movementPattern: exercise.movement_pattern ?? null,
             isPerSide: exercise.unilateral === true,
             priorityRank: null,
+            variantSeed: template.id,
+            variantIndex: sectionIndex * 10 + exerciseIndex,
           }),
         isCoachOverride: exercise.is_coach_override === true,
         prescription: {

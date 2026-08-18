@@ -27,7 +27,11 @@
 
 import { useState, useTransition } from 'react';
 import { ClipboardList } from 'lucide-react';
-import type { CoachAssignedWorkoutWithContent } from '@mef/shared-types-contracts';
+import type {
+  CoachAssignedWorkoutExercise,
+  CoachAssignedWorkoutWithContent,
+} from '@mef/shared-types-contracts';
+import { MemberExerciseControls } from './MemberExerciseControls';
 import {
   GuidedSessionPlayer,
   type GuidedExercise,
@@ -69,6 +73,15 @@ export function AssignedWorkoutGuidedSession({
 
   const exercises = toGuidedWorkoutExercises(workout, media);
   const byKey = new Map<string, GuidedWorkoutExercise>(exercises.map((e) => [e.key, e]));
+  // The player walks formatted strings and knows nothing about a program.
+  // The member controls need the row itself (its id, whether it is per
+  // side, whether it is locked, what she logged last time), so the two are
+  // looked up from the same key.
+  const rowByKey = new Map<string, CoachAssignedWorkoutExercise>(
+    workout.sections.flatMap((section) =>
+      section.exercises.map((exercise) => [exercise.id, exercise] as const)
+    )
+  );
 
   function record(exercise: GuidedExercise, status: 'completed' | 'skipped') {
     const row = byKey.get(exercise.key);
@@ -126,6 +139,13 @@ export function AssignedWorkoutGuidedSession({
       onAdvance={handleAdvance}
       onSkip={handleSkip}
       onDone={handleDone}
+      // The same two controls the full list view offers, from the same
+      // file. A member walking the session can say what she used and can
+      // ask for a different exercise without leaving the walk.
+      renderExerciseExtras={(guided) => {
+        const row = rowByKey.get(guided.key);
+        return row ? <MemberExerciseControls exercise={row} compact /> : null;
+      }}
       renderDoneActions={(restart) => (
         <>
           <button

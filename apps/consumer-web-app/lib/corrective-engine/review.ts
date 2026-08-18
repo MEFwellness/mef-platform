@@ -130,7 +130,7 @@ export async function regenerateCorrectiveDraftGroup(
     const session = draft.weeklySessions[i];
     if (!template || !session) continue;
 
-    const contentOk = await replaceTemplateContent(supabase, template.id, input.coachId, sessionToSections(session));
+    const contentOk = await replaceTemplateContent(supabase, template.id, input.coachId, sessionToSections(session, seed));
     if (!contentOk) return false;
 
     const newDescription = template.description
