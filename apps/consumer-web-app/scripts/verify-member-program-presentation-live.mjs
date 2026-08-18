@@ -126,6 +126,15 @@ if (!MEMBER_ID) {
   process.exit(2);
 }
 
+// Piping this script's output through `head` closes stdout early, and a
+// write to a closed pipe can kill the process before the restore in the
+// `finally` below has run. That happened once and left a real member's
+// programs in a test state. Swallowing EPIPE means the run always gets to
+// put things back; use `tail` rather than `head` if you want less output.
+process.stdout.on('error', (err) => {
+  if (err.code !== 'EPIPE') throw err;
+});
+
 const db = serviceClient();
 const browser = await chromium.launch();
 let allBefore = [];
