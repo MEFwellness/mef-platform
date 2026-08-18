@@ -112,7 +112,30 @@ export type ProductAnalyticsEventType =
   | 'movement_session_completed'
   | 'movement_exercise_skipped';
 
-export type MemberWellnessEventType = MemberWellnessOnlyEventType | ProductAnalyticsEventType;
+/**
+ * Program lifecycle (migration 172). Operational facts about one assigned
+ * program moving through its weeks, written by the daily movement
+ * lifecycle job and by a coach's own pause/resume/replace.
+ *
+ * Deliberately neither of the two families above. Not health content: the
+ * payload carries a week number, a duration and a status, never an
+ * exercise, a finding, a pain location or a check-in answer. And not
+ * product analytics either — `is_product_analytics_event_type` in the
+ * database was left alone on purpose, so these never reach the product
+ * analytics view and never dilute a funnel with something no member did.
+ */
+export type ProgramLifecycleEventType =
+  | 'program_started'
+  | 'program_week_advanced'
+  | 'program_completed'
+  | 'program_paused'
+  | 'program_resumed'
+  | 'program_replaced';
+
+export type MemberWellnessEventType =
+  | MemberWellnessOnlyEventType
+  | ProductAnalyticsEventType
+  | ProgramLifecycleEventType;
 
 export type MemberWellnessEventSource = 'member' | 'coach' | 'system';
 
@@ -251,7 +274,23 @@ export interface ProductAnalyticsPayload {
   skipCount?: string;
 }
 
+/**
+ * Program lifecycle events (migration 172). Numbers only: which week of
+ * how many, and the two statuses of the transition. Never the program's
+ * name, never an exercise, never anything about why a coach paused or
+ * replaced it. `assignmentId` travels on the event row's own
+ * source_record_id, not here.
+ */
+export interface ProgramLifecyclePayload {
+  fromStatus?: string;
+  toStatus?: string;
+  /** Written as digits, same convention as gradeCount/exerciseCount above. */
+  week?: string;
+  durationWeeks?: string;
+}
+
 export type MemberWellnessEventPayload =
+  | ProgramLifecyclePayload
   | HydrationLoggedPayload
   | MovementLoggedPayload
   | ConcernFlaggedPayload

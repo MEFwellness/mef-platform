@@ -28,11 +28,24 @@ import type {
   CoachProgramTemplateWithContent,
   ExerciseComfortRating,
   ExerciseDifficultyRating,
+  MemberProgramLifecycle,
   ProgramAssignmentSummary,
+  ProgramAssignmentStatus,
   ProgramScheduleConfig,
   ProgramScheduleType,
 } from '@mef/shared-types-contracts';
+import { LIVE_PROGRAM_ASSIGNMENT_STATUSES } from '@mef/shared-types-contracts';
 import { generateScheduledDates } from './scheduling';
+import {
+  DEFAULT_PROGRAM_DURATION_WEEKS,
+  daysBetween,
+  endDateFor,
+  resumedStatus,
+  weekOn,
+} from '../program-lifecycle/transitions';
+
+/** The `corrective-program:<uuid>` tag a corrective program's session templates already share (lib/corrective-engine/save.ts). Reused as the assignment's program_group_key rather than a second grouping identity being invented — see migration 172. */
+const CORRECTIVE_GROUP_TAG_PREFIX = 'corrective-program:';
 
 export type CreateAssignmentInput = {
   memberId: string;
@@ -46,7 +59,60 @@ export type CreateAssignmentInput = {
   publishImmediately: boolean;
   /** Lineage only — set when this assignment materializes an approved Prescription Intelligence Engine snapshot. */
   sourcePrescriptionSnapshotId?: string | null;
+  /** Lifecycle (migration 172). Omit and the program's own schedule decides: the first scheduled date, and `weeks` from the schedule config. */
+  lifecycle?: {
+    startDate?: string;
+    durationWeeks?: number;
+    /** Which assignments are one program. Defaults to the source template's `corrective-program:` tag, then to the assignment's own id. */
+    programGroupKey?: string;
+    /** The member's local date, so a program starting today opens 'active' rather than sitting 'upcoming' until the job runs. */
+    today: string;
+  };
 };
+
+/**
+ * A new assignment's opening lifecycle state, derived from the dates it is
+ * about to be created with. Deliberately not "always upcoming, let the job
+ * fix it": a coach who assigns a program starting today should see it
+ * active immediately, not tomorrow.
+ */
+export function initialLifecycleState(input: {
+  startDate: string;
+  durationWeeks: number;
+  today: string;
+}): { status: ProgramAssignmentStatus; endDate: string; currentWeek: number } {
+  const endDate = endDateFor(input.startDate, input.durationWeeks);
+  const facts = {
+    status: 'upcoming' as ProgramAssignmentStatus,
+    start_date: input.startDate,
+    end_date: endDate,
+    duration_weeks: input.durationWeeks,
+    current_week: 1,
+    paused_days: 0,
+  };
+  if (daysBetween(input.startDate, input.today) < 0) {
+    return { status: 'upcoming', endDate, currentWeek: 1 };
+  }
+  if (daysBetween(endDate, input.today) > 0) {
+    return { status: 'completed', endDate, currentWeek: input.durationWeeks };
+  }
+  return { status: 'active', endDate, currentWeek: weekOn(facts, input.today) };
+}
+
+/** How many weeks a schedule config describes. `weeks` where the config has it (weekly/multiple_weeks), otherwise the span its own dates cover. */
+export function durationWeeksFor(config: ProgramScheduleConfig, dates: string[]): number {
+  if ('weeks' in config && typeof config.weeks === 'number' && config.weeks >= 1) {
+    return Math.min(52, Math.round(config.weeks));
+  }
+  const first = dates[0];
+  const last = dates[dates.length - 1];
+  if (!first || !last) return DEFAULT_PROGRAM_DURATION_WEEKS;
+  return Math.min(52, Math.max(1, Math.ceil((daysBetween(first, last) + 1) / 7)));
+}
+
+function correctiveGroupTagOf(template: CoachProgramTemplateWithContent): string | null {
+  return template.program_tags.find((tag) => tag.startsWith(CORRECTIVE_GROUP_TAG_PREFIX)) ?? null;
+}
 
 /** Creates the assignment container plus one frozen coach_assigned_workouts row (with its own frozen sections/exercises) per generated scheduled date. Returns null if no occurrence dates could be generated from the given schedule. */
 export async function createAssignment(
@@ -55,6 +121,15 @@ export async function createAssignment(
 ): Promise<CoachProgramAssignment | null> {
   const dates = generateScheduledDates(input.scheduleConfig);
   if (dates.length === 0) return null;
+
+  // Lifecycle (migration 172). A program's span is a property of the
+  // program, so it comes from the schedule the coach actually configured —
+  // the first date it generates and its own `weeks` — and only falls back
+  // to a default when the config says nothing.
+  const today = input.lifecycle?.today ?? new Date().toISOString().slice(0, 10);
+  const startDate = input.lifecycle?.startDate ?? dates[0]!;
+  const durationWeeks = input.lifecycle?.durationWeeks ?? durationWeeksFor(input.scheduleConfig, dates);
+  const opening = initialLifecycleState({ startDate, durationWeeks, today });
 
   const { data: assignment, error: assignmentError } = await supabase
     .from('coach_program_assignments')
@@ -69,6 +144,14 @@ export async function createAssignment(
       published_at: input.publishImmediately ? new Date().toISOString() : null,
       assignment_notes: input.assignmentNotes,
       internal_notes: input.internalNotes,
+      status: opening.status,
+      start_date: startDate,
+      end_date: opening.endDate,
+      duration_weeks: durationWeeks,
+      current_week: opening.currentWeek,
+      started_at: opening.status === 'upcoming' ? null : new Date().toISOString(),
+      program_group_key:
+        input.lifecycle?.programGroupKey ?? correctiveGroupTagOf(input.template) ?? null,
     })
     .select('*')
     .single();
@@ -76,6 +159,16 @@ export async function createAssignment(
   if (assignmentError || !assignment) {
     console.error('createAssignment (assignment) failed', assignmentError);
     return null;
+  }
+
+  // An assignment with no group of its own is its own group, so every row
+  // has a key and grouping never has to special-case null.
+  if (!assignment.program_group_key) {
+    await supabase
+      .from('coach_program_assignments')
+      .update({ program_group_key: assignment.id })
+      .eq('id', assignment.id);
+    assignment.program_group_key = assignment.id;
   }
 
   const publishedAt = input.publishImmediately ? new Date().toISOString() : null;
@@ -229,6 +322,257 @@ export async function cancelAssignment(
     return false;
   }
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle transitions (migration 172).
+//
+// Every write to coach_program_assignments.status lives in this file, next
+// to cancelAssignment above, so there is one place that knows what a
+// status change is allowed to touch. NONE of these functions writes to
+// coach_assigned_workouts, coach_assigned_workout_sections or
+// coach_assigned_workout_exercises: a frozen snapshot stays frozen, and
+// saying where a member is in a program never edits what she was given.
+// ---------------------------------------------------------------------------
+
+/** The lifecycle columns a transition reads. Selected explicitly so a transition can never accidentally round-trip content it has no business writing back. */
+export const LIFECYCLE_COLUMNS =
+  'id, member_id, coach_id, status, start_date, end_date, duration_weeks, current_week, paused_days, paused_at, template_name_snapshot, program_group_key, visibility';
+
+export interface AssignmentLifecycleRow {
+  id: string;
+  member_id: string;
+  coach_id: string;
+  status: ProgramAssignmentStatus;
+  start_date: string | null;
+  end_date: string | null;
+  duration_weeks: number | null;
+  current_week: number | null;
+  paused_days: number;
+  paused_at: string | null;
+  template_name_snapshot: string;
+  program_group_key: string | null;
+  visibility: string;
+}
+
+/** Every assignment that can still transition — the daily job's whole working set. Terminal rows are never re-read, which is what keeps a completed program completed. */
+export async function listLiveAssignments(
+  supabase: SupabaseClient
+): Promise<AssignmentLifecycleRow[]> {
+  const { data, error } = await supabase
+    .from('coach_program_assignments')
+    .select(LIFECYCLE_COLUMNS)
+    .in('status', ['upcoming', 'active'])
+    .order('start_date', { ascending: true });
+  if (error) {
+    console.error('listLiveAssignments failed', error);
+    return [];
+  }
+  return (data ?? []) as unknown as AssignmentLifecycleRow[];
+}
+
+export async function getAssignmentLifecycle(
+  supabase: SupabaseClient,
+  assignmentId: string
+): Promise<AssignmentLifecycleRow | null> {
+  const { data, error } = await supabase
+    .from('coach_program_assignments')
+    .select(LIFECYCLE_COLUMNS)
+    .eq('id', assignmentId)
+    .maybeSingle();
+  if (error) {
+    console.error('getAssignmentLifecycle failed', error);
+    return null;
+  }
+  return (data as unknown as AssignmentLifecycleRow) ?? null;
+}
+
+/** Applies one planned transition. Idempotent by construction: the job only calls this when the row's own dates say the row is out of date, so a second run the same day writes nothing. */
+export async function applyLifecycleTransition(
+  supabase: SupabaseClient,
+  assignmentId: string,
+  patch: { status: ProgramAssignmentStatus; currentWeek: number; startedAt?: boolean; completedAt?: boolean }
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const update: Record<string, unknown> = {
+    status: patch.status,
+    current_week: patch.currentWeek,
+    updated_at: now,
+  };
+  if (patch.startedAt) update.started_at = now;
+  if (patch.completedAt) update.completed_at = now;
+
+  const { error } = await supabase
+    .from('coach_program_assignments')
+    .update(update)
+    .eq('id', assignmentId);
+  if (error) {
+    console.error('applyLifecycleTransition failed', error);
+    return false;
+  }
+  return true;
+}
+
+/** Holds a program. Only a live program can be paused; a completed, replaced or cancelled one has nothing to hold. */
+export async function pauseAssignment(
+  supabase: SupabaseClient,
+  assignmentId: string
+): Promise<boolean> {
+  const row = await getAssignmentLifecycle(supabase, assignmentId);
+  if (!row) return false;
+  if (row.status !== 'active' && row.status !== 'upcoming') return false;
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('coach_program_assignments')
+    .update({ status: 'paused', paused_at: now, updated_at: now })
+    .eq('id', assignmentId);
+  if (error) {
+    console.error('pauseAssignment failed', error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Restarts a held program, and gives back the days it was held: paused_days
+ * accumulates them and end_date moves out by the same amount, so four weeks
+ * of program is still four weeks of program. See the header of
+ * lib/program-lifecycle/transitions.ts.
+ */
+export async function resumeAssignment(
+  supabase: SupabaseClient,
+  assignmentId: string,
+  today: string
+): Promise<boolean> {
+  const row = await getAssignmentLifecycle(supabase, assignmentId);
+  if (!row || row.status !== 'paused') return false;
+
+  const heldFrom = row.paused_at ? row.paused_at.slice(0, 10) : today;
+  const heldDays = Math.max(0, daysBetween(heldFrom, today));
+  const pausedDays = (row.paused_days ?? 0) + heldDays;
+  const durationWeeks = row.duration_weeks ?? DEFAULT_PROGRAM_DURATION_WEEKS;
+  const endDate = row.start_date ? endDateFor(row.start_date, durationWeeks, pausedDays) : row.end_date;
+
+  const facts = {
+    status: 'paused' as ProgramAssignmentStatus,
+    start_date: row.start_date,
+    end_date: endDate,
+    duration_weeks: durationWeeks,
+    current_week: row.current_week,
+    paused_days: pausedDays,
+  };
+  const status = resumedStatus(facts, today);
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('coach_program_assignments')
+    .update({
+      status,
+      paused_at: null,
+      paused_days: pausedDays,
+      end_date: endDate,
+      current_week: status === 'upcoming' ? 1 : weekOn(facts, today),
+      resumed_at: now,
+      updated_at: now,
+    })
+    .eq('id', assignmentId);
+  if (error) {
+    console.error('resumeAssignment failed', error);
+    return false;
+  }
+  return true;
+}
+
+/** Supersedes one program with another. Never a delete: the old row keeps its dates, its week and its completion record, and gains a pointer to what took its place. */
+export async function replaceAssignment(
+  supabase: SupabaseClient,
+  oldAssignmentId: string,
+  newAssignmentId: string
+): Promise<boolean> {
+  if (oldAssignmentId === newAssignmentId) return false;
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('coach_program_assignments')
+    .update({
+      status: 'replaced',
+      replaced_at: now,
+      replaced_by_assignment_id: newAssignmentId,
+      updated_at: now,
+    })
+    .eq('id', oldAssignmentId)
+    .in('status', LIVE_PROGRAM_ASSIGNMENT_STATUSES as unknown as string[]);
+  if (error) {
+    console.error('replaceAssignment failed', error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Called after a new program is assigned: every program this member was
+ * already on is marked replaced and pointed at the new one. Excludes the
+ * assignments just created, which matters because a corrective program
+ * arrives as two or three assignments at once and must not replace itself.
+ *
+ * Returns the ids it superseded, so the caller can log one lifecycle event
+ * per real replacement.
+ */
+export async function replacePreviousAssignments(
+  supabase: SupabaseClient,
+  input: { memberId: string; newAssignmentIds: string[]; supersededBy: string }
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('coach_program_assignments')
+    .select('id')
+    .eq('member_id', input.memberId)
+    .in('status', LIVE_PROGRAM_ASSIGNMENT_STATUSES as unknown as string[]);
+  if (error) {
+    console.error('replacePreviousAssignments (read) failed', error);
+    return [];
+  }
+
+  const stale = (data ?? [])
+    .map((row) => row.id as string)
+    .filter((id) => !input.newAssignmentIds.includes(id));
+  if (stale.length === 0) return [];
+
+  const now = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from('coach_program_assignments')
+    .update({
+      status: 'replaced',
+      replaced_at: now,
+      replaced_by_assignment_id: input.supersededBy,
+      updated_at: now,
+    })
+    .in('id', stale);
+  if (updateError) {
+    console.error('replacePreviousAssignments (update) failed', updateError);
+    return [];
+  }
+  return stale;
+}
+
+/**
+ * A member's own view of her programs' lifecycle. Reads
+ * `member_program_lifecycle` (migration 172), not the assignment table:
+ * coach_program_assignments has no member SELECT policy, deliberately,
+ * because it carries internal_notes. The view is the lifecycle columns and
+ * nothing else, so there is no coach-only field here to leak.
+ */
+export async function listMyProgramLifecycles(
+  supabase: SupabaseClient
+): Promise<MemberProgramLifecycle[]> {
+  const { data, error } = await supabase
+    .from('member_program_lifecycle')
+    .select('*')
+    .order('start_date', { ascending: false });
+  if (error) {
+    console.error('listMyProgramLifecycles failed', error);
+    return [];
+  }
+  return (data ?? []) as MemberProgramLifecycle[];
 }
 
 export async function listAssignmentsForMember(

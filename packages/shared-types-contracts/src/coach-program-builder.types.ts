@@ -145,7 +145,48 @@ export type ProgramScheduleConfig =
   | { type: 'repeating'; startDate: string; endDate: string; everyNDays: number };
 
 export type ProgramAssignmentVisibility = 'draft' | 'published';
-export type ProgramAssignmentStatus = 'active' | 'completed' | 'cancelled';
+
+/**
+ * The six states a program really has (migration 172). 'upcoming' and
+ * 'paused' are non-terminal; 'completed', 'replaced' and 'cancelled' are
+ * terminal and a program never leaves them.
+ *
+ * Anything that means "her program right now" must read ACTIVE_PROGRAM_
+ * ASSIGNMENT_STATUSES rather than testing for 'active' by hand — a paused
+ * program is still the program she is on, and a completed one is never
+ * active again.
+ */
+export type ProgramAssignmentStatus =
+  | 'upcoming'
+  | 'active'
+  | 'paused'
+  | 'completed'
+  | 'replaced'
+  | 'cancelled';
+
+/** Statuses a program can still leave. Nothing else ever transitions. */
+export const LIVE_PROGRAM_ASSIGNMENT_STATUSES = [
+  'upcoming',
+  'active',
+  'paused',
+] as const satisfies readonly ProgramAssignmentStatus[];
+
+/** Statuses a program never leaves. */
+export const TERMINAL_PROGRAM_ASSIGNMENT_STATUSES = [
+  'completed',
+  'replaced',
+  'cancelled',
+] as const satisfies readonly ProgramAssignmentStatus[];
+
+/** "The program she is on" — running now, or held by her coach and resumable. Not upcoming, which has not started. */
+export const ACTIVE_PROGRAM_ASSIGNMENT_STATUSES = [
+  'active',
+  'paused',
+] as const satisfies readonly ProgramAssignmentStatus[];
+
+export function isTerminalProgramAssignmentStatus(status: ProgramAssignmentStatus): boolean {
+  return (TERMINAL_PROGRAM_ASSIGNMENT_STATUSES as readonly string[]).includes(status);
+}
 
 export interface CoachProgramAssignment {
   id: string;
@@ -164,6 +205,57 @@ export interface CoachProgramAssignment {
   updated_at: string;
   cancelled_at: string | null;
   cancelled_by: string | null;
+
+  // --- Lifecycle (migration 172) ---
+  /** YYYY-MM-DD the program runs from. */
+  start_date: string | null;
+  /** YYYY-MM-DD the program's last day, inclusive. Always start_date + duration_weeks whole weeks, extended by any days paused. */
+  end_date: string | null;
+  duration_weeks: number | null;
+  /** 1..duration_weeks. Written by the daily lifecycle job, never re-derived at read time. */
+  current_week: number | null;
+  /** Total days spent paused; end_date carries the same extension. */
+  paused_days: number;
+  started_at: string | null;
+  completed_at: string | null;
+  paused_at: string | null;
+  resumed_at: string | null;
+  replaced_at: string | null;
+  /** Lineage — the program that superseded this one. Never deleted, never cascaded away. */
+  replaced_by_assignment_id: string | null;
+  /** Which assignments are one program. A corrective program is one assignment per weekly session; they share this key. */
+  program_group_key: string | null;
+}
+
+/**
+ * The lifecycle columns of a member's own published program, as served by
+ * the `member_program_lifecycle` view (migration 172). Deliberately a
+ * narrower shape than CoachProgramAssignment: assignment_notes and
+ * internal_notes are coach-only and are not in the view's select list at
+ * all.
+ */
+export interface MemberProgramLifecycle {
+  id: string;
+  member_id: string;
+  template_name_snapshot: string;
+  program_group_key: string | null;
+  status: ProgramAssignmentStatus;
+  start_date: string | null;
+  end_date: string | null;
+  duration_weeks: number | null;
+  current_week: number | null;
+  paused_days: number;
+  started_at: string | null;
+  completed_at: string | null;
+  paused_at: string | null;
+  resumed_at: string | null;
+  replaced_at: string | null;
+  replaced_by_assignment_id: string | null;
+  schedule_type: ProgramScheduleType;
+  schedule_config: ProgramScheduleConfig;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export type AssignedWorkoutStatus =

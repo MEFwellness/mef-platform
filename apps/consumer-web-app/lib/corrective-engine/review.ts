@@ -25,6 +25,11 @@ import {
   deleteTemplate,
 } from '../coach-program-builder/templates';
 import { createAssignment } from '../coach-program-builder/assignments';
+import { supersedePreviousPrograms } from '../program-lifecycle/service';
+import {
+  CORRECTIVE_PROGRAM_DURATION_WEEKS,
+  weeklyDayPatternFor,
+} from './approvalDefaults';
 import { getLatestCompletedPostureAssessment } from './findings';
 import { detectCorrectivePatterns } from './patternMapping';
 import { loadCorrectiveExercisePool } from './exercisePool';
@@ -151,22 +156,24 @@ export async function regenerateCorrectiveDraftGroup(
   return true;
 }
 
-/** Mon/Wed/Fri or Mon/Thu — day-of-week indices (0=Sun..6=Sat) each weekly session is assigned to, spread across the week rather than back-to-back. */
-const WEEKLY_DAY_PATTERNS: Record<number, number[]> = {
-  2: [1, 4],
-  3: [1, 3, 5],
-};
-
 export interface ApproveCorrectiveDraftInput {
   coachId: string;
   memberId: string;
   programGroupTag: string;
   /** YYYY-MM-DD the first week's sessions should start from. */
   startDate: string;
+  /** How long the program runs. Defaults to the corrective phase's own four weeks. */
+  durationWeeks?: number | undefined;
+  /** The member's own local date, so a program starting today opens active rather than upcoming. */
+  today: string;
+  /** The member's timezone, for the lifecycle events this approval writes. */
+  timezone: string;
 }
 
 export interface ApprovedCorrectiveProgram {
   assignmentIds: string[];
+  /** The programs this one superseded. Empty when the member was not on anything. */
+  replacedAssignmentIds: string[];
 }
 
 /**
@@ -188,7 +195,8 @@ export async function approveCorrectiveDraftGroup(
   const group = await getCorrectiveDraftGroup(supabase, input.coachId, input.memberId, input.programGroupTag);
   if (!group || group.templates.length === 0) return null;
 
-  const dayPattern = WEEKLY_DAY_PATTERNS[group.templates.length] ?? group.templates.map((_, i) => 1 + (i * 2) % 6);
+  const dayPattern = weeklyDayPatternFor(group.templates.length);
+  const durationWeeks = input.durationWeeks ?? CORRECTIVE_PROGRAM_DURATION_WEEKS;
 
   const assignmentIds: string[] = [];
   for (let i = 0; i < group.templates.length; i++) {
@@ -205,17 +213,37 @@ export async function approveCorrectiveDraftGroup(
         type: 'weekly',
         startDate: input.startDate,
         daysOfWeek: [dayPattern[i] ?? 1],
-        weeks: 4,
+        weeks: durationWeeks,
       },
       assignmentNotes: null,
       internalNotes: null,
       publishImmediately: true,
+      // All the sessions of one corrective program share the program's own
+      // start date and duration, not the date of the first session each
+      // happens to land on — otherwise "Week 2 of 4" would mean a different
+      // week depending on which session she opened. The group tag they
+      // already share becomes their program_group_key.
+      lifecycle: {
+        startDate: input.startDate,
+        durationWeeks,
+        programGroupKey: input.programGroupTag,
+        today: input.today,
+      },
     });
     if (!assignment) return null;
     assignmentIds.push(assignment.id);
   }
 
-  return { assignmentIds };
+  // Whatever she was on before is superseded, with lineage, never deleted.
+  // The whole batch is excluded so the program cannot replace itself.
+  const superseded = await supersedePreviousPrograms(supabase, {
+    memberId: input.memberId,
+    newAssignmentIds: assignmentIds,
+    supersededBy: assignmentIds[0]!,
+    timezone: input.timezone,
+  });
+
+  return { assignmentIds, replacedAssignmentIds: superseded };
 }
 
 /** Deletes every session template in the group — a discarded draft leaves nothing behind (never archived/soft-deleted, since a draft that was never assigned has no history worth keeping). */

@@ -12,6 +12,8 @@ import type { BlueprintKey, CorrectiveSeverity, SessionBlockType } from '@/lib/c
 import { CORRECTIVE_BLUEPRINTS } from '@/lib/corrective-engine/blueprints';
 import { blockPrescription } from '@/lib/corrective-engine/dosing';
 import { readSeverityTag } from '@/lib/corrective-engine/types';
+import { correctiveApprovalDefaults } from '@/lib/corrective-engine/approvalDefaults';
+import { endDateFor } from '@/lib/program-lifecycle/transitions';
 import { formatPrescriptionLine } from '@/lib/coach-program-builder/prescription';
 import {
   saveProgramTemplateContentAction,
@@ -225,13 +227,30 @@ function metaFor(template: CoachProgramTemplateWithContent, coachNotes: string, 
   };
 }
 
-function nextMonday(): string {
+/**
+ * Everything the schedule box opens with, read off the program itself
+ * rather than typed in: the next day of the week the program's own weekday
+ * pattern starts on, the corrective phase's own four weeks, and the end
+ * date those two imply. The coach can change any of them before approving,
+ * and in the common case touches nothing. The same function decides this
+ * on the server (lib/corrective-engine/review.ts), so the screen and the
+ * assignment can never disagree about what the default was.
+ */
+function readableDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  return new Date(year!, month! - 1, day!).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Today, in the coach's own browser. The server recomputes the same defaults in the member's timezone; whatever the coach ends up seeing is what gets submitted, so the two can only ever differ by a day at a date boundary and the field is editable either way. */
+function todayLocal(): string {
   const now = new Date();
-  const day = now.getDay();
-  const offset = day === 1 ? 7 : ((8 - day) % 7) || 7;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + offset);
-  return monday.toISOString().slice(0, 10);
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 export function DraftReviewPanel({
@@ -253,7 +272,15 @@ export function DraftReviewPanel({
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState(nextMonday);
+  const defaults = useMemo(
+    () => correctiveApprovalDefaults(group.templates.length, todayLocal()),
+    [group.templates.length]
+  );
+  const [startDate, setStartDate] = useState(defaults.startDate);
+  const [durationWeeks, setDurationWeeks] = useState(String(defaults.durationWeeks));
+
+  const parsedDuration = Math.min(52, Math.max(1, Number(durationWeeks) || defaults.durationWeeks));
+  const endDate = endDateFor(startDate, parsedDuration);
 
   const severity: CorrectiveSeverity = useMemo(
     () => readSeverityTag(group.templates[0]?.program_tags ?? []),
@@ -424,7 +451,12 @@ export function DraftReviewPanel({
       setBusy(null);
       return;
     }
-    const result = await approveCorrectiveDraftAction(memberId, group.programGroupTag, startDate);
+    const result = await approveCorrectiveDraftAction(
+      memberId,
+      group.programGroupTag,
+      startDate,
+      parsedDuration
+    );
     setBusy(null);
     if ('error' in result) {
       setError(result.error);
@@ -629,14 +661,41 @@ export function DraftReviewPanel({
           {busy === 'regenerate' ? 'Regenerating…' : 'Regenerate (new seed)'}
         </button>
 
-        <div className="mt-5 flex items-center gap-3">
-          <label className="text-xs font-medium text-[#6B7A72]">Start date</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-full border border-[#1B3A2D]/10 bg-white px-3 py-1.5 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
-          />
+        <div className="mt-5 rounded-2xl bg-[#FAFAF8] p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">Schedule</p>
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2">
+              <span className="text-xs font-medium text-[#6B7A72]">Start date</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                aria-label="Program start date"
+                className="rounded-full border border-[#1B3A2D]/10 bg-white px-3 py-1.5 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+              />
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="text-xs font-medium text-[#6B7A72]">Weeks</span>
+              <input
+                type="number"
+                min={1}
+                max={52}
+                inputMode="numeric"
+                value={durationWeeks}
+                onChange={(e) => setDurationWeeks(e.target.value)}
+                aria-label="Program duration in weeks"
+                className="w-20 rounded-full border border-[#1B3A2D]/10 bg-white px-3 py-1.5 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+              />
+            </label>
+          </div>
+          <p className="mt-3 text-sm text-[#1B3A2D]">
+            Runs {readableDate(startDate)} to {readableDate(endDate)}, {parsedDuration} week
+            {parsedDuration === 1 ? '' : 's'}, on{' '}
+            {defaults.daysOfWeek.map((d) => WEEKDAY_LABELS[d]).join(' and ')}.
+          </p>
+          <p className="mt-1 text-xs text-[#6B7A72]">
+            These are filled in for you. Change them if this member needs something different.
+          </p>
         </div>
 
         <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">

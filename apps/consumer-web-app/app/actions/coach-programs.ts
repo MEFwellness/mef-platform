@@ -38,7 +38,16 @@ import {
   updateAssignedWorkoutStatus,
   updateAssignedWorkoutExercise,
   updateAssignedWorkoutCoachNotes,
+  getAssignmentLifecycle,
+  pauseAssignment,
+  resumeAssignment,
+  listMyProgramLifecycles,
 } from '@/lib/coach-program-builder/assignments';
+import { buildMemberProgramViews, type MemberProgramView } from '@/lib/program-lifecycle/memberView';
+import {
+  recordProgramLifecycleEvent,
+  supersedePreviousPrograms,
+} from '@/lib/program-lifecycle/service';
 import { getRecommendedExerciseMetadataForMember } from '@/lib/coach-program-builder/recommendations';
 import { getMovementProfile } from '@/lib/movement-profile/data';
 import { getExercisesByExternalIds } from '@/lib/your-move/catalog';
@@ -256,6 +265,7 @@ export async function assignProgramToClientAction(
     return { error: 'Add at least one exercise to this program before assigning it.' };
   }
 
+  const memberTimezone = await resolveMemberTimezone(context.supabase, clientId);
   const assignment = await createAssignment(context.supabase, {
     memberId: clientId,
     coachId: context.userId,
@@ -265,8 +275,22 @@ export async function assignProgramToClientAction(
     assignmentNotes: input.assignmentNotes.trim() || null,
     internalNotes: input.internalNotes.trim() || null,
     publishImmediately: input.publishImmediately,
+    lifecycle: { today: todaysLocalDate(memberTimezone) },
   });
   if (!assignment) return { error: 'Could not schedule any workouts from this program.' };
+
+  // A member is on one program at a time. Assigning a new one supersedes
+  // whatever she was already on, with lineage, rather than leaving two
+  // programs both claiming to be current. Only when this one is actually
+  // going to reach her: a draft is not yet a program.
+  if (input.publishImmediately) {
+    await supersedePreviousPrograms(context.supabase, {
+      memberId: clientId,
+      newAssignmentIds: [assignment.id],
+      supersededBy: assignment.id,
+      timezone: memberTimezone,
+    });
+  }
 
   if (input.publishImmediately) {
     try {
@@ -322,6 +346,62 @@ export async function cancelProgramAssignmentAction(assignmentId: string): Promi
   return {};
 }
 
+/**
+ * Holds a program where it is. The member's screen says it is paused, the
+ * weeks stop advancing, and nothing about what she was given changes.
+ * Reversible by resumeProgramAssignmentAction below.
+ */
+export async function pauseProgramAssignmentAction(assignmentId: string): Promise<ActionResult> {
+  const context = await resolveUserId();
+  if (!context) return { error: 'Sign in required.' };
+
+  const row = await getAssignmentLifecycle(context.supabase, assignmentId);
+  if (!row) return { error: 'Could not find this program.' };
+
+  const ok = await pauseAssignment(context.supabase, assignmentId);
+  if (!ok) return { error: 'Only a program that is running or about to start can be paused.' };
+
+  await recordProgramLifecycleEvent(context.supabase, {
+    memberId: row.member_id,
+    assignmentId,
+    eventType: 'program_paused',
+    timezone: await resolveMemberTimezone(context.supabase, row.member_id),
+    fromStatus: row.status,
+    toStatus: 'paused',
+    week: row.current_week,
+    durationWeeks: row.duration_weeks,
+  });
+
+  return {};
+}
+
+/** Restarts a held program and gives back the days it was held, so a pause never costs the member part of her program. */
+export async function resumeProgramAssignmentAction(assignmentId: string): Promise<ActionResult> {
+  const context = await resolveUserId();
+  if (!context) return { error: 'Sign in required.' };
+
+  const row = await getAssignmentLifecycle(context.supabase, assignmentId);
+  if (!row) return { error: 'Could not find this program.' };
+
+  const timezone = await resolveMemberTimezone(context.supabase, row.member_id);
+  const ok = await resumeAssignment(context.supabase, assignmentId, todaysLocalDate(timezone));
+  if (!ok) return { error: 'Only a paused program can be resumed.' };
+
+  const after = await getAssignmentLifecycle(context.supabase, assignmentId);
+  await recordProgramLifecycleEvent(context.supabase, {
+    memberId: row.member_id,
+    assignmentId,
+    eventType: 'program_resumed',
+    timezone,
+    fromStatus: 'paused',
+    toStatus: after?.status ?? 'active',
+    week: after?.current_week ?? row.current_week,
+    durationWeeks: row.duration_weeks,
+  });
+
+  return {};
+}
+
 export async function getClientProgramAssignmentSummariesAction(
   clientId: string
 ): Promise<ProgramAssignmentSummary[]> {
@@ -372,6 +452,17 @@ export async function getMyAssignedWorkoutsAction(): Promise<CoachAssignedWorkou
   const context = await resolveUserId();
   if (!context) return [];
   return listAssignedWorkoutsForMember(context.supabase, context.userId);
+}
+
+/** The member's own programs, one view per program rather than one per assignment, each carrying where she is in it. See lib/program-lifecycle/memberView.ts. */
+export async function getMyProgramViewsAction(): Promise<MemberProgramView[]> {
+  const context = await resolveUserId();
+  if (!context) return [];
+  const [lifecycles, workouts] = await Promise.all([
+    listMyProgramLifecycles(context.supabase),
+    listAssignedWorkoutsForMember(context.supabase, context.userId),
+  ]);
+  return buildMemberProgramViews(lifecycles, workouts);
 }
 
 export async function getMyAssignedWorkoutDetailAction(

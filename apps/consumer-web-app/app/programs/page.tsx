@@ -13,7 +13,10 @@ import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
-import { getMyAssignedWorkoutsAction } from '@/app/actions/coach-programs';
+import {
+  getMyAssignedWorkoutsAction,
+  getMyProgramViewsAction,
+} from '@/app/actions/coach-programs';
 import { MemberProgramsList } from '@/components/coach-program-builder/MemberProgramsList';
 
 export default async function MyProgramsPage() {
@@ -24,7 +27,10 @@ export default async function MyProgramsPage() {
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
-  const workouts = await getMyAssignedWorkoutsAction();
+  const [workouts, programs] = await Promise.all([
+    getMyAssignedWorkoutsAction(),
+    getMyProgramViewsAction(),
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -41,12 +47,12 @@ export default async function MyProgramsPage() {
             My Programs
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
-            Workouts your coach has prescribed for you.
+            Where you are in the programs your coach has built for you.
           </p>
         </div>
 
         <div className="mt-7">
-          <MemberProgramsList workouts={workouts} />
+          <MemberProgramsList programs={programs} workouts={workouts} />
         </div>
       </main>
 

@@ -18,6 +18,8 @@ import {
   type WellnessIndexResult,
 } from '@/lib/wellness/wellness-index';
 import { detectInsights, type WellnessInsight } from '@/lib/wellness/insights';
+import { createClient } from '@/lib/supabase/server';
+import { loadProgramAttention } from '@/lib/program-lifecycle/coachAttention';
 
 export type ClientTrend = 'up' | 'down' | 'stable';
 
@@ -50,7 +52,11 @@ function previousLocalDate(localDate: string): string {
 const DROP_THRESHOLD = 15; // points on the 0-100 index scale
 const POOR_INDEX_THRESHOLD = 55; // matches scoreToStatus's 'poor' band boundary
 
-export async function buildClientSummary(profile: Profile): Promise<ClientSummary> {
+export async function buildClientSummary(
+  profile: Profile,
+  /** Program lifecycle reasons for this client, already fetched in one batched read by buildAllClientSummaries. Omitted when a caller builds one summary on its own. */
+  extraAttentionReasons: string[] = []
+): Promise<ClientSummary> {
   const timezone = profile.timezone;
   const todaysLocalDate = await resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
@@ -91,6 +97,10 @@ export async function buildClientSummary(profile: Profile): Promise<ClientSummar
   if (insights.some((i) => i.key === 'stress' && i.direction === 'declining')) {
     attentionReasons.push('Stress increasing');
   }
+  // Program lifecycle (migration 172) reaches the coach through the
+  // attention surface that already exists rather than through a second
+  // notification system. See lib/program-lifecycle/coachAttention.ts.
+  attentionReasons.push(...extraAttentionReasons);
 
   return {
     profile,
@@ -108,5 +118,14 @@ export async function buildClientSummary(profile: Profile): Promise<ClientSummar
 }
 
 export async function buildAllClientSummaries(clients: Profile[]): Promise<ClientSummary[]> {
-  return Promise.all(clients.map((client) => buildClientSummary(client)));
+  const programAttention = await loadProgramAttention(
+    createClient(),
+    clients.map((client) => client.id),
+    new Date().toISOString().slice(0, 10)
+  );
+  return Promise.all(
+    clients.map((client) =>
+      buildClientSummary(client, programAttention.get(client.id) ?? [])
+    )
+  );
 }

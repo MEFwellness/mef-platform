@@ -35,7 +35,20 @@ import {
   discardCorrectiveDraftGroup,
   type CorrectiveDraftGroup,
 } from '@/lib/corrective-engine/review';
+import {
+  correctiveApprovalDefaults,
+  type CorrectiveApprovalDefaults,
+} from '@/lib/corrective-engine/approvalDefaults';
+import { todaysLocalDate } from '@/lib/time/localDate';
 import type { BodyAssessmentFinding } from '@mef/shared-types-contracts';
+
+async function resolveMemberTimezone(
+  supabase: ReturnType<typeof createClient>,
+  memberId: string
+): Promise<string> {
+  const { data } = await supabase.from('profiles').select('timezone').eq('id', memberId).single();
+  return data?.timezone ?? 'America/New_York';
+}
 
 async function resolveCoach(): Promise<{
   supabase: ReturnType<typeof createClient>;
@@ -181,18 +194,36 @@ export async function regenerateCorrectiveDraftAction(
 export async function approveCorrectiveDraftAction(
   memberId: string,
   programGroupTag: string,
-  startDate: string
-): Promise<{ assignmentIds: string[] } | ActionResult> {
+  startDate: string,
+  durationWeeks?: number
+): Promise<{ assignmentIds: string[]; replacedAssignmentIds: string[] } | ActionResult> {
   const context = await resolveCoach();
   if (!context) return { error: 'Sign in required.' };
+
+  const timezone = await resolveMemberTimezone(context.supabase, memberId);
   const result = await approveCorrectiveDraftGroup(context.supabase, {
     coachId: context.coachId,
     memberId,
     programGroupTag,
     startDate,
+    durationWeeks,
+    today: todaysLocalDate(timezone),
+    timezone,
   });
   if (!result) return { error: 'Could not approve and assign this program. Please try again.' };
   return result;
+}
+
+/** What the approve screen pre-fills before a coach touches anything: the next matching weekday, the program's own duration, and the end date the two imply. */
+export async function getCorrectiveApprovalDefaultsAction(
+  memberId: string,
+  sessionCount: number
+): Promise<CorrectiveApprovalDefaults> {
+  const context = await resolveCoach();
+  const timezone = context
+    ? await resolveMemberTimezone(context.supabase, memberId)
+    : 'America/New_York';
+  return correctiveApprovalDefaults(sessionCount, todaysLocalDate(timezone));
 }
 
 export async function discardCorrectiveDraftAction(

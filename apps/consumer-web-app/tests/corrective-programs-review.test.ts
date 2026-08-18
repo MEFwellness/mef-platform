@@ -161,6 +161,8 @@ describe('Corrective Programs — Approve & Assign scopes to one member only', (
       memberId,
       programGroupTag: saved.programGroupTag,
       startDate: '2026-08-03', // a Monday
+      today: '2026-08-03',
+      timezone: 'America/New_York',
     });
     expect(approved).not.toBeNull();
     createdAssignmentIds.push(...approved!.assignmentIds);
