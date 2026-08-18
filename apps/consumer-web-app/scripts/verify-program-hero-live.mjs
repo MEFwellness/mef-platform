@@ -147,6 +147,15 @@ async function shoot(page, name) {
   const main = page.locator('main').first();
   await main.screenshot({ path: file }).catch(() => page.screenshot({ path: file }));
   note(`screenshot: ${file}`);
+
+  // And the card on its own, because <main> on a real member's Home is
+  // several thousand pixels tall and the card is what this pass is about.
+  const card = page.locator('a:has-text("Your program")').first();
+  if ((await card.count()) > 0) {
+    const cardFile = path.join(SHOTS, `${name}--card.png`);
+    await card.screenshot({ path: cardFile }).catch(() => {});
+    note(`screenshot: ${cardFile}`);
+  }
 }
 
 /** Puts the seeded program into one status and reloads Home. */
