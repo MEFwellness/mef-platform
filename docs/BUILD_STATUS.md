@@ -1,3 +1,69 @@
+## A coach reviewed the draft, and the draft became a version (2026-08-18)
+
+Home Dumbbell Foundation v2 is the revision the coach's review asked for. It is a NEW version rather than an edit to v1. Nobody had ever been given v1, so the versioning rule would have allowed editing it in place; it is left exactly as seeded anyway, because v1 is the thing that was reviewed, and a version history whose reviewed draft has been overwritten is not a history. Migration 175, applied to production. v2 is a DRAFT and stays one: approving it is Osei's own act, on his own screen.
+
+### The revision, correction by correction
+
+**The rear lunge stepped on every rep.** v1 used "Dumbbell Rear Lunge", which steps back and returns. The review asked for a stationary version done one leg at a time. The only client-assignable, dumbbell-loaded, genuinely stationary split-stance movement in the catalog is `Split squat (R)`, whose own instructions say to complete every rep on one leg before switching. Its name carries "(R)" because the catalog stores left and right as separate rows and only the right one is dumbbell-loaded. **That is a catalog naming defect and it is left visible**, rather than papered over with a blueprint-only display name: the draft is not approved yet, and whoever approves it should read exactly what a member would. The fix, if Osei wants it, is a catalog rename, not a blueprint change.
+
+**Side Plank is gone.** It was the only intermediate core slot on the program and the hardest hold on it. `Ab Bridge Complex` replaces it: a beginner forearm bridge hold, same job, materially easier to hold well. Flagged as the pick, not asserted as the answer.
+
+**Four repeats became one.** v1 repeated Cat cow pose, Standing forward bend, Glute Bridge and Single Arm Dumbbell Row across the three sessions. Only the row is kept, on purpose: pull volume twice a week is the point of it. Every session now opens differently (Cat cow / Hip flexor stretch / Glute Bridge, then Arm swings / Puppy pose / Prone W to lifts, then Child's pose / Standing forward bend / Fire Hydrant Circles).
+
+**Rebalanced.** Every session is a three exercise opener, then three or four strength movements, then one or two core. 24 slots rather than 26, and ranks 1 to 5 in all three sessions belong to strength and core, so a shortened session drops the opener first rather than the work. The migration asserts each of those rules rather than trusting the author.
+
+**Week 3, recomputed.** Each session's main lift gains a set (Goblet Squat, Floor Chest Press, Romanian Deadlift, 3 to 4) and each session's core hold gets longer (Plank 30 to 40, Ab Bridge Complex 20 to 30, Reverse Plank 20 to 30). No loads anywhere, on any slot: the coach sets those at the first session, which is what the program's own cautions promise.
+
+### Two columns, because two corrections were data and not prose
+
+`movement_program_versions.periodization` (`linear | undulating`, null when unsaid). v2 is `linear`. Nothing reads it: the engine that plans from it is a later prompt. It is recorded now because a blueprint that already carries a week 3 progression has an implied periodization model, and an implied model is the kind two screens end up disagreeing about.
+
+`program_blueprint_slots.is_per_side`. "Marked per side" had no way to be true: it could only be said in the slot's coach-facing prose. It now travels to `coach_program_template_exercises.unilateral`, a column that has existed since migration 82 and that the blueprint path had no way to set. **The shared prescription formatter is untouched**, deliberately, so no program any member already holds changes a word.
+
+### The blueprint library (`/admin/blueprints`)
+
+Every named program with its status, version, duration, sessions a week, equipment and periodization. The detail screen shows every weekly session and every slot: the prescription in the same sentence the member's own screen renders (`formatPrescriptionLine`), the priority rank, the lock, the per side mark, what each week changes, and the slot's coach-facing purpose. Version history is a list, every version readable, nothing ever deleted.
+
+Edit follows the rule and says which half of it applies before you press it: a draft changes in place, an approved version produces version N+1 as a new draft with every slot copied, and the screen follows you to it. An archived version is not editable at all, because reviving one would make an assignment's recorded lineage mean something other than what it meant when it was recorded. Approve has a confirm step that says approving makes it assignable and that a later change becomes a new draft; it refuses outright while any slot is unfilled. Archive and Duplicate are there too. All four are administrator only, checked in the action so a coach gets a sentence rather than a silent no-op, and enforced by RLS underneath so the sentence is not the boundary.
+
+### The unified assign flow (`/coach/assign`)
+
+One door: pick a member, read her overview, choose what to give her. The overview reuses `getMemberCorrectiveOverviewAction` unchanged for findings, detected patterns and waiting drafts, and adds the three things the corrective screen never needed: her stated goals, her most recent readiness answers, and the programs she is already on.
+
+Then two paths from one place. An approved blueprint opens a full preview: schedule pre-filled from the program's own shape (`correctiveApprovalDefaults`, the same function the corrective approve box uses), every week that prescribes something different shown in full, every week that does not collapsed into "Week 1 and every week like it". Any slot the blueprint does not lock can be swapped under that slot's own replacement criteria; a locked slot offers Unlock, per slot, for this member only, which relaxes the lock and nothing else. The full-library override is kept, still flags a coach override, and is still checked against the slot before it is accepted, so the toggle widens the list and never silences the rules.
+
+The corrective path is a LINK to `/coach/corrective-programs/[memberId]`, not a copy of it. The old entry screen, the old dashboard card and the old URLs all still work exactly as coaches know them. This unified where a coach starts. It moved nothing.
+
+**Save as template** turns whatever the coach ended up with, swaps and dosing and all, into a new DRAFT blueprint for an administrator to approve. Nothing about the source program changes and nothing is assigned by doing it.
+
+### One door opened in the write policies
+
+Save as template needs a coach to be able to write a blueprint, and migration 174 gave these tables exactly one write policy each: the administrator's. Migration 175 adds insert-only, drafts-only policies for a coach, with `status = 'draft' and approved_at is null and approved_by is null` in the check, and NO coach update or delete policy of any kind. So a coach can put a proposal on the table and can do nothing else with it, including to her own proposal, once it is written. Proved directly: `tests/program-blueprint-schema.test.ts` asserts a coach's approved-status insert is refused, her draft insert succeeds, and every subsequent approve, archive, rename and delete on her own row changes zero rows.
+
+### One model, two doors (`lib/programs/blueprints/plan.ts`)
+
+Downstream of the choice, a blueprint program and a corrective program are the same thing: preview it, swap something, write a note, assign it. So everything downstream reads one model, and each door has a small pure function that produces it (`planFromBlueprint`, `planFromTemplates`). `previewWeeks` resolves every week from it, `plannedSessionSections` converts it back into the exact input the shared materializer already takes, and `assignMaterializedProgram` (split out of `assignBlueprintToMember`) assigns it. That is what makes the preview a coach reads and the rows that get written agree by construction rather than by inspection.
+
+### Testing
+
+`npm run typecheck` clean in both workspaces. `npm run lint` 0 errors (93 pre-existing `no-console` warnings in `scripts/*`, plus one real `prefer-const` error inherited from the previous prompt's test file, fixed). Full `npm test` on a fresh `supabase db reset`: **416 test files, 6019 tests, all passing.** `npm run build` compiled, with `/admin/blueprints`, `/admin/blueprints/[versionId]`, `/coach/assign`, `/coach/assign/[memberId]` and `/coach/assign/[memberId]/[versionId]` in the output.
+
+New: `tests/program-blueprint-revision.test.ts` (21 tests) proves v1 is intact and v2 is the revision, every revised slot is assignable, each correction landed, the rebalance holds in all three sessions, week 3 was recomputed rather than carried over, and the coach's preview shows week 1 and week 3 and nothing in between. `tests/program-blueprint-assign-flow.test.ts` (18 tests) proves approve and archive belong to the administrator, an assignment from an approved blueprint goes end to end with the progression frozen into the right week and `is_per_side` reaching the frozen row, duplicate copies every slot without touching the source, save as template round trips a coach-edited plan into a draft blueprint, and the swap picker honours locks, assignability, block, equipment, max difficulty and junk in the criteria column. `tests/program-screens-no-video-requests.test.tsx` gained an assertion that none of the nine new staff screens renders a video or references the video-url route.
+
+### Live verification
+
+`scripts/verify-assign-flow-live.mjs` against app.mefwellness.com: **69 of 69.** v2 is on production as a draft with 24 assignable slots and linear periodization; v1 is still there with its original 26. The admin library lists it, the detail screen shows the revised lineup with the per side marks, the locks and week 3, and says in plain words that nobody can be given it yet. v1 is still readable in full, Dumbbell Rear Lunge and Side Plank and all.
+
+Approve and assign mechanics ran entirely against a throwaway duplicate: duplicated through the real screen, approved through the real confirm step, materialized into three UNPUBLISHED draft assignments for the test member, verified (12 frozen occurrences, none published, main lift `{"1":3,"2":3,"3":4,"4":3}`, the row frozen as per side, the member's own session reading zero of them), then discarded, archived and deleted. **Home Dumbbell Foundation v2 was not approved.** End state: one named program on production, v1 and v2 both draft, zero pending templates, the member's six assignments untouched.
+
+As coach: three taps from the coach dashboard to the full preview (Assign a Program, the member, the program), with Approve & Assign as the fourth. Both paths walked, nothing published. No video was played by any screen, staff or member. The member's `/programs`, home and `/movement` screens are byte-for-byte identical before and after.
+
+### Not touched, per scope
+
+Member swaps, weight logging, the client-facing program explanation, readiness-driven session variants and the periodization/progression engine are all later prompts. `eligibility_rules` is still empty on every slot and still read by nothing. The corrective engine's selection logic, its dosing table and its review screens were not changed.
+
+---
+
 ## One engine, two entry points: named program blueprints (2026-08-18)
 
 A corrective program is GENERATED for one member from her own posture findings. A named program is AUTHORED once by MEF and given to many members. Until now only the first existed. Both now arrive at the same place through the same code: `coach_program_templates`, then `coach_program_assignments`, then the frozen `coach_assigned_workouts` a member actually opens. Migration 174, applied to production. Coach-facing plumbing only: nothing a member sees changed, and the one blueprint that exists is a draft nobody can be given.
