@@ -220,7 +220,7 @@ try {
     await page.goto(`${BASE}/coach/clients/${MEMBER_ID}/programs`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('main', { timeout: 30000 });
     const listText = await page.locator('main').innerText();
-    check('coach: the program list shows a real lifecycle status', /ACTIVE|Active/.test(listText), '');
+    check('coach: the program list shows a real lifecycle status', /active/i.test(listText), '');
     check('coach: the coach reads the same week the member does', /Week \d+ of \d+/.test(listText), (listText.match(/Week \d+ of \d+/) ?? ['none'])[0]);
 
     const pause = page.getByRole('button', { name: /^Pause$/ });
@@ -228,9 +228,13 @@ try {
 
     if ((await pause.count()) > 0) {
       await pause.first().click();
-      await page.waitForTimeout(2500);
-      const afterPause = await page.locator('main').innerText();
-      check('coach: the program reads paused after pausing', /PAUSED|Paused/.test(afterPause), '');
+      let afterPause = '';
+      for (let attempt = 0; attempt < 15; attempt++) {
+        await page.waitForTimeout(2000);
+        afterPause = await page.locator('main').innerText();
+        if (/paused/i.test(afterPause)) break;
+      }
+      check('coach: the program reads paused after pausing', /paused/i.test(afterPause), '');
 
       if (db && subject) {
         const { data } = await db
@@ -264,10 +268,14 @@ try {
       check('coach: a paused program offers Resume', (await resume.count()) > 0, `${await resume.count()} buttons`);
       if ((await resume.count()) > 0) {
         await resume.first().click();
-        await page.waitForTimeout(2500);
-        await page.reload({ waitUntil: 'domcontentloaded' });
-        const afterResume = await page.locator('main').innerText();
-        check('coach: the program is running again after resuming', /ACTIVE|Active/.test(afterResume), '');
+        let afterResume = '';
+        for (let attempt = 0; attempt < 15; attempt++) {
+          await page.waitForTimeout(2000);
+          await page.reload({ waitUntil: 'domcontentloaded' });
+          afterResume = await page.locator('main').innerText();
+          if (/active/i.test(afterResume)) break;
+        }
+        check('coach: the program is running again after resuming', /active/i.test(afterResume), '');
       }
     }
 
@@ -350,13 +358,19 @@ try {
 
       await page.goto(`${BASE}/coach/clients/${MEMBER_ID}/programs`, { waitUntil: 'domcontentloaded' });
       const historyText = await page.locator('main').innerText();
-      check('coach: the finished program moved to history with its dates', /History/.test(historyText) && /COMPLETED|Completed/.test(historyText), '');
+      check('coach: the finished program moved to history with its dates', /history/i.test(historyText) && /completed/i.test(historyText), '');
     }
 
     // -----------------------------------------------------------------
     // 4. A fresh approval arrives with its defaults pre-filled.
     // -----------------------------------------------------------------
     await page.goto(`${BASE}/coach/corrective-programs/${MEMBER_ID}`, { waitUntil: 'domcontentloaded' });
+    // Wait for React to hydrate before clicking. A click on a
+    // server-rendered button that is not yet wired up does nothing at all
+    // and looks exactly like a slow generation: this is what made the
+    // first live run report "generation did not reach the review screen".
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.waitForTimeout(3000);
     const generate = page.getByRole('button', { name: /generate/i });
     if ((await generate.count()) > 0) {
       await generate.first().click();

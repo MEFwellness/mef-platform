@@ -7622,3 +7622,68 @@ Deployed: `mef-platform-fjdfl6l87`, Ready, Production, and `app.mefwellness.com`
 - Root Movement still lists its six sessions and still opens on its lineup, and nothing was played there.
 
 **Test data left on production, deliberately, so it can be looked at on a phone.** The standing test member had no completed posture assessment, which is the generator's only input, so one was seeded with a single `lower_crossed_pattern` finding whose narrative reads "TEST DATA seeded 2026-08-17 for the program delivery verification run. Safe to delete." The generated program and its 12 assigned sessions were left in place for the same reason. Both can be removed whenever the owner wants.
+
+## Assignment lifecycle: programs that start, progress, and end (2026-08-17)
+
+`coach_program_assignments` could only ever say active, completed or cancelled. Nothing anywhere set `completed`. The row carried no dates of its own, no week number, and no way to say a program had been held or superseded. A four-week program assigned in July still read `active` in August, and neither the member nor her coach could see which week she was in.
+
+### The shape of a program now
+
+**Migration 172** adds the lifecycle to the assignment: `start_date`, `end_date`, `duration_weeks`, `current_week`, `paused_days`, the lineage pointer `replaced_by_assignment_id`, and `program_group_key`. Status widens to `upcoming | active | paused | completed | replaced | cancelled`, three of which are terminal.
+
+`program_group_key` is the one addition worth explaining. A corrective program is delivered as **one assignment per weekly session**, so without it a member would read "Week 2 of 4" three times and a coach would count three active programs where there is one. It reuses the `corrective-program:<uuid>` tag the source templates already carry rather than inventing a second identity; an ordinary one-off assignment is its own group.
+
+`end_date` always derives from `start_date` plus whole weeks, and `duration_weeks` comes from the program (a corrective phase is four weeks, read from `lib/corrective-engine/approvalDefaults.ts`, never from a constant scattered through the app).
+
+**A pause must not cost a member part of her program.** Resuming adds every day the program was held to `paused_days` and pushes `end_date` out by the same amount, and week arithmetic subtracts `paused_days` from elapsed time. Four weeks of program is four weeks of program however many times it was held.
+
+**Migration 173** was written because 172's own backfill got one thing wrong on production, visibly. It derived each assignment's start from its OWN first scheduled workout, so Session A's first Monday, Session B's first Wednesday and Session C's first Friday gave one program three different four-week spans. 173 normalizes every group onto the earliest of them, which is the date the coach actually chose. `buildMemberProgramViews` and `buildCoachProgramGroups` also derive the span from the whole group, so the screens are right even if the rows ever disagree again.
+
+`member_wellness_events.event_type` widens by six: `program_started`, `program_week_advanced`, `program_completed`, `program_paused`, `program_resumed`, `program_replaced`. Deliberately NOT product analytics: `is_product_analytics_event_type` was left alone, so these never reach the analytics view. The payload carries a week number, a duration and two statuses. Never a program name, never an exercise.
+
+### The daily job
+
+`/api/cron/movement-lifecycle` at 15:30 UTC, the sixth cron job. It starts a program on its start date, advances `current_week` on week boundaries, and completes a program the day after its end date. It logs every transition it makes, per assignment, with the statuses and the week.
+
+**Idempotent by construction, not by a "has this run today" flag.** Every decision is a pure function of the row's own dates and the member's own local date (`lib/program-lifecycle/transitions.ts`), so a second run in the same day finds every row already correct and writes nothing. A program whose whole span passed while the job was down is completed on the next pass rather than left mid-lifecycle. A paused program is inert: it does not advance and it does not complete, because a coach holding a program is the one thing that should stop the clock.
+
+### Manual transitions
+
+Pause, resume, replace and cancel all act on **the whole program**, not on one weekly session. Assigning a new program to a member who already has one marks the old one `replaced` with a pointer to its successor, never a delete, and the whole new batch is excluded so a three-session program cannot replace itself.
+
+### Smart defaults at approval
+
+The approve box opens pre-filled: the next occurrence of the weekday the program's own pattern begins on (read off the pattern rather than a hardcoded "next Monday"), the program's own four weeks, and the end date the two imply, stated as a sentence. Every field is editable, and in the common case the coach touches nothing.
+
+### What each side sees
+
+The member reads "Week 2 of 4" and the date range, or "Starts Monday, August 24", or "Paused. Your coach has put this on hold. It will pick up where you left off.", or "Program complete. Your coach is reviewing your next phase. You finished 9 of 12 sessions." Finished programs move into a visible read-only history with her completion record. She is never looking at a stale active program past its end date.
+
+Because `coach_program_assignments` deliberately has no member SELECT policy (it holds `internal_notes`), she reads a view, `member_program_lifecycle`, of the lifecycle columns only. Same shape `member_exercise_cues` uses, for the same reason: a row policy cannot withhold a column.
+
+The coach reads the same week and the same dates, one card per program with its sessions inside, combined completion, and pause/resume/cancel. Completed and replaced programs sit in History. A finished program flags the coach through the **needs-attention surface that already exists** (`app/coach/lib.ts`'s `attentionReasons`, rendered as the Priority Queue) rather than through a new notification system. It stays quiet once the member is on something again, and never fires for a program that was replaced, because in both cases the coach already decided what came next.
+
+### Frozen snapshots stay frozen
+
+No lifecycle transition writes to `coach_assigned_workouts`, `_sections` or `_exercises`. Proved by a test that captures all three rows, then starts, advances, pauses, resumes, completes and replaces the program, and asserts the three rows are byte-identical afterward.
+
+### Proof
+
+Full suite **5,894 passing** (410 files), 75 of them new across two files. Typecheck clean, lint 0 errors, production build clean.
+
+### Verification (2026-08-17)
+
+Migrations 172 and 173 applied to production. All six live assignments carry dates, a duration and a week; both program groups share one span.
+
+Deployed: `mef-platform-mzi4o514a`, Ready, Production, and `app.mefwellness.com` resolves to it. Repo `MEFwellness/mef-platform`, branch `main`. `/api/cron/movement-lifecycle` answers 401 without the cron secret, so it is live and guarded.
+
+**`scripts/verify-program-lifecycle-live.mjs` reports 31 of 31 against `app.mefwellness.com`, with zero videos played.** The member reads "Week 2 of 4" and "August 10 to September 6" with no em dash anywhere. The coach reads the same week. Pause reaches all three assignments and the member's screen says it is paused and that it will pick up where she left off; resume puts it back. A simulated completion transitions all three, the member sees the completion state and the history entry, and the coach dashboard flags "Program complete, needs review". A fresh draft arrives with the start date pre-filled to Monday 24 August, four weeks, "Runs Monday, August 24 to Sunday, September 20, 4 weeks, on Mon and Wed and Fri."
+
+**The live run found two real bugs, both fixed and redeployed before the passing run.**
+
+1. **Pause acted on one third of a program.** The coach's screen listed each weekly session separately, so Pause paused one of three assignments: the coach screen read "Paused" while the member's screen, correctly, still said the program was running. Pause, resume and cancel now act on the program group, and the coach's list groups by program.
+2. **Migration 172's backfill gave one program three spans**, described above; migration 173 is the fix.
+
+**State the test member's data was left in:** exactly as found. Both corrective programs are `upcoming`, one running 2026-08-19 to 2026-09-15 and one 2026-08-26 to 2026-09-22, both four weeks at week 1, no pauses, no replacements. The script restores in a `finally`, so a crash cannot leave a real member mid-test. The draft it generated to check the defaults was discarded; production holds zero pending drafts. The 14 `program_paused`/`program_resumed` event rows the run produced were removed afterward, since no coach actually paused anything.
+
+**Not covered by this build, per scope:** blueprint tables, member swaps, the client-facing program explanation, and the coach review/outcome workflow (progress vs rotate vs new program) are all Prompt 8. The corrective engine's selection logic and its dosing table were not touched.
