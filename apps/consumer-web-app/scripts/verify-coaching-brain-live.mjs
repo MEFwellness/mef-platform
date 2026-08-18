@@ -74,6 +74,14 @@ if (!MEMBER_ID || !MEMBER_EMAIL || !STAFF_EMAIL) {
   console.error('Set MEMBER_ID, MEMBER_EMAIL and STAFF_EMAIL.');
   process.exit(2);
 }
+// A malformed address does not fail: Supabase's generateLink CREATES the
+// account, and the whole member half of the run then reports honestly on a
+// brand new empty stranger. This run made that mistake once.
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if (!EMAIL_SHAPE.test(MEMBER_EMAIL) || !EMAIL_SHAPE.test(STAFF_EMAIL)) {
+  console.error('MEMBER_EMAIL or STAFF_EMAIL is not a plain email address. Refusing to run.');
+  process.exit(2);
+}
 const db = serviceClient();
 if (!db || !canMintSessions()) {
   console.error('Set PROD_SUPABASE_URL, PROD_SERVICE_KEY_FILE and PROD_ANON_KEY_FILE.');
@@ -332,6 +340,12 @@ try {
   staffMinted = await mintSessionContext(browser, STAFF_EMAIL, { baseUrl: BASE });
   check('staff: session minted', Boolean(staffMinted), staffMinted ? '' : 'could not mint');
   if (!staffMinted) throw new Error('no staff session');
+  check(
+    'staff: the minted session is a real existing account, not one just created',
+    Boolean(staffMinted.session?.user?.created_at) &&
+      Date.parse(staffMinted.session.user.created_at) < Date.now() - 60_000,
+    staffMinted.session?.user?.created_at ?? 'unknown'
+  );
 
   const errors = [];
   const page = await staffMinted.context.newPage();
@@ -542,6 +556,13 @@ try {
     }
   }
   check('member: session minted', Boolean(memberMinted), memberMinted ? '' : 'could not mint after 3 attempts');
+  // And it is HER session, not a stranger's. The check exists because a
+  // mistyped address silently produced a new account rather than an error.
+  check(
+    'member: the minted session belongs to the member under test',
+    memberMinted?.session?.user?.id === MEMBER_ID,
+    `${memberMinted?.session?.user?.id ?? 'none'} vs ${MEMBER_ID}`
+  );
   if (memberMinted) {
     const memberPage = await memberMinted.context.newPage();
     guardVideos(memberPage, errors);
@@ -713,7 +734,8 @@ try {
   await page.waitForTimeout(400);
   await page.locator('textarea').first().fill('Spoke to her, rotating the pattern next phase.');
   await page.getByRole('button', { name: /^Mark reviewed$/ }).first().click();
-  await page.waitForTimeout(2500);
+  await page.waitForSelector(`[data-pain-resolved="${painReport.id}"]`, { timeout: 60000 }).catch(() => {});
+  await page.waitForTimeout(1500);
 
   const { data: resolved } = await db
     .from('member_exercise_feedback')
@@ -761,11 +783,23 @@ try {
     const programsText = await memberPage.locator('main').innerText();
     check('member: her programs screen still renders', programsText.length > 50, `${programsText.length} chars`);
 
-    const workoutLink = memberPage.locator('a[href^="/programs/"]').first();
-    if ((await workoutLink.count()) > 0) {
-      await workoutLink.click();
-      await memberPage.waitForTimeout(2500);
+    // Her programs are all upcoming, so the list screen offers no session
+    // link to click. Open one of her real occurrences directly rather than
+    // silently skipping the check that Prompt 7's surfaces are unchanged.
+    const { data: herWorkouts } = await db
+      .from('coach_assigned_workouts')
+      .select('id')
+      .eq('member_id', MEMBER_ID)
+      .not('published_at', 'is', null)
+      .order('scheduled_date', { ascending: true })
+      .limit(1);
+    const workoutId = herWorkouts?.[0]?.id ?? null;
+    check('member: she has a published session to open', Boolean(workoutId), workoutId ?? 'none');
+    if (workoutId) {
+      await memberPage.goto(`${BASE}/programs/${workoutId}`, { waitUntil: 'domcontentloaded' });
+      await memberPage.waitForTimeout(3000);
       const detailText = await memberPage.locator('main').innerText();
+      check('member: the session opens', detailText.length > 200, `${detailText.length} chars`);
 
       check(
         'member: the weight field is exactly as Prompt 7 left it',

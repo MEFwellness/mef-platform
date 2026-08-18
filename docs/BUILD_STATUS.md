@@ -1,3 +1,63 @@
+## The coaching brain: signals, the end of a phase, and load progression (2026-08-18)
+
+Everything a member said in the previous build had nowhere to go. She could log a weight and no rule read it. She could say an exercise hurt and the only thing that happened was a flag nobody could clear. An exercise could enter her avoidance list and never leave it. A program could reach its last week with no moment at which anybody decided what came next. Migrations 178, 179 and 180, all applied to production.
+
+### How the program is going
+
+One panel per live program on the coach's member view (`/coach/clients/[id]/programs`), and it **leads with sentences rather than charts**. "She has skipped Dead Bug 3 times." "She reported pain on Bird Dog in week 2. This has not been reviewed yet." "She has taken Goblet Squat from 20 to 25 lbs." A coach who reads only the top of the panel has read the important part, which is the test a panel like this has to pass. Everything below it is the detail behind those sentences: completion by week, skips and stops as separate lists, every swap with her reason and her own words, difficulty and comfort counts per week, and her logged weights as one line per exercise ("20 to 22.5 to 25 lbs").
+
+**Two skips is a pattern a coach hears about; three is what stops an exercise being offered.** Those thresholds deliberately disagree (`lib/programs/signals/insights.ts` uses 2, `lib/programs/feedback/reasons.ts` still uses 3), because three skips is a decision made about her program with nobody in the loop and two skips is telling a person. Telling somebody earlier than you act is the right way round.
+
+**A pain report can now be closed.** The coach marks it reviewed with an optional note. That clears the needs-attention flag `lib/programs/feedback/attention.ts` computes from `coach_reviewed_at`, and changes not one word of what she said: reason, branch, outcome and her own text are untouched, and there is no code path that edits them.
+
+**An avoidance entry can now be released.** Written, never deleted: `released_at` and `released_by`, so the history stays readable. The released exercise is offerable again on the next read, because `loadAvoidedExternalIds` has always filtered on `released_at is null`. The list is a property of the MEMBER, not of one program, so it renders under every program she is on and the panel says so rather than leaving a coach to wonder why it appears twice.
+
+### The end of a phase
+
+A review screen per program, openable early, recording that it was opened early rather than pretending the phase was over. The recommendation is stated in a paragraph a coach can argue with, and the numbers it was made from are printed under it so she can check it rather than trust it.
+
+**The ladder is harvested, not invented.** The retired prescription engine's `progression.ts` held one genuinely good thing: an ordered ladder deciding progress / maintain / regress / repeat / deload / substitute from one exercise's history plus today's readiness. That ladder is `lib/programs/review/recommend.ts`, with three changes and no others: it reads a PROGRAM rather than one exercise, its verbs map onto the six locked period-end outcomes, and its readiness rung asks `lib/programs/readiness/gate.ts`, which is the other surviving piece of the same engine. The gate's own `recovery_session` verb turned out to be the review's "Schedule a recovery week" outcome under another name; they lined up because it was the same question all along.
+
+Safety leads, exactly as it does everywhere else in this product: an unreviewed pain report beats a perfect completion rate and beats a blocked readiness gate.
+
+**Every outcome produces a draft and none of them publishes.** Four of the six write an unpublished assignment through the same materializer and the same `assignMaterializedProgram` every other program goes through; `publish: false` is a literal appearing once, in one function, that nothing above it can change. The invariant is enforced three ways: that literal, the database (`coach_assigned_workouts`' `member_read_own` gates on `published_at`), and a test asserting zero published assignments after every outcome. She keeps reading her completion message until the coach presses Approve, which is the only tap in the whole feature that reaches her.
+
+Repeat changes nothing. Progress changes only the loads. Rotate changes only the exercises, never a locked one, judged by the same `lib/programs/blueprints/swap.ts` a coach's picker and a member's own swap both use, and never offering anything on her avoidance list. Recovery is one week built from the Root `recovery_day` session that already exists as data (migration 153), not a second recovery lineup written here.
+
+### Loads
+
+`lib/programs/progression/loadRules.ts` is one set of tables and a little arithmetic over them, in `lib/corrective-engine/dosing.ts`'s own style and meant to be edited by a coach. Two models (linear, undulating), two paces (standard, conservative), two units, and bands by the weight the member is actually working at, because a 5 lb jump on a 15 lb goblet squat is a third more work and a 5 lb jump on a 135 lb deadlift is nothing. Which model applies comes from the blueprint's `periodization` field; a corrective program and a member with an unreviewed pain report are linear and conservative whatever the blueprint says, and that override is a rule rather than a setting.
+
+**A suggestion exists only where she has logged a weight for that exercise.** Not zero, not greyed out, not the prescribed load. Absent, with the panel saying in words that suggestions begin once she logs weights. The rule lives in the library rather than in the three screens that render it, because a rule enforced in three screens is a rule enforced in two.
+
+Pain holds. Too difficult reduces. Too easy increases, and **that is the coach-approved answer to the flag the previous build deliberately left open**: she tells the app, the app tells the coach, the coach decides. A coach's edited number wins over the suggestion, and a cleared field stays cleared rather than quietly coming back as the suggestion on save.
+
+What she eventually reads on an approved next phase is "Your coach set: 25 lbs" beside "Last time: 22.5 lbs". Two different facts, shown as two different facts. It is still optional, still not a floor, and she can type less over it without anything remarking on the difference.
+
+### What is left of the old engine
+
+The four `prescription_*` tables were empty in production and always had been: the engine never produced a single row. Deleted: the generator, its strategy and exercise-selection layers, substitution, approval, its data layer, its confidence scoring, `progression.ts` itself, its server action, its three components, its coach screen, and its row types. `constraints.ts`, `gate.ts` and `facts.ts` moved to `lib/programs/readiness/` and are now read by two live callers. The four tables are left in place in the database; dropping a table is a separate decision from deleting the code that never filled it.
+
+### Three bugs the live run found
+
+**A program group key is not a uuid.** `listAssignmentsForGroup` used `.or(program_group_key.eq.X,id.eq.X)`, and Postgres type-checks every branch of an OR before it filters, so `id.eq.corrective-program:abc` did not match nothing, it failed the whole query with 22P02. The panel would have come back empty for every program that actually has a group.
+
+**A one-week block starting mid-week produced zero sessions.** `generateScheduledDates` lays a weekly pattern over whole calendar weeks and drops occurrences before the start date, so a Tuesday start with a Monday pattern day has no Monday left. A review's draft now starts on the first day its own pattern uses, the same rule `defaultCorrectiveStartDate` already applies.
+
+**A coach pressing Discard deleted nothing and was told it worked**, and this one had two independent causes. `coach_program_assignments` had no coach DELETE policy at all, and PostgREST does not treat a delete matching no policy as an error: it is a successful statement affecting zero rows. That is not new to this build, it is the assign flow's own Discard button too, so a coach discarding a program preview has been leaving an orphaned draft behind since migration 174. Migration 179 adds a narrow policy (her own client, `visibility = 'draft'`, `published_at is null`, all three asserted in the migration), and `discardBlueprintDraft` now reads back what it removed and refuses to claim success when a row it could see survived.
+
+The second cause was better. The review screen creates a review as a side effect of rendering, and a Next.js server action revalidates the route it was called from, so the page re-renders after every action. By then the review read `drafted`, migration 178's index only covered `open`, the re-render found nothing and inserted a SECOND review, and React handed the screen that one. Discard was pointing at an empty review that had never drafted anything. Migration 180 widens the index and the reader to cover open AND drafted, because a drafted review is still the one the coach is working on.
+
+### Live verification
+
+91 of 91 checks against `app.mefwellness.com`, with a seeded signal history on the test member and every row restored to what production already carried. The coach panel told the story in plain words; the review recommended rotating because of an unreviewed pain report and printed the numbers behind it; all six outcomes rendered; Repeat produced three unpublished assignments that the member's own session could not see, and discarding removed all three; the edited weight, not the suggestion, reached the draft rows; releasing an avoidance made the exercise offerable again; resolving the pain report cleared the flag, kept her words and cleared the dashboard reason. Zero videos played. The member's own surfaces from the previous build render exactly as they did, with no coach-set line anywhere, because no coach has approved a number for her.
+
+One mistake worth recording: a psql banner line was glued onto the front of the extracted member email, and `generateLink` **creates** an account for an address that does not exist rather than failing. Three runs reported honestly on a brand-new empty stranger. The account was deleted and the script now refuses to run on anything that is not a plain email address, and asserts the minted session belongs to the member under test.
+
+### Still open
+
+`exercise_catalog` carries **99 names with a vendor side suffix** like "(left)" and "(right)", which CLAUDE.md's naming rule forbids. Migrations 176 and 177 fixed two of them by hand. The remaining 99 are a catalog data pass nobody has scheduled.
+
 ## The member's voice: weight logging, feedback, and safe swaps (2026-08-18)
 
 A member could read her program, walk it, and mark each exercise done or skipped. She could not say what weight she used, could not say an exercise hurt, and had no way to ask for a different one. Everything she might have wanted to say had to be typed into a free-text box her coach would read days later, or not said at all. Migration 177, applied to production.
