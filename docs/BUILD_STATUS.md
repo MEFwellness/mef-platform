@@ -1,3 +1,69 @@
+## Two texts for two readers: what she is told, and what her coach reads (2026-08-18)
+
+A member now reads why she was given her program, and why each exercise is in it, in her own language. Both are composed by rule from things that are already true about her, both are editable by her coach before and after the program starts, and neither can carry a word of coach vocabulary. Migration 176, applied to production. Also here: "Split squat (R)" is now "Split Squat", and CLAUDE.md carries the naming rule that makes that permanent.
+
+### Two columns, because two readers is not one reader twice
+
+The corrective engine writes one sentence per exercise and that sentence is true: "The main corrective work: strengthening this pattern's long, underactive muscles (Lower Cross)". It is written for a coach, `lib/programs/memberPresentation.ts` correctly refuses to put it on a member's phone, and the result since the presentation pass has been a "Why this exercise" heading with nothing under it. Suppressing it was right. Leaving her with nothing was temporary.
+
+So migration 176 adds `member_reasoning` beside `selection_reasoning` on the template exercise and on the frozen assigned one, and `member_explanation` on the assignment container. **Nothing existing was rewritten, reinterpreted or migrated.** Every column added is null on every row that already existed, and the migration asserts that after running. Null is the state that means "assigned before there was an explanation to give", and every screen renders it exactly as it rendered yesterday. Every coach screen still reads `selection_reasoning` and still shows exactly what it showed.
+
+`member_explanation` lives on the container rather than on the frozen workouts because a coach may edit it AFTER assigning: that is one row per weekly session to update, not one per occurrence. It reaches the member through `member_program_lifecycle` (migration 172), recreated with one column added and none removed, and still carrying neither `assignment_notes` nor `internal_notes`.
+
+### Why this program, composed rather than generated
+
+`lib/programs/explain/` is three small pure files and one read.
+
+`programExplanation.ts` builds a paragraph one sentence at a time, and **every sentence is gated on a stored fact**. The program's own name and shape, its author's own member-facing description (used verbatim when it is safe, dropped when it is not, never rewritten), the goal SHE typed in her own words, the body areas her last posture check pointed at, the equipment her program actually needs, where it starts and whether it builds. A fact that is missing produces no sentence rather than a hedged one, which is why a member on her first day gets four true sentences instead of eleven vague ones. There is no model anywhere in this path.
+
+`bodyAreas.ts` is the one that matters. A finding has a type and a severity and a member may meet NEITHER. `lower_crossed_pattern (moderate)` becomes "your hips and your deep core" and nothing else. Severity decides only WHETHER an area is mentioned, never how it is described: a significant finding and a mild one produce identical words. `none` observed nothing, `unknown` could not tell, a dismissed finding was rejected by a coach, and `custom` is a coach's free writing, so all four contribute nothing rather than a guess.
+
+`exerciseReasoning.ts` composes the per-exercise line from the slot's own block, movement pattern, per-side mark and priority rank. Deterministic: the same slot produces the same words every time. A hip hinge reads differently in the mobility block than in the strength block, because it is a hamstring stretch in one and a deadlift in the other. A pattern nobody has written a sentence for falls back to its block rather than producing an empty line, which is the case every corrective-born exercise lands in.
+
+Both entry points use the same composer. A blueprint program has an authored description and passes it; a corrective program has none (the engine's own names a pattern and carries a seed) and passes its body-area focus instead.
+
+### Where the coach edits both
+
+On the assign preview (`/coach/assign/[member]/[version]`), the explanation is a nine-row box above the schedule, pre-filled, and every exercise carries its own two-row box labelled "Why this exercise, as she reads it". On the corrective draft review, the same two boxes in the same words. What is in those boxes when Approve is pressed is what gets written, and the per-exercise line freezes into the snapshot exactly like the prescription does.
+
+Afterwards, on `/coach/clients/[id]/programs`, every program card shows what she is reading and opens into an editor. That write goes to every weekly session of the program at once, because a member who opened Session B must not read a different answer from the one who opened Session A. **It changes what she is TOLD, never what she was PRESCRIBED**: the frozen workouts are not touched by it and cannot be.
+
+### The leak test now has teeth
+
+`containsClinicalLanguage` is run over every sentence this product can compose: every block against every movement pattern, both per-side states, three ranks, and both entry points' full paragraphs. That is not a sample. If a word ever goes wrong it goes wrong in one file, once, and the build fails before anybody reads it. The guard also sits in front of the STORED text on the way out, because a coach can rewrite either box, and a coach's own shorthand is exactly what it is there to stop.
+
+### Video on the staff review screens
+
+The admin blueprint detail, the coach's assign preview and the corrective draft review each render a poster and a play button per exercise, through the same `TapToPlayVideo` every other screen uses. Opening the 24-slot blueprint detail makes ZERO requests; only a tap spends a play. `lib/programs/staffExerciseMedia.ts` exists rather than reusing the member loader for one honest reason: the member's version reads cues from `member_exercise_cues`, a view whose WHERE clause is "an exercise this member is entitled to see", and a coach reviewing a program nobody has been given is entitled to none of them.
+
+### The rename
+
+`Split squat (R)` is now `Split Squat`. The "(R)" was never a coaching instruction: the catalog stores left and right as separate rows and only the right one is dumbbell-loaded, so the suffix was vendor plumbing in a name a member would read. The blueprint slot follows the catalog (it is authored, not a snapshot). The four snapshot and history tables are deliberately untouched, because renaming inside a frozen snapshot changes what a coach approved after she approved it. The migration asserts that no slot anywhere disagrees with the catalog about a name, over the whole table.
+
+`Split squat (L)` is left exactly as it is, per scope, and flagged in the report: it is bodyweight, it is `is_client_assignable`, it is on no blueprint slot and in no assigned program, and the only way it reaches a member is a coach picking it from the full-library override.
+
+### Testing
+
+`npm run typecheck` clean in both workspaces. `npm run lint` 0 errors (93 pre-existing `no-console` warnings in `scripts/*`). Full `npm test` on a fresh `supabase db reset`: **417 test files, 6064 tests, all passing.** `npm run build` compiled.
+
+New: `tests/member-program-explanations.test.tsx` (42 tests) proves composition on both entry points, the leak sweep above, that a coach's edit reaches the frozen snapshot, that the explanation is served through the member's own view, that a program assigned before any of this reads byte-for-byte as it did, and that the rename left no slot disagreeing with the catalog. `tests/program-screens-no-video-requests.test.tsx` gained two: the staff screens still never render a video element, reference the metered route, autoplay or preload, and the three that now offer a player really do offer one.
+
+### Live verification
+
+`scripts/verify-explanations-live.mjs` against app.mefwellness.com: **55 of 55.** Migration 176 is on production having given no existing program an explanation and no frozen exercise a member line. The catalog has exactly one Split Squat, still dumbbell, still client-assignable, and no blueprint slot anywhere disagrees with the catalog about a name.
+
+The admin v2 detail screen reads "Split Squat" with no "(R)" anywhere on it, offers 24 play buttons, and loading the whole screen requested zero videos. One tap played one video and only one. The coach's assign preview composed a 919 character explanation addressed to Ebony by name, quoting her own stated goal and naming her hips and deep core as where the work goes, with no clinical language and no em dash, plus 24 per-exercise lines, all clean and none empty. An edit typed into the box read straight back out.
+
+Approve & Assign was NOT pressed: it publishes to a live member. The persistence check ran on three UNPUBLISHED draft assignments, which carried the coach's edited explanation on all three sessions, a member line on all 24 frozen exercises with `selection_reasoning` still null, and the renamed exercise in the frozen rows. Her own session read zero of them. All three, and their templates, were deleted afterwards.
+
+The post-assignment editor was exercised on a program she is really on: typed through the real coach screen, saved to all three sessions of that program, read back on HER `/programs` screen through a minted member session, then put back to null. End state: her six assignments untouched, zero explanations stored, zero drafts left, and `/programs`, home and `/movement` byte-for-byte identical before and after.
+
+### Not touched, per scope
+
+Member swaps, weight logging, readiness-driven session variants and the periodization/progression engine are all later prompts. `eligibility_rules` is still empty on every slot. The corrective engine's selection logic and its dosing table were not changed, and its coach-facing reasoning is on every coach screen exactly as it was.
+
+---
+
 ## A coach reviewed the draft, and the draft became a version (2026-08-18)
 
 Home Dumbbell Foundation v2 is the revision the coach's review asked for. It is a NEW version rather than an edit to v1. Nobody had ever been given v1, so the versioning rule would have allowed editing it in place; it is left exactly as seeded anyway, because v1 is the thing that was reviewed, and a version history whose reviewed draft has been overwritten is not a history. Migration 175, applied to production. v2 is a DRAFT and stays one: approving it is Osei's own act, on his own screen.
