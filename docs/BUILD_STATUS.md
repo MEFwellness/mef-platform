@@ -8147,3 +8147,86 @@ Every one of those strings is coach vocabulary, so the rule is about language ra
 **State the test member's data was left in:** exactly as found before this pass. Both corrective programs `upcoming`, one 2026-08-19 to 2026-09-15 and one 2026-08-26 to 2026-09-22, both four weeks at week 1, zero paused days, no replacements, no completion timestamps. Zero pending drafts, zero program lifecycle events.
 
 **One thing worth recording, because it is a real hazard.** An intermediate run of this script was piped through `head`, which closes stdout early; the process died on EPIPE before the restore in its `finally` had run, and left the member's programs in a test state until the next run put them back. The script now swallows EPIPE so a run always gets to restore, and the state above was set back by hand and verified.
+
+---
+
+## Member-readable exercise names (2026-08-18)
+
+The isolated naming cleanup flagged in the Prompt 8 review. **Names only.** No engine, no rule, no program, no member flow. Migrations 182 and 183 rename 120 rows in `exercise_catalog` and touch no other table.
+
+### What was wrong
+
+Your Move's catalog ships the vendor's own export artefacts in the `title` field, and `fetch-your-move-catalog.ts` writes `title` straight into `name`. Migration 176 fixed one of them by hand ("Split squat (R)" → "Split Squat") and said in its header that a wider sweep was owed. The sweep found:
+
+| artefact | count | example |
+|---|---|---|
+| side marker `(L)` / `(R)` / `(left)` / `(right)` | 99 | `Calf stretch (left)` |
+| side marker with the bracket never closed | 3 | `Standing Palm-In One-Arm Dumbbell Press (L` |
+| trailing export code | 2 | `Bent Over Two-Arm Long Bar Row - 105` |
+| double space | 2 | `Jumping Ropes  skips` |
+| underscore where an apostrophe belonged | 2 | `Child_s pose -Lower back` |
+| a note the vendor left itself | 1 | `Power Snatch (ISSUE_ back on pick up a bit bend)` |
+| export collision marker | 1 | `Squats to knee(1)` |
+| stray or unclosed bracket | 2 | `Half squat get up )` |
+| vendor typo | 3 | `Singel arm push up (L)`, `Cuads Belt Squat Machine` |
+| name starting lowercase | 7 | `narrow squats chair` |
+| three synonyms joined by dashes | 1 | `Shoulder press - Overhead press - Military press` |
+
+### The rule applied
+
+CLAUDE.md bans the `(L)` / `(R)` form outright and allows a distinguishing word only when "dropping the word would leave two exercises sharing a name". For the split squat there was no second row, so the bare name stood. For 49 pairs here there **is** a second row, with its own video, so the side stays — as English, not as a vendor code:
+
+```
+Calf stretch (left)   ->   Calf Stretch, Left Side
+```
+
+`, Left Side` rather than `Left Calf Stretch` so the pair stays adjacent under a coach's substring search.
+
+Four shapes, all in migration 182's own grouping:
+
+- **pair** (98 rows) — both halves exist; the side is kept in words.
+- **orphan-clean** (1 row) — only one side exists and the bare name is free: `Dumbbell get ups (R)` → `Dumbbell Get Ups`. The Split Squat case.
+- **orphan-collides** (3 rows) — only one side exists but the bare name is already a different row: `Over and under (Left)` → `Over and Under, Left Side`.
+- **junk** (17 rows + 1 in migration 183) — no side involved.
+
+### Not merged, and why
+
+Merging a pair to one row is a **catalog** decision, not a naming one, and `tests/exercise-catalog-no-duplicate-names.test.ts` correctly refuses two rows with the same normalized name. One pair is demonstrably not a clean mirror: `Dumbbell Side Bend (L)` and `(R)` both describe holding the dumbbell in the **right** hand, so the vendor's own L/R labels cannot be trusted. The pairs are listed for Osei's call; nothing here forecloses it.
+
+### Left alone, on purpose
+
+- **Frozen history.** `coach_program_template_exercises`, `coach_assigned_workout_exercises`, `member_exercise_completions`, `member_exercise_recent_views`. Ten of one member's frozen exercise names still read `(L)` / `(R)` and are supposed to: they record what her coach prescribed on the day. Migration 182 checksums all five denormalized name columns before and after and fails if any moved.
+- **`program_blueprint_slots`.** Not one of the 50 slots points at a renamed row, so migration 176's "slot name agrees with catalog name" invariant needed no follow-through. Asserted over the whole table anyway.
+- **`exercise_catalog.slug`.** Vendor plumbing that never reaches a screen; 176 left `split-squat-r` in place and this does the same.
+- **Six near-duplicate rows** whose vendor artefact is the only thing separating them from an existing row (`High Knees v1`, `Heel touches - v2`, `Dumbbell fly - v2`, `Dips on bench 2`, `Bear plank shoulder taps - 30`, `Foward Lunges Bodyweight`). Each needs a dedupe decision.
+- **`Dumbbell Goblet Squat`.** CLAUDE.md names it as a wrong name, but the catalog already holds a separate `Goblet squat` row, so CLAUDE.md's own test says the word is doing work. Also on two blueprint slots.
+- **59 rows with mid-name casing** and no other defect (`Kettlebell swing - American style`). Restyling them is a larger, more opinionated sweep than the one asked for.
+
+### Findability
+
+Search is `ilike '%q%'` on `name` (`searchExerciseCatalog`). Every rename kept the movement words in the same order, so a coach's usual search still matches. The seven where a **word** changed are now entries in `lib/exercise-library/searchAliases.ts`, the alias mechanism that already existed.
+
+### Guards
+
+- `lib/exercise-library/memberReadableNames.ts` — the twelve plumbing patterns, in one place, so migration 182's assertion, the guard test and the live script cannot check three different rules. One documented exemption, keyed by `external_id`.
+- `tests/exercise-catalog-member-readable-names.test.ts` — 8 tests: no assignable name carries plumbing, the renamed names are the ones in the catalog, aliases resolve and land, every exemption still needs itself, every pattern still catches its own real example, and a plumbing-named row inserted into the real catalog is caught by the same scan.
+
+### Verification (2026-08-18)
+
+**Production database, after applying 182 and 183:** 861 rows and 824 assignable, unchanged. 0 assignable names carrying plumbing (excluding the one documented exemption). 0 duplicate-name groups. 0 blueprint-slot name drift. Frozen snapshots still carry their own 3 and 10 side-named rows, untouched. Both migrations dry-ran against production inside a rolled-back transaction before being applied.
+
+**Full suite: 420 files, 6210 tests, all green. Typecheck clean, lint 0 errors, production build clean.**
+
+**`scripts/verify-member-readable-names-live.mjs` reports 18 of 18 with zero videos played** — against the real app on a local dev server, over a database carrying the same migrations, because **the signed-in production run could not be made this session**: the Supabase CLI is not authenticated here, so the production service-role key needed to mint a session was not obtainable, and Turnstile blocks scripted form sign-in by design. What ran locally, and what still needs a signed-in production pass:
+
+| check | ran | result |
+|---|---|---|
+| coach picker returns both sides of "calf stretch", as English | local | `Calf Stretch, Left Side` / `Calf Stretch, Right Side` |
+| the never-closed bracket is gone | local | `Standing Palm-In One-Arm Dumbbell Press, Left/Right Side` |
+| the old typo still finds it, through the alias layer | local | `Single Arm Push Up, Left/Right Side` |
+| a 824-name sweep of the picker carries no plumbing | local | clean |
+| Root Movement session renders cleaned names | local | `Figure Four Stretch, Left Side` and five more |
+| no `(L)` / `(R)` anywhere on a member screen | local | clean |
+| videos played | local | 0 |
+
+Production's own catalog was verified directly at the database instead, which is where the names actually live: the screens read them at request time, so no deploy was needed for the renames to take effect.
