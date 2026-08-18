@@ -8230,3 +8230,7 @@ Search is `ilike '%q%'` on `name` (`searchExerciseCatalog`). Every rename kept t
 | videos played | local | 0 |
 
 Production's own catalog was verified directly at the database instead, which is where the names actually live: the screens read them at request time, so no deploy was needed for the renames to take effect.
+
+**Deploy state at hand-off.** Commit `a9cca9e` is on `origin/main` (`MEFwellness/mef-platform`, branch `main`, Vercel project `mef-wellness/mef-platform`). Twenty minutes after the push, Vercel's GitHub integration had **not** produced a deployment for it: the newest Production deployment is still `mef-platform-mjcc6z73o`, built from the previous commit, and `app.mefwellness.com` resolves to it. Every earlier commit deployed within seconds, so this is a stalled webhook rather than a build failure, and no manual `vercel --prod` was forced from a local working tree.
+
+Nothing member-facing is waiting on it. The renames live in the database, which every screen reads at request time, so they are already live on `app.mefwellness.com`. The only code in this commit that changes runtime behaviour is the seven entries added to `searchAliases.ts`, which affect the coach picker's handling of a coach who types an old, misspelled name in full.
