@@ -1,3 +1,85 @@
+## The member's voice: weight logging, feedback, and safe swaps (2026-08-18)
+
+A member could read her program, walk it, and mark each exercise done or skipped. She could not say what weight she used, could not say an exercise hurt, and had no way to ask for a different one. Everything she might have wanted to say had to be typed into a free-text box her coach would read days later, or not said at all. Migration 177, applied to production.
+
+### Three things that needed three different answers
+
+**What she lifted** goes on the frozen exercise row, beside the completion state that has been mutable there since migration 82. One row per exercise per session occurrence is already how that table is shaped, and `coach_assigned_workouts.program_week` already says which week each row is, so **that IS the progression history**. A second table holding the same fact was not added, and would have meant two records that could disagree.
+
+Which exercises get a field is read off the prescription's own shape (`lib/programs/weightLogging.ts`), never off a list of names: a prescription that states reps takes one, a hold or a timed exercise takes none at all. Not a disabled field, none. A bodyweight strength movement gets one anyway, because plenty of people hold a dumbbell across their hips for a glute bridge. It is optional everywhere, it saves on blur, it prefills from her most recent number for that exercise and **says so** ("Last time: 25 lbs per side") rather than pretending she already logged today. One line under it, in the coach's own words: "Log the weight you used. It helps your coach and the app plan your next weeks just right for you."
+
+**Pain is answered by stopping.** No replacement is offered, on any code path. Handing a member a different exercise the moment she reports pain is the app deciding the pain was about the exercise, and that is not a call this product can make. The exercise gets `status = 'stopped'` (its own status, deliberately not `skipped`: a skip is "not today", a stop is "this hurt and I am not doing it until you have looked at it"), she reads one warm sentence, her coach is flagged on the needs-attention surface that already exists, the report lands in her record with her own words, and the exercise enters her avoidance history immediately.
+
+**The pain rule is harvested, not rebuilt.** `lib/prescription-intelligence/constraints.ts` gained `painConstraintFromExerciseReport`, which enters that file's existing pain ladder at `blocking`, and `gate.ts` gained `hasBlockingConstraint`, the predicate its own second branch already used. `lib/programs/feedback/safety.ts` calls both. There is no second pain rule anywhere: if it ever changes, it changes in the place that already owns it.
+
+The "Other" box is free text, and it is read for **exactly one thing**: whether it belongs to the pain family, so "my knee is killing me" reaches the safety branch rather than a list of alternatives. "uncomfortable" is deliberately absent from that list and "discomfort" is deliberately in it, because the sheet already offers "Not comfortable doing it" as a preference.
+
+**Too easy offers nothing either.** Progression is her coach's decision, and an app that answers "that was easy" with a harder movement has just prescribed. It is logged, her coach is flagged, and she is told warmly that he will look at her progression.
+
+### Everything else gets two or three options, and never a library
+
+No search box, no browse, no "show everything", no count of what exists. At most three named exercises with one plain sentence each, or a message saying why there are none.
+
+The rules can only ever remove a candidate. Locked offers nothing at all (and the sheet **says** "Your coach chose this one specifically" rather than hiding the control, because a control that vanishes reads as a bug). Everything offered is client assignable and is not what she already has. Nothing in her avoidance history is ever offered, on any branch, for any reason. The slot's own replacement criteria still apply, through the same `lib/programs/blueprints/swap.ts` a coach's own picker uses: one set of rules, two callers.
+
+**Too difficult narrows to genuine regressions only**: the same movement done without the load, or a graded-easier one, or the load taken off. Anything graded harder is vetoed whatever else is true about it. Bodyweight Split Squat comes out on top for Split Squat by construction, because a bodyweight version of the same movement family ranks first.
+
+**A swap rewrites the future and leaves the past exactly as it was.** This occurrence plus every occurrence of that exercise in this program group scheduled today or later and not already done. A session she finished keeps the exercise she actually did. Another program she is on is not touched. **The prescription is untouched**: sets, reps, hold, tempo, rest and the per-side mark all stay as her coach wrote them, because the slot's job did not change, which is the entire reason the swap was allowed.
+
+**A swap is recomputed server side before it is applied.** The client sends an id; the server recomputes the offers and refuses anything that was not on them. A member who edits a request gets the same answer she would have got by tapping.
+
+### The slot's rules had to travel
+
+A blueprint slot knows whether it is locked, what movement pattern it holds and what it will take instead. A frozen assigned exercise knew none of it. So `movement_pattern`, `is_locked` and `replacement_criteria` now travel slot to template exercise to frozen exercise, the same path `member_reasoning` takes, and a member's swap is judged against **the rules that were true when her coach approved the program**, not against a blueprint that may have been revised, archived or replaced since.
+
+### Two tables, and no new events table
+
+`member_exercise_feedback` is one row per report: the reason, her own words, the branch the rules took, what happened, and the swap it produced. `member_exercise_avoidance` is the short do-not-offer list with its source, and a `released_at` so a coach lets an exercise back in rather than deleting the history. Both are written from exactly one file (`lib/programs/feedback/data.ts`) so they cannot drift.
+
+`member_wellness_events.event_type` widens by five (`exercise_weight_logged`, `exercise_feedback_reported`, `exercise_stopped_for_pain`, `exercise_swapped`, `exercise_progression_flagged`), per the rule that table has followed since migration 63. Operational, not product analytics: `is_product_analytics_event_type` is untouched. The payload carries a reason key, a branch, an outcome, a week and a count. **Never her typed words**: those live on the feedback row where her coach reads them.
+
+### The coach's three voice corrections
+
+**Her goal is said the way a person says it.** `lib/programs/explain/goalPhrases.ts` maps every option the goals screen offers, and a value with no phrase produces no sentence, so raw option text can never reach the paragraph. Her real stored goal now reads "losing weight and improving how your body feels and moves" instead of "Lose weight or improve body composition", which is the example the coach named.
+
+**The program supports her goal.** It said "built around", and nothing in this product selects a program from a goal: a corrective program comes from posture findings and a named program is chosen by her coach. "Built around" is still available behind `goalDroveSelection`, for the day something really does select on it, and it is false everywhere today.
+
+**A posture area is named only where the program works it.** The old check was "is there a finding"; the real question is "does this program go there". Body areas became KEYS rather than glued-together phrases (`bodyAreas.ts`), a second file answers the same question about the program (`programAreas.ts`, from an authored program's own recorded movement patterns or from a generated program's own corrective blueprint), and the sentence names the intersection. An empty intersection drops the sentence entirely.
+
+**The 24 lines stopped all starting "This one".** Each block has four sentence patterns, and which one an exercise gets is a hash of the program's identity plus its position. Deterministic (a coach's preview, the frozen snapshot and her screen months later all compose the same words) and varied within one program (consecutive exercises can never land on the same pattern). The materializer and the preview were made to count positions identically, so what a coach reads is what gets written.
+
+### The rename
+
+`Split squat (L)` is now **Bodyweight Split Squat**, and it **stays client assignable**, because it is the beginner regression a member reporting "too difficult" on Split Squat should be offered. CLAUDE.md carries the one narrow exception that makes the name legal: a variant word describing how the movement is performed is acceptable when it is what makes a genuine regression tellable from the movement it regresses. The test is whether dropping the word would leave two exercises sharing a name. It never licenses a vendor suffix, and "Dumbbell Goblet Squat" is still wrong.
+
+### Proof
+
+Full suite on a fresh `supabase db reset`: **418 test files, 6,127 tests, all passing**, 60 of them new in `tests/member-exercise-voice.test.ts`. Typecheck clean in both workspaces, lint 0 errors (93 pre-existing `no-console` warnings in `scripts/*`), production build compiled.
+
+The new file proves, against real local Supabase: every goal option has a phrase and none leaks; the posture sentence is suppressed when the program does not work the area; the openers vary and never repeat consecutively; a weight persists and prefills; the database itself refuses a nonsense weight; pain stops and offers nothing; too difficult offers Bodyweight Split Squat first and never the harder sibling; too easy offers nothing on any branch; a locked exercise refuses every reason; avoidance excludes on every branch; and a swap rewrites the future while an occurrence she already did keeps the exercise she actually did, with its dose unchanged. RLS is exercised directly: her coach reads her reports, another member reads none, and a report filed against somebody else is refused.
+
+`tests/member-program-explanations.test.tsx` gained the three voice assertions and had its goal fixture corrected: it used labels the goals screen does not actually offer.
+
+### Verification (2026-08-18)
+
+Migration 177 applied to production. Deployed: `mef-platform-jqm6oubdd`, Ready, Production, and `app.mefwellness.com` resolves to it. Repo `MEFwellness/mef-platform`, branch `main`.
+
+**`scripts/verify-member-voice-live.mjs` reports 61 of 61 against `app.mefwellness.com`, with ZERO videos played.**
+
+On the test member's own real program: a weight saved against one occurrence at 25 lbs and the next occurrence of that exercise prefilled from it; production's own check constraint refused a negative weight; her 66 holds are correctly excluded from weight logging. "No equipment" on an unlocked strength exercise produced 244 qualifying alternatives, of which three would be offered; one was taken, all four remaining occurrences changed with the prescription intact, the swap was recorded with what it replaced, the old exercise entered her avoidance list, and it was swapped back. Split Squat and Bodyweight Split Squat were proved to be the same movement family with the bodyweight one never graded harder, so the regression path holds; the harder Bulgarian sibling is not a regression. **Nothing was accepted on the too-difficult branch, per scope.** Reporting pain on Bird Dog marked it `stopped`, timestamped it, recorded her comfort as pain, wrote the report with no replacement anywhere on it, flagged the coach unreviewed, and put the exercise on her avoidance list; the coach's needs-attention read found "Exercise stopped, member reported pain".
+
+The coach's assign preview composed a 930-character explanation reading **"You told us what matters most to you right now is losing weight and improving how your body feels and moves, and this plan supports that. Your last posture check pointed at your hips and your deep core, so those get attention in every session."** No "built around", no raw goal option, no em dash. All 25 per-exercise boxes carry a line, and they open **6 plain ways and 18 varied ones**.
+
+**Two failures on the first pass, both in the check script and neither in the app.** It replicated the blueprint candidate path for a member whose programs are generated (the corrective pool is the one that applies, and it needed pagination: a truncated read looks exactly like "no alternatives exist"), and it read the screen with `innerText`, which cannot see a `<textarea>` value, so it found zero per-exercise lines on a screen carrying 25 of them.
+
+**State the test member's data was left in: exactly as found.** Zero reports, zero avoidances, zero stopped exercises, zero logged weights, zero swapped rows, zero member-voice events. Every row the run touched was snapshotted before it was written and restored in a `finally`, and each of those six facts is asserted rather than assumed. The script swallows EPIPE so a run piped through `head` still reaches its restore.
+
+**Her live programs are corrective, and the corrective engine locks nothing**, so no exercise of hers is locked today. The lock was proved on the 12 locked blueprint slots on production instead, and end to end in the unit suite against a real assigned program with a locked slot in it.
+
+### Not touched, per scope
+
+The coach signal dashboard, the four-week review, and the periodization and load-adjustment engine are all Prompt 8. This build logs the data; Prompt 8 reads it. `member_exercise_avoidance.released_at` exists and nothing writes it yet, which is the coach-review half of the same prompt. The corrective engine's selection logic, its dosing table and its coach-facing reasoning were not changed.
+
 ## Two texts for two readers: what she is told, and what her coach reads (2026-08-18)
 
 A member now reads why she was given her program, and why each exercise is in it, in her own language. Both are composed by rule from things that are already true about her, both are editable by her coach before and after the program starts, and neither can carry a word of coach vocabulary. Migration 176, applied to production. Also here: "Split squat (R)" is now "Split Squat", and CLAUDE.md carries the naming rule that makes that permanent.
