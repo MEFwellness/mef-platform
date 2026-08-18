@@ -396,6 +396,10 @@ export function ProgramSignalPanel({
       {/* 10. The avoidance list, with the one control that empties it. */}
       <div className="mt-6">
         <SectionHeading>Exercises she is not offered</SectionHeading>
+        <p className="mt-1 text-xs text-[#6B7A72]">
+          This list is hers, not this program&apos;s, so it reads the same under every program she
+          is on. Letting one back in lets it back in everywhere.
+        </p>
         {activeAvoidance.length === 0 ? (
           <p className="mt-1.5 text-sm text-[#6B7A72]">
             Nothing on her list. Every exercise in the library is available to her.
