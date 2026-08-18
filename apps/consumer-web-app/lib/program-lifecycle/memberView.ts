@@ -17,14 +17,25 @@ import type {
   MemberProgramLifecycle,
   ProgramAssignmentStatus,
 } from '@mef/shared-types-contracts';
-import { memberProgramBlurb, memberProgramName } from '../programs/memberPresentation';
+import {
+  memberProgramBlurb,
+  memberProgramName,
+  memberSafeText,
+} from '../programs/memberPresentation';
 
 export interface MemberProgramView {
   groupKey: string;
   /** The program's name as a member reads it. Never the clinical one, never a session suffix. See lib/programs/memberPresentation.ts. */
   name: string;
-  /** The interim description, composed from what is safely known. Never the generator's own words. */
+  /**
+   * What she reads under the program's name. The explanation her coach
+   * approved for her when the program was assigned (migration 176), and
+   * where a program does not carry one, the interim description composed
+   * from what is safely known. Never the generator's own words either way.
+   */
   blurb: string;
+  /** True when the line above is the explanation her coach wrote rather than the composed fallback. Lets a screen treat a real explanation differently without re-deciding which it got. */
+  hasExplanation: boolean;
   status: ProgramAssignmentStatus;
   startDate: string | null;
   endDate: string | null;
@@ -206,14 +217,29 @@ export function buildMemberProgramViews(
       programTags: groupWorkouts[0]?.program_tags ?? null,
     };
 
+    // The explanation is a property of the program, so the sessions of one
+    // program all carry the same text. The first one that has any is read,
+    // rather than the primary row's, because a coach editing it writes
+    // every row in the group and a program part-written by an older client
+    // should still show her the sentence that exists.
+    //
+    // It goes through memberSafeText for the same reason every other
+    // free-text field on this path does: it is editable by a coach, and
+    // the guard is what keeps a coach's own shorthand off her screen.
+    const explanation =
+      rows.map((r) => memberSafeText(r.member_explanation)).find((text) => text !== null) ?? null;
+
     views.push({
       groupKey,
       name: memberProgramName(naming),
-      blurb: memberProgramBlurb({
-        correctiveTags: naming.correctiveTags,
-        durationWeeks: base.durationWeeks,
-        sessionsPerWeek: rows.length,
-      }),
+      blurb:
+        explanation ??
+        memberProgramBlurb({
+          correctiveTags: naming.correctiveTags,
+          durationWeeks: base.durationWeeks,
+          sessionsPerWeek: rows.length,
+        }),
+      hasExplanation: explanation !== null,
       ...base,
       assignmentIds,
       workouts: groupWorkouts,

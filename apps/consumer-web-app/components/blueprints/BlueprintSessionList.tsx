@@ -10,9 +10,18 @@
  * The prescription sentence comes from the same formatter the member's own
  * screen uses (lib/coach-program-builder/prescription.ts), so what an
  * administrator approves is what she is shown.
+ *
+ * VIDEO IS STRICTLY ON TAP, and it is here so that approving a program
+ * does not mean opening the Exercise Library in a second tab to remember
+ * what a movement is. Every slot renders a stored poster frame and a play
+ * button; the metered video URL is requested only when somebody taps one.
+ * Opening this screen and scrolling all 24 slots of it spends nothing.
+ * Asserted by tests/program-screens-no-video-requests.test.tsx.
  */
 import { Lock } from 'lucide-react';
 import type { ProgramBlueprintSlot } from '@mef/shared-types-contracts';
+import { TapToPlayVideo } from '@/components/exercise-library/TapToPlayVideo';
+import type { AssignedExerciseMediaMap } from '@/lib/coach-program-builder/assignedWorkoutMedia';
 import { formatPrescriptionLine } from '@/lib/coach-program-builder/prescription';
 import { sessionDesignationsOf, slotsForSession } from '@/lib/programs/blueprints/data';
 import { BLUEPRINT_BLOCK_SECTION_NAME } from '@/lib/programs/blueprints/materialize';
@@ -39,9 +48,12 @@ function weekChangeLines(slot: ProgramBlueprintSlot): string[] {
 export function BlueprintSessionList({
   slots,
   durationWeeks,
+  media = {},
 }: {
   slots: ProgramBlueprintSlot[];
   durationWeeks: number | null;
+  /** Poster and cues per exercise, loaded server side. An absent entry renders the placeholder poster, never a broken image, and an omitted map renders no player at all. */
+  media?: AssignedExerciseMediaMap;
 }) {
   const sessions = sessionDesignationsOf(slots);
 
@@ -65,8 +77,19 @@ export function BlueprintSessionList({
               {sessionSlots.map((slot) => {
                 const changes = weekChangeLines(slot);
                 return (
-                  <div key={slot.id} className="rounded-2xl bg-[#FAFAF8] px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={slot.id} className="overflow-hidden rounded-2xl bg-[#FAFAF8]">
+                    {slot.external_id && media[slot.external_id] && (
+                      <TapToPlayVideo
+                        externalId={slot.external_id}
+                        name={slot.exercise_name ?? 'Exercise'}
+                        primaryMuscle={media[slot.external_id]!.primaryMuscle}
+                        category={media[slot.external_id]!.category}
+                        posterUrl={media[slot.external_id]!.posterUrl}
+                        cues={media[slot.external_id]!.cues}
+                        heightClassName="h-40"
+                      />
+                    )}
+                    <div className="flex items-start justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <p className="text-sm font-medium text-[#1B3A2D]">

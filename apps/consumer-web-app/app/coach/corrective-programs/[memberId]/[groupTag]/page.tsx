@@ -8,7 +8,12 @@
 import { redirect, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
-import { getCorrectiveDraftGroupAction } from '@/app/actions/corrective-programs';
+import {
+  getCorrectiveDraftGroupAction,
+  getCorrectiveExplanationDraftAction,
+} from '@/app/actions/corrective-programs';
+import { loadStaffExerciseMedia } from '@/lib/programs/staffExerciseMedia';
+import { CORRECTIVE_PROGRAM_DURATION_WEEKS } from '@/lib/corrective-engine/approvalDefaults';
 import { DraftReviewPanel } from './DraftReviewPanel';
 
 export default async function CorrectiveDraftReviewPage({
@@ -35,6 +40,27 @@ export default async function CorrectiveDraftReviewPage({
     .eq('id', params.memberId)
     .maybeSingle();
 
+  const first = group.templates[0];
+  // Posters and cues for every exercise in the draft, and the draft of the
+  // explanation this member would be given. Neither request costs a video
+  // play, and neither writes anything.
+  const [media, explanationDraft] = await Promise.all([
+    loadStaffExerciseMedia(
+      supabase,
+      group.templates.flatMap((template) =>
+        template.sections.flatMap((section) => section.exercises.map((e) => e.external_id))
+      )
+    ),
+    getCorrectiveExplanationDraftAction({
+      memberId: params.memberId,
+      correctiveTags: first?.corrective_tags ?? [],
+      templateName: first?.name ?? 'Your program',
+      equipment: first?.equipment ?? [],
+      durationWeeks: CORRECTIVE_PROGRAM_DURATION_WEEKS,
+      sessionsPerWeek: group.templates.length,
+    }),
+  ]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28">
@@ -42,6 +68,8 @@ export default async function CorrectiveDraftReviewPage({
           memberId={params.memberId}
           memberName={memberProfile?.display_name ?? 'This member'}
           group={group}
+          initialExplanation={explanationDraft}
+          media={media}
         />
       </main>
 

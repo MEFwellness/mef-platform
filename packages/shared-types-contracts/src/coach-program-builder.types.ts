@@ -123,6 +123,15 @@ export interface CoachProgramTemplateExercise extends ExercisePrescriptionFields
   sequence_index: number;
   /** Why this exercise was selected — populated only when it came from the Prescription Intelligence Engine; null for anything a coach picked by hand. */
   selection_reasoning: string | null;
+  /**
+   * The same question answered for the MEMBER (migration 176): what the
+   * movement does for her body and why it is in her plan, in her language.
+   * Composed by rule in lib/programs/explain/exerciseReasoning.ts and
+   * editable by a coach during review. Never a pattern name and never
+   * clinical vocabulary; `selection_reasoning` above keeps all of that,
+   * unchanged, for the coach screens.
+   */
+  member_reasoning: string | null;
   /** True only when a coach explicitly chose this via the Corrective Programs review screen's "show full library" override picker instead of the slot's engine-qualified default candidates (migration 132). Always false for anything else. */
   is_coach_override: boolean;
   /**
@@ -216,6 +225,14 @@ export interface CoachProgramAssignment {
   published_at: string | null;
   assignment_notes: string | null;
   internal_notes: string | null;
+  /**
+   * Why this program, written for the member (migration 176). Composed by
+   * rule at assignment time, edited by the coach before and after
+   * assigning, and read by the member through member_program_lifecycle.
+   * Null on every program assigned before this existed, which renders as
+   * the interim composed blurb exactly as it did.
+   */
+  member_explanation: string | null;
   status: ProgramAssignmentStatus;
   created_at: string;
   updated_at: string;
@@ -273,6 +290,8 @@ export interface MemberProgramLifecycle {
   schedule_type: ProgramScheduleType;
   schedule_config: ProgramScheduleConfig;
   published_at: string | null;
+  /** Why this program, written for her (migration 176). Null for every program assigned before the explanation layer existed. */
+  member_explanation: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -344,6 +363,8 @@ export interface CoachAssignedWorkoutExercise extends ExercisePrescriptionFields
   comfort_rating: 'comfortable' | 'slight_discomfort' | 'moderate_discomfort' | 'pain' | null;
   /** Why this exercise was selected — member-visible once the workout is published. Null for anything a coach picked by hand. */
   selection_reasoning: string | null;
+  /** Frozen copy of the template exercise's member_reasoning (migration 176): why this exercise is here, in her language. What her screen renders under "Why this exercise". */
+  member_reasoning: string | null;
   created_at: string;
 }
 

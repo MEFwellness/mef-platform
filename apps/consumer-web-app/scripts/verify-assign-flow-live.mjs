@@ -205,7 +205,9 @@ try {
   const names = (slots ?? []).map((s) => s.exercise_name);
   check("db: the stepping rear lunge is gone", !names.includes('Dumbbell Rear Lunge'), '');
   check('db: Side Plank is gone', !names.includes('Side Plank'), '');
-  check('db: the stationary split squat is in, marked per side', (slots ?? []).some((s) => s.exercise_name === 'Split squat (R)' && s.is_per_side === true), '');
+  // Renamed by migration 176: the "(R)" was vendor plumbing, not a
+  // coaching instruction. The slot is unchanged; only its name is.
+  check('db: the stationary split squat is in, marked per side', (slots ?? []).some((s) => s.exercise_name === 'Split Squat' && s.is_per_side === true), '');
   check('db: Ab Bridge Complex replaced it in Session B core', (slots ?? []).some((s) => s.exercise_name === 'Ab Bridge Complex' && s.block === 'core' && s.session_designation === 'B'), '');
 
   const bySession = new Map();
@@ -278,7 +280,7 @@ try {
   await staffPage.waitForSelector('main', { timeout: 30000 }).catch(() => {});
   const detailText = await staffPage.locator('body').innerText();
   const revisedOnScreen = {
-    splitSquat: detailText.includes('Split squat (R)'),
+    splitSquat: detailText.includes('Split Squat') && !detailText.includes('Split squat (R)'),
     abBridge: detailText.includes('Ab Bridge Complex'),
     // "Side Plank" still appears once on this screen, in the coach note
     // saying what the slot replaced. What must be gone is the exercise.

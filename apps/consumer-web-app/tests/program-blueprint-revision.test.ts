@@ -115,7 +115,13 @@ describe("the coach's corrections", () => {
     const names = two.slots.map((s) => s.exercise_name);
     expect(names).not.toContain('Dumbbell Rear Lunge');
 
-    const splitSquat = two.slots.find((s) => s.exercise_name === 'Split squat (R)');
+    // Named "Split Squat" since migration 176. The "(R)" it carried was
+    // never a coaching instruction: the catalog stored left and right as
+    // separate rows and only the right one was dumbbell loaded, so the
+    // suffix was vendor plumbing in a name a member would read. The slot
+    // is unchanged; only its name is.
+    expect(names).not.toContain('Split squat (R)');
+    const splitSquat = two.slots.find((s) => s.exercise_name === 'Split Squat');
     expect(splitSquat, 'the stationary split squat should be in the program').toBeDefined();
     expect(splitSquat!.block).toBe('strength');
     expect(splitSquat!.is_per_side).toBe(true);

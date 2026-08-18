@@ -15,6 +15,7 @@ import { BackButton } from '@/components/BackButton';
 import { getBlueprintDetailAction } from '@/app/actions/program-blueprints';
 import { BLUEPRINT_STATUS_LABEL, BLUEPRINT_STATUS_MEANING, BLUEPRINT_STATUS_TONE } from '@/components/blueprints/statusTone';
 import { BlueprintSessionList } from '@/components/blueprints/BlueprintSessionList';
+import { loadStaffExerciseMedia } from '@/lib/programs/staffExerciseMedia';
 import { BlueprintAdminActions } from './BlueprintAdminActions';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -39,6 +40,15 @@ export default async function BlueprintDetailPage({
   if (!detail) notFound();
 
   const { blueprint, equipment, versions } = detail;
+
+  // Posters and cues for every filled slot. Loaded here, on the server, so
+  // the list can offer tap-to-play without any client code going looking
+  // for media of its own. No video URL is requested by this: see
+  // lib/programs/staffExerciseMedia.ts.
+  const media = await loadStaffExerciseMedia(
+    supabase,
+    blueprint.slots.map((slot) => slot.external_id).filter((id): id is string => id !== null)
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -159,7 +169,11 @@ export default async function BlueprintDetailPage({
         {/* The sessions                                        */}
         {/* -------------------------------------------------- */}
         <div className="mt-6">
-          <BlueprintSessionList slots={blueprint.slots} durationWeeks={blueprint.duration_weeks} />
+          <BlueprintSessionList
+            slots={blueprint.slots}
+            durationWeeks={blueprint.duration_weeks}
+            media={media}
+          />
         </div>
 
         {/* -------------------------------------------------- */}

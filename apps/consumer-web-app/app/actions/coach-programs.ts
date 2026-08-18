@@ -43,6 +43,7 @@ import {
   pauseAssignment,
   resumeAssignment,
   listMyProgramLifecycles,
+  setProgramMemberExplanation,
 } from '@/lib/coach-program-builder/assignments';
 import {
   buildMemberProgramViews,
@@ -440,6 +441,37 @@ export async function resumeProgramAssignmentAction(assignmentId: string): Promi
   }
 
   if (resumed === 0) return { error: 'Only a paused program can be resumed.' };
+  return {};
+}
+
+/**
+ * Rewrites "Why this program" on a program a member is already on.
+ *
+ * The one thing about an assigned program a coach may still change after
+ * it has started, and deliberately the safe one: it changes what she is
+ * TOLD, never what she was PRESCRIBED. Every weekly session of the program
+ * gets the same text, because the explanation is a property of the program
+ * and a member who opened Session B must not read a different answer from
+ * the one who opened Session A.
+ *
+ * RLS decides whose program this is. This action performs the write the
+ * caller's own session is allowed to perform and reports what Postgres
+ * allowed, same convention as everything else in this file.
+ */
+export async function updateProgramMemberExplanationAction(
+  assignmentId: string,
+  explanation: string | null
+): Promise<ActionResult> {
+  const context = await resolveUserId();
+  if (!context) return { error: 'Sign in required.' };
+
+  const rows = await listAssignmentsInProgramGroup(context.supabase, assignmentId);
+  const targets = rows.length > 0 ? rows.map((r) => r.id) : [assignmentId];
+  const ok = await setProgramMemberExplanation(context.supabase, {
+    assignmentIds: targets,
+    explanation,
+  });
+  if (!ok) return { error: 'Could not save this explanation. Please try again.' };
   return {};
 }
 

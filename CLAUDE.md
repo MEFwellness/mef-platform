@@ -16,6 +16,12 @@ Applies to every task unless the user says otherwise.
 9. Do not claim you verified the live site — you cannot see it. State only what you actually checked.
 10. Provide a report containing: what you completed in plain language with no jargon, anything left unfinished or that didn't work, and a click-by-click checklist for the user to test on the site — screen by screen, what to tap, what they should see.
 
+## Member-facing exercise names
+
+- An exercise name a member can read describes the MOVEMENT. It never mandates equipment, and it never carries vendor plumbing: no `(L)` / `(R)` side suffixes, no provider ids, no internal variant codes. "Split Squat", not "Split squat (R)"; "Goblet Squat", not "Dumbbell Goblet Squat (R)".
+- Which side she works, and whether she works both, is said by the slot's per-side mark and by the exercise's own instructions, never by its name.
+- The rule applies wherever a name can reach her: `exercise_catalog`, blueprint slots, program templates, and anything a coach picker can insert. Fix it in the catalog. Never paper over it with a display-only alias, because the alias and the real name then disagree on the next screen.
+
 ## Live-site verification
 
 - Turnstile bot protection is LIVE on the `app.mefwellness.com` login form and blocks automated form sign-in **by design**. This is not a bug and never counts as a test failure. Do not report it as one, and never ask for the captcha to be disabled.

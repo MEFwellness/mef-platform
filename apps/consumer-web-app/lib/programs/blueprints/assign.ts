@@ -56,6 +56,8 @@ export interface AssignBlueprintInput extends BlueprintMaterializationInput {
   publish: boolean;
   /** Defaults to the blueprint's own duration. */
   durationWeeks?: number;
+  /** "Why this program", written for the member. Composed by the assign flow; null here assigns without one, which reads exactly as it did before migration 176. */
+  memberExplanation?: string | null;
 }
 
 export interface AssignedBlueprintProgram {
@@ -77,6 +79,8 @@ export interface AssignMaterializedProgramInput {
   publish: boolean;
   /** Lineage, when this program came from a blueprint. Null for a coach-edited or generated one. */
   sourceBlueprintVersionId: string | null;
+  /** "Why this program", written for the member (migration 176). The same text on every weekly session, because it explains the program and not the session. */
+  memberExplanation?: string | null;
 }
 
 /**
@@ -119,6 +123,7 @@ export async function assignMaterializedProgram(
       internalNotes: null,
       publishImmediately: input.publish,
       sourceBlueprintVersionId: input.sourceBlueprintVersionId,
+      memberExplanation: input.memberExplanation ?? null,
       // Every session of one program shares the program's own start date
       // and duration, so "Week 2 of 4" means the same thing whichever
       // session she opened. Same rule as a corrective program.
@@ -184,6 +189,7 @@ export async function assignBlueprintToMember(
     timezone: input.timezone,
     publish: input.publish,
     sourceBlueprintVersionId: input.blueprint.id,
+    memberExplanation: input.memberExplanation ?? null,
   });
 }
 

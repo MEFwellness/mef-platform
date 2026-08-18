@@ -15,6 +15,9 @@ import { readSeverityTag } from '@/lib/corrective-engine/types';
 import { correctiveApprovalDefaults } from '@/lib/corrective-engine/approvalDefaults';
 import { endDateFor } from '@/lib/program-lifecycle/transitions';
 import { formatPrescriptionLine } from '@/lib/coach-program-builder/prescription';
+import { TapToPlayVideo } from '@/components/exercise-library/TapToPlayVideo';
+import type { AssignedExerciseMediaMap } from '@/lib/coach-program-builder/assignedWorkoutMedia';
+import { memberExerciseReasoning } from '@/lib/programs/explain/exerciseReasoning';
 import {
   saveProgramTemplateContentAction,
   updateProgramTemplateMetaAction,
@@ -84,6 +87,8 @@ type EditableExercise = {
   exerciseName: string;
   coachingCues: string | null;
   selectionReasoning: string | null;
+  /** What the MEMBER reads under "Why this exercise". Composed from the block, editable here, frozen into her copy on approve. */
+  memberReasoning: string;
   isCoachOverride: boolean;
   prescription: EditablePrescription;
 };
@@ -151,6 +156,17 @@ function toEditableSessions(templates: CoachProgramTemplateWithContent[]): Edita
         exerciseName: exercise.exercise_name,
         coachingCues: exercise.coaching_cues,
         selectionReasoning: exercise.selection_reasoning,
+        // A draft saved before migration 176 carries nothing here, so one
+        // is composed from the block, which is all a generated exercise
+        // knows about its own job.
+        memberReasoning:
+          exercise.member_reasoning ??
+          memberExerciseReasoning({
+            block: BLOCK_BY_SECTION_TYPE[section.section_type] ?? 'strength',
+            movementPattern: null,
+            isPerSide: exercise.unilateral === true,
+            priorityRank: null,
+          }),
         isCoachOverride: exercise.is_coach_override,
         prescription: {
           sets: numberField(exercise.sets),
@@ -180,6 +196,7 @@ function toSectionsInput(session: EditableSession): TemplateContentSectionInput[
         externalId: exercise.externalId,
         exerciseName: exercise.exerciseName,
         selectionReasoning: exercise.selectionReasoning,
+        memberReasoning: exercise.memberReasoning.trim() || null,
         isCoachOverride: exercise.isCoachOverride,
         sets: toNumber(exercise.prescription.sets),
         reps: reps === '' ? null : reps,
@@ -257,14 +274,21 @@ export function DraftReviewPanel({
   memberId,
   memberName,
   group,
+  initialExplanation = '',
+  media = {},
 }: {
   memberId: string;
   memberName: string;
   group: { programGroupTag: string; templates: CoachProgramTemplateWithContent[] };
+  /** "Why this program", composed from this member's own facts. Editable here; what the coach leaves is what is stored. */
+  initialExplanation?: string;
+  /** Poster and cues per exercise, loaded server side. Zero video requests until a tap. */
+  media?: AssignedExerciseMediaMap;
 }) {
   const router = useRouter();
   const [sessions, setSessions] = useState<EditableSession[]>(() => toEditableSessions(group.templates));
   const [programNotes, setProgramNotes] = useState(group.templates[0]?.internal_notes ?? '');
+  const [explanation, setExplanation] = useState(initialExplanation);
   const [picker, setPicker] = useState<{
     sessionIndex: number;
     sectionIndex: number;
@@ -357,6 +381,19 @@ export function DraftReviewPanel({
     );
   }
 
+  function updateReasoning(
+    sessionIndex: number,
+    sectionIndex: number,
+    exerciseIndex: number,
+    value: string
+  ) {
+    updateExercises(sessionIndex, sectionIndex, (exercises) =>
+      exercises.map((exercise, i) =>
+        i !== exerciseIndex ? exercise : { ...exercise, memberReasoning: value }
+      )
+    );
+  }
+
   function applyPick(picked: CorrectivePickedExercise) {
     if (!picker) return;
     const { sessionIndex, sectionIndex, exerciseIndex } = picker;
@@ -371,6 +408,11 @@ export function DraftReviewPanel({
       exerciseName: picked.name,
       coachingCues: picked.coachingCues,
       selectionReasoning: picked.isCoachOverride ? 'Coach override: picked from the full library.' : null,
+      // A swap keeps the slot's job, so it keeps the slot's own member
+      // line. A brand new exercise gets one composed from the block.
+      memberReasoning:
+        existing?.memberReasoning ??
+        memberExerciseReasoning({ block, movementPattern: null, isPerSide: false, priorityRank: null }),
       isCoachOverride: picked.isCoachOverride,
       // A swap keeps whatever dose was already on that slot, since the
       // coach was replacing the exercise and not the prescription. A new
@@ -455,7 +497,8 @@ export function DraftReviewPanel({
       memberId,
       group.programGroupTag,
       startDate,
-      parsedDuration
+      parsedDuration,
+      explanation.trim() || null
     );
     setBusy(null);
     if ('error' in result) {
@@ -538,8 +581,23 @@ export function DraftReviewPanel({
                       {section.exercises.map((exercise, exerciseIndex) => (
                         <div
                           key={exercise.key}
-                          className="rounded-2xl bg-[#FAFAF8] px-4 py-3"
+                          className="overflow-hidden rounded-2xl bg-[#FAFAF8]"
                         >
+                          {/* The movement itself, without leaving this
+                              screen. Strictly on tap: nothing is requested
+                              by scrolling past it. */}
+                          {media[exercise.externalId] && (
+                            <TapToPlayVideo
+                              externalId={exercise.externalId}
+                              name={exercise.exerciseName}
+                              primaryMuscle={media[exercise.externalId]!.primaryMuscle}
+                              category={media[exercise.externalId]!.category}
+                              posterUrl={media[exercise.externalId]!.posterUrl}
+                              cues={media[exercise.externalId]!.cues}
+                              heightClassName="h-40"
+                            />
+                          )}
+                          <div className="px-4 py-3">
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
@@ -613,6 +671,32 @@ export function DraftReviewPanel({
                               </label>
                             ))}
                           </div>
+
+                          {/* What she reads under "Why this exercise".
+                              Composed from the block, editable here, and
+                              frozen into her copy on approve. The coach's
+                              own reasoning is untouched and still on every
+                              coach screen. */}
+                          <label className="mt-2.5 block">
+                            <span className="block text-[10px] font-semibold uppercase tracking-wider text-[#6B7A72]">
+                              Why this exercise, as {memberName} reads it
+                            </span>
+                            <textarea
+                              value={exercise.memberReasoning}
+                              aria-label={`Why ${exercise.exerciseName} is in this program, in the member's words`}
+                              onChange={(e) =>
+                                updateReasoning(
+                                  sessionIndex,
+                                  sectionIndex,
+                                  exerciseIndex,
+                                  e.target.value
+                                )
+                              }
+                              rows={2}
+                              className="mt-1 w-full rounded-xl border border-[#1B3A2D]/10 bg-white px-3 py-2 text-[13px] leading-relaxed text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+                            />
+                          </label>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -641,6 +725,24 @@ export function DraftReviewPanel({
       </div>
 
       <section className={`${CARD} mt-6 p-6`}>
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          Why this program
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-[#6B7A72]">
+          This is what {memberName} reads on her program screen. It has been written from her own
+          goals and her last posture check, in her language rather than yours. Change any of it.
+          What is in this box is what she gets.
+        </p>
+        <textarea
+          value={explanation}
+          onChange={(e) => setExplanation(e.target.value)}
+          aria-label="Why this program, in the member's words"
+          rows={9}
+          className="mt-3 w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-3 text-sm leading-relaxed text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+        />
+      </section>
+
+      <section className={`${CARD} mt-4 p-6`}>
         <label className="block">
           <span className="text-xs font-medium text-[#6B7A72]">Coach notes for this program</span>
           <textarea

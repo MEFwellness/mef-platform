@@ -40,6 +40,9 @@ import {
   type CorrectiveApprovalDefaults,
 } from '@/lib/corrective-engine/approvalDefaults';
 import { todaysLocalDate } from '@/lib/time/localDate';
+import { composeProgramExplanation } from '@/lib/programs/explain/programExplanation';
+import { loadMemberExplanationFacts } from '@/lib/programs/explain/memberFacts';
+import { memberProgramFocus, memberProgramName } from '@/lib/programs/memberPresentation';
 import type { BodyAssessmentFinding } from '@mef/shared-types-contracts';
 
 async function resolveMemberTimezone(
@@ -195,7 +198,9 @@ export async function approveCorrectiveDraftAction(
   memberId: string,
   programGroupTag: string,
   startDate: string,
-  durationWeeks?: number
+  durationWeeks?: number,
+  /** "Why this program", as the coach left it on the review screen (migration 176). Omitted assigns without one, which reads exactly as it did before. */
+  memberExplanation?: string | null
 ): Promise<{ assignmentIds: string[]; replacedAssignmentIds: string[] } | ActionResult> {
   const context = await resolveCoach();
   if (!context) return { error: 'Sign in required.' };
@@ -209,9 +214,57 @@ export async function approveCorrectiveDraftAction(
     durationWeeks,
     today: todaysLocalDate(timezone),
     timezone,
+    memberExplanation: memberExplanation?.trim() || null,
   });
   if (!result) return { error: 'Could not approve and assign this program. Please try again.' };
   return result;
+}
+
+/**
+ * The draft of "Why this program" for a corrective-born program.
+ *
+ * Same composer the blueprint path uses, given the two things a generated
+ * program knows about itself that an authored one does not: it has no
+ * authored member description, and it IS named after a body area, so the
+ * focus sentence stands in for the description. Everything else, her name,
+ * her stated goal, the areas her assessment pointed at, is read by the same
+ * function from the same tables.
+ *
+ * Reads only. Composing an explanation writes nothing anywhere.
+ */
+export async function getCorrectiveExplanationDraftAction(input: {
+  memberId: string;
+  correctiveTags: string[];
+  templateName: string;
+  equipment: string[];
+  durationWeeks: number;
+  sessionsPerWeek: number;
+}): Promise<string> {
+  const context = await resolveCoach();
+  if (!context) return '';
+
+  const facts = await loadMemberExplanationFacts(context.supabase, input.memberId);
+  return composeProgramExplanation({
+    memberFirstName: facts.firstName,
+    programName: memberProgramName({
+      templateName: input.templateName,
+      correctiveTags: input.correctiveTags,
+    }),
+    // A generated program has no authored member description: the engine
+    // wrote one, and it names a pattern and carries a seed. The focus
+    // sentence is what stands in its place.
+    memberDescription: null,
+    focus: memberProgramFocus(input.correctiveTags),
+    primaryGoal: facts.primaryGoal,
+    goals: facts.goals,
+    bodyAreas: facts.bodyAreas,
+    equipment: input.equipment,
+    durationWeeks: input.durationWeeks,
+    sessionsPerWeek: input.sessionsPerWeek,
+    // A corrective phase is four identical weeks, on purpose. Saying it
+    // builds would be the one invented claim in the paragraph.
+    buildsOverTime: false,
+  });
 }
 
 /** What the approve screen pre-fills before a coach touches anything: the next matching weekday, the program's own duration, and the end date the two imply. */

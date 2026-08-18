@@ -39,6 +39,8 @@ vi.mock('@/app/actions/coach-programs', () => ({
 }));
 
 import { MemberAssignedWorkoutDetail } from '../components/coach-program-builder/MemberAssignedWorkoutDetail';
+import { BlueprintSessionList } from '../components/blueprints/BlueprintSessionList';
+import type { ProgramBlueprintSlot } from '@mef/shared-types-contracts';
 import { AssignedWorkoutGuidedSession } from '../components/coach-program-builder/AssignedWorkoutGuidedSession';
 import { GuidedExerciseStage } from '../components/movement-sessions/GuidedSessionPlayer';
 import { toGuidedWorkoutExercises } from '../lib/coach-program-builder/guidedWorkout';
@@ -78,6 +80,7 @@ function exercise(overrides: Partial<CoachAssignedWorkoutExercise>): CoachAssign
     difficulty_rating: null,
     comfort_rating: null,
     selection_reasoning: 'Foam-roll release for hip flexors, tight in Lower Cross.',
+    member_reasoning: null,
     created_at: '2026-08-17T00:00:00Z',
     sets: 1,
     reps: null,
@@ -195,6 +198,23 @@ const MEDIA: AssignedExerciseMediaMap = {
   },
 };
 
+
+/** Posters for the staff-screen fixtures below. Same shape the member screens take. */
+const MEDIA_BY_SLOT: AssignedExerciseMediaMap = {
+  'ext-1': {
+    primaryMuscle: 'quadriceps',
+    category: 'strength',
+    posterUrl: 'https://example.test/posters/ext-1.jpg',
+    cues: ['Chest tall.'],
+  },
+  'ext-2': {
+    primaryMuscle: 'glutes',
+    category: 'strength',
+    posterUrl: 'https://example.test/posters/ext-2.jpg',
+    cues: ['Back knee down.'],
+  },
+};
+
 // ---------------------------------------------------------------------------
 // 1. Structurally
 // ---------------------------------------------------------------------------
@@ -242,12 +262,19 @@ describe('the program screens cannot request a video', () => {
   });
 
   /**
-   * The staff screens added with the blueprint library and the unified
-   * assign flow. They are not member screens, but they list exercises by
-   * name, and a screen that lists exercises is exactly where a video
-   * request gets added by accident. None of them may render one.
+   * The staff screens: the blueprint library, the unified assign flow and
+   * the corrective draft review.
+   *
+   * THIS ASSERTION CHANGED MEANING, and it is worth saying how. It used to
+   * mean "no staff screen shows a video at all". Three of them now do,
+   * because a coach approving a program should not have to open the
+   * Exercise Library in a second tab to remember what a movement is. What
+   * it means now is the rule that was always the real one: no screen in
+   * this product renders a video element of its own, references the metered
+   * route, autoplays, or preloads. They all go through TapToPlayVideo, and
+   * TapToPlayVideo only fetches from a tap.
    */
-  it('the blueprint and assign screens never render a video either', () => {
+  it('the blueprint, assign and corrective review screens never fetch, autoplay or preload', () => {
     const STAFF_PROGRAM_SCREENS = [
       'components/blueprints/BlueprintSessionList.tsx',
       'app/admin/blueprints/page.tsx',
@@ -258,6 +285,9 @@ describe('the program screens cannot request a video', () => {
       'app/coach/assign/[memberId]/[versionId]/page.tsx',
       'app/coach/assign/[memberId]/[versionId]/AssignPlanPanel.tsx',
       'app/coach/assign/[memberId]/[versionId]/SlotSwapModal.tsx',
+      'app/coach/corrective-programs/[memberId]/[groupTag]/page.tsx',
+      'app/coach/corrective-programs/[memberId]/[groupTag]/DraftReviewPanel.tsx',
+      'lib/programs/staffExerciseMedia.ts',
     ];
     for (const relative of STAFF_PROGRAM_SCREENS) {
       const source = read(relative);
@@ -265,6 +295,26 @@ describe('the program screens cannot request a video', () => {
       expect(source, `${relative} references the video-url route`).not.toMatch(/video-url/);
       expect(source, `${relative} passes autoPlay`).not.toMatch(/autoPlay/);
       expect(source, `${relative} preloads media`).not.toMatch(/preload=/);
+    }
+    // Deliberately no blanket "never calls fetch" here, unlike the member
+    // screens above. SlotSwapModal really does fetch, from
+    // /api/exercises, to search the library. That costs nothing metered.
+    // The rule is about the VIDEO route, and it is asserted directly
+    // above and again, over the whole app tree, further down.
+  });
+
+  /**
+   * The three staff screens that now offer a player really do offer one.
+   * Asserted so that "no video requests" can never be satisfied by quietly
+   * dropping the feature.
+   */
+  it('the blueprint list, the assign preview and the corrective review all use TapToPlayVideo', () => {
+    for (const relative of [
+      'components/blueprints/BlueprintSessionList.tsx',
+      'app/coach/assign/[memberId]/[versionId]/AssignPlanPanel.tsx',
+      'app/coach/corrective-programs/[memberId]/[groupTag]/DraftReviewPanel.tsx',
+    ]) {
+      expect(read(relative), `${relative} has no player`).toMatch(/<TapToPlayVideo/);
     }
   });
 
@@ -425,5 +475,107 @@ describe('opening the workout makes no video request', () => {
     expect(exercises[0]!.rest).toBe('15 seconds rest');
     expect(exercises[1]!.prescription).toBe('2 sets of 10 reps · Tempo 3-1-3');
     expect(exercises[1]!.rest).toBe('45 seconds rest');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. The staff review screens, by rendering
+// ---------------------------------------------------------------------------
+
+/** Two slots of a real blueprint, enough to prove a list of them costs nothing. */
+const SLOTS: ProgramBlueprintSlot[] = [
+  {
+    id: 'slot-1',
+    program_version_id: 'v1',
+    session_designation: 'A',
+    slot_order: 1,
+    block: 'strength',
+    movement_pattern: 'squat',
+    purpose: 'The main lift of Session A.',
+    priority_rank: 1,
+    is_required: true,
+    equipment_requirement: ['dumbbell'],
+    difficulty_tier: 'beginner',
+    eligibility_rules: {},
+    is_locked: true,
+    replacement_criteria: {},
+    is_per_side: false,
+    sets: 3,
+    reps: 10,
+    hold_duration_seconds: null,
+    tempo: '2-0-2',
+    rest_seconds: 75,
+    week_overrides: { '3': { sets: 4 } },
+    provider: 'your_move',
+    external_id: 'ext-1',
+    exercise_name: 'Dumbbell Goblet Squat',
+    created_at: '2026-08-18T00:00:00Z',
+    updated_at: '2026-08-18T00:00:00Z',
+  },
+  {
+    id: 'slot-2',
+    program_version_id: 'v1',
+    session_designation: 'A',
+    slot_order: 2,
+    block: 'strength',
+    movement_pattern: 'lunge',
+    purpose: 'Single side strength, stationary.',
+    priority_rank: 2,
+    is_required: true,
+    equipment_requirement: ['dumbbell'],
+    difficulty_tier: 'intermediate',
+    eligibility_rules: {},
+    is_locked: true,
+    replacement_criteria: {},
+    is_per_side: true,
+    sets: 2,
+    reps: 8,
+    hold_duration_seconds: null,
+    tempo: '2-0-2',
+    rest_seconds: 60,
+    week_overrides: {},
+    provider: 'your_move',
+    external_id: 'ext-2',
+    exercise_name: 'Split Squat',
+    created_at: '2026-08-18T00:00:00Z',
+    updated_at: '2026-08-18T00:00:00Z',
+  },
+];
+
+describe('a coach reviewing a program can watch any movement without spending anything', () => {
+  let fetchSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders a poster and a play button per slot, and requests nothing', () => {
+    const html = renderToStaticMarkup(
+      <BlueprintSessionList slots={SLOTS} durationWeeks={4} media={MEDIA_BY_SLOT} />
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(html).not.toContain('<video');
+    expect(html.match(/aria-label="Play exercise video"/g)).toHaveLength(2);
+    expect(html).toContain('https://example.test/posters/ext-1.jpg');
+    expect(html).toContain('https://example.test/posters/ext-2.jpg');
+    // And the screen still says everything it said before the player
+    // arrived.
+    expect(html).toContain('Dumbbell Goblet Squat');
+    expect(html).toContain('Split Squat');
+    expect(html).toContain('Per side');
+    expect(html).toContain('Week 3: 4 sets');
+  });
+
+  it('renders the same list with no media at all, and still requests nothing', () => {
+    const html = renderToStaticMarkup(<BlueprintSessionList slots={SLOTS} durationWeeks={4} />);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(html).not.toContain('aria-label="Play exercise video"');
+    expect(html).toContain('Split Squat');
   });
 });

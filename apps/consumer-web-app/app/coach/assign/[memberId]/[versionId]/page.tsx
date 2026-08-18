@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { getBlueprintPlanAction } from '@/app/actions/program-blueprints';
+import { loadStaffExerciseMedia } from '@/lib/programs/staffExerciseMedia';
 import { AssignPlanPanel } from './AssignPlanPanel';
 
 export const dynamic = 'force-dynamic';
@@ -39,8 +40,16 @@ export default async function AssignProgramPreviewPage({
     .maybeSingle();
   if (!profile) notFound();
 
-  const plan = await getBlueprintPlanAction(params.versionId);
+  const plan = await getBlueprintPlanAction(params.versionId, params.memberId);
   if (!plan) notFound();
+
+  // Posters and cues for every exercise on the plan, so a coach can watch
+  // any movement here rather than in a second tab. Nothing metered is
+  // requested by loading this: see lib/programs/staffExerciseMedia.ts.
+  const media = await loadStaffExerciseMedia(
+    supabase,
+    plan.sessions.flatMap((session) => session.exercises.map((exercise) => exercise.externalId))
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -64,6 +73,8 @@ export default async function AssignProgramPreviewPage({
           periodization={plan.blueprint.periodization}
           blockedReason={plan.blockedReason}
           initialSessions={plan.sessions}
+          initialExplanation={plan.memberExplanationDraft}
+          media={media}
         />
       </main>
     </div>

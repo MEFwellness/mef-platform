@@ -67,6 +67,8 @@ import {
   blueprintInternalNotes,
 } from '@/lib/programs/blueprints/materialize';
 import { materializeProgram } from '@/lib/programs/materialize';
+import { composeProgramExplanation } from '@/lib/programs/explain/programExplanation';
+import { loadMemberExplanationFacts } from '@/lib/programs/explain/memberFacts';
 import { todaysLocalDate } from '@/lib/time/localDate';
 
 /**
@@ -345,21 +347,53 @@ export interface BlueprintPlanForMember {
   equipment: string[];
   /** Non-null when this blueprint cannot be given to anybody right now. */
   blockedReason: string | null;
+  /**
+   * The draft of "Why this program", composed from this member's own facts
+   * and this program's own shape (migration 176). The coach reads it,
+   * edits it if she wants to, and what she ends up with is what gets
+   * stored. Nothing is written by asking for it.
+   */
+  memberExplanationDraft: string;
 }
 
-/** The plan a coach opens: the blueprint's own lineup, dosed, ready to edit. Reads only. */
+/** The plan a coach opens: the blueprint's own lineup, dosed, ready to edit, with the draft explanation this member would be given. Reads only. */
 export async function getBlueprintPlanAction(
-  versionId: string
+  versionId: string,
+  memberId: string
 ): Promise<BlueprintPlanForMember | null> {
   const context = await resolveStaff();
   if (!context) return null;
   const blueprint = await getBlueprintVersion(context.supabase, versionId);
   if (!blueprint) return null;
+
+  const sessions = planFromBlueprint(blueprint);
+  const equipment = blueprintEquipment(blueprint);
+  const facts = await loadMemberExplanationFacts(context.supabase, memberId);
+
   return {
     blueprint,
-    sessions: planFromBlueprint(blueprint),
-    equipment: blueprintEquipment(blueprint),
+    sessions,
+    equipment,
     blockedReason: blueprintAssignmentBlockedReason({ status: blueprint.status, publish: true }),
+    memberExplanationDraft: composeProgramExplanation({
+      memberFirstName: facts.firstName,
+      programName: blueprint.member_title ?? blueprint.program.display_name,
+      memberDescription: blueprint.member_description,
+      focus: null,
+      primaryGoal: facts.primaryGoal,
+      goals: facts.goals,
+      bodyAreas: facts.bodyAreas,
+      equipment,
+      durationWeeks: blueprint.duration_weeks,
+      sessionsPerWeek: blueprint.sessions_per_week ?? sessions.length,
+      // A blueprint builds over time when any slot prescribes something
+      // different in a later week. Read off the slots rather than off the
+      // periodization label, because the label is a plan and the overrides
+      // are what actually happens.
+      buildsOverTime: blueprint.slots.some(
+        (slot) => Object.keys(slot.week_overrides ?? {}).length > 0
+      ),
+    }),
   };
 }
 
@@ -372,6 +406,8 @@ export interface AssignPlanInput {
   durationWeeks: number;
   /** Written into each session's coach notes, which a member reads once the program is published. */
   programNotes: string | null;
+  /** "Why this program", as the coach left it. Stored on every assignment of the program and read by the member on her program screen. */
+  memberExplanation: string | null;
   /** False materializes an unpublished draft the member cannot see. */
   publish: boolean;
 }
@@ -464,6 +500,7 @@ export async function assignPlanToMemberAction(
     timezone,
     publish: input.publish,
     sourceBlueprintVersionId: blueprint?.id ?? null,
+    memberExplanation: input.memberExplanation?.trim() || null,
   });
   if (!assigned) return { error: 'Could not assign this program. Please try again.' };
   return assigned;

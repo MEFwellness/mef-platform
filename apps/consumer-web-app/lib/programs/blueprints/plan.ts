@@ -32,6 +32,7 @@ import { SECTION_TYPE_BY_BLOCK } from '../../corrective-engine/save';
 import { blockPrescription } from '../../corrective-engine/dosing';
 import type { CorrectiveSeverity } from '../../corrective-engine/types';
 import { applyWeekOverride, overrideForWeek } from '../weekProgression';
+import { memberExerciseReasoning } from '../explain/exerciseReasoning';
 import { BLUEPRINT_BLOCK_SECTION_NAME, BLUEPRINT_DEFAULT_DOSING_TIER, priorityForRank } from './materialize';
 import { sessionDesignationsOf, slotsForSession } from './data';
 
@@ -68,6 +69,13 @@ export interface PlannedExercise {
   isPerSide: boolean;
   /** Coach-facing. Never rendered to a member by any code path. */
   purpose: string | null;
+  /**
+   * Member-facing. Why this exercise is here, in her language, composed by
+   * rule from the slot's own block, movement pattern and rank (migration
+   * 176). The coach may rewrite it on the review screen before it is
+   * frozen, so this is state the screen edits, not a derived value.
+   */
+  memberReasoning: string;
   isCoachOverride: boolean;
 
   prescription: PlannedPrescription;
@@ -119,6 +127,12 @@ export function planFromBlueprint(
           isLocked: slot.is_locked,
           isPerSide: slot.is_per_side === true,
           purpose: slot.purpose,
+          memberReasoning: memberExerciseReasoning({
+            block: slot.block,
+            movementPattern: slot.movement_pattern,
+            isPerSide: slot.is_per_side === true,
+            priorityRank: slot.priority_rank,
+          }),
           isCoachOverride: false,
           prescription: {
             sets: slot.sets ?? fallback.sets,
@@ -163,6 +177,18 @@ export function planFromTemplates(templates: CoachProgramTemplateWithContent[]):
         isLocked: false,
         isPerSide: exercise.unilateral === true,
         purpose: null,
+        // A saved template carries its own line already. Where it does not
+        // (every template written before migration 176), one is composed
+        // from the block, which is the only thing a corrective-born
+        // exercise knows about its own job.
+        memberReasoning:
+          exercise.member_reasoning ??
+          memberExerciseReasoning({
+            block: BLOCK_BY_SECTION_TYPE[section.section_type] ?? 'strength',
+            movementPattern: null,
+            isPerSide: exercise.unilateral === true,
+            priorityRank: null,
+          }),
         isCoachOverride: exercise.is_coach_override === true,
         prescription: {
           sets: exercise.sets,
@@ -328,6 +354,9 @@ function plannedToExerciseInput(exercise: PlannedExercise): TemplateContentExerc
     selectionReasoning: exercise.isCoachOverride
       ? 'Coach override: picked from the full library.'
       : null,
+    // Her own line, as the coach left it. Written to the template and
+    // frozen from there, so what she reads is what was approved.
+    memberReasoning: exercise.memberReasoning.trim() || null,
     isCoachOverride: exercise.isCoachOverride,
 
     weekOverrides: exercise.weekOverrides,

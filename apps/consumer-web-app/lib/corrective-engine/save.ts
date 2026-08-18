@@ -19,6 +19,7 @@ import { SEVERITY_TAG_PREFIX } from './types';
 import { CORRECTIVE_BLUEPRINTS } from './blueprints';
 import { blockPrescription } from './dosing';
 import { materializeProgram } from '../programs/materialize';
+import { memberExerciseReasoning } from '../programs/explain/exerciseReasoning';
 import type {
   TemplateContentSectionInput,
   TemplateMetaInput,
@@ -77,6 +78,18 @@ export function sessionToSections(session: SessionDraft): TemplateContentSection
         externalId: exercise.externalId,
         exerciseName: exercise.exerciseName,
         selectionReasoning: exercise.selectionReasoning,
+        // The same exercise explained to the member instead of to her
+        // coach (migration 176). Composed from the block, which is all a
+        // generated exercise knows about its own job, and deliberately not
+        // derived from selectionReasoning above: that sentence names a
+        // pattern and grades a muscle, and no amount of rewording makes it
+        // hers.
+        memberReasoning: memberExerciseReasoning({
+          block: block.block,
+          movementPattern: null,
+          isPerSide: false,
+          priorityRank: null,
+        }),
         sets: dose.sets,
         reps: dose.reps,
         rep_range_low: dose.rep_range_low,

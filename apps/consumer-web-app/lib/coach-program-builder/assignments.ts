@@ -62,6 +62,14 @@ export type CreateAssignmentInput = {
   sourcePrescriptionSnapshotId?: string | null;
   /** Lineage only — set when this assignment materializes a named program blueprint (migration 174). Never read to render a workout. */
   sourceBlueprintVersionId?: string | null;
+  /**
+   * Why this program, written for the member (migration 176). Whatever the
+   * coach approved on her review screen, stored on the assignment container
+   * so she can still edit it after the program has started. Null means the
+   * program was assigned without one, and the member's screen falls back to
+   * the composed blurb it has always shown.
+   */
+  memberExplanation?: string | null;
   /** Lifecycle (migration 172). Omit and the program's own schedule decides: the first scheduled date, and `weeks` from the schedule config. */
   lifecycle?: {
     startDate?: string;
@@ -156,6 +164,7 @@ export async function createAssignment(
       program_group_key:
         input.lifecycle?.programGroupKey ?? correctiveGroupTagOf(input.template) ?? null,
       source_blueprint_version_id: input.sourceBlueprintVersionId ?? null,
+      member_explanation: input.memberExplanation ?? null,
     })
     .select('*')
     .single();
@@ -283,6 +292,11 @@ export async function createAssignment(
               pain_modification_notes: exercise.pain_modification_notes,
               alternate_exercises: exercise.alternate_exercises,
               selection_reasoning: exercise.selection_reasoning,
+              // Frozen like everything else on this row. What she reads
+              // under "Why this exercise" is what her coach approved on the
+              // day she was given the program, not whatever a template says
+              // afterwards.
+              member_reasoning: exercise.member_reasoning,
             };
           })
         );
@@ -623,6 +637,36 @@ export async function listMyProgramLifecycles(
     return [];
   }
   return (data ?? []) as MemberProgramLifecycle[];
+}
+
+/**
+ * Rewrites the member-facing explanation on a whole program.
+ *
+ * A program is one row per weekly session, and the explanation is a
+ * property of the PROGRAM, so every row in the group is written with the
+ * same text. Anything else and a member would read a different answer to
+ * "why this program" depending on which session she opened.
+ *
+ * This is the one thing about an assigned program a coach may still change
+ * after it has started, and it is deliberately the safe one: it changes
+ * what she is TOLD, never what she was PRESCRIBED. The frozen workouts are
+ * not touched here and cannot be.
+ */
+export async function setProgramMemberExplanation(
+  supabase: SupabaseClient,
+  input: { assignmentIds: string[]; explanation: string | null }
+): Promise<boolean> {
+  if (input.assignmentIds.length === 0) return false;
+  const trimmed = (input.explanation ?? '').trim();
+  const { error } = await supabase
+    .from('coach_program_assignments')
+    .update({ member_explanation: trimmed === '' ? null : trimmed, updated_at: new Date().toISOString() })
+    .in('id', input.assignmentIds);
+  if (error) {
+    console.error('setProgramMemberExplanation failed', error);
+    return false;
+  }
+  return true;
 }
 
 export async function listAssignmentsForMember(

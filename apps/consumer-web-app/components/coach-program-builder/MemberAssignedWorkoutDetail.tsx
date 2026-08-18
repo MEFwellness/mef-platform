@@ -111,6 +111,16 @@ function ChipGroup<T extends string>({
   );
 }
 
+/**
+ * What she reads under "Why this exercise", or null when there is nothing
+ * she may be shown. Her own line wins; the coach's reasoning is the
+ * fallback and is still suppressed when it is written in coach vocabulary,
+ * which on every program assigned before migration 176 it is.
+ */
+function memberExerciseLine(exercise: CoachAssignedWorkoutExercise): string | null {
+  return memberSafeText(exercise.member_reasoning) ?? memberSafeText(exercise.selection_reasoning);
+}
+
 function ExerciseRow({
   exercise,
   media,
@@ -196,15 +206,26 @@ function ExerciseRow({
               {exercise.pain_modification_notes}
             </p>
           )}
-          {/* The engine writes this for the coach: "long/underactive in
-              Lower Cross", "Myofascial release for this member's tight
-              muscles". memberSafeText suppresses anything carrying that
-              vocabulary, which today is all of it. The line comes back by
-              itself the day this text is written in her language. */}
-          {memberSafeText(exercise.selection_reasoning) && (
+          {/* Her line first (migration 176): composed by rule from the
+              slot's own block, movement pattern and rank, and rewritable by
+              her coach before it was frozen.
+
+              selection_reasoning is the fallback and stays behind the same
+              guard it always had, because the engine writes THAT one for
+              the coach: "long/underactive in Lower Cross", "Myofascial
+              release for this member's tight muscles". memberSafeText
+              suppresses anything carrying that vocabulary, so a program
+              assigned before this existed reads exactly as it read
+              yesterday: nothing here at all.
+
+              The member line goes through the same guard, which is not
+              belt and braces: a coach can rewrite it in the review screen,
+              and the guard is what stops a coach's own shorthand reaching
+              her phone. */}
+          {memberExerciseLine(exercise) && (
             <p className="rounded-xl bg-white p-3 text-xs text-[#1B3A2D]">
               <span className="font-semibold">Why this exercise: </span>
-              {memberSafeText(exercise.selection_reasoning)}
+              {memberExerciseLine(exercise)}
             </p>
           )}
 

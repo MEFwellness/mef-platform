@@ -52,6 +52,7 @@ import { SECTION_TYPE_BY_BLOCK } from '../../corrective-engine/save';
 import { blockPrescription } from '../../corrective-engine/dosing';
 import type { CorrectiveSeverity } from '../../corrective-engine/types';
 import { materializeProgram, type MaterializeSessionInput } from '../materialize';
+import { memberExerciseReasoning } from '../explain/exerciseReasoning';
 import { sessionDesignationsOf, slotsForSession } from './data';
 
 /** The `named-program:<uuid>` tag every template of one materialized blueprint shares, and the assignment's program_group_key. Deliberately not the word "blueprint": program tags are copied onto the frozen workouts a member can read. */
@@ -157,6 +158,17 @@ export function slotToExercise(
     // (migration 82), so the slot's purpose is NOT put here; it goes into
     // the template's internal_notes instead.
     selectionReasoning: null,
+
+    // Member-facing, and composed rather than copied for exactly the same
+    // reason: the slot's purpose is written for a coach. This says what
+    // the movement does for HER, in her words, from the slot's block,
+    // movement pattern, per-side mark and rank (migration 176).
+    memberReasoning: memberExerciseReasoning({
+      block: slot.block,
+      movementPattern: slot.movement_pattern,
+      isPerSide: slot.is_per_side === true,
+      priorityRank: slot.priority_rank,
+    }),
 
     weekOverrides: slot.week_overrides ?? {},
   };

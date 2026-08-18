@@ -168,6 +168,8 @@ export interface ApproveCorrectiveDraftInput {
   today: string;
   /** The member's timezone, for the lifecycle events this approval writes. */
   timezone: string;
+  /** "Why this program", written for the member (migration 176). Composed on the review screen from her own facts and edited by the coach; the same text lands on every weekly session. */
+  memberExplanation?: string | null;
 }
 
 export interface ApprovedCorrectiveProgram {
@@ -218,6 +220,7 @@ export async function approveCorrectiveDraftGroup(
       assignmentNotes: null,
       internalNotes: null,
       publishImmediately: true,
+      memberExplanation: input.memberExplanation ?? null,
       // All the sessions of one corrective program share the program's own
       // start date and duration, not the date of the first session each
       // happens to land on — otherwise "Week 2 of 4" would mean a different

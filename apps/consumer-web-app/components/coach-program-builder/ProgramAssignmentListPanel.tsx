@@ -16,18 +16,28 @@
  * not a guess from visibility. Draft is still shown, because a draft is a
  * real state of an unpublished assignment, but alongside the lifecycle
  * status rather than instead of it.
+ *
+ * WHY THIS PROGRAM (migration 176). The explanation the member reads is
+ * shown here and can be rewritten after the program has started. It is the
+ * only thing about an assigned program a coach may still change, and
+ * deliberately the safe one: it changes what the member is TOLD, never what
+ * she was PRESCRIBED. The frozen workouts are not touched by it and cannot
+ * be. The edit state lives in this component rather than inside ProgramCard
+ * because ProgramCard is redefined on every render, and a textarea whose
+ * component identity changes underneath it loses what was typed into it.
  */
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
-import { ChevronDown, ChevronUp, Calendar, CheckCircle2, PauseCircle, PlayCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Calendar, CheckCircle2, MessageSquareText, PauseCircle, PlayCircle } from 'lucide-react';
 import type { CoachAssignedWorkout, ProgramAssignmentSummary } from '@mef/shared-types-contracts';
 import {
   publishProgramAssignmentAction,
   cancelProgramAssignmentAction,
   pauseProgramAssignmentAction,
   resumeProgramAssignmentAction,
+  updateProgramMemberExplanationAction,
 } from '@/app/actions/coach-programs';
 import { describeSchedule } from '@/lib/coach-program-builder/scheduling';
 import {
@@ -109,6 +119,9 @@ export function ProgramAssignmentListPanel({
   const [expanded, setExpanded] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [localSummaries, setLocalSummaries] = useState(summaries);
+  /** The groupKey whose explanation is open for editing, and the text in the box. */
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [explanationDraft, setExplanationDraft] = useState('');
 
   const groups = buildCoachProgramGroups(localSummaries);
 
@@ -152,6 +165,19 @@ export function ProgramAssignmentListPanel({
       const result = await pauseProgramAssignmentAction(group.sessions[0]!.assignment.id);
       if ('error' in result && result.error) return;
       patchGroup(group, { status: 'paused' });
+    });
+  }
+
+  function handleSaveExplanation(group: CoachProgramGroup) {
+    const text = explanationDraft.trim();
+    startTransition(async () => {
+      const result = await updateProgramMemberExplanationAction(
+        group.sessions[0]!.assignment.id,
+        text || null
+      );
+      if ('error' in result && result.error) return;
+      patchGroup(group, { member_explanation: text || null });
+      setEditingKey(null);
     });
   }
 
@@ -267,6 +293,70 @@ export function ProgramAssignmentListPanel({
               <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
             )}
           </button>
+        </div>
+
+        {/* What the member reads under this program's name. */}
+        <div className="mt-3 border-t border-[#1B3A2D]/5 pt-3">
+          {editingKey === group.groupKey ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#854D0E]">
+                Why this program
+              </p>
+              <p className="mt-1 text-xs text-[#6B7A72]">
+                This is what she reads on her program screen. Changing it changes nothing about
+                what she was prescribed.
+              </p>
+              <textarea
+                value={explanationDraft}
+                onChange={(e) => setExplanationDraft(e.target.value)}
+                aria-label="Why this program, in the member's words"
+                rows={8}
+                className="mt-2 w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-3 text-sm leading-relaxed text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => handleSaveExplanation(group)}
+                  className="rounded-full bg-[#1B3A2D] px-3.5 py-1.5 text-xs font-medium text-white hover:brightness-110 disabled:opacity-40"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => setEditingKey(null)}
+                  className="rounded-full px-3.5 py-1.5 text-xs font-medium text-[#6B7A72] hover:bg-[#1B3A2D]/[0.06] disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setExplanationDraft(group.sessions[0]?.assignment.member_explanation ?? '');
+                setEditingKey(group.groupKey);
+              }}
+              className="flex w-full items-start gap-2 text-left"
+            >
+              <MessageSquareText
+                className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#9AA79F]"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                  Why this program
+                </span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-[#6B7A72]">
+                  {group.sessions[0]?.assignment.member_explanation ??
+                    'Nothing written yet. She sees a short standard description until you write one.'}
+                </span>
+              </span>
+            </button>
+          )}
         </div>
 
         {isExpanded && (

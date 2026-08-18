@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import { Lock, LockOpen, Save, ShieldAlert } from 'lucide-react';
 import type { BlueprintPeriodization } from '@mef/shared-types-contracts';
+import { TapToPlayVideo } from '@/components/exercise-library/TapToPlayVideo';
+import type { AssignedExerciseMediaMap } from '@/lib/coach-program-builder/assignedWorkoutMedia';
 import { correctiveApprovalDefaults } from '@/lib/corrective-engine/approvalDefaults';
 import { endDateFor } from '@/lib/program-lifecycle/transitions';
 import { formatPrescriptionLine } from '@/lib/coach-program-builder/prescription';
@@ -46,6 +48,18 @@ function todayLocal(): string {
  * pressing Approve and Assign is the moment anything at all is written,
  * and until then this screen has changed nothing anywhere.
  *
+ * WHAT SHE WILL READ, ON THE SCREEN WHERE IT IS DECIDED. The program
+ * explanation and every exercise's own line are shown here in full, in the
+ * words the member gets, and both are editable. They arrive composed from
+ * her real data (her goal, the areas her last posture check pointed at, the
+ * program's own shape and equipment), so the common case is reading them
+ * and pressing Approve. Nothing composed is ever asserted as a claim about
+ * her body: see lib/programs/explain/.
+ *
+ * VIDEO IS STRICTLY ON TAP. Every exercise renders a stored poster and a
+ * play button, and only a tap spends a play. Opening this screen and
+ * scrolling the whole program costs nothing.
+ *
  * WHAT UNLOCKING MEANS. A locked slot is the movement the program is built
  * around, and the picker refuses to open on one. Unlock is here anyway,
  * because a coach in front of a real member sometimes has a reason a
@@ -65,6 +79,8 @@ export function AssignPlanPanel({
   periodization,
   blockedReason,
   initialSessions,
+  initialExplanation,
+  media = {},
 }: {
   memberId: string;
   memberName: string;
@@ -77,11 +93,16 @@ export function AssignPlanPanel({
   periodization: BlueprintPeriodization | null;
   blockedReason: string | null;
   initialSessions: PlannedSession[];
+  /** "Why this program", composed from this member's own facts. The coach edits it here; what she leaves is what is stored. */
+  initialExplanation: string;
+  /** Poster and cues per exercise, loaded server side. */
+  media?: AssignedExerciseMediaMap;
 }) {
   const router = useRouter();
   const [sessions, setSessions] = useState<PlannedSession[]>(initialSessions);
   const [unlocked, setUnlocked] = useState<Record<string, boolean>>({});
   const [programNotes, setProgramNotes] = useState('');
+  const [explanation, setExplanation] = useState(initialExplanation);
   const [picker, setPicker] = useState<{
     sessionIndex: number;
     exerciseIndex: number;
@@ -137,6 +158,21 @@ export function AssignPlanPanel({
     setPicker(null);
   }
 
+  function updateReasoning(sessionIndex: number, exerciseIndex: number, value: string) {
+    setSessions((current) =>
+      current.map((session, sIdx) =>
+        sIdx !== sessionIndex
+          ? session
+          : {
+              ...session,
+              exercises: session.exercises.map((exercise, eIdx) =>
+                eIdx !== exerciseIndex ? exercise : { ...exercise, memberReasoning: value }
+              ),
+            }
+      )
+    );
+  }
+
   function toggleLock(key: string) {
     setUnlocked((current) => ({ ...current, [key]: !current[key] }));
   }
@@ -152,6 +188,7 @@ export function AssignPlanPanel({
       startDate,
       durationWeeks: parsedDuration,
       programNotes: programNotes.trim() || null,
+      memberExplanation: explanation.trim() || null,
       publish: true,
     });
     setBusy(null);
@@ -217,6 +254,27 @@ export function AssignPlanPanel({
           <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">{cautions}</p>
         </section>
       )}
+
+      {/* ------------------------------------------------------ */}
+      {/* Why this program, in her words                          */}
+      {/* ------------------------------------------------------ */}
+      <section className={`${CARD} mt-6 p-6`}>
+        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+          Why this program
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-[#6B7A72]">
+          This is what {memberName} reads on her program screen. It has been written from her own
+          goals, her last posture check and this program&apos;s own shape. Change any of it. What is
+          in this box is what she gets.
+        </p>
+        <textarea
+          value={explanation}
+          onChange={(e) => setExplanation(e.target.value)}
+          aria-label="Why this program, in the member's words"
+          rows={9}
+          className="mt-3 w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] px-4 py-3 text-sm leading-relaxed text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+        />
+      </section>
 
       {/* ------------------------------------------------------ */}
       {/* Schedule, pre-filled                                    */}
@@ -291,9 +349,29 @@ export function AssignPlanPanel({
                         const isUnlocked = unlocked[lockKey] === true;
                         const canSwap = week.week === 1 && (!exercise.isLocked || isUnlocked);
 
+                        const assets = planned ? media[planned.externalId] : undefined;
+
                         return (
-                          <div key={exercise.key} className="rounded-2xl bg-[#FAFAF8] px-4 py-3">
-                            <div className="flex items-start justify-between gap-3">
+                          <div
+                            key={exercise.key}
+                            className="overflow-hidden rounded-2xl bg-[#FAFAF8]"
+                          >
+                            {/* Week 1 only: the same movement repeated in
+                                every week's card would be the same poster
+                                three times over. Zero requests until a
+                                tap. */}
+                            {week.week === 1 && assets && planned && (
+                              <TapToPlayVideo
+                                externalId={planned.externalId}
+                                name={exercise.exerciseName}
+                                primaryMuscle={assets.primaryMuscle}
+                                category={assets.category}
+                                posterUrl={assets.posterUrl}
+                                cues={assets.cues}
+                                heightClassName="h-40"
+                              />
+                            )}
+                            <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-3">
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   <p className="text-sm font-medium text-[#1B3A2D]">
@@ -383,6 +461,31 @@ export function AssignPlanPanel({
                                 </div>
                               )}
                             </div>
+
+                            {/* What SHE reads under "Why this exercise",
+                                composed from this slot's own block, pattern
+                                and rank. Editable, because a coach who
+                                knows this member can say it better, and
+                                whatever is in this box is what gets frozen
+                                into her copy. */}
+                            {week.week === 1 && planned && (
+                              <div className="px-4 pb-3">
+                                <label className="block">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#6B7A72]">
+                                    Why this exercise, as {memberName} reads it
+                                  </span>
+                                  <textarea
+                                    value={planned.memberReasoning}
+                                    aria-label={`Why ${exercise.exerciseName} is in this program, in the member's words`}
+                                    onChange={(e) =>
+                                      updateReasoning(sessionIndex, exerciseIndex, e.target.value)
+                                    }
+                                    rows={2}
+                                    className="mt-1 w-full rounded-xl border border-[#1B3A2D]/10 bg-white px-3 py-2 text-[13px] leading-relaxed text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+                                  />
+                                </label>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
