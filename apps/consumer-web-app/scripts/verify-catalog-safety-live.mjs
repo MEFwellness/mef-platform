@@ -15,27 +15,21 @@
  * that needs no secret: /api/exercises must never answer with data, and the
  * member screens must ask for a sign-in.
  *
- * THE STAFF HALF WITHOUT A STAFF PASSWORD. Nobody here knows the
- * production coach's password, and asking for one to run a read-only check
- * is the wrong trade. Set COACH_EMAIL plus PROD_SUPABASE_URL,
- * PROD_SERVICE_KEY_FILE and PROD_ANON_KEY_FILE (file PATHS, never the
- * secrets themselves) and the staff session is minted from a one-time
- * magic-link token through the Auth Admin API, exactly the token an email
- * would carry, then retired locally at the end. No password is read,
- * changed or needed.
+ * SIGNING IN WITHOUT THE LOGIN FORM. Bot protection is live on
+ * production's auth forms and refuses a scripted browser, which is exactly
+ * what it is for. So when PROD_SUPABASE_URL, PROD_SERVICE_KEY_FILE and
+ * PROD_ANON_KEY_FILE are set (file PATHS, never the secrets themselves),
+ * both halves mint a one-time magic-link session through the Auth Admin
+ * API instead of typing into the form, and retire it locally at the end.
+ * A password is still used when one is given and minting is unavailable,
+ * which is what makes this work unchanged against a local dev server.
  *
  * PLAYS AT MOST ONE VIDEO. Your Move's allowance is 350 plays a month, so
  * this taps play on exactly one exercise and only when a member session
  * exists. Set SKIP_VIDEO=1 to play none.
  */
 import { chromium } from 'playwright';
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-const { createChunks } = require('@supabase/ssr/dist/main/utils/chunker.js');
-const { stringToBase64URL } = require('@supabase/ssr/dist/main/utils/base64url.js');
+import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const results = [];
@@ -68,52 +62,6 @@ async function apiStatus(page, path) {
     }
     return { status: res.status, rows: Array.isArray(body?.data) ? body.data.length : null, body };
   }, path);
-}
-
-/**
- * A real session for an account whose password we do not have, written as
- * the app's own cookie so its middleware reads it as an ordinary sign-in.
- * Returns the session (to retire it afterwards) or null.
- */
-async function mintSession(browser, email) {
-  const url = process.env.PROD_SUPABASE_URL;
-  const serviceKeyFile = process.env.PROD_SERVICE_KEY_FILE;
-  const anonKeyFile = process.env.PROD_ANON_KEY_FILE;
-  if (!url || !serviceKeyFile || !anonKeyFile) return null;
-
-  const service = createClient(url, readFileSync(serviceKeyFile, 'utf8').trim(), {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data: link } = await service.auth.admin.generateLink({ type: 'magiclink', email });
-  if (!link?.properties?.hashed_token) return null;
-
-  const publicClient = createClient(url, readFileSync(anonKeyFile, 'utf8').trim(), {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data: verified } = await publicClient.auth.verifyOtp({
-    token_hash: link.properties.hashed_token,
-    type: 'magiclink',
-  });
-  if (!verified?.session) return null;
-
-  const cookieName = `sb-${new URL(url).hostname.split('.')[0]}-auth-token`;
-  const chunks = createChunks(
-    cookieName,
-    `base64-${stringToBase64URL(JSON.stringify(verified.session))}`
-  );
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  await context.addCookies(
-    chunks.map((chunk) => ({
-      name: chunk.name,
-      value: chunk.value,
-      domain: new URL(BASE).hostname,
-      path: '/',
-      httpOnly: false,
-      secure: BASE.startsWith('https'),
-      sameSite: 'Lax',
-    }))
-  );
-  return { context, session: verified.session, service };
 }
 
 const browser = await chromium.launch();
@@ -154,12 +102,27 @@ const browser = await chromium.launch();
 // ---------------------------------------------------------------------
 // 2. As a member.
 // ---------------------------------------------------------------------
-if (process.env.MEMBER_EMAIL && process.env.MEMBER_PASSWORD) {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const memberMinted = process.env.MEMBER_EMAIL && canMintSessions()
+  ? await mintSessionContext(browser, process.env.MEMBER_EMAIL, {
+      baseUrl: BASE,
+      viewport: { width: 390, height: 844 },
+    })
+  : null;
+
+if (process.env.MEMBER_EMAIL && (process.env.MEMBER_PASSWORD || memberMinted)) {
+  const page = memberMinted
+    ? await memberMinted.context.newPage()
+    : await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
 
-  const landed = await signIn(page, process.env.MEMBER_EMAIL, process.env.MEMBER_PASSWORD);
+  let landed;
+  if (memberMinted) {
+    await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
+    landed = page.url();
+  } else {
+    landed = await signIn(page, process.env.MEMBER_EMAIL, process.env.MEMBER_PASSWORD);
+  }
   check('member: signed in', !landed.includes('/login'), landed.replace(BASE, ''));
 
   // 2a. The route.
@@ -246,15 +209,19 @@ if (process.env.MEMBER_EMAIL && process.env.MEMBER_PASSWORD) {
 
   check('member: no uncaught page errors during the run', errors.length === 0, errors.slice(0, 2).join(' | '));
   await page.close();
+  await retireSession(memberMinted);
 } else {
-  console.log('SKIP  member checks (set MEMBER_EMAIL and MEMBER_PASSWORD)');
+  console.log('SKIP  member checks (set MEMBER_EMAIL with MEMBER_PASSWORD, or with the PROD_* key files)');
 }
 
 // ---------------------------------------------------------------------
 // 3. As a coach or administrator.
 // ---------------------------------------------------------------------
-const staffMinted = process.env.COACH_EMAIL && !process.env.COACH_PASSWORD
-  ? await mintSession(browser, process.env.COACH_EMAIL)
+const staffMinted = process.env.COACH_EMAIL && canMintSessions()
+  ? await mintSessionContext(browser, process.env.COACH_EMAIL, {
+      baseUrl: BASE,
+      viewport: { width: 1280, height: 900 },
+    })
   : null;
 
 if (process.env.COACH_EMAIL && (process.env.COACH_PASSWORD || staffMinted)) {
@@ -310,14 +277,7 @@ if (process.env.COACH_EMAIL && (process.env.COACH_PASSWORD || staffMinted)) {
   check('staff: no uncaught page errors during the run', errors.length === 0, errors.slice(0, 2).join(' | '));
   await page.close();
 
-  if (staffMinted) {
-    // 'local' rather than the supabase-js default 'global': revoking every
-    // session that account holds would sign a real coach out of her phone.
-    await staffMinted.service.auth.admin
-      .signOut(staffMinted.session.access_token, 'local')
-      .catch(() => {});
-    await staffMinted.context.close();
-  }
+  await retireSession(staffMinted);
 } else {
   console.log('SKIP  staff checks (set COACH_EMAIL with COACH_PASSWORD, or with the PROD_* key files)');
 }

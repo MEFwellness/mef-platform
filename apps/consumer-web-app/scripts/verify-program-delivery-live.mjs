@@ -13,6 +13,14 @@
  *   MEMBER_PASSWORD
  *   MEMBER_ID       the member's user id (the coach screens are keyed by it)
  *
+ * SIGNING IN WITHOUT THE LOGIN FORM. Bot protection is live on
+ * production's auth forms and refuses a scripted browser, which is exactly
+ * what it is for. Set PROD_SUPABASE_URL, PROD_SERVICE_KEY_FILE and
+ * PROD_ANON_KEY_FILE (file PATHS) and both halves arrive by a one-time
+ * magic-link session instead, retired at the end. Passwords still work
+ * where minting is unavailable, which is what keeps this runnable against
+ * a local dev server unchanged.
+ *
  * The member must already have a completed static_posture assessment with
  * findings, because that is the generator's input. This script never
  * writes one: seeding assessment data is not something a verification
@@ -25,6 +33,7 @@
  * none.
  */
 import { chromium } from 'playwright';
+import { canMintSessions, mintSessionContext, retireSession } from './lib/mint-session.mjs';
 
 const BASE = (process.env.BASE_URL ?? 'https://app.mefwellness.com').replace(/\/$/, '');
 const MEMBER_ID = process.env.MEMBER_ID;
@@ -65,12 +74,27 @@ const browser = await chromium.launch();
 // ---------------------------------------------------------------------
 // 1. As the coach: generate, read the prescriptions, approve and assign.
 // ---------------------------------------------------------------------
-if (process.env.COACH_EMAIL && process.env.COACH_PASSWORD) {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+const coachMinted = process.env.COACH_EMAIL && canMintSessions()
+  ? await mintSessionContext(browser, process.env.COACH_EMAIL, {
+      baseUrl: BASE,
+      viewport: { width: 1280, height: 1000 },
+    })
+  : null;
+
+if (process.env.COACH_EMAIL && (process.env.COACH_PASSWORD || coachMinted)) {
+  const page = coachMinted
+    ? await coachMinted.context.newPage()
+    : await browser.newPage({ viewport: { width: 1280, height: 1000 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
 
-  const landed = await signIn(page, process.env.COACH_EMAIL, process.env.COACH_PASSWORD);
+  let landed;
+  if (coachMinted) {
+    await page.goto(`${BASE}/coach`, { waitUntil: 'domcontentloaded' });
+    landed = page.url();
+  } else {
+    landed = await signIn(page, process.env.COACH_EMAIL, process.env.COACH_PASSWORD);
+  }
   check('coach: signed in', !landed.includes('/login'), landed.replace(BASE, ''));
 
   await page.goto(`${BASE}/coach/corrective-programs/${MEMBER_ID}`, { waitUntil: 'domcontentloaded' });
@@ -123,20 +147,36 @@ if (process.env.COACH_EMAIL && process.env.COACH_PASSWORD) {
 
   check('coach: no uncaught page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   await page.close();
+  await retireSession(coachMinted);
 } else {
-  console.log('SKIP  coach checks (set COACH_EMAIL and COACH_PASSWORD)');
+  console.log('SKIP  coach checks (set COACH_EMAIL with COACH_PASSWORD, or with the PROD_* key files)');
 }
 
 // ---------------------------------------------------------------------
 // 2 to 5. As the member.
 // ---------------------------------------------------------------------
-if (process.env.MEMBER_EMAIL && process.env.MEMBER_PASSWORD) {
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const memberMinted = process.env.MEMBER_EMAIL && canMintSessions()
+  ? await mintSessionContext(browser, process.env.MEMBER_EMAIL, {
+      baseUrl: BASE,
+      viewport: { width: 390, height: 844 },
+    })
+  : null;
+
+if (process.env.MEMBER_EMAIL && (process.env.MEMBER_PASSWORD || memberMinted)) {
+  const page = memberMinted
+    ? await memberMinted.context.newPage()
+    : await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   const videoRequests = watchVideoRequests(page);
 
-  const landed = await signIn(page, process.env.MEMBER_EMAIL, process.env.MEMBER_PASSWORD);
+  let landed;
+  if (memberMinted) {
+    await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
+    landed = page.url();
+  } else {
+    landed = await signIn(page, process.env.MEMBER_EMAIL, process.env.MEMBER_PASSWORD);
+  }
   check('member: signed in', !landed.includes('/login'), landed.replace(BASE, ''));
 
   await page.goto(`${BASE}/programs`, { waitUntil: 'domcontentloaded' });
@@ -261,8 +301,9 @@ if (process.env.MEMBER_EMAIL && process.env.MEMBER_PASSWORD) {
     check('member: no uncaught page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
     await page.close();
   }
+  await retireSession(memberMinted);
 } else {
-  console.log('SKIP  member checks (set MEMBER_EMAIL and MEMBER_PASSWORD)');
+  console.log('SKIP  member checks (set MEMBER_EMAIL with MEMBER_PASSWORD, or with the PROD_* key files)');
 }
 
 await browser.close();

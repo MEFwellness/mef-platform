@@ -15,3 +15,9 @@ Applies to every task unless the user says otherwise.
 8. Update /docs/BUILD_STATUS.md to reflect what is now built.
 9. Do not claim you verified the live site — you cannot see it. State only what you actually checked.
 10. Provide a report containing: what you completed in plain language with no jargon, anything left unfinished or that didn't work, and a click-by-click checklist for the user to test on the site — screen by screen, what to tap, what they should see.
+
+## Live-site verification
+
+- Turnstile bot protection is LIVE on the `app.mefwellness.com` login form and blocks automated form sign-in **by design**. This is not a bug and never counts as a test failure. Do not report it as one, and never ask for the captcha to be disabled.
+- The standing method for signed-in live checks is a one-time session minted with the production service-role key, retired immediately after use (`admin.signOut(accessToken, 'local')`, never `'global'`). Helper: `apps/consumer-web-app/scripts/lib/mint-session.mjs`. Fetch the keys with `npx supabase projects api-keys --project-ref piafgqstbibvllsnuike --output json`, write them to files, and pass file PATHS (`PROD_SUPABASE_URL`, `PROD_SERVICE_KEY_FILE`, `PROD_ANON_KEY_FILE`) so no key reaches a command line.
+- Test member credentials live in the repo-root `.env.local` as `TEST_MEMBER_EMAIL` / `TEST_MEMBER_PASSWORD`. Same handling as `SUPABASE_DB_URL`: never print, echo, log, commit or report them.
