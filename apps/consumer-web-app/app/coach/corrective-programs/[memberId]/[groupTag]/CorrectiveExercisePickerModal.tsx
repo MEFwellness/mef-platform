@@ -4,7 +4,12 @@ import { useEffect, useState } from 'react';
 import { Search, X, Plus, ShieldCheck } from 'lucide-react';
 import type { ExerciseLibraryExercise } from '@mef/shared-types-contracts';
 import type { BlueprintKey, CorrectiveExercise, SessionBlockType } from '@/lib/corrective-engine/types';
-import { getQualifiedCorrectiveCandidatesAction } from '@/app/actions/corrective-programs';
+import {
+  getCorrectiveSlotGapsAction,
+  getQualifiedCorrectiveCandidatesAction,
+} from '@/app/actions/corrective-programs';
+import { describeBlockGap } from '@/lib/corrective-engine/coverage';
+import { NotAssignableRow } from '@/components/exercise-library/NotAssignableRow';
 
 export type CorrectivePickedExercise = {
   provider: string;
@@ -30,6 +35,14 @@ const BLOCK_LABEL: Record<SessionBlockType, string> = {
  * Builder uses (/api/exercises); anything picked through that path is
  * flagged as a coach override, regardless of whether it happens to also
  * qualify, since the coach explicitly stepped outside the guided default.
+ *
+ * A coach override is still not a way to put an exercise with no video into
+ * a member's program. The full-library list keeps showing every exercise,
+ * because a coach planning ahead has a real reason to see what MEF has
+ * written and not yet filmed, but a row the catalog does not mark
+ * `is_client_assignable` (migration 170) says so on its face and cannot be
+ * tapped. The guided list needs no such treatment: its candidates come from
+ * the corrective pool, which is assignable-only at the query.
  */
 export function CorrectiveExercisePickerModal({
   blueprintKeys,
@@ -49,6 +62,7 @@ export function CorrectiveExercisePickerModal({
   const [showFullLibrary, setShowFullLibrary] = useState(false);
   const [qualified, setQualified] = useState<CorrectiveExercise[]>([]);
   const [loadingQualified, setLoadingQualified] = useState(true);
+  const [gapNotice, setGapNotice] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ExerciseLibraryExercise[]>([]);
   const [searching, setSearching] = useState(false);
@@ -56,11 +70,14 @@ export function CorrectiveExercisePickerModal({
   useEffect(() => {
     let cancelled = false;
     setLoadingQualified(true);
-    getQualifiedCorrectiveCandidatesAction(blueprintKeys, block, equipment).then((results) => {
-      if (!cancelled) {
-        setQualified(results);
-        setLoadingQualified(false);
-      }
+    Promise.all([
+      getQualifiedCorrectiveCandidatesAction(blueprintKeys, block, equipment),
+      getCorrectiveSlotGapsAction(blueprintKeys, equipment),
+    ]).then(([results, gaps]) => {
+      if (cancelled) return;
+      setQualified(results);
+      setGapNotice(describeBlockGap(gaps, block));
+      setLoadingQualified(false);
     });
     return () => {
       cancelled = true;
@@ -136,10 +153,20 @@ export function CorrectiveExercisePickerModal({
           {!showFullLibrary ? (
             <>
               {loadingQualified && <p className="py-6 text-center text-sm text-[#6B7A72]">Loading…</p>}
+              {/* Two different empty states, because they mean two
+                  different things. "Nothing exists for this block" is a
+                  gap in the library and no amount of searching will fix
+                  it; "nothing left" means the good options are already in
+                  the program. Saying the first as if it were the second
+                  sends a coach hunting for something that is not there. */}
               {!loadingQualified && qualifiedVisible.length === 0 && (
                 <p className="py-6 text-center text-sm text-[#6B7A72]">
-                  No qualified exercises left for this block with the current equipment. Try &quot;Show
-                  full library&quot; to pick manually.
+                  {gapNotice ?? (
+                    <>
+                      No qualified exercises left for this block with the current equipment. Try
+                      &quot;Show full library&quot; to pick manually.
+                    </>
+                  )}
                 </p>
               )}
               <div className="space-y-1.5">
@@ -181,32 +208,46 @@ export function CorrectiveExercisePickerModal({
                 </p>
               )}
               <div className="space-y-1.5">
-                {searchResults.map((exercise) => (
-                  <button
-                    key={exercise.externalId}
-                    type="button"
-                    onClick={() =>
-                      onPick({
-                        provider: exercise.provider,
-                        externalId: exercise.externalId,
-                        name: exercise.name,
-                        coachingCues: null,
-                        isCoachOverride: true,
-                      })
-                    }
-                    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#F5B700]/40 bg-[#F5B700]/[0.06] px-4 py-3 text-left transition hover:bg-[#F5B700]/[0.12]"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[#1B3A2D]">{exercise.name}</p>
-                      <p className="mt-0.5 truncate text-xs text-[#6B7A72]">
-                        {[exercise.primaryMuscle?.replace(/_/g, ' '), exercise.equipment, exercise.level]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
-                    </div>
-                    <Plus className="h-4 w-4 shrink-0 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
-                  </button>
-                ))}
+                {searchResults.map((exercise) =>
+                  exercise.isClientAssignable ? (
+                    <button
+                      key={exercise.externalId}
+                      type="button"
+                      onClick={() =>
+                        onPick({
+                          provider: exercise.provider,
+                          externalId: exercise.externalId,
+                          name: exercise.name,
+                          coachingCues: null,
+                          isCoachOverride: true,
+                        })
+                      }
+                      className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#F5B700]/40 bg-[#F5B700]/[0.06] px-4 py-3 text-left transition hover:bg-[#F5B700]/[0.12]"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-[#1B3A2D]">{exercise.name}</p>
+                        <p className="mt-0.5 truncate text-xs text-[#6B7A72]">
+                          {[exercise.primaryMuscle?.replace(/_/g, ' '), exercise.equipment, exercise.level]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      </div>
+                      <Plus className="h-4 w-4 shrink-0 text-[#1B3A2D]" strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                  ) : (
+                    <NotAssignableRow
+                      key={exercise.externalId}
+                      name={exercise.name}
+                      subtitle={[
+                        exercise.primaryMuscle?.replace(/_/g, ' '),
+                        exercise.equipment,
+                        exercise.level,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    />
+                  )
+                )}
               </div>
             </>
           )}

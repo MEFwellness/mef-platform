@@ -110,10 +110,13 @@ describe('Root Movement entry point is gated on the sessions existing', () => {
       'utf8'
     );
 
-    // The count comes from the same fail-closed read, and the card is
-    // conditional on it. Without both, a code-before-migration deploy
-    // would show a link to an empty screen.
-    expect(source).toMatch(/listActiveSessionTemplates\(supabase\)/);
-    expect(source).toMatch(/readySessionCount > 0 &&/);
+    // The suggestion comes from the same fail-closed read (it resolves to
+    // null when the templates table is not there yet) and both the
+    // suggestion card and the link to the full list are conditional on it.
+    // Without that, a code-before-migration deploy would show a link to an
+    // empty screen.
+    expect(source).toMatch(/getSuggestedMovementSession\(supabase, user\.id\)/);
+    expect(source).toMatch(/\{suggestion && \(/);
+    expect(source).toMatch(/\{!suggestion && \(/);
   });
 });

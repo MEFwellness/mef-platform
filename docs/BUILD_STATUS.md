@@ -7468,3 +7468,61 @@ A label over an empty space is worse than no label. Both interaction callbacks a
 ### One thing that cannot be claimed from here
 
 Whether a real person on a real phone is ever shown a challenge. A headless run cannot answer that, because it is not a real person on a real phone, and the widget's mode is configured in the Cloudflare dashboard where this environment cannot read it. It is on the owner checklist as a thing to look at, not asserted here.
+
+## Catalog safety and the video rule (2026-08-17)
+
+The exercise catalog now states, in the database, which of its 853 exercises may actually be given to a member; the member-facing Movement screen stopped serving a catalog of invented exercises; and the catalog itself stopped being readable by every signed-in account.
+
+### One rule, one place: `exercise_catalog.is_client_assignable`
+
+A STORED generated column (migration 170). An exercise is assignable exactly when it has a video, because a video is the only thing that currently shows a member how to perform it. **824 of 853** qualify. The 29 that do not are the 28 MEF-authored corrective exercises plus one Your Move row with no video.
+
+**The rule is `has_video`, not `has_video AND provider = 'your_move'`, and that is deliberate.** The two describe the same set today, which the migration asserts rather than claims. They stop describing the same set the day MEF records videos for its own 28 exercises, which is precisely the day those exercises must become assignable with no code change. A provider clause would have made that impossible. The assertion goes red the day a `mef_custom` row gets a video, which is the reminder that playback still resolves through Your Move's API by external id and a self-hosted video needs a path of its own. Assignability and playability are separate questions and the column only answers the first.
+
+Nothing in application code restates the rule. `lib/exercise-library/assignable.ts` reads the column and everything else reads that.
+
+### The existing-assignment audit, which changes nothing
+
+The migration lists every exercise in a published assigned workout that is not client-assignable, as a NOTICE, and edits nothing. A member's program is a record of what her coach gave her and a rule introduced today does not get to rewrite it.
+
+### The 41 percent nobody could see
+
+`exerciseSelection.ts` and `recommendations.ts` both read `mef_exercise_metadata` with a flat `.limit(500)` against a table of 853 rows. Both scan the result in application code for tag overlap, so 41 percent of the catalog was invisible to every selection either of them made, and nothing said so. Both now page in full through the shared reader, and both are restricted to assignable exercises, since everything either of them selects ends up in a member's program.
+
+### The catalog leak
+
+`/exercises` had been staff-only since the internal movement tools moved to the staff dashboards. The data underneath it had not: `/api/exercises` served the whole catalog to any signed-in account, and the anon key could read every row of `exercise_catalog` and every row of `mef_exercise_metadata`, including `contraindications` and `coach_notes`.
+
+- **The route** answers 403 to anyone holding neither `coach` nor `platform_administrator`, checked before it reads a row. `/api/exercises/[id]/video-url` underneath it is deliberately left open, because it is what a member taps to play an exercise in a Root Movement session, and a guard that took the whole subtree would break the only member surface that plays video.
+- **`exercise_catalog`** answers to staff, plus exactly the rows a member's own screens need: exercises in a published Root Movement session, and exercises in her own published assigned workouts. `public.member_may_read_exercise` is that sentence, once, as a SECURITY DEFINER function.
+- **`mef_exercise_metadata`** is staff-only outright. A row policy cannot withhold a column, so the member player reads `public.member_exercise_cues`, a view of three columns. `contraindications` and `coach_notes` have no path to a member rather than merely no policy permitting them.
+
+**The first run of the new test found a real hole.** A signed-out visitor holding only the public anon key could read all 39 Root Movement exercises, because that branch is not member-specific. Both branches now require a session.
+
+### The Movement screen stopped serving invented exercises
+
+`lib/movement/exercises/catalog.ts` held sixteen hand-authored exercises with no video and no coaching behind them. Its own header called it "explicitly NOT a real exercise library" and "architecture demonstration only". It was the only configured provider, so it was what every member's Movement screen generated a session from, and tapping in reached a list of exercise names and nothing else.
+
+Deleted: the catalog, the provider, the registry, the rules engine, `lib/movement/data.ts`, `app/movement/session/`, `app/actions/movement.ts`, four components and the movement registry adapter. A source sweep over `app`, `lib` and `components` fails the build if any of their identifiers ever comes back.
+
+The screen now offers one of the six Root Movement sessions, chosen by `selectFallbackMovementSession`, the same function the Priority Card already uses, so the screen and the card can never suggest by two different rules. The Weekly Goal tile counts real completions from `member_movement_session_runs` instead of rows in the retired table.
+
+**One consequence, stated rather than buried.** `movement_sessions` will not gain rows again, so the movement input to the Root Score and to the weekly report goes quiet. Both already treat no rows as "no workout logged, never fabricated". What they were counting was completions of fabricated sessions, so this is a correction rather than a loss, but it is a change to a real signal.
+
+### Coaches are told when a slot cannot be filled
+
+`lib/corrective-engine/coverage.ts` reports every slot no assignable exercise could fill, computed live from the pool rather than stored, so a gap closes by itself the day a video lands. The draft review screen shows it per block and the swap picker shows it instead of "try the full library" when searching would be pointless. The full-library view still lists non-assignable exercises, because a coach planning ahead has a reason to see what MEF has written and not yet filmed, but they carry "No video, cannot be assigned" and cannot be tapped.
+
+### What the video rule costs today, measured
+
+Written up in full in `docs/CORRECTIVE_RECLASSIFICATION_CANDIDATES.md`, a proposal with nothing applied.
+
+- **The Release block is now empty for all four blueprints.** Exactly one assignable exercise carries the `release` role, and its `muscles_stretched` array is empty, so it can never match a slot. Every release option the engine used before was one of the eleven unfilmed MEF foam-roll and ball-release exercises.
+- **Forward Head has both long muscles empty** (deep neck flexors, thoracic extensors), so its Stability block is empty at every severity, proved by a test. **Forward Head is not deliverable until those videos are recorded.**
+- Twelve reclassification candidates are tabled with confidence levels. Two are label mismatches rather than judgements: `tensor fasciae latae` versus `TFL` is used by five video-backed exercises and three unfilmed ones respectively, and `Quadriceps Roll` is a foam roll of the front of the thighs with no muscles named at all.
+
+### Proof
+
+Full suite **5,768 passing** (404 files), 60 of them new across five files. All 39 corrective sequencing guard tests green. Typecheck clean, lint 0 errors, production build clean.
+
+One pre-existing test changed meaning rather than being weakened: `forward_head moderate` no longer meets the 8-exercise floor, because the library genuinely cannot supply eight. The ceiling stays unconditional, the floor is exempted for that one case by name, and `tests/corrective-slot-coverage.test.ts` pins exactly which slots are empty so the exemption cannot quietly grow.

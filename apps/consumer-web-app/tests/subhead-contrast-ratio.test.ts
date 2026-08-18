@@ -129,7 +129,10 @@ describe('Subhead style: the new color is applied everywhere it is used, not scr
       'components/FirstCheckinTransition.tsx',
       'components/MovementAssessmentCard.tsx',
       'components/body-assessment/AssessmentWizard.tsx',
-      'components/movement/MovementEmptyState.tsx',
+      // Was components/movement/MovementEmptyState.tsx, which belonged to
+      // the retired generated placeholder session. The Movement screen
+      // itself carries the same subhead style now.
+      'app/movement/page.tsx',
     ];
     for (const rel of knownFiles) {
       const src = readFileSync(path.resolve(REPO_ROOT, rel), 'utf-8');

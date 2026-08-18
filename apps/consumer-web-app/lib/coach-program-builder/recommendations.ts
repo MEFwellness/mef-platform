@@ -20,6 +20,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MefExerciseMetadata, MemberMovementProfile } from '@mef/shared-types-contracts';
+import { loadAssignableExerciseMetadata } from '../exercise-library/assignable';
 
 /** Exported for reuse by lib/prescription-intelligence/exerciseSelection.ts, which matches the same free-text, coach-curated tag vocabulary against Prescription Blocks' required/preferred/excluded movement tags — same matching problem, same normalization rules, no reason to reimplement it. */
 export function normalize(value: string): string {
@@ -73,18 +74,18 @@ export async function getRecommendedExerciseMetadataForMember(
     return [];
   }
 
-  // Pull the coach-curated metadata catalog once — it's a bounded,
-  // coach-authored table (not the full ExerciseAPI.dev vendor catalog),
-  // so scanning it in app code for tag overlap is cheap and avoids
-  // needing a bespoke full-text search index for what is, in practice, a
-  // few hundred rows at most.
-  const { data, error } = await supabase.from('mef_exercise_metadata').select('*').limit(500);
-  if (error || !data) {
-    console.error('getRecommendedExerciseMetadataForMember failed', error);
-    return [];
-  }
+  // Pull the coach-curated metadata catalog once — scanning it in app code
+  // for tag overlap is cheap at this size and avoids needing a bespoke
+  // full-text search index. Read in full, and only what may reach a member:
+  // this used to be a flat `.limit(500)` over an 853-row table, so 41% of
+  // the catalog could never be recommended and nothing said so.
+  const data = await loadAssignableExerciseMetadata(
+    supabase,
+    'getRecommendedExerciseMetadataForMember'
+  );
+  if (data.length === 0) return [];
 
-  const scored = (data as MefExerciseMetadata[]).map((metadata) => {
+  const scored = data.map((metadata) => {
     const matchReasons: string[] = [];
     if (tagsOverlap(limitations, metadata.corrective_focus))
       matchReasons.push('Movement limitation');

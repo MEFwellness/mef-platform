@@ -44,6 +44,7 @@ export function normalizeExerciseCatalogRow(
     instructions: exercise.instructions,
     exerciseTips: exercise.exercise_tips,
     hasVideo: exercise.has_video,
+    isClientAssignable: exercise.is_client_assignable,
     posterUrl,
     cues,
     metadata,

@@ -1,8 +1,15 @@
 /**
  * Data access for mef_exercise_metadata (migration 80). Pure functions
- * taking a SupabaseClient, same shape as every other feature's data.ts file
- * in this app — RLS is the real authorization boundary (authenticated read,
- * coach/admin write; see the migration).
+ * taking a SupabaseClient, same shape as every other feature's data.ts
+ * file in this app — RLS is the real authorization boundary.
+ *
+ * STAFF ONLY, since migration 170. This table holds contraindications and
+ * coach_notes, which are clinical judgement a coach writes for a coach,
+ * and a member is given no row of it at all. Member screens that need
+ * coaching cues read getMemberExerciseCues below, which goes to a view
+ * carrying three columns and no others — a row policy cannot withhold a
+ * column, so the columns that must never reach a member are not exposed
+ * to her at all rather than merely unmentioned.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -50,6 +57,37 @@ export async function getExerciseMetadataMap(
 
   const rows = (data as MefExerciseMetadata[]) ?? [];
   return new Map(rows.map((row) => [row.external_id, row]));
+}
+
+/**
+ * Coaching cues for exercises the signed-in member is entitled to see —
+ * the ones in a published Root Movement session, and the ones in her own
+ * published assigned workouts. Reads public.member_exercise_cues
+ * (migration 170), whose WHERE clause is that entitlement and whose
+ * column list is provider, external_id and coaching_cues.
+ *
+ * Fails to an empty map rather than throwing, exactly like
+ * getExerciseMetadataMap: cues are the session player's fallback for a
+ * video that will not load, and a missing fallback must never be the
+ * reason a member cannot start her session.
+ */
+export async function getMemberExerciseCues(
+  supabase: SupabaseClient,
+  externalIds: string[]
+): Promise<Map<string, string[]>> {
+  if (externalIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('member_exercise_cues')
+    .select('external_id, coaching_cues')
+    .in('external_id', externalIds);
+  if (error) {
+    console.error('getMemberExerciseCues failed', error);
+    return new Map();
+  }
+
+  const rows = (data as { external_id: string; coaching_cues: string[] | null }[]) ?? [];
+  return new Map(rows.map((row) => [row.external_id, row.coaching_cues ?? []]));
 }
 
 /**

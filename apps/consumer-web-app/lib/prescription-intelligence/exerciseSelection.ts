@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MefExerciseMetadata } from '@mef/shared-types-contracts';
 import { normalize, tagsOverlap } from '../coach-program-builder/recommendations';
 import { getExercisesByExternalIds } from '../your-move/catalog';
+import { loadAssignableExerciseMetadata } from '../exercise-library/assignable';
 import type { PrescriptionFacts } from './facts';
 import type { StrategyBlockDraft } from './strategy';
 
@@ -199,12 +200,11 @@ export async function selectExercisesForBlock(
   excludeExternalIds: string[],
   count: number
 ): Promise<BlockExerciseDraft[]> {
-  const { data, error } = await supabase.from('mef_exercise_metadata').select('*').limit(500);
-  if (error || !data) {
-    console.error('selectExercisesForBlock (catalog fetch) failed', error);
-    return [];
-  }
-  const catalog = data as MefExerciseMetadata[];
+  // Read in full, and only what may reach a member. This used to be a flat
+  // `.limit(500)` over an 853-row table, so 41% of the catalog was invisible
+  // to every selection below and nothing said so.
+  const catalog = await loadAssignableExerciseMetadata(supabase, 'selectExercisesForBlock');
+  if (catalog.length === 0) return [];
 
   const restrictions = [
     ...(facts.movementProfile?.exercise_restrictions ?? []),

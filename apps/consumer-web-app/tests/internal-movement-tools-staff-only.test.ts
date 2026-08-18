@@ -300,8 +300,12 @@ describe('nothing was lost from the staff platform', () => {
     // Requirement: a member keeps the media and cues for exercises her
     // coach prescribed. Those render in place; neither component routes to
     // /exercises, so removing the library takes nothing from her program.
+    // MovementExerciseCard used to be listed here too. It rendered the
+    // generated placeholder session, which is retired along with the
+    // invented catalog behind it, so the two surfaces that actually carry
+    // prescribed content are what remain.
     for (const component of [
-      'components/movement/MovementExerciseCard.tsx',
+      'app/programs/[id]/page.tsx',
       'components/movement-sessions/MovementSessionPlayer.tsx',
     ]) {
       expect(read(component)).not.toMatch(/[`'"]\/exercises/);

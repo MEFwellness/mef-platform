@@ -22,6 +22,10 @@ function baseExercise(overrides: Partial<ExerciseCatalogRow> = {}): ExerciseCata
     has_video: false,
     has_video_white: false,
     has_video_gym: false,
+    // Generated in the database from has_video; the fixtures mirror that
+    // rather than setting it independently, so a fixture can never claim a
+    // combination Postgres would refuse to produce.
+    is_client_assignable: false,
     video_url: null,
     video_url_expires_at: null,
     created_at: new Date().toISOString(),

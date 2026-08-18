@@ -25,6 +25,9 @@ function row(overrides: Partial<ExerciseCatalogRow> & { external_id: string; nam
     has_video: false,
     has_video_white: false,
     has_video_gym: false,
+    // Generated in the database from has_video; overrides that set
+    // has_video must set this to match, since Postgres would.
+    is_client_assignable: overrides.has_video ?? false,
     video_url: null,
     video_url_expires_at: null,
     created_at: '2026-01-01T00:00:00.000Z',

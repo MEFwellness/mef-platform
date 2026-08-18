@@ -24,11 +24,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { WhenNotEmpty, isNotEmpty } from '../components/layout/WhenNotEmpty';
-import { WhySessionCard } from '../components/movement/WhySessionCard';
 import { ProteinLedgerHistory } from '../components/protein-ledger/ProteinLedgerHistory';
 import { DoctorSummaryCards } from '../components/assessments/four-doctors-results/DoctorSummaryCards';
 import { recordedDaysLabel } from '../lib/progress/statWindow';
-import type { MovementSelectionFactor } from '@mef/shared-types-contracts';
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -88,22 +86,12 @@ describe('WhenNotEmpty', () => {
 // Guard 1b — the components that adopted it, rendered for real
 // ---------------------------------------------------------------------------
 
-function reason(label: string): MovementSelectionFactor {
-  return { label, detail: `${label} detail` } as MovementSelectionFactor;
-}
-
 describe('the components the guard was applied to', () => {
-  /** The exact case the audit caught live on the Movement screen. */
-  it('WhySessionCard renders nothing when there is no reason to give', () => {
-    expect(renderToStaticMarkup(<WhySessionCard reasons={[]} />)).toBe('');
-  });
-
-  it('WhySessionCard still renders its heading when it has a reason', () => {
-    const html = renderToStaticMarkup(
-      <WhySessionCard reasons={[reason('Your sleep was short')]} />
-    );
-    expect(html).toContain('Why this session was selected');
-  });
+  // WhySessionCard used to be checked here as the third example, and it is
+  // gone: it explained the generated placeholder movement session, which
+  // was retired along with the invented catalog behind it. The rule it
+  // demonstrated is unchanged and is still proved by the primitive above
+  // and by the two components below.
 
   it('ProteinLedgerHistory renders nothing rather than "Last 7 days" over an empty box', () => {
     expect(renderToStaticMarkup(<ProteinLedgerHistory days={[]} targetGrams={110} />)).toBe('');

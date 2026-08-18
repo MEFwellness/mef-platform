@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
-import { ChevronLeft, Plus, X, RefreshCw, ShieldAlert } from 'lucide-react';
+import { ChevronLeft, Plus, X, RefreshCw, ShieldAlert, VideoOff } from 'lucide-react';
 import type {
   CoachProgramTemplateWithContent,
   ProgramSectionType,
@@ -18,7 +18,9 @@ import {
   regenerateCorrectiveDraftAction,
   approveCorrectiveDraftAction,
   discardCorrectiveDraftAction,
+  getCorrectiveSlotGapsAction,
 } from '@/app/actions/corrective-programs';
+import { describeBlockGap, type SlotCoverageGap } from '@/lib/corrective-engine/coverage';
 import type { TemplateContentSectionInput, TemplateMetaInput } from '@/lib/coach-program-builder/templates';
 import {
   CorrectiveExercisePickerModal,
@@ -186,10 +188,31 @@ export function DraftReviewPanel({
     () => (group.templates[0]?.corrective_tags ?? []) as BlueprintKey[],
     [group.templates]
   );
-  const equipment = group.templates[0]?.equipment ?? [];
+  const equipment = useMemo(
+    () => group.templates[0]?.equipment ?? [],
+    [group.templates]
+  );
+  const equipmentKey = equipment.join('|');
   const blueprintNames = blueprintKeys
     .map((k) => CORRECTIVE_BLUEPRINTS[k]?.name ?? k)
     .join(' + ');
+
+  // Which slots nothing could have filled. Loaded once, from the live
+  // pool, so a block that is short says why instead of just being short.
+  const [slotGaps, setSlotGaps] = useState<SlotCoverageGap[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    getCorrectiveSlotGapsAction(blueprintKeys, equipmentKey.split('|').filter(Boolean)).then(
+      (gaps) => {
+        if (!cancelled) setSlotGaps(gaps);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+    // equipmentKey rather than the array itself: a fresh array identity on
+    // every render would re-run this on every keystroke in a notes field.
+  }, [blueprintKeys, equipmentKey]);
 
   function updateExercises(
     sessionIndex: number,
@@ -343,7 +366,9 @@ export function DraftReviewPanel({
             </p>
 
             <div className="mt-4 space-y-5">
-              {session.sections.map((section, sectionIndex) => (
+              {session.sections.map((section, sectionIndex) => {
+                const gapNotice = describeBlockGap(slotGaps, section.block);
+                return (
                 <div key={section.name}>
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]">
@@ -358,6 +383,21 @@ export function DraftReviewPanel({
                       Add
                     </button>
                   </div>
+
+                  {/* Why the block is short, when it is short because
+                      nothing exists rather than because the engine chose
+                      fewer. Never rendered when the block is fully
+                      covered. */}
+                  {gapNotice && (
+                    <p className="mt-2 flex items-start gap-1.5 rounded-2xl bg-[#F5B700]/[0.08] px-3 py-2 text-[11px] leading-relaxed text-[#854D0E]">
+                      <VideoOff
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                      />
+                      <span>{gapNotice}</span>
+                    </p>
+                  )}
 
                   {section.exercises.length === 0 ? (
                     <p className="mt-2 text-xs text-[#9AA79F]">No exercises in this block.</p>
@@ -403,7 +443,8 @@ export function DraftReviewPanel({
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <label className="mt-5 block">

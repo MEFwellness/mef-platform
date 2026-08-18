@@ -7,6 +7,7 @@ import {
   getRecommendedExercisesForClientAction,
   type RecommendedExercise,
 } from '@/app/actions/coach-programs';
+import { NotAssignableRow } from '@/components/exercise-library/NotAssignableRow';
 
 export type PickedExercise = {
   provider: string;
@@ -129,38 +130,53 @@ export function ExercisePickerModal({
           )}
 
           <div className="space-y-1.5">
-            {results.map((exercise) => (
-              <button
-                key={exercise.externalId}
-                type="button"
-                onClick={() =>
-                  onPick({
-                    provider: exercise.provider,
-                    externalId: exercise.externalId,
-                    name: exercise.name,
-                  })
-                }
-                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/10 px-4 py-3 text-left transition hover:border-[#1B3A2D]/30 hover:bg-[#EFF6F1]"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-[#1B3A2D]">{exercise.name}</p>
-                  <p className="mt-0.5 truncate text-xs text-[#6B7A72]">
-                    {[
-                      exercise.primaryMuscle?.replace(/_/g, ' '),
-                      exercise.equipment,
-                      exercise.level,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                </div>
-                <Plus
-                  className="h-4 w-4 shrink-0 text-[#1B3A2D]"
-                  strokeWidth={1.75}
-                  aria-hidden="true"
-                />
-              </button>
-            ))}
+            {results.map((exercise) => {
+              const subtitle = [
+                exercise.primaryMuscle?.replace(/_/g, ' '),
+                exercise.equipment,
+                exercise.level,
+              ]
+                .filter(Boolean)
+                .join(' · ');
+
+              // Everything built here is assigned to a member, so an
+              // exercise with nothing to show her is listed and not
+              // offered. See NotAssignableRow.
+              if (!exercise.isClientAssignable) {
+                return (
+                  <NotAssignableRow
+                    key={exercise.externalId}
+                    name={exercise.name}
+                    subtitle={subtitle}
+                  />
+                );
+              }
+
+              return (
+                <button
+                  key={exercise.externalId}
+                  type="button"
+                  onClick={() =>
+                    onPick({
+                      provider: exercise.provider,
+                      externalId: exercise.externalId,
+                      name: exercise.name,
+                    })
+                  }
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/10 px-4 py-3 text-left transition hover:border-[#1B3A2D]/30 hover:bg-[#EFF6F1]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-[#1B3A2D]">{exercise.name}</p>
+                    <p className="mt-0.5 truncate text-xs text-[#6B7A72]">{subtitle}</p>
+                  </div>
+                  <Plus
+                    className="h-4 w-4 shrink-0 text-[#1B3A2D]"
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

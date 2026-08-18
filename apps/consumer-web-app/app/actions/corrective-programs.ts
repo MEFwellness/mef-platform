@@ -26,6 +26,7 @@ import { loadCorrectiveExercisePool, DEFAULT_EQUIPMENT } from '@/lib/corrective-
 import { generateCorrectiveProgramDraft } from '@/lib/corrective-engine/programGenerator';
 import { saveCorrectiveProgramDraft } from '@/lib/corrective-engine/save';
 import { qualifiesForBlock } from '@/lib/corrective-engine/blockQualification';
+import { findSlotCoverageGaps, type SlotCoverageGap } from '@/lib/corrective-engine/coverage';
 import {
   listCorrectiveDraftGroupsForMember,
   getCorrectiveDraftGroup,
@@ -220,4 +221,39 @@ export async function getQualifiedCorrectiveCandidatesAction(
   }));
   const pool = await loadCorrectiveExercisePool(context.supabase, equipment.length > 0 ? equipment : [...DEFAULT_EQUIPMENT]);
   return pool.filter((e) => qualifiesForBlock(e, block, patterns));
+}
+
+/**
+ * The slots this program could never fill, for the coach review screen.
+ *
+ * Computed live from the same pool the generator draws from rather than
+ * stored on the draft, so a gap disappears by itself the day the exercise
+ * that closes it is given a video, with nothing to regenerate and nothing
+ * to migrate. Returns an empty list on any failure, which shows the coach
+ * no notice rather than a wrong one.
+ */
+export async function getCorrectiveSlotGapsAction(
+  blueprintKeys: BlueprintKey[],
+  equipment: string[]
+): Promise<SlotCoverageGap[]> {
+  const context = await resolveCoach();
+  if (!context) return [];
+  if (blueprintKeys.length === 0) return [];
+
+  const patterns: DetectedPattern[] = blueprintKeys.map((blueprint) => ({
+    blueprint,
+    severity: 'mild',
+    supportingFindingIds: [],
+  }));
+
+  try {
+    const pool = await loadCorrectiveExercisePool(
+      context.supabase,
+      equipment.length > 0 ? equipment : [...DEFAULT_EQUIPMENT]
+    );
+    return findSlotCoverageGaps(pool, patterns);
+  } catch (error) {
+    console.error('getCorrectiveSlotGapsAction failed', error);
+    return [];
+  }
 }

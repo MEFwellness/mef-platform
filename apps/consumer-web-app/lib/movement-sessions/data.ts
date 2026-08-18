@@ -29,7 +29,7 @@ import type {
   MovementSessionTemplateSlot,
 } from '@mef/shared-types-contracts';
 import { getExercisesByExternalIds } from '../your-move/catalog';
-import { getExerciseMetadataMap } from '../exercise-library/metadata';
+import { getMemberExerciseCues } from '../exercise-library/metadata';
 import { getExtractedPosterMap, toPublicMediaUrl } from '../your-move/posters';
 import { estimateSessionSeconds } from './duration';
 
@@ -151,9 +151,12 @@ export async function getSessionDetail(
   const externalIds = slots.map((slot) => slot.external_id);
 
   // None of these three depends on the others' results.
-  const [catalog, metadata, posters] = await Promise.all([
+  const [catalog, cues, posters] = await Promise.all([
     getExercisesByExternalIds(supabase, externalIds),
-    getExerciseMetadataMap(supabase, externalIds),
+    // The member-facing cue read (migration 170's view), not the full
+    // curation layer — this runs under the member's own session and she
+    // has no row of mef_exercise_metadata.
+    getMemberExerciseCues(supabase, externalIds),
     getExtractedPosterMap(supabase, externalIds),
   ]);
 
@@ -172,7 +175,7 @@ export async function getSessionDetail(
       // when the exercise HAS video. Here they are the fallback the
       // player shows if a video will not load mid-session, which is
       // exactly the moment a member most needs to be told what to do.
-      cues: metadata.get(slot.external_id)?.coaching_cues ?? [],
+      cues: cues.get(slot.external_id) ?? [],
     });
   }
 

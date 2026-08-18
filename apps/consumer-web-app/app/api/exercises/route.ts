@@ -18,10 +18,22 @@
  * via rankByMediaAvailability before returning — a stable sort that never
  * changes relevance order within a tier and never drops a no-media
  * exercise, only reorders it after the media/cues-having ones.
+ *
+ * COACH AND ADMINISTRATOR ONLY. The screens this serves — the Exercise
+ * Library at /exercises and the two program pickers — are all internal
+ * coaching tools, and /exercises has been staff-only since the internal
+ * movement tools moved to the staff dashboards. This endpoint was not,
+ * so the whole catalog was one fetch away for any signed-in account.
+ * A member now gets 403 and no rows. The nested video-url route
+ * (app/api/exercises/[id]/video-url) is deliberately NOT gated this way:
+ * it is what a member taps to play an exercise in a Root Movement
+ * session, and it resolves one exercise at a time by id rather than
+ * handing out the catalog.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { hasActiveRole } from '@/lib/auth/guards';
 import { searchExerciseCatalog, listDistinctCatalogValues } from '@/lib/your-move/catalog';
 import { getExerciseMetadataMap } from '@/lib/exercise-library/metadata';
 import { listMyExerciseFavoriteIds } from '@/lib/exercise-library/favorites';
@@ -51,6 +63,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: { code: 'UNAUTHENTICATED', message: 'Sign in required' } },
       { status: 401 }
+    );
+  }
+
+  // Fails closed: hasActiveRole returns false on a failed lookup, and
+  // false here means 403. A coach caught by a broken RPC is told to try
+  // again; a member is never handed the catalog.
+  const [isCoach, isAdmin] = await Promise.all([
+    hasActiveRole(supabase, user.id, 'coach'),
+    hasActiveRole(supabase, user.id, 'platform_administrator'),
+  ]);
+  if (!isCoach && !isAdmin) {
+    return NextResponse.json(
+      { error: { code: 'FORBIDDEN', message: 'This is a coaching tool' } },
+      { status: 403 }
     );
   }
 

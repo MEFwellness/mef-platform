@@ -4,9 +4,20 @@
  * exercise_catalog for display name, filtered to only exercises buildable
  * with the member's available equipment. Zero Your Move API calls — reads
  * already-classified local DB rows only.
+ *
+ * CLIENT-ASSIGNABLE ONLY. Everything this function returns is destined for
+ * a member's program, so it drops any exercise the catalog does not mark
+ * `is_client_assignable` (migration 170) — today the 28 MEF-authored
+ * corrective exercises with no video, plus one Your Move row with none.
+ * The rule itself is not restated here: this reads the generated column
+ * and believes it, so the day those exercises are given videos they enter
+ * this pool with no change to this file. Coach and admin tooling that
+ * plans rather than assigns still sees the whole catalog, by not calling
+ * this function.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CorrectiveExercise } from './types';
+import { listAssignableCatalogNames } from '../exercise-library/assignable';
 
 /** Default equipment assumption per the task: bodyweight, foam roller, small ball — every generated session must remain buildable with just these. Matches the equipment vocabulary actually used by mef_exercise_metadata.equipment ('bodyweight' / 'foam roller' / 'ball'). */
 export const DEFAULT_EQUIPMENT: readonly string[] = ['bodyweight', 'foam roller', 'ball'];
@@ -23,35 +34,6 @@ interface MetadataRow {
   spinal_flexion_core: boolean;
   equipment: string[];
   coaching_cues: string[];
-}
-
-/**
- * mef_exercise_metadata has no foreign key to exercise_catalog — it's keyed
- * by the same (provider, external_id) natural key exercise_catalog uses
- * (see migration 80's header), not a Postgres relationship PostgREST can
- * embed. Every other reader in this codebase (metadata.ts, normalize.ts)
- * fetches the two tables separately and joins in application code; this
- * does the same. Reads the whole catalog page-by-page (range(), not a
- * `.in(external_id, [...])` filter) — the full ~850-row catalog's ids
- * alone exceed PostgREST's URL length limit as a single `.in()` filter, and
- * paging that filter too just trades one edge case for a smaller one; a
- * full-table read of two skinny columns is the same "load the whole
- * catalog for a name comparison" precedent already used by
- * dedupe-exercise-catalog.ts and the Your Move generation mapping.
- */
-async function fetchAllCatalogNames(supabase: SupabaseClient): Promise<Map<string, string>> {
-  const names = new Map<string, string>();
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from('exercise_catalog')
-      .select('external_id, name')
-      .range(offset, offset + PAGE_SIZE - 1);
-    if (error) throw new Error(`loadCorrectiveExercisePool (catalog) failed: ${error.message}`);
-    const rows = (data ?? []) as { external_id: string; name: string }[];
-    for (const row of rows) names.set(row.external_id, row.name);
-    if (rows.length < PAGE_SIZE) break;
-  }
-  return names;
 }
 
 /**
@@ -85,7 +67,14 @@ export async function loadCorrectiveExercisePool(
     if (rows.length < PAGE_SIZE) break;
   }
 
-  const catalogNames = await fetchAllCatalogNames(supabase);
+  // mef_exercise_metadata has no foreign key to exercise_catalog — it is
+  // keyed by the same (provider, external_id) natural key (migration 80's
+  // header), not a Postgres relationship PostgREST can embed, so the two
+  // tables are read separately and joined here, exactly as metadata.ts and
+  // normalize.ts already do. The map holds client-assignable exercises
+  // only, so a non-assignable one has no name to join to and drops out of
+  // the pool below however well its metadata row qualifies.
+  const catalogNames = await listAssignableCatalogNames(supabase);
 
   const pool: CorrectiveExercise[] = [];
   for (const row of metadataRows) {

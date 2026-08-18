@@ -9,11 +9,7 @@
  * unit-testable without rendering anything.
  */
 
-import type {
-  FoodLensComparisonSignal,
-  MovementSessionWithExercises,
-  WellnessInsight,
-} from '@mef/shared-types-contracts';
+import type { FoodLensComparisonSignal, WellnessInsight } from '@mef/shared-types-contracts';
 import type { WellnessIndexResult } from '../wellness/wellness-index';
 import type { CoachingFocusDecision } from '../brain/types';
 
@@ -95,11 +91,18 @@ export function buildFoodProductEntryContext(
   return `Member just scanned the packaged product "${productName}" with Food Lens.${summaryPart}`;
 }
 
-export function buildMovementEntryContext(session: MovementSessionWithExercises | null): string {
-  if (!session) {
-    return 'Opened from the Movement Dashboard, before a first check-in has been logged.';
+/**
+ * `suggestedSessionName` is one of the six Root Movement sessions, the one
+ * the Movement screen is currently offering. It used to be the generated
+ * placeholder session's focus summary, which named a session built from
+ * exercises that did not exist; that path is gone, and so is any claim
+ * here about her recovery status.
+ */
+export function buildMovementEntryContext(suggestedSessionName: string | null): string {
+  if (!suggestedSessionName) {
+    return 'Opened from the Movement screen, with no session available to offer.';
   }
-  return `Opened from the Movement Dashboard. Today's focus: "${session.focus_summary}" (${session.recovery_status} recovery, ~${session.estimated_duration_minutes} min).`;
+  return `Opened from the Movement screen. The session on offer is "${suggestedSessionName}".`;
 }
 
 export function buildBodyAssessmentReportEntryContext(

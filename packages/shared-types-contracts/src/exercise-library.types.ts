@@ -84,6 +84,9 @@ export interface ExerciseCatalogRow {
   has_video_white: boolean;
   has_video_gym: boolean;
 
+  /** Generated in the database (migration 170), never written: whether this exercise may be selected into a member-facing program. Read it, never re-derive it. */
+  is_client_assignable: boolean;
+
   video_url: string | null;
   video_url_expires_at: string | null;
 
@@ -207,6 +210,8 @@ export interface ExerciseLibraryExercise {
   instructions: string[];
   exerciseTips: string[];
   hasVideo: boolean;
+  /** Whether a coach may put this exercise into a member's program. Carried through to the UI so a coach browsing the full library is told which entries are planning-only rather than being allowed to pick one and find out later. */
+  isClientAssignable: boolean;
   posterUrl: string | null;
   cues: string[];
   metadata: MefExerciseMetadata | null;
