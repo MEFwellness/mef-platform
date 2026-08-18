@@ -8236,3 +8236,97 @@ Production's own catalog was verified directly at the database instead, which is
 Worth recording because it cost twenty minutes: the push of `a9cca9e` produced **no** deployment at all. Every earlier commit in this repo deployed within seconds of its push; this one sat for twenty minutes with the previous build still serving the domain. Pushing a second commit (`3f15d30`) unstuck it, and the resulting build carries both. No manual `vercel --prod` was forced from a local working tree. If a push ever looks like it did nothing, check `vercel ls` before assuming the build failed, and push again rather than deploying by hand.
 
 Nothing member-facing was ever waiting on the deploy. The renames live in the database, which every screen reads at request time, so they were live on `app.mefwellness.com` the moment migrations 182 and 183 were applied. The only code in the commit that changes runtime behaviour is the seven entries added to `searchAliases.ts`, which affect a coach who types an old, misspelled name into the picker in full.
+
+---
+
+## The MEF program library: sixteen named programs (2026-08-18)
+
+Migration 174 built the authored side of the named-program pipeline and proved it with one blueprint. Migration 175 revised that blueprint after coach review and, in doing so, wrote down what the shape of a MEF program actually is. This is the library itself: **sixteen programs, 365 slots, three collections**, every one authored against those same rules and every one now **approved and assignable on production**.
+
+The exercise-name cleanup this was ordered behind had already shipped (migrations 182 and 183), so these programs were authored against clean names from the start. No name in the library carries a side marker, a provider id or a variant code, and a test asserts it.
+
+### What was built, and what was not
+
+Content only. **No engine, schema or flow change.** The migration adds rows to `movement_programs`, `movement_program_versions` and `program_blueprint_slots`, and touches nothing else. No catalog row was edited, added, renamed or reclassified.
+
+The full slot detail, every judgment call and every catalog gap live in **`docs/PROGRAM_LIBRARY.md`**, which is generated from the same source the migration was generated from, so the tables and the rows cannot drift apart by transcription.
+
+### The sixteen
+
+| program | population | days | equipment | week 3 |
+| --- | --- | --- | --- | --- |
+| **Rebuild Your Foundation** | very gentle re-entry, beginner stage | 2 | band, wall | main lift gains a set, core holds +5s |
+| **Beginner Strength and Stability** | beginner to early intermediate, floor comfortable | 3 | dumbbell, step | main lift gains a set, core holds +10s |
+| **Back-to-Exercise Reset** | six months or more away, beginner stage | 2 | band, wall | main lift gains a set, core holds +5s |
+| **Active Aging and Balance** | older adults, chair supported | 3 | chair, band, box, dumbbell, wall | main lift gains a set |
+| **Gym Strength Foundation** | first gym program, machine led | 3 | machine, cable, dumbbell | main lift gains a set, core holds +10s |
+| **Strong After 40** | the flagship, women 35 to 55 | 3 | dumbbell | main lift gains a set, core holds +10s |
+| **Menopause Strength Foundation** | perimenopausal and postmenopausal, conservative | 3 | dumbbell | main lift gains a set, core holds +10s |
+| **Low-Impact Strength and Conditioning** | zero impact anywhere | 3 | dumbbell, wall | main lift gains a set, core holds +10s |
+| **Energy and Recovery Movement Plan** | under-recovered, movement quality first | 2 | dumbbell | main lift gains a set, core holds +10s |
+| **Bone, Balance and Strength Support** | loading plus balance, conservative | 3 | dumbbell, box, band, chair | main lift gains a set, balance and core holds +10s |
+| **Desk Worker Movement Reset** | seated job, hips and upper back | 3 | band, wall | main lift gains a set, core holds +10s |
+| **Busy Parent Three-Day Plan** | real time pressure, seven slots a session | 3 | dumbbell | main lift gains a set |
+| **Low-Stress Training Week** | high stress period, long rests | 2 | dumbbell | main lift gains a set, core holds +10s |
+| **Travel and Hotel Program** | one bodyweight day, two dumbbell days | 3 | dumbbell | main lift gains a set, core holds +10s |
+| **Return After Illness or Extended Break** | the gentlest in the library, chair based | 2 | chair, band, wall | the sit to stand gains a set, nothing else |
+| **Golf Mobility and Performance Foundation** | rotational sport, anti-rotation core | 3 | dumbbell | main lift gains a set, core holds +10s |
+
+### The rules, encoded and then asserted twice
+
+Every rule below is checked in the migration, so a bad seed fails on the way in, **and** in `tests/program-library.test.ts`, so a row edited afterwards through any other door fails too. That duplication is deliberate: the migration guards the insert, the test guards the table.
+
+- The opener is at most three preparation, mobility and activation movements. Strength is the clear majority: at least three movements a session, more than the opener and more than core. Then core.
+- **Ranks 1 to 5 of every session belong to strength and core**, so a shortened session drops the opener and never the lift. That is only satisfiable because every session carries at least five strength-and-core movements between them, which is asserted separately rather than left to luck.
+- Every one of the 365 slots points at a client-assignable exercise (migration 170).
+- **Stage logic.** Single-leg work is stationary. Single-arm rows appear only in the intermediate-stage programs; the four beginner-stage ones (Rebuild Your Foundation, Back-to-Exercise Reset, Active Aging and Balance, Return After Illness) pull with a band, a chair or the floor. Nothing in the library uses Side Plank, a Bulgarian split squat, a pistol squat or a bent-over two-dumbbell row, at any stage, asserted by name.
+- **Per side is said by the slot**, never by the name. A carry is never per side, because a carry uses both dumbbells at once.
+- **At most one deliberately repeated exercise per program**, and every occurrence of it explains itself in that slot's own coach-facing purpose. Thirteen programs repeat one thing (usually the row); three repeat nothing. No two sessions of one program share an opener.
+- **No preset loads.** The slot table has no load column, no week override adds one, and the plan a coach previews carries none. The coach sets the first weight with her in the room and the load engine (migration 178) takes over from her own logs.
+- Linear on all sixteen. Undulating is parked and nothing declares it.
+- Member-facing text carries no em dash, no clinical vocabulary and no treatment language.
+
+### Nothing here treats anything
+
+**Menopause Strength Foundation** and **Bone, Balance and Strength Support** are the two where the temptation is strongest, and both describe strength work and stop. Nothing a member reads mentions a symptom, a hormone or bone density; Bone, Balance and Strength Support does not mention bone at all outside the program's own name, which is the coach's shelf label. Their coach-facing cautions say in as many words that the program treats nothing, that a diagnosis or a density result belongs with her own clinician, and what to check before following the week 3 progression. A test scans all sixteen member titles and descriptions against a list of seventeen treatment words and finds none.
+
+### Approval: why the migration did not do it
+
+The coach pre-authorised these approvals in writing. The migration still seeds every version as a **draft**, and the approvals were performed afterwards, on production, through the real path.
+
+Approval is an act, not a column. Migration 174's own constraint says an approved version carries `approved_at` and `approved_by`, and `approveBlueprintVersionAction` refuses anybody who is not a platform administrator, refuses a version that is not a draft, and refuses a version with an unfilled slot. A migration has no administrator to attribute an approval to, and writing the three columns directly would produce a row claiming an approval that never happened, in every environment the migration ever runs in, including a fresh local database nobody has reviewed anything in.
+
+So `scripts/approve-program-library-live.mjs` mints a one-time session for `info@mefwellness.com` (a platform administrator, and not a coach), opens `/admin/blueprints/<versionId>` sixteen times, presses **Approve this version** and then **Yes, make it assignable**, reads the confirm sentence before pressing it, and waits for the screen itself to say "Coaches can give this to a member." before checking the database. **24 of 24 checks passed.** Every one of the sixteen carries `approved_by = info@mefwellness.com` and a real timestamp.
+
+### Proof
+
+Full suite **6,241 passing** (421 files), 31 of them new in `tests/program-library.test.ts`. Typecheck clean, lint 0 errors, production build clean. Migration 184 was dry-run against production inside a rolled-back transaction before it was applied.
+
+### Verification (2026-08-18)
+
+Deployed: `mef-platform-2fqjyfeod`, Ready, Production, and `app.mefwellness.com` is aliased to it. Repo `MEFwellness/mef-platform`, branch `main`, Vercel project `mef-wellness/mef-platform`.
+
+**`scripts/verify-program-library-live.mjs` reports 27 of 27 against `app.mefwellness.com`, with zero videos played.**
+
+| check | result |
+| --- | --- |
+| Blueprint Library lists seventeen approved programs, no draft | 17 approved, 0 draft |
+| Active Aging and Balance renders its slots | 24 slots, 24 dosed lines, names clean |
+| Strong After 40 renders its slots | 27 slots, 27 dosed lines, names clean |
+| Busy Parent Three-Day Plan renders its slots | 21 slots, 21 dosed lines, names clean |
+| coach assign screen offers the new programs | yes |
+| assign preview for Strong After 40, for the test member | opens, "Why this program" composes, week 3 shown, prescriptions shown |
+| the preview wrote nothing | assignments 0, workouts 0, templates 6, before and after |
+| test member's own screens | `/`, `/programs`, `/movement` byte-for-byte unchanged |
+| videos played | 0 |
+
+The preview reads, to the coach: "Strong After 40. 4 weeks for Heather, 3 sessions a week. Nothing is written until you approve it." followed by the program's cautions under "BEFORE YOU ASSIGN THIS". Nothing was assigned and nothing was published.
+
+**Two script bugs the live run found, both mine and both fixed before the passing run.**
+
+1. **The prescription check was looking for the wrong shape.** It matched `3 x 10`; the app writes "2 sets of 10 reps" (`lib/coach-program-builder/prescription.ts`). The first run therefore reported zero dosed lines on three screens that were in fact fully dosed.
+2. **The member-screen comparison was racing Home's own entry animation.** Captured on `networkidle`, Home differed from itself with nothing happening in between, which the run honestly reported as instability. It is not: three consecutive captures taken after a four second settle are byte-identical. The capture now loads and settles, and the comparison stayed a strict byte-for-byte one rather than being loosened to paper over a measurement artefact.
+
+**State production was left in:** sixteen new approved programs and their 365 slots, plus the existing Home Dumbbell Foundation v2. Zero drafts in the blueprint library. The test member's assignments, workouts and templates are exactly as found (0, 0, 6) and none of her screens moved. No member has been given any of these programs; approving them makes them assignable, and assigning one is a coach's decision, made per member.
+
+**Catalog gaps flagged rather than forced,** in full in `docs/PROGRAM_LIBRARY.md`: there is no assignable anti-rotation press (no Pallof, no band woodchop) which Golf Mobility and Performance Foundation most wants; there is no beginner two-arm supported dumbbell row, so the beginner-stage programs use a band; and the chair-based core list is exactly three movements long, which is why Active Aging and Balance runs one core slot a session rather than two. Nothing was forced into a bad fit and no non-assignable exercise was touched.
