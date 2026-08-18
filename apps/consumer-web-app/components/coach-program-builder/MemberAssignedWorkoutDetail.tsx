@@ -45,6 +45,11 @@ import {
   updateMyAssignedWorkoutExerciseAction,
 } from '@/app/actions/coach-programs';
 import { AssignedWorkoutGuidedSession } from './AssignedWorkoutGuidedSession';
+import {
+  memberSafeText,
+  memberSessionBlurb,
+  memberWorkoutTitle,
+} from '@/lib/programs/memberPresentation';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -261,6 +266,12 @@ export function MemberAssignedWorkoutDetail({
   const [view, setView] = useState<'list' | 'guided'>('list');
   const [isPending, startTransition] = useTransition();
 
+  const naming = {
+    templateName: workout.template_name,
+    correctiveTags: workout.corrective_tags,
+    programTags: workout.program_tags,
+  };
+
   const exerciseCount = workout.sections.reduce(
     (total, section) => total + section.exercises.length,
     0
@@ -290,21 +301,28 @@ export function MemberAssignedWorkoutDetail({
   return (
     <div className="space-y-5">
       <section className={`${CARD} p-6`}>
+        {/* Every string in this block goes through
+            lib/programs/memberPresentation.ts. The stored title, the stored
+            description and the engine's own coach note all carry internal
+            vocabulary a member must never meet, and a frozen snapshot
+            cannot be rewritten, so they are replaced on the way out rather
+            than edited in place. A coach's OWN note passes through
+            untouched. */}
         <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
-          {workout.template_name}
+          {memberWorkoutTitle(naming)}
         </p>
-        {workout.description && (
-          <p className="mt-2 text-sm text-[#6B7A72]">{workout.description}</p>
-        )}
-        {workout.member_instructions && (
+        <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
+          {memberSafeText(workout.description) ?? memberSessionBlurb(naming)}
+        </p>
+        {memberSafeText(workout.member_instructions) && (
           <p className="mt-3 rounded-2xl bg-[#EFF6F1] p-3 text-sm text-[#1B3A2D]">
-            {workout.member_instructions}
+            {memberSafeText(workout.member_instructions)}
           </p>
         )}
-        {workout.coach_notes && (
+        {memberSafeText(workout.coach_notes) && (
           <p className="mt-3 rounded-2xl bg-[#F5B700]/[0.12] p-3 text-sm text-[#1B3A2D]">
             <span className="font-semibold">From your coach: </span>
-            {workout.coach_notes}
+            {memberSafeText(workout.coach_notes)}
           </p>
         )}
 

@@ -85,7 +85,7 @@ import { FirstCheckinTransition } from '@/components/FirstCheckinTransition';
 import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
 import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
 import { AssignedProgramsCard } from '@/components/AssignedProgramsCard';
-import { getMyAssignedWorkoutsAction } from '@/app/actions/coach-programs';
+import { getMyCurrentProgramEntryAction } from '@/app/actions/coach-programs';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
 import { getMyAssessmentsAction } from '@/app/actions/body-assessment';
 import { getMyQuestionnaireCatalog, getMyBodyAssessmentAssignmentCard } from '@/app/actions/questionnaireCatalog';
@@ -163,7 +163,7 @@ export default async function DashboardPage({
     baseline,
     bodyAssessments,
     questionnaireCatalog,
-    assignedWorkouts,
+    currentProgram,
     rootPopupMessage,
     bodyAssessmentAccess,
     bodyAssessmentAssignmentCard,
@@ -177,7 +177,7 @@ export default async function DashboardPage({
     getMyBaselineAssessment(),
     getMyAssessmentsAction(),
     getMyQuestionnaireCatalog(),
-    getMyAssignedWorkoutsAction(),
+    getMyCurrentProgramEntryAction(),
     getMyRootPopupMessageAction(),
     // Coach-Assign-Only Gating task (2026-08-04): Body Assessment is now
     // requiresAssignment, same as Four Doctors/CHEK HLC1/Primal Pattern/
@@ -212,10 +212,9 @@ export default async function DashboardPage({
   const priorityShownAsPopup =
     rootPopupMessage?.kind === 'priority_card' && searchParams.firstCheckin !== '1';
 
-  const today = new Date().toISOString().slice(0, 10);
-  const upcomingAssignedWorkouts = assignedWorkouts
-    .filter((w) => w.scheduled_date >= today && w.status !== 'completed' && w.status !== 'skipped')
-    .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+  // Which session comes next is decided by currentProgramEntry
+  // (lib/program-lifecycle/memberView.ts), so Home and the Movement screen
+  // can never point at two different sessions.
   const movementAnalyzed = bodyAssessments.some((a) => a.completed_at !== null);
   const hasConnectedWearable = wearableConnections.some((c) => c.status === 'connected');
 
@@ -296,7 +295,10 @@ export default async function DashboardPage({
     ) : null;
 
   const assignedProgramsNode = shows(F.homeAssignedPrograms) ? (
-    <AssignedProgramsCard upcomingWorkouts={upcomingAssignedWorkouts} />
+    <AssignedProgramsCard
+      program={currentProgram?.program ?? null}
+      nextWorkout={currentProgram?.nextWorkout ?? null}
+    />
   ) : null;
 
   // Home cleanup pass (2026-08-14). Two blocks that used to live in this

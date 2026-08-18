@@ -41,6 +41,8 @@ import {
 import { formatTargetDuration } from '@/lib/movement-sessions/duration';
 import { DEFAULT_WEEKLY_SESSION_TARGET } from '@/lib/movement/score';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { getMyCurrentProgramEntryAction } from '@/app/actions/coach-programs';
+import { AssignedProgramsCard } from '@/components/AssignedProgramsCard';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -53,14 +55,20 @@ export default async function MovementPage() {
 
   // None of these takes another's result as input, so they go together
   // rather than one waiting on the round trip before it.
-  const [{ data: profile }, isCoach, suggestion, completedThisWeek] = await Promise.all([
-    supabase.from('profiles').select('display_name').eq('id', user.id).single(),
-    hasActiveRole(supabase, user.id, 'coach'),
-    // Fails closed to null before migration 153 reaches an environment, in
-    // which case this screen carries no suggestion rather than a dead link.
-    getSuggestedMovementSession(supabase, user.id),
-    countRecentMovementSessionCompletions(supabase, user.id),
-  ]);
+  const [{ data: profile }, isCoach, suggestion, completedThisWeek, currentProgram] =
+    await Promise.all([
+      supabase.from('profiles').select('display_name').eq('id', user.id).single(),
+      hasActiveRole(supabase, user.id, 'coach'),
+      // Fails closed to null before migration 153 reaches an environment, in
+      // which case this screen carries no suggestion rather than a dead link.
+      getSuggestedMovementSession(supabase, user.id),
+      countRecentMovementSessionCompletions(supabase, user.id),
+      // The program her coach built her, if she is on one. It sits ABOVE
+      // the Root sessions: something a coach chose for her outranks
+      // something this app suggested, and a member with a program must be
+      // able to reach it from more than one obvious place.
+      getMyCurrentProgramEntryAction(),
+    ]);
 
   const firstName = firstNameFrom(profile?.display_name);
 
@@ -80,11 +88,25 @@ export default async function MovementPage() {
             Movement
           </h1>
           <p className="mt-2 text-[15px] text-[#6B7A72]">
-            {firstName ? `${firstName}, s` : 'S'}ix sessions, ready when you are.
+            {currentProgram
+              ? 'Your coach\u2019s program, and six sessions of our own.'
+              : `${firstName ? `${firstName}, s` : 'S'}ix sessions, ready when you are.`}
           </p>
         </div>
 
         <div className="mt-7 space-y-5">
+          {currentProgram && (
+            <section>
+              <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
+                Your program from your coach
+              </p>
+              <AssignedProgramsCard
+                program={currentProgram.program}
+                nextWorkout={currentProgram.nextWorkout}
+              />
+            </section>
+          )}
+
           {suggestion && (
             <section className={`${CARD} mef-animate-in relative overflow-hidden p-8 sm:p-10`}>
               <div

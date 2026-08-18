@@ -17,11 +17,14 @@ import type {
   MemberProgramLifecycle,
   ProgramAssignmentStatus,
 } from '@mef/shared-types-contracts';
+import { memberProgramBlurb, memberProgramName } from '../programs/memberPresentation';
 
 export interface MemberProgramView {
   groupKey: string;
-  /** The program's name, with the ": Session A" suffix removed when its sessions share one. */
+  /** The program's name as a member reads it. Never the clinical one, never a session suffix. See lib/programs/memberPresentation.ts. */
   name: string;
+  /** The interim description, composed from what is safely known. Never the generator's own words. */
+  blurb: string;
   status: ProgramAssignmentStatus;
   startDate: string | null;
   endDate: string | null;
@@ -193,9 +196,24 @@ export function buildMemberProgramViews(
       totalWorkouts,
     };
 
+    // The name and the blurb are read off the frozen workouts, because
+    // those carry corrective_tags and the assignment container does not.
+    // Falling back to the stored title still goes through
+    // memberProgramName, which scrubs it.
+    const naming = {
+      templateName: groupWorkouts[0]?.template_name ?? rows[0]!.template_name_snapshot,
+      correctiveTags: groupWorkouts[0]?.corrective_tags ?? null,
+      programTags: groupWorkouts[0]?.program_tags ?? null,
+    };
+
     views.push({
       groupKey,
-      name: programDisplayName(rows.map((r) => r.template_name_snapshot)),
+      name: memberProgramName(naming),
+      blurb: memberProgramBlurb({
+        correctiveTags: naming.correctiveTags,
+        durationWeeks: base.durationWeeks,
+        sessionsPerWeek: rows.length,
+      }),
       ...base,
       assignmentIds,
       workouts: groupWorkouts,
@@ -211,4 +229,35 @@ export function buildMemberProgramViews(
     if (byStatus !== 0) return byStatus;
     return (b.startDate ?? '').localeCompare(a.startDate ?? '');
   });
+}
+
+/**
+ * The program she is on right now and the next session in it. What Home
+ * and the Movement screen both need, decided once so the two entry points
+ * can never point at different sessions.
+ *
+ * "Next" is the earliest scheduled session she has not finished or
+ * skipped, from today onward. When she is behind, it falls back to the
+ * earliest unfinished session at all, because the useful thing to offer
+ * somebody who missed Tuesday is Tuesday's session, not silence.
+ */
+export interface CurrentProgramEntry {
+  program: MemberProgramView;
+  nextWorkout: CoachAssignedWorkout | null;
+}
+
+export function currentProgramEntry(
+  views: MemberProgramView[],
+  today: string
+): CurrentProgramEntry | null {
+  const program = views.find((view) => isCurrentProgramStatus(view.status));
+  if (!program) return null;
+
+  const unfinished = program.workouts.filter(
+    (w) => w.status !== 'completed' && w.status !== 'skipped'
+  );
+  const ahead = unfinished.filter((w) => w.scheduled_date >= today);
+  const nextWorkout = ahead[0] ?? unfinished[0] ?? null;
+
+  return { program, nextWorkout };
 }

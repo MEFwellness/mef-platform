@@ -16,6 +16,10 @@ import { describe, it, expect } from 'vitest';
 const MEMBER_FACING_FILES = [
   '../components/coach-program-builder/MemberProgramsList.tsx',
   '../components/coach-program-builder/MemberAssignedWorkoutDetail.tsx',
+  // Both of these render an assigned program to a member and were never
+  // on this list: the Home entry point and the guided walk-through.
+  '../components/AssignedProgramsCard.tsx',
+  '../components/coach-program-builder/AssignedWorkoutGuidedSession.tsx',
   '../app/programs/page.tsx',
   '../app/programs/[id]/page.tsx',
 ];

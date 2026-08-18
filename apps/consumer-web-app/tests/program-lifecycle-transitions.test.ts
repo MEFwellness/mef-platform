@@ -387,7 +387,9 @@ describe('the member’s view of her program', () => {
       [workout({ id: 'w1', assignment_id: 'a1' }), workout({ id: 'w2', assignment_id: 'a2' })]
     );
     expect(views).toHaveLength(1);
-    expect(views[0]!.name).toBe('Corrective: Lower Cross');
+    // The MEMBER-facing name. The coach's own view of the same three
+    // assignments keeps the clinical one, asserted below.
+    expect(views[0]!.name).toBe('Hip and Core Foundation');
     expect(views[0]!.headline).toBe('Week 2 of 4');
     expect(views[0]!.assignmentIds).toEqual(['a1', 'a2', 'a3']);
     expect(views[0]!.workouts).toHaveLength(2);
@@ -646,6 +648,8 @@ describe('the coach’s view of a client’s programs', () => {
       summary({ id: 'a3', name: 'Corrective: Lower Cross: Session C', groupKey: 'g1' }),
     ]);
     expect(groups).toHaveLength(1);
+    // The coach still reads the clinical name, unchanged. Only the member
+    // side maps it (lib/programs/memberPresentation.ts).
     expect(groups[0]!.name).toBe('Corrective: Lower Cross');
     expect(groups[0]!.status).toBe('active');
     expect(groups[0]!.sessions).toHaveLength(3);

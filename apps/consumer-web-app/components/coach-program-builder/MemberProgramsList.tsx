@@ -23,6 +23,7 @@ import {
   isCurrentProgramStatus,
   type MemberProgramView,
 } from '@/lib/program-lifecycle/memberView';
+import { memberWorkoutTitle } from '@/lib/programs/memberPresentation';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -75,7 +76,13 @@ function WorkoutRow({ workout }: { workout: CoachAssignedWorkout }) {
       className="flex items-center justify-between gap-3 rounded-2xl border border-[#1B3A2D]/10 bg-white p-4 transition hover:border-[#1B3A2D]/30 hover:shadow-[0_10px_28px_-8px_rgba(27,58,45,0.15)]"
     >
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-[#1B3A2D]">{workout.template_name}</p>
+        <p className="truncate text-sm font-semibold text-[#1B3A2D]">
+          {memberWorkoutTitle({
+            templateName: workout.template_name,
+            correctiveTags: workout.corrective_tags,
+            programTags: workout.program_tags,
+          })}
+        </p>
         <p className="mt-0.5 flex items-center gap-1 text-xs text-[#6B7A72]">
           <Calendar className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
           {formatDate(workout.scheduled_date)}
@@ -119,6 +126,8 @@ function CurrentProgramCard({ program }: { program: MemberProgramView }) {
       </div>
 
       {program.detail && <p className="mt-2 text-sm text-[#6B7A72]">{program.detail}</p>}
+
+      <p className="mt-2 text-sm leading-relaxed text-[#4F645A]">{program.blurb}</p>
 
       {program.totalWorkouts > 0 && (
         <p className="mt-3 text-xs text-[#6B7A72]">

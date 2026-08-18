@@ -44,7 +44,12 @@ import {
   resumeAssignment,
   listMyProgramLifecycles,
 } from '@/lib/coach-program-builder/assignments';
-import { buildMemberProgramViews, type MemberProgramView } from '@/lib/program-lifecycle/memberView';
+import {
+  buildMemberProgramViews,
+  currentProgramEntry,
+  type CurrentProgramEntry,
+  type MemberProgramView,
+} from '@/lib/program-lifecycle/memberView';
 import {
   recordProgramLifecycleEvent,
   supersedePreviousPrograms,
@@ -54,6 +59,7 @@ import { getMovementProfile } from '@/lib/movement-profile/data';
 import { getExercisesByExternalIds } from '@/lib/your-move/catalog';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { todaysLocalDate } from '@/lib/time/localDate';
+import { memberProgramName } from '@/lib/programs/memberPresentation';
 import type {
   AssignedWorkoutStatus,
   CoachAssignedWorkout,
@@ -300,7 +306,14 @@ export async function assignProgramToClientAction(
         memberId: clientId,
         eventType: 'coach_workout_assigned',
         localDate,
-        title: `Your coach assigned "${template.name}"`,
+        // The member-facing name. This title lands on HER timeline
+        // (health_timeline_events, member_visible), so it must never carry
+        // the generator's clinical one. See lib/programs/memberPresentation.ts.
+        title: `Your coach assigned "${memberProgramName({
+          templateName: template.name,
+          correctiveTags: template.corrective_tags,
+          programTags: template.program_tags,
+        })}"`,
         sourceFeature: 'coach_program_builder',
         sourceRecordId: assignment.id,
       });
@@ -328,7 +341,9 @@ export async function publishProgramAssignmentAction(
       memberId,
       eventType: 'coach_workout_assigned',
       localDate,
-      title: `Your coach assigned "${templateName}"`,
+      // Same rule as assignProgramToClientAction above. Only the stored
+      // title is available here, so memberProgramName scrubs it.
+      title: `Your coach assigned "${memberProgramName({ templateName })}"`,
       sourceFeature: 'coach_program_builder',
       sourceRecordId: assignmentId,
     });
@@ -489,6 +504,21 @@ export async function getMyProgramViewsAction(): Promise<MemberProgramView[]> {
     listAssignedWorkoutsForMember(context.supabase, context.userId),
   ]);
   return buildMemberProgramViews(lifecycles, workouts);
+}
+
+/** The program she is on and her next session in it, for the Home card and the Movement screen. Null when she is not on one. */
+export async function getMyCurrentProgramEntryAction(): Promise<CurrentProgramEntry | null> {
+  const context = await resolveUserId();
+  if (!context) return null;
+  const [lifecycles, workouts] = await Promise.all([
+    listMyProgramLifecycles(context.supabase),
+    listAssignedWorkoutsForMember(context.supabase, context.userId),
+  ]);
+  const timezone = await resolveMemberTimezone(context.supabase, context.userId);
+  return currentProgramEntry(
+    buildMemberProgramViews(lifecycles, workouts),
+    todaysLocalDate(timezone)
+  );
 }
 
 export async function getMyAssignedWorkoutDetailAction(

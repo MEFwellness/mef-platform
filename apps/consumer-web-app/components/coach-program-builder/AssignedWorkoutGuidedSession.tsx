@@ -34,6 +34,11 @@ import {
 } from '@/components/movement-sessions/GuidedSessionPlayer';
 import type { AssignedExerciseMediaMap } from '@/lib/coach-program-builder/assignedWorkoutMedia';
 import {
+  memberSafeText,
+  memberSessionBlurb,
+  memberWorkoutTitle,
+} from '@/lib/programs/memberPresentation';
+import {
   toGuidedWorkoutExercises,
   type GuidedWorkoutExercise,
 } from '@/lib/coach-program-builder/guidedWorkout';
@@ -53,6 +58,14 @@ export function AssignedWorkoutGuidedSession({
 }) {
   const [, startTransition] = useTransition();
   const [completedCount, setCompletedCount] = useState(0);
+
+  // Same rule as the list view: the member-facing name and copy, never the
+  // internal clinical title or the engine's own description.
+  const naming = {
+    templateName: workout.template_name,
+    correctiveTags: workout.corrective_tags,
+    programTags: workout.program_tags,
+  };
 
   const exercises = toGuidedWorkoutExercises(workout, media);
   const byKey = new Map<string, GuidedWorkoutExercise>(exercises.map((e) => [e.key, e]));
@@ -93,8 +106,12 @@ export function AssignedWorkoutGuidedSession({
           <p className="text-sm font-semibold uppercase tracking-wider">From your coach</p>
         </>
       }
-      title={workout.template_name}
-      description={workout.member_instructions ?? workout.description}
+      title={memberWorkoutTitle(naming)}
+      description={
+        memberSafeText(workout.member_instructions) ??
+        memberSafeText(workout.description) ??
+        memberSessionBlurb(naming)
+      }
       meta={<span>{exercises.length} exercises</span>}
       exitLabel="Back to the full list"
       onExit={onExitToList}

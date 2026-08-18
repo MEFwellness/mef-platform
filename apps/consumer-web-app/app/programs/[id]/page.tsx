@@ -6,6 +6,7 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getMyAssignedWorkoutDetailAction } from '@/app/actions/coach-programs';
 import { loadAssignedWorkoutMedia } from '@/lib/coach-program-builder/assignedWorkoutMedia';
 import { MemberAssignedWorkoutDetail } from '@/components/coach-program-builder/MemberAssignedWorkoutDetail';
+import { memberProgramName, memberSessionLabel } from '@/lib/programs/memberPresentation';
 
 export default async function MyAssignedWorkoutPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -31,10 +32,21 @@ export default async function MyAssignedWorkoutPage({ params }: { params: { id: 
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-3xl md:px-10 md:pb-16 md:pl-28">
         <BackButton fallbackHref="/programs" label="My Programs" />
 
+        {/* The member-facing name, never the internal clinical title. See
+            lib/programs/memberPresentation.ts. */}
         <div className="mt-4">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-            {workout.template_name}
+            {memberProgramName({
+              templateName: workout.template_name,
+              correctiveTags: workout.corrective_tags,
+              programTags: workout.program_tags,
+            })}
           </h1>
+          {memberSessionLabel(workout.template_name) && (
+            <p className="mt-1 text-sm font-medium text-[#6B7A72]">
+              {memberSessionLabel(workout.template_name)}
+            </p>
+          )}
         </div>
 
         <div className="mt-7">
