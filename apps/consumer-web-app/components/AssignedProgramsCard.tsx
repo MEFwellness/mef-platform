@@ -127,7 +127,7 @@ export function AssignedProgramsCard({
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-[#FAFAF8]/[0.03]"
+        className="pointer-events-none absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-[#FAFAF8]/[0.05] blur-3xl"
         aria-hidden="true"
       />
       <Dumbbell
