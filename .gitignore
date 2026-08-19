@@ -13,3 +13,8 @@ coverage/
 .vercel
 .env*
 backups/
+
+# Live-run screenshots. These are captured against production as a real
+# member, so they carry a real name and real health data, and they are
+# evidence for one run rather than a reviewable artefact of the app.
+docs/screens/live-polish/
