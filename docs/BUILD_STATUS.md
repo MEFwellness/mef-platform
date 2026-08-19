@@ -8535,3 +8535,45 @@ production build clean. No migration: nothing here touches the database.
 Every fix was confirmed in a fresh capture, not assumed from the diff.
 **96 screenshots** in `docs/screens/`, mobile and tablet, regenerated from a
 clean `supabase db reset` after the last change.
+
+### Live verification (2026-08-19)
+
+Deployed: `mef-platform-1s59h1pkt`, Ready, Production, and
+`app.mefwellness.com` is aliased to it. Repo `MEFwellness/mef-platform`,
+branch `main`, Vercel project `mef-wellness/mef-platform`.
+
+`scripts/screenshots/verify-visual-polish-live.mjs` reports **13 of 13**
+against `app.mefwellness.com`, signed in as the test member via a one-time
+minted session, retired afterwards with scope `local`. Read-only: nothing
+was submitted, no answer chosen, and Root's pop-ups were measured where
+they were and never dismissed, because "Maybe later" and "Ignore" write a
+real decision down.
+
+| check | result |
+| --- | --- |
+| signed in as the intended member | yes, id asserted before anything was touched |
+| Home: no zone left invisible after jumping to the bottom | 0 hidden |
+| nav: selected tab is a capped pill | 67px pill inside a 75px cell |
+| Home: no large hard-edged decorative disc over content | 0 |
+| Today: Tailwind's default greens gone | none painted |
+| Progress: History in the same white card as its siblings | `rgb(255,255,255)` |
+| Food Lens: four utility tiles the same height | 72 / 72 / 72 / 72 |
+| Movement: Weekly Goal card no longer mostly nothing | 124px, was 172px |
+| Daily Reset: disabled Continue is a drawn pale pill | confirmed |
+| uncaught page errors across six screens | 0 |
+
+**Two of Today's checks could not be exercised** and say so rather than
+passing quietly: Today's Numbers only renders once she has checked in that
+day, and the test member had not, so the grid's colours and its fifth tile
+were not on screen. The first live run reported those two as failures,
+which was the check being state-blind, not the app being wrong.
+
+**The live run also found the last un-blurred disc**, on the program hero's
+lower-left wash, which the local pass had left alone on the grounds that 3%
+alpha is almost invisible. It is blurred now, so the rule holds everywhere.
+
+**Not committed:** the run writes screenshots to `docs/screens/live-polish/`,
+and those are pictures of a real member's home screen, her name and her
+readings. The path is gitignored. They were checked in briefly at `23d0f7b`
+before this was noticed; scrubbing that means rewriting an already-pushed
+`main`, which is Osei's call.
