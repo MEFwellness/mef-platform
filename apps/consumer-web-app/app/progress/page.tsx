@@ -387,27 +387,38 @@ export default async function ProgressPage() {
             a log of past check-ins reads as an appendix/reference, not
             part of the page's main narrative arc, and used to interrupt
             that arc by sitting in the middle of it. Position change only —
-            same content, same "edited" badge, same styling. */}
+            same content, same "edited" badge, same styling.
+
+            Visual polish pass (2026-08-19), still no content change. The
+            shell was #FAFAF8 on a page that is already almost exactly that
+            colour, so the only section on Progress without a real card
+            looked like a list somebody forgot to finish; it uses the same
+            white card as every section above it now. And the row was
+            date | metrics | "edited" all on one line, which at 390px wide
+            squeezed the metrics into three wrapped lines with the badge
+            floating in the middle of them. The date and its badge take the
+            top line and the reading sits underneath, which is what it
+            actually is. */}
         {shows(F.progressHistory) && (
-        <section className="mt-8 rounded-[28px] bg-[#FAFAF8] p-6">
+        <section className="mef-card mt-8">
           <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">History</p>
           {history.length > 0 ? (
             <div className="mt-3 divide-y divide-[#1B3A2D]/5">
               {history.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-4 py-3 text-sm">
-                  <span className="w-28 shrink-0 font-medium text-[#1B3A2D]">
-                    {formatDate(c.local_date)}
-                  </span>
-                  <span className="flex-1 text-[#6B7A72]">
+                <div key={c.id} className="py-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-[#1B3A2D]">{formatDate(c.local_date)}</span>
+                    {c.checkin_version > 1 && (
+                      <span className="shrink-0 rounded-full bg-[#1B3A2D]/[0.06] px-2 py-0.5 text-xs text-[#1B3A2D]/70">
+                        edited
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[#6B7A72]">
                     Mood {c.mood_level ?? '-'} · Energy {c.energy_level ?? '-'} · Stress{' '}
                     {c.stress_level ?? '-'}
                     {c.sleep_duration ? ` · Sleep ${c.sleep_duration}` : ''}
-                  </span>
-                  {c.checkin_version > 1 && (
-                    <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs text-[#1B3A2D]">
-                      edited
-                    </span>
-                  )}
+                  </p>
                 </div>
               ))}
             </div>

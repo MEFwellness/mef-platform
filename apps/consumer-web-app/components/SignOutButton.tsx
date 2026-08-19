@@ -72,10 +72,19 @@ const AUDIENCE_COPY: Record<SignOutAudience, string> = {
   admin: "You'll need to sign back in to manage the platform.",
 };
 
+/**
+ * Consequential, not alarming. This used to be Tailwind's red-600 on
+ * red-50, which on the member's Profile was the only saturated colour
+ * anywhere on the screen and pulled the eye straight past everything she
+ * actually came for, reading like "delete my account" rather than "sign
+ * out". The muted terracotta is the same one the poor band uses in
+ * lib/wellness/status.ts, so the app has one warning colour rather than
+ * two, and it still stands clearly apart from the greens around it.
+ */
 const VARIANT_CLASS: Record<SignOutVariant, string> = {
-  row: 'mef-press flex w-full items-center gap-3 rounded-2xl px-5 py-3.5 text-left text-[15px] font-medium text-red-600 transition hover:bg-red-50',
+  row: 'mef-press flex w-full items-center gap-3 rounded-2xl px-5 py-3.5 text-left text-[15px] font-medium text-[#8C3B2E] transition hover:bg-[#F7ECE9]',
   block:
-    'mef-press w-full rounded-full border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50',
+    'mef-press w-full rounded-full border border-[#8C3B2E]/25 px-4 py-2.5 text-sm font-medium text-[#8C3B2E] transition hover:border-[#8C3B2E]/45 hover:bg-[#F7ECE9]',
   nav: `mef-press ${STAFF_NAV_ITEM_CLASS} ${STAFF_NAV_ITEM_IDLE_CLASS}`,
 };
 
@@ -164,7 +173,7 @@ export function SignOutButton({
                     type="button"
                     onClick={handleConfirm}
                     disabled={isPending}
-                    className="mef-press flex-1 rounded-full bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+                    className="mef-press flex-1 rounded-full bg-[#9E4634] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#8C3B2E] disabled:opacity-50"
                   >
                     {isPending ? 'Signing out…' : 'Sign Out'}
                   </button>

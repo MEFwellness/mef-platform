@@ -79,7 +79,7 @@ export function ResetPlanPopup({ message, onClose, closed }: { message: ResetPla
         aria-labelledby="reset-plan-popup-title"
         className="relative w-full max-w-sm overflow-hidden rounded-[28px] bg-[#1B3A2D] p-7 text-[#F5F0E4] shadow-[0_32px_80px_-16px_rgba(0,0,0,0.5)]"
       >
-        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#C4A050]/10" aria-hidden="true" />
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#C4A050]/16 blur-3xl" aria-hidden="true" />
 
         <p id="reset-plan-popup-title" className="relative text-xs font-semibold uppercase tracking-wider text-[#C4A050]">
           From Root

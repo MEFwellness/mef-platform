@@ -55,20 +55,43 @@ const MEMBER_RIGHT_ITEMS: NavItem[] = [
 const MORNING_HREF = '/checkin';
 const EVENING_HREF = '/checkin/evening';
 
+/**
+ * The tap target and the pill are deliberately two different boxes.
+ *
+ * They used to be one: the <Link> carried both the full grid column (so
+ * the whole cell is tappable, which is right) and the active background
+ * (which is not). The column is half the bar wide when one side holds a
+ * single item, which is exactly what Home gets whenever the Visibility
+ * Layer has not revealed Food Lens — so the active tab was a gold slab
+ * running from the screen edge to the check-in button, reading like a
+ * highlighter stroke rather than a selected tab. With two items a side it
+ * was merely too wide.
+ *
+ * So the link keeps the full cell and the pill is capped and centred
+ * inside it. The cap is only ever reached on a one-item side, so with two
+ * items a side the pill is a little narrower than the cell and "PROGRESS"
+ * still has the room it needs to spell itself out. Shrink-wrapping the
+ * pill to its label was tried first and truncated that word to
+ * "PROGRE..." at 390px, which is a worse bug than the one being fixed.
+ */
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const Icon = item.Icon;
   return (
     <Link
       href={item.href as Route}
       aria-current={active ? 'page' : undefined}
-      className={`flex min-w-0 min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2.5 text-center text-[9px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:min-h-0 md:gap-2 md:px-4 md:py-3 md:text-[11px] md:leading-normal md:tracking-wide ${
-        active
-          ? 'bg-[#F5B700]/[0.16] text-[#1B3A2D]'
-          : 'text-[#6B7A72] hover:bg-[#1B3A2D]/[0.04] hover:text-[#1B3A2D]'
-      }`}
+      className="group flex min-h-[52px] min-w-0 flex-col items-center justify-center px-1 py-1 md:min-h-0 md:py-1.5"
     >
-      <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} aria-hidden="true" />
-      <span className="w-full truncate">{item.label}</span>
+      <span
+        className={`flex w-full max-w-[72px] flex-col items-center gap-1 rounded-2xl px-1.5 py-1.5 text-center text-[9px] font-bold uppercase leading-[1.05] tracking-tight transition-colors md:max-w-none md:gap-2 md:px-3.5 md:py-2.5 md:text-[11px] md:leading-normal md:tracking-wide ${
+          active
+            ? 'bg-[#C4A050]/[0.22] text-[#1B3A2D]'
+            : 'text-[#6B7A72] group-hover:bg-[#1B3A2D]/[0.05] group-hover:text-[#1B3A2D]'
+        }`}
+      >
+        <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} aria-hidden="true" />
+        <span className="w-full truncate">{item.label}</span>
+      </span>
     </Link>
   );
 }

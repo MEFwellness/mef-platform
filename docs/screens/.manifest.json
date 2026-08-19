@@ -5,558 +5,558 @@
       "screen": "Login",
       "state": "signed out",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "dashboard-populated.png": {
       "file": "dashboard-populated.png",
       "screen": "Home",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "today-populated.png": {
       "file": "today-populated.png",
       "screen": "Today",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "case-populated.png": {
       "file": "case-populated.png",
       "screen": "Your Case",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "profile-populated.png": {
       "file": "profile-populated.png",
       "screen": "Profile",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-01-populated.png": {
       "file": "checkin-morning-01-populated.png",
       "screen": "checkin-morning screen 1",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-02-populated.png": {
       "file": "checkin-morning-02-populated.png",
       "screen": "checkin-morning screen 2",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-03-populated.png": {
       "file": "checkin-morning-03-populated.png",
       "screen": "checkin-morning screen 3",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-04-populated.png": {
       "file": "checkin-morning-04-populated.png",
       "screen": "checkin-morning screen 4",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-ending-populated.png": {
       "file": "checkin-morning-ending-populated.png",
       "screen": "checkin-morning ending",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-result-populated.png": {
       "file": "checkin-result-populated.png",
       "screen": "checkin result",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-evening-01-populated.png": {
       "file": "checkin-evening-01-populated.png",
       "screen": "checkin-evening screen 1",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-evening-02-populated.png": {
       "file": "checkin-evening-02-populated.png",
       "screen": "checkin-evening screen 2",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-evening-ending-populated.png": {
       "file": "checkin-evening-ending-populated.png",
       "screen": "checkin-evening ending",
       "state": "populated",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "welcome-01-logo-new.png": {
       "file": "welcome-01-logo-new.png",
       "screen": "welcome-01-logo",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "welcome-02-story-new.png": {
       "file": "welcome-02-story-new.png",
       "screen": "welcome-02-story",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "welcome-03-connected-new.png": {
       "file": "welcome-03-connected-new.png",
       "screen": "welcome-03-connected",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "welcome-04-benefit-new.png": {
       "file": "welcome-04-benefit-new.png",
       "screen": "welcome-04-benefit",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "welcome-05-benefit-new.png": {
       "file": "welcome-05-benefit-new.png",
       "screen": "welcome-05-benefit",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "welcome-06-benefit-new.png": {
       "file": "welcome-06-benefit-new.png",
       "screen": "welcome-06-benefit",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "welcome-07-benefit-new.png": {
       "file": "welcome-07-benefit-new.png",
       "screen": "welcome-07-benefit",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "welcome-08-goal-selection-new.png": {
       "file": "welcome-08-goal-selection-new.png",
       "screen": "welcome goal selection",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "welcome-09-primary-goal-new.png": {
       "file": "welcome-09-primary-goal-new.png",
       "screen": "welcome primary goal",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-01-consent-new.png": {
       "file": "onboarding-01-consent-new.png",
       "screen": "onboarding consent",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-02-intro-new.png": {
       "file": "onboarding-02-intro-new.png",
       "screen": "onboarding intro",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-01-new.png": {
       "file": "onboarding-03-question-01-new.png",
       "screen": "onboarding question 1",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-02-new.png": {
       "file": "onboarding-03-question-02-new.png",
       "screen": "onboarding question 2",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-03-new.png": {
       "file": "onboarding-03-question-03-new.png",
       "screen": "onboarding question 3",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-04-new.png": {
       "file": "onboarding-03-question-04-new.png",
       "screen": "onboarding question 4",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-05-new.png": {
       "file": "onboarding-03-question-05-new.png",
       "screen": "onboarding question 5",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-06-new.png": {
       "file": "onboarding-03-question-06-new.png",
       "screen": "onboarding question 6",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-07-new.png": {
       "file": "onboarding-03-question-07-new.png",
       "screen": "onboarding question 7",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-08-new.png": {
       "file": "onboarding-03-question-08-new.png",
       "screen": "onboarding question 8",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-09-new.png": {
       "file": "onboarding-03-question-09-new.png",
       "screen": "onboarding question 9",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-10-new.png": {
       "file": "onboarding-03-question-10-new.png",
       "screen": "onboarding question 10",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-11-new.png": {
       "file": "onboarding-03-question-11-new.png",
       "screen": "onboarding question 11",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-12-new.png": {
       "file": "onboarding-03-question-12-new.png",
       "screen": "onboarding question 12",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-13-new.png": {
       "file": "onboarding-03-question-13-new.png",
       "screen": "onboarding question 13",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-14-new.png": {
       "file": "onboarding-03-question-14-new.png",
       "screen": "onboarding question 14",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-03-question-15-new.png": {
       "file": "onboarding-03-question-15-new.png",
       "screen": "onboarding question 15",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "onboarding-completion-new.png": {
       "file": "onboarding-completion-new.png",
       "screen": "onboarding completion",
       "state": "new member",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "dashboard-empty.png": {
       "file": "dashboard-empty.png",
       "screen": "Home",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "today-empty.png": {
       "file": "today-empty.png",
       "screen": "Today",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-01-empty.png": {
       "file": "checkin-morning-01-empty.png",
       "screen": "checkin-morning screen 1",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-02-empty.png": {
       "file": "checkin-morning-02-empty.png",
       "screen": "checkin-morning screen 2",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-03-empty.png": {
       "file": "checkin-morning-03-empty.png",
       "screen": "checkin-morning screen 3",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-04-empty.png": {
       "file": "checkin-morning-04-empty.png",
       "screen": "checkin-morning screen 4",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-05-empty.png": {
       "file": "checkin-morning-05-empty.png",
       "screen": "checkin-morning screen 5",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-06-empty.png": {
       "file": "checkin-morning-06-empty.png",
       "screen": "checkin-morning screen 6",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-07-empty.png": {
       "file": "checkin-morning-07-empty.png",
       "screen": "checkin-morning screen 7",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-08-empty.png": {
       "file": "checkin-morning-08-empty.png",
       "screen": "checkin-morning screen 8",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-09-empty.png": {
       "file": "checkin-morning-09-empty.png",
       "screen": "checkin-morning screen 9",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-10-empty.png": {
       "file": "checkin-morning-10-empty.png",
       "screen": "checkin-morning screen 10",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-morning-ending-empty.png": {
       "file": "checkin-morning-ending-empty.png",
       "screen": "checkin-morning ending",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-result-empty.png": {
       "file": "checkin-result-empty.png",
       "screen": "checkin result",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-evening-01-empty.png": {
       "file": "checkin-evening-01-empty.png",
       "screen": "checkin-evening screen 1",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-evening-02-empty.png": {
       "file": "checkin-evening-02-empty.png",
       "screen": "checkin-evening screen 2",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "checkin-evening-ending-empty.png": {
       "file": "checkin-evening-ending-empty.png",
       "screen": "checkin-evening ending",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "case-empty.png": {
       "file": "case-empty.png",
       "screen": "Your Case",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "profile-empty.png": {
       "file": "profile-empty.png",
       "screen": "Profile",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "coach-dashboard.png": {
       "file": "coach-dashboard.png",
       "screen": "Coach",
       "state": "dashboard",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "error-404.png": {
       "file": "error-404.png",
       "screen": "Not found",
       "state": "error",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
     },
     "login-tablet.png": {
       "file": "login-tablet.png",
@@ -565,7 +565,7 @@
       "note": "",
       "target": "local",
       "viewport": "tablet",
-      "date": "2026-07-27"
+      "date": "2026-08-19"
     },
     "dashboard-populated-tablet.png": {
       "file": "dashboard-populated-tablet.png",
@@ -574,7 +574,7 @@
       "note": "",
       "target": "local",
       "viewport": "tablet",
-      "date": "2026-07-27"
+      "date": "2026-08-19"
     },
     "today-populated-tablet.png": {
       "file": "today-populated-tablet.png",
@@ -583,7 +583,7 @@
       "note": "",
       "target": "local",
       "viewport": "tablet",
-      "date": "2026-07-27"
+      "date": "2026-08-19"
     },
     "case-populated-tablet.png": {
       "file": "case-populated-tablet.png",
@@ -592,7 +592,7 @@
       "note": "",
       "target": "local",
       "viewport": "tablet",
-      "date": "2026-07-27"
+      "date": "2026-08-19"
     },
     "profile-populated-tablet.png": {
       "file": "profile-populated-tablet.png",
@@ -601,7 +601,7 @@
       "note": "",
       "target": "local",
       "viewport": "tablet",
-      "date": "2026-07-27"
+      "date": "2026-08-19"
     },
     "dashboard-empty-tablet.png": {
       "file": "dashboard-empty-tablet.png",
@@ -610,7 +610,7 @@
       "note": "",
       "target": "local",
       "viewport": "tablet",
-      "date": "2026-07-27"
+      "date": "2026-08-19"
     },
     "coach-dashboard-tablet.png": {
       "file": "coach-dashboard-tablet.png",
@@ -619,7 +619,7 @@
       "note": "",
       "target": "local",
       "viewport": "tablet",
-      "date": "2026-07-27"
+      "date": "2026-08-19"
     },
     "checkin-morning-01-populated-tablet.png": {
       "file": "checkin-morning-01-populated-tablet.png",
@@ -628,16 +628,241 @@
       "note": "",
       "target": "local",
       "viewport": "tablet",
-      "date": "2026-07-27"
+      "date": "2026-08-19"
+    },
+    "food-lens-populated.png": {
+      "file": "food-lens-populated.png",
+      "screen": "Food Lens",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "progress-populated.png": {
+      "file": "progress-populated.png",
+      "screen": "Progress",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "movement-populated.png": {
+      "file": "movement-populated.png",
+      "screen": "Movement",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "food-lens-empty.png": {
+      "file": "food-lens-empty.png",
+      "screen": "Food Lens",
+      "state": "empty",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "progress-empty.png": {
+      "file": "progress-empty.png",
+      "screen": "Progress",
+      "state": "empty",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "movement-empty.png": {
+      "file": "movement-empty.png",
+      "screen": "Movement",
+      "state": "empty",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "onboarding-03-question-16-new.png": {
+      "file": "onboarding-03-question-16-new.png",
+      "screen": "onboarding question 16",
+      "state": "new member",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "food-lens-populated-tablet.png": {
+      "file": "food-lens-populated-tablet.png",
+      "screen": "Food Lens",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "tablet",
+      "date": "2026-08-19"
+    },
+    "progress-populated-tablet.png": {
+      "file": "progress-populated-tablet.png",
+      "screen": "Progress",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "tablet",
+      "date": "2026-08-19"
+    },
+    "dashboard-populated-popup.png": {
+      "file": "dashboard-populated-popup.png",
+      "screen": "Home, pop-up over it",
+      "state": "populated",
+      "note": "the overlay as the member sees it",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "dashboard-empty-popup.png": {
+      "file": "dashboard-empty-popup.png",
+      "screen": "Home, pop-up over it",
+      "state": "empty",
+      "note": "the overlay as the member sees it",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
     },
     "checkin-morning-11-empty.png": {
       "file": "checkin-morning-11-empty.png",
       "screen": "checkin-morning screen 11",
       "state": "empty",
       "note": "",
-      "target": "live",
+      "target": "local",
       "viewport": "mobile",
-      "date": "2026-08-02"
+      "date": "2026-08-19"
+    },
+    "checkin-evening-03-empty.png": {
+      "file": "checkin-evening-03-empty.png",
+      "screen": "checkin-evening screen 3",
+      "state": "empty",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-evening-04-empty.png": {
+      "file": "checkin-evening-04-empty.png",
+      "screen": "checkin-evening screen 4",
+      "state": "empty",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-evening-05-empty.png": {
+      "file": "checkin-evening-05-empty.png",
+      "screen": "checkin-evening screen 5",
+      "state": "empty",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-evening-06-empty.png": {
+      "file": "checkin-evening-06-empty.png",
+      "screen": "checkin-evening screen 6",
+      "state": "empty",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "dashboard-populated-tablet-popup.png": {
+      "file": "dashboard-populated-tablet-popup.png",
+      "screen": "Home, pop-up over it",
+      "state": "populated",
+      "note": "the overlay as the member sees it",
+      "target": "local",
+      "viewport": "tablet",
+      "date": "2026-08-19"
+    },
+    "checkin-morning-05-populated.png": {
+      "file": "checkin-morning-05-populated.png",
+      "screen": "checkin-morning screen 5",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-morning-06-populated.png": {
+      "file": "checkin-morning-06-populated.png",
+      "screen": "checkin-morning screen 6",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-morning-07-populated.png": {
+      "file": "checkin-morning-07-populated.png",
+      "screen": "checkin-morning screen 7",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-morning-08-populated.png": {
+      "file": "checkin-morning-08-populated.png",
+      "screen": "checkin-morning screen 8",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-morning-09-populated.png": {
+      "file": "checkin-morning-09-populated.png",
+      "screen": "checkin-morning screen 9",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-morning-10-populated.png": {
+      "file": "checkin-morning-10-populated.png",
+      "screen": "checkin-morning screen 10",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-morning-11-populated.png": {
+      "file": "checkin-morning-11-populated.png",
+      "screen": "checkin-morning screen 11",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "checkin-morning-12-populated.png": {
+      "file": "checkin-morning-12-populated.png",
+      "screen": "checkin-morning screen 12",
+      "state": "populated",
+      "note": "",
+      "target": "local",
+      "viewport": "mobile",
+      "date": "2026-08-19"
+    },
+    "dashboard-empty-tablet-popup.png": {
+      "file": "dashboard-empty-tablet-popup.png",
+      "screen": "Home, pop-up over it",
+      "state": "empty",
+      "note": "the overlay as the member sees it",
+      "target": "local",
+      "viewport": "tablet",
+      "date": "2026-08-19"
     }
   }
 }

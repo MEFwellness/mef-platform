@@ -35,7 +35,7 @@ type Tone = 'light' | 'dark';
 const TONE = {
   light: {
     label: 'text-[#6B7A72]',
-    check: 'text-green-600',
+    check: 'text-[#3C7F5E]',
     title: 'text-[#1B3A2D]/70',
     bridge: 'text-[#1B3A2D]',
     rule: 'bg-[#1B3A2D]/10',

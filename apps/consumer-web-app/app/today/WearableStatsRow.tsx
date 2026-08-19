@@ -3,12 +3,13 @@ import type { WearableDailySnapshot } from '@/lib/wearables/snapshot';
 
 const TILE = 'rounded-[24px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] p-5';
 
+/** Same four bands, mixed from the brand palette rather than Tailwind's defaults (see lib/wellness/status.ts). */
 function scoreColor(score: number | null): string {
   if (score === null) return 'text-[#6B7A72]';
-  if (score >= 85) return 'text-green-700';
-  if (score >= 70) return 'text-green-600';
-  if (score >= 50) return 'text-amber-700';
-  return 'text-red-700';
+  if (score >= 85) return 'text-[#1B3A2D]';
+  if (score >= 70) return 'text-[#2F6B4F]';
+  if (score >= 50) return 'text-[#854D0E]';
+  return 'text-[#8C3B2E]';
 }
 
 function formatSleepDuration(minutes: number | null): string {

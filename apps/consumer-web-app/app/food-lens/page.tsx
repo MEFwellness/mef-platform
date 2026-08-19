@@ -204,7 +204,14 @@ export default async function FoodLensPage() {
 
         {!pattern && <PrimalPatternSetupBanner />}
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
+        {/*
+          One grid, not two stacked ones. "Allergies & preferences" wraps
+          to two lines and the others do not, so as two separate grids the
+          first row came out taller than the second and the four tiles read
+          as two unrelated pairs. In one grid every tile is the height of
+          the tallest, which is what they looked like they were meant to be.
+        */}
+        <div className="mt-6 grid auto-rows-fr grid-cols-2 gap-3">
           <Link
             href={'/food-lens/log' as Route}
             className={`${CARD} mef-card-lift flex items-center gap-2.5 p-4`}
@@ -223,9 +230,6 @@ export default async function FoodLensPage() {
             <Settings2 className="h-4 w-4 text-[#9AA79F]" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-medium text-[#1B3A2D]">Allergies &amp; preferences</p>
           </Link>
-        </div>
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
           <Link
             href={'/food-lens/pantry' as Route}
             className={`${CARD} mef-card-lift flex items-center gap-2.5 p-4`}

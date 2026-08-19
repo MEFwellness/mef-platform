@@ -73,7 +73,7 @@ export function FirstCheckinTransition({
         </button>
 
         <div
-          className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#F5B700]/10"
+          className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#C4A050]/25 blur-3xl"
           aria-hidden="true"
         />
         <div className="relative mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5B700]/15">

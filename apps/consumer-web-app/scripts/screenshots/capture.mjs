@@ -119,9 +119,18 @@ async function captureWelcomeAndOnboarding(browser, account) {
       'welcome-06-benefit',
       'welcome-07-benefit',
     ];
+    // The seven cinematic pages advance by tapping anywhere; under the
+    // `reducedMotion: 'reduce'` context this tool always uses, that is
+    // replaced by a real button, and CinematicPage labels it "I'm ready",
+    // not "Continue". This walk asked for "Continue" and so stopped dead
+    // on welcome page 1, taking the whole welcome + onboarding leg of the
+    // capture with it.
     for (const name of welcomeSteps) {
       await shot(page, `${name}-new.png`, { screen: name, state: 'new member' });
-      await page.getByRole('button', { name: 'Continue' }).click();
+      await page
+        .locator('button', { hasText: /^(I'm ready|Continue)$/ })
+        .last()
+        .click();
       await page.waitForTimeout(200);
     }
 
@@ -134,7 +143,7 @@ async function captureWelcomeAndOnboarding(browser, account) {
     const goalTiles = goalGroup.locator('button');
     await goalTiles.nth(0).click();
     await goalTiles.nth(1).click();
-    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByRole('button', { name: "Let's find out" }).click();
 
     await page
       .getByRole('radiogroup', { name: 'Which area matters most right now' })
@@ -144,7 +153,7 @@ async function captureWelcomeAndOnboarding(browser, account) {
       state: 'new member',
     });
     await page.getByRole('radio').first().click();
-    await page.getByRole('button', { name: 'Continue' }).click();
+    await page.getByRole('button', { name: "I'm ready" }).click();
 
     // Lands back on '/', which routes to /onboarding's consent gate for a fresh member.
     await page.waitForURL((url) => url.pathname === '/onboarding', { timeout: 15000 });
@@ -163,9 +172,19 @@ async function captureWelcomeAndOnboarding(browser, account) {
     });
     await page.getByRole('button').last().click();
 
+    // Onboarding does not have one advance label, it has four, because a
+    // question step, a branch interstitial and the final step are three
+    // different components: "Keep going", "See what happens next", and
+    // OnboardingFlow's submit label "See my reflection". This walk asked
+    // for "Continue" and "Submit onboarding", neither of which the member
+    // is ever shown, so the whole onboarding leg died on question 1.
+    // Matching the set instead of one label means a future copy change on
+    // any single screen cannot take the capture down again.
     for (let i = 1; i <= 40; i++) {
       await page.waitForTimeout(300);
-      const submitButton = page.getByRole('button', { name: 'Submit onboarding' });
+      const submitButton = page
+        .locator('button', { hasText: /^(Submit onboarding|See my reflection)$/ })
+        .last();
       const isFinal = await submitButton.isVisible().catch(() => false);
       await shot(page, `onboarding-03-question-${String(i).padStart(2, '0')}-new.png`, {
         screen: `onboarding question ${i}`,
@@ -185,7 +204,11 @@ async function captureWelcomeAndOnboarding(browser, account) {
       // click through, then rejects it client-side and marks the question
       // `aria-invalid="true"` without advancing. So "did it work" has to be
       // checked after the click, not before it.
-      const advanceButton = isFinal ? submitButton : page.getByRole('button', { name: 'Continue' });
+      const advanceButton = isFinal
+        ? submitButton
+        : page
+            .locator('button', { hasText: /^(Keep going|See what happens next)$/ })
+            .last();
       let advanced = false;
       for (let attempt = 0; attempt < 3 && !advanced; attempt++) {
         await advanceButton.click();
@@ -309,6 +332,22 @@ async function run() {
       );
       await captureSimpleRoute(
         browser,
+        ACCOUNTS.memberPopulated,
+        '/food-lens',
+        'food-lens',
+        'populated',
+        'Food Lens'
+      );
+      await captureSimpleRoute(
+        browser,
+        ACCOUNTS.memberPopulated,
+        '/progress',
+        'progress',
+        'populated',
+        'Progress'
+      );
+      await captureSimpleRoute(
+        browser,
         ACCOUNTS.memberEmpty,
         '/dashboard',
         'dashboard',
@@ -362,6 +401,35 @@ async function run() {
         'populated',
         'Profile'
       );
+      // The four member bottom-nav destinations that this walk used to
+      // miss entirely. Home, Check-In and Today were already covered;
+      // Food Lens and Progress are tabs on the same bar and were only
+      // ever audited from source. Movement is where an assigned program
+      // is read, and it shares the program hero with Home.
+      await captureSimpleRoute(
+        browser,
+        ACCOUNTS.memberPopulated,
+        '/food-lens',
+        'food-lens',
+        'populated',
+        'Food Lens'
+      );
+      await captureSimpleRoute(
+        browser,
+        ACCOUNTS.memberPopulated,
+        '/progress',
+        'progress',
+        'populated',
+        'Progress'
+      );
+      await captureSimpleRoute(
+        browser,
+        ACCOUNTS.memberPopulated,
+        '/movement',
+        'movement',
+        'populated',
+        'Movement'
+      );
       await captureCheckinFlows(browser, ACCOUNTS.memberPopulated, 'populated');
 
       await captureWelcomeAndOnboarding(browser, ACCOUNTS.memberEmpty);
@@ -374,6 +442,30 @@ async function run() {
         'Home'
       );
       await captureSimpleRoute(browser, ACCOUNTS.memberEmpty, '/today', 'today', 'empty', 'Today');
+      await captureSimpleRoute(
+        browser,
+        ACCOUNTS.memberEmpty,
+        '/food-lens',
+        'food-lens',
+        'empty',
+        'Food Lens'
+      );
+      await captureSimpleRoute(
+        browser,
+        ACCOUNTS.memberEmpty,
+        '/progress',
+        'progress',
+        'empty',
+        'Progress'
+      );
+      await captureSimpleRoute(
+        browser,
+        ACCOUNTS.memberEmpty,
+        '/movement',
+        'movement',
+        'empty',
+        'Movement'
+      );
       await captureCheckinFlows(browser, ACCOUNTS.memberEmpty, 'empty');
       await captureSimpleRoute(
         browser,
@@ -428,6 +520,17 @@ function writeIndex() {
   for (const entry of index) {
     manifest.entries[entry.file] = { ...entry, target: TARGET, viewport: VIEWPORT_NAME, date };
   }
+
+  // Drop entries whose PNG is no longer on disk. The number of screens a
+  // branching flow produces is not fixed — the morning check-in can be
+  // eleven screens for one member and ten for another — so a shorter run
+  // leaves the previous run's last screen behind, and the index then
+  // advertises a screenshot that no longer describes anything. Deleting
+  // the file is enough to retire it; the next run cleans up the row.
+  for (const file of Object.keys(manifest.entries)) {
+    if (!existsSync(path.join(OUTPUT_DIR, file))) delete manifest.entries[file];
+  }
+
   writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2) + '\n');
 
   const sorted = Object.values(manifest.entries).sort((a, b) => a.file.localeCompare(b.file));

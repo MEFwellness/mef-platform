@@ -105,9 +105,9 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
   // competing for attention: what she finished, and that she finished it.
   if (collapsed && status === 'done') {
     return (
-      <section className="mef-card mef-settle-down flex items-center gap-3 border-green-600/20 bg-green-50/40 py-4">
+      <section className="mef-card mef-settle-down flex items-center gap-3 border-[#3C7F5E]/25 bg-[#EAF1EC]/60 py-4">
         <CheckCircle2
-          className="h-5 w-5 shrink-0 text-green-600"
+          className="h-5 w-5 shrink-0 text-[#3C7F5E]"
           strokeWidth={1.75}
           aria-hidden="true"
         />
@@ -122,7 +122,7 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
             {selected.title}
           </p>
         </div>
-        <span className="ml-auto shrink-0 text-xs font-medium text-green-700">
+        <span className="ml-auto shrink-0 text-xs font-medium text-[#2F6B4F]">
           {PRIORITY_DONE_TEXT}
         </span>
       </section>
@@ -136,9 +136,9 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
   // the card appearing.
   if (status === 'done' && motion.resolvePhase === 'resolved') {
     return (
-      <section className="mef-card mef-fade-in mt-6 border-green-600/20 bg-green-50/40">
+      <section className="mef-card mef-fade-in mt-6 border-[#3C7F5E]/25 bg-[#EAF1EC]/60">
         <div className="flex items-center gap-2 text-[#6B7A72]">
-          <CheckCircle2 className="h-4 w-4 text-green-600" strokeWidth={1.75} aria-hidden="true" />
+          <CheckCircle2 className="h-4 w-4 text-[#3C7F5E]" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">{PRIORITY_CARD_LABEL}</p>
         </div>
         <p className="mt-3 text-lg leading-relaxed text-[#1B3A2D]">{selected.title}</p>
@@ -149,7 +149,7 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
             The haptic is gated on her having completed it just now: this
             same state also mounts on an ordinary reload, and buzzing there
             would be feedback for something she did hours ago. */}
-        <div className="mt-3 flex items-center gap-2 text-sm font-medium text-green-700">
+        <div className="mt-3 flex items-center gap-2 text-sm font-medium text-[#2F6B4F]">
           <SuccessCheck
             size={20}
             color="#15803d"
@@ -198,7 +198,7 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
   return (
     <section className="mef-card relative mt-6 overflow-hidden border-[#1B3A2D]/15 shadow-[0_2px_28px_-6px_rgba(27,58,45,0.16)]">
       <div
-        className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[#F5B700]/10"
+        className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[#C4A050]/25 blur-3xl"
         aria-hidden="true"
       />
 

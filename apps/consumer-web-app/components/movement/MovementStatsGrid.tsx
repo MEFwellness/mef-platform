@@ -3,7 +3,16 @@ import type { MovementWeeklyGoal } from '@mef/shared-types-contracts';
 import { movementScoreDisplay } from '@/lib/movement/scoreDisplay';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
-const TRACKER_CARD = `${CARD} flex min-h-[172px] flex-col p-5`;
+/**
+ * The floor exists so two tiles side by side are the same height. On its
+ * own, across the full width, it is 172px of card holding two short lines
+ * and a 2px bar — and because the bar is pushed down by `mt-auto`, it ends
+ * up parked on the card's bottom edge with a hand's width of nothing above
+ * it. Photographed on /movement, where the score tile is usually absent
+ * and Weekly Goal is usually alone.
+ */
+const TRACKER_CARD = `${CARD} flex flex-col p-5`;
+const PAIRED_TRACKER_CARD = `${TRACKER_CARD} min-h-[172px]`;
 
 export function MovementStatsGrid({
   movementScore,
@@ -22,11 +31,12 @@ export function MovementStatsGrid({
   // how finished a feature is, is not something a member should be reading
   // on her own screen.
   const scoreTile = movementScoreDisplay(movementScore);
+  const tileClass = scoreTile ? PAIRED_TRACKER_CARD : TRACKER_CARD;
 
   return (
     <div className={`grid gap-5 ${scoreTile ? 'grid-cols-2' : 'grid-cols-1'}`}>
       {scoreTile && (
-        <div className={TRACKER_CARD}>
+        <div className={tileClass}>
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <Gauge className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">{scoreTile.heading}</p>
@@ -47,7 +57,7 @@ export function MovementStatsGrid({
         </div>
       )}
 
-      <div className={TRACKER_CARD}>
+      <div className={tileClass}>
         <div className="flex items-center gap-2 text-[#6B7A72]">
           <Target className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           <p className="text-sm font-semibold uppercase tracking-wider">Weekly Goal</p>

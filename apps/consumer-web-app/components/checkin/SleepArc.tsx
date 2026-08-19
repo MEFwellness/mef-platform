@@ -79,7 +79,23 @@ const CENTER = SIZE / 2;
  * for actual glyphs. 75 puts that same label text at radius 95, a real
  * 25px margin to the edge at every supported screen width.
  */
-const RADIUS = 75;
+const RADIUS = 70;
+/**
+ * How far outside the ring the four quarter labels sit.
+ *
+ * 2026-08-19 overlap fix: this used to be +20, which put label text at
+ * radius 95 while a handle rides the ring at radius 75 with its own
+ * radius of 13, reaching out to 88. Seven pixels of clearance is none at
+ * all once a handle sits a few degrees off a quarter, and the default
+ * wake time of 6:30 AM does exactly that: the gold wake handle landed on
+ * top of the "6 AM" label and swallowed the 6. Photographed on the
+ * check-in sleep screen before the fix.
+ *
+ * At radius 70 + 30 the label text sits at 100 in a 240-unit viewBox, so
+ * a handle reaches 83 and the widest label ("12 AM") still keeps a real
+ * margin to the edge on all four sides.
+ */
+const QUARTER_LABEL_OFFSET = 30;
 const SNAP_MINUTES = 5;
 /** Outside this range, the resulting sleep window is almost certainly a mis-drag rather than a real answer (task 3b) -- not enforced, just flagged with a quiet inline note. */
 const PLAUSIBLE_MIN_MINUTES = 2 * 60;
@@ -307,9 +323,9 @@ export function SleepArc({
               dial reads as the 24-hour clock it actually is instead of
               being misread as a 12-hour one. */}
           {QUARTER_LABELS.map(({ angle, label }) => {
-            const outer = pointOnCircle(angle, RADIUS + 12);
-            const inner = pointOnCircle(angle, RADIUS + 7);
-            const textPoint = pointOnCircle(angle, RADIUS + 20);
+            const outer = pointOnCircle(angle, RADIUS + QUARTER_LABEL_OFFSET - 8);
+            const inner = pointOnCircle(angle, RADIUS + QUARTER_LABEL_OFFSET - 13);
+            const textPoint = pointOnCircle(angle, RADIUS + QUARTER_LABEL_OFFSET);
             return (
               <g key={angle}>
                 <line

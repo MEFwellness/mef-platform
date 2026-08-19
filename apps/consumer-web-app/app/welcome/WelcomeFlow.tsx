@@ -416,12 +416,20 @@ function CinematicPage({
               Back
             </button>
           )}
+          {/*
+            "I'm ready" belongs on the title card, where it is an answer to
+            "Welcome to MEF Wellness". Every page after that one has a back
+            control, and a member reading with reduced motion turned on was
+            shown the same "I'm ready" seven times in a row, which reads as
+            a screen that failed to change rather than a sequence. The
+            action is identical either way; only the word moves.
+          */}
           <button
             type="button"
             onClick={() => handleAdvance()}
             className={`mef-focus-ring mef-press ${PRIMARY_BUTTON} ${onBack ? '!mt-4' : ''}`}
           >
-            I&apos;m ready
+            {onBack ? 'Continue' : <>I&apos;m ready</>}
           </button>
         </>
       )}

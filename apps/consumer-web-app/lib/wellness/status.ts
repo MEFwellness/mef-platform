@@ -12,15 +12,28 @@
  * stress reading is never shown as one color on their own dashboard and
  * a different color on their coach's view of the same data.
  *
- * Color choice is deliberate, not arbitrary: "good" and "attention" used
+ * Color choice is deliberate, not arbitrary. "good" and "attention" used
  * to reuse #1B3A2D and #854D0E — the same colors already used everywhere
  * on the dashboard for ordinary heading text and section-label accents
  * (WATER, SLEEP, DAILY WELLNESS INDEX, etc.), unrelated to status. A
  * status color that's visually identical to the surrounding chrome isn't
- * a status color — it reads as plain text. green-700/amber-700/red-700
- * (a matched Tailwind trio, same -700-on-50 pattern already proven
- * accessible for "poor") don't collide with anything else already on the
- * page, so each status is actually recognizable on sight.
+ * a status color, it reads as plain text. So the three bands have to be
+ * separable from the page around them, and that requirement has not
+ * changed.
+ *
+ * WHAT DID CHANGE (visual polish pass, 2026-08-19). The trio used to be
+ * green-700 / amber-700 / red-700 straight from Tailwind's default
+ * palette. Separable, yes, and accessible, but on Today's Numbers five
+ * tiles read "7-8h", "Low", "None", "Good", "Good" in a saturated
+ * spring green that appears nowhere else in this brand, next to a bright
+ * spring-green segment bar, and the whole grid stopped looking like a
+ * wellness app and started looking like a dashboard template. These are
+ * the same three bands with the same thresholds, mixed from the brand's
+ * own forest green, warm gold and a muted terracotta instead.
+ *
+ * Contrast was checked, not assumed. Against white and against each
+ * band's own tint, every `text` value here is at least 5:1, so all three
+ * clear WCAG AA for body text in both places they are used.
  */
 
 export type MetricStatus = 'good' | 'attention' | 'poor' | 'no-data';
@@ -29,14 +42,24 @@ export const STATUS_STYLES: Record<
   MetricStatus,
   { text: string; bg: string; dot: string; bar: string }
 > = {
-  good: { text: 'text-green-700', bg: 'bg-green-50', dot: 'bg-green-600', bar: 'bg-green-600' },
-  attention: {
-    text: 'text-amber-700',
-    bg: 'bg-amber-50',
-    dot: 'bg-amber-500',
-    bar: 'bg-amber-500',
+  good: {
+    text: 'text-[#2F6B4F]',
+    bg: 'bg-[#EAF1EC]',
+    dot: 'bg-[#3C7F5E]',
+    bar: 'bg-[#3C7F5E]',
   },
-  poor: { text: 'text-red-700', bg: 'bg-red-50', dot: 'bg-red-500', bar: 'bg-red-500' },
+  attention: {
+    text: 'text-[#854D0E]',
+    bg: 'bg-[#FBF3E3]',
+    dot: 'bg-[#C4A050]',
+    bar: 'bg-[#C4A050]',
+  },
+  poor: {
+    text: 'text-[#8C3B2E]',
+    bg: 'bg-[#F7ECE9]',
+    dot: 'bg-[#B4553F]',
+    bar: 'bg-[#B4553F]',
+  },
   // Not a 4th status color — absence, not a judgment. text-[#6B7A72] (the
   // app's usual muted-caption gray) fails WCAG AA (4.14:1) specifically
   // against bg-[#F3F6F4] wherever both are used together (e.g. a no-data

@@ -8418,3 +8418,120 @@ Deployed: `mef-platform-8n8y2jzka`, Ready, Production, and `app.mefwellness.com`
 **State production was left in:** exactly as found. The test member has 0 assignments, 0 assigned workouts and 0 `program_opened` events, the same three numbers the run started from. Production-wide: 6 assignments, 22 workouts, 2 `program_opened` events, all of them the migration's backfill. No real member's data was touched at any point.
 
 **One thing not screenshotted, and why.** The completed state was proved by the test suite and by the `/programs` screen, not by Home, because Home does not point at a completed program and this pass deliberately did not change that. Surfacing it there needs a rule for how long "Your coach is reviewing your next phase" stays on the home screen, and a completed program stays completed until a new one replaces it, so "forever" would be the accidental answer. That decision is the coach's to make, not this pass's.
+
+---
+
+## Visual polish audit, round 2 (2026-08-19)
+
+A second full-app visual pass: recapture every member screen, look at every
+image, and fix what the pictures show. **Presentation only.** No feature was
+added, removed or hidden, no screen changed what it does, no question,
+answer, score or stored value behaves differently, and no member-facing
+sentence changed its meaning.
+
+### The capture tool was broken, in four separate ways, and had to be fixed first
+
+None of this was visible until somebody tried to run it, which is the point
+of saying so here. Three of the four made the app look far worse than it is.
+
+1. **Every local run was signing in with production credentials.**
+   `scripts/screenshots/.env.local` exists to hold the live accounts,
+   because the live target refuses to guess one. It was also loaded on a
+   local run and won there too, so once anybody had captured against
+   production, every later local run tried a production email against
+   localhost and reported "Incorrect email or password" as a timeout on all
+   sixty-odd screens. Priority is per-target now: on `local` the committed
+   dev seed account wins, on `live` there is still no fallback at all.
+
+2. **Four button labels the app has not used for a long time.** The walk
+   clicked "Continue" through welcome and onboarding. Welcome's reduced-motion
+   advance is "I'm ready", the goal step is "Let's find out", onboarding's is
+   "Keep going", its branch interstitials are "See what happens next" and its
+   final step is "Submit onboarding". The whole welcome and onboarding leg
+   had been failing. Labels are matched as sets now, so one copy change
+   cannot take the capture down again.
+
+3. **Home was being photographed through a modal.** Root's pop-ups open by
+   themselves, and while one is open the page underneath is scroll-locked
+   with `position: fixed` on `<body>`. A fullPage screenshot of that is the
+   modal sitting on a page frozen at scroll 0, padded to the body's full
+   height with nothing in it: 3,169 css pixels tall, real content for the
+   first 1,300. `shot()` now photographs the overlay on its own (`-popup.png`,
+   because that IS what the member sees and it should be auditable), then
+   moves it aside and takes the screen properly. Nothing is clicked to do
+   it, because "Maybe later" and "Ignore" write a real decision down on a
+   real member's behalf. Only inline style changes, for one screenshot, and
+   all of it is put back.
+
+   The detector needs a content check, and that is the whole trick: the
+   check-in wizard is *also* a fixed viewport-filling element, and it is not
+   a modal, it is the page. It also paints its colour ramp with a
+   `pointer-events-none ... z-0` wash that fills the viewport and holds no
+   text, so an early version happily hid the wizard's own background while
+   the "did we lose the page" check passed. Candidates must take input, sit
+   above the page, and leave most of the screen's words behind.
+
+4. **Orphan rows.** A branching flow does not produce a fixed number of
+   screens, so a shorter run left the previous run's last screenshot behind
+   and the index went on advertising it. Entries whose PNG is gone are
+   dropped on the next run.
+
+The walk also never visited **Food Lens, Progress or Movement**, three of the
+five bottom-nav destinations. It does now, at both viewports.
+
+### One real bug in the app, found by the pictures
+
+**Home's lower half could stay permanently invisible.** `RevealOnScroll`
+mounts each zone at `opacity: 0` and reveals it with an IntersectionObserver.
+That observer only calls back when the intersection state changes across a
+threshold, judged at the frames it samples, not at every position the page
+passed through. A zone can therefore travel from below the fold to above it
+in one movement (a fast flick, a jump to the bottom, a restored scroll
+position) with the ratio measured as zero at both ends: no threshold
+crossed, no callback, ever. The zone keeps its full height and never paints.
+
+Confirmed directly before the fix: scrolling Home to the bottom in one
+movement left **two of the three zones hidden**, which is a screen and a half
+of empty cream where Quick Actions and Today should be, and they did not come
+back. A passive scroll listener now reveals any zone the member has already
+scrolled past; whichever of the two arrives first disconnects the other.
+
+### What was changed, and why
+
+| what | why |
+| --- | --- |
+| **Bottom nav active pill** | The `<Link>` carried both the full grid column and the active background. The column is half the bar wide when one side holds a single item, which is what Home gets whenever the Visibility Layer has not revealed Food Lens, so the selected tab was a gold slab from the screen edge to the check-in button. Pill is capped and centred inside the cell now. (Shrink-wrapping it to the label was tried first and truncated "PROGRESS" to "PROGRE..." at 390px, so the cap is only ever reached on a one-item side.) Active tint moved from `#F5B700` to the locked warm gold `#C4A050`. |
+| **Decorative circles** | Fourteen cards drew their accent as an un-blurred `rounded-full` disc, so a hard-edged circle cut across the headline on the priority card, the Today cards, the Movement hero and every Root pop-up. All are soft warm-gold glows now (`blur-3xl`, `#C4A050`), dialled down on the deep-green surfaces. |
+| **Status colours** | `lib/wellness/status.ts` used green-700 / amber-700 / red-700 straight from Tailwind. Today's Numbers read five tiles of saturated spring green that appears nowhere else in this brand. Same three bands, same thresholds, mixed from the brand's forest green, warm gold and a muted terracotta. Contrast was checked, not assumed: every text value is at least 5:1 against white and against its own tint. |
+| **Disabled primary buttons** | `opacity-40` on a near-black green over warm cream gave a flat grey-sage slab that reads as a rendering fault. Continue is disabled on the first screen of every check-in, so that slab was most members' first impression of the flow. Drawn as a pale green pill with muted text now. |
+| **Sleep dial** | The quarter labels sat at `RADIUS + 20` while a handle rides the ring at `RADIUS` with its own radius of 13. Seven units of clearance is none once a handle sits a few degrees off a quarter, and the default 6:30 AM wake time does exactly that: the gold handle swallowed the "6" in "6 AM". Ring and offset retuned, and the guard test now reads the constants and asserts both clearances instead of matching a literal. |
+| **Weekly Goal card** | A 172px floor exists so two tiles side by side match. Alone across the full width it was 172px of card holding two short lines and a bar that `mt-auto` parked on the bottom edge. The floor applies only when there are two tiles. |
+| **Today's Numbers** | Five tiles in a two-column grid means the fifth always sat beside a hole. Digestion spans the row on mobile. |
+| **Progress history** | The only section on Progress without a real card: its shell was `#FAFAF8` on a page already almost exactly that colour. And date, metrics and the "edited" badge shared one line, which at 390px squeezed the reading into three wrapped lines with the badge floating in the middle. White card, date and badge on top, reading underneath. |
+| **Food Lens tiles** | Four utility tiles in two stacked grids, and "Allergies & preferences" wraps to two lines, so the first row was taller than the second and they read as two unrelated pairs. One grid, `auto-rows-fr`. |
+| **Welcome** | Under reduced motion a member was shown the same "I'm ready" seven times in a row, which reads as a screen that failed to change. It stays on the title card, where it answers "Welcome to MEF Wellness", and the six pages after it say "Continue". Same action, one word. |
+
+### Flagged, deliberately not changed
+
+- **Two golds coexist**, `#F5B700` (235 uses) and the locked `#C4A050` (103).
+  Only the specific surfaces above were moved. A blanket sweep would change
+  contrast on the dark backgrounds where the brighter gold was chosen for
+  legibility, and would undo a lot of shipped work, so it is a decision to
+  take deliberately rather than as a side effect of a polish pass.
+- **The check-in's first screen ramps its answer options** from a pale gold
+  under "Very Low" to a strong one under "Excellent", while the sleep-quality
+  scale two screens later is perfectly neutral. That is a shipped decision
+  (check-in wizard v2, 2026-07-26) and touching it changes how an answer
+  looks, so it was left exactly as it is and is raised here instead.
+- **The 404 says "or it hasn't been built yet"** to a paying member. Fixing
+  it is a change of meaning, not a rewording, so it is raised rather than
+  made.
+
+### Proof
+
+Full suite **6,278 passing** (423 files). Typecheck clean, lint 0 errors,
+production build clean. No migration: nothing here touches the database.
+
+Every fix was confirmed in a fresh capture, not assumed from the diff.
+**96 screenshots** in `docs/screens/`, mobile and tablet, regenerated from a
+clean `supabase db reset` after the last change.

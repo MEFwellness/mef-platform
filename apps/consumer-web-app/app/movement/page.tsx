@@ -111,11 +111,11 @@ export default async function MovementPage() {
           {suggestion && (
             <section className={`${CARD} mef-animate-in relative overflow-hidden p-8 sm:p-10`}>
               <div
-                className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#F5B700]/10"
+                className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#C4A050]/25 blur-3xl"
                 aria-hidden="true"
               />
               <div
-                className="pointer-events-none absolute -bottom-16 -left-16 h-52 w-52 rounded-full bg-[#1B3A2D]/[0.04]"
+                className="pointer-events-none absolute -bottom-16 -left-16 h-52 w-52 rounded-full bg-[#1B3A2D]/[0.06] blur-3xl"
                 aria-hidden="true"
               />
               {/* No claim about her, and no claim about what this session

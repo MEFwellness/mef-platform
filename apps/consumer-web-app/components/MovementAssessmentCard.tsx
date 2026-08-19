@@ -175,11 +175,11 @@ export function MovementAssessmentCard({
       className={`${shell} relative overflow-hidden p-8 text-center sm:p-10 ${locked ? 'opacity-60 grayscale-[0.4]' : ''} ${className}`}
     >
       <div
-        className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#F5B700]/10"
+        className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-[#C4A050]/25 blur-3xl"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute -bottom-16 -left-16 h-52 w-52 rounded-full bg-[#1B3A2D]/[0.04]"
+        className="pointer-events-none absolute -bottom-16 -left-16 h-52 w-52 rounded-full bg-[#1B3A2D]/[0.06] blur-3xl"
         aria-hidden="true"
       />
       <div className="relative mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F5B700]/15">

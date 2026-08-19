@@ -160,7 +160,7 @@ function DoneTodayRow({
 }) {
   return (
     <li ref={flipRef} className="flex items-center gap-2.5 py-2">
-      <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" strokeWidth={1.75} aria-hidden="true" />
+      <CheckCircle2 className="h-5 w-5 shrink-0 text-[#3C7F5E]" strokeWidth={1.75} aria-hidden="true" />
       <span className="flex-1 text-sm text-[#1B3A2D]">{label}</span>
       {trailing}
     </li>

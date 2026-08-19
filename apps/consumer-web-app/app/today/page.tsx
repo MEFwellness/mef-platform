@@ -544,7 +544,7 @@ export default async function TodayPage() {
                         style={stagger(sectionIndex++)}
                       >
                         <div
-                          className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#F5B700]/10"
+                          className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#C4A050]/25 blur-3xl"
                           aria-hidden="true"
                         />
                         <div className="relative flex items-center gap-2 text-[#6B7A72]">

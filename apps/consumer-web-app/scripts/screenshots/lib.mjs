@@ -15,13 +15,108 @@
 // native `<input type="time">`s) and onboarding's numeric slider (a
 // native `<input type="range">`).
 import path from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { OUTPUT_DIR, VIEWPORT_NAME } from './config.mjs';
 
 mkdirSync(OUTPUT_DIR, { recursive: true });
 
 export const index = [];
 export const failures = [];
+
+/**
+ * Puts any page-covering modal out of the way and releases the body scroll
+ * lock that came with it, so the screen underneath can be photographed.
+ * Returns true if it hid something, false if there was nothing to hide or
+ * if hiding it would have left an empty page.
+ *
+ * Why this exists: Root's pop-ups (the hydration question, the day-3
+ * follow-up, the reset-plan offer) open by themselves on Home, and while
+ * one is open the page underneath is scroll-locked with `position: fixed`
+ * on <body>. A fullPage screenshot of that state is a picture of the modal
+ * sitting on a page frozen at scroll 0, padded out to the body's full
+ * height with nothing in it: the previous capture of Home was 3,169 css
+ * pixels tall and carried real content for the first 1,300 of them. That
+ * reads like a catastrophic layout bug in the app, and is not one.
+ *
+ * THE CONTENT CHECK IS THE WHOLE TRICK. A check-in wizard screen is also
+ * a fixed, viewport-filling element, and it is not a modal, it IS the
+ * page — hiding it leaves a blank screenshot. So the page's own visible
+ * text is measured before and after, and if hiding the candidate takes
+ * most of the screen's words with it, the change is reverted and the
+ * fullPage shot is taken exactly as it always was.
+ *
+ * Nothing is clicked to get a modal out of the way: pressing "Maybe
+ * later" or "Ignore" would defer or dismiss a real question on a real
+ * member's behalf and write that decision down. This only sets inline
+ * style on the client, for the length of one screenshot, and puts every
+ * byte of it back.
+ */
+async function suppressOverlays(page) {
+  return page.evaluate(() => {
+    const covering = [...document.querySelectorAll('body *')].filter((el) => {
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed') return false;
+      // A decorative wash is not a modal. The check-in wizard paints its
+      // colour ramp with `pointer-events-none fixed inset-0 z-0`, which
+      // fills the viewport, carries no text, and takes no input — hiding
+      // it would silently strip the wizard's own background out of every
+      // check-in screenshot while the content check happily passed,
+      // because there was no text in it to lose.
+      if (cs.pointerEvents === 'none') return false;
+      const z = Number.parseInt(cs.zIndex, 10);
+      if (!Number.isFinite(z) || z < 10) return false;
+      const r = el.getBoundingClientRect();
+      return r.width >= window.innerWidth * 0.9 && r.height >= window.innerHeight * 0.9;
+    });
+    if (covering.length === 0) return false;
+
+    const body = document.body;
+    const html = document.documentElement;
+    const textBefore = (body.innerText || '').replace(/\s+/g, '').length;
+    const saved = {
+      body: body.getAttribute('style'),
+      html: html.getAttribute('style'),
+      elements: covering.map((el) => ({ el, style: el.getAttribute('style') })),
+    };
+
+    for (const el of covering) el.style.display = 'none';
+    body.style.position = 'static';
+    body.style.top = 'auto';
+    body.style.left = 'auto';
+    body.style.right = 'auto';
+    body.style.width = 'auto';
+    body.style.overflow = 'visible';
+    html.style.overflow = 'visible';
+
+    const textAfter = (body.innerText || '').replace(/\s+/g, '').length;
+    const restore = () => {
+      for (const { el, style } of saved.elements) {
+        if (style === null) el.removeAttribute('style');
+        else el.setAttribute('style', style);
+      }
+      if (saved.body === null) body.removeAttribute('style');
+      else body.setAttribute('style', saved.body);
+      if (saved.html === null) html.removeAttribute('style');
+      else html.setAttribute('style', saved.html);
+    };
+
+    // It was the page, not a modal. Undo and say so.
+    if (textAfter < 200 || textAfter < textBefore * 0.35) {
+      restore();
+      return false;
+    }
+
+    window.__mefShotRestore = restore;
+    return true;
+  });
+}
+
+async function unsuppressOverlays(page) {
+  await page.evaluate(() => {
+    if (typeof window.__mefShotRestore === 'function') window.__mefShotRestore();
+    delete window.__mefShotRestore;
+  });
+}
 
 /**
  * Every call site names its file without a viewport suffix — that
@@ -37,6 +132,26 @@ export async function shot(page, file, { screen, state, note } = {}) {
     VIEWPORT_NAME === 'mobile' ? file : file.replace(/\.png$/, `-${VIEWPORT_NAME}.png`);
   const filePath = path.join(OUTPUT_DIR, suffixedFile);
   await page.waitForTimeout(250); // let the entrance transition/settle finish
+
+  // A modal over the screen gets its own viewport-sized shot first, since
+  // that IS what the member sees and it should be auditable, and is then
+  // moved aside so the screen underneath can be captured properly.
+  const overlayFile = suffixedFile.replace(/\.png$/, '-popup.png');
+  const overlayPath = path.join(OUTPUT_DIR, overlayFile);
+  await page.screenshot({ path: overlayPath, fullPage: false });
+  const suppressed = await suppressOverlays(page);
+  if (suppressed) {
+    await page.waitForTimeout(100);
+    index.push({
+      file: overlayFile,
+      screen: `${screen || file}, pop-up over it`,
+      state: state || '',
+      note: 'the overlay as the member sees it',
+    });
+    console.log(`captured ${overlayFile}`);
+  } else {
+    rmSync(overlayPath, { force: true });
+  }
 
   // Confirmed directly (see docs/BUILD_STATUS.md): Playwright's
   // fullPage:true screenshot bakes in position:sticky/fixed elements at
@@ -54,9 +169,31 @@ export async function shot(page, file, { screen, state, note } = {}) {
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForTimeout(100);
 
+  // Home's zones mount hidden and are revealed by RevealOnScroll, which
+  // cannot decide anything until the page has hydrated. Photographed a
+  // few hundred milliseconds after load, Home was a real card or two
+  // followed by roughly seventeen hundred pixels of empty cream: the
+  // zones were laid out at full height and painted at opacity 0. Wait for
+  // them to settle rather than guessing at a fixed delay, and give up
+  // after a moment so a screen that legitimately has none is not slowed
+  // down.
+  await page
+    .waitForFunction(
+      () =>
+        [...document.querySelectorAll('.transition-all.duration-700')].every(
+          (el) => Number.parseFloat(getComputedStyle(el).opacity) > 0.99
+        ),
+      undefined,
+      { timeout: 4000 }
+    )
+    .catch(() => {});
+  await page.waitForTimeout(150);
+
   await page.screenshot({ path: filePath, fullPage: true });
   index.push({ file: suffixedFile, screen: screen || file, state: state || '', note: note || '' });
   console.log(`captured ${suffixedFile}`);
+
+  if (suppressed) await unsuppressOverlays(page);
 }
 
 export function recordFailure(area, error) {

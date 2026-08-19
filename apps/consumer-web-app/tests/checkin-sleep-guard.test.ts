@@ -76,24 +76,44 @@ describe('SleepArc.tsx wires the guard into a quiet, non-blocking inline note', 
   });
 });
 
-describe('label-clipping fix (task 3c): the dial ring is resized with real margin for the quarter labels', () => {
+describe('the quarter labels are neither clipped by the viewBox nor covered by a handle', () => {
   const arc = source('components/checkin/SleepArc.tsx');
 
-  it('RADIUS is smaller than the old clipping value (92), leaving margin inside the 240-unit viewBox', () => {
-    const match = /^const RADIUS = (\d+);/m.exec(arc);
-    expect(match).not.toBeNull();
-    const radius = Number(match![1]);
+  /** The three numbers the geometry actually depends on, read from the component rather than restated here. */
+  function geometry() {
+    const radius = /^const RADIUS = (\d+);/m.exec(arc);
+    const offset = /^const QUARTER_LABEL_OFFSET = (\d+);/m.exec(arc);
+    const handle = /\br=\{(\d+)\}/.exec(arc);
+    expect(radius).not.toBeNull();
+    expect(offset).not.toBeNull();
+    expect(handle).not.toBeNull();
+    return {
+      radius: Number(radius![1]),
+      offset: Number(offset![1]),
+      handleRadius: Number(handle![1]),
+    };
+  }
+
+  it('label text sits inside the 240-unit viewBox with real margin (task 3c: it used to be clipped on all four sides)', () => {
+    const { radius, offset } = geometry();
     expect(radius).toBeLessThan(92);
-    // Quarter-label text sits at RADIUS + 20 (see the render code) --
-    // the viewBox half-width is 120, so this asserts a real margin,
-    // not just "smaller than before" by an arbitrary amount.
-    const labelRadius = radius + 20;
-    const marginToEdge = 120 - labelRadius;
+    const marginToEdge = 120 - (radius + offset);
     expect(marginToEdge).toBeGreaterThanOrEqual(20);
   });
 
-  it('the quarter-label text offset itself was reduced from the old clipping value (the doc comment may still name +27 as history)', () => {
-    expect(arc).toContain('pointOnCircle(angle, RADIUS + 20)');
+  it('label text clears the outer edge of a dragged handle', () => {
+    // A handle rides the ring at RADIUS with its own radius, so it reaches
+    // RADIUS + handleRadius. The label baseline sits at RADIUS + offset and
+    // its glyphs run a few units either side of that. With +20 and a
+    // 13-unit handle there were seven units between them, which is nothing
+    // once a handle sits a few degrees off a quarter: the default 6:30 AM
+    // wake handle covered the "6 AM" label completely.
+    const { offset, handleRadius } = geometry();
+    expect(offset - handleRadius).toBeGreaterThanOrEqual(14);
+  });
+
+  it('every derived offset is expressed in terms of the constant, so the two can never drift apart', () => {
+    expect(arc).toContain('pointOnCircle(angle, RADIUS + QUARTER_LABEL_OFFSET)');
     expect(arc).not.toContain('const textPoint = pointOnCircle(angle, RADIUS + 27)');
   });
 });

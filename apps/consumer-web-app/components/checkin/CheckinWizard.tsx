@@ -279,7 +279,16 @@ export function CheckinWizard({
           onClick={onContinue}
           disabled={continueDisabled}
           aria-describedby={helperText ? 'checkin-continue-reason' : undefined}
-          className="mef-press flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white shadow-[0_8px_24px_-8px_rgba(27,58,45,0.5)] transition-all duration-200 ease-out hover:brightness-110 disabled:opacity-40"
+          /*
+           * The disabled state is drawn, not dimmed. `opacity-40` on a
+           * near-black green over the check-in's warm cream produced a
+           * flat grey-sage slab that reads as a rendering fault rather
+           * than "not yet" — and Continue is disabled on the first
+           * screen of every check-in, so that slab was most members'
+           * first impression of the flow. A pale green fill with muted
+           * green text says the same thing calmly.
+           */
+          className="mef-press flex w-full items-center justify-center rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white shadow-[0_8px_24px_-8px_rgba(27,58,45,0.5)] transition-all duration-200 ease-out hover:brightness-110 disabled:bg-[#1B3A2D]/[0.10] disabled:text-[#1B3A2D]/45 disabled:shadow-none"
         >
           {continueLabel}
         </button>

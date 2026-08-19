@@ -40,7 +40,15 @@ import {
 
 // Screen Layout System (Prompt 2): `.mef-card` plus this grid's own
 // equal-height layout, exactly as it was on Home.
-const TRACKER_CARD = 'mef-card flex min-h-[172px] flex-col';
+const TRACKER_CARD = 'mef-card flex min-h-[152px] flex-col';
+/**
+ * There are five tiles in a two-column grid, so the fifth always sat alone
+ * beside a hole. It spans the row on mobile instead, which reads as a
+ * deliberate last row rather than a tile that lost its partner. At the
+ * four-column desktop breakpoint the count divides evenly and it goes back
+ * to being one tile among four.
+ */
+const LAST_TRACKER_CARD = `${TRACKER_CARD} col-span-2 md:col-span-1`;
 
 function stressLabel(level: number | null): string {
   if (level === null) return 'Not logged yet';
@@ -180,7 +188,7 @@ export function TodaysNumbersGrid({ checkin }: { checkin: DailyCheckin }) {
           </div>
         </div>
 
-        <div className={TRACKER_CARD}>
+        <div className={LAST_TRACKER_CARD}>
           <div className="flex items-center gap-2 text-[#6B7A72]">
             <Utensils className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
             <p className="text-sm font-semibold uppercase tracking-wider">Digestion</p>

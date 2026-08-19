@@ -42,10 +42,26 @@ export const BASE_URL = TARGET === 'live' ? LIVE_BASE_URL : LOCAL_BASE_URL;
  * this script can never silently run against production with a guessed or
  * hardcoded password.
  */
+/**
+ * Priority is per-target, not global, and that is the whole point.
+ *
+ * `.env.local` in this directory exists to hold the LIVE accounts, because
+ * the live target refuses to guess one. It is also loaded on a local run,
+ * and it used to win there too — so once anybody had captured against
+ * production, every subsequent local run signed in with a production email
+ * against localhost, where that account does not exist. The capture then
+ * reported "Incorrect email or password" as a timeout on all 60-odd
+ * screens, which reads like the app is broken rather than the tool.
+ *
+ * So: on the local target the committed dev seed account wins, and the env
+ * var is only consulted when there is no seed account to fall back to. On
+ * the live target there is no fallback at all, so the env var is the only
+ * source and a missing one still throws.
+ */
 function credential(envVar, localFallback) {
+  if (TARGET === 'local' && localFallback !== undefined) return localFallback;
   const value = process.env[envVar];
   if (value) return value;
-  if (TARGET === 'local' && localFallback !== undefined) return localFallback;
   throw new Error(
     `Missing required env var ${envVar} for SCREENSHOT_TARGET=live. ` +
       'Set it in scripts/screenshots/.env.local (gitignored) — see .env.example. Refusing to guess or hardcode a production credential.'

@@ -56,7 +56,7 @@ export function AssignedQuestionnairePriorityCard({
             className="mef-animate-in relative overflow-hidden rounded-[28px] bg-[#1B3A2D] p-6 text-[#F5F0E4] shadow-[0_20px_50px_-16px_rgba(27,58,45,0.5)]"
           >
             <div
-              className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#C4A050]/10"
+              className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#C4A050]/16 blur-3xl"
               aria-hidden="true"
             />
             <div className="relative flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#C4A050]">

@@ -60,7 +60,7 @@ export function FeedInteractions({
           onClick={() => run(() => completeFeedActionForMember(feedItem.id))}
           className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition duration-150 active:scale-95 disabled:cursor-not-allowed ${
             feedItem.completed_at
-              ? 'mef-pop-in bg-green-50 text-green-700'
+              ? 'mef-pop-in bg-[#EAF1EC] text-[#2F6B4F]'
               : 'bg-[#1B3A2D] text-white hover:brightness-110'
           }`}
         >
@@ -94,7 +94,7 @@ export function FeedInteractions({
       </div>
 
       {feedItem.completed_at && (
-        <p className="mef-pop-in flex items-center gap-1.5 px-1 text-sm text-green-700">
+        <p className="mef-pop-in flex items-center gap-1.5 px-1 text-sm text-[#2F6B4F]">
           <CheckCircle2 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
           {completionCelebration(feedItem.id)}
         </p>
@@ -126,7 +126,7 @@ export function FeedInteractions({
                 type="button"
                 disabled={isPending || !reflection.trim()}
                 onClick={() => run(() => submitFeedReflectionForMember(feedItem.id, reflection))}
-                className="rounded-full bg-[#1B3A2D] px-5 py-2 text-sm font-medium text-white transition duration-150 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-full bg-[#1B3A2D] px-5 py-2 text-sm font-medium text-white transition duration-150 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:bg-[#1B3A2D]/[0.10] disabled:text-[#1B3A2D]/45"
               >
                 Save reflection
               </button>
