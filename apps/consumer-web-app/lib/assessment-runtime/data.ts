@@ -131,23 +131,80 @@ export async function getSessionById(
   return assembleSession(row as SessionRow, content, answers);
 }
 
+/** The most recent session this member has actually FINISHED for a definition, or null. One indexed query (unified_assessment_sessions_member_definition_idx already orders by completed_at desc). */
+export async function findLatestCompletedSession(
+  supabase: SupabaseClient,
+  memberId: string,
+  assessmentDefinitionId: string
+): Promise<{ id: string; completedAt: string | null } | null> {
+  const { data: row, error } = await supabase
+    .from('unified_assessment_sessions')
+    .select('id, completed_at')
+    .eq('member_id', memberId)
+    .eq('assessment_definition_id', assessmentDefinitionId)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !row) return null;
+  return { id: row.id as string, completedAt: (row.completed_at as string | null) ?? null };
+}
+
+export type StartOrResumeResult =
+  /** An open draft was found and handed back untouched. */
+  | { status: 'resumed'; session: AssessmentSession; events: RuntimeEvent[] }
+  /** No draft existed and a new session was created. */
+  | { status: 'started'; session: AssessmentSession; events: RuntimeEvent[] }
+  /** She has already finished this and did not ask to start again. NOTHING was written. */
+  | { status: 'already_completed'; latestCompletedSessionId: string }
+  /** The key does not resolve to a real, active definition. */
+  | { status: 'not_found' };
+
 /**
  * Start or resume — the same idempotent entry point, backed by migration
  * 99's partial unique index so a member can never end up with two open
- * drafts of the same assessment definition. Returns null only if the
- * definition key doesn't resolve to a real, active definition.
+ * drafts of the same assessment definition.
+ *
+ * A FINISHED ASSESSMENT IS NEVER SILENTLY RESTARTED (2026-08-27). This
+ * function used to create a brand-new empty session for anybody with no
+ * open draft, including somebody who had just completed the whole thing.
+ * The take pages call it while RENDERING, and finishing an assessment is a
+ * Next.js Server Action, which re-renders the page it was called from: so
+ * the act of finishing re-ran the take page and started a fresh, empty
+ * session of the assessment that had just been completed, 72ms later in a
+ * local reproduction and 1.4 to 2.5 seconds later in production. That empty
+ * draft then outranked the completion in `assessment_status_by_member`, and
+ * the Home card, the Questionnaires page, the Priority Card, the free-arc
+ * pop-up and the prerequisite chain all went back to saying she had never
+ * done it. One member answered all twelve Core Values Snapshot questions
+ * four separate times because of it.
+ *
+ * A retake is still completely available. It is now a decision the member
+ * makes, carried by `options.startRetake`, rather than something a page
+ * render does on her behalf.
  */
 export async function startOrResumeSession(
   supabase: SupabaseClient,
   memberId: string,
-  assessmentDefinitionKey: string
-): Promise<{ session: AssessmentSession; events: RuntimeEvent[] } | null> {
+  assessmentDefinitionKey: string,
+  options: { startRetake?: boolean } = {}
+): Promise<StartOrResumeResult> {
   const definition = await getUnifiedAssessmentDefinitionByKey(supabase, assessmentDefinitionKey);
-  if (!definition) return null;
+  if (!definition) return { status: 'not_found' };
 
   const existing = await findInProgressSession(supabase, memberId, definition.id);
   if (existing) {
-    return { session: existing, events: [{ type: 'assessment_resumed', sessionId: existing.id }] };
+    return {
+      status: 'resumed',
+      session: existing,
+      events: [{ type: 'assessment_resumed', sessionId: existing.id }],
+    };
+  }
+
+  if (!options.startRetake) {
+    const completed = await findLatestCompletedSession(supabase, memberId, definition.id);
+    if (completed) return { status: 'already_completed', latestCompletedSessionId: completed.id };
   }
 
   const content = await loadContent(supabase, definition.id);
@@ -175,7 +232,7 @@ export async function startOrResumeSession(
   const session = assembleSession(created as SessionRow, content, {});
   // No "started" event exists in the requested vocabulary (only paused/
   // resumed/completed) — a fresh session simply has no events yet.
-  return { session, events: [] };
+  return { status: 'started', session, events: [] };
 }
 
 /**

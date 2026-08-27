@@ -12,6 +12,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { localDateStringFor } from '@/lib/time/localDate';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import type { AccessResult } from '@/lib/assessment-registry/access';
@@ -59,6 +60,28 @@ async function requireMemberId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
+/**
+ * The member's OWN calendar date for a completion instant, not the UTC one
+ * (2026-08-27). `completedAt.slice(0, 10)` is the same timezone bug the
+ * Protein Ledger had: somebody finishing at 8pm in New York has a
+ * completion timestamp that already reads as tomorrow in UTC, so her
+ * Personal Health Timeline filed the moment under a day she had not lived
+ * yet. Reuses lib/time/localDate.ts, which every other event-stream write
+ * already agrees with.
+ */
+async function memberLocalDateForInstant(
+  supabase: ReturnType<typeof createClient>,
+  memberId: string,
+  isoInstant: string
+): Promise<string> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', memberId)
+    .maybeSingle();
+  return localDateStringFor(isoInstant, profile?.timezone ?? 'America/New_York');
+}
+
 /** The member's most recently completed Core Values Snapshot, if any — needed only to evaluate the Body-Value Echo adjacency condition. Almost always present in practice (Life Signal Check unlocks only after Core Values Snapshot completes), but this degrades gracefully (Echo simply never fires) rather than throwing if it's ever missing. */
 async function getLatestCvsContextForEcho(
   supabase: ReturnType<typeof createClient>,
@@ -95,9 +118,21 @@ export async function getMyLatestCvsContextForEchoAction() {
 
 export type StartOrResumeLscResult =
   | { ok: true; session: AssessmentSession; events: RuntimeEvent[] }
+  /** She has already finished this and did not ask to start again. Nothing was written; the take page redirects to these results. */
+  | { ok: false; reason: 'already_completed'; latestCompletedSessionId: string }
   | { ok: false; reason: 'not_signed_in' | 'access_denied' | 'not_found'; access?: AccessResult };
 
-export async function startOrResumeLscAction(): Promise<StartOrResumeLscResult> {
+/**
+ * A FINISHED EXPERIENCE IS NEVER SILENTLY RESTARTED (2026-08-27). The take
+ * page calls this while rendering, and finishing is a Server Action, which
+ * re-renders the page it was called from: so this used to create a fresh,
+ * empty session of the assessment that had just been completed. Returning
+ * `already_completed` lets the take page send her to her results instead.
+ * `startRetake` is only ever true when she asked for one (`?retake=1`).
+ */
+export async function startOrResumeLscAction(
+  options: { startRetake?: boolean } = {}
+): Promise<StartOrResumeLscResult> {
   const supabase = createClient();
   const user = await getCachedUser();
   if (!user) return { ok: false, reason: 'not_signed_in' };
@@ -105,8 +140,17 @@ export async function startOrResumeLscAction(): Promise<StartOrResumeLscResult> 
   const access = await checkAssessmentAccess(supabase, user.id, LSC_KEY);
   if (!access.allowed) return { ok: false, reason: 'access_denied', access };
 
-  const result = await startOrResumeSession(supabase, user.id, LSC_KEY);
-  if (!result) return { ok: false, reason: 'not_found' };
+  const result = await startOrResumeSession(supabase, user.id, LSC_KEY, {
+    startRetake: options.startRetake === true,
+  });
+  if (result.status === 'not_found') return { ok: false, reason: 'not_found' };
+  if (result.status === 'already_completed') {
+    return {
+      ok: false,
+      reason: 'already_completed',
+      latestCompletedSessionId: result.latestCompletedSessionId,
+    };
+  }
 
   return { ok: true, session: result.session, events: result.events };
 }
@@ -181,7 +225,7 @@ export async function completeLscAssessmentAction(sessionId: string): Promise<Co
     await recordTimelineEvent(supabase, {
       memberId,
       eventType: 'assessment_published',
-      localDate: completedAt.slice(0, 10),
+      localDate: await memberLocalDateForInstant(supabase, memberId, completedAt),
       title: 'Completed your Life Signal Check',
       sourceFeature: 'unified_assessment_finding',
       sourceRecordId: sessionId,

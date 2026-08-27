@@ -34,7 +34,9 @@ export {
 export {
   completeSession,
   findInProgressSession,
+  findLatestCompletedSession,
   getSessionById,
   persistAnswer,
   startOrResumeSession,
 } from './data';
+export type { StartOrResumeResult } from './data';

@@ -21,6 +21,7 @@ import {
   calculateLockReason,
 } from '../lib/assessment-registry';
 import { getMemberAssessmentFacts } from '../lib/assessment-registry/facts';
+import { categorizeForCatalog } from '../lib/assessment-registry/catalog';
 import { checkAssessmentAccess } from '../lib/assessment-registry/access';
 import { pickRecommendation } from '../lib/assessment-registry/recommendation';
 import type { AssessmentDefinition, MemberAssessmentFacts } from '../lib/assessment-registry';
@@ -321,7 +322,22 @@ describe('completion tracking (assessment_attempts live sync)', () => {
     expect(statusAfterRetake.status).toBe('completed');
   });
 
-  it('an in-progress draft resumes as in_progress, outranking a prior completion', async () => {
+  /**
+   * CHANGED 2026-08-27. This used to assert the opposite, that a draft
+   * outranked a prior completion and the status read 'in_progress'. That
+   * assertion was the bug written down: an empty draft created by a page
+   * render made the Home card, the Questionnaires page, the Priority Card,
+   * the free-arc pop-up and the prerequisite chain all forget the member
+   * had ever finished, and one real member answered the whole Core Values
+   * Snapshot four separate times because of it.
+   *
+   * The view itself still prefers the draft, because a resume affordance
+   * genuinely needs to know one is open. What changed is that the framework
+   * status no longer un-completes a finished assessment to say so; the open
+   * draft is reported as a retake in progress instead (see
+   * CatalogFlags.retakeInProgress).
+   */
+  it('a draft on top of a prior completion reads as completed, not in_progress', async () => {
     const service = serviceRoleClient();
     await service.from('wellness_assessments').insert({
       member_id: memberOneId,
@@ -346,7 +362,15 @@ describe('completion tracking (assessment_attempts live sync)', () => {
       findAssessmentRegistryEntry('four-doctors')!,
       facts.get('four-doctors')!
     );
-    expect(status.status).toBe('in_progress');
+    expect(status.status).toBe('completed');
+
+    // The open draft is not lost, it is reported as what it is.
+    const { flags } = categorizeForCatalog(
+      findAssessmentRegistryEntry('four-doctors')!,
+      facts.get('four-doctors')!
+    );
+    expect(flags.retakeInProgress).toBe(true);
+    expect(flags.inProgress).toBe(false);
   });
 
   it('completing Primal Pattern (classification engine) also live-syncs into the ledger', async () => {

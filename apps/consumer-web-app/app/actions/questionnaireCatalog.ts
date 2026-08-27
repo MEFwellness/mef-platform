@@ -24,6 +24,7 @@ import { getMyPrimalPatternListItem } from './primal-pattern';
 import { fetchBaselineAssessment } from '@/lib/onboarding/baseline';
 import { getMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
 import { listAssessmentRegistryEntries, findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
+import { hasEverCompleted } from '@/lib/assessment-registry/status';
 import {
   categorizeForCatalog,
   type CatalogFlags,
@@ -182,7 +183,9 @@ export async function getMyQuestionnaireCatalog(): Promise<QuestionnaireCatalog>
   // Signal Check requires Core Values Snapshot) — computed once from the
   // same batched facts query already fetched above, not a new query.
   const completedPrerequisiteKeys = new Set<AssessmentKey>(
-    [...factsByKey.entries()].filter(([, facts]) => facts.completionStatus === 'completed').map(([key]) => key)
+    // hasEverCompleted, not completionStatus: a retake draft on Core Values
+    // Snapshot must not make Life Signal Check look locked again.
+    [...factsByKey.entries()].filter(([, facts]) => hasEverCompleted(facts)).map(([key]) => key)
   );
 
   const cards: CatalogCard[] = [];

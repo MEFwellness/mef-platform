@@ -13,7 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { findAssessmentRegistryEntry } from './registry';
-import { calculateLockReason, type LockReason } from './status';
+import { calculateLockReason, hasEverCompleted, type LockReason } from './status';
 import { getMemberAssessmentFacts } from './facts';
 import type { AssessmentKey } from './types';
 
@@ -23,7 +23,12 @@ export type AccessResult = { allowed: true } | { allowed: false; reason: LockRea
 function completedKeysFrom(factsByKey: Awaited<ReturnType<typeof getMemberAssessmentFacts>>): Set<AssessmentKey> {
   const completed = new Set<AssessmentKey>();
   for (const [key, facts] of factsByKey) {
-    if (facts.completionStatus === 'completed') completed.add(key);
+    // hasEverCompleted, not completionStatus (2026-08-27). This read was a
+    // real lockout: the empty draft the take page created the instant she
+    // finished Core Values Snapshot made the status view answer
+    // 'in_progress', this Set lost the key, and Life Signal Check went back
+    // to "Complete a prior step first" for a member who HAD completed it.
+    if (hasEverCompleted(facts)) completed.add(key);
   }
   return completed;
 }

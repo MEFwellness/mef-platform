@@ -22,6 +22,24 @@ import {
 } from '../lib/assessment-runtime';
 import { getUnifiedAssessmentDefinitionByKey } from '../lib/assessment-foundation/repository';
 
+/**
+ * startOrResumeSession now reports WHY it returned what it did, so a
+ * finished assessment can never be silently restarted by a page render
+ * (2026-08-27). Every case in this file expects a real open draft.
+ */
+async function openSession(
+  client: Parameters<typeof startOrResumeSession>[0],
+  member: string,
+  key: string
+) {
+  const result = await startOrResumeSession(client, member, key);
+  if (result.status !== 'resumed' && result.status !== 'started') {
+    throw new Error(`expected an open session, got "${result.status}"`);
+  }
+  return result;
+}
+
+
 const WBSA_KEY = 'wbsa';
 const memberOneId = TEST_USERS.memberOne.id;
 const memberTwoId = TEST_USERS.memberTwo.id;
@@ -112,7 +130,7 @@ describe('WBSA on the Unified Adaptive Assessment Runtime — real product conte
 
   it('reveals a conditional follow-up only once the gating frequency answer is elevated', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
-    const started = await startOrResumeSession(client, memberOneId, WBSA_KEY);
+    const started = await openSession(client, memberOneId, WBSA_KEY);
     expect(started).not.toBeNull();
 
     // Before answering the gate, the timing follow-up must not be visible.
@@ -130,7 +148,7 @@ describe('WBSA on the Unified Adaptive Assessment Runtime — real product conte
 
   it('accepts the prefer-not-to-answer sentinel as a real answer that produces no finding', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
-    const started = await startOrResumeSession(client, memberOneId, WBSA_KEY);
+    const started = await openSession(client, memberOneId, WBSA_KEY);
     const question = started!.session.visibleQuestions.find((q) => q.question_key === 'wbsa_liver_body_odor')!;
     expect(question.allows_prefer_not_to_answer).toBe(true);
 
@@ -145,7 +163,7 @@ describe('WBSA on the Unified Adaptive Assessment Runtime — real product conte
 
   it('a red-flag answer produces a significant finding and publishes to the registry under a new WBSA-specific domain, without a duplicate publish on re-completion attempts', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
-    const started = await startOrResumeSession(client, memberOneId, WBSA_KEY);
+    const started = await openSession(client, memberOneId, WBSA_KEY);
 
     const withRedFlag = await answerAllVisible(client, started!.session, {
       wbsa_lowdig_discomfort: 'often', // gates the red-flag question into visibility
@@ -180,8 +198,8 @@ describe('WBSA on the Unified Adaptive Assessment Runtime — real product conte
 
   it('start-or-resume is idempotent — a second call resumes the same session, never creates a duplicate draft', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
-    const started = await startOrResumeSession(client, memberOneId, WBSA_KEY);
-    const resumed = await startOrResumeSession(client, memberOneId, WBSA_KEY);
+    const started = await openSession(client, memberOneId, WBSA_KEY);
+    const resumed = await openSession(client, memberOneId, WBSA_KEY);
     expect(resumed!.session.id).toBe(started!.session.id);
     expect(resumed!.events).toEqual([{ type: 'assessment_resumed', sessionId: started!.session.id }]);
 
@@ -197,12 +215,12 @@ describe('WBSA on the Unified Adaptive Assessment Runtime — real product conte
 
   it('a coach with an active client assignment can read a completed WBSA session; a coach with only a revoked assignment cannot', async () => {
     const memberOneClient = await signInAs(TEST_USERS.memberOne);
-    const startedOne = await startOrResumeSession(memberOneClient, memberOneId, WBSA_KEY);
+    const startedOne = await openSession(memberOneClient, memberOneId, WBSA_KEY);
     const finishedOne = await answerAllVisible(memberOneClient, startedOne!.session, {});
     await completeSession(memberOneClient, startedOne!.session.id);
 
     const memberTwoClient = await signInAs(TEST_USERS.memberTwo);
-    const startedTwo = await startOrResumeSession(memberTwoClient, memberTwoId, WBSA_KEY);
+    const startedTwo = await openSession(memberTwoClient, memberTwoId, WBSA_KEY);
     const finishedTwo = await answerAllVisible(memberTwoClient, startedTwo!.session, {});
     await completeSession(memberTwoClient, startedTwo!.session.id);
     void finishedOne;

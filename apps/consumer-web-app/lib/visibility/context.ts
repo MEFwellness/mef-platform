@@ -27,6 +27,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentKey } from '../assessment-registry/types';
 import { getMemberAssessmentFacts } from '../assessment-registry/facts';
+import { hasEverCompleted } from '../assessment-registry/status';
 import { buildMemberInterpretation } from '../member-interpretation/service';
 import { getMemberRestrictedTopics } from '../feed/data';
 import { F } from './catalog';
@@ -229,7 +230,7 @@ export async function buildVisibilityContext(
 
   if (assessmentFacts) {
     for (const [key, facts] of assessmentFacts.entries()) {
-      if (facts.completionStatus === 'completed' || facts.latestCompletedAt) {
+      if (hasEverCompleted(facts)) {
         context.completedAssessmentKeys.add(key as AssessmentKey);
         behavior.assessments_completed += 1;
       }

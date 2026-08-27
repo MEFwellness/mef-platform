@@ -29,6 +29,7 @@ function card(key: AssessmentKey, overrides: Partial<CatalogCard> = {}): Catalog
       lockReasonKind: null,
       comingSoon: false,
       inProgress: false,
+      retakeInProgress: false,
       reassessmentDueAt: null,
       scheduledAt: null,
       retakeAvailable: false,

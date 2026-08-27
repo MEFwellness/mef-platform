@@ -30,7 +30,14 @@
  */
 
 import type { AssessmentDefinition, AssessmentKey } from './types';
-import { calculateLockReason, describeLockReason, type LockReason, type MemberAssessmentFacts } from './status';
+import {
+  calculateLockReason,
+  describeLockReason,
+  hasEverCompleted,
+  hasRetakeInProgress,
+  type LockReason,
+  type MemberAssessmentFacts,
+} from './status';
 
 export type CatalogSection = 'assigned' | 'completed' | 'premium' | 'available';
 
@@ -40,7 +47,10 @@ export type CatalogFlags = {
   /** Which kind of lock this is, when locked (see LockReason). Coach-Assign-Only Gating task (2026-08-04): a card's UI needs to tell "not assigned by a coach yet" apart from a membership-tier/program/prerequisite lock, since only the former gets the dimmed/gold-marker/tap-to-reveal treatment — the others keep their existing "Locked" pill + upgrade prompt. */
   lockReasonKind: LockReason['kind'] | null;
   comingSoon: boolean;
+  /** She has an open draft and has NEVER finished this one. A draft sitting on top of a completed assessment is `retakeInProgress` instead, so a card can never lose its completed state to a stray draft. */
   inProgress: boolean;
+  /** She has finished this before AND has an open draft of it now: a retake she has started, labelled as one. */
+  retakeInProgress: boolean;
   /** Set only once a pending reassessment schedule's due date has arrived — an actionable, not just informational, flag. */
   reassessmentDueAt: string | null;
   /** Set only while a pending reassessment schedule's due date is still in the future. */
@@ -78,6 +88,7 @@ export function categorizeForCatalog(
         lockReasonKind: null,
         comingSoon: true,
         inProgress: false,
+        retakeInProgress: false,
         reassessmentDueAt: null,
         scheduledAt: null,
         retakeAvailable: false,
@@ -97,7 +108,8 @@ export function categorizeForCatalog(
         lockMessage: null,
         lockReasonKind: null,
         comingSoon: false,
-        inProgress: facts.completionStatus === 'in_progress',
+        inProgress: facts.completionStatus === 'in_progress' && !hasEverCompleted(facts),
+        retakeInProgress: hasRetakeInProgress(facts),
         reassessmentDueAt: null,
         scheduledAt: null,
         retakeAvailable: false,
@@ -116,7 +128,13 @@ export function categorizeForCatalog(
   // pendingAssignment/completionStatus are checked first, same as before.
   const lockReason = calculateLockReason(definition, facts, completedPrerequisiteKeys);
   const reassessmentDue = isReassessmentDue(facts, now);
-  const isCompleted = facts.completionStatus === 'completed' && !reassessmentDue;
+  // COMPLETION IS PERMANENT (2026-08-27). Reading `completionStatus` alone
+  // here is what sent a finished free experience back to the Available
+  // section: the empty draft the take page created on completion made the
+  // status view answer 'in_progress', the card lost its completed state,
+  // and pickNextFreeArcCard offered the conversation again the next
+  // morning. hasEverCompleted asks the question this line actually means.
+  const isCompleted = hasEverCompleted(facts) && !reassessmentDue;
 
   const section: CatalogSection = isCompleted ? 'completed' : isPremium ? 'premium' : 'available';
 
@@ -127,7 +145,8 @@ export function categorizeForCatalog(
       lockMessage: lockReason ? describeLockReason(lockReason) : null,
       lockReasonKind: lockReason?.kind ?? null,
       comingSoon: false,
-      inProgress: facts.completionStatus === 'in_progress',
+      inProgress: facts.completionStatus === 'in_progress' && !hasEverCompleted(facts),
+      retakeInProgress: hasRetakeInProgress(facts),
       reassessmentDueAt: reassessmentDue ? facts.pendingReassessmentSchedule!.dueAt : null,
       scheduledAt:
         facts.pendingReassessmentSchedule && !reassessmentDue

@@ -25,7 +25,17 @@ function checkAudioAvailable(): boolean {
   }
 }
 
-export default async function TakeLifeSignalCheckPage() {
+/**
+ * ONE ENTRY, TWO OUTCOMES (2026-08-27). Opening this URL after finishing
+ * shows the results she already has, and never starts a silent new draft on
+ * top of them. A retake is a deliberate choice she makes on the overview
+ * screen, and arrives here as `?retake=1`.
+ */
+export default async function TakeLifeSignalCheckPage({
+  searchParams,
+}: {
+  searchParams: { retake?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user },
@@ -35,8 +45,13 @@ export default async function TakeLifeSignalCheckPage() {
   const access = await checkAssessmentAccess(supabase, user.id, LSC_KEY);
   if (!access.allowed) redirect('/assessments/life-signal-check');
 
-  const result = await startOrResumeLscAction();
-  if (!result.ok) redirect('/assessments/life-signal-check');
+  const result = await startOrResumeLscAction({ startRetake: searchParams?.retake === '1' });
+  if (!result.ok) {
+    if (result.reason === 'already_completed') {
+      redirect(`/assessments/life-signal-check/results/${result.latestCompletedSessionId}`);
+    }
+    redirect('/assessments/life-signal-check');
+  }
 
   const { session } = result;
   const questions = await getUnifiedAssessmentQuestions(supabase, session.assessmentId);

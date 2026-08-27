@@ -17,6 +17,24 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
 import { completeSession, findInProgressSession, persistAnswer, startOrResumeSession } from '../lib/assessment-runtime';
 
+/**
+ * startOrResumeSession now reports WHY it returned what it did, so a
+ * finished assessment can never be silently restarted by a page render
+ * (2026-08-27). Every case in this file expects a real open draft.
+ */
+async function openSession(
+  client: Parameters<typeof startOrResumeSession>[0],
+  member: string,
+  key: string
+) {
+  const result = await startOrResumeSession(client, member, key);
+  if (result.status !== 'resumed' && result.status !== 'started') {
+    throw new Error(`expected an open session, got "${result.status}"`);
+  }
+  return result;
+}
+
+
 const memberId = TEST_USERS.memberOne.id;
 
 const ALPHA_KEY = 'assessment-runtime-test-fixture-alpha';
@@ -148,7 +166,7 @@ describe('Unified Adaptive Assessment Runtime — fixture Alpha (single-section,
   it('starts, branches, resumes, completes, and publishes a finding — all through generic runtime calls', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
 
-    const started = await startOrResumeSession(client, memberId, ALPHA_KEY);
+    const started = await openSession(client, memberId, ALPHA_KEY);
     expect(started).not.toBeNull();
     expect(started!.events).toEqual([]);
     expect(started!.session.visibleQuestions.map((q) => q.question_key)).toEqual(['alpha_gate', 'alpha_finding']);
@@ -167,7 +185,7 @@ describe('Unified Adaptive Assessment Runtime — fixture Alpha (single-section,
     expect(afterGate.session.currentQuestion?.question_key).toBe('alpha_followup');
 
     // Calling startOrResumeSession again must resume the SAME session, never create a second one.
-    const resumed = await startOrResumeSession(client, memberId, ALPHA_KEY);
+    const resumed = await openSession(client, memberId, ALPHA_KEY);
     expect(resumed!.session.id).toBe(started!.session.id);
     expect(resumed!.events).toEqual([{ type: 'assessment_resumed', sessionId: started!.session.id }]);
 
@@ -218,7 +236,7 @@ describe('Unified Adaptive Assessment Runtime — fixture Beta (two sections, mu
   it('shows only the branch matching the answered concern, proving the runtime is generic across differently-shaped assessments', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
 
-    const started = await startOrResumeSession(client, memberId, BETA_KEY);
+    const started = await openSession(client, memberId, BETA_KEY);
     expect(started).not.toBeNull();
     expect(started!.session.visibleQuestions.map((q) => q.question_key)).toEqual(['beta_concern']);
 

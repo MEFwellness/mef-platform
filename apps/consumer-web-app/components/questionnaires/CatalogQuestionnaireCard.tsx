@@ -112,6 +112,16 @@ function CardBody({ card, action, isCoachLocked }: { card: CatalogCard; action: 
         </p>
       )}
 
+      {/* A draft on top of something she has already finished is a retake,
+          and it says so. It never replaces the completed state of the card,
+          which is what a bare "in progress" reading of the same draft used
+          to do (2026-08-27). */}
+      {card.flags.retakeInProgress && card.draftProgress && (
+        <p className="mt-3 text-xs text-[#6B7A72]">
+          Retake in progress, {card.draftProgress.answered} of {card.draftProgress.total} questions answered
+        </p>
+      )}
+
       {card.section === 'completed' && card.latestCompletedAt && (
         <p className="mt-3 text-xs text-[#6B7A72]">
           Last completed {formatAssessmentDate(card.latestCompletedAt)}
@@ -153,8 +163,15 @@ function CardBody({ card, action, isCoachLocked }: { card: CatalogCard; action: 
           )}
 
           {card.section === 'completed' && card.flags.retakeAvailable && card.primaryHref && (
-            <Link href={card.primaryHref as Route} className={`${SECONDARY_LINK} block text-center`}>
-              Retake
+            <Link
+              href={
+                (card.flags.retakeInProgress
+                  ? `${card.primaryHref}/take`
+                  : card.primaryHref) as Route
+              }
+              className={`${SECONDARY_LINK} block text-center`}
+            >
+              {card.flags.retakeInProgress ? 'Resume retake' : 'Retake'}
             </Link>
           )}
 

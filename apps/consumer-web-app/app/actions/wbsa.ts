@@ -42,6 +42,8 @@ async function requireMemberId(): Promise<string | null> {
 
 export type StartOrResumeWbsaResult =
   | { ok: true; session: AssessmentSession; events: RuntimeEvent[] }
+  /** She has already finished this and did not ask to start again. Nothing was written; the take page redirects to these results. */
+  | { ok: false; reason: 'already_completed'; latestCompletedSessionId: string }
   | { ok: false; reason: 'not_signed_in' | 'access_denied' | 'not_found'; access?: AccessResult };
 
 /**
@@ -50,7 +52,17 @@ export type StartOrResumeWbsaResult =
  * member without WBSA access can never accidentally create a draft
  * session just by visiting the take route.
  */
-export async function startOrResumeWbsaAction(): Promise<StartOrResumeWbsaResult> {
+/**
+ * A FINISHED EXPERIENCE IS NEVER SILENTLY RESTARTED (2026-08-27). The take
+ * page calls this while rendering, and finishing is a Server Action, which
+ * re-renders the page it was called from: so this used to create a fresh,
+ * empty session of the assessment that had just been completed. Returning
+ * `already_completed` lets the take page send her to her results instead.
+ * `startRetake` is only ever true when she asked for one (`?retake=1`).
+ */
+export async function startOrResumeWbsaAction(
+  options: { startRetake?: boolean } = {}
+): Promise<StartOrResumeWbsaResult> {
   const supabase = createClient();
   const {
     data: { user },
@@ -60,8 +72,17 @@ export async function startOrResumeWbsaAction(): Promise<StartOrResumeWbsaResult
   const access = await checkAssessmentAccess(supabase, user.id, WBSA_KEY);
   if (!access.allowed) return { ok: false, reason: 'access_denied', access };
 
-  const result = await startOrResumeSession(supabase, user.id, WBSA_KEY);
-  if (!result) return { ok: false, reason: 'not_found' };
+  const result = await startOrResumeSession(supabase, user.id, WBSA_KEY, {
+    startRetake: options.startRetake === true,
+  });
+  if (result.status === 'not_found') return { ok: false, reason: 'not_found' };
+  if (result.status === 'already_completed') {
+    return {
+      ok: false,
+      reason: 'already_completed',
+      latestCompletedSessionId: result.latestCompletedSessionId,
+    };
+  }
 
   return { ok: true, session: result.session, events: result.events };
 }

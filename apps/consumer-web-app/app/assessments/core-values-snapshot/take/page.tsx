@@ -28,7 +28,17 @@ function checkAudioAvailable(): boolean {
   }
 }
 
-export default async function TakeCoreValuesSnapshotPage() {
+/**
+ * ONE ENTRY, TWO OUTCOMES (2026-08-27). Opening this URL after finishing
+ * shows the results she already has, and never starts a silent new draft on
+ * top of them. A retake is a deliberate choice she makes on the overview
+ * screen, and arrives here as `?retake=1`.
+ */
+export default async function TakeCoreValuesSnapshotPage({
+  searchParams,
+}: {
+  searchParams: { retake?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user },
@@ -38,8 +48,13 @@ export default async function TakeCoreValuesSnapshotPage() {
   const access = await checkAssessmentAccess(supabase, user.id, CVS_KEY);
   if (!access.allowed) redirect('/assessments/core-values-snapshot');
 
-  const result = await startOrResumeCvsAction();
-  if (!result.ok) redirect('/assessments/core-values-snapshot');
+  const result = await startOrResumeCvsAction({ startRetake: searchParams?.retake === '1' });
+  if (!result.ok) {
+    if (result.reason === 'already_completed') {
+      redirect(`/assessments/core-values-snapshot/results/${result.latestCompletedSessionId}`);
+    }
+    redirect('/assessments/core-values-snapshot');
+  }
 
   const { session } = result;
   const questions = await getUnifiedAssessmentQuestions(supabase, session.assessmentId);

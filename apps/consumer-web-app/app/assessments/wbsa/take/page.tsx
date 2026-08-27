@@ -16,7 +16,17 @@ import { startOrResumeWbsaAction } from '@/app/actions/wbsa';
 import { WbsaTaker } from '@/components/wbsa/WbsaTaker';
 import { WBSA_KEY } from '@/lib/wbsa/constants';
 
-export default async function TakeWbsaPage() {
+/**
+ * ONE ENTRY, TWO OUTCOMES (2026-08-27). Opening this URL after finishing
+ * shows the results she already has, and never starts a silent new draft on
+ * top of them. A retake is a deliberate choice she makes on the overview
+ * screen, and arrives here as `?retake=1`.
+ */
+export default async function TakeWbsaPage({
+  searchParams,
+}: {
+  searchParams: { retake?: string };
+}) {
   // Same ordering rule as the generic engine's take page: access is
   // checked before the runtime ever runs, so a locked member can't create
   // a draft session just by visiting this route.
@@ -29,8 +39,13 @@ export default async function TakeWbsaPage() {
   const access = await checkAssessmentAccess(supabase, user.id, WBSA_KEY);
   if (!access.allowed) redirect('/assessments/wbsa');
 
-  const result = await startOrResumeWbsaAction();
-  if (!result.ok) redirect('/assessments/wbsa');
+  const result = await startOrResumeWbsaAction({ startRetake: searchParams?.retake === '1' });
+  if (!result.ok) {
+    if (result.reason === 'already_completed') {
+      redirect(`/assessments/wbsa/results/${result.latestCompletedSessionId}`);
+    }
+    redirect('/assessments/wbsa');
+  }
 
   const { session } = result;
   const [sections, questions] = await Promise.all([

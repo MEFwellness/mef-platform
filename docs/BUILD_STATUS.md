@@ -1,3 +1,41 @@
+## A finished conversation stays finished (2026-08-27)
+
+Real testers reported that a free experience they had completed came back the next day asking to be filled in again. It was true, it was reproducible, and the production data carried the fault in plain sight: one member had **four completed Core Values Snapshot sessions, each one started one to two seconds after the previous one finished**, plus a fifth empty one still open. She answered all twelve questions four separate times. Migration 186, applied to production.
+
+### Why finishing started a new one
+
+The three experiences' take pages create a questionnaire session **as a side effect of rendering**. Finishing an experience is a Next.js Server Action, and a Server Action re-renders the page it was called from, so the act of finishing re-ran the take page and started a brand-new, empty session of the thing that had just been completed. Driven in a real browser against a real dev server, the new empty session appeared **72 milliseconds** after the completion. In production, over a network, the gap is 1.4 to 2.5 seconds. This is the same failure the end-of-phase review screen had in the coaching brain build, in a different file.
+
+`startOrResumeSession` no longer creates a session for somebody who has already finished. It returns `already_completed` and writes nothing, and the take page sends her to the results she already has. A retake is still completely available; it is now a decision she makes, carried as `?retake=1` from a button that says "Take it again", rather than something a page render does on her behalf.
+
+### Why one empty draft erased a completion everywhere
+
+`assessment_status_by_member` deliberately lets an open draft outrank a past completion, because a resume affordance genuinely needs to know one is open. Every reader took that single `status` column at face value and never looked at `latest_completed_at`, which the same view returns alongside it. So one empty draft made the whole product forget:
+
+- the Home card went back to "Continue",
+- the Questionnaires page counted "0 of 3 complete" and offered "Resume, 0 of 12 questions answered",
+- the Priority Card made the day's one priority "Pick up Core Values Snapshot where you left off",
+- the free-arc pop-up invited her to the same conversation on every login, because `free_arc_available` recurs by design until the thing is done,
+- and the prerequisite chain **locked Life Signal Check** behind a Core Values Snapshot she had in fact completed. That last one is why the report said "some of the three": the member was not being re-asked at random, she was stuck on conversation one and could not reach two or three.
+
+There is now one shared answer to "has she ever finished this", `hasEverCompleted` in `lib/assessment-registry/status.ts`, and the five surfaces that were each deciding it for themselves all ask it: the catalog sections, the framework status, the access/prerequisite gate, the visibility layer, and the Priority Card's rule 3. The draft is not thrown away; a draft sitting on a finished assessment is reported as `retakeInProgress`, and the card says "Retake in progress" rather than losing its completed state.
+
+### The timezone bug in the same path
+
+All three completion actions stamped the Personal Health Timeline with `completedAt.slice(0, 10)`, a raw UTC date. Somebody finishing at 8pm in New York has a timestamp that already reads as tomorrow in UTC, so the moment was filed under a day she had not lived yet. This is the Protein Ledger bug class exactly, and it now goes through `localDateStringFor` with her own timezone, the same helper every other event-stream write already uses.
+
+### The repair
+
+Migration 186 removes empty drafts a completion left behind, under three conditions that all have to hold: the session is `in_progress`, it has **zero** stored answers, and a completed session of the same assessment for the same member finished at or before it started. It never touches a completed session and re-running it finds nothing. On production it removed exactly one row, the phantom Core Values Snapshot draft. The other open draft in the database, a Whole-Body Check-In nobody ever completed, is a genuine abandonment and was correctly left alone. All eleven completed sessions are untouched, and the affected member's Core Values Snapshot now reads completed, which also unlocks the rest of her free arc.
+
+### Tests
+
+28 new tests across two files: the pure decisions (the shared helper, the catalog sections, the pop-up pick, the prerequisite chain, the Priority Card, and an evening Eastern completion that crosses the UTC day boundary), and a real-database integration test proving the render that follows a completion writes nothing at all. Both halves were proved non-vacuous by breaking them: forgetting `latestCompletedAt` fails 11 tests, letting the runtime start a draft on a completion fails 2. One pre-existing test asserted the bug ("an in-progress draft resumes as in_progress, outranking a prior completion") and now asserts the corrected behaviour, with the reason written beside it. 6306 of 6306 pass.
+
+### Not touched
+
+The content, questions, scoring engines and interpretation copy of all three experiences. The pop-up chain's own arbitration and dismissal rules. No new engine, registry or table.
+
 ## Progression is earned, never scheduled: the coach's corrections to the load rules (2026-08-18)
 
 Prompt 8 shipped a working coach workflow and a load engine the coach then reviewed and did not approve. This build is her corrections, and nothing else: the rules module, the pain-related recommendation copy, and their tests. Migration 181, applied to production. The signal panel layout, the review outcomes, the avoidance and resolve flows, the member surfaces and the program snapshots were not touched.

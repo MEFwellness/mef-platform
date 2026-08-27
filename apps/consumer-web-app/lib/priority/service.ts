@@ -49,6 +49,8 @@ import {
 import { resetPlanAction } from '../reset-plan/actionLibrary';
 import { getMemberAssessmentFacts } from '../assessment-registry/facts';
 import { listAssessmentRegistryEntries } from '../assessment-registry/registry';
+import { hasEverCompleted, type MemberAssessmentFacts } from '../assessment-registry/status';
+import type { AssessmentDefinition, AssessmentKey } from '../assessment-registry/types';
 import { getLastSignInLocalDateBefore, claimDailyPriority, getDailyPriority } from './data';
 import { selectCoachingAction, type AdaptationContext } from './select';
 import { buildPriorityBridge, previousLocalDate } from './transition';
@@ -343,6 +345,31 @@ async function loadFindingRules(
  * assessment candidate carries null and the card shows no reason line for
  * it. That is the honest outcome, not a gap to paper over.
  */
+/**
+ * The assessment rule 3 may legitimately ask her to pick up: one she has
+ * an open draft of and has NEVER finished. Lowest displayOrder wins, which
+ * is the registry's own idea of what comes first.
+ *
+ * COMPLETION IS PERMANENT (2026-08-27). This used to be a bare
+ * `completionStatus === 'in_progress'`, which is ALSO true for an
+ * assessment she finished and then had a draft opened on top of, because
+ * `assessment_status_by_member` lets a draft outrank a completion. So the
+ * day's one priority became "Pick up Core Values Snapshot where you left
+ * off" for a member who had answered all twelve of its questions the night
+ * before. Pure and exported so that stays under test without a database.
+ */
+export function pickResumableAssessment(
+  facts: Map<AssessmentKey, MemberAssessmentFacts>
+): AssessmentDefinition | null {
+  return (
+    listAssessmentRegistryEntries().find((entry) => {
+      const entryFacts = facts.get(entry.key);
+      if (!entryFacts) return false;
+      return entryFacts.completionStatus === 'in_progress' && !hasEverCompleted(entryFacts);
+    }) ?? null
+  );
+}
+
 async function loadIncompleteAction(
   supabase: SupabaseClient,
   memberId: string,
@@ -360,9 +387,7 @@ async function loadIncompleteAction(
   }
 
   const facts = await getMemberAssessmentFacts(supabase, memberId);
-  const entry = listAssessmentRegistryEntries().find(
-    (e) => facts.get(e.key)?.completionStatus === 'in_progress'
-  );
+  const entry = pickResumableAssessment(facts);
   if (!entry) return null;
 
   return {

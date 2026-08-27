@@ -64,6 +64,34 @@ export type MemberAssessmentFacts = {
   pendingReassessmentSchedule: PendingReassessmentSchedule | null;
 };
 
+/**
+ * COMPLETION IS PERMANENT (2026-08-27). The one question every surface has
+ * to agree on: has this member ever finished this assessment?
+ *
+ * `assessment_status_by_member` deliberately lets a current draft outrank a
+ * past completion, because that is what a *resume* affordance needs. It is
+ * the wrong answer for "is she done", and reading `completionStatus` alone
+ * for that question is what let a finished free experience come back the
+ * next morning asking to be filled in again: one empty draft, and the Home
+ * card, the Questionnaires page, the Priority Card, the free-arc pop-up and
+ * the prerequisite chain all forgot she had ever completed it.
+ *
+ * `latestCompletedAt` is populated by the same view even while a draft is
+ * open (it full-outer-joins drafts against latest_completed and returns
+ * both columns), so this needs no extra query anywhere it is used.
+ *
+ * Every caller that means "finished" uses this. Callers that genuinely mean
+ * "there is an open draft right now" keep reading `completionStatus`.
+ */
+export function hasEverCompleted(facts: MemberAssessmentFacts): boolean {
+  return facts.completionStatus === 'completed' || facts.latestCompletedAt !== null;
+}
+
+/** An open draft on an assessment she has ALREADY finished: a retake in progress, never a reason to un-complete the original. */
+export function hasRetakeInProgress(facts: MemberAssessmentFacts): boolean {
+  return facts.completionStatus === 'in_progress' && facts.latestCompletedAt !== null;
+}
+
 export function calculateLockReason(
   definition: AssessmentDefinition,
   facts: MemberAssessmentFacts,
@@ -161,7 +189,12 @@ export function calculateAssessmentStatus(
     return { status: 'locked', lockReason };
   }
 
-  if (facts.completionStatus === 'in_progress') {
+  // An open draft only reads as 'in_progress' while she has never finished
+  // this assessment. A draft on top of a completed one is a retake, and
+  // calling that 'in_progress' told every reader she had never finished it
+  // at all. The 'scheduled' branch below keeps its previous precedence over
+  // 'completed' exactly as it had it.
+  if (facts.completionStatus === 'in_progress' && !hasEverCompleted(facts)) {
     return { status: 'in_progress', lockReason: null };
   }
 
@@ -169,7 +202,7 @@ export function calculateAssessmentStatus(
     return { status: 'scheduled', lockReason: null };
   }
 
-  if (facts.completionStatus === 'completed') {
+  if (hasEverCompleted(facts)) {
     return { status: 'completed', lockReason: null };
   }
 
