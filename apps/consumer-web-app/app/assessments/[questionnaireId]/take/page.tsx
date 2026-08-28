@@ -5,9 +5,10 @@
  * so nothing competes with the current question for attention.
  */
 
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { Route } from 'next';
 import { getMyTakeAssessmentState } from '@/app/actions/assessments';
+import { findAssessmentDefinition } from '@/lib/assessment-registry/registry';
 import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { createClient } from '@/lib/supabase/server';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
@@ -29,6 +30,12 @@ export default async function TakeAssessmentPage({
   params: { questionnaireId: string };
 }) {
   const questionnaireId = fromPublicSlug(params.questionnaireId);
+  // A slug that resolves to no questionnaire is a 404, not a crash. Found
+  // by a verification run typing a URL that never existed: the page went
+  // on to ask the content registry for it, which throws, and a member saw
+  // "Something went wrong" on a page that should simply not be there.
+  if (!findAssessmentDefinition(questionnaireId)) notFound();
+
   const overviewHref = `/assessments/${toPublicSlug(questionnaireId)}` as Route;
 
   const supabase = createClient();

@@ -8,7 +8,7 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { CheckCircle2, Clock3, ListChecks, ShieldCheck, Sparkles } from 'lucide-react';
 import {
   beginAssessmentAction,
@@ -18,6 +18,7 @@ import {
 import { BeginAssessmentForm } from '@/components/assessments/BeginAssessmentForm';
 import { CompletedExperienceActions } from '@/components/assessments/CompletedExperienceActions';
 import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
+import { findAssessmentDefinition } from '@/lib/assessment-registry/registry';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
@@ -44,6 +45,8 @@ export default async function AssessmentOverviewPage({
   if (!user) redirect('/login');
 
   const questionnaireId = fromPublicSlug(params.questionnaireId);
+  // Same rule as the take route: an unknown slug is a 404, never a crash.
+  if (!findAssessmentDefinition(questionnaireId)) notFound();
 
   const [overview, isCoach, { data: profile }, access] = await Promise.all([
     getMyAssessmentOverview(questionnaireId),
