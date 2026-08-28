@@ -16,7 +16,11 @@
  * correctly. The server does it, with an atomic claim against
  * member_daily_priorities.shown_at — see claimPriorityShown.
  *
- * Fires exactly ONE server action per real showing, and that action
+ * Fires exactly ONE report per real showing, through the beacon
+ * (lib/analytics/beacon.ts) rather than a Server Action, for the reason
+ * app/api/analytics/track/route.ts states: a Server Action call re-renders
+ * the whole current route, and this renders nothing and is worth nothing to
+ * her. The server side is unchanged, and that one call
  * decides how many events the showing is worth (bug sweep finding B2,
  * 2026-08-27). It used to fire two, and the second one, re_entry_shown,
  * had no server-side claim behind it at all, only the dedupe window
@@ -34,7 +38,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { trackPriorityShownAction } from '@/app/actions/priority';
+import { sendBeacon } from '@/lib/analytics/beacon';
 import type { PriorityRule } from '@/lib/priority/types';
 import type { PriorityPresentation } from '@/lib/analytics/surfaces';
 
@@ -66,7 +70,7 @@ export function TrackPriorityShown({
     fired.current = true;
 
     if (shouldFire(`priority:${rule}:${presentation}`)) {
-      void trackPriorityShownAction(rule, presentation, isReEntry);
+      sendBeacon({ event: 'priority_shown', rule, presentation, isReEntry });
     }
   }, [rule, isReEntry, presentation]);
 

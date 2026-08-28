@@ -1,12 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import {
-  trackSurfaceViewAction,
-  trackPaywallViewAction,
-  trackDailyResetStartedAction,
-  trackOnboardingStartedAction,
-} from '@/app/actions/analytics';
+import { sendBeacon } from '@/lib/analytics/beacon';
 import type { ProductSurface } from '@/lib/analytics/surfaces';
 
 /**
@@ -17,6 +12,11 @@ import type { ProductSurface } from '@/lib/analytics/surfaces';
  * per real visit, fired from a mounted effect so the write happens after
  * the screen has painted and never delays the render the member is waiting
  * on. Zero member-facing change: no markup, no layout, no styling.
+ *
+ * It reports through the beacon (lib/analytics/beacon.ts), not through a
+ * Server Action. A Server Action call re-renders the whole current route on
+ * the server, which on Home was a second full page render for the sake of
+ * one row. See app/api/analytics/track/route.ts.
  *
  * Exactly-once discipline. Two things would otherwise double-count:
  *   - React's development-mode double effect invocation (StrictMode
@@ -46,7 +46,7 @@ export function TrackSurfaceView({ surface }: { surface: ProductSurface }) {
     if (fired.current) return;
     fired.current = true;
     if (!shouldFire(`surface:${surface}`)) return;
-    void trackSurfaceViewAction(surface);
+    sendBeacon({ event: 'surface_viewed', surface });
   }, [surface]);
 
   return null;
@@ -72,7 +72,7 @@ export function TrackDailyResetStarted() {
     if (fired.current) return;
     fired.current = true;
     if (!shouldFire('flow:daily_reset_started')) return;
-    void trackDailyResetStartedAction();
+    sendBeacon({ event: 'daily_reset_started' });
   }, []);
 
   return null;
@@ -86,7 +86,7 @@ export function TrackOnboardingStarted() {
     if (fired.current) return;
     fired.current = true;
     if (!shouldFire('flow:onboarding_started')) return;
-    void trackOnboardingStartedAction();
+    sendBeacon({ event: 'onboarding_started' });
   }, []);
 
   return null;
@@ -105,7 +105,7 @@ export function TrackPaywallView({
     if (fired.current) return;
     fired.current = true;
     if (!shouldFire(`paywall:${feature}:${lockReason}`)) return;
-    void trackPaywallViewAction({ feature, lockReason });
+    sendBeacon({ event: 'paywall_viewed', feature, lockReason });
   }, [feature, lockReason]);
 
   return null;

@@ -216,10 +216,25 @@ describe('there is only one call site, and it is the claimed one', () => {
     // Exactly one call, not merely at least one. The server claim would
     // absorb a duplicated client call, but a second call site is still a
     // second round trip on every render and the shape this bug came in.
-    const calls = tracker.match(/trackPriorityShownAction\(/g) ?? [];
+    // Home speed build (2026-08-28): the one call is a beacon POST rather
+    // than a Server Action call (see app/api/analytics/track/route.ts), and
+    // it reaches the same trackPriorityShownAction on the server, which is
+    // still the only thing that writes and still rides the atomic claim.
+    const calls = tracker.match(/sendBeacon\(/g) ?? [];
     expect(calls).toHaveLength(1);
-    expect(tracker).toContain('trackPriorityShownAction(rule, presentation, isReEntry)');
+    expect(tracker).toContain(
+      "sendBeacon({ event: 'priority_shown', rule, presentation, isReEntry })"
+    );
     expect(tracker).not.toContain('trackReEntryShownAction');
+
+    // And the beacon route hands it straight through, unchanged.
+    const route = readFileSync(
+      path.join(__dirname, '..', 'app/api/analytics/track/route.ts'),
+      'utf8'
+    );
+    expect(route).toContain(
+      "await trackPriorityShownAction(str('rule'), str('presentation'), body.isReEntry === true);"
+    );
   });
 
   it('the event rides the claim: it is written after the claim is won, inside the same function', async () => {

@@ -192,8 +192,14 @@ describe('analytics vocabulary lines up with the database', () => {
     // re_entry_shown now rides priority_shown's atomic claim instead of
     // firing from its own unclaimed action on every mount. See
     // tests/priority-shown-events-once.test.ts for the exactly-once proof.
+    // Home speed build (2026-08-28): the one report goes through the
+    // analytics beacon rather than a Server Action call, because a Server
+    // Action re-renders the whole current route for the sake of one row.
+    // The server side, and the claim it rides, are unchanged.
     const tracker = read('components/priority/TrackPriorityShown.tsx');
-    expect(tracker).toContain('trackPriorityShownAction(rule, presentation, isReEntry)');
+    expect(tracker).toContain(
+      "sendBeacon({ event: 'priority_shown', rule, presentation, isReEntry })"
+    );
 
     const actions = read('app/actions/priority.ts');
     expect(actions).toContain('if (isReEntry) {');
