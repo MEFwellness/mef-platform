@@ -25,3 +25,5 @@ apps/consumer-web-app/scripts/.sweep/
 
 # Live verification screenshots. Same reason as .sweep above.
 apps/consumer-web-app/scripts/.verify/
+# Same, wherever a run's SHOTS_DIR happens to land it.
+**/.verify/
