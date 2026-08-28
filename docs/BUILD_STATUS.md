@@ -8642,3 +8642,111 @@ and those are pictures of a real member's home screen, her name and her
 readings. The path is gitignored. They were checked in briefly at `23d0f7b`
 before this was noticed; scrubbing that means rewriting an already-pushed
 `main`, which is Osei's call.
+
+---
+
+## The gate: the plan decides what opens (2026-08-27, Build 1 of the bug sweep)
+
+Migration **187**, `00000000000187_plan_gate_and_phantom_reassessments.sql`,
+applied to production. Deployed as `mef-platform-m05kpuriw`, Ready,
+Production, `app.mefwellness.com` aliased to it. Repo
+`MEFwellness/mef-platform`, branch `main`, Vercel project
+`mef-wellness/mef-platform`.
+
+### The rule
+
+Access to every registry questionnaire and to the camera Body Assessment
+is decided by the member's plan. A coach assignment may additionally open
+one questionnaire for one member; its absence never blocks a member whose
+plan includes it. Nothing else opens anything: not a reassessment
+schedule, not a worsening finding, not an in-progress draft, not a page
+render, not a prior completion.
+
+One shared gate, `lib/assessment-registry/access.ts`, called by the
+catalog card, the overview screen, the take route, and every server action
+that reads or writes a session. It has two intents, because "may she start
+this" and "may she look at what she already did" are different questions:
+`start` is the default and ignores her history; `view` always lets her own
+completed results and open drafts through, which is where the framework's
+"never hide her own progress" protection now lives.
+
+**Which column is the plan.** `member_subscriptions.tier` (trial / monthly
+/ annual / 24 week program, migration 159, the one assigned on
+`/admin/access`), mapped onto the registry's own free_trial / membership /
+holistic_reset vocabulary in `lib/assessment-registry/membership.ts`. The
+older `profiles.membership_tier` no longer decides anything: it is NULL on
+eighteen of nineteen production accounts and NULL resolved to the paid
+tier, so it gated nothing at all. The mapping fails CLOSED, to the most
+restrictive live plan, in the opposite direction to
+`lib/membership/access.ts`, and for a stated reason.
+
+### What changed
+
+| finding | what it was | what it is |
+| --- | --- | --- |
+| A1 | A pending `reassessment_schedules` row satisfied the assignment gate, and the daily scan wrote those rows for assessments nobody had ever taken. 4 of 6 pending rows on production were phantoms; one unlocked the camera Body Assessment. | Both ends closed. No evaluator proposes a reassessment of something never completed, one guarded write path refuses one anyway, and the gate ignores schedules entirely. |
+| A2 | Every take page created the member's draft while RENDERING. A read-only page load created a real 91-question draft on a real account. | A take route only reads. Starting is a form posting to a Server Action, which Back and Forward cannot replay. All six flows, including the four migration 186 only half-fixed. |
+| B4 | `recordRouterDecision` ran on every render of a take page, inflating the one log built to keep the Root Model honest. | It runs when an attempt genuinely starts, and never on a resume. |
+| Decision 1 | The day's priority was claimed by whichever of six screens she opened first, usually before her Daily Reset. | Only the three surfaces that show the Priority Card decide it. Everything else reads the stored decision. It revises itself exactly once, after the check-in arrives. |
+| Decision 2 | `8weeks2fab@gmail.com` carried `is_test = false`, so every verification run landed in the funnel and the coach's caseload. | Flagged. Osei's ACTIVE CLIENTS went 2 to 1, correctly. |
+
+### The plan map, as the registry defines it
+
+Unchanged by this build, and printed so it can be corrected deliberately.
+Two entries do not match how the plans are described out loud, and both are
+recorded rather than quietly adjusted: **WBSA is not 24-week-only** (it is
+membership minimum, allowed on monthly and program alike), and **Body
+Assessment, Four Doctors, Primal Pattern and Health Check-In are all
+free_trial minimum**, held shut only by the coach-assignment gate layered
+underneath the plan.
+
+| key | shown as | min plan | coach-assign-only |
+| --- | --- | --- | --- |
+| onboarding-health-history | Onboarding Assessment | trial | no |
+| core-values-snapshot | Core Values Snapshot | trial | no |
+| life-signal-check | Life Signal Check | trial | no |
+| readiness-pulse | Readiness Pulse | trial | no |
+| four-doctors | Four Doctors | trial | yes |
+| primal-pattern-diet-type | Primal Pattern | trial | yes |
+| body-assessment | Body Assessment (camera) | trial | yes |
+| short-haq | Health Check-In | trial | yes |
+| chek-hlc1-nutrition-lifestyle | Nutrition & Lifestyle | monthly | yes |
+| wbsa | Whole-Body Check-In | monthly | yes |
+| readiness-to-change | Readiness to Change | monthly | yes (coming soon) |
+| finding-1-love | Finding 1 Love | monthly | yes (coming soon) |
+
+### The lock copy
+
+One sentence per lock, chosen by the lock reason in
+`lib/locked-content/copy.ts`, and every locked card now opens the same
+Root-voiced sheet on tap. It used to be one constant about coaches shown
+on every locked card, while the card underneath said the questionnaire
+unlocked with a Membership plan.
+
+- coach lock: *Your coach opens this one for you when the timing is right. It will be waiting here when they do.*
+- monthly plan: *This one comes with a Monthly plan. It will be waiting here for you when you are on it.*
+- 24 week program: *This one is part of the 24 week program. It will be waiting here for you when you start.*
+
+### Tests
+
+**6,457 passing, 429 files.** New: `plan-gate.test.ts` (67, the whole plan
+x questionnaire matrix), `take-pages-never-write.test.ts` (39),
+`priority-waits-for-checkin.test.ts` (14), `test-account-exclusion.test.ts`
+(8). Nine guards were each broken once and the failure confirmed, then
+restored.
+
+### Live verification
+
+Signed in as the test member with a one-time minted session, retired with
+scope `local`. Mobile viewport, 390x844. **11 of 11 on the first script,
+then item 5 driven end to end separately.** No "Reassessment due" anywhere;
+four locked cards, each opening the sheet; six locked take URLs blocked
+with zero rows written; Back-then-Forward writing nothing; a full Core
+Values Snapshot retake producing exactly one session with no empty draft;
+browsing Movement and the Root Map writing no priority row, and Home
+writing one; zero console errors; zero em dashes.
+
+**Screenshots are not committed.** Eleven were, by accident, at `4479daa`,
+and removed at the next commit. They are still in that commit's history;
+scrubbing it means force-pushing an already-pushed `main`, which is Osei's
+call.
