@@ -9094,3 +9094,49 @@ moved back outside the claim (5), and a second client call site added (1).
   the repo root. Not changed.
 - 93 pre-existing lint warnings, all `no-console` in `scripts/`. None in any
   file this build touched.
+
+### Live verification, on production
+
+Signed in as the test member with a one-time minted session, retired with
+scope `local`. Mobile viewport 390x844. **6 of 6 passed**, on the
+deployment that received these changes
+(`mef-platform-1q2cd31ie`, aliased to `app.mefwellness.com`).
+
+**The chain drains, one message per open, and the priority card does not
+stop it.** Six distinct messages were delivered over six successive opens,
+in chain order, with no repeat and no premature silence: the hydration
+question, then the Core Values Snapshot offer, then the Life Signal Check
+offer, then the Readiness Pulse offer, then **the Weekly Root Review for
+week starting 2026-08-24, the one the sweep measured as undeliverable**,
+then today's priority card. The seventh open was correctly empty. Before
+this fix the run would have ended at the priority card with everything
+below it unreachable.
+
+**The claim holds.** With this member's own claim for today released, four
+card renders across two screens wrote exactly one `priority_shown` row. That
+is the same claim, in the same function, after the same `if (!won) return`,
+that `re_entry_shown` now rides.
+
+**`re_entry_shown` could not be exercised live today, and that is correct.**
+Today's rule for this member is `behavioral_friction`, not `re_entry`,
+because she was present yesterday, so the re-entry state did not fire and
+the event correctly wrote nothing. Its exactly-once behaviour is proven
+locally by `priority-shown-events-once.test.ts`, including a React
+double-effect remount and twenty calls across a day.
+
+Zero console errors across every load. Zero em dashes on Home, Today,
+Progress, Root Score and Profile.
+
+**State this run left on production**, all on the test account:
+`member_weekly_reviews` for week 2026-08-24 now has `viewed_at` set, which
+is ordinary behaviour for a review that popped; her dismissal rows were
+deleted at the end of the run, so she is back to none; two extra
+`priority_shown` rows for 2026-08-28 from releasing her own claim twice. The
+stale `priority_card:2026-08-27` dismissal row was removed while simulating
+the next day. Screenshots stayed under the gitignored
+`apps/consumer-web-app/scripts/.verify/shots/` and are not committed.
+
+**Deployment checks.** Repo `MEFwellness/mef-platform`, branch `main`,
+Vercel project `mef-wellness/mef-platform`, target Production, aliased to
+`app.mefwellness.com`. Auto-deploy fired on the push. No migration in this
+build, so the migration ledger is unchanged.
