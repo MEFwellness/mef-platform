@@ -1,3 +1,166 @@
+## The map and the counts: bug sweep build 2 (2026-08-27)
+
+Two things, both about the app agreeing with itself. The plan map was
+corrected and the coach-assign-only lock was retired outright, so what
+opens a questionnaire is one rule a person can read. Then the four numbers
+a member reads about how much she has logged were made to come from one
+helper, and any number counted over a window now says which window.
+
+**No migration.** The map is code, and this build deliberately kept it
+there rather than putting it in a table. Nothing was applied to production.
+
+### The plan map, as shipped
+
+`membership.minLevel` is the whole gate. A coach assignment is the one
+thing that can ADD access on top of a plan, for one member, and its
+absence now decides nothing at all.
+
+| key | shown as | min plan |
+| --- | --- | --- |
+| onboarding-health-history | Onboarding Assessment | trial |
+| core-values-snapshot | Core Values Snapshot | trial |
+| life-signal-check | Life Signal Check | trial |
+| readiness-pulse | Readiness Pulse | trial |
+| short-haq | Health Check-In | Monthly |
+| primal-pattern-diet-type | Primal Pattern | Monthly |
+| chek-hlc1-nutrition-lifestyle | Nutrition & Lifestyle | Monthly |
+| readiness-to-change | Readiness to Change (Coming Soon) | Monthly |
+| finding-1-love | Finding 1 Love (Coming Soon) | Monthly |
+| four-doctors | Four Doctors | 24 week program |
+| wbsa | Whole-Body Check-In | 24 week program |
+| body-assessment | Body Assessment (camera) | 24 week program |
+
+Four rows moved. Health Check-In, Primal Pattern and Four Doctors were
+mapped to trial minimum, and Whole-Body Check-In to Monthly. Body
+Assessment was trial minimum too. All of them were held shut anyway by a
+second lock the map did not print, which is why the map written down and
+the behaviour enforced were two different maps.
+
+### What retired the coach lock, and where
+
+`requiresAssignment` is deleted from `AssessmentDefinition`, from all
+eleven definitions, and from `calculateLockReason`. The `not_assigned`
+lock reason is deleted from the `LockReason` union, so a future change
+cannot resurrect it without a type error. Everything that spoke it went
+with it:
+
+- `COACH_LOCK_NOTE_MESSAGE` ("Your coach opens this one for you when the
+  timing is right") is deleted from `lib/locked-content/copy.ts`. There is
+  no state left in the app where that sentence is true: an assignment only
+  ever opens a card now, and an open card has no note.
+- `CoachLockBadge`, the gold corner marker labelled "Unlocked by your
+  coach", is now `LockedBadge`, labelled "Locked". It was the last thing
+  on the screen still disagreeing with the card under it.
+- The three assessment overview screens decided whether to offer "View
+  Membership" by asking `reason.kind !== 'not_assigned'`. They ask
+  `lockOffersPlanLink` now, the same helper the sheet already used.
+- `LockedCardButton`'s analytics event defaulted its lock reason to
+  `'not_assigned'`. It defaults to `'membership'`. `'not_assigned'` stays
+  in `PAYWALL_LOCK_REASONS` with a comment saying it is retired as a
+  cause, because events already stored under it still have to be readable,
+  and it must not be reused for a new meaning.
+
+The lock sentence is now built ONCE, server side, in
+`categorizeForCatalog` (`flags.lockNote`), rather than by a second copy of
+the same switch living in the card component.
+
+### Two things this turned up that were not on the list
+
+**A locked card was still reporting itself in progress.** A draft on a
+questionnaire her plan does not include put "0 of 91 questions answered"
+inside the dimmed card and told the free-arc and priority cards to say
+"Continue". The real case is one member's abandoned, zero-answer
+Whole-Body Check-In. The draft is not deleted and the overview screen
+still lets her reach anything of her own; it simply stops being an
+invitation to something she does not have. A PREREQUISITE lock is
+deliberately excluded, because that is a step she can finish today.
+
+**C1 mostly went away with the map.** The Available section held three
+padlocked cards. Locked cards are always in Premium now. What is left in
+Available with a padlock is the free arc's own sequence (Life Signal Check
+waiting on Core Values Snapshot), which is a step she can clear today and
+says so, not a plan she is outside of.
+
+### The counts (A4)
+
+`daily_checkins_current` returns one row per member per local_date, so
+"check-ins logged" and "days logged" are the same number in this schema.
+There were never two concepts, only two spans with the same words on both:
+Home said "You have 3 logged days so far" over the 21 day evidence window
+while Root, three inches lower, said "You've logged 4 check-ins with me so
+far" over all time.
+
+`lib/member-counts/checkinCounts.ts` is now the one place either figure
+comes from: `countLoggedDays` (distinct days, from rows in hand),
+`getLoggedDayTotals` (all time) and `getMemberCheckinCounts` (both, with
+the window it counted). Today's YOUR TOTALS, Root's tenure line, the Case
+View, the data floor, the Root Score's own floor and the narrative
+generator all read it.
+
+And the words changed so the two figures cannot be read as one:
+
+- The data floor sentence names its window: "You have checked in on 3 days
+  in the last 21 days." It no longer says "so far".
+- The all-time sentences keep "so far", unchanged.
+- The coach's screens say "checked in on N days in the last 21 days" and
+  "N logged days in the last 21 days behind everything below", instead of
+  "N logged days so far".
+- The Root Score's four domain explanations name their window too, so
+  "Based on 4 logged days of sleep and energy" and "You have 3 logged days"
+  cannot sit on one screen looking like a contradiction.
+
+### B5, C2, C8
+
+**B5.** The coaching insight said "4 of your last 5 progress snapshots
+showed improving overall momentum" to a member whose Root Score was down
+on the same screen. Two fixes, both real. `progressSource` now only emits
+an observation for a local_date she ACTUALLY checked in on: a Root Score
+snapshot is written whenever a page asks for one, so ten silent days
+produce ten snapshots, and counting those was the app reading its own
+arithmetic about her silence back to her as momentum. And the sentence
+names what it counted: "4 of your last 5 days with a check-in".
+
+**C2.** Home's Quick Actions "Case" pill carried "4 of 8 complete", which
+is the questionnaire count, printed again verbatim two zones lower. There
+is no completion fraction a case could have, so the pill carries no second
+line. Its own zone still shows the questionnaire count, once.
+
+**C8.** "You logged only fair sleep at your last check-in" sat under "I'm
+glad you're back" ten days after the check-in it described, undated. The
+gap was already computed one function up to decide "yesterday" versus
+"earlier"; it is now said out loud: "...at your last check-in, 10 days
+ago." The read-time recomposition that keeps these lines fresh matches
+them by stem rather than by an enumerated set, since the day count varies.
+
+### Tests
+
+**6,651 passing, 430 files.** New: `counts-agree.test.ts` (11, real
+Supabase, one fixture member with four logged days one of which is outside
+the window, plus the empty-history and single-day cases).
+`plan-gate.test.ts` was rewritten to 246 tests: the map hand-written row by
+row, every questionnaire x every plan x coach-assigned both ways, the same
+matrix against the card and its section, and the whole "nothing else opens
+anything" set re-pointed at plan locks. `coach-assign-only-gating.test.ts`
+became `coach-assignment-adds-only.test.ts` and tests the opposite rule
+end to end against real RLS: a trial member blocked from all eight, a
+program member reaching all eight with no assignment anywhere, and an
+assignment opening one item for one member below her plan.
+`coach-lock-ui-guard.test.ts` became `locked-card-ui-guard.test.ts`.
+
+Proved non-vacuous by breaking three things and watching the right tests
+fail, then restoring: moving Whole-Body Check-In back down a tier fails 17
+gate tests; making the shared count count rows instead of distinct days
+fails the counts tests; letting the data floor sentence say "so far" again
+fails 4.
+
+### Not touched
+
+No question content, no scoring, no interpretation engine, no new table or
+migration. The visibility layer's own `coach_assigned` reveal rules, which
+are additive and unrelated. `assessment_assignments` itself, its trigger,
+and the coach's assign flow. The three free experiences' content and
+prerequisite chain.
+
 ## Full-app bug sweep, read only (2026-08-27)
 
 No code changed, no migration, no deploy. A pattern hunt through the whole
@@ -8692,13 +8855,15 @@ restrictive live plan, in the opposite direction to
 
 ### The plan map, as the registry defines it
 
-Unchanged by this build, and printed so it can be corrected deliberately.
-Two entries do not match how the plans are described out loud, and both are
-recorded rather than quietly adjusted: **WBSA is not 24-week-only** (it is
-membership minimum, allowed on monthly and program alike), and **Body
-Assessment, Four Doctors, Primal Pattern and Health Check-In are all
-free_trial minimum**, held shut only by the coach-assignment gate layered
-underneath the plan.
+**SUPERSEDED. The corrected map is in "The map and the counts: bug sweep
+build 2" at the top of this file.** The table below is what this build
+shipped, printed at the time so it could be corrected deliberately, which
+is exactly what build 2 did. Two entries did not match how the plans are
+described out loud, and both were recorded rather than quietly adjusted:
+**WBSA is not 24-week-only** (it is membership minimum, allowed on monthly
+and program alike), and **Body Assessment, Four Doctors, Primal Pattern
+and Health Check-In are all free_trial minimum**, held shut only by the
+coach-assignment gate layered underneath the plan.
 
 | key | shown as | min plan | coach-assign-only |
 | --- | --- | --- | --- |

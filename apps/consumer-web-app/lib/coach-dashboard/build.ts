@@ -341,6 +341,7 @@ export async function buildCoachDashboard(input: {
       firstName,
     }),
     loggedDays: interpretation.dataFloor.loggedDays,
+    loggedDaysWindow: interpretation.dataFloor.windowDays,
     dataFloorStatement: interpretation.dataFloor.met ? null : interpretation.dataFloor.statement,
   };
 }

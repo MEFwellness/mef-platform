@@ -16,7 +16,7 @@ import { Card } from '@/components/layout';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
 import { lockNoteMessage, lockOffersPlanLink } from '@/lib/locked-content/copy';
-import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
+import { LockedBadge } from '@/components/locked/LockedBadge';
 
 export default async function ProfilePage() {
   const supabase = createClient();
@@ -155,7 +155,7 @@ export default async function ProfilePage() {
                 </p>
               </Card>
             </LockedCardButton>
-            <CoachLockBadge />
+            <LockedBadge />
           </div>
         )}
 

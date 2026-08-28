@@ -22,7 +22,7 @@
  * Pure.
  */
 
-import { MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM } from './config';
+import { EVIDENCE_WINDOW_DAYS, MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM } from './config';
 import { dataFloorStatement } from './copy';
 import type { DataFloor } from './types';
 
@@ -33,12 +33,21 @@ import type { DataFloor } from './types';
  * count and not days since signup. A member who logged four check-ins on
  * one afternoon has one day, and a member thirteen days into the product
  * with three check-ins has three, not thirteen.
+ *
+ * It is also WINDOWED, and always has been: both real callers
+ * (lib/member-interpretation/service.ts and lib/scoring/service.ts) count
+ * over the evidence window, which is why the window travels with the
+ * number now instead of being left for a screen to guess at.
  */
-export function computeDataFloor(loggedDays: number): DataFloor {
+export function computeDataFloor(
+  loggedDays: number,
+  windowDays: number = EVIDENCE_WINDOW_DAYS
+): DataFloor {
   return {
     loggedDays,
+    windowDays,
     requiredDays: MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM,
     met: loggedDays >= MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM,
-    statement: dataFloorStatement(loggedDays),
+    statement: dataFloorStatement(loggedDays, windowDays),
   };
 }

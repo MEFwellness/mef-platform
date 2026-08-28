@@ -1,9 +1,9 @@
 /**
- * Coach-Assign-Only Gating task (2026-08-04) — source-scan guard proving
- * every UI entry point this task touched actually wires in the real
- * server-side gate and the locked-visible treatment, not just that the
- * underlying registry/catalog logic is correct in isolation (covered by
- * tests/coach-assign-only-gating.test.ts and
+ * Source-scan guard proving every UI entry point that can show a lock
+ * actually wires in the real server-side gate and the locked-visible
+ * treatment, not just that the underlying registry/catalog logic is
+ * correct in isolation (covered by tests/plan-gate.test.ts,
+ * tests/coach-assignment-adds-only.test.ts and
  * tests/assessment-registry-catalog.test.ts). SSR component tests don't
  * render in this repo (see prior sessions' notes throughout
  * docs/BUILD_STATUS.md), so this follows the same established convention
@@ -21,17 +21,20 @@ function read(relPath: string): string {
   return fs.readFileSync(path.join(ROOT, relPath), 'utf-8');
 }
 
-describe('locked-card UI actually wires in LockedCardButton + CoachLockBadge', () => {
+describe('locked-card UI actually wires in LockedCardButton + LockedBadge', () => {
   /**
    * VISIBILITY LAYER (2026-08-17): app/progress/page.tsx left this list.
    * Its Assessments row used to render for every member either as a link or
-   * as a dimmed, greyed locked card with a gold coach badge. Under the new
-   * rule a lock is still an advertisement for a feature the member's own
-   * rules have not revealed, so the row is now present or absent, never
-   * locked. The primitives themselves are unchanged and are still the right
-   * treatment on the three surfaces below, where the lock genuinely means
-   * "your coach will open this for you" rather than "this may never be for
-   * you at all".
+   * as a dimmed, greyed locked card. Under the new rule a lock is still an
+   * advertisement for a feature the member's own rules have not revealed,
+   * so the row is now present or absent, never locked. The primitives are
+   * still the right treatment on the three surfaces below, where the lock
+   * means "this comes with a different plan" and says so.
+   *
+   * The badge was `CoachLockBadge`, labelled "Unlocked by your coach", and
+   * is now `LockedBadge` (Build 2, 2026-08-27): a missing coach assignment
+   * locks nothing any more, so a badge saying a coach would open it was
+   * the last thing on the screen contradicting the card under it.
    */
   const FILES_WITH_LOCKED_CARD_TREATMENT = [
     'components/questionnaires/CatalogQuestionnaireCard.tsx',
@@ -42,15 +45,32 @@ describe('locked-card UI actually wires in LockedCardButton + CoachLockBadge', (
   it.each(FILES_WITH_LOCKED_CARD_TREATMENT)('%s imports and uses both shared locked-state primitives', (relPath) => {
     const source = read(relPath);
     expect(source).toContain("from '@/components/locked/LockedCardButton'");
-    expect(source).toContain("from '@/components/locked/CoachLockBadge'");
+    expect(source).toContain("from '@/components/locked/LockedBadge'");
     expect(source).toContain('LockedCardButton');
-    expect(source).toContain('CoachLockBadge');
+    expect(source).toContain('LockedBadge');
+    // The retired badge is gone by name, so nothing can quietly import it.
+    expect(source).not.toContain('CoachLockBadge');
+  });
+
+  it('the retired coach badge no longer exists anywhere in the app', () => {
+    expect(fs.existsSync(path.join(ROOT, 'components/locked/CoachLockBadge.tsx'))).toBe(false);
+  });
+
+  it('the coach lock sentence is gone from the copy module, not merely unused', () => {
+    const copy = read('lib/locked-content/copy.ts');
+    // The constant is deleted, so nothing can import it. The retired
+    // sentence itself is quoted once, in the comment that records why it
+    // went, which is why this asserts on the export rather than the words.
+    expect(copy).not.toContain('export const COACH_LOCK_NOTE_MESSAGE');
+    expect(copy).not.toMatch(/lockNoteMessage[\s\S]*COACH_LOCK_NOTE_MESSAGE/);
+    // The sheet's title is not about a coach and stays.
+    expect(copy).toContain('COACH_LOCK_NOTE_TITLE');
   });
 
   it('the Progress page shows no locked card at all any more', () => {
     const source = read('app/progress/page.tsx');
     expect(source).not.toContain('LockedCardButton');
-    expect(source).not.toContain('CoachLockBadge');
+    expect(source).not.toContain('LockedBadge');
     // And the row it used to lock is now decided by the visibility layer.
     expect(source).toContain('shows(F.featureBodyAssessment)');
   });

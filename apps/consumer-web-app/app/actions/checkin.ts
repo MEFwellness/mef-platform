@@ -26,6 +26,7 @@ import { getTodaysHydrationTotal } from './events';
 import { isHydrationTracked } from '@/lib/hydration/data';
 import { recomputeMyRecommendations } from './recommendations';
 import { recomputeCoachingGrades } from '@/lib/coaching-direction/gradesService';
+import { getLoggedDayTotals } from '@/lib/member-counts/checkinCounts';
 
 /**
  * Daily Check-In redesign v2 — "the new/worsening concern control
@@ -430,28 +431,24 @@ export async function getRecentCheckins(days: number): Promise<DailyCheckin[]> {
 
 /**
  * Today page redesign — cumulative, all-time totals for the Accomplished
- * zone. These must never decrease and are never shown as a fraction, so a
- * plain row count (not a windowed read like getRecentCheckins) is exactly
+ * zone. These must never decrease and are never shown as a fraction, so an
+ * all-time count (not a windowed read like getRecentCheckins) is exactly
  * what's needed. daily_checkins_current already dedupes to one row per
  * local_date per user (see its view definition), so "total check-ins" and
- * "total days logged" are the same number in this schema — reported as a
- * single "check-ins logged" total rather than two identical-looking stats.
+ * "total days logged" are the same number in this schema.
+ *
+ * ONE HELPER, NOT FOUR (Build 2, 2026-08-27). The count now comes from
+ * lib/member-counts/checkinCounts.ts, which is also where Root's own
+ * tenure line and the Case View get theirs, so the number under YOUR
+ * TOTALS and the number in Root's sentence cannot be counted differently.
  */
 export async function getTotalCheckinCount(): Promise<number> {
   const supabase = createClient();
   const user = await getCachedUser();
   if (!user) return 0;
 
-  const { count, error } = await supabase
-    .from('daily_checkins_current')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id);
-
-  if (error) {
-    console.error('getTotalCheckinCount failed', error);
-    return 0;
-  }
-  return count ?? 0;
+  const { allTimeLoggedDays } = await getLoggedDayTotals(supabase, user.id);
+  return allTimeLoggedDays;
 }
 
 /**

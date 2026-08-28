@@ -20,13 +20,9 @@
  * what are the rules around them" without already knowing which of the
  * five underlying systems implements a given one.
  *
- * Every existing assessment's entry below describes its REAL current
- * behavior, not aspirational/future behavior — e.g. every existing
- * assessment is currently reachable by any authenticated member (there is
- * no subscription/tier gating live today, per the inventory), so every
- * existing entry's `membership.allowedLevels` includes all three levels.
- * Tightening that is a product decision for a later task, not something
- * encoded here as a side effect of adding the type.
+ * Every existing assessment's entry describes its REAL current behavior.
+ * Tier gating IS live now: `membership.minLevel` is the one gate, and the
+ * full plan map is printed in registry.ts's own header.
  */
 
 /** Stable membership keys. Do not rely on display labels for gating logic. */
@@ -204,18 +200,17 @@ export type AssessmentDefinition = {
   category: string;
   estimatedMinutes: number;
 
-  membership: MembershipRules;
   /**
-   * Assignment-gated visibility (Assignment-Gated Questionnaires task,
-   * 2026-08-03): when true, this assessment is invisible everywhere in the
-   * member app (catalog, Home) and blocked from direct access
-   * (lib/assessment-registry/access.ts) until a coach assigns it via
-   * assessment_assignments, or the member has completed it at least once.
-   * False for Onboarding, Body Assessment, and the three free experiences
-   * (Core Values Snapshot, Life Signal Check, Readiness Pulse) — those stay
-   * self-serve, unchanged by this field.
+   * THE GATE (Build 2, 2026-08-27). `membership.minLevel` alone decides
+   * whether a member may start this. There is deliberately no second
+   * `requiresAssignment` flag layered underneath it any more: a field
+   * that could only ever subtract access was doing the work the plan map
+   * is supposed to do, invisibly, and it is removed rather than defaulted
+   * so nothing can switch it back on by accident. A coach assignment is
+   * still read, but only ever to ADD access for one member
+   * (lib/assessment-registry/status.ts).
    */
-  requiresAssignment: boolean;
+  membership: MembershipRules;
   program: ProgramRules;
   prerequisites: PrerequisiteRules;
   /**

@@ -23,6 +23,7 @@ import { applySmoothingCap, computeComposite } from './aggregate';
 import { applyFindingAdjustments } from './findingAdjustments';
 import { computeRootEvidence } from './confidence';
 import { EVIDENCE_WINDOW_DAYS } from '../member-interpretation/config';
+import { countLoggedDays } from '../member-counts/checkinCounts';
 import {
   MOMENTUM_PRIOR_WINDOW_DAYS,
   MOMENTUM_RECENT_WINDOW_DAYS,
@@ -99,11 +100,9 @@ function firstEverCheckinDate(checkinsOldestFirst: DailyCheckin[]): string | nul
  * "how much has she logged" mean what it says.
  */
 function distinctLoggedDays(checkins: DailyCheckin[], window: DateWindow): number {
-  const days = new Set<string>();
-  for (const c of checkins) {
-    if (c.local_date >= window.startDate && c.local_date <= window.endDate) days.add(c.local_date);
-  }
-  return days.size;
+  return countLoggedDays(
+    checkins.filter((c) => c.local_date >= window.startDate && c.local_date <= window.endDate)
+  );
 }
 
 function computeAllDomains(

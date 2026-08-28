@@ -381,12 +381,20 @@ describe("Root's Daily Brief on a day with no check-in yet", () => {
     expect(brief.sleepSummary).toBe('Yesterday you logged only fair sleep.');
   });
 
-  it('says "at your last check-in" rather than naming a gap it cannot name honestly', () => {
+  /**
+   * UPDATED BY C8 (Build 2, 2026-08-27). This used to assert the sentence
+   * stopped at "at your last check-in", on the reading that the gap could
+   * not be named honestly. It can: the same local-date arithmetic that
+   * already decides "yesterday" versus "earlier" knows exactly how many
+   * days back the reading is. Undated, the line sat under "I'm glad you're
+   * back" describing a check-in ten days old as though it were current.
+   */
+  it('names how long ago the reading is, rather than leaving it undated', () => {
     const brief = composeMorningBrief(
       briefSignals({ recentCheckins: [checkin({ local_date: '2026-08-11' })] })
     );
 
-    expect(brief.stressSummary).toBe('You logged moderate stress at your last check-in.');
+    expect(brief.stressSummary).toBe('You logged moderate stress at your last check-in, 6 days ago.');
   });
 
   it('still speaks in the present tense once she has checked in today', () => {

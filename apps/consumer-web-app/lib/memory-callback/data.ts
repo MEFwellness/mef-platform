@@ -9,6 +9,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getLoggedDayTotals } from '@/lib/member-counts/checkinCounts';
 import { fetchLatestMemberGoalSelection } from '../member-goals/data';
 import { listActiveCandidatePairs } from '../correlation-engine/data';
 import { listMemberPatternStates } from '../longitudinal-intelligence/data';
@@ -38,22 +39,15 @@ export async function fetchTenureCallbackContext(
   memberId: string,
   todayLocalDate: string
 ): Promise<TenureCallbackContext | null> {
-  const [{ count, error: countError }, { data: firstRow, error: firstError }] = await Promise.all([
-    supabase.from('daily_checkins_current').select('id', { count: 'exact', head: true }).eq('user_id', memberId),
-    supabase
-      .from('daily_checkins_current')
-      .select('local_date')
-      .eq('user_id', memberId)
-      .order('local_date', { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (countError || firstError) return null;
+  // ONE HELPER, NOT FOUR (Build 2, 2026-08-27). Root's own tenure sentence
+  // and the number under Today's YOUR TOTALS used to be two separate
+  // queries that happened to agree; they are now the same count, from
+  // lib/member-counts/checkinCounts.ts.
+  const { allTimeLoggedDays, firstLoggedLocalDate } = await getLoggedDayTotals(supabase, memberId);
 
   return {
-    totalCheckins: count ?? 0,
-    firstCheckinLocalDate: (firstRow?.local_date as string | undefined) ?? null,
+    totalCheckins: allTimeLoggedDays,
+    firstCheckinLocalDate: firstLoggedLocalDate,
     todayLocalDate,
   };
 }

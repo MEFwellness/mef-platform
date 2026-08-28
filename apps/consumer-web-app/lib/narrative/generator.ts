@@ -12,6 +12,7 @@
  */
 
 import type { DailyCheckin, SafetyClassification } from '@mef/shared-types-contracts';
+import { countLoggedDays } from '@/lib/member-counts/checkinCounts';
 import type { NarrativeItemDraft } from './types';
 import { rootEvidenceTier } from '../scoring/confidence';
 import { enforceTierLanguage } from '../member-interpretation/language';
@@ -114,7 +115,7 @@ export function deriveFromWellnessInsights(
   const insights = detectInsights(checkinsOldestFirst);
   const latestIds = checkinsOldestFirst.slice(-MIN_TREND_SAMPLE).map((c) => c.id);
 
-  const loggedDays = new Set(checkinsOldestFirst.map((c) => c.local_date)).size;
+  const loggedDays = countLoggedDays(checkinsOldestFirst);
 
   return insights.map((insight) =>
     atTier(

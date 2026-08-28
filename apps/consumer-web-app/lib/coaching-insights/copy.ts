@@ -133,8 +133,17 @@ export function repeatedCheckinStatement(
   return `${prefix} reported relatively ${direction} ${label}.`;
 }
 
+/**
+ * NAME WHAT WAS COUNTED (B5, 2026-08-27). This said "4 of your last 5
+ * progress snapshots showed improving overall momentum" to a member whose
+ * Root Score was 27 and a point down on the same screen, and whose last
+ * five actual snapshots were mostly insufficient_data. "Progress
+ * snapshots" is not a thing she has ever seen a list of, so there was
+ * nothing she could check the sentence against. It now says what the five
+ * are: days she checked in and a reading came out of it.
+ */
 export function repeatedMomentumStatement(matches: number, total: number): string {
-  return `${matches} of your last ${total} progress snapshots showed improving overall momentum.`;
+  return `${matches} of your last ${total} days with a check-in showed improving overall momentum.`;
 }
 
 // ---- Level 3 — Things Worth Watching --------------------------------------------

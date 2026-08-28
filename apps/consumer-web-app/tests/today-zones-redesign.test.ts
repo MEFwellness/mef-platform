@@ -135,9 +135,14 @@ describe('Earned Capability: real thresholds from the correlation engine, not in
 
 describe('Cumulative totals: all-time counts, not a windowed read', () => {
   it('getTotalCheckinCount and getTotalMovementLoggedDaysCount are real count queries with no .limit(...) window', () => {
+    // ONE HELPER, NOT FOUR (Build 2, 2026-08-27). getTotalCheckinCount no
+    // longer owns its own query: it asks lib/member-counts/checkinCounts.ts,
+    // which is where Root's tenure line gets the same number. The count
+    // query itself is asserted there, so what matters here is that this
+    // action reaches it and still windows nothing.
     const checkinFnIdx = CHECKIN_ACTIONS.indexOf('export async function getTotalCheckinCount');
     const checkinFnBody = CHECKIN_ACTIONS.slice(checkinFnIdx, CHECKIN_ACTIONS.indexOf('\n}', checkinFnIdx));
-    expect(checkinFnBody).toContain("{ count: 'exact', head: true }");
+    expect(checkinFnBody).toContain('getLoggedDayTotals');
     expect(checkinFnBody).not.toContain('.limit(');
 
     const movementFnIdx = CHECKIN_ACTIONS.indexOf('export async function getTotalMovementLoggedDaysCount');

@@ -4,15 +4,14 @@
  * and in isolation from tests/assessment-registry-integration.test.ts's
  * real-Supabase coverage of the same rule end to end.
  *
- * Coach-Assign-Only Gating task (2026-08-04) rewrote this file: an
- * assignment-gated, not-yet-assigned assessment used to categorize into
- * an invisible `hidden` section (a member saw nothing at all). Per the
- * explicit product requirement that gating be visible, not invisible, it
- * now lands in its normal Available/Premium section with
- * `flags.locked = true` and `flags.lockReasonKind = 'not_assigned'` —
- * exactly the same "locked flag on a normal card" shape every other lock
- * reason (membership/program/prerequisite) already used. `CatalogSection`
- * no longer has a `hidden` member at all.
+ * Gating is VISIBLE, never invisible: a questionnaire her plan does not
+ * include lands in Premium with `flags.locked = true` and its own lock
+ * reason, not in an invisible `hidden` section a member saw nothing at
+ * all of. `CatalogSection` has no `hidden` member at all.
+ *
+ * Build 2 (2026-08-27) rewrote the cases below: the lock they exercise
+ * used to be `not_assigned`, from a coach-assign-only flag that no longer
+ * exists. It is her PLAN now, and the assertions say so.
  */
 import { describe, it, expect } from 'vitest';
 import { categorizeForCatalog } from '../lib/assessment-registry/catalog';
@@ -29,8 +28,8 @@ const BASE_FACTS: MemberAssessmentFacts = {
   pendingReassessmentSchedule: null,
 };
 
-describe('categorizeForCatalog — coach-assign-only gating is visible, not hidden', () => {
-  it('an assignment-gated, not-yet-assigned assessment renders as a real, locked card (never hidden)', () => {
+describe('categorizeForCatalog — plan gating is visible, not hidden', () => {
+  it('a questionnaire above her plan renders as a real, locked card (never hidden)', () => {
     for (const key of [
       'four-doctors',
       'chek-hlc1-nutrition-lifestyle',
@@ -40,13 +39,18 @@ describe('categorizeForCatalog — coach-assign-only gating is visible, not hidd
       'body-assessment',
     ] as const) {
       const entry = findAssessmentRegistryEntry(key)!;
-      expect(entry.requiresAssignment).toBe(true);
+      expect(entry.membership.minLevel).not.toBe('free_trial');
 
-      const { section, flags } = categorizeForCatalog(entry, BASE_FACTS);
-      expect(['available', 'premium']).toContain(section);
+      const { section, flags } = categorizeForCatalog(entry, {
+        ...BASE_FACTS,
+        membershipKey: 'free_trial',
+      });
+      expect(section).toBe('premium');
       expect(flags.locked).toBe(true);
-      expect(flags.lockReasonKind).toBe('not_assigned');
+      expect(flags.lockReasonKind).toBe('membership');
+      expect(flags.lockRequiredLevel).toBe(entry.membership.minLevel);
       expect(flags.lockMessage).toBeTruthy();
+      expect(flags.lockNote).toBeTruthy();
     }
   });
 
@@ -82,18 +86,18 @@ describe('categorizeForCatalog — coach-assign-only gating is visible, not hidd
     // because she has nothing here yet.
     const withDraft = {
       ...BASE_FACTS,
-      membershipKey: 'membership' as const,
+      membershipKey: 'free_trial' as const,
       completionStatus: 'in_progress' as const,
     };
     const draftEntry = categorizeForCatalog(entry, withDraft);
     expect(draftEntry.flags.locked).toBe(true);
-    expect(draftEntry.flags.lockReasonKind).toBe('not_assigned');
+    expect(draftEntry.flags.lockReasonKind).toBe('membership');
 
     // A real completion is different: the card is how she reaches her own
     // results, so it is never rendered as a lock.
     const withCompletion = {
       ...BASE_FACTS,
-      membershipKey: 'membership' as const,
+      membershipKey: 'free_trial' as const,
       completionStatus: 'completed' as const,
       latestCompletedAt: new Date().toISOString(),
       latestCompletedAttemptId: 'attempt-1',
@@ -120,27 +124,27 @@ describe('categorizeForCatalog — coach-assign-only gating is visible, not hidd
     expect(flags.locked).toBe(false);
   });
 
-  it('never locks a self-serve assessment (requiresAssignment: false) regardless of assignment state', () => {
+  it('never locks a trial-level assessment, on any plan, with or without an assignment', () => {
     // life-signal-check and readiness-pulse are excluded here on purpose:
-    // both are requiresAssignment: false, but each has a real, unrelated
-    // prerequisite lock (core-values-snapshot / life-signal-check) that
-    // legitimately locks them under BASE_FACTS' empty completed-
-    // prerequisites set — a different lock mechanism than this test is
-    // about, already covered by their own dedicated prerequisite tests
-    // elsewhere.
+    // both are trial level, but each has a real, unrelated prerequisite
+    // lock (core-values-snapshot / life-signal-check) that legitimately
+    // locks them under BASE_FACTS' empty completed-prerequisites set — a
+    // different lock mechanism than this test is about, already covered by
+    // their own dedicated prerequisite tests elsewhere.
     for (const key of ['core-values-snapshot', 'onboarding-health-history'] as const) {
       const entry = findAssessmentRegistryEntry(key)!;
-      expect(entry.requiresAssignment).toBe(false);
-      const { flags } = categorizeForCatalog(entry, BASE_FACTS);
+      expect(entry.membership.minLevel).toBe('free_trial');
+      const { flags } = categorizeForCatalog(entry, { ...BASE_FACTS, membershipKey: 'free_trial' });
       expect(flags.locked).toBe(false);
       expect(flags.lockReasonKind).toBeNull();
+      expect(flags.lockNote).toBeNull();
     }
   });
 
-  it('a coming-soon, assignment-gated placeholder shows as Coming Soon (visible), not as a locked card', () => {
+  it('a coming-soon placeholder above her plan shows as Coming Soon (visible), not as a locked card', () => {
     for (const key of ['readiness-to-change', 'finding-1-love'] as const) {
       const entry = findAssessmentRegistryEntry(key)!;
-      expect(entry.requiresAssignment).toBe(true);
+      expect(entry.membership.minLevel).toBe('membership');
       const { section, flags } = categorizeForCatalog(entry, BASE_FACTS);
       expect(['available', 'premium']).toContain(section);
       expect(flags.comingSoon).toBe(true);
@@ -148,11 +152,8 @@ describe('categorizeForCatalog — coach-assign-only gating is visible, not hidd
     }
   });
 
-  it('a membership-tier lock (not a coach-assignment lock) still reports its own lockReasonKind, distinct from not_assigned', () => {
+  it('a coach assignment outranks a plan lock, and is the only thing that does', () => {
     const entry = findAssessmentRegistryEntry('wbsa')!;
-    // Force past the not_assigned gate so the membership check underneath
-    // is what actually decides — a completed prior attempt lets
-    // completionStatus through regardless of assignment/tier.
     const facts: MemberAssessmentFacts = {
       ...BASE_FACTS,
       membershipKey: 'free_trial',

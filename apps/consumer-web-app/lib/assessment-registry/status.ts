@@ -25,8 +25,15 @@ export type AssessmentStatus =
   | 'recommended'
   | 'available';
 
+/**
+ * NO 'not_assigned' (Build 2, 2026-08-27). There used to be a lock reason
+ * meaning "your coach has not assigned this to you yet", produced by the
+ * `requiresAssignment` flag. A missing assignment no longer locks
+ * anything, so the reason is removed from the union rather than left
+ * unreachable: an unreachable variant is a lock waiting to be switched
+ * back on, and every copy path that spoke it has been removed with it.
+ */
 export type LockReason =
-  | { kind: 'not_assigned' }
   | { kind: 'membership'; requiredLevel: MembershipKey }
   | { kind: 'program_enrollment' }
   | { kind: 'program_phase'; requiredPhaseKey: string }
@@ -100,6 +107,15 @@ export function hasRetakeInProgress(facts: MemberAssessmentFacts): boolean {
  * additionally open one specific questionnaire for one specific member,
  * and that is the only thing that adds access on top of the plan.
  *
+ * COACH ASSIGNMENT ONLY EVER ADDS (Build 2, 2026-08-27). The
+ * `requiresAssignment` flag used to sit underneath the plan and subtract:
+ * four questionnaires were mapped to trial minimum and then held shut by
+ * a lock nobody could see in the map, which is why the printed map and
+ * the real behaviour disagreed. The flag is deleted. An assignment row
+ * still short-circuits every rule below, so a coach can hand one
+ * questionnaire to one member even below the plan minimum, and its
+ * ABSENCE now decides nothing at all.
+ *
  * Four things used to open a questionnaire and no longer do:
  *
  *   * A PENDING REASSESSMENT SCHEDULE. The rule below used to accept one
@@ -120,10 +136,6 @@ export function hasRetakeInProgress(facts: MemberAssessmentFacts): boolean {
  *     progress" rule actually protects; that now lives in access.ts's
  *     'view' intent rather than here, so it can no longer be mistaken for
  *     permission to start a new attempt.
- *
- * The plan check runs BEFORE the assignment check, so a card that is both
- * outside her plan and coach-assign-only says the true first thing: which
- * plan includes it.
  */
 export function calculateLockReason(
   definition: AssessmentDefinition,
@@ -137,10 +149,6 @@ export function calculateLockReason(
 
   if (!membershipMeetsMinimum(facts.membershipKey, definition.membership.minLevel)) {
     return { kind: 'membership', requiredLevel: definition.membership.minLevel };
-  }
-
-  if (definition.requiresAssignment) {
-    return { kind: 'not_assigned' };
   }
 
   if (definition.program.programOnly) {
@@ -176,8 +184,6 @@ export function calculateLockReason(
  */
 export function describeLockReason(reason: LockReason, prerequisiteNames: string[] = []): string {
   switch (reason.kind) {
-    case 'not_assigned':
-      return 'Not assigned yet. Your coach will assign this when the time is right.';
     case 'membership':
       return reason.requiredLevel === 'holistic_reset'
         ? 'Available with the 24 week program.'

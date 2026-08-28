@@ -1,9 +1,30 @@
 /**
  * Assessment Registry — entries.
  *
- * One entry per assessment system, describing its REAL current behavior
- * (see the header comment in ./types.ts for why every existing entry is
- * membership-permissive and program-ungated). Adding a sixth assessment
+ * THE PLAN MAP (Build 2, 2026-08-27). `membership.minLevel` is the whole
+ * gate. Nothing else opens or closes a questionnaire, and the one thing
+ * that can ADD access on top of a plan is a coach assignment for one
+ * specific member. The map, in full, so it can only ever be changed
+ * deliberately:
+ *
+ *   trial            onboarding-health-history, core-values-snapshot,
+ *                    life-signal-check, readiness-pulse
+ *   Monthly plan     short-haq (Health Check-In),
+ *                    primal-pattern-diet-type (Primal Pattern),
+ *                    chek-hlc1-nutrition-lifestyle (Nutrition & Lifestyle),
+ *                    readiness-to-change, finding-1-love
+ *                    (the last two are Coming Soon, mapped anyway)
+ *   24 week program  four-doctors, wbsa (Whole-Body Check-In),
+ *                    body-assessment (camera)
+ *
+ * Whole-Body Check-In moved up from Monthly to the 24 week program, and
+ * the four questionnaires that used to sit at trial minimum with a
+ * separate coach-assign-only flag holding them shut now say what they are
+ * with their plan alone. The `requiresAssignment` flag that used to layer
+ * a second, invisible lock underneath the plan is GONE, not defaulted:
+ * see lib/assessment-registry/status.ts for what replaced it.
+ *
+ * One entry per assessment system. Adding a sixth assessment
  * system means adding a definition here plus a matching
  * `assessment_definitions` catalog row (see
  * supabase/migrations/00000000000070_assessment_registry_catalog.sql) —
@@ -46,7 +67,6 @@ const ONBOARDING: AssessmentDefinition = {
     minLevel: 'free_trial',
     allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
   },
-  requiresAssignment: false,
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [] },
   relatedAssessmentKeys: ['chek-hlc1-nutrition-lifestyle', 'four-doctors', 'body-assessment'],
@@ -111,8 +131,10 @@ const CHEK_HLC1: AssessmentDefinition = {
   // member's data/history is unaffected: this only changes what a free
   // member can *newly start* going forward (enforced in
   // lib/assessment-registry/access.ts), never anything already completed.
-  membership: { minLevel: 'membership', allowedLevels: ['membership', 'holistic_reset'] },
-  requiresAssignment: true,
+  membership: {
+    minLevel: 'membership',
+    allowedLevels: ['membership', 'holistic_reset'],
+  },
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [] },
   relatedAssessmentKeys: ['primal-pattern-diet-type', 'four-doctors'],
@@ -171,10 +193,9 @@ const FOUR_DOCTORS: AssessmentDefinition = {
   estimatedMinutes: 12,
 
   membership: {
-    minLevel: 'free_trial',
-    allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
+    minLevel: 'holistic_reset',
+    allowedLevels: ['holistic_reset'],
   },
-  requiresAssignment: true,
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [] },
   relatedAssessmentKeys: ['body-assessment', 'chek-hlc1-nutrition-lifestyle'],
@@ -232,10 +253,9 @@ const PRIMAL_PATTERN: AssessmentDefinition = {
   estimatedMinutes: 8,
 
   membership: {
-    minLevel: 'free_trial',
-    allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
+    minLevel: 'membership',
+    allowedLevels: ['membership', 'holistic_reset'],
   },
-  requiresAssignment: true,
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [] },
   relatedAssessmentKeys: ['chek-hlc1-nutrition-lifestyle'],
@@ -293,18 +313,13 @@ const BODY_ASSESSMENT: AssessmentDefinition = {
   estimatedMinutes: 10,
 
   membership: {
-    minLevel: 'free_trial',
-    allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
+    minLevel: 'holistic_reset',
+    allowedLevels: ['holistic_reset'],
   },
-  // Coach-Assign-Only Gating task (2026-08-04): a proprietary coaching
-  // tool, same as Four Doctors/CHEK HLC1/Primal Pattern/Short-HAQ/WBSA
-  // above — a free member must never be able to open the camera-based
-  // capture flow on their own. Enforced the same way every other gated
-  // entry is: calculateLockReason/checkAssessmentAccess already treat
-  // requiresAssignment generically, so no new gating machinery was
-  // needed, only this flag flip plus removing this key's exclusion from
-  // listAssignableAssessments below.
-  requiresAssignment: true,
+  // THE PLAN IS THE ONLY GATE (Build 2, 2026-08-27): the camera capture
+  // is part of the 24 week program, so the plan holds it shut and a coach
+  // assignment is the one thing that can additionally open it for one
+  // member. There is no separate coach-assign-only flag any more.
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [] },
   relatedAssessmentKeys: ['four-doctors', 'onboarding-health-history'],
@@ -379,7 +394,6 @@ function comingSoon(config: {
     estimatedMinutes: 0,
 
     membership: { minLevel: 'membership', allowedLevels: ['membership', 'holistic_reset'] },
-    requiresAssignment: true,
     program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
     prerequisites: { prerequisiteKeys: [] },
     // No real content exists yet for any Coming Soon placeholder — a
@@ -447,10 +461,9 @@ const SHORT_HAQ: AssessmentDefinition = {
   estimatedMinutes: 12,
 
   membership: {
-    minLevel: 'free_trial',
-    allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
+    minLevel: 'membership',
+    allowedLevels: ['membership', 'holistic_reset'],
   },
-  requiresAssignment: true,
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [] },
   relatedAssessmentKeys: ['onboarding-health-history', 'four-doctors'],
@@ -531,8 +544,10 @@ const WBSA: AssessmentDefinition = {
   category: 'whole_body_systems',
   estimatedMinutes: 20,
 
-  membership: { minLevel: 'membership', allowedLevels: ['membership', 'holistic_reset'] },
-  requiresAssignment: true,
+  membership: {
+    minLevel: 'holistic_reset',
+    allowedLevels: ['holistic_reset'],
+  },
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [] },
   relatedAssessmentKeys: ['onboarding-health-history', 'four-doctors', 'chek-hlc1-nutrition-lifestyle'],
@@ -603,7 +618,6 @@ const CORE_VALUES_SNAPSHOT: AssessmentDefinition = {
     minLevel: 'free_trial',
     allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
   },
-  requiresAssignment: false,
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: [] },
   relatedAssessmentKeys: [],
@@ -676,7 +690,6 @@ const LIFE_SIGNAL_CHECK: AssessmentDefinition = {
     minLevel: 'free_trial',
     allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
   },
-  requiresAssignment: false,
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: ['core-values-snapshot'] },
   relatedAssessmentKeys: ['core-values-snapshot'],
@@ -743,7 +756,6 @@ const READINESS_PULSE: AssessmentDefinition = {
     minLevel: 'free_trial',
     allowedLevels: ['free_trial', 'membership', 'holistic_reset'],
   },
-  requiresAssignment: false,
   program: { programOnly: false, programKey: null, programPhase: null, phaseOrder: null },
   prerequisites: { prerequisiteKeys: ['life-signal-check'] },
   relatedAssessmentKeys: ['core-values-snapshot', 'life-signal-check'],
@@ -818,14 +830,13 @@ export function listAssessmentRegistryEntries(): AssessmentDefinition[] {
 
 /**
  * Assignable from the coach dashboard (section 10): every registered,
- * implemented (`implementationStatus === 'live'`) assessment. Coach-Assign-
- * Only Gating task (2026-08-04): Body Assessment used to be excluded here
- * because it had no gating of its own yet — now that it's
- * `requiresAssignment: true` like every other proprietary tool, a coach
- * needs this list to include it too, or there would be no way to ever
- * unlock it for a member. Coming Soon placeholders (Readiness to Change,
- * Finding 1 Love) stay excluded — `implementationStatus !== 'live'` for
- * both, since neither has real question content yet.
+ * implemented (`implementationStatus === 'live'`) assessment, Body
+ * Assessment included. An assignment is now purely additive: it opens one
+ * questionnaire for one member even when her plan does not include it, and
+ * its absence never closes anything the plan already opens. Coming Soon
+ * placeholders (Readiness to Change, Finding 1 Love) stay excluded, since
+ * `implementationStatus !== 'live'` for both and neither has real question
+ * content yet.
  */
 export function listAssignableAssessments(): AssessmentDefinition[] {
   return listAssessmentRegistryEntries().filter((e) => e.implementationStatus === 'live');

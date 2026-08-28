@@ -92,45 +92,47 @@ describe('WBSA registry entry', () => {
     expect(definition!.active).toBe(true);
   });
 
-  it('is gated to membership and holistic_reset only, no free_trial (the chosen launch rule)', () => {
+  it('is part of the 24 week program, which is where Build 2 deliberately moved it', () => {
     const entry = findAssessmentRegistryEntry('wbsa')!;
-    expect(entry.membership.allowedLevels.sort()).toEqual(['holistic_reset', 'membership']);
+    expect(entry.membership.minLevel).toBe('holistic_reset');
+    expect(entry.membership.allowedLevels).toEqual(['holistic_reset']);
     expect(entry.membership.allowedLevels).not.toContain('free_trial');
+    expect(entry.membership.allowedLevels).not.toContain('membership');
   });
 
-  it('a trial plan cannot start WBSA; a monthly plan clears the plan rule and still cannot without a coach assignment', async () => {
+  it('neither a trial nor a monthly plan can start WBSA, and both are told it is the 24 week program', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
 
-    await setPlan(memberOneId, 'trial');
-    const lockedAccess = await checkAssessmentAccess(client, memberOneId, 'wbsa');
-    expect(lockedAccess.allowed).toBe(false);
-    if (!lockedAccess.allowed) {
-      // On a trial plan the FIRST thing that is missing is the plan, and
-      // that is what she is told, because it is the one she can act on.
-      expect(lockedAccess.reason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
+    for (const plan of ['trial', 'monthly'] as const) {
+      await setPlan(memberOneId, plan);
+      const lockedAccess = await checkAssessmentAccess(client, memberOneId, 'wbsa');
+      expect(lockedAccess.allowed).toBe(false);
+      if (!lockedAccess.allowed) {
+        // The plan is the whole gate now, and the sentence names the plan
+        // she would need, which is the one thing she can act on.
+        expect(lockedAccess.reason).toEqual({
+          kind: 'membership',
+          requiredLevel: 'holistic_reset',
+        });
+      }
+
+      const lockedFacts = await getMemberAssessmentFacts(client, memberOneId);
+      const lockedStatus = calculateAssessmentStatus(
+        findAssessmentRegistryEntry('wbsa')!,
+        lockedFacts.get('wbsa')!
+      );
+      expect(lockedStatus.status).toBe('locked');
     }
 
-    const lockedFacts = await getMemberAssessmentFacts(client, memberOneId);
-    const lockedStatus = calculateAssessmentStatus(findAssessmentRegistryEntry('wbsa')!, lockedFacts.get('wbsa')!);
-    expect(lockedStatus.status).toBe('locked');
-
-    // Assignment-Gated Questionnaires task: WBSA is now requiresAssignment:
-    // true, so reaching the right membership tier alone no longer unlocks
-    // it — it stays locked (as not_assigned now, not a membership reason)
-    // until a coach actually assigns it. See
-    // tests/assessment-registry-integration.test.ts's "coach assignment
-    // override" describe block for the assigned-and-unlocked case.
-    await setPlan(memberOneId, 'monthly');
-    const stillLockedAccess = await checkAssessmentAccess(client, memberOneId, 'wbsa');
-    expect(stillLockedAccess.allowed).toBe(false);
-    if (!stillLockedAccess.allowed) {
-      expect(stillLockedAccess.reason).toEqual({ kind: 'not_assigned' });
-    }
+    // And the program plan opens it, with no assignment anywhere.
+    await setPlan(memberOneId, 'program');
+    const openAccess = await checkAssessmentAccess(client, memberOneId, 'wbsa');
+    expect(openAccess.allowed).toBe(true);
   });
 
-  it('a coach-assigned WBSA is reachable even for a member at the correct tier, and the assignment is what unlocks it', async () => {
+  it('a coach assignment opens WBSA for a member whose plan does not include it', async () => {
     const service = serviceRoleClient();
-    await setPlan(memberOneId, 'monthly');
+    await setPlan(memberOneId, 'trial');
     const entry = findAssessmentRegistryEntry('wbsa')!;
 
     const { error: assignError } = await service.from('assessment_assignments').insert({

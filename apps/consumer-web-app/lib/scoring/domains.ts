@@ -147,7 +147,7 @@ export function computeRecoveryDomain(checkins: DailyCheckin[], window: DateWind
         ? 'Sleep and energy have been trending up.'
         : direction === 'declining'
           ? 'Sleep and energy have softened recently.'
-          : `Based on ${dailyScores.length} logged day${dailyScores.length === 1 ? '' : 's'} of sleep and energy.`,
+          : `Based on ${dailyScores.length} logged day${dailyScores.length === 1 ? '' : 's'} of sleep and energy in the last ${windowDays} days.`,
   };
 }
 
@@ -188,7 +188,7 @@ export function computeStressDomain(checkins: DailyCheckin[], window: DateWindow
         ? 'Reported stress has been easing.'
         : direction === 'declining'
           ? 'Reported stress has been climbing.'
-          : `Based on ${inRange.length} stress reading${inRange.length === 1 ? '' : 's'} this window.`,
+          : `Based on ${inRange.length} stress reading${inRange.length === 1 ? '' : 's'} in the last ${windowDays} days.`,
   };
 }
 
@@ -243,7 +243,7 @@ export function computeNutritionDomain(
         ? 'Logged meal quality has been trending up.'
         : direction === 'declining'
           ? 'Logged meal quality has softened recently.'
-          : `Based on ${inRange.length} logged meal${inRange.length === 1 ? '' : 's'} this window.`,
+          : `Based on ${inRange.length} logged meal${inRange.length === 1 ? '' : 's'} in the last ${windowDays} days.`,
   };
 }
 
@@ -307,7 +307,7 @@ export function computeMovementDomain(
     direction,
     data_points: dataPoints,
     window_days: windowDays,
-    explanation: `${completed.length} completed session${completed.length === 1 ? '' : 's'} against a target of ${target} this window.`,
+    explanation: `${completed.length} completed session${completed.length === 1 ? '' : 's'} against a target of ${target} in the last ${windowDays} days.`,
   };
 }
 

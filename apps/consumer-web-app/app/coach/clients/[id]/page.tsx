@@ -86,8 +86,8 @@ export default async function ClientDashboardPage({ params }: { params: { id: st
           {profile.display_name ?? 'Unnamed client'}
         </h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
-          {dashboard.loggedDays} logged day{dashboard.loggedDays === 1 ? '' : 's'} behind everything
-          below.
+          {dashboard.loggedDays} logged day{dashboard.loggedDays === 1 ? '' : 's'} in the last{' '}
+          {dashboard.loggedDaysWindow} days behind everything below.
         </p>
 
         {/* "What she entered" stays above the interpretation, for the same

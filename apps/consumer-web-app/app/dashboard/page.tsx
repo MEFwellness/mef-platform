@@ -223,10 +223,15 @@ export default async function DashboardPage({
   // new query. bodyAssessments is ordered newest-first (see
   // lib/body-assessment/data.ts), so the first completed one is the most
   // recent.
-  const caseStatus =
-    questionnaireCatalog.totalCount > 0
-      ? `${questionnaireCatalog.completedCount} of ${questionnaireCatalog.totalCount} complete`
-      : null;
+  // C2 (2026-08-27): the Case pill used to carry
+  // `${completedCount} of ${totalCount} complete`, which is the
+  // QUESTIONNAIRE count, printed again verbatim two zones lower under
+  // QUESTIONNAIRES. On the pill it read as "your Case is 4 of 8 done",
+  // which is not a thing the Case has or could have. There is no real
+  // completion fraction for a case, so the pill carries no second line
+  // rather than borrowing a true number from somewhere it is not about.
+  // Its own zone still shows the questionnaire count, once.
+  const caseStatus: string | null = null;
   const latestAnalyzedAssessment = bodyAssessments.find((a) => a.completed_at !== null);
   const movementActionStatus = latestAnalyzedAssessment
     ? formatCompletedStatus(latestAnalyzedAssessment.completed_at!)

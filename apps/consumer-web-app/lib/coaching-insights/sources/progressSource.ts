@@ -8,6 +8,8 @@
  * real, reviewed computation (lib/scoring/momentum.ts), so re-judging it
  * here would risk disagreeing with what the member sees on their own
  * Root Score card.
+ *
+ * What it does NOT reuse is every snapshot row: see loggedDatesIn below.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -40,6 +42,41 @@ function confidenceFor(level: ScoreConfidenceLevel): number {
   }
 }
 
+/**
+ * The days the member actually logged a check-in, inside this range.
+ *
+ * A SNAPSHOT IS NOT A DAY SHE SHOWED UP (B5, 2026-08-27). A Root Score
+ * snapshot is written whenever a page asks for one, so a member who logged
+ * nothing for ten days still accumulates ten snapshots, each computed over
+ * the same stale window. Counting those as evidence and reporting the
+ * result back to her as "4 of your last 5 progress snapshots showed
+ * improving overall momentum" is the app reading its own arithmetic about
+ * her silence and calling it her momentum. It is also unreconcilable with
+ * anything she can see: her Root Score on the same page was down.
+ *
+ * So an observation is only emitted for a local_date she actually checked
+ * in on. "Your last 5" now means five days she showed up for, and the
+ * date range printed beside the insight is the real span of those days.
+ */
+async function loggedDatesIn(
+  supabase: SupabaseClient,
+  memberId: string,
+  range: CoachingDateRange
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('daily_checkins_current')
+    .select('local_date')
+    .eq('user_id', memberId)
+    .gte('local_date', range.from)
+    .lte('local_date', range.to);
+
+  if (error) {
+    console.error('progressSource loggedDatesIn failed', error);
+    return new Set();
+  }
+  return new Set(((data ?? []) as Array<{ local_date: string }>).map((row) => row.local_date));
+}
+
 async function fetchObservations(
   supabase: SupabaseClient,
   memberId: string,
@@ -47,11 +84,15 @@ async function fetchObservations(
 ): Promise<CoachingObservation[]> {
   const spanDays =
     Math.ceil((new Date(range.to).getTime() - new Date(range.from).getTime()) / 86_400_000) + 1;
-  const snapshots = await listSnapshotHistory(supabase, memberId, spanDays);
+  const [snapshots, loggedDates] = await Promise.all([
+    listSnapshotHistory(supabase, memberId, spanDays),
+    loggedDatesIn(supabase, memberId, range),
+  ]);
 
   const observations: CoachingObservation[] = [];
   for (const snapshot of snapshots) {
     if (snapshot.local_date < range.from || snapshot.local_date > range.to) continue;
+    if (!loggedDates.has(snapshot.local_date)) continue;
 
     const direction = momentumDirection(snapshot.momentum_state);
     if (direction && snapshot.momentum_score !== null) {

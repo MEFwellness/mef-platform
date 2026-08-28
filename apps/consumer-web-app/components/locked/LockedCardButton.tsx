@@ -16,11 +16,11 @@ import { trackPaywallViewAction } from '@/app/actions/analytics';
  * header comment for why a portal-rendered sheet, not a new toast system)
  * — rather than building a second mechanism.
  *
- * EVERY LOCK, NOT JUST THE COACH ONE (2026-08-27). This used to be the
- * coach-assignment lock's private treatment, and a plan lock rendered its
- * reason inline instead, in different words. Both kinds of lock now come
- * through here with `message` chosen by lib/locked-content/copy.ts, so
- * there is one place a lock is explained and one sentence explaining it.
+ * EVERY LOCK, ONE SHEET (2026-08-27). This used to be the coach-assignment
+ * lock's private treatment, and a plan lock rendered its reason inline
+ * instead, in different words. Every lock now comes through here with
+ * `message` chosen by lib/locked-content/copy.ts, so there is one place a
+ * lock is explained and one sentence explaining it.
  */
 export function LockedCardButton({
   children,
@@ -61,7 +61,11 @@ export function LockedCardButton({
           if (analyticsFeature) {
             void trackPaywallViewAction({
               feature: analyticsFeature,
-              lockReason: lockReason ?? 'not_assigned',
+              // 'membership' is the honest default: since Build 2 every
+              // lock a member can hit on a card she has not started is her
+              // plan. It used to default to 'not_assigned', a lock reason
+              // the app no longer has.
+              lockReason: lockReason ?? 'membership',
             });
           }
         }}

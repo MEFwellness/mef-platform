@@ -19,6 +19,7 @@ import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { addDaysToLocalDate } from '../feed/dateMath';
 import { EVIDENCE_WINDOW_DAYS } from '../member-interpretation/config';
 import { computeDataFloor } from '../member-interpretation/dataFloor';
+import { countLoggedDays } from '../member-counts/checkinCounts';
 import { calculateRootScoreSnapshot } from './calculate';
 import {
   getLatestSnapshotBefore,
@@ -118,9 +119,7 @@ async function applyDataFloor(
     return snapshot;
   }
 
-  const loggedDays = new Set(
-    ((data ?? []) as Array<{ local_date: string }>).map((row) => row.local_date)
-  ).size;
+  const loggedDays = countLoggedDays((data ?? []) as Array<{ local_date: string }>);
   const floor = computeDataFloor(loggedDays);
   if (floor.met) return snapshot;
 

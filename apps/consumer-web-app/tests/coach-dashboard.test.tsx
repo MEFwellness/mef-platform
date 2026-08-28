@@ -53,6 +53,7 @@ function emptyDashboard(overrides: Partial<CoachDashboard> = {}): CoachDashboard
     inTheWay: [],
     askNext: [],
     loggedDays: 0,
+    loggedDaysWindow: 21,
     dataFloorStatement: null,
     ...overrides,
   };
@@ -105,8 +106,11 @@ describe('every section renders in its empty state, honestly', () => {
     expect(html).toContain('Nothing is asking for attention right now');
   });
 
-  it('names how little is logged rather than showing an empty reliability list', () => {
-    expect(html).toContain('0 logged days so far and nothing has been found yet');
+  it('names how little is logged, and over which span, rather than showing an empty reliability list', () => {
+    // Build 2 (2026-08-27): the count is over the evidence window, not all
+    // time, and the coach's screen now says so instead of "so far".
+    expect(html).toContain('checked in on 0 days in the last 21 days');
+    expect(html).toContain('nothing has been found yet');
   });
 
   it('says Root has set no priority today rather than showing a blank card', () => {

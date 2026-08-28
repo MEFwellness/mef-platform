@@ -13,7 +13,7 @@
  */
 
 import type { CoachingDomain } from '../investigation-engine/domains';
-import { MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM } from './config';
+import { EVIDENCE_WINDOW_DAYS, MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM } from './config';
 import { distinctCheckinDays } from './tiers';
 import type { DomainState, EvidenceItem, EvidenceTier, FindingVerdict } from './types';
 import { coachingDomainLabel } from '../naming/domainNames';
@@ -139,8 +139,22 @@ export function domainStatement(input: {
  * Deliberately in Case View's voice, which is the one surface the audit
  * called the best behaved in the app: it names how long it has been, names
  * how much has been logged, and says out loud that this is expected.
+ *
+ * IT NAMES ITS WINDOW (Build 2, 2026-08-27). This sentence said "You have
+ * 3 logged days so far", and "so far" reads as all time. It is not all
+ * time: it is the count inside the evidence window everything here is
+ * computed over. A member whose oldest check-in was more than three weeks
+ * back read "3 logged days so far" under her score and, in the same
+ * brief, Root saying "you've logged 4 check-ins with me so far". Both
+ * numbers were right and the words made them look like a contradiction.
+ * The count now says which days it counted, and the all-time figure
+ * (Today's YOUR TOTALS, Root's own tenure line, the Case View) keeps
+ * "so far". See lib/member-counts/checkinCounts.ts.
  */
-export function dataFloorStatement(loggedDays: number): string {
+export function dataFloorStatement(
+  loggedDays: number,
+  windowDays: number = EVIDENCE_WINDOW_DAYS
+): string {
   const dayWord = loggedDays === 1 ? 'day' : 'days';
-  return `You have ${loggedDays} logged ${dayWord} so far. I do not usually have enough to call something a strength or a problem this early, and that is expected, not a problem. It takes about ${MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM} logged days.`;
+  return `You have checked in on ${loggedDays} ${dayWord} in the last ${windowDays} days. I do not usually have enough to call something a strength or a problem this early, and that is expected, not a problem. It takes about ${MIN_LOGGED_DAYS_FOR_STRENGTH_OR_PROBLEM} logged days.`;
 }

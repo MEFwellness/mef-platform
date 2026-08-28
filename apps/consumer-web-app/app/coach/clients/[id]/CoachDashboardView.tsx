@@ -225,8 +225,9 @@ export function CoachDashboardView({
           </div>
         ) : (
           <Empty>
-            {her} has {dashboard.loggedDays} logged day
-            {dashboard.loggedDays === 1 ? '' : 's'} so far and nothing has been found yet.
+            {her} has checked in on {dashboard.loggedDays} day
+            {dashboard.loggedDays === 1 ? '' : 's'} in the last {dashboard.loggedDaysWindow} days
+            and nothing has been found yet.
           </Empty>
         )}
       </section>

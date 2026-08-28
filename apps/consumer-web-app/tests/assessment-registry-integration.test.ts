@@ -160,13 +160,12 @@ describe('registry catalog', () => {
 });
 
 describe('plan gating (trial / monthly / 24 week program)', () => {
-  // THE PLAN IS THE GATE (2026-08-27). Access is decided by the member's
-  // plan first and a coach assignment second, and nothing else opens a
-  // questionnaire: not a reassessment schedule, not a draft, not a prior
-  // completion. Which lock she meets therefore depends on which of the two
-  // she is missing, and the plan lock is reported first because it is the
-  // one that names something she can act on.
-  it('trial plan, nothing assigned: Four Doctors and Body Assessment are within the plan but coach-gated, Nutrition & Lifestyle is outside the plan', async () => {
+  // THE PLAN IS THE GATE (2026-08-27, corrected Build 2). Access is
+  // decided by the member's plan, a coach assignment may ADD access for
+  // one member, and nothing else opens a questionnaire: not a reassessment
+  // schedule, not a draft, not a prior completion, and no longer a
+  // coach-assign-only flag.
+  it('trial plan, nothing assigned: every clinical questionnaire is locked, and each names the plan it needs', async () => {
     await setPlan(memberOneId, 'trial');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
@@ -176,14 +175,17 @@ describe('plan gating (trial / monthly / 24 week program)', () => {
       facts.get('four-doctors')!
     );
     expect(fourDoctors.status).toBe('locked');
-    expect(fourDoctors.lockReason).toEqual({ kind: 'not_assigned' });
+    expect(fourDoctors.lockReason).toEqual({
+      kind: 'membership',
+      requiredLevel: 'holistic_reset',
+    });
 
     const body = calculateAssessmentStatus(
       findAssessmentRegistryEntry('body-assessment')!,
       facts.get('body-assessment')!
     );
     expect(body.status).toBe('locked');
-    expect(body.lockReason).toEqual({ kind: 'not_assigned' });
+    expect(body.lockReason).toEqual({ kind: 'membership', requiredLevel: 'holistic_reset' });
 
     const chek = calculateAssessmentStatus(
       findAssessmentRegistryEntry('chek-hlc1-nutrition-lifestyle')!,
@@ -193,7 +195,7 @@ describe('plan gating (trial / monthly / 24 week program)', () => {
     expect(chek.lockReason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
   });
 
-  it('monthly plan, nothing assigned: Nutrition & Lifestyle clears the plan and stays coach-gated', async () => {
+  it('monthly plan, nothing assigned: Nutrition & Lifestyle opens on the plan alone', async () => {
     await setPlan(memberOneId, 'monthly');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
@@ -201,8 +203,8 @@ describe('plan gating (trial / monthly / 24 week program)', () => {
       findAssessmentRegistryEntry('chek-hlc1-nutrition-lifestyle')!,
       facts.get('chek-hlc1-nutrition-lifestyle')!
     );
-    expect(chek.status).toBe('locked');
-    expect(chek.lockReason).toEqual({ kind: 'not_assigned' });
+    expect(chek.status).toBe('available');
+    expect(chek.lockReason).toBeNull();
   });
 
   it('no plan row at all fails CLOSED, to the most restrictive live plan, never to the most permissive', async () => {
@@ -231,7 +233,7 @@ describe('plan gating (trial / monthly / 24 week program)', () => {
     expect(facts.get('chek-hlc1-nutrition-lifestyle')!.membershipKey).toBe('free_trial');
   });
 
-  it('24 week program, nothing assigned: every coach-assign-only key stays locked, plan or no plan', async () => {
+  it('24 week program, nothing assigned: every clinical key is open on the plan alone', async () => {
     await setPlan(memberOneId, 'program');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
@@ -241,10 +243,12 @@ describe('plan gating (trial / monthly / 24 week program)', () => {
       'chek-hlc1-nutrition-lifestyle',
       'primal-pattern-diet-type',
       'body-assessment',
+      'wbsa',
+      'short-haq',
     ] as const) {
       const status = calculateAssessmentStatus(findAssessmentRegistryEntry(key)!, facts.get(key)!);
-      expect(status.status).toBe('locked');
-      expect(status.lockReason).toEqual({ kind: 'not_assigned' });
+      expect(status.status).toBe('available');
+      expect(status.lockReason).toBeNull();
     }
   });
 
@@ -268,12 +272,9 @@ describe('program phase gating (framework mechanism — no live assessment uses 
   it('a program-only, phase-gated definition locks a member not enrolled, and unlocks at the matching phase', () => {
     const phaseGated: AssessmentDefinition = {
       ...findAssessmentRegistryEntry('four-doctors')!,
-      // This test's own concern is program-phase gating in isolation —
-      // four-doctors' real requiresAssignment: true (Assignment-Gated
-      // Questionnaires task) would otherwise shadow every assertion below
-      // behind a not_assigned lock reason before program gating is ever
-      // reached.
-      requiresAssignment: false,
+      // This test's own concern is program-phase gating in isolation, so
+      // the plan is set to the top tier in the facts below and the plan
+      // check passes before program gating is reached.
       program: {
         programOnly: true,
         programKey: 'holistic_reset',
@@ -627,11 +628,8 @@ describe('assignment gating — DB-level enforcement (migration 144)', () => {
 });
 
 describe('server-side access enforcement (not UI-only)', () => {
-  it('blocks a member from starting an assignment-gated assessment directly by URL, even at a qualifying membership tier, with no assignment or prior progress', async () => {
-    // A monthly plan, so the plan rule is satisfied and this genuinely
-    // isolates the coach-assignment gate underneath it rather than
-    // re-testing the plan lock (see the plan gating block above).
-    await setPlan(memberOneId, 'monthly');
+  it('blocks a trial member from starting a Monthly questionnaire directly by URL', async () => {
+    await setPlan(memberOneId, 'trial');
     const client = await signInAs(TEST_USERS.memberOne);
     const access = await checkAssessmentAccess(
       client,
@@ -640,27 +638,27 @@ describe('server-side access enforcement (not UI-only)', () => {
     );
     expect(access.allowed).toBe(false);
     if (!access.allowed) {
-      expect(access.reason).toEqual({ kind: 'not_assigned' });
+      expect(access.reason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
     }
   });
 
-  it('blocks Primal Pattern directly by URL with no assignment (a real pre-existing gap: this route had zero access enforcement at all before this task)', async () => {
+  it('blocks Primal Pattern directly by URL on a trial plan (a real pre-existing gap: this route had zero access enforcement at all before the gate)', async () => {
+    await setPlan(memberOneId, 'trial');
     const client = await signInAs(TEST_USERS.memberOne);
     const access = await checkAssessmentAccess(client, memberOneId, 'primal-pattern-diet-type');
     expect(access.allowed).toBe(false);
     if (!access.allowed) {
-      expect(access.reason).toEqual({ kind: 'not_assigned' });
+      expect(access.reason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
     }
   });
 
   /**
    * READING HER OWN RESULTS AND STARTING A NEW ONE ARE DIFFERENT QUESTIONS
-   * (2026-08-27). One completion used to make a coach-assign-only
-   * questionnaire permanently self-serve: `checkAssessmentAccess` let
-   * through anybody whose completionStatus was not 'not_started', which is
-   * right for reading results and wrong for beginning a fresh attempt. The
-   * two intents split it. Her history is never hidden; it is also never a
-   * key.
+   * (2026-08-27). One completion used to make a gated questionnaire
+   * permanently self-serve: `checkAssessmentAccess` let through anybody
+   * whose completionStatus was not 'not_started', which is right for
+   * reading results and wrong for beginning a fresh attempt. The two
+   * intents split it. Her history is never hidden; it is also never a key.
    */
   it('a completed attempt keeps her results reachable forever, on any plan', async () => {
     const service = serviceRoleClient();
@@ -698,7 +696,9 @@ describe('server-side access enforcement (not UI-only)', () => {
       started_at: new Date(Date.now() - 600_000).toISOString(),
       completed_at: new Date().toISOString(),
     });
-    await setPlan(memberOneId, 'monthly');
+    // Her plan has since dropped back to a trial. The results stay open
+    // forever (the case above); starting another one does not.
+    await setPlan(memberOneId, 'trial');
 
     const client = await signInAs(TEST_USERS.memberOne);
     const access = await checkAssessmentAccess(
@@ -708,7 +708,9 @@ describe('server-side access enforcement (not UI-only)', () => {
       { intent: 'start' }
     );
     expect(access.allowed).toBe(false);
-    if (!access.allowed) expect(access.reason).toEqual({ kind: 'not_assigned' });
+    if (!access.allowed) {
+      expect(access.reason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
+    }
   });
 
   it('an open draft does not open it either', async () => {
@@ -719,7 +721,7 @@ describe('server-side access enforcement (not UI-only)', () => {
       status: 'in_progress',
       started_at: new Date().toISOString(),
     });
-    await setPlan(memberOneId, 'monthly');
+    await setPlan(memberOneId, 'trial');
 
     const client = await signInAs(TEST_USERS.memberOne);
     const access = await checkAssessmentAccess(
@@ -742,7 +744,7 @@ describe('server-side access enforcement (not UI-only)', () => {
       trigger_source: 'finding_change',
       trigger_context: { findingCodes: ['x'], confidence: 0.9 },
     });
-    await setPlan(memberOneId, 'monthly');
+    await setPlan(memberOneId, 'trial');
 
     const client = await signInAs(TEST_USERS.memberOne);
     const access = await checkAssessmentAccess(
@@ -752,7 +754,9 @@ describe('server-side access enforcement (not UI-only)', () => {
       { intent: 'start' }
     );
     expect(access.allowed).toBe(false);
-    if (!access.allowed) expect(access.reason).toEqual({ kind: 'not_assigned' });
+    if (!access.allowed) {
+      expect(access.reason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
+    }
   });
 
   it("an unknown assessment key is not this function's concern (page 404s separately)", async () => {
@@ -770,9 +774,10 @@ describe('reassessment schedules', () => {
     // TWO THINGS HAVE TO BE TRUE (2026-08-27), and this block is about the
     // case where both are. Core Values Snapshot rather than Four Doctors,
     // because a reassessment is only ever offered for something she may
-    // actually start again: Four Doctors is coach-assign-only, so a
-    // schedule against it is a suggestion to her coach and never a button
-    // on her screen. That case has its own test below.
+    // actually start again: Four Doctors is part of the 24 week program,
+    // so on a trial plan a schedule against it is a suggestion to her
+    // coach and never a button on her screen. That case has its own test
+    // below.
     const { error: attemptError } = await service.from('assessment_attempts').insert({
       member_id: memberOneId,
       assessment_definition_id: CVS_ID,

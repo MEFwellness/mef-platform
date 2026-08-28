@@ -3,8 +3,8 @@ import type { Route } from 'next';
 import { PersonStanding, CheckCircle2, Hourglass } from 'lucide-react';
 import type { BodyAssessment } from '@mef/shared-types-contracts';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
-import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
-import { COACH_LOCK_NOTE_MESSAGE } from '@/lib/locked-content/copy';
+import { LockedBadge } from '@/components/locked/LockedBadge';
+import { PROGRAM_PLAN_LOCK_MESSAGE } from '@/lib/locked-content/copy';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -51,16 +51,17 @@ export function MovementAssessmentCard({
   variant?: Variant;
   className?: string;
   /**
-   * Coach-Assign-Only Gating task (2026-08-04) — true when this member has
-   * no body assessment history and no pending coach assignment for it
-   * (see checkAssessmentAccess('body-assessment')). Only ever meaningful
-   * for the invite state below (no analyzed/submitted assessment exists
-   * yet) — a member with any real history is always let through by
+   * True when checkAssessmentAccess('body-assessment') says she may not
+   * start one. Since Build 2 (2026-08-27) that is her plan talking: the
+   * camera capture is part of the 24 week program, and a coach assignment
+   * can additionally open it for one member. Only ever meaningful for the
+   * invite state below (no analyzed/submitted assessment exists yet) — a
+   * member with any real history is always let through by
    * checkAssessmentAccess itself, so the analyzed/submitted branches above
    * never need to check this.
    */
   locked?: boolean;
-  /** Root's note for this exact lock, built by lib/locked-content/copy.ts's lockNoteMessage. Required whenever `locked` is true. */
+  /** Root's note for this exact lock, built by lib/locked-content/copy.ts's lockNoteMessage. Required whenever `locked` is true; the fallback is the 24 week program sentence, which is what this particular card's lock always is. */
   lockMessage?: string | undefined;
   /** Which lock this is, for the paywall analytics event. */
   lockReason?: string | undefined;
@@ -170,13 +171,13 @@ export function MovementAssessmentCard({
           <LockedCardButton
             ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it."
             analyticsFeature="body-assessment"
-            message={lockMessage ?? COACH_LOCK_NOTE_MESSAGE}
+            message={lockMessage ?? PROGRAM_PLAN_LOCK_MESSAGE}
             lockReason={lockReason}
             planHref={lockPlanHref}
           >
             {body}
           </LockedCardButton>
-          <CoachLockBadge />
+          <LockedBadge />
         </div>
       );
     }
@@ -224,13 +225,13 @@ export function MovementAssessmentCard({
         <LockedCardButton
           ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it."
           analyticsFeature="body-assessment"
-          message={lockMessage ?? COACH_LOCK_NOTE_MESSAGE}
+          message={lockMessage ?? PROGRAM_PLAN_LOCK_MESSAGE}
           lockReason={lockReason}
           planHref={lockPlanHref}
         >
           {plainBody}
         </LockedCardButton>
-        <CoachLockBadge />
+        <LockedBadge />
       </div>
     );
   }

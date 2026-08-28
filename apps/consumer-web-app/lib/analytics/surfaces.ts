@@ -205,6 +205,13 @@ export function isPriorityAction(value: unknown): value is PriorityActionSlug {
  */
 export const PAYWALL_LOCK_REASONS = [
   'membership',
+  /**
+   * RETIRED AS A CAUSE, KEPT AS A WORD (Build 2, 2026-08-27). Nothing in
+   * the app emits this any more: the coach-assign-only lock it named is
+   * gone and a missing assignment locks nothing. It stays in the list so
+   * the events already stored under it can still be read and validated,
+   * and it must not be reused for a new meaning.
+   */
   'not_assigned',
   'program_enrollment',
   'program_phase',

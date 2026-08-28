@@ -126,10 +126,33 @@ export function checkinRecency(latest: DailyCheckin | null, localDate: string): 
   return 'earlier';
 }
 
-function datedSentence(phrase: string, recency: 'yesterday' | 'earlier'): string {
-  return recency === 'yesterday'
-    ? `Yesterday you logged ${phrase}.`
-    : `You logged ${phrase} at your last check-in.`;
+/** How many days back the latest check-in is, from the member's own local date. Zero or less when it is today. */
+function daysSinceCheckin(latest: DailyCheckin | null, localDate: string): number {
+  if (!latest) return 0;
+  return Math.max(0, daysBetweenLocalDates(latest.local_date, localDate));
+}
+
+/**
+ * The stem of the "earlier" sentence, without its day count.
+ *
+ * Kept separate because the count varies, and the read-time recomposition
+ * below has to be able to recognise a line this module wrote no matter
+ * which number it wrote it with.
+ */
+function earlierStem(phrase: string): string {
+  return `You logged ${phrase} at your last check-in`;
+}
+
+/**
+ * C8 (2026-08-27): "You logged only fair sleep at your last check-in" sat
+ * directly under "I'm glad you're back", ten days after the check-in it is
+ * about, and never said so. A reading with no date on it reads as a
+ * reading from now. The gap was already computed one function up; it is
+ * now said out loud.
+ */
+function datedSentence(phrase: string, recency: 'yesterday' | 'earlier', daysAgo: number): string {
+  if (recency === 'yesterday') return `Yesterday you logged ${phrase}.`;
+  return `${earlierStem(phrase)}, ${daysAgo} days ago.`;
 }
 
 /**
@@ -145,21 +168,24 @@ function datedSentence(phrase: string, recency: 'yesterday' | 'earlier'): string
  * Enumerable because the vocabulary is closed: three statuses times four
  * shapes (today, yesterday, earlier, and the phrase alone).
  */
-function allCheckinSentences(
+function checkinSentenceMatcher(
   present: Record<'good' | 'attention' | 'poor', string>,
   phrase: Record<'good' | 'attention' | 'poor', string>
-): Set<string> {
-  const out = new Set<string>();
+): (line: string) => boolean {
+  const exact = new Set<string>();
+  const stems: string[] = [];
   for (const status of ['good', 'attention', 'poor'] as const) {
-    out.add(present[status]);
-    out.add(datedSentence(phrase[status], 'yesterday'));
-    out.add(datedSentence(phrase[status], 'earlier'));
+    exact.add(present[status]);
+    exact.add(`Yesterday you logged ${phrase[status]}.`);
+    // The "earlier" sentence now carries a day count, so it is matched by
+    // its stem rather than enumerated: one stem per status, still closed.
+    stems.push(earlierStem(phrase[status]));
   }
-  return out;
+  return (line: string) => exact.has(line) || stems.some((stem) => line.startsWith(stem));
 }
 
-const CHECKIN_SLEEP_SENTENCES = allCheckinSentences(SLEEP_SENTENCE, SLEEP_PHRASE);
-const CHECKIN_STRESS_SENTENCES = allCheckinSentences(STRESS_SENTENCE, STRESS_PHRASE);
+const isCheckinSleepSentence = checkinSentenceMatcher(SLEEP_SENTENCE, SLEEP_PHRASE);
+const isCheckinStressSentence = checkinSentenceMatcher(STRESS_SENTENCE, STRESS_PHRASE);
 
 /**
  * The Daily Brief, brought up to date at READ time.
@@ -209,14 +235,15 @@ export function recomposeCheckinLines<
   coachingRecommendation?: string | null
 ): T {
   const recency = checkinRecency(latestCheckin, localDate);
+  const daysAgo = daysSinceCheckin(latestCheckin, localDate);
 
   const sleep =
-    brief.sleep_summary === null || CHECKIN_SLEEP_SENTENCES.has(brief.sleep_summary)
-      ? checkinSleepSummary(latestCheckin, recency)
+    brief.sleep_summary === null || isCheckinSleepSentence(brief.sleep_summary)
+      ? checkinSleepSummary(latestCheckin, recency, daysAgo)
       : brief.sleep_summary;
   const stress =
-    brief.stress_summary === null || CHECKIN_STRESS_SENTENCES.has(brief.stress_summary)
-      ? checkinStressSummary(latestCheckin, recency)
+    brief.stress_summary === null || isCheckinStressSentence(brief.stress_summary)
+      ? checkinStressSummary(latestCheckin, recency, daysAgo)
       : brief.stress_summary;
 
   // Never turn a line the brief had into nothing: if the recomposition
@@ -230,22 +257,30 @@ export function recomposeCheckinLines<
   };
 }
 
-function checkinSleepSummary(latest: DailyCheckin | null, recency: CheckinRecency | null): string | null {
+function checkinSleepSummary(
+  latest: DailyCheckin | null,
+  recency: CheckinRecency | null,
+  daysAgo: number
+): string | null {
   if (!latest || recency === null || latest.sleep_quality === null) return null;
   const status = sleepQualityStatus(latest.sleep_quality);
   if (status === 'no-data') return null;
   return recency === 'today'
     ? SLEEP_SENTENCE[status]
-    : datedSentence(SLEEP_PHRASE[status], recency);
+    : datedSentence(SLEEP_PHRASE[status], recency, daysAgo);
 }
 
-function checkinStressSummary(latest: DailyCheckin | null, recency: CheckinRecency | null): string | null {
+function checkinStressSummary(
+  latest: DailyCheckin | null,
+  recency: CheckinRecency | null,
+  daysAgo: number
+): string | null {
   if (!latest || recency === null || latest.stress_level === null) return null;
   const status = stressStatus(latest.stress_level);
   if (status === 'no-data') return null;
   return recency === 'today'
     ? STRESS_SENTENCE[status]
-    : datedSentence(STRESS_PHRASE[status], recency);
+    : datedSentence(STRESS_PHRASE[status], recency, daysAgo);
 }
 
 /**
@@ -287,6 +322,7 @@ export function composeMorningBrief(signals: MorningBriefSignals): ComposedMorni
   } = signals;
   const latestCheckin = recentCheckins[recentCheckins.length - 1] ?? null;
   const recency = checkinRecency(latestCheckin, localDate);
+  const daysAgo = daysSinceCheckin(latestCheckin, localDate);
 
   // A real, multi-week/multi-day trend always outranks today's snapshot —
   // this is the difference between "here are today's numbers" and "I've
@@ -298,11 +334,11 @@ export function composeMorningBrief(signals: MorningBriefSignals): ComposedMorni
   const sleepSummary =
     sleepTrend?.member_summary ??
     decision.wearableBrief?.sleepRecommendation ??
-    checkinSleepSummary(latestCheckin, recency);
+    checkinSleepSummary(latestCheckin, recency, daysAgo);
   const stressSummary =
     stressTrend?.member_summary ??
     decision.wearableBrief?.stressRecommendation ??
-    checkinStressSummary(latestCheckin, recency);
+    checkinStressSummary(latestCheckin, recency, daysAgo);
   const recoverySummary =
     decision.wearableBrief?.recoveryStatus ?? recoveryTrend?.member_summary ?? null;
 

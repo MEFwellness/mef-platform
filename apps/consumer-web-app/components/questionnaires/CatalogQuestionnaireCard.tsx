@@ -18,15 +18,7 @@ import type { CatalogCard } from '@/app/actions/questionnaireCatalog';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
 import { Card } from '@/components/layout';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
-import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
-import {
-  COACH_LOCK_NOTE_MESSAGE,
-  MONTHLY_PLAN_LOCK_MESSAGE,
-  PROGRAM_ENROLLMENT_LOCK_MESSAGE,
-  PROGRAM_PHASE_LOCK_MESSAGE,
-  PROGRAM_PLAN_LOCK_MESSAGE,
-  PREREQUISITE_LOCK_MESSAGE,
-} from '@/lib/locked-content/copy';
+import { LockedBadge } from '@/components/locked/LockedBadge';
 import { UNBUILT_PLACEHOLDER_LABEL, showUnbuiltPlaceholder } from '@/lib/naming/unbuiltPlaceholders';
 
 const PRIMARY_BUTTON =
@@ -171,26 +163,6 @@ function CardBody({ card, action, isLocked }: { card: CatalogCard; action: Retur
   );
 }
 
-/** Root's note for this card's lock. The card only ever knows the kind, so this is the one place the kind becomes a sentence. */
-function noteForLock(card: CatalogCard): string {
-  switch (card.flags.lockReasonKind) {
-    case 'not_assigned':
-      return COACH_LOCK_NOTE_MESSAGE;
-    case 'membership':
-      return card.flags.lockRequiredLevel === 'holistic_reset'
-        ? PROGRAM_PLAN_LOCK_MESSAGE
-        : MONTHLY_PLAN_LOCK_MESSAGE;
-    case 'program_enrollment':
-      return PROGRAM_ENROLLMENT_LOCK_MESSAGE;
-    case 'program_phase':
-      return PROGRAM_PHASE_LOCK_MESSAGE;
-    case 'prerequisite':
-      return PREREQUISITE_LOCK_MESSAGE;
-    default:
-      return COACH_LOCK_NOTE_MESSAGE;
-  }
-}
-
 export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
   const action = primaryAction(card);
   const isLocked = card.flags.locked;
@@ -201,7 +173,13 @@ export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
         <LockedCardButton
           ariaLabel={`${card.title}, locked. Tap to hear from Root about it.`}
           analyticsFeature={card.key}
-          message={noteForLock(card)}
+          /* The note is built once, server side, by
+             lib/assessment-registry/catalog.ts, so this card and every
+             other surface explaining the same lock say the same sentence.
+             A locked card always carries one; the empty fallback exists
+             only to satisfy the type and shows nothing rather than a
+             sentence that might not be true. */
+          message={card.flags.lockNote ?? ''}
           lockReason={card.flags.lockReasonKind ?? 'membership'}
           planHref={card.flags.lockReasonKind === 'membership' ? '/membership' : undefined}
         >
@@ -209,7 +187,7 @@ export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
             <CardBody card={card} action={action} isLocked />
           </Card>
         </LockedCardButton>
-        <CoachLockBadge />
+        <LockedBadge />
       </div>
     );
   }

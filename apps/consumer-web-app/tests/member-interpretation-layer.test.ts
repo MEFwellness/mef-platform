@@ -469,7 +469,11 @@ describe('the data floor', () => {
 
   it('says it is early and expected, in the Case View voice, rather than staying silent', () => {
     const floor = computeDataFloor(3);
-    expect(floor.statement).toContain('3 logged days');
+    // A4 (Build 2, 2026-08-27): the sentence used to say "3 logged days so
+    // far", and "so far" reads as all time when the count is over the
+    // evidence window. It names the window now.
+    expect(floor.statement).toContain('3 days in the last 21 days');
+    expect(floor.statement).not.toContain('so far');
     expect(floor.statement).toContain('expected, not a problem');
     expect(floor.statement).not.toContain('—');
   });

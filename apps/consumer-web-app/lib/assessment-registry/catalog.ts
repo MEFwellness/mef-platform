@@ -12,14 +12,12 @@
  * of Completed into Available/Premium (flagged "Reassessment due") instead
  * of sitting inert in a "Scheduled" bucket forever.
  *
- * Coach-Assign-Only Gating task (2026-08-04): a `requiresAssignment`
- * assessment nobody has assigned yet used to categorize into its own
- * invisible `hidden` section (a member saw nothing at all). It's now the
- * same pattern as every other lock reason above — a real, visible, locked
- * card in Available/Premium (`flags.locked = true`,
- * `flags.lockReasonKind = 'not_assigned'`) — per the explicit product
- * requirement that gating be visible, not invisible. `CatalogSection` no
- * longer has a `hidden` member at all.
+ * THE PLAN CHOOSES THE SECTION (Build 2, 2026-08-27). `isPremium` below
+ * is exactly "her plan does not include this at trial level", which is
+ * also exactly what locks the card, so a card can no longer sit in a
+ * section that contradicts the sentence printed on it. Gating is visible,
+ * never invisible: a locked item is a real, dimmed, tappable card in
+ * Premium, and `CatalogSection` has no `hidden` member at all.
  *
  * Reads the exact same facts (facts.ts) and definitions (registry.ts) that
  * calculateAssessmentStatus does — no new tables, no new query shape, just
@@ -29,6 +27,7 @@
  * path for questionnaire status.
  */
 
+import { lockNoteMessage } from '@/lib/locked-content/copy';
 import type { AssessmentDefinition, AssessmentKey, MembershipKey } from './types';
 import {
   calculateLockReason,
@@ -44,10 +43,12 @@ export type CatalogSection = 'assigned' | 'completed' | 'premium' | 'available';
 export type CatalogFlags = {
   locked: boolean;
   lockMessage: string | null;
-  /** Which kind of lock this is, when locked (see LockReason). Coach-Assign-Only Gating task (2026-08-04): a card's UI needs to tell "not assigned by a coach yet" apart from a membership-tier/program/prerequisite lock, since only the former gets the dimmed/gold-marker/tap-to-reveal treatment — the others keep their existing "Locked" pill + upgrade prompt. */
+  /** Which kind of lock this is, when locked (see LockReason). Carried for the paywall analytics event and for deciding whether the sheet offers a plan link, never for choosing the sentence: that is `lockNote`. */
   lockReasonKind: LockReason['kind'] | null;
   /** Which plan level a membership lock is waiting on, so the card's note can name the plan without parsing a sentence. Null for every other lock kind. */
   lockRequiredLevel: MembershipKey | null;
+  /** Root's note for this exact lock, from lib/locked-content/copy.ts, computed here so the card that shows it and the sheet that explains it cannot drift into two different sentences. Null whenever the card is not locked. */
+  lockNote: string | null;
   comingSoon: boolean;
   /** She has an open draft and has NEVER finished this one. A draft sitting on top of a completed assessment is `retakeInProgress` instead, so a card can never lose its completed state to a stray draft. */
   inProgress: boolean;
@@ -75,8 +76,8 @@ export type CatalogEntry = {
 function isReassessmentDue(facts: MemberAssessmentFacts, now: Date): boolean {
   return Boolean(
     hasEverCompleted(facts) &&
-      facts.pendingReassessmentSchedule &&
-      new Date(facts.pendingReassessmentSchedule.dueAt) <= now
+    facts.pendingReassessmentSchedule &&
+    new Date(facts.pendingReassessmentSchedule.dueAt) <= now
   );
 }
 
@@ -98,6 +99,7 @@ export function categorizeForCatalog(
         lockMessage: null,
         lockReasonKind: null,
         lockRequiredLevel: null,
+        lockNote: null,
         comingSoon: true,
         inProgress: false,
         retakeInProgress: false,
@@ -120,6 +122,7 @@ export function categorizeForCatalog(
         lockMessage: null,
         lockReasonKind: null,
         lockRequiredLevel: null,
+        lockNote: null,
         comingSoon: false,
         inProgress: facts.completionStatus === 'in_progress' && !hasEverCompleted(facts),
         retakeInProgress: hasRetakeInProgress(facts),
@@ -130,15 +133,6 @@ export function categorizeForCatalog(
     };
   }
 
-  // Coach-Assign-Only Gating task (2026-08-04): a `requiresAssignment`
-  // assessment nobody has assigned yet is now a *visible, locked* card,
-  // not an invisible one (see CatalogQuestionnaireCard for the dimmed/
-  // gold-marker/tap-to-reveal rendering) — calculateLockReason already
-  // returns `{ kind: 'not_assigned' }` for exactly this condition, so it
-  // falls straight through into the same locked-card path every other
-  // lock reason (membership/program/prerequisite) already used below.
-  // Never hides a member's own in-progress draft or completed history —
-  // pendingAssignment/completionStatus are checked first, same as before.
   const lockReason = calculateLockReason(definition, facts, completedPrerequisiteKeys);
   const reassessmentDue = isReassessmentDue(facts, now);
   // COMPLETION IS PERMANENT (2026-08-27). Reading `completionStatus` alone
@@ -157,6 +151,8 @@ export function categorizeForCatalog(
   // card is how she reaches her own results. What she may not do is begin
   // again: that is `retakeAvailable` below, which reads the lock directly.
   const lockedForStarting = Boolean(lockReason);
+  /** Locked by something she cannot resolve today: her plan, or her program enrolment. A prerequisite is not one of these. */
+  const outsideHerPlan = Boolean(lockReason) && lockReason!.kind !== 'prerequisite';
   const hasOwnHistory = hasEverCompleted(facts);
 
   return {
@@ -169,8 +165,24 @@ export function categorizeForCatalog(
         lockedForStarting && !hasOwnHistory && lockReason!.kind === 'membership'
           ? lockReason!.requiredLevel
           : null,
+      lockNote: lockedForStarting && !hasOwnHistory ? lockNoteMessage(lockReason!) : null,
       comingSoon: false,
-      inProgress: facts.completionStatus === 'in_progress' && !hasEverCompleted(facts),
+      // A CARD HER PLAN DOES NOT REACH IS NOT "IN PROGRESS" (Build 2,
+      // 2026-08-27). The card was still reporting inProgress for a draft
+      // on a questionnaire she cannot start, which put "0 of 91 questions
+      // answered" inside the dimmed card and told the free-arc and
+      // priority cards to say "Continue". The real production case is one
+      // member's abandoned, zero-answer Whole-Body Check-In on a plan that
+      // does not include it. The draft is not deleted, the overview screen
+      // still lets her reach anything of her own (access.ts's 'view'
+      // intent), and nothing of hers is lost. It simply stops being an
+      // invitation to something she does not have.
+      //
+      // A PREREQUISITE lock is deliberately excluded: that is a step she
+      // can finish today, not a plan she is outside of, and her draft of
+      // the step after it is genuinely hers to pick up once she has.
+      inProgress:
+        !outsideHerPlan && facts.completionStatus === 'in_progress' && !hasEverCompleted(facts),
       retakeInProgress: hasRetakeInProgress(facts),
       reassessmentDueAt: reassessmentDue ? facts.pendingReassessmentSchedule!.dueAt : null,
       scheduledAt:

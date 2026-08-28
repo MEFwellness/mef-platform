@@ -33,6 +33,7 @@ import type { CoachingDomain } from '../investigation-engine/domains';
 import { todaysLocalDate } from '../time/localDate';
 import { EVIDENCE_WINDOW_DAYS } from './config';
 import { computeDataFloor } from './dataFloor';
+import { countLoggedDays } from '@/lib/member-counts/checkinCounts';
 import { buildDomainInterpretations } from './domains';
 import { INTERPRETATION_CHECKIN_COLUMNS, type InterpretationCheckin } from './evidence';
 import { buildCanonicalFindings } from './findings';
@@ -112,7 +113,8 @@ export async function buildMemberInterpretation(
     loggedDaysByDomain[domain as CoachingDomain] = value?.count ?? null;
   }
 
-  const loggedDays = new Set(checkins.map((c) => c.local_date)).size;
+  // The one definition of the count (lib/member-counts/checkinCounts.ts).
+  const loggedDays = countLoggedDays(checkins);
 
   return {
     findings: suppressed ? [] : findings,

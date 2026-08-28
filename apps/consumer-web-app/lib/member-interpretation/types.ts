@@ -237,7 +237,14 @@ export type MemberFocus = {
  * Case View voice, rather than ranking five thin averages.
  */
 export type DataFloor = {
+  /** Distinct days with a check-in INSIDE `windowDays`, never all time. */
   loggedDays: number;
+  /**
+   * How many days `loggedDays` was counted over. Carried so any surface
+   * printing the count can name the span, which is the whole reason Home
+   * and Root's own line looked like they disagreed (Build 2, 2026-08-27).
+   */
+  windowDays: number;
   requiredDays: number;
   met: boolean;
   /** The honest sentence to show when the floor is not met. */

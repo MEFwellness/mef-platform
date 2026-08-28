@@ -119,8 +119,10 @@ export type CoachDashboard = {
   workingOn: WorkingOn | null;
   inTheWay: InTheWayItem[];
   askNext: AskNextItem[];
-  /** How many logged days are behind everything above. Stated plainly rather than implied. */
+  /** How many logged days are behind everything above, counted over `loggedDaysWindow` and never all time. Stated plainly rather than implied. */
   loggedDays: number;
+  /** The span `loggedDays` was counted over, so the coach's screen names it rather than letting a coach read a 21 day count as a lifetime one (Build 2, 2026-08-27). */
+  loggedDaysWindow: number;
   /** The honest sentence when there is not enough logged to call anything. */
   dataFloorStatement: string | null;
 };
