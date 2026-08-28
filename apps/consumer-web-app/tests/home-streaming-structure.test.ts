@@ -105,6 +105,15 @@ describe('the placeholders are the brand settling, not a spinner circus', () => 
     expect(HOME).not.toMatch(/animate-spin|Loader2|Spinner/);
   });
 
+  it('the route placeholder is Home-shaped, so the hero does not arrive as a whole screen of movement', () => {
+    const loading = read('app/dashboard/loading.tsx');
+    expect(loading).toContain('<HomeShellPlaceholder />');
+    expect(loading).not.toMatch(/import .*PageSkeleton/);
+    // The hero band it reserves is the hero's own height.
+    expect(PLACEHOLDERS).toContain('min-h-[440px]');
+    expect(read('components/dashboard/HomeHero.tsx')).toContain('min-h-[440px]');
+  });
+
   it('every placeholder is hidden from a screen reader and countable by a verification run', () => {
     const blocks = PLACEHOLDERS.match(/data-settling="true"/g) ?? [];
     const hidden = PLACEHOLDERS.match(/aria-hidden="true"/g) ?? [];
