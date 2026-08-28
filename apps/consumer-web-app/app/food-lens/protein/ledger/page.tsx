@@ -13,6 +13,7 @@ import { ProteinLedgerEntries, type LedgerEntryRow } from '@/components/protein-
 import { ProteinLedgerHistory } from '@/components/protein-ledger/ProteinLedgerHistory';
 import { resolveLedgerTargetDisplay } from '@/lib/protein/ledger';
 import { Fade } from '@/components/motion';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 export default async function ProteinLedgerPage() {
   const supabase = createClient();
@@ -21,9 +22,11 @@ export default async function ProteinLedgerPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [today, history] = await Promise.all([
+  const [today, history, timeZone] = await Promise.all([
     getProteinLedgerTodayAction(),
     getProteinLedgerHistoryAction(),
+    // The time against each logged entry is her clock. See lib/time/displayDate.ts.
+    memberTimezone(supabase, user.id),
   ]);
   if (!today) redirect('/login');
 
@@ -64,7 +67,7 @@ export default async function ProteinLedgerPage() {
           <div className="mt-4 space-y-4">
             <ProteinLedgerProgress targetState={today.targetState} totalGrams={today.totalGrams} />
             <ProteinEntryLanes />
-            <ProteinLedgerEntries entries={entryRows} />
+            <ProteinLedgerEntries entries={entryRows} timeZone={timeZone} />
             <ProteinLedgerHistory days={history} targetGrams={targetGrams} />
           </div>
         </Fade>

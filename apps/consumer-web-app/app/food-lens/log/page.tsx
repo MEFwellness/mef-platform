@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { listTodayFoodLogAction } from '@/app/actions/food-products';
 import { FoodLogList } from '@/components/food-products/FoodLogList';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 export default async function TodayFoodLogPage() {
   const supabase = createClient();
@@ -13,7 +14,12 @@ export default async function TodayFoodLogPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const entries = await listTodayFoodLogAction();
+  const [entries, timeZone] = await Promise.all([
+    listTodayFoodLogAction(),
+    // The clock beside each entry, and the clock inside the edit field,
+    // are both hers. See lib/time/displayDate.ts.
+    memberTimezone(supabase, user.id),
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -31,7 +37,7 @@ export default async function TodayFoodLogPage() {
         </h1>
 
         <div className="mt-6">
-          <FoodLogList entries={entries} />
+          <FoodLogList entries={entries} timeZone={timeZone} />
         </div>
       </main>
     </div>

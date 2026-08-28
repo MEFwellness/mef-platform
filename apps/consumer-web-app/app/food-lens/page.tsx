@@ -29,6 +29,8 @@ import { getProteinLedgerTodayAction } from '@/app/actions/protein-ledger';
 import { ProteinLedgerProgress } from '@/components/protein-ledger/ProteinLedgerProgress';
 import { PrimalPatternSetupBanner } from '@/components/food-lens/PrimalPatternSetupBanner';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { formatInTimeZone } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -41,12 +43,9 @@ const STATUS_LABEL: Record<string, string> = {
   member_reviewed: 'Reviewed',
 };
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+/** A scan's `created_at` is an instant. Her zone, so a late-evening scan is not listed under tomorrow. */
+function formatDate(iso: string, timeZone: string): string {
+  return formatInTimeZone(iso, { weekday: 'short', month: 'short', day: 'numeric' }, timeZone);
 }
 
 /** Where a recent scan's row should link — the unified product result page for anything with a resolved product, the label confirm screen for one still awaiting confirmation, and the meal-photo result page otherwise. */
@@ -102,12 +101,13 @@ export default async function FoodLensPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, scans, pattern, dailyCoaching, proteinLedgerToday] = await Promise.all([
+  const [isCoach, scans, pattern, dailyCoaching, proteinLedgerToday, timeZone] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     listMyFoodLensScansAction(),
     getActivePrimalPatternProfileAction(),
     getTodaysCoachingMessageAction(),
     getProteinLedgerTodayAction(),
+    memberTimezone(supabase, user.id),
   ]);
 
   const proteinTargetState = proteinLedgerToday?.targetState ?? null;
@@ -288,7 +288,7 @@ export default async function FoodLensPage() {
                       <p className="truncate text-sm font-medium text-[#1B3A2D]">
                         {scan.headline ?? FALLBACK_SCAN_LABEL[scan.scanType] ?? 'Scan'}
                       </p>
-                      <p className="mt-0.5 text-xs text-[#6B7A72]">{formatDate(scan.createdAt)}</p>
+                      <p className="mt-0.5 text-xs text-[#6B7A72]">{formatDate(scan.createdAt, timeZone)}</p>
                     </div>
                     <span className="shrink-0 rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs font-medium text-[#1B3A2D]">
                       {STATUS_LABEL[scan.status] ?? scan.status}

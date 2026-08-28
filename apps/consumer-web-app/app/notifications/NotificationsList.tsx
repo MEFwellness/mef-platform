@@ -5,16 +5,33 @@ import { useRouter } from 'next/navigation';
 import { Circle } from 'lucide-react';
 import type { Notification } from '@mef/shared-types-contracts';
 import { markMyNotificationRead } from '@/app/actions/notifications';
+import { formatInTimeZone } from '@/lib/time/displayDate';
 
-function formatWhen(createdAt: string): string {
-  return new Date(createdAt).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+/**
+ * `created_at` is an instant, so the day it fell on depends on where it is
+ * read. This used to call toLocaleDateString with no zone at all, which
+ * resolves against whatever zone the runtime is in: UTC on the server,
+ * hers in the browser, two different strings for one row and a hydration
+ * mismatch the moment she has a notification near midnight. Her own zone
+ * is resolved on the server and handed down, so both passes agree AND the
+ * date is the one she actually lived.
+ */
+function formatWhen(createdAt: string, timeZone: string): string {
+  return formatInTimeZone(
+    createdAt,
+    { month: 'short', day: 'numeric', year: 'numeric' },
+    timeZone
+  );
 }
 
-export function NotificationsList({ notifications }: { notifications: Notification[] }) {
+export function NotificationsList({
+  notifications,
+  timeZone,
+}: {
+  notifications: Notification[];
+  /** The member's own timezone, resolved on the server. See formatWhen above. */
+  timeZone: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -46,7 +63,7 @@ export function NotificationsList({ notifications }: { notifications: Notificati
             {notification.body && (
               <p className="mt-1 text-sm leading-relaxed text-[#6B7A72]">{notification.body}</p>
             )}
-            <p className="mt-1 text-xs text-[#6B7A72]/70">{formatWhen(notification.created_at)}</p>
+            <p className="mt-1 text-xs text-[#6B7A72]/70">{formatWhen(notification.created_at, timeZone)}</p>
           </div>
         </button>
       ))}

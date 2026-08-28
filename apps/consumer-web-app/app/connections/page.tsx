@@ -7,6 +7,7 @@ import { BackButton } from '@/components/BackButton';
 import { getMyWearableConnections } from '@/app/actions/wearables';
 import { WEARABLE_PROVIDER_NAMES } from '@/lib/wearables/providers/registry';
 import { WearableConnectionCard } from './WearableConnectionCard';
+import { memberTimezone } from '@/lib/time/memberToday';
 import { Card } from '@/components/layout';
 
 export default async function ConnectionsPage() {
@@ -16,8 +17,12 @@ export default async function ConnectionsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const isCoach = await hasActiveRole(supabase, user.id, 'coach');
-  const connections = await getMyWearableConnections();
+  const [isCoach, connections, timeZone] = await Promise.all([
+    hasActiveRole(supabase, user.id, 'coach'),
+    getMyWearableConnections(),
+    // "Last synced" is her clock, not the server's. See lib/time/displayDate.ts.
+    memberTimezone(supabase, user.id),
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -50,6 +55,7 @@ export default async function ConnectionsPage() {
               key={provider}
               provider={provider}
               connection={connections.find((c) => c.provider === provider) ?? null}
+              timeZone={timeZone}
             />
           ))}
         </div>

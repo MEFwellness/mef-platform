@@ -10,6 +10,7 @@ import {
   syncWearableProviderAction,
 } from '@/app/actions/wearables';
 import { Card } from '@/components/layout';
+import { formatInTimeZone } from '@/lib/time/displayDate';
 
 const PROVIDER_ICON: Record<WearableProviderName, typeof Watch> = {
   oura: Watch,
@@ -23,18 +24,32 @@ const PROVIDER_LABEL: Record<WearableProviderName, string> = {
   google_fit: 'Google Fit',
 };
 
-function formatLastSynced(lastSyncedAt: string | null): string {
+/**
+ * A sync instant, said as her day and her clock. Both halves used to
+ * resolve against whatever zone the runtime happened to be in, so this one
+ * line produced two different strings for one sync and would have thrown a
+ * hydration error the first time a member connected a device.
+ */
+function formatLastSynced(lastSyncedAt: string | null, timeZone: string): string {
   if (!lastSyncedAt) return 'Never synced';
-  const date = new Date(lastSyncedAt);
-  return `Last synced ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+  const day = formatInTimeZone(lastSyncedAt, { month: 'short', day: 'numeric' }, timeZone);
+  const time = formatInTimeZone(
+    lastSyncedAt,
+    { hour: 'numeric', minute: '2-digit' },
+    timeZone
+  );
+  return `Last synced ${day} at ${time}`;
 }
 
 export function WearableConnectionCard({
   provider,
   connection,
+  timeZone,
 }: {
   provider: WearableProviderName;
   connection: WearableConnection | null;
+  /** The member's own timezone, resolved on the server. See formatLastSynced above. */
+  timeZone: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -72,7 +87,7 @@ export function WearableConnectionCard({
                   aria-hidden="true"
                 />
                 {connection?.provider_status === 'active'
-                  ? formatLastSynced(connection.last_synced_at)
+                  ? formatLastSynced(connection.last_synced_at, timeZone)
                   : 'Connected, waiting on integration to go live'}
               </p>
             ) : (

@@ -6,13 +6,21 @@ import { MessageCircleHeart, Circle } from 'lucide-react';
 import type { Notification } from '@mef/shared-types-contracts';
 import { markMyNotificationRead } from '@/app/actions/notifications';
 import { Card } from '@/components/layout';
+import { formatInTimeZone } from '@/lib/time/displayDate';
 
-function formatWhen(createdAt: string): string {
-  const date = new Date(createdAt);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+/** Same rule as app/notifications/NotificationsList.tsx: an instant needs a named zone, and hers is the right one. */
+function formatWhen(createdAt: string, timeZone: string): string {
+  return formatInTimeZone(createdAt, { month: 'short', day: 'numeric' }, timeZone);
 }
 
-export function CoachMessages({ notifications }: { notifications: Notification[] }) {
+export function CoachMessages({
+  notifications,
+  timeZone,
+}: {
+  notifications: Notification[];
+  /** The member's own timezone, resolved on the server. */
+  timeZone: string;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -52,7 +60,7 @@ export function CoachMessages({ notifications }: { notifications: Notification[]
                 <p className="mt-1 text-sm leading-relaxed text-[#6B7A72]">{notification.body}</p>
               )}
               <p className="mt-1 text-xs text-[#6B7A72]/70">
-                {formatWhen(notification.created_at)}
+                {formatWhen(notification.created_at, timeZone)}
               </p>
             </div>
           </button>

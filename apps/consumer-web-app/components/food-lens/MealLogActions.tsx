@@ -15,26 +15,36 @@ import { logMealScanToFoodLogAction } from '@/app/actions/food-lens';
 import { saveMealFromScanAction } from '@/app/actions/food-search';
 import type { MealCategory } from '@mef/shared-types-contracts';
 import { SuccessCheck } from '@/components/motion/SuccessCheck';
+import { zonedInputValueToInstant } from '@/lib/time/localDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const MEAL_CATEGORIES: MealCategory[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
-function nowForInput(): string {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
-
+/**
+ * `nowForInput()` used to sit in the useState initializer below, reading
+ * `new Date()` and the runtime's own offset while rendering. A client
+ * component renders twice, so the server pass wrote UTC's clock into the
+ * input's value and the browser pass wrote hers, which is the coach-panel
+ * defect from B3 wearing a member's clothes. The default is decided on the
+ * server now, in her timezone, and handed down, and the same timezone
+ * turns what she types back into an instant when she logs it.
+ */
 export function MealLogActions({
   scanId,
   hasConfirmedItems,
+  nowLocalInputValue,
+  timeZone,
 }: {
   scanId: string;
   hasConfirmedItems: boolean;
+  /** Right now as `YYYY-MM-DDTHH:mm` in the member's own timezone, resolved on the server. */
+  nowLocalInputValue: string;
+  /** The member's own timezone. What the wall clock above, and anything she edits it to, means. */
+  timeZone: string;
 }) {
   const router = useRouter();
   const [mealCategory, setMealCategory] = useState<MealCategory>('snack');
-  const [consumedAt, setConsumedAt] = useState(nowForInput());
+  const [consumedAt, setConsumedAt] = useState(nowLocalInputValue);
   const [isLogging, startLogging] = useTransition();
   const [isSaving, startSaving] = useTransition();
   const [savingMeal, setSavingMeal] = useState(false);
@@ -50,7 +60,7 @@ export function MealLogActions({
     startLogging(async () => {
       const result = await logMealScanToFoodLogAction(scanId, {
         mealCategory,
-        consumedAt: new Date(consumedAt).toISOString(),
+        consumedAt: zonedInputValueToInstant(consumedAt, timeZone).toISOString(),
       });
       if (result.error) {
         setError(result.error);

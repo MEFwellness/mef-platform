@@ -37,6 +37,7 @@ import Link from 'next/link';
 import { buildSmoothPath } from '@/components/EnergyTrendChart';
 import { ScrollDrawIn } from '@/components/ScrollDrawIn';
 import type { TrendPoint } from './MetricTrendChart';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 export const MIN_CHECKINS_PER_WEEK = 3;
 export const MIN_QUALIFYING_WEEKS = 2;
@@ -65,8 +66,19 @@ function addDays(d: Date, days: number): Date {
   return next;
 }
 
+/**
+ * The Date handed in here is LOCAL midnight of a `YYYY-MM-DD`, built by
+ * parseLocalDate above, so formatting it in the runtime's own zone happens
+ * to be stable. "Happens to be" is not something a reader of this line can
+ * check, and it stops being true the moment somebody passes a real instant.
+ * Its own calendar parts are read back and pinned instead, so the label is
+ * the same day in every zone by construction.
+ */
 function formatShortDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const calendarDay = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`;
+  return formatDisplayDate(calendarDay, { month: 'short', day: 'numeric' });
 }
 
 /**

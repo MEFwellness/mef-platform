@@ -6,6 +6,7 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { getMyNotifications } from '@/app/actions/notifications';
 import { NotificationsList } from './NotificationsList';
+import { memberTimezone } from '@/lib/time/memberToday';
 import { CenterStage, Card } from '@/components/layout';
 import { Breathe } from '@/components/motion/Breathe';
 
@@ -16,9 +17,12 @@ export default async function NotificationsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, notifications] = await Promise.all([
+  const [isCoach, notifications, timeZone] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     getMyNotifications(50),
+    // Her own zone, so "Aug 27" is the day she got it and both render
+    // passes agree on the string. See lib/time/displayDate.ts.
+    memberTimezone(supabase, user.id),
   ]);
 
   return (
@@ -48,7 +52,7 @@ export default async function NotificationsPage() {
           </CenterStage>
         ) : (
           <Card className="mt-6 !p-2">
-            <NotificationsList notifications={notifications} />
+            <NotificationsList notifications={notifications} timeZone={timeZone} />
           </Card>
         )}
       </main>

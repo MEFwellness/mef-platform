@@ -16,6 +16,8 @@ import { Card, CenterStage } from '@/components/layout';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { describeLockReason } from '@/lib/assessment-registry/status';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { formatInTimeZone } from '@/lib/time/displayDate';
 
 const STATUS_LABEL: Record<string, string> = {
   in_progress: 'In progress',
@@ -27,12 +29,9 @@ const STATUS_LABEL: Record<string, string> = {
   archived: 'Archived',
 };
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+/** `started_at` is an instant. Her zone, resolved on the server, so an evening assessment is not filed under tomorrow. */
+function formatDate(iso: string, timeZone: string): string {
+  return formatInTimeZone(iso, { weekday: 'short', month: 'short', day: 'numeric' }, timeZone);
 }
 
 export default async function BodyAssessmentPage() {
@@ -42,11 +41,12 @@ export default async function BodyAssessmentPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, assessments, { data: profile }, access] = await Promise.all([
+  const [isCoach, assessments, { data: profile }, access, timeZone] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     getMyAssessmentsAction(),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
     checkAssessmentAccess(supabase, user.id, 'body-assessment', { intent: 'view' }),
+    memberTimezone(supabase, user.id),
   ]);
   const firstName = firstNameFrom(profile?.display_name);
 
@@ -163,7 +163,7 @@ export default async function BodyAssessmentPage() {
                         {ASSESSMENT_TYPE_CONFIG[assessment.assessment_type].label}
                       </p>
                       <p className="mt-0.5 text-xs text-[#6B7A72]">
-                        {formatDate(assessment.started_at)}
+                        {formatDate(assessment.started_at, timeZone)}
                       </p>
                     </div>
                     <span className="rounded-full bg-[#1B3A2D]/[0.06] px-2.5 py-1 text-xs font-medium text-[#1B3A2D]">

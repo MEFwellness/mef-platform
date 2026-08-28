@@ -16,6 +16,58 @@ Applies to every task unless the user says otherwise.
 9. Do not claim you verified the live site — you cannot see it. State only what you actually checked.
 10. Provide a report containing: what you completed in plain language with no jargon, anything left unfinished or that didn't work, and a click-by-click checklist for the user to test on the site — screen by screen, what to tap, what they should see.
 
+## Standing rules from the 2026-08-27 bug sweep
+
+Nine patterns that produced real, shipped bugs. Check for each of them
+before you finish, and do not reintroduce one.
+
+- **A render never decides anything.** A page render, a server component
+  and a layout may read. They may not insert, claim, upsert or schedule.
+  Server actions revalidate their own route, and Next prefetches a `<Link>`
+  when it scrolls into view, so a render-time write repeats on every button
+  press and fires for screens nobody opened. State that belongs to a
+  decision is written by the explicit action she took, or from a mounted
+  effect that only runs when the screen is really shown
+  (`components/programs/MarkProgramOpened.tsx` is the pattern).
+- **Every date names its timezone.** Never `toLocaleDateString` /
+  `toLocaleTimeString` / `toLocaleString` without a `timeZone`, and never
+  `new Date()` or `toISOString().slice(0, 10)` to mean "today". Display text
+  goes through `lib/time/displayDate.ts`: `formatInTimeZone` with the
+  member's own zone for an instant she reads, `formatDisplayDate` for a bare
+  `YYYY-MM-DD` and for staff surfaces. A day boundary used as data comes
+  from `lib/time/memberToday.ts` on the server and is handed down as a prop.
+  `tests/no-unpinned-dates-guard.test.ts` enforces both.
+- **One source of truth per number.** Any status, count or label that
+  appears on more than one screen is computed in one place and read from
+  there. A counted claim always names the window it counted
+  ("checked in on 3 days in the last 21 days", never "3 days so far"
+  beside "4 check-ins so far").
+- **Every pop-up branch checks its own due-ness.** A branch in the Root
+  pop-up chain may not return a candidate the outer due-check will then
+  throw away, because that silences everything below it. See the header of
+  `app/actions/rootPopupMessages.ts`.
+- **Test accounts never reach a staff surface or an analytics figure.**
+  Enforce it in the data layer through `lib/staff/testAccounts.ts`, not
+  per screen, and guard member-scoped route trees with a layout rather than
+  asking each page to remember.
+- **Access is the plan, plus a coach assignment that only ever adds.**
+  `membership.minLevel` decides what opens. An assignment can open one more
+  thing for one member. Nothing else gates anything, and there is no second
+  invisible lock.
+- **Say only what is true today.** No undated promise, no "coming soon"
+  without a date, and one name per thing everywhere a member can read it.
+- **No em dash anywhere a member or coach reads**, including stored
+  content in the database, which the source guard cannot see. Commas,
+  periods, colons or parentheses instead.
+- **Screenshots and member data stay under gitignored paths** and are never
+  committed. This repository is public.
+
+**Re-run the whole sweep before launch, and after any large multi-screen
+build.** Both halves: the pattern hunt through the codebase for the classes
+above, and a real signed-in walk of every member, coach and admin screen
+with console and page errors captured on each one. The 2026-08-27 run is in
+`docs/BUG_SWEEP_2026-08-27.md` and is the template for what a run produces.
+
 ## Member-facing exercise names
 
 - An exercise name a member can read describes the MOVEMENT. It never mandates equipment, and it never carries vendor plumbing: no `(L)` / `(R)` side suffixes, no provider ids, no internal variant codes. "Split Squat", not "Split squat (R)"; "Goblet Squat", not "Dumbbell Goblet Squat (R)".

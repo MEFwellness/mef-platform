@@ -63,3 +63,45 @@ export function todaysLocalDate(timezone: string): string {
 export function localDateStringFor(isoInstant: string, timezone: string): string {
   return toLocalDateString(instantInTimezone(isoInstant, timezone));
 }
+
+/**
+ * An instant, as the wall clock a `<input type="datetime-local">` wants,
+ * in a named timezone: `YYYY-MM-DDTHH:mm`.
+ *
+ * The form these replace was `d.setMinutes(d.getMinutes() -
+ * d.getTimezoneOffset())` followed by `toISOString().slice(0, 16)`, which
+ * reads the RUNTIME's own offset. In a client component that is UTC during
+ * the server pass and the reader's zone during the client pass, so a
+ * controlled input hydrates with a different value than it was served with
+ * (React #418/#423/#425), and the value a member then edits is in a
+ * different zone than the time displayed beside it. Naming the zone fixes
+ * both: the member's own zone, resolved on the server.
+ */
+export function instantToZonedInputValue(isoInstant: string, timezone: string): string {
+  return wallClockAsUtc(new Date(isoInstant), timezone).toISOString().slice(0, 16);
+}
+
+/** Right now, as that same wall-clock string. The default value of a "when did you eat this" input. */
+export function nowAsZonedInputValue(timezone: string): string {
+  return nowInTimezone(timezone).toISOString().slice(0, 16);
+}
+
+/**
+ * The inverse: a `YYYY-MM-DDTHH:mm` wall clock read in a named timezone,
+ * back to the instant it names.
+ *
+ * Solved rather than looked up, because there is no offset table here.
+ * Treating the wall clock as if it were UTC gives a first guess; the
+ * difference between that guess re-read in the target zone and the guess
+ * itself is the zone's offset, and subtracting it lands on the instant.
+ * The second pass is what makes it right across a DST boundary, where the
+ * offset at the guess is not the offset at the answer.
+ */
+export function zonedInputValueToInstant(inputValue: string, timezone: string): Date {
+  const asIfUtc = new Date(`${inputValue.slice(0, 16)}:00.000Z`);
+  if (Number.isNaN(asIfUtc.getTime())) return new Date(NaN);
+  const offsetAt = (instant: Date): number =>
+    wallClockAsUtc(instant, timezone).getTime() - instant.getTime();
+  const first = new Date(asIfUtc.getTime() - offsetAt(asIfUtc));
+  return new Date(asIfUtc.getTime() - offsetAt(first));
+}

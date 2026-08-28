@@ -13,23 +13,19 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
-import { todaysLocalDate } from '@/lib/time/localDate';
+import { memberTodayLocalDate } from '@/lib/time/memberToday';
 import { buildCaseView } from '@/lib/case-view/service';
 import { upsertGoalProgressCheckin } from '@/lib/case-view/data';
 import type { CaseView } from '@/lib/case-view/types';
 import type { ActionResult } from './auth';
 
-async function localDateFor(supabase: ReturnType<typeof createClient>, userId: string): Promise<string> {
-  const { data: profile } = await supabase.from('profiles').select('timezone').eq('id', userId).single();
-  return todaysLocalDate(profile?.timezone ?? 'America/New_York');
-}
 
 export async function getMyCaseViewAction(): Promise<CaseView | null> {
   const supabase = createClient();
   const user = await getCachedUser();
   if (!user) return null;
 
-  const localDate = await localDateFor(supabase, user.id);
+  const localDate = await memberTodayLocalDate(supabase, user.id);
   return buildCaseView(supabase, user.id, localDate);
 }
 
@@ -40,7 +36,7 @@ export async function getClientCaseViewAction(clientId: string): Promise<CaseVie
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const localDate = await localDateFor(supabase, clientId);
+  const localDate = await memberTodayLocalDate(supabase, clientId);
   return buildCaseView(supabase, clientId, localDate);
 }
 

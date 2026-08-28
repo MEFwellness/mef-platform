@@ -61,6 +61,7 @@ import { getMovementProfile } from '@/lib/movement-profile/data';
 import { getExercisesByExternalIds } from '@/lib/your-move/catalog';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { todaysLocalDate } from '@/lib/time/localDate';
+import { memberTimezone as resolveMemberTimezone } from '@/lib/time/memberToday';
 import { memberProgramName } from '@/lib/programs/memberPresentation';
 import type {
   AssignedWorkoutStatus,
@@ -93,14 +94,6 @@ async function resolveUserId(): Promise<{
   } = await supabase.auth.getUser();
   if (!user) return null;
   return { supabase, userId: user.id };
-}
-
-async function resolveMemberTimezone(
-  supabase: ReturnType<typeof createClient>,
-  memberId: string
-): Promise<string> {
-  const { data } = await supabase.from('profiles').select('timezone').eq('id', memberId).single();
-  return data?.timezone ?? 'America/New_York';
 }
 
 // ---------------------------------------------------------------------------

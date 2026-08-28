@@ -19,6 +19,7 @@ import {
 import { roundGrams } from '@/lib/protein/ledger';
 import type { LedgerEntrySource } from '@/lib/protein/ledger';
 import type { FoodLensMealMacroLevel } from '@mef/shared-types-contracts';
+import { formatInTimeZone } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -54,11 +55,24 @@ export type LedgerEntryRow = {
   estimatedProteinLevel: FoodLensMealMacroLevel | null;
 };
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+/**
+ * `consumed_at` is an instant, and a clock time is the one thing that must
+ * never be pinned to UTC: "8:30 PM" would read as "12:30 AM". Her own zone
+ * is resolved on the server and handed down, which is both the correct
+ * clock and the same string in both render passes.
+ */
+function formatTime(iso: string, timeZone: string): string {
+  return formatInTimeZone(iso, { hour: 'numeric', minute: '2-digit' }, timeZone);
 }
 
-export function ProteinLedgerEntries({ entries: initial }: { entries: LedgerEntryRow[] }) {
+export function ProteinLedgerEntries({
+  entries: initial,
+  timeZone,
+}: {
+  entries: LedgerEntryRow[];
+  /** The member's own timezone, resolved on the server. See formatTime above. */
+  timeZone: string;
+}) {
   const router = useRouter();
   const [entries, setEntries] = useState(initial);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -132,7 +146,7 @@ export function ProteinLedgerEntries({ entries: initial }: { entries: LedgerEntr
                 {entry.productName ?? entry.manualLabel ?? 'Logged item'}
               </p>
               <p className="mt-0.5 text-xs text-[#6B7A72]">
-                {formatTime(entry.consumedAt)} · {SOURCE_LABEL[entry.source]}
+                {formatTime(entry.consumedAt, timeZone)} · {SOURCE_LABEL[entry.source]}
               </p>
               {entry.source === 'meal_photo' && (
                 <p className="mt-0.5 text-xs text-[#9AA79F]">

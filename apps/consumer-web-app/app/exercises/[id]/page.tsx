@@ -19,7 +19,8 @@ import { getExerciseByExternalId } from '@/lib/your-move/catalog';
 import { getExerciseMetadata } from '@/lib/exercise-library/metadata';
 import { isExerciseFavorited } from '@/lib/exercise-library/favorites';
 import { normalizeExerciseCatalogRow } from '@/lib/exercise-library/normalize';
-import { recordExerciseView, listMyRecentlyViewedExercises } from '@/lib/exercise-library/recentViews';
+import { listMyRecentlyViewedExercises } from '@/lib/exercise-library/recentViews';
+import { TrackExerciseView } from '@/components/exercise-library/TrackExerciseView';
 import { listExerciseCompletionHistory } from '@/lib/exercise-library/completions';
 import { getRelatedExercises } from '@/lib/exercise-library/related';
 import { getExtractedPoster } from '@/lib/your-move/posters';
@@ -64,18 +65,18 @@ export default async function ExerciseDetailPage({ params }: { params: { id: str
       const recentlyViewed = recentlyViewedRaw.filter((view) => view.external_id !== exercise.externalId);
 
       content = (
-        <ExerciseDetailView
-          exercise={exercise}
-          history={history}
-          relatedExercises={relatedExercises}
-          recentlyViewed={recentlyViewed}
-        />
-      );
-
-      // Best-effort — "recently viewed" is a nice-to-have, never worth
-      // failing the page load over.
-      recordExerciseView(supabase, user.id, 'your_move', params.id, exercise.name).catch((viewErr) =>
-        console.error('[exercise-library] recordExerciseView failed', viewErr)
+        <>
+          {/* L3: recorded from a mounted effect, not from this render. A
+              prefetch runs the render, and a prefetch is not somebody
+              opening the exercise. See the component's own header. */}
+          <TrackExerciseView externalId={params.id} exerciseName={exercise.name} />
+          <ExerciseDetailView
+            exercise={exercise}
+            history={history}
+            relatedExercises={relatedExercises}
+            recentlyViewed={recentlyViewed}
+          />
+        </>
       );
     }
   } catch (err) {

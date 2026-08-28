@@ -84,32 +84,42 @@ const FOUR_DOCTORS_ICON: Record<FourDoctorsCategory, typeof Dumbbell> = {
   doctor_happiness: Smile,
 };
 
+/**
+ * C6 (2026-08-27). Four of the seven mode chips, and the risk chip beside
+ * them, were drawn straight from Tailwind's default palette:
+ * `bg-blue-50 text-blue-700` for Recovery and Reset, `amber-50/amber-700`
+ * for Celebrate. That is the same defect `lib/wellness/status.ts` was
+ * fixed for in the 2026-08-19 pass, and the effect was the same: a
+ * saturated blue that appears nowhere else in this brand, filled, sitting
+ * in a row of quiet chips, reading like a button rather than a label.
+ *
+ * There are three tones here, not seven, and each one is a color this app
+ * already owns:
+ *
+ * - STEADY, the ordinary chip weight the day-of-week pill beside it uses.
+ * - LIFT, the brand gold, already on Challenge.
+ * - REST, the forest-green "good" tint from lib/wellness/status.ts, which
+ *   is where this app's calm color is defined and already contrast
+ *   checked against white.
+ *
+ * The mode is told apart by its icon and its word, which is what a label
+ * does. None of the three is a filled accent, so none of them competes
+ * with the priority card underneath for the eye.
+ */
+const CHIP_STEADY = 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]/70';
+const CHIP_LIFT = 'bg-[#F5B700]/[0.12] text-[#854D0E]';
+const CHIP_REST = `${STATUS_STYLES.good.bg} ${STATUS_STYLES.good.text}`;
+
 /** The Coaching Brain's mode, rendered as a small badge next to the day-of-week pill — every page that shows coaching now visibly reflects the same one decision instead of implying its own. */
 const MODE_BADGE: Record<CoachingMode, { label: string; icon: typeof Compass; className: string }> =
   {
-    encourage: {
-      label: 'Encourage',
-      icon: Compass,
-      className: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]/70',
-    },
-    challenge: {
-      label: 'Challenge',
-      icon: TrendingUp,
-      className: 'bg-[#F5B700]/[0.12] text-[#854D0E]',
-    },
-    recover: { label: 'Recovery', icon: HeartPulse, className: 'bg-blue-50 text-blue-700' },
-    educate: {
-      label: 'Educate',
-      icon: GraduationCap,
-      className: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]/70',
-    },
-    celebrate: { label: 'Celebrate', icon: PartyPopper, className: 'bg-amber-50 text-amber-700' },
-    reset: { label: 'Reset', icon: RotateCcw, className: 'bg-blue-50 text-blue-700' },
-    maintain: {
-      label: 'Steady',
-      icon: Compass,
-      className: 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D]/70',
-    },
+    encourage: { label: 'Encourage', icon: Compass, className: CHIP_STEADY },
+    challenge: { label: 'Challenge', icon: TrendingUp, className: CHIP_LIFT },
+    recover: { label: 'Recovery', icon: HeartPulse, className: CHIP_REST },
+    educate: { label: 'Educate', icon: GraduationCap, className: CHIP_STEADY },
+    celebrate: { label: 'Celebrate', icon: PartyPopper, className: CHIP_LIFT },
+    reset: { label: 'Reset', icon: RotateCcw, className: CHIP_REST },
+    maintain: { label: 'Steady', icon: Compass, className: CHIP_STEADY },
   };
 
 function formatDate(localDate: string): string {
@@ -272,7 +282,9 @@ export default async function TodayPage() {
             </span>
           )}
           {decision?.riskLevel === 'elevated' && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${CHIP_LIFT}`}
+            >
               <ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
               Lighter today
             </span>
@@ -485,6 +497,7 @@ export default async function TodayPage() {
                   habits={habits}
                   habitLogs={habitLogs}
                   notifications={notifications}
+                  timeZone={timezone}
                   totalCheckins={totalCheckins}
                   totalMovementDays={totalMovementDays}
                 />
@@ -594,6 +607,7 @@ export default async function TodayPage() {
                         habits={habits}
                         habitLogs={habitLogs}
                         notifications={notifications}
+                        timeZone={timezone}
                         totalCheckins={totalCheckins}
                         totalMovementDays={totalMovementDays}
                       />

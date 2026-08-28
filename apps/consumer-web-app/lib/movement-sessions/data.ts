@@ -92,39 +92,44 @@ export async function listTemplateSlots(
 }
 
 /**
- * The list screen: each of the six with how many exercises it holds. One
- * templates query and one slots query for all six, not one per card.
+ * The list screen: each of the six with how many exercises it holds.
+ *
+ * ONE round trip, not two. It used to read the templates, wait, and then
+ * read the slots with `.in('template_id', ...)` built from the first
+ * answer, so the second query could not start until the first came back.
+ * The slots are embedded on the templates query instead, over the real
+ * foreign key (`movement_session_template_slots_template_id_fkey`), which
+ * is the same two tables and the same rows in one request. C7
+ * (2026-08-27), the cheap half: this is not what made a cold load slow,
+ * but a dependent round trip on the way to a six-row screen is not worth
+ * keeping either.
+ *
+ * Still fails closed. Before migration 153 is applied the tables do not
+ * exist, the query errors, and the screen renders its honest empty state.
  */
 export async function listSessionSummaries(
   supabase: SupabaseClient
 ): Promise<MovementSessionSummary[]> {
-  const templates = await listActiveSessionTemplates(supabase);
-  if (templates.length === 0) return [];
-
   const { data, error } = await supabase
-    .from('movement_session_template_slots')
-    .select('template_id')
-    .in(
-      'template_id',
-      templates.map((t) => t.id)
-    );
+    .from('movement_session_templates')
+    .select(`${TEMPLATE_COLUMNS}, movement_session_template_slots(id)`)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
 
   if (error) {
-    console.error('listSessionSummaries slot count failed', error);
-    // A card without its exercise count is still a usable card; the
-    // count is context, not the point of the screen.
-    return templates.map((template) => ({ template, exerciseCount: 0 }));
+    console.error('listSessionSummaries failed', error);
+    return [];
   }
 
-  const counts = new Map<string, number>();
-  for (const row of (data as { template_id: string }[]) ?? []) {
-    counts.set(row.template_id, (counts.get(row.template_id) ?? 0) + 1);
-  }
+  const rows =
+    (data as (MovementSessionTemplate & {
+      movement_session_template_slots: { id: string }[] | null;
+    })[]) ?? [];
 
-  return templates.map((template) => ({
-    template,
-    exerciseCount: counts.get(template.id) ?? 0,
-  }));
+  return rows.map((row) => {
+    const { movement_session_template_slots: slots, ...template } = row;
+    return { template, exerciseCount: slots?.length ?? 0 };
+  });
 }
 
 /**

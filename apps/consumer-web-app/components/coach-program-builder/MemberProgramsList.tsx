@@ -24,6 +24,7 @@ import {
   type MemberProgramView,
 } from '@/lib/program-lifecycle/memberView';
 import { memberWorkoutTitle } from '@/lib/programs/memberPresentation';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -60,9 +61,14 @@ function ProgramIcon({ status }: { status: string }) {
   return <Calendar className={className} strokeWidth={1.75} aria-hidden="true" />;
 }
 
+/**
+ * `scheduled_date` is a `date` column, so it is a calendar day and not an
+ * instant. The shared UTC-pinned helper is what keeps it that day: it
+ * parses as UTC midnight and renders in UTC, so the same row reads as the
+ * same day in every zone, on the server pass and on the client pass alike.
+ */
 function formatDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split('-').map(Number);
-  return new Date(year!, month! - 1, day!).toLocaleDateString('en-US', {
+  return formatDisplayDate(isoDate, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -98,9 +104,20 @@ function WorkoutRow({ workout }: { workout: CoachAssignedWorkout }) {
   );
 }
 
-/** A program she is on now, or one about to start: the header, then her sessions. Past sessions of a running program collapse under the ones still ahead of her. */
-function CurrentProgramCard({ program }: { program: MemberProgramView }) {
-  const today = new Date().toISOString().slice(0, 10);
+/**
+ * A program she is on now, or one about to start: the header, then her
+ * sessions. Past sessions of a running program collapse under the ones
+ * still ahead of her.
+ *
+ * `today` is decided by the server, in HER timezone, and handed down. It
+ * used to be `new Date().toISOString().slice(0, 10)` computed while
+ * rendering, which is UTC's calendar day rather than hers: from 8pm
+ * Eastern onward UTC has already rolled over, so the session she is doing
+ * tomorrow was filed under "Already done" every evening. Deciding it on
+ * the server also means the two render passes cannot disagree across a
+ * midnight, which is the same rule the coach panels were put on in B3.
+ */
+function CurrentProgramCard({ program, today }: { program: MemberProgramView; today: string }) {
   const ahead = program.workouts.filter(
     (w) => w.scheduled_date >= today && w.status !== 'completed'
   );
@@ -204,10 +221,13 @@ function PastProgramCard({ program }: { program: MemberProgramView }) {
 export function MemberProgramsList({
   programs,
   workouts,
+  today,
 }: {
   programs: MemberProgramView[];
   /** Every published workout she has. Used only to decide the empty state, so a member with workouts but no readable lifecycle row still sees her sessions. */
   workouts: CoachAssignedWorkout[];
+  /** Today in the member's own timezone, resolved on the server. Decides where her sessions split into "Coming up" and "Already done". */
+  today: string;
 }) {
   const current = programs.filter((p) => isCurrentProgramStatus(p.status));
   const past = programs.filter((p) => !isCurrentProgramStatus(p.status));
@@ -234,7 +254,7 @@ export function MemberProgramsList({
   return (
     <div className="space-y-6">
       {current.map((program) => (
-        <CurrentProgramCard key={program.groupKey} program={program} />
+        <CurrentProgramCard key={program.groupKey} program={program} today={today} />
       ))}
 
       {past.length > 0 && (

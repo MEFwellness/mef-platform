@@ -1,13 +1,18 @@
 'use client';
 
 /**
- * Phase 1 manual-entry placeholder for the Primal Pattern target (docs/
- * food-lens/06-roadmap.md phase 1, docs/food-lens/05-primal-pattern-
- * integration.md §5.2) — no Primal Pattern questionnaire scoring engine
- * exists in this codebase yet, so a member sets their own three ordinal
- * emphasis levels directly. Swapping in the real questionnaire later means
- * replacing this form, not changing anything downstream in Food Lens (the
- * contract is primal_pattern_profiles itself).
+ * The member's own Primal Pattern target for Food Lens: three ordinal
+ * emphasis levels she sets herself.
+ *
+ * NOT the same thing as the Primal Pattern Diet Type questionnaire, which
+ * is live in the registry and classifies her dietary pattern as polar,
+ * variable or equatorial. That instrument writes its own result rows and
+ * does not write primal_pattern_profiles, so it cannot stand in for this
+ * control today. Wiring the two together is a feature, not a copy change;
+ * until somebody builds it, this screen says what it does and promises
+ * nothing (C4, 2026-08-27). The contract downstream is
+ * primal_pattern_profiles itself, so whatever eventually sets it, nothing
+ * else in Food Lens has to change.
  */
 
 import { useState } from 'react';
@@ -79,9 +84,14 @@ export function PrimalPatternForm({ initial }: { initial: PrimalPatternProfile |
       <p className="text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
         Your Primal Pattern target
       </p>
+      {/* C4 (2026-08-27). This used to end "Set it manually for now. A full
+          questionnaire is on the way." An undated promise to a paying
+          member is not copy, and it had been on the screen long enough to
+          be a broken one. It is replaced by what is actually true: this
+          control is the target, she owns it, and she can change it. */}
       <p className="mt-2 text-xs leading-relaxed text-[#6B7A72]">
-        This is what Food Lens compares your meals against. Set it manually for now. A full
-        questionnaire is on the way.
+        This is what Food Lens compares your meals against. Set it to how you eat now, and change it
+        any time that changes.
       </p>
 
       <div className="mt-4">

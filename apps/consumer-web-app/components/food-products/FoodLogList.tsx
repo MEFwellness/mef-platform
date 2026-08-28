@@ -18,6 +18,8 @@ import {
 } from '@/app/actions/food-products';
 import { saveMealFromProductAction } from '@/app/actions/food-search';
 import type { MealCategory } from '@mef/shared-types-contracts';
+import { formatInTimeZone } from '@/lib/time/displayDate';
+import { instantToZonedInputValue, zonedInputValueToInstant } from '@/lib/time/localDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const MEAL_CATEGORIES: MealCategory[] = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -29,17 +31,25 @@ const MEAL_LABEL: Record<string, string> = {
   snack: 'Snack',
 };
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+/**
+ * `consumed_at` is an instant. Both the time she reads and the time she
+ * edits are now pinned to HER timezone, resolved on the server: pinning to
+ * UTC would say "12:30 AM" for an 8:30 PM meal, and leaving them unpinned
+ * meant the runtime decided, so the two render passes disagreed and the
+ * row's displayed time and its edit field could disagree with each other.
+ */
+function formatTime(iso: string, timeZone: string): string {
+  return formatInTimeZone(iso, { hour: 'numeric', minute: '2-digit' }, timeZone);
 }
 
-function toDatetimeLocal(iso: string): string {
-  const d = new Date(iso);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
-
-export function FoodLogList({ entries: initial }: { entries: FoodLogEntryWithProduct[] }) {
+export function FoodLogList({
+  entries: initial,
+  timeZone,
+}: {
+  entries: FoodLogEntryWithProduct[];
+  /** The member's own timezone, resolved on the server. See formatTime above. */
+  timeZone: string;
+}) {
   const [entries, setEntries] = useState(initial);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -124,6 +134,7 @@ export function FoodLogList({ entries: initial }: { entries: FoodLogEntryWithPro
             <li key={entry.id} className="px-4 py-3.5">
               <EditEntryForm
                 entry={entry}
+                timeZone={timeZone}
                 onSave={(patch) => handleSaveEdit(entry.id, patch)}
                 onCancel={() => setEditingId(null)}
               />
@@ -136,7 +147,7 @@ export function FoodLogList({ entries: initial }: { entries: FoodLogEntryWithPro
                 </p>
                 <p className="mt-0.5 text-xs text-[#6B7A72]">
                   {MEAL_LABEL[entry.meal_category] ?? entry.meal_category} · {entry.servings}×
-                  serving · {formatTime(entry.consumed_at)}
+                  serving · {formatTime(entry.consumed_at, timeZone)}
                   {entry.member_adjusted ? ' · edited' : ''}
                 </p>
                 {entry.notes && (
@@ -192,10 +203,12 @@ export function FoodLogList({ entries: initial }: { entries: FoodLogEntryWithPro
 
 function EditEntryForm({
   entry,
+  timeZone,
   onSave,
   onCancel,
 }: {
   entry: FoodLogEntryWithProduct;
+  timeZone: string;
   onSave: (patch: {
     mealCategory: MealCategory;
     servings: number;
@@ -206,7 +219,9 @@ function EditEntryForm({
 }) {
   const [mealCategory, setMealCategory] = useState<MealCategory>(entry.meal_category);
   const [servings, setServings] = useState(String(entry.servings));
-  const [consumedAt, setConsumedAt] = useState(toDatetimeLocal(entry.consumed_at));
+  const [consumedAt, setConsumedAt] = useState(
+    instantToZonedInputValue(entry.consumed_at, timeZone)
+  );
   const [notes, setNotes] = useState(entry.notes ?? '');
 
   return (
@@ -255,7 +270,7 @@ function EditEntryForm({
             onSave({
               mealCategory,
               servings: parsedServings,
-              consumedAt: new Date(consumedAt).toISOString(),
+              consumedAt: zonedInputValueToInstant(consumedAt, timeZone).toISOString(),
               notes: notes.trim().length > 0 ? notes.trim() : null,
             });
           }}

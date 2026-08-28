@@ -20,6 +20,7 @@ import {
 import { MemberProgramsList } from '@/components/coach-program-builder/MemberProgramsList';
 import { MarkProgramOpened } from '@/components/programs/MarkProgramOpened';
 import { isCurrentProgramStatus } from '@/lib/program-lifecycle/memberView';
+import { memberTodayLocalDate } from '@/lib/time/memberToday';
 
 export default async function MyProgramsPage() {
   const supabase = createClient();
@@ -29,9 +30,14 @@ export default async function MyProgramsPage() {
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
-  const [workouts, programs] = await Promise.all([
+  const [workouts, programs, today] = await Promise.all([
     getMyAssignedWorkoutsAction(),
     getMyProgramViewsAction(),
+    // Where her sessions split into "Coming up" and "Already done". Decided
+    // here, on the server, in her own timezone, so the list is not sorted on
+    // UTC's calendar day and the two render passes cannot disagree. Same
+    // rule getMyCurrentProgramEntryAction already uses for the Home card.
+    memberTodayLocalDate(supabase, user.id),
   ]);
 
   // The other door into her program. The card on Home links here whenever
@@ -63,7 +69,7 @@ export default async function MyProgramsPage() {
         </div>
 
         <div className="mt-7">
-          <MemberProgramsList programs={programs} workouts={workouts} />
+          <MemberProgramsList programs={programs} workouts={workouts} today={today} />
         </div>
       </main>
 

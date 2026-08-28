@@ -353,7 +353,7 @@ describe('suppressing stored text that was frozen before this existed', () => {
 describe('the rendered member screens', () => {
   it('My Programs shows the friendly name and nothing clinical', () => {
     const views = buildMemberProgramViews([lifecycleRow()], [workout()]);
-    const text = renderedText(<MemberProgramsList programs={views} workouts={[workout()]} />);
+    const text = renderedText(<MemberProgramsList programs={views} workouts={[workout()]} today="2026-08-28" />);
 
     expect(text).toContain('Hip and Core Foundation');
     expect(text).toContain('Hip and Core Foundation, Session A');

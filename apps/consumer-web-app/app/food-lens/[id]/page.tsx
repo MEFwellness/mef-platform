@@ -15,6 +15,9 @@ import { MacroBalanceMeter } from '@/components/food-lens/MacroBalanceMeter';
 import { MealQualityIndicator } from '@/components/food-lens/MealQualityIndicator';
 import { PatternComparisonCard } from '@/components/food-lens/PatternComparisonCard';
 import { MealLogActions } from '@/components/food-lens/MealLogActions';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { formatInTimeZone } from '@/lib/time/displayDate';
+import { nowAsZonedInputValue } from '@/lib/time/localDate';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -25,9 +28,12 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, detail] = await Promise.all([
+  const [isCoach, detail, timeZone] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     getFoodLensScanAction(params.id),
+    // The scan's day, and the default "when did you eat this" clock below,
+    // are both hers. See lib/time/displayDate.ts.
+    memberTimezone(supabase, user.id),
   ]);
   if (!detail) notFound();
 
@@ -52,12 +58,11 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
           Meal scan
         </h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
-          {new Date(scan.created_at).toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          })}
+          {formatInTimeZone(
+            scan.created_at,
+            { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
+            timeZone
+          )}
         </p>
 
         <div className="mt-6 space-y-5">
@@ -171,6 +176,8 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
           <MealLogActions
             scanId={scan.id}
             hasConfirmedItems={detectedItems.some((i) => i.status === 'confirmed')}
+            nowLocalInputValue={nowAsZonedInputValue(timeZone)}
+            timeZone={timeZone}
           />
         </div>
       </main>

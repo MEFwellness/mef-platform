@@ -69,7 +69,7 @@ const ROW = {
   accountCreatedAt: '2026-06-01T12:00:00.000Z',
   tier: 'trial' as const,
   source: 'trial',
-  status: 'active',
+  status: 'active' as const,
   fullAccess: false,
   trialStartedAt: '2026-08-28T00:15:00.000Z',
   trialEndsAt: '2026-08-28T02:30:00.000Z',

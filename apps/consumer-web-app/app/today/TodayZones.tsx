@@ -179,6 +179,7 @@ export function TodayZones({
   habits,
   habitLogs,
   notifications,
+  timeZone,
   totalCheckins,
   totalMovementDays,
 }: {
@@ -210,6 +211,8 @@ export function TodayZones({
   habits: Habit[];
   habitLogs: Record<string, boolean>;
   notifications: Notification[];
+  /** The member's own timezone, resolved on the server. What the coach-message dates are said in. */
+  timeZone: string;
   totalCheckins: number;
   totalMovementDays: number;
 }) {
@@ -306,7 +309,7 @@ export function TodayZones({
             </div>
           )}
 
-          {notifications.length > 0 && <CoachMessages notifications={notifications} />}
+          {notifications.length > 0 && <CoachMessages notifications={notifications} timeZone={timeZone} />}
 
           {(showWaterOpen || showMovementOpen) && (
             <div className={`grid gap-3 sm:gap-5 ${showBothTrackers ? 'grid-cols-2' : 'grid-cols-1'}`}>

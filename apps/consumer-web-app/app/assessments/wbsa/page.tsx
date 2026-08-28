@@ -31,9 +31,12 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { WBSA_INTRO_COPY, WBSA_SAFETY_STATEMENT, WBSA_DISPLAY_TITLE } from '@/lib/wbsa/copy';
 import { WBSA_KEY } from '@/lib/wbsa/constants';
 import { CenterStage, Card } from '@/components/layout';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { formatInTimeZone } from '@/lib/time/displayDate';
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+/** `completed_at` is an instant, so the day it fell on is the member's day, not the server's. */
+function formatDate(iso: string, timeZone: string): string {
+  return formatInTimeZone(iso, { month: 'short', day: 'numeric', year: 'numeric' }, timeZone);
 }
 
 export default async function WbsaOverviewPage({
@@ -47,9 +50,10 @@ export default async function WbsaOverviewPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, access] = await Promise.all([
+  const [isCoach, access, timeZone] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
     checkAssessmentAccess(supabase, user.id, WBSA_KEY, { intent: 'view' }),
+    memberTimezone(supabase, user.id),
   ]);
 
   if (!access.allowed) {
@@ -208,7 +212,7 @@ export default async function WbsaOverviewPage({
                 Your last assessment
               </p>
               <p className="mt-1 text-sm text-[#1B3A2D]">
-                {formatDate(latestCompletedRow.completed_at as string)}
+                {formatDate(latestCompletedRow.completed_at as string, timeZone)}
               </p>
             </div>
           </Card>

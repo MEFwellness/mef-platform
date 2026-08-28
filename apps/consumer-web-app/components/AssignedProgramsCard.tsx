@@ -83,6 +83,15 @@ export function AssignedProgramsCard({
   // The supporting line. A running or upcoming program says what it is;
   // a paused or finished one says what is happening to it, which is the
   // only thing worth reading at that point.
+  //
+  // C10 (2026-08-27). `program.blurb` is the explanation her coach wrote
+  // for her, and a coach writing an explanation writes paragraphs: on
+  // Home it rendered as a fifteen line wall inside a card built around
+  // "Week 2 of 4" and "Next up", and pushed the button that opens the
+  // program off the bottom of the screen. Nothing is cut and nothing is
+  // truncated with a marker, because the whole of it is on /programs,
+  // which is one tap away and is the screen for reading it. This card is
+  // the way in, so it shows the opening of the explanation and stops.
   const supportLine =
     state === 'paused' || state === 'completed' ? program.detail : program.blurb;
 
@@ -157,7 +166,9 @@ export function AssignedProgramsCard({
         <p className="mt-2.5 text-[15px] font-semibold text-[#F5B700]">{statusLine}</p>
 
         {supportLine && (
-          <p className="mt-2 max-w-md text-sm leading-relaxed text-[#FAFAF8]/70">{supportLine}</p>
+          <p className="mt-2 line-clamp-3 max-w-md text-sm leading-relaxed text-[#FAFAF8]/70">
+            {supportLine}
+          </p>
         )}
 
         {showTrack && (

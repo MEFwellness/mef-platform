@@ -57,7 +57,11 @@ const ONBOARDING: AssessmentDefinition = {
   key: 'onboarding-health-history',
   type: 'intake_questionnaire',
 
-  displayName: 'Onboarding Assessment',
+  // C5 (2026-08-27): one name for one assessment, everywhere a member can
+  // read it. It was "Onboarding Assessment" here, "Baseline Assessment" on
+  // /profile/baseline and on the coach's screen, and "Comprehensive Health
+  // Assessment" on Home. See components/ComprehensiveAssessmentCard.tsx.
+  displayName: 'Baseline Assessment',
   shortDescription:
     'Health history and lifestyle intake completed at signup, with unlimited reassessments.',
   category: 'health_history',

@@ -20,6 +20,7 @@ import {
 } from '@/app/actions/lifestyleExperiments';
 import type { LifestyleExperiment, LifestyleExperimentOutcome } from '@/lib/lifestyle-experiments';
 import { useRecommendationsFreshness } from '@/hooks/useRecommendationsFreshness';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 const DURATIONS = [7, 14, 21, 28] as const;
 
@@ -233,8 +234,20 @@ export function RecommendationsClient({
                 </div>
                 <p className="mt-0.5 text-sm leading-relaxed text-[#1B3A2D]/80">{experiment.protocol}</p>
                 <p className="mt-1 text-xs text-[#6B7A72]">
-                  Started {new Date(experiment.startDate).toLocaleDateString()} ·{' '}
-                  {experiment.durationDays} days
+                  {/* `start_date` is a `date` column, a calendar day and
+                      not an instant. It used to be read with a bare
+                      `toLocaleDateString()`: no locale, so the host's
+                      format, and no zone, so UTC midnight rendered in a US
+                      zone came out as the day BEFORE she started. The
+                      shared UTC-pinned helper gives back the day that was
+                      stored, everywhere. */}
+                  Started{' '}
+                  {formatDisplayDate(experiment.startDate, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}{' '}
+                  · {experiment.durationDays} days
                 </p>
                 <ReflectForm experiment={experiment} />
               </li>

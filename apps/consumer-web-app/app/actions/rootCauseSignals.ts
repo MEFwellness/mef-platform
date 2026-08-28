@@ -17,6 +17,7 @@ import {
 } from '@/lib/intelligence-engine/rootCauseSignals';
 import { listRegistryEntriesForMember } from '@/lib/registry/data';
 import { listPendingReassessments } from '@/lib/reassessment-intelligence/data';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 async function localDateFor(
   supabase: ReturnType<typeof createClient>,
@@ -62,7 +63,9 @@ export async function getClientRootCauseSignals(
       reason:
         r.triggerSource === 'finding_change'
           ? 'Suggested after recent worsening findings.'
-          : `Due ${new Date(r.dueAt).toLocaleDateString()}.`,
+          : // No locale and no zone at all: the host decided the format AND
+            // the day. Pinned, so this reads the same wherever it is composed.
+            `Due ${formatDisplayDate(r.dueAt, { month: 'short', day: 'numeric', year: 'numeric' })}.`,
     }))
   );
 }

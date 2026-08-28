@@ -62,6 +62,7 @@ import { RecommendationsSection, RecommendationsSectionSkeleton } from './Recomm
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import { getMemberVisibility } from '@/lib/visibility';
 import { F } from '@/lib/visibility/catalog';
+import { formatInTimeZone } from '@/lib/time/displayDate';
 
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
 
@@ -286,7 +287,7 @@ export default async function ProgressPage() {
                   .join(', ')}{' '}
                 currently active
                 {healthProfileSummary.lastAssessmentPublishedAt
-                  ? ` since your last published report (${new Date(healthProfileSummary.lastAssessmentPublishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}).`
+                  ? ` since your last published report (${formatInTimeZone(healthProfileSummary.lastAssessmentPublishedAt, { month: 'short', day: 'numeric', year: 'numeric' }, timezone)}).`
                   : '.'}
               </p>
             </div>

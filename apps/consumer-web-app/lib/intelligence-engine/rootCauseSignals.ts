@@ -46,7 +46,7 @@ const SOURCE_FEATURE_LABEL: Record<RegistrySourceFeature, string> = {
   movement_session_completed: 'Movement Session',
   food_analysis_result: 'Food Lens',
   questionnaire_category_finding: 'Questionnaire',
-  onboarding_baseline_finding: 'Onboarding Assessment',
+  onboarding_baseline_finding: 'Baseline Assessment', // C5: one name, see lib/assessment-registry/registry.ts
   primal_pattern_classification: 'Primal Pattern Diet Type',
   unified_assessment_finding: 'Assessment',
 };

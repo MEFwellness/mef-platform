@@ -73,7 +73,8 @@ export function FeedInteractions({
           onClick={() => run(() => saveFeedItemForMember(feedItem.id))}
           className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition duration-150 active:scale-95 disabled:cursor-not-allowed ${
             feedItem.saved_at
-              ? 'mef-pop-in bg-amber-50 text-amber-700'
+              ? // C6: the brand gold this page already uses for its chips, not Tailwind's default amber.
+                'mef-pop-in bg-[#F5B700]/[0.12] text-[#854D0E]'
               : 'bg-[#1B3A2D]/[0.06] text-[#1B3A2D] hover:bg-[#1B3A2D]/[0.12]'
           }`}
         >

@@ -20,6 +20,8 @@ import { ClientReportView } from './ClientReportView';
 import { MemberFindingsSummary } from '@/components/body-assessment/MemberFindingsSummary';
 import { SpinalCurveMeasurements } from '@/components/body-assessment/SpinalCurveMeasurements';
 import { Card, WhenNotEmpty } from '@/components/layout';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { formatInTimeZone } from '@/lib/time/displayDate';
 
 export default async function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -28,8 +30,10 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, detail] = await Promise.all([
+  const [isCoach, timeZone, detail] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
+    // Her zone. `started_at` is an instant, so the day it reads as is hers.
+    memberTimezone(supabase, user.id),
     getAssessmentDetailAction(params.id),
   ]);
   if (!detail) notFound();
@@ -88,12 +92,11 @@ export default async function AssessmentDetailPage({ params }: { params: { id: s
           {typeConfig.label}
         </h1>
         <p className="mt-1 text-sm text-[#6B7A72]">
-          {new Date(assessment.started_at).toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          })}
+          {formatInTimeZone(
+            assessment.started_at,
+            { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
+            timeZone
+          )}
         </p>
 
         <div className="mt-6 space-y-5">
