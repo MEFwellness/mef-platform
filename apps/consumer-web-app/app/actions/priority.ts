@@ -68,10 +68,17 @@ async function memberContext(supabase: SupabaseClient): Promise<MemberContext | 
  * card in the same pass, so no client-side timer could decide this
  * correctly or deterministically. The presentation recorded is whichever
  * one genuinely reached her first.
+ *
+ * All three of this showing's events ride that one claim:
+ * `priority_shown`, `coaching_action_delivered` when a ledger decision
+ * exists, and `re_entry_shown` when she is in the re-entry state. One real
+ * showing, one row each, no matter how many times the card renders or how
+ * many times React remounts the tracker.
  */
 export async function trackPriorityShownAction(
   rule: string,
-  presentation: string
+  presentation: string,
+  isReEntry: boolean
 ): Promise<void> {
   try {
     if (!isPriorityRule(rule)) return;
@@ -108,29 +115,37 @@ export async function trackPriorityShownAction(
         payload: { rule: decision.rule, actionType: decision.actionType },
       });
     }
+
+    // re_entry_shown, riding the SAME atomic claim, for exactly the reason
+    // the delivery event above does (bug sweep finding B2, 2026-08-27).
+    //
+    // It used to live in its own action with no claim at all, behind
+    // nothing but TrackPriorityShown's 3-second client-side dedupe window.
+    // The card renders in three places (pop-up, Home inline, Today
+    // inline), Home renders two of them in a single pass, and the window
+    // expires between page loads, so one real re-entry opening wrote a row
+    // per mount per load. Measured on production: 42 rows for one member
+    // on one day, against the one that is true.
+    //
+    // It is still its own event_type, so "how often does the re-entry
+    // state actually fire" is still answerable directly rather than
+    // inferred from a rule slug. What changed is only how many rows one
+    // showing produces.
+    //
+    // It reads isReEntry rather than `rule === 're_entry'` because those
+    // are genuinely different questions: the safety override outranks
+    // re-entry in lib/priority/select.ts, so a member can be in the
+    // re-entry state and still be shown a safety card. The re-entry state
+    // fired either way, and that is what this event counts.
+    if (isReEntry) {
+      await trackProductEvent(supabase, {
+        memberId: ctx.memberId,
+        eventType: 're_entry_shown',
+        timezone: ctx.timezone,
+      });
+    }
   } catch (error) {
     console.error('trackPriorityShownAction failed', error);
-  }
-}
-
-/**
- * A re-entry opening was shown. Separate from priority_shown (which also
- * fires, carrying rule 're_entry') so "how often does the re-entry state
- * actually fire" is answerable on its own without inferring it from a
- * rule slug.
- */
-export async function trackReEntryShownAction(): Promise<void> {
-  try {
-    const supabase = createClient();
-    const ctx = await memberContext(supabase);
-    if (!ctx) return;
-    await trackProductEvent(supabase, {
-      memberId: ctx.memberId,
-      eventType: 're_entry_shown',
-      timezone: ctx.timezone,
-    });
-  } catch (error) {
-    console.error('trackReEntryShownAction failed', error);
   }
 }
 

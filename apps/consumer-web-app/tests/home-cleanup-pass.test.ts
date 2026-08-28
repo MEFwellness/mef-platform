@@ -248,6 +248,16 @@ describe('a completed priority leaves the top and settles at the bottom', () => 
   it('the pop-up chain still delivers the card once per day, and only while it is still active', () => {
     const chain = source('app/actions/rootPopupMessages.ts');
     expect(chain).toContain("priorityViewRaw?.status === 'active' ? priorityViewRaw : null");
-    expect(chain).toContain('priorityCardPopupMessageKey(await currentMemberLocalDate())');
+    // The key still carries her own local date, which is what makes the
+    // one-time-ever dismissal rule a once-per-day rule. Since bug sweep
+    // finding B1 (2026-08-27) both priority_card branches resolve it
+    // through one shared helper and check it against a dismissal before
+    // returning, instead of building it inline on the return, so this
+    // asserts the helper rather than the old inline expression. The
+    // once-per-day and never-starves behaviour itself is proven end to end
+    // in tests/root-popup-chain-guards.test.ts.
+    expect(chain).toContain('return priorityCardPopupMessageKey(cachedLocalDate);');
+    expect(chain).toContain('cachedLocalDate = await currentMemberLocalDate();');
+    expect(chain).toContain('if (await isPriorityCardDue(messageKey)) {');
   });
 });

@@ -188,11 +188,15 @@ describe('analytics vocabulary lines up with the database', () => {
   });
 
   it('fires all three required events, and re_entry_shown only on a re-entry', () => {
+    // One action per showing since bug sweep finding B2 (2026-08-27):
+    // re_entry_shown now rides priority_shown's atomic claim instead of
+    // firing from its own unclaimed action on every mount. See
+    // tests/priority-shown-events-once.test.ts for the exactly-once proof.
     const tracker = read('components/priority/TrackPriorityShown.tsx');
-    expect(tracker).toContain('trackPriorityShownAction(rule, presentation)');
-    expect(tracker).toContain('if (isReEntry && shouldFire');
+    expect(tracker).toContain('trackPriorityShownAction(rule, presentation, isReEntry)');
 
     const actions = read('app/actions/priority.ts');
+    expect(actions).toContain('if (isReEntry) {');
     expect(actions).toContain("eventType: 'priority_shown'");
     expect(actions).toContain("eventType: 'priority_action'");
     expect(actions).toContain("eventType: 're_entry_shown'");

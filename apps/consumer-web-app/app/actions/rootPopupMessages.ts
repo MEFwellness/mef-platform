@@ -44,6 +44,42 @@
  * `hasCheckins` gate that used to keep every message here (including this
  * one) from ever reaching a member with zero check-ins —
  * app/dashboard/page.tsx's own comment on `HomeScreenPopups` explains why.
+ *
+ * THE ONE RULE EVERY BRANCH IN THIS FILE OBEYS (2026-08-27)
+ *
+ * Every branch of findMyPendingRootPopupMessage checks its own due-ness
+ * before returning, and falls through to the next candidate when its
+ * message is already dismissed. No branch returns a candidate and leaves
+ * the filtering to getMyRootPopupMessageAction's outer check, because a
+ * branch that does starves everything below it: the outer check turns the
+ * whole call into null instead of moving on. That failure has now been
+ * found live three separate times (offers 2026-08-02, day3/day7
+ * 2026-08-12, both priority_card branches 2026-08-27), which is why this
+ * is written as a rule with no exceptions rather than a habit.
+ *
+ * The audit, kind by kind, in chain order. Two due-check lifetimes exist
+ * and each kind uses exactly one of them:
+ *
+ *   kind                   inner guard              lifetime
+ *   questionnaire_assigned  isRecurringMessageDue    snoozed returns next login
+ *   priority_card (re-entry) isPriorityCardDue       once per local day
+ *   hydration_focus         isRecurringMessageDue    snoozed returns next login
+ *   cvs_day3 / cvs_day7     isRecurringMessageDue    snoozed returns next login
+ *   cvs_offer               isOfferStillDue          once ever
+ *   lsc_day3 / lsc_day7     isRecurringMessageDue    snoozed returns next login
+ *   lsc_offer               isOfferStillDue          once ever
+ *   rpl_day3 / rpl_day7     isRecurringMessageDue    snoozed returns next login
+ *   rpl_offer               isOfferStillDue          once ever
+ *   reset_plan_day3/day7    isRecurringMessageDue    snoozed returns next login
+ *   weekly_review           isOfferStillDue          once per local week
+ *   priority_card (daily)   isPriorityCardDue        once per local day
+ *   free_arc_available      isRecurringMessageDue    snoozed returns next login
+ *
+ * A new kind added to this chain needs a row in that table and a guard in
+ * its branch. tests/root-popup-messages.test.ts asserts the table is
+ * complete: it walks this file's own source for every `kind:` returned and
+ * fails if one of them sits in a branch with no due-check, so the rule
+ * cannot quietly lapse again.
  */
 
 'use server';
@@ -256,6 +292,38 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     return isRootPopupDueThisLogin(dismissal, lastSignInAt);
   }
 
+  // FIX 7 (2026-08-27, bug sweep finding B1). The two priority_card
+  // branches were the last two in this chain that returned a candidate
+  // unconditionally, trusting getMyRootPopupMessageAction's single outer
+  // check to filter them. That is the same starvation this file's header
+  // and pickFirstDueOneTimeMessage's doc comment both describe, and it was
+  // live: a member whose priority card had already been shown and
+  // auto-dismissed today got NO pop-up for the rest of the day, because
+  // the re-entry branch sits above the hydration question, every day-3 and
+  // day-7 follow-up and the Weekly Root Review, and the ordinary branch
+  // sits above the free-arc invitation.
+  //
+  // The priority card's dismissal lifetime is the one-time-ever rule
+  // applied to a date-scoped key (priorityCardPopupMessageKey carries her
+  // own local date), so its due-check is isOfferPopupDue, not the
+  // recurring rule. That is why it gets its own helper rather than reusing
+  // isOfferStillDue's name: the semantics are the same, but the key is
+  // built here so both branches can share the one local-date resolution.
+  //
+  // The local date is resolved at most once per call and reused, so adding
+  // a check to the branch that used to resolve it lazily on return costs
+  // no extra query for the branch that does not reach it.
+  let cachedLocalDate: string | null = null;
+  async function priorityCardMessageKey(): Promise<string> {
+    if (cachedLocalDate === null) cachedLocalDate = await currentMemberLocalDate();
+    return priorityCardPopupMessageKey(cachedLocalDate);
+  }
+  async function isPriorityCardDue(messageKey: string): Promise<boolean> {
+    if (!memberId || !supabase) return true;
+    const dismissal = await getRootPopupDismissal(supabase, memberId, messageKey);
+    return isOfferPopupDue(dismissal);
+  }
+
   /** Root Presence System, requirement 4 — fetched lazily, only when a day-7 message is actually about to be returned, so every other call to this function pays no extra query. */
   async function goalCallbackForDay7(): Promise<string | null> {
     if (!memberId || !supabase) return null;
@@ -351,11 +419,10 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   const priorityViewRaw = await getMyPriorityView();
   const priorityView = priorityViewRaw?.status === 'active' ? priorityViewRaw : null;
   if (priorityView?.isReEntry) {
-    return {
-      kind: 'priority_card',
-      messageKey: priorityCardPopupMessageKey(await currentMemberLocalDate()),
-      view: priorityView,
-    };
+    const messageKey = await priorityCardMessageKey();
+    if (await isPriorityCardDue(messageKey)) {
+      return { kind: 'priority_card', messageKey, view: priorityView };
+    }
   }
 
   // Conditional water tracking (migration 163) — the one-time hydration
@@ -618,11 +685,10 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // `priorityView` was resolved once at the top of this function, so this
   // costs no second computation.
   if (priorityView) {
-    return {
-      kind: 'priority_card',
-      messageKey: priorityCardPopupMessageKey(await currentMemberLocalDate()),
-      view: priorityView,
-    };
+    const messageKey = await priorityCardMessageKey();
+    if (await isPriorityCardDue(messageKey)) {
+      return { kind: 'priority_card', messageKey, view: priorityView };
+    }
   }
 
   // Free Arc Discoverability fix (2026-08-03) — the next unstarted
@@ -632,16 +698,27 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // already active (every day3/day7/offer/assignment check above it).
   // Reuses the exact same `catalog` already fetched for the coach-
   // assignment check, no new query. See lib/root-popup-messages/freeArc.ts.
+  //
+  // Guarded for its own sake (2026-08-27, alongside B1): being last in the
+  // chain is the only reason an unguarded return here was not already a
+  // starvation bug, and "it is last" is not a property anyone will
+  // remember to re-check before adding a message below it. Every branch in
+  // this function now checks its own due-ness and falls through, with no
+  // exceptions, so the outer check in getMyRootPopupMessageAction is
+  // defence in depth rather than the only filter.
   const nextFreeArcCard = pickNextFreeArcCard(catalog);
   if (nextFreeArcCard && nextFreeArcCard.primaryHref) {
-    return {
-      kind: 'free_arc_available',
-      messageKey: freeArcPopupMessageKey(nextFreeArcCard.key),
-      assessmentKey: nextFreeArcCard.key,
-      displayName: nextFreeArcCard.title,
-      description: nextFreeArcCard.description,
-      primaryHref: nextFreeArcCard.primaryHref,
-    };
+    const messageKey = freeArcPopupMessageKey(nextFreeArcCard.key);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'free_arc_available',
+        messageKey,
+        assessmentKey: nextFreeArcCard.key,
+        displayName: nextFreeArcCard.title,
+        description: nextFreeArcCard.description,
+        primaryHref: nextFreeArcCard.primaryHref,
+      };
+    }
   }
 
   return null;

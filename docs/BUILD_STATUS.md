@@ -8965,3 +8965,132 @@ writing one; zero console errors; zero em dashes.
 and removed at the next commit. They are still in that commit's history;
 scrubbing it means force-pushing an already-pushed `main`, which is Osei's
 call.
+
+---
+
+## Build 3 of the bug sweep: delivery, plus the history scrub (2026-08-27)
+
+Two delivery bugs from `docs/BUG_SWEEP_2026-08-27.md`, B1 and B2, and one
+privacy step that ran first and alone.
+
+### Step 0: the screenshots are out of the history
+
+Commit `4479daa` committed ten screenshots of a real member's screens,
+including her name and her readings, under
+`apps/consumer-web-app/scripts/.verify/shots/`. The next commit removed them
+from the tree and gitignored the directory, but they stayed in that
+commit's history, and this repository is public.
+
+`git filter-branch --index-filter` purged the whole
+`apps/consumer-web-app/scripts/.verify/` path from every commit in the range
+`feb7a3b..HEAD`, which is the only range that ever contained it. All five
+commits in that range survive with their messages and their code changes
+intact; only the twelve files under that path are gone. The resulting tree
+is byte-identical to the tree before the rewrite: `git diff 61e85e4 HEAD`
+was empty.
+
+The old `main` was force-pushed over. The filter-branch backup ref, the
+reflog and the loose objects were then dropped and garbage collected, so
+nothing local holds a copy either. Verified four ways: no path under
+`.verify/` or `.sweep/` appears in any commit on any ref, each of the ten
+filenames returns zero occurrences across all refs, no blob in the object
+store sits under that path, and each of the nine distinct blob hashes taken
+from a pre-rewrite backup bundle no longer resolves. (Nine blobs for ten
+files: `02-sheet-0.png` and `02-sheet-1.png` were identical and shared one
+blob.)
+
+The `.gitignore` rules covering both `scripts/.sweep/` and
+`scripts/.verify/` are still in place and were not touched.
+
+**GitHub still holds the old objects.** `git fetch origin 4479daa` succeeds,
+and the unauthenticated GitHub API returns HTTP 200 for both that commit and
+the screenshot blob by hash. GitHub does not garbage collect unreachable
+objects on request and offers no API for it; removing them needs a GitHub
+Support request naming the repository and asking for the unreachable objects
+from the force-pushed history to be purged. The repository has zero forks,
+which is what makes that request able to work.
+
+The message on `69ae5ad` still says the screenshots "remain in the history
+of 4479daa". That sentence was true when written and is no longer true. The
+messages were preserved verbatim because rewriting them was not the ask.
+
+### B1: two pop-up branches returned without checking whether they were due
+
+`app/actions/rootPopupMessages.ts`. Both `priority_card` branches, the
+re-entry takeover near the top of the chain and the ordinary daily card near
+the bottom, returned their candidate unconditionally. The single outer
+due-check in `getMyRootPopupMessageAction` then found the dismissal row and
+turned the whole call into `null`, so nothing below the branch could be
+delivered. Because the card is auto-dismissed on mount, this fired on the
+first Home open of every day. The re-entry half sat above the hydration
+question, every day-3 and day-7 follow-up, and the Weekly Root Review.
+
+Both branches now resolve the message key through one shared
+`priorityCardMessageKey()` helper, check it with `isPriorityCardDue` (the
+one-time-ever rule applied to a date-scoped key, which is what makes it
+once per day), and fall through when it has already been shown. The
+member's own local date is resolved at most once per call.
+
+`free_arc_available` was the third branch with no inner check. Being last in
+the chain was the only reason it was not already a starvation bug, so it is
+now guarded too.
+
+The file header carries the full audit: every message kind in the chain,
+which of the two due-check lifetimes it uses, and the rule that no branch
+may return without checking. That rule is asserted structurally by a test
+that walks the function's own returns.
+
+### B2: one re-entry opening wrote a row per render
+
+`app/actions/priority.ts` and `components/priority/TrackPriorityShown.tsx`.
+`priority_shown` rides `claimPriorityShown`, a conditional UPDATE on
+`shown_at is null`, so it lands once per member per local day. Its sibling
+`re_entry_shown` had no claim at all, only a three second client-side dedupe
+window that expires between page loads, and the card renders in three places
+with Home rendering two of them in one pass.
+
+`re_entry_shown` now rides the same claim, written beside
+`coaching_action_delivered` inside the same function, after the claim is
+won. `trackReEntryShownAction` is gone and the tracker fires one server
+action instead of two, passing `isReEntry` through. It reads `isReEntry`
+rather than `rule === 're_entry'` on purpose: the safety override outranks
+re-entry, so a member can be in the re-entry state and still be shown a
+safety card, and the event counts the state.
+
+**How far the over-count goes, measured on production.** Every
+`re_entry_shown` row that exists is on one member on one day: the test
+member, 2026-08-27, 42 rows where 1 is correct. The event has no rows on any
+other date and none on any other account. That member is
+`profiles.is_test = true`, and every admin analytics figure excludes test
+accounts, so no dashboard number was ever inflated by this. The rows were
+left in place: the sweep does not call for a repair, deleting event history
+to tidy a test account is worse than leaving it, and no migration was
+written for this build.
+
+Checked while measuring: `priority_shown` has exactly one row per member-day
+for every real member-day on record (12 of them). The only multi-row
+`priority_shown` days belong to test accounts on days when verification
+scripts cleared and recreated the priority row. The claim works.
+
+### Tests
+
+**6,716 passing, 432 files**, up from 6,457. New:
+`root-popup-chain-guards.test.ts` (50) drives the real chain against a fake
+dismissal store across every message kind by never-shown, shown, snoozed and
+ignored, on a second load the same day and on a fresh login the next day,
+plus a drain test that walks six pending messages out one at a time in
+order, plus the structural rule check. `priority-shown-events-once.test.ts`
+(15) drives the real server action against a fake claim that behaves like
+the real conditional UPDATE.
+
+**Mutation proof.** Five guards were each broken once and the failure
+confirmed, then restored: the re-entry branch unguarded (5 tests fail), the
+ordinary branch unguarded (3), the free-arc branch unguarded (1), the event
+moved back outside the claim (5), and a second client call site added (1).
+
+### Not fixed, found while working
+
+- `apps/consumer-web-app` has no `lint` script of its own; lint runs from
+  the repo root. Not changed.
+- 93 pre-existing lint warnings, all `no-console` in `scripts/`. None in any
+  file this build touched.

@@ -16,16 +16,25 @@
  * correctly. The server does it, with an atomic claim against
  * member_daily_priorities.shown_at — see claimPriorityShown.
  *
- * Fires up to two events per real showing:
- *   priority_shown  at most once per member per day, carrying which
- *                   hierarchy rule won and which presentation reached her.
- *   re_entry_shown  additionally, when rule 0 fired, so "how often does
- *                   the re-entry override actually happen" is answerable
- *                   directly rather than inferred from a rule slug.
+ * Fires exactly ONE server action per real showing, and that action
+ * decides how many events the showing is worth (bug sweep finding B2,
+ * 2026-08-27). It used to fire two, and the second one, re_entry_shown,
+ * had no server-side claim behind it at all, only the dedupe window
+ * below, which expires between page loads. One real re-entry opening
+ * therefore wrote a row per mount per load: 42 rows for one member on one
+ * day, measured on production.
+ *
+ * `isReEntry` is now passed through to the same claimed action instead, so
+ * every event this showing produces rides the one atomic claim:
+ *   priority_shown              which hierarchy rule won, which
+ *                               presentation reached her first.
+ *   coaching_action_delivered   when a ledger decision exists.
+ *   re_entry_shown              when she is in the re-entry state.
+ * All three, at most once per member per local day.
  */
 
 import { useEffect, useRef } from 'react';
-import { trackPriorityShownAction, trackReEntryShownAction } from '@/app/actions/priority';
+import { trackPriorityShownAction } from '@/app/actions/priority';
 import type { PriorityRule } from '@/lib/priority/types';
 import type { PriorityPresentation } from '@/lib/analytics/surfaces';
 
@@ -57,10 +66,7 @@ export function TrackPriorityShown({
     fired.current = true;
 
     if (shouldFire(`priority:${rule}:${presentation}`)) {
-      void trackPriorityShownAction(rule, presentation);
-    }
-    if (isReEntry && shouldFire('priority:re_entry_shown')) {
-      void trackReEntryShownAction();
+      void trackPriorityShownAction(rule, presentation, isReEntry);
     }
   }, [rule, isReEntry, presentation]);
 
