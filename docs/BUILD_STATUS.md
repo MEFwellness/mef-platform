@@ -9367,3 +9367,295 @@ started.
   `lib/time/memberToday.ts` now states. No behaviour difference; left alone.
 - 93 pre-existing lint warnings, all `no-console` in `scripts/`. None in any
   file this build touched.
+
+---
+
+## Build 5 of the bug sweep: the C batch, the member's dates, and the rules (2026-08-28)
+
+The last build of the sweep. Every remaining C finding, the member half of
+the date bug build 4 found on the coach side, every Latent item, and the
+sweep's lessons written into CLAUDE.md as standing rules.
+
+**One migration, 188**, dry run against production first and rolled back,
+then applied. It edits stored copy in `exercise_catalog` and
+`registry_entries` and nothing else: no schema, no engine, no table.
+
+### Part 1: the C items
+
+| # | what happened |
+| --- | --- |
+| C1 | The half that was a bug closed in build 2, when `membership.minLevel` began deciding the section. What is left behind a padlock in AVAILABLE is the free arc's own sequence, one free experience waiting on the free experience before it, which is a step she can clear today. **Recorded as a decision, not changed.** |
+| C2 | Shipped in build 2. |
+| C3 | Shipped in build 4. |
+| C4 | "Set it manually for now. A full questionnaire is on the way." is gone from `/food-lens/pattern`. It reads "Set it to how you eat now, and change it any time that changes." **The existing Primal Pattern Diet Type questionnaire is not the missing piece:** it classifies her pattern as polar, variable or equatorial and writes its own result rows, and it does not write `primal_pattern_profiles`, which is what Food Lens compares meals against. Wiring the two together is a feature. It was not built here, and the file's header now says so instead of the screen promising it. |
+| C5 | One assessment, one name. It was "Baseline Assessment" on `/profile/baseline` and on the coach's screen, "Onboarding Assessment" on `/questionnaires` (the registry's `displayName`) and "Comprehensive Health Assessment" on Home. All three are **Baseline Assessment** now: the registry entry, the Root Cause Signals label and the Home card. The component file keeps its old name, because a filename is not on a screen. |
+| C6 | `/today`'s Recovery and Reset chips were `bg-blue-50 text-blue-700` and Celebrate was `amber-50/amber-700`, straight from Tailwind's default palette, filled, in a row of quiet chips, reading like buttons. There are three tones now, each a color this app already owns: the ordinary chip weight the day-of-week pill uses, the brand gold already on Challenge, and the forest-green "good" tint from `lib/wellness/status.ts`. The risk chip and the "Saved" chip on the feed went with them. |
+| C7 | Diagnosed and measured. The cheap half shipped. See below. |
+| C8 | Shipped in build 2. |
+| C9 | 31 rows of `exercise_catalog` carried an em dash in `description` or `exercise_tips`, 8 of them client-assignable. **All 31 fixed**, not just the 8: reachability is a property of today's flags, and a coach reads the other 23. Each of the 34 occurrences is written out by hand rather than swapped mechanically, because a blind comma leaves 30 comma splices and a blind period leaves 3 fragments. A period and a capital where the second half is a sentence, a colon where it renames what came before, a comma on the one occurrence that does not end a clause. |
+| C10 | The Home program hero rendered a coach's whole explanation. Measured live: 501px of text drawn into a card built around "Week 2 of 4" and "Next up". Clamped to three lines, 68px. Nothing is cut from the data and `/programs` still shows all of it, one tap away. |
+
+### C7: what the numbers actually say
+
+Measured three times each on the deployment carrying these changes,
+mobile viewport, a fresh page per run.
+
+| screen | to first byte | to first heading painted | to network idle |
+| --- | --- | --- | --- |
+| `/dashboard` (Home) | 0.9s, 0.3s, 0.8s | 7.7s, 5.2s, 5.4s | 21.7s, 12.9s, 12.7s |
+| `/movement/sessions` | 0.5s, 0.3s, 0.7s | 1.2s, 1.2s, 1.2s | 2.9s, 2.9s, 2.8s |
+| `/programs` | 2.0s, 1.4s, 1.7s | 2.1s, 1.5s, 1.8s | 4.5s, 4.9s, 4.5s |
+
+**The sweep's headline number did not reproduce.** `/movement/sessions`
+was 32.8s to first byte and 43.8s to idle in the sweep. It is 0.3s to
+0.7s and under 3s today. That screen makes three small queries and its
+First Load JS is 103 kB, one of the smallest in the app, so 32.8s was
+never its own weight. It was a cold function on a freshly built
+deployment. The same effect was caught in the act today:
+`/api/entry-animation/greeting`, whose entire job is a session check and
+one indexed `profiles` read, took **4.6s** on its first hit of the run.
+
+**Home is the screen that is genuinely slow, and it is a different
+problem.** Its first byte arrives in under a second, but the streamed
+document does not finish for **17.0s**, and her first heading is not
+painted for 5 to 8. That is server work inside the page's own Suspense
+boundaries: roughly twenty independently-fetching cards, each doing its
+own round trips. Nothing else on the trace is above 600ms.
+
+**Shipped here, the cheap half.** `listSessionSummaries` read the
+templates, waited, then read the slots with an `.in()` built from the
+first answer. The slots are embedded on the templates query now, over the
+real foreign key: one round trip instead of two dependent ones.
+
+**Named as its own task, not half-done here: Home's streamed render.**
+Cutting 17s of sequential server work on one screen means deciding which
+cards must be in the first response and which can arrive after it, and
+sharing the reads they duplicate. That is a design pass on Home, not a
+line change, and doing part of it would leave the screen in a worse
+state than either end.
+
+### Part 2: the member's dates, the same class as B3
+
+**The bug.** `MemberProgramsList` split her sessions into "Coming up" and
+"Already done" on `new Date().toISOString().slice(0, 10)`, computed while
+rendering. That is UTC's calendar day, not hers. From 8pm Eastern onward
+UTC has already rolled over, so **every evening, the session she was
+doing tomorrow was filed under "Already done"**. The split is decided on
+the server now, in her own timezone, through `lib/time/memberToday.ts`,
+and handed down as a prop, which is the same rule the four coach panels
+were put on in B3 and the same rule the Home program card already used.
+
+**Whose day moves.** Only members west of UTC, and only in their own
+evening. For an Eastern member the old rule was wrong from 8pm to
+midnight every day (7pm during standard time); for a Pacific member from
+5pm. East of UTC nothing moves. No member's stored data changed: this is
+which side of a heading a session is drawn on, not which day it is
+scheduled for.
+
+**The six L1 components.** All six now format their instants in a named
+zone, and the zone is hers, resolved once on the server:
+
+| file | was | is |
+| --- | --- | --- |
+| `app/notifications/NotificationsList.tsx` | `toLocaleDateString` with no zone | `formatInTimeZone(..., her zone)` |
+| `app/today/CoachMessages.tsx` | same | same |
+| `components/protein-ledger/ProteinLedgerEntries.tsx` | `toLocaleTimeString` on an instant | same |
+| `components/food-products/FoodLogList.tsx` | same | same |
+| `app/connections/WearableConnectionCard.tsx` | both, on "Last synced" | same |
+| `components/recommendations/RecommendationsClient.tsx` | `toLocaleDateString()`, no locale AND no zone, on a `date` column | `formatDisplayDate`, which is the UTC pin a bare calendar date needs |
+
+UTC is deliberately NOT the answer on five of those six. It is
+deterministic and it is visibly wrong: an 8:30pm meal reads as 12:30am
+the next day. `lib/time/displayDate.ts` now states both rules and says
+which is which: `formatInTimeZone` for an instant a member reads, in her
+own zone; `formatDisplayDate` for a bare `YYYY-MM-DD` and for staff
+surfaces, pinned to UTC.
+
+**Then the same grep build 4 ran on the coach side, run on the member
+side.** Seven more, all real:
+
+- `app/food-lens/[id]/page.tsx`, `app/food-lens/page.tsx`,
+  `app/assessment/page.tsx`, `app/assessment/[id]/page.tsx` and
+  `app/assessments/wbsa/page.tsx` each formatted a stored instant in the
+  server's zone, so a late-evening scan or assessment was dated tomorrow.
+- `app/progress/page.tsx` did the same with the last published report's
+  date, on a page that had already resolved her timezone three lines up.
+- `app/actions/rootCauseSignals.ts` composed "Due 8/28/2026" with
+  `toLocaleDateString()`: no locale and no zone at all.
+
+And two the sweep did not list, both the same defect in a different
+shape. `components/food-lens/MealLogActions.tsx` seeded a
+`datetime-local` input from `new Date()` and the runtime's own offset
+**inside a useState initializer of a client component**, so the server
+pass wrote UTC's clock into the field and the browser pass wrote hers.
+`components/food-products/FoodLogList.tsx`'s edit form did the same with
+a stored instant. Both round trip through her zone now, through two new
+helpers in `lib/time/localDate.ts` that solve the offset rather than
+reading the runtime's.
+
+`components/exercise-library/ExerciseHistoryList.tsx` was fixed too. It
+is a staff surface since the movement tools moved, so it takes the UTC
+pin, but it renders inside a client component and was unpinned.
+
+**The two private copies of the member-timezone lookup are gone.**
+`app/actions/caseView.ts` and `app/actions/coach-programs.ts` call
+`lib/time/memberToday.ts` now, which is also request-memoized, so a
+screen that resolves her zone from more than one place pays for one
+`profiles` read. **Not done, and named:** there are about forty more
+`select('timezone')` lookups scattered through `app/actions/` and
+`lib/`. They all agree on the answer and the fallback. Consolidating them
+is a mechanical sweep of its own and was not in this build's scope.
+
+### Part 3: the Latent items
+
+- **L1, closed.** All six components are above. Held by
+  `tests/member-dates-hydration.test.tsx` and by the repo rule.
+- **L2, closed.** Four `registry_entries.label` rows read "Discomfort —
+  hips" / "Discomfort — lower back". They were latent for a second reason
+  the sweep did not record, which is stronger than their `superseded`
+  status: `findingDisplayName` maps `movement::pain_hips` and
+  `movement::pain_lower_back` to names of its own and never reaches the
+  stored label. Migration 188 repairs the stored text anyway, to the same
+  words the display layer produces, so a future reader that prints the
+  column raw cannot print an em dash from these rows.
+- **L3, closed.** `/exercises/[id]` upserted `member_exercise_recent_views`
+  from inside its own server render. The sweep filed it as harmless
+  because the row is uniquely keyed, which is true and is not the whole
+  problem: **Next prefetches a `<Link>` when it scrolls into view, and a
+  prefetch runs the server render**, so scrolling the Exercise Library
+  past a card was enough to file that exercise under "recently viewed"
+  without anybody opening it, pushing a real entry off a short list. It is
+  recorded from a mounted effect now, through the server action that
+  already existed, using the same shape as `MarkProgramOpened`.
+- **L4, closed by build 1.** `evaluateReassessmentTriggers` carries
+  `if (!completedAssessmentKeys.has(assessmentKey)) continue;`, and every
+  other evaluator carries the same line. Migration 187 deleted the rows.
+  Held by `tests/reassessment-intelligence.test.ts`'s "nothing is ever
+  reassessed that was never assessed".
+
+### Part 4: the standing rules, in CLAUDE.md
+
+A new section, "Standing rules from the 2026-08-27 bug sweep", written as
+instructions to future builds: renders never decide state; every date and
+day boundary goes through the shared timezone helpers; one source of truth
+per number and every counted claim names its window; every pop-up branch
+checks its own due-ness; test accounts are excluded in the data layer;
+access is the plan plus an additive coach assignment; say only what is
+true today; no em dash anywhere a person reads, stored content included;
+screenshots and member data stay under gitignored paths. It ends with the
+standing instruction to re-run the whole sweep before launch and after any
+large multi-screen build.
+
+### Tests
+
+**6,814 passing, 439 files**, up from 6,765 across 435. Four new files:
+
+`member-dates-hydration.test.tsx` (28) renders each of the six components
+and the programs list to HTML under five zones either side of midnight and
+asserts one byte-identical output, then asserts the day and the clock are
+HERS and not the server's, with a control proving the old formatters
+really do produce two different strings across those zones. The programs
+split is checked by prop, not by coincidence: a far-future `today` puts
+every session behind her and a far-past one puts every session ahead, so a
+component that computed its own date fails whatever day the suite runs on.
+The `datetime-local` round trip is checked across a daylight saving
+boundary.
+
+`no-unpinned-dates-guard.test.ts` (4) is the repo rule. It walks every
+`.ts` and `.tsx` under `app/` and `components/` and fails if a
+`toLocale*` call names no timezone, unless its receiver is one of two
+provably zone-independent constructions, and fails if a file marked
+`'use client'` contains `new Date().toISOString().slice` or
+`getTimezoneOffset()`. It asserts its own file counts so it cannot pass
+by walking an empty tree.
+
+`bug-sweep-c-batch.test.tsx` (13) holds C1's decision, C4's silence, C5's
+one name, C6's palette and C10's clamp.
+
+`bug-sweep-latent-items.test.tsx` (6) holds L2 and L3.
+
+**Mutation proof. Five things were broken one at a time, the right tests
+failed, and each was restored:**
+
+| broken | failed |
+| --- | --- |
+| the programs split computes UTC today again | 3 (two render tests and the repo rule) |
+| `NotificationsList` formats with no zone | 3 (byte-identical, her day, and the repo rule) |
+| the undated promise comes back | 2 |
+| the Tailwind blue Reset chip comes back | 1 |
+| the exercise view is written from the render again | 2 |
+
+**Fixed while working, not part of the ask:** `tests/coach-dates-hydration.test.tsx`
+had two real type errors from build 4, so `npm run typecheck` was failing
+on `main` before this build. One `as const` on a fixture. Typecheck is
+clean now.
+
+### Live verification, on production
+
+Signed in as the standing test member with a one-time minted session,
+retired with scope `local`. Mobile viewport 390x844. **30 of 30 passed**,
+on the deployment that received these changes (`mef-platform-h5093uooo`,
+aliased to `app.mefwellness.com`). Screenshots stayed under the gitignored
+`apps/consumer-web-app/scripts/.verify/shots/build5/`.
+
+- **C4.** `/food-lens/pattern` reads "This is what Food Lens compares your
+  meals against. Set it to how you eat now, and change it any time that
+  changes." No promise anywhere on the screen.
+- **C5.** "Baseline Assessment" on Home, on `/questionnaires` and on
+  `/profile/baseline`. Neither of the retired names appears on any of the
+  three.
+- **C6.** The Today chips measured by computed style: the day pill is the
+  brand's 6% green, Reset is `rgb(234, 241, 236)`, the check-in chip is the
+  brand cream. No Tailwind default class on any chip.
+- **C9.** Zero client-assignable exercises carry an em dash, against 8
+  before migration 188.
+- **C10.** The hero draws 68px of a 501px explanation ("Ebony, this is your
+  Strong After 40. Four weeks, three sessions a week...") and the call to
+  action is still on the card.
+- **C1.** The AVAILABLE section carries no plan lock.
+- **`/programs`.** The split renders with her dates: Fri Aug 28, Mon Aug 31,
+  Wed Sep 2 through Fri Sep 18 under "Coming up", then Mon Aug 24 and Wed
+  Aug 26 under "Already done". Both headings are in the markup that came
+  off the wire, before any JavaScript ran, which is what "the server
+  decided it" means. **Zero hydration errors.** Stated plainly: her
+  timezone's date and UTC's date are the same day today (2026-08-28), so a
+  live run today cannot tell the old rule from the new one. What live
+  proves is that the split renders, that the server draws it, and that the
+  passes agree. The behavioural difference is proven locally.
+- **The six L1 screens.** All six loaded with zero console errors and zero
+  hydration errors, and no "Invalid Date", NaN or undefined. Five of the
+  six render no date today because she has no notification, no logged meal
+  and no connected device, which is recorded rather than counted as a pass
+  of something that was not exercised.
+- **The member journey.** Home, Daily Reset, Today, Progress,
+  Questionnaires, Core Values Snapshot, Root Score and the Case View all
+  loaded clean. The pop-up chain is empty today and nothing repeated.
+  `/assessments/core-values-snapshot/take` redirected straight to her
+  existing results and her `unified_assessment_sessions` count was 4 before
+  and 4 after, so a completed experience is still not re-offered and still
+  starts nothing. Today's check-in count and the Case View's agree, both 4.
+- **Copy and console.** 25 page loads, zero console errors, zero hydration
+  errors, zero em dashes on any screen visited.
+
+**State this run left on production:** none. No row on any account was
+created, changed or deleted by the verification. The only production
+change in this build is migration 188's edit to stored copy: 31
+`exercise_catalog` rows and 4 `registry_entries` labels.
+
+**Deployment checks.** Repo `MEFwellness/mef-platform`, branch `main`,
+Vercel project `mef-wellness/mef-platform`, target Production, aliased to
+`app.mefwellness.com`. Auto-deploy fired on the push; no CLI deploy was
+needed. Migration ledger tail: 188, 187, 186, 185.
+
+### Still open after the sweep
+
+Two things, both named rather than left to be re-found:
+
+1. **Home's streamed render**, described under C7 above. Its own task.
+2. **About forty private `select('timezone')` lookups** across
+   `app/actions/` and `lib/`. No behaviour difference; a mechanical
+   consolidation onto `lib/time/memberToday.ts`.
+
+And one that is not this codebase's to fix: **GitHub still serves the
+purged screenshot blobs by SHA** from the force-pushed history (build 3).
+That needs a GitHub Support request.
