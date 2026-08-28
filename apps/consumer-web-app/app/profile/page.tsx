@@ -15,6 +15,7 @@ import { PasskeyEnrollment } from './PasskeyEnrollment';
 import { Card } from '@/components/layout';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
+import { lockNoteMessage, lockOffersPlanLink } from '@/lib/locked-content/copy';
 import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
 
 export default async function ProfilePage() {
@@ -27,10 +28,11 @@ export default async function ProfilePage() {
   const [{ data: profile }, isCoach, bodyAssessmentAccess] = await Promise.all([
     supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
-    // Coach-Assign-Only Gating task (2026-08-04) — locks the "Assessments"
-    // card below when this member has no Body Assessment history and no
-    // pending coach assignment for it.
-    checkAssessmentAccess(supabase, user.id, 'body-assessment'),
+    // Locks the "Assessments" card below when this member's plan does not
+    // include the Body Assessment and no coach has assigned it. 'view',
+    // because this card is a doorway to her own stored assessments, and
+    // her own history is never hidden by a plan rule.
+    checkAssessmentAccess(supabase, user.id, 'body-assessment', { intent: 'view' }),
   ]);
 
   const firstName = firstNameFrom(profile?.display_name);
@@ -139,6 +141,9 @@ export default async function ProfilePage() {
             <LockedCardButton
               ariaLabel="Assessments, locked. Tap to hear from Root about it."
               analyticsFeature="body-assessment"
+              message={lockNoteMessage(bodyAssessmentAccess.reason)}
+              lockReason={bodyAssessmentAccess.reason.kind}
+              planHref={lockOffersPlanLink(bodyAssessmentAccess.reason) ? '/membership' : undefined}
             >
               <Card className="opacity-55 grayscale-[0.4]">
                 <div className="flex items-center gap-2 text-[#6B7A72]">

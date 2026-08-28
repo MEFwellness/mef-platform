@@ -108,25 +108,88 @@ export async function listPendingReassessments(
     .filter((r): r is PendingReassessmentRow => r !== null);
 }
 
+
+/**
+ * THE LAST GATE BEFORE THE ROW EXISTS (2026-08-27).
+ *
+ * Every writer of `reassessment_schedules` goes through here, and this
+ * refuses to schedule a reassessment of something the member has never
+ * completed. The evaluators in service.ts already refuse to propose one,
+ * so in normal operation this never fires; it exists because the evaluators
+ * are five separate functions and a sixth one written next year would
+ * otherwise reintroduce the same fault silently. A schedule row is read by
+ * the Questionnaires card as "Reassessment due", and there is no
+ * reassessing something that was never assessed.
+ *
+ * Returns false (and writes nothing) when the guard refuses, so a caller
+ * that wants to know can look. Nothing today needs to: this is a floor,
+ * not a branch.
+ */
+async function insertReassessmentSchedule(
+  supabase: SupabaseClient,
+  memberId: string,
+  assessmentKey: AssessmentKey,
+  row: {
+    stage: string;
+    triggerSource: string;
+    triggerContext: Record<string, unknown>;
+    dueAt?: string;
+  },
+  label: string
+): Promise<boolean> {
+  const definition = getAssessmentRegistryEntry(assessmentKey);
+
+  const { data: completedRow, error: completedError } = await supabase
+    .from('assessment_status_by_member')
+    .select('latest_completed_at')
+    .eq('member_id', memberId)
+    .eq('assessment_definition_id', definition.databaseId)
+    .maybeSingle();
+
+  if (completedError) {
+    console.error(`${label} could not confirm completion history`, completedError);
+    return false;
+  }
+  if (!completedRow?.latest_completed_at) {
+    console.warn(
+      `${label} refused: ${assessmentKey} has never been completed by this member, so there is nothing to reassess.`
+    );
+    return false;
+  }
+
+  const { error } = await supabase.from('reassessment_schedules').insert({
+    member_id: memberId,
+    assessment_definition_id: definition.databaseId,
+    stage: row.stage,
+    due_at: row.dueAt ?? new Date().toISOString(),
+    status: 'pending',
+    trigger_source: row.triggerSource,
+    trigger_context: row.triggerContext,
+  });
+
+  if (error) {
+    console.error(`${label} failed`, error);
+    return false;
+  }
+  return true;
+}
+
 export async function insertFindingTriggeredReassessmentSchedule(
   supabase: SupabaseClient,
   memberId: string,
   suggestion: ReassessmentSuggestion
 ): Promise<void> {
-  const definition = getAssessmentRegistryEntry(suggestion.assessmentKey);
-  const now = new Date().toISOString();
-
-  const { error } = await supabase.from('reassessment_schedules').insert({
-    member_id: memberId,
-    assessment_definition_id: definition.databaseId,
-    stage: 'finding_triggered',
-    due_at: now,
-    status: 'pending',
-    trigger_source: suggestion.triggerSource,
-    trigger_context: suggestion.triggerContext,
-  });
-
-  if (error) console.error('insertFindingTriggeredReassessmentSchedule failed', error);
+  await insertReassessmentSchedule(
+    supabase,
+    memberId,
+    suggestion.assessmentKey,
+    {
+      stage: 'finding_triggered',
+      triggerSource: suggestion.triggerSource,
+      triggerContext: suggestion.triggerContext,
+    },
+    'insertFindingTriggeredReassessmentSchedule'
+  );
 }
 
 /**
@@ -171,20 +234,17 @@ export async function insertCalendarTriggeredReassessmentSchedule(
   memberId: string,
   suggestion: CalendarReassessmentSuggestion
 ): Promise<void> {
-  const definition = getAssessmentRegistryEntry(suggestion.assessmentKey);
-  const now = new Date().toISOString();
-
-  const { error } = await supabase.from('reassessment_schedules').insert({
-    member_id: memberId,
-    assessment_definition_id: definition.databaseId,
-    stage: 'calendar_cadence',
-    due_at: now,
-    status: 'pending',
-    trigger_source: suggestion.triggerSource,
-    trigger_context: suggestion.triggerContext,
-  });
-
-  if (error) console.error('insertCalendarTriggeredReassessmentSchedule failed', error);
+  await insertReassessmentSchedule(
+    supabase,
+    memberId,
+    suggestion.assessmentKey,
+    {
+      stage: 'calendar_cadence',
+      triggerSource: suggestion.triggerSource,
+      triggerContext: suggestion.triggerContext,
+    },
+    'insertCalendarTriggeredReassessmentSchedule'
+  );
 }
 
 export async function insertExperimentOutcomeReassessmentSchedule(
@@ -192,20 +252,17 @@ export async function insertExperimentOutcomeReassessmentSchedule(
   memberId: string,
   suggestion: ExperimentOutcomeReassessmentSuggestion
 ): Promise<void> {
-  const definition = getAssessmentRegistryEntry(suggestion.assessmentKey);
-  const now = new Date().toISOString();
-
-  const { error } = await supabase.from('reassessment_schedules').insert({
-    member_id: memberId,
-    assessment_definition_id: definition.databaseId,
-    stage: 'experiment_outcome_triggered',
-    due_at: now,
-    status: 'pending',
-    trigger_source: suggestion.triggerSource,
-    trigger_context: suggestion.triggerContext,
-  });
-
-  if (error) console.error('insertExperimentOutcomeReassessmentSchedule failed', error);
+  await insertReassessmentSchedule(
+    supabase,
+    memberId,
+    suggestion.assessmentKey,
+    {
+      stage: 'experiment_outcome_triggered',
+      triggerSource: suggestion.triggerSource,
+      triggerContext: suggestion.triggerContext,
+    },
+    'insertExperimentOutcomeReassessmentSchedule'
+  );
 }
 
 export async function insertRecommendationSequenceReassessmentSchedule(
@@ -213,20 +270,17 @@ export async function insertRecommendationSequenceReassessmentSchedule(
   memberId: string,
   suggestion: RecommendationSequenceReassessmentSuggestion
 ): Promise<void> {
-  const definition = getAssessmentRegistryEntry(suggestion.assessmentKey);
-  const now = new Date().toISOString();
-
-  const { error } = await supabase.from('reassessment_schedules').insert({
-    member_id: memberId,
-    assessment_definition_id: definition.databaseId,
-    stage: 'recommendation_sequence_triggered',
-    due_at: now,
-    status: 'pending',
-    trigger_source: suggestion.triggerSource,
-    trigger_context: suggestion.triggerContext,
-  });
-
-  if (error) console.error('insertRecommendationSequenceReassessmentSchedule failed', error);
+  await insertReassessmentSchedule(
+    supabase,
+    memberId,
+    suggestion.assessmentKey,
+    {
+      stage: 'recommendation_sequence_triggered',
+      triggerSource: suggestion.triggerSource,
+      triggerContext: suggestion.triggerContext,
+    },
+    'insertRecommendationSequenceReassessmentSchedule'
+  );
 }
 
 /**
@@ -242,18 +296,19 @@ export async function insertCoachRequestedReassessmentSchedule(
   assessmentKey: AssessmentKey,
   reason: string
 ): Promise<void> {
-  const definition = getAssessmentRegistryEntry(assessmentKey);
-  const now = new Date().toISOString();
-
-  const { error } = await supabase.from('reassessment_schedules').insert({
-    member_id: memberId,
-    assessment_definition_id: definition.databaseId,
-    stage: 'coach_requested',
-    due_at: now,
-    status: 'pending',
-    trigger_source: 'coach_action',
-    trigger_context: { reason },
-  });
-
-  if (error) console.error('insertCoachRequestedReassessmentSchedule failed', error);
+  // A coach asking for a FIRST attempt is an assignment, not a
+  // reassessment, and the coach already has an assignment mechanism for
+  // it. So this rides the same completion guard as every other writer
+  // rather than being trusted to be about real history.
+  await insertReassessmentSchedule(
+    supabase,
+    memberId,
+    assessmentKey,
+    {
+      stage: 'coach_requested',
+      triggerSource: 'coach_action',
+      triggerContext: { reason },
+    },
+    'insertCoachRequestedReassessmentSchedule'
+  );
 }

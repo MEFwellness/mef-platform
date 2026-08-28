@@ -47,6 +47,12 @@ async function cleanupMemberState(memberId: string) {
   await service.from('assessment_attempts').delete().eq('member_id', memberId);
   await service.from('assessment_assignments').delete().eq('member_id', memberId);
   await service.from('profiles').update({ membership_tier: null }).eq('id', memberId);
+  // Put the plan back to the seeded default. The gate reads this column
+  // now, and other test files read the same database.
+  await service
+    .from('member_subscriptions')
+    .update({ tier: 'trial', status: 'active' })
+    .eq('member_id', memberId);
 }
 
 afterEach(async () => {
@@ -75,16 +81,45 @@ describe('registry: every one of the eight is requiresAssignment: true', () => {
   });
 });
 
-describe('server-side blocking: a brand-new free member with zero assignments', () => {
+describe('server-side blocking: a brand-new member on a trial plan with zero assignments', () => {
+  // Denied is the point. WHICH lock she meets depends on whether her plan
+  // reaches the questionnaire at all: on a trial plan the four
+  // membership-tier keys are outside the plan, and the plan is reported
+  // first because it is the thing she can act on. The four free-tier keys
+  // clear the plan and stop at the coach gate underneath it.
+  const PLAN_LOCKED_ON_TRIAL = new Set([
+    'chek-hlc1-nutrition-lifestyle',
+    'wbsa',
+    'readiness-to-change',
+    'finding-1-love',
+  ]);
+
+  it.each(COACH_ASSIGN_ONLY_KEYS)('is denied access to %s', async (key) => {
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(client, memberOneId, key);
+    expect(access.allowed).toBe(false);
+    if (!access.allowed) {
+      expect(access.reason).toEqual(
+        PLAN_LOCKED_ON_TRIAL.has(key)
+          ? { kind: 'membership', requiredLevel: 'membership' }
+          : { kind: 'not_assigned' }
+      );
+    }
+  });
+
   it.each(COACH_ASSIGN_ONLY_KEYS)(
-    'is denied access to %s, with reason not_assigned',
+    'is still denied access to %s on a plan that does include it, with reason not_assigned',
     async (key) => {
+      const service = serviceRoleClient();
+      await service
+        .from('member_subscriptions')
+        .update({ tier: 'program', status: 'active' })
+        .eq('member_id', memberOneId);
+
       const client = await signInAs(TEST_USERS.memberOne);
       const access = await checkAssessmentAccess(client, memberOneId, key);
       expect(access.allowed).toBe(false);
-      if (!access.allowed) {
-        expect(access.reason).toEqual({ kind: 'not_assigned' });
-      }
+      if (!access.allowed) expect(access.reason).toEqual({ kind: 'not_assigned' });
     }
   );
 });
@@ -118,7 +153,16 @@ describe('Body Assessment specifically', () => {
     expect(assignable).toContain('body-assessment');
   });
 
-  it('a member with a real in-progress capture is never blocked, even with no assignment (never hides existing progress)', async () => {
+  /**
+   * A DRAFT IS NOT A KEY (2026-08-27). An open capture used to grant full
+   * access, on the reading that a draft is "existing progress" and existing
+   * progress is never hidden. It is not hidden: she can still reach the
+   * screen that shows it. What a half-finished capture is not is permission
+   * to start a fresh one that no coach asked for, which is what this used
+   * to allow, and which is how the camera Body Assessment came to be open
+   * on an account nobody had assigned it to.
+   */
+  it('an in-progress capture does not by itself let her start a new one', async () => {
     const service = serviceRoleClient();
     await service.from('body_assessments').insert({
       member_id: memberOneId,
@@ -130,7 +174,28 @@ describe('Body Assessment specifically', () => {
     });
 
     const client = await signInAs(TEST_USERS.memberOne);
-    const access = await checkAssessmentAccess(client, memberOneId, 'body-assessment');
+    const access = await checkAssessmentAccess(client, memberOneId, 'body-assessment', {
+      intent: 'start',
+    });
+    expect(access.allowed).toBe(false);
+    if (!access.allowed) expect(access.reason).toEqual({ kind: 'not_assigned' });
+  });
+
+  it('but the screen holding that capture stays reachable, which is what "never hides her progress" means', async () => {
+    const service = serviceRoleClient();
+    await service.from('body_assessments').insert({
+      member_id: memberOneId,
+      assessment_type: 'static_posture',
+      status: 'in_progress',
+      timezone: 'America/New_York',
+      local_date: new Date().toISOString().slice(0, 10),
+      started_at: new Date().toISOString(),
+    });
+
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(client, memberOneId, 'body-assessment', {
+      intent: 'view',
+    });
     expect(access.allowed).toBe(true);
   });
 

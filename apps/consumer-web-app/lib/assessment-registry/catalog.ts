@@ -29,7 +29,7 @@
  * path for questionnaire status.
  */
 
-import type { AssessmentDefinition, AssessmentKey } from './types';
+import type { AssessmentDefinition, AssessmentKey, MembershipKey } from './types';
 import {
   calculateLockReason,
   describeLockReason,
@@ -46,6 +46,8 @@ export type CatalogFlags = {
   lockMessage: string | null;
   /** Which kind of lock this is, when locked (see LockReason). Coach-Assign-Only Gating task (2026-08-04): a card's UI needs to tell "not assigned by a coach yet" apart from a membership-tier/program/prerequisite lock, since only the former gets the dimmed/gold-marker/tap-to-reveal treatment — the others keep their existing "Locked" pill + upgrade prompt. */
   lockReasonKind: LockReason['kind'] | null;
+  /** Which plan level a membership lock is waiting on, so the card's note can name the plan without parsing a sentence. Null for every other lock kind. */
+  lockRequiredLevel: MembershipKey | null;
   comingSoon: boolean;
   /** She has an open draft and has NEVER finished this one. A draft sitting on top of a completed assessment is `retakeInProgress` instead, so a card can never lose its completed state to a stray draft. */
   inProgress: boolean;
@@ -63,9 +65,18 @@ export type CatalogEntry = {
   flags: CatalogFlags;
 };
 
+/**
+ * A REASSESSMENT IS A SECOND LOOK (2026-08-27). `hasEverCompleted` is the
+ * whole point of this guard: the daily scan wrote pending schedules for
+ * questionnaires members had never opened, and this function badged them
+ * "Reassessment due" with a "Start Reassessment" button under it. There is
+ * no reassessing something that was never assessed.
+ */
 function isReassessmentDue(facts: MemberAssessmentFacts, now: Date): boolean {
   return Boolean(
-    facts.pendingReassessmentSchedule && new Date(facts.pendingReassessmentSchedule.dueAt) <= now
+    hasEverCompleted(facts) &&
+      facts.pendingReassessmentSchedule &&
+      new Date(facts.pendingReassessmentSchedule.dueAt) <= now
   );
 }
 
@@ -86,6 +97,7 @@ export function categorizeForCatalog(
         locked: false,
         lockMessage: null,
         lockReasonKind: null,
+        lockRequiredLevel: null,
         comingSoon: true,
         inProgress: false,
         retakeInProgress: false,
@@ -107,6 +119,7 @@ export function categorizeForCatalog(
         locked: false,
         lockMessage: null,
         lockReasonKind: null,
+        lockRequiredLevel: null,
         comingSoon: false,
         inProgress: facts.completionStatus === 'in_progress' && !hasEverCompleted(facts),
         retakeInProgress: hasRetakeInProgress(facts),
@@ -138,21 +151,33 @@ export function categorizeForCatalog(
 
   const section: CatalogSection = isCompleted ? 'completed' : isPremium ? 'premium' : 'available';
 
+  // Locked means "she cannot start this and has nothing of her own here".
+  // A questionnaire she HAS finished never renders as a locked card even
+  // when her plan no longer includes starting a new attempt, because the
+  // card is how she reaches her own results. What she may not do is begin
+  // again: that is `retakeAvailable` below, which reads the lock directly.
+  const lockedForStarting = Boolean(lockReason);
+  const hasOwnHistory = hasEverCompleted(facts);
+
   return {
     section,
     flags: {
-      locked: Boolean(lockReason),
-      lockMessage: lockReason ? describeLockReason(lockReason) : null,
-      lockReasonKind: lockReason?.kind ?? null,
+      locked: lockedForStarting && !hasOwnHistory,
+      lockMessage: lockedForStarting && !hasOwnHistory ? describeLockReason(lockReason!) : null,
+      lockReasonKind: lockedForStarting && !hasOwnHistory ? lockReason!.kind : null,
+      lockRequiredLevel:
+        lockedForStarting && !hasOwnHistory && lockReason!.kind === 'membership'
+          ? lockReason!.requiredLevel
+          : null,
       comingSoon: false,
       inProgress: facts.completionStatus === 'in_progress' && !hasEverCompleted(facts),
       retakeInProgress: hasRetakeInProgress(facts),
       reassessmentDueAt: reassessmentDue ? facts.pendingReassessmentSchedule!.dueAt : null,
       scheduledAt:
-        facts.pendingReassessmentSchedule && !reassessmentDue
+        facts.pendingReassessmentSchedule && hasOwnHistory && !reassessmentDue
           ? facts.pendingReassessmentSchedule.dueAt
           : null,
-      retakeAvailable: isCompleted && definition.retake.retakeAllowed,
+      retakeAvailable: isCompleted && definition.retake.retakeAllowed && !lockedForStarting,
     },
   };
 }

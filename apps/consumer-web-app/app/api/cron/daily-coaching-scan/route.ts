@@ -196,13 +196,24 @@ async function scanMember(
   // ---- Reassessment Intelligence: a worsening finding is a real signal a calendar date alone can't see ----
   const activeFindings = await fetchActiveRegistryFindingsForScoring(supabase, member.id);
   const pendingAssessmentKeys = await listPendingReassessmentAssessmentKeys(supabase, member.id);
-  const suggestions = evaluateReassessmentTriggers(activeFindings, pendingAssessmentKeys);
+  // A REASSESSMENT IS A SECOND LOOK (2026-08-27). The one read that tells
+  // every evaluator below which assessments this member has actually
+  // finished. It was already being fetched for the calendar evaluator, a
+  // few lines further down; it is now fetched first and shared, because
+  // the finding-triggered evaluator needed it just as much and was
+  // scheduling "reassessments" of questionnaires nobody had ever opened.
+  const lastCompletedAtByKey = await listLastCompletedAtByAssessmentKey(supabase, member.id);
+  const completedAssessmentKeys = new Set(lastCompletedAtByKey.keys());
+  const suggestions = evaluateReassessmentTriggers(
+    activeFindings,
+    pendingAssessmentKeys,
+    completedAssessmentKeys
+  );
   for (const suggestion of suggestions) {
     await insertFindingTriggeredReassessmentSchedule(supabase, member.id, suggestion);
   }
 
   // ---- Reassessment Intelligence: the other half — an investigation's own declared calendar cadence (Investigation Engine, lib/investigation-engine/). No live investigation declares one yet; this keeps a future one wired automatically. ----
-  const lastCompletedAtByKey = await listLastCompletedAtByAssessmentKey(supabase, member.id);
   const calendarSuggestions = evaluateCalendarReassessmentTriggers(
     new Date(),
     lastCompletedAtByKey,
@@ -216,7 +227,8 @@ async function scanMember(
   const longitudinalSignals = await computeLongitudinalSignals(supabase, member.id, today);
   const longitudinalSuggestions = evaluateLongitudinalReassessmentTriggers(
     longitudinalSignals,
-    pendingAssessmentKeys
+    pendingAssessmentKeys,
+    completedAssessmentKeys
   );
   for (const suggestion of longitudinalSuggestions) {
     await insertFindingTriggeredReassessmentSchedule(supabase, member.id, suggestion);
@@ -241,7 +253,8 @@ async function scanMember(
   const experimentOutcomeSuggestions = evaluateExperimentOutcomeReassessmentTriggers(
     closedExperimentSignals,
     activeFindings,
-    pendingAssessmentKeys
+    pendingAssessmentKeys,
+    completedAssessmentKeys
   );
   for (const suggestion of experimentOutcomeSuggestions) {
     await insertExperimentOutcomeReassessmentSchedule(supabase, member.id, suggestion);
@@ -255,7 +268,8 @@ async function scanMember(
   }
   const recommendationSequenceSuggestions = evaluateRecommendationSequenceReassessmentTriggers(
     [...completedCountByDomain.entries()].map(([sourceDomain, completedCount]) => ({ sourceDomain, completedCount })),
-    pendingAssessmentKeys
+    pendingAssessmentKeys,
+    completedAssessmentKeys
   );
   for (const suggestion of recommendationSequenceSuggestions) {
     await insertRecommendationSequenceReassessmentSchedule(supabase, member.id, suggestion);

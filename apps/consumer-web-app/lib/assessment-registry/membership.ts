@@ -37,3 +37,55 @@ export function membershipMeetsMinimum(
 ): boolean {
   return MEMBERSHIP_RANK[memberLevel] >= MEMBERSHIP_RANK[minLevel];
 }
+
+/**
+ * THE PLAN IS THE GATE (2026-08-27).
+ *
+ * Two tier vocabularies exist and they are not the same thing.
+ * `member_subscriptions.tier` (lib/membership/types.ts, migration 159) is
+ * the plan Osei actually assigns on /admin/access: trial, monthly, annual,
+ * 24 week program. `profiles.membership_tier` (migration 69) is the older
+ * free_trial / membership / holistic_reset column the registry map is
+ * written in, and on production it is NULL for every account but one,
+ * which `resolveMembershipKey` resolves to 'membership'. Reading it alone
+ * therefore said "everybody is on the paid tier" and gated nothing.
+ *
+ * This is the one place the two vocabularies meet. The registry map is
+ * unchanged; only which column answers "what is she on" changes.
+ *
+ * FAILS CLOSED, deliberately, and in the opposite direction to
+ * lib/membership/access.ts. That module decides whether the app opens at
+ * all, and shutting a paying member out of everything is the worse
+ * mistake, so it fails open. This one decides whether one questionnaire
+ * opens, and the mistake it exists to stop is offering a clinical
+ * questionnaire to somebody whose plan does not include it. A missing or
+ * inactive subscription therefore resolves to the most restrictive live
+ * plan, never to the most permissive one. Her own completed results are
+ * never hidden by this: that protection lives in access.ts's 'view'
+ * intent, not here.
+ */
+export function membershipKeyForAccessTier(
+  tier: string | null,
+  status: string | null
+): MembershipKey {
+  if (status !== null && status !== 'active') return 'free_trial';
+  switch (tier) {
+    case 'program':
+      return 'holistic_reset';
+    case 'monthly':
+    case 'annual':
+      return 'membership';
+    case 'trial':
+    case 'none':
+      return 'free_trial';
+    default:
+      return 'free_trial';
+  }
+}
+
+/** How a required plan level is named to a member. The same words /admin/access uses, so the sheet and the admin panel cannot disagree. */
+export const MEMBERSHIP_PLAN_NAME: Record<MembershipKey, string> = {
+  free_trial: 'trial',
+  membership: 'Monthly plan',
+  holistic_reset: '24 week program',
+};

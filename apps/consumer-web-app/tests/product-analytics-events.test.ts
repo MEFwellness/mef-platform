@@ -567,11 +567,20 @@ describe('every required call site actually exists', () => {
     }
   });
 
-  it('paywall views are recorded on both the coach lock and the membership lock', () => {
-    expect(read('components/locked/LockedCardButton.tsx')).toContain('trackPaywallViewAction');
-    expect(read('components/questionnaires/CatalogQuestionnaireCard.tsx')).toContain(
-      '<TrackPaywallView'
-    );
+  it('paywall views are recorded on every questionnaire lock, and the lock kind travels with the event', () => {
+    // ONE LOCK, ONE TREATMENT (2026-08-27). A plan lock used to render its
+    // reason inline and record its paywall view on mount, while a coach
+    // lock recorded on the tap. Both go through LockedCardButton now, so
+    // both record on the tap, and the card passes the real lock kind
+    // instead of the old hardcoded 'not_assigned'.
+    const button = read('components/locked/LockedCardButton.tsx');
+    expect(button).toContain('trackPaywallViewAction');
+    expect(button).toContain('lockReason: lockReason ??');
+
+    const card = read('components/questionnaires/CatalogQuestionnaireCard.tsx');
+    expect(card).toContain('<LockedCardButton');
+    expect(card).toContain('lockReason={card.flags.lockReasonKind');
+
     expect(read('components/assessments/four-doctors-results/FreeTierSummary.tsx')).toContain(
       '<TrackPaywallView'
     );

@@ -4,6 +4,7 @@ import { PersonStanding, CheckCircle2, Hourglass } from 'lucide-react';
 import type { BodyAssessment } from '@mef/shared-types-contracts';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
 import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
+import { COACH_LOCK_NOTE_MESSAGE } from '@/lib/locked-content/copy';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -42,6 +43,9 @@ export function MovementAssessmentCard({
   variant = 'card',
   className = '',
   locked = false,
+  lockMessage,
+  lockReason,
+  lockPlanHref,
 }: {
   assessments: BodyAssessment[];
   variant?: Variant;
@@ -56,6 +60,12 @@ export function MovementAssessmentCard({
    * never need to check this.
    */
   locked?: boolean;
+  /** Root's note for this exact lock, built by lib/locked-content/copy.ts's lockNoteMessage. Required whenever `locked` is true. */
+  lockMessage?: string | undefined;
+  /** Which lock this is, for the paywall analytics event. */
+  lockReason?: string | undefined;
+  /** Set only for a lock she can act on herself. */
+  lockPlanHref?: Route | undefined;
 }) {
   const analyzed = assessments.find((a) => a.completed_at !== null);
   const submitted = assessments.find((a) => a.status !== 'in_progress');
@@ -160,6 +170,9 @@ export function MovementAssessmentCard({
           <LockedCardButton
             ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it."
             analyticsFeature="body-assessment"
+            message={lockMessage ?? COACH_LOCK_NOTE_MESSAGE}
+            lockReason={lockReason}
+            planHref={lockPlanHref}
           >
             {body}
           </LockedCardButton>
@@ -209,9 +222,12 @@ export function MovementAssessmentCard({
     return (
       <div className="relative">
         <LockedCardButton
-            ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it."
-            analyticsFeature="body-assessment"
-          >
+          ariaLabel="Guided Posture and Movement Assessment, locked. Tap to hear from Root about it."
+          analyticsFeature="body-assessment"
+          message={lockMessage ?? COACH_LOCK_NOTE_MESSAGE}
+          lockReason={lockReason}
+          planHref={lockPlanHref}
+        >
           {plainBody}
         </LockedCardButton>
         <CoachLockBadge />

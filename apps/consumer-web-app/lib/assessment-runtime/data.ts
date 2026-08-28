@@ -158,6 +158,8 @@ export type StartOrResumeResult =
   | { status: 'started'; session: AssessmentSession; events: RuntimeEvent[] }
   /** She has already finished this and did not ask to start again. NOTHING was written. */
   | { status: 'already_completed'; latestCompletedSessionId: string }
+  /** Read-only call (`createIfMissing: false`): there is no draft to resume and no completion to show. NOTHING was written. */
+  | { status: 'no_session' }
   /** The key does not resolve to a real, active definition. */
   | { status: 'not_found' };
 
@@ -183,12 +185,22 @@ export type StartOrResumeResult =
  * A retake is still completely available. It is now a decision the member
  * makes, carried by `options.startRetake`, rather than something a page
  * render does on her behalf.
+ *
+ * A PAGE RENDER MUST NOT INSERT A ROW (2026-08-27). The 'already_completed'
+ * short-circuit above fixed the worst case, a finished assessment restarting
+ * itself, but a FIRST visit to a take URL still created a draft during
+ * render. A read-only page load by an audit crawler created one on
+ * production, and any bookmark, prefetch or link-preview does the same.
+ * `createIfMissing: false` is the read path the take pages now use: it
+ * resumes a real draft, reports a real completion, and otherwise writes
+ * nothing and says so. Creating is reserved for the explicit Start or
+ * Resume the member presses, which arrives as a Server Action, never a GET.
  */
 export async function startOrResumeSession(
   supabase: SupabaseClient,
   memberId: string,
   assessmentDefinitionKey: string,
-  options: { startRetake?: boolean } = {}
+  options: { startRetake?: boolean; createIfMissing?: boolean } = {}
 ): Promise<StartOrResumeResult> {
   const definition = await getUnifiedAssessmentDefinitionByKey(supabase, assessmentDefinitionKey);
   if (!definition) return { status: 'not_found' };
@@ -206,6 +218,8 @@ export async function startOrResumeSession(
     const completed = await findLatestCompletedSession(supabase, memberId, definition.id);
     if (completed) return { status: 'already_completed', latestCompletedSessionId: completed.id };
   }
+
+  if (options.createIfMissing === false) return { status: 'no_session' };
 
   const content = await loadContent(supabase, definition.id);
   const { visible } = calculateVisibleQuestions(content.questions, {});

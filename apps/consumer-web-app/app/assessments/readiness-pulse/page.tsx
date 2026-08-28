@@ -19,6 +19,8 @@ import { describeLockReason } from '@/lib/assessment-registry/status';
 import { getUnifiedAssessmentDefinitionByKey, getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
 import { findInProgressSession, findLatestCompletedSession } from '@/lib/assessment-runtime';
 import { CompletedExperienceActions } from '@/components/assessments/CompletedExperienceActions';
+import { BeginAssessmentForm } from '@/components/assessments/BeginAssessmentForm';
+import { beginRplAction, retakeRplAction } from '@/app/actions/readinessPulse';
 import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { RPL_KEY } from '@/lib/readiness-pulse/constants';
@@ -32,7 +34,7 @@ export default async function ReadinessPulseOverviewPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [isCoach, access] = await Promise.all([hasActiveRole(supabase, user.id, 'coach'), checkAssessmentAccess(supabase, user.id, RPL_KEY)]);
+  const [isCoach, access] = await Promise.all([hasActiveRole(supabase, user.id, 'coach'), checkAssessmentAccess(supabase, user.id, RPL_KEY, { intent: 'view' })]);
 
   if (!access.allowed) {
     return (
@@ -107,15 +109,10 @@ export default async function ReadinessPulseOverviewPage() {
           {showsCompletedState ? (
             <CompletedExperienceActions
               resultsHref={`/assessments/readiness-pulse/results/${latestCompleted!.id}`}
-              retakeHref={'/assessments/readiness-pulse/take?retake=1'}
+              retakeAction={retakeRplAction}
             />
           ) : (
-            <Link
-              href={'/assessments/readiness-pulse/take' as Route}
-              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-            >
-              {ctaLabel}
-            </Link>
+            <BeginAssessmentForm action={beginRplAction} label={ctaLabel} className="mt-6" />
           )}
         </Card>
       </main>

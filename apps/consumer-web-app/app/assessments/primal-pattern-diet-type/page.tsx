@@ -9,6 +9,12 @@
  */
 
 import Link from 'next/link';
+import { BeginAssessmentForm } from '@/components/assessments/BeginAssessmentForm';
+import { CompletedExperienceActions } from '@/components/assessments/CompletedExperienceActions';
+import {
+  beginPrimalPatternAction,
+  retakePrimalPatternAction,
+} from '@/app/actions/primal-pattern';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { Clock3, ListChecks, Sparkles } from 'lucide-react';
@@ -38,7 +44,7 @@ export default async function PrimalPatternOverviewPage() {
   const [overview, isCoach, access] = await Promise.all([
     getMyPrimalPatternOverview(),
     hasActiveRole(supabase, user.id, 'coach'),
-    checkAssessmentAccess(supabase, user.id, 'primal-pattern-diet-type'),
+    checkAssessmentAccess(supabase, user.id, 'primal-pattern-diet-type', { intent: 'view' }),
   ]);
 
   if (!overview) redirect('/login');
@@ -81,12 +87,12 @@ export default async function PrimalPatternOverviewPage() {
   }
 
   const { copy, totalQuestions, draft, latestCompleted, safetyProfile } = overview;
-  const ctaLabel = draft
-    ? 'Resume assessment'
-    : latestCompleted
-      ? 'Retake assessment'
-      : 'Begin assessment';
-  const ctaHref = '/assessments/primal-pattern-diet-type/take' as Route;
+  const ctaLabel = draft ? 'Resume assessment' : 'Begin assessment';
+  // COMPLETION IS PERMANENT (2026-08-27). A finished Primal Pattern leads
+  // with her result and offers the retake as its own labelled button. The
+  // single "Retake assessment" link it used to show pointed at the take
+  // URL, which started the retake as a side effect of rendering.
+  const showsCompletedState = latestCompleted !== null && draft === null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -123,20 +129,29 @@ export default async function PrimalPatternOverviewPage() {
             </p>
           )}
 
-          <Link
-            href={ctaHref}
-            className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-          >
-            {ctaLabel}
-          </Link>
+          {showsCompletedState ? (
+            <CompletedExperienceActions
+              resultsHref={`/assessments/primal-pattern-diet-type/results/${latestCompleted.id}`}
+              retakeAction={retakePrimalPatternAction}
+            />
+          ) : (
+            <>
+              <BeginAssessmentForm
+                action={beginPrimalPatternAction}
+                label={ctaLabel}
+                className="mt-6"
+              />
 
-          <p className="mt-3 text-center text-xs text-[#6B7A72]">
-            One question at a time. You can select both answers when both feel true, or skip a
-            question entirely. Your progress saves automatically, so you can always finish later.
-          </p>
+              <p className="mt-3 text-center text-xs text-[#6B7A72]">
+                One question at a time. You can select both answers when both feel true, or skip a
+                question entirely. Your progress saves automatically, so you can always finish
+                later.
+              </p>
+            </>
+          )}
         </Card>
 
-        {latestCompleted && (
+        {latestCompleted && !showsCompletedState && (
           <Card
             as={Link}
             href={`/assessments/primal-pattern-diet-type/results/${latestCompleted.id}` as Route}

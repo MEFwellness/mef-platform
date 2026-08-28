@@ -55,11 +55,15 @@ describe('locked-card UI actually wires in LockedCardButton + CoachLockBadge', (
     expect(source).toContain('shows(F.featureBodyAssessment)');
   });
 
-  it('CatalogQuestionnaireCard never shows a primary action / take link for a coach-locked card', () => {
+  it('CatalogQuestionnaireCard never shows a primary action / take link for ANY locked card', () => {
     const source = read('components/questionnaires/CatalogQuestionnaireCard.tsx');
-    expect(source).toContain('isCoachLocked');
-    // The action buttons block is gated behind `!isCoachLocked`.
-    expect(source).toMatch(/!isCoachLocked\s*&&\s*\(/);
+    // ONE LOCK, ONE TREATMENT (2026-08-27). This used to branch on
+    // `isCoachLocked`, which meant a plan lock kept its own inline layout
+    // and its own separate sentence. Every lock is one branch now.
+    expect(source).toContain('isLocked');
+    expect(source).not.toContain('isCoachLocked');
+    // The action buttons block is gated behind `!isLocked`.
+    expect(source).toMatch(/!isLocked\s*&&\s*\(/);
   });
 });
 

@@ -13,30 +13,40 @@ import { createClient } from '@/lib/supabase/server';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { AssessmentTaker } from '@/components/assessments/AssessmentTaker';
 
+/**
+ * A TAKE URL ONLY EVER READS (2026-08-27). This page used to create the
+ * member's draft while rendering, and its own comment said so. Opening the
+ * URL was the same act as starting the questionnaire, which is how a
+ * read-only crawl, a refresh, a bookmark and the Back button could each
+ * begin a 91-question assessment on her behalf. It now resumes a draft
+ * that already exists and sends everybody else to the overview, where
+ * Begin, Resume and Retake are real buttons posting to real Server
+ * Actions. See app/actions/assessments.ts's beginAssessmentAction.
+ */
 export default async function TakeAssessmentPage({
   params,
 }: {
   params: { questionnaireId: string };
 }) {
   const questionnaireId = fromPublicSlug(params.questionnaireId);
+  const overviewHref = `/assessments/${toPublicSlug(questionnaireId)}` as Route;
 
-  // Access is checked before getMyTakeAssessmentState, which would
-  // otherwise create a fresh in-progress draft row on its very first call
-  // — checking after the fact would be too late, since that new draft
-  // would then (correctly, but wrongly-early) grandfather the member in.
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const access = await checkAssessmentAccess(supabase, user.id, questionnaireId);
-  if (!access.allowed) {
-    redirect(`/assessments/${toPublicSlug(questionnaireId)}` as Route);
-  }
+  // 'view', because this route's only job now is to hand back a draft she
+  // already owns, and her own history is never hidden by a plan rule. The
+  // gate that decides whether a NEW attempt may begin is on the button.
+  const access = await checkAssessmentAccess(supabase, user.id, questionnaireId, {
+    intent: 'view',
+  });
+  if (!access.allowed) redirect(overviewHref);
 
   const state = await getMyTakeAssessmentState(questionnaireId);
-  if (!state) redirect('/login');
+  if (!state) redirect(overviewHref);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">

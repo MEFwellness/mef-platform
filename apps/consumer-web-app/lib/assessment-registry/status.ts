@@ -92,29 +92,55 @@ export function hasRetakeInProgress(facts: MemberAssessmentFacts): boolean {
   return facts.completionStatus === 'in_progress' && facts.latestCompletedAt !== null;
 }
 
+/**
+ * THE PLAN DECIDES, AND NOTHING ELSE OPENS ONE (2026-08-27).
+ *
+ * Access to a questionnaire is decided by the member's plan and by the
+ * registry's own program/prerequisite rules. A coach assignment may
+ * additionally open one specific questionnaire for one specific member,
+ * and that is the only thing that adds access on top of the plan.
+ *
+ * Four things used to open a questionnaire and no longer do:
+ *
+ *   * A PENDING REASSESSMENT SCHEDULE. The rule below used to accept one
+ *     as proof of history, on the stated premise that a pending schedule
+ *     "only ever exists for an assessment the member already has real
+ *     history with". On production that premise was false: the daily
+ *     coaching scan maps a worsening finding in a DOMAIN onto an
+ *     assessment key without ever checking whether that assessment was
+ *     assessed, and four of the six pending rows were for something the
+ *     member had never completed. One of them was the camera Body
+ *     Assessment. A schedule is a suggestion; it is not a key.
+ *   * A WORSENING FINDING, for the same reason, one step upstream.
+ *   * AN IN-PROGRESS DRAFT. A draft is evidence that something opened
+ *     once, not authority for it to open again.
+ *   * A PRIOR COMPLETION. Finishing a coach-assigned questionnaire used to
+ *     make it permanently self-serve. Reading her own past results stays
+ *     open forever, which is what the framework's "never hide her own
+ *     progress" rule actually protects; that now lives in access.ts's
+ *     'view' intent rather than here, so it can no longer be mistaken for
+ *     permission to start a new attempt.
+ *
+ * The plan check runs BEFORE the assignment check, so a card that is both
+ * outside her plan and coach-assign-only says the true first thing: which
+ * plan includes it.
+ */
 export function calculateLockReason(
   definition: AssessmentDefinition,
   facts: MemberAssessmentFacts,
   completedPrerequisiteKeys: ReadonlySet<AssessmentKey>
 ): LockReason | null {
-  // Assignment-gated visibility (Assignment-Gated Questionnaires task):
-  // checked before every other rule below, and only while the member has
-  // never started it — a coach assignment, a pending reassessment schedule
-  // (which only ever exists for an assessment the member already has real
-  // history with), or the member's own completed history always lets them
-  // through, same "never hide existing progress" protection the rest of
-  // this function already gives every other lock reason.
-  if (
-    definition.requiresAssignment &&
-    facts.completionStatus === 'not_started' &&
-    !facts.pendingAssignment &&
-    !facts.pendingReassessmentSchedule
-  ) {
-    return { kind: 'not_assigned' };
-  }
+  // A coach assignment is the one thing that adds access on top of the
+  // plan, so it short-circuits every rule below rather than being weighed
+  // against them.
+  if (facts.pendingAssignment) return null;
 
   if (!membershipMeetsMinimum(facts.membershipKey, definition.membership.minLevel)) {
     return { kind: 'membership', requiredLevel: definition.membership.minLevel };
+  }
+
+  if (definition.requiresAssignment) {
+    return { kind: 'not_assigned' };
   }
 
   if (definition.program.programOnly) {
@@ -139,15 +165,23 @@ export function calculateLockReason(
   return null;
 }
 
-/** Safe, simple, member-facing copy for a lock reason. Never diagnostic, never CHEK/HLC1, no em dashes. */
+/**
+ * Safe, simple, member-facing copy for a lock reason. Never diagnostic,
+ * never CHEK/HLC1, no em dashes.
+ *
+ * A membership lock NAMES THE PLAN (2026-08-27). It used to say "Available
+ * with a Membership plan" for both paid levels, which meant the card and
+ * the sheet a member tapped to understand it could give her two different
+ * answers, and neither matched what /admin/access calls her plan.
+ */
 export function describeLockReason(reason: LockReason, prerequisiteNames: string[] = []): string {
   switch (reason.kind) {
     case 'not_assigned':
       return 'Not assigned yet. Your coach will assign this when the time is right.';
     case 'membership':
       return reason.requiredLevel === 'holistic_reset'
-        ? 'Available as part of the Holistic Reset program.'
-        : 'Available with a Membership plan.';
+        ? 'Available with the 24 week program.'
+        : 'Available with a Monthly plan.';
     case 'program_enrollment':
       return 'Available once you are enrolled in the Holistic Reset program.';
     case 'program_phase':
@@ -185,6 +219,24 @@ export function calculateAssessmentStatus(
     return { status: 'coach_assigned', lockReason: null };
   }
 
+  // FINISHED OUTRANKS LOCKED (2026-08-27). A lock reason now answers "may
+  // she START this", and her own completed history is deliberately not an
+  // answer to that question any more. It is still the answer to "what is
+  // this card", though: a questionnaire she finished reads as completed on
+  // every screen, whatever her plan says today, so her results never
+  // disappear behind a lock. The 'scheduled' branch keeps its previous
+  // precedence over 'completed' exactly as it had it.
+  if (hasEverCompleted(facts)) {
+    // A REASSESSMENT IS A SECOND LOOK, NEVER A FIRST ONE (2026-08-27). A
+    // pending schedule for something she has never finished is a scheduler
+    // fault, not a status: it used to badge a questionnaire she had never
+    // opened as "Reassessment due". See calculateLockReason's header.
+    if (facts.pendingReassessmentSchedule) {
+      return { status: 'scheduled', lockReason: null };
+    }
+    return { status: 'completed', lockReason: null };
+  }
+
   if (lockReason) {
     return { status: 'locked', lockReason };
   }
@@ -192,18 +244,9 @@ export function calculateAssessmentStatus(
   // An open draft only reads as 'in_progress' while she has never finished
   // this assessment. A draft on top of a completed one is a retake, and
   // calling that 'in_progress' told every reader she had never finished it
-  // at all. The 'scheduled' branch below keeps its previous precedence over
-  // 'completed' exactly as it had it.
-  if (facts.completionStatus === 'in_progress' && !hasEverCompleted(facts)) {
+  // at all.
+  if (facts.completionStatus === 'in_progress') {
     return { status: 'in_progress', lockReason: null };
-  }
-
-  if (facts.pendingReassessmentSchedule) {
-    return { status: 'scheduled', lockReason: null };
-  }
-
-  if (hasEverCompleted(facts)) {
-    return { status: 'completed', lockReason: null };
   }
 
   return { status: 'available', lockReason: null };

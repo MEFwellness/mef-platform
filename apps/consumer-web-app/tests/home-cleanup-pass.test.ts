@@ -219,11 +219,16 @@ describe('a completed priority leaves the top and settles at the bottom', () => 
   it('nothing refills the top slot: the day\'s decision is stored once and never re-selected', () => {
     const service = source('lib/priority/service.ts');
     // The stored row wins over a freshly computed one, which is what makes
-    // "one focus per day" true even after she completes it.
+    // "one focus per day" true even after she completes it. `authoritative`
+    // is that stored row (2026-08-27): it is `existing` on every render but
+    // one, the single allowed revision after her Daily Reset arrives, which
+    // has its own conditions in redecideDailyPriority and its own tests in
+    // tests/priority-waits-for-checkin.test.ts.
     expect(service).toContain('if (existing) {');
-    expect(service).toContain('rule: existing.rule');
-    expect(service).toContain('title: existing.title');
-    expect(service).toContain('status: existing.status');
+    expect(service).toContain('const authoritative = revised ?? existing;');
+    expect(service).toContain('rule: authoritative.rule');
+    expect(service).toContain('title: authoritative.title');
+    expect(service).toContain('status: authoritative.status');
   });
 
   it('the only thing that may occupy the top slot afterwards is a genuinely pending finite item that already had its own card', () => {

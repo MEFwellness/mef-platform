@@ -452,6 +452,10 @@ export type DailyPriorityRecord = {
    * second as the first.
    */
   shownAt: string | null;
+  /** True when Root decided today's priority before her Daily Reset existed. The one condition that allows a single revision; see redecideDailyPriority. */
+  decidedBeforeCheckin: boolean;
+  /** When that single revision happened, or null. Non-null means no further revision is allowed today. */
+  redecidedAt: string | null;
 };
 
 /**

@@ -11,19 +11,21 @@
 
 'use server';
 
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { localDateStringFor } from '@/lib/time/localDate';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
-import type { AccessResult } from '@/lib/assessment-registry/access';
+import {
+  beginRuntimeAssessment,
+  loadRuntimeTakeSession,
+} from '@/lib/assessment-runtime/entry';
 import {
   completeSession,
   getSessionById,
   persistAnswer,
-  startOrResumeSession,
   type AnswerValue,
   type AssessmentSession,
-  type RuntimeEvent,
 } from '@/lib/assessment-runtime';
 import { getUnifiedAssessmentDefinitionByKey } from '@/lib/assessment-foundation/repository';
 import { recordTimelineEvent } from '@/lib/timeline/data';
@@ -116,43 +118,48 @@ export async function getMyLatestCvsContextForEchoAction() {
   return getLatestCvsContextForEcho(supabase, memberId);
 }
 
-export type StartOrResumeLscResult =
-  | { ok: true; session: AssessmentSession; events: RuntimeEvent[] }
-  /** She has already finished this and did not ask to start again. Nothing was written; the take page redirects to these results. */
-  | { ok: false; reason: 'already_completed'; latestCompletedSessionId: string }
-  | { ok: false; reason: 'not_signed_in' | 'access_denied' | 'not_found'; access?: AccessResult };
+const LSC_ROUTES = {
+  overview: '/assessments/life-signal-check',
+  take: '/assessments/life-signal-check/take',
+  results: (sessionId: string) => `/assessments/life-signal-check/results/${sessionId}`,
+};
 
 /**
- * A FINISHED EXPERIENCE IS NEVER SILENTLY RESTARTED (2026-08-27). The take
- * page calls this while rendering, and finishing is a Server Action, which
- * re-renders the page it was called from: so this used to create a fresh,
- * empty session of the assessment that had just been completed. Returning
- * `already_completed` lets the take page send her to her results instead.
- * `startRetake` is only ever true when she asked for one (`?retake=1`).
+ * The Start / Resume button. A Server Action, never a render, because a
+ * render must not insert a row. See lib/assessment-runtime/entry.ts.
  */
-export async function startOrResumeLscAction(
-  options: { startRetake?: boolean } = {}
-): Promise<StartOrResumeLscResult> {
-  const supabase = createClient();
-  const user = await getCachedUser();
-  if (!user) return { ok: false, reason: 'not_signed_in' };
+export async function beginLscAction(): Promise<void> {
+  const result = await beginRuntimeAssessment(LSC_KEY, LSC_ROUTES);
+  redirect(result.ok ? result.takeHref : result.redirectTo);
+}
 
-  const access = await checkAssessmentAccess(supabase, user.id, LSC_KEY);
-  if (!access.allowed) return { ok: false, reason: 'access_denied', access };
+/** Take it again. Only ever reached by pressing the labelled retake button on the overview screen. */
+export async function retakeLscAction(): Promise<void> {
+  const result = await beginRuntimeAssessment(LSC_KEY, LSC_ROUTES, { startRetake: true });
+  redirect(result.ok ? result.takeHref : result.redirectTo);
+}
 
-  const result = await startOrResumeSession(supabase, user.id, LSC_KEY, {
-    startRetake: options.startRetake === true,
-  });
-  if (result.status === 'not_found') return { ok: false, reason: 'not_found' };
-  if (result.status === 'already_completed') {
-    return {
-      ok: false,
-      reason: 'already_completed',
-      latestCompletedSessionId: result.latestCompletedSessionId,
-    };
-  }
+/** What the take page reads. Resumes a real draft, sends a finished member to her results, and writes nothing in either case or in the case where there is nothing at all. */
+export async function loadLscTakeSessionAction(): Promise<
+  { ok: true; session: AssessmentSession } | { ok: false; redirectTo: string }
+> {
+  const result = await loadRuntimeTakeSession(LSC_KEY, LSC_ROUTES);
+  return result.ok
+    ? { ok: true, session: result.session }
+    : { ok: false, redirectTo: result.redirectTo };
+}
 
-  return { ok: true, session: result.session, events: result.events };
+/**
+ * THE GATE, ON THE WRITE PATH TOO (2026-08-27). 'view', not 'start': a
+ * member who legitimately began must always be able to finish it, and the
+ * question of whether she may BEGIN is decided on the begin path.
+ */
+async function mayWriteLsc(
+  supabase: ReturnType<typeof createClient>,
+  memberId: string
+): Promise<boolean> {
+  const access = await checkAssessmentAccess(supabase, memberId, LSC_KEY, { intent: 'view' });
+  return access.allowed;
 }
 
 export async function submitLscAnswerAction(
@@ -164,6 +171,10 @@ export async function submitLscAnswerAction(
   if (!memberId) return { ok: false, error: 'Not signed in.' };
 
   const supabase = createClient();
+  if (!(await mayWriteLsc(supabase, memberId))) {
+    return { ok: false, error: 'This is not open for you right now.' };
+  }
+
   try {
     const { session } = await persistAnswer(supabase, sessionId, questionId, value);
     if (session.memberId !== memberId) return { ok: false, error: 'Assessment not found.' };
@@ -198,6 +209,10 @@ export async function completeLscAssessmentAction(sessionId: string): Promise<Co
   if (!memberId) return { ok: false, error: 'Not signed in.' };
 
   const supabase = createClient();
+  if (!(await mayWriteLsc(supabase, memberId))) {
+    return { ok: false, error: 'This is not open for you right now.' };
+  }
+
   let session: AssessmentSession;
   try {
     const result = await completeSession(supabase, sessionId);

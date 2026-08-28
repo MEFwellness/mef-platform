@@ -16,6 +16,8 @@ import { describeLockReason } from '@/lib/assessment-registry/status';
 import { getUnifiedAssessmentDefinitionByKey, getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
 import { findInProgressSession, findLatestCompletedSession } from '@/lib/assessment-runtime';
 import { CompletedExperienceActions } from '@/components/assessments/CompletedExperienceActions';
+import { BeginAssessmentForm } from '@/components/assessments/BeginAssessmentForm';
+import { beginCvsAction, retakeCvsAction } from '@/app/actions/coreValuesSnapshot';
 import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { CVS_KEY } from '@/lib/core-values-snapshot/constants';
@@ -31,7 +33,7 @@ export default async function CoreValuesSnapshotOverviewPage() {
 
   const [isCoach, access] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
-    checkAssessmentAccess(supabase, user.id, CVS_KEY),
+    checkAssessmentAccess(supabase, user.id, CVS_KEY, { intent: 'view' }),
   ]);
 
   if (!access.allowed) {
@@ -109,15 +111,10 @@ export default async function CoreValuesSnapshotOverviewPage() {
           {showsCompletedState ? (
             <CompletedExperienceActions
               resultsHref={`/assessments/core-values-snapshot/results/${latestCompleted!.id}`}
-              retakeHref={'/assessments/core-values-snapshot/take?retake=1'}
+              retakeAction={retakeCvsAction}
             />
           ) : (
-            <Link
-              href={'/assessments/core-values-snapshot/take' as Route}
-              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-            >
-              {ctaLabel}
-            </Link>
+            <BeginAssessmentForm action={beginCvsAction} label={ctaLabel} className="mt-6" />
           )}
         </Card>
       </main>

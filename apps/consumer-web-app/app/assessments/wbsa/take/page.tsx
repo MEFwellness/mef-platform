@@ -5,49 +5,31 @@
  * app/actions/wbsa.ts) instead of the generic engine.
  */
 
+import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import {
   getUnifiedAssessmentQuestions,
   getUnifiedAssessmentSections,
 } from '@/lib/assessment-foundation/repository';
-import { startOrResumeWbsaAction } from '@/app/actions/wbsa';
+import { loadWbsaTakeSessionAction } from '@/app/actions/wbsa';
 import { WbsaTaker } from '@/components/wbsa/WbsaTaker';
-import { WBSA_KEY } from '@/lib/wbsa/constants';
 
 /**
- * ONE ENTRY, TWO OUTCOMES (2026-08-27). Opening this URL after finishing
- * shows the results she already has, and never starts a silent new draft on
- * top of them. A retake is a deliberate choice she makes on the overview
- * screen, and arrives here as `?retake=1`.
+ * A TAKE URL ONLY EVER READS (2026-08-27). Opening this page resumes a
+ * draft that already exists, sends a member who has finished to her
+ * results, and otherwise sends her back to the overview to press Begin. It
+ * cannot create a session, so a refresh, a Back-then-Forward, a bookmark,
+ * a link preview or the re-render that a Server Action causes when she
+ * finishes all write nothing at all. Starting is a button, and a button is
+ * a POST. See lib/assessment-runtime/entry.ts.
  */
-export default async function TakeWbsaPage({
-  searchParams,
-}: {
-  searchParams: { retake?: string };
-}) {
-  // Same ordering rule as the generic engine's take page: access is
-  // checked before the runtime ever runs, so a locked member can't create
-  // a draft session just by visiting this route.
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const access = await checkAssessmentAccess(supabase, user.id, WBSA_KEY);
-  if (!access.allowed) redirect('/assessments/wbsa');
-
-  const result = await startOrResumeWbsaAction({ startRetake: searchParams?.retake === '1' });
-  if (!result.ok) {
-    if (result.reason === 'already_completed') {
-      redirect(`/assessments/wbsa/results/${result.latestCompletedSessionId}`);
-    }
-    redirect('/assessments/wbsa');
-  }
+export default async function TakeWbsaPage() {
+  const result = await loadWbsaTakeSessionAction();
+  if (!result.ok) redirect(result.redirectTo as Route);
 
   const { session } = result;
+  const supabase = createClient();
   const [sections, questions] = await Promise.all([
     getUnifiedAssessmentSections(supabase, session.assessmentId),
     getUnifiedAssessmentQuestions(supabase, session.assessmentId),

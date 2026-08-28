@@ -13,13 +13,20 @@
 
 import Link from 'next/link';
 import type { Route } from 'next';
-import { Clock3, Lock, Sparkles, UserRound, CalendarClock } from 'lucide-react';
+import { Clock3, Sparkles, UserRound, CalendarClock } from 'lucide-react';
 import type { CatalogCard } from '@/app/actions/questionnaireCatalog';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
 import { Card } from '@/components/layout';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
 import { CoachLockBadge } from '@/components/locked/CoachLockBadge';
-import { TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
+import {
+  COACH_LOCK_NOTE_MESSAGE,
+  MONTHLY_PLAN_LOCK_MESSAGE,
+  PROGRAM_ENROLLMENT_LOCK_MESSAGE,
+  PROGRAM_PHASE_LOCK_MESSAGE,
+  PROGRAM_PLAN_LOCK_MESSAGE,
+  PREREQUISITE_LOCK_MESSAGE,
+} from '@/lib/locked-content/copy';
 import { UNBUILT_PLACEHOLDER_LABEL, showUnbuiltPlaceholder } from '@/lib/naming/unbuiltPlaceholders';
 
 const PRIMARY_BUTTON =
@@ -45,21 +52,23 @@ function primaryAction(card: CatalogCard): { label: string; href: string } | nul
 }
 
 /**
- * Coach-Assign-Only Gating task (2026-08-04): a card locked because a
- * coach hasn't assigned it yet (`lockReasonKind === 'not_assigned'`) gets
- * its own dimmed + gold-corner-marker + tap-to-reveal treatment, distinct
- * from a membership/program/prerequisite lock (which keeps its existing
- * "Locked" pill, always-visible lockMessage, and "View Membership" link —
- * unchanged below). isCoachLocked is the one switch between the two.
+ * ONE LOCK, ONE TREATMENT (2026-08-27). A coach-assignment lock used to
+ * get the dimmed + gold-corner-marker + tap-to-reveal card while a plan
+ * lock got a "Locked" pill, an always-visible sentence and an inline
+ * "View Membership" link. Two designs, and worse, two different sentences
+ * about the same lock on one screen. Every lock now reads the same way:
+ * dimmed card, gold marker, and one Root-voiced note on tap, with the
+ * plan link living inside that note when the lock is one she can act on.
+ * `isLocked` is what the card branches on.
  */
-function CardBody({ card, action, isCoachLocked }: { card: CatalogCard; action: ReturnType<typeof primaryAction>; isCoachLocked: boolean }) {
+function CardBody({ card, action, isLocked }: { card: CatalogCard; action: ReturnType<typeof primaryAction>; isLocked: boolean }) {
   return (
     <>
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-[family-name:var(--font-cormorant-garamond)] text-xl leading-snug text-[#1B3A2D]">
           {card.title}
         </h3>
-        {card.section === 'premium' && !isCoachLocked && (
+        {card.section === 'premium' && !isLocked && (
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-[#C4A050]/15 px-3 py-1 text-xs font-semibold text-[#8A6D2F]">
             <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
             Premium
@@ -87,12 +96,7 @@ function CardBody({ card, action, isCoachLocked }: { card: CatalogCard; action: 
             {UNBUILT_PLACEHOLDER_LABEL}
           </span>
         )}
-        {card.flags.locked && !isCoachLocked && (
-          <span className="flex items-center gap-1.5 rounded-full bg-[#F3F6F4] px-3 py-1.5 font-semibold text-[#1B3A2D]/70">
-            <Lock className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-            Locked
-          </span>
-        )}
+
         {card.flags.reassessmentDueAt && (
           <span className="rounded-full bg-[#C4A050]/15 px-3 py-1.5 font-semibold text-[#8A6D2F]">
             Reassessment due
@@ -140,21 +144,7 @@ function CardBody({ card, action, isCoachLocked }: { card: CatalogCard; action: 
         </p>
       )}
 
-      {card.flags.locked && !isCoachLocked && card.flags.lockMessage && (
-        <p className="mt-3 text-xs text-[#6B7A72]">{card.flags.lockMessage}</p>
-      )}
-
-      {/* Product analytics, a membership/tier lock renders its "Locked"
-          pill, its reason, and its "View Membership" link inline and
-          always visible, so the marker really is on screen as soon as this
-          card renders. That is why this one records on mount, while the
-          coach-assign lock (whose message only appears on tap) records on
-          the tap instead. Renders nothing. */}
-      {card.flags.locked && !isCoachLocked && (
-        <TrackPaywallView feature={card.key} lockReason={card.flags.lockReasonKind ?? 'membership'} />
-      )}
-
-      {!isCoachLocked && (
+      {!isLocked && (
         <div className="mt-5 space-y-2">
           {action && (
             <Link href={action.href as Route} className={PRIMARY_BUTTON}>
@@ -175,30 +165,48 @@ function CardBody({ card, action, isCoachLocked }: { card: CatalogCard; action: 
             </Link>
           )}
 
-          {card.flags.locked && card.section === 'premium' && (
-            <Link href={'/membership' as Route} className={`${SECONDARY_LINK} block text-center`}>
-              View Membership
-            </Link>
-          )}
         </div>
       )}
     </>
   );
 }
 
+/** Root's note for this card's lock. The card only ever knows the kind, so this is the one place the kind becomes a sentence. */
+function noteForLock(card: CatalogCard): string {
+  switch (card.flags.lockReasonKind) {
+    case 'not_assigned':
+      return COACH_LOCK_NOTE_MESSAGE;
+    case 'membership':
+      return card.flags.lockRequiredLevel === 'holistic_reset'
+        ? PROGRAM_PLAN_LOCK_MESSAGE
+        : MONTHLY_PLAN_LOCK_MESSAGE;
+    case 'program_enrollment':
+      return PROGRAM_ENROLLMENT_LOCK_MESSAGE;
+    case 'program_phase':
+      return PROGRAM_PHASE_LOCK_MESSAGE;
+    case 'prerequisite':
+      return PREREQUISITE_LOCK_MESSAGE;
+    default:
+      return COACH_LOCK_NOTE_MESSAGE;
+  }
+}
+
 export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
   const action = primaryAction(card);
-  const isCoachLocked = card.flags.locked && card.flags.lockReasonKind === 'not_assigned';
+  const isLocked = card.flags.locked;
 
-  if (isCoachLocked) {
+  if (isLocked) {
     return (
       <div className="relative">
         <LockedCardButton
           ariaLabel={`${card.title}, locked. Tap to hear from Root about it.`}
           analyticsFeature={card.key}
+          message={noteForLock(card)}
+          lockReason={card.flags.lockReasonKind ?? 'membership'}
+          planHref={card.flags.lockReasonKind === 'membership' ? '/membership' : undefined}
         >
           <Card className="mef-animate-in opacity-55 grayscale-[0.4]">
-            <CardBody card={card} action={action} isCoachLocked />
+            <CardBody card={card} action={action} isLocked />
           </Card>
         </LockedCardButton>
         <CoachLockBadge />
@@ -208,7 +216,7 @@ export function CatalogQuestionnaireCard({ card }: { card: CatalogCard }) {
 
   return (
     <Card className="mef-animate-in">
-      <CardBody card={card} action={action} isCoachLocked={false} />
+      <CardBody card={card} action={action} isLocked={false} />
     </Card>
   );
 }

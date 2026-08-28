@@ -1,3 +1,30 @@
+## Full-app bug sweep, read only (2026-08-27)
+
+No code changed, no migration, no deploy. A pattern hunt through the whole
+codebase for the ten bug classes behind the last month's accidental discoveries,
+then a signed-in mobile walk of 45 member screens, 14 coach screens and 11 admin
+screens on `app.mefwellness.com`. The ranked list is `docs/BUG_SWEEP_2026-08-27.md`.
+
+**4 A, 5 B, 10 C, 4 latent, 3 for the owner to decide.** The three worst: a
+pending "reassessment" row for an assessment nobody has ever taken unlocks a
+coach-assign-only 91-question questionnaire (4 of 6 pending rows on production
+are like this, one on a real tester's account); the generic engine's and Primal
+Pattern's take pages still create a draft on render, which is the pattern
+migration 186 fixed only for the four runtime flows; and the coach's Safety
+Review Queue shows 27 open cases of which 27 are a test account.
+
+Three bug classes came back clean and are recorded as such: duplicate guards
+(every per-day table has a real database constraint, listed one by one), error
+and empty states (zero uncaught errors and no "NaN"/"Invalid Date"/"undefined"
+across 45 member screens), and em dashes in code and migrations. Charts, the
+Daily Reset discomfort gate and role/URL gating were also driven and are clean.
+
+Two things that look like bugs in a full-page screenshot and are not (Home's
+blank lower half, the trend chart's empty 1 Month range) are written down with
+the measurement that disproves each, so nobody re-finds them.
+
+---
+
 ## A finished conversation stays finished (2026-08-27)
 
 Real testers reported that a free experience they had completed came back the next day asking to be filled in again. It was true, it was reproducible, and the production data carried the fault in plain sight: one member had **four completed Core Values Snapshot sessions, each one started one to two seconds after the previous one finished**, plus a fifth empty one still open. She answered all twelve questions four separate times. Migration 186, applied to production.

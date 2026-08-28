@@ -109,9 +109,23 @@ describe('hasEverCompleted — the one source of truth', () => {
 });
 
 describe('the completed card, checked the next calendar day', () => {
+  // A member who finished Life Signal Check has by definition finished
+  // Core Values Snapshot before it, and so on down the chain. The set has
+  // to be passed, because `retakeAvailable` now asks whether she may
+  // genuinely start another one, and an unmet prerequisite is one of the
+  // reasons she may not.
+  const ALL_PREREQUISITES_MET = new Set(
+    [CVS, LSC, RPL].map((e) => e.key)
+  );
+
   for (const entry of [CVS, LSC, RPL]) {
     it(`${entry.displayName} stays in the Completed section with a draft sitting on it`, () => {
-      const { section, flags } = categorizeForCatalog(entry, finishedThenPhantomDraft(), NEXT_MORNING);
+      const { section, flags } = categorizeForCatalog(
+        entry,
+        finishedThenPhantomDraft(),
+        NEXT_MORNING,
+        ALL_PREREQUISITES_MET
+      );
       expect(section).toBe('completed');
       // Not "Resume". The card renders View Results off `inProgress` being false.
       expect(flags.inProgress).toBe(false);
@@ -120,7 +134,12 @@ describe('the completed card, checked the next calendar day', () => {
     });
 
     it(`${entry.displayName} stays in the Completed section with no draft at all`, () => {
-      const { section, flags } = categorizeForCatalog(entry, finishedCleanly(), NEXT_MORNING);
+      const { section, flags } = categorizeForCatalog(
+        entry,
+        finishedCleanly(),
+        NEXT_MORNING,
+        ALL_PREREQUISITES_MET
+      );
       expect(section).toBe('completed');
       expect(flags.inProgress).toBe(false);
       expect(flags.retakeInProgress).toBe(false);

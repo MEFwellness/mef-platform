@@ -9,7 +9,9 @@
 
 'use server';
 
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import {
   PRIMAL_PATTERN_COPY,
   PRIMAL_PATTERN_QUESTIONNAIRE,
@@ -91,18 +93,91 @@ export type TakePrimalPatternState = {
   inProgress: InProgressPrimalPatternAssessment;
 };
 
-/** Starts a new draft or resumes the existing one — the single entry point for the take flow. */
+const PRIMAL_PATTERN_OVERVIEW = '/assessments/primal-pattern-diet-type';
+
+/**
+ * What the take page reads.
+ *
+ * A TAKE URL ONLY EVER READS (2026-08-27). This used to call
+ * `getOrCreateInProgressPrimalPatternAssessment`, so rendering the take
+ * page created the draft: a refresh, a bookmark, a Back-then-Forward or
+ * the re-render a Server Action causes all counted as "she started this".
+ * Now it resumes a draft that exists and returns null otherwise, and the
+ * page sends her back to the overview to press a real button.
+ */
 export async function getMyPrimalPatternTakeState(): Promise<TakePrimalPatternState | null> {
   const memberId = await requireMemberId();
   if (!memberId) return null;
 
   const supabase = createClient();
-  const inProgress = await getOrCreateInProgressPrimalPatternAssessment(
+  const inProgress = await findInProgressPrimalPatternAssessment(
+    supabase,
+    memberId,
+    PRIMAL_PATTERN_QUESTIONNAIRE_ID
+  );
+  if (!inProgress) return null;
+  return { questionnaire: PRIMAL_PATTERN_QUESTIONNAIRE, copy: PRIMAL_PATTERN_COPY, inProgress };
+}
+
+async function startPrimalPatternAttempt(startRetake: boolean): Promise<void> {
+  const memberId = await requireMemberId();
+  if (!memberId) redirect('/login');
+
+  const supabase = createClient();
+  const access = await checkAssessmentAccess(supabase, memberId, 'primal-pattern-diet-type', {
+    intent: 'start',
+  });
+  if (!access.allowed) redirect(PRIMAL_PATTERN_OVERVIEW);
+
+  const existing = await findInProgressPrimalPatternAssessment(
+    supabase,
+    memberId,
+    PRIMAL_PATTERN_QUESTIONNAIRE_ID
+  );
+
+  if (!existing && !startRetake) {
+    const latestCompleted = await getLatestCompletedPrimalPatternSummary(
+      supabase,
+      memberId,
+      PRIMAL_PATTERN_QUESTIONNAIRE_ID
+    );
+    if (latestCompleted) redirect(`${PRIMAL_PATTERN_OVERVIEW}/results/${latestCompleted.id}`);
+  }
+
+  await getOrCreateInProgressPrimalPatternAssessment(
     supabase,
     memberId,
     PRIMAL_PATTERN_QUESTIONNAIRE
   );
-  return { questionnaire: PRIMAL_PATTERN_QUESTIONNAIRE, copy: PRIMAL_PATTERN_COPY, inProgress };
+  redirect(`${PRIMAL_PATTERN_OVERVIEW}/take`);
+}
+
+/**
+ * The Begin / Resume button. The only path that may create a Primal
+ * Pattern draft, and it is a Server Action, so a GET can never reach it.
+ */
+export async function beginPrimalPatternAction(): Promise<void> {
+  await startPrimalPatternAttempt(false);
+}
+
+/** Take it again. Its own action, so retaking is always something she pressed. */
+export async function retakePrimalPatternAction(): Promise<void> {
+  await startPrimalPatternAttempt(true);
+}
+
+/**
+ * THE GATE, ON THE WRITE PATH TOO (2026-08-27). 'view', not 'start': a
+ * member who legitimately began must always be able to finish, and it is
+ * the begin path that decides whether she may begin.
+ */
+async function mayWritePrimalPattern(
+  supabase: ReturnType<typeof createClient>,
+  memberId: string
+): Promise<boolean> {
+  const access = await checkAssessmentAccess(supabase, memberId, 'primal-pattern-diet-type', {
+    intent: 'view',
+  });
+  return access.allowed;
 }
 
 /** Persists one answer (one or both letters) — called after every tap in the take flow. */
@@ -120,8 +195,12 @@ export async function submitPrimalPatternAnswer(
     return { ok: false, error: 'Invalid selection.' };
   }
 
+  const supabase = createClient();
+  if (!(await mayWritePrimalPattern(supabase, memberId))) {
+    return { ok: false, error: 'This is not open for you right now.' };
+  }
+
   try {
-    const supabase = createClient();
     await savePrimalPatternAnswer(
       supabase,
       PRIMAL_PATTERN_QUESTIONNAIRE,
@@ -167,6 +246,8 @@ export async function completeMyPrimalPatternAssessment(
   if (!memberId) return null;
 
   const supabase = createClient();
+  if (!(await mayWritePrimalPattern(supabase, memberId))) return null;
+
   return completePrimalPatternAssessment(supabase, PRIMAL_PATTERN_QUESTIONNAIRE, assessmentId);
 }
 

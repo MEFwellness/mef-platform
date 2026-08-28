@@ -10,7 +10,13 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { CheckCircle2, Clock3, ListChecks, ShieldCheck, Sparkles } from 'lucide-react';
-import { getMyAssessmentOverview } from '@/app/actions/assessments';
+import {
+  beginAssessmentAction,
+  getMyAssessmentOverview,
+  retakeAssessmentAction,
+} from '@/app/actions/assessments';
+import { BeginAssessmentForm } from '@/components/assessments/BeginAssessmentForm';
+import { CompletedExperienceActions } from '@/components/assessments/CompletedExperienceActions';
 import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
@@ -43,7 +49,7 @@ export default async function AssessmentOverviewPage({
     getMyAssessmentOverview(questionnaireId),
     hasActiveRole(supabase, user.id, 'coach'),
     supabase.from('profiles').select('timezone').eq('id', user.id).single(),
-    checkAssessmentAccess(supabase, user.id, questionnaireId),
+    checkAssessmentAccess(supabase, user.id, questionnaireId, { intent: 'view' }),
   ]);
 
   if (!overview) redirect('/login');
@@ -88,9 +94,15 @@ export default async function AssessmentOverviewPage({
   }
   const timezone = profile?.timezone ?? 'America/New_York';
   const ctaLabel = draft ? 'Resume assessment' : 'Begin assessment';
-  const ctaHref = `/assessments/${toPublicSlug(questionnaire.id)}/take` as Route;
   const justSaved = searchParams.saved === '1' && draft !== null;
   const answeredCount = draft?.answered ?? 0;
+  // COMPLETION IS PERMANENT (2026-08-27). A questionnaire she has finished
+  // leads with her results, and a retake is its own labelled button. It
+  // used to offer only "Begin assessment", which opened the take route,
+  // which silently started a blank retake on render.
+  const showsCompletedState = latestCompleted !== null && draft === null;
+  const beginThis = beginAssessmentAction.bind(null, questionnaire.id);
+  const retakeThis = retakeAssessmentAction.bind(null, questionnaire.id);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -109,12 +121,7 @@ export default async function AssessmentOverviewPage({
               </p>
               <p className="mt-1 text-sm text-[#6B7A72]">You can continue anytime.</p>
 
-              <Link
-                href={ctaHref}
-                className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-              >
-                Resume Assessment
-              </Link>
+              <BeginAssessmentForm action={beginThis} label="Resume Assessment" className="mt-6" />
               <Link
                 href={'/dashboard' as Route}
                 className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
@@ -157,21 +164,25 @@ export default async function AssessmentOverviewPage({
               </p>
             )}
 
-            <Link
-              href={ctaHref}
-              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-            >
-              {ctaLabel}
-            </Link>
+            {showsCompletedState ? (
+              <CompletedExperienceActions
+                resultsHref={`/assessments/${toPublicSlug(questionnaire.id)}/results/${latestCompleted.id}`}
+                retakeAction={retakeThis}
+              />
+            ) : (
+              <>
+                <BeginAssessmentForm action={beginThis} label={ctaLabel} className="mt-6" />
 
-            <p className="mt-3 text-center text-xs text-[#6B7A72]">
-              One question at a time. Your progress saves automatically, so you can always finish
-              later.
-            </p>
+                <p className="mt-3 text-center text-xs text-[#6B7A72]">
+                  One question at a time. Your progress saves automatically, so you can always
+                  finish later.
+                </p>
+              </>
+            )}
           </Card>
         )}
 
-        {latestCompleted && (
+        {latestCompleted && !showsCompletedState && (
           <Card
             as={Link}
             href={

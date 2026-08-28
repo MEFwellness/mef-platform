@@ -18,7 +18,7 @@
  * the focus is is a second focus.
  */
 
-import { getMyPriorityView } from '../priority/view';
+import { getMyStoredPriority } from '../priority/view';
 import type { PriorityView } from '../priority/types';
 import type { MemberFocus } from './types';
 
@@ -35,15 +35,34 @@ export function toMemberFocus(view: PriorityView | null): MemberFocus | null {
 }
 
 /**
- * The member's one focus, or null when the engine could not claim today's
- * row (which is the engine's own fail-closed state, not an absence of a
- * focus). A surface that gets null renders no focus at all rather than
- * falling back to a second source, because falling back to a second source
- * is exactly what produced five answers.
+ * The member's one focus, or null when Root has not decided one today.
  *
- * Request-memoized upstream: getMyPriorityView already is, so a page with
- * four surfaces naming the focus pays for one computation.
+ * READS, NEVER DECIDES (2026-08-27). This used to run the whole priority
+ * engine, which claims today's row as a side effect. Every surface that
+ * names the focus therefore had the power to fix it: opening Movement, the
+ * Root Map, Recommendations or the Root Score first thing in the morning
+ * decided her one thing for the day before she had checked in, and asking
+ * Root a question in the chat did the same. It now reads the decision the
+ * Priority Card made and reports nothing when there is not one yet, which
+ * is the null this module's callers already handle by rendering no focus
+ * at all.
+ *
+ * `reason` is deliberately null here. The engine's reason line is
+ * regenerated per render against the live hierarchy and is not stored, so
+ * the honest answer from a stored row is "no current reason". Every
+ * surface reading this renders the title and the status, never the reason.
+ *
+ * Request-memoized upstream, so a page with four surfaces naming the focus
+ * pays for one row read.
  */
 export async function getMemberFocus(): Promise<MemberFocus | null> {
-  return toMemberFocus(await getMyPriorityView());
+  const record = await getMyStoredPriority();
+  if (!record) return null;
+  return {
+    title: record.title,
+    reason: null,
+    rule: record.rule,
+    status: record.status,
+    href: record.href,
+  };
 }

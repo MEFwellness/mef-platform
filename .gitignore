@@ -18,3 +18,7 @@ backups/
 # member, so they carry a real name and real health data, and they are
 # evidence for one run rather than a reviewable artefact of the app.
 docs/screens/live-polish/
+
+# Bug sweep and verification screenshots. Pictures of a real member's
+# home screen, her name and her readings. Never committed.
+apps/consumer-web-app/scripts/.sweep/

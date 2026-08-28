@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DailyPriorityRecord, PriorityRule, PriorityStatus, SelectedPriority } from './types';
 
 const COLUMNS =
-  'id, local_date, rule, priority_key, priority_title, priority_help, priority_href, status, done_at, saved_at, shown_at';
+  'id, local_date, rule, priority_key, priority_title, priority_help, priority_href, status, done_at, saved_at, shown_at, decided_before_checkin, redecided_at';
 
 type Row = {
   id: string;
@@ -26,6 +26,8 @@ type Row = {
   done_at: string | null;
   saved_at: string | null;
   shown_at: string | null;
+  decided_before_checkin: boolean | null;
+  redecided_at: string | null;
 };
 
 function fromRow(row: Row): DailyPriorityRecord {
@@ -41,6 +43,8 @@ function fromRow(row: Row): DailyPriorityRecord {
     doneAt: row.done_at,
     savedAt: row.saved_at,
     shownAt: row.shown_at,
+    decidedBeforeCheckin: row.decided_before_checkin === true,
+    redecidedAt: row.redecided_at,
   };
 }
 
@@ -80,7 +84,14 @@ export async function claimDailyPriority(
   supabase: SupabaseClient,
   memberId: string,
   localDate: string,
-  selected: SelectedPriority
+  selected: SelectedPriority,
+  /**
+   * Whether Root had already seen today's Daily Reset when it decided.
+   * Recorded so `redecideDailyPriority` below can tell a decision made
+   * without today's check-in from one made with it, without having to
+   * compare timestamps across two tables.
+   */
+  decidedBeforeCheckin = false
 ): Promise<DailyPriorityRecord | null> {
   const { data, error } = await supabase
     .from('member_daily_priorities')
@@ -94,6 +105,7 @@ export async function claimDailyPriority(
         priority_help: selected.help,
         priority_href: selected.href,
         status: 'active',
+        decided_before_checkin: decidedBeforeCheckin,
       },
       { onConflict: 'member_id,local_date', ignoreDuplicates: true }
     )
@@ -218,4 +230,63 @@ export async function getLastSignInLocalDateBefore(
 
   if (error || !data) return null;
   return data.local_date as string;
+}
+
+/**
+ * THE DAY'S PRIORITY WAITS FOR THE CHECK-IN (2026-08-27).
+ *
+ * `claimDailyPriority` is deliberately an insert-if-absent, and that is
+ * still right: once Root has told her what today is about, the decision
+ * holds. But there is one moment where holding it is wrong, and it is the
+ * common one. The card is shown the moment she opens Home, which for most
+ * members is before the Daily Reset. Root then decided her whole day
+ * without today's answers in front of it, and could not revisit that even
+ * once she had answered.
+ *
+ * So exactly one revision is allowed, and only under all four of these:
+ * the first decision was made before today's check-in, today's check-in
+ * now exists, she has not already acted on the card, and no revision has
+ * happened yet. `redecided_at` is what makes it once and not a loop, and
+ * the `status = 'active'` and `redecided_at is null` clauses are in the
+ * UPDATE itself, so two concurrent renders cannot both revise.
+ *
+ * Returns the row as it stands afterwards, or null when nothing was
+ * revised, so a caller can tell "revised" from "left alone".
+ */
+export async function redecideDailyPriority(
+  supabase: SupabaseClient,
+  memberId: string,
+  localDate: string,
+  selected: SelectedPriority
+): Promise<DailyPriorityRecord | null> {
+  const { data, error } = await supabase
+    .from('member_daily_priorities')
+    .update({
+      rule: selected.rule,
+      priority_key: selected.priorityKey,
+      priority_title: selected.title,
+      priority_help: selected.help,
+      priority_href: selected.href,
+      decided_before_checkin: false,
+      redecided_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('member_id', memberId)
+    .eq('local_date', localDate)
+    .eq('status', 'active')
+    .eq('decided_before_checkin', true)
+    .is('redecided_at', null)
+    .select(COLUMNS);
+
+  if (error) {
+    console.error('redecideDailyPriority failed', error);
+    return null;
+  }
+
+  // "NO ERROR" IS NOT "IT WORKED". An UPDATE whose WHERE matched nothing
+  // returns zero rows and no error, and that is the ordinary case here
+  // (another render already revised it, or she has already acted). Read
+  // what came back rather than assuming.
+  const revised = (data as Row[] | null)?.[0];
+  return revised ? fromRow(revised) : null;
 }

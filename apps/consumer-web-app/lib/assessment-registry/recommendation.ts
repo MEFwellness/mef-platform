@@ -12,6 +12,7 @@ import { listAssessmentRegistryEntries } from './registry';
 import type { AssessmentKey } from './types';
 import {
   calculateAssessmentStatus,
+  hasEverCompleted,
   type AssessmentStatus,
   type MemberAssessmentFacts,
 } from './status';
@@ -29,9 +30,17 @@ export type Recommendation =
   | { key: AssessmentKey; reason: RecommendationReason }
   | { key: null; reason: 'upgrade_invitation' };
 
+/**
+ * A REASSESSMENT IS A SECOND LOOK (2026-08-27). Same guard as
+ * catalog.ts's own copy, and for the same reason: without it, "Recommended
+ * Next" would offer a member a *re*assessment of a questionnaire she has
+ * never opened, off the back of a phantom schedule row.
+ */
 function isReassessmentDue(facts: MemberAssessmentFacts, now: Date): boolean {
   return Boolean(
-    facts.pendingReassessmentSchedule && new Date(facts.pendingReassessmentSchedule.dueAt) <= now
+    hasEverCompleted(facts) &&
+      facts.pendingReassessmentSchedule &&
+      new Date(facts.pendingReassessmentSchedule.dueAt) <= now
   );
 }
 

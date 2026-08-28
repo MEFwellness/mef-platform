@@ -27,6 +27,29 @@ import type { RecommendationDomain } from '../intelligence-engine/types';
 import type { LifestyleExperimentOutcome } from '../lifestyle-experiments/types';
 import type { LongitudinalSignal } from '../longitudinal-intelligence/types';
 
+
+/**
+ * A REASSESSMENT IS A SECOND LOOK (2026-08-27).
+ *
+ * Every evaluator below maps a signal in a DOMAIN onto an assessment key,
+ * and none of them used to ask whether that assessment had ever been
+ * taken. On production four of the six pending schedules were for
+ * something the member had never completed, and a pending schedule was
+ * accepted as proof of history by the access gate, so the daily scan was
+ * quietly handing out questionnaires nobody had assigned. One of them was
+ * the camera Body Assessment.
+ *
+ * The gate no longer honours a schedule at all, which closes the access
+ * hole. This closes the other end: nothing is ever proposed as a
+ * reassessment of something that was never assessed. Both ends matter,
+ * because a phantom "Reassessment due" badge on a questionnaire she has
+ * never opened is wrong even when it opens nothing.
+ *
+ * `completedAssessmentKeys` is required, never optional, so a future
+ * evaluator cannot opt out of the rule by forgetting it exists. The
+ * caller already reads it: see data.ts's listLastCompletedAtByAssessmentKey.
+ */
+
 const MIN_TRIGGER_CONFIDENCE = 0.6;
 
 const DOMAIN_TO_ASSESSMENT: Partial<Record<RegistryDomain, AssessmentKey>> = {
@@ -52,7 +75,8 @@ export type ReassessmentSuggestion = {
  */
 export function evaluateReassessmentTriggers(
   activeFindings: RegistryEntry[],
-  existingPendingAssessmentKeys: ReadonlySet<AssessmentKey>
+  existingPendingAssessmentKeys: ReadonlySet<AssessmentKey>,
+  completedAssessmentKeys: ReadonlySet<AssessmentKey>
 ): ReassessmentSuggestion[] {
   const worsening = activeFindings.filter(
     (f) =>
@@ -66,6 +90,7 @@ export function evaluateReassessmentTriggers(
   for (const finding of worsening) {
     const assessmentKey = DOMAIN_TO_ASSESSMENT[finding.domain];
     if (!assessmentKey || existingPendingAssessmentKeys.has(assessmentKey)) continue;
+    if (!completedAssessmentKeys.has(assessmentKey)) continue;
 
     const existing = byAssessment.get(assessmentKey);
     if (existing) {
@@ -182,7 +207,8 @@ export type ExperimentOutcomeReassessmentSuggestion = {
 export function evaluateExperimentOutcomeReassessmentTriggers(
   closedExperiments: { sourceDomain: RecommendationDomain; outcome: LifestyleExperimentOutcome }[],
   activeFindings: RegistryEntry[],
-  existingPendingAssessmentKeys: ReadonlySet<AssessmentKey>
+  existingPendingAssessmentKeys: ReadonlySet<AssessmentKey>,
+  completedAssessmentKeys: ReadonlySet<AssessmentKey>
 ): ExperimentOutcomeReassessmentSuggestion[] {
   const activeRegistryDomains = new Set(
     activeFindings.filter((f) => f.status === 'active' && f.entry_kind === 'finding').map((f) => f.domain)
@@ -196,6 +222,7 @@ export function evaluateExperimentOutcomeReassessmentTriggers(
 
     const assessmentKey = RECOMMENDATION_DOMAIN_TO_ASSESSMENT[experiment.sourceDomain];
     if (!assessmentKey || seen.has(assessmentKey) || existingPendingAssessmentKeys.has(assessmentKey)) continue;
+    if (!completedAssessmentKeys.has(assessmentKey)) continue;
 
     const stillActive = registryDomainsForAssessment(assessmentKey).some((d) => activeRegistryDomains.has(d));
     if (!stillActive) continue;
@@ -224,7 +251,8 @@ const RECOMMENDATION_SEQUENCE_THRESHOLD = 3;
 
 export function evaluateRecommendationSequenceReassessmentTriggers(
   completedCountBySourceDomain: { sourceDomain: RecommendationDomain; completedCount: number }[],
-  existingPendingAssessmentKeys: ReadonlySet<AssessmentKey>
+  existingPendingAssessmentKeys: ReadonlySet<AssessmentKey>,
+  completedAssessmentKeys: ReadonlySet<AssessmentKey>
 ): RecommendationSequenceReassessmentSuggestion[] {
   const seen = new Set<AssessmentKey>();
   const suggestions: RecommendationSequenceReassessmentSuggestion[] = [];
@@ -234,6 +262,7 @@ export function evaluateRecommendationSequenceReassessmentTriggers(
 
     const assessmentKey = RECOMMENDATION_DOMAIN_TO_ASSESSMENT[sourceDomain];
     if (!assessmentKey || seen.has(assessmentKey) || existingPendingAssessmentKeys.has(assessmentKey)) continue;
+    if (!completedAssessmentKeys.has(assessmentKey)) continue;
 
     seen.add(assessmentKey);
     suggestions.push({
@@ -262,7 +291,8 @@ export function evaluateRecommendationSequenceReassessmentTriggers(
  */
 export function evaluateLongitudinalReassessmentTriggers(
   signals: LongitudinalSignal[],
-  existingPendingAssessmentKeys: ReadonlySet<AssessmentKey>
+  existingPendingAssessmentKeys: ReadonlySet<AssessmentKey>,
+  completedAssessmentKeys: ReadonlySet<AssessmentKey>
 ): ReassessmentSuggestion[] {
   const seen = new Set<AssessmentKey>();
   const suggestions: ReassessmentSuggestion[] = [];
@@ -274,6 +304,7 @@ export function evaluateLongitudinalReassessmentTriggers(
     const registryDomain = signal.signalKey.split('::')[1] as RegistryDomain;
     const assessmentKey = DOMAIN_TO_ASSESSMENT[registryDomain];
     if (!assessmentKey || seen.has(assessmentKey) || existingPendingAssessmentKeys.has(assessmentKey)) continue;
+    if (!completedAssessmentKeys.has(assessmentKey)) continue;
 
     seen.add(assessmentKey);
     suggestions.push({

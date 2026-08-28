@@ -14,7 +14,9 @@
 
 'use server';
 
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import {
   findAssessmentRegistryEntry,
   getAssessmentDefinition,
@@ -172,7 +174,21 @@ export type TakeAssessmentState = {
   inProgress: InProgressAssessment;
 };
 
-/** Starts a new draft or resumes the existing one — the single entry point for the take flow. */
+/**
+ * What the take page reads.
+ *
+ * A TAKE URL ONLY EVER READS (2026-08-27). This used to call
+ * `getOrCreateInProgressAssessment`, so rendering the take page created
+ * the member's draft. The page's own comment said so out loud. A read-only
+ * page load during an audit created a real, empty, 91-question draft on a
+ * real member's production account, and once it existed the Questionnaires
+ * card changed its call to action to "Resume assessment, 0 of 91 questions
+ * completed". Back-then-Forward, a refresh and a bookmark all did the same.
+ *
+ * Now: resume a draft that exists, and otherwise return null so the page
+ * can send her somewhere real. Creating is `beginAssessmentAction` below,
+ * which is a button.
+ */
 export async function getMyTakeAssessmentState(
   questionnaireId: string
 ): Promise<TakeAssessmentState | null> {
@@ -181,7 +197,55 @@ export async function getMyTakeAssessmentState(
 
   const { questionnaire, copy } = getAssessmentDefinition(questionnaireId);
   const supabase = createClient();
-  const inProgress = await getOrCreateInProgressAssessment(supabase, memberId, questionnaire);
+  const inProgress = await findInProgressAssessment(supabase, memberId, questionnaire.id);
+  if (!inProgress) return null;
+
+  return { questionnaire, copy, inProgress };
+}
+
+/**
+ * The Begin / Resume button for a generic-engine questionnaire. The only
+ * path that may create a `wellness_assessments` draft, and it is a Server
+ * Action, so a GET can never reach it.
+ *
+ * B4, THE ROUTER LOG (2026-08-27). `recordRouterDecision` used to run on
+ * every render of the take page. `investigation_router_decisions` is
+ * append-only with no uniqueness, so a refresh, a Back-then-Forward or a
+ * Server Action revalidation each added a row. That table exists to keep
+ * the Root Model honest about chosen-versus-recommended, and filling it
+ * with page views is a quiet falsification of the one log built to catch
+ * that. It now runs on the branch that genuinely starts a new attempt, and
+ * never on a resume.
+ */
+async function startAttempt(questionnaireId: string, startRetake: boolean): Promise<void> {
+  const overviewHref = `/assessments/${toPublicSlug(questionnaireId)}`;
+  const memberId = await requireMemberId();
+  if (!memberId) redirect('/login');
+
+  const supabase = createClient();
+  const access = await checkAssessmentAccess(supabase, memberId, questionnaireId, {
+    intent: 'start',
+  });
+  if (!access.allowed) redirect(overviewHref);
+
+  const { questionnaire } = getAssessmentDefinition(questionnaireId);
+  const existing = await findInProgressAssessment(supabase, memberId, questionnaire.id);
+
+  if (!existing && !startRetake) {
+    // A finished questionnaire is never silently restarted. Her results are
+    // what she asked for unless she pressed the retake button.
+    const latestCompleted = await getLatestCompletedAssessmentSummary(
+      supabase,
+      memberId,
+      questionnaire.id
+    );
+    if (latestCompleted) {
+      redirect(`${overviewHref}/results/${latestCompleted.id}`);
+    }
+  }
+
+  const isNewAttempt = existing === null;
+  await getOrCreateInProgressAssessment(supabase, memberId, questionnaire);
 
   // Root Router — member agency logging (Method §7 step 4, Investigation
   // Engine's rootRouter.ts). Best-effort, non-throwing: a member starting
@@ -193,7 +257,7 @@ export async function getMyTakeAssessmentState(
   // Assessment, onboarding, and Primal Pattern have their own separate
   // start flows and are intentionally left as a same-shape follow-up.
   const chosenKey = findAssessmentRegistryEntry(questionnaireId)?.key ?? null;
-  if (chosenKey) {
+  if (isNewAttempt && chosenKey) {
     try {
       const decision = await decideNextAction(supabase, memberId);
       await recordRouterDecision(supabase, memberId, decision, chosenKey);
@@ -202,7 +266,22 @@ export async function getMyTakeAssessmentState(
     }
   }
 
-  return { questionnaire, copy, inProgress };
+  redirect(`${overviewHref}/take`);
+}
+
+/**
+ * Begin or resume. Bound to a questionnaire id by the overview screen and
+ * handed to a `<form action=...>`, so React calls it with the form's own
+ * FormData appended; nothing here reads it, and there is deliberately no
+ * "start a retake" argument a browser could set.
+ */
+export async function beginAssessmentAction(questionnaireId: string): Promise<void> {
+  await startAttempt(questionnaireId, false);
+}
+
+/** Take it again. Its own action, so retaking is always something she pressed. */
+export async function retakeAssessmentAction(questionnaireId: string): Promise<void> {
+  await startAttempt(questionnaireId, true);
 }
 
 /**
@@ -211,6 +290,28 @@ export async function getMyTakeAssessmentState(
  * rather than trusting a client-supplied score, so a tampered request can
  * change which option was selected but never what it's worth.
  */
+/**
+ * THE GATE, ON THE WRITE PATH TOO (2026-08-27). Every server action that
+ * reads or writes a session asks the same question the card and the take
+ * route ask, so a hand-made request cannot do what a screen cannot.
+ *
+ * 'view', not 'start', and that difference matters: a member who
+ * legitimately began a questionnaire must always be able to finish it and
+ * to see what she wrote, even if her plan changes underneath her mid-way.
+ * What she may not do is BEGIN one, and that is decided on the one path
+ * that begins things.
+ */
+async function mayWriteToSession(
+  supabase: ReturnType<typeof createClient>,
+  memberId: string,
+  assessmentKey: string
+): Promise<boolean> {
+  const access = await checkAssessmentAccess(supabase, memberId, assessmentKey, {
+    intent: 'view',
+  });
+  return access.allowed;
+}
+
 export async function submitAssessmentAnswer(
   questionnaireId: string,
   assessmentId: string,
@@ -220,6 +321,11 @@ export async function submitAssessmentAnswer(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const memberId = await requireMemberId();
   if (!memberId) return { ok: false, error: 'Not signed in.' };
+
+  const supabaseGate = createClient();
+  if (!(await mayWriteToSession(supabaseGate, memberId, questionnaireId))) {
+    return { ok: false, error: 'This is not open for you right now.' };
+  }
 
   try {
     const { questionnaire } = getAssessmentDefinition(questionnaireId);
@@ -263,6 +369,11 @@ export async function submitAssessmentContext(
   const memberId = await requireMemberId();
   if (!memberId) return { ok: false, error: 'Not signed in.' };
 
+  const supabaseGate = createClient();
+  if (!(await mayWriteToSession(supabaseGate, memberId, questionnaireId))) {
+    return { ok: false, error: 'This is not open for you right now.' };
+  }
+
   try {
     const { questionnaire } = getAssessmentDefinition(questionnaireId);
     const contextQuestion = questionnaire.contextQuestions?.find((cq) => cq.key === key);
@@ -288,6 +399,8 @@ export async function completeMyAssessment(
 
   const { questionnaire } = getAssessmentDefinition(questionnaireId);
   const supabase = createClient();
+  if (!(await mayWriteToSession(supabase, memberId, questionnaireId))) return null;
+
   const result = await completeAssessment(supabase, questionnaire, assessmentId);
 
   // Recommendation Engine — a completed questionnaire is one of the

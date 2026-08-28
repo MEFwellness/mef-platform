@@ -15,6 +15,7 @@
 import { describe, it, expect, afterEach, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
 import {
+  getAssessmentRegistryEntry,
   findAssessmentRegistryEntry,
   listAssessmentRegistryEntries,
   calculateAssessmentStatus,
@@ -32,14 +33,57 @@ const memberTwoId = TEST_USERS.memberTwo.id;
 const FOUR_DOCTORS_ID = 'b67e32f5-ccdd-42b0-b7c2-2eb09431bc72';
 const CHEK_HLC1_ID = '4305b5a8-0c0c-40b5-ab8a-7d0b2a9cb7b9';
 const PRIMAL_PATTERN_ID = '524ed776-dad6-4584-8e0d-075a3ab76727';
+const CVS_ID = getAssessmentRegistryEntry('core-values-snapshot').databaseId;
 
-async function setMembership(memberId: string, tier: string | null) {
+/**
+ * THE PLAN IS THE GATE (2026-08-27). This used to write
+ * `profiles.membership_tier`, the column the registry map is written in.
+ * Nothing reads it for access any more, because on production it is NULL
+ * for eighteen of nineteen accounts and NULL resolved to the paid tier, so
+ * it gated nothing at all. The real plan is `member_subscriptions.tier`,
+ * the one assigned on /admin/access, and that is what this sets. The
+ * registry vocabulary each plan maps to is in
+ * lib/assessment-registry/membership.ts.
+ */
+async function setPlan(memberId: string, tier: 'trial' | 'monthly' | 'annual' | 'program') {
   const service = serviceRoleClient();
-  const { error } = await service
-    .from('profiles')
-    .update({ membership_tier: tier })
-    .eq('id', memberId);
+  // UPDATE, never upsert. The seeded trial_started_at/trial_ends_at are
+  // themselves asserted by tests/membership-access-integration.test.ts, so
+  // rewriting them here would break a test in another file that has
+  // nothing to do with assessment gating.
+  const { data, error } = await service
+    .from('member_subscriptions')
+    .update({ tier, status: 'active' })
+    .eq('member_id', memberId)
+    .select('member_id');
   if (error) throw error;
+  if (data && data.length > 0) return;
+
+  // Re-created rows carry the same trial window the account-creation
+  // trigger would have stamped, off the profile's own created_at, so a
+  // delete-and-recreate here cannot change what
+  // tests/membership-access-integration.test.ts measures.
+  const { data: profile } = await service
+    .from('profiles')
+    .select('created_at')
+    .eq('id', memberId)
+    .single();
+  const started = new Date((profile?.created_at as string) ?? new Date().toISOString());
+  const { error: insertError } = await service.from('member_subscriptions').insert({
+    member_id: memberId,
+    tier,
+    source: 'system',
+    status: 'active',
+    trial_started_at: started.toISOString(),
+    trial_ends_at: new Date(started.getTime() + 30 * 24 * 3600_000).toISOString(),
+  });
+  if (insertError) throw insertError;
+}
+
+/** No plan at all, which the gate resolves to the most restrictive live one. Deliberately deletes rather than nulling: `tier` is not nullable. */
+async function clearPlan(memberId: string) {
+  const service = serviceRoleClient();
+  await service.from('member_subscriptions').delete().eq('member_id', memberId);
 }
 
 async function cleanupMemberState(memberId: string) {
@@ -50,6 +94,10 @@ async function cleanupMemberState(memberId: string) {
   await service.from('assessment_assignments').delete().eq('member_id', memberId);
   await service.from('program_enrollments').delete().eq('member_id', memberId);
   await service.from('profiles').update({ membership_tier: null }).eq('id', memberId);
+  // Put the plan back to the seeded default. Tests in other files read the
+  // same database and the gate now reads this column, so leaving a member
+  // on a monthly plan would quietly change what those files are testing.
+  await setPlan(memberId, 'trial');
 }
 
 afterEach(async () => {
@@ -111,20 +159,15 @@ describe('registry catalog', () => {
   });
 });
 
-describe('membership-tier gating (free / monthly / reset)', () => {
-  // Assignment-Gated Questionnaires task: Four Doctors, Nutrition &
-  // Lifestyle, and Primal Pattern moved from tier-gated (available to any
-  // member, or locked behind a membership upgrade) to assignment-gated
-  // (invisible/locked until a coach assigns them, regardless of tier) —
-  // see requiresAssignment in lib/assessment-registry/registry.ts.
-  // Coach-Assign-Only Gating task (2026-08-04): Body Assessment joined
-  // that same group (requiresAssignment: true) — a free member must never
-  // reach the camera-based capture flow on their own either — so it's no
-  // longer the one key in this describe block governed by tier rules
-  // alone; it's now locked as not_assigned right alongside the other
-  // three, regardless of tier.
-  it('free_trial member with nothing assigned: Four Doctors, Nutrition & Lifestyle, and Body Assessment are all locked as not_assigned', async () => {
-    await setMembership(memberOneId, 'free_trial');
+describe('plan gating (trial / monthly / 24 week program)', () => {
+  // THE PLAN IS THE GATE (2026-08-27). Access is decided by the member's
+  // plan first and a coach assignment second, and nothing else opens a
+  // questionnaire: not a reassessment schedule, not a draft, not a prior
+  // completion. Which lock she meets therefore depends on which of the two
+  // she is missing, and the plan lock is reported first because it is the
+  // one that names something she can act on.
+  it('trial plan, nothing assigned: Four Doctors and Body Assessment are within the plan but coach-gated, Nutrition & Lifestyle is outside the plan', async () => {
+    await setPlan(memberOneId, 'trial');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
 
@@ -147,11 +190,11 @@ describe('membership-tier gating (free / monthly / reset)', () => {
       facts.get('chek-hlc1-nutrition-lifestyle')!
     );
     expect(chek.status).toBe('locked');
-    expect(chek.lockReason).toEqual({ kind: 'not_assigned' });
+    expect(chek.lockReason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
   });
 
-  it('membership-tier member with nothing assigned: Nutrition & Lifestyle stays locked as not_assigned (tier alone no longer unlocks it)', async () => {
-    await setMembership(memberOneId, 'membership');
+  it('monthly plan, nothing assigned: Nutrition & Lifestyle clears the plan and stays coach-gated', async () => {
+    await setPlan(memberOneId, 'monthly');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
     const chek = calculateAssessmentStatus(
@@ -162,19 +205,34 @@ describe('membership-tier gating (free / monthly / reset)', () => {
     expect(chek.lockReason).toEqual({ kind: 'not_assigned' });
   });
 
-  it('a member with no profile row (default fallback) still sees an unassigned Nutrition & Lifestyle as locked, not available', async () => {
+  it('no plan row at all fails CLOSED, to the most restrictive live plan, never to the most permissive', async () => {
+    await clearPlan(memberOneId);
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
+    expect(facts.get('chek-hlc1-nutrition-lifestyle')!.membershipKey).toBe('free_trial');
     const chek = calculateAssessmentStatus(
       findAssessmentRegistryEntry('chek-hlc1-nutrition-lifestyle')!,
       facts.get('chek-hlc1-nutrition-lifestyle')!
     );
     expect(chek.status).toBe('locked');
-    expect(chek.lockReason).toEqual({ kind: 'not_assigned' });
+    expect(chek.lockReason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
   });
 
-  it('holistic_reset member with nothing assigned: all four assignment-gated keys, including Body Assessment, stay locked regardless of tier', async () => {
-    await setMembership(memberOneId, 'holistic_reset');
+  it('an expired plan is no plan: the tier stops counting the moment the subscription is not active', async () => {
+    const service = serviceRoleClient();
+    await setPlan(memberOneId, 'program');
+    await service
+      .from('member_subscriptions')
+      .update({ status: 'expired' })
+      .eq('member_id', memberOneId);
+
+    const client = await signInAs(TEST_USERS.memberOne);
+    const facts = await getMemberAssessmentFacts(client, memberOneId);
+    expect(facts.get('chek-hlc1-nutrition-lifestyle')!.membershipKey).toBe('free_trial');
+  });
+
+  it('24 week program, nothing assigned: every coach-assign-only key stays locked, plan or no plan', async () => {
+    await setPlan(memberOneId, 'program');
     const client = await signInAs(TEST_USERS.memberOne);
     const facts = await getMemberAssessmentFacts(client, memberOneId);
 
@@ -188,6 +246,21 @@ describe('membership-tier gating (free / monthly / reset)', () => {
       expect(status.status).toBe('locked');
       expect(status.lockReason).toEqual({ kind: 'not_assigned' });
     }
+  });
+
+  it('the legacy profiles.membership_tier column no longer decides anything', async () => {
+    const service = serviceRoleClient();
+    await setPlan(memberOneId, 'trial');
+    await service
+      .from('profiles')
+      .update({ membership_tier: 'holistic_reset' })
+      .eq('id', memberOneId);
+
+    const client = await signInAs(TEST_USERS.memberOne);
+    const facts = await getMemberAssessmentFacts(client, memberOneId);
+    // The old column claims the top tier. Her real plan is a trial, and
+    // the trial is what answers.
+    expect(facts.get('chek-hlc1-nutrition-lifestyle')!.membershipKey).toBe('free_trial');
   });
 });
 
@@ -405,8 +478,8 @@ describe('completion tracking (assessment_attempts live sync)', () => {
 });
 
 describe('coach assignment override', () => {
-  it('a pending coach assignment surfaces as coach_assigned and grants access even to a locked (free_trial) member', async () => {
-    await setMembership(memberOneId, 'free_trial');
+  it('a pending coach assignment surfaces as coach_assigned and grants access even to a member on a trial plan that does not include it', async () => {
+    await setPlan(memberOneId, 'trial');
     const service = serviceRoleClient();
 
     const { error: assignError } = await service.from('assessment_assignments').insert({
@@ -555,11 +628,10 @@ describe('assignment gating — DB-level enforcement (migration 144)', () => {
 
 describe('server-side access enforcement (not UI-only)', () => {
   it('blocks a member from starting an assignment-gated assessment directly by URL, even at a qualifying membership tier, with no assignment or prior progress', async () => {
-    // membership tier (not free_trial) so this genuinely isolates the
-    // Assignment-Gated Questionnaires task's own gate from the older,
-    // separate membership-tier gate this same assessment used to be
-    // blocked by (see the "membership-tier gating" describe block above).
-    await setMembership(memberOneId, 'membership');
+    // A monthly plan, so the plan rule is satisfied and this genuinely
+    // isolates the coach-assignment gate underneath it rather than
+    // re-testing the plan lock (see the plan gating block above).
+    await setPlan(memberOneId, 'monthly');
     const client = await signInAs(TEST_USERS.memberOne);
     const access = await checkAssessmentAccess(
       client,
@@ -581,7 +653,16 @@ describe('server-side access enforcement (not UI-only)', () => {
     }
   });
 
-  it('a free_trial member who already has a completed attempt keeps access regardless of current tier (grandfathering)', async () => {
+  /**
+   * READING HER OWN RESULTS AND STARTING A NEW ONE ARE DIFFERENT QUESTIONS
+   * (2026-08-27). One completion used to make a coach-assign-only
+   * questionnaire permanently self-serve: `checkAssessmentAccess` let
+   * through anybody whose completionStatus was not 'not_started', which is
+   * right for reading results and wrong for beginning a fresh attempt. The
+   * two intents split it. Her history is never hidden; it is also never a
+   * key.
+   */
+  it('a completed attempt keeps her results reachable forever, on any plan', async () => {
     const service = serviceRoleClient();
     await service.from('wellness_assessments').insert({
       member_id: memberOneId,
@@ -593,15 +674,85 @@ describe('server-side access enforcement (not UI-only)', () => {
       started_at: new Date(Date.now() - 600_000).toISOString(),
       completed_at: new Date().toISOString(),
     });
-    await setMembership(memberOneId, 'free_trial');
+    await setPlan(memberOneId, 'trial');
 
     const client = await signInAs(TEST_USERS.memberOne);
     const access = await checkAssessmentAccess(
       client,
       memberOneId,
-      'chek-hlc1-nutrition-lifestyle'
+      'chek-hlc1-nutrition-lifestyle',
+      { intent: 'view' }
     );
     expect(access.allowed).toBe(true);
+  });
+
+  it('that same completed attempt does NOT let her start another one', async () => {
+    const service = serviceRoleClient();
+    await service.from('wellness_assessments').insert({
+      member_id: memberOneId,
+      questionnaire_id: 'chek-hlc1-nutrition-lifestyle',
+      status: 'completed',
+      total_score: 50,
+      total_max_score: 200,
+      total_priority: 'moderate',
+      started_at: new Date(Date.now() - 600_000).toISOString(),
+      completed_at: new Date().toISOString(),
+    });
+    await setPlan(memberOneId, 'monthly');
+
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(
+      client,
+      memberOneId,
+      'chek-hlc1-nutrition-lifestyle',
+      { intent: 'start' }
+    );
+    expect(access.allowed).toBe(false);
+    if (!access.allowed) expect(access.reason).toEqual({ kind: 'not_assigned' });
+  });
+
+  it('an open draft does not open it either', async () => {
+    const service = serviceRoleClient();
+    await service.from('wellness_assessments').insert({
+      member_id: memberOneId,
+      questionnaire_id: 'chek-hlc1-nutrition-lifestyle',
+      status: 'in_progress',
+      started_at: new Date().toISOString(),
+    });
+    await setPlan(memberOneId, 'monthly');
+
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(
+      client,
+      memberOneId,
+      'chek-hlc1-nutrition-lifestyle',
+      { intent: 'start' }
+    );
+    expect(access.allowed).toBe(false);
+  });
+
+  it('a pending reassessment schedule does not open it either, which is the A1 hole', async () => {
+    const service = serviceRoleClient();
+    await service.from('reassessment_schedules').insert({
+      member_id: memberOneId,
+      assessment_definition_id: CHEK_HLC1_ID,
+      stage: 'finding_triggered',
+      due_at: new Date(Date.now() - 86_400_000).toISOString(),
+      status: 'pending',
+      trigger_source: 'finding_change',
+      trigger_context: { findingCodes: ['x'], confidence: 0.9 },
+    });
+    await setPlan(memberOneId, 'monthly');
+
+    const client = await signInAs(TEST_USERS.memberOne);
+    const access = await checkAssessmentAccess(
+      client,
+      memberOneId,
+      'chek-hlc1-nutrition-lifestyle',
+      { intent: 'start' }
+    );
+    expect(access.allowed).toBe(false);
+    if (!access.allowed) expect(access.reason).toEqual({ kind: 'not_assigned' });
   });
 
   it("an unknown assessment key is not this function's concern (page 404s separately)", async () => {
@@ -616,18 +767,36 @@ describe('reassessment schedules', () => {
     const service = serviceRoleClient();
     const client = await signInAs(TEST_USERS.memberOne);
 
+    // TWO THINGS HAVE TO BE TRUE (2026-08-27), and this block is about the
+    // case where both are. Core Values Snapshot rather than Four Doctors,
+    // because a reassessment is only ever offered for something she may
+    // actually start again: Four Doctors is coach-assign-only, so a
+    // schedule against it is a suggestion to her coach and never a button
+    // on her screen. That case has its own test below.
+    const { error: attemptError } = await service.from('assessment_attempts').insert({
+      member_id: memberOneId,
+      assessment_definition_id: CVS_ID,
+      status: 'completed',
+      started_at: new Date(Date.now() - 600_000).toISOString(),
+      completed_at: new Date(Date.now() - 300_000).toISOString(),
+      source_table: 'unified_assessment_sessions',
+      source_id: crypto.randomUUID(),
+      source: 'member_self_serve',
+    });
+    expect(attemptError).toBeNull();
+
     const future = new Date(Date.now() + 30 * 24 * 3600_000).toISOString();
     await service.from('reassessment_schedules').insert({
       member_id: memberOneId,
-      assessment_definition_id: FOUR_DOCTORS_ID,
+      assessment_definition_id: CVS_ID,
       stage: 'midpoint',
       due_at: future,
     });
 
     const factsScheduled = await getMemberAssessmentFacts(client, memberOneId);
     const scheduledStatus = calculateAssessmentStatus(
-      findAssessmentRegistryEntry('four-doctors')!,
-      factsScheduled.get('four-doctors')!
+      findAssessmentRegistryEntry('core-values-snapshot')!,
+      factsScheduled.get('core-values-snapshot')!
     );
     expect(scheduledStatus.status).toBe('scheduled');
     const notDueRecommendation = pickRecommendation(factsScheduled);
@@ -637,14 +806,53 @@ describe('reassessment schedules', () => {
     const overdue = new Date(Date.now() - 24 * 3600_000).toISOString();
     await service.from('reassessment_schedules').insert({
       member_id: memberOneId,
-      assessment_definition_id: FOUR_DOCTORS_ID,
+      assessment_definition_id: CVS_ID,
       stage: 'midpoint',
       due_at: overdue,
     });
 
     const factsOverdue = await getMemberAssessmentFacts(client, memberOneId);
     const overdueRecommendation = pickRecommendation(factsOverdue);
-    expect(overdueRecommendation).toEqual({ key: 'four-doctors', reason: 'required_reassessment' });
+    expect(overdueRecommendation).toEqual({
+      key: 'core-values-snapshot',
+      reason: 'required_reassessment',
+    });
+  });
+
+  it('a schedule for something she has never completed is ignored by the card, the status and the recommendation', async () => {
+    const service = serviceRoleClient();
+    const client = await signInAs(TEST_USERS.memberOne);
+
+    await service.from('reassessment_schedules').insert({
+      member_id: memberOneId,
+      assessment_definition_id: FOUR_DOCTORS_ID,
+      stage: 'finding_triggered',
+      due_at: new Date(Date.now() - 24 * 3600_000).toISOString(),
+      status: 'pending',
+      trigger_source: 'finding_change',
+      trigger_context: { findingCodes: ['x'], confidence: 0.9 },
+    });
+
+    const facts = await getMemberAssessmentFacts(client, memberOneId);
+    const fourDoctorsFacts = facts.get('four-doctors')!;
+    // The row really is there. What changed is that nothing reads it as
+    // history any more.
+    expect(fourDoctorsFacts.pendingReassessmentSchedule).not.toBeNull();
+
+    const status = calculateAssessmentStatus(
+      findAssessmentRegistryEntry('four-doctors')!,
+      fourDoctorsFacts
+    );
+    expect(status.status).toBe('locked');
+
+    const catalogEntry = categorizeForCatalog(
+      findAssessmentRegistryEntry('four-doctors')!,
+      fourDoctorsFacts
+    );
+    expect(catalogEntry.flags.reassessmentDueAt).toBeNull();
+    expect(catalogEntry.flags.scheduledAt).toBeNull();
+
+    expect(pickRecommendation(facts).reason).not.toBe('required_reassessment');
   });
 
   it("a member cannot read another member's reassessment schedule (RLS)", async () => {

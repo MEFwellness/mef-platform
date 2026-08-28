@@ -77,6 +77,8 @@ function yesterdayRow(overrides: Partial<DailyPriorityRecord> = {}): DailyPriori
     doneAt: '2026-08-11T18:00:00.000Z',
     savedAt: null,
     shownAt: '2026-08-11T09:00:00.000Z',
+    decidedBeforeCheckin: false,
+    redecidedAt: null,
     ...overrides,
   };
 }

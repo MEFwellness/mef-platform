@@ -8,13 +8,12 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
-import { startOrResumeRplAction } from '@/app/actions/readinessPulse';
+import { loadRplTakeSessionAction } from '@/app/actions/readinessPulse';
 import { ReadinessPulseTaker } from '@/components/readiness-pulse/ReadinessPulseTaker';
-import { RPL_KEY } from '@/lib/readiness-pulse/constants';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 
 function checkAudioAvailable(): boolean {
@@ -26,34 +25,20 @@ function checkAudioAvailable(): boolean {
 }
 
 /**
- * ONE ENTRY, TWO OUTCOMES (2026-08-27). Opening this URL after finishing
- * shows the results she already has, and never starts a silent new draft on
- * top of them. A retake is a deliberate choice she makes on the overview
- * screen, and arrives here as `?retake=1`.
+ * A TAKE URL ONLY EVER READS (2026-08-27). Opening this page resumes a
+ * draft that already exists, sends a member who has finished to her
+ * results, and otherwise sends her back to the overview to press Begin. It
+ * cannot create a session, so a refresh, a Back-then-Forward, a bookmark,
+ * a link preview or the re-render that a Server Action causes when she
+ * finishes all write nothing at all. Starting is a button, and a button is
+ * a POST. See lib/assessment-runtime/entry.ts.
  */
-export default async function TakeReadinessPulsePage({
-  searchParams,
-}: {
-  searchParams: { retake?: string };
-}) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const access = await checkAssessmentAccess(supabase, user.id, RPL_KEY);
-  if (!access.allowed) redirect('/assessments/readiness-pulse');
-
-  const result = await startOrResumeRplAction({ startRetake: searchParams?.retake === '1' });
-  if (!result.ok) {
-    if (result.reason === 'already_completed') {
-      redirect(`/assessments/readiness-pulse/results/${result.latestCompletedSessionId}`);
-    }
-    redirect('/assessments/readiness-pulse');
-  }
+export default async function TakeReadinessPulsePage() {
+  const result = await loadRplTakeSessionAction();
+  if (!result.ok) redirect(result.redirectTo as Route);
 
   const { session } = result;
+  const supabase = createClient();
   const questions = await getUnifiedAssessmentQuestions(supabase, session.assessmentId);
   const audioAvailable = checkAudioAvailable();
 

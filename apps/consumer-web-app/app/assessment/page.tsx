@@ -46,7 +46,7 @@ export default async function BodyAssessmentPage() {
     hasActiveRole(supabase, user.id, 'coach'),
     getMyAssessmentsAction(),
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
-    checkAssessmentAccess(supabase, user.id, 'body-assessment'),
+    checkAssessmentAccess(supabase, user.id, 'body-assessment', { intent: 'view' }),
   ]);
   const firstName = firstNameFrom(profile?.display_name);
 

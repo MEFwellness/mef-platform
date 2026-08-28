@@ -51,7 +51,12 @@ import { getMemberAssessmentFacts } from '../assessment-registry/facts';
 import { listAssessmentRegistryEntries } from '../assessment-registry/registry';
 import { hasEverCompleted, type MemberAssessmentFacts } from '../assessment-registry/status';
 import type { AssessmentDefinition, AssessmentKey } from '../assessment-registry/types';
-import { getLastSignInLocalDateBefore, claimDailyPriority, getDailyPriority } from './data';
+import {
+  getLastSignInLocalDateBefore,
+  claimDailyPriority,
+  getDailyPriority,
+  redecideDailyPriority,
+} from './data';
 import { selectCoachingAction, type AdaptationContext } from './select';
 import { buildPriorityBridge, previousLocalDate } from './transition';
 import { listCoachingThreads, getCoachingDecision } from '../coaching-direction/data';
@@ -659,18 +664,47 @@ export async function buildPriorityView(
       : null;
 
     if (existing) {
+      // THE DAY'S PRIORITY WAITS FOR THE DAILY RESET (2026-08-27).
+      //
+      // Today's stored decision is authoritative, and that is still the
+      // rule. There is exactly one exception, and it is the common
+      // morning: the card is shown the moment she opens Home, which is
+      // usually before she has checked in, so Root decided her whole day
+      // without today's answers in front of it. `redecideDailyPriority`
+      // allows a single revision, and only when the first decision really
+      // was made before the check-in, the check-in now exists, and she has
+      // not already acted on the card. Its own UPDATE carries those
+      // conditions, so two concurrent renders cannot both revise, and
+      // `redecided_at` is what makes it once rather than a loop.
+      const revised =
+        existing.decidedBeforeCheckin && context.checkinDoneToday && existing.redecidedAt === null
+          ? await redecideDailyPriority(supabase, memberId, todayLocalDate, fresh)
+          : null;
+
+      // The revision, if one happened, wrote the fresh decision, so the
+      // ledger has to hear about the same thing the card is now showing.
+      if (revised) {
+        await persistCoachingDecision(supabase, memberId, {
+          selected: fresh,
+          threadChanges: decision.threadChanges,
+          isFollowOn: decision.isFollowOn,
+          localDate: todayLocalDate,
+        });
+      }
+
+      const authoritative = revised ?? existing;
       const shown: typeof fresh = {
         ...fresh,
-        rule: existing.rule,
-        priorityKey: existing.priorityKey,
-        title: existing.title,
-        reason: fresh.rule === existing.rule ? fresh.reason : null,
-        help: existing.help,
-        href: existing.href,
+        rule: authoritative.rule,
+        priorityKey: authoritative.priorityKey,
+        title: authoritative.title,
+        reason: fresh.rule === authoritative.rule ? fresh.reason : null,
+        help: authoritative.help,
+        href: authoritative.href,
       };
       return {
         selected: shown,
-        status: existing.status,
+        status: authoritative.status,
         localDate: todayLocalDate,
         // Compared against what she is actually being shown today, not
         // against the freshly recomputed winner, so the bridge can never
@@ -682,7 +716,16 @@ export async function buildPriorityView(
       };
     }
 
-    const record = await claimDailyPriority(supabase, memberId, todayLocalDate, fresh);
+    // Recorded on the claim: whether Root had seen today's Daily Reset when
+    // it decided. That single fact is what lets the branch above revise
+    // once, later in the day, without ever having to guess from timestamps.
+    const record = await claimDailyPriority(
+      supabase,
+      memberId,
+      todayLocalDate,
+      fresh,
+      !context.checkinDoneToday
+    );
 
     // Fail closed. If the row could not be claimed, the card's three
     // buttons would have nothing to write to: Done and Save for later

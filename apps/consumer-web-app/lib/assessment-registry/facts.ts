@@ -9,7 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { listAssessmentRegistryEntries } from './registry';
-import { resolveMembershipKey } from './membership';
+import { membershipKeyForAccessTier, resolveMembershipKey } from './membership';
 import type { AssessmentKey } from './types';
 import type { MemberAssessmentFacts, ProgramEnrollmentFacts } from './status';
 
@@ -19,9 +19,24 @@ export async function getMemberAssessmentFacts(
 ): Promise<Map<AssessmentKey, MemberAssessmentFacts>> {
   const entries = listAssessmentRegistryEntries();
 
-  const [profileResult, enrollmentResult, statusResult, assignmentResult, scheduleResult] =
-    await Promise.all([
+  const [
+    profileResult,
+    subscriptionResult,
+    enrollmentResult,
+    statusResult,
+    assignmentResult,
+    scheduleResult,
+  ] = await Promise.all([
       supabase.from('profiles').select('membership_tier').eq('id', memberId).maybeSingle(),
+      // THE PLAN IS THE GATE (2026-08-27). Her real plan, the one assigned
+      // on /admin/access, not the near-always-NULL legacy column below.
+      // See membershipKeyForAccessTier for why the two exist and why this
+      // one wins.
+      supabase
+        .from('member_subscriptions')
+        .select('tier, status')
+        .eq('member_id', memberId)
+        .maybeSingle(),
       supabase
         .from('program_enrollments')
         .select('program_key, status, current_phase_key, enrolled_at')
@@ -48,7 +63,18 @@ export async function getMemberAssessmentFacts(
         .eq('status', 'pending'),
     ]);
 
-  const membershipKey = resolveMembershipKey(profileResult.data?.membership_tier ?? null);
+  // The subscription row is authoritative. The legacy profiles column is
+  // read only for an account created before migration 159 that somehow has
+  // no subscription row at all AND carries a real (non-null) tier of its
+  // own; anything else resolves through the fail-closed plan mapping.
+  const membershipKey = subscriptionResult.data
+    ? membershipKeyForAccessTier(
+        subscriptionResult.data.tier ?? null,
+        subscriptionResult.data.status ?? null
+      )
+    : profileResult.data?.membership_tier
+      ? resolveMembershipKey(profileResult.data.membership_tier)
+      : 'free_trial';
 
   const enrollment: ProgramEnrollmentFacts | null = enrollmentResult.data
     ? {

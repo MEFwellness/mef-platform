@@ -72,13 +72,37 @@ describe('categorizeForCatalog — coach-assign-only gating is visible, not hidd
     }
   });
 
-  it("never hides or locks a member's own in-progress draft, even with no assignment", () => {
-    const entry = findAssessmentRegistryEntry('four-doctors')!;
-    const facts: MemberAssessmentFacts = { ...BASE_FACTS, completionStatus: 'in_progress' };
+  it("a draft on an unassigned questionnaire no longer unlocks it, and a completion still keeps the card open", () => {
+    const entry = findAssessmentRegistryEntry('chek-hlc1-nutrition-lifestyle')!;
 
-    const { section, flags } = categorizeForCatalog(entry, facts);
-    expect(section).not.toBe('assigned');
-    expect(flags.locked).toBe(false);
+    // A DRAFT IS NOT A KEY (2026-08-27). It used to be: an open draft made
+    // calculateLockReason skip the assignment gate entirely, so the one
+    // stray draft a page render created was enough to open a coach-only
+    // questionnaire. The card is locked again, and nothing of hers is lost,
+    // because she has nothing here yet.
+    const withDraft = {
+      ...BASE_FACTS,
+      membershipKey: 'membership' as const,
+      completionStatus: 'in_progress' as const,
+    };
+    const draftEntry = categorizeForCatalog(entry, withDraft);
+    expect(draftEntry.flags.locked).toBe(true);
+    expect(draftEntry.flags.lockReasonKind).toBe('not_assigned');
+
+    // A real completion is different: the card is how she reaches her own
+    // results, so it is never rendered as a lock.
+    const withCompletion = {
+      ...BASE_FACTS,
+      membershipKey: 'membership' as const,
+      completionStatus: 'completed' as const,
+      latestCompletedAt: new Date().toISOString(),
+      latestCompletedAttemptId: 'attempt-1',
+    };
+    const completedEntry = categorizeForCatalog(entry, withCompletion);
+    expect(completedEntry.section).toBe('completed');
+    expect(completedEntry.flags.locked).toBe(false);
+    // What she may not do is start another one without a fresh assignment.
+    expect(completedEntry.flags.retakeAvailable).toBe(false);
   });
 
   it('moves a completed, assignment-gated assessment to Completed, unlocked, even once its assignment row is no longer pending', () => {

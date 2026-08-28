@@ -12,6 +12,13 @@ import { PrimalPatternTaker } from '@/components/primal-pattern/PrimalPatternTak
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { createClient } from '@/lib/supabase/server';
 
+/**
+ * A TAKE URL ONLY EVER READS (2026-08-27). Opening this page resumes a
+ * draft that already exists and sends everybody else to the overview,
+ * where Begin, Resume and Retake are real buttons posting to real Server
+ * Actions. It cannot create a draft, so a refresh, a Back-then-Forward, a
+ * bookmark or the re-render a Server Action causes all write nothing.
+ */
 export default async function TakePrimalPatternPage() {
   const supabase = createClient();
   const {
@@ -19,15 +26,16 @@ export default async function TakePrimalPatternPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Same ordering rule as the generic engine's/WBSA's own take pages:
-  // access is checked before loading take state, so a direct URL visit to
-  // a not-yet-assigned questionnaire's take flow can never start a new
-  // attempt, only ever resume one that already exists.
-  const access = await checkAssessmentAccess(supabase, user.id, 'primal-pattern-diet-type');
+  // 'view': this route only ever hands back a draft she already owns, and
+  // her own progress is never hidden by a plan rule. The gate that decides
+  // whether a NEW attempt may begin is on the button.
+  const access = await checkAssessmentAccess(supabase, user.id, 'primal-pattern-diet-type', {
+    intent: 'view',
+  });
   if (!access.allowed) redirect('/assessments/primal-pattern-diet-type');
 
   const state = await getMyPrimalPatternTakeState();
-  if (!state) redirect('/login');
+  if (!state) redirect('/assessments/primal-pattern-diet-type');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">

@@ -35,7 +35,8 @@ import {
   resolveLocalDate,
 } from '@/app/actions/checkin';
 import { buildPriorityView, toTodaysFocusInput } from './service';
-import type { PriorityView } from './types';
+import { getDailyPriority } from './data';
+import type { DailyPriorityRecord, PriorityView } from './types';
 
 export const getMyPriorityView = requestCache(
   async (): Promise<PriorityView | null> => {
@@ -71,6 +72,55 @@ export const getMyPriorityView = requestCache(
       });
     } catch (error) {
       console.error('getMyPriorityView failed', error);
+      return null;
+    }
+  }
+);
+
+/**
+ * THE DAY'S PRIORITY IS DECIDED BY THE CARD, NOT BY BROWSING (2026-08-27).
+ *
+ * `getMyPriorityView` above runs the engine and CLAIMS today's row as a
+ * side effect. That is right for the three surfaces that actually show the
+ * Priority Card (the Home pop-up, Home, and Today), and wrong everywhere
+ * else: `TodaysFocusLine` is also rendered on Movement, the Root Map,
+ * Recommendations and the Root Score, and Root's chat asks for the focus
+ * too. So the day's one priority was being fixed by whichever screen she
+ * happened to open first, which on most mornings was before she had done
+ * her Daily Reset. Root then spent the day pointing at a decision made
+ * without today's check-in in it.
+ *
+ * This is the read those surfaces use instead. It reports the decision if
+ * one has been made and nothing at all if one has not, which is exactly
+ * what TodaysFocusLine's own contract already says it does with a null.
+ * It writes nothing, ever.
+ *
+ * Cheap on purpose: one indexed row read, no engine run. On Home the row
+ * has already been claimed by the time this is called, so the focus line
+ * still names the same priority the card above it is showing.
+ */
+export const getMyStoredPriority = requestCache(
+  async (): Promise<DailyPriorityRecord | null> => {
+    try {
+      const supabase = createClient();
+      const user = await getCachedUser();
+      if (!user) return null;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('timezone')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const timezone = profile?.timezone ?? 'America/New_York';
+      const localDate = await resolveLocalDate(
+        new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
+        false
+      );
+
+      return await getDailyPriority(supabase, user.id, localDate);
+    } catch (error) {
+      console.error('getMyStoredPriority failed', error);
       return null;
     }
   }

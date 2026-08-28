@@ -8,6 +8,9 @@
  */
 
 import Link from 'next/link';
+import { BeginAssessmentForm } from '@/components/assessments/BeginAssessmentForm';
+import { beginWbsaAction, retakeWbsaAction } from '@/app/actions/wbsa';
+import { CompletedExperienceActions } from '@/components/assessments/CompletedExperienceActions';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { Clock3, ListChecks, ShieldCheck, Sparkles } from 'lucide-react';
@@ -45,7 +48,7 @@ export default async function WbsaOverviewPage({
 
   const [isCoach, access] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
-    checkAssessmentAccess(supabase, user.id, WBSA_KEY),
+    checkAssessmentAccess(supabase, user.id, WBSA_KEY, { intent: 'view' }),
   ]);
 
   if (!access.allowed) {
@@ -108,7 +111,12 @@ export default async function WbsaOverviewPage({
 
   const totalQuestions = questions.filter((q) => q.active).length;
   const ctaLabel = draftSession ? 'Resume assessment' : 'Begin assessment';
-  const ctaHref = '/assessments/wbsa/take' as Route;
+  // COMPLETION IS PERMANENT (2026-08-27). WBSA's overview used to offer
+  // "Begin assessment" to a member who had already finished it, exactly
+  // like the three free experiences did before migration 186. It now leads
+  // with her results and offers the retake as its own labelled choice,
+  // through the same shared component they use.
+  const showsCompletedState = latestCompletedRow !== null && draftSession === null;
   const justSaved = searchParams.saved === '1' && draftSession !== null;
   const answeredCount = draftSession?.progress.answered ?? 0;
 
@@ -149,12 +157,15 @@ export default async function WbsaOverviewPage({
               </p>
             )}
 
-            <Link
-              href={ctaHref}
-              className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-            >
-              {ctaLabel}
-            </Link>
+            {showsCompletedState ? (
+              <CompletedExperienceActions
+                resultsHref={`/assessments/wbsa/results/${latestCompletedRow.source_id}`}
+                retakeAction={retakeWbsaAction}
+                resultsLabel="See your results"
+              />
+            ) : (
+              <BeginAssessmentForm action={beginWbsaAction} label={ctaLabel} className="mt-6" />
+            )}
 
             <p className="mt-3 text-center text-xs text-[#6B7A72]">
               {WBSA_INTRO_COPY.structureNote}
@@ -169,12 +180,11 @@ export default async function WbsaOverviewPage({
                 Assessment saved.
               </p>
               <p className="mt-1 text-sm text-[#6B7A72]">You can continue anytime.</p>
-              <Link
-                href={ctaHref}
-                className="mt-6 block rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]"
-              >
-                Resume Assessment
-              </Link>
+              <BeginAssessmentForm
+                action={beginWbsaAction}
+                label="Resume Assessment"
+                className="mt-6"
+              />
               <Link
                 href={'/dashboard' as Route}
                 className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
@@ -185,7 +195,7 @@ export default async function WbsaOverviewPage({
           </CenterStage>
         )}
 
-        {latestCompletedRow && (
+        {latestCompletedRow && !showsCompletedState && (
           <Card
             as={Link}
             href={`/assessments/wbsa/results/${latestCompletedRow.source_id}` as Route}

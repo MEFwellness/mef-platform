@@ -16,14 +16,51 @@ import { getUnifiedAssessmentDefinitionByKey } from '../lib/assessment-foundatio
 
 const memberOneId = TEST_USERS.memberOne.id;
 
-async function setMembership(memberId: string, tier: string | null) {
+/**
+ * THE PLAN IS THE GATE (2026-08-27). Writes the real plan
+ * (member_subscriptions.tier, the one assigned on /admin/access) rather
+ * than the legacy profiles.membership_tier column, which nothing reads for
+ * access any more.
+ */
+async function setPlan(memberId: string, tier: 'trial' | 'monthly' | 'annual' | 'program') {
   const service = serviceRoleClient();
-  const { error } = await service.from('profiles').update({ membership_tier: tier }).eq('id', memberId);
+  // UPDATE, never upsert. The seeded trial_started_at/trial_ends_at are
+  // themselves asserted by tests/membership-access-integration.test.ts, so
+  // rewriting them here would break a test in another file that has
+  // nothing to do with assessment gating.
+  const { data, error } = await service
+    .from('member_subscriptions')
+    .update({ tier, status: 'active' })
+    .eq('member_id', memberId)
+    .select('member_id');
   if (error) throw error;
+  if (data && data.length > 0) return;
+
+  // Re-created rows carry the same trial window the account-creation
+  // trigger would have stamped, off the profile's own created_at, so a
+  // delete-and-recreate here cannot change what
+  // tests/membership-access-integration.test.ts measures.
+  const { data: profile } = await service
+    .from('profiles')
+    .select('created_at')
+    .eq('id', memberId)
+    .single();
+  const started = new Date((profile?.created_at as string) ?? new Date().toISOString());
+  const { error: insertError } = await service.from('member_subscriptions').insert({
+    member_id: memberId,
+    tier,
+    source: 'system',
+    status: 'active',
+    trial_started_at: started.toISOString(),
+    trial_ends_at: new Date(started.getTime() + 30 * 24 * 3600_000).toISOString(),
+  });
+  if (insertError) throw insertError;
 }
 
 afterEach(async () => {
-  await setMembership(memberOneId, null);
+  const service = serviceRoleClient();
+  await service.from('profiles').update({ membership_tier: null }).eq('id', memberOneId);
+  await setPlan(memberOneId, 'trial');
 });
 
 describe('WBSA registry entry', () => {
@@ -61,12 +98,17 @@ describe('WBSA registry entry', () => {
     expect(entry.membership.allowedLevels).not.toContain('free_trial');
   });
 
-  it('a free_trial member cannot start WBSA; a membership-tier member still cannot without a coach assignment', async () => {
+  it('a trial plan cannot start WBSA; a monthly plan clears the plan rule and still cannot without a coach assignment', async () => {
     const client = await signInAs(TEST_USERS.memberOne);
 
-    await setMembership(memberOneId, 'free_trial');
+    await setPlan(memberOneId, 'trial');
     const lockedAccess = await checkAssessmentAccess(client, memberOneId, 'wbsa');
     expect(lockedAccess.allowed).toBe(false);
+    if (!lockedAccess.allowed) {
+      // On a trial plan the FIRST thing that is missing is the plan, and
+      // that is what she is told, because it is the one she can act on.
+      expect(lockedAccess.reason).toEqual({ kind: 'membership', requiredLevel: 'membership' });
+    }
 
     const lockedFacts = await getMemberAssessmentFacts(client, memberOneId);
     const lockedStatus = calculateAssessmentStatus(findAssessmentRegistryEntry('wbsa')!, lockedFacts.get('wbsa')!);
@@ -78,7 +120,7 @@ describe('WBSA registry entry', () => {
     // until a coach actually assigns it. See
     // tests/assessment-registry-integration.test.ts's "coach assignment
     // override" describe block for the assigned-and-unlocked case.
-    await setMembership(memberOneId, 'membership');
+    await setPlan(memberOneId, 'monthly');
     const stillLockedAccess = await checkAssessmentAccess(client, memberOneId, 'wbsa');
     expect(stillLockedAccess.allowed).toBe(false);
     if (!stillLockedAccess.allowed) {
@@ -88,7 +130,7 @@ describe('WBSA registry entry', () => {
 
   it('a coach-assigned WBSA is reachable even for a member at the correct tier, and the assignment is what unlocks it', async () => {
     const service = serviceRoleClient();
-    await setMembership(memberOneId, 'membership');
+    await setPlan(memberOneId, 'monthly');
     const entry = findAssessmentRegistryEntry('wbsa')!;
 
     const { error: assignError } = await service.from('assessment_assignments').insert({

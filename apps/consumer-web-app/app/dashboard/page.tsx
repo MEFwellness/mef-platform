@@ -84,6 +84,7 @@ import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
 import { FirstCheckinTransition } from '@/components/FirstCheckinTransition';
 import { ComprehensiveAssessmentCard } from '@/components/ComprehensiveAssessmentCard';
 import { MovementAssessmentCard } from '@/components/MovementAssessmentCard';
+import { lockNoteMessage, lockOffersPlanLink } from '@/lib/locked-content/copy';
 import { AssignedProgramsCard } from '@/components/AssignedProgramsCard';
 import { getMyCurrentProgramEntryAction } from '@/app/actions/coach-programs';
 import { getMyBaselineAssessment } from '@/app/actions/onboarding';
@@ -652,6 +653,20 @@ export default async function DashboardPage({
                       assessments={bodyAssessments}
                       variant={programHero ? 'card' : 'imageBacked'}
                       locked={!bodyAssessmentAccess.allowed}
+                      lockMessage={
+                        bodyAssessmentAccess.allowed
+                          ? undefined
+                          : lockNoteMessage(bodyAssessmentAccess.reason)
+                      }
+                      lockReason={
+                        bodyAssessmentAccess.allowed ? undefined : bodyAssessmentAccess.reason.kind
+                      }
+                      lockPlanHref={
+                        !bodyAssessmentAccess.allowed &&
+                        lockOffersPlanLink(bodyAssessmentAccess.reason)
+                          ? '/membership'
+                          : undefined
+                      }
                     />
                   )}
                   {shows(F.homeQuestionnairesCard) && (

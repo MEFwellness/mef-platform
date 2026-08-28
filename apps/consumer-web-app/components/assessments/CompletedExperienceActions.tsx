@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { CheckCircle2 } from 'lucide-react';
+import { BeginAssessmentForm } from './BeginAssessmentForm';
 
 /**
  * COMPLETION IS PERMANENT (2026-08-27). The overview screen of an
@@ -17,16 +18,18 @@ import { CheckCircle2 } from 'lucide-react';
  * Values Snapshot questions four separate times.
  *
  * So a finished experience leads with her results, and a retake is a
- * second, quieter, clearly-labelled choice that carries `?retake=1` all
- * the way to the runtime. Nothing here writes anything.
+ * second, quieter, clearly-labelled choice. Nothing here writes anything:
+ * the retake is a Server Action she presses, not a link a browser can
+ * follow on her behalf (2026-08-27, see BeginAssessmentForm).
  */
 export function CompletedExperienceActions({
   resultsHref,
-  retakeHref,
+  retakeAction,
   resultsLabel = 'See your results',
 }: {
   resultsHref: string;
-  retakeHref: string;
+  /** Starts a fresh attempt, then redirects into it. Never returns. */
+  retakeAction: () => Promise<void>;
   resultsLabel?: string;
 }) {
   return (
@@ -45,12 +48,7 @@ export function CompletedExperienceActions({
         {resultsLabel}
       </Link>
 
-      <Link
-        href={retakeHref as Route}
-        className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F5F0E4]"
-      >
-        Take it again
-      </Link>
+      <BeginAssessmentForm action={retakeAction} label="Take it again" variant="secondary" className="mt-3" />
       <p className="mt-3 text-center text-xs leading-relaxed text-[#6B7A72]">
         Taking it again starts a fresh conversation. What you saved before stays exactly where it is.
       </p>
