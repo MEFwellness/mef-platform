@@ -69,18 +69,24 @@ export function ProgramReviewPanel({
   screen,
   programsHref,
   defaultStartDate,
+  memberToday,
 }: {
   firstName: string;
   screen: ProgramReviewScreen;
   programsHref: string;
   defaultStartDate: string | null;
+  /** Today in the MEMBER's timezone, from the server. See lib/time/memberToday.ts. */
+  memberToday: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { review, panel, recommendation, outcomes } = screen;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const [startDate, setStartDate] = useState(defaultStartDate ?? today);
+  // B3 (2026-08-28): the fallback used to be `new Date()` computed here,
+  // which differs between the UTC server render and the coach's browser at
+  // a date boundary and hydrates the start-date input with a different
+  // value than was served. `memberToday` comes from the server.
+  const [startDate, setStartDate] = useState(defaultStartDate ?? memberToday);
   const [confirming, setConfirming] = useState<ReviewOutcome | null>(null);
   const [draft, setDraft] = useState<DraftState | null>(
     review.status === 'drafted' && review.chosen_outcome

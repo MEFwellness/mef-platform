@@ -8,6 +8,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import {
+  applyTestAccountExclusion,
+  rejectTestMemberRow,
+  resolveTestAccountExclusion,
+} from '@/lib/staff/testAccounts';
 import type {
   SafetyClassification,
   SafetyClassificationLevel,
@@ -240,10 +245,19 @@ export async function updateReviewQueueEntry(
   return true;
 }
 
+/**
+ * A3 (2026-08-28): this read had no test-account exclusion, so the queue
+ * showed 27 open cases that all belonged to one QA fixture. The exclusion
+ * is applied at the query, not by the screen, because the same rows feed
+ * the coach dashboard's OPEN REVIEWS count as well as this list, and two
+ * surfaces reading one function must not be able to disagree.
+ */
 export async function listReviewQueueForCoach(
   supabase: SupabaseClient,
   statusFilter?: SafetyReviewStatus[]
 ): Promise<SafetyReviewQueueEntry[]> {
+  const exclusion = await resolveTestAccountExclusion(supabase);
+
   let query = supabase
     .from('safety_review_queue')
     .select('*')
@@ -251,6 +265,7 @@ export async function listReviewQueueForCoach(
   if (statusFilter && statusFilter.length > 0) {
     query = query.in('status', statusFilter);
   }
+  query = applyTestAccountExclusion(query, exclusion, 'member_id');
 
   const { data, error } = await query;
   if (error) {
@@ -260,6 +275,12 @@ export async function listReviewQueueForCoach(
   return data as SafetyReviewQueueEntry[];
 }
 
+/**
+ * The detail behind a queue row, reachable by typing `/coach/review-queue/<id>`
+ * whether or not the row was ever listed. Hiding a fixture from the list
+ * and then serving it by URL would be the same leak with an extra step, so
+ * the same exclusion runs here.
+ */
 export async function getReviewQueueEntry(
   supabase: SupabaseClient,
   reviewId: string
@@ -274,7 +295,13 @@ export async function getReviewQueueEntry(
     console.error('getReviewQueueEntry failed', error);
     return null;
   }
-  return data as SafetyReviewQueueEntry | null;
+
+  const exclusion = await resolveTestAccountExclusion(supabase);
+  return rejectTestMemberRow(
+    (data as SafetyReviewQueueEntry) ?? null,
+    exclusion,
+    (row) => row.member_id
+  );
 }
 
 export async function insertAuditLog(

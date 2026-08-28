@@ -6,6 +6,11 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  applyTestAccountExclusion,
+  rejectTestMemberRow,
+  resolveTestAccountExclusion,
+} from '@/lib/staff/testAccounts';
 import type {
   ActivityLevelKey,
   PendingProteinTargetQueueEntry,
@@ -165,14 +170,26 @@ export async function createProteinTargetRequest(
 }
 
 /** Coach queue: every pending request for this coach's assigned members (RLS scopes visibility automatically). */
+/**
+ * A3 (2026-08-28): the coach's pending-protein queue, and the PENDING
+ * PROTEIN count on the coach dashboard that reads the same rows, had no
+ * test-account exclusion. It does now, at the query, the same rule the
+ * Safety Review Queue and the client list use.
+ */
 export async function listPendingProteinTargetsForCoach(
   supabase: SupabaseClient
 ): Promise<PendingProteinTargetQueueEntry[]> {
-  const { data, error } = await supabase
-    .from(TARGETS_TABLE)
-    .select('*')
-    .eq('status', 'pending_coach_review')
-    .order('created_at', { ascending: true });
+  const exclusion = await resolveTestAccountExclusion(supabase);
+
+  const { data, error } = await applyTestAccountExclusion(
+    supabase
+      .from(TARGETS_TABLE)
+      .select('*')
+      .eq('status', 'pending_coach_review')
+      .order('created_at', { ascending: true }),
+    exclusion,
+    'member_id'
+  );
 
   if (error || !data) return [];
 
@@ -192,6 +209,21 @@ export async function listPendingProteinTargetsForCoach(
     ...mapTargetRow(row),
     memberName: nameById.get(row.member_id) ?? 'Unnamed client',
   }));
+}
+
+/**
+ * The same row, read as a coach: a target belonging to a test account is
+ * not found, whether it was reached from the queue or by typing
+ * `/coach/protein-review/<id>`. Approving one is the same lookup, so the
+ * write path is closed by the same call.
+ */
+export async function getProteinTargetForCoach(
+  supabase: SupabaseClient,
+  targetId: string
+): Promise<ProteinTarget | null> {
+  const target = await getProteinTargetById(supabase, targetId);
+  const exclusion = await resolveTestAccountExclusion(supabase);
+  return rejectTestMemberRow(target, exclusion, (row) => row.memberId);
 }
 
 export async function getProteinTargetById(

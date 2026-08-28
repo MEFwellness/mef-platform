@@ -4,6 +4,7 @@ import { ChevronLeft, Dumbbell } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { listMyProgramTemplatesAction } from '@/app/actions/coach-programs';
 import { AssignProgramPanel } from '@/components/coach-program-builder/AssignProgramPanel';
+import { memberTodayLocalDate } from '@/lib/time/memberToday';
 
 export default async function AssignProgramPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -21,6 +22,9 @@ export default async function AssignProgramPage({ params }: { params: { id: stri
   const firstName = clientProfile.display_name?.split(' ')[0] ?? 'This client';
 
   const templates = await listMyProgramTemplatesAction({ status: 'active' });
+  // Resolved on the server, in the member's own timezone, so the date
+  // fields render the same on both passes. See lib/time/memberToday.ts.
+  const memberToday = await memberTodayLocalDate(supabase, params.id);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -49,7 +53,11 @@ export default async function AssignProgramPage({ params }: { params: { id: stri
         </div>
 
         <div className="mt-7">
-          <AssignProgramPanel clientId={params.id} templates={templates} />
+          <AssignProgramPanel
+            clientId={params.id}
+            templates={templates}
+            memberToday={memberToday}
+          />
         </div>
       </main>
 

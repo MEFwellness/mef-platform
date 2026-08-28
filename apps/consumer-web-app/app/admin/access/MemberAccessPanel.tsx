@@ -25,6 +25,7 @@ import {
   isAccessSource,
 } from '@/lib/membership/types';
 import type { AccessTier } from '@/lib/membership/types';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 
 export interface MemberAccessView extends MemberAccessRow {
   /** Computed on the server, see the page's own note on why. */
@@ -35,11 +36,20 @@ export interface MemberAccessView extends MemberAccessRow {
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
+/**
+ * B3 (2026-08-28): this used to be `toLocaleDateString(undefined, ...)`.
+ * With no locale and no timeZone, it resolved against whichever machine
+ * ran it: Vercel renders in UTC, the administrator's browser renders in
+ * their own zone and locale, so a trial timestamp near a day boundary
+ * produced different text on the two passes and React threw hydration
+ * errors #418, #423 and #425 on every load of this screen.
+ *
+ * The shared helper already existed and pins both. Same three dates, same
+ * wording, one text.
+ */
 function formatDate(value: string | null): string {
   if (!value) return 'not set';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'not set';
-  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatDisplayDate(value, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function sourceLabel(source: string | null): string {

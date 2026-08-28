@@ -9140,3 +9140,187 @@ the next day. Screenshots stayed under the gitignored
 Vercel project `mef-wellness/mef-platform`, target Production, aliased to
 `app.mefwellness.com`. Auto-deploy fired on the push. No migration in this
 build, so the migration ledger is unchanged.
+
+---
+
+## Build 4 of the bug sweep: the coach side (2026-08-28)
+
+A3, B3 and C3 from `docs/BUG_SWEEP_2026-08-27.md`, plus a 30 second
+confirmation that A2 really is closed. **No migration.** Nothing was applied
+to production, and no row on any account was created, changed or deleted by
+this build.
+
+### Step 0: A2 is closed, and the closing line that said otherwise was stale
+
+Build 3's report ended with a list saying A2 "is still writing phantom draft
+rows on every take-page render". That sentence was stale text. It is not a
+regression, and nothing was rolled back.
+
+Checked two ways. In the code, `getMyTakeAssessmentState`,
+`getMyPrimalPatternTakeState` and `loadRuntimeTakeSession` all read a draft
+that already exists and redirect when there is none; the only paths that
+create are the Server Actions behind the buttons. On production, three take
+URLs were opened as the test member with row counts either side:
+
+| | before | after |
+| --- | --- | --- |
+| `wellness_assessments` | 0 | 0 |
+| `investigation_router_decisions` | 0 | 0 |
+| `unified_assessment_sessions` | 4 | 4 |
+
+`/assessments/nutrition-lifestyle/take` redirected to the overview,
+`/assessments/core-values-snapshot/take` to her existing results, and
+`/assessments/primal-pattern-diet-type/take` to the overview. Zero page
+errors. The draft the sweep itself created on 2026-08-27 is also gone.
+
+### A3: the Safety Review Queue was 27 open cases and all 27 were fixtures
+
+Measured on production before the fix: `safety_review_queue` held 27 rows,
+27 from test accounts and 0 from real members, all of them open, and the
+screen said **OPEN CASES (27)** with a test account's name against every
+one of them.
+
+The defect worth fixing was not the missing filter. It was that the filter
+was a per-screen decision at all: the coach's client list had its own
+private copy and was right, the Safety Review Queue had none and was wrong,
+and the pending protein queue had none either and nobody had noticed.
+
+`lib/staff/testAccounts.ts` is the one place the rule is now stated, with
+the one deliberate exception the client list already had: a viewer who is
+themself a seeded test account still sees test members, because that pairing
+is the whole point of the production QA fixture.
+
+It excludes ids it can positively read as `is_test = true`, and keeps
+anything it cannot read. On a safety surface the two failure modes are not
+symmetrical: showing one fixture case is untidy, silently hiding one real
+flagged member is the failure the whole layer exists to prevent.
+
+| surface | before | after |
+| --- | --- | --- |
+| `listReviewQueueForCoach` (the queue, and the coach dashboard's open-cases count) | no filter | excluded at the query |
+| `getReviewQueueEntry` (a case reached by typing its URL) | no filter | not found |
+| `listPendingProteinTargetsForCoach` (the protein queue and its dashboard count) | no filter | excluded at the query |
+| `getProteinTargetForCoach` (a target by URL, and the approve path that reads it) | no filter | not found |
+| `listAssignedClients` (ACTIVE CLIENTS, the pickers) | correct, privately | same behaviour, shared rule |
+| `/coach/clients/<id>` and everything under it | reachable by URL | one layout, one `notFound()` |
+| `/coach/assign/<memberId>`, `/coach/corrective-programs/<memberId>` | reachable by URL | same layout guard |
+
+The three member-scoped route trees are guarded by a layout rather than
+fifteen pages each remembering, so a screen added under one of them
+inherits the answer. This is not the security boundary and does not pretend
+to be: RLS decides whether a coach may read a member at all. This decides
+what a coach is shown among the rows RLS already allows.
+
+Checked and found already correct, so left alone: admin analytics (every
+query gates on `p_include_test`, defaulting to false, with an explicit
+"Show test accounts" toggle), `/admin/access` (same toggle),
+`app/actions/admin.ts`, and the coach's client list.
+
+**The 27 rows were left in place.** Every reader of `safety_review_queue`
+was traced: the two functions above, the write paths, and
+`fetchOpenSafetyReviewCount`, which is scoped to a single member and only
+reachable through the client tree that now returns not-found for a fixture.
+No badge, total, digest or cron job counts them. The filter alone hides them
+everywhere, so there was nothing for a migration to repair, and deleting
+safety history to tidy a fixture is worse than leaving it.
+
+### B3: three hydration errors on every load of /admin/access
+
+Captured live before the fix: React #425 five times, #418 three times and
+#423 once, on a single load. `MemberAccessPanel` formatted three stored
+timestamps per member card with `toLocaleDateString(undefined, …)`: no
+locale, no timezone, so Vercel rendered them in UTC and the administrator's
+browser rendered them in their own zone, and the two passes disagreed.
+Those three calls go through `formatDisplayDate` now, which already existed
+and pins both.
+
+The sweep of the rest of the staff surfaces found no other unpinned
+`toLocale*` call. It did find four coach panels computing "today" with
+`new Date()` while rendering, which is the same defect wearing different
+clothes: the value landed in a date input, so the input hydrated with a
+different value than it was served with.
+
+| file | was | is |
+| --- | --- | --- |
+| `AssignPlanPanel` | `new Date()` in the coach's browser | `memberToday`, from the server |
+| `DraftReviewPanel` | same | same |
+| `AssignProgramPanel` (four date fields) | `new Date().toISOString()` | same |
+| `ProgramReviewPanel` | same, as the start-date fallback | same |
+
+`lib/time/memberToday.ts` resolves it once, on the server, in the member's
+own timezone, which is the timezone the server already uses when the coach
+presses the button. The fields stay editable. This is the same three lines
+that already lived privately in two other files, stated once.
+
+Found and deliberately not fixed, because they are member-facing and this
+build is the coach side: `MemberProgramsList` on `/programs` splits her
+sessions on a `new Date()` computed while rendering, and the six components
+listed as L1 in the sweep still format an instant in the runtime's own zone.
+They are listed at the end of this entry.
+
+### C3: the question bank scrolled sideways on a phone
+
+Measured live at 390px before the fix: `scrollWidth` 518, 270 elements past
+the right edge, the widest at x=518.
+
+The cause was not the textarea and not the question key, which measured 302
+and 312 and fitted. It was `shrink-0` on a group that also carried
+`flex-wrap`. A flex item that may not shrink is never narrow enough for its
+own wrapping to fire, so five buttons held one 474px line and took the page
+with them. Dropping `shrink-0` is what lets the group wrap, which is what it
+was already asking to do.
+
+Two hardening changes beside it, both invisible when the row fits: `min-w-0`
+on the column holding the question key, so a flex item's automatic minimum
+cannot set a floor again, and `min-w-0` on the two grid cells in the editor
+whose selects carry a driver id plus its full label. Repo-wide, that
+`shrink-0` was the only one paired with `flex-wrap`, and a test now keeps it
+that way.
+
+### Tests
+
+**6,765 passing, 435 files**, up from 6,716 across 432. Three new files:
+
+`staff-surfaces-exclude-test-accounts.test.ts` (32) drives the real
+data-layer functions against a fake Postgres that honours `.eq`, `.in` and
+`.not(col, 'in', …)` for real, over a fixture of one coach, one seeded
+coach, one real member and one test member with 27 fixture cases and 2 real
+ones. Lists, the counts the dashboard derives from them, the detail lookups
+reachable by URL, and the seeded viewer's exception. Then the structural
+half: every coach-facing reader must apply the rule, and every dynamic
+segment under `/coach` must be classified as member-scoped (and carry the
+layout) or as a record id (with the reason written down), so a coach screen
+added tomorrow fails the suite until somebody decides which it is.
+
+`coach-dates-hydration.test.tsx` (10) renders the real admin panel to HTML
+under five zones either side of midnight and asserts one byte-identical
+output, with a control test proving the old formatter really does produce
+two different strings across those same zones.
+
+`coach-question-bank-layout.test.tsx` (6) renders the real question row and
+checks the classes that caused the overflow, then walks every `.tsx` in the
+app to prove `shrink-0` and `flex-wrap` never share a className again.
+
+`test-account-exclusion.test.ts` was updated, not duplicated: its last block
+recorded the Safety Review Queue as unreachable by this flag, and now
+records that it is reached.
+
+**Mutation proof.** Six guards were each broken once and the failure
+confirmed, then restored: the review-queue query filter deleted (3 tests
+fail), the case-detail rejection deleted (2), the protein detail rejection
+deleted (2), the locale-dependent date restored to `/admin/access` (1), the
+`shrink-0` and the auto minimum restored to the question row (3), and the
+client tree's guard layout removed (1).
+
+### Not fixed, found while working
+
+- `MemberProgramsList` (`/programs`, member-facing) splits her sessions on
+  `new Date().toISOString()` computed while rendering. Same hydration class
+  as B3, member side, and fixing it changes which day the split uses.
+- The six client components listed as L1 in the sweep still format a stored
+  instant in the runtime's own zone. All member-facing.
+- `app/actions/caseView.ts` and `app/actions/coach-programs.ts` each still
+  carry their own private copy of the member-timezone lookup that
+  `lib/time/memberToday.ts` now states. No behaviour difference; left alone.
+- 93 pre-existing lint warnings, all `no-console` in `scripts/`. None in any
+  file this build touched.

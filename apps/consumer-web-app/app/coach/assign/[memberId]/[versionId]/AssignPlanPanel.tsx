@@ -34,11 +34,6 @@ function readableDate(isoDate: string): string {
   });
 }
 
-/** Today, in the coach's own browser. The server recomputes the same defaults in the member's timezone, and the field is editable either way. */
-function todayLocal(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 /**
  * The last step before a member is given a program.
@@ -80,6 +75,7 @@ export function AssignPlanPanel({
   blockedReason,
   initialSessions,
   initialExplanation,
+  memberToday,
   media = {},
 }: {
   memberId: string;
@@ -95,6 +91,8 @@ export function AssignPlanPanel({
   initialSessions: PlannedSession[];
   /** "Why this program", composed from this member's own facts. The coach edits it here; what she leaves is what is stored. */
   initialExplanation: string;
+  /** Today in the MEMBER's timezone, resolved on the server so both render passes agree. See lib/time/memberToday.ts. */
+  memberToday: string;
   /** Poster and cues per exercise, loaded server side. */
   media?: AssignedExerciseMediaMap;
 }) {
@@ -114,9 +112,16 @@ export function AssignPlanPanel({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
 
+  // B3 (2026-08-28): this used to call `new Date()` here, in a component
+  // that renders on Vercel in UTC and again in the coach's own browser.
+  // The two passes disagreed for the whole of a US evening and the
+  // disagreement landed in the start-date input's value, which is a
+  // hydration mismatch. `memberToday` is resolved once on the server, in
+  // the member's own timezone, which is also the timezone the server uses
+  // when this plan is submitted. The field is editable either way.
   const defaults = useMemo(
-    () => correctiveApprovalDefaults(sessions.length, todayLocal()),
-    [sessions.length]
+    () => correctiveApprovalDefaults(sessions.length, memberToday),
+    [sessions.length, memberToday]
   );
   const [startDate, setStartDate] = useState(defaults.startDate);
   const [durationWeeks, setDurationWeeks] = useState(String(blueprintWeeks));

@@ -19,6 +19,7 @@ import { getClientProgramAssignmentSummariesAction } from '@/app/actions/coach-p
 import { openProgramReviewAction } from '@/app/actions/program-review';
 import { buildCoachProgramGroups } from '@/lib/program-lifecycle/coachView';
 import { ProgramReviewPanel } from '@/components/coach-program-builder/ProgramReviewPanel';
+import { memberTodayLocalDate } from '@/lib/time/memberToday';
 
 export default async function ProgramPhaseReviewPage({
   params,
@@ -43,6 +44,10 @@ export default async function ProgramPhaseReviewPage({
   const summaries = await getClientProgramAssignmentSummariesAction(params.id);
   const group = buildCoachProgramGroups(summaries).find((g) => g.groupKey === groupKey);
   if (!group) notFound();
+
+  // Resolved on the server, in the member's own timezone, so the start-date
+  // field renders the same on both passes. See lib/time/memberToday.ts.
+  const memberToday = await memberTodayLocalDate(supabase, params.id);
 
   const result = await openProgramReviewAction({
     memberId: params.id,
@@ -81,6 +86,7 @@ export default async function ProgramPhaseReviewPage({
               screen={result}
               programsHref={`/coach/clients/${params.id}/programs`}
               defaultStartDate={group.endDate ? nextDay(group.endDate) : null}
+              memberToday={memberToday}
             />
           )}
         </div>

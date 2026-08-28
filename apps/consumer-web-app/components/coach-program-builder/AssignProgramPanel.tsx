@@ -34,27 +34,35 @@ const WEEKDAYS = [
   { value: 6, label: 'Sat' },
 ];
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
+/**
+ * B3 (2026-08-28): every date field here used to open on
+ * `new Date().toISOString()`, computed while rendering. This component
+ * renders on Vercel in UTC and again in the coach's browser, so at a date
+ * boundary the four date inputs hydrated with different values than they
+ * were served with. `memberToday` is resolved on the server, in the
+ * member's own timezone, which is the timezone the schedule is written in.
+ */
 export function AssignProgramPanel({
   clientId,
   templates,
+  memberToday,
 }: {
   clientId: string;
   templates: CoachProgramTemplate[];
+  /** Today in the MEMBER's timezone, from the server. See lib/time/memberToday.ts. */
+  memberToday: string;
 }) {
   const router = useRouter();
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? '');
   const [scheduleType, setScheduleType] = useState<ProgramScheduleType>('single');
-  const [singleDate, setSingleDate] = useState(todayIso());
-  const [weeklyStartDate, setWeeklyStartDate] = useState(todayIso());
+  const [singleDate, setSingleDate] = useState(memberToday);
+  const [weeklyStartDate, setWeeklyStartDate] = useState(memberToday);
   const [weeklyDays, setWeeklyDays] = useState<number[]>([1, 3, 5]);
   const [weeks, setWeeks] = useState(4);
   const [specificDatesText, setSpecificDatesText] = useState('');
-  const [repeatingStart, setRepeatingStart] = useState(todayIso());
-  const [repeatingEnd, setRepeatingEnd] = useState(todayIso());
+  const [repeatingStart, setRepeatingStart] = useState(memberToday);
+  const [repeatingEnd, setRepeatingEnd] = useState(memberToday);
   const [everyNDays, setEveryNDays] = useState(3);
   const [assignmentNotes, setAssignmentNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
@@ -235,7 +243,7 @@ export function AssignProgramPanel({
             value={specificDatesText}
             onChange={(e) => setSpecificDatesText(e.target.value)}
             rows={3}
-            placeholder={`${todayIso()}\n...`}
+            placeholder={`${memberToday}\n...`}
             className={`${INPUT} resize-none`}
           />
         </label>

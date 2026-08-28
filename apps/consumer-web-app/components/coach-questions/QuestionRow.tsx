@@ -124,7 +124,11 @@ export function QuestionRow({
   return (
     <div className="border-t border-[#1B3A2D]/5 py-4 first:border-t-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex-1">
+        {/* min-w-0: a flex item's default min-width is auto, so without
+            this the question key below (one unbreakable token) sets a
+            floor this column cannot go under, and the row grows past the
+            phone instead of the key wrapping. */}
+        <div className="min-w-0 flex-1">
           <textarea
             value={promptDraft}
             onChange={(e) => setPromptDraft(e.target.value)}
@@ -136,7 +140,7 @@ export function QuestionRow({
           {savingPrompt && <p className="px-2 text-xs text-[#6B7A72]">Saving…</p>}
 
           <div className="mt-1 flex flex-wrap items-center gap-1.5 px-2 text-xs text-[#6B7A72]">
-            <span className="font-mono">{question.questionKey}</span>
+            <span className="break-all font-mono">{question.questionKey}</span>
             <span>·</span>
             <span>{RESPONSE_TYPE_LABEL[question.responseType] ?? question.responseType}</span>
             <span>·</span>
@@ -156,7 +160,13 @@ export function QuestionRow({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap gap-1.5">
+        {/* C3 (2026-08-28): this carried `shrink-0`, which pinned the
+            group to the full width of five buttons in a row. Its own
+            `flex-wrap` could never fire, because a flex item that may not
+            shrink is never narrow enough to need to. At 390px the group
+            was 474px wide and the whole page scrolled sideways. Letting it
+            shrink is what lets it wrap, which is what it was asking for. */}
+        <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
             onClick={() => setShowPreview(true)}

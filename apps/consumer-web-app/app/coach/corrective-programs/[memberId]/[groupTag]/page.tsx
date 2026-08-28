@@ -13,6 +13,7 @@ import {
   getCorrectiveExplanationDraftAction,
 } from '@/app/actions/corrective-programs';
 import { loadStaffExerciseMedia } from '@/lib/programs/staffExerciseMedia';
+import { memberTodayLocalDate } from '@/lib/time/memberToday';
 import { CORRECTIVE_PROGRAM_DURATION_WEEKS } from '@/lib/corrective-engine/approvalDefaults';
 import { DraftReviewPanel } from './DraftReviewPanel';
 
@@ -39,6 +40,9 @@ export default async function CorrectiveDraftReviewPage({
     .select('display_name')
     .eq('id', params.memberId)
     .maybeSingle();
+
+  // Resolved here, on the server, and handed down. See lib/time/memberToday.ts.
+  const memberToday = await memberTodayLocalDate(supabase, params.memberId);
 
   const first = group.templates[0];
   // Posters and cues for every exercise in the draft, and the draft of the
@@ -69,6 +73,7 @@ export default async function CorrectiveDraftReviewPage({
           memberName={memberProfile?.display_name ?? 'This member'}
           group={group}
           initialExplanation={explanationDraft}
+          memberToday={memberToday}
           media={media}
         />
       </main>

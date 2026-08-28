@@ -15,6 +15,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { getBlueprintPlanAction } from '@/app/actions/program-blueprints';
 import { loadStaffExerciseMedia } from '@/lib/programs/staffExerciseMedia';
+import { memberTodayLocalDate } from '@/lib/time/memberToday';
 import { AssignPlanPanel } from './AssignPlanPanel';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +40,10 @@ export default async function AssignProgramPreviewPage({
     .eq('id', params.memberId)
     .maybeSingle();
   if (!profile) notFound();
+
+  // Resolved here, on the server, and handed down. See lib/time/memberToday.ts
+  // for why the panel must not compute it while rendering.
+  const memberToday = await memberTodayLocalDate(supabase, params.memberId);
 
   const plan = await getBlueprintPlanAction(params.versionId, params.memberId);
   if (!plan) notFound();
@@ -74,6 +79,7 @@ export default async function AssignProgramPreviewPage({
           blockedReason={plan.blockedReason}
           initialSessions={plan.sessions}
           initialExplanation={plan.memberExplanationDraft}
+          memberToday={memberToday}
           media={media}
         />
       </main>

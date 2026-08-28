@@ -200,8 +200,13 @@ export function QuestionEditorForm({
         )}
       </div>
 
+      {/* C3 (2026-08-28): min-w-0 on both cells. A grid item's default
+          minimum is its content's, and a <select> whose longest option is
+          a driver id plus its full label sets that minimum well past half
+          a phone, which would push this row sideways the same way the
+          button group above it did. */}
       <div className="grid grid-cols-2 gap-4">
-        <div>
+        <div className="min-w-0">
           <label className={LABEL_CLASS} htmlFor="driver">
             Driver
           </label>
@@ -220,7 +225,7 @@ export function QuestionEditorForm({
           </select>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label className={LABEL_CLASS} htmlFor="screen">
             Screen
           </label>

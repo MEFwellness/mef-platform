@@ -17,6 +17,7 @@ import {
 import type { Profile, DailyCheckin, Habit, CoachNote } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
 import { emitAndDispatch } from '@/lib/ai/events';
+import { viewerSeesTestAccounts } from '@/lib/staff/testAccounts';
 import { buildRuleFacts } from '@/lib/ai/rules/facts';
 
 /**
@@ -49,10 +50,15 @@ export async function listAssignedClients(): Promise<Profile[]> {
   // is themself a seeded is_test account (the production QA fixture) DOES
   // still see their own assigned test member, since that pairing is the
   // whole point of the fixture, not a leak.
-  const { data: viewerProfile } = await supabase.from('profiles').select('is_test').eq('id', user.id).single();
+  //
+  // A3 (2026-08-28): this list was right and the Safety Review Queue was
+  // wrong, because each screen decided for itself. The rule and its one
+  // exception now live in lib/staff/testAccounts.ts and every staff read
+  // asks the same question of it. The behaviour here is unchanged.
+  const seesTestAccounts = await viewerSeesTestAccounts(supabase, user.id);
 
   let query = supabase.from('profiles').select('*').in('id', clientIds);
-  if (!viewerProfile?.is_test) {
+  if (!seesTestAccounts) {
     query = query.eq('is_test', false);
   }
   const { data: profiles, error } = await query;

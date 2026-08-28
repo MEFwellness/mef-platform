@@ -268,17 +268,13 @@ function readableDate(isoDate: string): string {
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-/** Today, in the coach's own browser. The server recomputes the same defaults in the member's timezone; whatever the coach ends up seeing is what gets submitted, so the two can only ever differ by a day at a date boundary and the field is editable either way. */
-function todayLocal(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 export function DraftReviewPanel({
   memberId,
   memberName,
   group,
   initialExplanation = '',
+  memberToday,
   media = {},
 }: {
   memberId: string;
@@ -286,6 +282,8 @@ export function DraftReviewPanel({
   group: { programGroupTag: string; templates: CoachProgramTemplateWithContent[] };
   /** "Why this program", composed from this member's own facts. Editable here; what the coach leaves is what is stored. */
   initialExplanation?: string;
+  /** Today in the MEMBER's timezone, resolved on the server so both render passes agree. See lib/time/memberToday.ts. */
+  memberToday: string;
   /** Poster and cues per exercise, loaded server side. Zero video requests until a tap. */
   media?: AssignedExerciseMediaMap;
 }) {
@@ -300,9 +298,13 @@ export function DraftReviewPanel({
   } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // B3 (2026-08-28): `new Date()` used to be called here, while
+  // rendering, in a component that renders once on Vercel in UTC and once
+  // in the coach's browser. The start-date input's value differed between
+  // the two passes. The member's own date is resolved on the server now.
   const defaults = useMemo(
-    () => correctiveApprovalDefaults(group.templates.length, todayLocal()),
-    [group.templates.length]
+    () => correctiveApprovalDefaults(group.templates.length, memberToday),
+    [group.templates.length, memberToday]
   );
   const [startDate, setStartDate] = useState(defaults.startDate);
   const [durationWeeks, setDurationWeeks] = useState(String(defaults.durationWeeks));

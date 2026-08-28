@@ -13,6 +13,13 @@
  * an assumption. Where a surface does not filter, that is recorded here
  * rather than quietly assumed away, because a decision that only half
  * works is worse than one that visibly does not.
+ *
+ * ONE OF THOSE HALF-WORKING SURFACES IS NOW FIXED (Build 4, 2026-08-28).
+ * The last block here recorded that the Safety Review Queue had no filter
+ * to reach. It has one now, and the rule the coach's client list used to
+ * keep privately is shared by every staff read. The behaviour lives in
+ * tests/staff-surfaces-exclude-test-accounts.test.ts; this file keeps the
+ * per-surface ledger.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import fs from 'node:fs';
@@ -80,9 +87,14 @@ describe('what the flag actually excludes her from', () => {
   });
 
   it("the coach's client list, with its deliberate exception for a coach who is herself a test account", () => {
+    // A3 (2026-08-28): the exception used to be a private is_test read
+    // inside this function. It is the shared rule now, and the exception
+    // is unchanged. tests/staff-surfaces-exclude-test-accounts.test.ts
+    // drives the behaviour; this only records that the list still asks.
     const source = read('app/actions/coach.ts');
-    expect(source).toContain("select('is_test')");
-    expect(source).toContain('if (!viewerProfile?.is_test)');
+    expect(source).toContain('viewerSeesTestAccounts');
+    expect(source).toContain('if (!seesTestAccounts)');
+    expect(source).toContain(".eq('is_test', false)");
   });
 
   /**
@@ -99,21 +111,33 @@ describe('what the flag actually excludes her from', () => {
   });
 });
 
-describe('what the flag does NOT exclude her from, recorded rather than assumed', () => {
+describe('the Safety Review Queue, which this flag could not reach until Build 4', () => {
   /**
-   * A3 in docs/BUG_SWEEP_2026-08-27.md, and deliberately not fixed in this
-   * build. `listReviewQueueForCoach` selects the whole table with no
-   * is_test filter at all, so flagging an account cannot remove it from
-   * the Safety Review Queue: there is nothing there to do the removing.
-   * Flagging her still changes nothing about that screen today, because
-   * she has never been flagged for safety review, but the gap is real and
-   * this test is what stops it being mistaken for handled.
+   * A3 in docs/BUG_SWEEP_2026-08-27.md. This block used to record the
+   * opposite: `listReviewQueueForCoach` selected the whole table with no
+   * is_test filter at all, so flagging an account could not remove it
+   * from the queue, because there was nothing there to do the removing.
+   * On 2026-08-28 the queue held 27 open cases, 27 of them fixtures and 0
+   * real. Build 4 closed it, and this test is now the record of that
+   * rather than of the gap.
+   *
+   * The behaviour is proved against a fake Postgres that honours the
+   * filter in tests/staff-surfaces-exclude-test-accounts.test.ts. What is
+   * checked here is only that the decision reaches this file at all.
    */
-  it('the Safety Review Queue has no is_test filter, so this decision cannot reach it', () => {
+  it('the Safety Review Queue now applies the shared exclusion', () => {
     const source = read('lib/safety/data.ts');
     const start = source.indexOf('export async function listReviewQueueForCoach');
     expect(start).toBeGreaterThan(-1);
     const fn = source.slice(start, source.indexOf('\n}\n', start));
-    expect(fn).not.toContain('is_test');
+    expect(fn).toContain('applyTestAccountExclusion');
+  });
+
+  it('and so does the case detail a coach can reach by typing a URL', () => {
+    const source = read('lib/safety/data.ts');
+    const start = source.indexOf('export async function getReviewQueueEntry');
+    expect(start).toBeGreaterThan(-1);
+    const fn = source.slice(start, source.indexOf('\n}\n', start));
+    expect(fn).toContain('rejectTestMemberRow');
   });
 });

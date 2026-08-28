@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
 import {
   listPendingProteinTargetsForCoach,
-  getProteinTargetById,
+  getProteinTargetForCoach,
   approveProteinTarget,
 } from '@/lib/protein/store';
 import type { PendingProteinTargetQueueEntry, ProteinTarget } from '@/lib/protein/types';
@@ -40,7 +40,7 @@ export async function getProteinTargetForReviewAction(
 ): Promise<ProteinTarget | null> {
   const ctx = await resolveCoach();
   if (!ctx) return null;
-  return getProteinTargetById(ctx.supabase, targetId);
+  return getProteinTargetForCoach(ctx.supabase, targetId);
 }
 
 /**
@@ -59,7 +59,7 @@ export async function approveProteinTargetAction(
     return { error: 'Enter a valid protein target.' };
   }
 
-  const target = await getProteinTargetById(ctx.supabase, targetId);
+  const target = await getProteinTargetForCoach(ctx.supabase, targetId);
   if (!target) return { error: 'This request could not be found.' };
   if (target.status !== 'pending_coach_review') {
     return { error: 'This request has already been reviewed.' };
