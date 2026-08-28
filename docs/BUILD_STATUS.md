@@ -153,6 +153,56 @@ gate tests; making the shared count count rows instead of distinct days
 fails the counts tests; letting the data floor sentence say "so far" again
 fails 4.
 
+### Live verification
+
+Two runs against `app.mefwellness.com`, mobile viewport 390x844, one-time
+minted sessions retired with scope `local`, screenshots per item.
+
+**As the standing test member, on a trial plan: 32 of 32.** All four free
+experiences on the Questionnaires screen; the four clinical cards that her
+visibility rules advertise all locked, each sheet naming her plan (Health
+Check-In, Primal Pattern and Nutrition & Lifestyle say Monthly; Four
+Doctors says the 24 week program); the retired coach sentence nowhere on
+any screen; six locked take URLs all bounced with her row counts identical
+before and after. The four numbers, read off the screen: Home under the
+score "checked in on 3 days in the last 21 days", Root's Daily Brief
+"logged 4 check-ins with me so far", Today's Your Totals "4 Check-ins
+logged", Case View "4". The 3 and the 4 are now visibly about different
+things. Root's Daily Brief also read "You logged only fair sleep at your
+last check-in, 10 days ago", which is C8. Zero console errors, zero em
+dashes.
+
+**As the one production member genuinely on the 24 week program,
+read-only: 9 of 9.** Nutrition & Lifestyle, Four Doctors and Whole-Body
+Check-In all open, no plan lock sentence anywhere on her screen, and she
+has zero assignment rows, so it is the plan that opened them. Before this
+build all three were shut for her. Her row counts were identical before
+and after.
+
+**The Monthly rung was NOT proved live, and here is why.**
+`/admin/access` deliberately lists only real, non-staff members: it showed
+11 panels and none of them was a test account. So there is no admin path
+to move a scratch account onto a Monthly plan, and moving a real member's
+plan to look at a screen is not something a verification run should do.
+The Monthly rung rests on the gate matrix (every questionnaire x every
+plan x assigned both ways) and on the real-RLS integration test that signs
+a member in on a monthly plan and reads the gate's answer.
+
+**Whole-Body Check-In is not on the trial member's screen at all**, and
+that is the visibility layer (lib/visibility/catalog.ts, 2026-08-17), not
+this build. It reveals WBSA only on a coach assignment or a
+supported_by_checkins finding, and a card it has not revealed is absent
+rather than locked, on purpose. Worth knowing when reading the map: the
+plan decides what OPENS, and the visibility layer still decides what is
+ADVERTISED.
+
+**One more contradiction caught by looking at the screenshot.** The
+Premium section heading read "See what unlocks with a Membership plan"
+over a list that now holds both Monthly items and 24 week program items,
+so it disagreed with the Four Doctors card two inches below it. It reads
+"Each of these opens with a plan. Tap one to see which." now, and each
+card names its own.
+
 ### Not touched
 
 No question content, no scoring, no interpretation engine, no new table or

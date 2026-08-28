@@ -115,7 +115,12 @@ export function QuestionnaireCatalogView({
       {(filter === 'all' || filter === 'premium') && (
         <Section
           title="Premium"
-          subtitle="See what unlocks with a Membership plan."
+          /* ONE ANSWER PER LOCK (Build 2, 2026-08-27). This said "See what
+             unlocks with a Membership plan" over a list that now holds
+             both Monthly items and 24 week program items, so the heading
+             contradicted the Four Doctors card two inches below it. Each
+             card names its own plan, so the heading stops naming one. */
+          subtitle="Each of these opens with a plan. Tap one to see which."
           cards={catalog.premium}
         />
       )}

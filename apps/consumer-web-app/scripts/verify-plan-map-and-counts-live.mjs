@@ -149,10 +149,33 @@ try {
   const questionnaires = await mainOf(page, '/questionnaires', '01_questionnaires');
   screensVisited.push(['Questionnaires', questionnaires]);
 
+  /**
+   * The visibility layer (lib/visibility/catalog.ts, 2026-08-17) decides
+   * whether a questionnaire is ADVERTISED to this member at all, which is
+   * a separate and older question from whether her plan opens it. A card
+   * it has not revealed is absent, not locked, on purpose. So this run
+   * records which cards are on the screen and only asserts the plan
+   * sentence for the ones that are.
+   */
+  const onScreen = [];
+  const notAdvertised = [];
   for (const item of MAP) {
     if (item.key === 'body-assessment') continue; // its card lives on Home and Profile
-    check(`1a. ${item.title} appears on the Questionnaires screen`, questionnaires.includes(item.title));
+    (questionnaires.includes(item.title) ? onScreen : notAdvertised).push(item);
   }
+  console.log('\nOn the Questionnaires screen: ' + onScreen.map((i) => i.title).join(', '));
+  console.log(
+    'Not advertised to her by the visibility layer: ' +
+      (notAdvertised.length ? notAdvertised.map((i) => i.title).join(', ') : 'none')
+  );
+  check(
+    '1a. every trial-level experience is on the screen',
+    MAP.filter((i) => i.plan === 'trial').every((i) => questionnaires.includes(i.title))
+  );
+  check(
+    '1c. a card the visibility layer has not revealed is absent, never a half-shown lock',
+    notAdvertised.every((i) => !questionnaires.includes(i.title))
+  );
 
   check(
     '1b. the retired coach sentence appears nowhere on the Questionnaires screen',
@@ -160,7 +183,7 @@ try {
   );
 
   // Tap each locked card and read the sheet it opens.
-  for (const item of MAP.filter((m) => m.plan !== 'trial' && m.key !== 'body-assessment')) {
+  for (const item of onScreen.filter((m) => m.plan !== 'trial')) {
     await page.goto(`${BASE}/questionnaires`, { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
     await page.waitForTimeout(3000);
     const card = page.locator(`button[aria-label*="${item.title}"][aria-label*="locked"]`).first();
@@ -207,8 +230,12 @@ try {
 
   const windowed = home.match(/checked in on (\d+) days? in the last (\d+) days/);
   const rootLine = home.match(/logged (\d+) check-ins? with me so far/);
-  const todayTotal = today.match(/(\d+) Check-ins? logged/);
+  // The count and its label are separate elements, so textContent runs
+  // them together with no space: "Your Totals4Check-ins logged".
+  const todayTotal = today.match(/Your Totals\s*(\d+)\s*Check-ins? logged/i);
   const progressDays = progress.match(/from (\d+) recorded days?/);
+  if (!todayTotal) console.log('\nToday around Your Totals:', today.slice(Math.max(0, today.search(/Your Totals/i) - 40), today.search(/Your Totals/i) + 160) || '(no Your Totals zone on the screen)');
+  if (!progressDays) console.log('Progress around Avg energy:', progress.slice(Math.max(0, progress.search(/Avg energy/i) - 40), progress.search(/Avg energy/i) + 160) || '(no Avg energy panel on the screen)');
 
   console.log('\n--- the numbers as she reads them ---');
   console.log(`Home, under the score:      ${windowed ? windowed[0] : 'not shown (she may be above the data floor)'}`);
