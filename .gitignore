@@ -22,3 +22,6 @@ docs/screens/live-polish/
 # Bug sweep and verification screenshots. Pictures of a real member's
 # home screen, her name and her readings. Never committed.
 apps/consumer-web-app/scripts/.sweep/
+
+# Live verification screenshots. Same reason as .sweep above.
+apps/consumer-web-app/scripts/.verify/
