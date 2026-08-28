@@ -9312,6 +9312,49 @@ deleted (2), the locale-dependent date restored to `/admin/access` (1), the
 `shrink-0` and the auto minimum restored to the question row (3), and the
 client tree's guard layout removed (1).
 
+### Live verification, on production
+
+Signed in with one-time minted sessions, retired with scope `local`: the
+coach and administrator account for the staff half, the test member for the
+member half. **32 of 32 passed**, on the deployment that received these
+changes (`mef-platform-cxk5r5cha`, aliased to `app.mefwellness.com`).
+
+**The Review Queue is honest and empty.** OPEN CASES reads 0, which is the
+real open count. Before this build it read 27 with a test account's name
+against every case. No test account name appears on it, and it is an empty
+state rather than an error. One of the 27 fixture cases, opened by typing
+its URL, returns HTTP 404 and "Page not found".
+
+**The coach dashboard is unchanged for real members.** ACTIVE CLIENTS 1,
+NEEDS ATTENTION 1, NOT CHECKED IN 1, exactly as before. No test account
+appears anywhere on it. The pending protein queue is clean too.
+
+**A real client's screens still open.** `/coach/clients/<id>`, its full
+detail and its entries screen all render with their dates and zero console
+errors. The test member's own coach URL returns HTTP 404.
+
+**`/admin/access` is silent.** Zero hydration errors and zero console
+errors, against 5 x #425, 3 x #418 and 1 x #423 measured on the same screen
+before this build.
+
+**`/coach/questions` fits.** `scrollWidth` 390 at a 390px viewport and 1440
+at 1440, with zero elements past the right edge, against 518 and 270
+elements before.
+
+**Nothing member-facing moved.** Two take URLs opened with row counts either
+side and wrote nothing; both redirected. Home, Today and Questionnaires each
+loaded with zero console errors. Zero em dashes on every screen visited, on
+both sides.
+
+**Deployment checks.** Repo `MEFwellness/mef-platform`, branch `main`,
+Vercel project `mef-wellness/mef-platform`, target Production, aliased to
+`app.mefwellness.com`. Auto-deploy fired on the push; no CLI deploy was
+needed. No migration in this build, so the migration ledger is unchanged.
+
+**State this run left on production:** none. No row on any account was
+created, changed or deleted, no pop-up was dismissed and no assessment was
+started.
+
 ### Not fixed, found while working
 
 - `MemberProgramsList` (`/programs`, member-facing) splits her sessions on
