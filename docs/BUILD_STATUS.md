@@ -9659,3 +9659,352 @@ Two things, both named rather than left to be re-found:
 And one that is not this codebase's to fix: **GitHub still serves the
 purged screenshot blobs by SHA** from the force-pushed history (build 3).
 That needs a GitHub Support request.
+
+---
+
+## Home speed build: the first seconds of the app (2026-08-28)
+
+Build 5's C7 named this as its own task. Home's first byte arrived in under
+a second and her first heading did not paint for five to eight, and the page
+did not settle for thirteen to twenty-two. This is that task.
+
+**No card was removed, no copy changed and no zone moved.** The visible text
+of the rewritten Home and the deployed one were captured side by side and
+differ by nothing. What changed is WHEN each part arrives.
+
+**No migration.** No schema, no table, no engine.
+
+### What was actually wrong, measured
+
+Two separate faults, and only one of them was the one everybody expected.
+
+**Fault 1, the render was one blocking wait.** `app/dashboard/page.tsx`
+awaited nineteen things in two sequential `Promise.all` batches before it
+returned a single tag of JSX. Everything on the screen therefore waited on
+the slowest of them. The Suspense boundaries that existed were all below
+that wait, so they never helped the top of the page.
+
+**Fault 2, the same reads, over and over.** One Home load made **331 server
+round trips**, counted on production data with a per-request tracer
+(`lib/dev/queryTrace.ts`, off unless `MEF_TRACE_QUERIES=1`). Attribution is
+by AsyncLocalStorage, not by "queries that landed while this card was open",
+because every card runs concurrently and a wall-clock window credits each
+one with everything the others did.
+
+| what Home asked for | times, before | times, after |
+| --- | --- | --- |
+| her session (`auth.getUser`, a real network call to Auth) | 13 | 1 |
+| her `profiles` row | 24 | 5 |
+| her plan and her assignments (`getMemberAssessmentFacts`, six tables each time) | 7 | 1 |
+| her water answer (`fetchHydrationFocus`) | 9 | 1 |
+| her restricted topics (an RPC) | 7 | 1 |
+| her registry entries | 10 | 1 |
+| her narrative items | 6 | 1 |
+| her pattern states | 4 | 1 |
+| her wellness insights | 4 | 1 |
+| a published assessment definition, per key | 11 | 3 |
+| her intake (submission + answers + questions) | 12 | 3 |
+| the seeded driver library and probe questions | 9 | 2 |
+| **total round trips for one Home load** | **331** | **205** |
+
+Per card, before, with its own round trips attributed to it:
+
+| card / reader | ms | its own round trips |
+| --- | --- | --- |
+| the Root pop-up chain | 3941 | 77 |
+| the priority view | 1378 | 56 |
+| the questionnaire catalog | 1415 | 29 |
+| the visibility layer | 593 | 29 |
+| Root Map tile | 287 | 34 |
+| From Root tile | 439 | 27 |
+| What We're Noticing tile | 276 | 18 |
+| the Coaching Brain decision | 117 | 12 |
+| the Body Assessment assignment card | 178 | 7 |
+| Body Assessment access | 178 | 6 |
+| her current program | 392 | 5 |
+| Recommended For You tile | 340 | 5 |
+| the Discovery tile | 127 | 5 |
+| her baseline assessment | 433 | 4 |
+| eight smaller readers | 2 to 283 each | 1 to 2 each |
+
+**And the finding that mattered most: cutting duplicate reads bought almost
+no wall clock.** They were already running concurrently inside two
+`Promise.all` batches, so the critical path was the longest dependent chain,
+not the sum. 126 fewer round trips is real load taken off the database and
+off Supabase's connection pool, and it is not what made the screen fast.
+What made the screen fast was deciding what has to be in the first response.
+
+### What loads first now
+
+**Instant, in the first streamed response** (`lib/home/frame.ts`, the only
+thing the shell awaits): the page, the hero photo and chrome, HER GREETING,
+and the bottom navigation. Three round trips, two of them in parallel, plus
+the coach-role check the nav needs. The hero's height is decided here too
+(short before her first check-in, tall after) and so is whether the dominant
+slot is going to hold the Priority Card, so nothing below moves when either
+lands.
+
+**Fast follow, each in its own boundary:** the Root Score inside the hero,
+then the Priority Card, then the day frame she acts on (her program, the
+weekly review, the invites, Quick Actions, Today).
+
+**Streams in behind:** Active Experiments, the Reset Plan, Your Path, the
+noticing carousel, the trend chart, the wearable panel, and the pop-up chain.
+
+The order in `<main>` is unchanged and is held by a test: the priority, the
+newly-revealed sentence, her program, the weekly review, the invites, then
+either the welcome card or the zones, and the completed priority last.
+
+### The shared load
+
+`lib/home/frame.ts` is the instant tier. `lib/home/data.ts` is every fact
+more than one region wants, stated once and request-memoized, so five
+boundaries asking the same question cost one answer between them: her body
+assessments, the questionnaire catalog, her program, her experiments, her
+baseline, her devices, today's Root Score, the Coaching Brain decision, the
+morning brief, and her Body Assessment access.
+
+Underneath both, three mechanical consolidations, app-wide:
+
+- **`lib/member/profileCore.ts`** is the one `profiles` row read (her name
+  and her timezone together, because they are one row). `memberTimezone`
+  reads from it. **43 private `select('timezone')` lookups** across
+  `app/actions/` and `lib/` now go through it, closing the item Build 5 left
+  open. One is deliberately left: `getClientCoachingDecision` reads the row
+  to ask whether a coach can see this client at all, which is a different
+  question from what her timezone is.
+- **234 direct `supabase.auth.getUser()` calls** across 166 files now call
+  the already-memoized `getCachedUser`. `lib/staff/testAccounts.ts` is
+  deliberately excluded: it resolves the viewer from the CLIENT it was
+  handed, which may not be the session's.
+- **`createClient()` is request-memoized.** It used to build a fresh client
+  per call, with `getRequestClient` as the memoized variant for a handful of
+  call sites. That split was why most of this app's request-memoized readers
+  never deduped: React's `cache()` keys on argument identity, so
+  `memberTimezone(clientA, id)` and `memberTimezone(clientB, id)` were two
+  entries and two round trips. Both names now return the same instance.
+
+### What is cached, and exactly when it clears
+
+Nothing is cached. `lib/data/readOnce.ts` is one read per fact per request,
+and the map it keeps is itself request-scoped, so nothing survives the
+request that made it: a different member's request gets its own, and
+tomorrow cannot see today's. "She cannot be shown yesterday's truth after
+she acted today" is therefore structural rather than a promise, and a test
+asserts it by running the same read in two scopes and counting two reads.
+
+Within one request it still has to be invalidated, because this codebase
+already contains read-write-read sequences (`computeLongitudinalSignals`
+reads her pattern states, reclassifies them against the prior row and
+upserts the result). So every key names its writer, and a test walks the
+source and fails if one does not:
+
+| the fact | forgotten by |
+| --- | --- |
+| her plan and assignments | completing an assessment (all three stores), assigning or cancelling one, scheduling a reassessment, an admin changing her plan |
+| her water answer | `setHydrationFocus` |
+| her restricted topics | `evaluateConcern`, the only thing in a member request that can open a review case |
+| her check-in rows | `insertCheckinRow`, the single row writer both the submit and the draft save land in |
+| her pattern states | `upsertMemberPatternState` |
+| her registry entries | `insertRegistryEntry` |
+| her narrative items | insert, supersede, pin, protect, set status |
+| her wellness insights | insert, confirm, supersede, set status, pin, set coach context |
+
+Three things are deliberately NOT deduplicated, and the reasons are in the
+source: `getDailyPriority` (claiming today's row re-reads it, which is
+exactly the sequence a memoized read breaks), `listFeedHistory` (a caller
+may create today's feed item between two reads of the history it was chosen
+from), and `getMyPriorityView` itself, which already had its own memoization.
+
+### An analytics row stopped costing her a second page render
+
+Found while measuring, and it turned out to be the largest single thing
+between Home and "settled". The trackers on this app's screens render
+nothing and fire from a mounted effect precisely so they never delay the
+render she is waiting on. Calling a Server Action does not have that
+property: Next re-renders the whole current route on the server and streams
+the payload back with the result. On production that was a second full page
+render **starting seven seconds into the load and running for six more**,
+for the sake of writing one `surface_viewed` row.
+
+They post to `app/api/analytics/track` now, which returns 204 and re-renders
+nothing. Nothing about what is written changed: the route calls the same
+actions, which resolve the member from her own session cookie and write
+through the same RLS-scoped client, and the Priority Card's one event still
+rides the same atomic claim. Settled went from 15 to 19 seconds to 7 to 9.
+
+### The first second looks like Home
+
+Between the tap and Home's first response, Next shows the route's
+`loading.tsx`. Home was using the app's generic `PageSkeleton`: a light page
+with three stacked cards, replaced a moment later by a 440px full-bleed dark
+photo band. Home has its own now, at the hero's own height, in the brand's
+deep green, with the same settling placeholders the regions use below it.
+
+Every placeholder on the screen is one treatment (`.mef-settling`, with its
+own `prefers-reduced-motion` override), is `aria-hidden`, and carries
+`data-settling` so a verification run can ask the DOM whether the page has
+finished settling. There are no spinners on Home.
+
+The dominant slot reserves the shape she is actually going to get: the frame
+reads today's stored priority row, so a member who has already finished
+hers gets the small pointer's shape reserved and not a card's.
+
+### The numbers, on production
+
+Mobile viewport 390x844, warm function, a fresh page per run, medians of
+three. Before is Build 5's own measurement of the same four moments on the
+same account.
+
+| moment | target | before | after |
+| --- | --- | --- | --- |
+| first byte | | 0.02 to 0.14s | 0.01 to 0.02s |
+| her greeting visible | under 1.5s | 5.53 to 8.02s | 1.33 to 1.55s (median 1.51s) |
+| Priority Card visible and interactive | under 2.5s | 5.53 to 8.02s | 2.90 to 3.26s (median 2.92s) |
+| fully settled | under 6s | 14.2 to 17.4s | 6.49 to 7.59s (median 6.68s) |
+| cumulative layout shift | | not measured | 0.0217 (worst of three, 0.0745) |
+
+Read off the server's own stream rather than the browser, warm, median of
+six: headers at 516ms, her greeting's bytes at 862ms, the Priority Card's
+bytes at 2916ms, the stream closed at 5860ms. Build 5 measured the same
+document not finishing for 17.0s.
+
+**Two targets are missed, by a little, and here is why.**
+
+*The Priority Card at 2.9s against 2.5s.* The card is one dependent chain
+and every link needs the previous link's answer: her timezone, then her
+local date, then the Coaching Brain's decision for today (which itself
+creates today's feed item), then her recent check-ins, then the behavioural
+friction signals (four analytics RPCs), then the rule selection, then the
+atomic claim of today's row. Nothing in it is a duplicate read any more.
+Shortening it means changing what the priority engine has to know before it
+can decide, which is engine work this build was told not to do.
+
+*Settled at 6.7s against 6s.* What the page is still waiting on at the end
+is the Root pop-up chain: thirteen kinds checked in order, each branch
+checking its own due-ness before the next is reached, because that ordering
+is the whole of the delivery design and a branch that returns early starves
+everything below it. It is in its own boundary now, so it holds up nothing
+she can see, but the document stream stays open until it answers.
+
+**Cold starts, separately.** The first hit on a freshly deployed function
+was 3.29s to the greeting and 9.30s to settled, against 1.33 to 1.55s and
+6.49 to 7.59s warm. That 1.7 to 2.4s is the platform: Build 5 caught the
+same effect in the act on `/api/entry-animation/greeting`, whose entire job
+is a session check and one indexed `profiles` read, taking 4.6s on its first
+hit of a run. Nothing in this build changes it.
+
+### Tests
+
+**6,859 passing, 442 files**, up from 6,814 across 439. Three new files.
+
+`home-shared-loader.test.ts` (14) asserts QUERY COUNTS, not results, against
+a fake client that records every table it is asked for: seven callers of her
+plan cost six round trips between them and not forty-two, nine askers of her
+water answer cost one, eleven askers of three assessment definitions cost
+three. It also asserts the other half, which matters more: two request
+scopes read twice, a different member is a different read, two status
+filters stay two reads, and a read that throws is not remembered as the
+answer.
+
+`read-once-invalidation.test.ts` (15) walks the real source and fails if a
+`readOnce` key exists whose writer does not forget it, then proves the
+mechanism end to end against the real readers by count: set her water
+answer and the next read is real again, recompute a pattern state and the
+next read is real again, write a narrative item and the list is read again.
+
+`home-streaming-structure.test.ts` (14) is the rule that keeps this build
+from being undone by one added `await`. It asserts that `DashboardPage`
+awaits `requireHomeFrame()` and nothing else, that the frame is three round
+trips and not a data gather, that her greeting is drawn by the shell rather
+than by a boundary below it, the order of the regions inside `<main>`, that
+every region on the first screenful has a placeholder rather than a bare
+null, that there are no spinners, that the placeholders respect reduced
+motion, and that the frame reads without writing and names its timezone.
+
+Six existing source guards were updated to the new shape rather than
+deleted, each keeping what it actually guarded: the priority delivery
+tests, the Home cleanup ordering test (now checking the region order inside
+`<main>`, which is the stronger check because it is the order she sees), the
+Quick Actions and wearable gates, the Body Assessment access guard (now
+pointing at Home's shared loader, which is where that check now lives), and
+the program hero placement test.
+
+**Mutation proof. Six things were broken one at a time, the right tests
+failed, and each was restored:**
+
+| broken | failed |
+| --- | --- |
+| the seven callers of her plan each read it again | 1 |
+| her water answer is read per caller again | 2 |
+| the pattern-state recompute stops forgetting what it just changed | 2 |
+| a completed check-in stops forgetting her check-in rows | 2 |
+| the shell awaits the priority before it flushes her greeting | 1 |
+| the priority placeholder stops reserving the right shape | 2 |
+
+### Live verification, on production
+
+Signed in as the standing test member with one-time minted sessions, each
+retired with scope `local`. Mobile viewport 390x844. Screenshots stayed
+under the gitignored `apps/consumer-web-app/scripts/.verify/shots/home-speed/`.
+**15 of 15 read-only checks passed, and 5 of 5 on the writing one**, on the
+deployment aliased to `app.mefwellness.com`.
+
+- **Timed three times.** The table above.
+- **Watched one load.** At 900ms she has the hero photo, "Good afternoon,
+  Ebony", her Root Score and its change pill, and the Priority Card's
+  placeholder in the card's own shape below it. Every run drew a placeholder
+  before the real content and had none left at the end. Cumulative layout
+  shift 0.0217 worst of three (0.0745 on the run that included the route
+  placeholder swap), against 0.1 as the threshold anybody calls good.
+- **The Daily Reset, completed for real.** Four screens, submitted, and Home
+  on the very next load no longer says "Once today's check-in is done, your
+  numbers are on the Today tab", which it had said before. That is the one
+  write this run made.
+- **A fresh sign-in.** The pop-up chain showed no message and repeated
+  nothing on the load after. Recorded plainly: this member has nothing due
+  today, so what live proves is that the chain still runs and still shows at
+  most one, not that a due message appears.
+- **Today, Progress and /programs**, the three screens that share the
+  timezone consolidation: all render, no "Invalid Date", no NaN, no
+  undefined, no em dash. Progress reads Fri Aug 28, Mon Aug 17, Sun Aug 16,
+  Fri Aug 14, Tue Aug 4; /programs reads Fri Aug 28 through Wed Sep 9. Her
+  timezone's date and UTC's date are the same day today, so a live run today
+  cannot tell a timezone rule from a UTC one; what live proves is that the
+  dates render and are hers to the day.
+- **Zero console errors** across every screen in the run, and zero em dashes.
+
+**State this run left on production:** one daily check-in row for
+2026-08-28 on the standing test member's account, created deliberately by
+the verification. Nothing else was created, changed or deleted, and there is
+no migration in this build.
+
+**Deployment checks.** Repo `MEFwellness/mef-platform`, branch `main`,
+Vercel project `mef-wellness/mef-platform`, target Production, aliased to
+`app.mefwellness.com`. Auto-deploy fired on each of the three pushes; no CLI
+deploy was needed. Migration ledger unchanged: 188, 187, 186, 185.
+
+### Found while working, not fixed
+
+- **`getMyCoachingMessage` writes fourteen `member_pattern_states` rows from
+  inside Home's render**, through `computeLongitudinalSignals`. Pre-existing
+  and unchanged by this build. It is an upsert of a derived state rather
+  than a decision, so it is not the render-decides-state class outright, but
+  it is a render doing writes and it is worth a look.
+- **`buildTimeContext(nowInTz)`'s Date form is only correct on a UTC
+  runtime.** `timeContextInTimezone(timezone)` was added beside it for Home
+  and is correct anywhere; `app/today/page.tsx` and
+  `lib/conversation-coach/context.ts` still use the Date form, because they
+  hand the same Date to `resolveLocalDate` as well and migrating them is one
+  deliberate change rather than a side effect of this build.
+- **`resolveLocalDate(nowInTz, requestedYesterday)` reads
+  `nowInTz.getHours()`**, which is the process's zone. Same family. Many
+  callers.
+- **About 60 duplicate reads still on one Home load**, mostly the engines
+  each independently gathering her check-in history in slightly different
+  column sets. Each needs its own writer audit, which is why this build
+  stopped where it did rather than deduplicating on sight.
+- **Home's `?_rsc=` link prefetches** cost real server renders of
+  `/root-score` and `/programs/<id>` on every Home load, because Next
+  prefetches a `<Link>` when it scrolls into view. Roughly 1.4s of server
+  work nobody asked for.
