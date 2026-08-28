@@ -24,12 +24,11 @@ import { TrackExerciseView } from '@/components/exercise-library/TrackExerciseVi
 import { listExerciseCompletionHistory } from '@/lib/exercise-library/completions';
 import { getRelatedExercises } from '@/lib/exercise-library/related';
 import { getExtractedPoster } from '@/lib/your-move/posters';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ExerciseDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { isCoach, isAdmin } = await requireStaffForInternalTool();

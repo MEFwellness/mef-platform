@@ -24,6 +24,8 @@ import {
 import { recalculateIntelligenceCore } from '@/lib/intelligence-core/service';
 import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track';
 import type { EngagementAction } from '@/lib/analytics/surfaces';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Product analytics for Today's Focus, the daily feed item the Today
@@ -50,12 +52,7 @@ async function currentMemberLocalDate(
   supabase: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', userId)
-    .single();
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const timezone = await memberTimezone(supabase, userId);
   return resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
@@ -67,9 +64,7 @@ export async function getTodaysFeed(): Promise<{
   content: MefContentItem;
 } | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const localDate = await currentMemberLocalDate(supabase, user.id);
@@ -87,9 +82,7 @@ export async function getFeedHistory(): Promise<
   { feedItem: DailyFeedItem; content: MefContentItem | null }[]
 > {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const localDate = await currentMemberLocalDate(supabase, user.id);
@@ -109,9 +102,7 @@ export async function getFeedHistory(): Promise<
 
 export async function markTodaysFeedOpened(feedItemId: string): Promise<void> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return;
   await markFeedOpened(supabase, feedItemId, user.id);
   // Product analytics, "Today's Focus was viewed." This action already
@@ -124,9 +115,7 @@ export async function markTodaysFeedOpened(feedItemId: string): Promise<void> {
 
 export async function completeFeedActionForMember(feedItemId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
   const ok = await completeFeedAction(supabase, feedItemId, user.id);
   if (ok) {
@@ -139,9 +128,7 @@ export async function completeFeedActionForMember(feedItemId: string): Promise<A
 
 export async function saveFeedItemForMember(feedItemId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
   const ok = await saveFeedItem(supabase, feedItemId, user.id);
   if (ok) await trackTodaysFocus(supabase, user.id, 'advanced');
@@ -150,9 +137,7 @@ export async function saveFeedItemForMember(feedItemId: string): Promise<ActionR
 
 export async function dismissFeedItemForMember(feedItemId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
   const ok = await dismissFeedItem(supabase, feedItemId, user.id);
   if (ok) await trackTodaysFocus(supabase, user.id, 'dismissed_item');
@@ -167,9 +152,7 @@ export async function submitFeedReflectionForMember(
   if (!trimmed) return { error: 'Reflection cannot be empty.' };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
   const ok = await submitFeedReflection(supabase, feedItemId, user.id, trimmed);
   if (ok) {
@@ -187,9 +170,7 @@ export async function rateFeedHelpfulnessForMember(
   helpful: boolean
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
   const ok = await rateFeedHelpfulness(supabase, feedItemId, user.id, helpful);
   if (ok) await trackTodaysFocus(supabase, user.id, 'advanced');
@@ -224,9 +205,7 @@ export async function coachReplaceFeedItemAction(
   note: string
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const existing = await getFeedItemById(supabase, feedItemId);

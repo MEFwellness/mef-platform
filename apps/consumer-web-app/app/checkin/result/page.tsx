@@ -18,6 +18,7 @@ import { firstNameFrom } from '@/lib/profile/greeting';
 import { buildEndingScreenView } from '@/lib/energy-forecast/service';
 import { ForecastCalibrationChart } from '@/components/checkin/ForecastCalibrationChart';
 import type { RootStatusView } from '@/lib/energy-forecast/types';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 // Screen Layout System (Prompt 2): was a hand-rolled duplicate of
 // `.mef-card` (app/globals.css) — now the one shared recipe. The one
@@ -53,9 +54,7 @@ export default async function CheckinResultPage({
   searchParams: { date?: string; firstCheckin?: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const localDate = searchParams?.date;

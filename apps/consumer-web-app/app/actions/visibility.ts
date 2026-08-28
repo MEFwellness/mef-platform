@@ -22,6 +22,7 @@ import {
 } from '@/lib/visibility';
 import type { FeatureVisibility, VisibilityState } from '@/lib/visibility/types';
 import { todaysLocalDate } from '@/lib/time/localDate';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 /** Everything she can see, with the reasons. Request-memoized underneath. */
 export async function getMyVisibilityAction(): Promise<FeatureVisibility[]> {
@@ -87,14 +88,8 @@ export async function getMemberVisibilityForCoachAction(
   ]);
   if (!isCoach && !isAdmin) return [];
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', memberId)
-    .maybeSingle();
-
   const localDate = todaysLocalDate(
-    (profile as { timezone: string | null } | null)?.timezone ?? 'America/New_York'
+    await memberTimezone(supabase, memberId)
   );
 
   const { visibility } = await buildMemberVisibility(supabase, memberId, localDate, {

@@ -43,14 +43,13 @@ import { DEFAULT_WEEKLY_SESSION_TARGET } from '@/lib/movement/score';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import { getMyCurrentProgramEntryAction } from '@/app/actions/coach-programs';
 import { AssignedProgramsCard } from '@/components/AssignedProgramsCard';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 export default async function MovementPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // None of these takes another's result as input, so they go together

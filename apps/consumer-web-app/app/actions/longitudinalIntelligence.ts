@@ -126,9 +126,7 @@ export async function getMyLongitudinalPicture(): Promise<LongitudinalPictureVie
 /** Coach-only — the raw, current LongitudinalSignal[] for a client (lib/longitudinal-intelligence/), same RLS-backed access boundary every other getClient* action in this file's family relies on. Unlike the member view, nothing here is filtered into member-safe phrasing — the coach panel renders the fuller describeSignalForCoach() copy. */
 export async function getClientLongitudinalSignals(clientId: string): Promise<LongitudinalSignal[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const localDate = await localDateFor(supabase, clientId);
@@ -138,9 +136,7 @@ export async function getClientLongitudinalSignals(clientId: string): Promise<Lo
 /** Coach-only — every recorded outcome event for a client's recommendations (member_recommendation_events, migration 94), most recent first. */
 export async function getClientRecommendationEvents(clientId: string): Promise<RecommendationEvent[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   return listRecommendationEventsForMember(supabase, clientId);
@@ -159,9 +155,7 @@ export async function requestClientReassessment(
   reason: string
 ): Promise<{ error?: string }> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const trimmedReason = reason.trim() || 'Requested by coach.';

@@ -22,6 +22,7 @@ import { computeProteinGrams, getSuggestedProteinRange, type ProteinGuidanceRang
 import { resolveProteinTrack } from '@/lib/protein/track';
 import { PROTEIN_SAFETY_BLOCK_MESSAGE } from '@/lib/protein/copy';
 import type { ActivityLevelKey, ProteinTrack } from '@/lib/protein/types';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export type ProteinSafetyAnswers = {
   hasKidneyDisease: boolean;
@@ -44,10 +45,7 @@ export type ProteinSetupState =
     };
 
 async function requireMemberId(): Promise<string | null> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   return user?.id ?? null;
 }
 

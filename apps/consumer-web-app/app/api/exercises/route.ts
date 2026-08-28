@@ -42,6 +42,7 @@ import { resolveSearchAlias } from '@/lib/exercise-library/searchAliases';
 import { musclesMatchBodyRegion, type BodyRegion } from '@/lib/exercise-library/bodyRegions';
 import { rankByMediaAvailability } from '@/lib/exercise-library/ranking';
 import { getExtractedPosterMap } from '@/lib/your-move/posters';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,9 +57,7 @@ function isResource(value: string | null): value is Resource {
 
 export async function GET(request: NextRequest) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) {
     return NextResponse.json(
       { error: { code: 'UNAUTHENTICATED', message: 'Sign in required' } },

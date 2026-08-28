@@ -19,6 +19,7 @@ import type { ActionResult } from './auth';
 import { emitAndDispatch } from '@/lib/ai/events';
 import { viewerSeesTestAccounts } from '@/lib/staff/testAccounts';
 import { buildRuleFacts } from '@/lib/ai/rules/facts';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Reads only what coach_read_assigned_* RLS policies allow (migration 16).
@@ -29,9 +30,7 @@ import { buildRuleFacts } from '@/lib/ai/rules/facts';
  */
 export async function listAssignedClients(): Promise<Profile[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const { data: assignments, error: assignmentError } = await supabase
@@ -160,9 +159,7 @@ export async function addCoachNote(
   if (!trimmed) return { error: 'Note cannot be empty.' };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   // is_active_coach_for RLS check (migration 23) is what actually rejects

@@ -24,12 +24,11 @@ import {
 } from '@/lib/wearables/data';
 import { isWearableProviderConfigured } from '@/lib/wearables/providers/registry';
 import { syncWearableConnection } from '@/lib/wearables/sync';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export async function getMyWearableConnections(): Promise<WearableConnection[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   return listWearableConnections(supabase, user.id);
@@ -39,9 +38,7 @@ export async function connectWearableProvider(
   provider: WearableProviderName
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const connection = await upsertWearableConnection(supabase, user.id, provider, {
@@ -65,9 +62,7 @@ export async function disconnectWearableProviderAction(
   connectionId: string
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const connection = await getWearableConnection(supabase, connectionId);
@@ -82,9 +77,7 @@ export async function disconnectWearableProviderAction(
 
 export async function syncWearableProviderAction(connectionId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const connection = await getWearableConnection(supabase, connectionId);
@@ -103,9 +96,7 @@ export async function getMyWearableMetricHistory(
   days = 14
 ): Promise<WearableDailyMetric[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   return listWearableMetricHistory(supabase, user.id, metricCode, { limit: days });

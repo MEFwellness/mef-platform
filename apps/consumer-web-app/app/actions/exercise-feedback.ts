@@ -61,6 +61,8 @@ import {
 import { branchMessage, swapConfirmationMessage } from '@/lib/programs/feedback/copy';
 import { readReplacementCriteria } from '@/lib/programs/blueprints/swap';
 import { memberExerciseReasoningForMemberSwap } from '@/lib/programs/explain/exerciseReasoning';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 // ---------------------------------------------------------------------
 // Shared context: who she is, and what she is looking at
@@ -92,9 +94,7 @@ interface ExerciseContext {
  */
 async function resolveExerciseContext(exerciseRowId: string): Promise<ExerciseContext | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const { data: exercise } = await supabase
@@ -116,12 +116,6 @@ async function resolveExerciseContext(exerciseRowId: string): Promise<ExerciseCo
     .eq('id', exercise.assigned_workout_id)
     .maybeSingle();
   if (!workout) return null;
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .maybeSingle();
 
   // A corrective program is delivered as one assignment per weekly
   // session, so "this program" is the whole group. Without this a swap
@@ -148,7 +142,7 @@ async function resolveExerciseContext(exerciseRowId: string): Promise<ExerciseCo
   return {
     supabase,
     memberId: user.id,
-    timezone: (profile?.timezone as string | null) ?? 'America/New_York',
+    timezone: await memberTimezone(supabase, user.id),
     exercise: exercise as CoachAssignedWorkoutExercise,
     sectionType: (section?.section_type as string | null) ?? 'strength',
     workout: workout as ExerciseContext['workout'],
@@ -613,9 +607,7 @@ export async function applyExerciseSwapAction(
 /** She read the options and kept what she had. Recorded, because being offered and declining is a different fact from never being offered. */
 export async function keepOriginalExerciseAction(feedbackId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Sign in required.' };
   const ok = await markFeedbackKeptOriginal(supabase, feedbackId);
   return ok ? {} : { error: 'Could not save that. Please try again.' };

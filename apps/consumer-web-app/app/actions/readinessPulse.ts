@@ -66,6 +66,7 @@ import { LSC_KEY, SIGNAL_LABEL, SIGNAL_BY_LABEL } from '@/lib/life-signal-check/
 import { CVS_KEY } from '@/lib/core-values-snapshot/constants';
 import { computeLscScoring } from '@/lib/life-signal-check/scoring';
 import { computeCvsScoring } from '@/lib/core-values-snapshot/scoring';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -86,12 +87,7 @@ async function memberLocalDateForInstant(
   memberId: string,
   isoInstant: string
 ): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', memberId)
-    .maybeSingle();
-  return localDateStringFor(isoInstant, profile?.timezone ?? 'America/New_York');
+  return localDateStringFor(isoInstant, await memberTimezone(supabase, memberId));
 }
 
 /** The member's most recently completed Life Signal Check, for Question 8's comparison and the Ready Now / Ready If It's Small experiment's own target signal + timing. Degrades gracefully to null (Life Signal Check unlocks before Readiness Pulse in practice, but this never assumes it). */

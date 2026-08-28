@@ -18,6 +18,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getSessionDetail } from '@/lib/movement-sessions/data';
 import { MovementSessionPlayer } from '@/components/movement-sessions/MovementSessionPlayer';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function MovementSessionPage({
   params,
@@ -25,9 +26,7 @@ export default async function MovementSessionPage({
   params: { sessionKey: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, detail] = await Promise.all([

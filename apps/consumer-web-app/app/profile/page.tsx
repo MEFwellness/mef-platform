@@ -17,16 +17,16 @@ import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { LockedCardButton } from '@/components/locked/LockedCardButton';
 import { lockNoteMessage, lockOffersPlanLink } from '@/lib/locked-content/copy';
 import { LockedBadge } from '@/components/locked/LockedBadge';
+import { memberProfileCore } from '@/lib/member/profileCore';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ProfilePage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
-  const [{ data: profile }, isCoach, bodyAssessmentAccess] = await Promise.all([
-    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+  const [profile, isCoach, bodyAssessmentAccess] = await Promise.all([
+    memberProfileCore(supabase, user.id),
     hasActiveRole(supabase, user.id, 'coach'),
     // Locks the "Assessments" card below when this member's plan does not
     // include the Body Assessment and no coach has assigned it. 'view',
@@ -35,7 +35,7 @@ export default async function ProfilePage() {
     checkAssessmentAccess(supabase, user.id, 'body-assessment', { intent: 'view' }),
   ]);
 
-  const firstName = firstNameFrom(profile?.display_name);
+  const firstName = firstNameFrom(profile.displayName);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -60,8 +60,8 @@ export default async function ProfilePage() {
 
         <Card className="mt-7">
           <ProfileForm
-            displayName={profile?.display_name ?? ''}
-            timezone={profile?.timezone ?? 'America/New_York'}
+            displayName={profile.displayName ?? ''}
+            timezone={profile.timezone ?? 'America/New_York'}
           />
         </Card>
 

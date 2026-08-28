@@ -26,12 +26,11 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { RPL_KEY } from '@/lib/readiness-pulse/constants';
 import { CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { CenterStage, Card } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ReadinessPulseOverviewPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, access] = await Promise.all([hasActiveRole(supabase, user.id, 'coach'), checkAssessmentAccess(supabase, user.id, RPL_KEY, { intent: 'view' })]);

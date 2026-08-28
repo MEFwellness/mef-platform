@@ -40,12 +40,10 @@ import {
 } from '@/lib/primal-pattern/store';
 import { getNutritionSafetyProfile, upsertNutritionSafetyFlags } from '@/lib/health-safety/store';
 import type { NutritionSafetyFlags, NutritionSafetyProfile } from '@/lib/health-safety/types';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function requireMemberId(): Promise<string | null> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   return user?.id ?? null;
 }
 

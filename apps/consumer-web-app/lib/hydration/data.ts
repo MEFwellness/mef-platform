@@ -11,6 +11,9 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { forgetReads, readOnce } from '../data/readOnce';
+
+const HYDRATION_KEY_PREFIX = 'hydrationFocus:';
 
 export type HydrationFocusSource = 'intake' | 'member_popup' | 'coach';
 
@@ -20,7 +23,20 @@ export type HydrationFocusState = {
   source: HydrationFocusSource | null;
 };
 
+/**
+ * ONE READ PER REQUEST (Home speed build, 2026-08-28). Nine callers asked
+ * this on one Home load, through `isHydrationTracked`, which every engine
+ * that can produce a water insight asks before it produces one. Forgotten
+ * by `setHydrationFocus` below, the only write path.
+ */
 export async function fetchHydrationFocus(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<HydrationFocusState> {
+  return readOnce(`${HYDRATION_KEY_PREFIX}${memberId}`, () => readHydrationFocus(supabase, memberId));
+}
+
+async function readHydrationFocus(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<HydrationFocusState> {
@@ -79,5 +95,8 @@ export async function setHydrationFocus(
     console.error('setHydrationFocus failed', error);
     return { error: 'Could not save that. Please try again.' };
   }
+  // Her answer just changed, so anything in this same request that already
+  // read the old one must not be handed it again. See lib/data/readOnce.ts.
+  forgetReads(`${HYDRATION_KEY_PREFIX}${memberId}`);
   return { error: null };
 }

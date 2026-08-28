@@ -9,15 +9,14 @@ import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildAssessmentEntryContext } from '@/lib/conversation-coach/entryContext';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
 import { CenterStage, Card } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const DESCRIPTION =
   'Your Baseline Assessment reflects the information you shared when you first joined. It gives you and your coach a starting point for measuring progress over time.';
 
 export default async function BaselineAssessmentPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 

@@ -1,15 +1,12 @@
 import Link from 'next/link';
 import type { Route } from 'next';
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { BarcodeScanFlow } from '@/components/food-products/BarcodeScanFlow';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function NewBarcodeScanPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   return (

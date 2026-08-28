@@ -56,6 +56,7 @@ import { clearRootPopupDismissal, lscPopupMessageKey } from '@/lib/root-popup-me
 import { CVS_KEY } from '@/lib/core-values-snapshot/constants';
 import { computeCvsScoring } from '@/lib/core-values-snapshot/scoring';
 import type { CvsContextForEcho } from '@/lib/life-signal-check/types';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -76,12 +77,7 @@ async function memberLocalDateForInstant(
   memberId: string,
   isoInstant: string
 ): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', memberId)
-    .maybeSingle();
-  return localDateStringFor(isoInstant, profile?.timezone ?? 'America/New_York');
+  return localDateStringFor(isoInstant, await memberTimezone(supabase, memberId));
 }
 
 /** The member's most recently completed Core Values Snapshot, if any — needed only to evaluate the Body-Value Echo adjacency condition. Almost always present in practice (Life Signal Check unlocks only after Core Values Snapshot completes), but this degrades gracefully (Echo simply never fires) rather than throwing if it's ever missing. */

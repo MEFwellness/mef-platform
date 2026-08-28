@@ -1,16 +1,13 @@
 import Link from 'next/link';
 import type { Route } from 'next';
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { getActivePrimalPatternProfileAction } from '@/app/actions/food-lens';
 import { PrimalPatternForm } from '@/components/food-lens/PrimalPatternForm';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function FoodLensPatternPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const profile = await getActivePrimalPatternProfileAction();

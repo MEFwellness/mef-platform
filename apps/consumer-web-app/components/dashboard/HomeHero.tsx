@@ -182,15 +182,82 @@ function HeroChrome({
   );
 }
 
-export function HomeHero({
+/**
+ * THE HERO, IN TWO PIECES (Home speed build, 2026-08-28).
+ *
+ * `HomeHeroFrame` is the photo, the chrome and her greeting. It needs only
+ * her name, her clock and whether she has ever checked in, so it is in
+ * Home's very first streamed response and her name is the first thing on
+ * screen. `HomeHeroBody` is the Root Score and the line above it, which
+ * needs real engine work, so it arrives inside the frame's own Suspense
+ * boundary a moment later.
+ *
+ * The split is safe from layout shift by construction: the frame carries
+ * the section's `min-h`, its content is bottom-anchored, and the body has
+ * never come close to filling that height, so the score landing changes
+ * what is inside the box and never how tall the box is. `HomeHeroBodyPlaceholder`
+ * holds roughly the body's own height anyway, so the greeting does not
+ * visibly slide either.
+ */
+export function HomeHeroFrame({
   firstName,
   greetingWord,
+  hasCheckins,
+  children,
+}: {
+  firstName: string | null;
+  greetingWord: string;
+  /**
+   * Before a member's first completed check-in, FirstCheckInWelcome (see
+   * app/dashboard/page.tsx) carries the whole welcome moment below the
+   * hero, and the hero uses a much shorter band. That is a geometry
+   * decision, which is why it is answered in the first response rather
+   * than streamed: see lib/home/frame.ts.
+   */
+  hasCheckins: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <HeroChrome
+      firstName={firstName}
+      heroImage={heroImageForGreeting(greetingWord)}
+      greetingWord={greetingWord}
+      compact={!hasCheckins}
+    >
+      <h1
+        className={`font-[family-name:var(--font-cormorant-garamond)] leading-tight text-[#FAFAF8] ${
+          hasCheckins ? 'text-4xl md:text-[2.75rem]' : 'text-3xl md:text-4xl'
+        }`}
+      >
+        {greetingHeadline(greetingWord, firstName)}
+      </h1>
+      {children}
+    </HeroChrome>
+  );
+}
+
+/** What sits under the greeting while the score is still being computed. Same rhythm as the real body, so the greeting above it does not move when it lands. */
+export function HomeHeroBodyPlaceholder({ hasCheckins }: { hasCheckins: boolean }) {
+  return (
+    <div data-settling="true" aria-hidden="true" className="mt-2">
+      <div className="mef-settling-on-photo h-4 w-3/4 rounded-full" />
+      {hasCheckins && (
+        <>
+          <div className="mef-settling-on-photo mt-6 h-12 w-32 rounded-2xl" />
+          <div className="mef-settling-on-photo mt-4 h-4 w-full max-w-md rounded-full" />
+          <div className="mef-settling-on-photo mt-2 h-4 w-5/6 max-w-md rounded-full" />
+          <div className="mef-settling-on-photo mt-5 h-4 w-48 rounded-full" />
+        </>
+      )}
+    </div>
+  );
+}
+
+export function HomeHeroBody({
   greetingLine,
   snapshot,
   hasCheckins,
 }: {
-  firstName: string | null;
-  greetingWord: string;
   /**
    * Dashboard Evolution (Prompt 5), requirement 1: a short, Root-voiced
    * second line under the greeting — lib/dashboard/greeting.ts's
@@ -201,36 +268,16 @@ export function HomeHero({
    */
   greetingLine: string;
   snapshot: RootScoreSnapshot | null;
-  /**
-   * Before a member's first completed check-in, FirstCheckInWelcome (see
-   * app/dashboard/page.tsx) carries the whole welcome moment below the
-   * hero — the hero itself shows only the greeting, not a "building your
-   * score" message that would compete with it. Matches the original
-   * page's own gating: RootScoreCard never rendered pre-first-checkin
-   * either.
-   */
   hasCheckins: boolean;
 }) {
-  const heroImage = heroImageForGreeting(greetingWord);
+  const line = <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>;
 
-  if (!hasCheckins) {
-    return (
-      <HeroChrome firstName={firstName} heroImage={heroImage} greetingWord={greetingWord} compact>
-        <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#FAFAF8] md:text-4xl">
-          {greetingHeadline(greetingWord, firstName)}
-        </h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>
-      </HeroChrome>
-    );
-  }
+  if (!hasCheckins) return line;
 
   if (!snapshot || snapshot.root_score === null) {
     return (
-      <HeroChrome firstName={firstName} heroImage={heroImage} greetingWord={greetingWord}>
-        <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#FAFAF8] md:text-[2.75rem]">
-          {greetingHeadline(greetingWord, firstName)}
-        </h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>
+      <>
+        {line}
         <h2 className="mt-5 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#FAFAF8]">
           Building your Root Score
         </h2>
@@ -245,16 +292,13 @@ export function HomeHero({
           See what strengthens your score
           <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         </Link>
-      </HeroChrome>
+      </>
     );
   }
 
   return (
-    <HeroChrome firstName={firstName} heroImage={heroImage} greetingWord={greetingWord}>
-      <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#FAFAF8] md:text-[2.75rem]">
-        {greetingHeadline(greetingWord, firstName)}
-      </h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-[#FAFAF8]/85">{greetingLine}</p>
+    <>
+      {line}
 
       <div className="mt-6 flex flex-wrap items-end gap-4">
         {/* Requirement 5 (Living Progress): the count-up (already built,
@@ -289,6 +333,6 @@ export function HomeHero({
         See your full Root Score
         <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
       </Link>
-    </HeroChrome>
+    </>
   );
 }

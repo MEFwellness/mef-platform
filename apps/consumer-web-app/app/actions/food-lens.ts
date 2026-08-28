@@ -77,15 +77,15 @@ import {
   updateFoodLensDetectedItemStatus,
   updateFoodLensScan,
 } from '@/lib/food-lens/data';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function requireMember(): Promise<{
   supabase: ReturnType<typeof createClient>;
   userId: string;
 } | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
   return { supabase, userId: user.id };
 }
@@ -94,8 +94,7 @@ async function memberLocalDate(
   supabase: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string> {
-  const { data } = await supabase.from('profiles').select('timezone').eq('id', userId).single();
-  const timezone = data?.timezone ?? 'America/New_York';
+  const timezone = await memberTimezone(supabase, userId);
   return resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false

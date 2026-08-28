@@ -14,6 +14,7 @@ import type {
   ReassessmentSuggestion,
   RecommendationSequenceReassessmentSuggestion,
 } from './service';
+import { forgetMemberAssessmentFacts } from '../assessment-registry/facts';
 
 /** Every assessmentKey with an existing pending schedule for this member, regardless of trigger_source — the dedup set evaluateReassessmentTriggers needs. */
 export async function listPendingReassessmentAssessmentKeys(
@@ -157,6 +158,8 @@ async function insertReassessmentSchedule(
     return false;
   }
 
+  // A new schedule changes what `getMemberAssessmentFacts` answers.
+  forgetMemberAssessmentFacts(memberId);
   const { error } = await supabase.from('reassessment_schedules').insert({
     member_id: memberId,
     assessment_definition_id: definition.databaseId,

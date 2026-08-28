@@ -72,6 +72,8 @@ import { buildPriorityView } from '@/lib/priority/service';
 import type { TodaysFocusInput } from '@/lib/priority/types';
 import { getMemberVisibility } from '@/lib/visibility';
 import { F } from '@/lib/visibility/catalog';
+import { memberProfileCore } from '@/lib/member/profileCore';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 // Screen Layout System (Prompt 2): was a hand-rolled duplicate of
 // `.mef-card` (app/globals.css) — now the one shared recipe.
@@ -138,9 +140,7 @@ function stagger(index: number): CSSProperties {
 
 export default async function TodayPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // Milestone 5: the Coaching Brain is the single source of truth for
@@ -152,7 +152,7 @@ export default async function TodayPage() {
   // instead of paying their own, separate round trips afterward.
   const [
     isCoach,
-    { data: profile },
+    profile,
     decision,
     history,
     notifications,
@@ -161,7 +161,7 @@ export default async function TodayPage() {
     visibility,
   ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
-    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+    memberProfileCore(supabase, user.id),
     getMyCoachingDecision(),
     getFeedHistory(),
     getMyNotifications(5),
@@ -176,8 +176,8 @@ export default async function TodayPage() {
   /** The one question every block below asks before it renders. */
   const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
 
-  const firstName = firstNameFrom(profile?.display_name);
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const firstName = firstNameFrom(profile.displayName);
+  const timezone = profile.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const timeContext = buildTimeContext(nowInTz);
   const GreetingIcon = timeContext.hour < 12 ? Sunrise : timeContext.hour < 18 ? Sun : Moon;

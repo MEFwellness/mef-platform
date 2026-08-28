@@ -16,6 +16,7 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getOrGenerateWeeklyNutritionReportAction } from '@/app/actions/nutrition-reports';
 import { INSUFFICIENT_DATA_MESSAGE } from '@/lib/food-lens/weeklyReport';
 import { getHistoryPatternsAction } from '@/app/actions/food-insights';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -33,9 +34,7 @@ function formatWeekRange(weekStart: string, weekEnd: string): string {
 
 export default async function WeeklyNutritionReportPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, result, thirtyDayPatterns] = await Promise.all([

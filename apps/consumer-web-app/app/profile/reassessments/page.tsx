@@ -8,6 +8,7 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { AssessmentComparisonView } from '@/components/AssessmentComparisonView';
 import { AssessmentHistoryList } from '@/components/AssessmentHistoryList';
 import { CenterStage, Card } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /** local_date is a plain YYYY-MM-DD calendar string — Date.UTC keeps this pure calendar arithmetic, no timezone involved. Same pattern used throughout app/dashboard and app/coach. */
 function addDaysToLocalDate(localDate: string, days: number): string {
@@ -27,9 +28,7 @@ function formatDate(localDate: string): string {
 
 export default async function ReassessmentsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 

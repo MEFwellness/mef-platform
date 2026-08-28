@@ -92,7 +92,10 @@ describe('server-side gating: real access checks are wired into every Body Asses
     'app/assessment/page.tsx',
     'app/assessment/new/page.tsx',
     'app/actions/body-assessment.ts',
-    'app/dashboard/page.tsx',
+    // Home speed build (2026-08-28): Home's own check moved into its
+    // shared per-request loader, which is the single place every Home
+    // region now reads it from. Same check, same argument, one call.
+    'lib/home/data.ts',
     'app/progress/page.tsx',
     'app/profile/page.tsx',
   ];

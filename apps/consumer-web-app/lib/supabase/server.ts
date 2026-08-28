@@ -2,6 +2,27 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getSupabaseEnv } from './env';
 import { requestCache } from '../reactRequestCache';
+import { TRACE_ON, recordQuery } from '../dev/queryTrace';
+
+/** "rest:profiles", "rpc:has_active_role", "auth:user" — enough to count repeats by target. */
+function traceLabel(input: RequestInfo | URL): string {
+  const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  const path = new URL(href).pathname;
+  const rest = path.match(/\/rest\/v1\/rpc\/([^/?]+)/);
+  if (rest) return `rpc:${rest[1]}`;
+  const table = path.match(/\/rest\/v1\/([^/?]+)/);
+  if (table) return `rest:${table[1]}`;
+  const auth = path.match(/\/auth\/v1\/(.+)$/);
+  if (auth) return `auth:${auth[1]}`;
+  return path;
+}
+
+/** The whole read, so two byte-identical reads in one request can be counted as one duplicate. */
+function traceExact(input: RequestInfo | URL, init?: RequestInit): string {
+  const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  const u = new URL(href);
+  return `${init?.method ?? 'GET'} ${traceLabel(input)} ${u.search}`;
+}
 
 /**
  * Server-side Supabase client, used in Server Components and Server
@@ -9,8 +30,25 @@ import { requestCache } from '../reactRequestCache';
  * boundary, never a client-side or trusted-server assumption. There is no
  * service-role client used anywhere in the request path this sprint; the
  * service role is reserved for the seed script and future background jobs.
+ *
+ * ONE CLIENT PER REQUEST (Home speed build, 2026-08-28). This used to
+ * construct a fresh client on every call, and `getRequestClient` below
+ * existed as the memoized variant for the handful of call sites that
+ * needed the dedupe. That split was the reason most of this app's
+ * request-memoized readers never actually deduped: React's `cache()` keys
+ * on argument identity, so `memberTimezone(clientA, id)` and
+ * `memberTimezone(clientB, id)` are two different cache entries and
+ * therefore two round trips for one answer. Home paid that twenty-four
+ * times over on `profiles` alone.
+ *
+ * Memoizing construction changes nothing about what any query does or who
+ * may read what: the client carries no per-caller state, every read still
+ * goes to Postgres, and RLS is still the boundary. It only makes one
+ * request's callers agree on which client object they are holding, which
+ * is what the memoized readers key on. Both names are kept so the hundreds
+ * of existing call sites need no edit; they now return the same instance.
  */
-export function createClient() {
+function buildRequestClient() {
   const cookieStore = cookies();
   const { url, anonKey } = getSupabaseEnv();
 
@@ -42,8 +80,13 @@ export function createClient() {
      * than remembered at each of the hundreds of call sites.
      */
     global: {
-      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
-        fetch(input, { ...init, cache: 'no-store' }),
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = fetch(input, { ...init, cache: 'no-store' });
+        if (!TRACE_ON) return request;
+        // Development-only measurement (MEF_TRACE_QUERIES=1). See
+        // lib/dev/queryTrace.ts — a no-op branch otherwise.
+        return request.finally(() => recordQuery(traceLabel(input), traceExact(input, init)));
+      },
     },
     cookies: {
       get(name: string) {
@@ -69,19 +112,11 @@ export function createClient() {
   });
 }
 
+export const createClient = requestCache(buildRequestClient);
+
 /**
- * Request-memoized variant of createClient(), for the handful of call
- * sites (the Dashboard's carousel of independently-fetching cards —
- * WhatWereNoticingCard/RootMapCard/CoachingMessageCard/RecommendationsCard
- * — and the actions they call into) where reusing one client instance is
- * what makes the *downstream* request-memoized engine entry points
- * (getCoachingFocusDecision, computeMemberIntelligence, decideNextAction,
- * gatherRootMapInputs) actually dedupe: React's cache() keys on argument
- * identity, so two calls with the same memberId/localDate but two
- * separately-constructed SupabaseClient objects are two different cache
- * entries. A brand-new client per call was never expensive on its own
- * (cookies() is synchronous, local) — the cost this avoids is entirely in
- * what it unblocks downstream, which is why plain createClient() (above)
- * stays the default for every other call site in the app.
+ * Historical alias for `createClient`, kept because a few dozen call sites
+ * name it explicitly to say "I want the shared one". Since the Home speed
+ * build there is only one, so these are the same function.
  */
-export const getRequestClient = requestCache(() => createClient());
+export const getRequestClient = createClient;

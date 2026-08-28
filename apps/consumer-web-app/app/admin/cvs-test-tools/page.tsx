@@ -12,12 +12,11 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { listCvsTestableMembersAction } from '@/app/actions/coreValuesSnapshotAdmin';
 import { BackButton } from '@/components/BackButton';
 import { CvsTestToolsPanel } from '@/components/admin/CvsTestToolsPanel';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function CvsTestToolsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');

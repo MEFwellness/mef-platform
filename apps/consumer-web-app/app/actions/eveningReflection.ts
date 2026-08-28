@@ -23,6 +23,7 @@ import { recordForecastsFromEveningReflection } from '@/lib/energy-forecast/serv
 import { getForecastForDate } from '@/lib/energy-forecast/data';
 import { addDaysToLocalDate } from '@/lib/feed/dateMath';
 import type { ActionResult } from './auth';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 export type EveningReflectionFormInput = {
   overallDayRating: number | null;
@@ -55,13 +56,7 @@ async function requireMemberTimezone(
     return { memberId: user.id, timezone: timezoneOverride };
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .single();
-
-  return { memberId: user.id, timezone: profile?.timezone ?? 'America/New_York' };
+  return { memberId: user.id, timezone: await memberTimezone(supabase, user.id) };
 }
 
 /**

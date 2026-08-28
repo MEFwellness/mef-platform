@@ -6,6 +6,7 @@ import { ChevronLeft, Beef } from 'lucide-react';
 import { getProteinTargetForReviewAction } from '@/app/actions/protein-review';
 import { ACTIVITY_LEVELS } from '@/lib/protein/calculation';
 import { ProteinApprovalControls } from '../ProteinApprovalControls';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -15,9 +16,7 @@ const ACTIVITY_LABEL: Record<string, string> = Object.fromEntries(
 
 export default async function ProteinReviewDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const target = await getProteinTargetForReviewAction(params.id);

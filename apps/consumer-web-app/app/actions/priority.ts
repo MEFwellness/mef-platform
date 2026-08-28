@@ -34,6 +34,7 @@ import {
   upsertResetPlanDailyLog,
 } from '@/lib/reset-plan/data';
 import { resolveLocalDate } from './checkin';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 type MemberContext = { memberId: string; timezone: string; localDate: string };
 
@@ -41,13 +42,7 @@ async function memberContext(supabase: SupabaseClient): Promise<MemberContext | 
   const user = await getCachedUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const timezone = await memberTimezone(supabase, user.id);
   const localDate = await resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false

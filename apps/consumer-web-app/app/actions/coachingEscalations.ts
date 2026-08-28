@@ -51,9 +51,7 @@ export async function getClientCoachingEscalationsAction(
 ): Promise<CoachingEscalationView[]> {
   try {
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCachedUser();
     if (!user) return [];
 
     const threads = await listEscalatedThreadRows(supabase, clientId);

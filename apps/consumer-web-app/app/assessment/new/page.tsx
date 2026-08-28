@@ -6,6 +6,7 @@ import type { BodyAssessmentType } from '@mef/shared-types-contracts';
 import { ASSESSMENT_TYPE_ORDER } from '@/lib/body-assessment/assessmentTypes';
 import { AssessmentWizard } from '@/components/body-assessment/AssessmentWizard';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const VALID_TYPES = new Set<BodyAssessmentType>(ASSESSMENT_TYPE_ORDER);
 
@@ -15,9 +16,7 @@ export default async function NewAssessmentPage({
   searchParams: { type?: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // Coach-Assign-Only Gating task (2026-08-04): same take-page pattern as

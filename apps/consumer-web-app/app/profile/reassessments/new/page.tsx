@@ -4,6 +4,7 @@ import { getOnboardingQuestions } from '@/app/actions/onboarding';
 import { BackButton } from '@/components/BackButton';
 import { ReassessmentFormShell } from './ReassessmentFormShell';
 import { CenterStage } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const SHELL =
   'min-h-screen bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]';
@@ -22,9 +23,7 @@ const HEADING =
  */
 export default async function NewReassessmentPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { data: submissions } = await supabase

@@ -14,6 +14,8 @@ import { createClient } from '@/lib/supabase/server';
 import { findAssessmentRegistryEntry } from '@/lib/assessment-registry/registry';
 import type { AssessmentKey } from '@/lib/assessment-registry/types';
 import type { ActionResult } from './auth';
+import { forgetMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export type AssessmentAssignment = {
   id: string;
@@ -57,9 +59,7 @@ export async function assignAssessmentAction(
   if (!entry) return { error: 'Unknown assessment.' };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   // Idempotent: one active (pending) assignment per member per
@@ -79,6 +79,9 @@ export async function assignAssessmentAction(
 
   // is_active_coach_for RLS (migration 77) is what actually rejects an
   // assignment for a client this coach isn't assigned to — not this check.
+  // A new assignment changes what `getMemberAssessmentFacts` answers, so
+  // anything later in this request must not be handed the old answer.
+  forgetMemberAssessmentFacts(clientId);
   const { error } = await supabase.from('assessment_assignments').insert({
     member_id: clientId,
     assessment_definition_id: entry.databaseId,
@@ -100,17 +103,19 @@ export async function cancelAssessmentAssignmentAction(
   assignmentId: string
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
-  const { error } = await supabase
+  const { data: cancelled, error } = await supabase
     .from('assessment_assignments')
     .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: user.id })
     .eq('id', assignmentId)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('member_id')
+    .maybeSingle();
 
   if (error) return { error: error.message };
+  // Same reason as the assign path above.
+  if (cancelled?.member_id) forgetMemberAssessmentFacts(cancelled.member_id as string);
   return {};
 }

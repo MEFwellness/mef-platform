@@ -253,9 +253,7 @@ export type CoachMemberRecommendationView = MemberRecommendationView & {
 
 export async function getClientRecommendations(clientId: string): Promise<CoachMemberRecommendationView[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const localDate = await localDateFor(supabase, clientId);

@@ -19,25 +19,21 @@ import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { CheckinForm } from './CheckinForm';
 import { TrackSurfaceView, TrackDailyResetStarted } from '@/components/analytics/TrackSurfaceView';
+import { memberProfileCore } from '@/lib/member/profileCore';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /** How many recent days feed the sleep dial's "typical bedtime/wake" pre-fill — same window RECENCY_CAP_DAYS already uses elsewhere in this feature for "how overdue" weighting, reused here for consistency rather than a new arbitrary number. */
 const SLEEP_HISTORY_WINDOW_DAYS = 14;
 
 export default async function CheckinPage({ searchParams }: { searchParams: { date?: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, timezone')
-    .eq('id', user.id)
-    .single();
+  const profile = await memberProfileCore(supabase, user.id);
 
-  const firstName = firstNameFrom(profile?.display_name);
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const firstName = firstNameFrom(profile.displayName);
+  const timezone = profile.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const requestedYesterday = searchParams?.date === 'yesterday';
   const localDate = await resolveLocalDate(nowInTz, requestedYesterday);

@@ -29,6 +29,7 @@ import type {
   ProductAnalyticsPayload,
 } from '@mef/shared-types-contracts';
 import { recordMemberEvent } from '../events/service';
+import { memberTimezone } from '../time/memberToday';
 
 /**
  * The only keys that may ever reach the database on an analytics payload.
@@ -117,12 +118,7 @@ export async function resolveMemberTimezone(
   memberId: string
 ): Promise<string> {
   try {
-    const { data } = await supabase
-      .from('profiles')
-      .select('timezone')
-      .eq('id', memberId)
-      .single();
-    return data?.timezone ?? 'America/New_York';
+    return await memberTimezone(supabase, memberId);
   } catch {
     return 'America/New_York';
   }

@@ -7,14 +7,13 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getFoodLensLabelScanAction } from '@/app/actions/food-label';
 import { LabelConfirmForm } from '@/components/food-lens/LabelConfirmForm';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 export default async function FoodLensLabelScanPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, detail] = await Promise.all([

@@ -32,6 +32,7 @@ import { nowInTimezone, todaysLocalDate } from '@/lib/time/localDate';
 import { getTodaysCheckin, submitEveningBodyCheckin } from './checkin';
 import type { ActionResult } from './auth';
 import type { DailyCheckinInput } from '@mef/shared-types-contracts';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 async function requireMemberContext(
   supabase: SupabaseClient,
@@ -44,13 +45,7 @@ async function requireMemberContext(
     return { memberId: user.id, timezone: timezoneOverride };
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .single();
-
-  return { memberId: user.id, timezone: profile?.timezone ?? 'America/New_York' };
+  return { memberId: user.id, timezone: await memberTimezone(supabase, user.id) };
 }
 
 // ---- Hydration: a live running counter, not a once-a-day field ----

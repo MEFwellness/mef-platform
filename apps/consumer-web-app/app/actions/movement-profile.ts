@@ -30,15 +30,15 @@ import type {
   MovementProfileReviewItem,
   MovementProfileReviewStatus,
 } from '@mef/shared-types-contracts';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function resolveMemberId(): Promise<{
   supabase: ReturnType<typeof createClient>;
   memberId: string;
 } | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
   return { supabase, memberId: user.id };
 }
@@ -131,9 +131,7 @@ export async function updateClientMovementProfileCoachFields(
   params: UpdateClientMovementProfileParams
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const existing = await getMovementProfile(supabase, clientId);
@@ -164,9 +162,7 @@ export async function resolveClientMovementProfileReviewItem(
   resolutionNotes?: string
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await resolveMovementProfileReviewItem(
@@ -180,15 +176,10 @@ export async function resolveClientMovementProfileReviewItem(
 
   if (status === 'actioned') {
     try {
-      const { data: memberProfile } = await supabase
-        .from('profiles')
-        .select('timezone')
-        .eq('id', memberId)
-        .single();
       await recordTimelineEvent(supabase, {
         memberId,
         eventType: 'movement_coach_review',
-        localDate: todaysLocalDate(memberProfile?.timezone ?? 'America/New_York'),
+        localDate: todaysLocalDate(await memberTimezone(supabase, memberId)),
         title: 'Your coach reviewed your movement progress',
         sourceFeature: 'movement_profile_review_items',
         sourceRecordId: itemId,

@@ -176,19 +176,27 @@ describe('a completed priority leaves the top and settles at the bottom', () => 
   });
 
   it('both screens render the compact accomplished card at the bottom, from the same view', () => {
-    expect(HOME).toContain("priority.status === 'done' && (");
+    expect(HOME).toContain("priority?.status === 'done'");
     expect(HOME).toContain('<PriorityCard view={priority} collapsed />');
     expect(TODAY).toContain("priority.status !== 'active' && (");
     expect(TODAY).toContain('<PriorityCard view={priority} collapsed />');
 
-    // Bottom means bottom: on Home the collapsed card is the last thing in
-    // <main>, after every zone.
+    // Bottom means bottom. Home speed build (2026-08-28): the page is drawn
+    // as regions in Suspense boundaries now, so the order that decides where
+    // the collapsed card lands is the order of the regions inside <main>,
+    // not the order of two JSX tags inside one function. That is the
+    // stronger check anyway, because it is the order the member sees.
+    const mainStart = HOME.indexOf('<main');
     const mainEnd = HOME.indexOf('</main>');
-    const collapsedAt = HOME.indexOf('<PriorityCard view={priority} collapsed />');
-    const activeAt = HOME.indexOf('<PriorityCard view={priority} />');
-    expect(collapsedAt).toBeGreaterThan(activeAt);
-    expect(collapsedAt).toBeLessThan(mainEnd);
-    expect(HOME.indexOf('<ConnectWearableCard')).toBeLessThan(collapsedAt);
+    const active = HOME.indexOf('<PriorityRegion />');
+    const stream = HOME.indexOf('<StreamRegion />');
+    const collapsed = HOME.indexOf('<CompletedPriorityRegion />');
+    expect(active).toBeGreaterThan(mainStart);
+    expect(stream).toBeGreaterThan(active);
+    expect(collapsed).toBeGreaterThan(stream);
+    expect(collapsed).toBeLessThan(mainEnd);
+    // And the wearable panel, which is inside the stream, still comes before it.
+    expect(HOME.indexOf('<ConnectWearableCard')).toBeGreaterThan(-1);
   });
 
   it('the compact state is genuinely compact, and says what she finished', () => {

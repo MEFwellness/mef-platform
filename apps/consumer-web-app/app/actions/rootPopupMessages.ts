@@ -124,6 +124,7 @@ import { resolveLocalDate } from './checkin';
 import { fetchGoalCallbackContext } from '@/lib/memory-callback/data';
 import { buildGoalCallback } from '@/lib/memory-callback/copy';
 import { fetchHydrationFocus } from '@/lib/hydration/data';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 export type RootPopupMessage =
   | { kind: 'cvs_day3'; messageKey: string; experimentId: string; topLabelText: string }
@@ -223,10 +224,7 @@ async function requireMemberId(): Promise<string | null> {
 async function currentMemberLocalDate(): Promise<string> {
   const user = await getCachedUser();
   const supabase = createClient();
-  const { data: profile } = user
-    ? await supabase.from('profiles').select('timezone').eq('id', user.id).maybeSingle()
-    : { data: null };
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const timezone = user ? await memberTimezone(supabase, user.id) : 'America/New_York';
   return resolveLocalDate(new Date(new Date().toLocaleString('en-US', { timeZone: timezone })), false);
 }
 

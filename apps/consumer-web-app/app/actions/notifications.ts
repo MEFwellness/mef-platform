@@ -11,12 +11,11 @@ import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
 import type { Notification } from '@mef/shared-types-contracts';
 import { listNotifications, markNotificationRead } from '@/lib/notifications/data';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export async function getMyNotifications(limit = 10): Promise<Notification[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   return listNotifications(supabase, user.id, { limit });
@@ -24,9 +23,7 @@ export async function getMyNotifications(limit = 10): Promise<Notification[]> {
 
 export async function markMyNotificationRead(notificationId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await markNotificationRead(supabase, notificationId);

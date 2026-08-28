@@ -12,12 +12,11 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { listResetPlanTestableMembersAction } from '@/app/actions/resetPlanAdmin';
 import { BackButton } from '@/components/BackButton';
 import { ResetPlanTestToolsPanel } from '@/components/admin/ResetPlanTestToolsPanel';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ResetPlanTestToolsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');

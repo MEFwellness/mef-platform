@@ -28,6 +28,7 @@ import type {
   PrimalPatternResult,
 } from './types';
 import { upsertRegistryEntryFromPrimalPatternAttempt } from '../registry/adapters/primalPattern';
+import { forgetMemberAssessmentFacts } from '../assessment-registry/facts';
 
 const TABLE = 'primal_pattern_assessments';
 const ANSWERS_TABLE = 'primal_pattern_assessment_answers';
@@ -264,6 +265,12 @@ export async function completePrimalPatternAssessment(
       `Failed to complete Primal Pattern assessment: ${updateError?.message ?? 'unknown error'}`
     );
   }
+
+  // Her completion changes what `getMemberAssessmentFacts` would answer
+  // (assessment_status_by_member is a view over the attempt this write
+  // creates), so nothing later in THIS request may be handed the answer
+  // from before it. See lib/data/readOnce.ts.
+  forgetMemberAssessmentFacts((updated as AssessmentRow).member_id);
 
   try {
     await upsertRegistryEntryFromPrimalPatternAttempt(

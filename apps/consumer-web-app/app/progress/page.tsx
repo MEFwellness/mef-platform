@@ -63,6 +63,8 @@ import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import { getMemberVisibility } from '@/lib/visibility';
 import { F } from '@/lib/visibility/catalog';
 import { formatInTimeZone } from '@/lib/time/displayDate';
+import { memberProfileCore } from '@/lib/member/profileCore';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const ZONE_LABEL = 'text-xs font-semibold uppercase tracking-wider text-[#1B3A2D]/40';
 
@@ -85,9 +87,7 @@ function formatDate(localDate: string): string {
 
 export default async function ProgressPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // getMyWellnessStorySummary and getMyWellnessPatterns recompute their
@@ -102,7 +102,7 @@ export default async function ProgressPage() {
   // boundary for the rare live-compute path (a member's first-ever visit).
   const [
     isCoach,
-    { data: profile },
+    profile,
     recentCheckins,
     wellnessIdentity,
     healthProfileSummary,
@@ -118,7 +118,7 @@ export default async function ProgressPage() {
     visibility,
   ] = await Promise.all([
     hasActiveRole(supabase, user.id, 'coach'),
-    supabase.from('profiles').select('display_name, timezone').eq('id', user.id).single(),
+    memberProfileCore(supabase, user.id),
     getRecentCheckins(30),
     getMyWellnessIdentityHighlights(),
     getMyHealthProfileSummary(),
@@ -143,8 +143,8 @@ export default async function ProgressPage() {
   ]);
   /** The one question every panel below asks before it renders. */
   const shows = (key: string): boolean => visibility.byKey.get(key)?.visible ?? false;
-  const firstName = firstNameFrom(profile?.display_name);
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const firstName = firstNameFrom(profile.displayName);
+  const timezone = profile.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const localDate = await resolveLocalDate(nowInTz, false);
   const history = [...recentCheckins].reverse(); // most recent first for the list

@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/server';
 import { resolveMemberTimezone } from '@/lib/food-lens/weeklyReportData';
 import { getOrGenerateTodaysCoachingInsights } from '@/lib/coaching-insights/service';
 import type { CoachingInsightCategory, CoachingInsightLevel } from '@mef/shared-types-contracts';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export type CoachingInsightView = {
   id: string;
@@ -36,9 +37,7 @@ export type MyCoachingInsightsResult = {
 
 export async function getMyCoachingInsightsAction(): Promise<MyCoachingInsightsResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { insights: [], safetyMessage: null };
 
   const timezone = await resolveMemberTimezone(supabase, user.id);

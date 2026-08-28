@@ -37,6 +37,7 @@ import {
 import { buildPriorityView, toTodaysFocusInput } from './service';
 import { getDailyPriority } from './data';
 import type { DailyPriorityRecord, PriorityView } from './types';
+import { memberTimezone } from '../time/memberToday';
 
 export const getMyPriorityView = requestCache(
   async (): Promise<PriorityView | null> => {
@@ -45,13 +46,7 @@ export const getMyPriorityView = requestCache(
       const user = await getCachedUser();
       if (!user) return null;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('timezone')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const timezone = profile?.timezone ?? 'America/New_York';
+      const timezone = await memberTimezone(supabase, user.id);
       const localDate = await resolveLocalDate(
         new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
         false
@@ -106,13 +101,7 @@ export const getMyStoredPriority = requestCache(
       const user = await getCachedUser();
       if (!user) return null;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('timezone')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const timezone = profile?.timezone ?? 'America/New_York';
+      const timezone = await memberTimezone(supabase, user.id);
       const localDate = await resolveLocalDate(
         new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
         false

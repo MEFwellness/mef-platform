@@ -63,6 +63,8 @@ import {
   type LedgerProductFacts,
 } from '@/lib/protein/ledger';
 import { getMyProteinSetupState, type ProteinSetupState } from './protein';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const HISTORY_DAYS = 7;
 
@@ -71,20 +73,11 @@ async function requireMember(): Promise<{
   memberId: string;
 } | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
   return { supabase, memberId: user.id };
 }
 
-async function memberTimezone(
-  supabase: ReturnType<typeof createClient>,
-  memberId: string
-): Promise<string> {
-  const { data } = await supabase.from('profiles').select('timezone').eq('id', memberId).single();
-  return data?.timezone ?? 'America/New_York';
-}
 
 /**
  * Every food log entry in [startLocalDate, endLocalDate) from every lane,

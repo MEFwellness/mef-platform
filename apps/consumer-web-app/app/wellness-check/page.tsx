@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { GuestPreviewFlow } from './GuestPreviewFlow';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Public entry point for the pre-signup Quick Wellness Check — reached
@@ -11,10 +11,7 @@ import { GuestPreviewFlow } from './GuestPreviewFlow';
  * (app/page.tsx) instead of seeing the guest preview again.
  */
 export default async function WellnessCheckPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (user) redirect('/');
 
   return <GuestPreviewFlow />;

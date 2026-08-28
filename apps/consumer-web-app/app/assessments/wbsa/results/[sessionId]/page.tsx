@@ -34,6 +34,7 @@ import {
 import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { KeyFindingReveal } from '@/components/closing-screen/KeyFindingReveal';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -45,9 +46,7 @@ const BAND_BADGE_CLASS: Record<string, string> = {
 
 export default async function WbsaResultsPage({ params }: { params: { sessionId: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [session, isCoach] = await Promise.all([

@@ -37,6 +37,8 @@ import { AnimatedRootScoreTrendChart } from '@/components/AnimatedRootScoreTrend
 import { DOMAIN_ORDER } from '@/lib/scoring/config';
 import { SAFETY_STATEMENT } from '@/lib/scoring/copy';
 import type { MomentumState, ResilienceState } from '@mef/shared-types-contracts';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Screen Layout System (Prompt 2): the "Building your Root Score" state is
@@ -91,17 +93,14 @@ function ChangeBadge({ change }: { change: number | null }) {
 
 export default async function RootScorePage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
-  const [{ data: profile }, isCoach] = await Promise.all([
-    supabase.from('profiles').select('timezone').eq('id', user.id).single(),
+  const [timezone, isCoach] = await Promise.all([
+    memberTimezone(supabase, user.id),
     hasActiveRole(supabase, user.id, 'coach'),
   ]);
 
-  const timezone = profile?.timezone ?? 'America/New_York';
   const nowInTz = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
   const localDate = await resolveLocalDate(nowInTz, false);
 

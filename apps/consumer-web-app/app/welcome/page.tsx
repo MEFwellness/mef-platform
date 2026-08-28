@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isEligibleForWelcomeFlow } from '@/lib/welcome/eligibility';
 import { redirect } from 'next/navigation';
 import { WelcomeFlow, GOAL_SELECTION_STEP } from './WelcomeFlow';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Protected route for the premium welcome experience (Prompt 1 foundation,
@@ -20,9 +21,7 @@ import { WelcomeFlow, GOAL_SELECTION_STEP } from './WelcomeFlow';
  */
 export default async function WelcomePage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const eligible = await isEligibleForWelcomeFlow(supabase, user.id);

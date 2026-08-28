@@ -31,6 +31,8 @@ import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
 import { formatAssessmentDate, formatLastSaved } from '@/lib/assessments/presentation';
 import { CenterStage, Card } from '@/components/layout';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function AssessmentOverviewPage({
   params,
@@ -40,19 +42,17 @@ export default async function AssessmentOverviewPage({
   searchParams: { saved?: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const questionnaireId = fromPublicSlug(params.questionnaireId);
   // Same rule as the take route: an unknown slug is a 404, never a crash.
   if (!findAssessmentDefinition(questionnaireId)) notFound();
 
-  const [overview, isCoach, { data: profile }, access] = await Promise.all([
+  const [overview, isCoach, timezone, access] = await Promise.all([
     getMyAssessmentOverview(questionnaireId),
     hasActiveRole(supabase, user.id, 'coach'),
-    supabase.from('profiles').select('timezone').eq('id', user.id).single(),
+    memberTimezone(supabase, user.id),
     checkAssessmentAccess(supabase, user.id, questionnaireId, { intent: 'view' }),
   ]);
 
@@ -96,7 +96,6 @@ export default async function AssessmentOverviewPage({
       </div>
     );
   }
-  const timezone = profile?.timezone ?? 'America/New_York';
   const ctaLabel = draft ? 'Resume assessment' : 'Begin assessment';
   const justSaved = searchParams.saved === '1' && draft !== null;
   const answeredCount = draft?.answered ?? 0;

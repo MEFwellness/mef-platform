@@ -24,6 +24,7 @@ import type {
   OnboardingSubmission,
 } from '@mef/shared-types-contracts';
 import { numericRange } from './scale';
+import { readOnce } from '../data/readOnce';
 
 export type BaselineAnswer = {
   questionKey: string;
@@ -130,7 +131,22 @@ export function buildBaselineAssessment(
  * supabase client authenticated as whoever is asking, and the query
  * simply returns nothing if they're not authorized.
  */
+/**
+ * ONE READ PER REQUEST (Home speed build, 2026-08-28). Her intake is three
+ * round trips (the submission, its answers, its question set) and Home
+ * asked for all three four times over: the Home card, the visibility
+ * layer, the registry adapter and the Root router each wanted the same
+ * finished intake. It is written once, at the end of onboarding, in a
+ * request that reads nothing afterwards.
+ */
 export async function fetchBaselineAssessment(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<BaselineAssessment | null> {
+  return readOnce(`baselineAssessment:${userId}`, () => readBaselineAssessment(supabase, userId));
+}
+
+async function readBaselineAssessment(
   supabase: SupabaseClient,
   userId: string
 ): Promise<BaselineAssessment | null> {

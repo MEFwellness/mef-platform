@@ -33,6 +33,7 @@ import { DoctorSummaryCards } from '@/components/assessments/four-doctors-result
 import { ZoneLegend } from '@/components/assessments/four-doctors-results/ZoneLegend';
 import { NextStepsCards } from '@/components/assessments/four-doctors-results/NextStepsCards';
 import { FreeTierSummary } from '@/components/assessments/four-doctors-results/FreeTierSummary';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const QUESTIONNAIRE_ID = 'four-doctors';
 
@@ -42,9 +43,7 @@ export default async function FourDoctorsResultsPage({
   params: { assessmentId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [view, isCoach, { data: profile }] = await Promise.all([

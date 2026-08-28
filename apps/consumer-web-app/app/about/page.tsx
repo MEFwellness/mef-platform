@@ -1,19 +1,16 @@
 import Image from 'next/image';
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { Info, Mail } from 'lucide-react';
 import { getStaffRoles } from '@/lib/auth/staffRoles';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const APP_VERSION = '0.1.0';
 
 export default async function AboutPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // Role-neutral screen: members, coaches and administrators all reach it.

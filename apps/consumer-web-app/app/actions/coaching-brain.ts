@@ -24,6 +24,7 @@ import { getOrCreateTodaysFeed } from '@/lib/feed/service';
 import { getContentItem, listFeedHistory } from '@/lib/feed/data';
 import type { CoachingFocusDecision } from '@/lib/brain/types';
 import type { MefContentItem, DailyFeedItem } from '@mef/shared-types-contracts';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 export type CoachingDecision = CoachingFocusDecision & {
   /** Today's real selected lesson, whichever content-selection path chose it (see lib/feed/selector.ts) — null only in the honest empty-library state. */
@@ -45,15 +46,7 @@ async function currentMemberLocalDate(
   userId: string,
   timezoneOverride?: string
 ): Promise<string> {
-  let timezone = timezoneOverride;
-  if (!timezone) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('timezone')
-      .eq('id', userId)
-      .single();
-    timezone = profile?.timezone ?? 'America/New_York';
-  }
+  const timezone = timezoneOverride ?? (await memberTimezone(supabase, userId));
   return resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
@@ -127,16 +120,20 @@ export async function getClientCoachingDecision(
   clientId: string
 ): Promise<CoachingDecision | null> {
   const supabase = createClient();
+  // The row's EXISTENCE is the guard here, not its timezone: a coach who
+  // cannot read this client at all gets no row back and no decision. That
+  // is a different question from "what is her timezone", so this one read
+  // deliberately stays rather than folding onto memberTimezone.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('timezone')
+    .select('id')
     .eq('id', clientId)
     .maybeSingle();
   if (!profile) return null;
 
   const localDate = await resolveLocalDate(
     new Date(
-      new Date().toLocaleString('en-US', { timeZone: profile.timezone ?? 'America/New_York' })
+      new Date().toLocaleString('en-US', { timeZone: await memberTimezone(supabase, clientId) })
     ),
     false
   );

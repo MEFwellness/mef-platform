@@ -5,6 +5,7 @@ import { isValidGoalSelection, SOMETHING_ELSE_KEY } from '@/lib/welcome/goals';
 import { fetchLatestMemberGoalSelection, insertMemberGoalSelection } from '@/lib/member-goals/data';
 import type { ActionResult } from './auth';
 import { redirect } from 'next/navigation';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Saves the welcome flow's goal selections, marks it completed, and
@@ -38,9 +39,7 @@ export async function completeWelcomeFlow(
   }
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const trimmedOther = otherText?.trim() || null;
@@ -83,9 +82,7 @@ export async function completeWelcomeFlow(
  */
 export async function recordPrimaryGoalChange(newPrimaryGoal: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const latest = await fetchLatestMemberGoalSelection(supabase, user.id);
@@ -114,9 +111,7 @@ export async function recordPrimaryGoalChange(newPrimaryGoal: string): Promise<A
  */
 export async function markWelcomeIntroSeen(): Promise<void> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return;
 
   const { data: profile } = await supabase

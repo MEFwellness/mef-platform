@@ -33,6 +33,7 @@ import type {
   AssessmentAiObservation,
   AssessmentReportExercise,
 } from '@mef/shared-types-contracts';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export type CoachIntelligenceWorkspace = {
   analysis: AssessmentAiAnalysis;
@@ -45,9 +46,7 @@ export async function getAiAnalysisForAssessmentAction(
   sourceRecordId: string
 ): Promise<CoachIntelligenceWorkspace | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const analysis = await getAnalysisBySource(supabase, sourceFeature, sourceRecordId);
@@ -69,9 +68,7 @@ export async function runAiAnalysisAction(input: {
   assessmentTypeLabel: string;
 }): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const result = await performCoachIntelligenceAnalysis(supabase, {
@@ -95,9 +92,7 @@ export async function updateAiObservationAction(
   input: UpdateAiObservationInput
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const patch: Parameters<typeof updateObservation>[2] = {};
@@ -118,9 +113,7 @@ export async function updateAiAnalysisSummaryAction(input: {
   coachSummary: string;
 }): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await updateAnalysis(supabase, input.analysisId, {
@@ -135,9 +128,7 @@ export async function updateAiAnalysisPersonalNotesAction(input: {
   notes: string;
 }): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await updateAnalysis(supabase, input.analysisId, {
@@ -149,9 +140,7 @@ export async function updateAiAnalysisPersonalNotesAction(input: {
 
 export async function saveAiAnalysisDraftAction(analysisId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await updateAnalysis(supabase, analysisId, {
@@ -170,9 +159,7 @@ export async function publishAiAnalysisReportAction(input: {
   assessmentTypeLabel: string;
 }): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const analysis = await getAnalysisById(supabase, input.analysisId);
@@ -235,9 +222,7 @@ export async function addReportExerciseAction(input: {
   sortOrder: number;
 }): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const exercise = await insertReportExercise(
@@ -258,9 +243,7 @@ export async function addReportExerciseAction(input: {
 
 export async function removeReportExerciseAction(exerciseId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await deleteReportExercise(supabase, exerciseId);

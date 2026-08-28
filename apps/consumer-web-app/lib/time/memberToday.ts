@@ -25,13 +25,19 @@
  * resolves that date once, on the server, and the component receives it as
  * a prop, so there is one date and both passes render it.
  *
- * Request-memoized. A member screen may resolve her timezone from more
- * than one place in a single render (the page, and a server action it
- * calls), and this is a `profiles` round trip each time. React's `cache()`
- * scopes the memoization to one request, exactly as
- * `lib/supabase/currentUser.ts` already does for `auth.getUser()`. It keys
- * on argument identity, so pass `getRequestClient()` rather than a fresh
- * `createClient()` when the dedupe is what you are after.
+ * Request-memoized, through `lib/member/profileCore.ts`. A member screen
+ * may resolve her timezone from more than one place in a single render
+ * (the page, and a server action it calls), and that was a `profiles`
+ * round trip each time. React's `cache()` scopes the memoization to one
+ * request, exactly as `lib/supabase/currentUser.ts` already does for
+ * `auth.getUser()`. It keys on argument identity, and `createClient()` is
+ * itself request-memoized now, so every caller in one request shares one
+ * client and therefore one answer.
+ *
+ * HER NAME COMES OFF THE SAME ROW. `memberProfileCore` selects
+ * `display_name, timezone` together rather than each caller selecting its
+ * own column, because they are one row and reading it twice is two round
+ * trips for one fact.
  *
  * Same three lines that used to live privately in app/actions/caseView.ts
  * and beside `resolveMemberTimezone` in app/actions/coach-programs.ts,
@@ -39,24 +45,18 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { todaysLocalDate } from './localDate';
-import { requestCache } from '../reactRequestCache';
+import { memberProfileCore } from '../member/profileCore';
 
 /** The default when a member has no timezone on file, matching every other caller in this app. */
 export const FALLBACK_TIMEZONE = 'America/New_York';
 
-export const memberTimezone: (
+export async function memberTimezone(
   supabase: SupabaseClient,
   memberId: string
-) => Promise<string> = requestCache(
-  async (supabase: SupabaseClient, memberId: string): Promise<string> => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('timezone')
-      .eq('id', memberId)
-      .maybeSingle();
-    return data?.timezone ?? FALLBACK_TIMEZONE;
-  }
-);
+): Promise<string> {
+  const { timezone } = await memberProfileCore(supabase, memberId);
+  return timezone ?? FALLBACK_TIMEZONE;
+}
 
 export async function memberTodayLocalDate(
   supabase: SupabaseClient,

@@ -32,6 +32,7 @@ import { getPricingUrl, isPricingUrlConfigured } from '@/lib/membership/pricing'
 import { TRIAL_ENDED_COPY } from '@/lib/membership/copy';
 import { TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
 import { SignOutButton } from '@/components/SignOutButton';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export const metadata: Metadata = { title: 'Your 30 days are complete' };
 
@@ -39,9 +40,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function TrialEndedPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // Staff never belong here. They are redirected off member surfaces

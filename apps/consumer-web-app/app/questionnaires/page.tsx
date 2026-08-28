@@ -26,12 +26,11 @@ import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { QuestionnaireCatalogView } from '@/components/questionnaires/QuestionnaireCatalogView';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function QuestionnairesPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, catalog, { data: profile }] = await Promise.all([

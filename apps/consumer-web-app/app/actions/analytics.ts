@@ -38,6 +38,7 @@ import {
   isPaywallLockReason,
   isPaywallFeature,
 } from '@/lib/analytics/surfaces';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 /**
  * Resolves the caller as a member, or refuses.
@@ -65,15 +66,15 @@ async function memberContext(
   const user = await getCachedUser();
   if (!user) return null;
 
-  const [{ data: profile }, isCoach, isAdmin] = await Promise.all([
-    supabase.from('profiles').select('timezone').eq('id', user.id).single(),
+  const [timezone, isCoach, isAdmin] = await Promise.all([
+    memberTimezone(supabase, user.id),
     hasActiveRole(supabase, user.id, 'coach'),
     hasActiveRole(supabase, user.id, 'platform_administrator'),
   ]);
 
   if (!shouldRecordMemberAnalytics({ isCoach, isAdmin })) return null;
 
-  return { memberId: user.id, timezone: profile?.timezone ?? 'America/New_York' };
+  return { memberId: user.id, timezone };
 }
 
 /** Guest/unauthenticated callers are a normal case (a locked marker on a public preview screen), not an error: no member id means no event, silently. */

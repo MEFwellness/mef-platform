@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { resolvePostLoginPath } from '@/lib/auth/postLoginRoute';
 import { redirect } from 'next/navigation';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Pure routing hub, never rendered UI — always ends in a redirect. This
@@ -14,9 +15,7 @@ import { redirect } from 'next/navigation';
  */
 export default async function HomePage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   redirect(await resolvePostLoginPath(supabase, user));

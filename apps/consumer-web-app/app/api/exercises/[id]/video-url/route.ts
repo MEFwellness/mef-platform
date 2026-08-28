@@ -13,14 +13,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { resolveYourMoveVideoUrl } from '@/lib/your-move/videoPlayback';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) {
     return NextResponse.json(
       { error: { code: 'UNAUTHENTICATED', message: 'Sign in required' } },

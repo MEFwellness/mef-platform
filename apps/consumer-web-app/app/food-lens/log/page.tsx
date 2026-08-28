@@ -6,12 +6,11 @@ import { ChevronLeft } from 'lucide-react';
 import { listTodayFoodLogAction } from '@/app/actions/food-products';
 import { FoodLogList } from '@/components/food-products/FoodLogList';
 import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function TodayFoodLogPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [entries, timeZone] = await Promise.all([

@@ -39,6 +39,7 @@ import { INTERPRETATION_CHECKIN_COLUMNS, type InterpretationCheckin } from './ev
 import { buildCanonicalFindings } from './findings';
 import { getMemberFocus } from './focus';
 import type { MemberInterpretation } from './types';
+import { memberTimezone } from '../time/memberToday';
 
 function emptyInterpretation(localDate: string): MemberInterpretation {
   return {
@@ -165,13 +166,8 @@ async function resolveMemberLocalDate(): Promise<string> {
     const supabase = createClient();
     const user = await getCachedUser();
     if (!user) return todaysLocalDate('America/New_York');
-    const { data } = await supabase
-      .from('profiles')
-      .select('timezone')
-      .eq('id', user.id)
-      .maybeSingle();
     return todaysLocalDate(
-      (data as { timezone: string | null } | null)?.timezone ?? 'America/New_York'
+      await memberTimezone(supabase, user.id)
     );
   } catch {
     return todaysLocalDate('America/New_York');

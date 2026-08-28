@@ -36,6 +36,7 @@ import { getCachedUser } from '@/lib/supabase/currentUser';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { isAccessStatus, isAccessTier } from '@/lib/membership/types';
 import type { AccessStatus, AccessTier } from '@/lib/membership/types';
+import { forgetMemberAssessmentFacts } from '@/lib/assessment-registry/facts';
 
 type SupabaseServerClient = ReturnType<typeof createClient>;
 
@@ -183,6 +184,9 @@ export async function setMemberAccessAction(
       p_note: input.note ?? null,
     });
     if (error) throw error;
+    // Her plan just changed, and her plan is what decides what opens. See
+    // lib/data/readOnce.ts.
+    forgetMemberAssessmentFacts(input.memberId);
     revalidatePath('/admin/access');
     return true as const;
   });
@@ -203,6 +207,8 @@ export async function expireMemberAccessAction(
       p_note: note ?? null,
     });
     if (error) throw error;
+    // Same reason as setMemberAccessAction above.
+    forgetMemberAssessmentFacts(memberId);
     revalidatePath('/admin/access');
     return true as const;
   });

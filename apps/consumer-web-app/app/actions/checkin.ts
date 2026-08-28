@@ -27,6 +27,7 @@ import { isHydrationTracked } from '@/lib/hydration/data';
 import { recomputeMyRecommendations } from './recommendations';
 import { recomputeCoachingGrades } from '@/lib/coaching-direction/gradesService';
 import { getLoggedDayTotals } from '@/lib/member-counts/checkinCounts';
+import { forgetReads, readOnce } from '@/lib/data/readOnce';
 
 /**
  * Daily Check-In redesign v2 — "the new/worsening concern control
@@ -118,6 +119,10 @@ async function insertCheckinRow(
   });
 
   if (error) return { id: null, error: error.message };
+  // Her day just changed. Anything later in THIS request that already read
+  // today's check-in, her recent days or her logged-day total must not be
+  // handed the answer from before this write. See lib/data/readOnce.ts.
+  forgetReads(`${CHECKIN_KEY_PREFIX}${memberId}`);
   return { id: newCheckinId as string, error: null };
 }
 
@@ -387,15 +392,32 @@ export async function submitEveningBodyCheckin(
  * highest checkin_version row per date), or null if nothing's been
  * submitted yet.
  */
+/** Keys every read of her own check-in rows, so one write can forget all of them at once. */
+const CHECKIN_KEY_PREFIX = 'checkins:';
+
+/**
+ * ONE READ PER REQUEST (Home speed build, 2026-08-28). Home asked for
+ * today's check-in from four places on one load: the page, the priority
+ * engine, the Coaching Brain and the visibility layer. Forgotten by
+ * `insertCheckinRow` above, which is the only write.
+ */
 export async function getTodaysCheckin(localDate: string): Promise<DailyCheckin | null> {
-  const supabase = createClient();
   const user = await getCachedUser();
   if (!user) return null;
+  return readOnce(`${CHECKIN_KEY_PREFIX}${user.id}:today:${localDate}`, () =>
+    readTodaysCheckin(user.id, localDate)
+  );
+}
 
+async function readTodaysCheckin(
+  memberId: string,
+  localDate: string
+): Promise<DailyCheckin | null> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('daily_checkins_current')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', memberId)
     .eq('local_date', localDate)
     .maybeSingle();
 
@@ -411,14 +433,19 @@ export async function getTodaysCheckin(localDate: string): Promise<DailyCheckin 
  * Reads from daily_checkins_current so an edited day never shows up twice.
  */
 export async function getRecentCheckins(days: number): Promise<DailyCheckin[]> {
-  const supabase = createClient();
   const user = await getCachedUser();
   if (!user) return [];
+  return readOnce(`${CHECKIN_KEY_PREFIX}${user.id}:recent:${days}`, () =>
+    readRecentCheckins(user.id, days)
+  );
+}
 
+async function readRecentCheckins(memberId: string, days: number): Promise<DailyCheckin[]> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('daily_checkins_current')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', memberId)
     .order('local_date', { ascending: false })
     .limit(days);
 
@@ -447,7 +474,9 @@ export async function getTotalCheckinCount(): Promise<number> {
   const user = await getCachedUser();
   if (!user) return 0;
 
-  const { allTimeLoggedDays } = await getLoggedDayTotals(supabase, user.id);
+  const { allTimeLoggedDays } = await readOnce(`${CHECKIN_KEY_PREFIX}${user.id}:totals`, () =>
+    getLoggedDayTotals(supabase, user.id)
+  );
   return allTimeLoggedDays;
 }
 

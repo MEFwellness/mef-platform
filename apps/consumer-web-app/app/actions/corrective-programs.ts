@@ -45,13 +45,14 @@ import { areasFromCorrectiveTags } from '@/lib/programs/explain/programAreas';
 import { loadMemberExplanationFacts } from '@/lib/programs/explain/memberFacts';
 import { memberProgramFocus, memberProgramName } from '@/lib/programs/memberPresentation';
 import type { BodyAssessmentFinding } from '@mef/shared-types-contracts';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function resolveMemberTimezone(
   supabase: ReturnType<typeof createClient>,
   memberId: string
 ): Promise<string> {
-  const { data } = await supabase.from('profiles').select('timezone').eq('id', memberId).single();
-  return data?.timezone ?? 'America/New_York';
+  return await memberTimezone(supabase, memberId);
 }
 
 async function resolveCoach(): Promise<{
@@ -59,9 +60,7 @@ async function resolveCoach(): Promise<{
   coachId: string;
 } | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
   return { supabase, coachId: user.id };
 }

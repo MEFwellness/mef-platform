@@ -5,12 +5,11 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { listDistinctCatalogValues } from '@/lib/your-move/catalog';
 import { GenerateWorkoutFlow } from '@/components/your-move-generation/GenerateWorkoutFlow';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function GenerateWorkoutPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

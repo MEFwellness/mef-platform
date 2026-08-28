@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { LifeBuoy, Mail, MessageCircle } from 'lucide-react';
 import { getStaffRoles } from '@/lib/auth/staffRoles';
@@ -6,6 +5,7 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { Card } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const FAQS: { question: string; answer: string }[] = [
   {
@@ -25,10 +25,7 @@ const FAQS: { question: string; answer: string }[] = [
 ];
 
 export default async function HelpPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // Role-neutral screen: members, coaches and administrators all reach it.

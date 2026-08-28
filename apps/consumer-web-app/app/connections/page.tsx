@@ -9,12 +9,11 @@ import { WEARABLE_PROVIDER_NAMES } from '@/lib/wearables/providers/registry';
 import { WearableConnectionCard } from './WearableConnectionCard';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { Card } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ConnectionsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, connections, timeZone] = await Promise.all([

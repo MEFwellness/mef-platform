@@ -77,6 +77,7 @@ import type {
   ProgramScheduleType,
   ProgramTemplateStatus,
 } from '@mef/shared-types-contracts';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 export type RecommendedExercise = {
   provider: string;
   externalId: string;
@@ -89,9 +90,7 @@ async function resolveUserId(): Promise<{
   userId: string;
 } | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
   return { supabase, userId: user.id };
 }

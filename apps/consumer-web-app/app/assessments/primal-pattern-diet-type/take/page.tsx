@@ -11,6 +11,7 @@ import { getMyPrimalPatternTakeState } from '@/app/actions/primal-pattern';
 import { PrimalPatternTaker } from '@/components/primal-pattern/PrimalPatternTaker';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { createClient } from '@/lib/supabase/server';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * A TAKE URL ONLY EVER READS (2026-08-27). Opening this page resumes a
@@ -21,9 +22,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 export default async function TakePrimalPatternPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // 'view': this route only ever hands back a draft she already owns, and

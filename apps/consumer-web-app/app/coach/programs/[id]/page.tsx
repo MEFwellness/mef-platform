@@ -6,6 +6,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { getProgramTemplateWithContentAction } from '@/app/actions/coach-programs';
 import { ProgramBuilder } from '@/components/coach-program-builder/ProgramBuilder';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ProgramBuilderPage({
   params,
@@ -15,9 +16,7 @@ export default async function ProgramBuilderPage({
   searchParams: { forClient?: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

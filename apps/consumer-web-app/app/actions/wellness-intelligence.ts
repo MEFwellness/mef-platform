@@ -22,17 +22,14 @@ import {
   setInsightPinned,
   setInsightCoachContext,
 } from '@/lib/intelligence/data';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function localDateFor(
   supabase: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', userId)
-    .single();
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const timezone = await memberTimezone(supabase, userId);
   return resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
@@ -46,9 +43,7 @@ const MAX_MEMBER_INSIGHTS = 3;
 /** The signed-in member's own restrained "Your Wellness Patterns" set. */
 export async function getMyWellnessPatterns(): Promise<WellnessInsight[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const localDate = await localDateFor(supabase, user.id);
@@ -100,9 +95,7 @@ export async function requestWellnessIntelligenceRecalculation(
   clientId: string
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const localDate = await localDateFor(supabase, clientId);
@@ -110,16 +103,14 @@ export async function requestWellnessIntelligenceRecalculation(
   return {};
 }
 
-async function currentCoachId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function currentCoachId(): Promise<string | null> {
+  const user = await getCachedUser();
   return user?.id ?? null;
 }
 
 export async function confirmInsightAction(insightId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
   const ok = await setInsightStatus(supabase, insightId, 'confirmed', coachId);
   return ok ? {} : { error: 'Could not confirm this insight.' };
@@ -127,7 +118,7 @@ export async function confirmInsightAction(insightId: string): Promise<ActionRes
 
 export async function dismissInsightAction(insightId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
   const ok = await setInsightStatus(supabase, insightId, 'dismissed', coachId);
   return ok ? {} : { error: 'Could not dismiss this insight.' };
@@ -135,7 +126,7 @@ export async function dismissInsightAction(insightId: string): Promise<ActionRes
 
 export async function resolveInsightAction(insightId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
   const ok = await setInsightStatus(supabase, insightId, 'resolved', coachId);
   return ok ? {} : { error: 'Could not mark this insight resolved.' };
@@ -143,7 +134,7 @@ export async function resolveInsightAction(insightId: string): Promise<ActionRes
 
 export async function pinInsightAction(insightId: string, pinned: boolean): Promise<ActionResult> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
   const ok = await setInsightPinned(supabase, insightId, pinned, coachId);
   return ok ? {} : { error: 'Could not update this insight.' };
@@ -157,7 +148,7 @@ export async function addInsightCoachContextAction(
   if (!trimmed) return { error: 'Context cannot be empty.' };
 
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
   const ok = await setInsightCoachContext(supabase, insightId, trimmed, coachId);
   return ok ? {} : { error: 'Could not save this context.' };

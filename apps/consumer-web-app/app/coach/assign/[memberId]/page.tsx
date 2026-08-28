@@ -21,6 +21,7 @@ import { getAssignFlowOverviewAction } from '@/app/actions/assign-flow';
 import { listAssignableBlueprintsAction } from '@/app/actions/program-blueprints';
 import { FINDING_TYPE_CONFIG, SEVERITY_LABEL } from '@/lib/body-assessment/findings';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -40,9 +41,7 @@ export default async function AssignProgramMemberPage({
   params: { memberId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

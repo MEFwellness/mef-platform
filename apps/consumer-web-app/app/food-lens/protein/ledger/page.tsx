@@ -14,12 +14,11 @@ import { ProteinLedgerHistory } from '@/components/protein-ledger/ProteinLedgerH
 import { resolveLedgerTargetDisplay } from '@/lib/protein/ledger';
 import { Fade } from '@/components/motion';
 import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ProteinLedgerPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [today, history, timeZone] = await Promise.all([

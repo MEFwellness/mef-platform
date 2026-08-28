@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { NameForm } from './NameForm';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * The one-time "what should we call you" prompt. A brand-new member is
@@ -20,9 +21,7 @@ import { NameForm } from './NameForm';
  */
 export default async function NamePage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { data: profile } = await supabase

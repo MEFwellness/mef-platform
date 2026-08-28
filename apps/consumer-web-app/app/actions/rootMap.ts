@@ -43,6 +43,7 @@ import {
 import { listMyLifestyleExperiments, deriveEffectiveStatus as deriveExperimentStatus } from '@/lib/lifestyle-experiments';
 import { listMemberRecommendations } from '@/lib/recommendation-engine';
 import { requestCache } from '@/lib/reactRequestCache';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 /** How recently a domain must have been dismissed/marked-not-helpful to still suppress that same outcome type at the Root Router level — a coarser, shorter-lived safety net on top of member_recommendations' own permanent per-key dedup protection (upsertMemberRecommendation never reopens an 'ignored' row at all). */
 const ROUTER_DISMISSAL_SUPPRESSION_DAYS = 14;
@@ -86,12 +87,7 @@ async function buildAdaptiveRouterContext(
 type SupabaseServerClient = ReturnType<typeof createClient>;
 
 export async function localDateFor(supabase: SupabaseServerClient, userId: string): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', userId)
-    .single();
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const timezone = await memberTimezone(supabase, userId);
   return resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
@@ -265,9 +261,7 @@ export type CoachRootMapView = RootMapView & {
 
 export async function getClientRootMap(clientId: string): Promise<CoachRootMapView | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const localDate = await localDateFor(supabase, clientId);

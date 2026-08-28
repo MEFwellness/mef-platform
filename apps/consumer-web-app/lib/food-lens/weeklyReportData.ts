@@ -29,6 +29,7 @@ import type {
   WeeklyReportMealQualityRating,
   WeeklyReportPackagedFoodSignal,
 } from './weeklyReport';
+import { memberTimezone } from '../time/memberToday';
 
 // ---------------------------------------------------------------------------
 // Timezone-aware date helpers
@@ -93,8 +94,7 @@ export async function resolveMemberTimezone(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<string> {
-  const { data } = await supabase.from('profiles').select('timezone').eq('id', memberId).single();
-  return data?.timezone ?? 'America/New_York';
+  return await memberTimezone(supabase, memberId);
 }
 
 // ---------------------------------------------------------------------------

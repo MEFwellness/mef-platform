@@ -17,6 +17,7 @@ import { getBlueprintPlanAction } from '@/app/actions/program-blueprints';
 import { loadStaffExerciseMedia } from '@/lib/programs/staffExerciseMedia';
 import { memberTodayLocalDate } from '@/lib/time/memberToday';
 import { AssignPlanPanel } from './AssignPlanPanel';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,9 +27,7 @@ export default async function AssignProgramPreviewPage({
   params: { memberId: string; versionId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

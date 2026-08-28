@@ -33,6 +33,7 @@ import { RootMapRing } from '@/components/root-map/RootMapRing';
 import { RootMapFindingCard } from '@/components/root-map/RootMapFindingCard';
 import { RootMapBuildingRow } from '@/components/root-map/RootMapBuildingRow';
 import { RootMapNotCoveredSection } from '@/components/root-map/RootMapNotCoveredSection';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const SAFETY_STATEMENT =
   'Your Root Map is a wellness coaching guide built from your own check-ins, activity, and assessments. It is not a medical diagnosis, a clinical measurement, or a prediction about your health. Working hypotheses only, held loosely, and always something to confirm or correct with your coach.';
@@ -50,9 +51,7 @@ const NOTHING_STANDS_OUT_YET =
 
 export default async function RootMapPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [rootMap, isCoach] = await Promise.all([

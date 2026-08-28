@@ -16,15 +16,14 @@ import {
   approveProteinTarget,
 } from '@/lib/protein/store';
 import type { PendingProteinTargetQueueEntry, ProteinTarget } from '@/lib/protein/types';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function resolveCoach(): Promise<{
   supabase: ReturnType<typeof createClient>;
   coachId: string;
 } | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
   return { supabase, coachId: user.id };
 }

@@ -147,9 +147,7 @@ export async function getMyLifestyleExperiments(): Promise<LifestyleExperiment[]
 /** Coach-only — same shape as getMyLifestyleExperiments, for an assigned client. RLS (migration 92) is the real access control; this makes no additional role decision. */
 export async function getClientLifestyleExperiments(clientId: string): Promise<LifestyleExperiment[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const experiments = await listMyLifestyleExperiments(supabase, clientId);

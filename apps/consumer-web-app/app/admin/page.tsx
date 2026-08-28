@@ -1,16 +1,13 @@
 import Link from 'next/link';
 import type { Route } from 'next';
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { listUsers, listActiveCoachUserIds, listAssignmentHistory } from '@/app/actions/admin';
 import { AdminPanel } from './AdminPanel';
 import { ChangePasswordLink } from '@/components/auth/ChangePasswordLink';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function AdminPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [users, coachIds, assignments] = await Promise.all([

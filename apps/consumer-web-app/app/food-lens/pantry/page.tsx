@@ -7,12 +7,11 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { listMyPantryAction } from '@/app/actions/pantry';
 import { PantryDashboard } from '@/components/pantry/PantryDashboard';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function PantryPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, overview] = await Promise.all([

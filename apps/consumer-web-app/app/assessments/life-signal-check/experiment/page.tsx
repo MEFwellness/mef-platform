@@ -13,6 +13,7 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { LscExperimentPanel } from '@/components/life-signal-check/LscExperimentPanel';
 import { CenterStage, Card } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 function signalFromLabel(label: string): Signal {
   return SIGNALS.find((s) => SIGNAL_LABEL[s] === label) ?? 'energy';
@@ -20,9 +21,7 @@ function signalFromLabel(label: string): Signal {
 
 export default async function LscExperimentPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [status, isCoach] = await Promise.all([getMyLscExperimentStatusAction(), hasActiveRole(supabase, user.id, 'coach')]);

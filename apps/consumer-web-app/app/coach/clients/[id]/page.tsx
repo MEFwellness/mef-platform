@@ -27,12 +27,11 @@ import { getClientCoachAlerts } from '@/app/actions/intelligence-engine';
 import { resolveLocalDate } from '@/app/actions/checkin';
 import { buildCoachDashboard } from '@/lib/coach-dashboard/build';
 import { CoachDashboardView } from './CoachDashboardView';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ClientDashboardPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // RLS (coach_read_assigned_client_profile, migration 16) is what actually

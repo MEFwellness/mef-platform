@@ -31,22 +31,20 @@ import {
   listHandoffsForSession,
   updateHandoff,
 } from '@/lib/conversation-coach/data';
+import { memberProfileCore } from '@/lib/member/profileCore';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function currentMemberContext(
   supabase: ReturnType<typeof createClient>,
   userId: string
 ): Promise<{ localDate: string; timezone: string; firstName: string | null }> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, timezone')
-    .eq('id', userId)
-    .single();
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const profile = await memberProfileCore(supabase, userId);
+  const timezone = profile.timezone ?? 'America/New_York';
   const localDate = await resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
   );
-  const firstName = firstNameFrom(profile?.display_name);
+  const firstName = firstNameFrom(profile.displayName);
   return { localDate, timezone, firstName };
 }
 
@@ -60,9 +58,7 @@ export async function getOrStartConversationAction(
   entryPoint: ConversationEntryPoint = 'nav'
 ): Promise<ConversationThread | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   let session = await getActiveSession(supabase, user.id);
@@ -79,18 +75,14 @@ export async function listConversationMessagesAction(
   sessionId: string
 ): Promise<ConversationMessage[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
   return listMessages(supabase, sessionId);
 }
 
 export async function listMyConversationSessionsAction(): Promise<ConversationSession[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
   return listSessionsForMember(supabase, user.id);
 }
@@ -114,9 +106,7 @@ export async function sendConversationMessageAction(
   if (trimmed.length > 2000) return { error: 'Message is too long.' };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const { localDate, timezone, firstName } = await currentMemberContext(supabase, user.id);
@@ -150,9 +140,7 @@ export async function requestCoachHandoffAction(
   urgency: ConversationHandoffUrgency = 'medium'
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const handoff = await requestHandoff(supabase, user.id, sessionId, note.trim() || null, urgency);
@@ -167,9 +155,7 @@ export async function getClientConversationSessionsAction(
   clientId: string
 ): Promise<ConversationSession[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
   return listSessionsForMember(supabase, clientId);
 }
@@ -178,18 +164,14 @@ export async function getClientConversationMessagesAction(
   sessionId: string
 ): Promise<ConversationMessage[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
   return listMessages(supabase, sessionId);
 }
 
 export async function getSessionHandoffsAction(sessionId: string) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
   return listHandoffsForSession(supabase, sessionId);
 }
@@ -200,9 +182,7 @@ export async function setConversationRestrictionAction(
   restricted: boolean
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await setSessionStatus(supabase, sessionId, restricted ? 'restricted' : 'active');
@@ -215,9 +195,7 @@ export async function updateHandoffStatusAction(
   coachResponseNote?: string
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await updateHandoff(supabase, handoffId, {
@@ -237,9 +215,7 @@ export async function addCoachConversationNoteAction(
   if (!trimmed) return { error: 'Note cannot be empty.' };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const { error } = await supabase.from('coach_notes').insert({

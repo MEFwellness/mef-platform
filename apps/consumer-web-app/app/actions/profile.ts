@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import type { ActionResult } from './auth';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export async function updateProfile(formData: FormData): Promise<ActionResult> {
   const displayName = String(formData.get('displayName') ?? '').trim();
@@ -12,9 +13,7 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
   if (!timezone) return { error: 'Timezone is required.' };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const { error } = await supabase
@@ -43,9 +42,7 @@ export async function setDisplayName(formData: FormData): Promise<ActionResult> 
   if (!displayName) return { error: 'Please enter a name.' };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const { error } = await supabase

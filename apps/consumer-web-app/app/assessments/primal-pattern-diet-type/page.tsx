@@ -28,6 +28,7 @@ import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { NutritionSafetyFlagsForm } from '@/components/health-safety/NutritionSafetyFlagsForm';
 import { CenterStage, Card } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const RESULT_LABEL: Record<string, string> = {
   polar: 'Polar',
@@ -37,9 +38,7 @@ const RESULT_LABEL: Record<string, string> = {
 
 export default async function PrimalPatternOverviewPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [overview, isCoach, access] = await Promise.all([

@@ -1,19 +1,16 @@
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
 import { getAssignedWorkoutDetailAction } from '@/app/actions/coach-programs';
 import { CoachAssignedWorkoutDetail } from '@/components/coach-program-builder/CoachAssignedWorkoutDetail';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function CoachAssignedWorkoutPage({
   params,
 }: {
   params: { id: string; workoutId: string };
 }) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // coach_read_assigned_assigned_workouts RLS (migration 82) — a workout

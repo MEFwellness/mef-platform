@@ -11,12 +11,11 @@ import { ProgramSignalPanel } from '@/components/coach-program-builder/ProgramSi
 import { getProgramSignalPanelAction } from '@/app/actions/program-review';
 import { buildCoachProgramGroups, isLiveProgramStatus } from '@/lib/program-lifecycle/coachView';
 import type { CoachAssignedWorkout } from '@mef/shared-types-contracts';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ClientProgramsPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // RLS (coach_read_assigned_client_profile) — a client this coach isn't

@@ -39,14 +39,13 @@ import {
   type TemplateContentSectionInput,
 } from '@/lib/coach-program-builder/templates';
 import type { ProgramDifficulty } from '@mef/shared-types-contracts';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 type CoachContext = { supabase: ReturnType<typeof createClient>; userId: string };
 
 async function resolveCoachContext(): Promise<CoachContext | { error: string }> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Sign in required.' };
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
   if (!isCoach) return { error: 'Only coaches can generate workouts or programs.' };

@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
@@ -6,6 +5,7 @@ import { Beef, ChevronLeft } from 'lucide-react';
 import { listPendingProteinTargetsAction } from '@/app/actions/protein-review';
 import { ACTIVITY_LEVELS } from '@/lib/protein/calculation';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -14,10 +14,7 @@ const ACTIVITY_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 export default async function ProteinReviewQueuePage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const entries = await listPendingProteinTargetsAction();

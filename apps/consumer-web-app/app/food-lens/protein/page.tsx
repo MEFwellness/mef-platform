@@ -1,16 +1,13 @@
 import Link from 'next/link';
 import type { Route } from 'next';
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { getMyProteinSetupState } from '@/app/actions/protein';
 import { ProteinProfileForm } from '@/components/food-lens/ProteinProfileForm';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function FoodLensProteinPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const state = await getMyProteinSetupState();

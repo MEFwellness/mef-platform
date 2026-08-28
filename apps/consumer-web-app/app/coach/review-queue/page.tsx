@@ -6,6 +6,7 @@ import { listCoachReviewQueue } from '@/app/actions/safety';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 import { displayName } from '@/lib/naming/displayNames';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -26,9 +27,7 @@ const URGENCY_BADGE: Record<string, { bg: string; text: string }> = {
 
 export default async function ReviewQueuePage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const entries = await listCoachReviewQueue();

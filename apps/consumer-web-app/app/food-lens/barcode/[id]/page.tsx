@@ -20,6 +20,7 @@ import { SwapSuggestionsList } from '@/components/food-products/SwapSuggestionsL
 import { generateSwapSuggestions } from '@/lib/food-products/swaps';
 import { QuickProductActions } from '@/components/food-products/QuickProductActions';
 import { isProductFavorited } from '@/lib/food-products/savedMeals';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -39,9 +40,7 @@ const FAT_SOURCE_LABEL: Record<string, string> = {
 
 export default async function BarcodeScanResultPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, detail] = await Promise.all([

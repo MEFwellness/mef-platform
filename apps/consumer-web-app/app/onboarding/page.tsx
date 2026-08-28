@@ -10,6 +10,7 @@ import { CenterStage } from '@/components/layout';
 import { ConsentForm } from './ConsentForm';
 import { OnboardingFlow } from './OnboardingFlow';
 import { TrackOnboardingStarted } from '@/components/analytics/TrackSurfaceView';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'mef-card'; // Screen Layout System (Prompt 2): standardized card recipe, app/globals.css
 const SHELL =
@@ -51,9 +52,7 @@ function UnavailableNotice() {
 
 export default async function OnboardingPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   // No account required — a visitor can take the assessment before
   // signing up (middleware.ts's PUBLIC_PATHS exempts /onboarding for

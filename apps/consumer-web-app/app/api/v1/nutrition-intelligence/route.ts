@@ -18,14 +18,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getMemberNutritionProfile } from '@/lib/nutrition-intelligence/service';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user) {
     return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });

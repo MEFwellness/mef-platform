@@ -25,6 +25,7 @@ import { STATUS_STYLES } from '@/lib/wellness/status';
 import { ClientListPanel } from './ClientListPanel';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { ChangePasswordLink } from '@/components/auth/ChangePasswordLink';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const STAT_CARD = `${CARD} flex flex-col p-5`;
@@ -41,9 +42,7 @@ function timeAgo(isoTimestamp: string): string {
 
 export default async function CoachPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { data: coachProfile } = await supabase

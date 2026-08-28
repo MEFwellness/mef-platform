@@ -22,6 +22,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import type { RegistryEntry, RegistryEntryStatus } from '@mef/shared-types-contracts';
 import type { RegistryEntryDraft } from './types';
+import { forgetReads, readOnce } from '../data/readOnce';
 
 export async function insertRegistryEntry(
   supabase: SupabaseClient,
@@ -29,6 +30,8 @@ export async function insertRegistryEntry(
   draft: RegistryEntryDraft,
   options: { supersedesId?: string | null } = {}
 ): Promise<RegistryEntry | null> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetRegistryEntries();
   const id = randomUUID();
   const now = new Date().toISOString();
 
@@ -104,7 +107,38 @@ export async function findActiveRegistryEntry(
   return data as RegistryEntry | null;
 }
 
+const REGISTRY_KEY_PREFIX = 'registryEntries:';
+
+/**
+ * Called by every write to a registry, so a request that publishes a
+ * finding and then reads the registry sees its own write. Deliberately
+ * clears every remembered filter rather than one member's: a request only
+ * ever writes for one member, and forgetting too much costs a read while
+ * forgetting too little costs the truth.
+ */
+export function forgetRegistryEntries(): void {
+  forgetReads(REGISTRY_KEY_PREFIX);
+}
+
+/**
+ * ONE READ PER REQUEST PER FILTER (Home speed build, 2026-08-28). Eight
+ * callers asked for her whole active registry on one Home load: the
+ * interpretation layer, the longitudinal engine, the Root Map, the
+ * recommendation engine and the priority engine among them. Forgotten by
+ * `forgetRegistryEntries` above.
+ */
 export async function listRegistryEntriesForMember(
+  supabase: SupabaseClient,
+  memberId: string,
+  options: { statusFilter?: RegistryEntryStatus[] } = {}
+): Promise<RegistryEntry[]> {
+  const filter = (options.statusFilter ?? []).join(',');
+  return readOnce(`${REGISTRY_KEY_PREFIX}${memberId}:${filter}`, () =>
+    readRegistryEntriesForMember(supabase, memberId, options)
+  );
+}
+
+async function readRegistryEntriesForMember(
   supabase: SupabaseClient,
   memberId: string,
   options: { statusFilter?: RegistryEntryStatus[] } = {}

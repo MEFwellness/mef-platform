@@ -23,6 +23,7 @@ import {
 import { AssessmentComparisonPanel } from '@/components/assessments/AssessmentComparisonPanel';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
 import { CenterStage, Card, WhenNotEmpty } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function AssessmentHistoryPage({
   params,
@@ -30,9 +31,7 @@ export default async function AssessmentHistoryPage({
   params: { questionnaireId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const questionnaireId = fromPublicSlug(params.questionnaireId);

@@ -34,6 +34,7 @@ import {
   defaultMealFrequencyFor,
 } from '@/lib/primal-pattern/premium/content';
 import { KeyFindingReveal } from '@/components/closing-screen/KeyFindingReveal';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const STAT_CARD = 'rounded-2xl bg-[#F3F6F4] p-4 text-center';
 
@@ -43,9 +44,7 @@ export default async function PrimalPatternResultsPage({
   params: { assessmentId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [view, isCoach, nutritionProfile] = await Promise.all([

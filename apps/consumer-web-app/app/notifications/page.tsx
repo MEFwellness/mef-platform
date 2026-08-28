@@ -9,12 +9,11 @@ import { NotificationsList } from './NotificationsList';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { CenterStage, Card } from '@/components/layout';
 import { Breathe } from '@/components/motion/Breathe';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function NotificationsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, notifications, timeZone] = await Promise.all([

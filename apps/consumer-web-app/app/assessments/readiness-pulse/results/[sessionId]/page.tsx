@@ -21,6 +21,7 @@ import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { WhatRootLearnedSection, ResourceSection, ReturnToDashboardButton } from '@/components/readiness-pulse/RplResultsView';
 import { RplExperimentPanel } from '@/components/readiness-pulse/RplExperimentPanel';
 import { WhatRootKnowsCard } from '@/components/core-values-snapshot/WhatRootKnowsCard';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 function checkAudioAvailable(): boolean {
   try {
@@ -32,9 +33,7 @@ function checkAudioAvailable(): boolean {
 
 export default async function ReadinessPulseResultsPage({ params }: { params: { sessionId: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [session, isCoach] = await Promise.all([getSessionById(supabase, params.sessionId), hasActiveRole(supabase, user.id, 'coach')]);

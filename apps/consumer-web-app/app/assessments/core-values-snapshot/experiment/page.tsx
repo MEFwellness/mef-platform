@@ -17,12 +17,11 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { CVS_DISPLAY_FONT, CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperimentPanel';
 import { CenterStage, Card } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function CvsExperimentPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [status, isCoach] = await Promise.all([

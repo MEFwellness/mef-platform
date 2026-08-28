@@ -18,6 +18,7 @@ import { describeLockReason } from '@/lib/assessment-registry/status';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { formatInTimeZone } from '@/lib/time/displayDate';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const STATUS_LABEL: Record<string, string> = {
   in_progress: 'In progress',
@@ -36,9 +37,7 @@ function formatDate(iso: string, timeZone: string): string {
 
 export default async function BodyAssessmentPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, assessments, { data: profile }, access, timeZone] = await Promise.all([

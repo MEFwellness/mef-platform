@@ -8,12 +8,11 @@ import { loadAssignedWorkoutMedia } from '@/lib/coach-program-builder/assignedWo
 import { MemberAssignedWorkoutDetail } from '@/components/coach-program-builder/MemberAssignedWorkoutDetail';
 import { MarkProgramOpened } from '@/components/programs/MarkProgramOpened';
 import { memberProgramName, memberSessionLabel } from '@/lib/programs/memberPresentation';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function MyAssignedWorkoutPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

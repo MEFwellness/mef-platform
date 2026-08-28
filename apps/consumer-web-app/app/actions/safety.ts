@@ -16,6 +16,7 @@ import {
   insertAuditLog,
   recordAcknowledgment,
 } from '@/lib/safety/data';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Every case currently visible to this coach (coach_read_assigned_review_queue
@@ -63,9 +64,7 @@ export async function updateCoachReview(
   update: { status: SafetyReviewStatus; coachNotes?: string; resolution?: string }
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const entry = await getReviewQueueEntry(supabase, reviewId);
@@ -96,9 +95,7 @@ export async function updateCoachReview(
  */
 export async function acknowledgeSafetyMessage(acknowledgmentId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const { data: acknowledgment } = await supabase
@@ -126,9 +123,7 @@ export async function acknowledgeSafetyMessage(acknowledgmentId: string): Promis
 /** The signed-in member's own pending acknowledgments — for a future member-facing prompt. */
 export async function getMyPendingAcknowledgments() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const { data, error } = await supabase

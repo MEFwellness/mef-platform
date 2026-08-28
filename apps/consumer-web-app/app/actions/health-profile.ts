@@ -18,12 +18,11 @@ import type {
   HealthTimelineEvent,
   RegistryEntry,
 } from '@mef/shared-types-contracts';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export async function getMyHealthProfileSummary(): Promise<HealthProfileSummary | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const profile = await getMemberHealthProfile(supabase, user.id);
@@ -32,9 +31,7 @@ export async function getMyHealthProfileSummary(): Promise<HealthProfileSummary 
 
 export async function getMyActiveRegistryFindings(): Promise<RegistryEntry[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   return listRegistryEntriesForMember(supabase, user.id, { statusFilter: ['active'] });
@@ -42,9 +39,7 @@ export async function getMyActiveRegistryFindings(): Promise<RegistryEntry[]> {
 
 export async function getMyTimelineEvents(limit = 100): Promise<HealthTimelineEvent[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   return listTimelineEvents(supabase, user.id, { limit });

@@ -18,14 +18,13 @@ import { MealLogActions } from '@/components/food-lens/MealLogActions';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { formatInTimeZone } from '@/lib/time/displayDate';
 import { nowAsZonedInputValue } from '@/lib/time/localDate';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
 export default async function FoodLensScanPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, detail, timeZone] = await Promise.all([

@@ -23,6 +23,7 @@ import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveLocalDate } from './checkin';
 import { isFrictionReason } from '@/lib/coaching-direction/friction';
 import { recordFrictionAnswer } from '@/lib/coaching-direction/frictionData';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 export async function answerPriorityFrictionAction(
   reason: string,
@@ -34,13 +35,7 @@ export async function answerPriorityFrictionAction(
 
   if (!isFrictionReason(reason)) return { ok: false };
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const timezone = (profile as { timezone: string | null } | null)?.timezone ?? 'America/New_York';
+  const timezone = await memberTimezone(supabase, user.id);
   const localDate = await resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false

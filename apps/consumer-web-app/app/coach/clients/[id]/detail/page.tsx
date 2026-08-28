@@ -130,6 +130,7 @@ import {
   movementStatus,
   STATUS_STYLES,
 } from '@/lib/wellness/status';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const TRACKER_CARD = `${CARD} flex min-h-[152px] flex-col p-5`;
@@ -178,9 +179,7 @@ function formatDate(localDate: string): string {
 
 export default async function ClientDetailFullPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { data: coachProfile } = await supabase

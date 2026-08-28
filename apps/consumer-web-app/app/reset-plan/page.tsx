@@ -16,12 +16,11 @@ import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { BackButton } from '@/components/BackButton';
 import { ResetPlanTaker } from '@/components/reset-plan/ResetPlanTaker';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ResetPlanPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const granted = await hasResetPlanAccess(supabase, user.id);

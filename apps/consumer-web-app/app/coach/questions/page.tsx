@@ -14,12 +14,11 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { getQuestionBankDataAction } from '@/app/actions/driverProbeAdmin';
 import { QuestionBankPanel } from '@/components/coach-questions/QuestionBankPanel';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function CoachQuestionsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

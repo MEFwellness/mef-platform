@@ -21,6 +21,7 @@ import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 import { WhatRootLearnedSection, ResourceSection, ReturnToDashboardButton } from '@/components/core-values-snapshot/CvsResultsView';
 import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperimentPanel';
 import { WhatRootKnowsCard } from '@/components/core-values-snapshot/WhatRootKnowsCard';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 function checkAudioAvailable(): boolean {
   try {
@@ -32,9 +33,7 @@ function checkAudioAvailable(): boolean {
 
 export default async function CoreValuesSnapshotResultsPage({ params }: { params: { sessionId: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [session, isCoach] = await Promise.all([

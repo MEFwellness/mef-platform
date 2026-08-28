@@ -31,6 +31,7 @@ import { PrimalPatternSetupBanner } from '@/components/food-lens/PrimalPatternSe
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { formatInTimeZone } from '@/lib/time/displayDate';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -96,9 +97,7 @@ const COMPACT_ENTRY_OPTIONS = [
 
 export default async function FoodLensPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, scans, pattern, dailyCoaching, proteinLedgerToday, timeZone] = await Promise.all([

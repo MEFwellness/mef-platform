@@ -87,26 +87,19 @@ import {
   upsertComparison,
   upsertNote,
 } from '@/lib/body-assessment/data';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function requireMember(): Promise<{
   supabase: ReturnType<typeof createClient>;
   userId: string;
 } | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
   return { supabase, userId: user.id };
 }
 
-async function memberTimezone(
-  supabase: ReturnType<typeof createClient>,
-  userId: string
-): Promise<string> {
-  const { data } = await supabase.from('profiles').select('timezone').eq('id', userId).single();
-  return data?.timezone ?? 'America/New_York';
-}
 
 // ---- Member: start / capture / submit ----
 
@@ -718,9 +711,7 @@ export async function getAssessmentDetailAction(
   assessmentId: string
 ): Promise<BodyAssessmentDetail | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const assessment = await getAssessment(supabase, assessmentId);
@@ -767,9 +758,7 @@ export async function getMemberFindingTrendAction(
   findingType: PostureFindingType
 ): Promise<BodyAssessmentFinding[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
   return listFindingsByType(supabase, memberId, findingType, { activeOnly: true });
 }
@@ -799,9 +788,7 @@ export type AddCoachReviewInput = {
 
 export async function addCoachReviewAction(input: AddCoachReviewInput): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const review = await insertCoachReview(supabase, {
@@ -825,9 +812,7 @@ export async function addCoachReviewAction(input: AddCoachReviewInput): Promise<
 
 export async function confirmFindingAction(findingId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await setFindingReviewStatus(supabase, findingId, 'confirmed', user.id);
@@ -837,9 +822,7 @@ export async function confirmFindingAction(findingId: string): Promise<ActionRes
 
 export async function dismissFindingAction(findingId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await setFindingReviewStatus(supabase, findingId, 'dismissed', user.id);
@@ -857,9 +840,7 @@ export type OverrideFindingInput = {
 /** A coach override never edits the original finding row — it inserts a new one carrying the coach's corrected severity/narrative and supersedes the original, preserving a full audit trail (same discipline as narrative_items/wellness_identity_observations). */
 export async function overrideFindingAction(input: OverrideFindingInput): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const original = await getFinding(supabase, input.findingId);
@@ -891,9 +872,7 @@ export async function getAssessmentNoteAction(
   assessmentId: string
 ): Promise<BodyAssessmentNote | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
   return getNote(supabase, assessmentId);
 }
@@ -909,9 +888,7 @@ export async function saveAssessmentNoteAction(
   input: SaveAssessmentNoteInput
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const note = await upsertNote(supabase, {
@@ -926,9 +903,7 @@ export async function saveAssessmentNoteAction(
 
 export async function getCaptureAnnotationsAction(captureId: string): Promise<AnnotationShape[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
   const set = await getAnnotations(supabase, captureId);
   return set?.shapes ?? [];
@@ -938,9 +913,7 @@ export async function listAssessmentAnnotationsAction(
   assessmentId: string
 ): Promise<BodyAssessmentAnnotationSet[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
   return listAnnotationsForAssessment(supabase, assessmentId);
 }
@@ -956,9 +929,7 @@ export async function saveCaptureAnnotationsAction(
   input: SaveCaptureAnnotationsInput
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const set = await upsertAnnotations(supabase, {

@@ -14,6 +14,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { listAssignedClients } from '@/app/actions/coach';
 import { MemberPickerPanel } from '@/components/coach/MemberPickerPanel';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -21,9 +22,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AssignProgramPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

@@ -30,6 +30,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { getMyTimelineEvents } from '@/app/actions/health-profile';
 import { getAnalysisById } from '@/lib/coach-intelligence/data';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const EVENT_ICON = {
   onboarding_completed: ClipboardCheck,
@@ -168,9 +169,7 @@ function CheckinGroupChip({ events }: { events: HealthTimelineEvent[] }) {
 
 export default async function HealthTimelinePage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 

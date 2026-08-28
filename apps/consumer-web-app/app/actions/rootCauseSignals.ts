@@ -18,17 +18,14 @@ import {
 import { listRegistryEntriesForMember } from '@/lib/registry/data';
 import { listPendingReassessments } from '@/lib/reassessment-intelligence/data';
 import { formatDisplayDate } from '@/lib/time/displayDate';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function localDateFor(
   supabase: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', userId)
-    .single();
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const timezone = await memberTimezone(supabase, userId);
   return resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
@@ -39,9 +36,7 @@ export async function getClientRootCauseSignals(
   clientId: string
 ): Promise<RootCauseSignalsView | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const localDate = await localDateFor(supabase, clientId);

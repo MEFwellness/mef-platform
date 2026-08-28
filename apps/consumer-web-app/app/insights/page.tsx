@@ -11,7 +11,6 @@ import {
   Compass,
   type LucideIcon,
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
 import {
   getMyCoachingInsightsAction,
   type CoachingInsightView,
@@ -20,6 +19,7 @@ import { getMyLongitudinalPicture } from '@/app/actions/longitudinalIntelligence
 import type { LongitudinalPictureItem } from '@/lib/longitudinal-intelligence/picture';
 import { CoachingInsightCard } from '@/components/coaching-insights/CoachingInsightCard';
 import { Breathe } from '@/components/motion/Breathe';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const SECTIONS: Array<{
   category: CoachingInsightView['category'];
@@ -34,10 +34,7 @@ const SECTIONS: Array<{
 ];
 
 export default async function CoachingInsightsPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { insights, safetyMessage } = await getMyCoachingInsightsAction();

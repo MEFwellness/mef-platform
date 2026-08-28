@@ -35,6 +35,7 @@ import type {
   CategoryScorePoint,
   InProgressAssessment,
 } from './types';
+import { forgetMemberAssessmentFacts } from '../assessment-registry/facts';
 
 type AssessmentRow = {
   id: string;
@@ -305,6 +306,12 @@ export async function completeAssessment(
   if (updateError || !updated) {
     throw new Error(`Failed to complete assessment: ${updateError?.message ?? 'unknown error'}`);
   }
+
+  // Her completion changes what `getMemberAssessmentFacts` would answer
+  // (assessment_status_by_member is a view over the attempt this write
+  // creates), so nothing later in THIS request may be handed the answer
+  // from before it. See lib/data/readOnce.ts.
+  forgetMemberAssessmentFacts(updated.member_id as string);
 
   const { error: scoresError } = await supabase.from('wellness_assessment_category_scores').upsert(
     result.categoryScores.map((c) => ({

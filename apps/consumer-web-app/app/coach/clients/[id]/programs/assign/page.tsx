@@ -5,12 +5,11 @@ import { createClient } from '@/lib/supabase/server';
 import { listMyProgramTemplatesAction } from '@/app/actions/coach-programs';
 import { AssignProgramPanel } from '@/components/coach-program-builder/AssignProgramPanel';
 import { memberTodayLocalDate } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function AssignProgramPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { data: clientProfile } = await supabase

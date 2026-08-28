@@ -21,6 +21,8 @@ import { CaseViewBody } from '@/components/case-view/CaseViewBody';
 import { fetchTenureCallbackContext } from '@/lib/memory-callback/data';
 import { buildTenureCallback } from '@/lib/memory-callback/copy';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const SAFETY_STATEMENT =
   "This view is built from your own check-ins. It shows relationships in your data, not medical conclusions or predictions. Nothing here says one thing causes another; it's something to explore with your coach, not a diagnosis.";
@@ -38,20 +40,18 @@ const EMPTY_STATE_CHROME_OFFSET_PX = 256;
 
 export default async function CaseViewPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // getMyCaseViewAction() resolves its own user/timezone independently —
   // it doesn't need this page's own profile/isCoach reads, so it joins
   // the same Promise.all instead of waiting for them to finish first.
-  const [{ data: profile }, isCoach, caseView] = await Promise.all([
-    supabase.from('profiles').select('timezone').eq('id', user.id).single(),
+  const [timezone, isCoach, caseView] = await Promise.all([
+    memberTimezone(supabase, user.id),
     hasActiveRole(supabase, user.id, 'coach'),
     getMyCaseViewAction(),
   ]);
-  const localDate = todaysLocalDate(profile?.timezone ?? 'America/New_York');
+  const localDate = todaysLocalDate(timezone);
 
   // Root Presence System, requirement 4: a real memory callback (her
   // actual check-in tenure), only worth fetching once there's a real case

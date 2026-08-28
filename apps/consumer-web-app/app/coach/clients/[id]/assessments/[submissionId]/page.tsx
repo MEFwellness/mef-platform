@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 import { getClientAssessmentById, getCoachNotes } from '@/app/actions/coach';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
 import { CoachNotesPanel } from '../../CoachNotesPanel';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function CoachAssessmentDetailPage({
   params,
@@ -12,9 +13,7 @@ export default async function CoachAssessmentDetailPage({
   params: { id: string; submissionId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { data: coachProfile } = await supabase

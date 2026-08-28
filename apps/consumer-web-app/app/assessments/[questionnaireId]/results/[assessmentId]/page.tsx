@@ -26,6 +26,7 @@ import { ASSESSMENT_SAFETY_STATEMENT } from '@/lib/assessments/insights';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
 import { KeyFindingReveal } from '@/components/closing-screen/KeyFindingReveal';
 import { WhenNotEmpty } from '@/components/layout';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -35,9 +36,7 @@ export default async function AssessmentResultsPage({
   params: { questionnaireId: string; assessmentId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [view, isCoach] = await Promise.all([

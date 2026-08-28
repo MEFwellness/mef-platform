@@ -33,12 +33,10 @@ import { computeWbsaSystemBreakdown, hasAnySkippedQuestion } from '@/lib/wbsa/re
 import { escalateWbsaRedFlags } from '@/lib/wbsa/safety';
 import { recordTimelineEvent } from '@/lib/timeline/data';
 import { WBSA_KEY } from '@/lib/wbsa/constants';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function requireMemberId(): Promise<string | null> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   return user?.id ?? null;
 }
 

@@ -14,12 +14,11 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { listMyProgramTemplatesAction } from '@/app/actions/coach-programs';
 import { ProgramLibraryPanel } from '@/components/coach-program-builder/ProgramLibraryPanel';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function CoachProgramsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

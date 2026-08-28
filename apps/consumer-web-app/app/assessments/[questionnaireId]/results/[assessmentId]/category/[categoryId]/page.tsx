@@ -25,6 +25,7 @@ import {
   type TrendPoint,
 } from '@/components/assessments/CategoryScoreTrendChart';
 import { formatAssessmentDate } from '@/lib/assessments/presentation';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -34,9 +35,7 @@ export default async function AssessmentCategoryDetailPage({
   params: { questionnaireId: string; assessmentId: string; categoryId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const questionnaireId = fromPublicSlug(params.questionnaireId);

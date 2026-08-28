@@ -14,6 +14,7 @@ import type { WellnessInsight, WellnessInsightStatus } from '@mef/shared-types-c
 import type { WellnessInsightDraft } from './types';
 import { isHydrationTracked } from '../hydration/data';
 import { HYDRATION_WELLNESS_METRIC_KEY as HYDRATION_WELLNESS_AREA } from '../hydration/constants';
+import { forgetReads, readOnce } from '../data/readOnce';
 
 export async function insertWellnessInsight(
   supabase: SupabaseClient,
@@ -21,6 +22,8 @@ export async function insertWellnessInsight(
   draft: WellnessInsightDraft,
   options: { safetyClassificationId?: string | null; supersedesId?: string | null } = {}
 ): Promise<WellnessInsight | null> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetWellnessInsights();
   const id = randomUUID();
   const now = new Date().toISOString();
   const memberVisible = options.safetyClassificationId ? false : draft.memberVisible;
@@ -129,6 +132,8 @@ export async function touchInsightConfirmed(
   supabase: SupabaseClient,
   insightId: string
 ): Promise<void> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetWellnessInsights();
   const { error } = await supabase
     .from('wellness_insights')
     .update({ last_confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -141,6 +146,8 @@ export async function supersedeWellnessInsight(
   oldInsightId: string,
   newInsightId: string
 ): Promise<boolean> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetWellnessInsights();
   const { error } = await supabase
     .from('wellness_insights')
     .update({
@@ -164,7 +171,30 @@ const SEVERITY_RANK: Record<WellnessInsight['severity'], number> = {
   info: 0,
 };
 
+const INSIGHTS_KEY_PREFIX = 'wellnessInsights:';
+
+/** Called by every write to an insight, so a request that writes one and then lists them sees its own write. Clears every remembered filter, for the reason lib/registry/data.ts states. */
+export function forgetWellnessInsights(): void {
+  forgetReads(INSIGHTS_KEY_PREFIX);
+}
+
+/**
+ * ONE READ PER REQUEST PER FILTER (Home speed build, 2026-08-28). Four
+ * callers asked for her whole active insight list on one Home load.
+ * Forgotten by `forgetWellnessInsights` above.
+ */
 export async function listInsightsForMember(
+  supabase: SupabaseClient,
+  memberId: string,
+  options: { statusFilter?: WellnessInsightStatus[] } = {}
+): Promise<WellnessInsight[]> {
+  const filter = (options.statusFilter ?? []).join(',');
+  return readOnce(`${INSIGHTS_KEY_PREFIX}${memberId}:${filter}`, () =>
+    readInsightsForMember(supabase, memberId, options)
+  );
+}
+
+async function readInsightsForMember(
   supabase: SupabaseClient,
   memberId: string,
   options: { statusFilter?: WellnessInsightStatus[] } = {}
@@ -231,6 +261,8 @@ export async function setInsightStatus(
   status: WellnessInsightStatus,
   coachId: string | null
 ): Promise<boolean> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetWellnessInsights();
   const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
   if (status === 'confirmed' || status === 'resolved') {
     patch.last_confirmed_at = new Date().toISOString();
@@ -256,6 +288,8 @@ export async function setInsightPinned(
   pinned: boolean,
   pinnedBy: string | null
 ): Promise<boolean> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetWellnessInsights();
   const { error } = await supabase
     .from('wellness_insights')
     .update({
@@ -280,6 +314,8 @@ export async function setInsightCoachContext(
   coachContext: string,
   coachId: string
 ): Promise<boolean> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetWellnessInsights();
   const { error } = await supabase
     .from('wellness_insights')
     .update({

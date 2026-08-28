@@ -21,6 +21,7 @@ import type {
   NarrativeActorType,
 } from '@mef/shared-types-contracts';
 import type { NarrativeItemDraft } from './types';
+import { forgetReads, readOnce } from '../data/readOnce';
 
 export async function insertNarrativeItem(
   supabase: SupabaseClient,
@@ -30,6 +31,8 @@ export async function insertNarrativeItem(
   draft: NarrativeItemDraft,
   supersedesId: string | null = null
 ): Promise<NarrativeItem | null> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetNarrativeItems();
   const id = randomUUID();
   const now = new Date().toISOString();
 
@@ -88,6 +91,8 @@ export async function supersedeNarrativeItem(
   oldItemId: string,
   newItemId: string
 ): Promise<boolean> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetNarrativeItems();
   const { error } = await supabase
     .from('narrative_items')
     .update({
@@ -147,7 +152,30 @@ export async function findActiveItemsByCategory(
   return data as NarrativeItem[];
 }
 
+const NARRATIVE_KEY_PREFIX = 'narrativeItems:';
+
+/** Called by every write to a narrative, so a request that writes one and then lists them sees its own write. Clears every remembered filter, for the reason lib/registry/data.ts states. */
+export function forgetNarrativeItems(): void {
+  forgetReads(NARRATIVE_KEY_PREFIX);
+}
+
+/**
+ * ONE READ PER REQUEST PER FILTER (Home speed build, 2026-08-28). Six
+ * callers asked for her whole active narrative on one Home load. Forgotten
+ * by `forgetNarrativeItems` above.
+ */
 export async function listNarrativeItems(
+  supabase: SupabaseClient,
+  memberId: string,
+  options: { statusFilter?: NarrativeStatus[] } = {}
+): Promise<NarrativeItem[]> {
+  const filter = (options.statusFilter ?? []).join(',');
+  return readOnce(`${NARRATIVE_KEY_PREFIX}${memberId}:${filter}`, () =>
+    readNarrativeItems(supabase, memberId, options)
+  );
+}
+
+async function readNarrativeItems(
   supabase: SupabaseClient,
   memberId: string,
   options: { statusFilter?: NarrativeStatus[] } = {}
@@ -194,6 +222,8 @@ export async function setPinned(
   pinned: boolean,
   pinnedBy: string | null
 ): Promise<boolean> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetNarrativeItems();
   const { error } = await supabase
     .from('narrative_items')
     .update({
@@ -216,6 +246,8 @@ export async function setProtected(
   itemId: string,
   protectedValue: boolean
 ): Promise<boolean> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetNarrativeItems();
   const { error } = await supabase
     .from('narrative_items')
     .update({ coach_protected: protectedValue, updated_at: new Date().toISOString() })
@@ -233,6 +265,8 @@ export async function setStatus(
   itemId: string,
   status: NarrativeStatus
 ): Promise<boolean> {
+  // See lib/data/readOnce.ts: this write changes what the memoized list read above would answer.
+  forgetNarrativeItems();
   const { error } = await supabase
     .from('narrative_items')
     .update({ status, updated_at: new Date().toISOString() })

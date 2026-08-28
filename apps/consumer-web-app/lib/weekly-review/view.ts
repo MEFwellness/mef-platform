@@ -19,6 +19,7 @@ import { getCachedUser } from '@/lib/supabase/currentUser';
 import { requestCache } from '@/lib/reactRequestCache';
 import { resolveLocalDate } from '@/app/actions/checkin';
 import { buildWeeklyReviewState, type WeeklyReviewState } from './service';
+import { memberTimezone } from '../time/memberToday';
 
 export const getMyWeeklyReview = requestCache(
   async (): Promise<WeeklyReviewState | null> => {
@@ -27,13 +28,7 @@ export const getMyWeeklyReview = requestCache(
       const user = await getCachedUser();
       if (!user) return null;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('timezone')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const timezone = profile?.timezone ?? 'America/New_York';
+      const timezone = await memberTimezone(supabase, user.id);
       const localDate = await resolveLocalDate(
         new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
         false

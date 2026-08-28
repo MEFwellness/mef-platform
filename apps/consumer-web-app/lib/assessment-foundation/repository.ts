@@ -4,6 +4,7 @@ import type {
   UnifiedAssessmentQuestion,
   UnifiedAssessmentSection,
 } from '@mef/shared-types-contracts';
+import { readOnce } from '../data/readOnce';
 
 /**
  * Read-only queries against the Unified Adaptive Assessment Foundation
@@ -21,7 +22,23 @@ import type {
  * module in this codebase.
  */
 
+/**
+ * ONE READ PER REQUEST PER KEY (Home speed build, 2026-08-28). Home asked
+ * for the same three definitions eleven times between them: the
+ * questionnaire catalog, the free-arc picker and the pop-up chain each walk
+ * the same list. A definition is published content, not member state, and
+ * nothing in a member request writes one.
+ */
 export async function getUnifiedAssessmentDefinitionByKey(
+  supabase: SupabaseClient,
+  key: string
+): Promise<UnifiedAssessmentDefinition | null> {
+  return readOnce(`unifiedAssessmentDefinition:${key}`, () =>
+    readUnifiedAssessmentDefinitionByKey(supabase, key)
+  );
+}
+
+async function readUnifiedAssessmentDefinitionByKey(
   supabase: SupabaseClient,
   key: string
 ): Promise<UnifiedAssessmentDefinition | null> {

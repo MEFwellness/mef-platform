@@ -8,6 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Driver, DriverDomain, DriverGoalWeight, MemberDriverState, DriverState } from './types';
 import { isHydrationTracked } from '../hydration/data';
 import { HYDRATION_DRIVER_ID } from '../hydration/constants';
+import { readOnce } from '../data/readOnce';
 
 type DriverDomainRow = { key: string; label: string; sort_order: number };
 
@@ -52,6 +53,14 @@ function fromDriverRow(row: DriverRow): Driver {
 
 /** Every active driver (drivers, migration 106) — reference data, not member data. */
 export async function listActiveDrivers(supabase: SupabaseClient): Promise<Driver[]> {
+  // ONE READ PER REQUEST (Home speed build, 2026-08-28). This is the
+  // seeded driver library, the same rows for every member, and five
+  // engines on one Home load each asked for it. Nothing in a member
+  // request writes it: the only writers are the admin screens.
+  return readOnce('driversActive', () => readActiveDrivers(supabase));
+}
+
+async function readActiveDrivers(supabase: SupabaseClient) {
   const { data, error } = await supabase.from('drivers').select('*').eq('active', true);
 
   if (error) {

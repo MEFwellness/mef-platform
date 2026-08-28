@@ -54,6 +54,7 @@ import {
 import { classifyDay7Pattern, daysSinceStart, isDay3Eligible, isDay7Eligible, type Day3Response } from '@/lib/core-values-snapshot/experiment';
 import { clearRootPopupDismissal, cvsPopupMessageKey } from '@/lib/root-popup-messages/data';
 import { hasStartedLscAction } from './lifeSignalCheck';
+import { memberTimezone } from '@/lib/time/memberToday';
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -74,12 +75,7 @@ async function memberLocalDateForInstant(
   memberId: string,
   isoInstant: string
 ): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', memberId)
-    .maybeSingle();
-  return localDateStringFor(isoInstant, profile?.timezone ?? 'America/New_York');
+  return localDateStringFor(isoInstant, await memberTimezone(supabase, memberId));
 }
 
 const CVS_ROUTES = {

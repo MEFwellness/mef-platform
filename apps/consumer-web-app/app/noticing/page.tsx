@@ -26,6 +26,7 @@ import { BackButton } from '@/components/BackButton';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { CenterStage } from '@/components/layout';
 import { getMyNoticingView } from '@/app/actions/memberNoticing';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Screen Layout System (Prompt 2): the empty state below ("Still gathering
@@ -44,9 +45,7 @@ const EMPTY_STATE_CHROME_OFFSET_PX = 232;
 
 export default async function NoticingPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [view, isCoach] = await Promise.all([

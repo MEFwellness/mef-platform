@@ -8,12 +8,37 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { forgetReads, readOnce } from '../data/readOnce';
 import { listAssessmentRegistryEntries } from './registry';
 import { membershipKeyForAccessTier, resolveMembershipKey } from './membership';
 import type { AssessmentKey } from './types';
 import type { MemberAssessmentFacts, ProgramEnrollmentFacts } from './status';
 
+/**
+ * ONE READ PER REQUEST (Home speed build, 2026-08-28). Seven different
+ * callers ask this on one Home load: the questionnaire catalog twice, the
+ * visibility layer, the priority engine, the Root router, and
+ * `checkAssessmentAccess`. Each was six real round trips, so Home spent
+ * forty-two of them on one answer that cannot change mid-render.
+ *
+ * Forgotten by `forgetMemberAssessmentFacts` below, which every write that
+ * changes an assignment, a schedule, a plan or a completion calls.
+ */
 export async function getMemberAssessmentFacts(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<Map<AssessmentKey, MemberAssessmentFacts>> {
+  return readOnce(`${FACTS_KEY_PREFIX}${memberId}`, () => readMemberAssessmentFacts(supabase, memberId));
+}
+
+const FACTS_KEY_PREFIX = 'assessmentFacts:';
+
+/** Called by every write that changes what `getMemberAssessmentFacts` would answer, so a request that assigns, completes or re-plans then re-reads sees its own write. */
+export function forgetMemberAssessmentFacts(memberId: string): void {
+  forgetReads(`${FACTS_KEY_PREFIX}${memberId}`);
+}
+
+async function readMemberAssessmentFacts(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<AssessmentKey, MemberAssessmentFacts>> {

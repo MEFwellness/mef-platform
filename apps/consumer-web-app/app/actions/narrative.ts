@@ -12,13 +12,12 @@ import {
   insertNarrativeItem,
   supersedeNarrativeItem,
 } from '@/lib/narrative/data';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /** The signed-in member's own narrative — member-visible rows only (RLS-enforced regardless). */
 export async function getMyNarrative(): Promise<NarrativeItem[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   return listNarrativeItems(supabase, user.id, { statusFilter: ['active', 'resolved'] });
@@ -35,9 +34,7 @@ export async function pinNarrativeItemAction(
   pinned: boolean
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const ok = await setPinned(supabase, itemId, pinned, user.id);
@@ -78,9 +75,7 @@ export async function correctNarrativeItemAction(
   if (!trimmedTitle || !trimmedSummary) return { error: 'Title and summary are required.' };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const original = await getNarrativeItem(supabase, itemId);
@@ -123,9 +118,7 @@ export async function addCoachNarrativeItemAction(
   if (!trimmedTitle || !trimmedSummary) return { error: 'Title and summary are required.' };
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Not signed in.' };
 
   const created = await insertNarrativeItem(supabase, clientId, 'coach', user.id, {

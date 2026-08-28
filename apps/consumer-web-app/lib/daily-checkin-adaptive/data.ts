@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Rule } from '../adaptive-assessment-engine/types';
 import type { DisplayStyle, DriverProbeQuestion, ProbeOption, ProbeResponseType, ProbeScreen, ProbeStorage } from './types';
+import { readOnce } from '../data/readOnce';
 
 type DriverProbeQuestionRow = {
   question_key: string;
@@ -46,6 +47,14 @@ function fromRow(row: DriverProbeQuestionRow): DriverProbeQuestion {
 
 /** Every active rotating-probe bank row (driver_probe_questions, migration 106) — reference data, not member data. Editable with a plain insert/update, no deploy. */
 export async function listActiveDriverProbeQuestions(supabase: SupabaseClient): Promise<DriverProbeQuestion[]> {
+  // ONE READ PER REQUEST, same reasoning as the driver library itself:
+  // a seeded question bank, identical for every member, asked for by
+  // several engines on one load. The coach's question screen is the only
+  // writer, and it lives in its own request.
+  return readOnce('driverProbeQuestionsActive', () => readActiveProbeQuestions(supabase));
+}
+
+async function readActiveProbeQuestions(supabase: SupabaseClient) {
   const { data, error } = await supabase.from('driver_probe_questions').select('*').eq('active', true);
 
   if (error) {

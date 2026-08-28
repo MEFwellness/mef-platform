@@ -50,7 +50,13 @@ describe('the program hero leads the home screen', () => {
   });
 
   it('is gated on the same history the welcome-card branch is, so it changed place and not audience', () => {
-    expect(PAGE).toContain('const hasRealHistory = hasCheckins || hasActiveExperiment;');
+    // Home speed build (2026-08-28): the same condition, stated once as
+    // memberHasRealHistory() so the day frame and the stream below it read
+    // the identical answer rather than each recomputing it.
+    expect(PAGE).toContain(
+      "return recentCheckins.length > 0 || lifestyleExperiments.some((e) => e.status === 'active');",
+    );
+    expect(PAGE).toContain('memberHasRealHistory()');
     expect(PAGE).toContain('{hasRealHistory && programHero &&');
     expect(PAGE).toContain('{!hasRealHistory ? (');
   });

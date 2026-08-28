@@ -30,6 +30,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { startOrResumeSession, type AssessmentSession, type RuntimeEvent } from './index';
+import { getCachedUser } from '../supabase/currentUser';
 
 export type RuntimeRoutes = {
   /** The overview screen: where a member goes when there is nothing to take. */
@@ -45,10 +46,8 @@ export type RuntimeEntryResult =
   /** Nothing was written. `redirectTo` is where this member belongs instead. */
   | { ok: false; redirectTo: string };
 
-async function currentMemberId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function currentMemberId(): Promise<string | null> {
+  const user = await getCachedUser();
   return user?.id ?? null;
 }
 
@@ -63,7 +62,7 @@ export async function beginRuntimeAssessment(
   options: { startRetake?: boolean } = {}
 ): Promise<RuntimeEntryResult> {
   const supabase = createClient();
-  const memberId = await currentMemberId(supabase);
+  const memberId = await currentMemberId();
   if (!memberId) return { ok: false, redirectTo: '/login' };
 
   // 'start', not 'view'. Her own past completion is not permission to
@@ -102,7 +101,7 @@ export async function loadRuntimeTakeSession(
   routes: RuntimeRoutes
 ): Promise<RuntimeEntryResult> {
   const supabase = createClient();
-  const memberId = await currentMemberId(supabase);
+  const memberId = await currentMemberId();
   if (!memberId) return { ok: false, redirectTo: '/login' };
 
   // 'view', because a member reading her own finished assessment is the

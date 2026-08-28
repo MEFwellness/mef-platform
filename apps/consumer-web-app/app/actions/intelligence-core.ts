@@ -27,36 +27,29 @@ import type {
   MemberWellnessHighlight,
   MemberWellnessStorySummary,
 } from '@/lib/intelligence-core/types';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function localDateFor(
   supabase: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', userId)
-    .single();
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const timezone = await memberTimezone(supabase, userId);
   return resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
   );
 }
 
-async function currentCoachId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function currentCoachId(): Promise<string | null> {
+  const user = await getCachedUser();
   return user?.id ?? null;
 }
 
 /** The signed-in member's own "Your Wellness Identity" — a handful of positive, plain-language patterns, never a score. */
 export async function getMyWellnessIdentityHighlights(): Promise<MemberWellnessHighlight[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   const observations = await listIdentityObservationsForMember(supabase, user.id, {
@@ -68,9 +61,7 @@ export async function getMyWellnessIdentityHighlights(): Promise<MemberWellnessH
 /** The signed-in member's own Wellness Story summary — strengths, opportunities, priorities, recent wins, and motivation profile, run under the member's own session and stripped to plain-language titles only (see toMemberWellnessStorySummary). Recalculates first, same "cheap and safe to re-run" posture as getMyWellnessIdentityHighlights and every other member-facing intelligence action. */
 export async function getMyWellnessStorySummary(): Promise<MemberWellnessStorySummary | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const localDate = await localDateFor(supabase, user.id);
@@ -89,7 +80,7 @@ export async function getClientIntelligenceCoreSummary(
   clientId: string
 ): Promise<IntelligenceCoreSummary | null> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return null;
 
   const localDate = await localDateFor(supabase, clientId);
@@ -102,7 +93,7 @@ export async function requestIntelligenceCoreRecalculation(
   clientId: string
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
 
   const localDate = await localDateFor(supabase, clientId);

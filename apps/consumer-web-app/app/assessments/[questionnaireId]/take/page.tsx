@@ -13,6 +13,7 @@ import { fromPublicSlug, toPublicSlug } from '@/lib/assessments/publicSlug';
 import { createClient } from '@/lib/supabase/server';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import { AssessmentTaker } from '@/components/assessments/AssessmentTaker';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * A TAKE URL ONLY EVER READS (2026-08-27). This page used to create the
@@ -39,9 +40,7 @@ export default async function TakeAssessmentPage({
   const overviewHref = `/assessments/${toPublicSlug(questionnaireId)}` as Route;
 
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   // 'view', because this route's only job now is to hand back a draft she

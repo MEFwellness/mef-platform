@@ -31,9 +31,7 @@ export async function getMyCaseViewAction(): Promise<CaseView | null> {
 
 export async function getClientCaseViewAction(clientId: string): Promise<CaseView | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const localDate = await memberTodayLocalDate(supabase, clientId);

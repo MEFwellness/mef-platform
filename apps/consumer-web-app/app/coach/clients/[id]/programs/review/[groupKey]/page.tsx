@@ -20,6 +20,7 @@ import { openProgramReviewAction } from '@/app/actions/program-review';
 import { buildCoachProgramGroups } from '@/lib/program-lifecycle/coachView';
 import { ProgramReviewPanel } from '@/components/coach-program-builder/ProgramReviewPanel';
 import { memberTodayLocalDate } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ProgramPhaseReviewPage({
   params,
@@ -27,9 +28,7 @@ export default async function ProgramPhaseReviewPage({
   params: { id: string; groupKey: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { data: clientProfile } = await supabase

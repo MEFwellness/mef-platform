@@ -8,15 +8,14 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { FloatingCoachLauncher } from '@/components/FloatingCoachLauncher';
 import { buildAssessmentEntryContext } from '@/lib/conversation-coach/entryContext';
 import { BaselineAssessmentView } from '@/components/BaselineAssessmentView';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const DESCRIPTION =
   'This reassessment reflects the information you shared at this point in time: compare it with your Baseline Assessment to see how things have changed.';
 
 export default async function ReassessmentDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
 

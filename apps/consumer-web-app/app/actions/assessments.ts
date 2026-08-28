@@ -60,12 +60,10 @@ import {
 } from '@/lib/assessments/store';
 import { localDateFor } from './rootMap';
 import { recomputeMyRecommendations } from './recommendations';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function requireMemberId(): Promise<string | null> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   return user?.id ?? null;
 }
 

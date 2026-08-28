@@ -21,12 +21,11 @@ import { MemberProgramsList } from '@/components/coach-program-builder/MemberPro
 import { MarkProgramOpened } from '@/components/programs/MarkProgramOpened';
 import { isCurrentProgramStatus } from '@/lib/program-lifecycle/memberView';
 import { memberTodayLocalDate } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function MyProgramsPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

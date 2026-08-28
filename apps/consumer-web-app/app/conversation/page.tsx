@@ -11,6 +11,7 @@ import { BackButton } from '@/components/BackButton';
 import { SUGGESTED_PROMPTS } from '@/lib/conversation-coach/suggestedPrompts';
 import { ConversationView } from './ConversationView';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -37,9 +38,7 @@ export default async function CoachingConversationPage({
   searchParams: { entry?: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const requestedEntry = searchParams.entry;

@@ -28,15 +28,14 @@ import {
   computeHistoryPatterns,
   type HistoryPatternsResult,
 } from '@/lib/food-lens/historyPatterns';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function requireMember(): Promise<{
   supabase: ReturnType<typeof createClient>;
   userId: string;
 } | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
   return { supabase, userId: user.id };
 }

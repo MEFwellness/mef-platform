@@ -23,27 +23,22 @@ import {
   resolveCoachAlert,
   dismissCoachAlert,
 } from '@/lib/intelligence-engine/data';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 async function localDateFor(
   supabase: ReturnType<typeof createClient>,
   userId: string
 ): Promise<string> {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone')
-    .eq('id', userId)
-    .single();
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const timezone = await memberTimezone(supabase, userId);
   return resolveLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
   );
 }
 
-async function currentCoachId(supabase: ReturnType<typeof createClient>): Promise<string | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function currentCoachId(): Promise<string | null> {
+  const user = await getCachedUser();
   return user?.id ?? null;
 }
 
@@ -52,7 +47,7 @@ export async function getClientIntelligenceReport(
   clientId: string
 ): Promise<MemberIntelligenceReport | null> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return null;
 
   const localDate = await localDateFor(supabase, clientId);
@@ -62,7 +57,7 @@ export async function getClientIntelligenceReport(
 /** Explicit recalculation trigger — same recalculation getClientIntelligenceReport already runs on every page view, triggered on demand instead. */
 export async function requestIntelligenceRecalculation(clientId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
 
   const localDate = await localDateFor(supabase, clientId);
@@ -72,14 +67,14 @@ export async function requestIntelligenceRecalculation(clientId: string): Promis
 
 export async function getClientCoachAlerts(clientId: string): Promise<IntelligenceCoachAlert[]> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return [];
   return listCoachAlertsForMember(supabase, clientId);
 }
 
 export async function acknowledgeCoachAlertAction(alertId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
   const ok = await acknowledgeCoachAlert(supabase, alertId, coachId);
   return ok ? {} : { error: 'Could not acknowledge this alert.' };
@@ -90,7 +85,7 @@ export async function resolveCoachAlertAction(
   note: string
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
   const ok = await resolveCoachAlert(supabase, alertId, coachId, note.trim() || null);
   return ok ? {} : { error: 'Could not resolve this alert.' };
@@ -98,7 +93,7 @@ export async function resolveCoachAlertAction(
 
 export async function dismissCoachAlertAction(alertId: string): Promise<ActionResult> {
   const supabase = createClient();
-  const coachId = await currentCoachId(supabase);
+  const coachId = await currentCoachId();
   if (!coachId) return { error: 'Not signed in.' };
   const ok = await dismissCoachAlert(supabase, alertId, coachId);
   return ok ? {} : { error: 'Could not dismiss this alert.' };

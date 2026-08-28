@@ -162,9 +162,7 @@ export async function getMyCoachingMessage(): Promise<CoachingMessageView | null
 /** Coach-only — the Coach Workspace's conversation summary, priorities, recent themes, and suggested discussion topics/questions. Never recorded as a message shown to the member; the coach is only reading, not delivering. */
 export async function getClientCoachWorkspaceSummary(clientId: string): Promise<CoachWorkspaceSummary | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   const localDate = await localDateFor(supabase, clientId);

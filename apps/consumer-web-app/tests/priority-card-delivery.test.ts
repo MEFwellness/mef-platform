@@ -303,9 +303,13 @@ describe('analytics: presentation recorded, one priority per day', () => {
     // first, and the recorded presentation would be meaningless. The
     // pop-up is what actually reached her, so the inline tracker stands
     // down while it is showing.
+    // Home speed build (2026-08-28): the chain's answer and the inline
+    // tracker now live in one region (PopupRegion), which is the whole
+    // point — the boundary that knows which presentation she got is the
+    // only one that can decide which of the two reports.
     const home = read('app/dashboard/page.tsx');
-    expect(home).toContain("rootPopupMessage?.kind === 'priority_card'");
-    expect(home).toContain('{!priorityShownAsPopup && (');
+    expect(home).toContain("deliveredMessage?.kind === 'priority_card'");
+    expect(home).toContain('!priorityShownAsPopup && (');
 
     // Today has no pop-up, so its inline card always reports.
     const today = read('app/today/page.tsx');
@@ -359,7 +363,9 @@ describe('never during onboarding', () => {
   });
 
   it('is also suppressed during the one-time first-check-in transition', () => {
-    expect(read('app/dashboard/page.tsx')).toContain("searchParams.firstCheckin !== '1' ? rootPopupMessage : null");
+    const home = read('app/dashboard/page.tsx');
+    expect(home).toContain("searchParams.firstCheckin === '1'");
+    expect(home).toContain('isFirstCheckinTransition ? null : rootPopupMessage');
   });
 });
 

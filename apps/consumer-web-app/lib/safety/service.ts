@@ -27,6 +27,7 @@ import {
   insertAuditLog,
   resolveAssignedCoach,
 } from './data';
+import { forgetRestrictedTopics } from '../feed/data';
 
 export type EvaluateConcernInput = {
   memberId: string;
@@ -96,6 +97,11 @@ export async function evaluateConcern(
   });
 
   if (!classification) return null;
+
+  // A new classification can open a coach review case, which is what
+  // decides which topics are restricted. Anything later in this same
+  // request that asks must not be handed the answer from before it.
+  forgetRestrictedTopics(input.memberId);
 
   await insertAuditLog(supabase, {
     memberId: input.memberId,

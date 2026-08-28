@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LongitudinalSignal, LongitudinalSignalRow } from './types';
 import { isHydrationTracked } from '../hydration/data';
 import { HYDRATION_DRIVER_ID, HYDRATION_WELLNESS_METRIC_KEY } from '../hydration/constants';
+import { forgetReads, readOnce } from '../data/readOnce';
 
 type PatternStateRow = {
   id: string;
@@ -68,7 +69,31 @@ function isHydrationSignal(row: LongitudinalSignalRow): boolean {
 }
 
 /** Every previously-persisted signal state for this member, keyed by signal_key — what the pure classifiers in signalState.ts read as `priorRow` for occurrence continuity. Hydration signals are withheld for a member who does not track water (see isHydrationSignal). */
+const PATTERN_STATES_KEY_PREFIX = 'patternStates:';
+
+/**
+ * ONE READ PER REQUEST (Home speed build, 2026-08-28). Four callers asked
+ * for her whole pattern state on one Home load: the priority engine, the
+ * Root coaching message, the interpretation layer and the longitudinal
+ * engine itself.
+ *
+ * This one genuinely needs its invalidation, and it is the reason
+ * `lib/data/readOnce.ts` insists on the rule: `computeLongitudinalSignals`
+ * reads these states, reclassifies them against the prior row, and upserts
+ * the result inside the SAME request. Without the forget in
+ * `upsertMemberPatternState` below, a later reader in that request would
+ * be handed the states from before the recompute.
+ */
 export async function listMemberPatternStates(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<Map<string, LongitudinalSignalRow>> {
+  return readOnce(`${PATTERN_STATES_KEY_PREFIX}${memberId}`, () =>
+    readMemberPatternStates(supabase, memberId)
+  );
+}
+
+async function readMemberPatternStates(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<Map<string, LongitudinalSignalRow>> {
@@ -93,6 +118,9 @@ export async function upsertMemberPatternState(
   memberId: string,
   signal: LongitudinalSignal
 ): Promise<void> {
+  // The state this member has just been given is not the one anybody read a
+  // moment ago. See this file's own note on listMemberPatternStates.
+  forgetReads(`${PATTERN_STATES_KEY_PREFIX}${memberId}`);
   const { error } = await supabase.from('member_pattern_states').upsert(
     {
       member_id: memberId,

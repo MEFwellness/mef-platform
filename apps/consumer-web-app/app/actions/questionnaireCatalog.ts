@@ -35,6 +35,7 @@ import { getUnifiedAssessmentDefinitionByKey, getUnifiedAssessmentQuestions } fr
 import { findInProgressSession } from '@/lib/assessment-runtime';
 import { getMemberVisibility } from '@/lib/visibility';
 import { showUnbuiltPlaceholder } from '@/lib/naming/unbuiltPlaceholders';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export type CatalogCard = {
   key: AssessmentKey;
@@ -84,10 +85,7 @@ function emptyCatalog(): QuestionnaireCatalog {
 }
 
 async function requireMemberId(): Promise<string | null> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   return user?.id ?? null;
 }
 

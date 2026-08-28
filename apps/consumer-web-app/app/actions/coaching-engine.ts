@@ -12,6 +12,7 @@ import { firstNameFrom } from '@/lib/profile/greeting';
 import { resolveLocalDate } from './checkin';
 import type { MorningBrief } from '@mef/shared-types-contracts';
 import { getOrCreateTodaysMorningBrief } from '@/lib/coaching-engine/service';
+import { memberProfileCore } from '@/lib/member/profileCore';
 
 /**
  * The member's Daily Morning Brief for today, generating it on the spot if
@@ -30,16 +31,17 @@ export async function getMyMorningBrief(
   const user = await getCachedUser();
   if (!user) return null;
 
+  // Her name is resolved from the same row as her timezone whenever the
+  // caller did not hand one over, rather than only when the timezone was
+  // also missing. A caller that knew her zone but not her name used to
+  // store an empty greeting_name here, silently. memberProfileCore is
+  // request-memoized, so asking costs nothing a caller has already paid.
   let resolvedTimezone = timezone;
   let resolvedDisplayName = displayName;
-  if (!resolvedTimezone) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('display_name, timezone')
-      .eq('id', user.id)
-      .single();
-    resolvedTimezone = profile?.timezone ?? 'America/New_York';
-    resolvedDisplayName = profile?.display_name;
+  if (!resolvedTimezone || resolvedDisplayName === undefined) {
+    const profile = await memberProfileCore(supabase, user.id);
+    resolvedTimezone = resolvedTimezone ?? profile.timezone ?? 'America/New_York';
+    resolvedDisplayName = resolvedDisplayName ?? profile.displayName;
   }
 
   const localDate = await resolveLocalDate(

@@ -15,6 +15,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { BackButton } from '@/components/BackButton';
 import { listBlueprintLibraryAction } from '@/app/actions/program-blueprints';
 import { BLUEPRINT_STATUS_TONE, BLUEPRINT_STATUS_LABEL } from '@/components/blueprints/statusTone';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -22,9 +23,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function BlueprintLibraryPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isAdmin = await hasActiveRole(supabase, user.id, 'platform_administrator');

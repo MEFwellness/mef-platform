@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { CONSENT_ITEMS, CONSENT_VERSION } from '@/lib/consent/copy';
 import type { ActionResult } from './auth';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Records all four required consents in one call. Relies entirely on the
@@ -13,9 +14,7 @@ import type { ActionResult } from './auth';
  */
 export async function recordAllConsents(): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user) return { error: 'Not signed in.' };
 

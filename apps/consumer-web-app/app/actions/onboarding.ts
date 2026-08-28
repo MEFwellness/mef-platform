@@ -26,6 +26,7 @@ import { upsertRegistryEntriesFromOnboardingSubmission } from '@/lib/registry/ad
 import { trackProductEvent } from '@/lib/analytics/track';
 import { setHydrationFocus } from '@/lib/hydration/data';
 import { HYDRATION_QUESTION_KEY, hydrationFocusFromAnswer } from '@/lib/hydration/constants';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const ASSESSMENT_VERSION = 1;
 
@@ -187,9 +188,7 @@ export async function submitOnboarding(
   answers: OnboardingAnswerInput[]
 ): Promise<ActionResult> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
 
   if (!user) return { error: 'Not signed in.' };
 
@@ -311,9 +310,7 @@ export async function submitOnboarding(
  */
 export async function getMyBaselineAssessment(): Promise<BaselineAssessment | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   return fetchBaselineAssessment(supabase, user.id);
@@ -322,9 +319,7 @@ export async function getMyBaselineAssessment(): Promise<BaselineAssessment | nu
 /** Every submission the signed-in member has ever made, oldest first (baseline always first). */
 export async function getMyAssessmentHistory(): Promise<AssessmentSummary[]> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return [];
 
   return fetchAssessmentHistory(supabase, user.id);
@@ -335,9 +330,7 @@ export async function getMyAssessmentById(
   submissionId: string
 ): Promise<BaselineAssessment | null> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return null;
 
   return fetchAssessmentById(supabase, user.id, submissionId);
@@ -356,9 +349,7 @@ export async function getMyProgressComparison(): Promise<{
   summary: ProgressSummary;
 }> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) {
     const metrics = buildComparison(null, null);
     return { baseline: null, latest: null, metrics, summary: buildProgressSummary(metrics) };

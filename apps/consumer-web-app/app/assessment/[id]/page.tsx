@@ -22,12 +22,11 @@ import { SpinalCurveMeasurements } from '@/components/body-assessment/SpinalCurv
 import { Card, WhenNotEmpty } from '@/components/layout';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { formatInTimeZone } from '@/lib/time/displayDate';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const [isCoach, timeZone, detail] = await Promise.all([

@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { forgetReads, readOnce } from '../data/readOnce';
 import type {
   MefContentItem,
   DailyFeedItem,
@@ -245,6 +246,27 @@ export async function insertFeedEvent(
 
 /** The topics currently restricted for this member per Milestone 1's still-open coach review cases — see migration 30's get_member_restricted_topics for why this goes through an RPC rather than a direct table read. */
 export async function getMemberRestrictedTopics(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<string[]> {
+  // ONE READ PER REQUEST (Home speed build, 2026-08-28). Seven engines ask
+  // this on one Home load, each before deciding whether it may say
+  // anything about a topic under coach review. Forgotten by
+  // lib/safety/service.ts's evaluateConcern, which is the only thing in a
+  // member request that can open a new review case.
+  return readOnce(`${RESTRICTED_TOPICS_KEY_PREFIX}${memberId}`, () =>
+    readMemberRestrictedTopics(supabase, memberId)
+  );
+}
+
+export const RESTRICTED_TOPICS_KEY_PREFIX = 'restrictedTopics:';
+
+/** Called by the one write that can change what topics are restricted for a member inside a single request. */
+export function forgetRestrictedTopics(memberId: string): void {
+  forgetReads(`${RESTRICTED_TOPICS_KEY_PREFIX}${memberId}`);
+}
+
+async function readMemberRestrictedTopics(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<string[]> {

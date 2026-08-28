@@ -79,6 +79,8 @@ import { supersedePreviousPrograms } from '@/lib/program-lifecycle/service';
 import { recordMemberEvent } from '@/lib/events/service';
 import { todaysLocalDate } from '@/lib/time/localDate';
 import { programDisplayName } from '@/lib/program-lifecycle/memberView';
+import { memberTimezone } from '@/lib/time/memberToday';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export interface ActionFailure {
   error: string;
@@ -92,9 +94,7 @@ async function resolveCoach(): Promise<
   { supabase: ReturnType<typeof createClient>; coachId: string } | ActionFailure
 > {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) return { error: 'Sign in required.' };
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');
@@ -105,13 +105,6 @@ async function resolveCoach(): Promise<
   return { supabase, coachId: user.id };
 }
 
-async function memberTimezone(
-  supabase: ReturnType<typeof createClient>,
-  memberId: string
-): Promise<string> {
-  const { data } = await supabase.from('profiles').select('timezone').eq('id', memberId).single();
-  return data?.timezone ?? 'America/New_York';
-}
 
 /**
  * The periodization model this program's loads move on, read from the

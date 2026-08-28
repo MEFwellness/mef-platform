@@ -19,20 +19,16 @@ import { todaysLocalDate } from '@/lib/time/localDate';
 import { AvatarLink } from '@/components/AvatarLink';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { EveningReflectionForm } from './EveningReflectionForm';
+import { memberProfileCore } from '@/lib/member/profileCore';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function EveningReflectionPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, timezone')
-    .eq('id', user.id)
-    .single();
-  const timezone = profile?.timezone ?? 'America/New_York';
+  const profile = await memberProfileCore(supabase, user.id);
+  const timezone = profile.timezone ?? 'America/New_York';
   const localDate = todaysLocalDate(timezone);
 
   const [existing, checkinPlan, localFollowUps, initialProbeAnswers, existingForecastLevel, priorCheckins] =
@@ -46,7 +42,7 @@ export default async function EveningReflectionPage() {
     ]);
   const rotatingProbes = (checkinPlan?.rotatingProbes ?? []).filter((p) => p.screen === 'evening');
 
-  const firstName = firstNameFrom(profile?.display_name);
+  const firstName = firstNameFrom(profile.displayName);
   // Same "never touched any check-in before" signal the morning page
   // computes — cinematic mode applies here too on the rare chance her
   // very first-ever check-in happens to be an evening one.

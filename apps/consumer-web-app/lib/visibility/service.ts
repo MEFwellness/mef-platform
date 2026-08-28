@@ -26,6 +26,7 @@ import { fetchStoredVisibility, recordReveals, type RevealToRecord } from './dat
 import { pendingReveals, resolveVisibility, type StoredVisibility } from './resolve';
 import { emptyVisibilityContext } from './rules';
 import type { FeatureKey, MemberVisibility } from './types';
+import { memberTimezone } from '../time/memberToday';
 
 /** The answer for a member the layer could not read anything about. */
 function fallbackVisibility(): MemberVisibility {
@@ -95,12 +96,7 @@ export const getMemberVisibility = requestCache(async (): Promise<MemberVisibili
 
 async function resolveMemberLocalDate(supabase: SupabaseClient, memberId: string): Promise<string> {
   try {
-    const { data } = await supabase
-      .from('profiles')
-      .select('timezone')
-      .eq('id', memberId)
-      .maybeSingle();
-    return todaysLocalDate((data as { timezone: string | null } | null)?.timezone ?? 'America/New_York');
+    return todaysLocalDate(await memberTimezone(supabase, memberId));
   } catch {
     return todaysLocalDate('America/New_York');
   }

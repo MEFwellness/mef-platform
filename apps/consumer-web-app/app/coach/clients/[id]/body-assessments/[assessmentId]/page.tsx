@@ -24,6 +24,7 @@ import { ReviewWorkspace } from './ReviewWorkspace';
 import type { RailCapture } from './CaptureRail';
 import type { ComparisonCapture, FindingTrendSeries } from './RightPanel/ComparisonSection';
 import type { TrendPoint } from './RightPanel/TrendChart';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /** A 0-100 "posture score" for one finding — higher is better (none=100, significant=0) — so TrendChart's default higherIsBetter reading matches. 'unknown' severities are excluded from the trend entirely rather than plotted as a fabricated midpoint. */
 function severityToScore(severity: keyof typeof SEVERITY_LABEL): number | null {
@@ -48,9 +49,7 @@ export default async function CoachBodyAssessmentDetailPage({
   params: { id: string; assessmentId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { data: clientProfile } = await supabase

@@ -6,6 +6,7 @@ import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/layout';
 import { TrackSurfaceView, TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 const INCLUDED: { label: string; Icon: typeof HeartPulse }[] = [
   { label: 'Daily Root Score and cross-domain trends', Icon: Sparkles },
@@ -17,9 +18,7 @@ const INCLUDED: { label: string; Icon: typeof HeartPulse }[] = [
 
 export default async function MembershipPage() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

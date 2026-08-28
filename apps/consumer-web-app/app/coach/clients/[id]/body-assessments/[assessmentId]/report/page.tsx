@@ -10,6 +10,7 @@ import { FINDING_TYPE_CONFIG, SEVERITY_LABEL } from '@/lib/body-assessment/findi
 import { ComparisonSummary } from '@/app/assessment/[id]/ComparisonSummary';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 import { PrintButton } from './PrintButton';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 /**
  * Simplest-correct "Generate Client Report" implementation (item F of the
@@ -41,9 +42,7 @@ export default async function BodyAssessmentReportPage({
   params: { id: string; assessmentId: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const { data: clientProfile } = await supabase

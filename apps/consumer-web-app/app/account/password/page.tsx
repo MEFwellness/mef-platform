@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { KeyRound } from 'lucide-react';
 import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/layout';
 import { ChangePasswordForm } from './ChangePasswordForm';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,10 +22,7 @@ export const dynamic = 'force-dynamic';
  * returns there rather than being dropped into the member profile.
  */
 export default async function ChangePasswordPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   return (

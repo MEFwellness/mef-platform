@@ -16,6 +16,7 @@ import { loadStaffExerciseMedia } from '@/lib/programs/staffExerciseMedia';
 import { memberTodayLocalDate } from '@/lib/time/memberToday';
 import { CORRECTIVE_PROGRAM_DURATION_WEEKS } from '@/lib/corrective-engine/approvalDefaults';
 import { DraftReviewPanel } from './DraftReviewPanel';
+import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function CorrectiveDraftReviewPage({
   params,
@@ -23,9 +24,7 @@ export default async function CorrectiveDraftReviewPage({
   params: { memberId: string; groupTag: string };
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   if (!user) redirect('/login');
 
   const isCoach = await hasActiveRole(supabase, user.id, 'coach');

@@ -8,6 +8,8 @@
  * their own notion of "morning" or "Monday".
  */
 
+import { nowInTimezone } from '../time/localDate';
+
 export type DayOfWeek =
   'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
 
@@ -70,10 +72,38 @@ export function dayOfWeekFromLocalDate(localDate: string): DayOfWeek {
   return DAY_NAMES[new Date(Date.UTC(year!, month! - 1, day!)).getUTCDay()]!;
 }
 
-/** @param nowInTz A Date already shifted into the member's local timezone (see app/today/page.tsx's `nowInTz`). */
+/**
+ * The member's own timezone is the only input this needs, so it is the
+ * only input this form takes (Home speed build, 2026-08-28).
+ *
+ * WHY IT EXISTS BESIDE `buildTimeContext`. The older form takes a Date the
+ * caller has already shifted, by the `new Date(new Date().toLocaleString(...))`
+ * round trip. That round trip silently depends on the HOST PROCESS's own
+ * zone, because Date's non-ISO string parsing uses the runtime's local
+ * zone: it produces the right hour only because Vercel runs with TZ=UTC,
+ * and it produces the wrong DATE off UTC, which is the family of bugs
+ * lib/time/localDate.ts's own header documents. `nowInTimezone` takes the
+ * target zone directly through Intl and never consults the process's zone
+ * at all, so this form is correct on any runtime.
+ *
+ * New callers use this one. The Date form is kept for the two screens that
+ * still hand their already-shifted Date to `resolveLocalDate` as well, so
+ * that migrating them is one deliberate change rather than a side effect
+ * of this build.
+ */
+export function timeContextInTimezone(timezone: string): TimeContext {
+  const nowInTz = nowInTimezone(timezone);
+  return contextFrom(nowInTz.getUTCDay(), nowInTz.getUTCHours());
+}
+
+/** @param nowInTz A Date already shifted into the member's local timezone (see app/today/page.tsx's `nowInTz`). Prefer `timeContextInTimezone` above. */
 export function buildTimeContext(nowInTz: Date): TimeContext {
-  const dayOfWeek = DAY_NAMES[nowInTz.getDay()]!;
-  const hour = nowInTz.getHours();
+  return contextFrom(nowInTz.getDay(), nowInTz.getHours());
+}
+
+/** The one body both forms share, so the two input conventions can never produce two different answers for the same moment. */
+function contextFrom(dayIndex: number, hour: number): TimeContext {
+  const dayOfWeek = DAY_NAMES[dayIndex]!;
   return {
     hour,
     dayOfWeek,

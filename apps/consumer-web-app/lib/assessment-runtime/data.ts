@@ -21,6 +21,7 @@ import { publishUnifiedAssessmentFindings } from '../registry/adapters/unifiedAs
 import { deriveFindings } from './findings';
 import { buildSession, calculateVisibleQuestions, findFirstUnanswered, flattenVisibleQuestions } from './session';
 import type { AnswerValue, AssessmentSession, RuntimeEvent, SessionAnswers } from './types';
+import { forgetMemberAssessmentFacts } from '../assessment-registry/facts';
 
 type SessionRow = {
   id: string;
@@ -359,6 +360,12 @@ export async function completeSession(
   if (updateError || !updated) {
     throw new Error(`Failed to complete assessment session: ${updateError?.message ?? 'unknown error'}`);
   }
+
+  // Her completion changes what `getMemberAssessmentFacts` would answer
+  // (assessment_status_by_member is a view over the attempt this write
+  // creates), so nothing later in THIS request may be handed the answer
+  // from before it. See lib/data/readOnce.ts.
+  forgetMemberAssessmentFacts((updated as SessionRow).member_id);
 
   const session = assembleSession(updated as SessionRow, content, answers);
   const events: RuntimeEvent[] = [{ type: 'assessment_completed', sessionId }];
