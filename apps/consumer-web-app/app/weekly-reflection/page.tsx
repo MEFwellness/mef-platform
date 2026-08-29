@@ -17,13 +17,18 @@
  *
  * THIS RENDER WRITES NOTHING. No claim, no draft row, no session. See
  * lib/weekly-reflection/data.ts's header.
+ *
+ * NO PAGE-LEVEL BACK BUTTON, deliberately. The experience carries its own
+ * Close on every screen and its own Back between questions, and the live
+ * run put a page chrome "Back to Home" directly above a closing screen
+ * whose own button said "Back to home". Two near-identical ways out,
+ * stacked, is noise rather than generosity.
  */
 
 import { redirect } from 'next/navigation';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
-import { BackButton } from '@/components/BackButton';
 import { TrackSurfaceView } from '@/components/analytics/TrackSurfaceView';
 import { WeeklyReflectionExperience } from '@/components/weekly-reflection/WeeklyReflectionExperience';
 
@@ -38,8 +43,6 @@ export default async function WeeklyReflectionPage() {
     <div className={`${CVS_PAGE_BG} font-[family-name:var(--font-dm-sans)]`}>
       <TrackSurfaceView surface="weekly_reflection" />
       <main className="mx-auto w-full max-w-md px-5 pb-safe-nav pt-safe-header sm:px-6 md:max-w-2xl md:px-10 md:pb-16 md:pl-28">
-        <BackButton fallbackHref="/dashboard" label="Back to Home" forceFallback />
-
         <div className="mt-4">
           {/*
             One component for both states, and the branch is inside it
