@@ -10743,3 +10743,60 @@ The first break is also what found a real defect in the first draft: the
 service was deciding "assigned" itself instead of asking
 `resolveStressLoadAccess`, so a broken gate rule would have been invisible
 on that path. It asks now.
+
+### Live verification, production, 2026-08-29
+
+58 checks against `app.mefwellness.com` in a 390 by 844 viewport, 58
+passing, no console or page errors and no em dash on any screen visited.
+Sessions were minted and retired locally (scope 'local'), never typed into
+the login form, because Turnstile is live there by design.
+`scripts/verify-stress-load-live.mjs` is the run.
+
+Covered, in order: the standing test member seeing nothing at all before an
+assignment (no pop-up, no card, the direct URL bounced to Home, zero rows
+written); the assignment made by clicking the real Assign button on the
+coach's own client screen; the pop-up with the approved line, its Maybe
+later, and the same pop-up returning on a genuinely fresh sign-in; the Home
+card sitting there in between; all eleven questions end to end with a
+disabled Continue AND its visible reason on every one of the eleven; Back
+returning to the previous question with her answer intact; Q3 offering only
+her three Q2 choices and none of the other five; Q8 the same over Q7; the
+reading naming Carrying It Alone with the two sides shown separately and no
+combined figure; exactly one session row with all eleven answers and no
+empty draft; the assignment closing itself out; the experiment built from
+"Being outside", which was the first thing she picked in Q9, accepted
+inside the two slot cap; the closing screen readable rather than flashing
+past; the resource opening; two registry rows carrying 6 load points and 1
+recovery point under two different units; the coach card showing the
+pattern, both sides, what she would drop tomorrow above her answers and in
+her own words, her recovery sources, her lean-on answer and all eleven
+answers grouped under the three headings; and a fresh sign-in afterwards
+with no pop-up, no card, and the URL showing "This one is done".
+
+The member fixture answered Crushing across three sources with nobody to
+lean on, so the live run exercised the Carrying It Alone path. The other
+four states are covered by the local suites.
+
+**State this run left on production:** one completed sitting for the
+standing test member, its two Root Map rows, its `assessment_attempts` row,
+the closed-out assignment, and one active seven day experiment. All of that
+is the thing being verified. The temporary `coach_client_assignments` row
+the run needed to reach the coach screen (the A3 layout guard hard 404s a
+test account for a non-test viewer) was removed in the run's own finally
+block and confirmed gone afterwards.
+
+### Found nearby, not fixed
+
+- **`assessment_attempts.started_at` equals `completed_at` for this
+  experience**, because there is no draft row to start a clock from. It is
+  honest rather than wrong, but any future "how long did this take"
+  reporting over that ledger will read this as zero.
+- **The plain state absorbs one combination the brief did not name**: a
+  high load with PARTIAL recovery and a quiet body matches none of the four
+  patterns and falls to the honest plain state, which reports both bands
+  accurately. Worth a decision later about whether that deserves a fifth
+  name.
+- **`AssessmentAssignmentPanel`'s generic assign dropdown does not list this
+  experience**, deliberately, because it is registry-driven and this is not
+  in the registry. The only way to send it is its own button. Nothing is
+  broken; it is worth knowing there is one path rather than two.
