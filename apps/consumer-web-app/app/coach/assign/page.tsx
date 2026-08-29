@@ -54,7 +54,11 @@ export default async function AssignProgramPage() {
           {clients.length > 0 ? (
             <MemberPickerPanel
               basePath="/coach/assign"
-              clients={clients.map((c) => ({ id: c.id, name: c.display_name ?? 'Unnamed client' }))}
+              clients={clients.map((c) => ({
+                id: c.id,
+                name: c.display_name ?? 'Unnamed client',
+                isTest: Boolean(c.is_test),
+              }))}
             />
           ) : (
             <div className={`${CARD} p-6`}>

@@ -138,6 +138,7 @@ import {
   STATUS_STYLES,
 } from '@/lib/wellness/status';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 const TRACKER_CARD = `${CARD} flex min-h-[152px] flex-col p-5`;
@@ -328,8 +329,9 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+            <h1 className="flex flex-wrap items-center gap-3 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
               {profile.display_name ?? 'Unnamed client'}
+              {profile.is_test ? <TestAccountChip /> : null}
             </h1>
             <p className="mt-1 text-sm text-[#6B7A72]">
               {summary.hasCheckedInToday

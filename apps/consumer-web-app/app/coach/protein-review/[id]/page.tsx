@@ -7,6 +7,7 @@ import { getProteinTargetForReviewAction } from '@/app/actions/protein-review';
 import { ACTIVITY_LEVELS } from '@/lib/protein/calculation';
 import { ProteinApprovalControls } from '../ProteinApprovalControls';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -24,7 +25,7 @@ export default async function ProteinReviewDetailPage({ params }: { params: { id
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('display_name')
+    .select('display_name, is_test')
     .eq('id', target.memberId)
     .single();
   const memberName = profile?.display_name ?? 'Unnamed client';
@@ -40,8 +41,9 @@ export default async function ProteinReviewDetailPage({ params }: { params: { id
           Back to Protein Targets
         </Link>
 
-        <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-4xl">
+        <h1 className="mt-4 flex flex-wrap items-center gap-3 font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D] md:text-4xl">
           {memberName}
+          {profile?.is_test ? <TestAccountChip /> : null}
         </h1>
 
         <div className="mt-6 space-y-5">

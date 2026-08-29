@@ -22,6 +22,7 @@ import { listAssignableBlueprintsAction } from '@/app/actions/program-blueprints
 import { FINDING_TYPE_CONFIG, SEVERITY_LABEL } from '@/lib/body-assessment/findings';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { MemberTestAccountChip } from '@/components/staff/MemberTestAccountChip';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -72,10 +73,11 @@ export default async function AssignProgramMemberPage({
           <p className="text-sm font-semibold uppercase tracking-wider">Assign a Program</p>
         </div>
 
-        <div className="mt-2">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
             {overview.memberName}
           </h1>
+          <MemberTestAccountChip memberId={params.memberId} />
         </div>
 
         {/* ---------------------------------------------------- */}

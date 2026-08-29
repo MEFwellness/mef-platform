@@ -196,7 +196,7 @@ export async function listPendingProteinTargetsForCoach(
   const rows = data as TargetRow[];
   const memberIds = Array.from(new Set(rows.map((r) => r.member_id)));
   const { data: profiles } = memberIds.length
-    ? await supabase.from('profiles').select('id, display_name').in('id', memberIds)
+    ? await supabase.from('profiles').select('id, display_name, is_test').in('id', memberIds)
     : { data: [] };
   const nameById = new Map(
     (profiles ?? []).map((p: { id: string; display_name: string | null }) => [
@@ -204,10 +204,14 @@ export async function listPendingProteinTargetsForCoach(
       p.display_name ?? 'Unnamed client',
     ])
   );
+  const isTestById = new Map(
+    (profiles ?? []).map((p: { id: string; is_test?: boolean | null }) => [p.id, Boolean(p.is_test)])
+  );
 
   return rows.map((row) => ({
     ...mapTargetRow(row),
     memberName: nameById.get(row.member_id) ?? 'Unnamed client',
+    memberIsTest: isTestById.get(row.member_id) ?? false,
   }));
 }
 

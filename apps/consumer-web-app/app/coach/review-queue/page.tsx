@@ -7,6 +7,7 @@ import { STATUS_STYLES } from '@/lib/wellness/status';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 import { displayName } from '@/lib/naming/displayNames';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -34,9 +35,10 @@ export default async function ReviewQueuePage() {
 
   const memberIds = Array.from(new Set(entries.map((e) => e.member_id)));
   const { data: profiles } = memberIds.length
-    ? await supabase.from('profiles').select('id, display_name').in('id', memberIds)
+    ? await supabase.from('profiles').select('id, display_name, is_test').in('id', memberIds)
     : { data: [] };
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.display_name ?? 'Unnamed client']));
+  const isTestById = new Map((profiles ?? []).map((p) => [p.id, Boolean(p.is_test)]));
 
   const open = entries.filter(
     (e) => e.status !== 'closed' && e.status !== 'approved_for_limited_coaching'
@@ -83,8 +85,9 @@ export default async function ReviewQueuePage() {
                     className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm transition hover:opacity-80"
                   >
                     <div>
-                      <span className="font-medium text-[#1B3A2D]">
+                      <span className="inline-flex flex-wrap items-center gap-2 font-medium text-[#1B3A2D]">
                         {nameById.get(entry.member_id) ?? 'Unnamed client'}
+                        {isTestById.get(entry.member_id) ? <TestAccountChip /> : null}
                       </span>
                       <span className="ml-2 text-xs text-[#6B7A72]">
                         {formatDisplayDate(entry.created_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
@@ -119,8 +122,9 @@ export default async function ReviewQueuePage() {
                   href={`/coach/review-queue/${entry.id}`}
                   className="flex items-center justify-between gap-3 py-2.5 text-sm transition hover:opacity-80"
                 >
-                  <span className="font-medium text-[#1B3A2D]">
+                  <span className="flex flex-wrap items-center gap-2 font-medium text-[#1B3A2D]">
                     {nameById.get(entry.member_id) ?? 'Unnamed client'}
+                    {isTestById.get(entry.member_id) ? <TestAccountChip /> : null}
                   </span>
                   <span className="text-[#6B7A72]">
                     {displayName('safety_review_status', entry.status)}

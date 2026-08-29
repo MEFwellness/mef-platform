@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 import { useRouter } from 'next/navigation';
 import {
   grantCoachRole,
@@ -41,14 +42,6 @@ function countLabel(n: number, one: string, many: string): string {
 function hiddenLabel(hidden: number): string {
   if (hidden === 0) return 'No test accounts hidden.';
   return `${hidden} test ${hidden === 1 ? 'account' : 'accounts'} hidden.`;
-}
-
-function TestAccountChip() {
-  return (
-    <span className="rounded-full bg-[#F3F6F4] px-2 py-0.5 text-[11px] font-medium text-[#6B7A72]">
-      Test account
-    </span>
-  );
 }
 
 export function AdminPanel({

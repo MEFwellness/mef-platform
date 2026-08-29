@@ -40,4 +40,6 @@ export type ProteinTarget = {
 /** One row per pending item in the coach approval queue, with the member's display name already joined in. */
 export type PendingProteinTargetQueueEntry = ProteinTarget & {
   memberName: string;
+  /** `profiles.is_test`, so the queue can label a flagged member rather than hide her. */
+  memberIsTest: boolean;
 };

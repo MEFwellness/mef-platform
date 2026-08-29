@@ -39,6 +39,7 @@ import { redirect, notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { readMemberEntries, DEFAULT_ENTRY_DAYS, clampDays } from '@/lib/coach-member-entries/data';
 import {
@@ -159,7 +160,7 @@ export default async function CoachMemberEntriesPage({
   // rather than a page with empty sections.
   const { data: clientProfile } = await supabase
     .from('profiles')
-    .select('display_name, timezone')
+    .select('display_name, timezone, is_test')
     .eq('id', params.id)
     .single();
   if (!clientProfile) notFound();
@@ -197,9 +198,12 @@ export default async function CoachMemberEntriesPage({
           Back to {nameAtStart}
         </Link>
 
-        <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          What {nameInSentence} entered
-        </h1>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+            What {nameInSentence} entered
+          </h1>
+          {clientProfile.is_test ? <TestAccountChip /> : null}
+        </div>
         <p className="mt-2 text-[14px] leading-relaxed text-[#6B7A72]">{ENTRIES_INTRO}</p>
         <p className="mt-2 text-[13px] leading-relaxed text-[#6B7A72]">
           {CASE_VIEW_POINTER}{' '}

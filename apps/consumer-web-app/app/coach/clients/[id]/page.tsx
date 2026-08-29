@@ -27,6 +27,7 @@ import { getClientCoachAlerts } from '@/app/actions/intelligence-engine';
 import { resolveLocalDate } from '@/app/actions/checkin';
 import { buildCoachDashboard } from '@/lib/coach-dashboard/build';
 import { CoachDashboardView } from './CoachDashboardView';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ClientDashboardPage({ params }: { params: { id: string } }) {
@@ -81,9 +82,12 @@ export default async function ClientDashboardPage({ params }: { params: { id: st
           Back to clients
         </Link>
 
-        <h1 className="mt-4 font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
-          {profile.display_name ?? 'Unnamed client'}
-        </h1>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
+            {profile.display_name ?? 'Unnamed client'}
+          </h1>
+          {profile.is_test ? <TestAccountChip /> : null}
+        </div>
         <p className="mt-1 text-sm text-[#6B7A72]">
           {dashboard.loggedDays} logged day{dashboard.loggedDays === 1 ? '' : 's'} in the last{' '}
           {dashboard.loggedDaysWindow} days behind everything below.

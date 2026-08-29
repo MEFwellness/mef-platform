@@ -6,6 +6,7 @@ import { listPendingProteinTargetsAction } from '@/app/actions/protein-review';
 import { ACTIVITY_LEVELS } from '@/lib/protein/calculation';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -55,7 +56,10 @@ export default async function ProteinReviewQueuePage() {
                   className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm transition hover:opacity-80"
                 >
                   <div>
-                    <span className="font-medium text-[#1B3A2D]">{entry.memberName}</span>
+                    <span className="inline-flex flex-wrap items-center gap-2 font-medium text-[#1B3A2D]">
+                      {entry.memberName}
+                      {entry.memberIsTest ? <TestAccountChip /> : null}
+                    </span>
                     <span className="ml-2 text-xs text-[#6B7A72]">
                       {formatDisplayDate(entry.createdAt, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </span>

@@ -48,7 +48,11 @@ export default async function CorrectiveProgramsPage() {
           {clients.length > 0 ? (
             <MemberPickerPanel
               basePath="/coach/corrective-programs"
-              clients={clients.map((c) => ({ id: c.id, name: c.display_name ?? 'Unnamed client' }))}
+              clients={clients.map((c) => ({
+                id: c.id,
+                name: c.display_name ?? 'Unnamed client',
+                isTest: Boolean(c.is_test),
+              }))}
             />
           ) : (
             <div className="rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]">

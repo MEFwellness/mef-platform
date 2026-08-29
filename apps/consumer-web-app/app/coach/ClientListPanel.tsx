@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { STATUS_STYLES, type MetricStatus } from '@/lib/wellness/status';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
+import { formatDisplayDate } from '@/lib/time/displayDate';
 import type { ClientTrend } from './lib';
 
 export type ClientListEntry = {
@@ -15,6 +17,8 @@ export type ClientListEntry = {
   lastCheckinDate: string | null;
   hasCheckedInToday: boolean;
   attentionReasons: string[];
+  /** `profiles.is_test`. A flagged client is a full client here, and labelled. */
+  isTest: boolean;
 };
 
 type SortKey = 'lowest' | 'highest' | 'lastCheckin' | 'name' | 'priority';
@@ -31,11 +35,9 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 
 function formatDate(localDate: string | null): string {
   if (!localDate) return 'No check-ins yet';
-  const [year, month, day] = localDate.split('-').map(Number);
-  return new Date(year!, month! - 1, day!).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
+  // A bare YYYY-MM-DD on a staff surface, so formatDisplayDate, not a
+  // toLocaleDateString whose timezone nobody named.
+  return formatDisplayDate(localDate, { month: 'short', day: 'numeric' });
 }
 
 function trendGlyph(trend: ClientTrend): string {
@@ -124,7 +126,10 @@ export function ClientListPanel({ clients }: { clients: ClientListEntry[] }) {
               className={`${CARD} flex flex-col p-5 transition hover:shadow-[0_4px_28px_-4px_rgba(27,58,45,0.18)]`}
             >
               <div className="flex items-start justify-between gap-2">
-                <p className="text-base font-semibold text-[#1B3A2D]">{client.name}</p>
+                <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-[#1B3A2D]">
+                  {client.name}
+                  {client.isTest ? <TestAccountChip /> : null}
+                </p>
                 <span
                   className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_STYLES[client.status].dot}`}
                   aria-hidden="true"

@@ -16,10 +16,26 @@
  * having to remember it, and `staff-surfaces-exclude-test-accounts.test.ts`
  * fails the build if a coach-facing read is written without it.
  *
- * THE ONE DELIBERATE EXCEPTION, kept exactly as `listAssignedClients`
- * already had it: a viewer who is themself a seeded `is_test` account DOES
- * still see test members. That pairing is the whole point of the
- * production QA fixture, and hiding it would leave nothing to verify with.
+ * TWO DELIBERATE EXCEPTIONS, and only these two.
+ *
+ *   1. A viewer who is themself a seeded `is_test` account DOES still see
+ *      test members. That pairing is the whole point of the production QA
+ *      fixture, and hiding it would leave nothing to verify with.
+ *
+ *   2. A MEMBER THIS COACH IS ACTIVELY ASSIGNED TO is never hidden from
+ *      that coach (2026-08-29). "Hide every fixture from every real coach"
+ *      was too wide a rule: it also hid the one flagged member a real coach
+ *      had deliberately been paired with, so the coach platform had a
+ *      client who could not be opened, coached or reviewed, on an
+ *      assignment somebody made on purpose. An active row in
+ *      `coach_client_assignments` IS the decision that this person is this
+ *      coach's client. The flag decides what analytics counts, not who a
+ *      coach may work with, and analytics never reads this file: it passes
+ *      `p_include_test` to its own RPCs and is untouched by any of this.
+ *
+ * The exception is scoped to the viewer's OWN caseload, which is why the
+ * 27 seeded safety cases that motivated this file stay hidden: they belong
+ * to members assigned to `test.coach@example.test`, not to a real coach.
  *
  * WHY IT EXCLUDES KNOWN TEST IDS RATHER THAN KEEPING KNOWN REAL ONES.
  * Only an id this file can positively read as `is_test = true` is dropped.
@@ -87,6 +103,32 @@ export async function viewerSeesTestAccounts(
 }
 
 /**
+ * The members this viewer is actively assigned to as their coach. An
+ * active row here is a deliberate pairing, so a flagged member in this set
+ * is this coach's client and is shown to them in full.
+ *
+ * A read that fails returns the empty set, which leaves the old
+ * hide-every-fixture behaviour in place for that request. That is the
+ * conservative direction for this particular question: an unreadable
+ * assignment list is not evidence that a pairing exists.
+ */
+export async function activelyAssignedMemberIds(
+  supabase: SupabaseClient,
+  coachId: string
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('coach_client_assignments')
+    .select('client_id')
+    .eq('coach_id', coachId)
+    .eq('status', 'active');
+  if (error) {
+    console.error('activelyAssignedMemberIds failed', error);
+    return new Set();
+  }
+  return new Set((data ?? []).map((row: { client_id: string }) => row.client_id));
+}
+
+/**
  * The exclusion to apply to a staff read. Resolves the viewer from the
  * session when no id is passed, so a data-layer function that only holds a
  * client can still ask for it.
@@ -108,12 +150,20 @@ export async function resolveTestAccountExclusion(
 
   if (await viewerSeesTestAccounts(supabase, viewer)) return ALLOW_EVERYTHING;
 
-  const { data, error } = await supabase.from('profiles').select('id').eq('is_test', true);
+  const [assigned, { data, error }] = await Promise.all([
+    activelyAssignedMemberIds(supabase, viewer),
+    supabase.from('profiles').select('id').eq('is_test', true),
+  ]);
   if (error) {
     console.error('resolveTestAccountExclusion failed', error);
     return exclusionOf([]);
   }
-  return exclusionOf((data ?? []).map((row: { id: string }) => row.id));
+  // Exception 2: a flagged member this coach is actively assigned to is
+  // their client, so they are never in the hidden set.
+  const ids = (data ?? [])
+    .map((row: { id: string }) => row.id)
+    .filter((id: string) => !assigned.has(id));
+  return exclusionOf(ids);
 }
 
 /**
@@ -193,5 +243,8 @@ export async function isMemberVisibleToStaff(
     viewer = user?.id ?? null;
   }
   if (!viewer) return false;
-  return viewerSeesTestAccounts(supabase, viewer);
+  if (await viewerSeesTestAccounts(supabase, viewer)) return true;
+  // Exception 2, the route-tree half: a flagged member this coach is
+  // actively assigned to opens normally, every screen in the tree.
+  return (await activelyAssignedMemberIds(supabase, viewer)).has(memberId);
 }

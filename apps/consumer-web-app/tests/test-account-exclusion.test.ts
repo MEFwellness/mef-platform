@@ -97,15 +97,28 @@ describe('what the flag actually excludes her from', () => {
     expect(source).toContain('all.filter((profile) => !profile.is_test)');
   });
 
-  it("the coach's client list, with its deliberate exception for a coach who is herself a test account", () => {
-    // A3 (2026-08-28): the exception used to be a private is_test read
-    // inside this function. It is the shared rule now, and the exception
-    // is unchanged. tests/staff-surfaces-exclude-test-accounts.test.ts
-    // drives the behaviour; this only records that the list still asks.
+  /**
+   * NOT THE COACH'S CLIENT LIST, AND DELIBERATELY SO (2026-08-29).
+   *
+   * This entry used to record that the caseload excluded a flagged member
+   * outright. It no longer does, and that is the point of this build: the
+   * flag decides what ANALYTICS counts, not who a coach may work with.
+   * `8weeks2fab@gmail.com` is a real coach's real assigned client, and
+   * hiding her left the coach platform with a client who could not be
+   * opened, coached or reviewed.
+   *
+   * What is still excluded is a flagged member NOT assigned to this coach,
+   * which is what kept the 27 seeded safety cases out of the queue. Both
+   * halves are driven for real in
+   * tests/staff-surfaces-exclude-test-accounts.test.ts.
+   */
+  it("NOT the coach's caseload: an actively assigned member is that coach's client, flagged or not", () => {
     const source = read('app/actions/coach.ts');
-    expect(source).toContain('viewerSeesTestAccounts');
-    expect(source).toContain('if (!seesTestAccounts)');
-    expect(source).toContain(".eq('is_test', false)");
+    // The rule is still consulted, at the query...
+    expect(source).toContain('resolveTestAccountExclusion');
+    expect(source).toContain('applyTestAccountExclusion');
+    // ...and the private WHERE clause that used to drop her is gone.
+    expect(source).not.toContain(".eq('is_test', false)");
   });
 
   /**

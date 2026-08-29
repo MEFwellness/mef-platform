@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { Search, ChevronRight } from 'lucide-react';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -21,7 +22,7 @@ export function MemberPickerPanel({
   basePath,
   placeholder = 'Search clients by name',
 }: {
-  clients: { id: string; name: string }[];
+  clients: { id: string; name: string; isTest?: boolean }[];
   /** Each row links to `${basePath}/${client.id}`. */
   basePath: string;
   placeholder?: string;
@@ -63,7 +64,10 @@ export function MemberPickerPanel({
               href={`${basePath}/${client.id}` as Route}
               className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-[#EFF6F1]"
             >
-              <span className="text-sm font-medium text-[#1B3A2D]">{client.name}</span>
+              <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#1B3A2D]">
+                {client.name}
+                {client.isTest ? <TestAccountChip /> : null}
+              </span>
               <ChevronRight
                 className="h-4 w-4 shrink-0 text-[#6B7A72]"
                 strokeWidth={1.75}

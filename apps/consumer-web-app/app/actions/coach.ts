@@ -17,7 +17,10 @@ import {
 import type { Profile, DailyCheckin, Habit, CoachNote } from '@mef/shared-types-contracts';
 import type { ActionResult } from './auth';
 import { emitAndDispatch } from '@/lib/ai/events';
-import { viewerSeesTestAccounts } from '@/lib/staff/testAccounts';
+import {
+  applyTestAccountExclusion,
+  resolveTestAccountExclusion,
+} from '@/lib/staff/testAccounts';
 import { buildRuleFacts } from '@/lib/ai/rules/facts';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 
@@ -43,24 +46,22 @@ export async function listAssignedClients(): Promise<Profile[]> {
 
   const clientIds = assignments.map((a) => a.client_id);
 
-  // A test client should never leak into a real coach's caseload, even
-  // though assignment itself should already prevent that -- this is the
-  // belt-and-suspenders layer. The one deliberate exception: a coach who
-  // is themself a seeded is_test account (the production QA fixture) DOES
-  // still see their own assigned test member, since that pairing is the
-  // whole point of the fixture, not a leak.
+  // The shared rule decides, not this screen (A3, 2026-08-28), and it now
+  // answers "nothing to hide here" for every id in this list: a member
+  // with an active assignment to this coach is that coach's client, flagged
+  // or not (2026-08-29). Until then a private equality filter on the test
+  // flag sat here and dropped the one flagged member a real coach had been
+  // paired with on purpose, which is the bug this build fixes.
   //
-  // A3 (2026-08-28): this list was right and the Safety Review Queue was
-  // wrong, because each screen decided for itself. The rule and its one
-  // exception now live in lib/staff/testAccounts.ts and every staff read
-  // asks the same question of it. The behaviour here is unchanged.
-  const seesTestAccounts = await viewerSeesTestAccounts(supabase, user.id);
-
-  let query = supabase.from('profiles').select('*').in('id', clientIds);
-  if (!seesTestAccounts) {
-    query = query.eq('is_test', false);
-  }
-  const { data: profiles, error } = await query;
+  // The call is kept rather than deleted because `clientIds` is the only
+  // reason it is a no-op. If this list ever widens beyond one coach's own
+  // active assignments, the rule is already applied at the query.
+  const exclusion = await resolveTestAccountExclusion(supabase, user.id);
+  const { data: profiles, error } = await applyTestAccountExclusion(
+    supabase.from('profiles').select('*').in('id', clientIds),
+    exclusion,
+    'id'
+  );
 
   if (error) {
     console.error('listAssignedClients failed', error);

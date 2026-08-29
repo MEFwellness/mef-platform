@@ -1,3 +1,78 @@
+## A coach's own test member is a client, not a ghost (2026-08-29)
+
+The one flagged account paired with a real coach was invisible to that
+coach. `8weeks2fab@gmail.com` (Ebony) carries `profiles.is_test = true`
+from migration 187, and she has an ACTIVE row in
+`coach_client_assignments` naming `oakomah66@gmail.com` (Osei) as her
+coach. The pairing was never broken. What was broken is that the coach
+platform read the flag as "hide completely".
+
+**What that actually cost.** `listAssignedClients` carried a private
+`is_test` equality filter, so she never appeared in the caseload. The
+three member-scoped layouts under `/coach` called
+`isMemberVisibleToStaff`, which said no, so `/coach/clients/<her>`,
+`/coach/assign/<her>` and `/coach/corrective-programs/<her>` all returned
+a plain 404 for every screen in those trees, fifteen of them under the
+clients tree alone. The Safety Review Queue, the pending protein queue,
+the Stress and Load panel and the Weekly Reflection panel all asked the
+same rule and got the same no. The one pairing that exists so a coach can
+experience both sides of the product was the one pairing the product hid.
+
+**The rule was too wide, not wrong.** "A test account never appears on a
+staff surface" was written on 2026-08-28 because the Safety Review Queue
+showed 27 open cases, every one of them a seeded fixture. Those 27 belong
+to members assigned to `test.coach@example.test`, not to a real coach. So
+the fix is not to delete the exclusion, it is to scope it:
+
+> **A member with an ACTIVE assignment to this viewer is never hidden from
+> this viewer.** An active row in `coach_client_assignments` IS the
+> decision that this person is this coach's client. The flag decides what
+> analytics counts, not who a coach may work with.
+
+That is exception 2 in `lib/staff/testAccounts.ts`, stated once, so every
+existing caller inherits it: the caseload, all three route trees, both
+queues, the Stress and Load panel and the Weekly Reflection panel. The 27
+seeded cases stay hidden from a real coach, because they are not on his
+caseload. A revoked assignment is not a pairing and un-hides nobody. An
+unreadable assignment list falls back to the old hide-everything
+behaviour, because an unreadable list is not evidence that a pairing
+exists.
+
+**Every flagged member a coach can now see is labelled.** The `Test
+account` chip `/admin` grew on 2026-08-29 moved to
+`components/staff/TestAccountChip.tsx` and the admin screen imports it
+rather than keeping a second copy, so there is one label, not two that can
+drift. It renders on the coach dashboard cards, the Priority Queue, Recent
+Client Activity, the assign and corrective-program pickers, the client
+detail, ./detail and ./entries headers, the assign and corrective member
+headers, and both queue lists and both queue detail screens.
+
+**Analytics is untouched, and cannot be reached from here.** The two paths
+never meet: analytics excludes by passing `p_include_test` to its own
+Postgres RPCs, which read `profiles.is_test` in SQL; the coach path
+excludes in TypeScript through `lib/staff/testAccounts.ts`. No file was
+changed in `lib/analytics-service/`, no RPC parameter changed, and no
+account was unflagged. `tests/coach-sees-assigned-test-members.test.tsx`
+asserts the separation rather than assuming it: no analytics file imports
+the coach rule, the coach rule issues no RPC, and nothing hardcodes
+`p_include_test: true`.
+
+Also fixed in passing: `ClientListPanel` formatted a bare `YYYY-MM-DD`
+with `toLocaleDateString` and no timezone. It uses `formatDisplayDate`
+now, which is what the standing rule says a staff surface does.
+
+No migration. No schema change. No change to what anyone may see: RLS
+(migration 16) is still the boundary, and a coach still cannot read a
+member they are not assigned to.
+
+`tests/coach-sees-assigned-test-members.test.tsx` is 35 tests over four
+things, because any one alone would let the bug back: the rule against a
+fake Postgres that honours the filters, the route guard, the label
+rendered out of the real panels and read back as HTML, and the analytics
+boundary. `tests/test-account-exclusion.test.ts`'s per-surface ledger now
+records that the caseload is deliberately no longer a place the flag
+subtracts from.
+
 ## A filtered admin list says so (2026-08-29)
 
 An administrator went looking for `8weeks2fab@gmail.com` in the /admin

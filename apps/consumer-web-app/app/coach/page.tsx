@@ -23,6 +23,7 @@ import { listPendingProteinTargetsAction } from '@/app/actions/protein-review';
 import { buildAllClientSummaries } from './lib';
 import { STATUS_STYLES } from '@/lib/wellness/status';
 import { ClientListPanel } from './ClientListPanel';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 import { firstNameFrom } from '@/lib/profile/greeting';
 import { ChangePasswordLink } from '@/components/auth/ChangePasswordLink';
 import { getCachedUser } from '@/lib/supabase/currentUser';
@@ -335,8 +336,9 @@ export default async function CoachPage() {
                     href={`/coach/clients/${s.profile.id}`}
                     className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm transition hover:opacity-80"
                   >
-                    <span className="font-medium text-[#1B3A2D]">
+                    <span className="flex flex-wrap items-center gap-2 font-medium text-[#1B3A2D]">
                       {s.profile.display_name ?? 'Unnamed client'}
+                      {s.profile.is_test ? <TestAccountChip /> : null}
                     </span>
                     <span className="flex flex-wrap gap-1.5">
                       {s.attentionReasons.map((reason) => (
@@ -368,8 +370,9 @@ export default async function CoachPage() {
                   key={checkin.id}
                   className="flex items-center justify-between gap-3 py-2.5 text-sm"
                 >
-                  <span className="font-medium text-[#1B3A2D]">
+                  <span className="flex flex-wrap items-center gap-2 font-medium text-[#1B3A2D]">
                     {client.display_name ?? 'Unnamed client'}
+                    {client.is_test ? <TestAccountChip /> : null}
                   </span>
                   <span className="text-[#6B7A72]">checked in {timeAgo(checkin.recorded_at)}</span>
                 </div>
@@ -396,6 +399,7 @@ export default async function CoachPage() {
                 lastCheckinDate: s.lastCheckinDate,
                 hasCheckedInToday: s.hasCheckedInToday,
                 attentionReasons: s.attentionReasons,
+                isTest: Boolean(s.profile.is_test),
               }))}
             />
           ) : (
