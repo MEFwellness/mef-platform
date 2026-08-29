@@ -73,6 +73,11 @@ export const FINDING_DISPLAY_NAMES: Readonly<Record<string, string>> = {
   // --- Primal Pattern Diet Type (a preference result, never a problem)
   'nutrition::primal_pattern_type': 'Your eating type from the Primal Pattern quiz',
 
+  // --- Stress & Load Deep-Dive (lib/stress-load/rootMap.ts). Two names,
+  //     because it is two findings under two Coaching Domains, never one.
+  'stress::stress_load_burden': 'What your life has been asking of you',
+  'stress::recovery_capacity': 'What has been giving back to you',
+
   // --- Movement sessions
   'movement::movement_session_completed': 'A movement session you completed',
 };

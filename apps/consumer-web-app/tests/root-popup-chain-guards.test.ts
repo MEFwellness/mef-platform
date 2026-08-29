@@ -38,6 +38,7 @@ type World = {
   cvsOfferSessionId: string | null;
   weeklyReviewWeekStart: string | null;
   weeklyReflectionWeekStart: string | null;
+  stressLoadAssignmentId: string | null;
   priority: { rule: string; isReEntry: boolean; status: string } | null;
   freeArcKey: string | null;
   dismissals: Map<string, RootPopupDismissal>;
@@ -52,6 +53,7 @@ const world: World = {
   cvsOfferSessionId: null,
   weeklyReviewWeekStart: null,
   weeklyReflectionWeekStart: null,
+  stressLoadAssignmentId: null,
   priority: null,
   freeArcKey: null,
   dismissals: new Map(),
@@ -66,6 +68,7 @@ function resetWorld(): void {
   world.cvsOfferSessionId = null;
   world.weeklyReviewWeekStart = null;
   world.weeklyReflectionWeekStart = null;
+  world.stressLoadAssignmentId = null;
   world.priority = null;
   world.freeArcKey = null;
   world.dismissals = new Map();
@@ -214,6 +217,18 @@ vi.mock('@/lib/weekly-reflection/view', () => ({
       : null,
 }));
 
+// The Stress & Load Deep-Dive is coach assigned only, and the whole gate
+// lives inside this one accessor (see lib/stress-load/service.ts). Setting
+// an assignment id here is therefore exactly "her coach assigned it and she
+// has not finished it"; leaving it null is every member who was never
+// assigned it, which is why the rest of this file's matrix is unaffected.
+vi.mock('@/lib/stress-load/view', () => ({
+  getMyStressLoadDeepDive: async () =>
+    world.stressLoadAssignmentId
+      ? { status: 'pending', assignmentId: world.stressLoadAssignmentId, assignedAt: '2026-08-27T10:00:00.000Z', questionsVersion: 1 }
+      : null,
+}));
+
 vi.mock('@/lib/memory-callback/data', () => ({ fetchGoalCallbackContext: async () => null }));
 vi.mock('@/lib/memory-callback/copy', () => ({ buildGoalCallback: () => null }));
 
@@ -227,6 +242,7 @@ const PRIORITY_KEY = 'priority_card:2026-08-27';
 const PRIORITY_KEY_TOMORROW = 'priority_card:2026-08-28';
 const REVIEW_KEY = 'weekly_review:2026-08-24';
 const REFLECTION_KEY = 'weekly_reflection:2026-08-28';
+const STRESS_LOAD_KEY = 'stress_load:assignment-sl-1';
 const HYDRATION_KEY = 'hydration_focus:v1';
 
 // ---------------------------------------------------------------------
@@ -361,6 +377,17 @@ const KINDS: Array<{
     },
   },
   {
+    // A coach's direct request, at the priority coach assignments already
+    // hold, and recurring for the same reason questionnaire_assigned is:
+    // "Maybe later" has to genuinely mean ask again next login.
+    kind: 'stress_load_assigned',
+    messageKey: STRESS_LOAD_KEY,
+    lifetime: 'recurring',
+    arrange: () => {
+      world.stressLoadAssignmentId = 'assignment-sl-1';
+    },
+  },
+  {
     // Recurring, NOT one-time: this message asks something of her, so
     // "Maybe later" genuinely means ask again next login inside the
     // window. That is the whole difference from the Weekly Root Review
@@ -467,19 +494,20 @@ describe('the matrix: every kind, every dismissal state, this login and the next
 // ---------------------------------------------------------------------
 
 describe('a member with several things pending sees them one at a time, in order, over successive loads', () => {
-  it('drains the chain: assignment, then re-entry card, then hydration, then day 3, then review, then free arc', async () => {
+  it('drains the chain: assignment, then the deep-dive, then re-entry card, then hydration, then day 3, then reflection, then review, then free arc', async () => {
     world.assignments = [
       { assignmentId: 'assignment-1', title: 'Health Check-In', primaryHref: '/a' },
     ];
     world.priority = { rule: 're_entry', isReEntry: true, status: 'active' };
     world.hydrationFocus = null;
+    world.stressLoadAssignmentId = 'assignment-sl-1';
     world.cvsPending = 'day3';
     world.weeklyReflectionWeekStart = '2026-08-28';
     world.weeklyReviewWeekStart = '2026-08-24';
     world.freeArcKey = 'core-values-snapshot';
 
     const seen: string[] = [];
-    for (let load = 0; load < 8; load += 1) {
+    for (let load = 0; load < 9; load += 1) {
       const message = await getMyRootPopupMessageAction();
       if (!message) break;
       seen.push(message.kind);
@@ -488,6 +516,7 @@ describe('a member with several things pending sees them one at a time, in order
 
     expect(seen).toEqual([
       'questionnaire_assigned',
+      'stress_load_assigned',
       'priority_card',
       'hydration_focus',
       'cvs_day3',

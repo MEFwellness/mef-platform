@@ -69,6 +69,11 @@ export const MEMBER_ONLY_PREFIXES = [
   // Friday sit-down. The tier gate inside the route is a separate question
   // and is enforced there.
   '/weekly-reflection',
+  // The Stress & Load Deep-Dive (coach assigned only). Listed for the same
+  // reason: a coach or an administrator who taps an old link belongs on
+  // their own dashboard, not inside a member's sitting. Whether she was
+  // assigned it is a separate question, enforced inside the route.
+  '/stress-load',
   '/case',
   '/root-score',
   '/root-map',

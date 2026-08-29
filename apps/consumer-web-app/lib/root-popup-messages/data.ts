@@ -108,6 +108,27 @@ export function weeklyReflectionPopupMessageKey(weekStart: string): string {
 }
 
 /**
+ * The Stress & Load Deep-Dive's pop-up key, scoped to the ASSIGNMENT it
+ * invites her into.
+ *
+ * The assignment id is the right scope because the assignment is the whole
+ * gate for this experience. One assignment is one invitation: a "Maybe
+ * later" comes back on her next login, an "Ignore" retires that invitation,
+ * and a coach who assigns it again after a completion creates a NEW
+ * assignment row, so the new invitation carries a genuinely new key and is
+ * offered from scratch. There is no way for an ignored assignment to retire
+ * the experience itself.
+ *
+ * Its dismissal lifetime is the RECURRING one (isRootPopupDueThisLogin),
+ * the same one questionnaire_assigned uses, for the same reason: this is a
+ * coach's direct request of this member, so "Maybe later" has to genuinely
+ * mean ask again next login rather than never again.
+ */
+export function stressLoadPopupMessageKey(assignmentId: string): string {
+  return `stress_load:${assignmentId}`;
+}
+
+/**
  * Conditional water tracking's own one-time question, for members who
  * finished intake before it existed (migration 163). A fixed constant key,
  * unlike every other key in this file: this is not scoped to a row, a date

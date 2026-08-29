@@ -93,7 +93,8 @@ export type RegistrySourceFeature =
   | 'questionnaire_category_finding'
   | 'onboarding_baseline_finding'
   | 'primal_pattern_classification'
-  | 'unified_assessment_finding';
+  | 'unified_assessment_finding'
+  | 'stress_load_deep_dive_finding';
 
 /** Same {type, id, note?} shape every other engine's evidence-ref type already uses, independently declared per this codebase's established convention. */
 export interface RegistryEvidenceRef {

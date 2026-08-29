@@ -128,6 +128,16 @@ const OVERRIDE_BY_CODE: Record<string, DomainAssignment> = {
     alsoRelevant: ['stress_nervous_system'],
   },
 
+  // The Stress & Load Deep-Dive, and the EMPTY alsoRelevant lists are the
+  // point rather than an omission. This experience writes two findings, one
+  // about the load a life is asking of her and one about the recovery
+  // available to her, and they must land on two different cards and stay
+  // there. A cross reference either way would put the load answer on the
+  // recovery card and the recovery answer on the load card, which is the
+  // blending the experience is explicitly not allowed to do.
+  stress_load_burden: { primary: 'stress_nervous_system', alsoRelevant: [] },
+  recovery_capacity: { primary: 'recovery_energy_regulation', alsoRelevant: [] },
+
   // Sleep.
   circadian_disruption: {
     primary: 'sleep_circadian_rhythm',

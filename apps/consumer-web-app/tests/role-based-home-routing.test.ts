@@ -195,6 +195,7 @@ describe('member analytics', () => {
       conversation: '/conversation',
       reset_plan: '/reset-plan',
       weekly_reflection: '/weekly-reflection',
+      stress_load_deep_dive: '/stress-load',
       root_score: '/root-score',
       insights: '/insights',
       noticing: '/noticing',

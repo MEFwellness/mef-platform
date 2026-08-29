@@ -49,6 +49,7 @@ const SOURCE_FEATURE_LABEL: Record<RegistrySourceFeature, string> = {
   onboarding_baseline_finding: 'Baseline Assessment', // C5: one name, see lib/assessment-registry/registry.ts
   primal_pattern_classification: 'Primal Pattern Diet Type',
   unified_assessment_finding: 'Assessment',
+  stress_load_deep_dive_finding: 'Stress & Load Deep-Dive',
 };
 
 export type EnrichedRootCauseSignal = {

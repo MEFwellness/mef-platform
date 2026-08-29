@@ -67,6 +67,7 @@ const KIND_BY_REF_TYPE: Record<string, EvidenceKind> = {
   questionnaire_submission: 'assessment_result',
   assessment_submission: 'assessment_result',
   unified_assessment_session: 'assessment_result',
+  stress_load_session: 'assessment_result',
   body_assessment: 'assessment_result',
   primal_pattern_result: 'assessment_result',
   wbsa_submission: 'assessment_result',
@@ -121,6 +122,14 @@ const CONCERNING: ReadonlySet<MetricStatus> = new Set<MetricStatus>(['attention'
 
 const PROBE_BY_CODE: Record<string, CheckinProbe> = {
   elevated_stress: { read: (c) => stressStatus(c.stress_level) },
+  // The Stress & Load Deep-Dive's two dimensions, and they probe two
+  // DIFFERENT check-in columns on purpose. The load finding rises on days
+  // she logged real stress; the recovery finding rises on days her energy
+  // was low. If both read the same column, one sitting's two sides would
+  // tier together and the separation the whole experience exists for would
+  // quietly stop being true here.
+  stress_load_burden: { read: (c) => stressStatus(c.stress_level) },
+  recovery_capacity: { read: (c) => energyStatus(c.energy_level) },
   stress_and_mood_pattern: { read: (c) => stressStatus(c.stress_level) },
   poor_sleep_quality: { read: (c) => sleepQualityStatus(c.sleep_quality) },
   sleep_quality_pattern: { read: (c) => sleepQualityStatus(c.sleep_quality) },

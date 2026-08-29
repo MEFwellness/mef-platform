@@ -62,6 +62,7 @@
  *
  *   kind                   inner guard              lifetime
  *   questionnaire_assigned  isRecurringMessageDue    snoozed returns next login
+ *   stress_load_assigned    isRecurringMessageDue    snoozed returns next login
  *   priority_card (re-entry) isPriorityCardDue       once per local day
  *   hydration_focus         isRecurringMessageDue    snoozed returns next login
  *   cvs_day3 / cvs_day7     isRecurringMessageDue    snoozed returns next login
@@ -107,6 +108,7 @@ import {
   priorityCardPopupMessageKey,
   weeklyReviewPopupMessageKey,
   weeklyReflectionPopupMessageKey,
+  stressLoadPopupMessageKey,
   hydrationFocusPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
@@ -122,6 +124,9 @@ import type { PriorityView } from '@/lib/priority/types';
 import { getMyWeeklyReview } from '@/lib/weekly-review/view';
 import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
+import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
+import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
+import { STRESS_LOAD_ROUTE } from '@/lib/stress-load/constants';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
@@ -222,6 +227,30 @@ export type RootPopupMessage =
       kind: 'weekly_reflection';
       messageKey: string;
       weekStart: string;
+      title: string;
+      body: string;
+      primaryHref: string;
+    }
+  /**
+   * The Stress & Load Deep-Dive (coach assigned only, migration 190).
+   *
+   * A separate kind from `questionnaire_assigned`, at the same priority,
+   * and the reason is the copy rather than the mechanism: a coach assigning
+   * this one is Root being asked to sit down with her, and the approved
+   * line says exactly that. Reusing the questionnaire kind would have named
+   * it like an item on a to-do list. Everything else about it, including
+   * the recurring dismissal lifetime, matches a coach assignment.
+   *
+   * Carries no questions and no reading, deliberately. This message is an
+   * INVITATION into an experience on its own route, so it renders through
+   * the same RootInvitePopup a coach-assigned questionnaire and a free-arc
+   * conversation already use and inherits their real Maybe later and Ignore
+   * buttons.
+   */
+  | {
+      kind: 'stress_load_assigned';
+      messageKey: string;
+      assignmentId: string;
       title: string;
       body: string;
       primaryHref: string;
@@ -409,6 +438,37 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
       displayName: dueAssignment.displayName,
       primaryHref: dueAssignment.primaryHref,
     };
+  }
+
+  // The Stress & Load Deep-Dive, immediately below the other coach
+  // assignments and above everything Root decides on her own. It is a
+  // coach's direct action for this member, which is the priority coach
+  // assignments already hold in this chain, and it is finite: finishing it
+  // closes the assignment out, so it can never starve anything below it.
+  //
+  // It sits after the questionnaire assignments rather than before them
+  // only because those were here first and neither outranks the other in
+  // any real sense. When both are pending, the questionnaire pops first and
+  // this one is still due on her next open, because its key has no
+  // dismissal row yet.
+  //
+  // getMyStressLoadDeepDive returns null for every member who was never
+  // assigned this, so the gate and the offer are one read rather than two
+  // checks here that could drift from the route's. Its own branch checks
+  // its own due-ness and falls through, per this file's one rule.
+  const stressLoad = await getMyStressLoadDeepDive();
+  if (stressLoad?.status === 'pending') {
+    const messageKey = stressLoadPopupMessageKey(stressLoad.assignmentId);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'stress_load_assigned',
+        messageKey,
+        assignmentId: stressLoad.assignmentId,
+        title: STRESS_LOAD_COPY.popupTitle,
+        body: STRESS_LOAD_COPY.popupBody,
+        primaryHref: STRESS_LOAD_ROUTE,
+      };
+    }
   }
 
   // Priority Card, the re-entry half (delivery fix, 2026-08-12).

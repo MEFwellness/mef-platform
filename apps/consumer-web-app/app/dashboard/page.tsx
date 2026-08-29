@@ -93,6 +93,8 @@ import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import { WeeklyReviewEntry } from '@/components/weekly-review/WeeklyReviewEntry';
 import { WeeklyReflectionEntry } from '@/components/weekly-reflection/WeeklyReflectionEntry';
 import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
+import { StressLoadEntry } from '@/components/stress-load/StressLoadEntry';
+import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -399,6 +401,7 @@ async function DayFrameRegion() {
     programHero,
     weeklyReview,
     weeklyReflection,
+    stressLoad,
     catalog,
     bodyAssessmentCard,
   ] = await Promise.all([
@@ -410,6 +413,10 @@ async function DayFrameRegion() {
       // same thing on the same render, so this costs one composition
       // between them rather than two.
       getMyWeeklyReflection(),
+      // Request-memoized, exactly as the reflection above is, and the
+      // pop-up chain in PopupRegion asks for the same thing on the same
+      // render, so this costs one composition between them rather than two.
+      getMyStressLoadDeepDive(),
       homeQuestionnaireCatalog(),
       homeBodyAssessmentAssignment(),
     ]);
@@ -455,6 +462,31 @@ async function DayFrameRegion() {
       {hasRealHistory && programHero && <div className="pt-6 md:pt-8">{programHero}</div>}
 
       {/* ==================================================== */}
+      {/* THE STRESS & LOAD DEEP-DIVE, persistent, for as long   */}
+      {/* as her coach's assignment is open.                     */}
+      {/*                                                        */}
+      {/* Above the Weekly Reflection for the same reason its    */}
+      {/* pop-up sits above everything Root decides on its own:  */}
+      {/* a coach asked her for this one, by name, for her.      */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY and no tier check, deliberately. The */}
+      {/* assignment is the whole gate                           */}
+      {/* (lib/stress-load/access.ts). A second rule on top of   */}
+      {/* it would be the invisible lock the standing rules      */}
+      {/* forbid.                                                */}
+      {/*                                                        */}
+      {/* Renders nothing once she has finished, and nothing for */}
+      {/* a member who was never assigned it:                    */}
+      {/* getMyStressLoadDeepDive returns 'completed' or null in */}
+      {/* those cases.                                           */}
+      {/* ==================================================== */}
+      {stressLoad?.status === 'pending' && (
+        <div className="pt-3">
+          <StressLoadEntry />
+        </div>
+      )}
+
+      {/* ==================================================== */}
       {/* THE WEEKLY REFLECTION, persistent (program tier only). */}
       {/*                                                        */}
       {/* Above the Weekly Root Review for the same reason its   */}
@@ -462,12 +494,11 @@ async function DayFrameRegion() {
       {/* asks something of her and closes on Sunday night, and  */}
       {/* the review is a report that stays all week.            */}
       {/*                                                        */}
-      {/* NO VISIBILITY KEY, deliberately, and it is the one     */}
-      {/* card on this page without one. membership tier is the  */}
-      {/* whole gate (lib/weekly-reflection/access.ts); a reveal */}
-      {/* rule on top of it would be the second invisible lock   */}
-      {/* the standing rules forbid, and "why can she not see    */}
-      {/* it" would stop having one answer.                      */}
+      {/* NO VISIBILITY KEY, deliberately. membership tier is    */}
+      {/* the whole gate (lib/weekly-reflection/access.ts); a    */}
+      {/* reveal rule on top of it would be the second invisible */}
+      {/* lock the standing rules forbid, and "why can she not   */}
+      {/* see it" would stop having one answer.                  */}
       {/*                                                        */}
       {/* Renders nothing once she has finished the week, and    */}
       {/* nothing on Monday through Thursday: getMyWeeklyReflection */}

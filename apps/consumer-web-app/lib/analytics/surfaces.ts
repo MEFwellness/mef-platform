@@ -35,6 +35,7 @@ export const PRODUCT_SURFACES = [
   'conversation',
   'reset_plan',
   'weekly_reflection',
+  'stress_load_deep_dive',
   'root_score',
   'insights',
   'noticing',

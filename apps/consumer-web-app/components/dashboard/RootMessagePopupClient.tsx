@@ -44,6 +44,7 @@ import { WeeklyReviewPopup } from '@/components/weekly-review/WeeklyReviewPopup'
 import { TrackWeeklyReviewViewed } from '@/components/weekly-review/TrackWeeklyReviewViewed';
 import { HydrationFocusPopup } from '@/components/hydration/HydrationFocusPopup';
 import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
+import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
@@ -52,6 +53,7 @@ type FreeArcMessage = Extract<RootPopupMessage, { kind: 'free_arc_available' }>;
 type PriorityCardMessage = Extract<RootPopupMessage, { kind: 'priority_card' }>;
 type WeeklyReviewMessage = Extract<RootPopupMessage, { kind: 'weekly_review' }>;
 type WeeklyReflectionMessage = Extract<RootPopupMessage, { kind: 'weekly_reflection' }>;
+type StressLoadMessage = Extract<RootPopupMessage, { kind: 'stress_load_assigned' }>;
 type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
@@ -99,6 +101,11 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // login inside the Friday-to-Sunday window, which is what the brief's
   // fallback rules ask for.
   const isWeeklyReflection = message.kind === 'weekly_reflection';
+  // The Stress & Load Deep-Dive is a coach's direct request, with real
+  // "Maybe later" and "Ignore" buttons, so it is deliberately NOT in the
+  // auto-dismiss-on-mount group below, exactly like the coach-assigned
+  // questionnaire it sits beside in the chain.
+  const isStressLoad = message.kind === 'stress_load_assigned';
 
   // The offer pops up at most once ever (unlike day3/day7, which return on
   // every login until answered or explicitly ignored) — marking it
@@ -273,6 +280,25 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
+  // The Stress & Load Deep-Dive. Same invite chrome as the two above: this
+  // is Root offering her a thing to open, and the sitting itself lives on
+  // its own route where there is room for it.
+  if (isStressLoad) {
+    const m = message as StressLoadMessage;
+    return (
+      <RootInvitePopup
+        eyebrow={STRESS_LOAD_COPY.popupEyebrow}
+        title={m.title}
+        body={m.body}
+        ctaLabel={STRESS_LOAD_COPY.popupCta}
+        href={m.primaryHref}
+        isPending={isPending}
+        onMaybeLater={handleMaybeLater}
+        onIgnore={handleIgnore}
+      />
+    );
+  }
+
   if (isOffer) {
     return <RootOfferPopup message={message as OfferMessage} onClose={() => setClosed(true)} />;
   }
@@ -292,6 +318,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | PriorityCardMessage
     | WeeklyReviewMessage
     | WeeklyReflectionMessage
+    | StressLoadMessage
     | HydrationFocusMessage
   >;
 

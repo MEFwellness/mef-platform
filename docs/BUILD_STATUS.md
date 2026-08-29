@@ -10474,3 +10474,272 @@ else. No migration in this build; the ledger is unchanged at 189, 188, 187,
 - The three items the speed build listed as open are still open: the
   `buildTimeContext(nowInTz)` Date form, `resolveLocalDate`'s
   `getHours()`, and roughly 60 duplicate reads on one Home load.
+
+
+## The Stress & Load Deep-Dive (2026-08-29)
+
+A coach-assigned, one-sitting experience that maps what a member's life is
+asking of her against what is actually restoring her, and feeds it straight
+to her coach. Eleven questions across three screens, one reading at the
+end, one five minute experiment built from her own answer, and one short
+piece to read.
+
+**Migration 190 is applied to production**
+(`member_stress_load_sessions`, plus one catalog row and two additive
+constraint widenings). Ledger tail: 190, 189, 188.
+
+### The gate is the assignment, and nothing else
+
+There is no tier lock on top, no visibility key, no grant column and no
+coach switch beyond the assignment itself. This is the standing rule at
+full strength: a plan decides what is open, and a coach assignment is the
+one thing that can open one more thing for one member. Here there is no
+plan half at all, so the assignment is not a second lock, it is the only
+one.
+
+`lib/stress-load/access.ts` fails SHUT, the same direction the Weekly
+Reflection's does. A failed read of her assignments resolves to "not
+offered", because the cost of being wrong the other way is handing a member
+something her coach never gave her.
+
+The rule is asked in three places and is one function in all three: the
+pop-up chain, Home's card, and the route itself (a typed URL is turned away
+server-side before any content renders). `/stress-load` is also in
+`MEMBER_ONLY_PREFIXES`, so a coach or an administrator following an old
+link lands on their own dashboard.
+
+`buildStressLoadState` deliberately does NOT re-decide anything
+`resolveStressLoadAccess` already decides; it only turns that one decision
+into the shape the surfaces render. The mutation run below is what caught
+the first draft doing it in two places.
+
+**Nothing about a tier is ever read.** That is asserted by counting the
+TABLES the gate touches rather than by testing four tiers: if it never asks
+a subscription table anything, no plan can change its answer.
+
+### It reuses the assignment machinery rather than inventing one
+
+Migration 190 adds an `assessment_definitions` catalog row and nothing
+else about assignment. That is all it takes for the existing ledger
+(migration 77) to address this experience: coach-write RLS, the
+one-pending-per-member partial unique index (migration 144), and the
+trigger that closes an assignment out when the member finishes.
+
+It deliberately does NOT get an entry in
+`lib/assessment-registry/registry.ts`. That registry's entries are what
+build the Questionnaires catalog and the plan map, and this is neither: it
+is an experience delivered by assignment, exactly as the Weekly Reflection
+is an experience delivered by tier. A registry entry would have dragged a
+plan gate back on top of it.
+
+Completion joins the cross-assessment attempt ledger through a trigger on
+the new table, mirroring migration 100's for the unified runtime. That
+trigger writes the `assessment_attempts` row, and migration 144's own
+trigger then flips the assignment to 'completed'. Which is what makes the
+pop-up and the Home card disappear, and what lets a coach send a fresh one.
+
+Re-assignment needs no special case: a completed assignment has left
+'pending', so the index no longer covers it, the new row is a new
+invitation with its own pop-up key, and nothing about the prior sitting is
+touched.
+
+### Delivery: the existing chain, one new kind
+
+`stress_load_assigned` is a new kind in `app/actions/rootPopupMessages.ts`,
+with its row in that file's guard table and its own due-check inside its
+own branch, per the rule that file states with no exceptions. It sits
+immediately below the coach-assigned questionnaires, which is the priority
+coach assignments already hold, and above everything Root decides on its
+own. Its dismissal lifetime is the recurring one, so "Maybe later"
+genuinely means ask again next login and "Ignore" retires that one
+invitation, never the experience.
+
+It is a separate kind from `questionnaire_assigned` for the copy rather
+than the mechanism: the approved line is "Your coach asked Root to sit down
+with you on this one", and reusing the questionnaire kind would have named
+it like an item on a to-do list.
+
+Home carries the persistent card in the same deep green as the Weekly
+Reflection's, above it, because a coach asked for this one by name. It
+disappears the moment she finishes.
+
+### The eleven questions
+
+One per screen, all required, back chevron, Close on every screen, and a
+disabled Continue that always carries its own sentence. Required carries
+that sentence structurally: a question cannot be declared without a
+`blockedReason`, exactly as `lib/weekly-reflection/questions.ts` does it.
+
+Two of them are built from her own earlier answers. Q3 offers only what she
+picked in Q2 and Q8 only what she picked in Q7, including her own words
+where she chose "Something else". They are a `derived_single` kind whose
+options are computed from the draft rather than declared, so "she can only
+narrow down something she actually said" is a property of the type. The
+server sanitizer re-derives them too, so a hand-built request cannot store
+a source of pressure she never named.
+
+Selection ORDER is preserved and is a real answer: Q9's own hint says the
+first thing she picks is what Root builds the experiment from.
+
+### The reading: two sides, never one
+
+The load side is Q1 plus the breadth of Q2. The recovery side is Q10 plus
+whether Q11 names anybody. They are computed separately, stored separately,
+rendered separately and written to two separate Root Map dimensions. There
+is no combined number anywhere in this feature.
+
+The thresholds, written down:
+
+| side | inputs | points | bands |
+| --- | --- | --- | --- |
+| Load | Q1 (1 to 5) + breadth points (0 for one source, 1 for two or three, 2 for four or more) | 1 to 7 | light at 2 or below, moderate at 3 to 4, high at 5 or above |
+| Recovery | Q10 (None 0, A taste 1, Some but not enough 2, A fair amount 3, Plenty 4) + 1 if Q11 names anyone | 0 to 5 | thin at 1 or below, partial at 2 to 3, solid at 4 or above |
+| Body | how many of Q5's eight she picked | 0 to 8 | loud at 4 or more |
+
+Breadth earns its first point at two sources because one source of pressure
+is a situation and two is a pile-up. Recovery's support point is worth
+exactly one step of the amount scale, because "a fair amount, alone" and
+"some, but not enough, with people" are genuinely close and neither is
+thin.
+
+The patterns, in precedence order:
+
+1. **Carrying It Alone**: load high and Q11 names nobody.
+2. **Body Speaking First**: four or more body signals while she puts the
+   load at Full or below.
+3. **Heavy Load, Thin Recovery**.
+4. **Loaded but Buffered**: load high, recovery solid.
+5. Otherwise, an honest plain state with no dramatic name, which still
+   reports both sides in full.
+
+The order is the interpretation, not a tie-break: Carrying It Alone
+outranks everything because a heavy load with nobody named is the one state
+where the answer is not a protocol, and Body Speaking First is checked
+before either recovery comparison because a rule that read the load first
+would file her under a lighter story than her body is telling.
+
+The key insight framing is the same in every branch and is the point of the
+whole experience: the GAP is the finding, not the load.
+
+### The check-in cross reference
+
+At most one sentence, and silence below three logged days in the trailing
+21. It reads an already-classified `member_pattern_states` row and renders
+it through the shared three-tier language module, so there is no code path
+that could invent an observation. Stress is preferred, then whichever of
+the metrics her own Q5 answers named carries the strongest tier. The
+sentence names the window it counted.
+
+Q5's eight answers are mapped onto the Life Signal Check's six signals and
+onto the daily check-in's wellness metrics, and both maps are honest about
+the three that correspond to nothing rather than inventing a home for them.
+
+### The Root Map feed
+
+One completion writes two `registry_entries` rows through the existing
+adapter machinery, each superseding its own prior row:
+
+| code | Coaching Domain | severity from | tiers on |
+| --- | --- | --- | --- |
+| `stress::stress_load_burden` | Stress & Nervous System | the load band only | days she logged real stress |
+| `stress::recovery_capacity` | Recovery & Energy Regulation | the recovery band only | days her energy was low |
+
+Both carry an EMPTY `alsoRelevant` list in
+`lib/member-interpretation/domainMap.ts`, and that emptiness is the
+two-dimension rule expressed where it can be enforced: a cross reference
+either way would put the load answer on the recovery card. Each severity
+function takes one band and cannot see the other side's value, because
+neither takes it as an argument.
+
+Solid recovery is 'mild' rather than 'none', deliberately: 'none' maps to
+the verdict 'resolved', and "this looks like it has settled down since we
+first noticed it" is not what a member with strong recovery should read
+about her own recovery.
+
+### The experiment and the resource
+
+One five minute daily action, built from the FIRST thing she picked in Q9,
+with a difficult-day version, offered through the existing
+`lifestyle_experiments` machinery and its own two-slot cap. Ten protocols,
+one per named option, plus her own words when "Other" is what she picked
+first. The offer is rebuilt on the server from the stored sitting, so a
+hand-built request cannot start an experiment with a protocol it wrote
+itself.
+
+`source_session_id` is left null because that column references
+`unified_assessment_sessions` and this experience does not run on that
+runtime; `source_experience_key` carries the provenance instead.
+
+The resource is "Load Is Not the Enemy. Unpaid Recovery Is.", on the
+closing screen, expanding in place. No audio control, because no recording
+exists and a dead button is a promise the app cannot keep.
+
+### The one write in the whole feature
+
+There is no draft row and no "start" write. A render may read; it may not
+insert. The reading is computed inside the server action she triggers by
+pressing the final button, and the two Root Map rows are published there
+too, only on a genuinely new sitting.
+
+That action re-resolves her assignment, the interpretation and the cross
+reference on the server, so a hand-built request cannot store a sitting for
+a member who was never assigned one, choose its own pattern, or supply its
+own reading. The insert is an insert, never an upsert, and reads the row
+back, so a write that matched no policy is caught rather than reported as a
+success. The insert POLICY itself requires a pending assignment of her own
+for this exact definition, so the gate is real in the database too.
+
+### The coach side
+
+A Stress & Load Deep-Dive card on the client detail screen, beside the
+Weekly Reflection panel, holding the Assign button and everything that came
+back. Three states said as three different things: not assigned (with the
+button), assigned and waiting (with the date), and finished.
+
+A finished sitting opens on what she would drop tomorrow, in her own words,
+above everything else, because that is the sentence the session starts
+from. Then the pattern name and the two sides separately, rendered by the
+identical component the member read from the identical stored descriptors.
+Then what restores her and who she can lean on, named. Then her eleven
+answers grouped under the three screen headings. Prior sittings are
+selectable chips, newest first.
+
+Test-account exclusion goes through `lib/staff/testAccounts.ts`, not
+through this screen remembering to check.
+
+### What was reused rather than rebuilt
+
+The assignment ledger and its close-out trigger, the attempt ledger, the
+pop-up chain and its dismissal table, `RootInvitePopup`, the
+`lifestyle_experiments` machinery and its cap, the registry adapter
+pattern, the Member Interpretation Layer, the three-tier language module,
+`member_pattern_states`, the check-in view, `formatDisplayDate`, the
+member-only route list and the analytics surface list. Nothing here is a
+second version of any of them.
+
+### Tests
+
+Six new files: `stress-load-questions` (24), `stress-load-patterns` (47),
+`stress-load-gate` (42), `stress-load-root-map` (43),
+`stress-load-experiment` (33), `stress-load-experience` (36) and
+`stress-load-coach-panel` (35, real rendered HTML). The existing
+`tests/root-popup-chain-guards.test.ts` matrix carries the new kind,
+including the drain order.
+
+Full suite: 453 files, 7229 tests, all passing. Typecheck clean, lint clean
+(94 pre-existing `no-console` warnings, zero errors), production build
+clean.
+
+**Mutation proof, three breaks, each confirmed and restored:**
+
+- Let the gate treat "no assignment" as assigned: 4 gate tests failed.
+- Moved Carrying It Alone below Body Speaking First and Heavy Load, Thin
+  Recovery: 2 precedence tests failed.
+- Blended the two dimensions (recovery filed under Stress, load cross
+  referencing Recovery, recovery severity read off the load band): 4 Root
+  Map tests failed.
+
+The first break is also what found a real defect in the first draft: the
+service was deciding "assigned" itself instead of asking
+`resolveStressLoadAccess`, so a broken gate rule would have been invisible
+on that path. It asks now.

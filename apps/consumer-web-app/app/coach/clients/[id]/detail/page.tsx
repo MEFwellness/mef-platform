@@ -121,6 +121,8 @@ import { LifeSignalCheckPanel } from '../LifeSignalCheckPanel';
 import { ReadinessPulsePanel } from '../ReadinessPulsePanel';
 import { PersonalResetPlanPanel } from '../PersonalResetPlanPanel';
 import { WeeklyReflectionPanel } from '../WeeklyReflectionPanel';
+import { StressLoadPanel } from '../StressLoadPanel';
+import { getClientStressLoadPanelAction } from '@/app/actions/stressLoad';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
@@ -232,6 +234,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     resetPlanView,
     weeklyReflections,
     weeklyReflectionAccess,
+    stressLoadPanel,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -270,6 +273,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientResetPlanAction(profile.id),
     getClientWeeklyReflectionsAction(profile.id),
     getClientWeeklyReflectionAccessAction(profile.id),
+    getClientStressLoadPanelAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -698,6 +702,16 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
             reflections={weeklyReflections}
             hasProgramTier={weeklyReflectionAccess}
           />
+
+          {/*
+            The Stress & Load Deep-Dive, beside the Weekly Reflection for
+            the same reason that one sits beside the Personal Reset Plan:
+            all three are things the member wrote rather than things the app
+            concluded, and a coach preparing for a session reaches for them
+            together. This is also where its Assign button lives, so
+            deciding to send it and reading what came back are one place.
+          */}
+          <StressLoadPanel clientId={profile.id} state={stressLoadPanel} />
 
           {/* Movement Profile — permanent movement record + Pending Coach
               Review worklist (Member Exercise Experience & Movement
