@@ -76,6 +76,10 @@ import { getClientCvsSessionsAction } from '@/app/actions/coreValuesSnapshot';
 import { getClientLscSessionsAction } from '@/app/actions/lifeSignalCheck';
 import { getClientRplSessionsAction } from '@/app/actions/readinessPulse';
 import { getClientResetPlanAction } from '@/app/actions/resetPlan';
+import {
+  getClientWeeklyReflectionsAction,
+  getClientWeeklyReflectionAccessAction,
+} from '@/app/actions/weeklyReflection';
 import { getClientAssessmentAssignments } from '@/app/actions/assessmentAssignments';
 import {
   getClientMovementProfile,
@@ -116,6 +120,7 @@ import { CoreValuesSnapshotPanel } from '../CoreValuesSnapshotPanel';
 import { LifeSignalCheckPanel } from '../LifeSignalCheckPanel';
 import { ReadinessPulsePanel } from '../ReadinessPulsePanel';
 import { PersonalResetPlanPanel } from '../PersonalResetPlanPanel';
+import { WeeklyReflectionPanel } from '../WeeklyReflectionPanel';
 import { AssessmentAssignmentPanel } from '../AssessmentAssignmentPanel';
 import { MovementProfilePanel } from '../MovementProfilePanel';
 import { ClientProgramsSummaryCard } from '@/components/coach-program-builder/ClientProgramsSummaryCard';
@@ -225,6 +230,8 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     lscSessions,
     rplSessions,
     resetPlanView,
+    weeklyReflections,
+    weeklyReflectionAccess,
     assessmentAssignments,
     movementProfile,
     movementProfileReviewItems,
@@ -261,6 +268,8 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientLscSessionsAction(profile.id),
     getClientRplSessionsAction(profile.id),
     getClientResetPlanAction(profile.id),
+    getClientWeeklyReflectionsAction(profile.id),
+    getClientWeeklyReflectionAccessAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
     getClientMovementProfileReviewQueue(profile.id),
@@ -678,6 +687,17 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
               plan, the snapshot inputs that built it, adherence from the
               daily log, and version history. */}
           <PersonalResetPlanPanel view={resetPlanView} />
+
+          {/*
+            The Weekly Reflection, beside the Personal Reset Plan because
+            both are things the member wrote rather than things the app
+            concluded, and a coach preparing for a Friday review reaches
+            for them together.
+          */}
+          <WeeklyReflectionPanel
+            reflections={weeklyReflections}
+            hasProgramTier={weeklyReflectionAccess}
+          />
 
           {/* Movement Profile — permanent movement record + Pending Coach
               Review worklist (Member Exercise Experience & Movement

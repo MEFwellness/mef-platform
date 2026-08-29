@@ -51,8 +51,19 @@ const DIRECTION_PHRASE: Partial<Record<SignalState, string>> = {
  * The one sentence rendered to a member for a given signal — always
  * composed from the fixed tier opener + (optional) direction phrase, never
  * freeform text, and never a causal claim.
+ *
+ * Takes only the three fields it actually reads, rather than a whole
+ * LongitudinalSignal (2026-08-28, the Weekly Reflection). Every existing
+ * caller still passes a full signal and is unaffected; what the widening
+ * buys is that a stored RECAP DESCRIPTOR can be rendered through this same
+ * function instead of through a second copy of these sentences. The
+ * alternative was padding a descriptor out with invented timestamps and an
+ * invented signalKind purely to satisfy a type, which would have put fake
+ * data in the codebase to avoid a one line signature change.
  */
-export function describeSignalForMember(signal: LongitudinalSignal): string {
+export function describeSignalForMember(
+  signal: Pick<LongitudinalSignal, 'signalKey' | 'state' | 'tier'>
+): string {
   const fixed = FIXED_STATE_PHRASE[signal.state];
   if (fixed) return fixed;
 

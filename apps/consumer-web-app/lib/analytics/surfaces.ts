@@ -34,6 +34,7 @@ export const PRODUCT_SURFACES = [
   'questionnaire',
   'conversation',
   'reset_plan',
+  'weekly_reflection',
   'root_score',
   'insights',
   'noticing',

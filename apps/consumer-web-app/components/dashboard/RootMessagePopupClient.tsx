@@ -43,6 +43,7 @@ import { TrackPriorityShown } from '@/components/priority/TrackPriorityShown';
 import { WeeklyReviewPopup } from '@/components/weekly-review/WeeklyReviewPopup';
 import { TrackWeeklyReviewViewed } from '@/components/weekly-review/TrackWeeklyReviewViewed';
 import { HydrationFocusPopup } from '@/components/hydration/HydrationFocusPopup';
+import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
@@ -50,6 +51,7 @@ type QuestionnaireAssignedMessage = Extract<RootPopupMessage, { kind: 'questionn
 type FreeArcMessage = Extract<RootPopupMessage, { kind: 'free_arc_available' }>;
 type PriorityCardMessage = Extract<RootPopupMessage, { kind: 'priority_card' }>;
 type WeeklyReviewMessage = Extract<RootPopupMessage, { kind: 'weekly_review' }>;
+type WeeklyReflectionMessage = Extract<RootPopupMessage, { kind: 'weekly_reflection' }>;
 type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
@@ -90,6 +92,13 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   const isWeeklyReview = message.kind === 'weekly_review';
   const isQuestionnaireAssigned = message.kind === 'questionnaire_assigned';
   const isFreeArcAvailable = message.kind === 'free_arc_available';
+  // The Weekly Reflection is an invitation with real "Maybe later" and
+  // "Ignore" buttons, so it is deliberately NOT in the auto-dismiss-on-
+  // mount group below, exactly like the two invite kinds above it. A
+  // member who closes the tab before reading it gets it again on her next
+  // login inside the Friday-to-Sunday window, which is what the brief's
+  // fallback rules ask for.
+  const isWeeklyReflection = message.kind === 'weekly_reflection';
 
   // The offer pops up at most once ever (unlike day3/day7, which return on
   // every login until answered or explicitly ignored) — marking it
@@ -245,6 +254,25 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     );
   }
 
+  // The Weekly Reflection. Same invite chrome as the two above, on
+  // purpose: this is Root offering her a thing to open, and the experience
+  // itself lives on its own route where there is room for it.
+  if (isWeeklyReflection) {
+    const m = message as WeeklyReflectionMessage;
+    return (
+      <RootInvitePopup
+        eyebrow={WEEKLY_REFLECTION_COPY.popupEyebrow}
+        title={m.title}
+        body={m.body}
+        ctaLabel={WEEKLY_REFLECTION_COPY.popupCta}
+        href={m.primaryHref}
+        isPending={isPending}
+        onMaybeLater={handleMaybeLater}
+        onIgnore={handleIgnore}
+      />
+    );
+  }
+
   if (isOffer) {
     return <RootOfferPopup message={message as OfferMessage} onClose={() => setClosed(true)} />;
   }
@@ -263,6 +291,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | FreeArcMessage
     | PriorityCardMessage
     | WeeklyReviewMessage
+    | WeeklyReflectionMessage
     | HydrationFocusMessage
   >;
 

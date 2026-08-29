@@ -194,6 +194,7 @@ describe('member analytics', () => {
       questionnaire: '/assessments/wbsa',
       conversation: '/conversation',
       reset_plan: '/reset-plan',
+      weekly_reflection: '/weekly-reflection',
       root_score: '/root-score',
       insights: '/insights',
       noticing: '/noticing',

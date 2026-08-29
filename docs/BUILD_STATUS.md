@@ -10008,3 +10008,184 @@ deploy was needed. Migration ledger unchanged: 188, 187, 186, 185.
   `/root-score` and `/programs/<id>` on every Home load, because Next
   prefetches a `<Link>` when it scrolls into view. Roughly 1.4s of server
   work nobody asked for.
+
+## The Weekly Reflection (2026-08-28)
+
+A new recurring experience for one tier. Every Friday through Sunday
+night, a member on the 24 week program is offered one sit-down: Root reads
+her week back to her, she answers five fixed questions in her own words,
+and she is told her coach will read it with her. Her coach sees the
+identical recap beside her five answers on the client screen.
+
+**Migration 189 is applied to production** (`member_weekly_reflections`).
+
+### The gate is the plan, and nothing else
+
+`member_subscriptions.tier` (migration 159, read through the
+`member_access_facts` view) decides who is offered this. Program in,
+everyone else out. There is no assignment, no grant column, no
+visibility-layer key and no coach switch, because a second lock would make
+"why can she not see it" a two place question, which is the exact failure
+the 2026-08-27 sweep spent a build removing.
+
+`full_access` deliberately does NOT open it. That flag sits on top of a
+tier and means "this person has the whole platform"; honouring the tier and
+only the tier keeps one answer to "who is on the 24 week program".
+
+`lib/weekly-reflection/access.ts` fails SHUT, which is the opposite
+direction from `lib/membership/access.ts`. That module decides whether a
+member may open the app at all and must never lock a paying member out, so
+it fails open. This decides whether one extra experience is offered on top
+of a plan, so no row, an unreadable row and a failed read all resolve to
+"not offered".
+
+The same rule is asked in three places and is one function in all three:
+the pop-up chain, Home's card, and the route itself (a typed URL is turned
+away server-side before any content renders). `/weekly-reflection` is also
+in `MEMBER_ONLY_PREFIXES`, so a coach or an administrator following an old
+link lands on their own dashboard.
+
+### The window
+
+Her own local Friday, Saturday and Sunday, resolved from her stored profile
+timezone. All three resolve to the SAME Friday, and that Friday is the week
+key: it scopes the unique constraint that makes "once per week" true, and
+it scopes the pop-up message key so next Friday is a genuinely new message
+rather than a repeat.
+
+`reflectionWeekStartFor` returns null on Monday through Thursday, so
+availability and the week key are one answer rather than two flags that
+could disagree.
+
+The recap window is the seven days ENDING on that Friday, frozen. Anchored
+on the Friday and not on "today" so the number does not change under her
+between Friday and Sunday, and so her coach reading it on Monday sees the
+same seven days she did.
+
+This is a different anchor from the Weekly Root Review's Monday, and the
+difference is the point rather than drift: that review looks back at a
+finished week on Monday morning, this is her Friday sit-down. Both use the
+same `addCalendarDays` helper underneath.
+
+### Delivery: the existing chain, one new kind
+
+`weekly_reflection` is a new kind in `app/actions/rootPopupMessages.ts`,
+with its row in that file's guard table and its own due-check inside its
+own branch, per the rule that file states with no exceptions.
+
+Its dismissal lifetime is the RECURRING one (`isRecurringMessageDue`), not
+the Weekly Root Review's one-time-ever rule, and that is the whole
+difference between them: the review is Root reporting once, and this asks
+something of her. "Maybe later" genuinely means ask again on her next
+login inside the window; "Ignore" means not again this week. It renders
+through the same `RootInvitePopup` a coach assignment and a free-arc
+conversation already use, so it inherits their real buttons rather than
+being auto-dismissed on mount.
+
+Position in the chain: below every finite thing (a coach assignment, a
+day-3 or day-7 follow-up), below safety, and ABOVE the Weekly Root Review.
+That last one is the only new ordering decision. Both are weekly and they
+rarely collide; when they do, the one that asks her something wins, because
+the review stays on Home all week either way and the reflection has a three
+day window and a coach waiting.
+
+Home carries the persistent card for the rest of the window, in the same
+deep green as the pop-up rather than the quiet cream of an ordinary card.
+It disappears the moment she finishes.
+
+### Part 1, and the thin week it was designed around first
+
+`lib/weekly-reflection/recap.ts` counts her Daily Resets in the window and
+reads back conclusions another system already published and already tiered.
+It classifies nothing and qualifies nothing: every observation is a read of
+a `member_pattern_states` row, and every sentence comes from
+`lib/longitudinal-intelligence/copy.ts`'s three-tier language module. There
+is no code path that could invent one.
+
+Below three check-ins the recap says the count and stops. The observations
+are absent rather than hedged, because two days is not enough for the trend
+engine to have qualified anything and a hedged sentence over nothing is how
+a product starts making things up. Zero check-ins is a real week too and is
+said without a scolding word in it, and without printing a zero.
+
+Every count names the window it counted ("in the last 7 days"), because the
+same number appears on the coach's screen.
+
+What is STORED is descriptors, never sentences: signal key, state, tier,
+counts. The words are rendered from them at read time, so she and her coach
+read one identical recap with nothing to keep in sync, and a wording fix
+reaches every past week at once. Same discipline as
+`lib/weekly-review/plan.ts`.
+
+One signature widened to make that possible: `describeSignalForMember` now
+takes the three fields it actually reads rather than a whole
+`LongitudinalSignal`. The alternative was padding a stored descriptor out
+with invented timestamps purely to satisfy a type.
+
+### Part 2, and Part 3
+
+Five questions, identical every week, stable keys, a version number on
+every row. One question per screen. All five are required, and that is a
+decision: the coach side of this is "coach and member look at the same
+picture in the Friday review", and a reflection with three blanks in it is
+not that picture. The cost is paid in the hints, where "If nothing did, say
+so" is a real answer.
+
+Required carries its sentence structurally, exactly as
+`lib/daily-checkin-adaptive/wizardUnits.ts` does it: a question cannot be
+marked blocking without also supplying the line shown above the disabled
+Continue, so a silently dead Continue is not writable.
+
+Part 3 is a warm confirmation and nothing else. No score, no analysis, no
+reading her answers back at her, and no undated promise: it says her coach
+will read this with her, which is true the moment she submits.
+
+### The one write in the whole feature
+
+There is no draft row and no "start" write. A render may read; it may not
+insert. The recap is recomputed on every render from data that was already
+there, and the only write happens inside the server action she triggers by
+pressing the final button.
+
+That action re-resolves the tier, the week and the recap on the server, so
+a hand-built request cannot store a reflection for a closed week, for a
+member who is not on the program, or with a recap it supplied itself. The
+insert is an insert (never an upsert) and reads the row back, so a write
+that matched no policy is caught rather than reported as a success.
+
+### The coach side
+
+A Weekly Reflection panel on the client detail screen, beside the Personal
+Reset Plan because both are things the member wrote rather than things the
+app concluded. Weeks are selectable chips, newest first and open on
+arrival. It renders the identical recap component the member read, from the
+identical stored descriptors.
+
+Two genuinely different empty states, said differently: "not on the 24 week
+program" is not the same fact as "on the program, nothing written yet", and
+a coach reading the wrong one would draw the wrong conclusion.
+
+Test-account exclusion goes through `lib/staff/testAccounts.ts`, not
+through this screen remembering to check.
+
+### What was reused rather than rebuilt
+
+The pop-up chain and its dismissal table, the membership tier read, the
+three-tier language module, `member_pattern_states`, the check-in view, the
+`addCalendarDays` week helper, `RootInvitePopup`, `formatDisplayDate`, the
+member-only route list and the analytics surface list. Nothing here is a
+second version of any of them.
+
+### Tests
+
+`tests/weekly-reflection.test.ts` (43), `weekly-reflection-delivery.test.ts`
+(14, the real service against a fake database), and
+`weekly-reflection-coach-panel.test.tsx` (11, real rendered HTML). The
+existing `tests/root-popup-chain-guards.test.ts` matrix now carries the new
+kind, including the drain order. The tier test is exhaustive over
+`ACCESS_TIERS` rather than a hand-written list of four, so a sixth tier
+added tomorrow fails it instead of silently defaulting to "offered".
+
+Full suite: 445 files, 6933 tests, all passing. Typecheck clean, lint clean
+(94 pre-existing `no-console` warnings in scripts, zero errors), production
+build clean.

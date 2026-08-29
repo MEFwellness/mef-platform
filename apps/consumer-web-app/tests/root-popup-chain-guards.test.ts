@@ -37,6 +37,7 @@ type World = {
   cvsPending: 'day3' | 'day7' | null;
   cvsOfferSessionId: string | null;
   weeklyReviewWeekStart: string | null;
+  weeklyReflectionWeekStart: string | null;
   priority: { rule: string; isReEntry: boolean; status: string } | null;
   freeArcKey: string | null;
   dismissals: Map<string, RootPopupDismissal>;
@@ -50,6 +51,7 @@ const world: World = {
   cvsPending: null,
   cvsOfferSessionId: null,
   weeklyReviewWeekStart: null,
+  weeklyReflectionWeekStart: null,
   priority: null,
   freeArcKey: null,
   dismissals: new Map(),
@@ -63,6 +65,7 @@ function resetWorld(): void {
   world.cvsPending = null;
   world.cvsOfferSessionId = null;
   world.weeklyReviewWeekStart = null;
+  world.weeklyReflectionWeekStart = null;
   world.priority = null;
   world.freeArcKey = null;
   world.dismissals = new Map();
@@ -198,6 +201,19 @@ vi.mock('@/lib/weekly-review/view', () => ({
       : null,
 }));
 
+// The Weekly Reflection is program tier only and Friday to Sunday only,
+// and both of those live inside this one accessor (see
+// lib/weekly-reflection/service.ts). Setting the week start here is
+// therefore exactly "she is a program member, inside her window, and has
+// not finished it yet"; leaving it null is every other member on every
+// other day, which is why the rest of this file's matrix is unaffected.
+vi.mock('@/lib/weekly-reflection/view', () => ({
+  getMyWeeklyReflection: async () =>
+    world.weeklyReflectionWeekStart
+      ? { status: 'pending', weekStart: world.weeklyReflectionWeekStart }
+      : null,
+}));
+
 vi.mock('@/lib/memory-callback/data', () => ({ fetchGoalCallbackContext: async () => null }));
 vi.mock('@/lib/memory-callback/copy', () => ({ buildGoalCallback: () => null }));
 
@@ -210,6 +226,7 @@ beforeEach(() => {
 const PRIORITY_KEY = 'priority_card:2026-08-27';
 const PRIORITY_KEY_TOMORROW = 'priority_card:2026-08-28';
 const REVIEW_KEY = 'weekly_review:2026-08-24';
+const REFLECTION_KEY = 'weekly_reflection:2026-08-28';
 const HYDRATION_KEY = 'hydration_focus:v1';
 
 // ---------------------------------------------------------------------
@@ -344,6 +361,18 @@ const KINDS: Array<{
     },
   },
   {
+    // Recurring, NOT one-time: this message asks something of her, so
+    // "Maybe later" genuinely means ask again next login inside the
+    // window. That is the whole difference from the Weekly Root Review
+    // directly below it, which is Root reporting once.
+    kind: 'weekly_reflection',
+    messageKey: REFLECTION_KEY,
+    lifetime: 'recurring',
+    arrange: () => {
+      world.weeklyReflectionWeekStart = '2026-08-28';
+    },
+  },
+  {
     kind: 'weekly_review',
     messageKey: REVIEW_KEY,
     lifetime: 'oneTime',
@@ -445,11 +474,12 @@ describe('a member with several things pending sees them one at a time, in order
     world.priority = { rule: 're_entry', isReEntry: true, status: 'active' };
     world.hydrationFocus = null;
     world.cvsPending = 'day3';
+    world.weeklyReflectionWeekStart = '2026-08-28';
     world.weeklyReviewWeekStart = '2026-08-24';
     world.freeArcKey = 'core-values-snapshot';
 
     const seen: string[] = [];
-    for (let load = 0; load < 7; load += 1) {
+    for (let load = 0; load < 8; load += 1) {
       const message = await getMyRootPopupMessageAction();
       if (!message) break;
       seen.push(message.kind);
@@ -461,6 +491,7 @@ describe('a member with several things pending sees them one at a time, in order
       'priority_card',
       'hydration_focus',
       'cvs_day3',
+      'weekly_reflection',
       'weekly_review',
       'free_arc_available',
     ]);
@@ -531,6 +562,7 @@ describe('the guard rule holds for every branch in the file, by construction', (
       'hydration_focus',
       'cvs_day3',
       'cvs_offer',
+      'weekly_reflection',
       'weekly_review',
       'free_arc_available',
       'reset_plan_day3',

@@ -63,6 +63,12 @@ export const MEMBER_ONLY_PREFIXES = [
   '/progress',
   '/checkin',
   '/reset-plan',
+  // The Weekly Reflection (program tier only). Listed here for the same
+  // reason every other member experience is: a coach or an administrator
+  // who taps an old link belongs on their own dashboard, not on a member's
+  // Friday sit-down. The tier gate inside the route is a separate question
+  // and is enforced there.
+  '/weekly-reflection',
   '/case',
   '/root-score',
   '/root-map',

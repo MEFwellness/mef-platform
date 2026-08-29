@@ -71,6 +71,7 @@
  *   rpl_day3 / rpl_day7     isRecurringMessageDue    snoozed returns next login
  *   rpl_offer               isOfferStillDue          once ever
  *   reset_plan_day3/day7    isRecurringMessageDue    snoozed returns next login
+ *   weekly_reflection       isRecurringMessageDue    snoozed returns next login
  *   weekly_review           isOfferStillDue          once per local week
  *   priority_card (daily)   isPriorityCardDue        once per local day
  *   free_arc_available      isRecurringMessageDue    snoozed returns next login
@@ -105,6 +106,7 @@ import {
   questionnaireAssignedPopupMessageKey,
   priorityCardPopupMessageKey,
   weeklyReviewPopupMessageKey,
+  weeklyReflectionPopupMessageKey,
   hydrationFocusPopupMessageKey,
   getRootPopupDismissal,
   ignoreRootPopupMessage,
@@ -118,6 +120,8 @@ import { pickNextFreeArcCard, freeArcPopupMessageKey } from '@/lib/root-popup-me
 import { getMyPriorityView } from '@/lib/priority/view';
 import type { PriorityView } from '@/lib/priority/types';
 import { getMyWeeklyReview } from '@/lib/weekly-review/view';
+import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
+import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import type { RenderedReview } from '@/lib/weekly-review/types';
 import { resolveLocalDate } from './checkin';
@@ -200,6 +204,27 @@ export type RootPopupMessage =
       weekStart: string;
       label: string;
       review: RenderedReview;
+    }
+  /**
+   * The Weekly Reflection (program tier only). Friday through Sunday, once
+   * a week, Root offers her the look back her coach will read with her.
+   *
+   * Carries no recap and no questions, deliberately, unlike the Weekly
+   * Root Review directly above it. This message is an INVITATION into a
+   * three part experience on its own route, not the experience itself, so
+   * it renders through the same RootInvitePopup a coach assignment and a
+   * free-arc conversation already use and inherits their real "Maybe
+   * later" and "Ignore" buttons. Putting the recap in the pop-up would
+   * mean composing it twice and would leave her reading Part 1 in a modal
+   * she then has to leave to answer Part 2.
+   */
+  | {
+      kind: 'weekly_reflection';
+      messageKey: string;
+      weekStart: string;
+      title: string;
+      body: string;
+      primaryHref: string;
     }
   /**
    * Conditional water tracking (migration 163). The one question every
@@ -631,6 +656,50 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     }
   }
 
+  // The Weekly Reflection (program tier only).
+  //
+  // Its position, boundary by boundary, on the same reasoning the Weekly
+  // Root Review below states for itself:
+  //
+  // BELOW every finite thing above it. A coach assignment, a day-3 or a
+  // day-7 follow-up can each be finished and then never appear again,
+  // while this returns every Friday, so putting it above them would starve
+  // them for a member who opens the app once a day. When it loses the slot
+  // it is simply still due on her next open, because its key has no
+  // dismissal row yet.
+  //
+  // BELOW safety, exactly as the review is: an unresolved check-in safety
+  // flag is the Priority Card's strongest override, so it arrives as the
+  // priority_card message below, and this declines while that override is
+  // firing rather than the safety card being moved up the chain.
+  //
+  // ABOVE the Weekly Root Review, which is the one genuinely new ordering
+  // decision here. Both are weekly and they rarely collide (the review is
+  // delivered on her Monday and has usually had its one showing by
+  // Friday), but when they do, the one that ASKS HER SOMETHING wins. The
+  // review is Root reporting and it stays on Home all week either way; the
+  // reflection has a three day window and a coach waiting to read it.
+  //
+  // getMyWeeklyReflection returns null for every member who is not on the
+  // program tier and on every day that is not Friday, Saturday or Sunday,
+  // so the tier gate and the window are one read rather than two checks
+  // here that could drift from the route's.
+  const weeklyReflection = await getMyWeeklyReflection();
+  const safetyOverrideActive = priorityViewRaw?.selected.rule === 'safety';
+  if (weeklyReflection?.status === 'pending' && !safetyOverrideActive) {
+    const messageKey = weeklyReflectionPopupMessageKey(weeklyReflection.weekStart);
+    if (await isRecurringMessageDue(messageKey)) {
+      return {
+        kind: 'weekly_reflection',
+        messageKey,
+        weekStart: weeklyReflection.weekStart,
+        title: WEEKLY_REFLECTION_COPY.popupTitle,
+        body: WEEKLY_REFLECTION_COPY.popupBody,
+        primaryHref: '/weekly-reflection',
+      };
+    }
+  }
+
   // The Weekly Root Review (Adaptive Coaching Direction, Part 2).
   //
   // Its position is the whole of its delivery design, so it is worth being
@@ -660,7 +729,6 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // ABOVE the ordinary daily priority card. Once a week, on one open, the
   // week's report is the more important thing to say than the day's.
   const weeklyReview = await getMyWeeklyReview();
-  const safetyOverrideActive = priorityViewRaw?.selected.rule === 'safety';
   if (weeklyReview && !safetyOverrideActive) {
     const messageKey = weeklyReviewPopupMessageKey(weeklyReview.weekStart);
     if (await isOfferStillDue(messageKey)) {

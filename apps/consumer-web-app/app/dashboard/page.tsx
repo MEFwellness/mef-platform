@@ -91,6 +91,8 @@ import { getMyPriorityView } from '@/lib/priority/view';
 import { getMyWeeklyReview } from '@/lib/weekly-review/view';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import { WeeklyReviewEntry } from '@/components/weekly-review/WeeklyReviewEntry';
+import { WeeklyReflectionEntry } from '@/components/weekly-reflection/WeeklyReflectionEntry';
+import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { getMyRootPopupMessageAction } from '@/app/actions/rootPopupMessages';
 import { MorningBriefCard } from '@/components/MorningBriefCard';
 import { FirstCheckInWelcome } from '@/components/FirstCheckInWelcome';
@@ -391,12 +393,23 @@ async function PriorityRegion() {
  * one screenful is five separate settles in front of her.
  */
 async function DayFrameRegion() {
-  const [visibility, hasRealHistory, programHero, weeklyReview, catalog, bodyAssessmentCard] =
-    await Promise.all([
+  const [
+    visibility,
+    hasRealHistory,
+    programHero,
+    weeklyReview,
+    weeklyReflection,
+    catalog,
+    bodyAssessmentCard,
+  ] = await Promise.all([
       getMemberVisibility(),
       memberHasRealHistory(),
       programHeroNode(),
       getMyWeeklyReview(),
+      // Request-memoized, and the pop-up chain in PopupRegion asks for the
+      // same thing on the same render, so this costs one composition
+      // between them rather than two.
+      getMyWeeklyReflection(),
       homeQuestionnaireCatalog(),
       homeBodyAssessmentAssignment(),
     ]);
@@ -440,6 +453,31 @@ async function DayFrameRegion() {
       {/* scrolled past.                                           */}
       {/* ==================================================== */}
       {hasRealHistory && programHero && <div className="pt-6 md:pt-8">{programHero}</div>}
+
+      {/* ==================================================== */}
+      {/* THE WEEKLY REFLECTION, persistent (program tier only). */}
+      {/*                                                        */}
+      {/* Above the Weekly Root Review for the same reason its   */}
+      {/* pop-up sits above the review's in the chain: this one  */}
+      {/* asks something of her and closes on Sunday night, and  */}
+      {/* the review is a report that stays all week.            */}
+      {/*                                                        */}
+      {/* NO VISIBILITY KEY, deliberately, and it is the one     */}
+      {/* card on this page without one. membership tier is the  */}
+      {/* whole gate (lib/weekly-reflection/access.ts); a reveal */}
+      {/* rule on top of it would be the second invisible lock   */}
+      {/* the standing rules forbid, and "why can she not see    */}
+      {/* it" would stop having one answer.                      */}
+      {/*                                                        */}
+      {/* Renders nothing once she has finished the week, and    */}
+      {/* nothing on Monday through Thursday: getMyWeeklyReflection */}
+      {/* returns null or 'completed' in those cases.            */}
+      {/* ==================================================== */}
+      {weeklyReflection?.status === 'pending' && (
+        <div className="pt-3">
+          <WeeklyReflectionEntry />
+        </div>
+      )}
 
       {/* ==================================================== */}
       {/* THE WEEKLY ROOT REVIEW, persistent (Adaptive Coaching  */}

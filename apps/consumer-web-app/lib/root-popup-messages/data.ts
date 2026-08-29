@@ -84,6 +84,30 @@ export function weeklyReviewPopupMessageKey(weekStart: string): string {
 }
 
 /**
+ * The Weekly Reflection's pop-up key, scoped to the member's own local
+ * FRIDAY (lib/weekly-reflection/week.ts).
+ *
+ * The same week-scoped mechanism as weeklyReviewPopupMessageKey above, on
+ * a different anchor and with a different DISMISSAL LIFETIME, and the
+ * difference is worth stating because the two keys look alike.
+ *
+ * The Weekly Root Review is Root reporting, once, and it uses the
+ * one-time-ever rule: it is marked dismissed the instant it is shown.
+ * The Weekly Reflection ASKS SOMETHING OF HER, so it uses the recurring
+ * rule instead (isRootPopupDueThisLogin): "Maybe later" genuinely means
+ * ask again on her next login inside the window, and "Ignore" means not
+ * again this week. Next Friday is a new key either way, so an ignored week
+ * can never retire the experience itself.
+ *
+ * That is exactly the same pairing questionnaire_assigned and
+ * free_arc_available use, which is why this needs no fourth lifetime and
+ * no new column.
+ */
+export function weeklyReflectionPopupMessageKey(weekStart: string): string {
+  return `weekly_reflection:${weekStart}`;
+}
+
+/**
  * Conditional water tracking's own one-time question, for members who
  * finished intake before it existed (migration 163). A fixed constant key,
  * unlike every other key in this file: this is not scoped to a row, a date
