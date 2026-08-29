@@ -283,6 +283,7 @@ describe('a flagged client that IS shown is never mistaken for a member', () => 
     ['app/coach/clients/[id]/page.tsx', 'TestAccountChip'],
     ['app/coach/clients/[id]/detail/page.tsx', 'TestAccountChip'],
     ['app/coach/clients/[id]/entries/page.tsx', 'TestAccountChip'],
+    ['app/coach/clients/[id]/programs/page.tsx', 'TestAccountChip'],
     ['app/coach/assign/[memberId]/page.tsx', 'MemberTestAccountChip'],
     ['app/coach/corrective-programs/[memberId]/page.tsx', 'MemberTestAccountChip'],
     ['app/coach/review-queue/page.tsx', 'TestAccountChip'],

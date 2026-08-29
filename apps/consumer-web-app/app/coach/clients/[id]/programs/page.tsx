@@ -12,6 +12,7 @@ import { getProgramSignalPanelAction } from '@/app/actions/program-review';
 import { buildCoachProgramGroups, isLiveProgramStatus } from '@/lib/program-lifecycle/coachView';
 import type { CoachAssignedWorkout } from '@mef/shared-types-contracts';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { TestAccountChip } from '@/components/staff/TestAccountChip';
 
 export default async function ClientProgramsPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -22,7 +23,7 @@ export default async function ClientProgramsPage({ params }: { params: { id: str
   // assigned to simply returns no row.
   const { data: clientProfile } = await supabase
     .from('profiles')
-    .select('display_name')
+    .select('display_name, is_test')
     .eq('id', params.id)
     .single();
   if (!clientProfile) notFound();
@@ -81,10 +82,11 @@ export default async function ClientProgramsPage({ params }: { params: { id: str
           </p>
         </div>
 
-        <div className="mt-2">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-4xl leading-tight text-[#1B3A2D] md:text-[2.75rem]">
             Assigned Programs
           </h1>
+          {clientProfile.is_test ? <TestAccountChip /> : null}
         </div>
 
         {signalPanels.length > 0 && (
