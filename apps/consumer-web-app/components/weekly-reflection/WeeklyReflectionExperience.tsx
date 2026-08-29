@@ -3,6 +3,20 @@
 /**
  * The Weekly Reflection, all three parts, on one route.
  *
+ * THE ALREADY-DONE PANEL LIVES HERE, NOT ON THE PAGE, and that is not a
+ * layout preference. Submitting calls a Server Action, and a Server Action
+ * re-renders the route it was called from. When the page owned the
+ * "pending vs completed" branch, that re-render swapped this component out
+ * for the already-done panel the instant the write landed, so Part 3 was
+ * on screen for a fraction of a second and the member went straight from
+ * her last answer to "this week is done". Found live on production,
+ * 2026-08-28, on the first verification run.
+ *
+ * With the branch inside this component, the re-render hands it a new
+ * `status` prop while it stays MOUNTED, so its own `step` state survives
+ * and Part 3 stands until she leaves it. The page passes the state down
+ * and decides nothing.
+ *
  * SEVEN SCREENS, ONE AT A TIME. Part 1 is the recap she reads. Part 2 is
  * the five questions, one per screen, because a page with five boxes on it
  * is a form and this is meant to be the quiet ten minutes of her week.
@@ -29,7 +43,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, X } from 'lucide-react';
 import { WeeklyReflectionRecapBody } from './WeeklyReflectionRecapBody';
-import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
+import { WEEKLY_REFLECTION_COPY, WEEKLY_REFLECTION_LABEL } from '@/lib/weekly-reflection/copy';
 import {
   WEEKLY_REFLECTION_QUESTIONS,
   isAnswered,
@@ -48,7 +62,13 @@ const PANEL =
 const PRIMARY =
   'mef-focus-ring mef-press inline-flex w-full items-center justify-center rounded-2xl bg-[#F5F0E4] px-6 py-3.5 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40';
 
-export function WeeklyReflectionExperience({ recap }: { recap: RenderedRecap }) {
+export function WeeklyReflectionExperience({
+  status,
+  recap,
+}: {
+  status: 'pending' | 'completed';
+  recap: RenderedRecap | null;
+}) {
   const router = useRouter();
   const [step, setStep] = useState(RECAP_STEP);
   const [draft, setDraft] = useState<ReflectionAnswerDraft>({});
@@ -87,10 +107,37 @@ export function WeeklyReflectionExperience({ recap }: { recap: RenderedRecap }) 
         return;
       }
       setStep(CLOSING_STEP);
-      // So Home drops the card and the pop-up in the same paint she
-      // arrives back on it, rather than one stale render later.
-      router.refresh();
+      // Deliberately no router.refresh() here. Home is already correct on
+      // arrival: the action revalidates /dashboard, and leave() navigates
+      // there. Refreshing this route would only re-run the render that
+      // this component's own header explains has to be survived.
     });
+  }
+
+  // A week she finished on an earlier visit, or one she opened again from
+  // a link. She has not just submitted (step is still the first screen),
+  // so this is the honest answer rather than a silent redirect.
+  if (status === 'completed' && step !== CLOSING_STEP) {
+    return (
+      <div className={PANEL}>
+        <div
+          className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#C4A050]/16 blur-3xl"
+          aria-hidden="true"
+        />
+        <p className="relative text-[11px] font-semibold uppercase tracking-wider text-[#C4A050]">
+          {WEEKLY_REFLECTION_LABEL}
+        </p>
+        <h1 className="relative mt-3 font-[family-name:var(--font-cormorant-garamond)] text-[30px] leading-tight text-[#F5F0E4]">
+          {WEEKLY_REFLECTION_COPY.alreadyDoneHeading}
+        </h1>
+        <p className="relative mt-4 text-[16px] leading-relaxed text-[#F5F0E4]/90">
+          {WEEKLY_REFLECTION_COPY.alreadyDoneBody}
+        </p>
+        <button type="button" onClick={leave} className={`${PRIMARY} mt-7`}>
+          {WEEKLY_REFLECTION_COPY.closingDone}
+        </button>
+      </div>
+    );
   }
 
   const eyebrow =
@@ -136,7 +183,7 @@ export function WeeklyReflectionExperience({ recap }: { recap: RenderedRecap }) 
         </button>
       </div>
 
-      {step === RECAP_STEP && (
+      {step === RECAP_STEP && recap && (
         <div className="relative mt-4">
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-[30px] leading-tight text-[#F5F0E4]">
             {WEEKLY_REFLECTION_COPY.recapHeading}

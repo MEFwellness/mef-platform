@@ -105,8 +105,11 @@ export async function submitWeeklyReflectionAction(
   // tidy-up every other answered message in the chain does.
   await clearRootPopupDismissal(supabase, user.id, weeklyReflectionPopupMessageKey(weekStart));
 
+  // Home only. NOT this route: she is standing on it, looking at Part 3,
+  // and revalidating it would re-render the page underneath her. The
+  // client component survives that re-render either way now, but asking
+  // for it would be asking for work that exists only to be absorbed.
   revalidatePath('/dashboard');
-  revalidatePath('/weekly-reflection');
   return { ok: true };
 }
 

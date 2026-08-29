@@ -500,3 +500,55 @@ describe('member-facing copy', () => {
     expect(source.toLowerCase()).not.toContain('coming soon');
   });
 });
+
+// ---------------------------------------------------------------------
+// The bug the first live run found, held shut.
+// ---------------------------------------------------------------------
+
+describe('Part 3 survives the re-render the submit itself causes', () => {
+  /**
+   * FOUND LIVE, 2026-08-28, on the first production verification run. The
+   * route owned the "pending vs completed" branch. Submitting calls a
+   * Server Action, a Server Action re-renders the route it was called
+   * from, and the write had just made the state 'completed', so the page
+   * swapped the experience out for the already-done panel the instant the
+   * last answer landed. The member went from her fifth question straight
+   * to "This week is done" and never read the closing screen.
+   *
+   * The fix is structural: the branch moved inside the client component,
+   * which stays MOUNTED across that re-render and therefore keeps its own
+   * step state. There is no DOM testing library in this suite, so this is
+   * asserted on the shape of the two files rather than by driving a click.
+   * That is weaker than an interaction test and it is stated as such; what
+   * it does catch is the exact regression, which is somebody moving the
+   * branch back up to the page.
+   */
+  const page = readFileSync(join(ROOT, 'app/weekly-reflection/page.tsx'), 'utf8');
+  const experience = readFileSync(
+    join(ROOT, 'components/weekly-reflection/WeeklyReflectionExperience.tsx'),
+    'utf8'
+  );
+
+  it('the page does not branch on the status: it passes it down', () => {
+    expect(page).toContain('status={state.status}');
+    expect(page).not.toContain('alreadyDoneHeading');
+    expect(page).not.toContain("state.status === 'pending' ?");
+  });
+
+  it('the component owns the branch, and its own closing step outranks a completed prop', () => {
+    expect(experience).toContain("status === 'completed' && step !== CLOSING_STEP");
+    expect(experience).toContain('alreadyDoneHeading');
+  });
+
+  it('the submit does not refresh the route she is standing on', () => {
+    // The comment above the fix says the words, so this looks for the
+    // call as a statement rather than as a substring.
+    const refreshCalls = experience
+      .split('\n')
+      .filter((line) => /^\s*router\.refresh\(\);\s*$/.test(line));
+    expect(refreshCalls).toEqual([]);
+    const action = readFileSync(join(ROOT, 'app/actions/weeklyReflection.ts'), 'utf8');
+    expect(action).toContain("revalidatePath('/dashboard')");
+    expect(action).not.toContain("revalidatePath('/weekly-reflection')");
+  });
+});
