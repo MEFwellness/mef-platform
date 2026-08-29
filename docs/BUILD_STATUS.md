@@ -65,13 +65,32 @@ No migration. No schema change. No change to what anyone may see: RLS
 (migration 16) is still the boundary, and a coach still cannot read a
 member they are not assigned to.
 
-`tests/coach-sees-assigned-test-members.test.tsx` is 35 tests over four
+`tests/coach-sees-assigned-test-members.test.tsx` is 36 tests over four
 things, because any one alone would let the bug back: the rule against a
 fake Postgres that honours the filters, the route guard, the label
 rendered out of the real panels and read back as HTML, and the analytics
 boundary. `tests/test-account-exclusion.test.ts`'s per-surface ledger now
 records that the caseload is deliberately no longer a place the flag
-subtracts from.
+subtracts from. Full suite: 457 files, 7310 tests, all passing.
+
+**Verified live on app.mefwellness.com, 15 of 15 checks.**
+`scripts/verify-coach-sees-test-member-live.mjs` is the run. Signed in as
+the real coach, her caseload card reads `Ebony / Test account / 56 / 100 /
+Checked in today`, and all six of her screens open with status 200 and
+zero page errors and zero console errors: client detail, entries, detail,
+programs, assign and corrective programs. Her row in the assign picker
+reads `Ebony / Test account`. Signed in as her, `/dashboard` and `/today`
+both load clean, which is the proof that a build touching only coach reads
+left the member experience alone. Asked of production directly,
+`analytics_member_scope(p_include_test => false)` returns 11 members and
+she is not one of them; with `true` it returns 16 and she is.
+
+**The regression it could have caused did not happen**, checked
+separately on the live site as the real coach: `/coach/review-queue` reads
+`OPEN CASES (0)` and `/coach/protein-review` reads `PENDING REVIEW (0)`,
+neither queue card appears on `/coach`, and the seeded fixture assigned to
+the other coach appears on none of those screens. The 27 cases that
+motivated the original rule are still where they belong.
 
 ## A filtered admin list says so (2026-08-29)
 
