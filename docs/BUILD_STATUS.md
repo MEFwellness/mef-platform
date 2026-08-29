@@ -1,3 +1,66 @@
+## The middleware stops being able to hang the site (2026-08-29)
+
+Production returned a 504 GATEWAY_TIMEOUT with
+`MIDDLEWARE_INVOCATION_TIMEOUT` and nobody could reach the app at all,
+including the login page, which needs no session.
+
+**The cause.** Middleware runs ahead of every page here, and it awaited
+network calls that had no upper bound on how long they were allowed to
+take. `fetch` does not time out on its own. Every request paid one call to
+Supabase Auth (`auth.getUser()`), and a request for a member screen paid
+three more on top of it: two role RPCs and the entitlement read. None of
+them could be interrupted. So a single slow upstream did not make one page
+slow, it made the middleware invocation never return, and Vercel answered
+the entire app with a 504. One dependency having a bad minute was enough to
+take everything down, sign-in included.
+
+**The rule now: nothing awaited in middleware is unbounded.** Two layers,
+because one is not enough.
+
+- `lib/net/withTimeout.ts` is new and holds both. `timeoutFetch` bounds the
+  socket, so no Supabase call from middleware can outlive its deadline,
+  whichever caller made it. It also sets `cache: 'no-store'`, for the same
+  reason `lib/supabase/server.ts` does: Next patches fetch in this runtime,
+  and who is signed in is never a cacheable answer.
+- `withTimeout` bounds the promise, which the fetch bound alone does not.
+  supabase-js retries a token refresh internally with backoff behind a
+  lock, so a call can outlive any single fetch while every individual fetch
+  respects its own deadline.
+
+Budgets: 2.5s for any one call, 4s for the whole session lookup (a lookup
+can legitimately be more than one request: fetch the user, refresh an
+expired token, fetch again). Worst case for a member screen is now a few
+seconds, against Vercel's 25s limit.
+
+**Failing towards the member, not towards the login page.** The obvious
+fallback was wrong. Treating a timed-out auth check as "signed out" would
+bounce a member holding a perfectly valid session to `/login` the moment
+Supabase Auth was slow, which is the same outage wearing a different error
+message. So `updateSession` now distinguishes "Supabase answered, nobody is
+signed in" from "Supabase did not answer", which are the same `null` user
+but call for opposite handling. On a non-answer it falls back to the
+unexpired token already in the request's own cookies, read locally with no
+network call, and returns `degraded: true`.
+
+Nothing is granted by that fallback. RLS still decides every row, and every
+page re-verifies the user itself through `getCachedUser()` before it
+renders, so a session that is genuinely dead gets no further than the page
+it lands on.
+
+`degraded` skips the member-access block in `middleware.ts` outright. Both
+reads in it would be talking to the same struggling backend, and both
+already resolve towards the member when they fail, so running them changes
+nothing except how long she waits for an answer they cannot give.
+
+**No migration, no schema change, no change to what anyone may see.** The
+signed-in and signed-out paths behave exactly as before whenever Supabase
+answers, which is every normal request.
+
+`tests/middleware-timeout-guard.test.ts` covers both layers: work that
+finishes, work that never settles, a rejection, a stalled socket being
+aborted, the cache opt-out, and a caller-supplied abort signal still being
+honoured.
+
 ## The map and the counts: bug sweep build 2 (2026-08-27)
 
 Two things, both about the app agreeing with itself. The plan map was

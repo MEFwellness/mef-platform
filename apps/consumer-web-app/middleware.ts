@@ -80,7 +80,7 @@ const PUBLIC_PATHS = [
 
 export async function middleware(request: NextRequest) {
   const sessionResult = await updateSession(request);
-  const { user, supabase } = sessionResult;
+  const { user, supabase, degraded } = sessionResult;
   let response = sessionResult.response;
   const path = request.nextUrl.pathname;
 
@@ -330,7 +330,13 @@ export async function middleware(request: NextRequest) {
   // that is allowed in: memberAccessRedirectFor returns null for every one
   // of them, and fetchMemberAccessFacts fails towards the member, so a
   // broken read leaves the app open rather than shut.
-  if (user && isMemberOnlyPath(path)) {
+  //
+  // Skipped outright when the session lookup was degraded (Supabase Auth
+  // did not answer and we are routing on the cookie). Both reads below
+  // would be talking to the same struggling backend, and both already
+  // resolve towards the member when they fail, so running them changes
+  // nothing except how long she waits for the answer they cannot give.
+  if (user && !degraded && isMemberOnlyPath(path)) {
     const [isCoach, isAdmin, accessFacts] = await Promise.all([
       hasActiveRole(supabase!, user.id, 'coach'),
       hasActiveRole(supabase!, user.id, 'platform_administrator'),
