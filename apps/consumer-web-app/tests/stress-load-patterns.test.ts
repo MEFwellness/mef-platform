@@ -18,8 +18,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   BODY_SIGNALS_FOR_LOUD,
+  STRESS_LOAD_PATTERN_KEYS,
   LOAD_POINTS_FOR_HIGH,
   RECOVERY_POINTS_FOR_SOLID,
   breadthPointsFor,
@@ -219,6 +222,23 @@ const FIXTURES = {
     recovery_amount: 'plenty',
     lean_on: { selected: ['partner', 'friend'], otherText: null },
   }),
+  /**
+   * The fifth pattern, exactly on its condition: high load, PARTIAL
+   * recovery, a quiet body, and somebody named. Before it existed this
+   * member fell through to the plain state carrying a high load.
+   *
+   *   load      5 + 1 breadth point (3 sources) = 6, high
+   *   recovery  "Some, but not enough" (2) + 1 for naming a friend = 3, partial
+   *   body      2 of 8 signals, not loud
+   */
+  recoveryRunningBehind: fullAnswers({
+    load_weight: 5,
+    load_sources: { selected: ['work', 'money', 'health'], otherText: null },
+    load_follows_home: 'money',
+    body_signals: { selected: ['sleep', 'energy'], otherText: null },
+    recovery_amount: 'not_enough',
+    lean_on: { selected: ['friend'], otherText: null },
+  }),
   balance: fullAnswers({
     load_weight: 2,
     load_sources: { selected: ['work', 'money'], otherText: null },
@@ -229,7 +249,7 @@ const FIXTURES = {
   }),
 };
 
-describe('the five states', () => {
+describe('the six states', () => {
   it('Carrying It Alone: high load, nobody named', () => {
     expect(buildStressLoadReading(FIXTURES.carryingItAlone).patternKey).toBe('carrying_it_alone');
   });
@@ -244,6 +264,30 @@ describe('the five states', () => {
   it('Heavy Load, Thin Recovery', () => {
     expect(buildStressLoadReading(FIXTURES.heavyLoadThinRecovery).patternKey).toBe(
       'heavy_load_thin_recovery'
+    );
+  });
+
+  it('Recovery Running Behind: high load, partial recovery, quiet body, somebody named', () => {
+    const reading = buildStressLoadReading(FIXTURES.recoveryRunningBehind);
+    // Every clause of the condition, asserted rather than assumed.
+    expect(reading.load.band).toBe('high');
+    expect(reading.recovery.band).toBe('partial');
+    expect(reading.body.signalsLoud).toBe(false);
+    expect(reading.recovery.namesSupport).toBe(true);
+    expect(reading.patternKey).toBe('recovery_running_behind');
+  });
+
+  it('Recovery Running Behind reads the approved copy, word for word', () => {
+    const insight = buildKeyInsight(
+      buildStressLoadReading(FIXTURES.recoveryRunningBehind),
+      FIXTURES.recoveryRunningBehind
+    );
+    expect(insight.patternName).toBe('Recovery Running Behind');
+    expect(insight.headline).toBe(
+      'You are recovering, just not at the pace you are spending.'
+    );
+    expect(insight.body).toBe(
+      'There are things in your week that genuinely help you recover, and they are working. The issue is that your current load is asking for more recovery than you are getting. Over time, that gap can slowly wear you down. The goal is not necessarily to add something new. It is to give more room to what you already know helps you recover.'
     );
   });
 
@@ -327,10 +371,214 @@ describe('the precedence, proved on fixtures that satisfy more than one rule at 
     expect(selectPattern(load, recoveryThinNamed, loudBody)).toBe('heavy_load_thin_recovery');
     expect(selectPattern(load, recoveryThinNamed, quietBody)).toBe('heavy_load_thin_recovery');
   });
+
+  /**
+   * THE WHOLE CHAIN, IN THE STATED ORDER, over hand-built sides:
+   *
+   *   Carrying It Alone, Body Speaking First, Heavy Load Thin Recovery,
+   *   Recovery Running Behind, Loaded but Buffered, then the plain state.
+   *
+   * Each case is built to satisfy the rule under test AND at least one
+   * rule below it, so a chain that had been reordered would fail here
+   * rather than pass by accident.
+   */
+  it('all six, in the stated order, each one over a case that also qualifies lower down', () => {
+    const heavyLoad = {
+      weight: 5,
+      breadth: 2,
+      breadthPoints: 1,
+      loadPoints: 6,
+      band: 'high' as const,
+    };
+    const quietLoad = {
+      weight: 3,
+      breadth: 4,
+      breadthPoints: 2,
+      loadPoints: 5,
+      band: 'high' as const,
+    };
+    const moderateLoad = {
+      weight: 3,
+      breadth: 2,
+      breadthPoints: 1,
+      loadPoints: 4,
+      band: 'moderate' as const,
+    };
+    const lightLoad = {
+      weight: 1,
+      breadth: 1,
+      breadthPoints: 0,
+      loadPoints: 1,
+      band: 'light' as const,
+    };
+    const partialAlone = {
+      amountPoints: 3,
+      namesSupport: false,
+      recoveryPoints: 3,
+      band: 'partial' as const,
+    };
+    const thinNamed = {
+      amountPoints: 0,
+      namesSupport: true,
+      recoveryPoints: 1,
+      band: 'thin' as const,
+    };
+    const partialNamed = {
+      amountPoints: 2,
+      namesSupport: true,
+      recoveryPoints: 3,
+      band: 'partial' as const,
+    };
+    const solidNamed = {
+      amountPoints: 4,
+      namesSupport: true,
+      recoveryPoints: 5,
+      band: 'solid' as const,
+    };
+    const loudBody = { signalCount: 6, signalsLoud: true };
+    const quietBody = { signalCount: 1, signalsLoud: false };
+
+    // 1. Alone under weight wins on the same load and recovery BANDS the new
+    //    rule reads. The two can never collide, because naming nobody is
+    //    what rule 1 is, and naming somebody is a clause of rule 4.
+    expect(selectPattern(heavyLoad, partialAlone, quietBody)).toBe('carrying_it_alone');
+    // 2. A loud body under a load she calls Full or below beats both recovery rules.
+    expect(selectPattern(quietLoad, partialNamed, loudBody)).toBe('body_speaking_first');
+    // 3. Thin recovery keeps its own name and is NOT taken by the new rule.
+    expect(selectPattern(heavyLoad, thinNamed, quietBody)).toBe('heavy_load_thin_recovery');
+    // 4. The new rule, on exactly its own combination.
+    expect(selectPattern(heavyLoad, partialNamed, quietBody)).toBe('recovery_running_behind');
+    // 5. Solid recovery still reads as buffered.
+    expect(selectPattern(heavyLoad, solidNamed, quietBody)).toBe('loaded_but_buffered');
+    // 6. Moderate and light loads fall to the plain state, exactly as before.
+    expect(selectPattern(moderateLoad, partialNamed, quietBody)).toBe('balance_as_it_is');
+    expect(selectPattern(lightLoad, partialNamed, quietBody)).toBe('balance_as_it_is');
+  });
+
+  it('a loud body over a load she calls Heavy, with partial recovery, is still the plain state', () => {
+    // The new rule requires a quiet body. This case is high load and
+    // partial recovery, but the body is loud and she called the load
+    // Heavy, so Body Speaking First does not apply either. It fell to the
+    // plain state before this build and it still does.
+    const answers = fullAnswers({
+      load_weight: 5,
+      load_sources: { selected: ['work', 'money'], otherText: null },
+      load_follows_home: 'money',
+      body_signals: ALL_EIGHT_SIGNALS,
+      recovery_amount: 'not_enough',
+      lean_on: { selected: ['friend'], otherText: null },
+    });
+    const reading = buildStressLoadReading(answers);
+    expect(reading.load.band).toBe('high');
+    expect(reading.recovery.band).toBe('partial');
+    expect(reading.body.signalsLoud).toBe(true);
+    expect(reading.patternKey).toBe('balance_as_it_is');
+  });
+});
+
+/**
+ * The neighbours of the new rule, held still.
+ *
+ * One answer moves at a time from the Recovery Running Behind fixture, and
+ * each move has to land somewhere else. If the new branch had been written
+ * too wide, one of these would be swallowed by it.
+ */
+describe('the new rule took nothing from its neighbours', () => {
+  it('the same member with NOTHING restoring her still reads Heavy Load, Thin Recovery', () => {
+    const answers = fullAnswers({
+      ...FIXTURES.recoveryRunningBehind,
+      recovery_amount: 'none',
+    });
+    const reading = buildStressLoadReading(answers);
+    expect(reading.recovery.band).toBe('thin');
+    expect(reading.patternKey).toBe('heavy_load_thin_recovery');
+  });
+
+  it('the same member with plenty of it still reads Loaded but Buffered', () => {
+    const answers = fullAnswers({
+      ...FIXTURES.recoveryRunningBehind,
+      recovery_amount: 'plenty',
+    });
+    const reading = buildStressLoadReading(answers);
+    expect(reading.recovery.band).toBe('solid');
+    expect(reading.patternKey).toBe('loaded_but_buffered');
+  });
+
+  it('the same recovery side under a moderate load still falls to the plain state', () => {
+    const answers = fullAnswers({
+      ...FIXTURES.recoveryRunningBehind,
+      load_weight: 3,
+      load_sources: { selected: ['work', 'money'], otherText: null },
+    });
+    const reading = buildStressLoadReading(answers);
+    expect(reading.load.band).toBe('moderate');
+    expect(reading.recovery.band).toBe('partial');
+    expect(reading.patternKey).toBe('balance_as_it_is');
+  });
+
+  it('the same member with no one named still reads Carrying It Alone', () => {
+    const answers = fullAnswers({
+      ...FIXTURES.recoveryRunningBehind,
+      lean_on: { selected: ['no_one'], otherText: null },
+    });
+    const reading = buildStressLoadReading(answers);
+    expect(reading.recovery.namesSupport).toBe(false);
+    expect(reading.patternKey).toBe('carrying_it_alone');
+  });
+});
+
+/**
+ * THE ORDER, READ OFF THE SOURCE ITSELF.
+ *
+ * Behaviour alone cannot see every reordering of this chain. Heavy Load,
+ * Thin Recovery and Recovery Running Behind read DISJOINT recovery bands
+ * (thin against partial), so swapping those two lines changes no output
+ * today. It would still be the wrong chain: the moment anyone widens the
+ * new branch, the position it sits in decides whether it swallows the
+ * thin case, and the brief fixed that position deliberately.
+ *
+ * So the order is asserted twice: by the behavioural fixtures above, and
+ * here against the real file, the same way stress-load-root-map.test.ts
+ * asserts the check-in probe table against its own source.
+ */
+describe('the precedence is written down in the source in the stated order', () => {
+  const source = readFileSync(
+    path.join(path.resolve(__dirname, '..'), 'lib/stress-load/patterns.ts'),
+    'utf8'
+  );
+  const body = source.slice(source.indexOf('): StressLoadPatternKey {'));
+
+  it('the six returns appear in exactly the stated order, once each', () => {
+    const order = [
+      'carrying_it_alone',
+      'body_speaking_first',
+      'heavy_load_thin_recovery',
+      'recovery_running_behind',
+      'loaded_but_buffered',
+      'balance_as_it_is',
+    ];
+    const positions = order.map((key) => body.indexOf(`return '${key}'`));
+    for (const [index, position] of positions.entries()) {
+      expect(position, `${order[index]} is not returned by selectPattern`).toBeGreaterThan(-1);
+      expect(body.split(`return '${order[index]}'`)).toHaveLength(2);
+    }
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  });
+
+  it('and STRESS_LOAD_PATTERN_KEYS is written in that same order', () => {
+    expect(STRESS_LOAD_PATTERN_KEYS).toEqual([
+      'carrying_it_alone',
+      'body_speaking_first',
+      'heavy_load_thin_recovery',
+      'recovery_running_behind',
+      'loaded_but_buffered',
+      'balance_as_it_is',
+    ]);
+  });
 });
 
 describe('the reading, in words', () => {
-  it('names the four patterns and adapts to her own answers', () => {
+  it('names the five patterns and adapts to her own answers', () => {
     for (const [name, answers] of Object.entries(FIXTURES)) {
       const reading = buildStressLoadReading(answers);
       const insight = buildKeyInsight(reading, answers);
@@ -360,7 +608,17 @@ describe('reading a stored reading back', () => {
     expect(sanitizeReading(JSON.parse(JSON.stringify(reading)))).toEqual(reading);
   });
 
-  it('refuses a pattern key that is not one of the five, rather than rendering half a reading', () => {
+  it('the new key survives a round trip, and every one of the six is readable back', () => {
+    const reading = buildStressLoadReading(FIXTURES.recoveryRunningBehind);
+    expect(reading.patternKey).toBe('recovery_running_behind');
+    expect(sanitizeReading(JSON.parse(JSON.stringify(reading)))).toEqual(reading);
+    expect(STRESS_LOAD_PATTERN_KEYS).toContain('recovery_running_behind');
+    for (const key of STRESS_LOAD_PATTERN_KEYS) {
+      expect(sanitizeReading({ ...reading, patternKey: key })?.patternKey).toBe(key);
+    }
+  });
+
+  it('refuses a pattern key that is not one of the six, rather than rendering half a reading', () => {
     const reading = buildStressLoadReading(FIXTURES.balance);
     expect(sanitizeReading({ ...reading, patternKey: 'catastrophising' })).toBeNull();
   });

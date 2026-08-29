@@ -220,6 +220,58 @@ describe('each severity reads one side and one side only', () => {
   });
 });
 
+/**
+ * The fifth pattern changes the WORDS at the top of the reading and
+ * nothing else. Its completion still publishes two separate rows, filed
+ * on two different dimensions, with each severity computed from its own
+ * band. Asserted here because a new named pattern is exactly the kind of
+ * change that tempts a future edit to derive one severity "from the
+ * pattern" instead of from a band.
+ */
+describe('a Recovery Running Behind completion writes its two rows exactly as any other does', () => {
+  const HIGH_AND_PARTIAL = fullAnswers({
+    load_weight: 5,
+    load_sources: { selected: ['work', 'money', 'health'], otherText: null },
+    load_follows_home: 'money',
+    body_signals: { selected: ['sleep', 'energy'], otherText: null },
+    recovery_amount: 'not_enough',
+    lean_on: { selected: ['friend'], otherText: null },
+  });
+  const reading = buildStressLoadReading(HIGH_AND_PARTIAL);
+  const drafts = buildStressLoadRegistryDrafts({
+    reading,
+    sessionId: 'session-rrb',
+    recordedAt: RECORDED_AT,
+  });
+
+  it('is the new pattern, so this is not a test of some other reading', () => {
+    expect(reading.patternKey).toBe('recovery_running_behind');
+  });
+
+  it('two rows, load first, two codes, two units, two numbers', () => {
+    expect(drafts).toHaveLength(2);
+    expect(drafts.map((d) => d.code)).toEqual([LOAD_FINDING_CODE, RECOVERY_FINDING_CODE]);
+    expect(drafts[0]!.unit).toBe('load_points');
+    expect(drafts[1]!.unit).toBe('recovery_points');
+    expect(drafts[0]!.numeric_value).toBe(reading.load.loadPoints);
+    expect(drafts[1]!.numeric_value).toBe(reading.recovery.recoveryPoints);
+  });
+
+  it('severity on each row is the unchanged function of its own band', () => {
+    expect(drafts[0]!.severity).toBe(loadSeverity('high'));
+    expect(drafts[1]!.severity).toBe(recoverySeverity('partial'));
+    expect(drafts[0]!.severity).toBe('significant');
+    expect(drafts[1]!.severity).toBe('moderate');
+  });
+
+  it('still lands on two different Coaching Domains, with neither cross referencing the other', () => {
+    const assigned = drafts.map((draft) => assignDomains(draft.domain, draft.code));
+    expect(assigned[0]!.primary).not.toBe(assigned[1]!.primary);
+    expect(assigned[0]!.alsoRelevant).toEqual([]);
+    expect(assigned[1]!.alsoRelevant).toEqual([]);
+  });
+});
+
 describe('the check-in cross reference', () => {
   const reading = buildStressLoadReading(HEAVY_AND_THIN);
 

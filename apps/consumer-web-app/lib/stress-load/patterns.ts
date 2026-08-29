@@ -62,6 +62,7 @@ export const STRESS_LOAD_PATTERN_KEYS = [
   'carrying_it_alone',
   'body_speaking_first',
   'heavy_load_thin_recovery',
+  'recovery_running_behind',
   'loaded_but_buffered',
   'balance_as_it_is',
 ] as const;
@@ -194,10 +195,17 @@ export function computeBodySide(answers: StressLoadAnswers): BodySide {
  *      of the load, and a rule that read the load first would file her
  *      under a lighter story than her body is telling.
  *   3. Heavy Load, Thin Recovery.
- *   4. Loaded but Buffered.
- *   5. Everything else is the honest plain state. It has no dramatic name
+ *   4. Recovery Running Behind. A high load, a recovery side that is
+ *      genuinely working but only partial, a body that is not loud, and
+ *      somebody named. It sits BELOW Heavy Load, Thin Recovery on purpose:
+ *      a thin recovery side is the more serious of the two and must keep
+ *      its own name, so this branch only ever picks up the partial case
+ *      that used to fall through to the plain state.
+ *   5. Loaded but Buffered.
+ *   6. Everything else is the honest plain state. It has no dramatic name
  *      because there is nothing dramatic to name, and the two sides are
- *      still reported separately and in full.
+ *      still reported separately and in full. Moderate and light loads all
+ *      land here, unchanged.
  */
 export function selectPattern(
   load: LoadSide,
@@ -209,6 +217,14 @@ export function selectPattern(
     return 'body_speaking_first';
   }
   if (load.band === 'high' && recovery.band === 'thin') return 'heavy_load_thin_recovery';
+  if (
+    load.band === 'high' &&
+    recovery.band === 'partial' &&
+    !body.signalsLoud &&
+    recovery.namesSupport
+  ) {
+    return 'recovery_running_behind';
+  }
   if (load.band === 'high' && recovery.band === 'solid') return 'loaded_but_buffered';
   return 'balance_as_it_is';
 }

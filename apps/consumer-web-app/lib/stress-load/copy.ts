@@ -274,11 +274,12 @@ export function bodySideSummary(reading: StressLoadReading, answers: StressLoadA
 // The key insight.
 // ---------------------------------------------------------------------
 
-/** The four named patterns. The fifth state has no name, deliberately, because there is nothing dramatic to name. */
+/** The five named patterns. The sixth state has no name, deliberately, because there is nothing dramatic to name. */
 export const PATTERN_NAME: Record<StressLoadPatternKey, string | null> = {
   carrying_it_alone: 'Carrying It Alone',
   body_speaking_first: 'Body Speaking First',
   heavy_load_thin_recovery: 'Heavy Load, Thin Recovery',
+  recovery_running_behind: 'Recovery Running Behind',
   loaded_but_buffered: 'Loaded but Buffered',
   balance_as_it_is: null,
 };
@@ -324,6 +325,17 @@ export function buildKeyInsight(
         headline:
           'It is not that your load is unusual. It is that almost nothing on your recovery side belongs to you.',
         body: `You are carrying ${reading.load.breadth} ${sources} of weight, and ${followsHomePhrase(answers)} follows you home. You know exactly what restores you: you named ${restores}. Last week you got ${amountPhrase(answers)}. The gap between those two is the finding, not the load.`,
+      };
+    case 'recovery_running_behind':
+      // Approved copy, held verbatim. This is the one branch whose two
+      // sentences are fixed rather than built from her answers, because
+      // the wording was signed off as written. Her own words are still
+      // right below it: the two side summaries, the body line and, on the
+      // coach card, every answer she gave.
+      return {
+        patternName: name,
+        headline: 'You are recovering, just not at the pace you are spending.',
+        body: 'There are things in your week that genuinely help you recover, and they are working. The issue is that your current load is asking for more recovery than you are getting. Over time, that gap can slowly wear you down. The goal is not necessarily to add something new. It is to give more room to what you already know helps you recover.',
       };
     case 'loaded_but_buffered':
       return {
