@@ -46,6 +46,17 @@ what they kept, and the screen prints it.
 **The exclusion itself is unchanged, and no account was unflagged.** No
 migration, no schema change, no change to what anyone may see.
 
+**Verified live on app.mefwellness.com, 10 of 10 checks.** Signed in as the
+real administrator, `/admin` reads "13 accounts shown. 6 test accounts
+hidden." and `/admin?includeTest=1` reads "19 accounts shown. No test
+accounts hidden." with 6 `Test account` labels, matching the database
+exactly. The flagged account is reachable and labelled. Both loaded with
+zero page errors and zero console errors. Signed in as the standing test
+member, `/dashboard` and `/today` both loaded with zero page errors and
+zero console errors, which is the proof that a build touching only admin
+reads left the member experience alone.
+`scripts/verify-admin-hidden-counts-live.mjs` is the run.
+
 `tests/admin-lists-name-what-they-hide.test.tsx` drives both real functions
 against a fake Postgres (default, `includeTest`, both failure paths, and
 the invariant that shown plus hidden equals every account) and renders the
