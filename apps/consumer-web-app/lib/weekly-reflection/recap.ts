@@ -290,7 +290,11 @@ export function recapIntro(checkinCount: number): string {
 function emptyNoteFor(checkinCount: number, thin: boolean): string | null {
   if (checkinCount === 0) return null;
   if (thin) {
-    return 'A few more days of check-ins and Root can start reading patterns back to you here.';
+    // Second person is avoided here, and only here. Every other sentence
+    // in this recap is Root speaking to her, but this one also appears
+    // verbatim on the coach's own panel (one recap, two readers), where
+    // "back to you" would read as Root addressing the coach.
+    return 'A few more days of check-ins and Root can start reading patterns back here.';
   }
   return 'Nothing steady enough to name yet this week. That is worth knowing too.';
 }

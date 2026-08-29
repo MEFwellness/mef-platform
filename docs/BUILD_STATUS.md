@@ -10189,3 +10189,55 @@ added tomorrow fails it instead of silently defaulting to "offered".
 Full suite: 445 files, 6933 tests, all passing. Typecheck clean, lint clean
 (94 pre-existing `no-console` warnings in scripts, zero errors), production
 build clean.
+
+### Two things the live run found, and what they changed
+
+The first production pass caught a defect no local test could have: the
+route owned the pending-versus-completed branch, submitting calls a Server
+Action, and a Server Action re-renders the route it was called from. The
+write had just made the state completed, so Part 3 was replaced by "This
+week is done" the instant her last answer landed. She never read the
+closing screen. The branch moved inside the client component, which stays
+mounted across that re-render and keeps its own step, and the action no
+longer revalidates the route she is standing on. Held shut by three
+assertions in `tests/weekly-reflection.test.ts`, stated there as
+source-shape checks rather than an interaction test, because this suite has
+no DOM testing library.
+
+The second was quieter: page chrome saying "Back to Home" sat directly
+above a closing screen whose own button said "Back to home". The experience
+already carries a Close on every screen and a Back between questions, so
+the page-level one is gone.
+
+One copy line changed for the same "one recap, two readers" reason the
+whole descriptor design exists for: the thin-week note said Root could
+start reading patterns "back to you here", which reads as Root addressing
+the coach on the coach's own panel. It now says "back here".
+
+### Live verification, production, 2026-08-28
+
+38 checks against `app.mefwellness.com`, 38 passing, no console or page
+errors. Sessions were minted and retired locally, never typed into the
+login form, because Turnstile is live there by design.
+
+Covered: the admin panel's own `admin_set_member_access` RPC assigning the
+program tier; the pop-up appearing with Maybe later and Ignore; the whole
+experience end to end including a disabled Continue with its visible reason
+on all five questions; the row saved with all five answers and a frozen
+recap; a fresh login showing neither pop-up nor card; the direct URL saying
+"this week is done"; the coach panel showing her words, her scale answer
+and the identical recap; and the monthly tier seeing no pop-up, no card and
+being redirected off the URL.
+
+The member fixture had one check-in in the window, so the live run exercised
+the thin-data path rather than the full one: "We only have 1 day of
+check-ins in the last 7 days". The full path is covered by the local
+suites.
+
+Two notes for the record. Reading the coach panel required a temporary
+`coach_client_assignments` row from the seeded test coach, removed
+immediately afterwards, because `/coach/clients/[id]` hard 404s a test
+account for a non-test viewer (the A3 layout guard from 2026-08-28). And
+the test account was left on the program tier, as the brief asked; it was
+on trial with full access before this run.
+
