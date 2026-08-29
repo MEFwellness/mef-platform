@@ -10800,3 +10800,175 @@ block and confirmed gone afterwards.
   experience**, deliberately, because it is registry-driven and this is not
   in the registry. The only way to send it is its own button. Nothing is
   broken; it is worth knowing there is one path rather than two.
+
+## The fifth pattern: Recovery Running Behind (2026-08-29)
+
+One addition to the Stress & Load Deep-Dive's interpretation, and nothing
+else. No threshold moved, no question changed, no severity rule changed,
+no Root Map change, no experience flow change.
+
+**No migration.** `member_stress_load_sessions.pattern` is a plain `jsonb`
+column with no check constraint on the key, so a new pattern name needs no
+schema change. Nothing was applied to production.
+
+### The condition, exactly as implemented
+
+```
+load.band === 'high'
+  && recovery.band === 'partial'
+  && !body.signalsLoud
+  && recovery.namesSupport
+```
+
+In words: her load reads high, her recovery side is genuinely working but
+only partial, her body is not loud, and she named somebody on Q11. Every
+clause is one of the bands that already shipped; none of their boundaries
+moved.
+
+That is precisely the combination that used to fall through to the plain
+state while carrying a high load. The previous build already flagged it
+under "Found nearby, not fixed": *"the plain state absorbs one combination
+the brief did not name."* This is the decision on it.
+
+### Where it sits in the chain
+
+1. Carrying It Alone
+2. Body Speaking First
+3. Heavy Load, Thin Recovery
+4. **Recovery Running Behind**
+5. Loaded but Buffered
+6. the plain state
+
+Fourth, below Heavy Load Thin Recovery, deliberately: a thin recovery side
+is the more serious of the two and keeps its own name. Moderate and light
+loads still fall to the plain state exactly as before, and so does a high
+load with partial recovery when the body IS loud, because a quiet body is
+one of the four clauses.
+
+### The copy
+
+Approved and held verbatim. This is the one branch of `buildKeyInsight`
+whose two sentences are fixed rather than built from her answers, because
+the wording was signed off as written. Her own words are still directly
+below it: the two side summaries, the body line and, on the coach card,
+every answer she gave.
+
+The coach card needed no new string. It renders the same
+`StressLoadReadingBody` the member reads, so the pattern name is the only
+label, and the pattern name is the one thing that was written.
+
+### Stored, not derived, so no past sitting was rewritten
+
+`patternKey` is computed once at completion time by
+`buildStressLoadReading` and stored inside
+`member_stress_load_sessions.pattern`. Only the SENTENCES are built at read
+time from that stored key. So this build cannot and did not change what any
+existing completion displays.
+
+Production held exactly one completed sitting when this started: the
+standing test member's, 6 load points against 1 recovery point, stored as
+`carrying_it_alone`. **The brief expected that one to read Heavy Load, Thin
+Recovery. It does not, and never did:** she answered "No one right now" on
+Q11, so Carrying It Alone catches it first. Either way it is untouched by
+the new branch, which requires somebody named, and it was read back
+unchanged after the live run.
+
+### Tests
+
+`stress-load-patterns.test.ts` 40 to 58, `stress-load-root-map.test.ts` 43
+to 47. Full suite 453 files, 7244 tests, all passing. Typecheck clean, lint
+clean (warnings only, all pre-existing), production build clean, em dash
+guard clean.
+
+New coverage: the exact combination and both approved sentences word for
+word; all six names asserted through `selectPattern` in the stated order,
+each over a case that also qualifies further down; the four neighbours held
+still by moving one answer at a time off the new fixture (none recovery to
+thin, plenty to solid, weight down to moderate, nobody named to alone); a
+high load with partial recovery and a LOUD body still landing plain; the
+new key round tripping through `sanitizeReading`; and the new completion's
+two Root Map rows with each severity still a function of its own band only.
+
+**Mutation proof, three runs.** Deleting the branch fails 5 tests. Widening
+it from `band === 'partial'` to `band !== 'solid'` fails 6, including Heavy
+Load Thin Recovery's own. Swapping it above Heavy Load Thin Recovery with
+its condition unchanged fails 1.
+
+That last one is worth writing down, because the first attempt at it failed
+to fail. The two branches read DISJOINT recovery bands, thin against
+partial, so swapping those two lines changes no output today and behaviour
+alone cannot see the reorder. It is still the wrong chain: the moment the
+new branch is widened, its position decides whether it swallows the thin
+case. So the order is now asserted twice, once behaviourally and once
+against the source of `selectPattern` itself, the same way
+`stress-load-root-map.test.ts` asserts the check-in probe table against its
+own source.
+
+### Live verification, production, 2026-08-29
+
+25 checks against `app.mefwellness.com` in a 390 by 844 viewport, 25
+passing, no console or page errors and no em dash on any screen visited.
+The session was minted and retired locally (scope 'local'), never typed
+into the login form. `scripts/verify-recovery-running-behind-live.mjs` is
+the run. It deletes nothing: the earlier sitting had to survive it.
+
+Covered: the assignment; all eleven questions answered onto the new
+combination end to end (Crushing across work, money and health; two body
+signals of eight so the body stays quiet; "Some, but not enough" recovery;
+a friend named on Q11); the reading naming Recovery Running Behind with
+both approved sentences verbatim and none of the other four names present;
+the load side and the recovery side in two separate boxes with the "kept
+apart on purpose" line and no combined figure anywhere; the stored bands
+reading high / partial / quiet / named; the earlier sitting read back still
+stored as `carrying_it_alone`; and two Root Map rows carrying 6 load points
+and 3 recovery points under two different units, severity significant and
+moderate, both active, with the earlier sitting's two rows correctly
+superseded rather than left active.
+
+**Not verified live: the coach card.** See below.
+
+**State this run left on production:** one further completed sitting for
+the standing test member (12:39 UTC), its two Root Map rows, and its
+assignment, now closed out. The experiment was declined, so no new
+experiment was started.
+
+### The coach card could not be reached, and why
+
+`app/coach/clients/[id]/layout.tsx` hard 404s any member whose profile is
+`is_test` unless the VIEWER is a test account too. The standing test member
+is `is_test`, and the real coach account is not, so
+`/coach/clients/<her id>/detail` returns HTTP 404 with no `<main>` at all.
+Confirmed three times against production.
+
+**This is not caused by a missing coach assignment.** The coach has held a
+standing `coach_client_assignments` row for her since 2026-08-15, and the
+guard never looks at that table. The 2026-08-29 note saying a temporary
+assignment row was what "the run needed to reach the coach screen" has the
+mechanism wrong: what opens that screen is the viewer's own `is_test` flag,
+which `lib/staff/testAccounts.ts` documents as the deliberate fixture
+pairing.
+
+So the coach card is verified locally only, by
+`stress-load-coach-panel.test.tsx` rendering the real panel. Reaching it on
+production would mean writing `is_test = true` onto a real staff account
+for the length of a run. The script supports that behind
+`ALLOW_VIEWER_PAIRING=1` and restores the flag in its finally block, but it
+is off by default and was not used. The flag was read and left at `false`.
+
+### One correction this run had to make to itself
+
+A cleanup step deleted `coach_client_assignments` rows by (coach, client)
+rather than by the id the run created, which took the standing 2026-08-15
+row with it. It was put back with its original id, status, start_date and
+created_at. `assigned_by` had not been captured before the delete and is
+now the coach's own id, which is what the app writes when a coach assigns a
+client. Verified present and active afterwards.
+
+### Found nearby, not fixed
+
+- **Two sittings on the same day are two chips with the same label.**
+  `sittingLabel` in `StressLoadPanel.tsx` formats `completed_at` to a date
+  only, so both of this member's sittings render as "Aug 29, 2026" and a
+  coach cannot tell the chips apart. Harmless with one sitting per
+  assignment in normal use, wrong the moment a member is re-sent one the
+  same day.
