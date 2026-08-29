@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import {
   grantCoachRole,
@@ -12,8 +14,13 @@ import type { CoachClientAssignment, Profile } from '@mef/shared-types-contracts
 
 type Props = {
   users: Profile[];
+  /** Accounts listUsers removed. The screen says so out loud rather than just being shorter. */
+  hiddenUserCount: number;
   coachIds: string[];
   assignments: CoachClientAssignment[];
+  /** Pairings listAssignmentHistory removed, for the same reason. */
+  hiddenAssignmentCount: number;
+  includeTest: boolean;
 };
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -22,13 +29,43 @@ function nameFor(users: Profile[], id: string): string {
   return users.find((u) => u.id === id)?.display_name ?? id.slice(0, 8);
 }
 
-export function AdminPanel({ users, coachIds, assignments }: Props) {
+function countLabel(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/**
+ * The sentence that was missing. A list of eleven when nineteen accounts
+ * exist has to name the eight, or it reads as eight people who never
+ * signed up.
+ */
+function hiddenLabel(hidden: number): string {
+  if (hidden === 0) return 'No test accounts hidden.';
+  return `${hidden} test ${hidden === 1 ? 'account' : 'accounts'} hidden.`;
+}
+
+function TestAccountChip() {
+  return (
+    <span className="rounded-full bg-[#F3F6F4] px-2 py-0.5 text-[11px] font-medium text-[#6B7A72]">
+      Test account
+    </span>
+  );
+}
+
+export function AdminPanel({
+  users,
+  hiddenUserCount,
+  coachIds,
+  assignments,
+  hiddenAssignmentCount,
+  includeTest,
+}: Props) {
   const router = useRouter();
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [coachSelect, setCoachSelect] = useState('');
   const [clientSelect, setClientSelect] = useState('');
 
+  const toggleHref = (includeTest ? '/admin' : '/admin?includeTest=1') as Route;
   const coachSet = new Set(coachIds);
   const coaches = users.filter((u) => coachSet.has(u.id));
 
@@ -81,14 +118,28 @@ export function AdminPanel({ users, coachIds, assignments }: Props) {
       )}
 
       <section className={`${CARD} p-6`}>
-        <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Users</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">Users</p>
+          <Link
+            href={toggleHref}
+            className="mef-focus-ring rounded-full border border-[#1B3A2D]/10 px-4 py-2 text-xs font-medium text-[#1B3A2D] transition hover:border-[#1B3A2D]/30"
+          >
+            {includeTest ? 'Hide test accounts' : 'Show test accounts'}
+          </Link>
+        </div>
+        <p data-user-count className="mt-1.5 text-sm text-[#6B7A72]">
+          {countLabel(users.length, 'account', 'accounts')} shown. {hiddenLabel(hiddenUserCount)}
+        </p>
         <div className="mt-3 divide-y divide-[#1B3A2D]/5">
           {users.map((u) => {
             const isCoach = coachSet.has(u.id);
             return (
               <div key={u.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                 <div>
-                  <p className="font-medium text-[#1B3A2D]">{u.display_name ?? 'Unnamed'}</p>
+                  <p className="flex flex-wrap items-center gap-2 font-medium text-[#1B3A2D]">
+                    {u.display_name ?? 'Unnamed'}
+                    {u.is_test ? <TestAccountChip /> : null}
+                  </p>
                   <p className="text-xs text-[#6B7A72]">{u.timezone}</p>
                 </div>
                 <button
@@ -162,6 +213,14 @@ export function AdminPanel({ users, coachIds, assignments }: Props) {
       <section className={`${CARD} p-6`}>
         <p className="text-sm font-semibold uppercase tracking-wider text-[#854D0E]">
           Assignment history
+        </p>
+        <p data-assignment-count className="mt-1.5 text-sm text-[#6B7A72]">
+          {countLabel(assignments.length, 'pairing', 'pairings')} shown.{' '}
+          {hiddenAssignmentCount === 0
+            ? 'No test pairings hidden.'
+            : `${hiddenAssignmentCount} ${
+                hiddenAssignmentCount === 1 ? 'pairing' : 'pairings'
+              } involving a test account hidden.`}
         </p>
         {assignments.length > 0 ? (
           <div className="mt-3 divide-y divide-[#1B3A2D]/5">

@@ -82,8 +82,19 @@ describe('what the flag actually excludes her from', () => {
     expect(idsWith).toContain(memberId);
   });
 
+  /**
+   * 2026-08-29: the filter is unchanged, but it is no longer a WHERE
+   * clause, so this stopped being a string worth grepping for. listUsers
+   * reads every profile and partitions in one place, because the screen
+   * now has to print how many it hid as well as which it kept, and two
+   * queries could disagree about the same instant. The behaviour is
+   * driven for real in tests/admin-lists-name-what-they-hide.test.tsx;
+   * this only records that the decision still reaches this file.
+   */
   it("the admin's member list", () => {
-    expect(read('app/actions/admin.ts')).toContain(".eq('is_test', false)");
+    const source = read('app/actions/admin.ts');
+    expect(source).toContain('export async function listUsers(includeTest = false)');
+    expect(source).toContain('all.filter((profile) => !profile.is_test)');
   });
 
   it("the coach's client list, with its deliberate exception for a coach who is herself a test account", () => {

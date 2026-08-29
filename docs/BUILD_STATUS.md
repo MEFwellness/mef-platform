@@ -1,3 +1,58 @@
+## A filtered admin list says so (2026-08-29)
+
+An administrator went looking for `8weeks2fab@gmail.com` in the /admin
+Users list, did not find it, and reported that real clients were missing
+from the clients-signed-up list.
+
+**What was actually happening.** Nothing was broken. That account carries
+`profiles.is_test = true`, set deliberately by migration 187 on 2026-08-27,
+because it is the account every live verification run and every bug sweep
+signs in as, and its traffic was landing in the funnel, the engagement
+report, the drop-off numbers and the coach's caseload as a real member. The
+filter was doing its job.
+
+Measured on production the day of this build: 19 accounts, 6 flagged as
+test accounts (four seeded `@example.test` fixtures, `routing.test@`, and
+that one). **No real member was excluded.** Nobody is missing a profile
+row, and no legitimate member is dropped by a status or role check.
+
+**The real defect is that the list hid them in silence.** Eleven rows out
+of nineteen accounts, with no count, no toggle and no label. A list that is
+short because it filtered and a list that is short because those people
+never signed up looked identical, on exactly the screen you open to find
+out which. That is the bug, and it was reported as data loss because from
+the screen it was indistinguishable from data loss.
+
+**What changed.** Both admin reads now return what they removed alongside
+what they kept, and the screen prints it.
+
+- `listUsers(includeTest = false)` returns `{ users, hiddenTestCount }`.
+  One query, partitioned in code rather than two queries with two WHERE
+  clauses, so the rows shown and the count of rows hidden can never
+  disagree about the same instant. A failed read returns an empty list and
+  a hidden count of zero, because an empty list beside a hidden count would
+  read as "every account is a fixture", which is a worse lie than "nothing
+  loaded".
+- `listAssignmentHistory(includeTest = false)` matches it. It fails towards
+  showing, the same way `lib/staff/testAccounts.ts` does: an unreadable
+  profile list is not evidence that anybody is a fixture.
+- The Users card carries a `Show test accounts` / `Hide test accounts`
+  toggle on `?includeTest=1`, the same switch and the same query string
+  `/admin/access` has always had, so the two admin lists behave identically
+  instead of each having its own idea of a hidden account.
+- Each row shows a `Test account` chip when the profile is flagged, so a
+  fixture that IS shown is never mistaken for a member.
+
+**The exclusion itself is unchanged, and no account was unflagged.** No
+migration, no schema change, no change to what anyone may see.
+
+`tests/admin-lists-name-what-they-hide.test.tsx` drives both real functions
+against a fake Postgres (default, `includeTest`, both failure paths, and
+the invariant that shown plus hidden equals every account) and renders the
+real panel to prove a non-zero hidden count reaches the page as a number a
+person can read. `tests/test-account-exclusion.test.ts` keeps the
+per-surface ledger and now records the new shape.
+
 ## The middleware stops being able to hang the site (2026-08-29)
 
 Production returned a 504 GATEWAY_TIMEOUT with

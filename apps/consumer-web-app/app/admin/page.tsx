@@ -6,14 +6,23 @@ import { AdminPanel } from './AdminPanel';
 import { ChangePasswordLink } from '@/components/auth/ChangePasswordLink';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams?: { includeTest?: string };
+}) {
   const user = await getCachedUser();
   if (!user) redirect('/login');
 
-  const [users, coachIds, assignments] = await Promise.all([
-    listUsers(),
+  // Same switch, same query string and same default as /admin/access, so
+  // the two admin lists behave identically rather than each having its own
+  // idea of what a hidden account is.
+  const includeTest = searchParams?.includeTest === '1';
+
+  const [userList, coachIds, assignmentList] = await Promise.all([
+    listUsers(includeTest),
     listActiveCoachUserIds(),
-    listAssignmentHistory(),
+    listAssignmentHistory(includeTest),
   ]);
 
   return (
@@ -122,7 +131,14 @@ export default async function AdminPage() {
           </p>
         </Link>
 
-        <AdminPanel users={users} coachIds={coachIds} assignments={assignments} />
+        <AdminPanel
+          users={userList.users}
+          hiddenUserCount={userList.hiddenTestCount}
+          coachIds={coachIds}
+          assignments={assignmentList.assignments}
+          hiddenAssignmentCount={assignmentList.hiddenTestCount}
+          includeTest={includeTest}
+        />
       </main>
 
     </div>

@@ -12,19 +12,43 @@ import type { CoachClientAssignment, Profile } from '@mef/shared-types-contracts
  * from the database's own answer.
  */
 
-/** Excludes is_test accounts (production QA fixtures) — an admin's "every user" view must never count or list a seeded test account as a real member. */
-export async function listUsers(): Promise<Profile[]> {
+/**
+ * A FILTERED LIST SAYS SO (2026-08-29).
+ *
+ * These two reads hide seeded QA fixtures, which is right: an admin's
+ * "every user" view must never count a fixture as a real member. What was
+ * wrong is that they hid them in silence. An administrator looking for an
+ * account he knew existed found a list that did not contain it and a screen
+ * that offered no reason, no count and no way to look. That reads as a lost
+ * member, not as a filter doing its job, and the difference matters most on
+ * exactly the screen where you go to check whether somebody signed up.
+ *
+ * So both reads now return what they removed alongside what they kept, and
+ * both take the same `includeTest` switch `/admin/access` has always had.
+ * The filtering itself is unchanged.
+ *
+ * One query, partitioned here rather than two queries with two WHERE
+ * clauses, so the count of hidden rows and the rows shown can never
+ * disagree about the same instant.
+ */
+export interface AdminUserList {
+  /** The accounts the screen renders, oldest first. */
+  users: Profile[];
+  /** How many accounts the filter removed. Always 0 when includeTest is true. */
+  hiddenTestCount: number;
+}
+
+export async function listUsers(includeTest = false): Promise<AdminUserList> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('is_test', false)
-    .order('created_at');
+  const { data, error } = await supabase.from('profiles').select('*').order('created_at');
   if (error) {
     console.error('listUsers failed — likely not platform_administrator', error);
-    return [];
+    return { users: [], hiddenTestCount: 0 };
   }
-  return data as Profile[];
+  const all = (data ?? []) as Profile[];
+  if (includeTest) return { users: all, hiddenTestCount: 0 };
+  const users = all.filter((profile) => !profile.is_test);
+  return { users, hiddenTestCount: all.length - users.length };
 }
 
 export async function grantCoachRole(targetUserId: string): Promise<ActionResult> {
@@ -87,26 +111,44 @@ export async function listActiveCoachUserIds(): Promise<string[]> {
   return data.map((row) => row.user_id);
 }
 
-/** Excludes any assignment touching an is_test account (either side) — the admin's real assignment history shouldn't be cluttered by a seeded test coach/member pairing. */
-export async function listAssignmentHistory(): Promise<CoachClientAssignment[]> {
-  const supabase = createClient();
-  const { data: testProfiles } = await supabase.from('profiles').select('id').eq('is_test', true);
-  const testIds = (testProfiles ?? []).map((p) => p.id as string);
+/**
+ * Assignment history, under the same switch and the same honesty rule as
+ * listUsers above: a pairing touching a fixture on either side is hidden by
+ * default, and the screen is told how many were hidden rather than being
+ * handed a shorter list with no explanation.
+ */
+export interface AdminAssignmentList {
+  assignments: CoachClientAssignment[];
+  /** Pairings removed because a fixture stood on one side or the other. */
+  hiddenTestCount: number;
+}
 
-  let query = supabase
+export async function listAssignmentHistory(includeTest = false): Promise<AdminAssignmentList> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
     .from('coach_client_assignments')
     .select('*')
     .order('created_at', { ascending: false });
-
-  if (testIds.length > 0) {
-    const literalList = `(${testIds.join(',')})`;
-    query = query.not('coach_id', 'in', literalList).not('client_id', 'in', literalList);
-  }
-
-  const { data, error } = await query;
   if (error) {
     console.error('listAssignmentHistory failed', error);
-    return [];
+    return { assignments: [], hiddenTestCount: 0 };
   }
-  return data as CoachClientAssignment[];
+  const all = (data ?? []) as CoachClientAssignment[];
+  if (includeTest) return { assignments: all, hiddenTestCount: 0 };
+
+  const { data: testProfiles, error: testError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('is_test', true);
+  if (testError) {
+    // Fail towards showing, the same way lib/staff/testAccounts.ts does:
+    // an unreadable profile list is not evidence that anybody is a fixture,
+    // and hiding a real pairing is the worse of the two mistakes.
+    console.error('listAssignmentHistory could not read test accounts', testError);
+    return { assignments: all, hiddenTestCount: 0 };
+  }
+  const testIds = new Set((testProfiles ?? []).map((profile) => profile.id as string));
+  const assignments = all.filter((a) => !testIds.has(a.coach_id) && !testIds.has(a.client_id));
+  return { assignments, hiddenTestCount: all.length - assignments.length };
 }
