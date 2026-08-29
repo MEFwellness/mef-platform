@@ -10925,14 +10925,25 @@ and 3 recovery points under two different units, severity significant and
 moderate, both active, with the earlier sitting's two rows correctly
 superseded rather than left active.
 
-**Not verified live: the coach card.** See below.
+**The coach card, verified live in a second run.** 18 further checks, 18
+passing, `scripts/verify-recovery-running-behind-coach-card.mjs`. It is
+split from the run above because that one already left production in
+exactly the state this one needed, and re-running the whole thing would
+have written a third sitting nobody asked for. Covered: the client screen
+opening with HTTP 200 rather than 404ing; the deep-dive card present; the
+newest sitting showing Recovery Running Behind with both approved
+sentences word for word; the two sides still shown separately with no
+combined figure; both sittings offered as selectable chips; and selecting
+the prior chip showing its own original Carrying It Alone reading with the
+new name nowhere on it and its two sides still separate. No console or
+page errors, no em dash on either screen.
 
 **State this run left on production:** one further completed sitting for
 the standing test member (12:39 UTC), its two Root Map rows, and its
 assignment, now closed out. The experiment was declined, so no new
 experiment was started.
 
-### The coach card could not be reached, and why
+### What that second run had to write, and put back
 
 `app/coach/clients/[id]/layout.tsx` hard 404s any member whose profile is
 `is_test` unless the VIEWER is a test account too. The standing test member
@@ -10948,12 +10959,21 @@ mechanism wrong: what opens that screen is the viewer's own `is_test` flag,
 which `lib/staff/testAccounts.ts` documents as the deliberate fixture
 pairing.
 
-So the coach card is verified locally only, by
-`stress-load-coach-panel.test.tsx` rendering the real panel. Reaching it on
-production would mean writing `is_test = true` onto a real staff account
-for the length of a run. The script supports that behind
-`ALLOW_VIEWER_PAIRING=1` and restores the flag in its finally block, but it
-is off by default and was not used. The flag was read and left at `false`.
+Reaching that screen therefore means writing `is_test = true` onto the real
+coach account for the length of a run. That is the only write either
+script makes to an account, it is gated behind `ALLOW_VIEWER_PAIRING=1`
+rather than being on by default, the coach-card script refuses to start if
+the flag is not `false` going in, and it restores and reads back `false` in
+its finally block. Confirmed `false` afterwards, twice.
+
+While it was on, roughly two minutes, that account would have been
+excluded from staff surfaces and analytics figures as a fixture. Nothing
+was read from those surfaces in that window.
+
+The other thing worth knowing: because of this guard, **the coach cannot
+reach this member's card in ordinary use either.** Any live check of a
+coach screen for the standing test member needs the pairing, or a real
+non-test member.
 
 ### One correction this run had to make to itself
 
