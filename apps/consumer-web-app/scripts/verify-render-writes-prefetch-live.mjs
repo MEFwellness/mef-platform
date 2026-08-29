@@ -269,7 +269,10 @@ try {
       await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle', timeout: 60000 }).catch(() => {});
       await page.waitForTimeout(6000);
       const popupsFirst = await page.locator('[role="dialog"]').count();
-      const priorityFirst = (await page.locator('body').innerText()).includes('Your priority today');
+      // Case-insensitively: the card's label is styled uppercase, and
+      // innerText returns text the way CSS transformed it, so an exact-case
+      // match reports a card that is plainly on the screen as missing.
+      const priorityFirst = /your priority today/i.test(await page.locator('body').innerText());
       await page.screenshot({ path: `${SHOTS}/fresh-signin.png`, fullPage: true });
       await page.reload({ waitUntil: 'networkidle' }).catch(() => {});
       await page.waitForTimeout(6000);

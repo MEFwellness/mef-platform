@@ -10241,3 +10241,236 @@ account for a non-test viewer (the A3 layout guard from 2026-08-28). And
 the test account was left on the program tier, as the brief asked; it was
 on trial with full access before this run.
 
+
+## Home follow-up: the prefetch waste and the render that writes (2026-08-29)
+
+Two things the speed build left named but unfixed. No card moved, no copy
+changed, no migration.
+
+### Fix 2 first, because it was the real defect
+
+**Opening Home wrote fourteen `member_pattern_states` rows.** Confirmed on
+production before touching anything: read the member's rows, load Home,
+read them again, fourteen `updated_at` values had moved.
+`CoachingMessageCard` is a server component, it called
+`getMyCoachingMessage`, and that called `computeLongitudinalSignals`, which
+classified every signal and then persisted every one of them.
+
+**It was not only a rule violation, it was wrong about her.**
+`classifyCheckinMetricSignal` counts a state that survives from one
+recompute RUN to the next as one more occurrence, and the occurrence count
+is what promotes a signal from tier 1 to tier 3. A run was meant to be a
+real event. Home's render was being counted as one, so a member who opened
+the app three times in a morning had her check-in metrics promoted a tier
+for it, on no new evidence at all.
+
+**The split.** `lib/longitudinal-intelligence/service.ts` now has one
+private classifier and two public doors:
+
+- `readLongitudinalSignals` computes and stores nothing. Every render calls
+  this: Home's coaching message, the `/insights` picture, and the coach's
+  own client panel. That last one mattered more than it looks, because a
+  coach opening a client's screen was rewriting that client's stored
+  history, and whose screen is open is not a fact about her.
+- `refreshLongitudinalSignals` computes and persists. Two callers, both
+  places where the data underneath actually changed: `submitDailyCheckin`,
+  and the nightly `daily-coaching-scan` cron that already did this.
+
+The old name is gone entirely rather than kept as an alias, so no future
+caller can pick the writing one from a render by accident.
+
+**The message she reads did not change.** Both doors share one classifier,
+so for the same stored rows they return identical signals, field for field.
+A test drives both against the same fixture and compares. What changed is
+that the number stops drifting upward every time she opens the app.
+
+**Where the refresh went, and why there.** `submitDailyCheckin` already
+ends with three best-effort recomputes triggered by a real completion: the
+Root Score, the Recommendation Engine, and the coaching grades. This is a
+fourth entry in an existing list, in the same shape, inside its own `try`,
+after her check-in has already been saved and returned. No new job system,
+no new table, no cron added.
+
+### Other render-path writes, found and dispositioned
+
+A call-level audit over every `page.tsx`, `layout.tsx` and server component
+(a name-level call graph from renders to anything reaching `.insert(` or
+`.upsert(`, with client components and action modules excluded as
+non-render). Five classes survived reading. **One is fixed here. The other
+four are named, not moved**, because none is the same trivial shape:
+
+| where | what it writes | why it was left |
+| --- | --- | --- |
+| `CoachingMessageCard` -> `computeLongitudinalSignals` | 14 `member_pattern_states` | **FIXED, this build** |
+| `CoachingMessageCard` -> `recordCoachingMessage` | one `member_coaching_messages` row | It is the engine's own memory. The selector ranks against it to avoid repeating a topic, so moving it changes which message she gets tomorrow. That is a coaching-engine decision, not a mechanical move. |
+| `getMemberVisibility` -> `recordReveals` | reveal rows, on Home, Today, Progress and the bottom bar, so every member screen | Same class: a render recording that a surface was shown. Moving it changes when the "newly revealed" sentence stops appearing. |
+| `buildPriorityView` -> `claimDailyPriority` | today's priority row | Deliberate and documented. Build 1's design is that the priority decides on first display, through an atomic claim. Not a defect. |
+| `/conversation` -> `createSession`, `/reset-plan` -> `createDraftResetPlan` | a session row, a draft row | Each is its own screen's "start" semantics and needs its own decision about what starting means. |
+
+### Fix 1, and a correction to what this file said about it
+
+The speed build recorded that Home's `?_rsc=` prefetches "cost real server
+renders of `/root-score` and `/programs/<id>`, roughly 1.4s of server work
+nobody asked for." **Measured properly, that was wrong in its particulars**,
+and the real finding was somewhere else.
+
+A prefetch of a route that has a `loading.tsx` renders the layouts and that
+loading state, never the page. Proved against production: a prefetch of
+`/dashboard` comes back with the settling skeleton, no greeting, and touches
+zero rows. A route with NO `loading.tsx` cannot be prefetched at all.
+
+Per-route prefetch cost, production, median of three, warm, her own session,
+against a 0.14s static-asset baseline for the trip itself:
+
+| route | prefetch | what comes back |
+| --- | --- | --- |
+| **`/dashboard`** | **1.06s** | 8872 bytes, the settling skeleton |
+| `/recommendations` | 0.40s | 6918 bytes |
+| `/programs/<id>` | 0.35s | **198 bytes of routing stub, no render at all** |
+| `/case` / `/movement` | 0.33s | ~7000 bytes |
+| `/root-score` | 0.32s | 6980 bytes |
+| `/food-lens` | 0.32s | 6802 bytes |
+| `/checkin` | 0.31s | 6967 bytes |
+| `/noticing` | 0.31s | 7138 bytes |
+| `/progress` | 0.30s | 7225 bytes |
+| `/today` | 0.29s | 7210 bytes |
+
+So the expensive prefetch in this app is exactly one: **`/dashboard`, at
+1.06s, roughly three and a half times any other route**, fired by the Home
+tab in the bottom bar, and the bar is on every member screen. And
+`/programs/<id>` is paid for and buys literally nothing, because that route
+has no loading boundary for a prefetch to fetch.
+
+**The rule now, in `components/nav/QuietLink.tsx`:** automatic prefetch is
+for links she taps most days whose targets are cheap. That is the bar's
+Check-In, Today, Progress and Food Lens tabs, and the day's one Priority
+Card button. All fourteen other links Home renders go through `QuietLink`.
+
+**It is not "no prefetch".** Next still prefetches on `touchstart` and on
+hover when `prefetch` is false, and fetches the full route rather than just
+the loading state when it does. On a phone `touchstart` fires the instant
+her finger lands. The prefetch moved from every link she scrolled past to
+the one link she is touching.
+
+All nineteen anchors Home renders were enumerated from the live DOM and
+accounted for, rather than found by reading files.
+
+### The numbers, on production
+
+Same script, same account, same day, before and after. Median of the runs.
+
+| | before | after |
+| --- | --- | --- |
+| her greeting | ~1.5s | 1.31s to 2.17s, median ~1.6s |
+| Home fully settled | 8.18s | 7.25s |
+| `_rsc` requests per Home load | 2 to 5, including expensive ones | 2 to 3, **zero expensive across six loads** |
+| `/dashboard` prefetched from Today, Progress, Food Lens | 1.06s each, every screen | **gone**, confirmed on all three |
+| tap Root Score to visible | 1.30s (prefetched) | 1.19s and 1.35s |
+| tap her program to visible | 1.57s and 1.86s (prefetched) | 1.68s and 1.78s |
+
+**Her tap did not get slower, and that is the point of measuring it.** The
+prefetch only ever bought the loading skeleton; the real content render was
+paid at tap time either way. Root Score and her program open in the same
+time they did.
+
+**Be careful with the settled number.** Part of that 0.93s is real and part
+is the measurement: "settled" waits for the network to go quiet, and there
+is simply less traffic for it to wait for now. Her greeting arrives when it
+always did. The honest claim of this half is server work removed, not wall
+clock returned to her.
+
+**Cold starts, separately, unchanged.** One run in six opened cold at 4.27s
+to the greeting and 10.08s to settled, against ~1.6s and ~7.2s warm. That
+gap is the platform, exactly as the speed build recorded.
+
+### Tests
+
+**446 files, 6963 tests, all passing**, up from 445 and 6933. One new file.
+
+`tests/render-writes-and-prefetch.test.ts` (27) counts WRITES against a fake
+client rather than comparing results, for the same reason the speed build's
+tests count reads: "the same signals come back" was already true and is not
+the claim. It asserts the reading path writes nothing, that it is not
+passing vacuously by having read nothing either, that the writing path
+upserts one row per signal and touches no other table, that the two return
+identical signals with and without a prior state on file, that no render
+imports the writing path, that the refresh sits inside `submitDailyCheckin`
+and not inside `saveDailyCheckinDraft` (an exit is not a completion), that
+it cannot fail her check-in, and that each of the fourteen quiet links is
+quiet while the four kept tabs and the priority button are not.
+
+**Mutation proof. Four things were broken one at a time, the right tests
+failed, and each was restored:**
+
+| broken | failed |
+| --- | --- |
+| the reading path persists again, as it used to | 2 |
+| HomeHero prefetches `/root-score` on view again | 1 |
+| the Home tab prefetches `/dashboard` again | 1 |
+| a completed check-in stops refreshing her states | 2 |
+
+Typecheck clean. Lint clean (0 errors, the same 94 pre-existing `no-console`
+warnings in scripts). Production build clean.
+
+One thing the build caught that `tsc --noEmit` did not: selecting the link
+component into a variable (`item.quiet ? QuietLink : Link`) produces "a
+union type that is too complex to represent", because both are generic over
+the route. `NavLink` branches on the JSX instead.
+
+### Live verification, on production
+
+Deployment `mef-platform-hfn2fi9o0`, built from commit `ae8a34f`, branch
+`main`, repo `MEFwellness/mef-platform`, Vercel project
+`mef-wellness/mef-platform`, target Production, aliased to
+`app.mefwellness.com`. Auto-deploy fired on the push; no CLI deploy needed.
+Sessions minted one at a time and retired with scope `local`. Mobile
+viewport 390x844. Screenshots under the gitignored
+`apps/consumer-web-app/scripts/.verify/shots/`.
+
+**15 of 15 checks passed.**
+
+- **Three fresh Home loads, twice over.** Zero prefetches of any expensive
+  route in six loads. What remains is two or three requests per load, all of
+  them to the four tabs that deliberately kept theirs.
+- **Both taps.** Root Score visible in 1.19s and 1.35s; her program in 1.68s
+  and 1.78s. No slowdown against the prefetched numbers.
+- **Home wrote nothing.** Three loads, `member_pattern_states` read straight
+  out of the database either side with the service key: zero rows touched,
+  fifteen on file.
+- **A real Daily Reset, completed.** Fourteen of fifteen rows refreshed
+  through the legitimate path, then returning to Home touched zero again.
+  That is the one write this run made.
+- **Root's coaching message.** Recorded plainly: this member has no message
+  today, so what live proves is that the path runs and renders nothing
+  rather than that a message renders. The card's own content is covered
+  locally.
+- **A fresh sign-in.** Exactly one pop-up, the Weekly Reflection invite, and
+  the Priority Card present with its Done button. The pop-up appears again
+  on the next load, which is correct: its dismissal lifetime is the
+  recurring one, and nothing in this run answered it.
+- **Today, Progress and /programs.** All render, no "Invalid Date", no NaN,
+  no undefined.
+- **Zero console errors and zero em dashes** on every screen visited.
+
+**State this run left on production:** one daily check-in row for the
+standing test member, created deliberately by the verification, and the
+fourteen pattern-state rows that check-in legitimately refreshed. Nothing
+else. No migration in this build; the ledger is unchanged at 189, 188, 187,
+186.
+
+### Found while working, not fixed
+
+- **`/progress` prefetches `/root-score` and `/insights`** on view, and
+  **`/food-lens` prefetches five of its own sub-routes**, about 1.9s of
+  server work between them. Same class as what this build fixed, one screen
+  over. Out of scope here, which was Home.
+- **`ActiveExperimentsSection` uses a raw `<a href="/recommendations">`**
+  rather than a `<Link>`, so tapping it reloads the whole document instead
+  of transitioning. It never prefetched, so this build did not touch it, but
+  it is the opposite mistake.
+- **`/programs/[id]` has no `loading.tsx`**, which is why its prefetch could
+  only ever return a routing stub and why tapping it shows nothing until the
+  full render lands. Giving it one would make the tap feel immediate.
+- The three items the speed build listed as open are still open: the
+  `buildTimeContext(nowInTz)` Date form, `resolveLocalDate`'s
+  `getHours()`, and roughly 60 duplicate reads on one Home load.
