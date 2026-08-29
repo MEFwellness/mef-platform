@@ -23,7 +23,7 @@ import { getCachedUser } from '@/lib/supabase/currentUser';
 import { localDateFor } from './rootMap';
 import { getMyRootMap } from './rootMap';
 import {
-  computeLongitudinalSignals,
+  readLongitudinalSignals,
   listRecommendationEventsForMember,
   type LongitudinalSignal,
   type RecommendationEvent,
@@ -83,7 +83,7 @@ export async function getMyLongitudinalPicture(): Promise<LongitudinalPictureVie
 
   const localDate = await localDateFor(supabase, user.id);
   const [signals, experiments, rootMap] = await Promise.all([
-    computeLongitudinalSignals(supabase, user.id, localDate),
+    readLongitudinalSignals(supabase, user.id, localDate),
     listMyLifestyleExperiments(supabase, user.id),
     getMyRootMap(),
   ]);
@@ -130,7 +130,10 @@ export async function getClientLongitudinalSignals(clientId: string): Promise<Lo
   if (!user) return [];
 
   const localDate = await localDateFor(supabase, clientId);
-  return computeLongitudinalSignals(supabase, clientId, localDate);
+  // READS. A coach opening a client's panel must never rewrite that
+  // client's stored pattern states: whose screen is open is not a fact
+  // about her history.
+  return readLongitudinalSignals(supabase, clientId, localDate);
 }
 
 /** Coach-only — every recorded outcome event for a client's recommendations (member_recommendation_events, migration 94), most recent first. */

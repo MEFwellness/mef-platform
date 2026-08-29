@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import type { Route } from 'next';
 import { Dumbbell, Calendar, ChevronRight, Sparkles } from 'lucide-react';
 import type { CoachAssignedWorkout, ProgramAssignmentStatus } from '@mef/shared-types-contracts';
@@ -119,7 +119,7 @@ export function AssignedProgramsCard({
   const showTrack = weeks !== null && weeks >= 2 && weeks <= 16;
 
   return (
-    <Link
+    <QuietLink
       href={href}
       className={`mef-press mef-card-lift block ${HERO} p-7 sm:p-9 ${
         isNew ? 'ring-1 ring-[#F5B700]/45' : ''
@@ -200,7 +200,7 @@ export function AssignedProgramsCard({
           <ChevronRight className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
         </span>
       </div>
-    </Link>
+    </QuietLink>
   );
 }
 

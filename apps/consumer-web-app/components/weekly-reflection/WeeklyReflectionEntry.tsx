@@ -17,7 +17,7 @@
  * job and no rules of its own.
  */
 
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import type { Route } from 'next';
 import { ArrowRight } from 'lucide-react';
 import { WEEKLY_REFLECTION_COPY, WEEKLY_REFLECTION_LABEL } from '@/lib/weekly-reflection/copy';
@@ -45,13 +45,13 @@ export function WeeklyReflectionEntry() {
         {WEEKLY_REFLECTION_COPY.cardBody}
       </p>
 
-      <Link
+      <QuietLink
         href={'/weekly-reflection' as Route}
         className="mef-focus-ring mef-press relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95"
       >
         {WEEKLY_REFLECTION_COPY.cardCta}
         <ArrowRight className="h-4 w-4" aria-hidden="true" />
-      </Link>
+      </QuietLink>
     </section>
   );
 }

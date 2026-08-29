@@ -47,7 +47,7 @@ import {
   listLastCompletedAtByAssessmentKey,
   listPendingReassessmentAssessmentKeys,
 } from '@/lib/reassessment-intelligence/data';
-import { computeLongitudinalSignals } from '@/lib/longitudinal-intelligence';
+import { refreshLongitudinalSignals } from '@/lib/longitudinal-intelligence';
 import { listMyLifestyleExperiments } from '@/lib/lifestyle-experiments';
 import { listMemberRecommendations } from '@/lib/recommendation-engine';
 import type { RecommendationDomain } from '@/lib/intelligence-engine/types';
@@ -224,7 +224,7 @@ async function scanMember(
   }
 
   // ---- Longitudinal Intelligence (Prompt 12): refresh this member's persisted signal states, then let Reassessment Intelligence read the richer result ----
-  const longitudinalSignals = await computeLongitudinalSignals(supabase, member.id, today);
+  const longitudinalSignals = await refreshLongitudinalSignals(supabase, member.id, today);
   const longitudinalSuggestions = evaluateLongitudinalReassessmentTriggers(
     longitudinalSignals,
     pendingAssessmentKeys,

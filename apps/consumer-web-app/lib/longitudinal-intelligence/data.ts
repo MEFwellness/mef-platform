@@ -78,7 +78,7 @@ const PATTERN_STATES_KEY_PREFIX = 'patternStates:';
  * engine itself.
  *
  * This one genuinely needs its invalidation, and it is the reason
- * `lib/data/readOnce.ts` insists on the rule: `computeLongitudinalSignals`
+ * `lib/data/readOnce.ts` insists on the rule: `refreshLongitudinalSignals`
  * reads these states, reclassifies them against the prior row, and upserts
  * the result inside the SAME request. Without the forget in
  * `upsertMemberPatternState` below, a later reader in that request would

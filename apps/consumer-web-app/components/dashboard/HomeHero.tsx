@@ -19,7 +19,7 @@
  */
 
 import Image from 'next/image';
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import { ChevronRight, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import type { RootScoreSnapshot } from '@mef/shared-types-contracts';
 import { AvatarLink } from '@/components/AvatarLink';
@@ -285,13 +285,13 @@ export function HomeHeroBody({
           {snapshot?.explanation_summary ||
             'Complete a few check-ins and MEF Wellness will begin calculating your Root Score from real patterns, never a guess.'}
         </p>
-        <Link
+        <QuietLink
           href="/root-score"
           className="mef-press mt-5 inline-flex items-center gap-1 text-sm font-medium text-[#FAFAF8] underline underline-offset-4"
         >
           See what strengthens your score
           <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-        </Link>
+        </QuietLink>
       </>
     );
   }
@@ -326,13 +326,13 @@ export function HomeHeroBody({
         {snapshot.explanation_summary}
       </p>
 
-      <Link
+      <QuietLink
         href="/root-score"
         className="mef-press mt-5 inline-flex items-center gap-1 text-sm font-medium text-[#FAFAF8] underline underline-offset-4"
       >
         See your full Root Score
         <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-      </Link>
+      </QuietLink>
     </>
   );
 }

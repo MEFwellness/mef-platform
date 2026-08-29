@@ -55,12 +55,25 @@ function buildDomainLookup(): (signalKey: string) => string | null {
 }
 
 /**
- * Recomputes every longitudinal signal for a member and persists the
- * refreshed state (member_pattern_states) — same "recompute cheap, persist
- * state" discipline as recomputeAndPersist in app/actions/recommendations.ts.
- * Best-effort per signal: one failed upsert never blocks the others.
+ * Classifies every longitudinal signal for a member. Reads only.
+ *
+ * This is the whole computation, and it is deliberately separate from
+ * persisting the result, because the two have different rights. A screen
+ * may classify: a render reads. A screen may not persist: a render never
+ * decides anything, and `member_pattern_states` is a decision about what
+ * this member's history now means.
+ *
+ * `priorRow` still matters here, and that is the point of the split rather
+ * than an exception to it. `classifyCheckinMetricSignal` counts a state
+ * that survives from one recompute RUN to the next as one more occurrence,
+ * and a recompute run is a real event: her check-in landing, or the nightly
+ * scan. It is not "somebody looked at a screen." When Home did the
+ * persisting, every open of Home was counted as a run, so a member who
+ * opened the app three times in a morning had her check-in metrics promoted
+ * a tier for it. The reading path now classifies against the last real
+ * run's stored row and leaves it exactly as it found it.
  */
-export async function computeLongitudinalSignals(
+async function classifyLongitudinalSignals(
   supabase: SupabaseClient,
   memberId: string,
   asOfLocalDate: string
@@ -84,9 +97,51 @@ export async function computeLongitudinalSignals(
   });
 
   const domainForSignalKey = buildDomainLookup();
-  const signals = detectConflictingSignals([...registrySignals, ...checkinSignals], domainForSignalKey);
+  return detectConflictingSignals([...registrySignals, ...checkinSignals], domainForSignalKey);
+}
 
+/**
+ * THE READING PATH. Every longitudinal signal for a member, computed fresh
+ * and stored nowhere.
+ *
+ * This is what a page, a server component or any other render asks for. It
+ * makes three round trips and zero writes, and `tests/longitudinal-read-path.test.ts`
+ * asserts the zero rather than trusting this sentence.
+ *
+ * The answer is identical to what the writing path below returns for the
+ * same stored data: they share one classifier and differ only in whether
+ * the result is kept.
+ */
+export async function readLongitudinalSignals(
+  supabase: SupabaseClient,
+  memberId: string,
+  asOfLocalDate: string
+): Promise<LongitudinalSignal[]> {
+  return classifyLongitudinalSignals(supabase, memberId, asOfLocalDate);
+}
+
+/**
+ * THE WRITING PATH. Recomputes every longitudinal signal for a member and
+ * persists the refreshed state (member_pattern_states), the same "recompute
+ * cheap, persist state" discipline as recomputeAndPersist in
+ * app/actions/recommendations.ts.
+ *
+ * Best-effort per signal: one failed upsert never blocks the others.
+ *
+ * WHO IS ALLOWED TO CALL THIS. Only somewhere the data underneath it
+ * actually changed:
+ *   - `submitDailyCheckin`, when she completes a check-in (the check-in
+ *     metrics half of these signals is computed from exactly those rows)
+ *   - the nightly `daily-coaching-scan` cron, for everybody
+ * Never from a render. If a screen needs the signals, it calls
+ * `readLongitudinalSignals` above.
+ */
+export async function refreshLongitudinalSignals(
+  supabase: SupabaseClient,
+  memberId: string,
+  asOfLocalDate: string
+): Promise<LongitudinalSignal[]> {
+  const signals = await classifyLongitudinalSignals(supabase, memberId, asOfLocalDate);
   await Promise.all(signals.map((signal) => upsertMemberPatternState(supabase, memberId, signal)));
-
   return signals;
 }

@@ -38,7 +38,7 @@
  * here is one of the three brand colours already in app/globals.css.
  */
 
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import type { Route } from 'next';
 import { Activity, Compass } from 'lucide-react';
 
@@ -92,7 +92,7 @@ export function QuickActionsGrid({
   return (
     <div className={`grid gap-3 ${ACTIONS.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
       {ACTIONS.map(({ label, href, Icon, status }) => (
-        <Link key={href} href={href} className={PILL}>
+        <QuietLink key={href} href={href} className={PILL}>
           <span className={ICON_TILE}>
             {/* The one highlight. Purely decorative, hidden from assistive
                 tech, and inside the tile's own overflow-hidden so it can
@@ -107,7 +107,7 @@ export function QuickActionsGrid({
             <span className={`block ${LABEL}`}>{label}</span>
             {status && <span className={`block truncate ${STATUS}`}>{status}</span>}
           </span>
-        </Link>
+        </QuietLink>
       ))}
     </div>
   );

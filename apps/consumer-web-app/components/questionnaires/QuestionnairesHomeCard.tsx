@@ -11,7 +11,7 @@
  * "Your Path" zone's explicit no-card treatment.
  */
 
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import type { Route } from 'next';
 import { ClipboardList, ChevronRight } from 'lucide-react';
 
@@ -28,7 +28,7 @@ export function QuestionnairesHomeCard({
   const percent = Math.round((completedCount / totalCount) * 100);
 
   return (
-    <Link
+    <QuietLink
       href={'/questionnaires' as Route}
       className="mef-press flex items-center gap-4 border-b border-[#1B3A2D]/8 py-4 transition hover:bg-[#1B3A2D]/[0.02]"
     >
@@ -61,6 +61,6 @@ export function QuestionnairesHomeCard({
         strokeWidth={1.75}
         aria-hidden="true"
       />
-    </Link>
+    </QuietLink>
   );
 }

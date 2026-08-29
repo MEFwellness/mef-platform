@@ -31,7 +31,7 @@
  */
 
 import Image from 'next/image';
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import type { Route } from 'next';
 import { useState, type ReactNode } from 'react';
 import { NoticingSheet } from './NoticingSheet';
@@ -83,12 +83,12 @@ export function NoticingTile({
 
   if (href) {
     return (
-      <Link
+      <QuietLink
         href={href}
         className={`${TILE_SHELL} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]`}
       >
         <TileFace imageSrc={imageSrc} kicker={kicker} headline={headline} />
-      </Link>
+      </QuietLink>
     );
   }
 

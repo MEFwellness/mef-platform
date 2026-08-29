@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import type { Route } from 'next';
 import { Compass, Sparkles } from 'lucide-react';
 import type { BaselineAssessment } from '@/lib/onboarding/baseline';
@@ -57,12 +57,12 @@ export function ComprehensiveAssessmentCard({
           Your Baseline Assessment, completed {formatDate(baseline.localDate)}, is
           helping Root personalize your coaching, recommendations, and insights.
         </p>
-        <Link
+        <QuietLink
           href="/profile/baseline"
           className="mt-3 inline-flex items-center text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
         >
           Review your assessment
-        </Link>
+        </QuietLink>
       </section>
     );
   }
@@ -84,12 +84,12 @@ export function ComprehensiveAssessmentCard({
         A deeper look at your health history and lifestyle so Root can understand why you feel the
         way you do, day to day, not just what your movement assessment shows.
       </p>
-      <Link
+      <QuietLink
         href={'/onboarding' as Route}
         className="mt-3 inline-flex items-center text-sm font-medium text-[#1B3A2D] underline underline-offset-2"
       >
         Start your Baseline Assessment
-      </Link>
+      </QuietLink>
     </section>
   );
 }

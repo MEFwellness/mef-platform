@@ -7,7 +7,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { signInAs, serviceRoleClient, TEST_USERS } from './setup/test-clients';
 import {
-  computeLongitudinalSignals,
+  refreshLongitudinalSignals,
   listMemberPatternStates,
   recordRecommendationEvent,
   listRecommendationEventsForMember,
@@ -67,10 +67,10 @@ describe('member_pattern_states — upsert, RLS isolation (migration 93)', () =>
   });
 });
 
-describe('computeLongitudinalSignals — end to end', () => {
+describe('refreshLongitudinalSignals, end to end', () => {
   it('runs without error for a member with no history and returns an empty-but-valid signal set', async () => {
     const memberClient = await signInAs(TEST_USERS.memberTwo);
-    const signals = await computeLongitudinalSignals(memberClient, TEST_USERS.memberTwo.id, '2026-07-23');
+    const signals = await refreshLongitudinalSignals(memberClient, TEST_USERS.memberTwo.id, '2026-07-23');
     expect(Array.isArray(signals)).toBe(true);
     // Every check-in metric area is always classified, even with zero
     // check-ins (as insufficient_data) — registry findings are only

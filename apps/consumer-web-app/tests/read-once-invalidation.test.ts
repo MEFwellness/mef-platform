@@ -4,7 +4,7 @@
  * `lib/data/readOnce.ts` states one rule: a read wrapped there must be
  * forgotten by every write in this app that changes its answer. It is not a
  * style preference. This codebase already contains read-then-write-then-read
- * sequences inside a single request (`computeLongitudinalSignals` reads a
+ * sequences inside a single request (`refreshLongitudinalSignals` reads a
  * member's pattern states, reclassifies them against the prior row and
  * upserts the result; `getOrCreateTodaysFeed` reads today's feed and then
  * creates it), and a memoized read with no invalidation hands the second

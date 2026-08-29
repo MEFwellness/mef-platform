@@ -16,7 +16,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient, getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { localDateFor, gatherRootMapInputs } from './rootMap';
-import { computeLongitudinalSignals, listRecommendationEventsForMember } from '@/lib/longitudinal-intelligence';
+import { readLongitudinalSignals, listRecommendationEventsForMember } from '@/lib/longitudinal-intelligence';
 import { listMyLifestyleExperiments } from '@/lib/lifestyle-experiments';
 import { listMemberRecommendations } from '@/lib/recommendation-engine';
 import { getCoachingSafetyGate } from '@/lib/coaching-insights/safety';
@@ -57,7 +57,10 @@ async function gatherAndPlan(
   const [rootMapInputs, signals, experiments, recommendationRows, events, recentMessages, safetyGate] =
     await Promise.all([
       gatherRootMapInputs(supabase, memberId, localDate, coachView),
-      computeLongitudinalSignals(supabase, memberId, localDate),
+      // READS. This runs inside Home's render, so it may not persist what it
+      // classifies. The refreshed states are written where the data under
+      // them changes: her check-in landing, and the nightly scan.
+      readLongitudinalSignals(supabase, memberId, localDate),
       listMyLifestyleExperiments(supabase, memberId),
       listMemberRecommendations(supabase, memberId),
       listRecommendationEventsForMember(supabase, memberId),

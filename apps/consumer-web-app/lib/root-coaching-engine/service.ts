@@ -4,7 +4,7 @@
  * Coaching Message Composer, and the Coach Summary Generator over
  * already-fetched inputs. The caller (app/actions/rootCoaching.ts) is
  * responsible for gathering those inputs (reusing gatherRootMapInputs,
- * computeLongitudinalSignals, listMyLifestyleExperiments, etc.) and for
+ * readLongitudinalSignals, listMyLifestyleExperiments, etc.) and for
  * persisting the chosen message via ./data.ts — this file never touches the
  * database.
  */

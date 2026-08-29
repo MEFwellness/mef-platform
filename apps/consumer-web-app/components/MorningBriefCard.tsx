@@ -30,7 +30,7 @@
  * anything.
  */
 
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import {
   Sparkles,
   HeartPulse,
@@ -89,7 +89,7 @@ export function MorningBriefCard({ brief, rootScoreSnapshot }: Props) {
 
       <div className="mt-5 space-y-4">
         {rootScoreSnapshot?.root_score !== null && rootScoreSnapshot && (
-          <Link
+          <QuietLink
             href="/root-score"
             className="-mx-1 flex items-start gap-3 rounded-2xl px-1 py-0.5 transition hover:bg-[#FAFAF8]"
           >
@@ -109,7 +109,7 @@ export function MorningBriefCard({ brief, rootScoreSnapshot }: Props) {
               strokeWidth={1.75}
               aria-hidden="true"
             />
-          </Link>
+          </QuietLink>
         )}
         {brief.recovery_summary && (
           <BriefLine icon={HeartPulse} label="Recovery Status" text={brief.recovery_summary} />

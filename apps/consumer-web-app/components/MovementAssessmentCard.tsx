@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import type { Route } from 'next';
 import { PersonStanding, CheckCircle2, Hourglass } from 'lucide-react';
 import type { BodyAssessment } from '@mef/shared-types-contracts';
@@ -94,12 +94,12 @@ export function MovementAssessmentCard({
         <p className={`relative mt-3 text-sm leading-relaxed ${bodyTone}`}>
           Your personalized corrective exercise recommendations are now available.
         </p>
-        <Link
+        <QuietLink
           href={`/assessment/${analyzed.id}` as Route}
           className={`mef-press relative mt-3 inline-flex items-center text-sm font-medium underline underline-offset-2 ${bodyTone}`}
         >
           View your results
-        </Link>
+        </QuietLink>
       </section>
     );
   }
@@ -155,12 +155,12 @@ export function MovementAssessmentCard({
           Estimated time: 5–10 minutes
         </p>
         {!locked && (
-          <Link
+          <QuietLink
             href={'/assessment' as Route}
             className="mef-press relative mt-6 inline-flex items-center justify-center rounded-full bg-[#F5B700] px-7 py-3.5 text-sm font-semibold text-[#1B3A2D] shadow-[0_10px_24px_-6px_rgba(0,0,0,0.35)] transition hover:brightness-105"
           >
             Start Assessment
-          </Link>
+          </QuietLink>
         )}
       </section>
     );
@@ -209,12 +209,12 @@ export function MovementAssessmentCard({
         Estimated time: 5–10 minutes
       </p>
       {!locked && (
-        <Link
+        <QuietLink
           href={'/assessment' as Route}
           className="mef-press relative mt-6 inline-flex items-center justify-center rounded-full bg-[#1B3A2D] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_10px_24px_-6px_rgba(27,58,45,0.35)] transition hover:brightness-110"
         >
           Start Assessment
-        </Link>
+        </QuietLink>
       )}
     </section>
   );

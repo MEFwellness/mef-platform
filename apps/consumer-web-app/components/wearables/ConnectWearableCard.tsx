@@ -21,7 +21,7 @@
  */
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { QuietLink } from '@/components/nav/QuietLink';
 import { Sparkles, ChevronDown } from 'lucide-react';
 import { ProviderLogos } from './ProviderLogos';
 
@@ -42,12 +42,12 @@ export function ConnectWearableCard({ variant }: { variant: 'dashboard' | 'today
         </p>
         <ProviderLogos className="mt-3" />
         <div className="mt-3 flex flex-wrap items-center gap-4">
-          <Link
+          <QuietLink
             href="/connections"
             className="rounded-full bg-[#1B3A2D] px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
           >
             Connect Device
-          </Link>
+          </QuietLink>
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
@@ -87,12 +87,12 @@ export function ConnectWearableCard({ variant }: { variant: 'dashboard' | 'today
         </p>
         <ProviderLogos className="mt-4" />
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Link
+          <QuietLink
             href="/connections"
             className="mef-press rounded-full bg-[#F5B700] px-5 py-2.5 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-105"
           >
             Connect Device
-          </Link>
+          </QuietLink>
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}

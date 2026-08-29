@@ -26,6 +26,7 @@ import { getTodaysHydrationTotal } from './events';
 import { isHydrationTracked } from '@/lib/hydration/data';
 import { recomputeMyRecommendations } from './recommendations';
 import { recomputeCoachingGrades } from '@/lib/coaching-direction/gradesService';
+import { refreshLongitudinalSignals } from '@/lib/longitudinal-intelligence';
 import { getLoggedDayTotals } from '@/lib/member-counts/checkinCounts';
 import { forgetReads, readOnce } from '@/lib/data/readOnce';
 
@@ -277,6 +278,26 @@ export async function submitDailyCheckin(input: DailyCheckinInput): Promise<Acti
   // elapsing. recomputeCoachingGrades never throws, and does nothing at all
   // when migration 152 has not been applied.
   await recomputeCoachingGrades(supabase, user.id, input.local_date, input.timezone);
+
+  // Longitudinal Intelligence: refresh her stored pattern states, here,
+  // because here is where the data underneath them changed. Half of these
+  // signals are computed from her check-in rows, and one just landed.
+  //
+  // This used to happen inside Home's render instead, which broke the rule
+  // that a render never decides anything and had a second cost besides:
+  // these states count a state surviving from one recompute run to the next
+  // as evidence a pattern is real, so counting every open of Home as a run
+  // let three visits in a morning promote a metric a tier. A run is now an
+  // actual event, which is what the classifier always meant.
+  //
+  // Best-effort and last, exactly like the three blocks above: her check-in
+  // is already saved and already returned, and nothing here is allowed to
+  // change that.
+  try {
+    await refreshLongitudinalSignals(supabase, user.id, input.local_date);
+  } catch (signalError) {
+    console.error('Longitudinal signal refresh failed for submitDailyCheckin', signalError);
+  }
 
   return {};
 }
