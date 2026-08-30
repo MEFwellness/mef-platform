@@ -79,6 +79,7 @@ import { getClientResetPlanAction } from '@/app/actions/resetPlan';
 import {
   getClientWeeklyReflectionsAction,
   getClientWeeklyReflectionAccessAction,
+  getClientWeeklyReflectionStatusAction,
 } from '@/app/actions/weeklyReflection';
 import { getClientAssessmentAssignments } from '@/app/actions/assessmentAssignments';
 import {
@@ -235,6 +236,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     resetPlanView,
     weeklyReflections,
     weeklyReflectionAccess,
+    weeklyReflectionStatus,
     stressLoadPanel,
     assessmentAssignments,
     movementProfile,
@@ -274,6 +276,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     getClientResetPlanAction(profile.id),
     getClientWeeklyReflectionsAction(profile.id),
     getClientWeeklyReflectionAccessAction(profile.id),
+    getClientWeeklyReflectionStatusAction(profile.id),
     getClientStressLoadPanelAction(profile.id),
     getClientAssessmentAssignments(profile.id),
     getClientMovementProfile(profile.id),
@@ -703,6 +706,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
           <WeeklyReflectionPanel
             reflections={weeklyReflections}
             hasProgramTier={weeklyReflectionAccess}
+            status={weeklyReflectionStatus}
           />
 
           {/*

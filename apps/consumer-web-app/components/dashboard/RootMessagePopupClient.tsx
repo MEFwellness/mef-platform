@@ -44,6 +44,7 @@ import { WeeklyReviewPopup } from '@/components/weekly-review/WeeklyReviewPopup'
 import { TrackWeeklyReviewViewed } from '@/components/weekly-review/TrackWeeklyReviewViewed';
 import { HydrationFocusPopup } from '@/components/hydration/HydrationFocusPopup';
 import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
+import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/TrackWeeklyReflectionDelivered';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
@@ -267,16 +268,24 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   if (isWeeklyReflection) {
     const m = message as WeeklyReflectionMessage;
     return (
-      <RootInvitePopup
-        eyebrow={WEEKLY_REFLECTION_COPY.popupEyebrow}
-        title={m.title}
-        body={m.body}
-        ctaLabel={WEEKLY_REFLECTION_COPY.popupCta}
-        href={m.primaryHref}
-        isPending={isPending}
-        onMaybeLater={handleMaybeLater}
-        onIgnore={handleIgnore}
-      />
+      <>
+        {/* The delivery receipt (migration 191). Fired from a mounted
+            effect on the pop-up that genuinely reached her, never from a
+            render, and never for a member the chain did not offer this to.
+            Home's persistent card fires the same tracker in the same pass;
+            the server's atomic claim makes that one receipt per week. */}
+        <TrackWeeklyReflectionDelivered weekStart={m.weekStart} presentation="popup" />
+        <RootInvitePopup
+          eyebrow={WEEKLY_REFLECTION_COPY.popupEyebrow}
+          title={m.title}
+          body={m.body}
+          ctaLabel={WEEKLY_REFLECTION_COPY.popupCta}
+          href={m.primaryHref}
+          isPending={isPending}
+          onMaybeLater={handleMaybeLater}
+          onIgnore={handleIgnore}
+        />
+      </>
     );
   }
 

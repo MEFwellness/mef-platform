@@ -14,6 +14,13 @@
  * the recap is recomputed on every render from data that was already
  * there, and the only write in this feature happens inside the server
  * action she triggers by pressing the final button.
+ *
+ * THE DELIVERY RECEIPT AT THE BOTTOM OF THIS FILE IS NOT AN EXCEPTION TO
+ * THAT. It writes a different table (member_weekly_reflection_deliveries,
+ * migration 191), it is fired from a mounted effect on the surface that
+ * genuinely displayed the reflection rather than from any render, and it
+ * creates no reflection row and no draft. Nothing above it reads it, so
+ * "has she completed this week" is still decided by one table.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -203,4 +210,119 @@ export async function listPatternStatesForRecap(
 ): Promise<LongitudinalSignal[]> {
   const states = await listMemberPatternStates(supabase, memberId);
   return [...states.values()];
+}
+
+// ---------------------------------------------------------------------
+// The delivery receipt (migration 191).
+//
+// A SEPARATE RECORD, NOT PART OF THE REFLECTION. Everything above obeys
+// "no row exists until she finishes". These three functions do not touch
+// that table at all: they read and write
+// member_weekly_reflection_deliveries, which records that something
+// reached her screen and never that she attempted anything. No draft is
+// created, no reflection row is created, and no read above changes its
+// answer because a receipt exists.
+// ---------------------------------------------------------------------
+
+/** Which surface actually put it in front of her. Mirrors the CHECK constraint on the column. */
+export const REFLECTION_PRESENTATIONS = ['popup', 'home_card'] as const;
+export type ReflectionPresentation = (typeof REFLECTION_PRESENTATIONS)[number];
+
+export function isReflectionPresentation(value: unknown): value is ReflectionPresentation {
+  return (
+    typeof value === 'string' && (REFLECTION_PRESENTATIONS as readonly string[]).includes(value)
+  );
+}
+
+export type ReflectionDeliveryRecord = {
+  weekStart: string;
+  deliveredAt: string;
+  presentation: string;
+};
+
+const DELIVERY_COLUMNS = 'week_start, delivered_at, presentation';
+
+type DeliveryRow = { week_start: string; delivered_at: string; presentation: string };
+
+function fromDeliveryRow(row: DeliveryRow): ReflectionDeliveryRecord {
+  return {
+    weekStart: row.week_start,
+    deliveredAt: row.delivered_at,
+    presentation: row.presentation,
+  };
+}
+
+/**
+ * This week's receipt, with "no receipt" and "the read did not work" kept
+ * apart, for the same reason fetchWeeklyReflection keeps them apart.
+ *
+ * Collapsing them here would be worse than it is there, because the whole
+ * product of this read is a sentence a coach believes: a failed read
+ * reported as "no receipt" becomes "they have not opened the app since
+ * Friday" on a screen, about a member who may well have.
+ */
+export async function fetchReflectionDelivery(
+  supabase: SupabaseClient,
+  memberId: string,
+  weekStart: string
+): Promise<{ ok: boolean; record: ReflectionDeliveryRecord | null }> {
+  const { data, error } = await supabase
+    .from('member_weekly_reflection_deliveries')
+    .select(DELIVERY_COLUMNS)
+    .eq('member_id', memberId)
+    .eq('week_start', weekStart)
+    .maybeSingle();
+
+  if (error) {
+    console.error('fetchReflectionDelivery failed', error);
+    return { ok: false, record: null };
+  }
+  if (!data) return { ok: true, record: null };
+  return { ok: true, record: fromDeliveryRow(data as unknown as DeliveryRow) };
+}
+
+/**
+ * Records that the reflection reached her, if this week has no receipt
+ * yet.
+ *
+ * ONCE PER WEEK, AND THE DATABASE IS WHAT ENFORCES IT. Home renders the
+ * pop-up and the persistent card in the same pass, so two trackers fire
+ * for one showing, and she can reopen the app on Saturday having seen it
+ * on Friday. All of those are the same (member_id, week_start), so all of
+ * them resolve to the one row that already exists. This is an
+ * insert-if-absent for exactly that reason: never an upsert, because an
+ * upsert would move delivered_at forward on the second showing and the
+ * receipt would stop meaning "the first time it reached her".
+ *
+ * "NO ERROR" IS NOT "IT WORKED", so the insert returns what it wrote and a
+ * caller that gets nothing back is told so rather than assuming success.
+ */
+export async function claimReflectionDelivery(
+  supabase: SupabaseClient,
+  memberId: string,
+  weekStart: string,
+  presentation: ReflectionPresentation
+): Promise<{ record: ReflectionDeliveryRecord | null; created: boolean }> {
+  const { data, error } = await supabase
+    .from('member_weekly_reflection_deliveries')
+    .insert({
+      member_id: memberId,
+      week_start: weekStart,
+      presentation,
+      delivered_at: new Date().toISOString(),
+    })
+    .select(DELIVERY_COLUMNS)
+    .maybeSingle();
+
+  if (!error && data) {
+    return { record: fromDeliveryRow(data as unknown as DeliveryRow), created: true };
+  }
+
+  // Either the unique constraint rejected a second showing of the same
+  // week, which is the ordinary and expected outcome, or the insert wrote
+  // nothing. Both resolve the same way: read back whatever is actually
+  // there, so the caller learns the truth rather than an assumption.
+  const existing = await fetchReflectionDelivery(supabase, memberId, weekStart);
+  if (error && !existing.record) console.error('claimReflectionDelivery insert failed', error);
+  return { record: existing.record, created: false };
 }

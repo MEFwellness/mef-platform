@@ -1,3 +1,100 @@
+## A blank Weekly Reflection panel now says which blank it is (2026-08-29)
+
+The Weekly Reflection (migration 189) is offered to program-tier members
+from their own Friday through Sunday night, by pop-up and by a card that
+stays on Home for the rest of the weekend. The coach's panel showed
+completed answers and nothing else, so an empty panel on a Sunday meant
+one of two OPPOSITE things: she was shown it and chose not to write, or
+she never opened the app at all. Those are different conversations, and
+nothing in the product could tell them apart.
+
+**The receipt.** `member_weekly_reflection_deliveries` (migration 191):
+member, her own local Friday, the moment it first reached her, and which
+surface got there first. `unique (member_id, week_start)` IS the
+once-per-week rule, exactly as it is on the reflections table itself. She
+can see the pop-up on Friday and reopen the app on Saturday, and Home can
+render the pop-up and the card in the same pass: all of those are the same
+week, so all of them resolve to the one row with the FIRST timestamp. It
+is an insert-if-absent and never an upsert, because an upsert would move
+the timestamp forward and the receipt would stop meaning "the first time
+it reached her".
+
+**A separate table, not a column on the reflection.** Migration 189 is
+explicit that no reflection row exists until she FINISHES. A `delivered_at`
+column there would force a row into existence from a display, which is the
+standing render-write rule, and it would put a half-row in front of every
+read that asks "has she completed this week". So the receipt is its own
+record: a delivery, never a reflection attempt and never a draft. Nothing
+in the reflection path reads it, so completion still has one source.
+
+**Written from a real display, not from a render.** The tracker
+(`components/weekly-reflection/TrackWeeklyReflectionDelivered.tsx`) renders
+nothing and fires from a mounted effect through the analytics beacon, which
+is a route handler and not a Server Action, for the reason the Home speed
+build measured: an action call re-renders the whole route. The action
+re-resolves the member from her own session, her timezone from her own
+profile, the week from that timezone and the tier from her own subscription
+row, so the only thing the browser gets to say is which surface it was. It
+writes nothing outside the window, nothing for a member off the program
+tier, nothing for a week she has already finished, and nothing on any
+failed read. No coach file touches the table or the claim, and a test walks
+`app/coach` to prove it.
+
+**It counts the Home card as delivery, not only the pop-up.** The card is
+the reflection genuinely reaching her, and a receipt that only counted the
+pop-up would let the panel say "they have not opened the app since Friday"
+about a member who opened it, saw the card, and chose not to write. The
+`presentation` column keeps the two distinguishable.
+
+**The status line.** One sentence above the answers on the coach's client
+screen, for her current week, or for the weekend that most recently closed
+when she is outside her window (past tense, and it names the week so a
+coach reading it on a Wednesday is not misled about which one it is):
+
+  Not delivered yet. They have not opened the app since Friday.
+  Delivered Friday. Not yet completed.
+  Completed Saturday.
+  No delivery record for this week.
+  The delivery record for this week could not be read.
+
+Five states, not three, and the last two are the honest ones. A week that
+closed before receipts existed cannot be judged by an absent row, so it
+says so rather than implying she was never shown it
+(`DELIVERY_RECEIPTS_FIRST_WEEK` is 2026-09-04, the first Friday whose whole
+window this system was live for). A failed read says so rather than
+becoming a non-delivery. A receipt that DOES exist is believed for any
+week, because a row could only ever have been written by a real display,
+and a completion outranks everything because she cannot finish what never
+reached her.
+
+Day names come from the timestamps and are read in the MEMBER's timezone,
+not the coach's and not the server's UTC. The sentence is therefore built
+on the server and handed to the panel as a finished string: the panel is a
+client component, and a date formatted there would be formatted in whatever
+zone the coach is sitting in, differently in the two render passes. The
+test asserts a stored instant that is Friday evening in New York and
+Saturday in Auckland, so a helper that quietly used UTC fails rather than
+passing by luck. Never `Invalid Date`, never a raw ISO string: an
+unreadable timestamp drops the day from the sentence instead of printing a
+sentinel into the middle of it.
+
+"They" rather than "she" in that copy, deliberately: the panel renders for
+every client on a coach's caseload and the sentence beside it already says
+"them".
+
+Prior-week chips are unchanged. Nothing in `lib/analytics/` or
+`lib/analytics-service/` reads the receipt table, so no figure counts one,
+and a test walks both directories to keep that true. A receipt for a seeded
+test account is written normally, because the fixture exists to walk the
+real experience.
+
+`tests/weekly-reflection-delivery-receipt.test.ts` is 39 tests over four
+things: the five states and both tenses of the sentence, once-per-week
+against a fake Postgres that actually enforces the unique constraint, the
+six reasons the action writes nothing, and the structural guards.
+`tests/weekly-reflection-coach-panel.test.tsx` grew 7, asserted on real
+rendered HTML. Full suite: 458 files, 7356 tests, all passing.
+
 ## A coach's own test member is a client, not a ghost (2026-08-29)
 
 The one flagged account paired with a real coach was invisible to that

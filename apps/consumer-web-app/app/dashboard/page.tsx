@@ -92,6 +92,7 @@ import { getMyWeeklyReview } from '@/lib/weekly-review/view';
 import { WEEKLY_REVIEW_LABEL } from '@/lib/weekly-review/copy';
 import { WeeklyReviewEntry } from '@/components/weekly-review/WeeklyReviewEntry';
 import { WeeklyReflectionEntry } from '@/components/weekly-reflection/WeeklyReflectionEntry';
+import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/TrackWeeklyReflectionDelivered';
 import { getMyWeeklyReflection } from '@/lib/weekly-reflection/view';
 import { StressLoadEntry } from '@/components/stress-load/StressLoadEntry';
 import { getMyStressLoadDeepDive } from '@/lib/stress-load/view';
@@ -506,6 +507,15 @@ async function DayFrameRegion() {
       {/* ==================================================== */}
       {weeklyReflection?.status === 'pending' && (
         <div className="pt-3">
+          {/* The delivery receipt (migration 191). This card really is the
+              reflection reaching her, so it records that, exactly as the
+              pop-up does. Both can mount in this one pass; the database's
+              unique constraint on (member_id, week_start) is what makes
+              that one receipt rather than two. */}
+          <TrackWeeklyReflectionDelivered
+            weekStart={weeklyReflection.weekStart}
+            presentation="home_card"
+          />
           <WeeklyReflectionEntry />
         </div>
       )}

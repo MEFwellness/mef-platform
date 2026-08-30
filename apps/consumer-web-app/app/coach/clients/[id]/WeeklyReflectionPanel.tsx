@@ -21,6 +21,18 @@
  * not on the program tier is not somebody who has skipped their
  * reflections, and a coach reading "nothing yet" about a member who was
  * never offered it would draw the wrong conclusion.
+ *
+ * THE STATUS LINE IS THE THIRD THING THIS PANEL COULD NOT SAY. Completed
+ * answers alone left "they saw it and skipped it" and "they never opened
+ * the app" looking identical, which are opposite facts. The line above the
+ * answers reports this week from a delivery receipt
+ * (member_weekly_reflection_deliveries, migration 191) and the completion,
+ * and it is honest about the case where there is simply no record. It
+ * arrives already written, from the server, because its day names have to
+ * be read in the MEMBER's timezone: formatting them here would format them
+ * in the coach's, and differently in the two render passes.
+ *
+ * The week chips below it are unchanged.
  */
 
 import { useState } from 'react';
@@ -35,7 +47,10 @@ import {
   WEEKLY_REFLECTION_QUESTIONS,
   weekOverallLabel,
 } from '@/lib/weekly-reflection/questions';
-import type { CoachWeeklyReflection } from '@/app/actions/weeklyReflection';
+import type {
+  CoachWeeklyReflection,
+  CoachWeeklyReflectionStatus,
+} from '@/app/actions/weeklyReflection';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -55,9 +70,12 @@ function answerText(key: string, value: number | string): string {
 export function WeeklyReflectionPanel({
   reflections,
   hasProgramTier,
+  status,
 }: {
   reflections: CoachWeeklyReflection[];
   hasProgramTier: boolean;
+  /** Null when the client is not on the program tier, so nothing was ever offered and there is no delivery to report. */
+  status: CoachWeeklyReflectionStatus | null;
 }) {
   const [selectedWeek, setSelectedWeek] = useState<string | null>(
     reflections[0]?.weekStart ?? null
@@ -70,6 +88,15 @@ export function WeeklyReflectionPanel({
         <NotebookPen className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
         <p className="text-sm font-semibold uppercase tracking-wider">{WEEKLY_REFLECTION_LABEL}</p>
       </div>
+
+      {status && (
+        <p
+          data-testid="weekly-reflection-status-line"
+          className="mt-3 text-sm font-medium text-[#1B3A2D]"
+        >
+          {status.line}
+        </p>
+      )}
 
       {!hasProgramTier && reflections.length === 0 ? (
         <p className="mt-3 text-sm text-[#6B7A72]">

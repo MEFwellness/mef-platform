@@ -17,7 +17,10 @@ import { WeeklyReflectionPanel } from '@/app/coach/clients/[id]/WeeklyReflection
 import { WeeklyReflectionRecapBody } from '@/components/weekly-reflection/WeeklyReflectionRecapBody';
 import { renderReflectionRecap, buildReflectionRecap } from '@/lib/weekly-reflection/recap';
 import { WEEKLY_REFLECTION_QUESTIONS } from '@/lib/weekly-reflection/questions';
-import type { CoachWeeklyReflection } from '@/app/actions/weeklyReflection';
+import type {
+  CoachWeeklyReflection,
+  CoachWeeklyReflectionStatus,
+} from '@/app/actions/weeklyReflection';
 import type { LongitudinalSignal } from '@/lib/longitudinal-intelligence/types';
 
 const SLEEP: LongitudinalSignal = {
@@ -69,8 +72,18 @@ const EARLIER_WEEK: CoachWeeklyReflection = {
   recap: recapFor('2026-08-21', ['2026-08-19', '2026-08-20']),
 };
 
-function render(props: { reflections: CoachWeeklyReflection[]; hasProgramTier: boolean }) {
-  return renderToStaticMarkup(<WeeklyReflectionPanel {...props} />);
+function render(props: {
+  reflections: CoachWeeklyReflection[];
+  hasProgramTier: boolean;
+  status?: CoachWeeklyReflectionStatus | null;
+}) {
+  return renderToStaticMarkup(
+    <WeeklyReflectionPanel
+      reflections={props.reflections}
+      hasProgramTier={props.hasProgramTier}
+      status={props.status ?? null}
+    />
+  );
 }
 
 describe('the coach panel shows what she wrote', () => {
@@ -160,6 +173,92 @@ describe('no em dash reaches the coach', () => {
       { reflections: [], hasProgramTier: false },
     ]) {
       expect(render(props)).not.toContain('—');
+    }
+  });
+});
+
+/**
+ * The delivery status line, read back out of the real panel.
+ *
+ * Asserted on rendered HTML rather than on the copy function, because the
+ * failure this guards against is the one where the sentence is correct and
+ * the panel never prints it, or prints it for a client who was never
+ * offered the experience at all.
+ */
+function statusOf(overrides: Partial<CoachWeeklyReflectionStatus>): CoachWeeklyReflectionStatus {
+  return {
+    weekStart: '2026-09-04',
+    windowOpen: true,
+    kind: 'not_delivered',
+    line: 'Not delivered yet. They have not opened the app since Friday.',
+    ...overrides,
+  };
+}
+
+describe('the coach panel says whether it ever reached them', () => {
+  it('prints the not-delivered line above an empty answers area', () => {
+    const html = render({ reflections: [], hasProgramTier: true, status: statusOf({}) });
+    expect(html).toContain('Not delivered yet. They have not opened the app since Friday.');
+    expect(html).toContain('On the program, no reflection completed yet.');
+  });
+
+  it('prints the delivered-not-completed line, with the day', () => {
+    const html = render({
+      reflections: [],
+      hasProgramTier: true,
+      status: statusOf({ kind: 'delivered', line: 'Delivered Friday. Not yet completed.' }),
+    });
+    expect(html).toContain('Delivered Friday. Not yet completed.');
+  });
+
+  it('prints the completed line, and the answers are still there beneath it', () => {
+    const html = render({
+      reflections: [FULL_WEEK],
+      hasProgramTier: true,
+      status: statusOf({ kind: 'completed', line: 'Completed Saturday.' }),
+    });
+    expect(html).toContain('Completed Saturday.');
+    expect(html).toContain('Walking every morning before work');
+  });
+
+  it('prints the no-record line for a week that closed before receipts existed', () => {
+    const html = render({
+      reflections: [],
+      hasProgramTier: true,
+      status: statusOf({ kind: 'no_record', line: 'No delivery record for this week.' }),
+    });
+    expect(html).toContain('No delivery record for this week.');
+    expect(html).not.toContain('Not delivered yet');
+  });
+
+  it('says nothing at all about delivery for a client who was never offered it', () => {
+    const html = render({ reflections: [], hasProgramTier: false, status: null });
+    expect(html).toContain('Not on the 24 week program');
+    expect(html).not.toContain('Not delivered');
+    expect(html).not.toContain('delivery record');
+  });
+
+  it('leaves the prior-week chips exactly as they were', () => {
+    const html = render({
+      reflections: [FULL_WEEK, EARLIER_WEEK],
+      hasProgramTier: true,
+      status: statusOf({ kind: 'completed', line: 'Completed Saturday.' }),
+    });
+    expect(html).toContain('Week of Aug 28, 2026');
+    expect(html).toContain('Week of Aug 21, 2026');
+  });
+
+  it('no status line the panel can print carries an em dash or a raw ISO date', () => {
+    for (const line of [
+      'Not delivered yet. They have not opened the app since Friday.',
+      'Delivered Friday. Not yet completed.',
+      'Completed Saturday.',
+      'No delivery record for this week.',
+    ]) {
+      const html = render({ reflections: [], hasProgramTier: true, status: statusOf({ line }) });
+      expect(html).toContain(line);
+      expect(html).not.toContain('\u2014');
+      expect(html).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
     }
   });
 });

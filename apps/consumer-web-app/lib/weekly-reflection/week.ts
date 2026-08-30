@@ -81,3 +81,23 @@ export function recapRangeFor(weekStart: string): { from: string; to: string } {
 export function withinRange(localDate: string, range: { from: string; to: string }): boolean {
   return localDate >= range.from && localDate <= range.to;
 }
+
+/**
+ * The Friday of the window she is in, or of the one that most recently
+ * closed. Never null.
+ *
+ * `reflectionWeekStartFor` is the availability answer and stays null on
+ * Monday through Thursday, because on those days the experience is simply
+ * not offered. A coach reading her client's screen on a Tuesday still
+ * needs a week to report on, and the honest one is the weekend that just
+ * finished rather than the one that has not started. So this is a separate
+ * function rather than a softening of that one: nothing that decides
+ * whether to OFFER the reflection may call this.
+ */
+export function mostRecentReflectionWeekStart(localDate: string): string {
+  const open = reflectionWeekStartFor(localDate);
+  if (open) return open;
+  // Monday is 1 and its Friday is 3 days back, Thursday is 4 and its
+  // Friday is 6 days back: index + 2, for every one of the four.
+  return addCalendarDays(localDate, -(weekdayIndexFor(localDate) + 2));
+}

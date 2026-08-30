@@ -29,6 +29,7 @@ import {
   trackSurfaceViewAction,
 } from '@/app/actions/analytics';
 import { trackPriorityShownAction } from '@/app/actions/priority';
+import { trackWeeklyReflectionDeliveredAction } from '@/app/actions/weeklyReflection';
 
 /** No cached responses and no static optimization: this writes. */
 export const dynamic = 'force-dynamic';
@@ -60,6 +61,14 @@ export async function POST(request: Request): Promise<Response> {
       break;
     case 'priority_shown':
       await trackPriorityShownAction(str('rule'), str('presentation'), body.isReEntry === true);
+      break;
+    // The one event here that is not an analytics row. It writes the
+    // Weekly Reflection's delivery receipt, and the action re-resolves the
+    // member, her timezone, her week and her tier from her own session
+    // before it writes, so a hand-built request can only ever record a
+    // receipt this member's own screen was entitled to record.
+    case 'weekly_reflection_delivered':
+      await trackWeeklyReflectionDeliveredAction(str('presentation'));
       break;
     default:
       break;
