@@ -12,6 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { serviceRoleClient } from './setup/test-clients';
+import { CHECKIN_COLUMN_QUESTION_KEYS } from '../lib/daily-checkin-adaptive/answeredMap';
 
 type Row = {
   question_key: string;
@@ -112,14 +113,35 @@ describe('the bug class itself cannot come back through a plain data edit', () =
     expect(offenders).toEqual(['checkin_probe.crash_timing']);
   });
 
-  it('every active follow-up has a parent that really exists in the bank, so no follow-up can be gated on a question nobody is ever asked', async () => {
+  it('every active follow-up has a parent that is really put to her, in the bank or in the fixed core, so no follow-up can be gated on a question nobody is ever asked', async () => {
     const rows = await bank();
-    const keys = new Set(rows.map((r) => r.question_key));
+    // The fixed core's own questions count as parents. They are asked on
+    // every check-in by the check-in screen itself rather than drawn from
+    // this bank, and migration 192 gates the two pain follow-ups on one of
+    // them: pain is asked by the body outline, so a rule may name it.
+    const keys = new Set([
+      ...rows.map((r) => r.question_key),
+      ...Object.values(CHECKIN_COLUMN_QUESTION_KEYS),
+    ]);
     const dangling = rows
       .filter((r) => r.active && (r.requires?.length ?? 0) > 0)
       .filter((r) => !keys.has(r.requires![0]!.question_key))
       .map((r) => `${r.question_key} -> ${r.requires![0]!.question_key}`);
     expect(dangling).toEqual([]);
+  });
+
+  it('the two pain follow-ups say, as data, that they only exist on a day with pain above zero', async () => {
+    // The live bug, 2026-08-30: with no rule at all, nothing outside the
+    // check-in component knew "Where is it, mainly?" was conditional, so a
+    // coach's history listed it against a day of "No pain (0 of 5)".
+    const rows = await bank();
+    for (const key of ['checkin_probe.pain_location', 'checkin_probe.pain_aggravating_factor']) {
+      const row = rows.find((r) => r.question_key === key);
+      expect(row).toBeDefined();
+      expect(row!.requires).toEqual([
+        { question_key: 'checkin_probe.pain_discomfort_level', op: 'gt', value: 0 },
+      ]);
+    }
   });
 });
 

@@ -57,6 +57,8 @@ export interface IntelligenceCoachAlert {
   title: string;
   reason: string;
   alert_key: string;
+  /** Which writer raised this row (migration 192). Only the intelligence engine's own rows are closed automatically when their condition stops holding. */
+  produced_by: 'intelligence_engine' | 'coaching_direction';
   evidence_refs: IntelligenceEvidenceRef[];
   source_refs: IntelligenceEvidenceRef[];
   safety_classification_id: string | null;

@@ -25,6 +25,9 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DailyCheckin } from '@mef/shared-types-contracts';
+import { ruleSatisfied } from '../adaptive-assessment-engine/select';
+import type { AnsweredMap, Rule } from '../adaptive-assessment-engine/types';
+import { answeredMapForDay } from '../daily-checkin-adaptive/answeredMap';
 import {
   anyAnswered,
   checkinAnswers,
@@ -75,6 +78,25 @@ function shiftDate(isoDate: string, days: number): string {
 // ---------------------------------------------------------------------
 
 /**
+ * Was this follow-up one she was actually put that day?
+ *
+ * The same eligibility rules the check-in screen itself uses
+ * (lib/daily-checkin-adaptive/localFollowUps.ts), replayed against what she
+ * had answered that day, so the history and the screen she saw cannot
+ * disagree about which questions existed. A question with no rules at all
+ * was always applicable.
+ */
+function wasApplicable(
+  definition: { requires: Rule[]; excludes: Rule[] },
+  answered: AnsweredMap
+): boolean {
+  if (definition.requires.length > 0 && !definition.requires.every((rule) => ruleSatisfied(rule, answered))) {
+    return false;
+  }
+  return !definition.excludes.some((rule) => ruleSatisfied(rule, answered));
+}
+
+/**
  * Her check-in history, newest first, with the adaptive driver answers for
  * each day attached to that day.
  *
@@ -116,39 +138,77 @@ export async function readCheckins(
     .lte('local_date', end);
 
   const questionKeys = [...new Set((probeRows ?? []).map((row) => row.question_key as string))];
-  const questions = new Map<string, { prompt: string; responseType: string; options: unknown }>();
+  const questions = new Map<
+    string,
+    { prompt: string; responseType: string; options: unknown; requires: Rule[]; excludes: Rule[] }
+  >();
   if (questionKeys.length > 0) {
     const { data: questionRows } = await supabase
       .from('driver_probe_questions')
-      .select('question_key, prompt, response_type, options')
+      .select('question_key, prompt, response_type, options, requires, excludes')
       .in('question_key', questionKeys);
     for (const row of questionRows ?? []) {
       questions.set(row.question_key as string, {
         prompt: row.prompt as string,
         responseType: row.response_type as string,
         options: row.options,
+        requires: Array.isArray(row.requires) ? (row.requires as Rule[]) : [],
+        excludes: Array.isArray(row.excludes) ? (row.excludes as Rule[]) : [],
       });
     }
   }
 
-  const probesByDate = new Map<string, CheckinEntry['probeAnswers']>();
+  // What she answered that day, in the shape a follow-up's own rules read,
+  // so this screen can tell "she skipped it" apart from "she was never
+  // asked it". Both halves matter: a rule can name a probe answer
+  // (checkin_probe.digestion_rating) or a fixed-core column
+  // (checkin_probe.pain_discomfort_level).
+  const probeValuesByDate = new Map<string, [string, unknown][]>();
   for (const row of probeRows ?? []) {
     const date = row.local_date as string;
-    const key = row.question_key as string;
-    const definition = questions.get(key);
-    const existing = probesByDate.get(date) ?? [];
-    existing.push({
-      key,
-      // A question that has since been deleted from the bank still had an
-      // answer given to it, so the answer is kept and the key stands in for
-      // the prompt rather than the whole row being dropped.
-      question: definition?.prompt ?? key,
-      answer: probeAnswer(row.value, {
+    const existing = probeValuesByDate.get(date) ?? [];
+    existing.push([row.question_key as string, row.value]);
+    probeValuesByDate.set(date, existing);
+  }
+
+  const checkinByDate = new Map<string, DailyCheckin>();
+  for (const checkin of checkins) checkinByDate.set(checkin.local_date, checkin);
+
+  const probesByDate = new Map<string, CheckinEntry['probeAnswers']>();
+  for (const [date, values] of probeValuesByDate) {
+    const answered = answeredMapForDay(
+      (checkinByDate.get(date) ?? null) as Record<string, unknown> | null,
+      values
+    );
+
+    for (const [key, stored] of values) {
+      const definition = questions.get(key);
+      const answer = probeAnswer(stored, {
         responseType: definition?.responseType ?? 'unknown',
         options: definition?.options ?? [],
-      }),
-    });
-    probesByDate.set(date, existing);
+      });
+
+      // A follow-up she was never asked is left out entirely, not listed as
+      // "Not answered". Found live on 2026-08-30: "Where is it, mainly?"
+      // sat in a coach's history on a day the member had reported no pain
+      // at all, because the check-in writes an empty answer to clear any
+      // location she had picked earlier the same day. A row that was never
+      // applicable AND says nothing was never a question she skipped.
+      // Something she did answer is always kept, whatever the rules say
+      // about it now, because it is still something she entered.
+      if (answer === null && definition && !wasApplicable(definition, answered)) continue;
+
+      const existing = probesByDate.get(date) ?? [];
+      existing.push({
+        key,
+        // A question that has since been deleted from the bank still had an
+        // answer given to it, so the answer is kept and the key stands in for
+        // the prompt rather than the whole row being dropped.
+        question: definition?.prompt ?? key,
+        answer,
+      });
+      probesByDate.set(date, existing);
+    }
   }
 
   const items: CheckinEntry[] = checkins.map((checkin) => {

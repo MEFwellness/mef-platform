@@ -190,17 +190,24 @@ async function notifyCoachOfEscalation(
   threadKey: string
 ): Promise<void> {
   try {
-    await upsertCoachAlert(supabase, memberId, {
-      alertType: 'recurring_barriers',
-      severity: 'notable',
-      title: 'A coaching thread stopped landing',
-      reason:
-        `Root offered this priority as written, then as a smaller step, and had no response to either. ` +
-        `It has been set aside and will not be shown again. Thread: ${threadKey}.`,
-      alertKey: `coaching_direction_escalation::${threadKey}`,
-      evidenceRefs: [],
-      sourceRefs: [],
-    });
+    await upsertCoachAlert(
+      supabase,
+      memberId,
+      {
+        alertType: 'recurring_barriers',
+        severity: 'notable',
+        title: 'A coaching thread stopped landing',
+        reason:
+          `Root offered this priority as written, then as a smaller step, and had no response to either. ` +
+          `It has been set aside and will not be shown again. Thread: ${threadKey}.`,
+        alertKey: `coaching_direction_escalation::${threadKey}`,
+        evidenceRefs: [],
+        sourceRefs: [],
+      },
+      // An event, not a recomputed condition: the intelligence engine's own
+      // sweep must never close this one on the next page view (migration 192).
+      'coaching_direction'
+    );
   } catch (error) {
     console.error('notifyCoachOfEscalation failed', error);
   }
@@ -254,17 +261,22 @@ export async function notifyCoachOfSafetyFlag(
   safetyClassificationId: string
 ): Promise<void> {
   try {
-    await upsertCoachAlert(supabase, memberId, {
-      alertType: 'needs_review',
-      severity: 'important',
-      title: 'An unresolved check-in safety flag is open',
-      reason:
-        'A safety classification raised by this member\'s daily check-in has not been acknowledged. ' +
-        'Root has stopped asking anything of her while it is open. The full record is in the Coach Review Queue.',
-      alertKey: `coaching_direction_safety::${safetyClassificationId}`,
-      evidenceRefs: [],
-      sourceRefs: [],
-    });
+    await upsertCoachAlert(
+      supabase,
+      memberId,
+      {
+        alertType: 'needs_review',
+        severity: 'important',
+        title: 'An unresolved check-in safety flag is open',
+        reason:
+          'A safety classification raised by this member\'s daily check-in has not been acknowledged. ' +
+          'Root has stopped asking anything of her while it is open. The full record is in the Coach Review Queue.',
+        alertKey: `coaching_direction_safety::${safetyClassificationId}`,
+        evidenceRefs: [],
+        sourceRefs: [],
+      },
+      'coaching_direction'
+    );
   } catch (error) {
     console.error('notifyCoachOfSafetyFlag failed', error);
   }

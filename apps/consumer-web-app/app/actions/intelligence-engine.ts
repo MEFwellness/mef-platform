@@ -65,11 +65,21 @@ export async function requestIntelligenceRecalculation(clientId: string): Promis
   return {};
 }
 
+/**
+ * The alerts standing against ONE member right now.
+ *
+ * Open and acknowledged only. Without the filter this returned every row
+ * ever written for her, resolved and dismissed included, so a member's page
+ * showed five "No recent check-in" alerts (2026-08-30) — hers, all of them,
+ * but four of them long since closed. An alert a coach has resolved or
+ * dismissed is history, and history does not belong in "what needs
+ * attention".
+ */
 export async function getClientCoachAlerts(clientId: string): Promise<IntelligenceCoachAlert[]> {
   const supabase = createClient();
   const coachId = await currentCoachId();
   if (!coachId) return [];
-  return listCoachAlertsForMember(supabase, clientId);
+  return listCoachAlertsForMember(supabase, clientId, { statusFilter: ['open', 'acknowledged'] });
 }
 
 export async function acknowledgeCoachAlertAction(alertId: string): Promise<ActionResult> {

@@ -120,7 +120,13 @@ describe('registry catalog', () => {
     expect(entries).toHaveLength(12);
 
     const dbByKey = new Map((data ?? []).map((row) => [row.key, row.id]));
-    expect(dbByKey.size).toBe(entries.length); // no duplicate keys in the DB
+    expect(dbByKey.size).toBe((data ?? []).length); // no duplicate keys in the DB
+
+    // Not "the same count as the registry". The catalog is allowed to hold
+    // a definition the registry does not list: the Stress & Load Deep-Dive
+    // (migration 190) is coach-assigned only and has no registry entry on
+    // purpose. What must hold is that every registry entry resolves to a
+    // real, unique row, which is what the loop below checks.
 
     for (const entry of entries) {
       expect(dbByKey.get(entry.key)).toBe(entry.databaseId);

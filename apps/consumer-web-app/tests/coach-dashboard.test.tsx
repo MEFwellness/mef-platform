@@ -102,8 +102,8 @@ describe('every section renders in its empty state, honestly', () => {
     expect(html).toContain('nothing has enough behind it to say so');
   });
 
-  it('says nothing needs attention', () => {
-    expect(html).toContain('Nothing is asking for attention right now');
+  it('says nothing needs attention, calmly, and says where that leaves her', () => {
+    expect(html).toContain('Nothing needs attention right now. She is on track.');
   });
 
   it('names how little is logged, and over which span, rather than showing an empty reliability list', () => {

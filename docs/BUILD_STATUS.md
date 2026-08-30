@@ -1,3 +1,65 @@
+## Two coach-view fixes: a raw `[]` answer, and five copies of one alert (2026-08-30)
+
+Both found on one real member's coach page. Migration 192.
+
+**"Where is it, mainly?" said `[]`.** Answering "no" to "Any discomfort
+today?" deliberately writes an EMPTY location, so flipping the gate from
+yes to no clears anything she picked earlier the same day. That write is
+right and is kept. Two things around it were wrong.
+
+The coach's history rendered any unrecognised stored value as JSON, so an
+empty list arrived as two characters of punctuation. Now every probe answer
+becomes words or nothing: an empty list, an empty string, a string of
+spaces and an empty object all read as "Not answered", a list of choices
+reads as "Lower back, Neck", and a shape nothing recognises is printed as
+its own field names rather than as JSON. A test walks a battery of stored
+shapes across every response type and asserts no bracket, brace or quote
+mark can reach a coach's screen.
+
+And the two pain follow-ups never said, as data, what they depend on. Their
+`requires` was empty, so the gating lived only inside the check-in
+component and nothing else could know the question is only asked on a day
+with pain above zero. Migration 192 gives both the same rule shape every
+other follow-up already uses, read by the same evaluator, and the coach's
+history now replays those rules against what she answered that day. A
+follow-up that was never applicable AND says nothing is left out of the day
+entirely instead of listed as "Not answered". Something she DID answer is
+always kept, whatever the rules say about it now, because it is still
+something she entered.
+
+`checkin_probe.pain_discomfort_level` is the fixed core's own pain
+question, asked by the body outline rather than drawn from the probe bank,
+so `lib/daily-checkin-adaptive/answeredMap.ts` now builds one day's answers
+from both places for rule evaluation, and the check-in form merges the same
+value in live.
+
+**Five "No recent check-in" alerts on a member who checked in yesterday.**
+Not another member's alerts leaking in: the query has always been filtered
+to one member, and every one of those rows was really hers. Three faults
+put them there.
+
+The engine recalculates on every coach page view and several panels call it
+at once. `upsertCoachAlert` reads "is there already an open alert with this
+key", finds none, and inserts, so four concurrent runs all read "none"
+before any of them wrote. Four identical rows, created 180ms apart. The
+`(member_id, alert_key)` index over open rows is now UNIQUE, and a writer
+that loses the race touches the winner's row instead of adding a second
+copy.
+
+Nothing ever closed an alert when its condition came right. Every rule only
+speaks when something is wrong, so the row raised while she was away stayed
+open forever with its day count frozen. `reconcileCoachAlerts` now closes
+anything this engine raised and did not raise again on the latest run:
+resolved, not dismissed, so it is free to open again if she stops checking
+in later, and a coach's own dismissal is still never reopened. Rows carry
+`produced_by`, because the two coaching-direction notifications are events
+nothing recomputes and must never be swept.
+
+And the coach's page read every alert row ever written for her, resolved
+and dismissed included. It now asks for open and acknowledged only.
+
+The empty state says "Nothing needs attention right now. She is on track."
+
 ## A blank Weekly Reflection panel now says which blank it is (2026-08-29)
 
 The Weekly Reflection (migration 189) is offered to program-tier members

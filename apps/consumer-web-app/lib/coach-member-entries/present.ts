@@ -258,40 +258,40 @@ export function anyAnswered(answers: EnteredAnswer[]): boolean {
  * A probe answer, rendered against the question definition it was stored
  * under.
  *
- * The stored value is jsonb because the question bank holds five different
+ * The stored value is jsonb because the question bank holds six different
  * response types, so this has to branch on the type the question declares
- * rather than on the shape of the value. An unrecognised shape is printed as
- * its own JSON rather than dropped: a coach seeing a raw value knows
- * something was answered, and seeing nothing would tell her it was skipped,
- * which would be false.
+ * rather than on the shape of the value.
+ *
+ * NOTHING STORED EVER REACHES A COACH AS JSON. Found live on 2026-08-30:
+ * "Where is it, mainly?" rendered as the two characters `[]`, because a
+ * multi-select with nothing selected fell through to JSON.stringify. Two
+ * rules follow from that, and they are why every branch below returns
+ * either words or null:
+ *
+ *   1. An answer that says nothing is not an answer. An empty array, an
+ *      empty string, a string of spaces and an empty object are all
+ *      "unanswered", exactly as null already was, so the screen says
+ *      "Not answered" instead of showing punctuation.
+ *   2. Anything that does say something is said in words. A list becomes
+ *      a comma-separated list of the labels she actually saw; an
+ *      unrecognised object becomes its own field names and values. No
+ *      bracket, brace or quote from JSON.stringify is ever rendered.
  */
 export function probeAnswer(
   value: unknown,
   question: { responseType: string; options: unknown }
 ): string | null {
-  if (value === null || value === undefined) return null;
-
-  // The check-in stores an answer as { value: ... } for most types.
-  const raw =
-    typeof value === 'object' && value !== null && 'value' in (value as Record<string, unknown>)
-      ? (value as Record<string, unknown>).value
-      : value;
-
-  if (raw === null || raw === undefined || raw === '') return null;
+  const raw = unwrapStoredValue(value);
+  if (isEmptyAnswer(raw)) return null;
 
   if (question.responseType === 'boolean') {
     if (typeof raw === 'boolean') return raw ? 'Yes' : 'No';
     if (raw === 'true' || raw === 'false') return raw === 'true' ? 'Yes' : 'No';
   }
 
-  if (question.responseType === 'single_select') {
-    const option = optionLabel(raw, question.options);
-    if (option) return option;
-  }
-
   if (question.responseType === 'time_pair') {
     // Stored as two clock times; both are hers, so both are shown.
-    if (typeof raw === 'object' && raw !== null) {
+    if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
       const pair = raw as Record<string, unknown>;
       const from = pair.start ?? pair.from ?? pair.bedtime;
       const to = pair.end ?? pair.to ?? pair.waketime;
@@ -299,11 +299,96 @@ export function probeAnswer(
     }
   }
 
-  if (typeof raw === 'number') return String(raw);
-  if (typeof raw === 'string') return raw;
-  if (typeof raw === 'boolean') return raw ? 'Yes' : 'No';
+  // Every multi-select answer, and any other type that was stored as a
+  // list. Each entry is turned back into the label she saw, and the empty
+  // list has already been ruled out above.
+  if (Array.isArray(raw)) {
+    const parts = raw
+      .map((entry) => scalarAnswer(entry, question.options))
+      .filter((part): part is string => part !== null);
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
 
-  return JSON.stringify(raw);
+  return scalarAnswer(raw, question.options);
+}
+
+/** The check-in stores an answer as `{ value: ... }` for most types, and bare for older rows. */
+function unwrapStoredValue(value: unknown): unknown {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value) && 'value' in (value as Record<string, unknown>)) {
+    return (value as Record<string, unknown>).value;
+  }
+  return value;
+}
+
+/**
+ * True for anything stored that says nothing: null, an empty or
+ * whitespace-only string, an empty list, an empty object. All of them mean
+ * the same thing to a coach, so all of them render as "Not answered".
+ */
+export function isEmptyAnswer(raw: unknown): boolean {
+  if (raw === null || raw === undefined) return true;
+  if (typeof raw === 'string') return raw.trim() === '';
+  if (Array.isArray(raw)) return raw.length === 0 || raw.every((entry) => isEmptyAnswer(entry));
+  if (typeof raw === 'object') return Object.keys(raw as Record<string, unknown>).length === 0;
+  return false;
+}
+
+/** One value that is not a list: an option key, a number, a boolean, or an object nothing else recognised. */
+function scalarAnswer(raw: unknown, options: unknown): string | null {
+  if (isEmptyAnswer(raw)) return null;
+  if (typeof raw === 'boolean') return raw ? 'Yes' : 'No';
+  if (typeof raw === 'number') return String(raw);
+  if (typeof raw === 'string') {
+    // A real {value,label} option is her own wording and is used exactly as
+    // it is. A bare-string option list stores the code as its own "label",
+    // which is not wording at all, so that falls through to be made
+    // readable rather than printing `lower_back` at a coach.
+    const label = optionLabel(raw, options);
+    if (label !== null && label !== raw) return label;
+    // `label === raw` means she picked from a bare-string option list, so
+    // the value is definitely a code and is capitalized as one. A value
+    // that matched no option is only tidied if it plainly looks like a
+    // code, so anything unrecognised still reaches the coach as stored.
+    return readableCode(raw, label === raw);
+  }
+  if (Array.isArray(raw)) {
+    const parts = raw.map((entry) => scalarAnswer(entry, options)).filter((p): p is string => p !== null);
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+  return objectAnswer(raw as Record<string, unknown>, options);
+}
+
+/**
+ * A stored option key, made readable: `feet_or_ankles` becomes "Feet or
+ * ankles". Only applied to something that is plainly a code, so a real
+ * sentence, a clock time and an already-worded label are passed through
+ * exactly as they were stored. A single lower-case word is only treated as
+ * a code when it really was one of the question's own options: an
+ * unrecognised value is shown as stored rather than dressed up.
+ */
+function readableCode(value: string, knownOption = false): string {
+  const looksLikeCode = knownOption
+    ? /^[a-z0-9]+(_[a-z0-9]+)*$/.test(value)
+    : /^[a-z0-9]+(_[a-z0-9]+)+$/.test(value);
+  if (!looksLikeCode) return value;
+  const words = value.replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * A shape no branch above recognised. Printed as its own field names and
+ * values rather than dropped (a coach seeing a value knows something was
+ * answered, and seeing nothing would say it was skipped, which would be
+ * false) and rather than as JSON (rule 2 above).
+ */
+function objectAnswer(raw: Record<string, unknown>, options: unknown): string | null {
+  const parts = Object.entries(raw)
+    .map(([key, entry]) => {
+      const rendered = scalarAnswer(entry, options);
+      return rendered === null ? null : `${key.replace(/_/g, ' ')}: ${rendered}`;
+    })
+    .filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(', ') : null;
 }
 
 /**

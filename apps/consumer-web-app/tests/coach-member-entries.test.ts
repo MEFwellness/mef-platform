@@ -220,6 +220,61 @@ describe('the adaptive follow-up answers', () => {
     expect(answer).toContain('odd');
   });
 
+  it('an empty multi-select is not an answer: it reads as "Not answered", never as the characters []', () => {
+    // The live bug, 2026-08-30. Answering "no" to "Any discomfort today?"
+    // deliberately writes an empty location, to clear anything she picked
+    // earlier the same day. That empty write reached a coach as `[]`.
+    for (const value of [[], { value: [] }, { value: [''] }, { value: {} }, { value: '   ' }]) {
+      expect(probeAnswer(value, { responseType: 'multi_select', options: [] })).toBeNull();
+    }
+  });
+
+  it('a multi-select she did answer reads as a list of words, not as JSON', () => {
+    const answer = probeAnswer(
+      { value: ['lower_back', 'neck'] },
+      { responseType: 'multi_select', options: ['lower_back', 'neck', 'hips'] }
+    );
+    expect(answer).toBe('Lower back, Neck');
+  });
+
+  it('a multi-select with real labels shows the labels she saw', () => {
+    const options = [
+      { value: 'sitting', label: 'Sitting for a long time' },
+      { value: 'lifting', label: 'Lifting something' },
+    ];
+    expect(
+      probeAnswer({ value: ['sitting', 'lifting'] }, { responseType: 'multi_select', options })
+    ).toBe('Sitting for a long time, Lifting something');
+  });
+
+  it('nothing stored can put a bracket, a brace or a quote mark on a coach\'s screen, whatever its type', () => {
+    const stored: unknown[] = [
+      [],
+      ['neck'],
+      ['neck', 'lower_back'],
+      { value: [] },
+      { value: ['neck'] },
+      { value: { odd: 1 } },
+      { value: { start: '22:30', end: '06:15' } },
+      { value: [{ nested: 'deep' }] },
+      { value: 3 },
+      { value: true },
+      { value: 'other' },
+      '   ',
+    ];
+    const types = ['multi_select', 'single_select', 'scale', 'count', 'boolean', 'time_pair', 'unknown'];
+
+    for (const value of stored) {
+      for (const responseType of types) {
+        const answer = probeAnswer(value, { responseType, options: ['neck', 'lower_back'] });
+        if (answer === null) continue;
+        for (const forbidden of ['[', ']', '{', '}', '"']) {
+          expect(answer).not.toContain(forbidden);
+        }
+      }
+    }
+  });
+
   it('optionLabel handles a plain string list as well as value/label objects', () => {
     expect(optionLabel('Yes', ['Yes', 'No'])).toBe('Yes');
     expect(optionLabel('a', [{ key: 'a', label: 'Apple' }])).toBe('Apple');
@@ -353,7 +408,30 @@ describe('the authorization boundary, against real row level security', () => {
         local_date: END,
         energy_level: 2,
         stress_level: 5,
+        // Real pain on this day, so the pain follow-ups genuinely were
+        // put to her here and must be shown.
+        pain_discomfort_level: 3,
         new_or_worsening_concern: true,
+      },
+    ]);
+
+    // The two follow-up answers at the heart of the 2026-08-30 bug. On
+    // START she reported no pain and the check-in still wrote an empty
+    // location (its way of clearing anything picked earlier that day). On
+    // END she reported pain and picked two places.
+    await service
+      .from('daily_checkin_probe_answers')
+      .delete()
+      .eq('member_id', MEMBER)
+      .gte('local_date', START)
+      .lte('local_date', END);
+    await service.from('daily_checkin_probe_answers').insert([
+      { member_id: MEMBER, local_date: START, question_key: 'checkin_probe.pain_location', value: [] },
+      {
+        member_id: MEMBER,
+        local_date: END,
+        question_key: 'checkin_probe.pain_location',
+        value: ['lower_back', 'neck'],
       },
     ]);
 
@@ -367,6 +445,12 @@ describe('the authorization boundary, against real row level security', () => {
   });
 
   afterAll(async () => {
+    await service
+      .from('daily_checkin_probe_answers')
+      .delete()
+      .eq('member_id', MEMBER)
+      .gte('local_date', START)
+      .lte('local_date', END);
     await service.from('daily_checkins').delete().eq('user_id', MEMBER).gte('local_date', START).lte('local_date', END);
     await service.from('member_goal_selections').delete().eq('member_id', MEMBER).eq('goals_other', 'fixture-entry');
   });
@@ -388,6 +472,32 @@ describe('the authorization boundary, against real row level security', () => {
     expect(answers.find((a) => a.key === 'stress_level')!.answer).toBeNull();
     expect(answers.find((a) => a.key === 'pain_discomfort_level')!.answer).toBe('No pain (0 of 5)');
     expect(answers.find((a) => a.key === 'energy_level')!.answer).toContain('4 of 5');
+  });
+
+  it('a follow-up she was never asked is left out of the day entirely, not listed as "Not answered"', async () => {
+    // "Where is it, mainly?" on a day she answered "No pain (0 of 5)".
+    const result = await readCheckins(coach, MEMBER, START, START);
+    expect(result.available).toBe(true);
+    if (!result.available) return;
+    const day = result.items[0]!;
+    expect(day.probeAnswers.some((a) => a.key === 'checkin_probe.pain_location')).toBe(false);
+    // And nothing anywhere on that day renders as raw punctuation.
+    for (const answer of [...day.answers, ...day.readiness, ...day.probeAnswers]) {
+      if (answer.answer === null) continue;
+      expect(answer.answer).not.toContain('[');
+      expect(answer.answer).not.toContain(']');
+    }
+  });
+
+  it('the same follow-up on a day she DID report pain is shown, in words', async () => {
+    const result = await readCheckins(coach, MEMBER, END, END);
+    expect(result.available).toBe(true);
+    if (!result.available) return;
+    const location = result.items[0]!.probeAnswers.find(
+      (a) => a.key === 'checkin_probe.pain_location'
+    );
+    expect(location).toBeDefined();
+    expect(location!.answer).toBe('Lower back, Neck');
   });
 
   it('her own free-text note is carried verbatim, never summarised', async () => {

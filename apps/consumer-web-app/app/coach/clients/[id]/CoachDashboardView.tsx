@@ -191,7 +191,7 @@ export function CoachDashboardView({
         ) : (
           dashboard.urgentAlerts.length === 0 &&
           dashboard.routineAlerts.length === 0 && (
-            <Empty>Nothing is asking for attention right now.</Empty>
+            <Empty>Nothing needs attention right now. She is on track.</Empty>
           )
         )}
       </section>

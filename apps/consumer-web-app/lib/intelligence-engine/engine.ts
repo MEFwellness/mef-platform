@@ -66,7 +66,7 @@ import { buildRootCauseHypotheses } from './hypotheses';
 import { buildRecommendations } from './recommendations';
 import { buildMemberSummary } from './summary';
 import { buildCoachAlertDrafts } from './alerts';
-import { insertProfileSnapshot, upsertCoachAlert } from './data';
+import { insertProfileSnapshot, reconcileCoachAlerts, upsertCoachAlert } from './data';
 import type { CoachingPriorities, MemberHealthProfile, MemberIntelligenceReport } from './types';
 import { requestCache } from '../reactRequestCache';
 
@@ -187,6 +187,13 @@ export async function buildMemberIntelligence(
     for (const draft of report.alerts) {
       await upsertCoachAlert(supabase, memberId, draft);
     }
+    // Every rule above only speaks when something is wrong, so without
+    // this an alert would stay open long after its condition came right:
+    // "No recent check-in" sat on a coach's screen saying twelve days for
+    // a member who had been checking in again for a week (2026-08-30).
+    // This run's drafts ARE the current truth, so anything this engine
+    // raised and did not raise again is closed.
+    await reconcileCoachAlerts(supabase, memberId, report.alerts.map((draft) => draft.alertKey));
   } catch (err) {
     console.error(
       'buildMemberIntelligence persistence failed',

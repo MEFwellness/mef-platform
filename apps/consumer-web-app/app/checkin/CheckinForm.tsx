@@ -282,8 +282,13 @@ export function CheckinForm({
     () => ({
       ...probeAnswers,
       ...(digestionRating !== null ? { 'checkin_probe.digestion_rating': digestionRating } : {}),
+      // The body outline's own severity, under the key a rule names it by
+      // (migration 192 gates the two pain follow-ups on it). It is a fixed
+      // core answer rather than a probe answer, so it reaches the rule
+      // evaluator only if it is merged in here, exactly as digestion is.
+      ...(severity !== null ? { 'checkin_probe.pain_discomfort_level': severity } : {}),
     }),
-    [probeAnswers, digestionRating]
+    [probeAnswers, digestionRating, severity]
   );
 
   const eligibleLocalFollowUps = localFollowUps.filter(
