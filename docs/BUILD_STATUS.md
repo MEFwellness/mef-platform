@@ -88,6 +88,40 @@ and a test walks both directories to keep that true. A receipt for a seeded
 test account is written normally, because the fixture exists to walk the
 real experience.
 
+**Verified live on app.mefwellness.com, 11 of 11 checks.**
+`apps/consumer-web-app/scripts/verify-weekly-reflection-delivery-live.mjs`
+is the run, against deployment `mef-platform-kx4xhvewm`, which
+`app.mefwellness.com` aliases.
+
+The first pass found the fixture member (Ebony, program tier, her own zone
+America/New_York, her week 2026-08-28) had ALREADY completed this week at
+1:33pm her time. So Home correctly showed her neither the pop-up nor the
+card, no receipt was written, and the coach screen read `Completed
+Saturday.`, which the script checked against her `completed_at` rather than
+against what it hoped for. That is the right behaviour and it is also the
+one state that cannot demonstrate a delivery, so the second pass stashed
+her finished reflection (read in full, restored verbatim in a finally
+block, her five answers and her original `completed_at` intact, which the
+run's own last check asserts) and watched the pending path for real:
+
+  Home displayed the reflection to her.
+  Exactly ONE receipt for 2026-08-28, presentation `home_card`.
+  A reload wrote no second row and did not move `delivered_at`.
+  The coach screen read `Delivered Saturday. Not yet completed.`, matched
+    against the receipt's own timestamp read in HER zone.
+  Opening the coach client screen wrote no receipt: 1 row before, 1 after.
+  Zero console errors and zero page errors on Home and on the coach screen,
+    and no em dash anywhere on the coach client screen.
+
+Worth noting what the receipt said: `home_card`, not `popup`. The pop-up
+did not win the chain slot on that open and the persistent card did the
+delivering, which is the exact case that would have produced "they have not
+opened the app since Friday" about a member who was standing on the screen,
+had this counted the pop-up alone.
+
+With her reflection restored, the live coach screen reads `Completed
+Saturday.` again.
+
 `tests/weekly-reflection-delivery-receipt.test.ts` is 39 tests over four
 things: the five states and both tenses of the sentence, once-per-week
 against a fake Postgres that actually enforces the unique constraint, the
