@@ -60,6 +60,16 @@ and dismissed included. It now asks for open and acknowledged only.
 
 The empty state says "Nothing needs attention right now. She is on track."
 
+**Verified live**, signed in as the real coach on app.mefwellness.com, in
+`apps/consumer-web-app/scripts/verify-coach-member-view-live.mjs`: 12 of 12
+checks. 182 rendered answers across 11 days carry no bracket, brace or
+quote mark; the pain question is gone from all 7 of that member's no-pain
+days and still reads "Feet or ankles" on the three days she did report
+pain; and neither member, both of whom checked in yesterday, is told she
+has stopped. The calm empty state is proved by the component test rather
+than live: both members on the caseload have real findings, so neither
+page is empty to look at.
+
 ## A blank Weekly Reflection panel now says which blank it is (2026-08-29)
 
 The Weekly Reflection (migration 189) is offered to program-tier members
