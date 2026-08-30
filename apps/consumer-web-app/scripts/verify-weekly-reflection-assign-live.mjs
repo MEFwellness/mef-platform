@@ -28,6 +28,26 @@
  * ever done for a seeded is_test account, which is what migrations 189,
  * 191 and 193 each scope their own delete policy to.
  *
+ * HOW IT CLOSES HER WINDOW, AND WHY THAT IS THE RIGHT LEVER. Her stored
+ * profile timezone is moved forward for the length of the run, to a zone
+ * where the same instant is already a weekday. That is a real, honest
+ * closed window: the server resolves her local date from that column, the
+ * Friday-to-Sunday window is shut, and the ONLY thing that can open the
+ * reflection for her is the assignment.
+ *
+ * It is also the same executed path a member on any other tier takes.
+ * resolveWeeklyReflectionOffer does not read the subscription at all when
+ * the window is closed, because the automatic route cannot produce an
+ * offer on those days whatever the plan says, so "assigned overrides the
+ * window" and "assigned overrides the tier" are one branch and this run
+ * walks it. Her tier is deliberately NOT touched: production refuses a
+ * scripted change to a manual membership by design (migration 159), and
+ * that refusal is correct and is not worked around here.
+ *
+ * The week key is unchanged by the move. The zone chosen has to put her on
+ * a weekday inside the SAME Friday-anchored seven day span, which is
+ * asserted before anything is written.
+ *
  * Sessions are minted one-time (Turnstile blocks a scripted form sign-in
  * by design) and retired with scope 'local'. Every navigation is bounded
  * and the browser closes in a finally block.
@@ -156,7 +176,7 @@ async function main() {
   // ---- Stash everything this run is about to disturb -----------------
   const { data: subscription } = await service
     .from('member_subscriptions')
-    .select('*')
+    .select('tier, status')
     .eq('member_id', t.memberId)
     .maybeSingle();
   const stashedReflections = await rowsFor('member_weekly_reflections', t.memberId, t.weekStart);
@@ -171,8 +191,27 @@ async function main() {
     t.weekStart
   );
 
+  // The zone the run reads her clock in. It has to be a weekday there
+  // right now, and it has to fall inside the SAME Friday-anchored week, or
+  // this run would be measuring a different week from the one it stashed.
+  const RUN_ZONE = 'Pacific/Auckland';
+  const runLocalDate = localDateIn(RUN_ZONE);
+  const runWeekday = new Date(`${runLocalDate}T00:00:00.000Z`).getUTCDay();
+  const windowClosedInRunZone = ![5, 6, 0].includes(runWeekday);
+  const sameWeek = spanWeekStart(runLocalDate) === t.weekStart;
+
+  record(
+    'the run can observe a genuinely closed window on the same week',
+    windowClosedInRunZone && sameWeek,
+    `${RUN_ZONE} is ${runLocalDate} (weekday ${runWeekday}), span week ${spanWeekStart(runLocalDate)}, hers ${t.weekStart}`
+  );
+  if (!windowClosedInRunZone || !sameWeek) {
+    console.log('\nnothing was written. Re-run at a time when a closed window is reachable.');
+    process.exit(1);
+  }
+
   console.log(
-    `stashing: tier=${subscription?.tier ?? 'none'}/${subscription?.status ?? 'none'}, ` +
+    `stashing: timezone=${t.timezone}, tier=${subscription?.tier ?? 'none'}/${subscription?.status ?? 'none'}, ` +
       `${stashedReflections.length} reflection, ${stashedReceipts.length} receipt, ` +
       `${stashedAssignments.length} assignment\n`
   );
@@ -208,13 +247,11 @@ async function main() {
       if (error) problems.push(`${table} restore: ${error.message}`);
     }
 
-    if (subscription) {
-      const { error } = await service
-        .from('member_subscriptions')
-        .update({ tier: subscription.tier, status: subscription.status })
-        .eq('member_id', t.memberId);
-      if (error) problems.push(`subscription restore: ${error.message}`);
-    }
+    const { error: tzError } = await service
+      .from('profiles')
+      .update({ timezone: t.timezone })
+      .eq('id', t.memberId);
+    if (tzError) problems.push(`timezone restore: ${tzError.message}`);
 
     // Read it all back, rather than trusting that no error means it landed.
     const back = {
@@ -227,6 +264,11 @@ async function main() {
       .select('tier, status')
       .eq('member_id', t.memberId)
       .maybeSingle();
+    const { data: profileBack } = await service
+      .from('profiles')
+      .select('timezone')
+      .eq('id', t.memberId)
+      .maybeSingle();
 
     const same =
       back.reflections.length === stashedReflections.length &&
@@ -235,6 +277,7 @@ async function main() {
       (back.reflections[0]?.completed_at ?? null) ===
         (stashedReflections[0]?.completed_at ?? null) &&
       (back.receipts[0]?.delivered_at ?? null) === (stashedReceipts[0]?.delivered_at ?? null) &&
+      (profileBack?.timezone ?? null) === t.timezone &&
       (subBack?.tier ?? null) === (subscription?.tier ?? null) &&
       (subBack?.status ?? null) === (subscription?.status ?? null);
 
@@ -243,7 +286,7 @@ async function main() {
       same && problems.length === 0,
       problems.length
         ? `RESTORE PROBLEMS: ${problems.join(' | ')}`
-        : `tier=${subBack?.tier}/${subBack?.status}, ${back.reflections.length} reflection ` +
+        : `timezone=${profileBack?.timezone}, tier=${subBack?.tier}/${subBack?.status}, ${back.reflections.length} reflection ` +
           `(completed_at ${back.reflections[0]?.completed_at ?? 'none'}), ` +
           `${back.receipts.length} receipt, ${back.assignments.length} assignment`
     );
@@ -256,15 +299,16 @@ async function main() {
   // failure anywhere still reaches the restore in the finally block.
   try {
     // ---- Make the assign path reachable ------------------------------
-    // Her plan already opens this week for her, so with it in place there
-    // is correctly no button. Moved off the program for the length of the
-    // run, and moved straight back at the end.
-    if (subscription) {
-      await service
-        .from('member_subscriptions')
-        .update({ tier: 'monthly', status: 'active' })
-        .eq('member_id', t.memberId);
-    }
+    // Her own Friday-to-Sunday window is open right now, so the panel
+    // correctly offers nothing to send. Her clock is moved forward to a
+    // zone where the same instant is a weekday, which shuts the automatic
+    // route for real and leaves the assignment as the only way in. Put
+    // straight back at the end.
+    const { error: tzSetError } = await service
+      .from('profiles')
+      .update({ timezone: RUN_ZONE })
+      .eq('id', t.memberId);
+    if (tzSetError) throw new Error(`could not move her clock: ${tzSetError.message}`);
     for (const table of [
       'member_weekly_reflections',
       'member_weekly_reflection_deliveries',
@@ -294,7 +338,21 @@ async function main() {
 
     if (before && !before.disabled) {
       await coachPage.locator('[data-testid="weekly-reflection-assign-state"]').first().click();
-      await coachPage.waitForTimeout(4000);
+      // The panel refreshes the whole coach screen after the write, and
+      // that screen runs a lot of reads. Waiting a fixed few seconds read
+      // the button mid-flight on the first run, so this waits for the
+      // in-flight label to go away rather than guessing at a duration.
+      await coachPage
+        .waitForFunction(
+          () => {
+            const el = document.querySelector('[data-testid="weekly-reflection-assign-state"]');
+            return Boolean(el) && !/^Sending/.test(el.textContent.trim());
+          },
+          undefined,
+          { timeout: 45_000 }
+        )
+        .catch(() => {});
+      await coachPage.waitForTimeout(1500);
     }
 
     const assignedRows = await rowsFor(
@@ -365,7 +423,7 @@ async function main() {
     const sawReflection =
       /Weekly Reflection|Look back at your week|Your Weekly Reflection is ready/i.test(homeText);
     record(
-      'the assigned reflection is on her Home, on a day her own window is not open',
+      `the assigned reflection is on her Home, on a ${new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: RUN_ZONE }).format(new Date())} with her window shut`,
       sawReflection,
       sawReflection
         ? 'the pop-up or the persistent card is on the screen'
@@ -480,10 +538,14 @@ async function main() {
       t.memberId,
       t.weekStart
     );
+    // Read in the zone her profile carries WHILE the run is in progress,
+    // which is the zone the server is formatting the sentence in. Reading
+    // it in her ordinary zone would compare the screen against a different
+    // member's day.
     const expected = stored[0]?.completed_at
-      ? `Completed ${new Date(stored[0].completed_at).toLocaleString('en-US', { weekday: 'long', timeZone: t.timezone })}.`
+      ? `Completed ${new Date(stored[0].completed_at).toLocaleString('en-US', { weekday: 'long', timeZone: RUN_ZONE })}.`
       : finalReceipts[0]
-        ? `Delivered ${new Date(finalReceipts[0].delivered_at).toLocaleString('en-US', { weekday: 'long', timeZone: t.timezone })}. Not yet completed.`
+        ? `Delivered ${new Date(finalReceipts[0].delivered_at).toLocaleString('en-US', { weekday: 'long', timeZone: RUN_ZONE })}. Not yet completed.`
         : null;
 
     record(

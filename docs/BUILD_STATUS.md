@@ -74,8 +74,30 @@ identical: same recap, same five questions, same once-per-week row.
 
 50 new tests in `tests/weekly-reflection-assignment.test.ts` over a fake
 Postgres that enforces all three unique constraints, plus 8 on the panel
-itself. Live verification in
-`apps/consumer-web-app/scripts/verify-weekly-reflection-assign-live.mjs`.
+itself.
+
+**Verified live**, signed in as the real coach and the real fixture member
+on app.mefwellness.com, in
+`apps/consumer-web-app/scripts/verify-weekly-reflection-assign-live.mjs`:
+17 of 17 checks. The whole round trip on one week: the button appears, one
+tap writes one row, the button turns to a disabled "Assigned", the line
+reads "Assigned Monday. Not delivered yet, they have not opened the app
+since", she opens the app and gets exactly one receipt, a reload adds no
+second one, she writes the reflection, and the line reads "Completed
+Monday" compared against the stored completion rather than against what
+the script hoped for.
+
+The run moves her stored profile timezone forward for its duration, to a
+zone where the same instant is a weekday, so her Friday-to-Sunday window is
+genuinely shut and the assignment is the only thing that can open the
+reflection. That is also the same executed branch a member on any other
+tier takes, because resolveWeeklyReflectionOffer does not read the
+subscription at all when the window is closed. Her tier is deliberately not
+touched: production refuses a scripted change to a manual membership by
+design (migration 159, and that refusal was confirmed rather than worked
+around). Everything the run disturbed, her timezone and this week's
+reflection, receipt and assignment rows, is written back verbatim and the
+restore is itself a reported check.
 
 ## Two coach-view fixes: a raw `[]` answer, and five copies of one alert (2026-08-30)
 
