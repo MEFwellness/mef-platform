@@ -28,6 +28,14 @@ export const WEEKLY_REFLECTION_COPY = {
   /** The persistent card on Home, once the pop-up has had its turn. */
   cardTitle: 'Look back at your week',
   cardBody: 'Open when you have a few quiet minutes. Available through Sunday night.',
+  /**
+   * The same card for a member whose coach sent her this one (migration
+   * 193). It names no deadline, because the automatic window's Sunday
+   * night is not hers: an assigned week runs from its Friday to the
+   * following Thursday, and promising a night that is not the right one
+   * would be an undated promise dressed up as a dated one.
+   */
+  cardBodyAssigned: 'Your coach opened this one for you. Open it when you have a few quiet minutes.',
   cardCta: 'Start your reflection',
 
   /** Part 1. */
@@ -53,6 +61,14 @@ export const WEEKLY_REFLECTION_COPY = {
   alreadyDoneHeading: 'This week is done',
   alreadyDoneBody:
     "You have already finished this week's reflection. Your coach can see it. The next one opens on Friday.",
+  /**
+   * The same screen for a member whose coach sent her this one. It stops
+   * at what is true: she finished it and her coach can read it. "The next
+   * one opens on Friday" is the program tier's promise and is simply false
+   * for a member who is not on it, so it is not made.
+   */
+  alreadyDoneBodyAssigned:
+    "You have already finished this one. Your coach can see it.",
 
   /** The one thing that can go wrong on submit. */
   submitError: 'We could not save that. Please try again.',

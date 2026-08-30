@@ -15,14 +15,21 @@
  * a member who is not offered it. Both of those decisions are made
  * upstream, in lib/weekly-reflection/service.ts, so this component has one
  * job and no rules of its own.
+ *
+ * ONE SENTENCE VARIES, AND ONLY BECAUSE OF A DEADLINE. A program member's
+ * window really does close on Sunday night and the card says so. A member
+ * whose coach sent her this one is on a week that runs to the following
+ * Thursday, so her copy names no night rather than the wrong one. The
+ * card, the link and the deadline-free half of the sentence are identical.
  */
 
 import { QuietLink } from '@/components/nav/QuietLink';
 import type { Route } from 'next';
 import { ArrowRight } from 'lucide-react';
 import { WEEKLY_REFLECTION_COPY, WEEKLY_REFLECTION_LABEL } from '@/lib/weekly-reflection/copy';
+import type { WeeklyReflectionOffer } from '@/lib/weekly-reflection/service';
 
-export function WeeklyReflectionEntry() {
+export function WeeklyReflectionEntry({ offer }: { offer: WeeklyReflectionOffer }) {
   return (
     <section
       aria-label={WEEKLY_REFLECTION_LABEL}
@@ -42,7 +49,9 @@ export function WeeklyReflectionEntry() {
       </h2>
 
       <p className="relative mt-2 text-[15px] leading-relaxed text-[#F5F0E4]/80">
-        {WEEKLY_REFLECTION_COPY.cardBody}
+        {offer === 'assigned'
+          ? WEEKLY_REFLECTION_COPY.cardBodyAssigned
+          : WEEKLY_REFLECTION_COPY.cardBody}
       </p>
 
       <QuietLink

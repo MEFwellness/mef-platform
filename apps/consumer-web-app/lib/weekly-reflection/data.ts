@@ -15,12 +15,15 @@
  * there, and the only write in this feature happens inside the server
  * action she triggers by pressing the final button.
  *
- * THE DELIVERY RECEIPT AT THE BOTTOM OF THIS FILE IS NOT AN EXCEPTION TO
- * THAT. It writes a different table (member_weekly_reflection_deliveries,
- * migration 191), it is fired from a mounted effect on the surface that
- * genuinely displayed the reflection rather than from any render, and it
- * creates no reflection row and no draft. Nothing above it reads it, so
- * "has she completed this week" is still decided by one table.
+ * THE TWO SECTIONS AT THE BOTTOM OF THIS FILE ARE NOT EXCEPTIONS TO THAT.
+ * The delivery receipt writes a different table
+ * (member_weekly_reflection_deliveries, migration 191), fired from a
+ * mounted effect on the surface that genuinely displayed the reflection
+ * rather than from any render. The coach assignment writes a third
+ * (member_weekly_reflection_assignments, migration 193), fired from the
+ * button a coach pressed. Neither creates a reflection row and neither
+ * creates a draft, and nothing above them reads either one, so "has she
+ * completed this week" is still decided by one table.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -324,5 +327,105 @@ export async function claimReflectionDelivery(
   // there, so the caller learns the truth rather than an assumption.
   const existing = await fetchReflectionDelivery(supabase, memberId, weekStart);
   if (error && !existing.record) console.error('claimReflectionDelivery insert failed', error);
+  return { record: existing.record, created: false };
+}
+
+// ---------------------------------------------------------------------
+// The coach assignment (migration 193).
+//
+// A THIRD SEPARATE RECORD, for the same reason the receipt above is a
+// second one. Everything at the top of this file obeys "no row exists in
+// member_weekly_reflections until she finishes", and these two functions
+// do not touch that table at all. An assignment is a decision a coach
+// made; it is never a reflection attempt, never a draft, and never a
+// delivery. Nothing that asks "has she completed this week" reads it.
+//
+// IT ONLY EVER ADDS. There is no shape of row here that closes a week, and
+// the program tier's automatic Friday consults none of this. See the
+// migration's own header.
+// ---------------------------------------------------------------------
+
+export type ReflectionAssignmentRecord = {
+  weekStart: string;
+  assignedBy: string;
+  createdAt: string;
+};
+
+const ASSIGNMENT_COLUMNS = 'week_start, assigned_by, created_at';
+
+type AssignmentRow = { week_start: string; assigned_by: string; created_at: string };
+
+function fromAssignmentRow(row: AssignmentRow): ReflectionAssignmentRecord {
+  return { weekStart: row.week_start, assignedBy: row.assigned_by, createdAt: row.created_at };
+}
+
+/**
+ * This week's assignment, with "no assignment" and "the read did not work"
+ * kept apart, for the same reason fetchWeeklyReflection keeps them apart.
+ *
+ * `ok: false` means: decide nothing from this. A failed read reported as
+ * "no assignment" would silently take the reflection away from a member
+ * her coach had just sent it to, and a failed read reported as "assigned"
+ * would offer it to somebody who was never given it. Both callers fail
+ * shut on it, which is the same direction ./access.ts takes.
+ */
+export async function fetchReflectionAssignment(
+  supabase: SupabaseClient,
+  memberId: string,
+  weekStart: string
+): Promise<{ ok: boolean; record: ReflectionAssignmentRecord | null }> {
+  const { data, error } = await supabase
+    .from('member_weekly_reflection_assignments')
+    .select(ASSIGNMENT_COLUMNS)
+    .eq('member_id', memberId)
+    .eq('week_start', weekStart)
+    .maybeSingle();
+
+  if (error) {
+    console.error('fetchReflectionAssignment failed', error);
+    return { ok: false, record: null };
+  }
+  if (!data) return { ok: true, record: null };
+  return { ok: true, record: fromAssignmentRow(data as unknown as AssignmentRow) };
+}
+
+/**
+ * Opens this week for her, if it has no assignment yet.
+ *
+ * ONE PER MEMBER PER WEEK, AND THE DATABASE IS WHAT ENFORCES IT. A coach
+ * double tapping Assign, or two coaches on one caseload pressing it at
+ * once, are the same (member_id, week_start), so both resolve to the one
+ * row. An insert-if-absent and never an upsert: created_at means "when
+ * this week was opened for her" and an upsert would move it forward on the
+ * second tap.
+ *
+ * "NO ERROR" IS NOT "IT WORKED", so the insert returns what it wrote and a
+ * caller that gets nothing back reads the row back rather than assuming
+ * success. A write that matches no RLS policy returns zero rows and no
+ * error, which is exactly the shape this guards against.
+ */
+export async function claimReflectionAssignment(
+  supabase: SupabaseClient,
+  memberId: string,
+  weekStart: string,
+  assignedBy: string
+): Promise<{ record: ReflectionAssignmentRecord | null; created: boolean }> {
+  const { data, error } = await supabase
+    .from('member_weekly_reflection_assignments')
+    .insert({ member_id: memberId, week_start: weekStart, assigned_by: assignedBy })
+    .select(ASSIGNMENT_COLUMNS)
+    .maybeSingle();
+
+  if (!error && data) {
+    return { record: fromAssignmentRow(data as unknown as AssignmentRow), created: true };
+  }
+
+  // Either the unique constraint rejected a second assignment for this
+  // week, which is the ordinary and expected outcome of a double tap, or
+  // the insert wrote nothing. Both resolve the same way: read back
+  // whatever is actually there, so the caller learns the truth rather than
+  // an assumption.
+  const existing = await fetchReflectionAssignment(supabase, memberId, weekStart);
+  if (error && !existing.record) console.error('claimReflectionAssignment insert failed', error);
   return { record: existing.record, created: false };
 }

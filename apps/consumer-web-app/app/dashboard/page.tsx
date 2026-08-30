@@ -488,22 +488,23 @@ async function DayFrameRegion() {
       )}
 
       {/* ==================================================== */}
-      {/* THE WEEKLY REFLECTION, persistent (program tier only). */}
+      {/* THE WEEKLY REFLECTION, persistent.                     */}
       {/*                                                        */}
       {/* Above the Weekly Root Review for the same reason its   */}
       {/* pop-up sits above the review's in the chain: this one  */}
-      {/* asks something of her and closes on Sunday night, and  */}
+      {/* asks something of her and has a deadline on it, and    */}
       {/* the review is a report that stays all week.            */}
       {/*                                                        */}
-      {/* NO VISIBILITY KEY, deliberately. membership tier is    */}
-      {/* the whole gate (lib/weekly-reflection/access.ts); a    */}
-      {/* reveal rule on top of it would be the second invisible */}
-      {/* lock the standing rules forbid, and "why can she not   */}
-      {/* see it" would stop having one answer.                  */}
+      {/* NO VISIBILITY KEY, deliberately. The plan, plus a coach */}
+      {/* assignment that only ever adds, is the whole gate      */}
+      {/* (lib/weekly-reflection/access.ts). A reveal rule on top */}
+      {/* of it would be the second invisible lock the standing  */}
+      {/* rules forbid, and "why can she not see it" would stop  */}
+      {/* having one answer.                                     */}
       {/*                                                        */}
       {/* Renders nothing once she has finished the week, and    */}
-      {/* nothing on Monday through Thursday: getMyWeeklyReflection */}
-      {/* returns null or 'completed' in those cases.            */}
+      {/* nothing for a week nobody opened for her:              */}
+      {/* getMyWeeklyReflection returns null or 'completed'.     */}
       {/* ==================================================== */}
       {weeklyReflection?.status === 'pending' && (
         <div className="pt-3">
@@ -516,7 +517,7 @@ async function DayFrameRegion() {
             weekStart={weeklyReflection.weekStart}
             presentation="home_card"
           />
-          <WeeklyReflectionEntry />
+          <WeeklyReflectionEntry offer={weeklyReflection.offer} />
         </div>
       )}
 

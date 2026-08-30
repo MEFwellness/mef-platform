@@ -2,10 +2,12 @@
  * The Weekly Reflection's own route.
  *
  * ACCESS IS ENFORCED HERE, SERVER SIDE, not merely hidden in the UI. A
- * member who is not on the program tier, or who arrives on a Tuesday, is
- * redirected to Home before any reflection content renders, and the rule
- * that decides it is the identical getMyWeeklyReflection the pop-up chain
- * and Home's card read. One rule, three surfaces, no drift.
+ * member nobody opened this week for, whether that is a member off the
+ * program tier or a program member arriving on a Tuesday, is redirected to
+ * Home before any reflection content renders. The rule that decides it is
+ * the identical getMyWeeklyReflection the pop-up chain and Home's card
+ * read, so a coach assignment (migration 193) opens this route by the same
+ * one rule that opens the pop-up. One rule, three surfaces, no drift.
  *
  * A FINISHED WEEK IS NOT A REDIRECT. She gets a warm "this week is done"
  * screen instead of being silently bounced, because a member who taps an
@@ -54,6 +56,7 @@ export default async function WeeklyReflectionPage() {
           */}
           <WeeklyReflectionExperience
             status={state.status}
+            offer={state.offer}
             recap={state.recap}
           />
         </div>

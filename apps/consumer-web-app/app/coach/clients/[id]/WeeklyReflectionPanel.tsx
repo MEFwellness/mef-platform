@@ -13,9 +13,26 @@
  * the newest is open on arrival, because the week a coach came here for is
  * almost always the one that just finished.
  *
- * Client-side only in the sense that the week selector is stateful. Every
- * row was fetched on the server by getClientWeeklyReflectionsAction, which
- * is where the coach check and the test-account exclusion live.
+ * Client-side only in the sense that the week selector and the Assign
+ * button are stateful. Every row was fetched on the server by
+ * getClientWeeklyReflectionsAction and
+ * getClientWeeklyReflectionAssignStateAction, which is where the coach
+ * check and the test-account exclusion live.
+ *
+ * THE ASSIGN BUTTON, SAME PATTERN AS THE STRESS & LOAD PANEL BESIDE IT.
+ * The Weekly Reflection arrives on its own for a member on the 24 week
+ * program, from her Friday to her Sunday night. This button is the other
+ * way in: a coach sending THIS week's reflection to any client on their
+ * caseload, on any day, whatever plan she is on. It only ever adds. It
+ * cannot take the automatic Friday away from a program member, and it
+ * cannot produce a second copy for one, because an assignment names the
+ * same week her plan would have named.
+ *
+ * FOUR STATES, SAID AS FOUR DIFFERENT THINGS, because a coach reading the
+ * wrong one would either send something twice or think they had sent
+ * something they had not: already finished this week, already assigned,
+ * already open to her because of her plan, or nothing yet and here is the
+ * button.
  *
  * Two genuinely different empty states, said differently: a client who is
  * not on the program tier is not somebody who has skipped their
@@ -35,7 +52,8 @@
  * The week chips below it are unchanged.
  */
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { NotebookPen } from 'lucide-react';
 import { formatDisplayDate } from '@/lib/time/displayDate';
 import { WeeklyReflectionRecapBody } from '@/components/weekly-reflection/WeeklyReflectionRecapBody';
@@ -47,9 +65,11 @@ import {
   WEEKLY_REFLECTION_QUESTIONS,
   weekOverallLabel,
 } from '@/lib/weekly-reflection/questions';
-import type {
-  CoachWeeklyReflection,
-  CoachWeeklyReflectionStatus,
+import {
+  assignWeeklyReflectionAction,
+  type CoachWeeklyReflection,
+  type CoachWeeklyReflectionAssignState,
+  type CoachWeeklyReflectionStatus,
 } from '@/app/actions/weeklyReflection';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
@@ -68,19 +88,39 @@ function answerText(key: string, value: number | string): string {
 }
 
 export function WeeklyReflectionPanel({
+  clientId,
   reflections,
   hasProgramTier,
   status,
+  assign,
 }: {
+  clientId: string;
   reflections: CoachWeeklyReflection[];
   hasProgramTier: boolean;
-  /** Null when the client is not on the program tier, so nothing was ever offered and there is no delivery to report. */
+  /** Null when nothing opened this week for the client, so there is no delivery to report. */
   status: CoachWeeklyReflectionStatus | null;
+  /** Null when this coach may not see this client at all. */
+  assign: CoachWeeklyReflectionAssignState | null;
 }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<string | null>(
     reflections[0]?.weekStart ?? null
   );
   const selected = reflections.find((row) => row.weekStart === selectedWeek) ?? null;
+
+  function send() {
+    setError(null);
+    startTransition(async () => {
+      const result = await assignWeeklyReflectionAction(clientId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   return (
     <section className={`${CARD} p-6`}>
@@ -98,9 +138,12 @@ export function WeeklyReflectionPanel({
         </p>
       )}
 
+      {assign && <AssignThisWeek assign={assign} isPending={isPending} error={error} onSend={send} />}
+
       {!hasProgramTier && reflections.length === 0 ? (
         <p className="mt-3 text-sm text-[#6B7A72]">
-          Not on the 24 week program, so this experience is not offered to them.
+          Not on the 24 week program, so this does not open on its own. Send it above and they get
+          this week&apos;s on their next app open.
         </p>
       ) : reflections.length === 0 ? (
         <p className="mt-3 text-sm text-[#6B7A72]">
@@ -173,5 +216,83 @@ export function WeeklyReflectionPanel({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * The four things this week can be, and the one button.
+ *
+ * The order is the order a coach needs: what already happened first, what
+ * they can do about it last. A finished week and an assigned week both
+ * close the question, so neither shows a button at all rather than showing
+ * a disabled one nobody can act on. A week her plan is already opening
+ * says so plainly, because assigning it would change nothing she can see
+ * and a button that does nothing is worse than no button.
+ *
+ * NO EM DASHES.
+ */
+function AssignThisWeek({
+  assign,
+  isPending,
+  error,
+  onSend,
+}: {
+  assign: CoachWeeklyReflectionAssignState;
+  isPending: boolean;
+  error: string | null;
+  onSend: () => void;
+}) {
+  const weekName = formatDisplayDate(assign.weekStart, { month: 'short', day: 'numeric' });
+
+  if (assign.completed) {
+    return (
+      <p data-testid="weekly-reflection-assign-state" className="mt-3 text-sm text-[#6B7A72]">
+        {`They have finished the week of ${weekName}. The next one is a new week.`}
+      </p>
+    );
+  }
+
+  if (assign.assignedAt) {
+    return (
+      <div className="mt-3">
+        <button
+          type="button"
+          disabled
+          data-testid="weekly-reflection-assign-state"
+          className="rounded-full bg-[#F3F6F4] px-4 py-2 text-xs font-semibold text-[#6B7A72]"
+        >
+          Assigned
+        </button>
+        <p className="mt-2 text-xs text-[#6B7A72]">
+          {`Sent for the week of ${weekName}. They can only be sent one reflection a week.`}
+        </p>
+      </div>
+    );
+  }
+
+  if (assign.automaticallyOffered) {
+    return (
+      <p data-testid="weekly-reflection-assign-state" className="mt-3 text-sm text-[#6B7A72]">
+        On the program, so this week is already open to them until Sunday night. Nothing to send.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={onSend}
+        disabled={isPending}
+        data-testid="weekly-reflection-assign-state"
+        className="mef-focus-ring mef-press rounded-full bg-[#1B3A2D] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#163025] disabled:opacity-50"
+      >
+        {isPending ? 'Sending' : `Assign ${WEEKLY_REFLECTION_LABEL}`}
+      </button>
+      <p className="mt-2 text-xs text-[#6B7A72]">
+        {`Opens the week of ${weekName} for them. It reaches them the next time they open the app.`}
+      </p>
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+    </div>
   );
 }

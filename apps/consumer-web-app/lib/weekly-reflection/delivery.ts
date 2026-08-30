@@ -22,6 +22,17 @@
  * or not a receipt was written for it. That is what makes every week
  * before this build still readable rather than a wall of "no record".
  *
+ * AN ASSIGNED WEEK IS A LIVE WEEK, AND IT IS NEVER "NO RECORD". A coach
+ * assignment (migration 193) opens a week for a client of any tier on any
+ * day, so two things change when one exists. The absent receipt becomes a
+ * real fact rather than an unwatched one, because every assignment row
+ * postdates the receipt system by construction: migration 193 ships after
+ * migration 191, so there is no such thing as an assignment for a week
+ * receipts were not being written in. And the sentence stays in the
+ * present tense whatever the Friday-to-Sunday window is doing, because she
+ * can still write it right now: a coach who assigned on Tuesday must not
+ * read a past-tense line about last weekend.
+ *
  * PURE. No clock, no database, no timezone of its own. The week, the two
  * timestamps and the reading zone all arrive from the caller, which is the
  * server, which resolved them from her stored profile timezone.
@@ -63,19 +74,29 @@ export type ReflectionDeliveryStatus =
  * completion: the copy below names the day, and a completion with no day
  * to name is not something to announce. It falls through to whatever the
  * receipt says instead.
+ *
+ * `assignedAt` only ever makes the answer MORE definite, never less. It
+ * cannot turn a receipt into a non-delivery or a completion into anything
+ * else. All it does is retire the "this week was not being watched"
+ * escape, which cannot apply to a week a coach opened after receipts
+ * existed.
  */
 export function resolveReflectionDeliveryStatus(input: {
   weekStart: string;
   deliveredAt: string | null;
   completedAt: string | null;
-  /** False when either underlying read failed. Never guess from an empty result. Omitted means "both reads worked". */
+  /** When a coach opened this week for her, or null. Any row here postdates the receipt system, so an absent receipt beside one is a real non-delivery. */
+  assignedAt?: string | null | undefined;
+  /** False when any underlying read failed. Never guess from an empty result. Omitted means "the reads worked". */
   readable?: boolean | undefined;
 }): ReflectionDeliveryStatus {
   const { weekStart, deliveredAt, completedAt } = input;
   if (input.readable === false) return { kind: 'unreadable', weekStart };
   if (completedAt) return { kind: 'completed', weekStart, at: completedAt };
   if (deliveredAt) return { kind: 'delivered', weekStart, at: deliveredAt };
-  if (weekStart < DELIVERY_RECEIPTS_FIRST_WEEK) return { kind: 'no_record', weekStart };
+  if (!input.assignedAt && weekStart < DELIVERY_RECEIPTS_FIRST_WEEK) {
+    return { kind: 'no_record', weekStart };
+  }
   return { kind: 'not_delivered', weekStart };
 }
 
@@ -111,11 +132,22 @@ function formatWeekStart(weekStart: string): string {
 /**
  * The single sentence a coach reads above the answers.
  *
- * TWO TENSES, ONE SET OF FACTS. Inside her Friday-to-Sunday window the
- * line is about right now and needs no week named, because "this week" is
- * the only week it could be about. Outside it, the window has closed and
- * the line names the week it is reporting on, so a coach glancing at it on
- * a Wednesday is never left thinking it describes today.
+ * TWO TENSES, ONE SET OF FACTS. When the week is still live the line is
+ * about right now and needs no week named, because "this week" is the only
+ * week it could be about. When it is over, the line names the week it is
+ * reporting on, so a coach glancing at it on a Wednesday is never left
+ * thinking it describes today.
+ *
+ * WHAT MAKES A WEEK LIVE IS EITHER OF THE TWO THINGS THAT OPEN IT. Her own
+ * Friday-to-Sunday window, or a coach assignment for that week. An
+ * assignment is exactly what makes a Tuesday a live day for this member,
+ * so a past-tense line beside a button the coach pressed an hour ago would
+ * be plainly wrong.
+ *
+ * AN ASSIGNED, UNDELIVERED WEEK SAYS WHO OPENED IT AND WHEN. "They have
+ * not opened the app since Friday" is the automatic route's sentence and
+ * is false for an assignment made on a Tuesday, so the assigned version
+ * names the day it was sent instead.
  *
  * NO EM DASHES. Periods, commas, colons and parentheses.
  *
@@ -124,36 +156,50 @@ function formatWeekStart(weekStart: string): string {
  */
 export function reflectionStatusLine(
   status: ReflectionDeliveryStatus,
-  options: { windowOpen: boolean; timeZone: string }
+  options: {
+    windowOpen: boolean;
+    timeZone: string;
+    /** When a coach opened this week for her, or null. A week with one is live whatever the window is doing. */
+    assignedAt?: string | null | undefined;
+  }
 ): string {
   const { windowOpen, timeZone } = options;
+  const assignedAt = options.assignedAt ?? null;
+  const live = windowOpen || assignedAt !== null;
   const week = formatWeekStart(status.weekStart);
 
   switch (status.kind) {
     case 'completed': {
       const day = reflectionDayName(status.at, timeZone);
-      if (windowOpen) return day ? `Completed ${day}.` : 'Completed this week.';
+      if (live) return day ? `Completed ${day}.` : 'Completed this week.';
       return day ? `Week of ${week}: completed ${day}.` : `Week of ${week}: completed.`;
     }
     case 'delivered': {
       const day = reflectionDayName(status.at, timeZone);
-      if (windowOpen) {
+      if (live) {
         return day ? `Delivered ${day}. Not yet completed.` : 'Delivered this week. Not yet completed.';
       }
       return day
         ? `Week of ${week}: delivered ${day}, not completed.`
         : `Week of ${week}: delivered, not completed.`;
     }
-    case 'not_delivered':
+    case 'not_delivered': {
+      if (assignedAt) {
+        const sent = reflectionDayName(assignedAt, timeZone);
+        return sent
+          ? `Assigned ${sent}. Not delivered yet, they have not opened the app since.`
+          : 'Assigned this week. Not delivered yet.';
+      }
       return windowOpen
         ? 'Not delivered yet. They have not opened the app since Friday.'
         : `Week of ${week}: not delivered. They did not open the app that weekend.`;
+    }
     case 'no_record':
-      return windowOpen
+      return live
         ? 'No delivery record for this week.'
         : `Week of ${week}: no delivery record.`;
     case 'unreadable':
-      return windowOpen
+      return live
         ? 'The delivery record for this week could not be read.'
         : `Week of ${week}: the delivery record could not be read.`;
   }

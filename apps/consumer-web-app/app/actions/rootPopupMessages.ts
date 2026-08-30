@@ -211,8 +211,10 @@ export type RootPopupMessage =
       review: RenderedReview;
     }
   /**
-   * The Weekly Reflection (program tier only). Friday through Sunday, once
-   * a week, Root offers her the look back her coach will read with her.
+   * The Weekly Reflection. Once a week, Root offers her the look back her
+   * coach will read with her: automatically for a program-tier member from
+   * her Friday to her Sunday, and on any day for any member her coach sent
+   * one to (migration 193).
    *
    * Carries no recap and no questions, deliberately, unlike the Weekly
    * Root Review directly above it. This message is an INVITATION into a
@@ -716,7 +718,7 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     }
   }
 
-  // The Weekly Reflection (program tier only).
+  // The Weekly Reflection.
   //
   // Its position, boundary by boundary, on the same reasoning the Weekly
   // Root Review below states for itself:
@@ -740,10 +742,11 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // review is Root reporting and it stays on Home all week either way; the
   // reflection has a three day window and a coach waiting to read it.
   //
-  // getMyWeeklyReflection returns null for every member who is not on the
-  // program tier and on every day that is not Friday, Saturday or Sunday,
-  // so the tier gate and the window are one read rather than two checks
-  // here that could drift from the route's.
+  // getMyWeeklyReflection returns null for every member nobody opened this
+  // week for: not on the program tier and not assigned, or on the program
+  // but not on a Friday, Saturday or Sunday. The tier, the window and the
+  // coach assignment are one read rather than three checks here that could
+  // drift from the route's.
   const weeklyReflection = await getMyWeeklyReflection();
   const safetyOverrideActive = priorityViewRaw?.selected.rule === 'safety';
   if (weeklyReflection?.status === 'pending' && !safetyOverrideActive) {

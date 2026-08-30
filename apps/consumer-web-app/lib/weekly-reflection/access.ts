@@ -2,13 +2,22 @@
  * Who the Weekly Reflection is for. One function, and every surface in the
  * feature is on one side of it.
  *
- * THE PLAN IS THE WHOLE GATE. member_subscriptions.tier (migration 159),
- * read through the member_access_facts view by
- * lib/membership/service.ts's fetchMemberAccessFacts, decides this and
- * nothing else does. There is no assignment, no grant column, no
- * visibility-layer key and no coach switch: adding one would be exactly
- * the "second invisible lock" the standing rules forbid, and it would make
- * "why can she not see it" a two place question.
+ * THE PLAN DECIDES WHAT ARRIVES ON ITS OWN, AND A COACH ASSIGNMENT CAN
+ * ONLY ADD ONE WEEK ON TOP OF IT. That is the standing access rule stated
+ * exactly: membership.minLevel, here member_subscriptions.tier (migration
+ * 159) read through the member_access_facts view by
+ * lib/membership/service.ts's fetchMemberAccessFacts, is what makes this
+ * experience turn up every Friday with nobody doing anything. A row in
+ * member_weekly_reflection_assignments (migration 193) opens ONE named
+ * week for ONE member, whatever her tier and whatever day it is.
+ *
+ * THERE IS STILL NO SECOND LOCK, because an assignment cannot close
+ * anything. hasWeeklyReflectionAccess below is unchanged and still consults
+ * the tier and nothing else, isWeeklyReflectionOffered below is a plain OR
+ * of the two, and there is no row shape anywhere that takes the experience
+ * away from a program member. "Why can she not see it" therefore still has
+ * one answer for the automatic case (her plan) and one for the assigned
+ * case (nobody sent her one), and neither can contradict the other.
  *
  * FAILS SHUT, WHICH IS THE OPPOSITE OF lib/membership/access.ts. That
  * module decides whether a member may open the app at all, and a broken
@@ -47,4 +56,39 @@ export function hasWeeklyReflectionAccess(facts: MemberAccessFacts | null): bool
   const subscription = facts?.subscription;
   if (!subscription) return false;
   return subscription.tier === WEEKLY_REFLECTION_TIER && subscription.status === 'active';
+}
+
+/**
+ * Whether this member is offered THIS week's reflection right now: the two
+ * ways in, in one place, so no surface can decide it a fourth way.
+ *
+ * THE AUTOMATIC WAY is the plan and the calendar together, and it is
+ * exactly what it was before assignments existed: on the program tier, and
+ * inside her own Friday-to-Sunday window. Neither half alone opens it.
+ *
+ * THE ASSIGNED WAY is one row for this member and this week, and it
+ * overrides BOTH halves: any tier, and any day of that week. A coach
+ * pressing Assign on a Tuesday means she can write it on that Tuesday, not
+ * that she waits until Friday, which would make the button a promise
+ * rather than an action.
+ *
+ * A PLAIN OR, which is what "only ever adds" looks like in code. There is
+ * no ordering between the two and no case where the assignment makes
+ * something false that would otherwise have been true. A program member
+ * who is also assigned this week is offered exactly the one week both
+ * routes name, and she gets one delivery, because both routes resolve to
+ * the same Friday.
+ *
+ * FAILS SHUT on the assignment side too: `assigned` is false when the read
+ * failed, for the same reason the tier read failing means "not offered".
+ */
+export function isWeeklyReflectionOffered(input: {
+  facts: MemberAccessFacts | null;
+  /** Whether her own Friday-to-Sunday window is open today, in her own timezone. */
+  windowOpen: boolean;
+  /** Whether a coach assignment exists for the week in question. False when the read failed. */
+  assigned: boolean;
+}): boolean {
+  if (input.assigned) return true;
+  return input.windowOpen && hasWeeklyReflectionAccess(input.facts);
 }

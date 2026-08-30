@@ -1,3 +1,82 @@
+## A coach can send this week's Weekly Reflection to anyone (2026-08-30)
+
+Migration 193. The Weekly Reflection used to be a pure consequence of the
+plan: program tier, her own Friday through Sunday night, nobody else and no
+other day. That is still exactly how it arrives on its own. What was
+missing was the ordinary coaching move, a coach deciding on a Tuesday that
+one particular client should sit down and write this week, and there was no
+way in the product to say it.
+
+**The button.** On the coach's Weekly Reflection panel, beside the Stress &
+Load one and built the same way. It says four different things, because a
+coach reading the wrong one would either send something twice or think they
+had sent something they had not: "Assign Weekly Reflection" when nothing is
+open, "Assigned" (disabled, naming the week) once it has been sent, "They
+have finished the week of Aug 28" when she has already written it, and "On
+the program, so this week is already open to them until Sunday night.
+Nothing to send" for a program member inside her own window, where pressing
+it would change nothing she can see.
+
+**One row per member per week, and the database is what says so.**
+`member_weekly_reflection_assignments` carries member, her own local
+Friday, who sent it and when, with `unique (member_id, week_start)`, the
+identical shape the reflections table and the delivery receipts table
+already use. The write is an insert-if-absent, so a double tap and two
+coaches pressing at once both resolve to the one row that already exists. A
+duplicate press is a quiet success rather than an error.
+
+**Why doubling a program member is structurally impossible rather than
+merely unlikely.** Both ways in name the SAME week. The assignment week is
+the Friday that BEGAN the seven day span the member is standing in, which
+on a Friday, Saturday or Sunday is exactly the window's own Friday. So a
+program member with an assignment has one reflection row to write and one
+receipt to leave, because both tables are unique on (member, week). Nothing
+had to be special-cased for it.
+
+**It overrides both gates, and only ever adds.** Any tier, and any day of
+that week: an assignment made on a Tuesday delivers that Tuesday rather
+than waiting for Friday, which is the difference between a button and a
+promise. `isWeeklyReflectionOffered` is a plain OR of "her plan and her
+window" and "a row for this week", so there is no combination in which
+assigning closes a program member out. Automatic Friday behaviour is
+untouched: her tier decides it and consults none of this.
+
+**It expires by itself.** An assignment belongs to one Friday and stops
+applying the moment the next Friday opens a new span. No expiry column, no
+scheduler, no second delivery system. A coach whose client never opened the
+app simply sends this week's again.
+
+**One rule, four surfaces.** `resolveWeeklyReflectionOffer` is the only
+place the two ways in meet. The pop-up chain, Home's card, the route and
+the submit action all read its answer through the state builder they
+already used, and the delivery receipt action asks it directly, so none of
+them can decide who is offered what on its own.
+
+**The status line covers assigned weeks now.** A client off the program
+used to get no line at all, because nothing had ever been offered. With an
+assignment there is something to report, and two things change. An absent
+receipt beside an assignment is a real non-delivery rather than a week
+nothing was watching, because every assignment row postdates the receipt
+system by construction. And the sentence stays in the present tense
+whatever the Friday-to-Sunday window is doing, because the assignment is
+what makes that Tuesday a live day: "Assigned Tuesday. Not delivered yet,
+they have not opened the app since", then "Delivered Tuesday. Not yet
+completed", then "Completed Wednesday". The automatic route's sentences are
+byte for byte what they were.
+
+**Two member-facing sentences vary, and only because of a deadline.** The
+Home card's "Available through Sunday night" and the finished screen's "The
+next one opens on Friday" are the program tier's promises and are simply
+false for a member who is not on it, so an assigned week says "Your coach
+opened this one for you" and "You have already finished this one. Your
+coach can see it" instead. Everything else about the experience is
+identical: same recap, same five questions, same once-per-week row.
+
+50 new tests in `tests/weekly-reflection-assignment.test.ts` over a fake
+Postgres that enforces all three unique constraints, plus 8 on the panel
+itself. Live verification in
+`apps/consumer-web-app/scripts/verify-weekly-reflection-assign-live.mjs`.
+
 ## Two coach-view fixes: a raw `[]` answer, and five copies of one alert (2026-08-30)
 
 Both found on one real member's coach page. Migration 192.

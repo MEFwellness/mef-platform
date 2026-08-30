@@ -52,6 +52,7 @@ import {
 } from '@/lib/weekly-reflection/questions';
 import { submitWeeklyReflectionAction } from '@/app/actions/weeklyReflection';
 import type { RenderedRecap } from '@/lib/weekly-reflection/recap';
+import type { WeeklyReflectionOffer } from '@/lib/weekly-reflection/service';
 
 const RECAP_STEP = 0;
 const FIRST_QUESTION_STEP = 1;
@@ -64,9 +65,12 @@ const PRIMARY =
 
 export function WeeklyReflectionExperience({
   status,
+  offer,
   recap,
 }: {
   status: 'pending' | 'completed';
+  /** Which route opened this week. It changes one sentence on the already-done screen and nothing else. */
+  offer: WeeklyReflectionOffer;
   recap: RenderedRecap | null;
 }) {
   const router = useRouter();
@@ -131,7 +135,9 @@ export function WeeklyReflectionExperience({
           {WEEKLY_REFLECTION_COPY.alreadyDoneHeading}
         </h1>
         <p className="relative mt-4 text-[16px] leading-relaxed text-[#F5F0E4]/90">
-          {WEEKLY_REFLECTION_COPY.alreadyDoneBody}
+          {offer === 'assigned'
+            ? WEEKLY_REFLECTION_COPY.alreadyDoneBodyAssigned
+            : WEEKLY_REFLECTION_COPY.alreadyDoneBody}
         </p>
         <button type="button" onClick={leave} className={`${PRIMARY} mt-7`}>
           {WEEKLY_REFLECTION_COPY.closingDone}

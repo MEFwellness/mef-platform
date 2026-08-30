@@ -11,14 +11,21 @@
  * descriptors, so if the two ever stopped agreeing this is where it shows.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+
+// The panel calls router.refresh() after a successful assign, exactly as
+// the Stress & Load panel beside it does, so it needs a router to exist.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+}));
 import { WeeklyReflectionPanel } from '@/app/coach/clients/[id]/WeeklyReflectionPanel';
 import { WeeklyReflectionRecapBody } from '@/components/weekly-reflection/WeeklyReflectionRecapBody';
 import { renderReflectionRecap, buildReflectionRecap } from '@/lib/weekly-reflection/recap';
 import { WEEKLY_REFLECTION_QUESTIONS } from '@/lib/weekly-reflection/questions';
 import type {
   CoachWeeklyReflection,
+  CoachWeeklyReflectionAssignState,
   CoachWeeklyReflectionStatus,
 } from '@/app/actions/weeklyReflection';
 import type { LongitudinalSignal } from '@/lib/longitudinal-intelligence/types';
@@ -76,14 +83,30 @@ function render(props: {
   reflections: CoachWeeklyReflection[];
   hasProgramTier: boolean;
   status?: CoachWeeklyReflectionStatus | null;
+  assign?: CoachWeeklyReflectionAssignState | null;
 }) {
   return renderToStaticMarkup(
     <WeeklyReflectionPanel
+      clientId="client-1"
       reflections={props.reflections}
       hasProgramTier={props.hasProgramTier}
       status={props.status ?? null}
+      assign={props.assign ?? null}
     />
   );
+}
+
+/** The four things this week can be, defaulting to the one that shows the button. */
+function assignState(
+  overrides: Partial<CoachWeeklyReflectionAssignState> = {}
+): CoachWeeklyReflectionAssignState {
+  return {
+    weekStart: '2026-09-04',
+    assignedAt: null,
+    completed: false,
+    automaticallyOffered: false,
+    ...overrides,
+  };
 }
 
 describe('the coach panel shows what she wrote', () => {
@@ -259,6 +282,98 @@ describe('the coach panel says whether it ever reached them', () => {
       expect(html).toContain(line);
       expect(html).not.toContain('\u2014');
       expect(html).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+    }
+  });
+});
+
+/**
+ * The Assign button, read back out of the real panel.
+ *
+ * Four states, and the thing worth proving is that a coach can never read
+ * two of them at once: a week already sent must not also offer a button
+ * that would send it, and a week her plan is already opening must not
+ * offer one either, because pressing it would change nothing she can see.
+ */
+describe('the Assign button, and the three states that are not a button', () => {
+  it('offers the button to a client who is not on the program', () => {
+    const html = render({ reflections: [], hasProgramTier: false, assign: assignState() });
+    expect(html).toContain('Assign Weekly Reflection');
+    expect(html).toContain('Opens the week of Sep 4 for them.');
+    // The live button is pressable. `disabled:opacity-50` is a class name
+    // and not an attribute, so the attribute itself is what is asserted.
+    expect(html).not.toMatch(/<button[^>]*\sdisabled=/);
+  });
+
+  it('offers it to a program client outside her own window, which is what makes any day work', () => {
+    const html = render({
+      reflections: [],
+      hasProgramTier: true,
+      assign: assignState({ automaticallyOffered: false }),
+    });
+    expect(html).toContain('Assign Weekly Reflection');
+  });
+
+  it('a week already sent says Assigned, disabled, and offers no way to send a second', () => {
+    const html = render({
+      reflections: [],
+      hasProgramTier: false,
+      assign: assignState({ assignedAt: '2026-09-08T14:00:00.000Z' }),
+    });
+    expect(html).toContain('Assigned');
+    expect(html).toMatch(/<button[^>]*\sdisabled=/);
+    expect(html).not.toContain('Assign Weekly Reflection');
+    expect(html).toContain('only be sent one reflection a week');
+  });
+
+  it('a program client inside her own window is told it is already open, with no button', () => {
+    const html = render({
+      reflections: [],
+      hasProgramTier: true,
+      assign: assignState({ automaticallyOffered: true }),
+    });
+    expect(html).toContain('already open to them until Sunday night');
+    expect(html).not.toContain('Assign Weekly Reflection');
+  });
+
+  it('a finished week offers nothing to send, because there is nothing to send', () => {
+    const html = render({
+      reflections: [FULL_WEEK],
+      hasProgramTier: false,
+      assign: assignState({ completed: true }),
+    });
+    expect(html).toContain('They have finished the week of Sep 4.');
+    expect(html).not.toContain('Assign Weekly Reflection');
+    expect(html).not.toContain('Assigned');
+  });
+
+  it('a coach who may not see this client gets no button at all', () => {
+    const html = render({ reflections: [], hasProgramTier: false, assign: null });
+    expect(html).not.toContain('Assign Weekly Reflection');
+    expect(html).not.toContain('weekly-reflection-assign-state');
+  });
+
+  it('the assigned status line and the Assigned button are the same week, said twice', () => {
+    const html = render({
+      reflections: [],
+      hasProgramTier: false,
+      assign: assignState({ assignedAt: '2026-09-08T14:00:00.000Z' }),
+      status: statusOf({
+        kind: 'not_delivered',
+        line: 'Assigned Tuesday. Not delivered yet, they have not opened the app since.',
+      }),
+    });
+    expect(html).toContain('Assigned Tuesday. Not delivered yet, they have not opened the app since.');
+    expect(html).toContain('Sent for the week of Sep 4.');
+  });
+
+  it('no em dash in any of the four states', () => {
+    for (const assign of [
+      assignState(),
+      assignState({ assignedAt: '2026-09-08T14:00:00.000Z' }),
+      assignState({ automaticallyOffered: true }),
+      assignState({ completed: true }),
+    ]) {
+      expect(render({ reflections: [], hasProgramTier: false, assign })).not.toContain('\u2014');
     }
   });
 });
