@@ -1,3 +1,77 @@
+## A way back through the public entry experience (2026-08-31)
+
+Found on a phone: there was no way back. A visitor who tapped the wrong
+answer, or wanted to change an earlier one, was stuck with it, and the only
+way out of a wrong answer was to abandon the whole thing.
+
+**The control is the one that already existed, as a look.**
+`components/BackControl.tsx` is `BackButton`'s exact treatment (chevron,
+14px, #6B7A72, darkening on hover) lifted into its own component, because
+two things need to say "back" identically and do completely different things
+with the tap: a drill-down screen goes back through the router, and a
+multi-screen experience steps backward through its own state without
+navigating at all. `BackButton` now renders it, so the two can never drift
+into two different looking back buttons. Top left on every section intro and
+every question screen, above the progress row, muted so it never competes
+with the option cards.
+
+**Back retraces the path rather than jumping.** From the first question of a
+section it goes to that section's own intro, because that is the screen the
+visitor actually came from; back pressed twice therefore reaches the
+previous question, which is what back pressed twice should do. From a
+section intro it lands on the last question of the section before it. From
+the first section intro it returns to the entry screen. The rule is
+`lib/public-entry/navigation.ts`, pulled out of the component because a
+two-dimensional cursor (which section, which question inside it) is exactly
+the shape that produces off-by-one bugs at the boundaries, and the
+boundaries are what a person clicking by hand is least likely to try. Every
+position in the whole walk is asserted in both directions.
+
+**Nothing is unanswered by going back**, so the earlier choice is still
+selected when the question re-renders, and every later answer is still
+stored, which makes the walk forward a re-confirm rather than a re-answer.
+
+**No back control on or after the result.** By the time the result is on
+screen `experience_completed` has fired, `completed_at` is set, and the
+email step may already have created a real lead whose pattern a coach has
+been notified about. Letting somebody back into the questions from there
+would leave the funnel, the stored session and a coach's notification
+disagreeing about what she said, to fix a mistake she can already fix by
+starting again. The entry screen has no back control either, for the
+simpler reason that there is nothing before it.
+
+**Two things this change broke that had to be fixed with it.**
+
+`chapter_completed` fired on every crossing. Stepping back to change an
+earlier answer walks the same boundary a second time, which is now ordinary
+use, and a funnel counting it twice would report more chapters finished than
+there are chapters. `hasEvent` takes a detail now and the route guards on
+`(type, detail)`, so a chapter records itself once however many times it is
+crossed. Every other event was already guarded and was rechecked.
+
+`markSessionCompleted` wrote `completed_at` and `pattern_key` under one
+`is('completed_at', null)` guard, so a second finish kept the FIRST pattern
+while showing her the new one: a stored result that disagreed with the
+result she read. Two lifetimes, so two writes now. The pattern always
+follows the answers; the finish time never moves, so one visitor is still
+counted once.
+
+**And one thing the verification run found in itself.** Five walks from one
+address hit the rate limit exactly sixty requests in. Back navigation raised
+what an honest journey costs, so sixty had stopped being four journeys from
+one address. Fixed from both ends: the client no longer sends a save when
+the tapped option is the one already selected, which is what a walk back
+through eight answered questions produces, and the ceiling went to a hundred
+and twenty. The honest cost per journey went down at the same time as the
+ceiling went up.
+
+**The result was proved by comparison, not by looking for a phrase.** Three
+complete walks: one answering question one the original way, one answering
+it the changed way from the start, and one answering it the original way and
+then going back to change it. The third must equal the second and differ
+from the first, which is the whole requirement stated in a way that cannot
+pass on a stale result.
+
 ## Three fixes to the public entry experience, found on a phone (2026-08-31)
 
 **The buttons were not buttons.** "Begin" on the entry screen and

@@ -220,9 +220,18 @@ export async function loadAnswers(
 }
 
 /**
- * Records the completion and the pattern it resolved to. completed_at is
- * only ever written once, so a visitor who reloads their own result page
- * does not register as having finished twice.
+ * Records the completion and the pattern it resolved to.
+ *
+ * TWO DIFFERENT LIFETIMES IN ONE ROW, WHICH IS WHY THIS IS TWO WRITES.
+ * `completed_at` is written once and never moves: it is when this visitor
+ * first finished, and a funnel counting finishers must not be able to
+ * count one person twice. `pattern_key` is the CURRENT answer and must
+ * always reflect the answers as they stand, because a visitor can step
+ * back through the questions, change one, and finish again with a
+ * genuinely different pattern. Writing both under one
+ * `is('completed_at', null)` guard, which is what this did, meant the
+ * second finish silently kept the first pattern while showing her the new
+ * one: a stored result that disagreed with the result she read.
  */
 export async function markSessionCompleted(
   supabase: SupabaseClient,
@@ -230,12 +239,21 @@ export async function markSessionCompleted(
   patternKey: PublicEntryPatternKey
 ): Promise<void> {
   const now = new Date().toISOString();
-  const { error } = await supabase
+
+  // Always current.
+  const { error: patternError } = await supabase
     .from('public_entry_sessions')
-    .update({ completed_at: now, pattern_key: patternKey, updated_at: now })
+    .update({ pattern_key: patternKey, updated_at: now })
+    .eq('id', sessionId);
+  if (patternError) console.error('markSessionCompleted pattern failed', patternError);
+
+  // Once, ever.
+  const { error: completedError } = await supabase
+    .from('public_entry_sessions')
+    .update({ completed_at: now })
     .eq('id', sessionId)
     .is('completed_at', null);
-  if (error) console.error('markSessionCompleted failed', error);
+  if (completedError) console.error('markSessionCompleted completion failed', completedError);
 }
 
 /** The anonymous funnel. Never carries an answer, an email or prose: `detail` is a short slug or nothing, and the database enforces that with its own regex. */
@@ -251,18 +269,30 @@ export async function recordEvent(
   if (error) console.error('recordEvent failed', eventType, error);
 }
 
-/** True when this session has already recorded this event type at least once, so a once-per-visit event stays once per visit across reloads. */
+/**
+ * True when this session has already recorded this event type at least
+ * once, so a once-per-visit event stays once per visit across reloads.
+ *
+ * `detail` narrows it to one specific instance, which is what a per chapter
+ * event needs: `chapter_completed` should fire once for chapter two, not
+ * once every time somebody crosses that boundary. A visitor can now step
+ * backward through the questions, so crossing a boundary twice is ordinary
+ * behaviour rather than a bug, and the funnel has to count it once.
+ */
 export async function hasEvent(
   supabase: SupabaseClient,
   sessionId: string,
-  eventType: PublicEntryEventType
+  eventType: PublicEntryEventType,
+  detail?: string | null
 ): Promise<boolean> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('public_entry_events')
     .select('id')
     .eq('session_id', sessionId)
-    .eq('event_type', eventType)
-    .limit(1);
+    .eq('event_type', eventType);
+  if (detail !== undefined) query = query.eq('detail', detail);
+
+  const { data, error } = await query.limit(1);
   if (error) {
     console.error('hasEvent failed', error);
     return false;

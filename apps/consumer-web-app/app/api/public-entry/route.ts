@@ -159,7 +159,15 @@ export async function POST(request: Request) {
       const clean = sanitizeAnswers(body.answers);
       await saveAnswers(supabase, session.id, clean);
       if (typeof body.chapter === 'number' && body.chapter >= 1 && body.chapter <= 4) {
-        await recordEvent(supabase, session.id, 'chapter_completed', `chapter_${body.chapter}`);
+        // Once per chapter, not once per crossing. A visitor can step back
+        // through the questions and change an earlier answer, which walks
+        // her over the same boundary a second time; that is ordinary use of
+        // the back control, and a funnel that counted it twice would report
+        // more chapters finished than there are chapters.
+        const detail = `chapter_${body.chapter}`;
+        if (!(await hasEvent(supabase, session.id, 'chapter_completed', detail))) {
+          await recordEvent(supabase, session.id, 'chapter_completed', detail);
+        }
       }
       return NextResponse.json({ ok: true }, { headers });
     }

@@ -260,12 +260,15 @@ describe('the public entry rate limit', () => {
     );
     resetRateLimitForTests();
 
-    const CALLS_PER_JOURNEY = 14;
+    // Back navigation raised what one honest journey costs, so the number
+    // here went up with it. Measured on 2026-08-31: five walks from one IP
+    // hit the old ceiling of sixty exactly sixty requests in.
+    const CALLS_PER_HEAVY_JOURNEY = 24;
     let allowed = 0;
-    for (let i = 0; i < CALLS_PER_JOURNEY * 4; i += 1) {
+    for (let i = 0; i < CALLS_PER_HEAVY_JOURNEY * 5; i += 1) {
       if (checkPublicEntryRateLimit('203.0.113.7')) allowed += 1;
     }
-    expect(allowed).toBe(CALLS_PER_JOURNEY * 4);
+    expect(allowed).toBe(CALLS_PER_HEAVY_JOURNEY * 5);
   });
 
   it('still refuses a script hammering it', async () => {
@@ -274,10 +277,10 @@ describe('the public entry rate limit', () => {
     );
     resetRateLimitForTests();
     let refused = 0;
-    for (let i = 0; i < 200; i += 1) {
+    for (let i = 0; i < 400; i += 1) {
       if (!checkPublicEntryRateLimit('203.0.113.8')) refused += 1;
     }
-    expect(refused).toBeGreaterThan(100);
+    expect(refused).toBeGreaterThan(200);
   });
 
   it('spends its own budget, never the chat widget one', async () => {
@@ -285,7 +288,7 @@ describe('the public entry rate limit', () => {
       '../lib/lead-capture/rateLimit'
     );
     resetRateLimitForTests();
-    for (let i = 0; i < 60; i += 1) checkPublicEntryRateLimit('203.0.113.9');
+    for (let i = 0; i < 120; i += 1) checkPublicEntryRateLimit('203.0.113.9');
     // The chat widget's own first request from the same address is still
     // allowed: two maps, two budgets.
     expect(checkRateLimit('203.0.113.9')).toBe(true);

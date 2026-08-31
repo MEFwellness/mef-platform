@@ -393,3 +393,97 @@ describe('the analytics pipeline', () => {
     await service.from('member_wellness_events').delete().eq('id', (data as { id: string }).id);
   });
 });
+
+// ---------------------------------------------------------------------
+// Back navigation: what the funnel must and must not record
+// ---------------------------------------------------------------------
+
+describe('stepping backward through the questions', () => {
+  let sessionId = '';
+  const token = 'pe-test-token-back-0005';
+
+  beforeAll(async () => {
+    sessionId = await createSession(token, 'partner-01', {
+      started_at: new Date().toISOString(),
+    });
+  });
+
+  afterAll(async () => {
+    await service.from('public_entry_sessions').delete().eq('visitor_token', token);
+  });
+
+  it('records a chapter as completed once, however many times it is crossed', async () => {
+    // A visitor who steps back to change an earlier answer walks over the
+    // same boundary again. That is ordinary use of the back control, and a
+    // funnel that counted it twice would report more chapters finished than
+    // there are chapters.
+    const { hasEvent, recordEvent } = await import('../lib/public-entry/data');
+
+    for (let crossing = 0; crossing < 3; crossing += 1) {
+      if (!(await hasEvent(service, sessionId, 'chapter_completed', 'chapter_2'))) {
+        await recordEvent(service, sessionId, 'chapter_completed', 'chapter_2');
+      }
+    }
+
+    const { data } = await service
+      .from('public_entry_events')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('event_type', 'chapter_completed')
+      .eq('detail', 'chapter_2');
+    expect((data ?? []).length).toBe(1);
+  });
+
+  it('still records a different chapter separately', async () => {
+    const { hasEvent, recordEvent } = await import('../lib/public-entry/data');
+    if (!(await hasEvent(service, sessionId, 'chapter_completed', 'chapter_3'))) {
+      await recordEvent(service, sessionId, 'chapter_completed', 'chapter_3');
+    }
+    const { data } = await service
+      .from('public_entry_events')
+      .select('detail')
+      .eq('session_id', sessionId)
+      .eq('event_type', 'chapter_completed');
+    expect((data ?? []).map((r) => (r as { detail: string }).detail).sort()).toEqual([
+      'chapter_2',
+      'chapter_3',
+    ]);
+  });
+
+  it('keeps the stored pattern current when the answers change, and the finish time fixed', async () => {
+    // The one that would have been a silent lie: a visitor steps back,
+    // changes an answer, finishes again, reads a new pattern, and the row
+    // still says the old one.
+    const { markSessionCompleted } = await import('../lib/public-entry/data');
+
+    await markSessionCompleted(service, sessionId, 'fuel_timing_pattern');
+    const { data: first } = await service
+      .from('public_entry_sessions')
+      .select('pattern_key, completed_at')
+      .eq('id', sessionId)
+      .single();
+    const firstFinish = (first as { completed_at: string }).completed_at;
+    expect((first as { pattern_key: string }).pattern_key).toBe('fuel_timing_pattern');
+    expect(firstFinish).not.toBeNull();
+
+    await markSessionCompleted(service, sessionId, 'wind_down_deficit');
+    const { data: second } = await service
+      .from('public_entry_sessions')
+      .select('pattern_key, completed_at')
+      .eq('id', sessionId)
+      .single();
+    // The pattern follows the answers.
+    expect((second as { pattern_key: string }).pattern_key).toBe('wind_down_deficit');
+    // The finish time does not move, so one visitor is counted once.
+    expect((second as { completed_at: string }).completed_at).toBe(firstFinish);
+  });
+
+  it('counts one finisher in the funnel, not two', async () => {
+    const { data } = await service
+      .from('public_entry_funnel')
+      .select('did_complete')
+      .eq('session_id', sessionId);
+    expect((data ?? []).length).toBe(1);
+    expect((data![0] as { did_complete: boolean }).did_complete).toBe(true);
+  });
+});

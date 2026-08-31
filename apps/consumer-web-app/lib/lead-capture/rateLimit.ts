@@ -26,13 +26,25 @@ const MAX_REQUESTS_PER_WINDOW = 20;
  * builds. Worse, a rate limit is per IP, so a family, an office or anywhere
  * behind one NAT would have shared a budget that barely covers one person.
  *
- * Sixty in five minutes is roughly four complete journeys from one address,
- * which is what a small waiting room or a household actually looks like,
- * while still being far below what a script hammering the endpoint would
- * want. The two buckets are separate maps, so neither feature can spend the
+ * Sixty was the first number here, chosen when a visitor could only move
+ * forward. Back navigation (2026-08-31) means she can step back through the
+ * questions and change an earlier answer, so one honest journey now costs
+ * more than fourteen calls, and sixty stopped being four journeys from one
+ * address. It was measured: five walks from one IP hit the ceiling exactly
+ * sixty requests in.
+ *
+ * A hundred and twenty is roughly five heavy journeys from one address in
+ * five minutes, which is what a household or a small waiting room looks
+ * like, and still far below what a script hammering the endpoint would
+ * want. The client also stopped sending a save when the answer has not
+ * actually changed, which is what a walk back through already answered
+ * questions produces, so the honest cost per journey went DOWN at the same
+ * time as the ceiling went up.
+ *
+ * The two buckets are separate maps, so neither feature can spend the
  * other's budget.
  */
-const PUBLIC_ENTRY_MAX_REQUESTS_PER_WINDOW = 60;
+const PUBLIC_ENTRY_MAX_REQUESTS_PER_WINDOW = 120;
 
 const hits = new Map<string, number[]>();
 const publicEntryHits = new Map<string, number[]>();

@@ -25,6 +25,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { IntroReveal } from '@/components/IntroReveal';
+import { BackControl } from '@/components/BackControl';
+import { stepBack, type WalkPosition } from '@/lib/public-entry/navigation';
 import { introRevealFollowUpDelayMs } from '@/lib/introRevealTiming';
 import { SingleSelectQuestion } from '@/components/core-values-snapshot/CvsQuestionCards';
 import type { EnergyResult } from '@/lib/public-entry/result';
@@ -119,27 +121,73 @@ export function EnergyEntryClient({ sourceCode }: { sourceCode: string | null })
   );
 
   function handleAnswer(questionKey: string, value: string) {
-    const next = { ...answers, [questionKey]: value };
-    setAnswers(next);
+    // Tapping the option that is already selected is how somebody moves
+    // forward again after stepping back, and it changes nothing. Saving an
+    // identical map would be a write with no content, and on a walk back
+    // through eight already answered questions it would be eight of them.
+    const changed = answers[questionKey] !== value;
+    const next = changed ? { ...answers, [questionKey]: value } : answers;
+    if (changed) setAnswers(next);
 
     const isLastInChapter = questionIndex === currentQuestions.length - 1;
     const isLastOverall = chapter === ENERGY_CHAPTERS.length && isLastInChapter;
 
     if (isLastOverall) {
+      // The completion always goes through, changed or not: it is what
+      // builds the result she is about to read.
       void finish(next);
       return;
     }
 
     if (isLastInChapter) {
-      if (token) void saveAnswers(token, next, chapter);
+      // The chapter number rides on this call, and the route records
+      // `chapter_completed` once per chapter, so a crossing that saves
+      // nothing has already been counted anyway.
+      if (token && changed) void saveAnswers(token, next, chapter);
       setChapter((c) => c + 1);
       setQuestionIndex(0);
       setBeat('chapter');
       return;
     }
 
-    if (token) void saveAnswers(token, next);
+    if (token && changed) void saveAnswers(token, next);
     setQuestionIndex((i) => i + 1);
+  }
+
+  /**
+   * One step backward, retracing the exact path the visitor took.
+   *
+   * WHY IT RETRACES RATHER THAN JUMPING. From the first question of a
+   * section, back goes to that section's own intro, not to the previous
+   * section's last question, because the intro is the screen they actually
+   * came from. Two taps then reach the previous question, which is what
+   * "back" pressed twice should do. From a section intro, back lands on the
+   * last question of the section before it, which is the requirement stated
+   * the other way round.
+   *
+   * NOTHING IS UNANSWERED BY GOING BACK. `answers` is never cleared here,
+   * so the earlier choice is still selected when the question re-renders,
+   * and tapping a different option simply overwrites it and moves forward
+   * again from that point. Every later answer is still stored, so the walk
+   * forward is a re-confirm rather than a re-answer.
+   *
+   * NOTHING IS RECORDED BY GOING BACK. No event fires and no answer is
+   * written. The only writes in this whole experience happen when an answer
+   * is given, and a chapter that has already been crossed once cannot
+   * record itself twice (the route guards `chapter_completed` on its own
+   * detail, see app/api/public-entry/route.ts).
+   */
+  function handleBack() {
+    const from: WalkPosition =
+      beat === 'question'
+        ? { beat: 'question', chapter, questionIndex }
+        : { beat: 'chapter', chapter };
+    const next = stepBack(from);
+    if (!next) return;
+
+    setBeat(next.beat);
+    if (next.beat !== 'intro') setChapter(next.chapter);
+    if (next.beat === 'question') setQuestionIndex(next.questionIndex);
   }
 
   function handleBegin() {
@@ -169,10 +217,26 @@ export function EnergyEntryClient({ sourceCode }: { sourceCode: string | null })
 
         {beat === 'intro' && <EntryScreen onBegin={handleBegin} />}
 
-        {beat === 'chapter' && <ChapterTransition chapter={chapter} onContinue={() => setBeat('question')} />}
+        {beat === 'chapter' && (
+          <ChapterTransition
+            chapter={chapter}
+            onContinue={() => setBeat('question')}
+            onBack={handleBack}
+          />
+        )}
 
         {beat === 'question' && currentQuestion && (
           <div>
+            <div className="mb-3">
+              <BackControl
+                onClick={handleBack}
+                ariaLabel={
+                  questionIndex > 0
+                    ? 'Back to the previous question'
+                    : 'Back to this section'
+                }
+              />
+            </div>
             <div className="mb-5">
               <div className="flex items-center justify-between text-xs font-medium text-[#6B7A72]">
                 <span>
@@ -337,24 +401,44 @@ function EntryScreen({ onBegin }: { onBegin: () => void }) {
  * them are identical by construction, and so the transition is a real beat
  * with a button rather than a heading that flashes past.
  */
-function ChapterTransition({ chapter, onContinue }: { chapter: number; onContinue: () => void }) {
+function ChapterTransition({
+  chapter,
+  onContinue,
+  onBack,
+}: {
+  chapter: number;
+  onContinue: () => void;
+  onBack: () => void;
+}) {
   const content = ENERGY_CHAPTERS[chapter - 1];
   if (!content) return null;
 
   return (
-    <div className="flex min-h-[70vh] flex-col justify-center">
-      <IntroReveal
-        eyebrow={content.eyebrow}
-        title={content.title}
-        titleClassName={`${ENERGY_DISPLAY_FONT} text-[2.25rem] leading-tight text-[#1B3A2D]`}
-        lines={[...content.lines]}
-        storageKey={`energy-map-chapter-${chapter}`}
-        button={{
-          label: 'Continue',
-          onClick: onContinue,
-          className: 'mef-focus-ring mef-press mef-button-primary mt-8',
-        }}
-      />
+    <div className="flex min-h-[70vh] flex-col">
+      <div className="mb-3 shrink-0">
+        <BackControl
+          onClick={onBack}
+          ariaLabel={
+            chapter === 1
+              ? 'Back to the start'
+              : 'Back to the last question of the previous section'
+          }
+        />
+      </div>
+      <div className="flex flex-1 flex-col justify-center">
+        <IntroReveal
+          eyebrow={content.eyebrow}
+          title={content.title}
+          titleClassName={`${ENERGY_DISPLAY_FONT} text-[2.25rem] leading-tight text-[#1B3A2D]`}
+          lines={[...content.lines]}
+          storageKey={`energy-map-chapter-${chapter}`}
+          button={{
+            label: 'Continue',
+            onClick: onContinue,
+            className: 'mef-focus-ring mef-press mef-button-primary mt-8',
+          }}
+        />
+      </div>
     </div>
   );
 }

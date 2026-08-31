@@ -15,7 +15,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
-import { ChevronLeft } from 'lucide-react';
+import { BackControl } from './BackControl';
 
 type Props = {
   fallbackHref: Route;
@@ -45,14 +45,8 @@ export function BackButton({ fallbackHref, label, forceFallback = false }: Props
     }
   }
 
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className="mef-press inline-flex items-center gap-1 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D]"
-    >
-      <ChevronLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-      {label}
-    </button>
-  );
+  // The look lives in BackControl so a multi-screen experience stepping
+  // backward through its own state gets the identical control without
+  // reimplementing it. Only the tap differs.
+  return <BackControl onClick={handleClick} label={label} />;
 }
