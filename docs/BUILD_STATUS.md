@@ -69,6 +69,26 @@ and read the new table and columns as the member herself, since a write
 matching no policy returns zero rows and no error. Typecheck, lint and the
 production build are clean.
 
+**Live on app.mefwellness.com, 20 of 20.**
+`scripts/verify-food-lens-macro-grams-live.mjs` drives the real journey in
+a real browser as the production test member. The only thing simulated is
+the lens: getUserMedia is replaced with a canvas painting one real
+photograph of a real plate, because a headless machine has no camera.
+Everything after the shutter is production, including the live vision call.
+The run: a plate of grilled chicken, red beans and rice came back as five
+items, four of them sized, reading 47g protein, 76g carbs, 13g fat. The
+stored meal total equalled the sum of its items to the gram. One tap of the
+plus on the chicken took it from 35g protein, 0g carbs, 7g fat to 44g, 0g,
+9g, all three at once. Confirming said "47g of protein counted", and
+Today's Protein went 0g to 47g, exactly that. The ledger entry read "Photo
+(estimated)" and its detail opened to "Carbs 1g, fat 0g. Shown for the full
+picture, neither has a daily target." A second scan, left unconfirmed,
+wrote no food log row at all and moved the day by zero. No page error on
+any screen. The beverage in the background, which the model honestly could
+not size, logged as a photo row with no number rather than as an estimate
+worth zero. Every row the run created was deleted afterwards and the
+session was retired with scope 'local'.
+
 ## A coach can send this week's Weekly Reflection to anyone (2026-08-30)
 
 Migration 193. The Weekly Reflection used to be a pure consequence of the
