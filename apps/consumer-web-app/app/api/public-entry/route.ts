@@ -256,6 +256,10 @@ export async function POST(request: Request) {
             leadTemperature: 'warm',
             patternName: result.patternKey,
             capturedLeadId: lead.id,
+            // A coach picking up the phone needs to know which door this
+            // was: nine fixed questions and a result she read, not a
+            // conversation she typed into.
+            arrivedThrough: 'Where Your Energy Goes',
           });
           // Stamped after the notification, exactly as the chat widget's
           // own route does it, so a coach's screen can tell a lead that has

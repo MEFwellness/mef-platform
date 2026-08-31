@@ -40,6 +40,20 @@ export async function notifyCoachesOfNewLead(
     leadTemperature: LeadTemperature | null;
     patternName: LeadPatternName | null;
     capturedLeadId: string;
+    /**
+     * Where this lead actually came from, in the coach's own words.
+     *
+     * There are two doors now (the chat widget on a landing page, and the
+     * public entry experience at /energy), and they behave differently
+     * enough that a coach picking up the phone needs to know which one it
+     * was: one person typed answers into a conversation, the other tapped
+     * through nine fixed questions and read a result. Saying "the Lead
+     * Capture Agent" for both would be telling a coach something that is
+     * not true of half of them.
+     *
+     * Defaults to the chat widget, which is what every existing caller is.
+     */
+    arrivedThrough?: string;
   }
 ): Promise<void> {
   const coachIds = await listActiveCoachUserIds(supabase);
@@ -53,9 +67,10 @@ export async function notifyCoachesOfNewLead(
   const temperatureLabel = lead.leadTemperature === 'hot' ? 'Hot' : 'Warm';
   const patternLabel = lead.patternName ? PATTERN_LABELS[lead.patternName] : null;
   const title = `${temperatureLabel} lead: ${name} (${topicLabel})`;
+  const arrivedThrough = lead.arrivedThrough ?? 'the Lead Capture Agent';
   const body = patternLabel
-    ? `${name} (${lead.email}) came in through the Lead Capture Agent about ${topicLabel}, assigned pattern: ${patternLabel}.`
-    : `${name} (${lead.email}) came in through the Lead Capture Agent about ${topicLabel}.`;
+    ? `${name} (${lead.email}) came in through ${arrivedThrough} about ${topicLabel}, assigned pattern: ${patternLabel}.`
+    : `${name} (${lead.email}) came in through ${arrivedThrough} about ${topicLabel}.`;
 
   await Promise.all(
     coachIds.map((coachId) =>

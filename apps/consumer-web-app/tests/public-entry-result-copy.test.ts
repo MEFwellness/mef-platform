@@ -351,3 +351,31 @@ describe('the email step', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------
+// What a coach is told about a lead from this experience
+// ---------------------------------------------------------------------
+
+describe('the coach notification', () => {
+  it('names the door this lead actually came through', async () => {
+    // Found on the live run: the notification said every lead "came in
+    // through the Lead Capture Agent", which is the chat widget. There are
+    // two doors now and they behave differently enough that a coach picking
+    // up the phone needs to know which one it was.
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const route = fs.readFileSync(
+      path.resolve(__dirname, '../app/api/public-entry/route.ts'),
+      'utf-8'
+    );
+    expect(route).toContain("arrivedThrough: 'Where Your Energy Goes'");
+
+    const notify = fs.readFileSync(
+      path.resolve(__dirname, '../lib/lead-capture/notify.ts'),
+      'utf-8'
+    );
+    // The chat widget's own wording is still the default, so no existing
+    // caller changed behaviour.
+    expect(notify).toContain("lead.arrivedThrough ?? 'the Lead Capture Agent'");
+  });
+});

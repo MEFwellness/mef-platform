@@ -108,6 +108,57 @@ produce different evidence and a different pattern. The continuation was
 driven separately: the claim binds, the welcome pop-up says the honest
 sentence, and the Baseline confirms rather than asks.
 
+**Live on app.mefwellness.com, three separate runs.**
+`scripts/verify-public-entry-live.mjs` drove the anonymous half twice with
+different answers: 25 of 25, two different patterns, zero em dashes, zero
+console errors.
+`scripts/verify-public-entry-continuation-live.mjs` drove a source-coded
+arrival on `partner-04`, created a brand new account through the admin API
+(bot protection refuses a scripted signup form by design), flagged it
+`is_test` before anything else happened, and checked every requirement of
+the continuation: 27 of 27. The source survived from first click into the
+account, the bind stores `public_acquisition` / `preliminary = true`, the
+analytics row carries two slugs and nothing else, and there is no check-in
+and no onboarding submission anywhere on that account. Root named the exact
+pattern the visitor had been shown, called it a first impression rather
+than a measurement, and the Baseline confirmed her concern instead of
+asking it cold while still offering her a different answer.
+
+The standing test member's own walk, separately: Home, Today, Daily Reset,
+Questionnaires, all three free arc experiences, Progress and Profile, 20 of
+20, zero console errors, zero em dashes, and the welcome pop-up correctly
+absent on every one of them.
+
+**Test traffic proved excluded, from both ends.** Six verification arrivals
+existed on production at once, four of them on REAL partner codes. The
+funnel showed zero, because `is_test` on the view is true when the source is
+ours OR when the member who claimed the arrival is flagged. All six, the
+four accounts, the lead and its coach notifications were then deleted;
+`public_entry_sessions`, `public_entry_answers`, `public_entry_events` and
+`member_public_entry_origin` are all at zero rows and the 23 seeded source
+codes are untouched.
+
+**One copy fix the live run found.** The coach notification said every lead
+"came in through the Lead Capture Agent". There are two doors now, and a
+coach picking up the phone needs to know which one it was, so
+`notifyCoachesOfNewLead` takes the door's name and the chat widget's own
+wording stays the default.
+
+**Two false failures this run reported about itself, both in the script.**
+The first walked the dashboard looking for an onboarding question, because
+Root's pop-up reached her there and the consent branch never ran. The
+second clicked the pop-up's own "Start my Baseline Assessment", which
+matches the same pattern as the Baseline's intro button. Neither was a
+defect in the product and both are fixed in the script, which now navigates
+to `/onboarding` explicitly and dismisses the pop-up by name first.
+
+**Found, not fixed.** `app/actions/guest-preview.ts` still takes the older
+`/wellness-check` quiz's answers from a stranger and `submitDailyCheckin`s
+them, so they become a real check-in feeding the correlation engine, the
+drivers and the Root Score, with nothing recording that a stranger gave
+them. That is the same class of problem this build was written to prevent,
+on a path this build did not touch. It is the next thing to fix.
+
 ## Notifications, part 2: the daily decision job (2026-08-31)
 
 Migration 196. Part 1 built everything that has to exist first and
