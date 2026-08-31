@@ -26,6 +26,7 @@ import { categorizeForCatalog } from '../lib/assessment-registry/catalog';
 import { checkAssessmentAccess } from '../lib/assessment-registry/access';
 import { pickRecommendation } from '../lib/assessment-registry/recommendation';
 import type { AssessmentDefinition, MemberAssessmentFacts } from '../lib/assessment-registry';
+import { TRIAL_LENGTH_DAYS } from '../lib/membership/access';
 
 const memberOneId = TEST_USERS.memberOne.id;
 const memberTwoId = TEST_USERS.memberTwo.id;
@@ -60,7 +61,8 @@ async function setPlan(memberId: string, tier: 'trial' | 'monthly' | 'annual' | 
   if (data && data.length > 0) return;
 
   // Re-created rows carry the same trial window the account-creation
-  // trigger would have stamped, off the profile's own created_at, so a
+  // trigger would have stamped, off the profile's own created_at and for
+  // however long a new trial runs today (7 days since migration 198), so a
   // delete-and-recreate here cannot change what
   // tests/membership-access-integration.test.ts measures.
   const { data: profile } = await service
@@ -75,7 +77,9 @@ async function setPlan(memberId: string, tier: 'trial' | 'monthly' | 'annual' | 
     source: 'system',
     status: 'active',
     trial_started_at: started.toISOString(),
-    trial_ends_at: new Date(started.getTime() + 30 * 24 * 3600_000).toISOString(),
+    trial_ends_at: new Date(
+      started.getTime() + TRIAL_LENGTH_DAYS * 24 * 3600_000
+    ).toISOString(),
   });
   if (insertError) throw insertError;
 }

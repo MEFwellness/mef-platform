@@ -1,3 +1,66 @@
+## The trial is 7 days for new accounts, 30 for the ones already here (2026-08-31)
+
+The Rooted Reset free trial drops from 30 days to 7. Only for accounts
+created from here on. Every account that already holds an expiry date keeps
+that exact date, and the change cannot reach backwards.
+
+**Grandfathering is a property of the schema, not a rule anyone has to
+remember.** `trial_ends_at` is a STAMPED value, written once by
+`handle_new_user()` at account creation, never derived. Migration 198
+replaces one function body, `public.member_trial_length_days()`, from 30 to
+7, and writes nothing at all: no UPDATE, no INSERT, no DELETE, asserted by a
+source guard in `tests/membership-access.test.ts` so a later shortening
+cannot quietly add one. That function is read in exactly three places, all
+written in migration 159: the signup stamp (this is the change), the one-off
+backfill (ran once, can never run again), and `admin_set_member_access()`'s
+`on conflict do nothing` insert for an account with no row, which cannot
+overwrite a window that exists.
+
+**Verified on production after the push:** `member_trial_length_days()`
+returns 7, and all 19 existing accounts still hold 30 day windows, oldest
+start 2026-07-14. Zero rows recomputed.
+
+**The lock screen now says something true to both kinds of member.** A
+member given 30 days and one given 7 land on the same screen, so a fixed
+number in the heading would be a lie to one of them. The heading is built
+from her own stored window: `trialLengthDaysOf()` in
+`lib/membership/access.ts` measures `trial_ends_at - trial_started_at`, and
+`trialEndedHeading()` in `lib/membership/copy.ts` names that number ("Your
+30 days are complete" for her, "Your 7 days are complete" for a new member).
+An unreadable window falls back to "Your free trial is complete", which
+names no number rather than guessing. The page title is that same
+number-free line, because a static `metadata` export cannot know whose
+screen it is. The body no longer says "the last month", which was never true
+of a 7 day trial.
+
+**The copy sweep found one place, and only one.** The whole app was searched
+for "30 days", "30-day", "a month of free access" and the like in a trial
+context: signup, onboarding, the welcome flow, `/energy`,
+`/wellness-check`, the membership and help screens, push notification copy,
+and the migrations for stored member-facing text. Every other "30 days" in
+the codebase is a real analytics window (Root Score's rolling 30 days, the
+trend engine's 30-vs-30 comparison, Food Lens history) and is untouched.
+The verification and password emails are GoTrue's and say nothing about a
+trial.
+
+**Deliberately not touched:** the admin panel's Extend trial 7 days / 30
+days buttons (manual tools, not the signup default), entitlement logic, tier
+definitions, `MEMBERSHIP_PRICING_URL` and the lock screen redirect.
+
+**What proves it.** `TRIAL_LENGTH_DAYS` is 7 and the database agrees
+(`member_trial_length_days()` asserted equal to it, and to 7, against real
+local Postgres). A brand new account is stamped a 7 day window starting now.
+A window hand-shaped into the legacy 30 days stays open on day 20, when a
+recomputation would have shut it on day 7; the lock still falls on its own
+original instant and not a millisecond earlier; and an admin write that
+names no new date leaves it byte for byte. `trialEndFor()` and
+`TRIAL_LENGTH_DAYS` are asserted absent from every screen and service that
+reads a member's access, so nothing can second-guess a stored date. Two
+other test files that re-create a subscription row by hand carried a
+hardcoded 30 and now read the constant, which is what made them disagree
+with the new stamp when the suite ran as a whole. 478 files, 7,789 tests,
+all passing.
+
 ## A way back through the public entry experience (2026-08-31)
 
 Found on a phone: there was no way back. A visitor who tapped the wrong

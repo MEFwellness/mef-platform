@@ -27,6 +27,7 @@ import {
   subscriptionFromRow,
   trialDaysRemaining,
   trialEndFor,
+  trialLengthDaysOf,
 } from '../lib/membership/access';
 import { memberAccessRedirectFor, TRIAL_ENDED_PATH } from '../lib/membership/routing';
 import { MEMBER_ONLY_PREFIXES, isMemberOnlyPath } from '../lib/auth/staffRouting';
@@ -41,7 +42,7 @@ import {
 } from '../lib/membership/types';
 import type { AccessSource, AccessStatus, AccessTier, MemberSubscription } from '../lib/membership/types';
 import { PAYWALL_LOCK_REASONS, isPaywallLockReason, isPaywallFeature } from '../lib/analytics/surfaces';
-import { TRIAL_ENDED_COPY } from '../lib/membership/copy';
+import { TRIAL_ENDED_COPY, trialEndedHeading } from '../lib/membership/copy';
 import { PRICING_LINK_PLACEHOLDER, getPricingUrl, isPricingUrlConfigured } from '../lib/membership/pricing';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -72,16 +73,16 @@ function expiredTrial(overrides: Partial<MemberSubscription> = {}): MemberSubscr
 }
 
 describe('trial arithmetic', () => {
-  it('a trial is 30 days long', () => {
-    expect(TRIAL_LENGTH_DAYS).toBe(30);
+  it('a NEW trial is 7 days long', () => {
+    expect(TRIAL_LENGTH_DAYS).toBe(7);
   });
 
-  it('trialEndFor is exactly 30 days after the start', () => {
+  it('trialEndFor is exactly 7 days after the start', () => {
     const start = new Date('2026-01-01T09:30:00.000Z');
-    expect(trialEndFor(start).toISOString()).toBe('2026-01-31T09:30:00.000Z');
+    expect(trialEndFor(start).toISOString()).toBe('2026-01-08T09:30:00.000Z');
   });
 
-  it('trialEndFor keeps the time of day, so a trial ends at the moment it started 30 days on', () => {
+  it('trialEndFor keeps the time of day, so a trial ends at the moment of day it started', () => {
     const start = new Date('2026-03-05T23:59:00.000Z');
     const end = trialEndFor(start);
     expect(end.getTime() - start.getTime()).toBe(TRIAL_LENGTH_DAYS * DAY_MS);
@@ -103,17 +104,103 @@ describe('trial arithmetic', () => {
     expect(trialDaysRemaining(end, new Date('2026-03-01T00:00:00.000Z'))).toBe(0);
   });
 
-  it('a member who signed up more than 30 days ago is past their trial the moment the backfill stamps them', () => {
-    // Exactly the backfill's own arithmetic: trial start is the original
-    // signup date, so a 45 day old account is 15 days past its trial.
+  it('a member who signed up longer ago than the trial runs is past it', () => {
     const signedUp = new Date(NOW.getTime() - 45 * DAY_MS);
     expect(isTrialOpen(trialEndFor(signedUp), NOW)).toBe(false);
   });
 
-  it('a member who signed up 29 days ago still has their trial', () => {
-    const signedUp = new Date(NOW.getTime() - 29 * DAY_MS);
+  it('a member who signed up 6 days ago still has their trial, with a day left', () => {
+    const signedUp = new Date(NOW.getTime() - 6 * DAY_MS);
     expect(isTrialOpen(trialEndFor(signedUp), NOW)).toBe(true);
     expect(trialDaysRemaining(trialEndFor(signedUp), NOW)).toBe(1);
+  });
+});
+
+/**
+ * The whole point of the 7 day change: it moves the clock forward for new
+ * accounts and for nobody else. `trial_ends_at` is a stamped value, so an
+ * account given 30 days keeps every one of them, and the app reads that
+ * stored date rather than recomputing one from TRIAL_LENGTH_DAYS.
+ */
+describe('grandfathering: a stored trial window is never recomputed', () => {
+  const LEGACY_TRIAL_LENGTH_DAYS = 30;
+
+  it('a legacy 30 day window is still open on day 20, even though a new trial is only 7 days', () => {
+    const started = new Date(NOW.getTime() - 20 * DAY_MS);
+    const legacy = subscription({
+      trialStartedAt: started.toISOString(),
+      trialEndsAt: new Date(started.getTime() + LEGACY_TRIAL_LENGTH_DAYS * DAY_MS).toISOString(),
+    });
+
+    // Recomputing from the new constant would have shut her out 13 days ago.
+    expect(isTrialOpen(trialEndFor(started), NOW)).toBe(false);
+
+    const decision = decideMemberAccess({ subscription: legacy, isTest: false, now: NOW });
+    expect(decision).toEqual({ allowed: true, reason: 'trial_active' });
+    expect(trialDaysRemaining(new Date(legacy.trialEndsAt), NOW)).toBe(10);
+  });
+
+  it('the lock still falls on a legacy window, on its own original date and not a day earlier', () => {
+    const started = new Date(NOW.getTime() - 30 * DAY_MS);
+    const endsAt = new Date(started.getTime() + LEGACY_TRIAL_LENGTH_DAYS * DAY_MS);
+    const legacy = subscription({
+      trialStartedAt: started.toISOString(),
+      trialEndsAt: endsAt.toISOString(),
+    });
+
+    const justBefore = new Date(endsAt.getTime() - 1);
+    expect(
+      decideMemberAccess({ subscription: legacy, isTest: false, now: justBefore })
+    ).toEqual({ allowed: true, reason: 'trial_active' });
+
+    expect(decideMemberAccess({ subscription: legacy, isTest: false, now: endsAt })).toEqual({
+      allowed: false,
+      reason: 'trial_expired',
+    });
+  });
+
+  it('reads back how long a given account\'s trial actually ran, whichever era stamped it', () => {
+    const started = new Date('2026-01-01T00:00:00.000Z');
+    const legacyEnd = new Date(started.getTime() + LEGACY_TRIAL_LENGTH_DAYS * DAY_MS);
+    expect(trialLengthDaysOf(started.toISOString(), legacyEnd.toISOString())).toBe(30);
+    expect(trialLengthDaysOf(started.toISOString(), trialEndFor(started).toISOString())).toBe(7);
+  });
+
+  it('an unreadable or backwards window answers null rather than guessing', () => {
+    expect(trialLengthDaysOf('not a date', '2026-01-08T00:00:00.000Z')).toBeNull();
+    expect(trialLengthDaysOf('2026-01-08T00:00:00.000Z', 'not a date')).toBeNull();
+    expect(trialLengthDaysOf('2026-01-08T00:00:00.000Z', '2026-01-01T00:00:00.000Z')).toBeNull();
+    expect(trialLengthDaysOf('2026-01-08T00:00:00.000Z', '2026-01-08T00:00:00.000Z')).toBeNull();
+  });
+
+  it('the migration that shortened the trial writes nothing, so it cannot have moved a stored date', () => {
+    const migration = readFileSync(
+      path.resolve(__dirname, '../../../supabase/migrations/00000000000198_trial_length_seven_days.sql'),
+      'utf8'
+    );
+    expect(migration).toContain('select 7;');
+    const statements = migration.toLowerCase();
+    expect(statements).not.toContain('update member_subscriptions');
+    expect(statements).not.toContain('update public.member_subscriptions');
+    expect(statements).not.toContain('insert into member_subscriptions');
+    expect(statements).not.toContain('delete from member_subscriptions');
+  });
+
+  it('nothing in the app recomputes a stored expiry from the trial length constant', () => {
+    // trialEndFor answers "when would a trial starting now end". If it ever
+    // appears on a screen or in a service, some member's stored date is
+    // being second-guessed.
+    for (const file of [
+      'app/trial-ended/page.tsx',
+      'app/actions/memberAccess.ts',
+      'app/admin/access/page.tsx',
+      'lib/membership/service.ts',
+      'middleware.ts',
+    ]) {
+      const source = readFileSync(path.join(path.resolve(__dirname, '..'), file), 'utf8');
+      expect(source).not.toContain('trialEndFor');
+      expect(source).not.toContain('TRIAL_LENGTH_DAYS');
+    }
   });
 });
 
@@ -512,8 +599,30 @@ describe('the trial ended screen says the right thing', () => {
     }
   });
 
-  it('names the 30 days and does not count anything down or warn about anything', () => {
-    expect(TRIAL_ENDED_COPY.heading).toContain('30 days');
+  it('names no number of days on its own, so it cannot be wrong for either era of member', () => {
+    expect(TRIAL_ENDED_COPY.heading).toBe('Your free trial is complete');
+    expect(allCopy.join(' ')).not.toMatch(/\d+\s*days?/);
+  });
+
+  it('the heading names the days that member was actually given', () => {
+    expect(trialEndedHeading(7)).toBe('Your 7 days are complete');
+    expect(trialEndedHeading(30)).toBe('Your 30 days are complete');
+    expect(trialEndedHeading(1)).toBe('Your first day is complete');
+  });
+
+  it('the heading names no number when the window cannot be read', () => {
+    expect(trialEndedHeading(null)).toBe(TRIAL_ENDED_COPY.heading);
+    expect(trialEndedHeading(0)).toBe(TRIAL_ENDED_COPY.heading);
+    expect(trialEndedHeading(-3)).toBe(TRIAL_ENDED_COPY.heading);
+  });
+
+  it('the heading carries no em dash, whichever length it names', () => {
+    for (const days of [null, 1, 7, 30]) {
+      expect(trialEndedHeading(days)).not.toContain('\u2014');
+    }
+  });
+
+  it('does not count anything down or warn about anything', () => {
     const joined = allCopy.join(' ').toLowerCase();
     for (const forbidden of ['warning', 'expired', 'lost', 'act now', 'hurry', 'last chance']) {
       expect(joined).not.toContain(forbidden);

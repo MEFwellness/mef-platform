@@ -22,19 +22,50 @@
 import type { AccessTier, MemberAccessFacts, MemberSubscription } from './types';
 
 /**
- * The trial is 30 days. The database holds the same number in
+ * How long a NEW trial runs. The database holds the same number in
  * public.member_trial_length_days(), and
  * tests/membership-access-integration.test.ts asserts the row the database
  * stamps at account creation is exactly this many days long, so the two
  * cannot drift without a test failing.
+ *
+ * IT IS THE LENGTH OF A NEW TRIAL, NEVER THE LENGTH OF AN EXISTING ONE.
+ * `trial_ends_at` is stamped once, at signup, and is that account's own
+ * date from then on. Changing this number moves the clock for accounts
+ * created after the change and for nobody else: an account stamped when
+ * the trial was 30 days still holds a 30 day window, and every screen must
+ * read that stored date rather than recomputing one from this constant.
+ * `trialLengthDaysOf()` below is how you ask how long a given account's
+ * trial actually was.
  */
-export const TRIAL_LENGTH_DAYS = 30;
+export const TRIAL_LENGTH_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** When a trial that started at `startedAt` ends. The only place this arithmetic happens. */
+/**
+ * When a trial STARTING NOW, at `startedAt`, would end.
+ *
+ * Only ever for a window that does not exist yet. Never call this on an
+ * account that already has a `trialEndsAt`: that account's window is the
+ * one it was given, and this function does not know what the trial length
+ * was on the day it was stamped.
+ */
 export function trialEndFor(startedAt: Date): Date {
   return new Date(startedAt.getTime() + TRIAL_LENGTH_DAYS * DAY_MS);
+}
+
+/**
+ * How many days THIS account's trial actually ran, read off the window it
+ * was stamped with rather than assumed from TRIAL_LENGTH_DAYS. A member
+ * given 30 days answers 30 long after new signups start getting 7, which
+ * is what lets the lock screen say something true to both of them.
+ *
+ * Returns null for a row with an unreadable or backwards window.
+ */
+export function trialLengthDaysOf(startedAt: string, endsAt: string): number | null {
+  const start = new Date(startedAt).getTime();
+  const end = new Date(endsAt).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
+  return Math.round((end - start) / DAY_MS);
 }
 
 /**
@@ -103,7 +134,7 @@ export interface AccessDecisionInput extends MemberAccessFacts {
  *      and it is scoped to the automatic trial clock alone. The moment an
  *      administrator assigns a test account something, that assignment is
  *      what decides, which is what makes the lock verifiable on a real
- *      account without waiting 30 days.
+ *      account without waiting out the trial clock.
  *   4. Explicitly no access: shut. This is Osei expiring somebody by hand,
  *      and it beats a trial window that happens to still be open.
  *   5. A non-active status on any tier: shut. Where a canceled or lapsed

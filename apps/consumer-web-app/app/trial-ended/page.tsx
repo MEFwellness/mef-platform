@@ -1,6 +1,6 @@
 /**
- * The lock screen. Where a member whose 30 days are complete lands, and the
- * only member-facing screen this whole build adds.
+ * The lock screen. Where a member whose free trial is complete lands, and
+ * the only member-facing screen this whole build adds.
  *
  * WHAT IT IS. A door, not a wall. The member is still signed in, their
  * account is untouched, every row of their data is exactly where it was,
@@ -27,14 +27,17 @@ import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { staffHomePath } from '@/lib/auth/staffRouting';
 import { fetchMemberAccessFacts } from '@/lib/membership/service';
-import { decideMemberAccess } from '@/lib/membership/access';
+import { decideMemberAccess, trialLengthDaysOf } from '@/lib/membership/access';
 import { getPricingUrl, isPricingUrlConfigured } from '@/lib/membership/pricing';
-import { TRIAL_ENDED_COPY } from '@/lib/membership/copy';
+import { TRIAL_ENDED_COPY, trialEndedHeading } from '@/lib/membership/copy';
 import { TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
 import { SignOutButton } from '@/components/SignOutButton';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 
-export const metadata: Metadata = { title: 'Your 30 days are complete' };
+// Static, so it names no number: the tab title is the same markup for a
+// member given 7 days and one given 30, and only the heading below can
+// safely tell them apart.
+export const metadata: Metadata = { title: 'Your free trial is complete' };
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +59,13 @@ export default async function TrialEndedPage() {
   const decision = decideMemberAccess({ ...facts, now: new Date() });
   if (decision.allowed) redirect('/dashboard');
 
+  // Measured off her own stored window, never off today's trial length. An
+  // account stamped before migration 198 was given 30 days and this screen
+  // says 30 to her, while a new account is told 7. See lib/membership/copy.ts.
+  const trialLengthDays = facts.subscription
+    ? trialLengthDaysOf(facts.subscription.trialStartedAt, facts.subscription.trialEndsAt)
+    : null;
+
   const pricingUrl = getPricingUrl();
   const pricingConfigured = isPricingUrlConfigured();
 
@@ -72,7 +82,7 @@ export default async function TrialEndedPage() {
         </div>
 
         <h1 className="mt-3 font-[family-name:var(--font-cormorant-garamond)] text-[2.5rem] leading-[1.1] text-[#1B3A2D]">
-          {TRIAL_ENDED_COPY.heading}
+          {trialEndedHeading(trialLengthDays)}
         </h1>
 
         <div className="mt-5 space-y-4">

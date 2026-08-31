@@ -1,12 +1,19 @@
 /**
- * Membership tiers and the 30 day trial, the database half.
+ * Membership tiers and the trial clock, the database half.
+ *
+ * The trial is 7 days for every account stamped from migration 198 on, and
+ * was 30 days before it. Both facts are asserted here: the new length on a
+ * brand new account, and the old length surviving untouched on a window
+ * that was already stored.
  *
  * Real local Supabase, real row level security, real triggers, no mocked
  * client, same philosophy as tests/coach-assign-only-gating.test.ts. Every
  * claim this build makes that only Postgres can settle is settled here:
  *
  *   - the backfill gave every pre-existing account a trial starting on its
- *     own signup date, exactly 30 days long;
+ *     own signup date, as long as the trial ran on the day it was stamped;
+ *   - a window that already exists is never recomputed, so an account given
+ *     30 days keeps all 30 of them after the length drops to 7;
  *   - a brand new account is stamped the same way, automatically;
  *   - a manual assignment cannot be altered by the service role, by a
  *     member, by a coach, or by anything at all except the admin panel's
@@ -116,7 +123,7 @@ describe('the trial clock', () => {
     expect(subscriptions).toBe(profiles);
   });
 
-  it('backfilled the trial to start on the account signup date, and to be exactly 30 days', async () => {
+  it('starts the trial on the account signup date, for the length the trial runs today', async () => {
     const service = serviceRoleClient();
     const { data: profile } = await service
       .from('profiles')
@@ -143,7 +150,7 @@ describe('the trial clock', () => {
     }
   });
 
-  it('stamps a brand new account at creation, with a 30 day window starting now', async () => {
+  it('stamps a brand new account at creation, with a 7 day window starting now', async () => {
     const row = await readRow(throwawayId);
     expect(row).not.toBeNull();
     expect(row!.tier).toBe('trial');
@@ -158,10 +165,73 @@ describe('the trial clock', () => {
     );
   });
 
-  it('agrees with the app about how long a trial is', async () => {
+  it('agrees with the app about how long a NEW trial is, and that it is 7 days', async () => {
     const service = serviceRoleClient();
     const { data } = await service.rpc('member_trial_length_days');
     expect(data).toBe(TRIAL_LENGTH_DAYS);
+    expect(data).toBe(7);
+  });
+
+  /**
+   * Migration 198 dropped the trial from 30 days to 7 by replacing one
+   * function body and writing nothing. These are the cases that would have
+   * caught it doing more than that.
+   */
+  describe('a window that already exists is never recomputed', () => {
+    const LEGACY_TRIAL_LENGTH_DAYS = 30;
+
+    /** Reshapes a fresh account into one stamped back when the trial was 30 days. */
+    async function makeLegacyThirtyDayWindow(memberId: string): Promise<string> {
+      const service = serviceRoleClient();
+      const startedAt = new Date(Date.now() - 3 * DAY_MS);
+      const endsAt = new Date(startedAt.getTime() + LEGACY_TRIAL_LENGTH_DAYS * DAY_MS);
+      const { error } = await service
+        .from('member_subscriptions')
+        .update({
+          trial_started_at: startedAt.toISOString(),
+          trial_ends_at: endsAt.toISOString(),
+        })
+        .eq('member_id', memberId);
+      expect(error).toBeNull();
+      return endsAt.toISOString();
+    }
+
+    it('keeps a stored 30 day window, and keeps the member inside it long past day 7', async () => {
+      const legacy = await createThrowawayAccount();
+      try {
+        const endsAt = await makeLegacyThirtyDayWindow(legacy.id);
+        const row = await readRow(legacy.id);
+        expect(new Date(row!.trial_ends_at).getTime()).toBe(new Date(endsAt).getTime());
+        // 27 days of window left, three days after signup, which a 7 day
+        // recomputation would have cut to four.
+        expect(
+          new Date(row!.trial_ends_at).getTime() - new Date(row!.trial_started_at).getTime()
+        ).toBe(LEGACY_TRIAL_LENGTH_DAYS * DAY_MS);
+
+        const facts = { subscription: subscriptionFromRow(row), isTest: false, now: new Date() };
+        expect(decideMemberAccess(facts)).toEqual({ allowed: true, reason: 'trial_active' });
+      } finally {
+        await deleteAccount(legacy.id);
+      }
+    });
+
+    it('an admin write that names no new date leaves the stored 30 days exactly where they were', async () => {
+      const legacy = await createThrowawayAccount();
+      try {
+        const endsAt = await makeLegacyThirtyDayWindow(legacy.id);
+        const admin = await signInAs(TEST_USERS.adminOne);
+        const { error } = await admin.rpc('admin_set_member_access', {
+          p_member_id: legacy.id,
+          p_note: 'Grandfathering check, no date given.',
+        });
+        expect(error).toBeNull();
+
+        const after = await readRow(legacy.id);
+        expect(new Date(after!.trial_ends_at).toISOString()).toBe(endsAt);
+      } finally {
+        await deleteAccount(legacy.id);
+      }
+    });
   });
 
   it('the database check constraints hold exactly the vocabulary the app compiles against', async () => {
@@ -712,7 +782,7 @@ describe('the whole decision, over real rows', () => {
     expect(error).toBeNull();
   }
 
-  it('locks a real member whose trial start is more than 30 days ago, and an assignment lets them straight back in', async () => {
+  it('locks a real member whose trial window has closed, and an assignment lets them straight back in', async () => {
     const fresh = await createThrowawayAccount();
     try {
       const admin = await signInAs(TEST_USERS.adminOne);
