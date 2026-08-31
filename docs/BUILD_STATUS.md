@@ -59,6 +59,31 @@ the migration's string are the same one.
 days buttons (manual tools, not the signup default), entitlement logic, tier
 definitions, `MEMBERSHIP_PRICING_URL` and the lock screen redirect.
 
+**Verified live on production, twice, 27 checks in total.**
+`scripts/verify-trial-seven-days-live.mjs` is 18 of 18: the panel loads for
+the real administrator; the three oldest accounts it lists each show their
+own original dates read out of their own card (Jul 24 to Aug 23, Jul 24 to
+Aug 23, Jul 25 to Aug 24); the oldest account of all is checked against the
+database instead, because `admin_list_member_access` never lists a coach or
+an administrator by design and that account is both; a brand new account
+created through the same Auth path a real signup takes was stamped exactly 7
+days and the panel showed it ending Sep 7; that account's access was then
+ended by pressing the panel's own "End access now" button and the account
+was deleted outright; and Home, Today, the check-in, Root Map, Root Score
+and Profile all load with zero console errors, zero page errors and no 30
+day promise anywhere in their text. Nineteen accounts read before and after:
+zero expiry dates moved.
+
+`scripts/verify-trial-lock-screen-live.mjs` is 9 of 9 and covers the one
+thing the first run cannot see, because no real account is locked out today.
+Two throwaway accounts were given already-closed windows of their own, one
+30 days long and one 7, signed in, and sent from `/dashboard` to
+`/trial-ended` as expected. The 30 day one reads "Your 30 days are complete"
+with the string "7 days" nowhere on the page, and the 7 day one reads "Your
+7 days are complete" with "30 days" nowhere on it. No em dash on either, and
+both still offer Continue with Rooted Reset. Both accounts deleted, and
+nobody else's date moved.
+
 **What proves it.** `TRIAL_LENGTH_DAYS` is 7 and the database agrees
 (`member_trial_length_days()` asserted equal to it, and to 7, against real
 local Postgres). A brand new account is stamped a 7 day window starting now.
