@@ -195,6 +195,14 @@ export async function getPushDelivery(
  * after. A receipt written after a successful send would leave a window
  * where the send happened and the record did not, and the only way out of
  * that window is a second notification. See migration 196's header.
+ *
+ * TWO DIFFERENT NULLS, AND THEY MUST NOT BE ONE. "The insert conflicted"
+ * and "the insert was refused" both come back as no row, and the first
+ * production run of the admin tool proved how badly that matters: the
+ * write was refused (an administrator's own client has no insert policy
+ * here, by design) and the job reported a lost race that never happened.
+ * So the result says WHICH, and only 'conflict' means somebody else is
+ * already sending.
  */
 export async function claimPushDelivery(
   supabase: SupabaseClient,
@@ -209,7 +217,11 @@ export async function claimPushDelivery(
     cadence: Cadence;
     source: 'scheduled' | 'admin';
   }
-): Promise<PushDeliveryRecord | null> {
+): Promise<
+  | { claimed: PushDeliveryRecord }
+  | { claimed: null; reason: 'conflict' }
+  | { claimed: null; reason: 'refused'; detail: string }
+> {
   const { data, error } = await supabase
     .from('member_push_deliveries')
     .upsert(
@@ -229,15 +241,17 @@ export async function claimPushDelivery(
     .select(DELIVERY_COLUMNS);
 
   if (error) {
-    console.error('claimPushDelivery failed', error);
-    return null;
+    console.error('claimPushDelivery refused', error);
+    return { claimed: null, reason: 'refused', detail: error.message };
   }
 
   // "NO ERROR" IS NOT "IT WORKED". An insert that conflicted returns zero
   // rows and no error, and that is the ordinary losing case here. Read
   // what came back rather than assuming.
   const claimed = (data as DeliveryRow[] | null)?.[0];
-  return claimed ? fromDeliveryRow(claimed) : null;
+  return claimed
+    ? { claimed: fromDeliveryRow(claimed) }
+    : { claimed: null, reason: 'conflict' };
 }
 
 /**

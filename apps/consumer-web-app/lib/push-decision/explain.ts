@@ -103,6 +103,9 @@ export function explainDecision(input: ExplainInput): string {
     case 'receipt_lost_race':
       return "Sent nothing because another run claimed today's one notification at the same moment. That is the cap working, not a fault.";
 
+    case 'receipt_write_failed':
+      return `Sent nothing because the record that makes one a day true could not be written${input.failureDetail ? `: ${input.failureDetail}` : '.'} Nothing is sent without it, because without it there is no cap.`;
+
     case 'send_failed':
       return `Nothing reached a device${input.failureDetail ? `: ${input.failureDetail}` : '.'} Today's one notification is spent and will not be tried again, because a retry is how a member ends up with two.`;
   }

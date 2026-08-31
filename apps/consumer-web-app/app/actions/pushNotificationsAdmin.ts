@@ -41,6 +41,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { countLiveDevicesByMember, listLivePushDevices } from '@/lib/push/data';
 import { isPushSendingConfigured, sendPushToMember } from '@/lib/push/send';
 import { PUSH_TEST_NOTIFICATION } from '@/lib/push/copy';
+import { serviceRoleClient } from '@/lib/supabase/serviceRole';
 import {
   runNotificationDecisionForMember,
   type NotificationDecision,
@@ -176,6 +177,19 @@ export async function sendTestPushToMemberAction(memberId: string): Promise<Push
  * plus the facts behind it, so this action composes nothing and decides
  * nothing: it authorizes, it runs the job, it hands back what the job
  * said.
+ *
+ * IT RUNS THE JOB WITH THE SERVICE ROLE, NOT WITH THE ADMINISTRATOR'S OWN
+ * CLIENT, and that is not a shortcut past a policy. The delivery receipt
+ * in migration 196 deliberately has no insert policy for anybody, so that
+ * no session can manufacture or erase one and thereby hand itself a
+ * second notification. An administrator's own client therefore cannot
+ * claim a receipt, which is right, and it is also exactly what the first
+ * production run of this tool discovered: the claim was refused, the job
+ * read the refusal as "another run got there first", and it reported a
+ * lost race that had never happened. The administrator is authorized
+ * above, against the database, before this line is reached; the JOB then
+ * runs as the platform, which is what it is when the schedule runs it at
+ * nine in the morning.
  */
 export type NotificationDecisionResult =
   | { ok: true; decision: NotificationDecision }
@@ -196,8 +210,16 @@ export async function runNotificationDecisionAction(
     };
   }
 
-  const decision = await runNotificationDecisionForMember(guard.supabase, memberId, {
-    source: 'admin',
-  });
+  let job;
+  try {
+    job = serviceRoleClient();
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'This deployment cannot run the job.',
+    };
+  }
+
+  const decision = await runNotificationDecisionForMember(job, memberId, { source: 'admin' });
   return { ok: true, decision };
 }

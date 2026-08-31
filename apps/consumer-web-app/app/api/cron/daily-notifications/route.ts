@@ -24,8 +24,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { getSupabaseEnv } from '@/lib/supabase/env';
+import { serviceRoleClient } from '@/lib/supabase/serviceRole';
 import { runDailyNotificationPass } from '@/lib/push-decision/service';
 
 export const dynamic = 'force-dynamic';
@@ -33,18 +32,6 @@ export const dynamic = 'force-dynamic';
 // once each. The default 10 second serverless budget is not enough on a
 // day when several members' windows open at once.
 export const maxDuration = 300;
-
-function serviceRoleClient() {
-  const { url } = getSupabaseEnv();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY is missing. Set it in your hosting provider's " +
-        'project environment variables, then redeploy.'
-    );
-  }
-  return createClient(url, serviceRoleKey);
-}
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization');

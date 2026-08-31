@@ -76,14 +76,15 @@ afterAll(async () => {
 describe('the cap is the database, not the job', () => {
   it('claims today once and reports the second claim as lost', async () => {
     const first = await claimPushDelivery(admin, ONE, TODAY, FIELDS);
-    expect(first).not.toBeNull();
-    expect(first!.title).toBe('Your Daily Reset');
+    expect(first.claimed).not.toBeNull();
+    expect(first.claimed!.title).toBe('Your Daily Reset');
 
     const second = await claimPushDelivery(admin, ONE, TODAY, {
       ...FIELDS,
       title: 'Something else entirely',
     });
-    expect(second).toBeNull();
+    expect(second.claimed).toBeNull();
+    expect(second.claimed === null && second.reason).toBe('conflict');
 
     const stored = await getPushDelivery(admin, ONE, TODAY);
     expect(stored!.title).toBe('Your Daily Reset');
@@ -94,8 +95,12 @@ describe('the cap is the database, not the job', () => {
       claimPushDelivery(admin, ONE, TODAY, FIELDS),
       claimPushDelivery(admin, ONE, TODAY, FIELDS),
     ]);
-    const winners = [a, b].filter((row) => row !== null);
+    const winners = [a, b].filter((row) => row.claimed !== null);
     expect(winners).toHaveLength(1);
+    const losers = [a, b].filter((row) => row.claimed === null);
+    // A conflict, never a refusal. The difference is what the first
+    // production run of the admin tool got wrong.
+    expect(losers.every((row) => row.claimed === null && row.reason === 'conflict')).toBe(true);
 
     const { count } = await admin
       .from('member_push_deliveries')
@@ -105,15 +110,27 @@ describe('the cap is the database, not the job', () => {
     expect(count).toBe(1);
   });
 
+  it('REPORTS A REFUSED WRITE AS REFUSED, NOT AS A LOST RACE', async () => {
+    // Her own session has no insert policy here, by design. The first
+    // production run of the admin tool hit exactly this and reported
+    // "another run claimed today at the same moment", which had never
+    // happened and pointed the investigation at the wrong thing.
+    const refused = await claimPushDelivery(one, ONE, TODAY, FIELDS);
+    expect(refused.claimed).toBeNull();
+    expect(refused.claimed === null && refused.reason).toBe('refused');
+
+    expect(await getPushDelivery(admin, ONE, TODAY)).toBeNull();
+  });
+
   it('is scoped to one member and one day', async () => {
     await claimPushDelivery(admin, ONE, TODAY, FIELDS);
-    expect(await claimPushDelivery(admin, TWO, TODAY, FIELDS)).not.toBeNull();
-    expect(await claimPushDelivery(admin, ONE, '2026-09-01', FIELDS)).not.toBeNull();
+    expect((await claimPushDelivery(admin, TWO, TODAY, FIELDS)).claimed).not.toBeNull();
+    expect((await claimPushDelivery(admin, ONE, '2026-09-01', FIELDS)).claimed).not.toBeNull();
   });
 
   it('records what the push service did, on the receipt already claimed', async () => {
     const claimed = await claimPushDelivery(admin, ONE, TODAY, FIELDS);
-    await recordPushDeliveryOutcome(admin, claimed!.id, {
+    await recordPushDeliveryOutcome(admin, claimed.claimed!.id, {
       sentDeviceCount: 2,
       retiredDeviceCount: 1,
     });

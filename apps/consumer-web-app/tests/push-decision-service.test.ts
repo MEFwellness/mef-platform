@@ -130,7 +130,7 @@ beforeEach(() => {
   buildPriorityView.mockResolvedValue(priorityView());
   readCheckinDoneToday.mockResolvedValue(false);
   getDailyPriority.mockResolvedValue({ status: 'active' });
-  claimPushDelivery.mockResolvedValue({ id: 'receipt-1', localDate: '2026-08-31' });
+  claimPushDelivery.mockResolvedValue({ claimed: { id: 'receipt-1', localDate: '2026-08-31' } });
   sendPushToMember.mockResolvedValue({ sent: 1, retired: 0, failures: [] });
 });
 
@@ -179,7 +179,7 @@ describe('the receipt is claimed before anything is sent', () => {
     const order: string[] = [];
     claimPushDelivery.mockImplementation(async () => {
       order.push('claim');
-      return { id: 'receipt-1' };
+      return { claimed: { id: 'receipt-1' } };
     });
     sendPushToMember.mockImplementation(async () => {
       order.push('send');
@@ -191,10 +191,25 @@ describe('the receipt is claimed before anything is sent', () => {
   });
 
   it('sends nothing when the claim was lost to a concurrent run', async () => {
-    claimPushDelivery.mockResolvedValue(null);
+    claimPushDelivery.mockResolvedValue({ claimed: null, reason: 'conflict' });
     const decision = await run();
 
     expect(decision.outcome).toBe('receipt_lost_race');
+    expect(sendPushToMember).not.toHaveBeenCalled();
+  });
+
+  it('reports a REFUSED claim as its own outcome, never as a lost race', async () => {
+    // The bug the first production run of the admin tool found: the write
+    // was refused and the job said somebody else had got there first.
+    claimPushDelivery.mockResolvedValue({
+      claimed: null,
+      reason: 'refused',
+      detail: 'new row violates row-level security policy',
+    });
+    const decision = await run();
+
+    expect(decision.outcome).toBe('receipt_write_failed');
+    expect(decision.sentence).toContain('row-level security');
     expect(sendPushToMember).not.toHaveBeenCalled();
   });
 

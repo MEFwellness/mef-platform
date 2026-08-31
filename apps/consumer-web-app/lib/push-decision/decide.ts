@@ -71,6 +71,7 @@ export type DecisionOutcome =
   | 'already_done'
   | 'safety_quiet'
   | 'receipt_lost_race'
+  | 'receipt_write_failed'
   | 'send_failed';
 
 /** Why the card's verdict is or is not worth interrupting her for. */

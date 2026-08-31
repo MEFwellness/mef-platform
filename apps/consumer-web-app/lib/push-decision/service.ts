@@ -267,17 +267,22 @@ export async function runNotificationDecisionForMember(
     cadence: verdict.cadence,
     source: options.source,
   });
-  if (!receipt) {
-    return decision(base, 'receipt_lost_race', {
-      cadence: verdict.cadence,
-      ignoredStreak: verdict.ignoredStreak,
-      rule: atSendTime.selected.rule,
-    });
+  if (!receipt.claimed) {
+    return decision(
+      base,
+      receipt.reason === 'conflict' ? 'receipt_lost_race' : 'receipt_write_failed',
+      {
+        cadence: verdict.cadence,
+        ignoredStreak: verdict.ignoredStreak,
+        rule: atSendTime.selected.rule,
+        failureDetail: receipt.reason === 'refused' ? receipt.detail : null,
+      }
+    );
   }
 
   // 10. Send. Whatever happens now, today is spent.
   const result = await sendPushToMember(supabase, memberId, payload);
-  await recordPushDeliveryOutcome(supabase, receipt.id, {
+  await recordPushDeliveryOutcome(supabase, receipt.claimed.id, {
     sentDeviceCount: result.sent,
     retiredDeviceCount: result.retired,
   });
