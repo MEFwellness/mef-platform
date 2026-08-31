@@ -19,6 +19,8 @@ import { buildEndingScreenView } from '@/lib/energy-forecast/service';
 import { ForecastCalibrationChart } from '@/components/checkin/ForecastCalibrationChart';
 import type { RootStatusView } from '@/lib/energy-forecast/types';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { getMemberPushState, isPushEnableAskDue } from '@/lib/push/data';
+import { PushEnableAsk } from '@/components/push/PushEnableAsk';
 
 // Screen Layout System (Prompt 2): was a hand-rolled duplicate of
 // `.mef-card` (app/globals.css) — now the one shared recipe. The one
@@ -60,10 +62,16 @@ export default async function CheckinResultPage({
   const localDate = searchParams?.date;
   if (!localDate) redirect('/checkin' as Route);
 
-  const [{ data: profile }, isCoach, todaysCheckin] = await Promise.all([
+  const [{ data: profile }, isCoach, todaysCheckin, pushState] = await Promise.all([
     supabase.from('profiles').select('display_name').eq('id', user.id).single(),
     hasActiveRole(supabase, user.id, 'coach'),
     getTodaysCheckin(localDate),
+    // The one-time reminders ask. This screen is the trigger: a Daily
+    // Reset she has just finished. Reading whether it is due is all this
+    // render does; the recording that she was asked belongs to the ask
+    // itself, from a mounted effect, because a render never decides
+    // anything.
+    getMemberPushState(supabase, user.id),
   ]);
 
   // This screen only exists to react to a just-submitted check-in — if
@@ -74,6 +82,7 @@ export default async function CheckinResultPage({
 
   const firstName = firstNameFrom(profile?.display_name);
   const view = await buildEndingScreenView(supabase, user.id, localDate, todaysCheckin);
+  const showPushEnableAsk = isPushEnableAskDue(pushState);
   const continueHref = (searchParams?.firstCheckin === '1' ? '/dashboard?firstCheckin=1' : '/dashboard') as Route;
 
   return (
@@ -194,6 +203,8 @@ export default async function CheckinResultPage({
       </main>
 
       <MemberBottomNav isCoach={isCoach} />
+
+      {showPushEnableAsk && <PushEnableAsk />}
     </div>
   );
 }

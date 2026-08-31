@@ -108,6 +108,20 @@ export default async function AdminPage({
             lib/auth/staffRouting.ts's STAFF_ONLY_PREFIXES), so an
             administrator who is not also a coach still has a way in. */}
         <Link
+          href={'/admin/push-test-tools' as Route}
+          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Testing Tools</p>
+          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
+            Push notifications: send a test to a real phone
+          </p>
+          <p className="mt-1 text-sm text-[#6B7A72]">
+            Pick a member who has turned reminders on and send one notification to her phone right
+            now. Nothing sends on a schedule yet.
+          </p>
+        </Link>
+
+        <Link
           href={'/exercises' as Route}
           className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
         >

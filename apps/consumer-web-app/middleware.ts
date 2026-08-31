@@ -365,11 +365,15 @@ export const config = {
   // unauthenticated request for any of them (e.g. the logo on /login, or
   // a browser's manifest fetch for install-eligibility) was being
   // redirected to /login instead of served, silently breaking both.
+  // sw.js is the push service worker (public/sw.js). A browser fetches it
+  // with no session at all when it re-checks a registration, and a service
+  // worker that answered with a redirect to /login would be rejected
+  // outright, so it needs the same exclusion as every other public asset.
   // lead-widget.js is the Lead Capture Agent's embeddable widget script
   // (public/lead-widget.js) — a <script src> load from an external
   // Leadpages page is always unauthenticated, so it needs the same
   // exclusion as every other public/ static asset here.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|lead-widget\\.js|icons/|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw\\.js|lead-widget\\.js|icons/|images/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico)$).*)',
   ],
 };

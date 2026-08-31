@@ -18,6 +18,8 @@ import { LockedCardButton } from '@/components/locked/LockedCardButton';
 import { lockNoteMessage, lockOffersPlanLink } from '@/lib/locked-content/copy';
 import { LockedBadge } from '@/components/locked/LockedBadge';
 import { memberProfileCore } from '@/lib/member/profileCore';
+import { getMemberPushState } from '@/lib/push/data';
+import { NotificationsPreferenceSwitch } from '@/components/push/NotificationsPreferenceSwitch';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 
 export default async function ProfilePage() {
@@ -25,7 +27,7 @@ export default async function ProfilePage() {
   const user = await getCachedUser();
   if (!user) redirect('/login');
 
-  const [profile, isCoach, bodyAssessmentAccess] = await Promise.all([
+  const [profile, isCoach, bodyAssessmentAccess, pushState] = await Promise.all([
     memberProfileCore(supabase, user.id),
     hasActiveRole(supabase, user.id, 'coach'),
     // Locks the "Assessments" card below when this member's plan does not
@@ -33,6 +35,10 @@ export default async function ProfilePage() {
     // because this card is a doorway to her own stored assessments, and
     // her own history is never hidden by a plan rule.
     checkAssessmentAccess(supabase, user.id, 'body-assessment', { intent: 'view' }),
+    // Her single reminders preference. Read here rather than inside the
+    // switch so the screen renders with the real value already in it and
+    // never flickers from off to on after mount.
+    getMemberPushState(supabase, user.id),
   ]);
 
   const firstName = firstNameFrom(profile.displayName);
@@ -201,6 +207,9 @@ export default async function ProfilePage() {
                 aria-hidden="true"
               />
             </Link>
+          </div>
+          <div className="mt-4 border-t border-[#1B3A2D]/10 pt-4">
+            <NotificationsPreferenceSwitch enabled={pushState.enabled} />
           </div>
           <div className="mt-4 border-t border-[#1B3A2D]/10 pt-4">
             <PasskeyEnrollment />

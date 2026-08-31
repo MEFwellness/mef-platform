@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: { typedRoutes: true },
+  // web-push is a plain Node library (it uses node:crypto and node:https
+  // directly). Left to the bundler it gets traced into the server bundle
+  // and its crypto work can break; kept external it is required at runtime
+  // the way it expects.
+  experimental: { typedRoutes: true, serverComponentsExternalPackages: ['web-push'] },
   async redirects() {
     return [
       // The CHEK Practitioner questionnaire's member-facing URL was renamed to

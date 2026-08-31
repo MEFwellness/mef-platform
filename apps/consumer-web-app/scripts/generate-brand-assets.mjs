@@ -51,6 +51,25 @@ async function run() {
   await sharp(source).resize(180, 180).png(pngOpts).toFile(`${ICONS_DIR}/apple-touch-icon.png`);
   console.log('wrote icons/apple-touch-icon.png (180x180) — iOS home screen icon');
 
+  // Maskable PWA icons. Android crops a home screen icon to whatever shape
+  // the launcher uses (circle, squircle, rounded square), and it crops the
+  // FULL square, so an icon whose mark reaches the edges loses part of it.
+  // A maskable icon therefore has to keep everything that matters inside
+  // the central safe zone: the mark is scaled to 70% and centred on the
+  // source artwork's own background colour, so every crop shape lands on
+  // flat background and never on the mark.
+  for (const size of [192, 512]) {
+    const inner = Math.round(size * 0.7);
+    const centred = await sharp(source).resize(inner, inner).png().toBuffer();
+    await sharp({ create: { width: size, height: size, channels: 3, background: OG_BACKGROUND } })
+      .composite([{ input: centred, gravity: 'center' }])
+      .png(pngOpts)
+      .toFile(`${ICONS_DIR}/icon-maskable-${size}.png`);
+    console.log(
+      `wrote icons/icon-maskable-${size}.png (${size}x${size}) — maskable PWA icon, safe-zone padded`
+    );
+  }
+
   const mark = await sharp(source).resize(440, 440).png().toBuffer();
   await sharp({ create: { width: 1200, height: 630, channels: 3, background: OG_BACKGROUND } })
     .composite([{ input: mark, gravity: 'center' }])

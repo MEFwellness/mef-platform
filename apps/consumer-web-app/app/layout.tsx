@@ -8,6 +8,7 @@ import { GuestPreviewMigrator } from './GuestPreviewMigrator';
 import { RootResetEntryGate } from '@/components/entry/RootResetEntryGate';
 import { ENTRY_ANIMATION_LOGIN_COOKIE, ENTRY_ANIMATION_PLAY_COOKIE } from '@/lib/entry-animation/cookies';
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { PushServiceWorkerRegistrar } from '@/components/push/PushServiceWorkerRegistrar';
 
 const cormorantGaramond = Cormorant_Garamond({
   subsets: ['latin'],
@@ -118,6 +119,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="en" className={`${cormorantGaramond.variable} ${dmSans.variable}`}>
       <body className={`${dmSans.className} min-h-screen bg-[#FAFAF8] text-[#1B3A2D] antialiased`}>
         <GuestPreviewMigrator />
+        <PushServiceWorkerRegistrar />
         <RootResetEntryGate initialEntryToken={entryState.entryToken} />
         {children}
       </body>
