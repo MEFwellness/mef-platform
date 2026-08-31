@@ -72,6 +72,21 @@ export type FoodLensAnalysisResult = {
     cookingMethod: FoodLensCookingMethod | null;
     /** True for a sauce, dressing, oil, or topping rather than a standalone food. */
     isCondiment: boolean;
+    /**
+     * Estimated grams of each macro for the portion of THIS item the model
+     * actually sees (Phase 2). Null when it cannot honestly size the item,
+     * and a null is never coerced to 0 anywhere downstream: "not
+     * estimated" and "none of this macro" are different claims.
+     *
+     * These are estimates from a photo and are labeled as such on every
+     * screen. They contribute nothing to any daily total until the member
+     * confirms the meal. The meal total is never asked for separately, it
+     * is the sum of these (lib/food-lens/macroGrams.ts), so a total and
+     * its breakdown cannot disagree.
+     */
+    proteinG: number | null;
+    carbG: number | null;
+    fatG: number | null;
   }>;
   macroEstimate: {
     protein: { level: FoodLensMealMacroLevel; confidence: number };

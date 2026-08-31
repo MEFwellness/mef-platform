@@ -36,6 +36,8 @@ export default async function ProteinLedgerPage() {
     servings: e.servings,
     consumedAt: e.consumed_at,
     proteinGrams: e.proteinGrams,
+    carbGrams: e.carbGrams,
+    fatGrams: e.fatGrams,
     source: e.source,
     estimatedProteinLevel: e.estimatedProteinLevel,
   }));

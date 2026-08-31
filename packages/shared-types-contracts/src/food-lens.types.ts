@@ -158,6 +158,41 @@ export interface FoodLensMacroEstimate {
   carb_confidence: number;
   fat_confidence: number;
   overall_confidence: number;
+  /**
+   * Estimated grams for the whole meal (migration 194). Always the sum of
+   * this version's FoodLensItemMacroEstimate rows, computed in one place
+   * (lib/food-lens/macroGrams.ts) so the meal total and the per-item
+   * breakdown can never disagree. Null for a scan analyzed before gram
+   * estimates existed, and a null is never rendered as 0g.
+   */
+  protein_g: number | null;
+  carb_g: number | null;
+  fat_g: number | null;
+  basis: 'ai_estimated' | 'member_adjusted';
+  created_at: string;
+}
+
+/**
+ * The vision model's gram estimate for ONE detected item (migration 194).
+ * Separate from FoodLensMacroEstimate's Low/Moderate/High levels, which are
+ * unchanged and still the plate-level emphasis read: a level says how much
+ * of this plate's own composition a macro is, these grams say roughly how
+ * much food is there. Both are shown, neither replaces the other.
+ *
+ * Every figure here is an estimate from a photo and is labeled as one
+ * everywhere a member can read it. It contributes nothing to any daily
+ * total until the member confirms the meal.
+ */
+export interface FoodLensItemMacroEstimate {
+  id: string;
+  scan_id: string;
+  detected_item_id: string;
+  /** Null when the model could not honestly size this item. Never written as 0, which would read as "this food has none." */
+  protein_g: number | null;
+  carb_g: number | null;
+  fat_g: number | null;
+  /** The portion these grams describe, in plain words ("about 6 ounces"), so a number never appears without the amount of food it is for. */
+  portion_description: string | null;
   basis: 'ai_estimated' | 'member_adjusted';
   created_at: string;
 }

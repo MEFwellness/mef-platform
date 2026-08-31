@@ -26,6 +26,7 @@ import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track'
 import type {
   FoodLensCapture,
   FoodLensCaptureType,
+  FoodLensItemMacroEstimate,
   FoodLensLabelPhotoRole,
   FoodLensComparisonSignal,
   FoodLensDetectedItem,
@@ -54,6 +55,7 @@ import {
   type ComparisonMacroEstimate,
 } from '@/lib/food-lens/comparison';
 import { computeMealQualityRating, primaryMealSubjectLabel } from '@/lib/food-lens/mealQuality';
+import { scaleMacroGrams, sumMacroGrams, type MacroGrams } from '@/lib/food-lens/macroGrams';
 import { generateFoodLensCoachingNarrative } from '@/lib/food-lens/coachingNarrative';
 import {
   getActivePrimalPatternProfile,
@@ -62,9 +64,11 @@ import {
   getLatestFoodLensMacroEstimate,
   getLatestFoodLensMealQualityRating,
   getLatestFoodLensPatternComparison,
+  getLatestItemMacroEstimatesByItemId,
   insertFoodLensCapture,
   insertFoodLensCorrection,
   insertFoodLensDetectedItem,
+  insertFoodLensItemMacroEstimate,
   insertFoodLensMacroEstimate,
   insertFoodLensMealQualityRating,
   insertFoodLensPatternComparison,
@@ -248,6 +252,11 @@ export async function analyzeFoodLensScanAction(
     });
 
     const detectedItems: FoodLensDetectedItem[] = [];
+    // Each item's gram estimate is written as its own row against the item
+    // it belongs to, and the meal total below is the sum of exactly these.
+    // Nothing asks the model for a plate total, so a total and its
+    // breakdown cannot drift apart.
+    const itemGrams: MacroGrams[] = [];
     for (const item of result.items) {
       const created = await insertFoodLensDetectedItem(supabase, {
         scanId,
@@ -262,9 +271,27 @@ export async function analyzeFoodLensScanAction(
         cookingMethod: item.cookingMethod,
         isCondiment: item.isCondiment,
       });
-      if (created) detectedItems.push(created);
+      if (!created) continue;
+      detectedItems.push(created);
+
+      const grams: MacroGrams = {
+        proteinG: item.proteinG,
+        carbG: item.carbG,
+        fatG: item.fatG,
+      };
+      itemGrams.push(grams);
+      await insertFoodLensItemMacroEstimate(supabase, {
+        scanId,
+        detectedItemId: created.id,
+        proteinG: grams.proteinG,
+        carbG: grams.carbG,
+        fatG: grams.fatG,
+        portionDescription: item.portionDescription,
+        basis: 'ai_estimated',
+      });
     }
 
+    const mealGrams = sumMacroGrams(itemGrams);
     const macroEstimate = await insertFoodLensMacroEstimate(supabase, {
       scanId,
       proteinLevel: result.macroEstimate.protein.level,
@@ -274,6 +301,9 @@ export async function analyzeFoodLensScanAction(
       carbConfidence: result.macroEstimate.carb.confidence,
       fatConfidence: result.macroEstimate.fat.confidence,
       overallConfidence: overallConfidenceFor(result.macroEstimate),
+      proteinG: mealGrams.proteinG,
+      carbG: mealGrams.carbG,
+      fatG: mealGrams.fatG,
       basis: 'ai_estimated',
     });
     if (!macroEstimate) {
@@ -429,6 +459,8 @@ async function computeAndStoreMealQuality(
 export type FoodLensScanDetail = {
   scan: FoodLensScan;
   detectedItems: FoodLensDetectedItem[];
+  /** The latest gram estimate per detected item, keyed by detected item id. Empty for a scan analyzed before gram estimates existed, which is what makes the result screen simply omit the section rather than show zeros. */
+  itemMacroEstimates: Record<string, FoodLensItemMacroEstimate>;
   macroEstimate: FoodLensMacroEstimate | null;
   comparison: FoodLensPatternComparison | null;
   /** Null for a scan analyzed before this rating existed — the UI simply omits the indicator for those, never fabricates one after the fact. */
@@ -444,13 +476,15 @@ export async function getFoodLensScanAction(scanId: string): Promise<FoodLensSca
   const scan = await getFoodLensScan(supabase, scanId);
   if (!scan || scan.member_id !== userId) return null;
 
-  const [detectedItems, macroEstimate, comparison, mealQuality, captures] = await Promise.all([
-    listCurrentFoodLensDetectedItems(supabase, scanId),
-    getLatestFoodLensMacroEstimate(supabase, scanId),
-    getLatestFoodLensPatternComparison(supabase, scanId),
-    getLatestFoodLensMealQualityRating(supabase, scanId),
-    listFoodLensCaptures(supabase, scanId),
-  ]);
+  const [detectedItems, itemMacroEstimates, macroEstimate, comparison, mealQuality, captures] =
+    await Promise.all([
+      listCurrentFoodLensDetectedItems(supabase, scanId),
+      getLatestItemMacroEstimatesByItemId(supabase, scanId),
+      getLatestFoodLensMacroEstimate(supabase, scanId),
+      getLatestFoodLensPatternComparison(supabase, scanId),
+      getLatestFoodLensMealQualityRating(supabase, scanId),
+      listFoodLensCaptures(supabase, scanId),
+    ]);
 
   const signedCaptures = await Promise.all(
     captures.map(async (capture) => ({
@@ -460,7 +494,15 @@ export async function getFoodLensScanAction(scanId: string): Promise<FoodLensSca
     }))
   );
 
-  return { scan, detectedItems, macroEstimate, comparison, mealQuality, captures: signedCaptures };
+  return {
+    scan,
+    detectedItems,
+    itemMacroEstimates: Object.fromEntries(itemMacroEstimates),
+    macroEstimate,
+    comparison,
+    mealQuality,
+    captures: signedCaptures,
+  };
 }
 
 export type FoodLensScanSummary = {
@@ -643,6 +685,47 @@ export async function correctDetectedItemAction(
   });
   if (!newItem) return { error: 'Could not save correction.' };
 
+  // The gram estimate belongs to the item, and a correction supersedes the
+  // item with a new row. Without this the estimate would be orphaned on the
+  // superseded row and the corrected food would silently become
+  // "not estimated" (and drop out of the meal total) just because she fixed
+  // its name. Carried forward, and scaled when, and only when, she actually
+  // changed the amount: 2 pieces corrected to 4 is twice the food, so it is
+  // twice the grams. A label or cooking-method fix changes no amount and
+  // scales nothing.
+  const previousGrams = (await getLatestItemMacroEstimatesByItemId(
+    ctx.supabase,
+    owned.item.scan_id
+  )).get(owned.item.id);
+  if (previousGrams) {
+    const oldQuantity = owned.item.quantity;
+    const quantityRatio =
+      oldQuantity !== null &&
+      oldQuantity > 0 &&
+      newQuantity !== null &&
+      newQuantity > 0 &&
+      newQuantity !== oldQuantity
+        ? newQuantity / oldQuantity
+        : 1;
+    const carried = scaleMacroGrams(
+      {
+        proteinG: previousGrams.protein_g,
+        carbG: previousGrams.carb_g,
+        fatG: previousGrams.fat_g,
+      },
+      quantityRatio
+    );
+    await insertFoodLensItemMacroEstimate(ctx.supabase, {
+      scanId: owned.item.scan_id,
+      detectedItemId: newItem.id,
+      proteinG: carried.proteinG,
+      carbG: carried.carbG,
+      fatG: carried.fatG,
+      portionDescription: newPortionDescription,
+      basis: quantityRatio === 1 ? previousGrams.basis : 'member_adjusted',
+    });
+  }
+
   await updateFoodLensDetectedItemStatus(ctx.supabase, owned.item.id, 'superseded');
 
   const correctionType = input.correctedLabel
@@ -757,6 +840,21 @@ export async function recomputeFoodLensResultAction(
   }
 
   const derived = deriveMacroEstimateFromItems(confirmedOrAdded);
+  // The meal total is recomputed from the items that are actually in the
+  // meal now, never carried over from the previous version. Removing a food
+  // has to move the total, and this is the only place that arithmetic
+  // happens.
+  const gramsByItem = await getLatestItemMacroEstimatesByItemId(supabase, scanId);
+  const mealGrams = sumMacroGrams(
+    confirmedOrAdded.map((item) => {
+      const estimate = gramsByItem.get(item.id);
+      return {
+        proteinG: estimate?.protein_g ?? null,
+        carbG: estimate?.carb_g ?? null,
+        fatG: estimate?.fat_g ?? null,
+      };
+    })
+  );
   const macroEstimate = await insertFoodLensMacroEstimate(supabase, {
     scanId,
     proteinLevel: derived.protein.level,
@@ -766,6 +864,9 @@ export async function recomputeFoodLensResultAction(
     carbConfidence: derived.carb.confidence,
     fatConfidence: derived.fat.confidence,
     overallConfidence: overallConfidenceFor(derived),
+    proteinG: mealGrams.proteinG,
+    carbG: mealGrams.carbG,
+    fatG: mealGrams.fatG,
     basis: 'member_adjusted',
   });
   if (!macroEstimate) return { error: 'Could not save recomputed estimate.' };
@@ -850,18 +951,44 @@ export async function setManualPrimalPatternProfileAction(
 
 // ---- Food log (meal-photo scans) ----
 
+/** One item as the member left it on the result screen: how many of the portion Root estimated she says she ate, and whether it is still in the meal at all. */
+export type MealItemAdjustment = {
+  detectedItemId: string;
+  /** Multiplier against the portion Root estimated, which is one serving. 1 means "the amount Root saw". */
+  servings: number;
+};
+
 /**
- * Logs every currently-confirmed item from a meal-photo scan as one
- * member_food_log row apiece (Part 16 — meal photos can be logged just
- * like any packaged/manual food). Never logs a pending-confirmation or
- * rejected item — "Does this look accurate?" (the member's confirmation)
- * is what makes an item eligible here, matching product requirement §2's
- * "do not save the meal until the member confirms it."
+ * Logs a meal-photo scan to the food log, one member_food_log row per
+ * item, and this is the single confirm step that makes a photo's gram
+ * estimates count (Phase 2).
+ *
+ * CONFIRM TO COUNT. Nothing a photo produced reaches the ledger until this
+ * runs. Before it, the scan shows its estimates and contributes exactly
+ * zero to the day; after it, each row carries the per-serving grams the
+ * member accepted. There is no other writer, so "she never confirmed it"
+ * and "it counted anyway" cannot both be true.
+ *
+ * WITH ADJUSTMENTS (the result screen's confirm control) the caller sends
+ * the items she kept and the serving multiplier she set for each, and this
+ * confirms any of those still pending: tapping the one confirm button is
+ * her saying the meal is right, so she is not asked to tick every food
+ * first. WITHOUT adjustments this behaves exactly as it always has, logging
+ * whatever is already confirmed, which is what the older scans on her
+ * history still need.
+ *
+ * The gram figures written here are PER SERVING, matching
+ * product_nutrients.protein_g, so the ledger applies one rule to every lane
+ * and a later servings edit rescales protein, carbohydrate and fat together.
  */
 export async function logMealScanToFoodLogAction(
   scanId: string,
-  input: { mealCategory: MealCategory; consumedAt: string }
-): Promise<ActionResult & { entriesCreated?: number }> {
+  input: {
+    mealCategory: MealCategory;
+    consumedAt: string;
+    adjustments?: MealItemAdjustment[];
+  }
+): Promise<ActionResult & { entriesCreated?: number; proteinGrams?: number | null }> {
   const ctx = await requireMember();
   if (!ctx) return { error: 'Not signed in.' };
   const { supabase, userId } = ctx;
@@ -869,28 +996,71 @@ export async function logMealScanToFoodLogAction(
   const scan = await getFoodLensScan(supabase, scanId);
   if (!scan || scan.member_id !== userId) return { error: 'Scan not found.' };
 
-  const items = (await listCurrentFoodLensDetectedItems(supabase, scanId)).filter(
-    (i) => i.status === 'confirmed' && !i.is_condiment
+  const current = await listCurrentFoodLensDetectedItems(supabase, scanId);
+  const adjustmentById = new Map(
+    (input.adjustments ?? [])
+      .filter((a) => Number.isFinite(a.servings) && a.servings > 0)
+      .map((a) => [a.detectedItemId, a.servings])
+  );
+  const usingAdjustments = adjustmentById.size > 0;
+
+  const items = current.filter((i) =>
+    usingAdjustments
+      ? adjustmentById.has(i.id) && i.status !== 'rejected'
+      : i.status === 'confirmed' && !i.is_condiment
   );
   if (items.length === 0) {
     return { error: 'Confirm at least one food before adding this meal to your log.' };
   }
 
+  // Tapping confirm is the confirmation. Any item she kept that was still
+  // waiting on a tick becomes confirmed here, so the item list and what
+  // she just logged agree on the next render.
+  if (usingAdjustments) {
+    for (const item of items) {
+      if (item.status === 'pending_confirmation') {
+        await updateFoodLensDetectedItemStatus(supabase, item.id, 'confirmed');
+      }
+    }
+  }
+
+  const gramsByItem = await getLatestItemMacroEstimatesByItemId(supabase, scanId);
+
   let created = 0;
+  const loggedGrams: MacroGrams[] = [];
   for (const item of items) {
+    const servings = adjustmentById.get(item.id) ?? item.quantity ?? 1;
+    const estimate = gramsByItem.get(item.id);
+    const perServing: MacroGrams = {
+      proteinG: estimate?.protein_g ?? null,
+      carbG: estimate?.carb_g ?? null,
+      fatG: estimate?.fat_g ?? null,
+    };
     const entry = await insertFoodLogEntry(supabase, {
       memberId: userId,
       productId: null,
       scanId,
       mealCategory: input.mealCategory,
-      servings: item.quantity ?? 1,
+      servings,
       consumedAt: input.consumedAt,
       manualLabel: item.label,
+      // Only a row that actually carries grams is marked as the confirmed
+      // photo lane. An older scan with nothing estimated stays exactly what
+      // it was, a photo row with no number, rather than being relabelled as
+      // a confirmed estimate that contributes zero.
+      entrySource:
+        perServing.proteinG !== null || perServing.carbG !== null || perServing.fatG !== null
+          ? 'photo_estimated'
+          : null,
+      estimatedProteinG: perServing.proteinG,
+      estimatedCarbG: perServing.carbG,
+      estimatedFatG: perServing.fatG,
     });
-    if (entry) created += 1;
+    if (!entry) continue;
+    created += 1;
+    loggedGrams.push(scaleMacroGrams(perServing, servings));
   }
 
-  return created > 0
-    ? { entriesCreated: created }
-    : { error: 'Could not add this meal to your log.' };
+  if (created === 0) return { error: 'Could not add this meal to your log.' };
+  return { entriesCreated: created, proteinGrams: sumMacroGrams(loggedGrams).proteinG };
 }

@@ -5,6 +5,13 @@
  * own confidence, since a low-confidence dimension shouldn't read as
  * certain just because it's drawn the same way as a high-confidence one.
  *
+ * Phase 2 added estimated grams beside this card and changed NOTHING here:
+ * a level answers "how is this plate balanced", grams answer "how much food
+ * is there", and they are different questions. The copy below used to deny
+ * that a photo ever produces a number at all, which stopped being true, so
+ * it now names what this card is instead of denying what the card beside it
+ * does.
+ *
  * 'none' is a distinct level from 'low' — a macro that's essentially absent
  * (a soda's protein/fat) reads as "None detected," not "Low," and gets no
  * filled bar at all, never a sliver implying a small-but-real amount.
@@ -96,9 +103,9 @@ export function MacroBalanceMeter({
       <Bar dimension={{ label: 'Carbohydrate', ...carb }} />
       <Bar dimension={{ label: 'Fat', ...fat }} />
       <p className="text-[11px] leading-relaxed text-[#6B7A72]">
-        These are rough, relative estimates from your photo, not exact measurements, never a
-        calorie count or gram weight. A high amount here isn&apos;t automatically good or bad. See
-        Root&apos;s take above for that.
+        This is the balance between the three, not an amount. The estimated grams are shown
+        separately. A high amount here isn&apos;t automatically good or bad. See Root&apos;s take
+        for that.
       </p>
     </div>
   );

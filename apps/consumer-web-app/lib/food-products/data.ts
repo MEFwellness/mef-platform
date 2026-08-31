@@ -490,6 +490,12 @@ export async function insertFoodLogEntry(
     notes?: string | null;
     photoStoragePath?: string | null;
     manualLabel?: string | null;
+    /** Which lane wrote this row (migration 194). Left null by the lanes that have always been identifiable from the row's own shape; set explicitly by the photo lane, whose rows are otherwise indistinguishable from the pre-Phase-2 photo rows that carry no grams. */
+    entrySource?: MemberFoodLogEntry['entry_source'];
+    /** Estimated grams PER SERVING, same per-serving meaning as product_nutrients.protein_g, so this row contributes grams x servings and a later servings edit rescales all three together. */
+    estimatedProteinG?: number | null;
+    estimatedCarbG?: number | null;
+    estimatedFatG?: number | null;
   }
 ): Promise<MemberFoodLogEntry | null> {
   const id = randomUUID();
@@ -506,6 +512,10 @@ export async function insertFoodLogEntry(
     photo_storage_path: input.photoStoragePath ?? null,
     member_adjusted: false,
     manual_label: input.manualLabel ?? null,
+    entry_source: input.entrySource ?? null,
+    estimated_protein_g: input.estimatedProteinG ?? null,
+    estimated_carb_g: input.estimatedCarbG ?? null,
+    estimated_fat_g: input.estimatedFatG ?? null,
     created_at: now,
   };
   const { error } = await supabase.from('member_food_log').insert(row);
@@ -527,7 +537,14 @@ export async function insertFoodLogEntry(
     eventType: 'food_entry_logged',
     timezone: await resolveMemberTimezone(supabase, input.memberId),
     payload: {
-      entryType: input.scanId ? 'scan' : input.manualLabel ? 'manual' : 'product',
+      // entrySource, when the writing lane set one, is the more precise
+      // answer to the same question and takes precedence. A confirmed
+      // photo meal reports 'photo_estimated' rather than the generic
+      // 'scan' every Food Lens lane used to share, which is what makes
+      // "how many entries came from a photo" answerable at all. Still only
+      // ever which lane, never anything about the food itself.
+      entryType:
+        input.entrySource ?? (input.scanId ? 'scan' : input.manualLabel ? 'manual' : 'product'),
       feature: 'food_lens',
     },
   });

@@ -274,6 +274,8 @@ const LEDGER_ENTRY = {
   servings: 1,
   consumedAt: '2026-08-28T02:30:00.000Z',
   proteinGrams: 18,
+  carbGrams: null,
+  fatGrams: null,
   source: 'search' as const,
   estimatedProteinLevel: null,
 };

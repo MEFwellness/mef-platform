@@ -18,6 +18,7 @@ import type {
   FoodLensDetectedItemSource,
   FoodLensDetectedItemStatus,
   FoodLensFoodCategory,
+  FoodLensItemMacroEstimate,
   FoodLensMacroEstimate,
   FoodLensMacroLevel,
   FoodLensMealMacroLevel,
@@ -383,10 +384,17 @@ export async function insertFoodLensMacroEstimate(
     fatConfidence: number;
     overallConfidence: number;
     basis: 'ai_estimated' | 'member_adjusted';
+    /** Meal totals in grams (migration 194). Always passed as the sum of this version's item estimates, never as a figure computed anywhere else. Null when nothing was estimated, which is never rendered as 0g. */
+    proteinG?: number | null;
+    carbG?: number | null;
+    fatG?: number | null;
   }
 ): Promise<FoodLensMacroEstimate | null> {
   const id = randomUUID();
   const now = new Date().toISOString();
+  const proteinG = input.proteinG ?? null;
+  const carbG = input.carbG ?? null;
+  const fatG = input.fatG ?? null;
   const { error } = await supabase.from('food_lens_macro_estimates').insert({
     id,
     scan_id: input.scanId,
@@ -397,6 +405,9 @@ export async function insertFoodLensMacroEstimate(
     carb_confidence: input.carbConfidence,
     fat_confidence: input.fatConfidence,
     overall_confidence: input.overallConfidence,
+    protein_g: proteinG,
+    carb_g: carbG,
+    fat_g: fatG,
     basis: input.basis,
     created_at: now,
   });
@@ -414,9 +425,79 @@ export async function insertFoodLensMacroEstimate(
     carb_confidence: input.carbConfidence,
     fat_confidence: input.fatConfidence,
     overall_confidence: input.overallConfidence,
+    protein_g: proteinG,
+    carb_g: carbG,
+    fat_g: fatG,
     basis: input.basis,
     created_at: now,
   };
+}
+
+// ---- food_lens_item_macro_estimates (migration 194) ----
+
+/**
+ * One item's gram estimate. Append-only like every other Food Lens
+ * estimate: a member correction that supersedes a detected item carries its
+ * grams forward onto the new item row rather than editing this one, so what
+ * the model actually said stays inspectable.
+ */
+export async function insertFoodLensItemMacroEstimate(
+  supabase: SupabaseClient,
+  input: {
+    scanId: string;
+    detectedItemId: string;
+    proteinG: number | null;
+    carbG: number | null;
+    fatG: number | null;
+    portionDescription?: string | null;
+    basis?: 'ai_estimated' | 'member_adjusted';
+  }
+): Promise<FoodLensItemMacroEstimate | null> {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const row: FoodLensItemMacroEstimate = {
+    id,
+    scan_id: input.scanId,
+    detected_item_id: input.detectedItemId,
+    protein_g: input.proteinG,
+    carb_g: input.carbG,
+    fat_g: input.fatG,
+    portion_description: input.portionDescription ?? null,
+    basis: input.basis ?? 'ai_estimated',
+    created_at: now,
+  };
+  const { error } = await supabase.from('food_lens_item_macro_estimates').insert(row);
+  if (error) {
+    console.error('insertFoodLensItemMacroEstimate failed', error);
+    return null;
+  }
+  return row;
+}
+
+/**
+ * The latest gram estimate for each detected item on this scan, keyed by
+ * detected_item_id. Ordered oldest first so the last write per item wins,
+ * the same "latest version" rule getLatestFoodLensMacroEstimate applies,
+ * held here for a whole scan in one query instead of one query per item.
+ */
+export async function getLatestItemMacroEstimatesByItemId(
+  supabase: SupabaseClient,
+  scanId: string
+): Promise<Map<string, FoodLensItemMacroEstimate>> {
+  const { data, error } = await supabase
+    .from('food_lens_item_macro_estimates')
+    .select('*')
+    .eq('scan_id', scanId)
+    .order('created_at', { ascending: true });
+  if (error) {
+    console.error('getLatestItemMacroEstimatesByItemId failed', error);
+    return new Map();
+  }
+  const byItem = new Map<string, FoodLensItemMacroEstimate>();
+  for (const row of (data ?? []) as FoodLensItemMacroEstimate[]) {
+    byItem.set(row.detected_item_id, row);
+  }
+  return byItem;
 }
 
 /** Latest version only — a recompute after a correction inserts a new row rather than mutating (doc 3.3). */

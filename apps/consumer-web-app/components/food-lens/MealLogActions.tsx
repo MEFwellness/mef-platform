@@ -6,6 +6,14 @@
  * confirms it here, separately from confirming individual items above.
  * Also offers saving the confirmed combination as a repeatable saved meal
  * (Part 4).
+ *
+ * Phase 2 made this the confirm-to-count control for gram estimates too.
+ * When the result screen has grams to show, EstimatedMacrosPanel wraps this
+ * component and hands down the items she kept with the serving multiplier
+ * she set for each; this is still the only button, so there is exactly one
+ * moment where a photo's estimates start counting toward her day. When
+ * there are no grams (a scan analyzed before Phase 2), no adjustments come
+ * down and this behaves exactly as it always did.
  */
 
 import { useState, useTransition } from 'react';
@@ -32,11 +40,17 @@ const MEAL_CATEGORIES: MealCategory[] = ['breakfast', 'lunch', 'dinner', 'snack'
 export function MealLogActions({
   scanId,
   hasConfirmedItems,
+  adjustments,
+  showsEstimatedGrams = false,
   nowLocalInputValue,
   timeZone,
 }: {
   scanId: string;
   hasConfirmedItems: boolean;
+  /** The items she kept and how much of each, when gram estimates are on screen. Undefined for a scan with none, which logs whatever is already confirmed. */
+  adjustments?: Array<{ detectedItemId: string; servings: number }> | undefined;
+  /** True when estimated grams are being shown above, which is what the copy on this card has to be honest about. */
+  showsEstimatedGrams?: boolean | undefined;
   /** Right now as `YYYY-MM-DDTHH:mm` in the member's own timezone, resolved on the server. */
   nowLocalInputValue: string;
   /** The member's own timezone. What the wall clock above, and anything she edits it to, means. */
@@ -61,12 +75,21 @@ export function MealLogActions({
       const result = await logMealScanToFoodLogAction(scanId, {
         mealCategory,
         consumedAt: zonedInputValueToInstant(consumedAt, timeZone).toISOString(),
+        ...(adjustments ? { adjustments } : {}),
       });
       if (result.error) {
         setError(result.error);
         return;
       }
-      setMessage('Added to your food log.');
+      // The number quoted back is the number the action actually wrote, not
+      // the one this component was displaying, so what she is told counted
+      // is what counted.
+      const logged = result.proteinGrams;
+      setMessage(
+        logged !== null && logged !== undefined
+          ? `Added to your day. ${Math.round(logged)}g of protein counted.`
+          : 'Added to your food log.'
+      );
       router.refresh();
     });
   }
@@ -93,7 +116,9 @@ export function MealLogActions({
         <p className="text-sm font-semibold">Does this look accurate?</p>
       </div>
       <p className="mt-1 text-xs leading-relaxed text-[#6B7A72]">
-        Add this meal to today&apos;s log once the foods and portions above look right.
+        {showsEstimatedGrams
+          ? 'Nothing counts until you confirm. Adjust the amounts above first if any of them look off.'
+          : "Add this meal to today's log once the foods and portions above look right."}
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
@@ -130,7 +155,11 @@ export function MealLogActions({
         disabled={isLogging}
         className="mef-press mt-4 w-full rounded-full bg-[#1B3A2D] py-3 text-sm font-semibold text-white disabled:opacity-60"
       >
-        {isLogging ? 'Adding…' : 'Yes, add to my food log'}
+        {isLogging
+          ? 'Adding…'
+          : showsEstimatedGrams
+            ? 'Confirm and count toward my day'
+            : 'Yes, add to my food log'}
       </button>
 
       {savingMeal ? (

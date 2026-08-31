@@ -14,7 +14,7 @@ import { DetectedItemsList } from '@/components/food-lens/DetectedItemsList';
 import { MacroBalanceMeter } from '@/components/food-lens/MacroBalanceMeter';
 import { MealQualityIndicator } from '@/components/food-lens/MealQualityIndicator';
 import { PatternComparisonCard } from '@/components/food-lens/PatternComparisonCard';
-import { MealLogActions } from '@/components/food-lens/MealLogActions';
+import { EstimatedMacrosPanel } from '@/components/food-lens/EstimatedMacrosPanel';
 import { memberTimezone } from '@/lib/time/memberToday';
 import { formatInTimeZone } from '@/lib/time/displayDate';
 import { nowAsZonedInputValue } from '@/lib/time/localDate';
@@ -36,7 +36,15 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
   ]);
   if (!detail) notFound();
 
-  const { scan, detectedItems, macroEstimate, comparison, mealQuality, captures } = detail;
+  const { scan, detectedItems, itemMacroEstimates, macroEstimate, comparison, mealQuality, captures } =
+    detail;
+
+  // The same list DetectedItemsList shows: what is actually in the meal
+  // right now. A rejected or superseded item is not in the meal, so it is
+  // not in the totals either.
+  const itemsInMeal = detectedItems.filter(
+    (item) => item.status !== 'rejected' && item.status !== 'superseded'
+  );
 
   const pattern = comparison
     ? await getPrimalPatternProfileById(supabase, comparison.primal_pattern_profile_id)
@@ -129,10 +137,16 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
             </div>
           )}
 
+          {detectedItems.length > 0 && <DetectedItemsList scanId={scan.id} items={detectedItems} />}
+
           {macroEstimate && (
             <div className={`${CARD} p-6`}>
-              <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
+              <p className="mb-1 text-sm font-semibold uppercase tracking-wider text-[#6B7A72]">
                 Macro balance
+              </p>
+              <p className="mb-3 text-xs leading-relaxed text-[#6B7A72]">
+                How this plate is balanced between the three. The estimated grams below say roughly
+                how much food is here.
               </p>
               <MacroBalanceMeter
                 protein={{
@@ -147,6 +161,14 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
               />
             </div>
           )}
+
+          <EstimatedMacrosPanel
+            scanId={scan.id}
+            items={itemsInMeal}
+            itemMacroEstimates={itemMacroEstimates}
+            nowLocalInputValue={nowAsZonedInputValue(timeZone)}
+            timeZone={timeZone}
+          />
 
           {comparison && pattern ? (
             <PatternComparisonCard
@@ -170,14 +192,6 @@ export default async function FoodLensScanPage({ params }: { params: { id: strin
             </div>
           ) : null}
 
-          {detectedItems.length > 0 && <DetectedItemsList scanId={scan.id} items={detectedItems} />}
-
-          <MealLogActions
-            scanId={scan.id}
-            hasConfirmedItems={detectedItems.some((i) => i.status === 'confirmed')}
-            nowLocalInputValue={nowAsZonedInputValue(timeZone)}
-            timeZone={timeZone}
-          />
         </div>
       </main>
 

@@ -28,7 +28,14 @@ const SOURCE_LABEL: Record<LedgerEntrySource, string> = {
   search: 'Searched',
   quick_add: 'Quick add',
   meal_photo: 'Meal photo',
+  // The word "estimated" travels with the number everywhere it is shown.
+  // A scanned barcode is exact, a photo is not, and the list a member
+  // reviews at the end of her day has to keep telling her which is which.
+  photo_estimated: 'Photo (estimated)',
 };
+
+/** A photo entry, unlike every other lane, has no product behind it whose grams she can go and check, so the row carries a plain reminder of where its number came from. */
+const PHOTO_ESTIMATE_NOTE = 'Estimated from your photo, confirmed by you.';
 
 /**
  * What a meal-photo entry shows in place of a gram figure. Root reads a
@@ -51,6 +58,9 @@ export type LedgerEntryRow = {
   servings: number;
   consumedAt: string;
   proteinGrams: number | null;
+  /** Information only. Neither has a daily target in this app, so neither gets a bar, a goal or a verdict. */
+  carbGrams: number | null;
+  fatGrams: number | null;
   source: LedgerEntrySource;
   estimatedProteinLevel: FoodLensMealMacroLevel | null;
 };
@@ -65,6 +75,11 @@ function formatTime(iso: string, timeZone: string): string {
   return formatInTimeZone(iso, { hour: 'numeric', minute: '2-digit' }, timeZone);
 }
 
+/** A missing figure says so rather than borrowing zero's meaning, the same rule the scan screen follows. */
+function formatOptionalGrams(grams: number | null): string {
+  return grams === null ? 'not estimated' : `${roundGrams(grams)}g`;
+}
+
 export function ProteinLedgerEntries({
   entries: initial,
   timeZone,
@@ -77,6 +92,7 @@ export function ProteinLedgerEntries({
   const [entries, setEntries] = useState(initial);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [openDetailId, setOpenDetailId] = useState<string | null>(null);
 
   // The Today view's running-total card (ProteinLedgerProgress) is a
   // sibling fed by the same server page, not by this component's state —
@@ -105,11 +121,17 @@ export function ProteinLedgerEntries({
       setEntries((prev) =>
         prev.map((e) => {
           if (e.id !== id) return e;
-          const perServing = e.servings > 0 && e.proteinGrams !== null ? e.proteinGrams / e.servings : null;
+          // One physical amount of food, so all three move together. Any
+          // path that rescaled protein alone would leave the carb and fat
+          // grams on the same row describing a portion she no longer ate.
+          const rescale = (grams: number | null) =>
+            e.servings > 0 && grams !== null ? (grams / e.servings) * newServings : grams;
           return {
             ...e,
             servings: newServings,
-            proteinGrams: perServing !== null ? perServing * newServings : e.proteinGrams,
+            proteinGrams: rescale(e.proteinGrams),
+            carbGrams: rescale(e.carbGrams),
+            fatGrams: rescale(e.fatGrams),
           };
         })
       );
@@ -152,6 +174,28 @@ export function ProteinLedgerEntries({
                 <p className="mt-0.5 text-xs text-[#9AA79F]">
                   Estimated from your photo, so it isn&apos;t counted in grams.
                 </p>
+              )}
+              {entry.source === 'photo_estimated' && (
+                <>
+                  <p className="mt-0.5 text-xs text-[#9AA79F]">{PHOTO_ESTIMATE_NOTE}</p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenDetailId(openDetailId === entry.id ? null : entry.id)
+                    }
+                    aria-expanded={openDetailId === entry.id}
+                    className="mt-1 text-xs font-semibold text-[#1B3A2D] underline underline-offset-2"
+                  >
+                    {openDetailId === entry.id ? 'Hide carbs and fat' : 'Carbs and fat'}
+                  </button>
+                  {openDetailId === entry.id && (
+                    <p className="mt-1 text-xs text-[#6B7A72]">
+                      Carbs {formatOptionalGrams(entry.carbGrams)}, fat{' '}
+                      {formatOptionalGrams(entry.fatGrams)}. Shown for the full picture, neither
+                      has a daily target.
+                    </p>
+                  )}
+                </>
               )}
             </div>
             <div className="flex shrink-0 items-center gap-3">

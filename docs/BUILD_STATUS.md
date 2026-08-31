@@ -1,3 +1,74 @@
+## A meal photo now estimates grams, and they count once she confirms (2026-08-30)
+
+Migration 194. Food Lens read a meal photo as Low, Moderate or High
+protein, carbs and fat, and nothing more. Barcode, label, search and manual
+entry all produced real protein grams that fed Today's Protein, so a member
+who photographed her lunch watched her daily tally not move, and there was
+copy on two screens promising her it never would.
+
+**What the photo now returns.** The vision call asks for protein,
+carbohydrate and fat in grams for the portion of each item it can actually
+see, alongside everything it already reported. Its instructions changed in
+two important ways beyond that. Null, not zero, is the answer when it
+cannot size an item, because a member reads 0g as "this food has none of
+that", which is a different and false claim. And it is told NOT to report a
+plate total, because the app sums the items itself: a total the model
+reported separately could only ever disagree with the breakdown printed
+directly above it. Calories are still forbidden outright and appear nowhere
+a member can read.
+
+**Confirm to count.** The scan result screen shows the meal's estimated
+totals, then every item with the grams for its own portion, a plus and
+minus to change how much of it she actually ate, and a remove. Adjusting a
+serving multiplies protein, carbohydrate and fat by the same number,
+because they describe one physical amount of food, and the totals above
+move because they are the sum of the rows below and not a second figure
+that has to remember to agree (`lib/food-lens/macroGrams.ts`). Nothing
+reaches her day until she taps the one confirm button. A scan she walks
+away from writes no row at all and contributes exactly zero, which is now a
+test rather than a hope.
+
+**One rule for every lane.** `member_food_log` gained
+`estimated_protein_g` / `estimated_carb_g` / `estimated_fat_g`, and they
+are PER SERVING, the same per-serving meaning `product_nutrients.protein_g`
+has carried since migration 59. So the ledger applies one rule to
+everything, per-serving grams times servings, and editing a photo entry's
+servings later rescales all three together with no special case. The
+per-item breakdown itself lives in `food_lens_item_macro_estimates`, kept
+so the full macro picture is available to Root guidance and to any future
+carbohydrate or fat work, and carried forward onto the new row when a
+member correction supersedes an item (scaled by the quantity change, so
+2 pieces corrected to 4 doubles the grams).
+
+**Protein is still the only number with a target.** Carbohydrate and fat
+grams are stored and shown, on the scan screen and on the entry's detail in
+the ledger, with no bar, no goal and no judgment attached to either. This
+build adds no carbohydrate or fat target and no calorie figure anywhere.
+
+**A photo entry says it is a photo entry, forever.** `entry_source` on the
+log row is the writing lane's own answer and outranks the old inference.
+Only the photo lane sets it, because only the photo lane has two kinds of
+row that look identical otherwise: a confirmed Phase 2 meal that carries
+grams, and a meal logged before this existed that never had any. The old
+rows are not back-filled with a guess. They still show Root's relative read
+and still contribute nothing, which is what they have always meant. In the
+ledger the new ones read "Photo (estimated)" beside their grams, with the
+carbs and fat one tap away.
+
+**The copy that had to change.** Food Lens's intro promised "you'll never
+see calorie totals or gram weights" and the Macro Balance footnote said the
+same. Both now say the honest thing instead: photo numbers are estimates
+you confirm before they count, barcode and label numbers are exact, and
+there are still no calories. Macro Balance itself is untouched, levels and
+all, because "how is this plate balanced" and "how much food is there" are
+different questions and both are worth asking.
+
+**Checks.** 7,470 local tests pass, including 30 new pure ones over the
+scaling, summing and null handling, and 4 new integration tests that write
+and read the new table and columns as the member herself, since a write
+matching no policy returns zero rows and no error. Typecheck, lint and the
+production build are clean.
+
 ## A coach can send this week's Weekly Reflection to anyone (2026-08-30)
 
 Migration 193. The Weekly Reflection used to be a pure consequence of the

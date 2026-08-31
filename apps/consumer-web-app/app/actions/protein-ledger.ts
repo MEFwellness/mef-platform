@@ -28,12 +28,16 @@
  *  10. Ledger quick add                -> quickAddProteinLedgerEntryAction
  *
  * All ten write one member_food_log row per logged item, so one logged
- * meal is one ledger contribution and nothing needs deduplicating. Lanes
- * 1 through 4 and 6 through 10 carry real per-serving protein grams and
- * count. Lane 5 carries no gram data anywhere in this application (the
- * vision provider returns a relative Low/Moderate/High read, never grams)
- * so it contributes zero, and is shown with that relative read rather than
- * a fabricated number.
+ * meal is one ledger contribution and nothing needs deduplicating. Every
+ * lane carries per-serving protein grams and counts, including lane 5 as
+ * of Phase 2: a meal photo now produces gram estimates, and confirming
+ * them on the result screen writes them onto the row (migration 194). A
+ * scan she never confirms writes no row at all and contributes nothing.
+ *
+ * The one row that still contributes zero is a photo meal logged before
+ * Phase 2, which has no gram data anywhere to read. It is shown with
+ * Root's relative Low/Moderate/High read, as it always was, and is never
+ * back-filled with a guess.
  */
 
 import { createClient } from '@/lib/supabase/server';
@@ -88,9 +92,9 @@ async function requireMember(): Promise<{
  * member could photograph a meal, confirm every food in it, add it to her
  * log, and find her protein ledger showing nothing at all — not a zero
  * against a logged meal, but no trace that she had logged anything. Those
- * rows are read now. They still contribute no grams (there are none to
- * contribute) and carry Root's relative protein read instead, so the day's
- * list and the 7-day history reflect what she actually did.
+ * rows are read now. A confirmed Phase 2 photo row contributes its own
+ * estimated grams; an older photo row has none to contribute and carries
+ * Root's relative protein read instead.
  */
 async function listProteinEntriesForLocalDateRange(
   supabase: ReturnType<typeof createClient>,
@@ -129,13 +133,16 @@ async function listProteinEntriesForLocalDateRange(
   if (entries.length === 0) return [];
 
   const productIds = [...new Set(entries.map((e) => e.product_id).filter((id): id is string => id !== null))];
-  // Only the meal-photo rows need a macro estimate looked up, and only
-  // those rows: a product-linked entry has real grams and never falls back
-  // to a relative read.
+  // Only a photo row with no grams of its own needs the relative read
+  // looked up. A product-linked entry has real grams, and a confirmed
+  // Phase 2 photo row carries its own, so neither ever falls back to a
+  // level.
   const estimateScanIds = [
     ...new Set(
       entries
-        .filter((e) => e.product_id === null && e.scan_id !== null)
+        .filter(
+          (e) => e.product_id === null && e.scan_id !== null && e.estimated_protein_g === null
+        )
         .map((e) => e.scan_id as string)
     ),
   ];

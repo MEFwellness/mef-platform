@@ -91,9 +91,10 @@ export function FoodLensCaptureFlow() {
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-[#6B7A72]">
           Take a photo of your meal and Root will let you know how it stacks up against your own
-          eating pattern. This is coaching, not calorie counting: you&apos;ll never see calorie
-          totals or gram weights, only how your protein, carbs, and fat roughly compare to your
-          target.
+          eating pattern, plus estimated protein, carbs, and fat. This is coaching, not calorie
+          counting: you will never see a calorie figure here. Numbers from a photo are estimates,
+          so you confirm or adjust them before they count toward your day. Numbers from a barcode
+          or a label are exact.
         </p>
         <div className="mt-4 flex items-start gap-2 rounded-2xl bg-[#1B3A2D]/[0.04] p-3">
           <ShieldCheck

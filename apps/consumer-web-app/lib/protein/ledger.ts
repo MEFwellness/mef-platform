@@ -17,16 +17,21 @@
  * servings x protein_g. A row with no known protein value contributes
  * nothing and is never silently treated as 0g.
  *
- * WHAT DOES NOT. Meal-photo rows (product_id null) carry no gram data
- * anywhere in this application: the vision provider returns a relative
- * Low/Moderate/High read per meal (food_lens_macro_estimates), never a
- * gram figure, which is a deliberate product rule, see
- * lib/food-lens/providers/types.ts. Those rows are now READ by the ledger
- * so today's list and the 7-day history show the member's complete day,
- * but they contribute exactly zero grams and are labeled with Root's
- * relative read instead of a number. They were previously filtered out of
- * every ledger query entirely, which is what made a logged photo meal look
- * like nothing had been logged at all.
+ * PHOTO ESTIMATES, ONCE CONFIRMED. A meal photo now produces gram
+ * estimates too (migration 194), and they count on exactly one condition:
+ * the member saw them, adjusted or removed what she wanted, and tapped
+ * confirm. Confirming writes member_food_log.estimated_protein_g /
+ * estimated_carb_g / estimated_fat_g, PER SERVING, the same per-serving
+ * meaning product_nutrients.protein_g has, so one rule covers every lane:
+ * a row contributes its per-serving protein times its servings. An
+ * unconfirmed scan writes no row at all and therefore contributes nothing.
+ *
+ * WHAT STILL DOES NOT COUNT. A photo row logged before Phase 2 carries no
+ * gram data (it never had any, only the relative Low/Moderate/High read in
+ * food_lens_macro_estimates). Those rows are READ so today's list and the
+ * 7-day history show the member's complete day, but they contribute zero
+ * and are labeled with that relative read instead of a number, which is
+ * what they have always meant. They are never back-filled with a guess.
  */
 
 import type { FoodLensMealMacroLevel, MemberFoodLogEntry } from '@mef/shared-types-contracts';
@@ -39,19 +44,51 @@ export function roundGrams(value: number): number {
 
 export type LedgerProductNutrients = { proteinG: number | null };
 
-/** Grams of protein a single log entry contributes, or null if the linked product has no known protein value (never estimated — a missing value stays missing, not zero). */
+/**
+ * Grams of protein a single log entry contributes, or null if nothing on
+ * the row resolves to a real per-serving value (never invented, a missing
+ * value stays missing rather than becoming zero).
+ *
+ * One rule, both kinds of row. A product-linked entry takes its
+ * per-serving grams from product_nutrients; a confirmed photo entry takes
+ * them from its own estimated_protein_g column, which holds the same
+ * per-serving quantity. Both are then multiplied by servings, so editing
+ * servings later behaves identically whichever lane wrote the row.
+ */
 export function entryProteinGrams(
-  entry: Pick<MemberFoodLogEntry, 'servings'>,
+  entry: Pick<MemberFoodLogEntry, 'servings'> & { estimated_protein_g?: number | null },
   nutrients: LedgerProductNutrients | null
 ): number | null {
-  if (!nutrients || nutrients.proteinG === null) return null;
-  return nutrients.proteinG * entry.servings;
+  const perServing = nutrients?.proteinG ?? entry.estimated_protein_g ?? null;
+  if (perServing === null) return null;
+  return perServing * entry.servings;
 }
 
-export type LedgerEntrySource = 'scan' | 'search' | 'quick_add' | 'meal_photo';
+/**
+ * Which lane an entry came from.
+ *
+ * 'photo_estimated' is a confirmed Phase 2 photo meal: gram estimates the
+ * member reviewed, which count. 'meal_photo' is a photo meal logged before
+ * gram estimates existed: no grams anywhere on the row, so it shows Root's
+ * relative read and contributes nothing. Keeping them as two values is the
+ * point, since they say different things to the member.
+ */
+export type LedgerEntrySource =
+  | 'scan'
+  | 'search'
+  | 'quick_add'
+  | 'meal_photo'
+  | 'photo_estimated';
 
 export type LedgerEntryWithProtein = MemberFoodLogEntry & {
   proteinGrams: number | null;
+  /**
+   * The confirmed carbohydrate and fat grams on this entry, scaled by its
+   * servings the same way protein is. Information only: no target, no
+   * progress bar, no judgment is attached to either anywhere in this app.
+   */
+  carbGrams: number | null;
+  fatGrams: number | null;
   productName: string | null;
   source: LedgerEntrySource;
   /**
@@ -64,25 +101,35 @@ export type LedgerEntryWithProtein = MemberFoodLogEntry & {
 };
 
 /**
- * Which lane an entry came from, inferred from what's already on the row —
- * no new column needed.
+ * The explicit column first, then the old inference.
  *
- * A row with no linked product is a meal photo: the only writer that
- * leaves product_id null is logMealScanToFoodLogAction (one row per
- * confirmed item in the photo). A scan always creates a food_lens_scans
- * row first (scan_id set); a quick add's product is always private
- * (data_source 'mef_verified', barcode null, per
- * insertVerifiedFoodProductFromLabelScan); anything else product-linked
- * came from search (or from Food Lens's own barcode/label/manual flows
- * elsewhere in the app, which share this same table by design — see this
- * module's header).
+ * member_food_log.entry_source (migration 194) is the writing lane's own
+ * answer and always wins. Only the photo lane sets it today, because only
+ * the photo lane has two kinds of row that look identical otherwise: a
+ * confirmed Phase 2 meal that carries grams, and a pre-Phase-2 meal that
+ * never did. Every other lane stays inferable from the row's own shape,
+ * exactly as before, so no back-fill of old rows is required for any of
+ * this to be correct.
+ *
+ * The inference, unchanged: a row with no linked product is a meal photo
+ * (the only writer that leaves product_id null is
+ * logMealScanToFoodLogAction, one row per confirmed item in the photo). A
+ * scan always creates a food_lens_scans row first (scan_id set); a quick
+ * add's product is always private (data_source 'mef_verified', barcode
+ * null, per insertVerifiedFoodProductFromLabelScan); anything else
+ * product-linked came from search (or from Food Lens's own barcode/label/
+ * manual flows elsewhere in the app, which share this same table by
+ * design — see this module's header).
  */
 export function resolveEntrySource(entry: {
   productId?: string | null;
   scanId: string | null;
   productBarcode: string | null;
   productDataSource: string | null;
+  /** The explicit column (migration 194), when the writing lane set one. Always wins over the inference below, which exists only for rows written before that column did. */
+  entrySource?: MemberFoodLogEntry['entry_source'];
 }): LedgerEntrySource {
+  if (entry.entrySource === 'photo_estimated') return 'photo_estimated';
   if (entry.productId === null) return 'meal_photo';
   if (entry.scanId) return 'scan';
   if (entry.productDataSource === 'mef_verified' && entry.productBarcode === null) {
@@ -125,11 +172,14 @@ export function buildLedgerEntries<T extends MemberFoodLogEntry>(input: {
       scanId: row.scan_id,
       productBarcode: product?.barcode ?? null,
       productDataSource: product?.dataSource ?? null,
+      entrySource: row.entry_source,
     });
     return {
       ...row,
       productName: product?.name ?? row.manual_label ?? null,
       proteinGrams: entryProteinGrams(row, { proteinG: proteinPerServing }),
+      carbGrams: row.estimated_carb_g === null ? null : row.estimated_carb_g * row.servings,
+      fatGrams: row.estimated_fat_g === null ? null : row.estimated_fat_g * row.servings,
       source,
       estimatedProteinLevel:
         source === 'meal_photo' && row.scan_id

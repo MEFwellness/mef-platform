@@ -67,8 +67,10 @@ class NonRetryableApiError extends Error {
 }
 
 const SYSTEM_PROMPT = `You identify foods in a meal photo for a wellness-coaching app. Your ONLY job is
-structured, honest observation — never coaching advice, never calorie or gram estimates, never a
-diagnosis.
+structured, honest observation — never coaching advice, never a calorie figure, never a diagnosis.
+You DO estimate grams of protein, carbohydrate and fat per item (see macro grams below); the app
+labels every one of those figures as an estimate and asks the member to confirm or adjust it before
+it counts toward anything. Never estimate calories: this app does not show them anywhere.
 
 For each distinct food item you can see, report a short plain-language label, which of these
 categories it mainly falls into (protein, carb, fat, vegetable, mixed, unknown), and your confidence
@@ -97,10 +99,26 @@ For each item, also report:
   dish, insufficient visual cues) — never guess confidently from ambiguous visual cues.
 - is_condiment: true for a sauce, dressing, dip, oil drizzle, or topping rather than a standalone
   food — used only for display grouping, never to exclude it from analysis.
+- protein_g, carb_g, fat_g: your best estimate, in whole grams, of how much protein, carbohydrate
+  and fat are in THE PORTION OF THIS ITEM YOU CAN SEE — not per 100g, not per package, not for the
+  whole plate. Size the portion first (that is what portion_description says), then apply what you
+  know about that food's typical composition. Example: a chicken breast that looks like about six
+  ounces is roughly 38g protein, 0g carbohydrate, 8g fat. Use 0 only when the food genuinely
+  contains essentially none of that macro (plain rice really is 0g fat; a chicken breast really is
+  0g carbohydrate). Use null for ALL THREE when you cannot size the item honestly at all: a dish
+  buried under sauce, a container you cannot see into, a plate at an angle that hides most of the
+  food. Null means "I could not estimate this", which the app shows as exactly that. Never write 0
+  to mean "I don't know" — a member reads 0g as "this food has none of that", which is a different
+  and false claim. These are estimates from a photo and will be presented as estimates, so give
+  your honest best number rather than refusing; the member confirms or adjusts it before it counts.
+
+Do not report a total for the plate. The app adds your per-item grams itself, so a separate total
+could only ever disagree with the items it is supposed to be the sum of.
 
 Then give a single plate-level estimate of the meal's overall protein, carbohydrate, and fat
-EMPHASIS, each with its own confidence. This is a coarse relative judgment, not a nutrition-database
-lookup — never a percentage, never a gram value. Each dimension is one of:
+EMPHASIS, each with its own confidence. This is a separate, coarse relative judgment from the
+per-item grams above, and it is not a nutrition-database lookup: express it only as one of the four
+words below, never as a percentage and never as a number. Each dimension is one of:
 - "none" — essentially absent. Use this, not "low", when a macro is genuinely negligible: a can of
   regular (non-diet) soda has no meaningful protein or fat; plain water has none of any macro; a
   bowl of plain white rice has essentially no fat.
@@ -171,7 +189,7 @@ function toolSchema() {
   return {
     name: RECORD_MEAL_ANALYSIS_TOOL,
     description:
-      'Records structured, honest food identification, macro-emphasis, and quality-signal estimates for one meal photo.',
+      'Records structured, honest food identification, per-item macro gram estimates, macro-emphasis, and quality-signal estimates for one meal photo.',
     input_schema: {
       type: 'object',
       properties: {
@@ -189,6 +207,9 @@ function toolSchema() {
               unit: { type: 'string', enum: PORTION_UNITS, nullable: true },
               cooking_method: { type: 'string', enum: COOKING_METHODS, nullable: true },
               is_condiment: { type: 'boolean' },
+              protein_g: { type: 'number', minimum: 0, nullable: true },
+              carb_g: { type: 'number', minimum: 0, nullable: true },
+              fat_g: { type: 'number', minimum: 0, nullable: true },
             },
             required: [
               'label',
@@ -197,6 +218,9 @@ function toolSchema() {
               'portion_description',
               'portion_confidence',
               'is_condiment',
+              'protein_g',
+              'carb_g',
+              'fat_g',
             ],
           },
         },
@@ -249,6 +273,9 @@ type ToolResultShape = {
     unit?: string | null;
     cooking_method?: string | null;
     is_condiment?: boolean;
+    protein_g?: number | null;
+    carb_g?: number | null;
+    fat_g?: number | null;
   }>;
   macro_estimate: {
     protein: { level: string; confidence: number };
@@ -298,6 +325,21 @@ function isPortionUnit(value: string): value is (typeof PORTION_UNITS)[number] {
 function clampConfidence(value: number): number {
   if (typeof value !== 'number' || Number.isNaN(value)) return 0;
   return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * A gram figure the model reported, or null. Deliberately NOT defaulted to
+ * 0: a missing, non-numeric or negative value means the model gave us
+ * nothing usable, and writing 0 there would tell a member this food
+ * contains none of that macro, which is a different and false claim. The
+ * cap is a sanity ceiling on one item's portion, not a nutrition rule.
+ */
+const MAX_ITEM_GRAMS = 1000;
+
+function gramsOrNull(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value < 0) return null;
+  return Math.min(value, MAX_ITEM_GRAMS);
 }
 
 export class AnthropicFoodLensProvider implements FoodLensProvider {
@@ -430,6 +472,9 @@ export class AnthropicFoodLensProvider implements FoodLensProvider {
             ? item.cooking_method
             : null,
         isCondiment: item.is_condiment === true,
+        proteinG: gramsOrNull(item.protein_g),
+        carbG: gramsOrNull(item.carb_g),
+        fatG: gramsOrNull(item.fat_g),
       }));
 
     const dimension = (

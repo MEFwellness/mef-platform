@@ -390,6 +390,14 @@ export async function duplicateFoodLogEntryAction(
     servings: original.servings,
     consumedAt: new Date().toISOString(),
     manualLabel: original.manual_label,
+    // A duplicate of a confirmed photo entry has to carry that entry's
+    // per-serving gram estimates with it, or the copy would show up in the
+    // ledger as the same food contributing nothing. entry_source rides
+    // along for the same reason: the copy is still a photo estimate.
+    entrySource: original.entry_source,
+    estimatedProteinG: original.estimated_protein_g,
+    estimatedCarbG: original.estimated_carb_g,
+    estimatedFatG: original.estimated_fat_g,
   });
   if (!entry) return { error: 'Could not duplicate this entry.' };
   return { entry };

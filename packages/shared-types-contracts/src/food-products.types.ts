@@ -284,6 +284,36 @@ export interface MemberFoodLogEntry {
   member_adjusted: boolean;
   /** Fallback display label for an entry with no product_id (e.g. a repeat-logged saved-meal item that came from a meal-photo detection) — never used by any rules engine. */
   manual_label: string | null;
+  /**
+   * Which lane wrote this row (migration 194). Null on every row written
+   * before that migration, whose lane is still inferred from the row's own
+   * shape by lib/protein/ledger.ts's resolveEntrySource. 'photo_estimated'
+   * is the one value that means "these grams were estimated from a photo
+   * and the member confirmed them."
+   */
+  entry_source:
+    | 'barcode'
+    | 'nutrition_label'
+    | 'search'
+    | 'manual'
+    | 'quick_add'
+    | 'photo_estimated'
+    | 'saved_meal'
+    | 'duplicate'
+    | null;
+  /**
+   * Estimated grams PER SERVING for a photo-sourced entry, exactly the
+   * same per-serving meaning product_nutrients.protein_g carries, so an
+   * entry's contribution is always grams x servings whichever lane it came
+   * from and a later servings edit rescales all three together.
+   *
+   * Carbohydrate and fat are stored for the full macro picture and shown
+   * as information only. Nothing treats them as progress toward a target,
+   * because no carbohydrate or fat target exists.
+   */
+  estimated_protein_g: number | null;
+  estimated_carb_g: number | null;
+  estimated_fat_g: number | null;
 }
 
 // ---------------------------------------------------------------------------
