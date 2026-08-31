@@ -39,6 +39,27 @@ export function canMintSessions() {
  * account could not be minted.
  */
 export async function mintSessionContext(browser, email, { baseUrl, viewport }) {
+  const minted = await mintSessionCookies(email, { baseUrl });
+  if (!minted) return null;
+
+  const context = await browser.newContext({ viewport: viewport ?? { width: 1280, height: 900 } });
+  await context.addCookies(minted.cookies);
+
+  return { context, session: minted.session, service: minted.service };
+}
+
+/**
+ * The same minting, stopping one step earlier: it returns the cookies
+ * rather than installing them on a context it created.
+ *
+ * Split out because a run that needs REAL web push cannot use
+ * browser.newContext at all. Chrome only registers with a push service
+ * from a persistent profile, so those runs call
+ * chromium.launchPersistentContext, which hands back a context directly
+ * and has no browser to make one from. Rather than a second copy of the
+ * generateLink / verifyOtp / cookie-chunking dance, both paths share this.
+ */
+export async function mintSessionCookies(email, { baseUrl }) {
   if (!canMintSessions()) return null;
 
   const url = process.env.PROD_SUPABASE_URL;
@@ -67,9 +88,10 @@ export async function mintSessionContext(browser, email, { baseUrl, viewport }) 
     `base64-${stringToBase64URL(JSON.stringify(verified.session))}`
   );
 
-  const context = await browser.newContext({ viewport: viewport ?? { width: 1280, height: 900 } });
-  await context.addCookies(
-    chunks.map((chunk) => ({
+  return {
+    session: verified.session,
+    service,
+    cookies: chunks.map((chunk) => ({
       name: chunk.name,
       value: chunk.value,
       domain: new URL(baseUrl).hostname,
@@ -77,15 +99,13 @@ export async function mintSessionContext(browser, email, { baseUrl, viewport }) 
       httpOnly: false,
       secure: baseUrl.startsWith('https'),
       sameSite: 'Lax',
-    }))
-  );
-
-  return { context, session: verified.session, service };
+    })),
+  };
 }
 
 /** Retires a minted session without touching that account's other sessions. */
 export async function retireSession(minted) {
   if (!minted) return;
   await minted.service.auth.admin.signOut(minted.session.access_token, 'local').catch(() => {});
-  await minted.context.close().catch(() => {});
+  await minted.context?.close().catch(() => {});
 }

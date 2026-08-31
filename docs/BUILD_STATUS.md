@@ -88,6 +88,61 @@ can prove the chain.
 **What is NOT here.** No schedule, no cron entry, no decision about what
 is worth interrupting someone for. That is Part 2.
 
+**Live on app.mefwellness.com, 28 of 28.**
+`scripts/verify-push-notifications-live.mjs` drives the real journey in a
+real browser as the production test member. It has one unusual requirement
+and the reason is worth writing down: Playwright's bundled Chromium has no
+push service at all and fails with "push service not available", and real
+Chrome only registers with a push service from a PERSISTENT profile, so an
+ephemeral context fails with "permission denied" even with notification
+permission granted. Both were measured before the script was written. So
+the run uses real Chrome, headed, with a persistent profile, and the
+session cookie is minted separately and installed onto that context.
+`scripts/lib/mint-session.mjs` gained `mintSessionCookies` for exactly
+that, with `mintSessionContext` now built on it rather than duplicated.
+
+The run: today's Daily Reset ending screen; the ask appearing there, with
+"From Root", "Want a gentle reminder?" and "One a day at most, and only
+when there is truly something waiting" word for word, and both ways out on
+the screen; being shown it recorded at once as `declined` while turning
+nothing on; declining answered with "Understood" and no argument; the
+ending screen reloaded and revisited with the ask gone both times; the
+switch on her profile reading off and saying what off means; flipping it on
+raising a real browser permission grant and a real FCM subscription, with
+the row written on production as "Mac, Chrome"; the administrator's tool
+listing her and reporting "Sent to 1 device."; and then the part that
+proves the whole chain rather than half of it, the notification ARRIVING in
+her browser and being displayed by the service worker, read back through
+`registration.getNotifications()` as "Rooted Reset: This is a test
+notification. Nothing is waiting for you right now." carrying `/dashboard`
+as the path a tap would open. Then the switch flipped off again, reading
+off and leaving zero live devices.
+
+No em dash on the ask, the declined panel, the profile screen or the admin
+tool. One 404 appears on /profile and is named rather than hidden: it is
+`supabase.auth.passkey.list()` against a project that has not enabled
+passkeys, which `PasskeyEnrollment.tsx` already documents as best effort.
+Nothing else errored.
+
+**What production was left holding:** one Daily Reset for today, which is
+additive and is the trigger the whole feature hangs on. Everything else was
+put back: the three push columns restored to the values found at the start
+and confirmed afterwards, and the subscription row the run created deleted.
+Zero members on production are marked as asked, zero have reminders on, and
+the subscriptions table is empty.
+
+**What no script can prove, and needs a physical iPhone:** a notification
+arriving on a locked phone, and the real Add to Home Screen walk. The
+walkthrough's words and the capability rule behind it are covered by tests;
+the phone itself is not.
+
+**The three environment variables** now live in Vercel for Production,
+Preview and Development: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+`VAPID_PRIVATE_KEY` and `VAPID_SUBJECT`. The same pair is in
+`apps/consumer-web-app/.env.local`. Replacing the pair invalidates every
+subscription already saved on every phone, silently, so it is not a
+routine rotation.
+
 **Checks.** 468 files, 7,549 tests, all passing, including 77 new ones over
 the capability rules, the due rule, the rendered copy of all five stages,
 the worker's real behaviour, the send rules and the RLS. Eight mutations
