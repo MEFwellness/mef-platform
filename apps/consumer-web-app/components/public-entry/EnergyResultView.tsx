@@ -220,7 +220,7 @@ export function EnergyResultView({
             <button
               type="submit"
               disabled={submitting}
-              className="mef-press mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[#1B3A2D] px-6 py-3.5 text-base font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+              className="mef-focus-ring mef-press mef-button-primary mt-4 flex items-center justify-center gap-2 text-base"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               {EMAIL_STEP_COPY.buttonLabel}
@@ -232,8 +232,12 @@ export function EnergyResultView({
       <div className={`${ENERGY_GOLD_DIVIDER} mt-12`} />
 
       <section className="mt-10 pb-4">
-        <p className={EYEBROW}>{RESULT_HEADINGS.invitation}</p>
-        <h2 className={`${ENERGY_DISPLAY_FONT} mt-2 text-2xl leading-tight text-[#1B3A2D]`}>
+        {/* No eyebrow above this one. RESULT_HEADINGS.invitation and
+            INVITATION_COPY.title are the same six words, so this section
+            was printing its own heading twice, once in small caps and once
+            in the display face directly underneath. Seen in a phone sized
+            screenshot while auditing this screen's buttons. */}
+        <h2 className={`${ENERGY_DISPLAY_FONT} text-2xl leading-tight text-[#1B3A2D]`}>
           {INVITATION_COPY.title}
         </h2>
         {INVITATION_COPY.lines.map((line, index) => (
@@ -244,7 +248,7 @@ export function EnergyResultView({
         <button
           type="button"
           onClick={() => onGoToSignup('signup')}
-          className="mef-press mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-[#C4A050] px-6 py-3.5 text-base font-semibold text-[#1B3A2D] transition hover:brightness-105"
+          className="mef-focus-ring mef-press mef-button-primary mt-6 flex items-center justify-center gap-2 bg-[#C4A050] text-base text-[#1B3A2D] shadow-[0_4px_16px_-4px_rgba(196,160,80,0.55)] hover:bg-[#B8944A]"
         >
           <Check className="h-4 w-4" aria-hidden="true" strokeWidth={2.5} />
           {INVITATION_COPY.buttonLabel}
@@ -252,7 +256,7 @@ export function EnergyResultView({
         <button
           type="button"
           onClick={() => onGoToSignup('login')}
-          className="mef-press mt-3 w-full text-center text-sm font-medium text-[#6B7A72] underline underline-offset-2"
+          className="mef-focus-ring mef-press mef-button-secondary mt-3"
         >
           {INVITATION_COPY.secondaryLabel}
         </button>

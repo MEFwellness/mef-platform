@@ -379,3 +379,111 @@ describe('the coach notification', () => {
     expect(notify).toContain("lead.arrivedThrough ?? 'the Lead Capture Agent'");
   });
 });
+
+// ---------------------------------------------------------------------
+// Question clarity: no question may lean on a concept nobody introduced
+// ---------------------------------------------------------------------
+
+describe('every question stands on its own by the time it appears', () => {
+  /**
+   * Found on a phone: question one read "When does the drop usually hit
+   * you?" and nothing before it had ever said what "the drop" was. It is
+   * the very first thing a cold visitor sees, and it assumed a shared
+   * vocabulary that did not exist yet.
+   *
+   * A definite article in front of a noun ("THE drop", "THE dip") is a
+   * promise that the reader already knows which one you mean. This checks
+   * that every such noun really has been introduced on a screen the visitor
+   * has already passed, using the actual order the experience runs in.
+   */
+  const JARGON = ['drop', 'dip', 'crash', 'slump', 'window', 'baseline', 'pattern', 'shape'];
+
+  /** Everything visible on screen by the time a given question is asked, in order. */
+  function textSeenBefore(questionKey: string): string {
+    const target = ENERGY_QUESTIONS.find((q) => q.key === questionKey)!;
+    const parts: string[] = [
+      ENERGY_INTRO.title,
+      ENERGY_INTRO.eyebrow,
+      ...ENERGY_INTRO.lines,
+      ...ENERGY_INTRO.facts,
+    ];
+    for (const chapter of ENERGY_CHAPTERS) {
+      if (chapter.number > target.chapter) break;
+      parts.push(chapter.title, ...chapter.lines);
+    }
+    for (const question of ENERGY_QUESTIONS) {
+      if (question === target) break;
+      parts.push(question.prompt, ...question.options.map((o) => o.label));
+    }
+    return parts.join(' ').toLowerCase();
+  }
+
+  it.each(ENERGY_QUESTIONS.map((q) => [q.key, q.prompt] as const))(
+    '%s reads clearly on its own',
+    (key, prompt) => {
+      const seen = textSeenBefore(key);
+      const unexplained: string[] = [];
+      for (const word of JARGON) {
+        // "the drop", "that dip", "this crash": a definite reference.
+        const definite = new RegExp(`\\b(the|that|this|your)\\s+${word}\\b`, 'i');
+        if (!definite.test(prompt)) continue;
+        if (!seen.includes(word)) unexplained.push(word);
+      }
+      expect(unexplained, `"${prompt}" leans on ${unexplained.join(', ')}`).toEqual([]);
+    }
+  );
+
+  it('question one in particular introduces its own subject', () => {
+    const first = ENERGY_QUESTIONS[0]!;
+    // Nothing at all has been established when this is read, so it has to
+    // name what it is asking about in its own words.
+    expect(first.prompt.toLowerCase()).toContain('tiredness');
+    expect(first.prompt.toLowerCase()).not.toContain('the drop');
+  });
+
+  it('the option labels a question offers do not reintroduce the problem', () => {
+    for (const question of ENERGY_QUESTIONS) {
+      const seen = textSeenBefore(question.key) + ' ' + question.prompt.toLowerCase();
+      for (const option of question.options) {
+        for (const word of JARGON) {
+          const definite = new RegExp(`\\b(the|that|this)\\s+${word}\\b`, 'i');
+          if (!definite.test(option.label)) continue;
+          expect(seen, `"${option.label}" leans on "${word}"`).toContain(word);
+        }
+      }
+    }
+  });
+
+  it('and neither does an evidence line read back on the result screen', () => {
+    // The echoes are read after every question, so the whole experience is
+    // available to them, but "the drop" was never defined anywhere at all.
+    for (const echoes of Object.values(ANSWER_ECHOES)) {
+      for (const echo of Object.values(echoes)) {
+        expect(echo.toLowerCase()).not.toMatch(/\bthe drop\b/);
+      }
+    }
+  });
+});
+
+describe('the entry screen says the three things that decide whether somebody begins', () => {
+  it('names how long it takes, that no account is needed, and that no email is needed', () => {
+    const facts = ENERGY_INTRO.facts.join(' ').toLowerCase();
+    expect(facts).toContain('minute');
+    expect(facts).toContain('no account');
+    expect(facts).toContain('no email');
+  });
+
+  it('keeps the body copy short enough to read in a glance', () => {
+    // It was about sixty words, which on a phone is a wall of text somebody
+    // scrolls past. The three facts above carry what the prose used to.
+    const words = ENERGY_INTRO.lines.join(' ').split(/\s+/).filter(Boolean).length;
+    expect(words).toBeLessThanOrEqual(32);
+  });
+
+  it('still carries the disclaimer, before a single question is asked', () => {
+    // The exact sentence the brief asked to keep, unchanged.
+    expect(ENERGY_INTRO.reassurance).toBe(
+      'Nothing here is a diagnosis, and nothing here is medical advice.'
+    );
+  });
+});

@@ -147,7 +147,7 @@ export function ResetPlanTaker({ initialPlan }: { initialPlan: ResetPlan }) {
               label: RESET_PLAN_INTRO_COPY.button,
               onClick: () => goTo('proposal'),
               className:
-                'mef-focus-ring mt-7 block w-full rounded-2xl bg-[#1B3A2D] px-6 py-4 text-center text-sm font-semibold text-white shadow-[0_4px_16px_-4px_rgba(27,58,45,0.45)] transition hover:bg-[#163025]',
+                'mef-focus-ring mef-button-primary mt-7',
             }}
           />
         </div>

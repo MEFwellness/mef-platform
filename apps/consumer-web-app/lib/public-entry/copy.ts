@@ -24,14 +24,29 @@ import type { PublicEntryPatternKey } from '@mef/shared-types-contracts';
 
 export const ENERGY_EXPERIENCE_TITLE = 'Where Your Energy Goes';
 
+/**
+ * The entry screen, and the one rule it is written to.
+ *
+ * A COLD VISITOR DECIDES IN ABOUT A SECOND. The first version of this
+ * screen said the right things in about sixty words, which on a phone is a
+ * wall of text somebody scrolls past. This says the same things in about
+ * half of that, and the three facts that actually decide whether a stranger
+ * starts (how long, what it costs, what they get) are lifted out of the
+ * prose into `facts` so they can be read at a glance rather than found in a
+ * sentence.
+ *
+ * Nothing was softened to make it shorter. The disclaimer is unchanged and
+ * still sits on this screen, before a single question is asked.
+ */
 export const ENERGY_INTRO = {
-  eyebrow: 'A short look, about two minutes',
+  eyebrow: 'A short look at your energy',
   title: 'Where Your Energy Goes',
   lines: [
-    'Being tired is not one thing. It has a shape, and the shape is different for different people.',
-    'Nine questions about what your days and nights actually look like. No account, no email, nothing to sign.',
-    'At the end you get what we noticed, drawn from your own answers, and one thing worth trying.',
+    'Nine questions about your days and your nights.',
+    'At the end, what we noticed in your own answers, and one thing worth trying.',
   ],
+  /** The three facts that decide whether somebody begins. Read at a glance, never buried in a sentence. */
+  facts: ['About 2 minutes', 'No account', 'No email'],
   buttonLabel: 'Begin',
   reassurance: 'Nothing here is a diagnosis, and nothing here is medical advice.',
 } as const;
@@ -43,11 +58,11 @@ export const ENERGY_INTRO = {
  */
 export const ANSWER_ECHOES: Record<string, Record<string, string>> = {
   low_point: {
-    early_morning: 'the drop is there before the day even starts',
-    late_morning: 'the drop lands late morning, once the first push is over',
-    early_afternoon: 'the drop lands in the early afternoon, somewhere after lunch',
-    evening: 'the drop lands in the evening, once things finally go quiet',
-    all_day: 'there is no drop, because it is low all day',
+    early_morning: 'the tiredness is there before the day even starts',
+    late_morning: 'tiredness hits hardest late morning, once the first push is over',
+    early_afternoon: 'tiredness hits hardest in the early afternoon, somewhere after lunch',
+    evening: 'tiredness hits hardest in the evening, once things finally go quiet',
+    all_day: 'there is no single worst time, because your energy is low all day',
   },
   morning_start: {
     up_and_going: 'you are up and going with no real effort',
@@ -75,9 +90,9 @@ export const ANSWER_ECHOES: Record<string, Record<string, string>> = {
     collapse_without_warning: 'you go from upright to asleep with nothing in between',
   },
   first_food: {
-    within_an_hour: 'you eat something proper within an hour of waking',
+    within_an_hour: 'you eat a real meal within an hour of waking',
     mid_morning: 'you do not eat until mid morning',
-    not_until_lunch: 'you do not eat anything proper until lunch',
+    not_until_lunch: 'you do not eat a real meal until lunch',
     no_pattern: 'when you first eat changes completely day to day',
   },
   afternoon_reach: {

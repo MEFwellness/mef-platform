@@ -91,12 +91,28 @@ function useSeenBefore(storageKey: string, markSeenAfterMs: number): boolean | n
   return seen;
 }
 
+/**
+ * `className` DEFAULTS to a real button rather than to nothing.
+ *
+ * It used to be optional with no fallback, so a call site that omitted it
+ * rendered a bare `<button>`: unstyled text sitting under the copy, with
+ * no fill and no tap target. That shipped on the public entry experience
+ * and was found on a phone, where "Begin" and every "Continue" read as
+ * part of the paragraph above them. An intro screen's whole job is to hand
+ * somebody one obvious next action, so the failure mode of forgetting a
+ * class must be a plain button, never no button at all.
+ *
+ * Pass a className to override it. `.mef-button-primary` is the recipe
+ * itself (app/globals.css) if a caller wants it with different spacing.
+ */
 type IntroButton = {
   label: ReactNode;
   onClick: () => void;
   className?: string;
   disabled?: boolean;
 };
+
+const DEFAULT_BUTTON_CLASS = 'mef-focus-ring mef-press mef-button-primary mt-7';
 
 type IntroRevealProps = {
   eyebrow?: string;
@@ -172,7 +188,11 @@ export function IntroReveal({
           type="button"
           onClick={button.onClick}
           disabled={button.disabled}
-          className={skip ? button.className : `mef-fade-in ${button.className ?? ''}`}
+          className={
+            skip
+              ? (button.className ?? DEFAULT_BUTTON_CLASS)
+              : `mef-fade-in ${button.className ?? DEFAULT_BUTTON_CLASS}`
+          }
           style={skip ? undefined : { animationDelay: `${buttonDelayMs}ms` }}
         >
           {button.label}

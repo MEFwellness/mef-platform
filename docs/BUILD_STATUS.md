@@ -1,3 +1,75 @@
+## Three fixes to the public entry experience, found on a phone (2026-08-31)
+
+**The buttons were not buttons.** "Begin" on the entry screen and
+"Continue" on all four chapter screens rendered as unstyled text sitting in
+the paragraph above them. No fill, no padding, no tap target. A visitor
+could not tell there was anything to press, which on the first screen of an
+acquisition funnel is total.
+
+The cause was one line. `IntroReveal` renders
+`className={button.className}` with no fallback, so a call site that passes
+none gets a bare `<button>`, and both of this experience's call sites passed
+none. The four screens that were already using it each carried their own
+copy of the same class string, so the recipe worked everywhere it had been
+remembered and nowhere it had not.
+
+Fixed as the class of bug rather than the two instances.
+`.mef-button-primary` and `.mef-button-secondary` now live in
+`app/globals.css`'s components layer, formalizing the exact string Core
+Values Snapshot, Life Signal Check, Readiness Pulse and the Reset Plan
+already used verbatim, the same way `.mef-card-elevated` formalized
+`CVS_CARD_ELEVATED`. Those four screens now point at it and render byte for
+byte as they did (the measured button is 52px tall, which is what `py-4`
+plus a 20px line box always was). And `IntroReveal` defaults to a real
+button, so forgetting a class can never again produce no button at all.
+
+Every action in the experience was then audited as rendered, at phone size,
+with computed styles read off the page. "I already have an account" was an
+underlined text link and is now a real outlined secondary button. All five
+actions carry a fill or a border, a 48px or 52px minimum height, a pressed
+state and a focus ring. `tests/public-entry-actions-look-tappable.test.tsx`
+walks every `<button>` in the experience and every `IntroReveal` call site
+and fails the build on any that does not.
+
+**Question one assumed a word nobody had said.** It read "When does the drop
+usually hit you?" and nothing anywhere before it had introduced "the drop".
+It is the first thing a cold visitor reads. Now: "When does tiredness
+usually hit you hardest?" Every answer value and every scoring mapping is
+unchanged.
+
+The rest of the experience was audited the same way, in the real order it
+runs in, and two more were reworded. `tests/public-entry-result-copy.test.ts`
+now walks each question against everything visible on screen before it and
+fails on a definite article in front of a noun the visitor has never been
+given. Four evidence lines on the result screen also quoted "the drop" and
+now say "tiredness", so the word appears nowhere in the experience at all.
+
+**The entry screen was a wall of text with no brand on it.** About sixty
+words of prose, no logo, no wordmark. Now: the shared Rooted Reset lockup at
+the top, a short gold rule anchoring the headline, the headline itself at
+2.75rem in Cormorant, twenty three words of body copy, and the three facts
+that actually decide whether a stranger starts (about 2 minutes, no account,
+no email) lifted out of the prose into a row of chips read BEFORE the
+button rather than buried in a sentence. The disclaimer is unchanged and
+still sits on the screen before a single question is asked.
+
+The lockup is `components/brand/RootedResetLockup.tsx`, extracted from the
+copy that was already inline in `app/(auth)/layout.tsx` rather than added as
+a third one; the auth screens render identically. No photography: a stock
+image of somebody looking tired would say less than the headline does.
+
+**One layout bug the phone sized screenshot found.** The warm gold halo
+behind the headline is deliberately wider than a phone, and without
+clipping it made the whole page scroll sideways: 437px wide on a 393px
+viewport. The container clips it now, and the verification run asserts
+`scrollWidth === clientWidth`.
+
+**One copy bug found while auditing that screen.** The Rooted Reset
+invitation printed its own heading twice, once as a small caps eyebrow and
+once in the display face directly underneath, because
+`RESULT_HEADINGS.invitation` and `INVITATION_COPY.title` are the same six
+words. The eyebrow is gone.
+
 ## The first acquisition experience: Where Your Energy Goes (2026-08-31)
 
 Migration 197. The product converts people who reach it. Almost nobody

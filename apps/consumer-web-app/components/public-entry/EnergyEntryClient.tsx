@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { IntroReveal } from '@/components/IntroReveal';
+import { introRevealFollowUpDelayMs } from '@/lib/introRevealTiming';
 import { SingleSelectQuestion } from '@/components/core-values-snapshot/CvsQuestionCards';
 import type { EnergyResult } from '@/lib/public-entry/result';
 import {
@@ -36,9 +37,11 @@ import { ENERGY_INTRO } from '@/lib/public-entry/copy';
 import { arrive, complete, saveAnswers, signal, start } from '@/lib/public-entry/client';
 import { getOrCreateVisitorToken } from '@/lib/public-entry/storage';
 import { EnergyResultView } from './EnergyResultView';
+import { RootedResetLockup } from '@/components/brand/RootedResetLockup';
 import {
   ENERGY_CONTAINER,
   ENERGY_DISPLAY_FONT,
+  ENERGY_GOLD_DIVIDER,
   ENERGY_SHELL,
 } from './theme';
 
@@ -164,22 +167,7 @@ export function EnergyEntryClient({ sourceCode }: { sourceCode: string | null })
           </div>
         )}
 
-        {beat === 'intro' && (
-          <div className="flex min-h-[70vh] flex-col justify-center">
-            <IntroReveal
-              eyebrow={ENERGY_INTRO.eyebrow}
-              title={ENERGY_INTRO.title}
-              titleTag="h1"
-              titleClassName={`${ENERGY_DISPLAY_FONT} text-[2.5rem] leading-tight text-[#1B3A2D]`}
-              lines={[...ENERGY_INTRO.lines]}
-              storageKey="energy-map-intro"
-              button={{ label: ENERGY_INTRO.buttonLabel, onClick: handleBegin }}
-            />
-            <p className="mt-6 text-center text-[13px] leading-relaxed text-[#6B7A72]">
-              {ENERGY_INTRO.reassurance}
-            </p>
-          </div>
-        )}
+        {beat === 'intro' && <EntryScreen onBegin={handleBegin} />}
 
         {beat === 'chapter' && <ChapterTransition chapter={chapter} onContinue={() => setBeat('question')} />}
 
@@ -245,6 +233,106 @@ export function EnergyEntryClient({ sourceCode }: { sourceCode: string | null })
 }
 
 /**
+ * The entry screen, and the first thing a stranger ever sees of this brand.
+ *
+ * WHAT IT HAS TO DO IN ABOUT A SECOND. Say whose this is, what it is, what
+ * it costs, and give one obvious thing to press. Everything on it is in
+ * that order down the page, and there is nothing on it that is not one of
+ * those four things.
+ *
+ * WHY THE BUTTON IS NOT IntroReveal'S OWN. IntroReveal always renders its
+ * button as its last child, and the three facts have to be read BEFORE
+ * somebody decides to press it, not after. So the reveal is still
+ * IntroReveal (never a second copy of that animation), and the facts and
+ * the button are sequenced after it with introRevealFollowUpDelayMs, which
+ * is exactly the case that helper exists for.
+ *
+ * THE ONE VISUAL MOMENT is the gold wash sitting directly behind the
+ * headline and the gold hairline at the foot of the page. No photography:
+ * a stock image of somebody looking tired would say less than the headline
+ * does and would cheapen the page it sits on. The type, the space and one
+ * accent colour are the design.
+ */
+function EntryScreen({ onBegin }: { onBegin: () => void }) {
+  const followUpMs = introRevealFollowUpDelayMs(
+    ENERGY_INTRO.title,
+    ENERGY_INTRO.lines.length
+  );
+
+  return (
+    <div className="flex min-h-[86vh] flex-col">
+      <RootedResetLockup size="large" className="mef-fade-in shrink-0 pt-1" />
+
+      {/* overflow-hidden because the warmth below is deliberately wider
+          than a phone, and without clipping it a 480px halo on a 393px
+          screen makes the whole page scroll sideways. Found in a phone
+          sized screenshot: the page was 437px wide on a 393px viewport. */}
+      <div className="relative flex flex-1 flex-col justify-center overflow-hidden py-8">
+        {/* The one visual moment: quiet warmth directly behind the
+            headline. Hidden from assistive tech, and it never affects
+            layout. Same idiom as OnboardingIntro's own glow. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-[36%] -z-10 h-[20rem] w-[30rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#C4A050]/25 blur-3xl"
+        />
+
+        {/* A short gold rule above the eyebrow. The classic editorial way
+            to anchor a headline, and the thing that stops this page reading
+            as a paragraph with a button under it. */}
+        <div
+          aria-hidden="true"
+          className="mef-fade-in mx-auto mb-5 h-px w-10 bg-[#C4A050]"
+        />
+
+        <IntroReveal
+          eyebrow={ENERGY_INTRO.eyebrow}
+          eyebrowClassName="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-[#C4A050]"
+          title={ENERGY_INTRO.title}
+          titleTag="h1"
+          titleClassName={`${ENERGY_DISPLAY_FONT} text-center text-[2.75rem] leading-[1.08] text-[#1B3A2D] sm:text-[3.25rem]`}
+          lines={[...ENERGY_INTRO.lines]}
+          lineClassName="text-center text-[16px] leading-relaxed text-[#4F645A]"
+          storageKey="energy-map-intro"
+        />
+
+        {/* The three facts that decide whether a stranger begins, read at a
+            glance instead of found inside a sentence, and read BEFORE the
+            button rather than after it. */}
+        <ul
+          className="mef-fade-in mt-7 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-2"
+          style={{ animationDelay: `${followUpMs}ms`, animationFillMode: 'both' }}
+        >
+          {ENERGY_INTRO.facts.map((fact) => (
+            <li
+              key={fact}
+              className="rounded-full border border-[#1B3A2D]/12 bg-white/70 px-3.5 py-1.5 text-[12px] font-medium text-[#4F645A]"
+            >
+              {fact}
+            </li>
+          ))}
+        </ul>
+
+        <button
+          type="button"
+          onClick={onBegin}
+          className="mef-focus-ring mef-press mef-button-primary mef-fade-in mt-6 text-base"
+          style={{ animationDelay: `${followUpMs + 150}ms`, animationFillMode: 'both' }}
+        >
+          {ENERGY_INTRO.buttonLabel}
+        </button>
+      </div>
+
+      <div className="shrink-0">
+        <div className={ENERGY_GOLD_DIVIDER} />
+        <p className="mt-4 pb-1 text-center text-[12px] leading-relaxed text-[#6B7A72]">
+          {ENERGY_INTRO.reassurance}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
  * The screen that announces a chapter. Its own component so the four of
  * them are identical by construction, and so the transition is a real beat
  * with a button rather than a heading that flashes past.
@@ -261,7 +349,11 @@ function ChapterTransition({ chapter, onContinue }: { chapter: number; onContinu
         titleClassName={`${ENERGY_DISPLAY_FONT} text-[2.25rem] leading-tight text-[#1B3A2D]`}
         lines={[...content.lines]}
         storageKey={`energy-map-chapter-${chapter}`}
-        button={{ label: 'Continue', onClick: onContinue }}
+        button={{
+          label: 'Continue',
+          onClick: onContinue,
+          className: 'mef-focus-ring mef-press mef-button-primary mt-8',
+        }}
       />
     </div>
   );

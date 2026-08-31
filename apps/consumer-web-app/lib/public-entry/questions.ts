@@ -106,13 +106,13 @@ export const ENERGY_QUESTIONS: readonly EnergyQuestion[] = [
   {
     key: 'low_point',
     chapter: 1,
-    prompt: 'When does the drop usually hit you?',
+    prompt: 'When does tiredness usually hit you hardest?',
     options: [
       { value: 'early_morning', label: 'First thing, before the day even starts' },
       { value: 'late_morning', label: 'Late morning, once the first push is over' },
       { value: 'early_afternoon', label: 'Early afternoon, somewhere after lunch' },
       { value: 'evening', label: 'Evening, when things finally go quiet' },
-      { value: 'all_day', label: 'There is no drop, it is just low all day' },
+      { value: 'all_day', label: 'No single time, it is low all day' },
     ],
   },
   {
@@ -141,7 +141,7 @@ export const ENERGY_QUESTIONS: readonly EnergyQuestion[] = [
   {
     key: 'night_pattern',
     chapter: 2,
-    prompt: 'Which of these is closest to your nights?',
+    prompt: 'Beyond the hours, which of these is closest to your nights?',
     options: [
       { value: 'hard_to_fall_asleep', label: 'Hard to fall asleep, my head will not stop' },
       { value: 'wake_in_the_night', label: 'I fall asleep fine, then wake in the night' },
@@ -163,7 +163,7 @@ export const ENERGY_QUESTIONS: readonly EnergyQuestion[] = [
   {
     key: 'first_food',
     chapter: 3,
-    prompt: 'When do you first eat something proper?',
+    prompt: 'After you wake up, when do you first eat a real meal?',
     options: [
       { value: 'within_an_hour', label: 'Within an hour of waking' },
       { value: 'mid_morning', label: 'Mid morning' },

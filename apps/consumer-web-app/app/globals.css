@@ -1423,6 +1423,90 @@
     }
   }
 
+  /*
+   * `.mef-button-primary` — the one primary action button recipe.
+   *
+   * THE BUG THIS EXISTS TO PREVENT. `IntroReveal` renders whatever
+   * className its caller hands it and nothing otherwise, so a call site
+   * that forgot one produced a bare `<button>`: unstyled text sitting in
+   * the paragraph above it, with no fill, no padding and no tap target.
+   * That shipped on the public entry experience and was found on a phone,
+   * where "Begin" and every "Continue" read as part of the copy. A recipe
+   * that four screens each carried their own copy of was always going to
+   * end up with a fifth screen that carried none.
+   *
+   * Formalizes the exact class string Core Values Snapshot, Life Signal
+   * Check, Readiness Pulse and the Reset Plan already used verbatim, the
+   * same way `.mef-card-elevated` above formalized `CVS_CARD_ELEVATED`.
+   * Not a new look: those four screens render byte for byte as they did.
+   *
+   * Pair with `.mef-press` for the physical press feedback and
+   * `.mef-focus-ring` for the keyboard ring. Both are separate on purpose,
+   * because a disabled or a non-interactive use wants the look without
+   * them.
+   */
+  .mef-button-primary {
+    display: block;
+    width: 100%;
+    border-radius: 1rem;
+    background: #1b3a2d;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    color: #fff;
+    box-shadow: 0 4px 16px -4px rgba(27, 58, 45, 0.45);
+    transition:
+      background-color var(--mef-duration-quick) var(--mef-ease-standard),
+      transform var(--mef-duration-quick) var(--mef-ease-standard),
+      box-shadow var(--mef-duration-quick) var(--mef-ease-standard);
+    /* A comfortable thumb target on a phone, independent of the font size
+       a caller may override. */
+    min-height: 52px;
+  }
+
+  .mef-button-primary:hover:not(:disabled) {
+    background: #163025;
+  }
+
+  .mef-button-primary:disabled {
+    opacity: 0.6;
+  }
+
+  /*
+   * `.mef-button-secondary` — the quieter second action beside a primary
+   * one. Outlined rather than filled, so on a screen with two actions it
+   * is unmistakably a button and unmistakably not the main one.
+   */
+  .mef-button-secondary {
+    display: block;
+    width: 100%;
+    border-radius: 1rem;
+    border: 1.5px solid rgba(27, 58, 45, 0.22);
+    background: transparent;
+    padding: 0.875rem 1.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    color: #1b3a2d;
+    transition:
+      border-color var(--mef-duration-quick) var(--mef-ease-standard),
+      background-color var(--mef-duration-quick) var(--mef-ease-standard),
+      transform var(--mef-duration-quick) var(--mef-ease-standard);
+    min-height: 48px;
+  }
+
+  .mef-button-secondary:hover:not(:disabled) {
+    border-color: rgba(27, 58, 45, 0.45);
+    background: rgba(27, 58, 45, 0.04);
+  }
+
+  .mef-button-secondary:disabled {
+    opacity: 0.6;
+  }
+
   /* Stack of same-type cards — consistent gap, not a per-screen mt-4/mt-5/mt-6 guess. */
   :where(.mef-card-stack > * + *) {
     margin-top: var(--mef-space-card-gap);
