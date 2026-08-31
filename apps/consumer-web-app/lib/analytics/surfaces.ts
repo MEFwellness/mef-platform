@@ -220,7 +220,7 @@ export const PAYWALL_LOCK_REASONS = [
   'prerequisite',
   'free_tier_preview',
   /**
-   * The 30 day trial is over and the account holds no active tier and no
+   * The free trial is over and the account holds no active tier and no
    * full_access grant (migration 159, lib/membership/access.ts). The only
    * lock reason in this list that shuts the whole member app rather than
    * one assessment, and the one the trial-ended screen reports. Added as a

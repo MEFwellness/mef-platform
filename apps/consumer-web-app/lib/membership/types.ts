@@ -30,7 +30,7 @@ export function isAccessTier(value: unknown): value is AccessTier {
  *            but the admin panel's own function can change it.
  *   billing  Reserved for the later in-app Stripe build. Nothing writes it
  *            today, and the app treats it identically to manual.
- *   system   The untouched 30 day trial stamped at account creation. Nobody
+ *   system   The untouched free trial stamped at account creation. Nobody
  *            assigned it, so a later billing build is free to convert it.
  */
 export const ACCESS_SOURCES = ['manual', 'billing', 'system'] as const;
@@ -48,10 +48,19 @@ export function isAccessStatus(value: unknown): value is AccessStatus {
   return typeof value === 'string' && (ACCESS_STATUSES as readonly string[]).includes(value);
 }
 
-/** How each tier is named on a screen. The database carries the same strings in member_access_tiers.display_name. */
+/**
+ * How each tier is named on a screen. The database carries the same strings
+ * in member_access_tiers.display_name.
+ *
+ * The trial names no number of days. It was "30 day trial" until migration
+ * 198 made a new trial 7 days, at which point one label had to describe
+ * accounts holding two different windows. The card beside it already shows
+ * that member's own trial start, trial end and days left, which is the
+ * honest answer for whichever one she is on.
+ */
 export const ACCESS_TIER_LABEL: Record<AccessTier, string> = {
   none: 'No access',
-  trial: '30 day trial',
+  trial: 'Free trial',
   monthly: 'Monthly',
   annual: 'Annual',
   program: '24 week program',

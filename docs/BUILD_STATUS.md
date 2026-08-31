@@ -43,6 +43,18 @@ trend engine's 30-vs-30 comparison, Food Lens history) and is untouched.
 The verification and password emails are GoTrue's and say nothing about a
 trial.
 
+**One more piece of stale copy, found by the live run and not by the
+grep.** The tier itself was named "30 day trial", in
+`ACCESS_TIER_LABEL.trial` and in `member_access_tiers.display_name`, and
+that string is what the administrator's Member access panel prints in the
+Tier row and in the assign-a-tier dropdown for every account. The first
+sweep missed it because the pattern looked for "30 days" and "30-day", and
+this said "30 day". It is now "Free trial", naming no number, because one
+label has to describe accounts holding two different windows; the card
+beside it already shows that member's own start, end and days left.
+Migration 199, applied to production, and a test asserts the app string and
+the migration's string are the same one.
+
 **Deliberately not touched:** the admin panel's Extend trial 7 days / 30
 days buttons (manual tools, not the signup default), entitlement logic, tier
 definitions, `MEMBERSHIP_PRICING_URL` and the lock screen redirect.

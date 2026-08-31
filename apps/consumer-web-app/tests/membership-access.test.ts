@@ -535,6 +535,26 @@ describe('vocabulary', () => {
     }
   });
 
+  it('the trial tier names no number of days, because two windows are live at once', () => {
+    // Accounts stamped before migration 198 hold 30 days and new ones hold
+    // 7. One label cannot say both, and the card beside it already shows
+    // that member's own start, end and days left.
+    expect(ACCESS_TIER_LABEL.trial).toBe('Free trial');
+    expect(ACCESS_TIER_LABEL.trial).not.toMatch(/\d/);
+  });
+
+  it('the database calls the trial tier the same thing the app does', () => {
+    const migration = readFileSync(
+      path.resolve(
+        __dirname,
+        '../../../supabase/migrations/00000000000199_trial_tier_names_no_number.sql'
+      ),
+      'utf8'
+    );
+    expect(migration).toContain(`display_name = '${ACCESS_TIER_LABEL.trial}'`);
+    expect(migration.toLowerCase()).not.toContain('update member_subscriptions');
+  });
+
   it('normalises a database row into the shape the decision reads', () => {
     const built = subscriptionFromRow({
       member_id: 'abc',

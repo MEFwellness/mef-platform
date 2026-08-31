@@ -36,3 +36,4 @@ comment on function public.member_trial_length_days() is
   'How many days a NEW account''s free trial runs. Read only when a trial window is first stamped. Never used to recompute a window that already exists: 7 since migration 198, 30 before it, and both are still correct for the accounts that were stamped under them.';
 
 grant execute on function public.member_trial_length_days() to authenticated;
+
