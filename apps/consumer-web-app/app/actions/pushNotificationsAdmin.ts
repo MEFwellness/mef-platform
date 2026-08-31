@@ -21,6 +21,18 @@
  * It sends exactly one notification, to exactly the one member named, and
  * it says so on the notification itself. There is no send-to-everyone path
  * here.
+ *
+ * PART 2 ADDED THE SECOND BUTTON: run today's REAL decision for one
+ * member, now. That is not a test notification with fixed words. It is
+ * lib/push-decision/service.ts's runNotificationDecisionForMember, the
+ * same function the hourly schedule calls, so whatever it decides is
+ * exactly what the schedule would have decided. It skips two things and
+ * says so: the test-account exclusion (otherwise the QA fixture, the only
+ * account this is provable on, could never be run) and the send window
+ * (otherwise this button would only work between nine and eleven in that
+ * member's morning). It skips nothing else: her switch, her devices,
+ * today's receipt, the quiet period, the card, the completion recheck and
+ * the claim all apply exactly as they do at nine in the morning.
  */
 
 import { createClient } from '@/lib/supabase/server';
@@ -29,6 +41,10 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { countLiveDevicesByMember, listLivePushDevices } from '@/lib/push/data';
 import { isPushSendingConfigured, sendPushToMember } from '@/lib/push/send';
 import { PUSH_TEST_NOTIFICATION } from '@/lib/push/copy';
+import {
+  runNotificationDecisionForMember,
+  type NotificationDecision,
+} from '@/lib/push-decision/service';
 
 type SupabaseServerClient = ReturnType<typeof createClient>;
 
@@ -150,4 +166,38 @@ export async function sendTestPushToMemberAction(memberId: string): Promise<Push
     return { ok: false, error: parts.join(' ') };
   }
   return { ok: true, summary: parts.join(' ') };
+}
+
+/**
+ * Run today's real notification decision for one member, right now, and
+ * say what it decided and why.
+ *
+ * The whole answer is one sentence written by lib/push-decision/explain.ts
+ * plus the facts behind it, so this action composes nothing and decides
+ * nothing: it authorizes, it runs the job, it hands back what the job
+ * said.
+ */
+export type NotificationDecisionResult =
+  | { ok: true; decision: NotificationDecision }
+  | { ok: false; error: string };
+
+export async function runNotificationDecisionAction(
+  memberId: string
+): Promise<NotificationDecisionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return { ok: false, error: guard.error };
+
+  if (!memberId) return { ok: false, error: 'Pick a member first.' };
+  if (!isPushSendingConfigured()) {
+    return {
+      ok: false,
+      error:
+        'This deployment has no push keys set, so the decision could run but nothing could be sent. Add NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY, then redeploy.',
+    };
+  }
+
+  const decision = await runNotificationDecisionForMember(guard.supabase, memberId, {
+    source: 'admin',
+  });
+  return { ok: true, decision };
 }

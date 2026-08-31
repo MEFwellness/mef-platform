@@ -18,7 +18,7 @@ const built = manifest();
 
 /** The manifest versions every icon URL so browsers pick up a changed file; the file on disk has no query string. */
 function iconPath(src: string): string {
-  return resolve(ROOT, 'public', src.split('?')[0].replace(/^\//, ''));
+  return resolve(ROOT, 'public', src.split('?')[0]!.replace(/^\//, ''));
 }
 
 /** PNG width and height live at a fixed offset in the IHDR chunk. */

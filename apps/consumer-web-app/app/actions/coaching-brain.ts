@@ -1,45 +1,31 @@
 'use server';
 
 /**
- * The Coaching Brain's composition layer (Milestone 5) — the one place
- * that combines lib/brain/service.ts's content-agnostic Daily Decision
- * Object with today's actually-selected MefContentItem (lib/feed/) to
- * produce the full Daily Decision Object the milestone describes: Focus,
- * Reason, Coaching Mode, Challenge Level, Lesson, Action, Reflection
- * Prompt, Coach Insight, Encouragement, Risk Level, all in one place.
+ * The Coaching Brain's two session-scoped entry points.
  *
- * This is the reusable entry point every coaching surface should call
- * instead of deciding coaching independently — today that's the Daily
- * page (getMyCoachingDecision) and the Coach Dashboard's client detail
- * page (getClientCoachingDecision); a future notification job, AI agent,
- * report, or chat surface calls the exact same functions.
+ * The composition itself — lib/brain/service.ts's content-agnostic Daily
+ * Decision Object combined with today's actually-selected MefContentItem,
+ * to produce the full object the milestone describes (Focus, Reason,
+ * Coaching Mode, Challenge Level, Lesson, Action, Reflection Prompt,
+ * Coach Insight, Encouragement, Risk Level) — now lives in
+ * lib/brain/composition.ts, because it has a third caller that has no
+ * session at all: the daily notification job, which runs on a schedule
+ * under the service role. A 'use server' module may not export a function
+ * taking a SupabaseClient, so the shared piece had to move somewhere a
+ * plain library could reach. Nothing either of these returns changed.
+ *
+ * These two remain here because each is exactly the thing a 'use server'
+ * module is for: resolve WHO is asking from the session, and WHEN in
+ * their own timezone, then hand both to the shared composition.
  */
 
 import { createClient, getRequestClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveLocalDate } from './checkin';
-import { getCoachingFocusDecision } from '@/lib/brain/service';
-import { computeAdherence, buildAdaptiveNote } from '@/lib/feed/adaptiveDifficulty';
-import { getOrCreateTodaysFeed } from '@/lib/feed/service';
-import { getContentItem, listFeedHistory } from '@/lib/feed/data';
-import type { CoachingFocusDecision } from '@/lib/brain/types';
-import type { MefContentItem, DailyFeedItem } from '@mef/shared-types-contracts';
+import { getFullCoachingDecision, type CoachingDecision } from '@/lib/brain/composition';
 import { memberTimezone } from '@/lib/time/memberToday';
 
-export type CoachingDecision = CoachingFocusDecision & {
-  /** Today's real selected lesson, whichever content-selection path chose it (see lib/feed/selector.ts) — null only in the honest empty-library state. */
-  content: MefContentItem | null;
-  /** The persisted row backing `content` — needed by the UI for engagement state (completed_at/saved_at/etc.), never re-derived. */
-  feedItem: DailyFeedItem | null;
-  /** = content.suggested_action, surfaced under the milestone's own "Action" vocabulary. */
-  action: string | null;
-  /** = content.reflection_prompt, surfaced under the milestone's own "Reflection Prompt" vocabulary. */
-  reflectionPrompt: string | null;
-  /** A coach directly replaced today's content — the reason is always attributed to them, regardless of what the priority engine would otherwise say, mirroring lib/feed/selector.ts's own "coach assignment always wins" rule. */
-  coachAssigned: boolean;
-  /** Part 8's adaptive-difficulty note against today's actual selected lesson text — null exactly when lib/feed/adaptiveDifficulty.ts's buildAdaptiveNote would return null (typical adherence, or not enough history yet). */
-  adaptiveNote: string | null;
-};
+export type { CoachingDecision };
 
 async function currentMemberLocalDate(
   supabase: ReturnType<typeof createClient>,
@@ -51,51 +37,6 @@ async function currentMemberLocalDate(
     new Date(new Date().toLocaleString('en-US', { timeZone: timezone })),
     false
   );
-}
-
-async function attachContent(
-  supabase: ReturnType<typeof createClient>,
-  memberId: string,
-  localDate: string,
-  decision: CoachingFocusDecision
-): Promise<CoachingDecision> {
-  const feedItem = await getOrCreateTodaysFeed(supabase, memberId, localDate);
-  if (!feedItem) {
-    return {
-      ...decision,
-      content: null,
-      feedItem: null,
-      action: null,
-      reflectionPrompt: null,
-      coachAssigned: false,
-      adaptiveNote: null,
-    };
-  }
-
-  const content: MefContentItem | null = await getContentItem(supabase, feedItem.content_item_id);
-  const history = await listFeedHistory(supabase, memberId, 30);
-  const adherence = computeAdherence(
-    history.filter((item) => item.local_date < localDate).map((item) => ({ feedItem: item })),
-    localDate
-  );
-  const adaptiveNote = content
-    ? buildAdaptiveNote(content.suggested_action, adherence.level)
-    : null;
-  const coachAssigned = feedItem.coach_assigned_by !== null;
-
-  return {
-    ...decision,
-    reason: coachAssigned ? 'coach_assignment' : decision.reason,
-    reasonText: coachAssigned
-      ? "Your coach chose today's focus for you directly."
-      : decision.reasonText,
-    content,
-    feedItem,
-    action: content?.suggested_action ?? null,
-    reflectionPrompt: content?.reflection_prompt ?? null,
-    coachAssigned,
-    adaptiveNote,
-  };
 }
 
 /**
@@ -111,8 +52,7 @@ export async function getMyCoachingDecision(timezone?: string): Promise<Coaching
   if (!user) return null;
 
   const localDate = await currentMemberLocalDate(supabase, user.id, timezone);
-  const decision = await getCoachingFocusDecision(supabase, user.id, localDate);
-  return attachContent(supabase, user.id, localDate, decision);
+  return getFullCoachingDecision(supabase, user.id, localDate);
 }
 
 /** A coach's read of a client's Daily Decision Object — RLS (the same policies lib/feed/service.ts and lib/narrative/data.ts already rely on) is what actually authorizes this; an unassigned clientId simply yields empty signals throughout. */
@@ -137,6 +77,5 @@ export async function getClientCoachingDecision(
     ),
     false
   );
-  const decision = await getCoachingFocusDecision(supabase, clientId, localDate);
-  return attachContent(supabase, clientId, localDate, decision);
+  return getFullCoachingDecision(supabase, clientId, localDate);
 }

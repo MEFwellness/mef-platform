@@ -27,14 +27,17 @@ import path from 'node:path';
 const SOURCE = readFileSync(path.resolve(__dirname, '../public/sw.js'), 'utf-8');
 const ORIGIN = 'https://app.mefwellness.com';
 
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- the worker is handed real ServiceWorker events; this stand-in describes their shape loosely on purpose. */
 type Listener = (event: any) => void;
 
 type Harness = {
   listeners: Map<string, Listener>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- NotificationOptions plus the `data` bag the worker puts the path in.
   shown: { title: string; options: any }[];
   openedWindows: string[];
   navigated: string[];
   focused: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- WindowClient stand-ins, each with only the members the worker touches.
   windowClients: any[];
   skipWaiting: ReturnType<typeof vi.fn>;
   claim: ReturnType<typeof vi.fn>;
@@ -57,6 +60,7 @@ function loadWorker(): Harness {
     addEventListener: (type: string, listener: Listener) => harness.listeners.set(type, listener),
     skipWaiting: harness.skipWaiting,
     registration: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see the Harness.shown note above.
       showNotification: async (title: string, options: any) => {
         harness.shown.push({ title, options });
       },
@@ -132,10 +136,10 @@ describe('a push always shows something', () => {
     await event.settle();
 
     expect(worker.shown).toHaveLength(1);
-    expect(worker.shown[0].title).toBe('Rooted Reset');
-    expect(worker.shown[0].options.body).toBe('Your Daily Reset is ready.');
-    expect(worker.shown[0].options.tag).toBe('daily');
-    expect(worker.shown[0].options.data.url).toBe('/checkin');
+    expect(worker.shown[0]!.title).toBe('Rooted Reset');
+    expect(worker.shown[0]!.options.body).toBe('Your Daily Reset is ready.');
+    expect(worker.shown[0]!.options.tag).toBe('daily');
+    expect(worker.shown[0]!.options.data.url).toBe('/checkin');
   });
 
   it('still shows a notification when the payload is not JSON at all', async () => {
@@ -149,8 +153,8 @@ describe('a push always shows something', () => {
     await event.settle();
 
     expect(worker.shown).toHaveLength(1);
-    expect(worker.shown[0].title).toBe('Rooted Reset');
-    expect(worker.shown[0].options.body).toBe('Something is ready for you.');
+    expect(worker.shown[0]!.title).toBe('Rooted Reset');
+    expect(worker.shown[0]!.options.body).toBe('Something is ready for you.');
   });
 
   it('still shows a notification when there is no payload at all', async () => {
@@ -159,7 +163,7 @@ describe('a push always shows something', () => {
     await event.settle();
 
     expect(worker.shown).toHaveLength(1);
-    expect(worker.shown[0].options.body.length).toBeGreaterThan(0);
+    expect(worker.shown[0]!.options.body.length).toBeGreaterThan(0);
   });
 
   it('refuses a payload url that is not an in-app path', async () => {
@@ -167,7 +171,7 @@ describe('a push always shows something', () => {
     worker.listeners.get('push')!(event);
     await event.settle();
 
-    expect(worker.shown[0].options.data.url).toBe('/dashboard');
+    expect(worker.shown[0]!.options.data.url).toBe('/dashboard');
   });
 });
 
@@ -186,6 +190,7 @@ describe('tapping a notification', () => {
       worker.navigated.push(url);
     });
     const focus = vi.fn(async () => existing);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a WindowClient stand-in with only focus and navigate on it.
     const existing: any = { focus, navigate };
     worker.windowClients = [existing];
 

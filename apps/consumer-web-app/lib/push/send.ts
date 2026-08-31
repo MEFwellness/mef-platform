@@ -2,12 +2,12 @@
  * Sending a push. Server only: it reads the VAPID private key, which never
  * reaches a browser.
  *
- * NOTHING IN THIS BUILD CALLS THIS ON A SCHEDULE. The only caller today is
- * the administrator's "send a test notification" tool. The daily decision
- * job that works out whether there is genuinely something waiting, and
- * sends at most one reminder, is a later build; this is the piece it will
- * call, written once here so that build adds a decision and not a second
- * delivery path.
+ * TWO CALLERS, ONE DELIVERY PATH. The administrator's "send a test
+ * notification" tool, and lib/push-decision/service.ts, the daily job that
+ * works out whether there is genuinely something waiting. That job was
+ * written second and added a decision rather than a second way of sending,
+ * which is why the two rules below hold for both without either having to
+ * restate them.
  *
  * TWO RULES EVERY SEND OBEYS.
  *

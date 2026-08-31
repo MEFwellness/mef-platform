@@ -22,7 +22,7 @@ vi.mock('web-push', () => ({ default: { sendNotification: (...args: unknown[]) =
 
 const getMemberPushState = vi.fn();
 const listLivePushDevices = vi.fn();
-const revokePushSubscriptionByEndpoint = vi.fn(async () => true);
+const revokePushSubscriptionByEndpoint = vi.fn(async (..._args: unknown[]) => true);
 vi.mock('../lib/push/data', () => ({
   getMemberPushState: (...args: unknown[]) => getMemberPushState(...args),
   listLivePushDevices: (...args: unknown[]) => listLivePushDevices(...args),
@@ -88,8 +88,8 @@ describe('a send that works', () => {
 
     expect(result).toEqual({ sent: 2, retired: 0, failures: [] });
     expect(sendNotification).toHaveBeenCalledTimes(2);
-    expect(sendNotification.mock.calls[0][1]).toBe(JSON.stringify(PAYLOAD));
-    expect(sendNotification.mock.calls[0][2].vapidDetails.privateKey).toBe('test-private-key');
+    expect(sendNotification.mock.calls[0]![1]).toBe(JSON.stringify(PAYLOAD));
+    expect(sendNotification.mock.calls[0]![2].vapidDetails.privateKey).toBe('test-private-key');
   });
 });
 

@@ -77,9 +77,9 @@ describe('saving a device', () => {
 
     const devices = await listLivePushDevices(one, TEST_USERS.memberOne.id);
     expect(devices).toHaveLength(1);
-    expect(devices[0].endpoint).toBe(OWN_ENDPOINT);
-    expect(devices[0].deviceLabel).toBe('iPhone, Safari');
-    expect(devices[0].subscription.keys.auth).toBe('fake-auth-secret');
+    expect(devices[0]!.endpoint).toBe(OWN_ENDPOINT);
+    expect(devices[0]!.deviceLabel).toBe('iPhone, Safari');
+    expect(devices[0]!.subscription.keys.auth).toBe('fake-auth-secret');
 
     const after = await getMemberPushState(one, TEST_USERS.memberOne.id);
     expect(after.enabled).toBe(true);
@@ -96,8 +96,8 @@ describe('saving a device', () => {
       .eq('member_id', TEST_USERS.memberOne.id);
 
     expect(data).toHaveLength(1);
-    expect(data![0].device_label).toBe('iPhone, Chrome');
-    expect(data![0].revoked_at).toBeNull();
+    expect(data![0]!.device_label).toBe('iPhone, Chrome');
+    expect(data![0]!.revoked_at).toBeNull();
   });
 
   it('refuses a subscription whose endpoint disagrees with itself', async () => {

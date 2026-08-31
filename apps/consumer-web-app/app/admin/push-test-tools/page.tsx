@@ -39,9 +39,10 @@ export default async function PushTestToolsPage() {
           Push Notifications: Test Tools
         </h1>
         <p className="mt-2 text-[15px] text-[#6B7A72]">
-          Send one real notification to one member&apos;s phone, right now, so you can see it arrive
-          before anything is scheduled. Nothing on this platform sends notifications on a schedule
-          yet.
+          Two things for one member at a time. Send one test notification to their phone right
+          now, or run today&apos;s real decision and read exactly what it decided and why. The real
+          decision also runs on its own, every hour, for every member whose own nine in the morning
+          has just arrived.
         </p>
 
         <PushTestToolsPanel members={members} sendingConfigured={sendingConfigured} />
