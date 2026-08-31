@@ -200,19 +200,50 @@ try {
   watch(page, 'member');
 
   // -------------------------------------------------------------------
-  // Setup. A real device, and a clean local day to run the walk on.
+  // Setup. A real device, proved reachable, and a clean local day.
   // -------------------------------------------------------------------
-  await service.from('profiles').update({ timezone: TEST_TIMEZONE }).eq('id', memberId);
+  // Force the starting state rather than assuming it. An earlier attempt
+  // at this run found the switch already on from a previous run, skipped
+  // the click, and then had no device to send to.
+  await service
+    .from('profiles')
+    .update({ timezone: TEST_TIMEZONE, push_notifications_enabled: false })
+    .eq('id', memberId);
+  await service
+    .from('member_push_subscriptions')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('member_id', memberId)
+    .is('revoked_at', null);
 
-  await page.goto(`${BASE}/profile`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1500);
-  const toggle = page.getByRole('switch', { name: 'Reminders on your phone' });
-  if ((await toggle.getAttribute('aria-checked')) !== 'true') {
+  // Home first, so the service worker is registered and the browser has
+  // already reached the push service before the switch is touched. On a
+  // cold Chrome profile the first subscribe is far slower than a later
+  // one, and one attempt at this run screenshotted the switch still
+  // saying "Turning on".
+  await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(5000);
+
+  async function subscribeDevice() {
+    await page.goto(`${BASE}/profile`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2500);
+    const toggle = page.getByRole('switch', { name: 'Reminders on your phone' });
+    if ((await toggle.getAttribute('aria-checked')) === 'true') {
+      await toggle.click();
+      await page.waitForTimeout(6000);
+    }
     await toggle.click();
-    await page.waitForTimeout(7000);
+    // Poll the database rather than sleeping a guessed number of seconds:
+    // the row appearing IS the thing being waited for.
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const live = (await liveDevices(memberId)).filter((d) => !d.revoked_at);
+      if (live.length > 0) return live;
+      await page.waitForTimeout(2000);
+    }
+    return [];
   }
+
+  let devicesNow = await subscribeDevice();
   await screen(page, '01-profile-reminders-on');
-  const devicesNow = (await liveDevices(memberId)).filter((d) => !d.revoked_at);
   check(
     'setup: a real device is subscribed and her switch is on',
     devicesNow.length === 1 && (await profileRow(memberId))?.push_notifications_enabled === true,
@@ -240,6 +271,44 @@ try {
     toolsBody.split('\n').find((l) => l.includes("Run today's decision")) ?? 'not found'
   );
   check('no em dash on the admin tool', !toolsBody.includes(EM_DASH));
+
+  // PROVE THE DEVICE IS REACHABLE BEFORE TESTING THE DECISION, with part
+  // 1's own test push. A brand new FCM registration is not always live
+  // the instant the browser hands it over: one attempt at this run had
+  // the push service answer "gone" for a subscription seventy five
+  // seconds old, which this build then correctly retired. Retrying the
+  // subscribe is the right response to that, and it must happen before
+  // the decision is measured, or a push service warming up would be
+  // reported as a fault in the job.
+  let reachable = false;
+  let testPushLine = 'not attempted';
+  for (let attempt = 0; attempt < 3 && !reachable; attempt += 1) {
+    await adminPage.reload({ waitUntil: 'networkidle' });
+    await adminPage.waitForTimeout(800);
+    await adminPage.selectOption('#push-test-member', memberId);
+    await adminPage.waitForTimeout(400);
+    await adminPage.getByRole('button', { name: 'Send test notification' }).click();
+    await adminPage.waitForTimeout(9000);
+    const testPushBody = await screen(adminPage, `02b-test-push-attempt-${attempt + 1}`);
+    testPushLine =
+      testPushBody.split('\n').find((l) => /Sent to|refused|gone|nowhere|no device/.test(l)) ??
+      'no result line';
+    reachable = /Sent to 1 device\./.test(testPushBody);
+    if (!reachable) {
+      await page.waitForTimeout(15000);
+      devicesNow = await subscribeDevice();
+      if (devicesNow.length === 0) break;
+    }
+  }
+  check('setup: the saved device really is reachable', reachable, testPushLine);
+  if (!reachable) throw new Error('The push service would not accept this device, so nothing below could be proved.');
+
+  // Clear the setup notification, so what is read back below is the
+  // decision's own and could not be the test push still sitting there.
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready;
+    for (const notification of await registration.getNotifications()) notification.close();
+  });
 
   // -------------------------------------------------------------------
   // (a) A pending item produces exactly one send and one receipt.
@@ -273,7 +342,9 @@ try {
   const arrived = await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.ready;
     for (let attempt = 0; attempt < 25; attempt += 1) {
-      const list = await registration.getNotifications();
+      // The daily reminder's own tag, so a test push still on screen
+      // could never be mistaken for it.
+      const list = await registration.getNotifications({ tag: 'rooted-reset-daily' });
       if (list.length > 0) {
         return list.map((n) => ({ title: n.title, body: n.body, tag: n.tag, url: n.data?.url }));
       }

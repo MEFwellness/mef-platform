@@ -1,3 +1,167 @@
+## Notifications, part 2: the daily decision job (2026-08-31)
+
+Migration 196. Part 1 built everything that has to exist first and
+scheduled nothing. This is the thing that decides, once a day, whether
+there is genuinely something waiting for a member, and says so on her
+phone if there is.
+
+**The item is never chosen here, and that is the whole design.** The job
+calls `buildPriorityView`, the exact function Home, Today and the Root
+pop-up chain call, so the sentence on her lock screen is by construction
+the sentence at the top of the app when she opens it. The notification's
+body is the Priority Card's own title, verbatim; the only words this
+feature authors are the three-or-four-word title that says what KIND of
+thing is waiting. A second author for the same decision would drift from
+the first the day either was edited.
+
+Making that literally true took one extraction. `getMyCoachingDecision`
+lived in `app/actions/coaching-brain.ts`, whose own header had said since
+Milestone 5 that "a future notification job calls the exact same
+functions". It could not: a `'use server'` module may not export a
+function taking a SupabaseClient, and a scheduled job has no session at
+all. So the composition moved to `lib/brain/composition.ts` and the two
+server actions became thin resolvers of who and when.
+`lib/push-decision/context.ts` gathers the engine's four inputs from the
+same accessors the signed-in path uses, addressed by member id rather
+than by cookie.
+
+**Three rungs are never worth interrupting someone for, each for its own
+reason.** `gentle_focus` is the card having something kind to say on a
+finished day, so nothing is waiting and nothing is sent. `safety` is the
+card telling her nothing at all is being asked of her today, and pushing
+that to a lock screen would both interrupt her to say she is not being
+interrupted and put a notification about a disclosure where anyone near
+her can read it. And `daily_reset` once today's check-in exists, which is
+the safety recheck: the stored row is authoritative for the day and
+legitimately still says `daily_reset` after she has checked in, because
+the single permitted revision may already have been spent. "The card says
+Daily Reset" is not the same fact as "the Daily Reset is undone", and the
+second is the one that decides.
+
+**One a day, and the database is what says so.**
+`member_push_deliveries` is modelled on the Weekly Reflection's delivery
+receipt (migration 191): a row records that something REACHED her, and a
+day the job looked and found nothing writes no row at all. `unique
+(member_id, local_date)` IS the cap, claimed with an insert-if-absent
+immediately BEFORE the push service is asked for anything. A receipt
+written after a successful send would leave a window where the send
+happened and the record did not, and the only way out of that window is a
+second notification. So the row is claimed first and stands whatever the
+push service then says. **There is no retry path anywhere in this job.**
+A failed send records zero devices reached and today is over.
+
+**Her nine in the morning, not nine UTC.** The schedule runs hourly and
+each member is acted on only in the hour her own clock says is hers, so a
+job sending "at nine" never reaches Los Angeles at one in the morning.
+The window opens at her hour and stays open for two more, so one cron
+invocation that does not run is caught by the next rather than silently
+costing her the day, and it can never become two notifications because
+the cap is the receipt and not the window. It never crosses her midnight:
+a member whose hour is 23 has a window of 23 only, because 0 and 1 are a
+different local date. `profiles.push_send_hour_local` is the per-member
+hour and is null for everybody; the default of 9 is resolved in code, not
+as a database default, so a stored 9 and an absent value stay tellable
+apart. No screen writes that column today.
+
+**Root never nags.** Five reminders in a row with no sign-in within
+twenty four hours of any of them, and she drops to one a week. Opening
+the app restores one a day at once, including when the sign-in came back
+too late to have opened the last reminder: "until she opens the app
+again" is meant literally, and it outranks the streak. Ignored means the
+app went unopened, never "she did not do the thing", because reading it
+on a lock screen and deciding today is not the day is a perfectly good
+outcome this rule must not punish. The sign-ins are `session_started`
+rows `app/actions/auth.ts` has written since migration 146. No new
+tracking, no new column, and not one health figure is read.
+
+**The schedule never selects a test account, and the administrator's tool
+always reaches one.** `/admin/push-test-tools` gained "Run today's
+decision now": the real job, for one member, right now, reporting in one
+plain sentence what it decided and why, with the facts behind it. It
+skips the test-account rule and the send window, which is what makes this
+feature provable at all, and it skips nothing else: her switch, her
+devices, the receipt, the quiet period, the card, the completion recheck
+and the claim all apply exactly as they do at nine in the morning.
+
+**Where it runs.** `/api/cron/daily-notifications`, `0 * * * *`,
+registered on the Vercel project `mef-platform` and confirmed enabled and
+bound to the deployment `app.mefwellness.com` points at. Seventh cron
+job, and the only hourly one. The route refuses any call without
+`CRON_SECRET`, which was checked live and answers 401.
+
+**Two real bugs the first production run found, both now fixed and both
+under test.** The tool ran the job with the ADMINISTRATOR'S OWN client.
+The receipt table has no insert policy for anybody, deliberately, so that
+no session can manufacture or erase one and hand itself a second
+notification. The claim was therefore refused, nothing was sent, and no
+receipt existed afterwards. The administrator is still authorized against
+the database first; the JOB then runs with the service role
+(`lib/supabase/serviceRole.ts`), which is what it is at nine in the
+morning. And the job read that refusal as "another run got there first":
+two different nulls were being treated as one, so a refused write
+reported a race that had never happened and pointed the investigation at
+the wrong thing. `claimPushDelivery` now says which, and only a genuine
+conflict is a lost race.
+
+**Live on app.mefwellness.com, 21 of 21.**
+`scripts/verify-daily-notification-decision-live.mjs` drives it as the
+real production test member and the real administrator. Her timezone is
+moved forward for the run so the whole walk happens on a clean local day
+and never touches the day she has already lived. A real device is
+subscribed through the real switch in real Chrome, headed, with a
+persistent profile (part 1's measurement stands: Playwright's Chromium
+has no push service, and real Chrome only registers with one from a
+persistent profile), and the device is proved reachable with part 1's own
+test push BEFORE the decision is measured, because a brand new FCM
+registration is not always live the instant the browser hands it over.
+One attempt at this run had the push service answer "gone" for a
+subscription seventy five seconds old, which this build correctly retired
+and then correctly reported as nothing reaching a device.
+
+The run: the decision sending exactly one notification for her real
+pending item; the notification ARRIVING in her browser and being shown by
+the service worker, read back through `registration.getNotifications()`,
+carrying the same words the receipt says were sent and `/checkin` as the
+path a tap opens; exactly one receipt for her local day; running it again
+the same day sending nothing, blocked by that receipt and named as such;
+her finishing today's one thing on the real card and the next run
+answering "sent nothing, already done" with no receipt written; her
+switch turned off at the column while a live device was still saved, and
+nothing sent; the scheduled route answering 401 without its secret; no em
+dash on the admin tool, in any of the four answers, or in the words that
+reached her phone; and no console or page error beyond the one
+pre-existing passkey 404 on `/profile` that part 1 already named.
+
+**What that run does NOT prove, stated rather than glossed.** On the day
+it ran, this member's one thing was a friction question ("Open your Daily
+Reset and answer just the first question"), not the Daily Reset itself,
+so "already completed" was proved through the completion that actually
+applied to her card. The `daily_reset` half of the same send-time recheck
+is proved by test, not live. And no script can prove a notification
+landing on a locked iPhone, or the real Add to Home Screen walk. Those
+need a physical phone.
+
+**What production was left holding: nothing.** Zero subscription rows,
+zero delivery receipts, zero members with reminders on, the fixture's
+timezone and all four push columns exactly as they were found.
+
+**Checks.** 471 files, 7,615 tests, all passing, including 66 new ones
+over the three rungs that are never sent, the send window and its
+midnight clamp, the quiet period and what restores it, the notification's
+words, the order of the job's ten checks, and the cap against a real
+unique index and real RLS. Thirteen mutations were run and each failed
+the tests that should have caught it: dropping the send-time check-in
+recheck, sending before claiming the receipt, letting the schedule wake a
+test account, ignoring the send window, reading the host process's hour
+instead of hers, letting the quiet period ignore whether she came back,
+letting the window cross her midnight, coercing a nonsense send hour
+instead of falling back, dropping the test-account filter from the pass,
+turning the claim into an ordinary upsert that always wins, truncating a
+body with no sign it was cut, dropping the unique constraint from the
+receipts table, and giving members an insert policy on it. Typecheck,
+lint and the production build are clean; the seventeen typecheck errors
+and five lint errors part 1 left in its own test files are fixed here.
+
 ## Notifications, part 1: the app can be installed, and she is asked once (2026-08-31)
 
 Migration 195. Nothing in this build sends anything on a schedule. What it
