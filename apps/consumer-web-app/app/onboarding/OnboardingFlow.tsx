@@ -50,6 +50,7 @@ export function OnboardingFlow({
   questions,
   mode,
   knownPrimaryGoal = null,
+  publicEntryConcern = null,
 }: {
   questions: OnboardingQuestion[];
   mode: 'guest' | 'member';
@@ -60,6 +61,14 @@ export function OnboardingFlow({
    * has no profile for the welcome flow to have run against.
    */
   knownPrimaryGoal?: { goals: string[]; primaryGoalKey: string } | null;
+  /**
+   * The `primary_concern` value this member's public arrival corresponds
+   * to (migration 197), member mode only. When set and knownPrimaryGoal is
+   * not, the form confirms it instead of asking cold, so somebody who
+   * already told us what she came for is not asked the same thing again the
+   * moment she has an account.
+   */
+  publicEntryConcern?: string | null;
 }) {
   const [stage, setStage] = useState<Stage>(mode === 'guest' ? 'intro' : 'checking');
   const [guestPayload, setGuestPayload] = useState<OnboardingAnswerInput[]>([]);
@@ -184,6 +193,7 @@ export function OnboardingFlow({
       questions={questions}
       mode="adaptive"
       knownPrimaryGoal={knownPrimaryGoal}
+      publicEntryConcern={publicEntryConcern}
       onSubmitted={() => setStage('complete')}
     />
   );

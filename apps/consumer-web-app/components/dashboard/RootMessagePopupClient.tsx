@@ -46,6 +46,7 @@ import { HydrationFocusPopup } from '@/components/hydration/HydrationFocusPopup'
 import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
 import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/TrackWeeklyReflectionDelivered';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
+import { ROOT_WELCOME_COPY } from '@/lib/public-entry/copy';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
@@ -56,6 +57,7 @@ type WeeklyReviewMessage = Extract<RootPopupMessage, { kind: 'weekly_review' }>;
 type WeeklyReflectionMessage = Extract<RootPopupMessage, { kind: 'weekly_reflection' }>;
 type StressLoadMessage = Extract<RootPopupMessage, { kind: 'stress_load_assigned' }>;
 type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
+type PublicEntryWelcomeMessage = Extract<RootPopupMessage, { kind: 'public_entry_welcome' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
@@ -230,6 +232,31 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
 
   if (closed) return null;
 
+  // The public entry welcome (migration 197). Same invite chrome as the
+  // coach-assigned and free-arc invitations below, on purpose: this is Root
+  // saying one honest thing and offering one place to go. Deliberately NOT
+  // in the auto-dismiss-on-mount group above, because "Maybe later" here
+  // genuinely means next login and a member who closes the tab before
+  // reading it must not silently lose the only time Root ever says this.
+  if (message.kind === 'public_entry_welcome') {
+    return (
+      <RootInvitePopup
+        eyebrow={ROOT_WELCOME_COPY.eyebrow}
+        title={ROOT_WELCOME_COPY.title}
+        body={
+          message.patternTitle
+            ? ROOT_WELCOME_COPY.bodyWithPattern(message.patternTitle)
+            : ROOT_WELCOME_COPY.bodyWithoutPattern
+        }
+        ctaLabel={ROOT_WELCOME_COPY.ctaLabel}
+        href={message.primaryHref}
+        isPending={isPending}
+        onMaybeLater={handleMaybeLater}
+        onIgnore={handleIgnore}
+      />
+    );
+  }
+
   if (isQuestionnaireAssigned) {
     const m = message as QuestionnaireAssignedMessage;
     return (
@@ -329,6 +356,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | WeeklyReflectionMessage
     | StressLoadMessage
     | HydrationFocusMessage
+    | PublicEntryWelcomeMessage
   >;
 
   const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' || day3Or7Message.kind === 'rpl_day3';

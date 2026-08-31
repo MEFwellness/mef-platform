@@ -9,6 +9,7 @@ import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { PasswordStrengthHint } from '@/components/auth/PasswordStrengthHint';
 import { hasPendingGuestOnboardingData } from '@/lib/onboarding/guestStorage';
+import { readVisitorToken } from '@/lib/public-entry/storage';
 import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
 import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
 
@@ -48,6 +49,13 @@ export default function SignUpPage() {
   // visitor who lands here directly (no prior assessment) sees the
   // unchanged, generic form.
   const [fromOnboarding, setFromOnboarding] = useState(false);
+  // Same shape and the same reason as fromOnboarding above: false on the
+  // server and on first client render so hydration never mismatches,
+  // flipped in an effect if this browser holds a public entry visitor token
+  // (lib/public-entry/storage.ts). It only changes the words on this
+  // screen. The actual bind happens after the account exists, from the
+  // claim in the root layout, and it is never assumed here.
+  const [fromPublicEntry, setFromPublicEntry] = useState(false);
   // Renders nothing and yields no token unless a Turnstile site key is
   // configured, which is what keeps signup identical while bot protection
   // is dormant.
@@ -55,6 +63,7 @@ export default function SignUpPage() {
 
   useEffect(() => {
     setFromOnboarding(hasPendingGuestOnboardingData());
+    setFromPublicEntry(readVisitorToken() !== null);
   }, []);
 
   function validateAll(): boolean {
@@ -97,7 +106,17 @@ export default function SignUpPage() {
 
   return (
     <>
-      {fromOnboarding ? (
+      {!fromOnboarding && fromPublicEntry ? (
+        <>
+          <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
+            Pick up where you started
+          </h1>
+          <p className="mt-1.5 text-sm leading-relaxed text-[#6B7A72]">
+            What you told us on the way in comes with you, marked as the first impression it was.
+            Root will show it back to you and start the real picture from there.
+          </p>
+        </>
+      ) : fromOnboarding ? (
         <>
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
             Save the beginning of your story
@@ -215,7 +234,9 @@ export default function SignUpPage() {
             ? 'Saving your story…'
             : fromOnboarding
               ? 'Continue my wellness journey'
-              : 'Sign up'}
+              : fromPublicEntry
+                ? 'Continue where I started'
+                : 'Sign up'}
         </button>
       </form>
       <p className="mt-5 text-center text-sm">

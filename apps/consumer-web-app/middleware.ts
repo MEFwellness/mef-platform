@@ -76,6 +76,17 @@ const PUBLIC_PATHS = [
   // visitors must always reach it, logged-in visitors are simply shown the
   // same standalone page (no redirect either way).
   '/start',
+  // Where Your Energy Goes (migration 197) — the public entry experience an
+  // anonymous visitor reaches from a referral partner's link, and its own
+  // API. Both must be reachable with no session at all: the visitor this
+  // serves has no account, which is the entire point. The API route's own
+  // boundary is its origin allowlist plus a rate limit, exactly like
+  // /api/lead-capture above; /api/public-entry/claim sits under the same
+  // prefix and resolves the member from her own session cookie inside the
+  // handler (returning 204 when there is none), the same way the analytics
+  // beacon does.
+  '/energy',
+  '/api/public-entry',
 ];
 
 export async function middleware(request: NextRequest) {

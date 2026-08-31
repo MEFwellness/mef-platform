@@ -77,6 +77,14 @@ const ALLOWED_PAYLOAD_KEYS = [
   'exerciseId',
   'exerciseCount',
   'skipCount',
+  // The public entry experience (migration 197): which registered source
+  // code sent this member and which experience she came through. Two
+  // slugs. There is deliberately no key here for her pattern, for any
+  // answer she gave before she had an account, or for the email she may
+  // have left, which is why a public_entry_claimed row physically cannot
+  // carry any of them.
+  'sourceCode',
+  'experienceKey',
 ] as const;
 
 /**

@@ -6,6 +6,8 @@ import {
   getOnboardingAssessmentBankForGuest,
 } from '../actions/onboarding';
 import { fetchLatestMemberGoalSelection } from '@/lib/member-goals/data';
+import { getMemberOrigin } from '@/lib/public-entry/data';
+import { PUBLIC_ENTRY_PRIMARY_CONCERN } from '@/lib/public-entry/questions';
 import { CenterStage } from '@/components/layout';
 import { ConsentForm } from './ConsentForm';
 import { OnboardingFlow } from './OnboardingFlow';
@@ -156,6 +158,21 @@ export default async function OnboardingPage() {
       ? { goals: latestGoalSelection.goals, primaryGoalKey: latestGoalSelection.primaryGoal }
       : null;
 
+  // She may have arrived through the public entry experience (migration
+  // 197). If so, `primary_concern` is confirmed rather than asked cold, the
+  // same affordance the welcome flow's goal screen already earns, so
+  // somebody who told us what she came for before she had an account is not
+  // asked the identical question the moment she does.
+  //
+  // This is a READ of member_public_entry_origin, whose own columns are
+  // check-constrained to say "preliminary public acquisition". Nothing is
+  // pre-filled from it: the value only becomes an answer when she taps the
+  // tile. See OnboardingForm.tsx's PublicEntryConcernConfirmControl.
+  const publicEntryOrigin = knownPrimaryGoal
+    ? null
+    : await getMemberOrigin(supabase, user.id);
+  const publicEntryConcern = publicEntryOrigin ? PUBLIC_ENTRY_PRIMARY_CONCERN : null;
+
   return (
     <div className={SHELL}>
       {/* Only ever reached once every earlier guard (consent, already
@@ -164,7 +181,12 @@ export default async function OnboardingPage() {
           not on the consent gate or the already-complete screen. */}
       <TrackOnboardingStarted />
       <main className={CONTAINER}>
-        <OnboardingFlow questions={questions} mode="member" knownPrimaryGoal={knownPrimaryGoal} />
+        <OnboardingFlow
+          questions={questions}
+          mode="member"
+          knownPrimaryGoal={knownPrimaryGoal}
+          publicEntryConcern={publicEntryConcern}
+        />
       </main>
     </div>
   );

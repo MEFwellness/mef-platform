@@ -61,6 +61,7 @@
  * and each kind uses exactly one of them:
  *
  *   kind                   inner guard              lifetime
+ *   public_entry_welcome    isRecurringMessageDue    snoozed returns next login
  *   questionnaire_assigned  isRecurringMessageDue    snoozed returns next login
  *   stress_load_assigned    isRecurringMessageDue    snoozed returns next login
  *   priority_card (re-entry) isPriorityCardDue       once per local day
@@ -87,6 +88,7 @@
 'use server';
 
 import { getCachedUser } from '@/lib/supabase/currentUser';
+import { getPublicEntryWelcome } from '@/lib/public-entry/welcome';
 import { createClient } from '@/lib/supabase/server';
 import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from './coreValuesSnapshot';
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from './lifeSignalCheck';
@@ -105,6 +107,7 @@ import {
   rplPopupMessageKey,
   resetPlanPopupMessageKey,
   questionnaireAssignedPopupMessageKey,
+  publicEntryWelcomePopupMessageKey,
   priorityCardPopupMessageKey,
   weeklyReviewPopupMessageKey,
   weeklyReflectionPopupMessageKey,
@@ -264,7 +267,23 @@ export type RootPopupMessage =
    * Root's voice, identical for everyone, and its answer writes
    * profiles.hydration_focus.
    */
-  | { kind: 'hydration_focus'; messageKey: string };
+  | { kind: 'hydration_focus'; messageKey: string }
+  /**
+   * The public entry welcome (migration 197). Shown once to a member who
+   * arrived through Where Your Energy Goes and has not yet completed her
+   * Baseline Assessment, so Root can say honestly what she told us before
+   * she had an account and then hand her to the real thing.
+   *
+   * `patternTitle` is null when she arrived and created an account without
+   * finishing the nine questions, and the copy branches on that rather than
+   * inventing something to have noticed.
+   */
+  | {
+      kind: 'public_entry_welcome';
+      messageKey: string;
+      patternTitle: string | null;
+      primaryHref: string;
+    };
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -382,6 +401,44 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   async function goalCallbackForDay7(): Promise<string | null> {
     if (!memberId || !supabase) return null;
     return buildGoalCallback(await fetchGoalCallbackContext(supabase, memberId));
+  }
+
+  // The public entry welcome (migration 197). FIRST in this chain, ahead
+  // even of a coach assignment, and it is the only message here that is
+  // about the member's arrival rather than about her week. She has just
+  // created an account off the back of telling a stranger's website how her
+  // days go, and the first thing Root should do is show her that it was not
+  // thrown away and say exactly what it was and was not.
+  //
+  // ITS OWN DUE-CHECK, per this file's one rule: isRecurringMessageDue, so
+  // "Maybe later" genuinely means next login and "Ignore" genuinely means
+  // never, matching the buttons the invite chrome actually shows her.
+  //
+  // ITS OWN CLOSER, so it cannot stand forever. The branch only fires while
+  // she has no onboarding submission, because the whole message is an
+  // invitation to start one. The moment she has, there is nothing to invite
+  // her to and this stops being offered whether or not she ever dismissed
+  // it. A rule that only fires when something is missing needs the thing
+  // arriving to end it, not a dismissal.
+  //
+  // WHAT IT IS ALLOWED TO SAY. The pattern her nine public answers resolved
+  // to, named as the first impression it is. Nothing here reads
+  // public_entry_answers, nothing carries a public answer into an
+  // assessment, and the copy itself (lib/public-entry/copy.ts's
+  // ROOT_WELCOME_COPY) says out loud that it was not a measurement.
+  if (memberId && supabase) {
+    const welcome = await getPublicEntryWelcome(supabase, memberId);
+    if (welcome) {
+      const messageKey = publicEntryWelcomePopupMessageKey(welcome.sessionId);
+      if (await isRecurringMessageDue(messageKey)) {
+        return {
+          kind: 'public_entry_welcome',
+          messageKey,
+          patternTitle: welcome.patternTitle,
+          primaryHref: '/onboarding',
+        };
+      }
+    }
   }
 
   // Coach-assigned questionnaire (Assignment-Gated Questionnaires task) —

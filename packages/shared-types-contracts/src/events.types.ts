@@ -110,7 +110,19 @@ export type ProductAnalyticsEventType =
   | 'movement_session_viewed'
   | 'movement_session_started'
   | 'movement_session_completed'
-  | 'movement_exercise_skipped';
+  | 'movement_exercise_skipped'
+  /**
+   * The public entry experience (migration 197). Written once, when a
+   * member's anonymous public arrival is bound to her new account.
+   *
+   * Carries the SOURCE CODE and the EXPERIENCE KEY and nothing else. There
+   * is deliberately no field for the pattern her answers resolved to, no
+   * field for any answer, and no field for the email she may have left:
+   * this event exists so a referral partner can be followed from a first
+   * click through activation and return, not so a rollup can reconstruct
+   * what a stranger told us before she had an account.
+   */
+  | 'public_entry_claimed';
 
 /**
  * Program lifecycle (migration 172). Operational facts about one assigned
@@ -270,6 +282,17 @@ export interface ProductAnalyticsPayload {
    * week, which is precisely what this payload shape exists to prevent.
    */
   questionKey?: string;
+  /**
+   * public_entry_claimed, which registered acquisition source code sent
+   * this member. A slug from public_entry_sources.code (migration 197),
+   * never a full URL and never a referring page.
+   */
+  sourceCode?: string | null;
+  /**
+   * public_entry_claimed, which public experience she came through. A key
+   * from PublicEntryExperienceKey.
+   */
+  experienceKey?: string;
   /**
    * coaching_grades_computed, three COUNTS from one grading pass: how many
    * grades it produced, and how many of those were landing or dead.

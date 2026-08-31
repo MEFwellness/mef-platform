@@ -1,3 +1,113 @@
+## The first acquisition experience: Where Your Energy Goes (2026-08-31)
+
+Migration 197. The product converts people who reach it. Almost nobody
+reaches it. This is the first thing built to answer that, and it is
+deliberately one path, measured end to end, rather than a set of options.
+
+**What was already there, and why none of it was working.** Three public
+entry paths existed and they competed with each other. `/start` is a
+landing page whose only call to action opens the chat widget. `/wellness-
+check` is a seven question quiz whose result is an average of every answer,
+so it says "several areas you shared look fairly steady" to almost
+everybody and cannot feel like it was about anyone. `/onboarding` in guest
+mode is the real fifteen question Baseline Assessment, publicly takeable,
+which is a lot to ask of a stranger and reaches her before any consent
+screen. None of the three carried a source code, so nothing could be told
+apart from anything else, and there was no anonymous funnel at all: the
+first thing recorded about anybody was `signup_completed`, which is the
+step this whole problem is upstream of.
+
+**The topic stayed fatigue and the framing changed.** "Why are you tired"
+invites a causal claim we cannot make about a stranger from nine taps.
+"Where does your energy go" is a question we can answer honestly, because
+the answer is a restatement of what she just said plus one pattern name.
+Nine questions in four announced chapters, about two minutes, no account
+and no email.
+
+**Every sentence in a result is keyed to an answer.** `ANSWER_ECHOES` in
+`lib/public-entry/copy.ts` holds one clause per option per question, and an
+evidence line is exactly `You told us ${echo}.` There is no sentence
+anywhere in a result that is not built from an option somebody tapped, and
+`tests/public-entry-result-copy.test.ts` proves the echo table is total and
+has nothing spare, across a full sweep of answers. A gap there would
+silently shorten a result; a spare would be a sentence with nothing behind
+it.
+
+**No rule names a pattern from one answer.** Every rule in
+`lib/public-entry/patterns.ts` reads at least two questions and the test
+suite breaks each one two different ways to prove the rule genuinely
+depends on more than one of them. When nothing agrees the answer is
+`recovery_deficit`, whose copy says out loud that no single place stands
+out, rather than a closest match dressed up as a finding. The pattern
+vocabulary is the lead capture agent's own (migration 123), so a lead from
+the chat widget and a lead from this experience read identically to a
+coach, in the same `captured_leads` row.
+
+**The free result is complete, and the ask comes after it.** Pattern,
+evidence, what it often looks like, what it does not tell us, and one thing
+worth trying. All of that is on screen before the email step exists. There
+is no outbound email provider in this application, so the email step
+delivers on the page and says so in as many words: "Nothing lands in your
+inbox today." What the email is actually for is stated too, and it is true:
+a coach sees the result. Promising a delivery we cannot make is the exact
+thing this experience is built not to do.
+
+**Provenance is a constraint, not a convention.**
+`member_public_entry_origin.origin` is checked `= 'public_acquisition'` and
+`.preliminary` is checked `= true`. Neither is a default a later update
+could flip. `public_entry_answers` has no foreign key into any assessment,
+check-in or scoring table, and nothing copies a row out of it.
+`tests/public-entry-provenance.test.ts` reads the feature's source and
+fails the build if a write to a member data table appears, because the
+guarantee is the absence of a call and a behaviour test can only cover the
+paths somebody thought of.
+
+That matters because the path that already existed did the opposite.
+`app/actions/guest-preview.ts` takes a stranger's quiz answers and
+`submitDailyCheckin`s them, so they become a real check-in feeding the
+correlation engine, the drivers and the Root Score, with nothing recording
+that a stranger gave them. That path is untouched by this build and is
+noted here as the next thing to fix.
+
+**Root says one honest thing, once.** A new `public_entry_welcome` branch
+at the top of the pop-up chain: what she told us before she had an account,
+named as the first impression it was, and one place to go. Its own
+due-check per that file's one rule, and its own closer, which is her
+Baseline Assessment arriving rather than a dismissal. The Baseline then
+CONFIRMS her concern instead of asking cold, and nothing is pre-filled: the
+value lands only when she taps the tile.
+
+**Attribution is per partner and it is first touch.**
+`public_entry_sources` is one row per individual source with a human label,
+so two partners on the same channel stay tellable apart.
+`/energy/dr-okafor` and `/energy?ref=dr-okafor` resolve to the same code and
+the printed form wins when both are present. An unregistered code is
+recorded verbatim and reported as its own row rather than folded into
+direct. Whoever sent somebody first is who sent them, permanently.
+
+**Seven steps before an account and the existing pipeline after it.** The
+pre-account half cannot live in `member_wellness_events`, whose `member_id`
+is `not null references auth.users(id)`. It lives in `public_entry_events`,
+and one new analytics type, `public_entry_claimed`, joins the two halves
+through `member_public_entry_origin`. That event carries a source slug and
+an experience key and there is no payload field it could carry an answer,
+a pattern or an email in. `/admin/acquisition` prints the whole thing, and
+says how many test arrivals it hid.
+
+**One real bug this build found in itself.** The route first shared the
+chat widget's rate limit of twenty requests per five minutes per IP. One
+honest visitor makes about fourteen calls, so the second person behind the
+same address was refused part way through the nine questions and simply
+watched her answers stop saving. Found by driving two complete journeys
+back to back. It now has its own budget of sixty and its own map, and a
+test asserts four complete journeys from one address all finish.
+
+**Local verification.** 25 of 25 through two complete journeys in a real
+browser, with deliberately different answers, confirming different answers
+produce different evidence and a different pattern. The continuation was
+driven separately: the claim binds, the welcome pop-up says the honest
+sentence, and the Baseline confirms rather than asks.
+
 ## Notifications, part 2: the daily decision job (2026-08-31)
 
 Migration 196. Part 1 built everything that has to exist first and

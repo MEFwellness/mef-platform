@@ -90,6 +90,7 @@ America/New_York, with `local_date` correctly 2026-08-12.
 | `paywall_viewed` | A locked or premium marker is shown | `feature`, `lockReason` | Locked card components |
 | `membership_tier_changed` | `profiles.membership_tier` changes | `fromTier`, `toTier` | trigger |
 | `purchase_completed` | Not emitted yet, see below | `toTier`, `term` | nothing |
+| `public_entry_claimed` | A member's anonymous public arrival is bound to her new account | `sourceCode`, `experienceKey` | `app/api/public-entry/claim/route.ts` |
 
 ### Surfaces
 
@@ -306,3 +307,19 @@ payload (`toTier`, `term`) and nothing emits it. When billing moves in
 app, or when a webhook endpoint is added, the one line it needs to call is
 `trackProductEvent(supabase, { eventType: 'purchase_completed', ... })`.
 No schema change and no new pipeline will be required.
+
+
+## The pre-account half of the funnel
+
+`public_entry_claimed` (migration 197) is the seam between this pipeline and
+the one that measures the public entry experience at `/energy`. Everything
+before an account exists cannot live in `member_wellness_events` at all,
+because `member_id` is `not null references auth.users(id)` and an anonymous
+visitor has no row to reference. It lives in `public_entry_events` /
+`public_entry_sessions`, and `member_public_entry_origin` joins the two
+halves. See `docs/ACQUISITION_FUNNEL.md` for the queries.
+
+That event carries a source code slug and an experience key and nothing
+else. There is deliberately no payload field for the pattern a stranger's
+answers resolved to, for any answer she gave, or for the email she may have
+left, which is why one of those cannot reach an analytics row.

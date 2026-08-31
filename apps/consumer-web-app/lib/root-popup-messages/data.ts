@@ -42,6 +42,16 @@ export function resetPlanPopupMessageKey(kind: 'day3' | 'day7', planId: string):
  * therefore a fresh pop-up, while a dismissal of this exact assignment's
  * pop-up never repeats for this exact assignment.
  */
+/**
+ * The public entry welcome (migration 197), keyed by the public session she
+ * actually arrived through rather than by a constant, so a member is only
+ * ever offered this for the one arrival that is genuinely hers and a
+ * dismissal can never be inherited from anything else.
+ */
+export function publicEntryWelcomePopupMessageKey(sessionId: string): string {
+  return `public_entry_welcome:${sessionId}`;
+}
+
 export function questionnaireAssignedPopupMessageKey(assignmentId: string): string {
   return `questionnaire_assigned:${assignmentId}`;
 }

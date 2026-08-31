@@ -41,6 +41,14 @@ type World = {
   stressLoadAssignmentId: string | null;
   priority: { rule: string; isReEntry: boolean; status: string } | null;
   freeArcKey: string | null;
+  /**
+   * The public entry welcome (migration 197). Set to a session id to put
+   * the member in the one state that branch fires on: she arrived through
+   * the public entry experience and has not yet completed her Baseline
+   * Assessment. Null is every other member, which is why the rest of this
+   * file's matrix is unaffected.
+   */
+  publicEntryWelcomeSessionId: string | null;
   dismissals: Map<string, RootPopupDismissal>;
 };
 
@@ -56,6 +64,7 @@ const world: World = {
   stressLoadAssignmentId: null,
   priority: null,
   freeArcKey: null,
+  publicEntryWelcomeSessionId: null,
   dismissals: new Map(),
 };
 
@@ -71,6 +80,7 @@ function resetWorld(): void {
   world.stressLoadAssignmentId = null;
   world.priority = null;
   world.freeArcKey = null;
+  world.publicEntryWelcomeSessionId = null;
   world.dismissals = new Map();
 }
 
@@ -144,6 +154,17 @@ vi.mock('@/lib/root-popup-messages/freeArc', async (importOriginal) => {
       catalog.available[0] ?? null,
   };
 });
+
+// The public entry welcome is gated by one accessor (see
+// lib/public-entry/welcome.ts), which is both "did she arrive this way" and
+// "has she finished her Baseline Assessment yet". Setting a session id here
+// is exactly "yes and not yet".
+vi.mock('@/lib/public-entry/welcome', () => ({
+  getPublicEntryWelcome: async () =>
+    world.publicEntryWelcomeSessionId
+      ? { sessionId: world.publicEntryWelcomeSessionId, patternTitle: 'The gap before the dip' }
+      : null,
+}));
 
 vi.mock('@/lib/hydration/data', () => ({
   fetchHydrationFocus: async () => ({ focus: world.hydrationFocus }),
@@ -326,6 +347,20 @@ const KINDS: Array<{
   lifetime: 'oneTime' | 'recurring';
   arrange: () => void;
 }> = [
+  {
+    // The public entry welcome sits first in the chain, and is recurring
+    // rather than one-time for the same reason the invitations below it
+    // are: it shows real "Maybe later" and "Ignore" buttons, so those two
+    // words have to mean what they say. Its real closer is her Baseline
+    // Assessment arriving, which is inside getPublicEntryWelcome and is why
+    // it can never stand forever.
+    kind: 'public_entry_welcome',
+    messageKey: 'public_entry_welcome:pe-session-1',
+    lifetime: 'recurring',
+    arrange: () => {
+      world.publicEntryWelcomeSessionId = 'pe-session-1';
+    },
+  },
   {
     kind: 'questionnaire_assigned',
     messageKey: 'questionnaire_assigned:assignment-1',

@@ -82,6 +82,21 @@ export default async function AdminPage({
         </Link>
 
         <Link
+          href={'/admin/acquisition' as Route}
+          className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">Acquisition</p>
+          <p className="mt-1 text-[15px] font-medium text-[#1B3A2D]">
+            Where Your Energy Goes: the funnel
+          </p>
+          <p className="mt-1 text-sm text-[#6B7A72]">
+            Who reached the public entry experience, who finished it, who left an email and who
+            created an account, broken down by the individual source that sent them. The links to
+            hand out are on the same screen.
+          </p>
+        </Link>
+
+        <Link
           href={'/admin/cvs-test-tools' as Route}
           className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-6 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
         >

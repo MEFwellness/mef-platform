@@ -9,6 +9,7 @@ import { SLIDER_ENDPOINT_LABELS, numericRange } from '@/lib/onboarding/scale';
 import { DOMAIN_LABEL } from '@/lib/onboarding/baseline';
 import { coachHelperFor, coachPromptFor, ZOOM_OUT_TRANSITION } from '@/lib/onboarding/coachCopy';
 import { reorderOnboardingQuestions, transitionLineFor } from '@/lib/onboarding/branching';
+import { ONBOARDING_PUBLIC_ENTRY_CONFIRM } from '@/lib/public-entry/copy';
 import {
   PRIMARY_CONCERN_QUESTION_KEY,
   advanceAdaptivePlan,
@@ -81,6 +82,14 @@ type Props = {
    * only how that answer gets recorded changes.
    */
   knownPrimaryGoal?: { goals: string[]; primaryGoalKey: string } | null;
+  /**
+   * The `primary_concern` value the member's public arrival corresponds to
+   * (member mode only, see app/onboarding/page.tsx). When set and
+   * knownPrimaryGoal is not, the question CONFIRMS this instead of asking
+   * cold. Never passed in guest mode: a guest has no account for an arrival
+   * to have been bound to.
+   */
+  publicEntryConcern?: string | null;
 };
 
 type StoredAnswer = {
@@ -772,6 +781,50 @@ function PrimaryConcernConfirmControl({
   );
 }
 
+/**
+ * The `primary_concern` question's control for a member who arrived through
+ * the public entry experience (migration 197).
+ *
+ * IT CONFIRMS, IT DOES NOT ASSUME. Choosing to open a link about energy is
+ * a real signal about what somebody came for, and it is not the same thing
+ * as her saying energy is what matters most. So nothing is pre-filled and
+ * nothing is answered on her behalf: she taps one of two tiles, and
+ * "Something else matters more" hands her the ordinary cold-ask question
+ * unchanged.
+ *
+ * THIS IS THE ONE PLACE A PUBLIC ANSWER TOUCHES THE ASSESSMENT, and it does
+ * so only as the wording of a question. The value that lands on
+ * `primary_concern` is written by her tap, which is exactly what would have
+ * happened had she picked it from the list.
+ */
+function PublicEntryConcernConfirmControl({
+  onStillTrue,
+  onSomethingElse,
+}: {
+  onStillTrue: () => void;
+  onSomethingElse: () => void;
+}) {
+  return (
+    <div>
+      <p className="text-[15px] leading-relaxed text-[#1B3A2D]">
+        {ONBOARDING_PUBLIC_ENTRY_CONFIRM.context}
+      </p>
+      <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
+        <ConfirmChoiceTile
+          label={ONBOARDING_PUBLIC_ENTRY_CONFIRM.stillTrue}
+          tone="primary"
+          onSelect={onStillTrue}
+        />
+        <ConfirmChoiceTile
+          label={ONBOARDING_PUBLIC_ENTRY_CONFIRM.somethingElse}
+          tone="secondary"
+          onSelect={onSomethingElse}
+        />
+      </div>
+    </div>
+  );
+}
+
 function buildInitialSteps(mode: 'adaptive' | 'fixed', questions: OnboardingQuestion[]): Step[] {
   if (mode === 'fixed') {
     // Exact original behavior: the lightweight reorder-only branching,
@@ -791,11 +844,16 @@ export function OnboardingForm({
   guestMode = false,
   onGuestSave,
   knownPrimaryGoal = null,
+  publicEntryConcern = null,
 }: Props) {
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, StoredAnswer>>({});
   const [error, setError] = useState('');
   const [invalidKey, setInvalidKey] = useState<string | null>(null);
+  // Set when she taps "Something else matters more" on the public-entry
+  // confirm, which hands her the ordinary cold-ask question for the rest of
+  // this sitting.
+  const [publicEntryConfirmDeclined, setPublicEntryConfirmDeclined] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   // Only meaningful in 'adaptive' mode: the fixed-mode reorder below is a
@@ -1064,6 +1122,29 @@ export function OnboardingForm({
           // same normal-flow container.
           <div className="flex min-h-[55vh] flex-col justify-center">
             {currentStep.question.question_key === PRIMARY_CONCERN_QUESTION_KEY &&
+            !knownPrimaryGoal &&
+            publicEntryConcern &&
+            !publicEntryConfirmDeclined ? (
+              <QuestionField
+                question={currentStep.question}
+                answer={answers[currentStep.question.question_key]}
+                invalid={invalidKey === currentStep.question.question_key}
+                onAnswerChange={updateAnswer}
+                registerRef={registerRef}
+                promptOverride={ONBOARDING_PUBLIC_ENTRY_CONFIRM.prompt}
+                renderOverride={() => (
+                  <PublicEntryConcernConfirmControl
+                    onStillTrue={() =>
+                      updateAnswer(PRIMARY_CONCERN_QUESTION_KEY, {
+                        status: 'answered',
+                        value: publicEntryConcern,
+                      })
+                    }
+                    onSomethingElse={() => setPublicEntryConfirmDeclined(true)}
+                  />
+                )}
+              />
+            ) : currentStep.question.question_key === PRIMARY_CONCERN_QUESTION_KEY &&
             knownPrimaryGoal ? (
               <QuestionField
                 question={currentStep.question}
