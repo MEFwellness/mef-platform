@@ -106,11 +106,51 @@ generated commentary. A rate with no denominator prints as nothing rather
 than as nought per cent, because "nobody has reached this stage" and "nobody
 converted" say completely different things.
 
-**Local verification.** The whole suite passes, including 51 new tests
-across two files: the arithmetic, the bucketing, the zero padding, the rate
-rules and the URL round trip with no database; and the email match, its
-exactness, attach-once, one arrival per account, the widened funnel view and
-paid conversion against the real database and its real policies.
+**Local verification.** The whole suite passes, 483 files and 7923 tests,
+including 51 new ones across two files: the arithmetic, the bucketing, the
+zero padding, the rate rules and the URL round trip with no database; and
+the email match, its exactness, attach-once, one arrival per account, the
+widened funnel view and paid conversion against the real database and its
+real policies.
+
+**Live verification, 37 of 37 on production.**
+`scripts/verify-acquisition-report-live.mjs` opens the report as a real
+administrator on a minted session, checks both real QR card arrivals from 31
+August and the real member origin row read correctly under `qr-card`, checks
+all 23 registered codes are listed including the ones with no activity,
+builds a real tracking link on the real builder, walks the nine questions as
+a stranger, leaves an email, creates the account in a SEPARATE browser
+context holding no visitor token, and confirms the account comes out
+attributed rather than untracked, under the right source, with visits,
+started, finished, email leads and accounts all reading one. Then the test
+toggle (the run vanishes, the real rows stay, the hidden count is printed),
+the untracked row with a bare `/energy` arrival landing in it, all five
+groupings, and cleanup followed by the screen's totals compared against a
+direct count of production. Every row the run created was removed and
+production is byte for byte where it started.
+
+**What the live run could NOT do, and what covers it instead.** Bot
+protection is live on the signup form by design and refused the scripted
+browser, so the form itself could not be submitted and that was never worked
+around. Two things stand in its place. The live run reads the real signup
+page and confirms the hidden field is rendered there saying `no`, which is
+the only thing that form tells the server about an arrival. And the account
+link is then run by THE REAL shipped function, imported from the same file
+the signup action imports, against production
+(`scripts/link-acquisition-by-email-live.ts`), so what was verified live is
+the shipped code and not a reimplementation of it. The one link not
+exercised live is the action's own `if (!browserCarriesArrival)` branch,
+which a source guard in `tests/acquisition-report.test.ts` fails the build
+over if it ever changes.
+
+**One thing worth knowing about the production numbers.** Both 31 August QR
+card arrivals are real, and one of them is hidden with the toggle off
+because the member who claimed it is flagged as a test account. That is the
+pre-existing is_test rule doing its job, not a gap: turn the toggle on and
+both appear. The untracked row currently carries 19 accounts, which is every
+account on production that did not come through the public entry
+experience, staff included. That is the honesty rule working as intended and
+it is explained on the screen.
 
 ## Acquisition attribution: what brought somebody here, kept (2026-09-03)
 
