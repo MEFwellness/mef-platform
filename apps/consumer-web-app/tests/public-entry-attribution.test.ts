@@ -26,7 +26,14 @@ describe('normalizing a code', () => {
   it('survives being typed by a human', () => {
     expect(normalizeSourceCode(' Partner-01 ')).toBe('partner-01');
     expect(normalizeSourceCode('PARTNER-01')).toBe('partner-01');
-    expect(normalizeSourceCode('partner_01')).toBe('partner01');
+    // An underscore becomes a hyphen rather than disappearing (migration
+    // 200). It used to be deleted, which meant `?ref=dr_okafor` normalised
+    // to `drokafor` while the link builder's own `utm_source=dr_okafor`
+    // normalised to `dr-okafor`: one partner, two codes, two rows in a
+    // report, and nothing to say they were the same person. No code this
+    // app has ever registered contains an underscore, so the only
+    // behaviour that changed is what a mistyped code is recorded as.
+    expect(normalizeSourceCode('partner_01')).toBe('partner-01');
   });
 
   it('refuses anything that cannot be a code', () => {

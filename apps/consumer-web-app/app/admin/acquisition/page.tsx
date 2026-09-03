@@ -18,6 +18,8 @@
  * a filtered admin list says how much it filtered.
  */
 
+import Link from 'next/link';
+import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -188,6 +190,17 @@ export default async function AcquisitionFunnelPage() {
             One per source. A code is permanent once a link is printed or handed out, so relabel a
             slot rather than renaming its code.
           </p>
+
+          <Link
+            href={'/admin/acquisition/links' as Route}
+            className="mef-focus-ring mt-3 block rounded-[28px] bg-white p-5 shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)] transition hover:bg-[#FAFAF8]"
+          >
+            <p className="text-[15px] font-medium text-[#1B3A2D]">Build a tracking link</p>
+            <p className="mt-1 text-sm text-[#6B7A72]">
+              Make a full link with its campaign and creative, and record who its code stands for
+              and where they are, from one form. Never type one by hand.
+            </p>
+          </Link>
           <ul className="mef-card mt-2 divide-y divide-[#1B3A2D]/5 p-2">
             {sources.map((source) => (
               <li key={source.code} className="px-3 py-2.5">

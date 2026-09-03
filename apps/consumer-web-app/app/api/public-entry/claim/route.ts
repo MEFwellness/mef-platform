@@ -24,17 +24,35 @@
  * is the row written as the platform. This is the same shape the push
  * decision's administrator tool had to be corrected into on 2026-08-31.
  *
+ * WHAT IT WRITES SINCE MIGRATION 200. The bind, as before, and alongside it
+ * her `user_acquisition` row: the arrival's FIRST touch attribution copied
+ * onto her account with every original timestamp carried forward. That row
+ * is written once, is refused an update by the database itself, and is what
+ * a later report joins to `member_subscriptions` and to
+ * `member_wellness_events` to read paid conversion. Nothing reads it yet.
+ *
+ * IT IS COPIED, NOT JOINED, AND THAT IS DELIBERATE. Where a member came
+ * from is a fact about her account, and it has to survive the deletion of
+ * the anonymous session it came from; every verification run this year has
+ * purged those sessions afterwards.
+ *
  * WHAT IT DOES NOT DO, AND WILL NEVER DO. It does not copy a single public
  * answer into a check-in, an onboarding submission, an assessment session
  * or a scoring input. Public answers stay in public_entry_answers where
- * their provenance is structural. All this writes is the bind, and one
- * behavioural analytics row carrying the source code.
+ * their provenance is structural. Attribution is behavioural only: no
+ * answer, no pattern and no email reaches a `user_acquisition` column,
+ * because no such column exists.
  */
 
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { createClient } from '@/lib/supabase/server';
 import { serviceRoleClient } from '@/lib/supabase/serviceRole';
 import { claimSessionForMember, getSessionByToken } from '@/lib/public-entry/data';
+import {
+  attachUserAcquisition,
+  readAttributionTouch,
+  touchFromSession,
+} from '@/lib/acquisition/data';
 import { fireAndForget, resolveMemberTimezone, trackProductEvent } from '@/lib/analytics/track';
 
 export const dynamic = 'force-dynamic';
@@ -68,6 +86,23 @@ export async function POST(request: Request): Promise<Response> {
   if (!origin) return Response.json({ claimed: false, retry: true });
 
   if (newlyClaimed) {
+    // Her own copy of where she came from, before anything else, because
+    // this is the only moment the arrival and the account are both in hand.
+    // Awaited rather than fired and forgotten: an analytics row that goes
+    // missing costs a number, and this one costs the origin of a real
+    // member, permanently.
+    const firstTouch =
+      (await readAttributionTouch(service, session.id, 'first')) ?? touchFromSession(session);
+    await attachUserAcquisition(service, {
+      memberId: user.id,
+      sessionId: session.id,
+      experienceKey: origin.experienceKey,
+      capturedLeadId: session.capturedLeadId,
+      leadCapturedAt: session.leadCapturedAt,
+      accountCreatedAt: user.created_at ?? null,
+      attribution: firstTouch,
+    });
+
     // Through the existing pipeline, so the post-account half of the funnel
     // is readable from product_analytics_events with no new machinery. The
     // member's own RLS-scoped client writes it, because it is her own event

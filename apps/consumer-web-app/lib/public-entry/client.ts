@@ -10,7 +10,7 @@
  * as their own visible error state.
  */
 
-import type { PublicEntryEventType } from '@mef/shared-types-contracts';
+import type { AcquisitionAttribution, PublicEntryEventType } from '@mef/shared-types-contracts';
 import type { EnergyResult, ThreeDayNote } from './result';
 
 const ENDPOINT = '/api/public-entry';
@@ -42,6 +42,12 @@ export function arrive(input: {
   sourceRaw: string | null;
   landingPath: string | null;
   referrer: string | null;
+  /**
+   * What the URL carried, read and normalised by the page. Coarse geo is
+   * deliberately absent: the route reads that from the headers on this very
+   * request, where a caller cannot forge it.
+   */
+  attribution: AcquisitionAttribution;
 }): Promise<ArriveResponse | null> {
   return post<ArriveResponse>({ action: 'arrive', ...input });
 }

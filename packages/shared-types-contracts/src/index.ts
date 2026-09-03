@@ -29,6 +29,7 @@ export * from './exercise-feedback.types';
 export * from './program-blueprints.types';
 export * from './program-review.types';
 export * from './public-entry.types';
+export * from './acquisition.types';
 export * from './readiness.types';
 export * from './your-move-generation.types';
 export * from './lead-capture.types';

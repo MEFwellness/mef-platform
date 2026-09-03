@@ -87,6 +87,8 @@ export interface PublicEntrySessionRecord {
   patternKey: PublicEntryPatternKey | null;
   leadEmail: string | null;
   leadCapturedAt: string | null;
+  /** The lead row this arrival produced, when she left an email. Null otherwise, which is most arrivals. */
+  capturedLeadId: string | null;
 }
 
 /**

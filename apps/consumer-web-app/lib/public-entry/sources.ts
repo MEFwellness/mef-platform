@@ -24,30 +24,25 @@
  * folded into direct traffic.
  */
 
-/** The shape a code must have to be storable. Same rule as the database's own check constraint on public_entry_sources.code. */
-const CODE_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
+import { normalizeSourceCodeValue } from '@/lib/acquisition/normalize';
 
 /** Query parameters we accept a code in, in priority order. `ref` is ours; the utm ones exist because a partner will paste them without asking. */
 export const SOURCE_QUERY_KEYS = ['ref', 'utm_source', 'source'] as const;
 
 /**
- * Lowercases, trims and strips anything that is not allowed, then checks
+ * Lowercases, trims and rewrites anything that is not allowed, then checks
  * the result against the same pattern the database enforces. Returns null
  * for anything that cannot be a code at all, so a junk value never becomes
  * a fake source row.
+ *
+ * THE RULE MOVED, THE BEHAVIOUR IS THE SAME FOR EVERY REGISTERED CODE. It
+ * now lives in lib/acquisition/normalize.ts, because migration 200's link
+ * builder generates codes and the reader here consumes them, and two
+ * normalisers for one value is how one partner becomes two rows in a
+ * report. Every code this app has ever handed out normalises to exactly
+ * what it did before.
  */
-export function normalizeSourceCode(raw: string | null | undefined): string | null {
-  if (typeof raw !== 'string') return null;
-  const cleaned = raw
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/^-+/, '')
-    .slice(0, 40)
-    .replace(/-+$/, '');
-  if (!cleaned) return null;
-  return CODE_PATTERN.test(cleaned) ? cleaned : null;
-}
+export const normalizeSourceCode = normalizeSourceCodeValue;
 
 /**
  * The code this arrival carried, from the path segment first and the query

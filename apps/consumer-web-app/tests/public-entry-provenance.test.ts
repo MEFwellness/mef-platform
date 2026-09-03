@@ -44,6 +44,10 @@ function walk(dir: string, out: string[] = []): string[] {
 /** Every file that belongs to the public entry feature. */
 const FEATURE_FILES = [
   ...walk(path.join(ROOT, 'lib', 'public-entry')),
+  // Migration 200's attribution layer belongs to the same feature and
+  // carries the same guarantee: it records where a click came from and
+  // nothing about what anybody answered.
+  ...walk(path.join(ROOT, 'lib', 'acquisition')),
   ...walk(path.join(ROOT, 'app', 'api', 'public-entry')),
   ...walk(path.join(ROOT, 'components', 'public-entry')),
   ...walk(path.join(ROOT, 'app', 'energy')),

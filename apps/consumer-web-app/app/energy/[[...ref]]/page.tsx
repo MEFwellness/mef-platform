@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { EnergyEntryClient } from '@/components/public-entry/EnergyEntryClient';
 import { ENERGY_EXPERIENCE_TITLE } from '@/lib/public-entry/copy';
 import { resolveSourceCode } from '@/lib/public-entry/sources';
+import { readAttributionFromQuery } from '@/lib/acquisition/attribution';
 
 /**
  * Where Your Energy Goes: the public entry experience, and the first thing
@@ -20,6 +21,14 @@ import { resolveSourceCode } from '@/lib/public-entry/sources';
  * that a page render must never insert a row: Next prefetches a link the
  * moment it scrolls into view, and a render-time write would count arrivals
  * for people who never arrived.
+ *
+ * WHAT IT READS OFF THE URL, AND WHAT IT DOES NOT. The source code, the
+ * five utm parameters and the three ad click ids, all normalised here so
+ * the browser is handed values that are already the shape the database will
+ * store. Coarse request geo is deliberately NOT read here: it comes from
+ * the headers on the browser's own call to /api/public-entry, where it
+ * cannot be forged by a caller and does not depend on this page having
+ * remembered to hand it down.
  *
  * A SIGNED-IN VISITOR IS NOT REDIRECTED. Somebody who already has an
  * account may perfectly well open a partner's link, and bouncing them into
@@ -54,5 +63,11 @@ export default function EnergyEntryPage({
     query: searchParams,
   });
 
-  return <EnergyEntryClient sourceCode={sourceCode} />;
+  const attribution = readAttributionFromQuery({
+    query: searchParams,
+    sourceCode,
+    landingPath: params.ref?.[0] ? `/energy/${params.ref[0]}` : '/energy',
+  });
+
+  return <EnergyEntryClient sourceCode={sourceCode} attribution={attribution} />;
 }

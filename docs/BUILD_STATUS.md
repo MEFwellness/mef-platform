@@ -1,3 +1,133 @@
+## Acquisition attribution: what brought somebody here, kept (2026-09-03)
+
+Migration 200. The public entry experience recorded ONE thing about where
+an arrival came from: our own source code. That answers which partner and
+nothing else, and it stopped at the anonymous session, so the moment a
+session was purged the origin of a real member went with it. This is the
+collection half of acquisition attribution: everything a link carries,
+kept from the first click through the lead and onto the account. There is
+no reporting screen in this build, on purpose; the acquisition report is a
+separate build that will read what this one writes.
+
+**Nothing new was built where something already worked.** The arrival, the
+session, the visitor token, the lead record, the bind between a lead and a
+new account, the event pipeline, the funnel view and the admin
+authorization are all migration 197's and migration 123's, unchanged. What
+this adds is columns on the arrival that already existed, two copies of
+those columns onto records that already existed, and one admin screen. No
+third party analytics, no second tracking system, no second funnel.
+
+**What a link is now read for.** The five utm parameters, our own source
+code (still `/energy/dr-okafor`, `?ref=`, `?utm_source=` and `?source=`,
+untouched), the three ad click ids `fbclid` / `ttclid` / `gclid`, the
+landing path, the referring HOST, the landing time, and coarse request geo.
+
+**The geo is read from the request and not from the browser, and it stops
+at the city.** `x-vercel-ip-country`, `x-vercel-ip-country-region` and
+`x-vercel-ip-city` are already on every request, so no IP address is
+handled, stored or sent anywhere by this application, which a third party
+geo lookup would have required. Latitude and longitude are on the same
+request and are deliberately not read; there is no column either could go
+into, and a test reads the source of `lib/acquisition/geo.ts` and fails the
+build if the words appear.
+
+**First touch is write-once as a property of the database, not as a habit.**
+`public_entry_attribution` holds one row per session per touch, and a
+trigger raises on any update to a `first` row. A `last` row is written only
+when a LATER arrival on the same visitor token carried campaign parameters
+that genuinely differ, so an ordinary single visit has exactly one row, and
+coming back from a different referring page or the next town is correctly
+not a second campaign. `user_acquisition` and `captured_lead_acquisition`
+refuse an update outright: there is no correct reason to revise where
+somebody came from, and every incorrect one rewrites history silently.
+
+**The lead and the account get copies, and that is deliberate.** A join
+would have been less duplication and the wrong answer: a lead and an
+account are historical records that have to outlive the anonymous session
+they came from, and every verification run this year has purged those
+sessions afterwards. The integration test asserts the copy equals the
+first-touch row at the moment it is taken, which is what makes a copy safe.
+
+**One shape, defined once, copied by the database.** All three tables take
+their eighteen attribution columns from a single template with `LIKE ...
+INCLUDING CONSTRAINTS`, and the template is dropped at the end of the
+migration because `LIKE` copies rather than references. Three hand-written
+copies would drift the first time one gained a parameter, and a reporting
+build that reads three shapes believing they are one is exactly the failure
+this whole file exists to prevent. A test asks all three tables for the same
+column list and fails if the answers differ.
+
+**Attribution physically cannot carry health content.** Every column is a
+normalised slug, an opaque ad click id, a host, a path, a coarse place name
+or a timestamp, each one shape-checked by the database. The integration test
+tries to write an answer, a pattern key, an email, prose in a campaign, a
+latitude and a value that skipped the normaliser, and every one is refused.
+`tests/public-entry-provenance.test.ts` now scans `lib/acquisition` as well,
+so the same absence-of-a-write guarantee covers the new layer.
+
+**The one thing that makes an attribution report readable: one normaliser.**
+`Card A`, `card_a`, `CARD-A` and `card.a` are one creative. A source code is
+lowercase with hyphens because it is a path segment in a printed link; every
+other utm value is lowercase with underscores, which is what every ad
+platform and marketer already writes; and `utm_source` IS the source code,
+so it takes the hyphen shape. If those two normalised differently, one
+partner would arrive as two rows and nothing would say they were the same
+person.
+
+**That fixed a real latent bug.** `normalizeSourceCode` DELETED underscores,
+so `?ref=dr_okafor` became `drokafor` while a link builder generating
+`utm_source=dr_okafor` would have produced `dr-okafor`: one partner, two
+codes. An underscore now becomes a hyphen. No code this app has ever
+registered contains one, so the only behaviour that changed is what a
+mistyped or invented code is recorded as, and it now agrees with itself
+whichever door it came in through.
+
+**The link builder is `/admin/acquisition/links`.** One form writes TWO
+things in one submit: the link, and the record of who its code stands for
+and where they physically are. `public_entry_links.source_code` has a
+foreign key into `public_entry_sources`, so a link whose code was never
+registered cannot be inserted at all, which is what makes "the mapping and
+the link can never disagree" structural. The URL is previewed live as it is
+typed, by the SAME function that builds the string the server stores, so
+"Card A" visibly becoming `card_a` is something you watch happen instead of
+discovering in a report three weeks later. One-tap copy on the preview and
+on every row. A unique index on source, medium, campaign, creative and term
+refuses a second copy of one link rather than quietly making a second row.
+
+**Two kinds of place, kept in different tables on purpose.** A partner
+LOCATION is the physical place a code stands for: a card on a clinic counter
+is a location and no request header will ever say so, so a human types it
+into the builder. Request GEO is where a click appeared to come from. A
+report may group by either and must never confuse them, which is why they
+are never in the same table.
+
+**A code is still permanent, and the screen says why.** Editing the code
+field stops it following the partner name, because a code that changed
+itself after a card was printed would be the worst bug this screen could
+have. Re-using an existing code relabels it and keeps every arrival it has
+ever had; `is_test` is settable only while a code is new, because flipping
+it later would silently move every arrival that code ever produced in or out
+of the real funnel numbers.
+
+**Nothing on either screen shows what a visitor answered**, and the funnel
+view was WIDENED rather than duplicated: the attribution and the partner's
+physical place are appended to `public_entry_funnel`, so the later report
+reads one thing and cannot disagree with the funnel screen that exists
+today. `is_test` is still settled from both ends.
+
+**Local verification.** The whole suite is 481 files and 7867 tests, all
+passing, including 74 new ones across three files: the normalisers and the
+round trip a link makes from the builder to the arrival route, the link
+builder itself, and 25 integration tests against the real database and its
+real policies (first touch refuses an update, a second first touch is
+refused, a last touch may move, the account copy is refused a second insert
+and cannot be restated as anything but a public acquisition arrival, the
+three tables answer with one column list, anonymous and member reads are
+closed, a coach and an administrator read, an administrator writes a source
+and a link and a member cannot, and the widened funnel view carries the
+campaign, the ad click, the city and the partner location with `is_test`
+still correct).
+
 ## The trial is 7 days for new accounts, 30 for the ones already here (2026-08-31)
 
 The Rooted Reset free trial drops from 30 days to 7. Only for accounts

@@ -20,6 +20,15 @@
  * sanitizeAnswers drops everything else, and the database's own regex
  * checks refuse it a second time.
  *
+ * WHERE ATTRIBUTION IS WRITTEN, AND WHY GEO IS READ HERE. The five utm
+ * parameters, the source code and the three ad click ids are read off the
+ * URL by the page and sent with the arrival, because only the page sees the
+ * URL. COARSE REQUEST GEO IS READ HERE INSTEAD, off this request's own edge
+ * headers, so it cannot be forged by a caller and does not depend on the
+ * page having remembered to hand it down. Everything the browser sends is
+ * re-normalised here before it is stored, so a hand-made request cannot get
+ * a value past the shape the database expects.
+ *
  * THE RATE LIMIT IS ITS OWN, AND THAT WAS A CORRECTION. This route first
  * shared the chat widget's budget of twenty requests per five minutes per
  * IP, which is fine for a chat and completely wrong here: one honest
@@ -55,6 +64,15 @@ import { sanitizeAnswers } from '@/lib/public-entry/questions';
 import { buildEnergyResult, buildThreeDayNotes, canBuildResult } from '@/lib/public-entry/result';
 import { normalizeSourceCode, referrerHostOf } from '@/lib/public-entry/sources';
 import { isValidEmail } from '@/lib/auth/validation';
+import {
+  attachLeadAcquisition,
+  readAttributionTouch,
+  recordArrivalAttribution,
+  touchFromSession,
+} from '@/lib/acquisition/data';
+import { readAttributionFromQuery } from '@/lib/acquisition/attribution';
+import { readRequestGeo } from '@/lib/acquisition/geo';
+import type { AcquisitionAttribution } from '@mef/shared-types-contracts';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +86,7 @@ type Body = {
   chapter?: number;
   email?: string;
   target?: string;
+  attribution?: unknown;
 };
 
 /** A short slug or nothing. Anything else becomes nothing rather than being written, matching the database's own check on public_entry_events.detail. */
@@ -82,6 +101,47 @@ function tokenOf(body: Body): string | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim();
   return trimmed.length >= 8 && trimmed.length <= 64 ? trimmed : null;
+}
+
+/**
+ * What the browser said this arrival carried, put through exactly the same
+ * normalisers the page used, plus the two values only this request knows.
+ *
+ * RE-NORMALISED RATHER THAN TRUSTED. The page already normalised these, but
+ * this endpoint is public and a hand-made request can send anything, so
+ * every value is rebuilt here through `readAttributionFromQuery` and
+ * anything that cannot be an attribution value becomes null. The database's
+ * own check constraints refuse it a second time.
+ *
+ * THE REFERRING HOST AND THE GEO COME FROM HERE, NOT FROM THE BROWSER. The
+ * host is derived from the referrer the same way the session's own
+ * `referrer_host` already is (host only, our own host dropped), and the geo
+ * is read off this request's edge headers, which a caller cannot set.
+ */
+function attributionFromBody(body: Body, request: Request): AcquisitionAttribution {
+  const raw = (body.attribution ?? {}) as Record<string, unknown>;
+  const text = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+
+  const normalized = readAttributionFromQuery({
+    query: {
+      utm_source: text(raw.utmSource),
+      utm_medium: text(raw.utmMedium),
+      utm_campaign: text(raw.utmCampaign),
+      utm_content: text(raw.utmContent),
+      utm_term: text(raw.utmTerm),
+      fbclid: text(raw.fbclid),
+      ttclid: text(raw.ttclid),
+      gclid: text(raw.gclid),
+    },
+    sourceCode: normalizeSourceCode(text(raw.sourceCode) ?? body.sourceRaw ?? null),
+    landingPath: typeof body.landingPath === 'string' ? body.landingPath : null,
+  });
+
+  return {
+    ...normalized,
+    referrerHost: referrerHostOf(body.referrer ?? null, new URL(getSelfOrigin(request)).host),
+    geo: readRequestGeo(request.headers),
+  };
 }
 
 export async function OPTIONS(request: Request) {
@@ -129,6 +189,12 @@ export async function POST(request: Request) {
     if (!(await hasEvent(supabase, session.id, 'entry_viewed'))) {
       await recordEvent(supabase, session.id, 'entry_viewed');
     }
+
+    // First touch is attempted on every arrival and wins only once; a last
+    // touch is written only when a later arrival on this same visitor token
+    // carried genuinely different campaign parameters. See
+    // lib/acquisition/data.ts.
+    await recordArrivalAttribution(supabase, session.id, attributionFromBody(body, request));
 
     const answers = await loadAnswers(supabase, session.id);
     return NextResponse.json(
@@ -278,6 +344,22 @@ export async function POST(request: Request) {
       }
 
       await attachLead(supabase, session.id, email, capturedLeadId);
+
+      // The lead's own copy of where she came from, taken from the FIRST
+      // touch and carrying the original landing time. A copy rather than a
+      // join, because a lead has to outlive the anonymous session it came
+      // from. `touchFromSession` is the fallback for an arrival that
+      // predates migration 200 and has no attribution row of its own.
+      if (capturedLeadId) {
+        const firstTouch =
+          (await readAttributionTouch(supabase, session.id, 'first')) ?? touchFromSession(session);
+        await attachLeadAcquisition(supabase, {
+          capturedLeadId,
+          sessionId: session.id,
+          attribution: firstTouch,
+        });
+      }
+
       await recordEvent(supabase, session.id, 'notes_unlocked');
 
       return NextResponse.json(

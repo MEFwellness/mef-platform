@@ -41,10 +41,11 @@ type SessionRow = {
   pattern_key: string | null;
   lead_email: string | null;
   lead_captured_at: string | null;
+  captured_lead_id: string | null;
 };
 
 const SESSION_COLUMNS =
-  'id, visitor_token, experience_key, source_code, source_raw, landing_path, referrer_host, first_seen_at, started_at, completed_at, pattern_key, lead_email, lead_captured_at';
+  'id, visitor_token, experience_key, source_code, source_raw, landing_path, referrer_host, first_seen_at, started_at, completed_at, pattern_key, lead_email, lead_captured_at, captured_lead_id';
 
 function toSession(row: SessionRow): PublicEntrySessionRecord {
   return {
@@ -61,6 +62,7 @@ function toSession(row: SessionRow): PublicEntrySessionRecord {
     patternKey: (row.pattern_key as PublicEntryPatternKey | null) ?? null,
     leadEmail: row.lead_email,
     leadCapturedAt: row.lead_captured_at,
+    capturedLeadId: row.captured_lead_id,
   };
 }
 

@@ -15,6 +15,14 @@
  * it scrolls into view, so anything a render decides gets decided for
  * people who never arrived.
  *
+ * WHERE ATTRIBUTION GOES. The page reads it off the URL and hands it down
+ * here; this sends it once, with the arrival, and never again. The stored
+ * first-touch row is the source of truth and the database refuses to update
+ * it, so nothing that happens during the walk can disturb it. The
+ * sessionStorage stash is an assist for one case only: a visitor who comes
+ * back to a bare /energy in the same tab, whose second arrival would
+ * otherwise report itself as untracked.
+ *
  * WHY EVERY ANSWER IS SAVED AS IT IS GIVEN. So that somebody who gets
  * interrupted at question six comes back to question six, and so that the
  * funnel can tell "started and stopped" apart from "never started". The
@@ -38,6 +46,9 @@ import {
 import { ENERGY_INTRO } from '@/lib/public-entry/copy';
 import { arrive, complete, saveAnswers, signal, start } from '@/lib/public-entry/client';
 import { getOrCreateVisitorToken } from '@/lib/public-entry/storage';
+import { recallAttribution, rememberAttribution } from '@/lib/public-entry/attributionStorage';
+import { isUntracked } from '@/lib/acquisition/attribution';
+import type { AcquisitionAttribution } from '@mef/shared-types-contracts';
 import { EnergyResultView } from './EnergyResultView';
 import { RootedResetLockup } from '@/components/brand/RootedResetLockup';
 import {
@@ -58,7 +69,13 @@ const REFLECTING_MIN_MS = 1200;
 
 const TOTAL_QUESTIONS = ENERGY_QUESTIONS.length;
 
-export function EnergyEntryClient({ sourceCode }: { sourceCode: string | null }) {
+export function EnergyEntryClient({
+  sourceCode,
+  attribution,
+}: {
+  sourceCode: string | null;
+  attribution: AcquisitionAttribution;
+}) {
   const [beat, setBeat] = useState<Beat>('loading');
   const [token, setToken] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -85,17 +102,28 @@ export function EnergyEntryClient({ sourceCode }: { sourceCode: string | null })
       return;
     }
 
+    // What this arrival carried, or what this tab was told the first time
+    // it arrived. A bare return visit in the same tab is still the visit a
+    // partner sent, and the first-touch row it lands on is write-once
+    // either way.
+    const landingPath = typeof window !== 'undefined' ? window.location.pathname : attribution.landingPath;
+    const carried: AcquisitionAttribution = isUntracked(attribution)
+      ? (recallAttribution() ?? { ...attribution, landingPath })
+      : { ...attribution, landingPath };
+    rememberAttribution(carried);
+
     void (async () => {
       const response = await arrive({
         visitorToken,
-        sourceRaw: sourceCode,
-        landingPath: typeof window !== 'undefined' ? window.location.pathname : null,
+        sourceRaw: carried.sourceCode ?? sourceCode,
+        landingPath,
         referrer: typeof document !== 'undefined' ? document.referrer || null : null,
+        attribution: carried,
       });
       if (response?.answers) setAnswers(response.answers);
       setBeat('intro');
     })();
-  }, [sourceCode]);
+  }, [sourceCode, attribution]);
 
   const currentQuestions = questionsForChapter(chapter);
   const currentQuestion = currentQuestions[questionIndex];
