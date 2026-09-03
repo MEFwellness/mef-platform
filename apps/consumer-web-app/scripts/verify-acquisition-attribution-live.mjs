@@ -47,6 +47,23 @@ const MEDIUM = 'counter_card';
 const LEAD_EMAIL = `qa.acquisition.${STAMP}@mefwellness-test.invalid`;
 const FBCLID = 'VerifyFB.abc-123';
 
+/**
+ * Every visitor token this run mints, so cleanup can remove its own
+ * arrivals by token rather than by source code.
+ *
+ * WHY BY TOKEN. The untracked run and the step that plants a token on the
+ * member's browser both create arrivals with NO source code, so a cleanup
+ * that deletes by source code leaves them behind, and they then show on the
+ * funnel as real direct traffic. Found by reading production after the
+ * first successful run: four of our own arrivals were sitting in a funnel
+ * that has almost no real data in it.
+ */
+const mintedTokens = [];
+function remember(token) {
+  if (token) mintedTokens.push(token);
+  return token;
+}
+
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok, detail });
@@ -213,7 +230,9 @@ try {
   page.on('console', (m) => { if (m.type() === 'error') anonErrors.push(m.text()); });
 
   await page.goto(EXPECTED_URL, { waitUntil: 'networkidle' });
-  const visitorToken = await page.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'));
+  const visitorToken = remember(
+    await page.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'))
+  );
   check('11. the tracked arrival minted a visitor token', Boolean(visitorToken));
 
   await walkTheExperience(page);
@@ -275,7 +294,9 @@ try {
   backPage.on('console', (m) => { if (m.type() === 'error') backErrors.push(m.text()); });
 
   await backPage.goto(EXPECTED_URL, { waitUntil: 'networkidle' });
-  const backToken = await backPage.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'));
+  const backToken = remember(
+    await backPage.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'))
+  );
   await backPage.getByRole('button', { name: 'Begin' }).waitFor({ timeout: 40000 });
   await backPage.getByRole('button', { name: 'Begin' }).click();
   for (let q = 0; q < 3; q += 1) {
@@ -349,7 +370,9 @@ try {
   barePage.on('console', (m) => { if (m.type() === 'error') bareErrors.push(m.text()); });
 
   await barePage.goto(`${BASE}/energy`, { waitUntil: 'networkidle' });
-  const bareToken = await barePage.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'));
+  const bareToken = remember(
+    await barePage.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'))
+  );
   await walkTheExperience(barePage);
   const bareBody = await barePage.locator('body').innerText();
   check('24. the untracked run still works and reaches a result',
@@ -386,7 +409,9 @@ try {
   const adContext = await browser.newContext();
   const adPage = await adContext.newPage();
   await adPage.goto(`${EXPECTED_URL}&fbclid=${FBCLID}`, { waitUntil: 'networkidle' });
-  const adToken = await adPage.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'));
+  const adToken = remember(
+    await adPage.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'))
+  );
   await adPage.waitForTimeout(3000);
   const { data: adSession } = await service
     .from('public_entry_sessions')
@@ -492,7 +517,12 @@ try {
   memberPage.on('console', (m) => { if (m.type() === 'error') memberErrors.push(m.text()); });
 
   // The browser that took the experience is the browser that signs up.
+  // Loading /energy at all mints a token of its own before we overwrite it,
+  // which creates one more untracked arrival. Remembered so cleanup takes
+  // it away again.
   await memberPage.goto(`${BASE}/energy`, { waitUntil: 'domcontentloaded' });
+  await memberPage.waitForTimeout(2500);
+  remember(await memberPage.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1')));
   await memberPage.evaluate((t) => localStorage.setItem('mef.publicEntry.token.v1', t), visitorToken);
   await memberPage.goto(`${BASE}/`, { waitUntil: 'networkidle' });
   await memberPage.waitForTimeout(8000);
@@ -603,15 +633,29 @@ try {
       await service.from('lead_conversations').delete().eq('id', lead.conversation_id);
     }
     await service.from('public_entry_links').delete().eq('source_code', SOURCE_CODE);
-    const { data: ourSessions } = await service
+
+    // By source code AND by every token this run minted. The second half is
+    // what removes our own untracked arrivals, which carry no source code
+    // and would otherwise read as real direct traffic.
+    const { data: codedSessions } = await service
       .from('public_entry_sessions')
       .select('id')
       .eq('source_code', SOURCE_CODE);
-    for (const s of ourSessions ?? []) {
-      await service.from('public_entry_sessions').delete().eq('id', s.id);
+    for (const row of codedSessions ?? []) {
+      await service.from('public_entry_sessions').delete().eq('id', row.id);
+    }
+    for (const token of mintedTokens) {
+      await service.from('public_entry_sessions').delete().eq('visitor_token', token);
     }
     await service.from('public_entry_sources').delete().eq('code', SOURCE_CODE);
-    console.log('\ncleanup: verification rows removed');
+
+    const { data: leftBehind } = await service
+      .from('public_entry_sessions')
+      .select('id')
+      .in('visitor_token', mintedTokens.length > 0 ? mintedTokens : ['none']);
+    console.log(
+      `\ncleanup: verification rows removed, ${(leftBehind ?? []).length} of this run's arrivals left behind`
+    );
   }
 
   await retireSession(adminMinted);

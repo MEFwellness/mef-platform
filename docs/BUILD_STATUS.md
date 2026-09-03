@@ -115,8 +115,8 @@ physical place are appended to `public_entry_funnel`, so the later report
 reads one thing and cannot disagree with the funnel screen that exists
 today. `is_test` is still settled from both ends.
 
-**Local verification.** The whole suite is 481 files and 7867 tests, all
-passing, including 74 new ones across three files: the normalisers and the
+**Local verification.** The whole suite is 481 files and 7870 tests, all
+passing, including 77 new ones across three files: the normalisers and the
 round trip a link makes from the builder to the arrival route, the link
 builder itself, and 25 integration tests against the real database and its
 real policies (first touch refuses an update, a second first touch is
@@ -127,6 +127,61 @@ closed, a coach and an administrator read, an administrator writes a source
 and a link and a member cannot, and the widened funnel view carries the
 campaign, the ad click, the city and the partner location with `is_test`
 still correct).
+
+**One real bug this build found in itself, and the live run is what found
+it.** Building a SECOND link for a partner who already had one WIPED that
+partner's recorded physical place. The form resets after a save, so the
+blank location fields were written straight over the mapping, and nothing
+said so. Silently erasing where a partner physically is, is worse than the
+drift this screen exists to prevent. A blank field now means "not stated
+here" rather than "erase it"; clearing a location is deliberately not
+something this form can do by omission. The rule is `statedPlaceFields` in
+`lib/acquisition/links.ts` with its own test, and the live script now
+asserts it on the second submission rather than trusting it.
+
+**Live on app.mefwellness.com: 50 of 50.**
+`scripts/verify-acquisition-attribution-live.mjs` drove the real admin link
+builder on a real minted administrator session, read the URL the screen
+generated, walked that exact URL through all nine questions as an anonymous
+stranger, left an email, created an account from that lead, and checked
+what the database actually holds at every step.
+
+The generated URL was
+`/energy/<code>?utm_source=<code>&utm_medium=counter_card&utm_campaign=verify_run&utm_content=card_a`,
+and the live preview was the same string as the one stored, character for
+character. Every parameter survived into the arrival. Coarse geo came back
+real from the edge (US / NY / Brooklyn) and stopped at the city. A refresh
+onto the bare address mid-walk left the first touch untouched, down to its
+landing time, and produced one attribution row rather than one per refresh.
+The same link with an `fbclid` appended stored the click id exactly as
+written. A bare `/energy` with no parameters at all still worked, still
+finished, and was stored as untracked with zero console or page errors. The
+lead carried every parameter plus the partner name and the physical place,
+with the ORIGINAL landing time rather than the time she left her email. The
+account carried all of it forward with all three original timestamps, and
+refused an attempt to overwrite it. No public answer became a check-in or an
+onboarding submission. The funnel screen still hides test traffic from its
+numbers while the links list still shows every source badged, which is
+correct: a test link is still a link somebody may need to copy.
+
+**Production is exactly as it was before the run.** Everything the
+verification created was removed: the source code, the link, four arrivals,
+the lead, its coach notifications and the account. The cleanup had to be
+corrected once for the same reason the location bug existed, which is worth
+writing down: it deleted by SOURCE CODE, and the untracked arrivals a run
+makes carry no source code, so four of our own arrivals were sitting in a
+production funnel that has almost no real data in it. It deletes by every
+visitor token the run mints now, and prints how many it left behind. The
+two genuine `qr-card` arrivals from 2026-08-31, the one real member origin
+row and all 23 seeded source codes were read before and after and are
+untouched.
+
+**Known limit, stated rather than discovered later.** The lead to account
+link is the existing visitor-token claim, which is what the brief asked
+for. It is per browser: somebody who leaves an email on her phone and then
+signs up on a laptop will have her account attributed as an untracked
+arrival. Matching on the lead's email address would close that, and is not
+in this build.
 
 ## The trial is 7 days for new accounts, 30 for the ones already here (2026-08-31)
 
