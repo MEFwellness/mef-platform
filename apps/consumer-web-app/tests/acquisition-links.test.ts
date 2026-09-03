@@ -15,6 +15,7 @@ import {
   buildTrackingUrl,
   linkIdentityKey,
   normalizeLinkDraft,
+  statedPlaceFields,
   suggestSourceCode,
   LINK_PROBLEM_MESSAGE,
   type LinkDraft,
@@ -213,5 +214,46 @@ describe('the identity of a link', () => {
     expect(withNone.ok && withOne.ok).toBe(true);
     if (!withNone.ok || !withOne.ok) return;
     expect(linkIdentityKey(withNone.link)).not.toBe(linkIdentityKey(withOne.link));
+  });
+});
+
+// ---------------------------------------------------------------------
+// The bug the live run of 2026-09-03 found in this screen
+// ---------------------------------------------------------------------
+
+describe('a blank location field', () => {
+  it('is left out of the write rather than written as an erasure', () => {
+    // Building a SECOND link for a partner who already had one wiped that
+    // partner's recorded place, because the form resets after a save and
+    // the blank fields went straight over the location. Silently erasing
+    // where a partner physically is, is worse than the drift this screen
+    // exists to prevent.
+    expect(
+      statedPlaceFields({
+        location_name: null,
+        location_city: null,
+        location_region: null,
+        location_country: null,
+      })
+    ).toEqual({});
+  });
+
+  it('still writes every field that was actually stated', () => {
+    expect(
+      statedPlaceFields({
+        location_name: 'Ridgeway Physio, front desk',
+        location_city: 'Croydon',
+        location_region: null,
+        location_country: 'GB',
+      })
+    ).toEqual({
+      location_name: 'Ridgeway Physio, front desk',
+      location_city: 'Croydon',
+      location_country: 'GB',
+    });
+  });
+
+  it('treats an empty string the same as an absent one', () => {
+    expect(statedPlaceFields({ location_city: '', location_name: undefined })).toEqual({});
   });
 });

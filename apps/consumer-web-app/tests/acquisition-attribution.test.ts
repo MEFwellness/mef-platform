@@ -9,6 +9,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
   normalizeClickId,
   normalizeCountry,
@@ -324,10 +326,10 @@ describe('coarse request geo', () => {
   it('never reads a precise location, and there is no column for one', () => {
     // Vercel offers latitude and longitude on the same request. They are
     // deliberately not read, and this fails the build if that changes.
-    const source = require('node:fs').readFileSync(
-      require('node:path').resolve(__dirname, '../lib/acquisition/geo.ts'),
+    const source = fs.readFileSync(
+      path.resolve(__dirname, '../lib/acquisition/geo.ts'),
       'utf-8'
-    ) as string;
+    );
     const code = source.slice(source.indexOf('export function readRequestGeo'));
     expect(code).not.toMatch(/latitude|longitude|x-vercel-ip-latitude|x-vercel-ip-longitude/i);
   });

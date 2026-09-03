@@ -142,6 +142,28 @@ export const LINK_PROBLEM_MESSAGE: Record<LinkProblem, string> = {
 };
 
 /**
+ * The physical place a source code stands for, as a human typed it, keeping
+ * ONLY the fields that were actually stated.
+ *
+ * A BLANK FIELD MEANS "NOT STATED HERE", NOT "ERASE IT". Found by the live
+ * run on 2026-09-03: building a second link for a partner who already had
+ * one wiped that partner's recorded place, because the form resets after a
+ * save and the blank fields were written straight over the location.
+ * Silently erasing where a partner physically is, is worse than the drift
+ * the link builder exists to prevent. Clearing a location is deliberately
+ * not something this form can do by omission.
+ */
+export function statedPlaceFields(
+  place: Record<string, string | null | undefined>
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(place).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0
+    )
+  );
+}
+
+/**
  * The origin every generated link is built on.
  *
  * NEXT_PUBLIC_SITE_URL and not the request's own host, deliberately: a link

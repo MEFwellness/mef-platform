@@ -41,6 +41,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import {
   buildTrackingUrl,
   normalizeLinkDraft,
+  statedPlaceFields,
   trackingLinkOrigin,
   LINK_PROBLEM_MESSAGE,
   type LinkDraft,
@@ -193,10 +194,19 @@ export interface CreateTrackingLinkInput extends LinkDraft {
  * what makes "the mapping and the link can never disagree" structural
  * rather than a habit.
  *
- * A CODE THAT ALREADY EXISTS IS RE-LABELLED, NEVER REPLACED. Its label,
- * partner and location are updated to what this form says, because those
- * are corrections and a correction should reach every arrival that code has
+ * A CODE THAT ALREADY EXISTS IS RE-LABELLED, NEVER REPLACED. Its label and
+ * partner name are updated to what this form says, because those are
+ * corrections and a correction should reach every arrival that code has
  * ever had. Its `is_test` and its channel are left exactly as they were.
+ *
+ * A BLANK LOCATION FIELD MEANS "NOT STATED HERE", NOT "ERASE IT". Found by
+ * the live run on 2026-09-03: building a SECOND link for a partner who
+ * already had one wiped that partner's recorded place, because the form
+ * resets after a save and the blank fields were written straight over the
+ * location. Silently erasing where a partner physically is, is worse than
+ * the drift this screen exists to prevent. Only a field that was actually
+ * filled in is written. Clearing a location is deliberately not something
+ * this form can do by omission.
  */
 export async function createTrackingLinkAction(
   input: CreateTrackingLinkInput
@@ -221,23 +231,25 @@ export async function createTrackingLinkAction(
     if (readError) throw readError;
 
     const place = {
-      partner_name: partnerName,
       location_name: normalizePlaceName(input.locationName ?? null, 120),
       location_city: normalizePlaceName(input.locationCity ?? null, 80),
       location_region: normalizePlaceName(input.locationRegion ?? null, 60),
       location_country: normalizeCountry(input.locationCountry ?? null),
     };
+    /** Only what this form actually stated. See the note above on why a blank field is not an erasure. */
+    const statedPlace = statedPlaceFields(place);
 
     if (existing) {
       const { error } = await supabase
         .from('public_entry_sources')
-        .update({ label: partnerName, ...place })
+        .update({ label: partnerName, partner_name: partnerName, ...statedPlace })
         .eq('code', link.sourceCode);
       if (error) throw error;
     } else {
       const { error } = await supabase.from('public_entry_sources').insert({
         code: link.sourceCode,
         label: partnerName,
+        partner_name: partnerName,
         channel: input.channel,
         is_test: Boolean(input.isTest),
         active: true,
