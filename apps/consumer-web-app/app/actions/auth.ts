@@ -19,6 +19,7 @@ import {
 } from '@/lib/entry-animation/cookies';
 import { resolvePostLoginPath, isSafePostLoginRedirect } from '@/lib/auth/postLoginRoute';
 import { captchaOptions, readCaptchaToken } from '@/lib/turnstile/captcha';
+import { PUBLIC_ENTRY_TOKEN_FIELD } from '@/lib/public-entry/signupField';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track';
 
@@ -137,10 +138,13 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   const password = String(formData.get('password') ?? '');
   const timezone = String(formData.get('timezone') ?? 'America/New_York');
   const captchaToken = readCaptchaToken(formData);
+  // What this browser is holding, and the ONE thing it decides. See
+  // linkAcquisitionByEmail below.
+  const browserCarriesArrival = String(formData.get(PUBLIC_ENTRY_TOKEN_FIELD) ?? '') === 'yes';
 
   try {
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -153,10 +157,65 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
       logAuthFailure('supabase_request', 'signUp', error);
       return toResult(error);
     }
+    if (!browserCarriesArrival) {
+      await linkAcquisitionByEmail(data.user, email);
+    }
   } catch (err) {
     return toActionError('signUp', err);
   }
   redirect(`/verify?email=${encodeURIComponent(email)}`);
+}
+
+/**
+ * The cross device half of acquisition attribution.
+ *
+ * WHAT WAS BROKEN. The link from a lead to an account went through the
+ * browser and only through the browser: the visitor token in localStorage
+ * was the whole join. Somebody who answered the nine questions on her
+ * phone, left her email there, and then created her account on a laptop
+ * arrived as an untracked account, and the partner who actually sent her
+ * was credited with nothing.
+ *
+ * WHY IT RUNS HERE AND NOT ON A PAGE. Creating an account is the explicit
+ * thing she did, this is the server that did it, and the email address is
+ * already in hand. No render decides anything, no extra request is made
+ * from any screen, and nothing runs for the members who never took the
+ * public experience beyond one indexed lookup that finds nothing.
+ *
+ * THE BROWSER STILL WINS WHENEVER IT HAS ANYTHING TO SAY. The signup form
+ * already reads `readVisitorToken()` to change its own wording, and it now
+ * also sends whether it found one. When it did, this is skipped entirely
+ * and the claim in the root layout binds her to the arrival she actually
+ * took, which also writes `member_public_entry_origin`. Attribution is
+ * attached once and refused an update by the database, so the two paths
+ * could not both write even if both ran.
+ *
+ * WHY data.user IS CHECKED THE WAY IT IS. When the address already belongs
+ * to somebody, GoTrue deliberately returns a user shaped object with no
+ * identities rather than admitting the account exists. That object names
+ * nobody, so it is not somebody to attach an origin to.
+ *
+ * NEVER ALLOWED TO FAIL A SIGNUP. An attribution row is a business record
+ * about where somebody came from. Losing one costs a number on an admin
+ * screen; failing the signup costs the member.
+ */
+async function linkAcquisitionByEmail(
+  user: { id: string; created_at?: string; identities?: unknown[] | null } | null,
+  email: string
+): Promise<void> {
+  if (!user?.id) return;
+  if (!Array.isArray(user.identities) || user.identities.length === 0) return;
+  try {
+    const { attachUserAcquisitionFromLead } = await import('@/lib/acquisition/data');
+    const { serviceRoleClient } = await import('@/lib/supabase/serviceRole');
+    await attachUserAcquisitionFromLead(serviceRoleClient(), {
+      memberId: user.id,
+      email,
+      accountCreatedAt: user.created_at ?? null,
+    });
+  } catch (err) {
+    console.error('linkAcquisitionByEmail failed', err);
+  }
 }
 
 /**

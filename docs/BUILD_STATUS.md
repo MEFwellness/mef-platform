@@ -1,3 +1,117 @@
+## The acquisition report, and the cross device fix (2026-09-03)
+
+Migration 201. Migration 200 recorded everything a link carried and copied
+it onto the lead and onto the account, and said so itself: "Nothing in this
+build reads it." This is the half that reads it, plus the one hole the
+collection half could not close from a browser.
+
+**The cross device hole, and what closed it.** The link from a lead to an
+account went through the browser and only through the browser: the visitor
+token in localStorage was the whole join. Somebody who answered the nine
+questions on her phone, left her email there, and created her account on a
+laptop arrived as an untracked account, and the partner who actually sent
+her was credited with nothing. Her email address was sitting in
+`captured_leads` the whole time. When an account is created and this
+browser carries no token, the signup action now looks up the most recent
+lead left at that address and copies its attribution onto the account, with
+every original timestamp carried across unchanged.
+
+**Browser-carried attribution still wins, and that is decided before the
+match runs.** The signup form already read `readVisitorToken()` to change
+its own wording; it now also sends whether it found one, as a plain yes or
+no. It never sends the token, the session id or a source code, because
+anything a browser can name a browser can invent. When it says yes, the
+email match is skipped entirely and the claim in the root layout binds her
+to the arrival she actually took.
+
+**The match is exact, and that is not a detail.** Matching case
+insensitively through PostgREST means `ilike`, whose SQL wildcards include
+the underscore, and an underscore is an ordinary character in an email
+address: `a_b@example.com` would have matched `axb@example.com` and attached
+one stranger's origin to another person's account. The match is a database
+function doing `lower(x) = lower(y)`, next to the index that serves it, and
+a test proves the underscore address does not match.
+
+**It attaches attribution and deliberately not the browser bind.** The
+email match writes `user_acquisition` and never
+`member_public_entry_origin`. That second row is what lets Root show a
+member her own first impression back to her, and an email match is not
+consent to show somebody the answers attached to an address. Attribution is
+behavioural, and this stays behavioural.
+
+**Every existing untracked account was backfilled** by the same three rules
+the runtime path follows: attach once, most recent matching lead wins,
+original timestamps preserved. One arrival can back at most one account, so
+the session id is claimed only when it is free and the attribution is kept
+either way, which is exactly why migration 200 made these copies rather
+than joins.
+
+**The report is `/admin/acquisition`, and it absorbed the table that was
+there.** That screen used to show a by-source count of seven steps. Leaving
+it beside a second table counting the same arrivals is how two screens end
+up disagreeing about one number, so it was replaced: every count it had is
+a column here. Six stages in the order somebody moves through them (visits,
+started, finished, email leads, accounts, paid), with the conversion from
+the previous stage printed under each number. Groupable by source,
+campaign, creative, partner location and coarse geo. Date range and
+test-account toggle behave exactly as the analytics dashboard's do, because
+they are literally the same functions.
+
+**Paid conversion has three honest records and takes the earliest.** A
+`membership_tier_changed` event whose `toTier` is a paid tier, a
+`purchase_completed` event, or the subscription itself standing on a paid
+plan with no event to explain it (a change made before the trigger existed,
+or one whose event write was swallowed). Which tiers count as paid is read
+from `member_access_tiers`, so a paid tier added next year counts the day it
+is inserted. Nothing emits `purchase_completed` today and the report reads
+it anyway, with no switch to flip.
+
+**Every column follows the same people.** The window picks the arrivals that
+landed inside it, and each later column counts what those same arrivals went
+on to do, whenever they did it. That is the only reading under which a stage
+to stage rate means anything: counting each stage by its own date would let a
+rate exceed a hundred per cent whenever last month's arrivals paid this
+month. An account with no arrival at all has no landing time, so it is
+placed by the day the account was created and can only ever reach the last
+two columns, which is what stops a purged session inflating a funnel.
+
+**Three kinds of empty, kept apart.** A named group. "Tracked, nothing for
+this grouping", for a printed QR card that has a source and no creative,
+because calling that untracked would be a lie about the card. And
+"Untracked", which holds arrivals that carried nothing identifying at all
+and accounts created without ever coming through the public entry
+experience. The untracked row is always present, at zero when nothing is
+untracked, so the totals are reality rather than only the part of reality
+that was tracked.
+
+**A zero row is printed.** Every source code the link builder knows about
+appears whether or not anybody arrived on it, retired codes included and
+marked, because a card that is producing nothing is the most useful thing
+this screen can say and it can only say it by printing the row. Campaigns
+and creatives are padded the same way from every link ever built.
+
+**The report shows behavioural funnel data only.** No health answer, no
+assessment response, no result pattern, no email address, no member name.
+Geo stops at the city and there is no finer column to show. The pattern
+spread that used to sit under the old table moved to
+`/admin/acquisition/patterns` rather than being deleted, because "are the
+rules producing a spread" is a real question and a different one. Source
+guards in the test suite fail the build if a forbidden column is ever
+selected by the reader, the screen or the view.
+
+**Deterministic only.** Every figure is a count of rows in
+`acquisition_report_rows` satisfying one stated condition, and each column's
+definition is printed on the screen beside it. No model, no inference, no
+generated commentary. A rate with no denominator prints as nothing rather
+than as nought per cent, because "nobody has reached this stage" and "nobody
+converted" say completely different things.
+
+**Local verification.** The whole suite passes, including 51 new tests
+across two files: the arithmetic, the bucketing, the zero padding, the rate
+rules and the URL round trip with no database; and the email match, its
+exactness, attach-once, one arrival per account, the widened funnel view and
+paid conversion against the real database and its real policies.
+
 ## Acquisition attribution: what brought somebody here, kept (2026-09-03)
 
 Migration 200. The public entry experience recorded ONE thing about where

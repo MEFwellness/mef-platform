@@ -10,6 +10,10 @@ import { PasswordField } from '@/components/auth/PasswordField';
 import { PasswordStrengthHint } from '@/components/auth/PasswordStrengthHint';
 import { hasPendingGuestOnboardingData } from '@/lib/onboarding/guestStorage';
 import { readVisitorToken } from '@/lib/public-entry/storage';
+import {
+  PUBLIC_ENTRY_TOKEN_FIELD,
+  publicEntryArrivalValue,
+} from '@/lib/public-entry/signupField';
 import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
 import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
 
@@ -196,6 +200,21 @@ export default function SignUpPage() {
           />
           <PasswordStrengthHint password={password} />
         </div>
+
+        {/*
+          Whether this browser is holding a public entry visitor token, and
+          nothing more: not the token, not a session id, not a source code.
+          It decides one thing on the server, in signUp(): when this browser
+          carries an arrival, the claim in the root layout binds her to it
+          and the email match is skipped, so browser-carried attribution
+          always wins. When it does not, her email address is the only join
+          left to the arrival she took somewhere else.
+        */}
+        <input
+          type="hidden"
+          name={PUBLIC_ENTRY_TOKEN_FIELD}
+          value={publicEntryArrivalValue(fromPublicEntry)}
+        />
 
         <input
           type="hidden"

@@ -25,6 +25,17 @@
  * carries the original timestamps forward. The database refuses to update
  * any of the three, so this is the only place they can be written and they
  * can only be written once.
+ *
+ * AND THE ONE STEP THAT DOES NOT GO THROUGH THE BROWSER AT ALL.
+ *
+ *   signup  -> attachUserAcquisitionFromLead   matched by email address
+ *
+ * The three steps above all depend on the visitor token this browser is
+ * holding, so a person who answers on her phone and signs up on her laptop
+ * arrives carrying nothing. Her email address is the only join left, and it
+ * was already in `captured_leads`. The browser path still wins whenever it
+ * has anything to say: the signup form knows whether this browser holds a
+ * token, and the email match runs only when it does not.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -317,4 +328,158 @@ export function touchFromSession(session: PublicEntrySessionRecord): Acquisition
     referrerHost: session.referrerHost,
     geo: EMPTY_GEO,
   };
+}
+
+/**
+ * THE CROSS DEVICE HALF: the most recent lead left at this email address.
+ *
+ * WHY IT EXISTS. The lead to account link worked only through the browser,
+ * because the only thing joining an arrival to an account was the visitor
+ * token in that browser's localStorage. Somebody who answered the nine
+ * questions on her phone, left her email there, and then created her
+ * account on a laptop arrived as an untracked account, and the partner who
+ * actually sent her was credited with nothing. Her email address was
+ * sitting in `captured_leads` the whole time.
+ *
+ * WHY THE MATCH IS A DATABASE FUNCTION. Case insensitive matching through
+ * PostgREST means `ilike`, whose SQL wildcards include the underscore, and
+ * an underscore is an ordinary character in an email address. `a_b@x.com`
+ * would have matched `axb@x.com` and attached one stranger's origin to
+ * another person's account. `lower(x) = lower(y)` is the only exact version
+ * of this question, so it lives in `lead_acquisition_for_email`
+ * (migration 201) next to the index that serves it.
+ *
+ * NO EMAIL IS RETURNED AND NONE IS STORED. The address goes in, attribution
+ * comes back. There is no column on any acquisition table an email could be
+ * written into, which is the point.
+ */
+export async function findLeadAcquisitionByEmail(
+  supabase: SupabaseClient,
+  email: string
+): Promise<{
+  capturedLeadId: string;
+  sessionId: string | null;
+  experienceKey: string;
+  landedAt: string;
+  leadCapturedAt: string;
+  attribution: AcquisitionAttribution;
+} | null> {
+  const trimmed = email.trim();
+  if (!trimmed) return null;
+
+  const { data, error } = await supabase.rpc('lead_acquisition_for_email', { p_email: trimmed });
+  if (error) {
+    console.error('findLeadAcquisitionByEmail failed', error);
+    return null;
+  }
+  const row = (data as unknown[] | null)?.[0] as
+    | (ShapeRow & {
+        captured_lead_id: string;
+        session_id: string | null;
+        experience_key: string;
+        landed_at: string;
+        lead_captured_at: string;
+      })
+    | undefined;
+  if (!row) return null;
+
+  return {
+    capturedLeadId: row.captured_lead_id,
+    sessionId: row.session_id,
+    experienceKey: row.experience_key,
+    landedAt: row.landed_at,
+    leadCapturedAt: row.lead_captured_at,
+    attribution: fromShapeRow(row),
+  };
+}
+
+/**
+ * Attaches a matched lead's attribution to a brand new account.
+ *
+ * THE BROWSER STILL WINS, AND THAT IS DECIDED BEFORE THIS IS CALLED. The
+ * signup form knows whether this browser is holding a public entry visitor
+ * token, and when it is, this is not called at all: the claim in the root
+ * layout binds her to the arrival she actually took, and that path also
+ * writes `member_public_entry_origin`. This is the fallback for a browser
+ * that carries nothing.
+ *
+ * ATTACHED ONCE, LIKE EVERY OTHER COPY. `member_id` is the primary key, the
+ * insert ignores a duplicate, and the database refuses an update to this
+ * table outright, so this can never revise an origin that already stands.
+ *
+ * THE SESSION IS CLAIMED ONLY WHEN IT IS FREE. `user_acquisition.session_id`
+ * is unique, so an arrival can back at most one account. If the lead's
+ * session has been purged, or already belongs to another account, this
+ * writes null there and keeps everything else. The attribution is a COPY
+ * and does not depend on the session existing, which is exactly why
+ * migration 200 made it a copy.
+ *
+ * WHAT IT DELIBERATELY DOES NOT WRITE. `member_public_entry_origin`. That
+ * row is what lets Root show a member her own first impression back to her,
+ * and an email match is not consent to show somebody the answers attached
+ * to an address. Attribution is behavioural, and this stays behavioural.
+ */
+export async function attachUserAcquisitionFromLead(
+  supabase: SupabaseClient,
+  input: { memberId: string; email: string; accountCreatedAt: string | null }
+): Promise<{ attached: boolean; sourceCode: string | null }> {
+  const existing = await supabase
+    .from('user_acquisition')
+    .select('member_id')
+    .eq('member_id', input.memberId)
+    .maybeSingle();
+  if (existing.error) {
+    console.error('attachUserAcquisitionFromLead read failed', existing.error);
+    return { attached: false, sourceCode: null };
+  }
+  // Something already attached her origin. Never revised, by rule and by
+  // trigger, so there is nothing to do and nothing to report.
+  if (existing.data) return { attached: false, sourceCode: null };
+
+  const match = await findLeadAcquisitionByEmail(supabase, input.email);
+  if (!match) return { attached: false, sourceCode: null };
+
+  const sessionId = match.sessionId ? await freeSessionOrNull(supabase, match.sessionId) : null;
+
+  const { error } = await supabase.from('user_acquisition').upsert(
+    {
+      member_id: input.memberId,
+      session_id: sessionId,
+      captured_lead_id: match.capturedLeadId,
+      experience_key: match.experienceKey,
+      landed_at: match.landedAt,
+      lead_captured_at: match.leadCapturedAt,
+      account_created_at: input.accountCreatedAt,
+      ...toShapeRow(match.attribution),
+    },
+    { onConflict: 'member_id', ignoreDuplicates: true }
+  );
+  if (error) {
+    console.error('attachUserAcquisitionFromLead failed', error);
+    return { attached: false, sourceCode: null };
+  }
+
+  // Read back rather than trusting the absence of an error: a write that
+  // matches no policy returns zero rows and no error at all.
+  const written = await supabase
+    .from('user_acquisition')
+    .select('source_code')
+    .eq('member_id', input.memberId)
+    .maybeSingle();
+  if (written.error || !written.data) return { attached: false, sourceCode: null };
+  return { attached: true, sourceCode: (written.data as { source_code: string | null }).source_code };
+}
+
+/** The arrival's id when no account has claimed it yet, and null otherwise. `user_acquisition.session_id` is unique, so one arrival can back at most one account. */
+async function freeSessionOrNull(
+  supabase: SupabaseClient,
+  sessionId: string
+): Promise<string | null> {
+  const [session, taken] = await Promise.all([
+    supabase.from('public_entry_sessions').select('id').eq('id', sessionId).maybeSingle(),
+    supabase.from('user_acquisition').select('member_id').eq('session_id', sessionId).maybeSingle(),
+  ]);
+  if (session.error || !session.data) return null;
+  if (taken.error || taken.data) return null;
+  return sessionId;
 }
