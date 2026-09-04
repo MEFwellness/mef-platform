@@ -1,3 +1,76 @@
+## The Quick Wellness Check stops writing check-ins (2026-09-04)
+
+Migration 202. /wellness-check asks a signed-out stranger seven questions
+about energy, stress, sleep, digestion, movement, pain and mood. Until
+today, `app/GuestPreviewMigrator.tsx` sat in the root layout and, on the
+first page load after she created an account, copied those answers into a
+real `daily_checkins` row through the ordinary member check-in action.
+Nothing recorded where they had come from. From that moment they were
+indistinguishable from a Daily Reset she had sat down and completed, and
+every honesty threshold that counts check-ins ("checked in on 3 days in the
+last 21 days") counted a day she had never checked in.
+
+**The same app had already settled the correct treatment, on the other
+door.** Migration 197 fenced /energy's public answers: their own table, no
+foreign key into anything a scoring engine reads, provenance stated as a
+check constraint rather than a convention, and a source-scanning test that
+fails the build if a write appears. The wellness check now has the same
+fence. The migrator, the server action it called and the merge function
+underneath it are deleted.
+
+**Its own tables, deliberately, and not /energy's.**
+`public_entry_sessions` is the arrival table the acquisition funnel and
+`/admin/acquisition` count, and pouring a second experience into it would
+silently change every number on a report that means one specific thing.
+`guest_wellness_check_sessions` and `guest_wellness_check_answers` carry the
+identical discipline in their own space: `origin` is checked
+= 'guest_wellness_check' and `preliminary` is checked = true, so no row can
+ever restate itself as something she completed inside the app, not even
+through a later update.
+
+**Every answer is stored as a slug, including the numbers.** A level of 4 is
+the text '4'. That keeps the fenced table impossible to join to a scoring
+column by accident and means nothing can average these values without
+somebody first writing the code that decides they mean a level. The
+database's regex refuses anything that is not a short slug, so there is
+nowhere in this experience for a stranger with no consent flow behind her to
+type a health disclosure. Proved on production: an attempt to write a
+sentence into an answer is refused by the constraint.
+
+**Preserved, bound, and deliberately not promoted.** The answers are written
+as she gives them, through `/api/guest-preview`, authorised the same way the
+public entry route is: an origin allowlist, its own per-IP rate limit and a
+visitor token the browser already holds. `/api/guest-preview/claim` records
+which account that run turned out to belong to, resolving her from her own
+session cookie first and only then writing as the platform, because those
+tables have no insert or update policy for anybody, including her. There is
+no promotion path at all, on purpose. If Root ever uses these answers it
+will be because she was shown them and said yes, the way the /energy concern
+confirmation on the onboarding form already works.
+
+**Two lists became one.** The seven questions, their wording and their
+options moved out of the screen and into `lib/guest-preview/questions.ts`,
+because a route handler now has to decide whether an incoming answer is one
+this experience actually offers. Two lists would be two sources of truth for
+one set of options, and the day they disagreed the screen would show a
+choice the server silently dropped.
+
+**The contamination audit.** Every one of the 144 check-ins in production
+was examined for the migrator's signature: only the seven guest fields
+populated, no Daily Reset wizard ever started that day, and a creation time
+seconds after the account itself. Exactly one row matches, and it belongs to
+`oakomah66+test10@gmail.com`, a throwaway test account created on
+2026-07-24 that signed in once and never returned. It is that account's only
+check-in. No real member's data was affected. Nothing was deleted or
+modified; the disposition is the owner's call.
+
+**The guard.** `tests/public-entry-provenance.test.ts` now covers both
+doors. It fails the build if the deleted files come back, if anything
+imports the migration, if the root layout mounts a migrator, if
+`lib/guest-preview/data.ts` touches any table but its own two, or if the
+migration's constraints, policies or row level security are weakened. It was
+checked by reintroducing the bug: the guard fails.
+
 ## The acquisition report, and the cross device fix (2026-09-03)
 
 Migration 201. Migration 200 recorded everything a link carried and copied

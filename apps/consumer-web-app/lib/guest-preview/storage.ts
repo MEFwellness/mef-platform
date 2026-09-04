@@ -12,12 +12,23 @@ import {
 const STORAGE_KEY = 'mef.guestPreview.v1';
 
 /**
- * Deliberately a separate key from STORAGE_KEY, not a field bundled into
- * the same object: the migrator clears STORAGE_KEY once migration
- * succeeds, but still needs to remember "already migrated" afterward so a
- * later mount (e.g. a subsequent page load) never re-submits.
+ * The visitor token for this browser: one opaque random value, minted the
+ * first time somebody starts the quiz, and the whole of what lets the
+ * fenced server-side copy of her answers be recognised as hers if she goes
+ * on to create an account. Never derived from an IP, a fingerprint or any
+ * auth id. It identifies a browser, and a browser is not a person. Mirrors
+ * lib/public-entry/storage.ts deliberately rather than inventing a second
+ * convention for the same job.
  */
-const MIGRATED_KEY = 'mef.guestPreview.migrated.v1';
+const TOKEN_KEY = 'mef.guestPreview.token.v1';
+
+/**
+ * Deliberately a separate key from STORAGE_KEY, and deliberately not a
+ * field inside it: it has to outlive the answers themselves, so a browser
+ * that has already been bound to an account never asks again for the rest
+ * of its life.
+ */
+const CLAIMED_KEY = 'mef.guestPreview.claimed.v1';
 
 function hasStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -98,28 +109,63 @@ export function clearGuestPreview(): void {
   }
 }
 
-export function hasPendingGuestData(): boolean {
-  const state = getGuestPreviewState();
-  if (!state) return false;
-  return Object.values(state.answers).some((value) => value !== null);
+/**
+ * The token for this browser, minting one on first call. Returns null only
+ * when storage is entirely unavailable, in which case the run is simply not
+ * resumable and nothing is fenced server side either, which is the correct
+ * outcome: there would be no way to recognise it as hers later.
+ */
+export function getOrCreateGuestVisitorToken(): string | null {
+  if (!hasStorage()) return null;
+  try {
+    const existing = window.localStorage.getItem(TOKEN_KEY);
+    if (existing && existing.length >= 8 && existing.length <= 64) return existing;
+    const minted =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+    window.localStorage.setItem(TOKEN_KEY, minted);
+    return minted;
+  } catch {
+    return null;
+  }
 }
 
-export function isGuestPreviewMigrated(): boolean {
+/**
+ * The token if one already exists, never minting. This is what the claim
+ * reads: a browser that never took the quiz must not create a run by
+ * signing up.
+ */
+export function readGuestVisitorToken(): string | null {
+  if (!hasStorage()) return null;
+  try {
+    const existing = window.localStorage.getItem(TOKEN_KEY);
+    return existing && existing.length >= 8 && existing.length <= 64 ? existing : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Kept separately from the token itself, and the token is deliberately NOT
+ * cleared once claimed. This flag only stops the claim being attempted
+ * again on every page load for the rest of that browser's life.
+ */
+export function isGuestPreviewClaimed(): boolean {
   if (!hasStorage()) return false;
   try {
-    return window.localStorage.getItem(MIGRATED_KEY) === 'true';
+    return window.localStorage.getItem(CLAIMED_KEY) === 'true';
   } catch {
     return false;
   }
 }
 
-export function markGuestPreviewMigrated(): void {
+export function markGuestPreviewClaimed(): void {
   if (!hasStorage()) return;
   try {
-    window.localStorage.setItem(MIGRATED_KEY, 'true');
+    window.localStorage.setItem(CLAIMED_KEY, 'true');
   } catch {
-    // Best-effort — worst case the migrator retries once more, which the
-    // merge-only-null-fields logic in app/actions/guest-preview.ts already
-    // makes safe to repeat.
+    // Best effort. The claim route is idempotent, so a repeated attempt
+    // writes nothing twice.
   }
 }

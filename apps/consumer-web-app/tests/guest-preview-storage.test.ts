@@ -42,16 +42,18 @@ describe('guest preview storage', () => {
       expect(getGuestPreviewState()).toBeNull();
     });
 
-    it('hasPendingGuestData returns false', async () => {
-      const { hasPendingGuestData } = await import('@/lib/guest-preview/storage');
-      expect(hasPendingGuestData()).toBe(false);
+    it('readGuestVisitorToken returns null and getOrCreate mints nothing', async () => {
+      const { readGuestVisitorToken, getOrCreateGuestVisitorToken } =
+        await import('@/lib/guest-preview/storage');
+      expect(readGuestVisitorToken()).toBeNull();
+      expect(getOrCreateGuestVisitorToken()).toBeNull();
     });
 
-    it('clearGuestPreview and markGuestPreviewMigrated do not throw', async () => {
-      const { clearGuestPreview, markGuestPreviewMigrated } =
+    it('clearGuestPreview and markGuestPreviewClaimed do not throw', async () => {
+      const { clearGuestPreview, markGuestPreviewClaimed } =
         await import('@/lib/guest-preview/storage');
       expect(() => clearGuestPreview()).not.toThrow();
-      expect(() => markGuestPreviewMigrated()).not.toThrow();
+      expect(() => markGuestPreviewClaimed()).not.toThrow();
     });
   });
 
@@ -68,11 +70,26 @@ describe('guest preview storage', () => {
       expect(state?.quizComplete).toBe(false);
     });
 
-    it('hasPendingGuestData is true once any answer is set, false initially', async () => {
-      const { setGuestAnswer, hasPendingGuestData } = await import('@/lib/guest-preview/storage');
-      expect(hasPendingGuestData()).toBe(false);
-      setGuestAnswer('mood_level', 3);
-      expect(hasPendingGuestData()).toBe(true);
+    it('getOrCreateGuestVisitorToken mints once and then returns the same token', async () => {
+      const { getOrCreateGuestVisitorToken, readGuestVisitorToken } =
+        await import('@/lib/guest-preview/storage');
+      // readGuestVisitorToken deliberately never mints: a browser that
+      // never took the quiz must not create a run by signing up.
+      expect(readGuestVisitorToken()).toBeNull();
+      const first = getOrCreateGuestVisitorToken();
+      expect(first).toBeTruthy();
+      expect(getOrCreateGuestVisitorToken()).toBe(first);
+      expect(readGuestVisitorToken()).toBe(first);
+    });
+
+    it('clearGuestPreview leaves the visitor token alone', async () => {
+      const { getOrCreateGuestVisitorToken, clearGuestPreview, readGuestVisitorToken } =
+        await import('@/lib/guest-preview/storage');
+      const token = getOrCreateGuestVisitorToken();
+      clearGuestPreview();
+      // The answers are fenced server side under this token. Dropping the
+      // local copy must not orphan them.
+      expect(readGuestVisitorToken()).toBe(token);
     });
 
     it('markGuestQuizComplete sets quizComplete without dropping existing answers', async () => {
@@ -101,12 +118,12 @@ describe('guest preview storage', () => {
       expect(getGuestPreviewState()).toBeNull();
     });
 
-    it('isGuestPreviewMigrated reflects markGuestPreviewMigrated', async () => {
-      const { isGuestPreviewMigrated, markGuestPreviewMigrated } =
+    it('isGuestPreviewClaimed reflects markGuestPreviewClaimed', async () => {
+      const { isGuestPreviewClaimed, markGuestPreviewClaimed } =
         await import('@/lib/guest-preview/storage');
-      expect(isGuestPreviewMigrated()).toBe(false);
-      markGuestPreviewMigrated();
-      expect(isGuestPreviewMigrated()).toBe(true);
+      expect(isGuestPreviewClaimed()).toBe(false);
+      markGuestPreviewClaimed();
+      expect(isGuestPreviewClaimed()).toBe(true);
     });
   });
 });

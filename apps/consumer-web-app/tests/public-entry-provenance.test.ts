@@ -31,6 +31,17 @@ function read(relative: string): string {
   return fs.readFileSync(path.join(ROOT, relative), 'utf-8');
 }
 
+/**
+ * The file with its comments removed. Explaining what a fence is for
+ * requires naming what it fences against, so these files' prose is full of
+ * the very table names an "it must not touch this" assertion looks for.
+ * Scanning the code alone is what lets the explanation stay honest and
+ * complete without the guard reading it as a violation.
+ */
+function codeOf(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
@@ -51,6 +62,14 @@ const FEATURE_FILES = [
   ...walk(path.join(ROOT, 'app', 'api', 'public-entry')),
   ...walk(path.join(ROOT, 'components', 'public-entry')),
   ...walk(path.join(ROOT, 'app', 'energy')),
+  // The Quick Wellness Check carries the identical guarantee since
+  // migration 202, and it is in this file rather than its own because the
+  // rule is one rule: an answer given before there was an account never
+  // becomes member data. A second file would let the two drift.
+  ...walk(path.join(ROOT, 'lib', 'guest-preview')),
+  ...walk(path.join(ROOT, 'app', 'api', 'guest-preview')),
+  ...walk(path.join(ROOT, 'components', 'guest-preview')),
+  ...walk(path.join(ROOT, 'app', 'wellness-check')),
 ];
 
 /**
@@ -74,7 +93,7 @@ const MEMBER_DATA_TABLES = [
 ];
 
 describe('no public answer can reach member data', () => {
-  it('no public entry file writes to any member assessment, check-in or scoring table', () => {
+  it('no pre-account answer file writes to any member assessment, check-in or scoring table', () => {
     const offenders: string[] = [];
     for (const file of FEATURE_FILES) {
       const source = fs.readFileSync(file, 'utf-8');
@@ -198,5 +217,125 @@ describe("what Root is allowed to say about it", () => {
     const body = copy.slice(copy.indexOf('bodyWithoutPattern'));
     expect(body).toContain('did not finish');
     expect(body).toContain('nothing from it worth telling you back');
+  });
+});
+
+/**
+ * THE SAME HARD RULE, FOR THE QUICK WELLNESS CHECK.
+ *
+ * /wellness-check asks a signed-out stranger seven questions. Until
+ * 2026-09-04, app/GuestPreviewMigrator.tsx copied her answers into a real
+ * daily_checkins row on the first page load after she created an account,
+ * through the ordinary member check-in action, with nothing recording where
+ * they had come from. From that moment they were indistinguishable from a
+ * Daily Reset she had sat down and completed, and every honesty threshold
+ * that counts check-ins counted a day she had never checked in.
+ *
+ * The write is gone, the answers are fenced in their own table, and these
+ * tests are what stop it coming back, including by a path nobody has
+ * thought of yet. Two halves, the same two the public entry has: the
+ * absence of the code that could carry an answer across, and the presence
+ * of the constraints that make the provenance structural.
+ */
+describe('the Quick Wellness Check migration path is gone and cannot come back', () => {
+  const GONE = [
+    'lib/guest-preview/mergeCheckin.ts',
+    'app/actions/guest-preview.ts',
+    'app/GuestPreviewMigrator.tsx',
+  ];
+
+  it('none of the files that performed the silent write still exist', () => {
+    for (const relative of GONE) {
+      expect(fs.existsSync(path.join(ROOT, relative))).toBe(false);
+    }
+  });
+
+  it('nothing anywhere in the app still imports or calls the migration', () => {
+    const offenders: string[] = [];
+    for (const dir of ['app', 'lib', 'components']) {
+      for (const file of walk(path.join(ROOT, dir))) {
+        const source = codeOf(fs.readFileSync(file, 'utf-8'));
+        if (/migrateGuestPreview|buildMigratedCheckinInput|guest-preview\/mergeCheckin/.test(source)) {
+          offenders.push(path.relative(ROOT, file));
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('the root layout mounts the claim, and no migrator', () => {
+    const layout = codeOf(read('app/layout.tsx'));
+    expect(layout).toContain('<GuestPreviewClaim />');
+    expect(layout).not.toContain('GuestPreviewMigrator');
+  });
+
+  it('the claim route binds an account and copies nothing into member data', () => {
+    const claim = codeOf(read('app/api/guest-preview/claim/route.ts'));
+    expect(claim).toContain('claimGuestSessionForMember');
+    expect(claim).not.toMatch(/submitDailyCheckin|submitOnboarding|daily_checkins/);
+  });
+
+  it('the guest answers are written only to the fenced table', () => {
+    const data = codeOf(read('lib/guest-preview/data.ts'));
+    const tables = [...data.matchAll(/from\(\s*['"]([a-z_]+)['"]\s*\)/g)].map((m) => m[1]);
+    expect([...new Set(tables)].sort()).toEqual([
+      'guest_wellness_check_answers',
+      'guest_wellness_check_sessions',
+    ]);
+  });
+});
+
+describe('the Quick Wellness Check provenance is stated by the schema', () => {
+  const migration = read('../../supabase/migrations/00000000000202_guest_wellness_check_fence.sql');
+
+  it('a session row can only ever declare itself a guest wellness check', () => {
+    expect(migration).toMatch(
+      /origin text not null default 'guest_wellness_check' check \(origin = 'guest_wellness_check'\)/
+    );
+  });
+
+  it('a session row can only ever be preliminary', () => {
+    expect(migration).toMatch(/preliminary boolean not null default true check \(preliminary = true\)/);
+  });
+
+  it('neither table definition references any member data table', () => {
+    // The file's prose names those tables constantly, because explaining
+    // what this fence is for requires naming what it fences against. Only
+    // the definitions themselves are scanned, the same way migration 197's
+    // own check does it.
+    const definitions =
+      migration.slice(
+        migration.indexOf('create table guest_wellness_check_sessions'),
+        migration.indexOf('comment on table guest_wellness_check_sessions')
+      ) +
+      migration.slice(
+        migration.indexOf('create table guest_wellness_check_answers'),
+        migration.indexOf('comment on table guest_wellness_check_answers')
+      );
+    for (const memberTable of MEMBER_DATA_TABLES) {
+      expect(definitions).not.toContain(memberTable);
+    }
+  });
+
+  it('a guest answer can only ever be a short slug, never free text', () => {
+    expect(migration).toMatch(/question_key text not null check \(question_key ~ '\^\[a-z0-9_\]\{1,40\}\$'\)/);
+    expect(migration).toMatch(/answer_value text not null check \(answer_value ~ '\^\[a-z0-9_\]\{1,40\}\$'\)/);
+  });
+
+  it('the member may read the run that turned out to be hers and may never write one', () => {
+    const policies = migration.match(/create policy [\s\S]*?;/g) ?? [];
+    const guestPolicies = policies.filter((p) => /guest_wellness_check/.test(p));
+    expect(guestPolicies.length).toBeGreaterThan(0);
+    for (const policy of guestPolicies) {
+      // Every one is scoped to a staff role or to the member's own id. None
+      // is open, and none grants a write to anybody.
+      expect(policy).toMatch(/has_active_role\(auth\.uid\(\)|claimed_by = auth\.uid\(\)/);
+      expect(policy).not.toMatch(/for (insert|update|delete|all)/);
+    }
+  });
+
+  it('both tables have row level security on', () => {
+    expect(migration).toContain('alter table guest_wellness_check_sessions enable row level security');
+    expect(migration).toContain('alter table guest_wellness_check_answers enable row level security');
   });
 });

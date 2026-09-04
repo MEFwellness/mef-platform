@@ -1,15 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { buildGuestPreviewInsight, type GuestPreviewInsight } from '@/lib/guest-preview/insights';
 import {
   getGuestPreviewState,
+  getOrCreateGuestVisitorToken,
   setGuestAnswer,
   setGuestStep,
   markGuestQuizComplete,
 } from '@/lib/guest-preview/storage';
+import { complete, saveAnswers, start } from '@/lib/guest-preview/client';
+import {
+  GUEST_WELLNESS_CHECK_QUESTIONS,
+  toAnswerSlug,
+  toAnswerSlugs,
+} from '@/lib/guest-preview/questions';
 import {
   EMPTY_GUEST_PREVIEW_ANSWERS,
   GUEST_PREVIEW_QUESTION_ORDER,
@@ -32,72 +39,6 @@ const SECONDARY_BUTTON =
 
 type Screen = 'welcome' | 'quiz' | 'results' | 'cta';
 
-interface QuestionConfig {
-  field: keyof GuestPreviewAnswers;
-  prompt: string;
-  options: { value: number | string; label: string }[];
-}
-
-const QUESTIONS: Record<keyof GuestPreviewAnswers, QuestionConfig> = {
-  energy_level: {
-    field: 'energy_level',
-    prompt: 'How has your energy been lately?',
-    options: ['Very low', 'Low', 'Okay', 'Good', 'Very good'].map((label, i) => ({
-      value: i + 1,
-      label,
-    })),
-  },
-  stress_level: {
-    field: 'stress_level',
-    prompt: 'How would you describe your stress?',
-    options: ['Very calm', 'Calm', 'Moderate', 'High', 'Overwhelmed'].map((label, i) => ({
-      value: i + 1,
-      label,
-    })),
-  },
-  sleep_quality: {
-    field: 'sleep_quality',
-    prompt: 'How has your sleep quality been?',
-    options: ['Poor', 'Below average', 'Okay', 'Good', 'Great'].map((label, i) => ({
-      value: i + 1,
-      label,
-    })),
-  },
-  digestion_rating: {
-    field: 'digestion_rating',
-    prompt: 'How has your digestion felt?',
-    options: ['Poor', 'Somewhat off', 'Fair', 'Good', 'Excellent'].map((label, i) => ({
-      value: i + 1,
-      label,
-    })),
-  },
-  movement_today: {
-    field: 'movement_today',
-    prompt: 'How much have you been moving lately?',
-    options: [
-      { value: 'none', label: 'None' },
-      { value: 'light', label: 'Light' },
-      { value: 'moderate', label: 'Moderate' },
-      { value: 'full_session', label: 'Full sessions' },
-    ],
-  },
-  pain_discomfort_level: {
-    field: 'pain_discomfort_level',
-    prompt: 'Any pain or discomfort lately?',
-    options: ['None', 'Mild', 'Noticeable', 'Uncomfortable', 'Significant', 'Severe'].map(
-      (label, i) => ({ value: i, label })
-    ),
-  },
-  mood_level: {
-    field: 'mood_level',
-    prompt: 'Overall, how have you been feeling?',
-    options: ['Rough', 'Below average', 'Okay', 'Good', 'Great'].map((label, i) => ({
-      value: i + 1,
-      label,
-    })),
-  },
-};
-
 /**
  * The pre-signup Quick Wellness Check, hosted at /wellness-check for
  * first-time visitors reached via marketing/campaign links (not the
@@ -107,12 +48,31 @@ const QUESTIONS: Record<keyof GuestPreviewAnswers, QuestionConfig> = {
  * localStorage on every answer (see lib/guest-preview/storage.ts), since
  * surviving a refresh mid-quiz is a hard requirement for guests who have
  * no account yet to fall back on.
+ *
+ * WHERE THE ANSWERS GO, SINCE 2026-09-04. Alongside the local copy, each
+ * answer is written to guest_wellness_check_answers through
+ * /api/guest-preview: a fenced table whose provenance is a check constraint
+ * rather than a convention (migration 202). That is the whole destination.
+ * These answers are never copied into a check-in, an onboarding submission,
+ * an assessment or a scoring input, and there is no promotion path at all.
+ * Until 2026-09-04 they were written straight into a real daily_checkins
+ * row on the first page load after signup, which made a stranger's
+ * pre-account guesses indistinguishable from a Daily Reset she had sat down
+ * and completed.
+ *
+ * A FAILED WRITE NEVER STOPS HER. Every call in lib/guest-preview/client.ts
+ * resolves rather than rejecting, and the screen runs entirely off its own
+ * local state, so a guest with no network still finishes and still reads
+ * her result. The token is minted when she starts the quiz, not when the
+ * page loads, so somebody who reads the welcome screen and leaves creates
+ * nothing anywhere.
  */
 export function GuestPreviewFlow() {
   const [screen, setScreen] = useState<Screen>('welcome');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<GuestPreviewAnswers>(EMPTY_GUEST_PREVIEW_ANSWERS);
   const [insight, setInsight] = useState<GuestPreviewInsight | null>(null);
+  const visitorToken = useRef<string | null>(null);
 
   useEffect(() => {
     const saved = getGuestPreviewState();
@@ -129,6 +89,8 @@ export function GuestPreviewFlow() {
   }, []);
 
   function startQuiz() {
+    visitorToken.current = getOrCreateGuestVisitorToken();
+    if (visitorToken.current) start(visitorToken.current);
     setScreen('quiz');
   }
 
@@ -140,12 +102,20 @@ export function GuestPreviewFlow() {
     setAnswers(updatedAnswers);
     setGuestAnswer(field, value);
 
+    // A refresh mid-quiz can resume without ever passing through the
+    // welcome screen, so the token is read here too rather than assumed to
+    // have been minted by startQuiz.
+    const token = visitorToken.current ?? getOrCreateGuestVisitorToken();
+    visitorToken.current = token;
+
     const nextIndex = questionIndex + 1;
     if (nextIndex >= GUEST_PREVIEW_QUESTION_ORDER.length) {
       markGuestQuizComplete();
+      if (token) complete(token, toAnswerSlugs(updatedAnswers));
       setInsight(buildGuestPreviewInsight(updatedAnswers));
       setScreen('results');
     } else {
+      if (token) saveAnswers(token, toAnswerSlug(field, value));
       setQuestionIndex(nextIndex);
       setGuestStep(nextIndex);
     }
@@ -288,7 +258,7 @@ function QuizScreen({
   // always in bounds — the array just isn't a fixed-length tuple TypeScript
   // can prove that from statically.
   const field = GUEST_PREVIEW_QUESTION_ORDER[questionIndex] as keyof GuestPreviewAnswers;
-  const question = QUESTIONS[field];
+  const question = GUEST_WELLNESS_CHECK_QUESTIONS[field];
   const currentValue = answers[field];
 
   return (

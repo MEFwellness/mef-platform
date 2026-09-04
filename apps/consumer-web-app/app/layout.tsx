@@ -4,7 +4,7 @@ import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
 import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import { withBrandVersion } from '@/lib/brand';
-import { GuestPreviewMigrator } from './GuestPreviewMigrator';
+import { GuestPreviewClaim } from '@/components/guest-preview/GuestPreviewClaim';
 import { PublicEntryClaim } from '@/components/public-entry/PublicEntryClaim';
 import { RootResetEntryGate } from '@/components/entry/RootResetEntryGate';
 import { ENTRY_ANIMATION_LOGIN_COOKIE, ENTRY_ANIMATION_PLAY_COOKIE } from '@/lib/entry-animation/cookies';
@@ -119,7 +119,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="en" className={`${cormorantGaramond.variable} ${dmSans.variable}`}>
       <body className={`${dmSans.className} min-h-screen bg-[#FAFAF8] text-[#1B3A2D] antialiased`}>
-        <GuestPreviewMigrator />
+        <GuestPreviewClaim />
         <PublicEntryClaim />
         <PushServiceWorkerRegistrar />
         <RootResetEntryGate initialEntryToken={entryState.entryToken} />

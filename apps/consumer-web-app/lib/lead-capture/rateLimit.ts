@@ -46,8 +46,23 @@ const MAX_REQUESTS_PER_WINDOW = 20;
  */
 const PUBLIC_ENTRY_MAX_REQUESTS_PER_WINDOW = 120;
 
+/**
+ * The Quick Wellness Check's own budget, on the same reasoning as the
+ * public entry's above and for the same reason it is not shared with it:
+ * two features must never be able to spend each other's budget, because
+ * then the ceiling one of them hits depends on how the other behaved.
+ *
+ * One honest guest answering seven questions makes about nine calls: the
+ * arrival, a save per question, and the completion. Sixty is roughly six
+ * journeys from one address in five minutes, which is what a household or a
+ * small waiting room looks like, and far below what a script hammering the
+ * endpoint would want.
+ */
+const GUEST_PREVIEW_MAX_REQUESTS_PER_WINDOW = 60;
+
 const hits = new Map<string, number[]>();
 const publicEntryHits = new Map<string, number[]>();
+const guestPreviewHits = new Map<string, number[]>();
 
 function allow(store: Map<string, number[]>, ip: string, max: number, now: number): boolean {
   const timestamps = (store.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
@@ -72,6 +87,11 @@ export function checkPublicEntryRateLimit(ip: string, now: number = Date.now()):
   return allow(publicEntryHits, ip, PUBLIC_ENTRY_MAX_REQUESTS_PER_WINDOW, now);
 }
 
+/** The same sliding window, its own budget and its own map. See GUEST_PREVIEW_MAX_REQUESTS_PER_WINDOW. */
+export function checkGuestPreviewRateLimit(ip: string, now: number = Date.now()): boolean {
+  return allow(guestPreviewHits, ip, GUEST_PREVIEW_MAX_REQUESTS_PER_WINDOW, now);
+}
+
 /** Best-effort client IP from Vercel/standard proxy headers — 'unknown' groups every unidentifiable caller into one shared bucket, which is intentionally strict (fails toward more limiting, not less) rather than granting each of them their own uncapped 20-per-window. */
 export function getClientIp(request: Request): string {
   const forwardedFor = request.headers.get('x-forwarded-for');
@@ -85,4 +105,5 @@ export function getClientIp(request: Request): string {
 export function resetRateLimitForTests(): void {
   hits.clear();
   publicEntryHits.clear();
+  guestPreviewHits.clear();
 }

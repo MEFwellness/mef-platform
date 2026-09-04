@@ -1,9 +1,19 @@
 /**
  * The pre-signup Quick Wellness Check answers a guest gives on
- * /wellness-check, before any account exists. Each field is deliberately
- * a 1:1 subset of DailyCheckinInput (@mef/shared-types-contracts) so that
- * a completed preview can migrate straight into the member's real first
- * daily check-in on signup/login — see app/actions/guest-preview.ts.
+ * /wellness-check, before any account exists.
+ *
+ * THESE FIELD NAMES ARE NOT A PROMISE THAT THEY BECOME A CHECK-IN. They
+ * were originally chosen as a 1:1 subset of DailyCheckinInput precisely so
+ * a finished preview could be written into the member's first real daily
+ * check-in on signup, and that is exactly what was wrong with it: a
+ * stranger's pre-account guesses became indistinguishable from a Daily
+ * Reset she had sat down and completed, and every honesty threshold that
+ * counts check-ins counted a day she had never checked in. Since 2026-09-04
+ * these answers go to guest_wellness_check_answers and stop there
+ * (migration 202), stored as slugs rather than as numbers so nothing can
+ * average them by accident. The names are kept only because the screen and
+ * the insight text already read them, and nothing may read that
+ * resemblance as permission to copy one across.
  */
 export interface GuestPreviewAnswers {
   energy_level: number | null;
