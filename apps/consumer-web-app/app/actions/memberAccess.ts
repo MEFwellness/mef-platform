@@ -57,6 +57,13 @@ export interface MemberAccessRow {
   trialEndsAt: string | null;
   assignedAt: string | null;
   note: string | null;
+  /**
+   * Migration 203's stamp: when an administrator silenced the automated
+   * trial arc for this account, or null when nobody has. Carried on this
+   * row so the panel can show the real state rather than guessing; it is
+   * WRITTEN only by app/actions/trialArc.ts.
+   */
+  trialArcSuppressedAt: string | null;
 }
 
 async function requireAdmin(): Promise<
@@ -99,6 +106,7 @@ type RawRow = {
   trial_ends_at: string | null;
   assigned_at: string | null;
   note: string | null;
+  trial_arc_suppressed_at: string | null;
 };
 
 function toRow(raw: RawRow): MemberAccessRow {
@@ -116,6 +124,7 @@ function toRow(raw: RawRow): MemberAccessRow {
     trialEndsAt: raw.trial_ends_at,
     assignedAt: raw.assigned_at,
     note: raw.note,
+    trialArcSuppressedAt: raw.trial_arc_suppressed_at,
   };
 }
 

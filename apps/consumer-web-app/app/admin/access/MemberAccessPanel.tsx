@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Route } from 'next';
 import { expireMemberAccessAction, setMemberAccessAction } from '@/app/actions/memberAccess';
+import { setTrialArcSuppressionAction } from '@/app/actions/trialArc';
 import type { MemberAccessRow } from '@/app/actions/memberAccess';
 import {
   ACCESS_SOURCE_LABEL,
@@ -191,6 +192,35 @@ function MemberCard({
           Note: {row.note}
         </p>
       )}
+
+      <div className="mt-4 border-t border-[#1B3A2D]/5 pt-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-[#1B3A2D]">Suppress trial arc</p>
+            <p className="mt-0.5 text-sm leading-relaxed text-[#6B7A72]">
+              Stops all trial arc messages for this member. Does not change their access or trial
+              dates.
+            </p>
+            <p className="mt-1 text-xs text-[#6B7A72]">
+              {row.trialArcSuppressedAt
+                ? `Suppressed since ${formatDate(row.trialArcSuppressedAt)}`
+                : 'Not suppressed'}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={disabled}
+            className={quiet}
+            onClick={() =>
+              onRun(row.memberId, () =>
+                setTrialArcSuppressionAction(row.memberId, !row.trialArcSuppressedAt)
+              )
+            }
+          >
+            {row.trialArcSuppressedAt ? 'Allow trial arc' : 'Suppress trial arc'}
+          </button>
+        </div>
+      </div>
 
       <div className="mt-4 border-t border-[#1B3A2D]/5 pt-4">
         <label

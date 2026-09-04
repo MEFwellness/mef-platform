@@ -75,6 +75,7 @@ const ROW = {
   trialEndsAt: '2026-08-28T02:30:00.000Z',
   assignedAt: '2026-08-27T23:45:00.000Z',
   note: null,
+  trialArcSuppressedAt: null,
   accessLabel: 'Trial',
   allowed: true,
   trialDaysLeft: 3,
