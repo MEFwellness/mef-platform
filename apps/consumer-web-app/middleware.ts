@@ -87,6 +87,17 @@ const PUBLIC_PATHS = [
   // beacon does.
   '/energy',
   '/api/public-entry',
+  // The Quick Wellness Check's own API (migration 202), on exactly the
+  // reasoning above. /wellness-check itself has been public since it was
+  // built, but its answers used to live only in that browser's
+  // localStorage, so there was no endpoint to exempt. Now they are written
+  // to their own fenced table as she gives them, and a guest has no session
+  // cookie at all: without this every save was 307-redirected to /login
+  // before reaching the route, and the client swallows a failed write on
+  // purpose so she could finish the quiz and never know. /api/guest-preview/claim
+  // sits under the same prefix and resolves the member from her own session
+  // cookie inside the handler, returning 204 when there is none.
+  '/api/guest-preview',
 ];
 
 export async function middleware(request: NextRequest) {

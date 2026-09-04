@@ -275,6 +275,18 @@ describe('the Quick Wellness Check migration path is gone and cannot come back',
     expect(claim).not.toMatch(/submitDailyCheckin|submitOnboarding|daily_checkins/);
   });
 
+  it('a signed-out guest can reach the fenced endpoint at all', () => {
+    // Found on production, not in a test: /api/guest-preview was not on the
+    // middleware's public list, so every save a guest made was 307
+    // redirected to /login before reaching the route. The client swallows a
+    // failed write on purpose, so she finished the quiz, read her result,
+    // and nothing was stored anywhere. A silent failure in the layer whose
+    // entire job is to preserve her answers deserves its own guard.
+    const middleware = codeOf(read('middleware.ts'));
+    expect(middleware).toContain("'/api/guest-preview'");
+    expect(middleware).toContain("'/wellness-check'");
+  });
+
   it('the guest answers are written only to the fenced table', () => {
     const data = codeOf(read('lib/guest-preview/data.ts'));
     const tables = [...data.matchAll(/from\(\s*['"]([a-z_]+)['"]\s*\)/g)].map((m) => m[1]);
