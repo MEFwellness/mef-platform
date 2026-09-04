@@ -1,3 +1,100 @@
+## Who this account is, and whether the trial arc talks to them (2026-09-04)
+
+Migration 203, and three modules that are switched off on purpose.
+
+**One question, one place.** `lib/membership/relationship.ts` answers
+"what is this account to the practice, right now" and nothing else answers
+it. An active row in `coach_client_assignments` makes somebody an
+ACTIVE_COACHING_CLIENT whatever they pay, so a paying member who is also
+being coached is a coaching client rather than a member who happens to
+have a coach. A monthly, annual or program tier, or a `full_access` grant,
+makes an APP_ONLY_MEMBER. Everybody else is a PROSPECT, and that
+deliberately includes both the account on the untouched free trial and the
+signup with no `member_subscriptions` row at all. A revoked or completed
+assignment is a relationship that ended, so it makes nobody a client.
+Nothing is stored, nothing is written, and nothing is cached: the answer is
+derived from rows that already exist, every time it is asked.
+
+**Production says the order matters.** Run against all 19 production
+accounts, the derivation returns 5 ACTIVE_COACHING_CLIENT, 0
+APP_ONLY_MEMBER and 14 PROSPECT. Zero app-only members is not a bug and
+not an empty table: production holds exactly two program/manual accounts
+with `full_access`, and BOTH of them also carry an active coach
+assignment, so rule 1 answers first for both. One is the single real
+coaching client; the other is the `8weeks2fab@gmail.com` fixture. If
+relationship had been decided from the tier, as several screens have been
+tempted to do, both would have come back as app members and the arc would
+eventually have counted a coaching client as somebody to market to.
+
+**The trial arc is launched for nobody.** `lib/trial-arc/config.ts` ships
+`TRIAL_ARC_LAUNCH` as null, and `lib/trial-arc/eligibility.ts` checks that
+first, so every account in the system, including one signing up in the
+next minute, answers `launch_not_set`. Verified against production: all 19
+accounts, one reason, no exceptions. The other five rules are real and
+tested underneath it: not a test account, a `trial` tier from source
+`system` (a trial an administrator assigned by hand is a decision a person
+made, and the arc does not talk over it), never assigned a coach in ANY
+status ever, not suppressed, and PROSPECT.
+
+**A date instead of a backfill.** The launch constant doubles as the line
+between the accounts the arc is for and the accounts it is not: rule 1 is
+"created on or after the launch", so every existing member is excluded by
+their own signup date rather than by a list somebody has to maintain.
+There is no backfill anywhere in this build. An unparseable launch date is
+treated exactly like null, so a typo can only ever silence the arc, never
+fire it at the wrong people.
+
+**One switch, one direction.** Migration 203 adds
+`member_subscriptions.trial_arc_suppressed_at`. It can only turn the arc
+OFF: nothing reads it to grant access, extend a trial, move a window or
+turn the arc on, and clearing it only removes a reason to say no, leaving
+all six rules still to pass on their own. One write door,
+`admin_set_trial_arc_suppression`, refused by the same
+`member_access_assert_admin()` the member access panel already uses, which
+does not exempt the service role. It is deliberately NOT on the guard
+trigger's protected field list, because silencing a message stream changes
+nothing about what an account is entitled to, and for the same reason it
+writes no `membership_tier_changed` event.
+
+**The guard.** `tests/trial-arc-suppression-guard.test.ts` reads the source
+and fails the build if a second writer appears, if the column is named
+outside the three reviewed read-only files, if a PostgREST insert, update
+or upsert names it anywhere, if the writer is imported from outside
+`app/admin/`, if the arc grows a second branch on the stamp, or if the
+launch constant stops shipping as null. Checked by reintroducing the bug: a
+`.update({ trial_arc_suppressed_at })` added to `lib/membership/service.ts`
+fails two of its assertions.
+
+**The contaminated row is gone.** The one check-in the retired guest
+migrator wrote (`0712cc03-7583-4dde-9ef0-1d636e855d8a`, member
+`58a0f8c8-7405-4a58-825c-c784cfb2bd30`, created
+2026-07-24T17:24:00.507914Z) was removed, and that throwaway account is now
+flagged `is_test`. Nothing else was touched. A re-run of the same
+signature scan over every remaining row finds zero. The total is 144
+rather than the 143 the brief expected, because a real member completed an
+ordinary Daily Reset through the wizard on 2026-09-04 after Prompt 1's
+audit was taken; that row has 20 populated fields including
+`completion_seconds` and is not a migrator artefact.
+
+**Live verification, 27 of 27.** Two runners, both against
+`app.mefwellness.com` and production data.
+`scripts/verify-trial-arc-live.mts` imports the real modules and runs them
+over every production account: the counts above, eligibility false for all
+19 with `launch_not_set` as the reason, the Task A disposition, and zero
+accounts starting suppressed. `scripts/verify-trial-arc-admin-live.mjs`
+drives the real screen with a minted administrator session: the control
+renders on 16 cards with its agreed wording, pressing Suppress writes the
+stamp in production and the reloaded screen reads it back, pressing Allow
+clears it, and both halves work on a manually assigned program row as well
+as a plain system trial row, which is what proves the guard trigger does
+not stand in the way. A member's own session is redirected to
+`/dashboard` and never sees the control. Both accounts driven are test
+accounts and both were restored to null.
+
+**Not built here, on purpose.** There is no member-facing surface, no
+message, no schedule and no send. This prompt is the vocabulary and the
+switch; Prompt 7 sets the date.
+
 ## The Quick Wellness Check stops writing check-ins (2026-09-04)
 
 Migration 202. /wellness-check asks a signed-out stranger seven questions
