@@ -64,6 +64,31 @@ seconds after the account itself. Exactly one row matches, and it belongs to
 check-in. No real member's data was affected. Nothing was deleted or
 modified; the disposition is the owner's call.
 
+**Live verification, 23 of 23.** The real journey was driven on
+`app.mefwellness.com`: the seven questions answered as a signed-out
+stranger, then that same browser given the standing test member's session
+and walked onto an ordinary page. The answers landed in the fenced table as
+seven slugs, the run was marked started and completed, and it was bound to
+her account. `daily_checkins` did not move, before the walk, after the walk
+or after she signed in. A hand-made request naming a question this
+experience does not ask, an option it does not offer and a sentence of prose
+had all three dropped and kept only the one real answer. A normal Daily
+Reset, entered through the real wizard, still wrote a real check-in. Every
+row the run created was removed afterwards, including the check-in it
+wrote, and the minted session was retired. The runner is
+`scripts/verify-guest-wellness-check-fence-live.mjs`.
+
+**The live run found something the tests could not.** `/api/guest-preview`
+was not on the middleware's public list, so every save a signed-out guest
+made was 307 redirected to `/login` before it reached the route. The client
+swallows a failed write on purpose, because a guest answering seven
+questions must never be stopped by a network problem, so she finished the
+quiz, read her result, and nothing was stored anywhere at all. The same
+exemption `/api/lead-capture` and `/api/public-entry` already carry now
+covers it, and a test fails the build if either the endpoint or the screen
+leaves that list. Worth saying plainly: the fix shipped in a state where the
+new store was silently empty, and only driving the real site caught it.
+
 **The guard.** `tests/public-entry-provenance.test.ts` now covers both
 doors. It fails the build if the deleted files come back, if anything
 imports the migration, if the root layout mounts a migrator, if

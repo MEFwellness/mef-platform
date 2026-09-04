@@ -137,7 +137,15 @@ async function main() {
     // ---------------------------------------------------------------
     // 2. The fenced store
     // ---------------------------------------------------------------
-    const session = await readSession(service, visitorToken);
+    // The last answer and the completion are two writes inside one
+    // fire-and-forget request, so a read taken the instant the result screen
+    // appears can legitimately catch the row half written. Waiting for the
+    // request to finish is not the same as tolerating a missing value: it
+    // gives up after ten seconds and the check still fails.
+    const session = await waitFor(
+      () => readSession(service, visitorToken),
+      (row) => Boolean(row?.completed_at)
+    );
     check('a fenced session row exists for that token', Boolean(session));
     check('it declares itself a guest wellness check', session?.origin === 'guest_wellness_check', session?.origin ?? '');
     check('it declares itself preliminary', session?.preliminary === true);
@@ -286,6 +294,17 @@ async function main() {
   process.exit(failed.length === 0 ? 0 : 1);
 }
 
+/** Polls until the value satisfies `settled`, or gives up. Returns whatever it last saw, so the caller's own check reports the real state. */
+async function waitFor(read, settled, { attempts = 20, everyMs = 500 } = {}) {
+  let last = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    last = await read();
+    if (settled(last)) return last;
+    await new Promise((resolve) => setTimeout(resolve, everyMs));
+  }
+  return last;
+}
+
 async function findMemberId(service, email) {
   let page = 1;
   for (;;) {
@@ -349,19 +368,45 @@ async function submitRealCheckin(page, base, service, memberId, knownBefore) {
       const fresh = (await checkinIds(service, memberId)).find((id) => !knownBefore.includes(id));
       if (fresh) return { ok: true, detail: `wrote a new row after ${step} steps`, id: fresh };
 
-      const cont = page.locator('button:visible').last();
+      // The wizard's chrome all carries an aria-label (Home, Back, the
+      // screen dots) and so does every answer tile. The persistent
+      // Continue control deliberately carries none, so "the last visible
+      // button with no aria-label" is the one stable way to find it across
+      // screens whose labels change.
+      const cont = page.locator('button:not([aria-label]):visible').last();
       const canContinue = (await cont.isEnabled().catch(() => false)) === true;
       if (canContinue) {
         await cont.click({ timeout: 5000 }).catch(() => {});
       } else {
-        // Continue is disabled because this screen still wants an answer.
-        const options = page.locator('main button:visible, main [role="button"]:visible');
-        const count = await options.count();
-        if (count === 0) break;
-        await options
-          .nth(Math.floor(count / 2))
-          .click({ timeout: 5000 })
-          .catch(() => {});
+        // Continue is disabled because a question on this screen is still
+        // unanswered. One tile per group that has no answer yet, found by
+        // grouping the tiles by their own container rather than by
+        // guessing at an index: clicking "the first unpressed tile" would
+        // just keep changing the first question's answer forever.
+        const answered = await page.evaluate(() => {
+          const groups = new Map();
+          document.querySelectorAll('[aria-pressed]').forEach((tile) => {
+            const container = tile.parentElement;
+            if (!groups.has(container)) groups.set(container, []);
+            groups.get(container).push(tile);
+          });
+          for (const tiles of groups.values()) {
+            if (tiles.some((t) => t.getAttribute('aria-pressed') === 'true')) continue;
+            const rect = tiles[0].getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) continue;
+            tiles[Math.floor(tiles.length / 2)].click();
+            return true;
+          }
+          return false;
+        });
+        if (!answered) {
+          const reason = await page
+            .locator('#checkin-continue-reason')
+            .textContent()
+            .catch(() => '');
+          console.log(`  stuck at ${page.url()}: ${(reason || 'no reason shown').trim()}`);
+          break;
+        }
       }
       await page.waitForTimeout(700);
     }
