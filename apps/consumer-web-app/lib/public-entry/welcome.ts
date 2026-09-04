@@ -22,9 +22,23 @@
  * database to say exactly that (migration 197). It does not read
  * public_entry_answers, and nothing downstream of it carries a public
  * answer into an assessment.
+ *
+ * THE TRIAL ARC HANDOVER (2026-09-04). For an account the trial arc is
+ * genuinely launched for, this handshake is day 1 of her paced week: it
+ * carries the arc's framing, points at Core Values Snapshot as the week's
+ * first step, and is recorded on the arc's own delivery receipt under the
+ * arc's own key. From day 2 onward it stands down entirely, because the
+ * week is what speaks to her and this message, whose closer is "she has no
+ * Baseline Assessment yet", would otherwise win the single pop-up slot
+ * every morning until she had one and the arc would never say a word.
+ *
+ * NOTHING CHANGES FOR ANYBODY ELSE. `arc` is null for every account outside
+ * the arc, which today is every account in the system, and the message,
+ * the copy, the closer and the button are exactly what they were.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PublicEntryArcHandover, TrialArcMessage } from '../trial-arc/engine';
 import { ENERGY_PATTERN_COPY } from './copy';
 import { getMemberOrigin } from './data';
 
@@ -33,12 +47,24 @@ export type PublicEntryWelcome = {
   readonly sessionId: string;
   /** Null when she created an account without finishing the nine questions. The copy branches on that rather than inventing something to have noticed. */
   readonly patternTitle: string | null;
+  /**
+   * The trial arc's day 1 message, when this welcome is carrying it. Null
+   * for every account outside the arc, and the pop-up then renders exactly
+   * the copy and the button it always has.
+   */
+  readonly arc: TrialArcMessage | null;
 };
 
 export async function getPublicEntryWelcome(
   supabase: SupabaseClient,
-  memberId: string
+  memberId: string,
+  arc: PublicEntryArcHandover = null
 ): Promise<PublicEntryWelcome | null> {
+  // The arc owns this account's week and today is not its first day. See
+  // this file's header: standing down here is what stops a message with no
+  // closer from starving a paced sequence that has one.
+  if (arc?.kind === 'retired') return null;
+
   const origin = await getMemberOrigin(supabase, memberId);
   if (!origin) return null;
 
@@ -62,5 +88,6 @@ export async function getPublicEntryWelcome(
   return {
     sessionId: origin.sessionId,
     patternTitle: origin.patternKey ? ENERGY_PATTERN_COPY[origin.patternKey].title : null,
+    arc: arc?.kind === 'day_one' ? arc.message : null,
   };
 }

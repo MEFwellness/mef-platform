@@ -148,6 +148,66 @@ export function stressLoadPopupMessageKey(assignmentId: string): string {
  */
 export { HYDRATION_POPUP_MESSAGE_KEY as hydrationFocusPopupMessageKey } from '../hydration/constants';
 
+/**
+ * The trial arc's own key, defined in lib/trial-arc/constants.ts beside the
+ * rest of that sequence's vocabulary and re-exported here so the pop-up
+ * chain reads consistently, exactly as the hydration question's key above
+ * already is.
+ *
+ * It carries the DAY NUMBER, which is what makes "at most one trial arc
+ * pop-up per member per day" true through this file's existing machinery
+ * rather than through a new one: today's key can be dismissed exactly once
+ * under isOfferPopupDue, and tomorrow is a genuinely different message. The
+ * `trial_arc_day` prefix keeps it clear of cvs_day3, lsc_day7 and every
+ * other day-3/day-7 key above, which are about a seven day experiment and
+ * have nothing to do with the trial week.
+ */
+export { trialArcPopupMessageKey } from '../trial-arc/constants';
+
+/**
+ * The session ids of every experiment offer this member has already been
+ * shown, across all three experiences.
+ *
+ * WHY THIS IS "SHE PASSED ON IT" AND NOT "SHE SAW IT". An offer pop-up is
+ * marked dismissed the instant it mounts (RootMessagePopupClient's
+ * auto-dismiss group), and it is only ever offered while no experiment is
+ * running. So a dismissal row on an offer key means exactly one thing: Root
+ * put the seven day experiment in front of her, once, and she left without
+ * starting it. That is the only decline the app records, and the trial arc
+ * reads it here rather than inventing a second decline system of its own.
+ *
+ * It is a claim about the OFFER, not about the member: a caller that wants
+ * "she declined" still has to check that no experiment was started from
+ * that session, because starting one from the dashboard card leaves the
+ * same dismissal row behind. lib/trial-arc/engine.ts does exactly that.
+ *
+ * Returns `ok: false` on a failed read rather than an empty set, because
+ * "no decline on record" and "we could not tell" lead to opposite
+ * behaviour: one lets the arc pitch an experiment, the other must not.
+ */
+export async function listExperimentOfferDismissals(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<{ ok: boolean; sessionIds: Set<string> }> {
+  const { data, error } = await supabase
+    .from('member_root_popup_dismissals')
+    .select('message_key')
+    .eq('member_id', memberId)
+    .or('message_key.like.cvs_offer:%,message_key.like.lsc_offer:%,message_key.like.rpl_offer:%');
+
+  if (error) {
+    console.error('listExperimentOfferDismissals failed', error);
+    return { ok: false, sessionIds: new Set() };
+  }
+
+  const sessionIds = new Set<string>();
+  for (const row of (data ?? []) as Array<{ message_key: string }>) {
+    const colon = row.message_key.indexOf(':');
+    if (colon > 0) sessionIds.add(row.message_key.slice(colon + 1));
+  }
+  return { ok: true, sessionIds };
+}
+
 export async function getRootPopupDismissal(
   supabase: SupabaseClient,
   memberId: string,

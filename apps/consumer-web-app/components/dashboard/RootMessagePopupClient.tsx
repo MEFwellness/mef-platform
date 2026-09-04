@@ -47,6 +47,10 @@ import { WEEKLY_REFLECTION_COPY } from '@/lib/weekly-reflection/copy';
 import { TrackWeeklyReflectionDelivered } from '@/components/weekly-reflection/TrackWeeklyReflectionDelivered';
 import { STRESS_LOAD_COPY } from '@/lib/stress-load/copy';
 import { ROOT_WELCOME_COPY } from '@/lib/public-entry/copy';
+import {
+  TrackTrialArcDelivered,
+  reportTrialArcCtaTapped,
+} from '@/components/trial-arc/TrackTrialArcDelivered';
 
 type OfferMessage = Extract<RootPopupMessage, { kind: 'cvs_offer' | 'lsc_offer' | 'rpl_offer' }>;
 type ResetPlanMessage = Extract<RootPopupMessage, { kind: 'reset_plan_day3' | 'reset_plan_day7' }>;
@@ -58,6 +62,7 @@ type WeeklyReflectionMessage = Extract<RootPopupMessage, { kind: 'weekly_reflect
 type StressLoadMessage = Extract<RootPopupMessage, { kind: 'stress_load_assigned' }>;
 type HydrationFocusMessage = Extract<RootPopupMessage, { kind: 'hydration_focus' }>;
 type PublicEntryWelcomeMessage = Extract<RootPopupMessage, { kind: 'public_entry_welcome' }>;
+type TrialArcMessage = Extract<RootPopupMessage, { kind: 'trial_arc_day' }>;
 
 /** Dispatches both which copy functions and which server action to call per message.kind — Core Values Snapshot and Life Signal Check's day-3 question/reflection text happen to read the same (both fully generic, never Core-Values-Snapshot-specific), but their day-7 bridge line differs, so this never assumes the two are interchangeable. */
 export function RootMessagePopupClient({ message }: { message: RootPopupMessage }) {
@@ -95,6 +100,19 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // for the rest of the week either way, which is what makes one showing the
   // right number.
   const isWeeklyReview = message.kind === 'weekly_review';
+  // The trial arc pops at most once per trial day, by the same mechanism the
+  // Priority Card and the Weekly Root Review already use: its message key
+  // carries the day number, so marking it dismissed the instant it is shown
+  // makes "at most one trial arc message a day" true whether she taps the
+  // button, closes the tab or navigates away. Tomorrow is a different key.
+  //
+  // The arc-framed public entry welcome is in this group too, and only that
+  // one: it IS the arc's day 1 message, carrying the arc's key, so it has
+  // to obey the arc's lifetime. A welcome outside the arc keeps its real
+  // "Maybe later" and "Ignore" buttons exactly as before.
+  const isTrialArc =
+    message.kind === 'trial_arc_day' ||
+    (message.kind === 'public_entry_welcome' && message.arc !== null);
   const isQuestionnaireAssigned = message.kind === 'questionnaire_assigned';
   const isFreeArcAvailable = message.kind === 'free_arc_available';
   // The Weekly Reflection is an invitation with real "Maybe later" and
@@ -123,7 +141,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // later"/"Ignore" button choice as day3/day7 (handleMaybeLater/
   // handleIgnore below), not an automatic one-time-ever dismissal.
   useEffect(() => {
-    if (isOffer || isPriorityCard || isWeeklyReview) {
+    if (isOffer || isPriorityCard || isWeeklyReview || isTrialArc) {
       ignoreRootPopupMessageAction(message.messageKey);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,6 +257,32 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // genuinely means next login and a member who closes the tab before
   // reading it must not silently lose the only time Root ever says this.
   if (message.kind === 'public_entry_welcome') {
+    // The trial arc's day 1 rides this surface for a member who arrived
+    // through Where Your Energy Goes. The copy, the button and the receipt
+    // are all the arc's; the chrome is the one she was going to see anyway.
+    // `message.arc` is null for every account outside the arc, and this
+    // renders exactly what it always has.
+    const arc = message.arc;
+    if (arc) {
+      return (
+        <>
+          <TrackTrialArcDelivered messageKey={arc.messageKey} />
+          <RootInvitePopup
+            eyebrow={arc.copy.eyebrow}
+            title={arc.copy.title}
+            body={arc.copy.body}
+            ctaLabel={arc.copy.ctaLabel}
+            href={arc.copy.href}
+            isPending={isPending}
+            onCtaTap={() => reportTrialArcCtaTapped(arc.messageKey)}
+            onDismiss={() => {
+              setClosed(true);
+              router.refresh();
+            }}
+          />
+        </>
+      );
+    }
     return (
       <RootInvitePopup
         eyebrow={ROOT_WELCOME_COPY.eyebrow}
@@ -254,6 +298,32 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
         onMaybeLater={handleMaybeLater}
         onIgnore={handleIgnore}
       />
+    );
+  }
+
+  // The trial arc's own pop-up. Same invite chrome as the messages around
+  // it, one close affordance rather than two, because its key carries the
+  // day and it is retired the instant it mounts: a "Maybe later" would be a
+  // button that promised something the lifetime does not do.
+  if (message.kind === 'trial_arc_day') {
+    const arc = message.arc;
+    return (
+      <>
+        <TrackTrialArcDelivered messageKey={arc.messageKey} />
+        <RootInvitePopup
+          eyebrow={arc.copy.eyebrow}
+          title={arc.copy.title}
+          body={arc.copy.body}
+          ctaLabel={arc.copy.ctaLabel}
+          href={arc.copy.href}
+          isPending={isPending}
+          onCtaTap={() => reportTrialArcCtaTapped(arc.messageKey)}
+          onDismiss={() => {
+            setClosed(true);
+            router.refresh();
+          }}
+        />
+      </>
     );
   }
 
@@ -357,6 +427,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
     | StressLoadMessage
     | HydrationFocusMessage
     | PublicEntryWelcomeMessage
+    | TrialArcMessage
   >;
 
   const isDay3 = day3Or7Message.kind === 'cvs_day3' || day3Or7Message.kind === 'lsc_day3' || day3Or7Message.kind === 'rpl_day3';
@@ -636,6 +707,9 @@ function RootInvitePopup({
   isPending,
   onMaybeLater,
   onIgnore,
+  onCtaTap,
+  dismissLabel,
+  onDismiss,
 }: {
   eyebrow: string;
   title: string;
@@ -643,12 +717,29 @@ function RootInvitePopup({
   ctaLabel: string;
   href: string;
   isPending: boolean;
-  onMaybeLater: () => void;
-  onIgnore: () => void;
+  onMaybeLater?: () => void;
+  onIgnore?: () => void;
+  /**
+   * Fired the instant the primary button is pressed, before the navigation
+   * that follows it. The trial arc uses this to record that she acted on a
+   * message, which is half of what its closer means by "ignored". It is a
+   * `keepalive` beacon, so it lands even though the page is unloading.
+   */
+  onCtaTap?: () => void;
+  /**
+   * The single close affordance, for a message that is shown once and does
+   * not come back rather than one with a real "ask me again" choice. The
+   * trial arc is the only caller: its key carries the day, and it is marked
+   * dismissed the instant it mounts, so "Maybe later" would be a button
+   * that lied about what happens next.
+   */
+  dismissLabel?: string;
+  onDismiss?: () => void;
 }) {
   const router = useRouter();
 
   function handleStart() {
+    onCtaTap?.();
     router.push(href as Route);
   }
 
@@ -689,22 +780,35 @@ function RootInvitePopup({
         </button>
 
         <div className="relative mt-6 flex items-center justify-center gap-6 border-t border-[#F5F0E4]/10 pt-4">
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={onMaybeLater}
-            className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
-          >
-            Maybe later
-          </button>
-          <button
-            type="button"
-            disabled={isPending}
-            onClick={onIgnore}
-            className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
-          >
-            Ignore
-          </button>
+          {onDismiss ? (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={onDismiss}
+              className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
+            >
+              {dismissLabel ?? 'Not now'}
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={onMaybeLater}
+                className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
+              >
+                Maybe later
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={onIgnore}
+                className="mef-press text-xs font-medium text-[#F5F0E4]/60 underline underline-offset-2 transition hover:text-[#F5F0E4] disabled:opacity-50"
+              >
+                Ignore
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

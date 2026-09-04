@@ -30,6 +30,7 @@ import {
 } from '@/app/actions/analytics';
 import { trackPriorityShownAction } from '@/app/actions/priority';
 import { trackWeeklyReflectionDeliveredAction } from '@/app/actions/weeklyReflection';
+import { markTrialArcCtaTappedAction, trackTrialArcDeliveredAction } from '@/app/actions/trialArcDelivery';
 
 /** No cached responses and no static optimization: this writes. */
 export const dynamic = 'force-dynamic';
@@ -69,6 +70,17 @@ export async function POST(request: Request): Promise<Response> {
     // receipt this member's own screen was entitled to record.
     case 'weekly_reflection_delivered':
       await trackWeeklyReflectionDeliveredAction(str('presentation'));
+      break;
+    // The trial arc's receipt and its CTA stamp, which are facts the arc's
+    // own closer reads back rather than analytics rows. Both actions
+    // re-resolve the member, her trial day and today's message from her own
+    // session before writing, so a hand built request can only ever record
+    // what this member's own screen was entitled to record.
+    case 'trial_arc_delivered':
+      await trackTrialArcDeliveredAction(str('messageKey'));
+      break;
+    case 'trial_arc_cta_tapped':
+      await markTrialArcCtaTappedAction(str('messageKey'));
       break;
     default:
       break;

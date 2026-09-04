@@ -26,7 +26,19 @@ export type BeaconEvent =
    * all decided on the server, so the only thing the browser gets to say is
    * which surface it was.
    */
-  | { event: 'weekly_reflection_delivered'; presentation: string };
+  | { event: 'weekly_reflection_delivered'; presentation: string }
+  /**
+   * Also not analytics rows. These two write the trial arc's delivery
+   * receipt and its CTA stamp (member_trial_arc_deliveries, migration 204),
+   * which the arc's own closer reads back. They travel here for the same
+   * two reasons the receipt above does: both are fired from a real display
+   * or a real press on a surface the member genuinely saw, and neither may
+   * cost her a re-render. The member, her trial day, her pace state and the
+   * step the message pointed at are all decided on the server, so the only
+   * thing the browser gets to say is which message it was.
+   */
+  | { event: 'trial_arc_delivered'; messageKey: string }
+  | { event: 'trial_arc_cta_tapped'; messageKey: string };
 
 export function sendBeacon(payload: BeaconEvent): void {
   void fetch('/api/analytics/track', {

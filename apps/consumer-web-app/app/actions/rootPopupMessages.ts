@@ -62,6 +62,7 @@
  *
  *   kind                   inner guard              lifetime
  *   public_entry_welcome    isRecurringMessageDue    snoozed returns next login
+ *   trial_arc_day           isOfferStillDue          once per trial day (day-scoped key)
  *   questionnaire_assigned  isRecurringMessageDue    snoozed returns next login
  *   stress_load_assigned    isRecurringMessageDue    snoozed returns next login
  *   priority_card (re-entry) isPriorityCardDue       once per local day
@@ -89,6 +90,11 @@
 
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { getPublicEntryWelcome } from '@/lib/public-entry/welcome';
+import {
+  publicEntryArcHandover,
+  resolveTrialArcDecision,
+  type TrialArcMessage,
+} from '@/lib/trial-arc/engine';
 import { createClient } from '@/lib/supabase/server';
 import { getMyCvsExperimentStatusAction, getMyCvsOfferAction } from './coreValuesSnapshot';
 import { getMyLscExperimentStatusAction, getMyLscOfferAction } from './lifeSignalCheck';
@@ -283,7 +289,28 @@ export type RootPopupMessage =
       messageKey: string;
       patternTitle: string | null;
       primaryHref: string;
-    };
+      /**
+       * The trial arc's day 1 message, when this welcome is carrying it
+       * (lib/public-entry/welcome.ts). Null for every account outside the
+       * arc, and the pop-up then renders the copy and the button it always
+       * has. When it is present the pop-up renders the arc's own copy,
+       * fires the arc's delivery receipt, and stamps the arc's CTA.
+       */
+      arc: TrialArcMessage | null;
+    }
+  /**
+   * The trial arc (migrations 203 and 204). Root pacing a member through
+   * the first days of her free trial: one message a day at most, only for
+   * an account lib/trial-arc/eligibility.ts says the arc is launched for,
+   * and never for anybody who has ever been assigned a coach.
+   *
+   * Carries the whole message rather than an id, because the arc has no
+   * route and no card of its own: it is a sentence Root says, decided fresh
+   * from real rows on every visit by lib/trial-arc/engine.ts, and the
+   * pop-up is the only place it is ever rendered. There is deliberately no
+   * Priority Card entry and no Home card for it.
+   */
+  | { kind: 'trial_arc_day'; messageKey: string; arc: TrialArcMessage };
 
 async function requireMemberId(): Promise<string | null> {
   const user = await getCachedUser();
@@ -426,18 +453,88 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // public_entry_answers, nothing carries a public answer into an
   // assessment, and the copy itself (lib/public-entry/copy.ts's
   // ROOT_WELCOME_COPY) says out loud that it was not a measurement.
+  //
+  // THE TRIAL ARC HANDOVER (2026-09-04). The arc's decision for this visit
+  // is resolved once, here, before the welcome, because the two are the
+  // same message on a member's first day. For an account the arc is
+  // launched for, this handshake carries the arc's day 1 framing and points
+  // at Core Values Snapshot; from her day 2 onward the welcome stands down
+  // and the arc's own branch below speaks. For every other account,
+  // `publicEntryArcHandover` is null and nothing about this branch changes.
+  //
+  // It costs no query while the arc is switched off: resolveTrialArcDecision
+  // checks TRIAL_ARC_LAUNCH before any read at all, and it ships null.
+  const arcDecision =
+    memberId && supabase
+      ? await resolveTrialArcDecision(supabase, memberId, {
+          lastSignInAt,
+        })
+      : null;
+
   if (memberId && supabase) {
-    const welcome = await getPublicEntryWelcome(supabase, memberId);
+    const welcome = await getPublicEntryWelcome(
+      supabase,
+      memberId,
+      arcDecision ? publicEntryArcHandover(arcDecision) : null
+    );
     if (welcome) {
-      const messageKey = publicEntryWelcomePopupMessageKey(welcome.sessionId);
-      if (await isRecurringMessageDue(messageKey)) {
+      // The arc's day 1 rides this surface, so it rides the arc's key and
+      // the arc's lifetime too: once per trial day, marked dismissed the
+      // instant it mounts, exactly as the Priority Card's date-scoped key
+      // already works. A welcome outside the arc keeps its own key and its
+      // own recurring "Maybe later means next login" lifetime, unchanged.
+      const messageKey = welcome.arc
+        ? welcome.arc.messageKey
+        : publicEntryWelcomePopupMessageKey(welcome.sessionId);
+      const due = welcome.arc
+        ? await isOfferStillDue(messageKey)
+        : await isRecurringMessageDue(messageKey);
+      if (due) {
         return {
           kind: 'public_entry_welcome',
           messageKey,
           patternTitle: welcome.patternTitle,
-          primaryHref: '/onboarding',
+          primaryHref: welcome.arc ? welcome.arc.copy.href : '/onboarding',
+          arc: welcome.arc,
         };
       }
+    }
+  }
+
+  // The trial arc, SECOND in this chain and immediately after the welcome.
+  //
+  // ITS POSITION. Above every coach assignment and everything Root decides
+  // on her own, and below only the arrival handshake, because those two are
+  // the same message on day 1 and the arrival is the older half of it. It
+  // is safe this high for the reason the re-entry takeover is: it is finite
+  // and self-limiting. It exists for at most five days of one account's
+  // life, it says at most one thing a day, and it has a closer that stops
+  // it for good after three ignored messages, so it cannot starve anything
+  // below it the way a perpetual daily message would.
+  //
+  // WHO CAN REACH IT. Only an account lib/trial-arc/eligibility.ts answers
+  // 'eligible' for: on the automatic free trial, created after the arc
+  // launched, never assigned a coach in any status ever, not suppressed,
+  // not a test account, and a PROSPECT. A coaching client can structurally
+  // never see a line of it. While TRIAL_ARC_LAUNCH is null, which is how it
+  // ships, that is every account in the system and this branch costs no
+  // query at all.
+  //
+  // ITS OWN DUE-CHECK, per this file's one rule: isOfferStillDue on a
+  // day-scoped key, which is the once-per-day rule expressed through the
+  // existing one-time-ever machinery, exactly as priority_card does. The
+  // pop-up marks itself dismissed on mount, so "at most one trial arc
+  // message per member per day" holds whether she taps the button, closes
+  // the tab or navigates away.
+  //
+  // ROOT PRESENCE ALREADY WON OR LOST INSIDE THE ENGINE. There is no
+  // presence check here: lib/trial-arc/engine.ts refuses on it before it
+  // composes anything, so a member being greeted gets the greeting and
+  // nothing else. The arc is never stacked on top of it.
+  if (arcDecision?.message && arcDecision.message.surface === 'popup') {
+    const messageKey = arcDecision.message.messageKey;
+    if (await isOfferStillDue(messageKey)) {
+      return { kind: 'trial_arc_day', messageKey, arc: arcDecision.message };
     }
   }
 
@@ -983,6 +1080,20 @@ export async function getMyRootPopupMessageAction(): Promise<RootPopupMessage | 
   // itself stays on Home for the rest of the week either way, which is what
   // makes the one showing safe.
   if (message.kind === 'weekly_review') {
+    return isOfferPopupDue(dismissal) ? message : null;
+  }
+
+  // The trial arc: at most once per trial day, not once per login and not on
+  // every reload. Exactly the same mechanism as the Priority Card's, one
+  // scale sideways: its message key carries the day number, so the existing
+  // one-time-ever rule applied to a day-scoped key IS the once-per-day rule,
+  // and tomorrow's key is a genuinely new message.
+  //
+  // The arc-framed public entry welcome is here too, and only that one. It
+  // carries the arc's key and is the arc's day 1 message, so it has to obey
+  // the arc's lifetime; a welcome outside the arc falls through to the
+  // recurring rule below, unchanged.
+  if (message.kind === 'trial_arc_day' || (message.kind === 'public_entry_welcome' && message.arc)) {
     return isOfferPopupDue(dismissal) ? message : null;
   }
 

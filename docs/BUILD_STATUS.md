@@ -1,3 +1,124 @@
+## The trial week has a clock, and Root paces it (2026-09-04)
+
+Migration 204, and the days 1 to 5 half of the trial arc. Still launched
+for nobody.
+
+**The clock counts forwards.** `lib/trial-arc/day.ts` answers "which day of
+her trial is it" from `member_subscriptions.trial_started_at`, in her own
+timezone, with signup day as day 1. Never from `trial_ends_at`, and the
+reason is on the record: migration 198 cut the trial from 30 days to 7, and
+grandfathering worked precisely because both ends are stamped rather than
+derived from each other. A day number counted backwards from the end would
+have moved every existing member's day 1 on the morning that migration ran.
+Nothing resets it, nothing extends it, and a member who does not open the
+app until her fourth day is on day 4 and reads day 4's message. Verified
+against all 19 production trial rows: every one produces a day of 1 or
+more, and the forwards count and the backwards count disagree for every
+single one of them.
+
+**Five states, and the fifth one is why the other four work.** ON_PACE,
+AHEAD, STALLED and DECLINED_EXPERIMENT are the four the brief names, and
+BEHIND is the honest absence of them. It has to exist: the day 2 rule is
+"ON_PACE points at Life Signal Check, otherwise a gentle start toward Core
+Values Snapshot", and if the fall through were ON_PACE that "otherwise"
+could never fire, so a member who had never opened Core Values Snapshot
+would be pointed straight past it on her second morning. STALLED outranks a
+decline, a decline outranks a progress reading, and `experimentDeclined`
+stays readable as a FACT whichever state won, because the day 3 and day 4
+rule has to hold for a stalled member too. Nothing is stored as a label:
+the state is recomputed from real rows on every visit, and the delivery
+receipt records which state was in force at the time only so a person
+reading the rows later can see it.
+
+**A stall is two empty days, counted backwards from yesterday.** Today is
+still being lived, so counting it would call almost every morning visitor
+stalled. An experiment day logged counts as activity, not only a Daily
+Reset, so somebody holding a seven day change and tapping it each evening
+is never told that nothing expired while she is in the middle of the thing.
+
+**The closer stops the pacing and can never stop a milestone.** Three
+messages that genuinely reached her and that she then neither tapped nor
+answered by doing the step they pointed at, and days 1 to 5 stop
+permanently. Doing the thing counts as answering the message even if she
+went and did it from somewhere else entirely. `isPacingDay` is what the
+count filters on, so day 6's recap and day 7's close, which a later prompt
+builds, are offered exactly once whatever this says, and inherit that by
+construction rather than by anybody remembering.
+
+**One message a day, through machinery that already existed.** The key is
+`trial_arc_day:N`, which cannot collide with the `cvs_day3` / `lsc_day7`
+family (those are about a seven day EXPERIMENT, and a member on day 3 of
+her trial who is also on day 3 of an experiment is an ordinary case). The
+day number in the key means the pop-up chain's existing one-time-ever rule
+IS the once-per-day rule, exactly as the Priority Card's date-scoped key
+already works. No second dismissal system, no schedule, no cron.
+
+**Root Presence wins, always.** The arc reads whether the return greeting
+is about to be spent on this visit and goes quiet if it is. It reads: the
+greeting's atomic claim still belongs to the Morning Brief, and a claim
+made here would have consumed the sentence for a member nothing in this
+feature renders it to. A gap already greeted on an earlier day is not
+"presence speaking" any more, which is what leaves room for the arc's own
+warm re-entry line.
+
+**Day 1 is one message, not two.** For a member who arrived through Where
+Your Energy Goes, the existing arrival handshake carries the arc's day 1:
+same key, same receipt, same first step, on a screen Root was going to
+speak from anyway. From her day 2 onward that welcome stands down, because
+its own closer is "she has no Baseline Assessment yet" and it would
+otherwise win the single pop-up slot every morning until she had one, and
+the arc would never say a word. She keeps every other route into the
+Baseline Assessment. Nothing about the welcome changes for an account
+outside the arc, verified live for all 19.
+
+**Day 5 says only what her own scored rows support.** If Body-Value Echo
+genuinely fired, the message references it, using Life Signal Check's own
+`echoFires`, so the arc can never claim an echo her results screen did not
+show her. If it did not, her top value and her loudest signal are placed
+side by side with the line saying out loud that side by side is all it is.
+If either half is missing, it nudges toward the missing half instead. There
+is no branch that manufactures a finding.
+
+**The receipt.** `member_trial_arc_deliveries` follows migration 191's
+shape: its own table, insert if absent, one row per member per message key
+with the first `delivered_at`, written only by her own session through the
+analytics beacon from a mounted effect on a pop-up that genuinely
+displayed. The one column that may ever move on a written row is
+`cta_tapped_at`, and the database is what says so: UPDATE is revoked on the
+table for the authenticated role and granted back on that one column.
+Proved live from a minted member session, not the service role, which
+bypasses grants: she may write her receipt and stamp her tap, and both
+attempts to move `delivered_local_date` and `pointed_step` came back
+"permission denied for table member_trial_arc_deliveries".
+
+**It costs Home nothing while it is off.** `resolveTrialArcDecision` checks
+`TRIAL_ARC_LAUNCH` before any read at all, so the new branch, which sits
+second in the chain, adds zero queries for every account in the system
+today. A test reads the source and fails the build if a read ever moves
+above that check.
+
+**The fallback pointer.** A member who has finished both conversations and
+declined the experiment is pointed at her case, not back at Core Values
+Snapshot. Telling somebody who finished it on Monday that it is still her
+first step is exactly the class of untrue sentence this build is supposed
+to avoid.
+
+**Live verification, 35 of 35.** `scripts/verify-trial-arc-pacing-live.mts`
+against production: all 19 accounts refuse with `not_launched` and none has
+a message; the clock over every real trial row; the welcome unchanged for
+every account; the receipt written, re-claimed without moving, stamped,
+re-stamped without moving, read back and removed; every read the engine
+makes run for real (her trial day resolved as day 43 in America/New_York,
+her check-ins, her experiment logs, her receipts, and the day 5 connection
+returning an honest null because one half is missing); the switch turned on
+for the fixture proving eligibility still refuses it as a test account, and
+turned back off; and the column grant proved from her own session. Every
+row the script created was deleted before it exited.
+
+**Not built here, on purpose.** Day 6's recap and day 7's close. The clock
+computes all seven days, the receipt table accepts all seven, and the
+closer already exposes the pacing/milestone distinction they need.
+
 ## Who this account is, and whether the trial arc talks to them (2026-09-04)
 
 Migration 203, and three modules that are switched off on purpose.
