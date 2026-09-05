@@ -28,6 +28,8 @@
  *   reset-deliveries           delete its trial arc receipts
  *   recaps                     print its day 6 recap row, if it has one
  *   reset-recaps               delete its day 6 recap
+ *   closes                     print its day 7 close row, if it has one
+ *   reset-closes               delete its day 7 close
  *   reset-popups               delete its Root pop-up dismissals
  *   reset                      deliveries + pop-ups + check-ins + greetings
  *   checkin-gap <n>            give it one check-in n days ago and nothing since
@@ -199,6 +201,29 @@ export async function resetRecaps(memberId) {
   if (error) throw error;
 }
 
+/** Her day 7 close rows (migration 206). One at most, by the table's own unique constraint. */
+export async function listCloses(memberId) {
+  const { data, error } = await service
+    .from('member_trial_arc_closes')
+    .select('completion, focus_kind, lead_door, plan, day_number, composed_local_date, composed_at, opened_at, door_tapped, door_tapped_at')
+    .eq('member_id', memberId);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
+ * Deletes her stored close.
+ *
+ * The close is immutable and composed once, deliberately, so a verification
+ * run that wants to watch day 7 compose a SECOND time has to remove the
+ * first. Rig scoped, like every other write here.
+ */
+export async function resetCloses(memberId) {
+  await assertRig(memberId);
+  const { error } = await service.from('member_trial_arc_closes').delete().eq('member_id', memberId);
+  if (error) throw error;
+}
+
 export async function resetPopups(memberId) {
   await assertRig(memberId);
   const { error } = await service.from('member_root_popup_dismissals').delete().eq('member_id', memberId);
@@ -336,6 +361,7 @@ export async function backdateGreeting(memberId, days = 1) {
 export async function resetAll(memberId) {
   await resetDeliveries(memberId);
   await resetRecaps(memberId);
+  await resetCloses(memberId);
   await resetPopups(memberId);
   await clearCheckins(memberId);
   await clearGreetings(memberId);
@@ -350,7 +376,8 @@ export async function showRig(memberId) {
     listDeliveries(memberId),
   ]);
   const recaps = await listRecaps(memberId);
-  return { profile, subscription: sub, assignments: assignments ?? [], deliveries, recaps };
+  const closes = await listCloses(memberId);
+  return { profile, subscription: sub, assignments: assignments ?? [], deliveries, recaps, closes };
 }
 
 // --- CLI -------------------------------------------------------------
@@ -365,6 +392,8 @@ if (isMain) {
   else if (command === 'deliveries') console.log(JSON.stringify(await listDeliveries(rig.id), null, 2));
   else if (command === 'recaps') console.log(JSON.stringify(await listRecaps(rig.id), null, 2));
   else if (command === 'reset-recaps') { await resetRecaps(rig.id); console.log('recap cleared'); }
+  else if (command === 'closes') console.log(JSON.stringify(await listCloses(rig.id), null, 2));
+  else if (command === 'reset-closes') { await resetCloses(rig.id); console.log('close cleared'); }
   else if (command === 'reset-deliveries') { await resetDeliveries(rig.id); console.log('deliveries cleared'); }
   else if (command === 'reset-popups') { await resetPopups(rig.id); console.log('pop-up dismissals cleared'); }
   else if (command === 'reset-arc-popups') { await resetArcPopups(rig.id); console.log('trial arc pop-up dismissals cleared'); }

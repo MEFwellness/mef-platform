@@ -272,11 +272,19 @@ try {
   const lockBody = await probePage.textContent('body');
   check('the screen says the 30 days are complete', lockBody.includes('Your 30 days are complete'));
   check('the screen contains no em dash', !lockBody.includes('—'));
+  // THE PLACEHOLDER IS GONE (2026-09-05, Task B of the day 7 close). When no
+  // membership page is configured the button is not drawn at all and the
+  // screen leans on the support line it already shows, so the only thing
+  // this can assert in both worlds is that nothing dead is on the screen.
   const ctaHref = await probePage.getAttribute('a:has-text("Continue with Rooted Reset")', 'href');
-  check('the continue button is present and points somewhere', Boolean(ctaHref), `href=${ctaHref}`);
   check(
-    'the continue button points at the placeholder because no pricing URL is configured yet',
-    ctaHref === '#PRICING_LINK',
+    'the continue button either points at a real page or is not drawn at all',
+    ctaHref === null || /^https?:\/\//.test(ctaHref),
+    `href=${ctaHref}`
+  );
+  check(
+    'and no placeholder href or placeholder text is anywhere on the lock screen',
+    !lockBody.includes('#PRICING_LINK') && ctaHref !== '#PRICING_LINK',
     `href=${ctaHref}`
   );
 

@@ -318,10 +318,16 @@ describe('the day 6 offer', () => {
     expect(TRIAL_ARC_DAY_6.step).toBe('none');
   });
 
-  it('day 7 is refused explicitly, by day number, rather than falling off a map', () => {
+  it('day 7 is its own milestone now, and did not replace this one', () => {
+    // Prompt 5 built the close. Day 6 still speaks, on its own key, into its
+    // own screen, and the engine still refuses by day number rather than by
+    // falling off the end of a map.
     const engine = read('lib/trial-arc/engine.ts');
     expect(engine).toContain('TRIAL_ARC_LAST_BUILT_DAY');
-    expect(engine).toContain("'day_not_built'");
+    expect(engine).toContain('dayNumber === 7');
+    const day7 = decideTrialArcMessage(facts({ dayNumber: 7 }));
+    expect(day7.speaks).toBe(true);
+    if (day7.speaks) expect(day7.message.copy.href).toBe('/trial/close');
   });
 });
 

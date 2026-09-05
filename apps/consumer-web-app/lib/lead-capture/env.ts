@@ -6,6 +6,8 @@
  * list with explanations.
  */
 
+import { discoveryCallUrl } from '../config/conversionLinks';
+
 /**
  * Comma-separated list of exact origins (scheme + host [+ port]) allowed
  * to call POST /api/lead-capture from the browser — the Leadpages domain(s)
@@ -21,9 +23,20 @@ export function getLeadWidgetAllowedOrigins(): string[] {
     .filter(Boolean);
 }
 
-/** High-intent (pain + expressed readiness) destination — a Calendly link, filled in later by the user. */
+/**
+ * High-intent (pain + expressed readiness) destination: the booking page for
+ * a real conversation.
+ *
+ * READ FROM THE SHARED CONFIG, NOT FROM process.env HERE. The trial arc's
+ * day 7 close invites somebody into the same conversation this agent routes
+ * a hot lead to, and two modules reading the same variable independently is
+ * two places a future change can disagree. lib/config/conversionLinks.ts is
+ * the one source of truth for every outbound conversion link in this app.
+ * The URL itself did not change when it moved: the same environment
+ * variable, the same shipped fallback.
+ */
 export function getDiscoveryCallUrl(): string {
-  return process.env.LEAD_DISCOVERY_CALL_URL ?? 'https://calendly.com/mefwellness/discovery-assessment';
+  return discoveryCallUrl();
 }
 
 /** Softer-lead destination — the quiz or free guide, filled in later by the user. */

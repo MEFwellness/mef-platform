@@ -47,6 +47,11 @@ export const PRODUCT_SURFACES = [
   // surface she opened, which is all this records: nothing about what the
   // recap said reaches an analytics payload.
   'trial_arc_recap',
+  // The trial arc's day 7 close, "Your 7-Day Reset" (/trial/close). Same
+  // rule as the recap above: a surface she opened, and nothing about what
+  // the close said, which focus it named or which door she took reaches an
+  // analytics payload. Those live on her own row (migration 206).
+  'trial_arc_close',
 ] as const;
 
 export type ProductSurface = (typeof PRODUCT_SURFACES)[number];

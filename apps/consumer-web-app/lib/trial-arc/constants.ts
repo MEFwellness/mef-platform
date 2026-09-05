@@ -79,16 +79,24 @@ export const TRIAL_ARC_DAY_STEP: Record<number, TrialArcStep> = {
   // rather than a pacing day, so the closer in ./state.ts can never stop
   // it.
   6: 'none',
+  // Day 7 is the close. Like the recap it states something and asks for
+  // nothing to be completed, which is what 'none' means here, and it is a
+  // milestone rather than a pacing day, so the closer in ./state.ts can
+  // never stop it either.
+  7: 'none',
 };
 
 /**
  * The last day this build has anything to say on.
  *
- * Day 7's close is the next prompt's. Stated as a number here rather than
- * as an absent entry in a map, so adding it is a change to this line and
- * not an accident.
+ * Now 7: the close, "Your 7-Day Reset", is built. It is stated as a number
+ * here rather than left implicit in the day map, so a later change to what
+ * the week covers is a change to this line and not an accident. It happens
+ * to equal TRIAL_ARC_LAST_DAY today, and the two are still separate facts:
+ * one is how long the trial week is, the other is how much of it has been
+ * written.
  */
-export const TRIAL_ARC_LAST_BUILT_DAY = 6;
+export const TRIAL_ARC_LAST_BUILT_DAY = 7;
 
 /**
  * The first day the recap exists on.
@@ -100,6 +108,17 @@ export const TRIAL_ARC_LAST_BUILT_DAY = 6;
  * automatically a change to the other.
  */
 export const TRIAL_ARC_FIRST_RECAP_DAY = 6;
+
+/**
+ * The day the close belongs to.
+ *
+ * Written as its own statement for the same reason TRIAL_ARC_FIRST_RECAP_DAY
+ * is: "Your 7-Day Reset" belongs to the last day of the week, and the fact
+ * that the week happens to be seven days long is a different statement that
+ * lives in TRIAL_ARC_LAST_DAY. A change to one is not automatically a change
+ * to the other.
+ */
+export const TRIAL_ARC_CLOSE_DAY = 7;
 
 /**
  * The message key. Named `trial_arc_day:N` so it can never collide with the
@@ -149,6 +168,17 @@ export const TRIAL_ARC_ROUTES = {
    * not.
    */
   weekRecap: '/trial/week',
+  /**
+   * Day 7's close, "Your 7-Day Reset".
+   *
+   * The arc's second screen of its own, under the same '/trial' prefix as
+   * the recap, which is already in MEMBER_ONLY_PREFIXES
+   * (lib/auth/staffRouting.ts) and already covered by the trial lock. It is
+   * deliberately NOT under '/trial-ended': that is the post-trial lock
+   * screen, a different screen for a different moment, and prefix matching
+   * respects path boundaries so the two never touch.
+   */
+  weekClose: '/trial/close',
 } as const;
 
 /**

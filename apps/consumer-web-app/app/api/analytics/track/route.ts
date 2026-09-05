@@ -31,7 +31,9 @@ import {
 import { trackPriorityShownAction } from '@/app/actions/priority';
 import { trackWeeklyReflectionDeliveredAction } from '@/app/actions/weeklyReflection';
 import {
+  markTrialArcCloseDoorAction,
   markTrialArcCtaTappedAction,
+  openTrialArcCloseAction,
   openTrialArcRecapAction,
   trackTrialArcDeliveredAction,
 } from '@/app/actions/trialArcDelivery';
@@ -92,6 +94,20 @@ export async function POST(request: Request): Promise<Response> {
     // have a recap are all decided from her own session.
     case 'trial_arc_recap_opened':
       await openTrialArcRecapAction();
+      break;
+    // Day 7's close screen, opened. Same shape as the recap's: it composes
+    // her stored close if she has none yet and records that she opened it,
+    // with her eligibility and her trial day re-resolved from her own
+    // session.
+    case 'trial_arc_close_opened':
+      await openTrialArcCloseAction();
+      break;
+    // Which door she took on the close, or that she quietly went home. The
+    // only thing the browser gets to say is which one, the action refuses
+    // anything outside the three names, and the data layer then refuses a
+    // door that was never on her own stored close.
+    case 'trial_arc_close_door':
+      await markTrialArcCloseDoorAction(str('door'));
       break;
     default:
       break;

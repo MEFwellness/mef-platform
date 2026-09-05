@@ -43,7 +43,7 @@ import {
 import type { AccessSource, AccessStatus, AccessTier, MemberSubscription } from '../lib/membership/types';
 import { PAYWALL_LOCK_REASONS, isPaywallLockReason, isPaywallFeature } from '../lib/analytics/surfaces';
 import { TRIAL_ENDED_COPY, trialEndedHeading } from '../lib/membership/copy';
-import { PRICING_LINK_PLACEHOLDER, getPricingUrl, isPricingUrlConfigured } from '../lib/membership/pricing';
+import { membershipPricingUrl } from '../lib/config/conversionLinks';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date('2026-08-14T12:00:00.000Z');
@@ -689,7 +689,9 @@ describe('wiring', () => {
 
   it('the trial ended screen links the configured pricing page and turns an allowed member away', () => {
     const source = read('app/trial-ended/page.tsx');
-    expect(source).toContain('getPricingUrl');
+    // Through the one shared config, never process.env of its own.
+    expect(source).toContain('membershipPricingUrl');
+    expect(source).not.toContain('process.env');
     expect(source).toContain("redirect('/dashboard')");
   });
 
@@ -746,19 +748,27 @@ describe('wiring', () => {
 });
 
 describe('the pricing link', () => {
-  it('falls back to the flagged placeholder when nothing is configured', () => {
+  /**
+   * THE PLACEHOLDER IS GONE, AND THAT IS THE POINT OF THESE TWO TESTS.
+   *
+   * This used to assert that an unconfigured pricing URL resolved to the
+   * string '#PRICING_LINK', which the lock screen then rendered as a button
+   * href: a link a member could tap that did not move. Task B of the day 7
+   * close replaced it with null, and every caller now renders nothing rather
+   * than a door that goes nowhere. tests/conversion-links-guard.test.ts
+   * holds the "nothing renders a placeholder" half.
+   */
+  it('is null when nothing is configured, so no caller can render a dead link', () => {
     const before = process.env.MEMBERSHIP_PRICING_URL;
     delete process.env.MEMBERSHIP_PRICING_URL;
-    expect(getPricingUrl()).toBe(PRICING_LINK_PLACEHOLDER);
-    expect(isPricingUrlConfigured()).toBe(false);
+    expect(membershipPricingUrl()).toBeNull();
     if (before !== undefined) process.env.MEMBERSHIP_PRICING_URL = before;
   });
 
   it('uses the configured Leadpages pricing page once one is set, with no deploy needed', () => {
     const before = process.env.MEMBERSHIP_PRICING_URL;
     process.env.MEMBERSHIP_PRICING_URL = 'https://example-leadpages.net/pricing';
-    expect(getPricingUrl()).toBe('https://example-leadpages.net/pricing');
-    expect(isPricingUrlConfigured()).toBe(true);
+    expect(membershipPricingUrl()).toBe('https://example-leadpages.net/pricing');
     if (before === undefined) delete process.env.MEMBERSHIP_PRICING_URL;
     else process.env.MEMBERSHIP_PRICING_URL = before;
   });

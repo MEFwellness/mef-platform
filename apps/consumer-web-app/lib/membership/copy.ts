@@ -34,7 +34,13 @@ export const TRIAL_ENDED_COPY = {
   /** Shown under the button. The support address is the one already used on the membership screen. */
   supportLead: 'Questions about your membership?',
   supportEmail: 'support@mefwellness.com',
-  /** Shown only when no pricing link has been configured yet, so nobody is left tapping a button that goes nowhere. */
+  /**
+   * Shown INSTEAD OF the button when no membership page has been configured
+   * yet (lib/config/conversionLinks.ts returns null). It used to sit under a
+   * button pointing at a hard coded placeholder token, which is a link that
+   * does not move. There is no placeholder href anywhere in this app now: a
+   * door either goes somewhere real or is not drawn.
+   */
   unconfiguredNote:
     'The membership page is not linked here yet. Email us and we will send you the options.',
   signedInAs: 'Signed in as',

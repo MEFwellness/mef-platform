@@ -218,6 +218,31 @@ export const TRIAL_ARC_DAY_6: TrialArcMessageCopy = {
 };
 
 /**
+ * DAY 7. The close's own pop-up, and the second trial arc message that
+ * opens a screen this build owns.
+ *
+ * IT PROMISES ONLY WHAT THE SCREEN CAN KEEP. It does not name a focus,
+ * because on day 7 that depends entirely on what she actually did, and a
+ * pop-up that announced one would be writing a cheque the thin data branch
+ * cannot cash. It says the week has an ending worth reading and offers to
+ * read it, which is true for every member.
+ *
+ * IT IS NOT A PAYWALL AND IT DOES NOT WARN. Per this file's rule there is
+ * no countdown in it, and per the close's own rule there is nothing about
+ * access ending either: no "last day", no "your trial ends", no urgency of
+ * any kind. Day 8 handling is a later prompt and this message must not
+ * pre-announce it.
+ */
+export const TRIAL_ARC_DAY_7: TrialArcMessageCopy = {
+  eyebrow: EYEBROW,
+  title: 'Your 7-Day Reset',
+  body: 'Seven days of this, and I have an opinion about where I would look next. Not a verdict and not a plan you have to follow, just the one thing I would work on, and why I would pick it out of everything you told me.',
+  ctaLabel: 'Read my 7-Day Reset',
+  href: TRIAL_ARC_ROUTES.weekClose,
+  step: 'none',
+};
+
+/**
  * The one warm re-entry message.
  *
  * SILENCE IS "NO RESPONSE LOGGED". It names no number of days, no streak

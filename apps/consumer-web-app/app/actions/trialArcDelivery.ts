@@ -1,8 +1,9 @@
 'use server';
 
 /**
- * The trial arc's two writes, and they are the only two the member-facing
- * half of this feature has.
+ * The trial arc's member-facing writes, and they are the only ones this
+ * half of the feature has: the delivery receipt, the CTA stamp, the day 6
+ * recap's open stamp, and the day 7 close's open and door stamps.
  *
  * SEPARATE FROM app/actions/trialArc.ts ON PURPOSE. That file is the one
  * door that writes trial_arc_suppressed_at, it is administrator only four
@@ -12,12 +13,12 @@
  * of thing: they are hers, from her own session, about a message she was
  * shown. Keeping them apart is what lets that guard stay as strict as it is.
  *
- * NEITHER IS EVER CALLED FROM A RENDER. Both arrive through the analytics
- * beacon route (app/api/analytics/track/route.ts): one from a mounted
- * effect on a pop-up that genuinely displayed, one from the button she
- * pressed. A page, a layout or a server component calling either would
- * write a receipt for a message nobody was shown, and Next prefetching a
- * link would write one for a screen nobody opened.
+ * NONE OF THEM IS EVER CALLED FROM A RENDER. All of them arrive through the
+ * analytics beacon route (app/api/analytics/track/route.ts): from a mounted
+ * effect on a pop-up or a screen that genuinely displayed, or from a button
+ * she pressed. A page, a layout or a server component calling any of them
+ * would write a receipt for a message nobody was shown, and Next
+ * prefetching a link would write one for a screen nobody opened.
  *
  * A ROUTE HANDLER, NOT A SERVER ACTION CALLED FROM THE CLIENT, for the
  * reason that route states in full: a Server Action re-renders the whole
@@ -26,12 +27,12 @@
  * called BY the route handler, which returns 204 and re-renders nothing.
  *
  * THE SERVER DECIDES EVERYTHING THE BROWSER COULD HAVE LIED ABOUT. The only
- * thing the browser sends is a message key. The member, her timezone, her
- * trial day, her pace state and the step the message pointed at are all
- * re-resolved here from her own session through the same engine that
- * decided to show it, so a hand built request can only ever record a
- * receipt for the message this member's own screen was genuinely entitled
- * to display today.
+ * things the browser sends are a message key and, on the close, which door
+ * was pressed. The member, her timezone, her trial day, her pace state, the
+ * step the message pointed at and whether that door was ever on her screen
+ * are all re-resolved here from her own session and her own stored rows, so
+ * a hand built request can only ever record something this member's own
+ * screen was genuinely entitled to record today.
  */
 
 import { createClient } from '@/lib/supabase/server';
@@ -41,7 +42,18 @@ import { claimTrialArcDelivery, markTrialArcCtaTapped } from '@/lib/trial-arc/da
 import { resolveTrialDay } from '@/lib/trial-arc/day';
 import { composeTrialArcRecapPlan } from '@/lib/trial-arc/recapCompose';
 import { ensureTrialArcRecap, markTrialArcRecapOpened } from '@/lib/trial-arc/recapData';
-import { TRIAL_ARC_FIRST_RECAP_DAY, TRIAL_ARC_LAST_DAY } from '@/lib/trial-arc/constants';
+import { composeTrialArcClosePlan } from '@/lib/trial-arc/closeCompose';
+import {
+  ensureTrialArcClose,
+  markTrialArcCloseDoor,
+  markTrialArcCloseOpened,
+} from '@/lib/trial-arc/closeData';
+import { isTrialArcCloseAction } from '@/lib/trial-arc/closeTypes';
+import {
+  TRIAL_ARC_CLOSE_DAY,
+  TRIAL_ARC_FIRST_RECAP_DAY,
+  TRIAL_ARC_LAST_DAY,
+} from '@/lib/trial-arc/constants';
 
 /**
  * Records that one trial arc message reached her screen.
@@ -102,6 +114,32 @@ export async function trackTrialArcDeliveredAction(messageKey: unknown): Promise
               timeZone: facts.timeZone,
             },
             now: new Date(),
+          }),
+      });
+    }
+
+    // DAY 7 COMPOSES HER CLOSE AT THIS EXACT MOMENT, for the same reason and
+    // through the same insert-if-absent write. A member who reads the day 7
+    // pop-up and closes it still has a close composed from the week she
+    // actually had, on the day she was offered it, and the row's null
+    // opened_at is then the honest record that she never opened it.
+    //
+    // The recap block above still runs on day 7 as well, deliberately.
+    // Migration 205 allows a recap composed on day 6 OR day 7 precisely so a
+    // member who never opened the app on day 6 is given her week rather than
+    // losing it, and Prompt 6's continuation screen reads both rows.
+    if (message.dayNumber === TRIAL_ARC_CLOSE_DAY) {
+      await ensureTrialArcClose(supabase, user.id, {
+        dayNumber: message.dayNumber,
+        composedLocalDate: facts.todayLocalDate,
+        compose: () =>
+          composeTrialArcClosePlan(supabase, user.id, {
+            day: {
+              dayNumber: message.dayNumber,
+              todayLocalDate: facts.todayLocalDate,
+              startLocalDate: facts.startLocalDate,
+              timeZone: facts.timeZone,
+            },
           }),
       });
     }
@@ -170,6 +208,94 @@ export async function openTrialArcRecapAction(): Promise<void> {
     await markTrialArcRecapOpened(supabase, user.id);
   } catch (error) {
     console.error('openTrialArcRecapAction failed', error);
+  }
+}
+
+/**
+ * She opened the close screen.
+ *
+ * THE SAME TWO THINGS AS THE RECAP'S OPEN BEACON, IN THE SAME ORDER, AND
+ * FOR THE SAME REASONS. It composes her close if she does not have one yet,
+ * and it stamps that she opened it. The composing half exists because three
+ * real paths reach this screen without the pop-up's own beacon having
+ * finished: she presses the button the instant the pop-up appears and
+ * navigates while the receipt is still in flight, she arrives from a link,
+ * or the receipt request was dropped. In all of them the honest answer is
+ * to compose it now rather than show her an empty screen, and because the
+ * write is insert-if-absent, doing it in two places cannot produce two
+ * closes or a recomputed one.
+ *
+ * THE SERVER DECIDES WHETHER SHE MAY HAVE ONE. The browser sends nothing at
+ * all. Her arc eligibility and her trial day are re-resolved here from her
+ * own session, so a member the arc is not launched for, or who is not yet
+ * at day 7, gets nothing written.
+ *
+ * DAY 7 ONLY. Before day 7 there is no close, and after it the trial is over
+ * and the member surface she would be standing on has already been closed by
+ * the trial lock (middleware.ts), so a close composed there would be
+ * composed for a screen she cannot be on. Prompt 6's continuation screen
+ * READS this close; it does not need this action to compose one late.
+ */
+export async function openTrialArcCloseAction(): Promise<void> {
+  try {
+    const user = await getCachedUser();
+    if (!user) return;
+
+    const supabase = createClient();
+    const decision = await resolveTrialArcDecision(supabase, user.id, {
+      lastSignInAt: user.last_sign_in_at ?? null,
+    });
+    if (!decision.eligible) return;
+
+    // ONE SOURCE FOR THE TRIAL DAY. Asked of the clock module directly
+    // rather than read off the decision, because the decision only carries
+    // facts on a day it has something to SAY, and a member who already
+    // dismissed today's pop-up reaches this screen on a decision with none.
+    const day = await resolveTrialDay(supabase, user.id);
+    if (!day || day.dayNumber !== TRIAL_ARC_CLOSE_DAY) return;
+
+    await ensureTrialArcClose(supabase, user.id, {
+      dayNumber: day.dayNumber,
+      composedLocalDate: day.todayLocalDate,
+      compose: () => composeTrialArcClosePlan(supabase, user.id, { day }),
+    });
+
+    await markTrialArcCloseOpened(supabase, user.id);
+  } catch (error) {
+    console.error('openTrialArcCloseAction failed', error);
+  }
+}
+
+/**
+ * Which door she took on the close, or that she quietly went home.
+ *
+ * THE ONE THING THE BROWSER GETS TO SAY IS WHICH DOOR, and even that is
+ * checked twice: the value has to be one of the three this build knows, and
+ * lib/trial-arc/closeData.ts then refuses a door that is not on her own
+ * stored plan, so a close drawn with one door on it can never come back
+ * carrying a choice between two.
+ *
+ * NO ELIGIBILITY RE-RESOLUTION HERE, DELIBERATELY. The existence of her
+ * close row IS the entitlement: it was written by a beacon that already
+ * re-resolved her eligibility and her trial day from her own session, and
+ * this update matches no row when there is none. Re-running the whole
+ * engine on a button press would cost her a round trip through nine queries
+ * to learn something the row already says.
+ *
+ * FIRST CHOICE WINS, in the data layer, so a second press after coming back
+ * changes nothing about what she decided on the day.
+ */
+export async function markTrialArcCloseDoorAction(door: unknown): Promise<void> {
+  if (!isTrialArcCloseAction(door)) return;
+
+  try {
+    const user = await getCachedUser();
+    if (!user) return;
+
+    const supabase = createClient();
+    await markTrialArcCloseDoor(supabase, user.id, door);
+  } catch (error) {
+    console.error('markTrialArcCloseDoorAction failed', error);
   }
 }
 

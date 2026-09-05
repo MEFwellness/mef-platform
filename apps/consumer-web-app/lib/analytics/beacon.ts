@@ -47,7 +47,19 @@ export type BeaconEvent =
    * the event name; her eligibility and her trial day are re-resolved on the
    * server.
    */
-  | { event: 'trial_arc_recap_opened' };
+  | { event: 'trial_arc_recap_opened' }
+  /**
+   * Day 7's close screen, opened, and which door she took on it. Also not
+   * analytics rows: they compose her stored close if she does not have one
+   * yet, record that she opened it and record what she decided
+   * (member_trial_arc_closes, migration 206), all of which Prompt 6's
+   * continuation screen reads back. The browser sends the event name and,
+   * for the door, one of exactly three names. Her eligibility, her trial day
+   * and whether that door was ever drawn on her screen are all decided on
+   * the server.
+   */
+  | { event: 'trial_arc_close_opened' }
+  | { event: 'trial_arc_close_door'; door: 'conversation' | 'membership' | 'home' };
 
 export function sendBeacon(payload: BeaconEvent): void {
   void sendBeaconAwaited(payload);

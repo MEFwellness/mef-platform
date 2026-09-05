@@ -28,7 +28,7 @@ import { hasActiveRole } from '@/lib/auth/guards';
 import { staffHomePath } from '@/lib/auth/staffRouting';
 import { fetchMemberAccessFacts } from '@/lib/membership/service';
 import { decideMemberAccess, trialLengthDaysOf } from '@/lib/membership/access';
-import { getPricingUrl, isPricingUrlConfigured } from '@/lib/membership/pricing';
+import { membershipPricingUrl } from '@/lib/config/conversionLinks';
 import { TRIAL_ENDED_COPY, trialEndedHeading } from '@/lib/membership/copy';
 import { TrackPaywallView } from '@/components/analytics/TrackSurfaceView';
 import { SignOutButton } from '@/components/SignOutButton';
@@ -66,8 +66,13 @@ export default async function TrialEndedPage() {
     ? trialLengthDaysOf(facts.subscription.trialStartedAt, facts.subscription.trialEndsAt)
     : null;
 
-  const pricingUrl = getPricingUrl();
-  const pricingConfigured = isPricingUrlConfigured();
+  // NULL IS A REAL ANSWER AND THIS SCREEN HONORS IT. Until a membership
+  // page is configured there is no button here at all. It used to render one
+  // pointing at a hard coded placeholder token, which is a link that does
+  // not move and a placeholder a member could read. The support line below
+  // is on this screen either way, so nobody reaching it is ever left without
+  // a way to continue.
+  const pricingUrl = membershipPricingUrl();
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-[#EFF6F1] to-[#FAFAF8] font-[family-name:var(--font-dm-sans)]">
@@ -93,15 +98,15 @@ export default async function TrialEndedPage() {
           ))}
         </div>
 
-        <a
-          href={pricingUrl}
-          className="mef-focus-ring mef-press mt-8 block rounded-full bg-[#1B3A2D] px-6 py-4 text-center text-[15px] font-semibold text-[#FAFAF8] transition hover:brightness-110"
-        >
-          {TRIAL_ENDED_COPY.primaryCta}
-        </a>
-
-        {!pricingConfigured && (
-          <p className="mt-3 text-center text-sm leading-relaxed text-[#6B7A72]">
+        {pricingUrl ? (
+          <a
+            href={pricingUrl}
+            className="mef-focus-ring mef-press mt-8 block rounded-full bg-[#1B3A2D] px-6 py-4 text-center text-[15px] font-semibold text-[#FAFAF8] transition hover:brightness-110"
+          >
+            {TRIAL_ENDED_COPY.primaryCta}
+          </a>
+        ) : (
+          <p className="mt-8 text-center text-sm leading-relaxed text-[#6B7A72]">
             {TRIAL_ENDED_COPY.unconfiguredNote}
           </p>
         )}

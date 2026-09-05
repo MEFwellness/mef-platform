@@ -95,34 +95,46 @@ function ProgressConnector({ filled, animated }: { filled: boolean; animated: bo
   );
 }
 
-function ProgressNode({
-  done,
-  label = '',
-  drawAnimate,
-  sweepAnimate,
+/**
+ * The completion mark: a forest disc, a checkmark that draws itself, and one
+ * soft gold sweep across it.
+ *
+ * FACTORED OUT OF ProgressNode BELOW RATHER THAN COPIED (2026-09-05, the
+ * trial arc's day 7 close). The close's own completion beat wants exactly
+ * this mark at a larger size and nothing else about the progress line, so
+ * this is the one implementation of it and ProgressNode is its first
+ * caller. A second hand-kept checkmark would have been two animations to
+ * keep in step and two places for the reduced-motion rule to be forgotten.
+ *
+ * `play` gates BOTH the draw and the sweep together, which is how every
+ * caller has always used them: a mark that sweeps without drawing, or draws
+ * without sweeping, is not a state this app has.
+ */
+export function CompletionMark({
+  play,
+  sizeClass = 'h-8 w-8',
+  glyphPx = 16,
 }: {
-  done: boolean;
-  label?: string;
-  drawAnimate?: boolean;
-  sweepAnimate?: boolean;
+  play: boolean;
+  sizeClass?: string;
+  glyphPx?: number;
 }) {
-  if (!done) {
-    return (
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#1B3A2D]/15 text-[11px] font-semibold text-[#1B3A2D]/40">
-        {label}
-      </div>
-    );
-  }
   return (
-    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ backgroundColor: CVS_FOREST }}>
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        {drawAnimate ? (
-          <path d="M3 8.5L6.5 12L13 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mef-close-check-draw" />
-        ) : (
-          <path d="M3 8.5L6.5 12L13 4.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        )}
+    <div
+      className={`relative flex ${sizeClass} shrink-0 items-center justify-center overflow-hidden rounded-full`}
+      style={{ backgroundColor: CVS_FOREST }}
+    >
+      <svg width={glyphPx} height={glyphPx} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path
+          d="M3 8.5L6.5 12L13 4.5"
+          stroke="white"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={play ? 'mef-close-check-draw' : undefined}
+        />
       </svg>
-      {sweepAnimate && (
+      {play && (
         <div
           aria-hidden="true"
           className="mef-close-gold-sweep pointer-events-none absolute inset-y-0 left-0 w-full"
@@ -131,6 +143,25 @@ function ProgressNode({
       )}
     </div>
   );
+}
+
+function ProgressNode({
+  done,
+  label = '',
+  animate,
+}: {
+  done: boolean;
+  label?: string;
+  animate?: boolean;
+}) {
+  if (!done) {
+    return (
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#1B3A2D]/15 text-[11px] font-semibold text-[#1B3A2D]/40">
+        {label}
+      </div>
+    );
+  }
+  return <CompletionMark play={Boolean(animate)} />;
 }
 
 export type JourneyItem = { label: string; done: boolean };
@@ -165,7 +196,7 @@ export function JourneyProgressLine({ play, items }: { play: boolean; items: Jou
           return (
             <Fragment key={item.label}>
               {i > 0 && <ProgressConnector filled={i <= totalDone - 1} animated={play && i === totalDone - 1} />}
-              <ProgressNode done={item.done} label={item.done ? '' : String(i + 1)} drawAnimate={justCompleted} sweepAnimate={justCompleted} />
+              <ProgressNode done={item.done} label={item.done ? '' : String(i + 1)} animate={justCompleted} />
             </Fragment>
           );
         })}

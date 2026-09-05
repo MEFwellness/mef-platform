@@ -41,13 +41,12 @@
  * same way the Priority Card's date-scoped key already works. There is no
  * second dismissal system and no schedule.
  *
- * DAY 6 IS A MILESTONE, NOT A PACING DAY, and that difference is the whole
- * reason ./constants.ts splits the week into two kinds. Its branch is
- * decided above every pace state and the closer cannot reach it, so a
- * member who ignored every pacing message, or who ran ahead of the whole
- * week, is still told once what her week actually held. Day 7's close is
- * the next prompt's; this file refuses it explicitly, by day number, rather
- * than by falling off the end of a day map.
+ * DAYS 6 AND 7 ARE MILESTONES, NOT PACING DAYS, and that difference is the
+ * whole reason ./constants.ts splits the week into two kinds. Both branches
+ * are decided above every pace state and the closer cannot reach either, so
+ * a member who ignored every pacing message, or who ran ahead of the whole
+ * week, is still told once what her week actually held and once where Root
+ * would look next.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -75,6 +74,7 @@ import {
   TRIAL_ARC_DAY_1,
   TRIAL_ARC_DAY_2_ON_PACE,
   TRIAL_ARC_DAY_6,
+  TRIAL_ARC_DAY_7,
   TRIAL_ARC_WELCOME,
   TRIAL_ARC_TOWARD_CASE,
   TRIAL_ARC_TOWARD_CVS,
@@ -166,7 +166,12 @@ export type TrialArcSilence =
   | 'not_eligible'
   | 'no_trial_day'
   | 'outside_pacing_days'
-  /** Day 7's close is the next prompt's. She is inside the week; there is simply nothing built to say on that day yet. */
+  /**
+   * She is inside the trial week but on a day this build has written
+   * nothing for. Unreachable today, because every day from 1 to
+   * TRIAL_ARC_LAST_DAY now has a branch, and kept because the refusal it
+   * expresses should not depend on two constants happening to be equal.
+   */
   | 'day_not_built'
   | 'root_presence_is_greeting'
   | 'pacing_closed'
@@ -244,11 +249,12 @@ export async function resolveTrialArcDecision(
   const day = await resolveTrialDay(supabase, memberId, now);
   if (!day) return silentDecision(false, null, 'no_trial_day');
 
-  // A day past the end of the week is nobody's, and day 7's close is the
-  // next prompt's. Both are stated as explicit refusals rather than as
-  // absent entries in a map, so adding the close is a change to these two
-  // lines and not an accident. She is still `eligible` for the second one:
-  // the arc is her week, it simply has nothing built to say on that day yet.
+  // A day past the end of the week is nobody's. The second check is the
+  // arc's statement that it only ever speaks on a day something was written
+  // for, kept as an explicit refusal rather than as an absent entry in a
+  // map; with days 1 to 7 all built it refuses nothing today, and it is what
+  // would refuse a day 8 branch that was half added. She is still
+  // `eligible` for it either way: the arc is her week.
   if (day.dayNumber < 1 || day.dayNumber > TRIAL_ARC_LAST_DAY) {
     return silentDecision(true, day.dayNumber, 'outside_pacing_days');
   }
@@ -564,6 +570,29 @@ export function decideTrialArcMessage(
   // recap it opens, the stored row says so with a null opened_at, which is
   // the honest answer the next prompt's continuation screen needs.
   if (dayNumber === 6) return speak(facts, TRIAL_ARC_DAY_6);
+
+  // DAY 7, THE CLOSE, AND IT SITS EXACTLY WHERE THE RECAP DOES, for exactly
+  // the same reasons.
+  //
+  // ABOVE EVERY PACE STATE. A member who has been away for three days is
+  // owed the ending of her week more than anybody, and a re-entry line
+  // instead of it would be the arc talking about pacing on the one day
+  // pacing is over. A member who ran ahead has the most to read. Neither
+  // AHEAD nor STALLED is a reason to withhold a milestone.
+  //
+  // THE CLOSER CANNOT REACH IT, and not as a special case: the closer's own
+  // check above filters on `isPacingDay`, and day 7 is a milestone.
+  //
+  // OFFERED EXACTLY ONCE. The message key carries the day number and the
+  // pop-up chain marks a day-scoped key dismissed the instant it mounts, so
+  // this is offered on one visit and not again. If she never opens the
+  // close it opens, the stored row says so with a null opened_at, which is
+  // the honest answer Prompt 6's continuation screen needs.
+  //
+  // IT IS NOT A PAYWALL AND IT IS NOT A WARNING. Nothing about this branch,
+  // or the copy it selects, says anything about access ending. Day 8 is a
+  // later prompt's, and the arc must not pre-announce it.
+  if (dayNumber === 7) return speak(facts, TRIAL_ARC_DAY_7);
 
   if (facts.paceState === 'STALLED') {
     // One warm re-entry message in a trial week, not one per stalled day.
