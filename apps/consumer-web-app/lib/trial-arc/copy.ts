@@ -196,6 +196,28 @@ export function trialArcSideBySideCopy(valueLabel: string, signalLabel: string):
 }
 
 /**
+ * DAY 6. The recap's own pop-up, and the only trial arc message that opens
+ * a screen this build owns rather than an experience that already existed.
+ *
+ * IT PROMISES ONLY WHAT THE SCREEN CAN KEEP. It does not say what her week
+ * showed, because on day 6 that depends entirely on what she actually did,
+ * and a pop-up that announced a finding would be writing a cheque the thin
+ * data tier cannot cash. It says there is a week to read back and offers to
+ * read it back, which is true for every member on every tier.
+ *
+ * NO COUNTDOWN, per this file's rule. It does not say day six, it does not
+ * say one day left, and it does not mention the end of anything.
+ */
+export const TRIAL_ARC_DAY_6: TrialArcMessageCopy = {
+  eyebrow: EYEBROW,
+  title: 'What this week showed',
+  body: 'I have been keeping track of what you told me this week. Not a score and not a verdict, just the things you actually said, put next to each other in one place. It takes about a minute to read.',
+  ctaLabel: 'See what this week showed',
+  href: TRIAL_ARC_ROUTES.weekRecap,
+  step: 'none',
+};
+
+/**
  * The one warm re-entry message.
  *
  * SILENCE IS "NO RESPONSE LOGGED". It names no number of days, no streak

@@ -74,7 +74,32 @@ export const TRIAL_ARC_DAY_STEP: Record<number, TrialArcStep> = {
   3: 'experiment',
   4: 'experiment',
   5: 'none',
+  // Day 6 is the recap. It states what the week held and asks for nothing
+  // to be completed, which is what 'none' means here, and it is a milestone
+  // rather than a pacing day, so the closer in ./state.ts can never stop
+  // it.
+  6: 'none',
 };
+
+/**
+ * The last day this build has anything to say on.
+ *
+ * Day 7's close is the next prompt's. Stated as a number here rather than
+ * as an absent entry in a map, so adding it is a change to this line and
+ * not an accident.
+ */
+export const TRIAL_ARC_LAST_BUILT_DAY = 6;
+
+/**
+ * The first day the recap exists on.
+ *
+ * The same number as TRIAL_ARC_LAST_PACING_DAY + 1 by arithmetic, and
+ * deliberately not written that way: this is a statement about which day
+ * "What This Week Showed" belongs to, and the day the pacing stops is a
+ * different fact that happens to sit beside it. A change to one is not
+ * automatically a change to the other.
+ */
+export const TRIAL_ARC_FIRST_RECAP_DAY = 6;
 
 /**
  * The message key. Named `trial_arc_day:N` so it can never collide with the
@@ -109,7 +134,21 @@ export function trialArcDayFromMessageKey(messageKey: string): number | null {
 export const TRIAL_ARC_ROUTES = {
   coreValuesSnapshot: '/assessments/core-values-snapshot',
   lifeSignalCheck: '/assessments/life-signal-check',
+  readinessPulse: '/assessments/readiness-pulse',
   caseView: '/case',
+  /**
+   * Day 6's recap, "What This Week Showed".
+   *
+   * THE ARC'S ONE SCREEN OF ITS OWN. Days 1 to 5 are sentences Root says
+   * inside a pop-up and they point at experiences that already exist; day 6
+   * has something to show her that no other screen shows, so it gets a
+   * route. It is member only (lib/auth/staffRouting.ts) and it lives under
+   * its own '/trial' prefix rather than beside '/trial-ended', which is a
+   * different screen for a different moment and must not be swallowed by
+   * the same prefix. Prefix matching respects path boundaries, so it is
+   * not.
+   */
+  weekRecap: '/trial/week',
 } as const;
 
 /**

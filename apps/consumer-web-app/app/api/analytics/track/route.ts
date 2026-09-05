@@ -30,7 +30,11 @@ import {
 } from '@/app/actions/analytics';
 import { trackPriorityShownAction } from '@/app/actions/priority';
 import { trackWeeklyReflectionDeliveredAction } from '@/app/actions/weeklyReflection';
-import { markTrialArcCtaTappedAction, trackTrialArcDeliveredAction } from '@/app/actions/trialArcDelivery';
+import {
+  markTrialArcCtaTappedAction,
+  openTrialArcRecapAction,
+  trackTrialArcDeliveredAction,
+} from '@/app/actions/trialArcDelivery';
 
 /** No cached responses and no static optimization: this writes. */
 export const dynamic = 'force-dynamic';
@@ -81,6 +85,13 @@ export async function POST(request: Request): Promise<Response> {
       break;
     case 'trial_arc_cta_tapped':
       await markTrialArcCtaTappedAction(str('messageKey'));
+      break;
+    // Day 6's recap screen, opened. It composes her stored recap if she has
+    // none yet and records that she opened it. The browser sends no
+    // arguments at all: her eligibility, her trial day and whether she may
+    // have a recap are all decided from her own session.
+    case 'trial_arc_recap_opened':
+      await openTrialArcRecapAction();
       break;
     default:
       break;

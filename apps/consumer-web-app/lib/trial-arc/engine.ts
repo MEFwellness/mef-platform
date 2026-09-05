@@ -41,11 +41,13 @@
  * same way the Priority Card's date-scoped key already works. There is no
  * second dismissal system and no schedule.
  *
- * DAYS 6 AND 7 ARE NOT BUILT HERE. `resolveTrialArcVisit` computes the day
- * number for all seven and the delivery table stores all seven, so the
- * recap and the close can be added by a later prompt without touching the
- * clock, the receipt, or the closer. This file returns null for them,
- * explicitly, rather than by falling off the end of a day map.
+ * DAY 6 IS A MILESTONE, NOT A PACING DAY, and that difference is the whole
+ * reason ./constants.ts splits the week into two kinds. Its branch is
+ * decided above every pace state and the closer cannot reach it, so a
+ * member who ignored every pacing message, or who ran ahead of the whole
+ * week, is still told once what her week actually held. Day 7's close is
+ * the next prompt's; this file refuses it explicitly, by day number, rather
+ * than by falling off the end of a day map.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -53,7 +55,7 @@ import { CVS_KEY } from '../core-values-snapshot/constants';
 import { LSC_KEY } from '../life-signal-check/constants';
 import { getMemberAssessmentFacts } from '../assessment-registry/facts';
 import { hasEverCompleted } from '../assessment-registry/status';
-import { listMyLifestyleExperiments, deriveEffectiveStatus } from '../lifestyle-experiments';
+import { listMyLifestyleExperiments } from '../lifestyle-experiments';
 import { listExperimentOfferDismissals } from '../root-popup-messages/data';
 import { classifyPresence } from '../return-greeting/absence';
 import { getMemberOrigin } from '../public-entry/data';
@@ -63,7 +65,8 @@ import { localDateStringFor } from '../time/localDate';
 import { TRIAL_ARC_LAUNCH, isTrialArcTestAccount, trialArcLaunchInstant } from './config';
 import { resolveTrialArcEligibility } from './eligibility';
 import {
-  TRIAL_ARC_LAST_PACING_DAY,
+  TRIAL_ARC_LAST_BUILT_DAY,
+  TRIAL_ARC_LAST_DAY,
   isPacingDay,
   trialArcPopupMessageKey,
   type TrialArcStep,
@@ -71,6 +74,7 @@ import {
 import {
   TRIAL_ARC_DAY_1,
   TRIAL_ARC_DAY_2_ON_PACE,
+  TRIAL_ARC_DAY_6,
   TRIAL_ARC_WELCOME,
   TRIAL_ARC_TOWARD_CASE,
   TRIAL_ARC_TOWARD_CVS,
@@ -90,6 +94,7 @@ import { resolveTrialDay, type TrialDay } from './day';
 import { decidePaceState, trialArcClosure, type TrialArcPaceState } from './state';
 import { resolveTrialArcConnection, type TrialArcConnection } from './connection';
 import { resolveExperimentOfferHref } from './experimentOffer';
+import { deriveTrialArcExperimentFacts } from './experimentFacts';
 import { lastReturnGreetingForGap, morningBriefExistsToday } from './presence';
 
 export { dayNumberFor, resolveTrialDay } from './day';
@@ -102,6 +107,8 @@ export { dayNumberFor, resolveTrialDay } from './day';
 export interface TrialArcFacts {
   dayNumber: number;
   todayLocalDate: string;
+  /** Her own calendar day the trial began on. Carried so a caller composing the day 6 recap has the whole trial window without asking the clock module a second time. */
+  startLocalDate: string;
   timeZone: string;
   cvsCompletedLocalDate: string | null;
   lscCompletedLocalDate: string | null;
@@ -159,6 +166,8 @@ export type TrialArcSilence =
   | 'not_eligible'
   | 'no_trial_day'
   | 'outside_pacing_days'
+  /** Day 7's close is the next prompt's. She is inside the week; there is simply nothing built to say on that day yet. */
+  | 'day_not_built'
   | 'root_presence_is_greeting'
   | 'pacing_closed'
   | 'ahead_of_the_week'
@@ -235,13 +244,16 @@ export async function resolveTrialArcDecision(
   const day = await resolveTrialDay(supabase, memberId, now);
   if (!day) return silentDecision(false, null, 'no_trial_day');
 
-  // Days 6 and 7 are a later prompt's, and a day past the end of the week is
-  // nobody's. Stated as an explicit refusal rather than as an absent entry
-  // in a map, so adding the recap and the close is a change to this line and
-  // not an accident. She is still `eligible`: the arc is her week, it simply
-  // has nothing built to say on this day yet.
-  if (day.dayNumber < 1 || day.dayNumber > TRIAL_ARC_LAST_PACING_DAY) {
+  // A day past the end of the week is nobody's, and day 7's close is the
+  // next prompt's. Both are stated as explicit refusals rather than as
+  // absent entries in a map, so adding the close is a change to these two
+  // lines and not an accident. She is still `eligible` for the second one:
+  // the arc is her week, it simply has nothing built to say on that day yet.
+  if (day.dayNumber < 1 || day.dayNumber > TRIAL_ARC_LAST_DAY) {
     return silentDecision(true, day.dayNumber, 'outside_pacing_days');
+  }
+  if (day.dayNumber > TRIAL_ARC_LAST_BUILT_DAY) {
+    return silentDecision(true, day.dayNumber, 'day_not_built');
   }
 
   const facts = await gatherTrialArcFacts(supabase, memberId, day, now, options.lastSignInAt ?? null);
@@ -342,29 +354,24 @@ async function gatherTrialArcFacts(
   const cvsCompletedLocalDate = cvsCompletedAt ? localDateStringFor(cvsCompletedAt, day.timeZone) : null;
   const lscCompletedLocalDate = lscCompletedAt ? localDateStringFor(lscCompletedAt, day.timeZone) : null;
 
+
+  // A DECLINE, AND THE ONE PLACE THAT DECIDES WHAT ONE IS. The rule used to
+  // be written out here; it now lives in ./experimentFacts.ts, because day
+  // 6's recap needs the same answer (a declined experiment is never
+  // mentioned on it) and two readings of the same rows would be two
+  // definitions of the word declined.
+  const experimentFacts = deriveTrialArcExperimentFacts({
+    experiments,
+    offerSessionIds: offerDismissals.sessionIds,
+    offersReadable: offerDismissals.ok,
+    now,
+  });
+  const experimentDeclined = experimentFacts.declined;
+
   // An experiment's start_date is already a plain calendar date, chosen on
   // the day she started it, so it needs no conversion.
-  const startedDates = experiments.map((experiment) => experiment.startDate).sort();
-  const experimentStartedLocalDate = startedDates[startedDates.length - 1] ?? null;
-  const experimentActive = experiments.some(
-    (experiment) => deriveEffectiveStatus(experiment, now) === 'active'
-  );
-
-  // A DECLINE, IN THE TWO SHAPES THE APP ACTUALLY RECORDS ONE. She was shown
-  // the seven day offer and left without starting it (a dismissal row on an
-  // offer key with no experiment started from that same session), or she
-  // started one and explicitly stopped it (status 'abandoned'). Nothing else
-  // counts, and a failed read of the dismissals counts as a decline rather
-  // than as permission: the wrong direction here is re-pitching to somebody
-  // who already said no.
-  const startedSessionIds = new Set(
-    experiments.map((experiment) => experiment.sourceSessionId).filter((id): id is string => id !== null)
-  );
-  const declinedAnOffer = [...offerDismissals.sessionIds].some((id) => !startedSessionIds.has(id));
-  const experimentDeclined =
-    !offerDismissals.ok ||
-    declinedAnOffer ||
-    experiments.some((experiment) => experiment.status === 'abandoned');
+  const experimentStartedLocalDate = experimentFacts.startedLocalDate;
+  const experimentActive = experimentFacts.active;
 
   const activeLocalDates = [
     ...checkinDates,
@@ -434,6 +441,7 @@ async function gatherTrialArcFacts(
   return {
     dayNumber: day.dayNumber,
     todayLocalDate: day.todayLocalDate,
+    startLocalDate: day.startLocalDate,
     timeZone: day.timeZone,
     cvsCompletedLocalDate,
     lscCompletedLocalDate,
@@ -531,6 +539,31 @@ export function decideTrialArcMessage(
   // with the step they pointed at, and the pacing stops for good. Checked
   // before the day branches so no day can slip past it.
   if (isPacingDay(dayNumber) && facts.pacingClosed) return silent('pacing_closed');
+
+  // DAY 6, THE RECAP, AND IT IS DECIDED BEFORE EVERY PACE STATE BELOW.
+  //
+  // WHY IT SITS ABOVE STALLED AND ABOVE AHEAD. Both of those branches are
+  // about pacing: STALLED replaces the day's message with a warm re-entry
+  // line, and AHEAD goes quiet because somebody running ahead of the week
+  // does not need to be told what the week is. Neither is a reason to
+  // withhold a milestone. A member who has been away for three days should
+  // still be told, once, what her week actually held, and a member who
+  // finished everything on day two has MORE to read back than anybody, not
+  // less. Left below them, the recap would have been swallowed by a
+  // re-entry message for the first and by silence for the second.
+  //
+  // THE CLOSER CANNOT REACH IT EITHER, and that is not a special case here:
+  // the closer's own check above filters on `isPacingDay`, and day 6 is a
+  // milestone, so three ignored pacing messages stop days 1 to 5 and leave
+  // this one standing. That is the distinction ./constants.ts's day-kind
+  // split was built for.
+  //
+  // OFFERED EXACTLY ONCE. The message key carries the day number, and the
+  // pop-up chain marks a day-scoped key dismissed the instant it mounts, so
+  // this is offered on one visit and not again. If she never opens the
+  // recap it opens, the stored row says so with a null opened_at, which is
+  // the honest answer the next prompt's continuation screen needs.
+  if (dayNumber === 6) return speak(facts, TRIAL_ARC_DAY_6);
 
   if (facts.paceState === 'STALLED') {
     // One warm re-entry message in a trial week, not one per stalled day.

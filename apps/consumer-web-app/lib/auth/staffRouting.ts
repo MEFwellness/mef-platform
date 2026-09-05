@@ -74,6 +74,17 @@ export const MEMBER_ONLY_PREFIXES = [
   // their own dashboard, not inside a member's sitting. Whether she was
   // assigned it is a separate question, enforced inside the route.
   '/stress-load',
+  // The trial arc's day 6 recap, "What This Week Showed" (/trial/week).
+  // Listed for the same reason every other member experience is: a coach or
+  // an administrator who taps an old link belongs on their own dashboard,
+  // not inside a member's own week.
+  //
+  // '/trial' owns its subtree and deliberately does NOT swallow
+  // '/trial-ended', which is the post-trial lock screen and a different
+  // thing entirely. Prefix matching here respects path boundaries (see
+  // matchesPrefix), so '/trial-ended' is untouched by this entry and keeps
+  // being reachable by a member the lock has just sent there.
+  '/trial',
   '/case',
   '/root-score',
   '/root-map',

@@ -35,7 +35,8 @@
 
 import { describeSignalForMember, TIER_LABEL } from '../longitudinal-intelligence/copy';
 import type { LongitudinalSignal, SignalState } from '../longitudinal-intelligence/types';
-import { WELLNESS_METRIC_LABEL, type WellnessMetricKey } from '../wellness/wellness-index';
+import { WELLNESS_METRIC_LABEL } from '../wellness/wellness-index';
+import { metricKeyFromSignalKey } from '../longitudinal-intelligence/metricSignals';
 import { recapRangeFor, withinRange } from './week';
 
 /**
@@ -100,12 +101,17 @@ export type RenderedRecap = {
 // Building the descriptors.
 // ---------------------------------------------------------------------
 
-/** The metric a check-in signal is about, or null for a signal that is not one. */
-export function metricKeyFromSignalKey(signalKey: string): WellnessMetricKey | null {
-  if (!signalKey.startsWith('checkin_metric::')) return null;
-  const metric = signalKey.slice('checkin_metric::'.length);
-  return metric in WELLNESS_METRIC_LABEL ? (metric as WellnessMetricKey) : null;
-}
+/**
+ * The metric a check-in signal is about, or null for a signal that is not
+ * one.
+ *
+ * Moved to lib/longitudinal-intelligence/metricSignals.ts on 2026-09-05,
+ * when the trial arc's day 6 recap needed the identical answer, and
+ * re-exported here so every existing caller is untouched. One
+ * implementation, so "a check-in metric signal" cannot come to mean two
+ * different things on two screens.
+ */
+export { metricKeyFromSignalKey } from '../longitudinal-intelligence/metricSignals';
 
 /**
  * Which signals may be read back, strongest first.

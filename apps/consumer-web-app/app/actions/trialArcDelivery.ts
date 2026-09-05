@@ -38,6 +38,10 @@ import { createClient } from '@/lib/supabase/server';
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { resolveTrialArcDecision } from '@/lib/trial-arc/engine';
 import { claimTrialArcDelivery, markTrialArcCtaTapped } from '@/lib/trial-arc/data';
+import { resolveTrialDay } from '@/lib/trial-arc/day';
+import { composeTrialArcRecapPlan } from '@/lib/trial-arc/recapCompose';
+import { ensureTrialArcRecap, markTrialArcRecapOpened } from '@/lib/trial-arc/recapData';
+import { TRIAL_ARC_FIRST_RECAP_DAY, TRIAL_ARC_LAST_DAY } from '@/lib/trial-arc/constants';
 
 /**
  * Records that one trial arc message reached her screen.
@@ -64,17 +68,108 @@ export async function trackTrialArcDeliveredAction(messageKey: unknown): Promise
     });
 
     const message = decision.message;
-    if (!message || message.messageKey !== messageKey || !decision.facts) return;
+    const facts = decision.facts;
+    if (!message || message.messageKey !== messageKey || !facts) return;
 
     await claimTrialArcDelivery(supabase, user.id, {
       messageKey: message.messageKey,
       dayNumber: message.dayNumber,
       paceState: message.paceState,
       pointedStep: message.copy.step,
-      deliveredLocalDate: decision.facts.todayLocalDate,
+      deliveredLocalDate: facts.todayLocalDate,
     });
+
+    // DAY 6 COMPOSES HER RECAP AT THIS EXACT MOMENT, and this is the moment
+    // the build's own rule names: the beacon confirming that the message
+    // genuinely reached her screen. Not on the render that decided to show
+    // it, and not when she presses the button, so a member who reads the
+    // pop-up and closes it still has a recap composed from the week she
+    // actually had on the day she was offered it.
+    //
+    // Insert if absent. A second display, a reload or the CTA beacon
+    // arriving a moment later all find the row that already exists and
+    // change nothing about it.
+    if (message.dayNumber >= TRIAL_ARC_FIRST_RECAP_DAY) {
+      await ensureTrialArcRecap(supabase, user.id, {
+        dayNumber: message.dayNumber,
+        composedLocalDate: facts.todayLocalDate,
+        compose: () =>
+          composeTrialArcRecapPlan(supabase, user.id, {
+            day: {
+              dayNumber: message.dayNumber,
+              todayLocalDate: facts.todayLocalDate,
+              startLocalDate: facts.startLocalDate,
+              timeZone: facts.timeZone,
+            },
+            now: new Date(),
+          }),
+      });
+    }
   } catch (error) {
     console.error('trackTrialArcDeliveredAction failed', error);
+  }
+}
+
+/**
+ * She opened the recap screen.
+ *
+ * TWO THINGS, IN ORDER, AND BOTH BELONG TO A REAL DISPLAY. It composes her
+ * recap if she does not have one yet, and it stamps that she opened it.
+ *
+ * WHY IT COMPOSES AT ALL, when the day 6 pop-up already does. Three real
+ * paths reach this screen without that beacon having finished: she presses
+ * the button the instant the pop-up appears and navigates while the receipt
+ * is still in flight (the same race that cost the CTA stamp a real bug on
+ * 2026-09-04), she opens the recap on day 7 having never opened the app on
+ * day 6, or she arrives from a link. In all three the honest answer is to
+ * compose it now rather than show her an empty screen, and because the
+ * write is insert-if-absent, doing it in two places cannot produce two
+ * recaps or a recomputed one.
+ *
+ * THE SERVER DECIDES WHETHER SHE MAY HAVE ONE. The browser sends nothing at
+ * all. Her arc eligibility and her trial day are re-resolved here from her
+ * own session, exactly as the two beacons above do, and a member the arc is
+ * not launched for, or who is not yet at day 6, gets nothing written.
+ *
+ * NOT A RENDER, AND NOT A SERVER ACTION CALLED FROM THE CLIENT. It arrives
+ * through the analytics beacon route, fired by a mounted effect on the
+ * recap screen itself.
+ */
+export async function openTrialArcRecapAction(): Promise<void> {
+  try {
+    const user = await getCachedUser();
+    if (!user) return;
+
+    const supabase = createClient();
+    const decision = await resolveTrialArcDecision(supabase, user.id, {
+      lastSignInAt: user.last_sign_in_at ?? null,
+    });
+    if (!decision.eligible) return;
+
+    // ONE SOURCE FOR THE TRIAL DAY. Asked of the clock module directly
+    // rather than read off the decision, because the decision only carries
+    // facts on a day it has something to SAY, and this screen is reachable
+    // on day 7 as well, when it does not.
+    const day = await resolveTrialDay(supabase, user.id);
+    if (!day) return;
+
+    // Days 6 and 7 only. Before day 6 there is no week to read back yet, and
+    // after day 7 the trial is over and the member surface she would be
+    // standing on has already been closed by the trial lock (middleware.ts),
+    // so a recap composed there would be composed for a screen she cannot
+    // be on. The next prompt's continuation screen READS this recap; it
+    // does not need this action to compose one late.
+    if (day.dayNumber < TRIAL_ARC_FIRST_RECAP_DAY || day.dayNumber > TRIAL_ARC_LAST_DAY) return;
+
+    await ensureTrialArcRecap(supabase, user.id, {
+      dayNumber: day.dayNumber,
+      composedLocalDate: day.todayLocalDate,
+      compose: () => composeTrialArcRecapPlan(supabase, user.id, { day, now: new Date() }),
+    });
+
+    await markTrialArcRecapOpened(supabase, user.id);
+  } catch (error) {
+    console.error('openTrialArcRecapAction failed', error);
   }
 }
 

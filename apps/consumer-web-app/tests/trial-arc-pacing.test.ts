@@ -362,6 +362,7 @@ function facts(overrides: Partial<TrialArcFacts> = {}): TrialArcFacts {
   return {
     dayNumber: 1,
     todayLocalDate: '2026-09-04',
+    startLocalDate: '2026-09-04',
     timeZone: NY,
     cvsCompletedLocalDate: null,
     lscCompletedLocalDate: null,

@@ -43,6 +43,10 @@ export const PRODUCT_SURFACES = [
   'membership',
   'profile',
   'body_assessment',
+  // The trial arc's day 6 recap, "What This Week Showed" (/trial/week). A
+  // surface she opened, which is all this records: nothing about what the
+  // recap said reaches an analytics payload.
+  'trial_arc_recap',
 ] as const;
 
 export type ProductSurface = (typeof PRODUCT_SURFACES)[number];

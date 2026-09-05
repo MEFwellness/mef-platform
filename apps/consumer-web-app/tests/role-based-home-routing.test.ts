@@ -203,6 +203,7 @@ describe('member analytics', () => {
       membership: '/membership',
       profile: '/profile',
       body_assessment: '/assessment',
+      trial_arc_recap: '/trial/week',
     };
 
     for (const surface of PRODUCT_SURFACES) {

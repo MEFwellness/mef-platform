@@ -38,13 +38,44 @@ export type BeaconEvent =
    * thing the browser gets to say is which message it was.
    */
   | { event: 'trial_arc_delivered'; messageKey: string }
-  | { event: 'trial_arc_cta_tapped'; messageKey: string };
+  | { event: 'trial_arc_cta_tapped'; messageKey: string }
+  /**
+   * Day 6's recap screen, opened. Also not an analytics row: it composes her
+   * stored recap if she does not have one yet and records that she opened
+   * it (member_trial_arc_recaps, migration 205), which is a fact the
+   * post-trial continuation screen reads back. The browser sends nothing but
+   * the event name; her eligibility and her trial day are re-resolved on the
+   * server.
+   */
+  | { event: 'trial_arc_recap_opened' };
 
 export function sendBeacon(payload: BeaconEvent): void {
-  void fetch('/api/analytics/track', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-    keepalive: true,
-  }).catch(() => {});
+  void sendBeaconAwaited(payload);
+}
+
+/**
+ * The same request, awaited.
+ *
+ * For the one caller that genuinely has to know the write finished before
+ * it does the next thing: the day 6 recap screen, which composes her stored
+ * recap through this beacon and then refreshes to render it. Everything
+ * else uses sendBeacon above and must keep doing so, because an awaited
+ * analytics write on a screen she is reading is exactly the cost this file
+ * exists to avoid.
+ *
+ * Still `keepalive`, and it still swallows its own failure: a caller
+ * awaiting this is told the request finished, never that it succeeded, and
+ * the server is what decides whether anything was written.
+ */
+export async function sendBeaconAwaited(payload: BeaconEvent): Promise<void> {
+  try {
+    await fetch('/api/analytics/track', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  } catch {
+    // A dropped analytics row is not a thing to put in front of her.
+  }
 }
