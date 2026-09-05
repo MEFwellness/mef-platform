@@ -1,8 +1,10 @@
 /**
  * THE TEST RIG OVERRIDE, AND THE THREE RULES IT MUST NEVER SKIP.
  *
- * TRIAL_ARC_TEST_ACCOUNT_IDS exists so the arc can be driven and watched on
- * the real site while the launch date stays null for everybody else. It is
+ * TRIAL_ARC_TEST_ACCOUNT_IDS exists so the arc could be driven and watched
+ * on the real site while the launch date was still null for everybody else.
+ * The arc is launched now, and the list stays, for the same reason: a rig
+ * that predates the launch can still be driven without moving the date. It is
  * a list of account ids in a server environment variable, and the danger of
  * such a list is obvious: a wrong entry, a stale entry, or somebody adding
  * a client id to debug something. So the list is deliberately narrow, and
@@ -102,8 +104,14 @@ describe('parsing can only ever shorten the list, never widen it', () => {
 });
 
 describe('what the override skips: rules 1, 2 and 3, and only those', () => {
-  it('the shipped launch is still null, so this is the only way anything is eligible today', () => {
-    expect(TRIAL_ARC_LAUNCH).toBeNull();
+  /**
+   * The arc is launched now (prompt 7), so the list is no longer the only
+   * way anything is eligible. It stays exactly as narrow: every assertion
+   * below passes `launch: null` on purpose, so what is being proved is what
+   * the list itself can and cannot do, independently of the shipped date.
+   */
+  it('the shipped launch is a date, and the list is unchanged by that', () => {
+    expect(TRIAL_ARC_LAUNCH).toBe('2026-09-05T16:00:00Z');
   });
 
   it('the rig is eligible with no launch date, a test flag, and no subscription row at all', () => {

@@ -160,9 +160,13 @@ describe('the arc reads the column only to say no', () => {
     }
   });
 
-  it('is shipped switched off', () => {
+  it('is shipped launched, on one dated line and no other', () => {
     const config = fs.readFileSync(path.join(ROOT, 'lib', 'trial-arc', 'config.ts'), 'utf8');
-    expect(config).toMatch(/export const TRIAL_ARC_LAUNCH: string \| null = null;/);
+    expect(config).toMatch(
+      /export const TRIAL_ARC_LAUNCH: string \| null = '2026-09-05T16:00:00Z';/
+    );
+    // And the file still says, in as many words, what putting it back does.
+    expect(config).toContain('re-silences the arc for everybody');
   });
 });
 

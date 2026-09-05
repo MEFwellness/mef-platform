@@ -598,7 +598,9 @@ async function stageCleanup() {
     `${(refsLeft ?? []).length} rows`
   );
 
-  check('the trial arc is still launched for no one', TRIAL_ARC_LAUNCH === null, String(TRIAL_ARC_LAUNCH));
+  // The arc is launched as of prompt 7. What this run cares about is that
+  // its own throwaway accounts left nothing behind, not the switch.
+  check('the trial arc launch date is set and parseable', TRIAL_ARC_LAUNCH !== null, String(TRIAL_ARC_LAUNCH));
 
   const quiztest2 = await findUserIdByEmail(QUIZTEST2);
   if (quiztest2) {

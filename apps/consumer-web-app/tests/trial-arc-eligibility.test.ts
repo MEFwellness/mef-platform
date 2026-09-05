@@ -63,10 +63,26 @@ describe('the fixture itself', () => {
   });
 });
 
-describe('rule 1 — while TRIAL_ARC_LAUNCH is null, the arc is launched for no one', () => {
-  it('ships as null', () => {
-    expect(TRIAL_ARC_LAUNCH).toBeNull();
-    expect(trialArcLaunchInstant()).toBeNull();
+describe('rule 1 — the launch date is the switch, and it is also the line', () => {
+  /**
+   * SHIPPED LAUNCHED, on 2026-09-05 (prompt 7). The instant is asserted
+   * here rather than left free, because it is the one value in this build
+   * that decides who the arc talks to, and a change to it should have to be
+   * a change to this line too.
+   *
+   * Setting it back to null re-silences the arc for everybody, which the
+   * block below still proves: every shape of account answers
+   * 'launch_not_set' when the launch is null, and rule 1 is checked first
+   * on purpose so nothing about an account can overrule it.
+   */
+  it('ships as the launch instant, not as null', () => {
+    expect(TRIAL_ARC_LAUNCH).toBe('2026-09-05T16:00:00Z');
+    expect(trialArcLaunchInstant()?.toISOString()).toBe('2026-09-05T16:00:00.000Z');
+  });
+
+  it('and putting it back to null silences the arc again, without touching a row', () => {
+    expect(trialArcLaunchInstant(null)).toBeNull();
+    expect(decide({}, null).reason).toBe('launch_not_set');
   });
 
   it('refuses an otherwise perfect account', () => {

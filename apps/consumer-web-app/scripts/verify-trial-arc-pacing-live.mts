@@ -54,8 +54,8 @@ const now = new Date();
 // 1. The switch is still off, in production, for everybody.
 // ---------------------------------------------------------------------
 console.log('\n== The arc as shipped ==');
-check('TRIAL_ARC_LAUNCH is null', TRIAL_ARC_LAUNCH === null, JSON.stringify(TRIAL_ARC_LAUNCH));
-check('the launch instant is null', trialArcLaunchInstant() === null);
+check('TRIAL_ARC_LAUNCH is set', TRIAL_ARC_LAUNCH !== null, JSON.stringify(TRIAL_ARC_LAUNCH));
+check('the launch instant parses', trialArcLaunchInstant() !== null);
 
 const { data: profiles, error } = await service
   .from('profiles')
@@ -71,19 +71,33 @@ const name = (id: string, isTest: boolean) =>
 console.log(`\nAccounts read from production: ${profiles.length}`);
 
 let spoke = 0;
+let preLaunchSpoke = 0;
+const launchInstant = trialArcLaunchInstant();
 const reasons = new Map<string, number>();
 for (const profile of profiles) {
   const decision = await resolveTrialArcDecision(service, profile.id, { now });
-  if (decision.message) spoke += 1;
+  const predatesLaunch =
+    launchInstant === null ||
+    new Date(profile.created_at as string).getTime() < launchInstant.getTime();
+  if (decision.message) {
+    spoke += 1;
+    if (predatesLaunch) preLaunchSpoke += 1;
+  }
   const reason = decision.reason ?? 'spoke';
   reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
 }
-check('no production account has a trial arc message today', spoke === 0, `${spoke} would speak`);
+// SINCE THE LAUNCH (prompt 7) THIS IS NO LONGER "nobody speaks". Accounts
+// created on or after 2026-09-05T16:00:00Z are the arc's own and may speak.
+// What still has to hold is that nobody who existed BEFORE the launch does,
+// which is the check below, and which is proved account by account in
+// scripts/verify-trial-arc-launch-live.mts.
 check(
-  'and every one of them refuses for the same reason: the arc is launched for no one',
-  reasons.size === 1 && reasons.get('not_launched') === profiles.length,
-  [...reasons.entries()].map(([r, n]) => `${r}=${n}`).join(' ')
+  'no account that existed before the launch has a trial arc message today',
+  preLaunchSpoke === 0,
+  `${preLaunchSpoke} would speak`
 );
+console.log(`      (${spoke} post-launch account(s) would speak, which is the arc doing its job)`);
+console.log('      reasons: ' + [...reasons.entries()].map(([r, n]) => `${r}=${n}`).join(' '));
 
 // ---------------------------------------------------------------------
 // 2. The clock, over every real trial row in production.

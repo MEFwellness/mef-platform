@@ -24,10 +24,15 @@ const DATA = 'lib/trial-arc/data.ts';
 const DELIVERY_ACTIONS = 'app/actions/trialArcDelivery.ts';
 const MIGRATION = '../../supabase/migrations/00000000000204_trial_arc_delivery.sql';
 
-describe('it ships switched off', () => {
-  it('TRIAL_ARC_LAUNCH is still null, so the arc is launched for no one', () => {
-    expect(TRIAL_ARC_LAUNCH).toBeNull();
-    expect(trialArcLaunchInstant()).toBeNull();
+describe('it ships launched, and the launch is the only switch there is', () => {
+  it('TRIAL_ARC_LAUNCH is the launch instant, and nothing else turns the arc on', () => {
+    expect(TRIAL_ARC_LAUNCH).toBe('2026-09-05T16:00:00Z');
+    expect(trialArcLaunchInstant()?.toISOString()).toBe('2026-09-05T16:00:00.000Z');
+  });
+
+  it('and setting it back to null is a complete off switch, with no second one to find', () => {
+    expect(trialArcLaunchInstant(null)).toBeNull();
+    expect(trialArcLaunchInstant('not a date')).toBeNull();
   });
 
   it('nothing in the application ever hands the engine a launch date of its own', () => {

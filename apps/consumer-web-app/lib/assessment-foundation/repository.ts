@@ -64,7 +64,14 @@ export async function getUnifiedAssessmentSections(
     .from('unified_assessment_sections')
     .select('*')
     .eq('assessment_definition_id', assessmentDefinitionId)
-    .order('display_order', { ascending: true });
+    .order('display_order', { ascending: true })
+    // THE TIEBREAK IS NOT DECORATION. display_order is not unique, and two
+    // rows that tie on it come back in whatever order Postgres felt like,
+    // which changes between runs and under load. That order is what a
+    // member's question list and progress count are built from, so a tie
+    // without a tiebreak is a screen that can reorder itself between two
+    // visits. `id` is unique, so this makes the order total.
+    .order('id', { ascending: true });
 
   if (error) {
     console.error('Failed to load unified assessment sections', error);
@@ -88,7 +95,15 @@ export async function getUnifiedAssessmentQuestions(
     query = query.eq('active', true);
   }
 
-  const { data, error } = await query.order('display_order', { ascending: true });
+  // Ordered by display_order, then by question_key so the order is TOTAL.
+  // Questions in two different sections routinely share a display_order (each
+  // section numbers its own from zero), and without the second key those rows
+  // come back in an order that varies run to run. See the note on sections
+  // above: this list is what visibleQuestions, the progress count and the
+  // findings list are all built from.
+  const { data, error } = await query
+    .order('display_order', { ascending: true })
+    .order('question_key', { ascending: true });
 
   if (error) {
     console.error('Failed to load unified assessment questions', error);

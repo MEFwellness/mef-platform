@@ -1,21 +1,24 @@
 /**
  * The trial arc's launch date, and the only thing that turns it on.
  *
- * WHILE THIS IS NULL, THE TRIAL ARC IS LAUNCHED FOR NO ONE. Every account
- * in the system, including one signing up in the next minute, is
- * ineligible, and eligibility says so with 'launch_not_set' as the reason.
- * Prompt 7 of this build sets the real date. Until then the arc's modules
- * are fully built, fully tested and completely inert in production, which
- * is the point: nothing about the switch-on depends on code shipping that
- * day.
+ * LAUNCHED. Prompt 7 of this build set this on 2026-09-05, to
+ * 2026-09-05T16:00:00Z. From that instant the arc is live for real signups,
+ * and it was inert for every account in production before it.
  *
  * WHY A DATE AND NOT A BOOLEAN. It doubles as the line between the accounts
  * the arc is for and the accounts it is not. Rule 1 of eligibility is that
- * the account was created on or after this instant, so existing members are
- * excluded by the launch itself rather than by a backfill, a flag or a list
- * somebody has to maintain. There is no backfill anywhere in this build,
- * deliberately: nobody who signed up before the arc existed will receive a
- * message written for somebody in their first week.
+ * the account was created on or after this instant, so every account that
+ * existed on launch day is excluded by the launch itself rather than by a
+ * backfill, a flag or a list somebody has to maintain. There is no backfill
+ * anywhere in this build, deliberately: nobody who signed up before the arc
+ * existed will receive a message written for somebody in their first week.
+ *
+ * PUTTING IT BACK. Setting this to null re-silences the arc for everybody,
+ * immediately and without touching a single row: eligibility answers
+ * 'launch_not_set' for every account in the system, every branch that reads
+ * the arc returns nothing, and the receipts, recaps and closes already
+ * written stay exactly where they are. It is the safe thing to do first if
+ * anything about the sequence ever looks wrong, and it harms no one's data.
  *
  * FORMAT. An ISO 8601 instant ('2026-09-15T00:00:00Z') or a bare date
  * ('2026-09-15', read as UTC midnight). Anything unparseable is treated
@@ -23,7 +26,7 @@
  * 'launch_not_set'. A typo can therefore only ever silence the arc, never
  * fire it at the wrong people.
  */
-export const TRIAL_ARC_LAUNCH: string | null = null;
+export const TRIAL_ARC_LAUNCH: string | null = '2026-09-05T16:00:00Z';
 
 /**
  * The launch instant, or null when the arc is not launched. One place that
