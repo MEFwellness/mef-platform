@@ -1,3 +1,183 @@
+## Day 6 reads her week back: "What This Week Showed" (2026-09-05)
+
+Prompt 4 of the trial arc build. Day 6 is a pop-up (`trial_arc_day:6`)
+that opens one screen, `/trial/week`, on which Root plays back the week
+the member actually had. Nothing on it is invented: every card is a read
+of a row she produced.
+
+**The arc is still launched for no one.** `TRIAL_ARC_LAUNCH` ships null,
+and 20 of 20 non-rig production accounts still refuse with
+`launch_not_set`.
+
+### The three tiers, thin data first
+
+**Tier A** is a member who has not finished both of the week's
+conversations, which is the ordinary case on day six of a free trial. One
+card carrying the one real thing she has told Root, from exactly three
+possible sources (a bound quiz arrival, her stated reason for joining, or
+a Daily Reset she logged), and a button into the next unfinished free
+conversation. An account with nothing on it beyond the account itself
+gets no cards and a plain, warm sentence saying exactly that. There is no
+branch anywhere that can say "here is what we learned" over nothing.
+
+**Tier B** is both conversations genuinely finished: her top value, her
+loudest signal with her own six loudness bars (the same
+`LoudnessVisual` her Life Signal Check results screen drew, fed from her
+own stored 0 to 3 scores), and her experiment in its own honest state,
+running or ran, with the days she actually logged.
+
+**Tier C** adds Readiness Pulse, honoring Still Deciding and Not Yet as
+stages through Readiness Pulse's own setup line rather than a second
+version of it, plus at most one published check-in observation.
+
+**A declined experiment is never mentioned.** Not as a card, not as a
+sentence, and there is no stored slug it could travel under. The rule
+that decides what a decline is moved out of `lib/trial-arc/engine.ts`
+into `lib/trial-arc/experimentFacts.ts`, so the engine and the recap read
+one definition rather than two.
+
+**The arrival callback** is first in the reveal order and exists only
+when a bound `member_public_entry_origin` with a real pattern does. On a
+tier that genuinely has something underneath the arrival it says so ("You
+came in tired. Here's what we found underneath it."); on Tier A it says
+"You came in tired." and states plainly that nothing has gone underneath
+it yet, because promising a finding and then showing her the arrival
+again is the manufactured connection this build refuses.
+
+### The language ceiling
+
+Day 6 is the sixth day of an account's life, below every threshold in
+`lib/member-interpretation/config.ts`. Nothing on the screen calls
+anything a pattern, a strength or a problem. The one observation card is
+capped at the three-tier language module's tier 2, refused at tier 3
+whose own openers contain the word pattern, and the cap is applied at
+selection AND at sanitize, so there is no state in which a tier 3 signal
+sits on a stored plan waiting for a renderer to remember to hide it.
+
+### Stored plan, rendered at read time (migration 205)
+
+`member_trial_arc_recaps`, a new table rather than a row on
+`member_weekly_reviews`. A weekly review row REQUIRES a focus that biases
+the daily coaching engine, holds an entirely different vocabulary, and is
+read by Home and by the coach panel: the trial recap would have needed a
+focus nobody chose, a sanitizer that accepts two vocabularies, and would
+have shown up on two screens as this week's Weekly Root Review.
+
+One row per member, `unique (member_id)`. The plan holds card kinds,
+slugs from closed sets and finite numbers, never a sentence.
+`lib/trial-arc/recapPlan.ts` sanitizes in both directions.
+`opened_at` is the only column that may ever change, enforced the way
+migration 204 enforces its own: `revoke update ... grant update (opened_at)`.
+A row with `opened_at` null means Root offered her the recap and she
+never opened it, which is a different fact from never having been offered
+one, and Prompt 6 has to be able to tell them apart.
+
+**Composed exactly once.** `ensureTrialArcRecap` reads first and returns
+the existing row without calling the composer at all, so a reload, a
+second mount or two beacons a second apart all resolve to the one row
+that already exists.
+
+**The read path is one row and a pure renderer.** `lib/trial-arc/recapCopy.ts`
+imports no database client, no membership module and no assessment
+registry, transitively, and a guard test walks its whole runtime import
+graph to keep that true. That is what lets Prompt 6 render this recap on
+the post-trial continuation screen, when every gate in the app would
+answer no.
+
+**No render writes.** The plan is composed at the delivery beacon (the
+mounted effect on the pop-up that genuinely displayed) and, for the
+member who taps the button before that beacon lands, by the recap
+screen's own open beacon, which composes if absent, stamps `opened_at`,
+and refreshes exactly once.
+
+### Where day 6 sits in the engine
+
+Decided ABOVE every pace state. STALLED would have replaced it with a
+re-entry line and AHEAD would have silenced it, and neither is a reason
+to withhold a milestone: a member who has been away should still be told
+once what her week held, and a member who ran ahead has the most to read
+back. The closer cannot reach it either, and not as a special case: the
+closer filters on `isPacingDay`, and day 6 is a milestone. Root Presence
+is the one thing that still outranks it.
+
+Day 7's close is refused explicitly by day number, with its own silence
+reason `day_not_built`.
+
+### Tests
+
+`tests/trial-arc-recap.test.ts` (81) and
+`tests/trial-arc-recap-guard.test.ts` (33). Full suite 490 files, 8201
+tests, all passing. Typecheck clean, lint clean (warnings only, all
+pre-existing), production build clean, em dash guard clean.
+
+**Mutation proof, seven probes, each failing the right test.** Moving the
+day 6 branch below the pace states fails the STALLED and AHEAD checks.
+Widening the closer to count every delivery fails the milestone check.
+Dropping the declined-experiment condition fails "produces no card at
+all". Adding one registry import to the renderer fails the import-graph
+walk. Letting tier 3 through the sanitizer fails the tier cap. Making the
+callback unconditional fails eight tier assertions. Composing before
+reading fails all three write-once checks.
+
+### Live verification, production, 2026-09-05
+
+`scripts/verify-trial-arc-day6-live.mts`, 82 checks against
+app.mefwellness.com in a 393 by 852 viewport, 82 passing, no console or
+page errors and no em dash on any screen. Sessions were minted and
+retired locally, never typed into the login form. The only account
+written to is the permanent rig.
+
+Seen live, on the real screen, from the rig's real rows: the day 6
+pop-up word for word; the button landing on `/trial/week`; a tier C
+recap naming **Peace & Calm** (her real Core Values Snapshot top value),
+**Tension** (her real Life Signal Check pick) with her real six bars
+(2/3, then five at 1/3), and **Ready, if it's small** (her real Readiness
+Pulse answer); Root's noticing typed out as "You checked in on 3 of your
+first 6 days, and finished 3 of the three free conversations."; the
+tomorrow close; the receipt row; `opened_at` stamped; a second visit the
+same day showing nothing and writing no second receipt.
+
+Also seen live: the stored plan re-rendering byte for byte on a reload
+with `composed_at` unmoved; a **tier A** recap on an account with nothing
+on it, zero cards, the honest opener and the Core Values Snapshot button;
+the closer tripped on days 3, 4 and 5 and **day 6 still offered exactly
+once** afterwards; and the arrival callback first in the reveal order,
+naming **"The gap before the dip"**, the pattern a genuine signed-out walk
+of the public quiz produced for that visitor before it was bound.
+
+**Proven by tests only, not seen live: Tier C's observation card.** It
+needs a published `member_pattern_states` row, and those come from the
+trend and correlation engines over a twenty one day window. A six day old
+account cannot honestly have one, and the rig has none. The live run
+asserts that absence explicitly, and that nothing hedged was printed in
+its place, rather than pretending to have seen the card.
+
+### Two real refusals the live run had to read rather than assume
+
+Setting the rig's finished conversations aside for the Tier A stage was
+written the way the day 1 to 5 runner writes it, with status `abandoned`.
+The column allows two values and that is not one of them: the update
+matched no row, returned no error the script was reading, and the stage
+asserted tier A against an account whose conversations were all still
+finished, passing 13 of 17 with three failures that looked like product
+bugs. Fixing that to a legal status then hit
+`unified_assessment_sessions_completed_fields`, which correctly refuses an
+in-progress session that still carries a completion time, and then
+`unified_assessment_sessions_one_draft_per_definition`, because only one
+draft per definition may exist. The stage now nulls `completed_at` with
+the status, sets aside the newest completed session per conversation, and
+puts each back with its OWN original timestamp.
+
+**What that left on production:** ten duplicate Life Signal Check
+sittings, all repeat drives of the same conversation from the 2026-09-04
+run, were removed from the rig. The rig now holds one completed session
+per conversation, which is what a real member has.
+
+**State the run left:** the rig is on day 1, `is_test` true, no coach
+assignment, no check-ins, no experiments, no arrival, no deliveries and
+no recap. There are zero recap rows anywhere in production. Every other
+account was read and never written.
+
 ## The trial arc, watched happening on the live site (2026-09-04)
 
 Prompt 3 proved the arc's rules, its clock and its receipt mechanics.
