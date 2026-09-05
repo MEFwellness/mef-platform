@@ -1,3 +1,110 @@
+## Day 8 driven on the live site: 132 checks, one rig, nothing launched (2026-09-05)
+
+`apps/consumer-web-app/scripts/verify-trial-ended-day8-live.mts`, run
+against app.mefwellness.com in a real browser. Fourteen stages, every one
+runnable on its own.
+
+### Task A, proved on production rows and then on production itself
+
+**The forensics (7/7).** The tapped create-account button is on record 25
+seconds before the account existed, on session `deeaece9`, which was FIRST
+SEEN 105.9 hours earlier and had belonged to another account since
+2026-08-31. So the phone resumed an already-claimed arrival and the bind
+could only ever lose. No new chapter events were written that night because
+the route deduplicates every one of them, which is why the row trail looked
+empty at first glance.
+
+**The real path (10/10).** The signed-out quiz at /energy driven end to
+end, the email step storing her address on the arrival, the create-account
+button tapped, the real signup form reached with `publicEntryArrival=yes`
+on it. Turnstile is armed on that form and refuses a scripted submission by
+design, so the run stops there and says so.
+
+**The bind itself (9/9), through the real claim route with a real session
+cookie.** A browser holding its own token binds and is marked
+`browser_token`. A second account in a browser holding the SAME token is
+refused that arrival (first bind wins) and is bound to her own other
+arrival by address, marked `email_match`. A bind that already stands is
+never replaced and never downgraded. A browser carrying nothing usable is
+still joined to the quiz she really took. An address matching no arrival
+binds to nothing.
+
+**The orphans (1/1).** Every unbound finished arrival in production was
+listed. NOTHING was bound to the quiztest1 account, and that is the correct
+answer rather than a cautious one: none of the test-night arrivals carries
+an address, and the one arrival quiztest1 genuinely tapped through belongs
+to another account under first-bind-wins.
+
+### Task B, day 8 on the live site
+
+  full           28/28  routed off Home by the middleware, her stored
+                        outcome ("Tension", sized by her own
+                        ready-if-it-is-small), both doors, her recap one tap
+                        away at /trial-ended/week, Back returning to the
+                        continuation screen, the door tap recorded on her
+                        own stored close, and no pop-up.
+  close_unopened 17/17  the same outcome preserved, plus the honest line.
+  recap_only     15/15  no invented outcome, the honest "no closing note".
+  no_arc         12/12  warm, plain, both doors, no fake week.
+  locked          2/2   every really locked account classified, READ ONLY.
+  exclusion       4/4   both manual/program accounts and the coached test
+                        member refused, and a coached account typing the URL
+                        is turned away by the screen itself.
+  doors           6/6   calendly.com/mefwellness/consultation and
+                        pages.mefwellness.com/root-payment, both from the
+                        shared config, no placeholder.
+  quiet           3/3   no non-rig account has a delivery, a recap or a
+                        close.
+  week            7/7   the rig's week built by driving the real screens.
+  restore         5/5   rig back to an ordinary automatic trial, flagged.
+
+**SEVEN accounts are locked today, not eight.** One of them
+(oakomah66@gmail.com) holds staff grants and is redirected to /admin before
+the lock is ever reached, so SIX would actually land on the continuation
+screen. All seven derive as PROSPECT and all seven have zero stored rows,
+so every one of them gets the no-arc state.
+
+**MEMBERSHIP_PRICING_URL IS set in production**, so the membership door is
+genuinely drawn. And LEAD_DISCOVERY_CALL_URL points at
+/mefwellness/consultation rather than the shipped fallback, which is the
+config doing its job: the address is resolved fresh on every render.
+
+### The one honest gap this run found, and it is not fixed
+
+A second real-phone test (`oakomah66+quiztest2@gmail.com`, 09:11 UTC, on
+the OLD code) produced a FRESH completed arrival and still no bind. Its
+arrival carries no email address, because the email step on the result
+screen is optional and was skipped, and the account's first signed-in page
+load did not happen in the browser that took the quiz. The deployed fix
+does not close that one: with no address on the arrival there is nothing to
+match on.
+
+Closing it would mean letting the result screen's own create-account link
+carry a one-time server-issued reference to the arrival, so the bind can
+happen at signup regardless of which browser confirms the email. That is a
+deliberate change to the rule that a browser may never name an arrival, so
+it is written down here rather than slipped in.
+
+### How the rig was locked, and why not the other way
+
+`decideMemberAccess` never locks a seeded test account out on the automatic
+trial clock, so the rig can be on day 40 and still be let in. Two facts get
+past that: an assigned trial, or `is_test` being false. An assigned trial
+means `source = 'manual'`, and a manual row is protected by a trigger whose
+only escape hatch sets source TO manual and never back, so moving a
+permanent fixture there would be a one way door. The flag comes off for
+exactly as long as the browser is looking at the screen instead, and every
+row the run writes is written while the flag is ON, because the rig helper
+refuses to write to an account that is not flagged.
+
+### Production is exactly as it was found
+
+22 accounts (21 plus the owner's own quiztest2), 10 public entry arrivals,
+one bind (`deeaece9` to 8weeks2fab, `browser_token`). Every temporary
+account, arrival, lead and lead-attribution row the run created was
+deleted, and the rig is back on an ordinary automatic trial with no recap,
+no close, no delivery and no assessment session.
+
 ## Day 8 is a door, not a lock, and the quiz binding is fixed (2026-09-05)
 
 Prompt 6 of the trial arc build. Two things: a real defect in how a
