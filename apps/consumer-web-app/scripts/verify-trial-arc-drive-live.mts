@@ -195,39 +195,47 @@ async function visit(action?: (page: Page, seen: Seen) => Promise<void>): Promis
 // =====================================================================
 
 async function stageDay1() {
-  console.log('\n== Day 1: the arc speaks for the first time ==');
-  await rigTools.resetAll(rig.id);
-  const set = await rigTools.setRigDay(rig.id, 1);
-  note(`trial moved so today is day 1 (started ${set.startLocal} in the rig's own zone)`);
-
-  let landedOn = '';
-  const seen = await visit(async (page) => {
-    landedOn = await tapCta(page);
-  });
-  assertCopy('Day 1', seen, TRIAL_ARC_DAY_1);
-  check(
-    'Day 1: the button goes to Core Values Snapshot',
-    landedOn === TRIAL_ARC_ROUTES.coreValuesSnapshot,
-    landedOn
-  );
-
-  const key = trialArcPopupMessageKey(1);
-  const receipt = await waitForReceipt(key);
-  check('Day 1: the delivery receipt landed', receipt !== null, receipt ? '' : 'no row after 25s');
-  if (receipt) {
+  // Day 1 is, by definition, a member who has done nothing yet. The rig
+  // accumulates completions across stages, and with both conversations
+  // finished it is correctly AHEAD of the week and the arc correctly says
+  // nothing on day 1. So this stage puts them aside and back, and is then
+  // runnable on its own whatever state the rig was left in.
+  await withConversationsSetAside(async () => {
+    console.log('\n== Day 1: the arc speaks for the first time ==');
+    await rigTools.resetAll(rig.id);
+    const set = await rigTools.setRigDay(rig.id, 1);
+    note(`trial moved so today is day 1 (started ${set.startLocal} in the rig's own zone)`);
+  
+    let landedOn = '';
+    const seen = await visit(async (page) => {
+      landedOn = await tapCta(page);
+    });
+    assertCopy('Day 1', seen, TRIAL_ARC_DAY_1);
     check(
-      'Day 1: the receipt carries the rig\'s OWN calendar day, not the server\'s',
-      receipt.delivered_local_date === rigTools.rigLocalDate(0),
-      `${receipt.delivered_local_date} vs ${rigTools.rigLocalDate(0)}`
+      'Day 1: the button goes to Core Values Snapshot',
+      landedOn === TRIAL_ARC_ROUTES.coreValuesSnapshot,
+      landedOn
     );
-    check('Day 1: it records the day, the state and the step', receipt.day_number === 1 && receipt.pointed_step === 'core_values_snapshot', `${receipt.day_number}/${receipt.pace_state}/${receipt.pointed_step}`);
-    check('Day 1: pressing the button was recorded', receipt.cta_tapped_at !== null, receipt.cta_tapped_at ?? 'not stamped');
-  }
-
-  const second = await visit();
-  check('Day 1: a second visit the same day shows nothing', !second.present, second.title);
-  const rows = await rigTools.listDeliveries(rig.id);
-  check('Day 1: and wrote no second receipt', rows.length === 1, `${rows.length} row(s)`);
+  
+    const key = trialArcPopupMessageKey(1);
+    const receipt = await waitForReceipt(key);
+    check('Day 1: the delivery receipt landed', receipt !== null, receipt ? '' : 'no row after 25s');
+    if (receipt) {
+      check(
+        'Day 1: the receipt carries the rig\'s OWN calendar day, not the server\'s',
+        receipt.delivered_local_date === rigTools.rigLocalDate(0),
+        `${receipt.delivered_local_date} vs ${rigTools.rigLocalDate(0)}`
+      );
+      check('Day 1: it records the day, the state and the step', receipt.day_number === 1 && receipt.pointed_step === 'core_values_snapshot', `${receipt.day_number}/${receipt.pace_state}/${receipt.pointed_step}`);
+      check('Day 1: pressing the button was recorded', receipt.cta_tapped_at !== null, receipt.cta_tapped_at ?? 'not stamped');
+    }
+  
+    const second = await visit();
+    check('Day 1: a second visit the same day shows nothing', !second.present, second.title);
+    const rows = await rigTools.listDeliveries(rig.id);
+    check('Day 1: and wrote no second receipt', rows.length === 1, `${rows.length} row(s)`);
+  
+  });
 }
 
 async function stageDay2() {
@@ -235,11 +243,17 @@ async function stageDay2() {
   await rigTools.setRigDay(rig.id, 2);
   await rigTools.resetPopups(rig.id);
 
-  const behind = await visit();
-  assertCopy('Day 2 behind pace', behind, TRIAL_ARC_TOWARD_CVS);
+  // The behind-pace half is about a member who has NOT done Core Values
+  // Snapshot, so her existing completions are set aside for it and put
+  // straight back. The on-pace half below then earns a genuinely new one by
+  // taking the whole thing through its real screens.
   const key2 = trialArcPopupMessageKey(2);
-  const behindReceipt = await waitForReceipt(key2);
-  check('Day 2 behind pace: receipt landed with the Core Values Snapshot step', behindReceipt?.pointed_step === 'core_values_snapshot', behindReceipt?.pointed_step ?? 'none');
+  await withConversationsSetAside(async () => {
+    const behind = await visit();
+    assertCopy('Day 2 behind pace', behind, TRIAL_ARC_TOWARD_CVS);
+    const behindReceipt = await waitForReceipt(key2);
+    check('Day 2 behind pace: receipt landed with the Core Values Snapshot step', behindReceipt?.pointed_step === 'core_values_snapshot', behindReceipt?.pointed_step ?? 'none');
+  });
 
   console.log('\n   -- completing Core Values Snapshot through the real screens --');
   const done = await completeCvs();

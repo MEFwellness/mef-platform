@@ -98,6 +98,11 @@ phrase retyped into a script.
   Restore           6 of 6: the rig back on a clean day 1, and all 19 other
                    production accounts still refusing with launch_not_set
 
+Day 1 and the behind-pace half of day 2 now set the rig's completions
+aside for their own duration, so either can be re-run on its own whatever
+state the previous run left. Day 1 re-run against the final deployment:
+15 of 15.
+
 **Three things the run learned about itself, and they are worth keeping.**
 A rig whose trial START is moved backwards has genuinely empty earlier
 days, so the engine reads it as STALLED from day 3, correctly; the stages
