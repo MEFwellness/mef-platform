@@ -112,6 +112,13 @@ async function openHome(page: Page, waitMs = 25000): Promise<Seen> {
     return { ...NOTHING, consoleErrors };
   }
 
+  // The pop-up marks itself dismissed on mount, through a Server Action, and
+  // that write has to land before this context is torn down or the next
+  // visit sees a message that should already have had its one showing. A
+  // real member's browser stays open; this run waits the same moment she
+  // would spend reading it.
+  await page.waitForTimeout(2500);
+
   const paragraphs = dialog.locator('p');
   return {
     present: true,
@@ -336,13 +343,25 @@ async function completeAssessment(overviewRoute: string): Promise<boolean> {
 
 async function stageExperiments() {
   console.log('\n== Days 3 and 4: the experiment days ==');
+  // A clean experiment state, so this stage starts where it says it does.
+  await service.from('lifestyle_experiments').delete().eq('member_id', rig.id);
 
   console.log('\n   -- completing Life Signal Check through the real screens --');
   const lscDone = await completeLsc();
   check('Life Signal Check genuinely completed in the browser', lscDone, '');
 
   // Day 3, with both conversations done and no experiment running.
+  //
+  // A REAL HISTORY FIRST, and this is a finding rather than a convenience.
+  // The rig's trial START is moved backwards while everything it does
+  // happens today, so its earlier trial days are genuinely empty and the
+  // engine correctly read it as STALLED on day 3 the first time this ran.
+  // That is the engine being right about the facts it was given. The
+  // experiment days are about pacing, not about absence, so the rig is given
+  // the history a member on pace would actually have.
   await rigTools.setRigDay(rig.id, 3);
+  await rigTools.seedActiveDays(rig.id, 3);
+  await rigTools.resetDeliveries(rig.id);
   await rigTools.resetPopups(rig.id);
   const offerHref = await resolveExperimentOfferHref(service, rig.id, { cvs: true, lsc: true });
   note(`her experiment is offered on ${offerHref}`);
@@ -365,13 +384,73 @@ async function stageExperiments() {
   const whileRunning = await visit();
   check('Day 3: the arc is SILENT while an experiment is running', !whileRunning.present, whileRunning.title);
 
-  // Stop it early, which is the app's own decline, then day 4.
-  console.log('\n   -- stopping it early, which is the decline the app records --');
-  const stopped = await stopExperiment();
-  check('the experiment was stopped early in the browser', stopped, '');
+  // THE DECLINE, IN THE SHAPE THE APP ACTUALLY RECORDS ONE.
+  //
+  // The seven day offer pop-up marks itself dismissed the instant it is
+  // shown, and it is only ever offered while no experiment is running, so a
+  // dismissal row on an offer key means exactly one thing: Root put the
+  // experiment in front of her once and she left without starting it. That
+  // is the decline lib/trial-arc/engine.ts reads, and it is what this
+  // produces, by letting the real offer pop-up reach her on a visit the arc
+  // has already spoken on.
+  //
+  // The experiment started above is removed first, because an offer is never
+  // made while one is running. Rig scoped, like every other write here.
+  console.log('\n   -- letting the real experiment offer reach her, and leaving it ---');
+  await service.from('lifestyle_experiments').delete().eq('member_id', rig.id);
+
+  // THE ARC IS FIRST IN THE CHAIN, so everything below it only gets a turn
+  // once the messages above it have had theirs. That is the real shape of a
+  // member's day: Root's own message first, and on later opens whatever else
+  // was waiting, in order. This walks that chain the way she would, opening
+  // Home and dealing with whatever is on top, until Root offers the seven
+  // days.
+  //
+  // A pop-up with an explicit Ignore button is dismissed by pressing it; the
+  // one-time kinds retire themselves the instant they mount. Nothing here
+  // reaches past the chain or writes a dismissal by hand.
+  for (let open = 0; open < 8; open += 1) {
+    const { data: already } = await service
+      .from('member_root_popup_dismissals')
+      .select('message_key')
+      .eq('member_id', rig.id)
+      .or('message_key.like.cvs_offer:%,message_key.like.lsc_offer:%');
+    if ((already ?? []).length > 0) break;
+
+    let sawTitle = '';
+    await visit(async (page) => {
+      const dialog = page.locator('div[role="dialog"]').first();
+      await dialog.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
+      if ((await dialog.count()) === 0) return;
+      sawTitle = (await dialog.innerText()).replace(/\n/g, ' ').slice(0, 80);
+      const ignore = dialog.locator('button', { hasText: /^Ignore$/ });
+      if ((await ignore.count()) > 0) await ignore.first().click({ timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(2500);
+    });
+    note(`open ${open + 1}: ${sawTitle || 'nothing'}`);
+  }
+  // Either experience's offer counts, and that is the engine's own rule:
+  // lib/root-popup-messages/data.ts reads cvs_offer, lsc_offer and rpl_offer
+  // alike, because a decline is a decline whichever conversation produced
+  // the theory.
+  const { data: dismissals } = await service
+    .from('member_root_popup_dismissals')
+    .select('message_key, status')
+    .eq('member_id', rig.id)
+    .or('message_key.like.cvs_offer:%,message_key.like.lsc_offer:%,message_key.like.rpl_offer:%');
+  check(
+    'the seven day offer was genuinely shown and left, which is the decline the app records',
+    (dismissals ?? []).length > 0,
+    JSON.stringify(dismissals ?? [])
+  );
 
   await rigTools.setRigDay(rig.id, 4);
-  await rigTools.resetPopups(rig.id);
+  await rigTools.seedActiveDays(rig.id, 4);
+  // ONLY the arc's own keys. Clearing every dismissal here would delete the
+  // offer row that IS her decline, and the arc would cheerfully re-pitch the
+  // thing she had just turned down. That happened once in this run's own
+  // development, which is why resetArcPopups exists.
+  await rigTools.resetArcPopups(rig.id);
   const afterDecline = await visit();
   check('Day 4: the arc is SILENT after a decline, and never re-pitches it', !afterDecline.present, afterDecline.title);
   const rows = await rigTools.listDeliveries(rig.id);
@@ -405,33 +484,12 @@ async function startExperiment(): Promise<boolean> {
   }
 }
 
-/** Presses Stop early, the app's own way of saying no to a running experiment. */
-async function stopExperiment(): Promise<boolean> {
-  const { context, minted } = await rigContext();
-  const page = await context.newPage();
-  try {
-    const href = await resolveExperimentOfferHref(service, rig.id, { cvs: true, lsc: true });
-    await page.goto(`${BASE}${href}`, { waitUntil: 'domcontentloaded' });
-    const stop = page.locator('button:visible').filter({ hasText: /^Stop early$/i }).first();
-    await stop.waitFor({ timeout: 25000 });
-    await stop.click();
-    await page.waitForTimeout(4000);
-    const { data } = await service
-      .from('lifestyle_experiments')
-      .select('status')
-      .eq('member_id', rig.id)
-      .eq('status', 'abandoned');
-    return (data ?? []).length > 0;
-  } finally {
-    await context.close();
-    await retireSession(minted);
-  }
-}
-
 async function stageDay5() {
   console.log('\n== Day 5: the connection ==');
   await rigTools.setRigDay(rig.id, 5);
-  await rigTools.resetPopups(rig.id);
+  await rigTools.seedActiveDays(rig.id, 5);
+  await rigTools.resetArcPopups(rig.id);
+  await rigTools.resetDeliveries(rig.id);
 
   // What the rig's OWN answers produce, read through the same module the
   // message reads, so the report can say which branch was seen rather than
@@ -467,28 +525,90 @@ async function stageDay5() {
   const receipt = await waitForReceipt(trialArcPopupMessageKey(5));
   check('Day 5: the receipt landed and asks for nothing to be completed', receipt?.pointed_step === (connection ? 'none' : 'life_signal_check'), receipt?.pointed_step ?? 'no row');
 
-  // The missing-half branch, on the same live account, by taking Life Signal
-  // Check out of the picture rather than by imagining a member who never did
-  // it. Her session is moved aside and put straight back.
+  // THE MISSING-HALF BRANCH, on the same live account.
+  //
+  // "Completed" is not one row. The runtime's own session says so, and so
+  // does an assessment_attempts row, which is what assessment_status_by_member
+  // reads and therefore what hasEverCompleted answers from. Setting only the
+  // session aside left the arc still seeing a finished Life Signal Check,
+  // which is the view being right and this run being wrong about where the
+  // fact lives. Both are set aside here, and both are put straight back.
   console.log('\n   -- the missing-half branch, with her Life Signal Check set aside --');
-  const { data: lscSessions } = await service
-    .from('unified_assessment_sessions')
-    .select('id, status')
-    .eq('member_id', rig.id)
-    .eq('status', 'completed');
+  const lscDefinitionId = await lscCatalogDefinitionId();
   const lscIds = await lscSessionIds();
-  if (lscIds.length === 0) {
-    check('Day 5 missing half: a completed Life Signal Check was found to set aside', false, `${(lscSessions ?? []).length} completed sessions total`);
+  const { data: attemptRows } = await service
+    .from('assessment_attempts')
+    .select('id, completed_at')
+    .eq('member_id', rig.id)
+    .eq('assessment_definition_id', lscDefinitionId)
+    .eq('status', 'completed');
+  const attempts = (attemptRows ?? []) as { id: string; completed_at: string }[];
+
+  if (lscIds.length === 0 || attempts.length === 0) {
+    check('Day 5 missing half: her completed Life Signal Check was found to set aside', false, `${lscIds.length} sessions, ${attempts.length} attempts`);
   } else {
+    // 'in_progress' WITH NO completed_at IS THE ONLY OTHER LEGAL SHAPE.
+    // assessment_attempts carries a check constraint
+    // (assessment_attempts_completed_fields, migration 73) that allows
+    // exactly two: completed with a time, or in_progress with none. An
+    // update to 'abandoned' was rejected for every row and returned no rows,
+    // and this run believed it had set her Life Signal Check aside when it
+    // had not. Exactly the "no error is not it worked" shape, in the
+    // verification script rather than in the app. The error is checked now,
+    // both ways.
+    const setAside = await service
+      .from('assessment_attempts')
+      .update({ status: 'in_progress', completed_at: null })
+      .in('id', attempts.map((a) => a.id))
+      .select('id');
     await service.from('unified_assessment_sessions').update({ status: 'abandoned' }).in('id', lscIds);
+    check(
+      'Day 5 missing half: her Life Signal Check really was set aside',
+      setAside.error === null && (setAside.data ?? []).length === attempts.length,
+      setAside.error?.message ?? `${(setAside.data ?? []).length}/${attempts.length}`
+    );
+
     await service.from('member_trial_arc_deliveries').delete().eq('member_id', rig.id).eq('message_key', trialArcPopupMessageKey(5));
-    await rigTools.resetPopups(rig.id);
+    await rigTools.resetArcPopups(rig.id);
+
     const nudge = await visit();
     assertCopy('Day 5 missing half', nudge, TRIAL_ARC_TOWARD_LSC);
+
+    // Put back, row by row, with each attempt's own completion time.
     await service.from('unified_assessment_sessions').update({ status: 'completed' }).in('id', lscIds);
-    const restored = await lscSessionIds();
-    check('her Life Signal Check was put back exactly as it was', restored.length === lscIds.length, `${restored.length}/${lscIds.length}`);
+    let restoredAttempts = 0;
+    for (const attempt of attempts) {
+      const put = await service
+        .from('assessment_attempts')
+        .update({ status: 'completed', completed_at: attempt.completed_at })
+        .eq('id', attempt.id)
+        .select('id');
+      if (!put.error && (put.data ?? []).length === 1) restoredAttempts += 1;
+    }
+    const restoredSessions = await lscSessionIds();
+    check(
+      'her Life Signal Check was put back exactly as it was, sessions and attempts alike',
+      restoredSessions.length === lscIds.length && restoredAttempts === attempts.length,
+      `${restoredSessions.length}/${lscIds.length} sessions, ${restoredAttempts}/${attempts.length} attempts`
+    );
   }
+}
+
+/**
+ * Life Signal Check's CATALOG definition id, which is not the same id as its
+ * unified runtime definition.
+ *
+ * assessment_attempts, and therefore assessment_status_by_member's
+ * latest_completed, are keyed on the catalog id
+ * (unified_assessment_definitions.catalog_definition_id, migration 100). The
+ * runtime's own sessions are keyed on the unified id. Asking the attempts
+ * table for the unified id returns nothing at all, which is how this run
+ * first concluded there were no attempts to set aside.
+ */
+async function lscCatalogDefinitionId(): Promise<string> {
+  const { findAssessmentRegistryEntry } = await import('../lib/assessment-registry/registry');
+  const { LSC_KEY } = await import('../lib/life-signal-check/constants');
+  return findAssessmentRegistryEntry(LSC_KEY as never)?.databaseId ?? '';
 }
 
 /** The rig's completed Life Signal Check session ids. */
@@ -509,29 +629,54 @@ async function lscSessionIds(): Promise<string[]> {
 async function stageCloser() {
   console.log('\n== The closer: three ignored messages and the pacing stops ==');
   await rigTools.resetDeliveries(rig.id);
+  // Every dismissal, not only the arc's: this stage needs her un-declined,
+  // because a declined experiment makes days 3 and 4 silent and there would
+  // be nothing to ignore.
   await rigTools.resetPopups(rig.id);
-  // A clean slate for the pace as well, so each of the three days below has
-  // something to say and she genuinely does nothing about it.
   await service.from('lifestyle_experiments').delete().eq('member_id', rig.id);
 
-  for (const day of [1, 2, 3]) {
+  // DAYS 3, 4 AND 5, not 1, 2 and 3, and that is the engine being right
+  // rather than a convenience. The rig has finished both conversations, so
+  // on day 1 and day 2 it is AHEAD of the week and the arc correctly says
+  // nothing at all. The three days it does speak on are the three used here.
+  const days = [3, 4, 5];
+  for (const day of days) {
     await rigTools.setRigDay(rig.id, day);
-    await rigTools.resetPopups(rig.id);
+    await rigTools.seedActiveDays(rig.id, day);
+    await rigTools.resetArcPopups(rig.id);
     const seen = await visit();
     check(`closer: day ${day} spoke`, seen.present, seen.title);
     const receipt = await waitForReceipt(trialArcPopupMessageKey(day));
-    check(`closer: day ${day} was recorded, with no tap`, receipt !== null && receipt.cta_tapped_at === null, receipt ? String(receipt.cta_tapped_at) : 'no row');
+    check(
+      `closer: day ${day} was recorded, and she did nothing with it`,
+      receipt !== null && receipt.cta_tapped_at === null,
+      receipt ? String(receipt.cta_tapped_at) : 'no row'
+    );
   }
 
-  await rigTools.setRigDay(rig.id, 4);
-  await rigTools.resetPopups(rig.id);
+  // The next open on a pacing day. Her receipts are untouched; only the
+  // once-a-day dismissal is cleared, so the ONLY thing that can keep Root
+  // quiet now is the closer.
+  await rigTools.resetArcPopups(rig.id);
   const afterThree = await visit();
-  check('closer: the FOURTH pacing day is silent', !afterThree.present, afterThree.title);
+  check('closer: the next pacing day is silent', !afterThree.present, afterThree.title);
+
+  await rigTools.setRigDay(rig.id, 3);
+  await rigTools.resetArcPopups(rig.id);
+  const backOnDayThree = await visit();
+  check('closer: and so is an earlier pacing day, because it stops the pacing and not one message', !backOnDayThree.present, backOnDayThree.title);
 
   const rows = await rigTools.listDeliveries(rig.id);
   const ignored = rows.filter((r: { cta_tapped_at: string | null }) => r.cta_tapped_at === null);
   check('closer: and the table shows exactly why, three delivered and untouched', ignored.length >= 3, `${ignored.length} untouched of ${rows.length}`);
-  note(rows.map((r: { message_key: string; delivered_local_date: string; cta_tapped_at: string | null }) => `${r.message_key} on ${r.delivered_local_date}${r.cta_tapped_at ? ' (tapped)' : ' (no response logged)'}`).join('\n      '));
+  note(
+    rows
+      .map(
+        (r: { message_key: string; delivered_local_date: string; cta_tapped_at: string | null }) =>
+          `${r.message_key} on ${r.delivered_local_date}${r.cta_tapped_at ? ' (tapped)' : ' (no response logged)'}`
+      )
+      .join('\n      ')
+  );
 }
 
 async function stagePresence() {
@@ -540,7 +685,7 @@ async function stagePresence() {
   await service.from('lifestyle_experiments').delete().eq('member_id', rig.id);
   await rigTools.setRigDay(rig.id, 4);
 
-  const gapDate = await rigTools.seedCheckinGap(rig.id, 4);
+  const gapDate = await rigTools.seedCheckinGap(rig.id, 3);
   note(`one check-in on ${gapDate} and nothing since, so the return greeting is owed`);
 
   const collision = await visit();
@@ -560,7 +705,7 @@ async function stagePresence() {
   check('presence: the arc speaks again on the next visit', nextVisit.present, nextVisit.title);
   check(
     'presence: and what it says is the warm re-entry line, not a pacing instruction',
-    nextVisit.present && nextVisit.title === trialArcReEntryCopy(TRIAL_ARC_TOWARD_CVS).title,
+    nextVisit.present && nextVisit.title === trialArcReEntryCopy(TRIAL_ARC_TOWARD_CASE).title,
     nextVisit.title
   );
   if (nextVisit.present) {
@@ -726,7 +871,7 @@ async function stageWelcome() {
 
   // Day 2: the welcome must stand down so the week can speak.
   await rigTools.setRigDay(rig.id, 2);
-  await rigTools.resetPopups(rig.id);
+  await rigTools.resetArcPopups(rig.id);
   const dayTwo = await visit();
   check('Day 2: the welcome has stood down and the arc speaks instead', dayTwo.present && dayTwo.title !== TRIAL_ARC_WELCOME.title, dayTwo.title);
 }

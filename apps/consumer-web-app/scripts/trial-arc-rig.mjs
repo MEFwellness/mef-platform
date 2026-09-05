@@ -29,6 +29,7 @@
  *   reset-popups               delete its Root pop-up dismissals
  *   reset                      deliveries + pop-ups + check-ins + greetings
  *   checkin-gap <n>            give it one check-in n days ago and nothing since
+ *   active-days <n>            give it a check-in on each of the last n days
  *   clear-checkins             remove its check-ins
  *   clear-greetings            remove its return-greeting claims
  *
@@ -179,6 +180,25 @@ export async function resetPopups(memberId) {
   if (error) throw error;
 }
 
+/**
+ * Clears ONLY the trial arc's own pop-up dismissals.
+ *
+ * resetPopups clears every dismissal this account has, which is right when a
+ * stage wants a clean chain, and destructive when it does not: the arc reads
+ * an experiment OFFER's dismissal as her decline, so wiping every row
+ * silently un-declines her. That cost one live run, and this exists so it
+ * cannot cost another.
+ */
+export async function resetArcPopups(memberId) {
+  await assertRig(memberId);
+  const { error } = await service
+    .from('member_root_popup_dismissals')
+    .delete()
+    .eq('member_id', memberId)
+    .like('message_key', 'trial_arc_day:%');
+  if (error) throw error;
+}
+
 export async function clearCheckins(memberId) {
   await assertRig(memberId);
   const { error } = await service.from('daily_checkins').delete().eq('user_id', memberId);
@@ -204,12 +224,46 @@ export async function seedCheckinGap(memberId, back) {
   const { error } = await service.from('daily_checkins').insert({
     user_id: memberId,
     local_date: localDate,
+    timezone: RIG_TIMEZONE,
     energy_level: 3,
     stress_level: 3,
     sleep_quality: 3,
   });
   if (error) throw new Error(`seeding the check-in gap failed: ${error.message}`);
   return localDate;
+}
+
+/**
+ * A check-in on each of the last `days` days, today included.
+ *
+ * WHY A VERIFICATION RUN NEEDS THIS. The rig's whole trick is that its trial
+ * START is moved backwards while everything it actually does happens today,
+ * so its earlier trial days are genuinely empty and the engine correctly
+ * reads it as STALLED from day 3 onward. That is the engine being right, and
+ * it is the wrong setup for watching the ordinary pacing days, so those
+ * stages give it a real history first.
+ *
+ * Written through the ordinary table with the ordinary columns. Nothing here
+ * invents a shape the app does not already write.
+ */
+export async function seedActiveDays(memberId, days) {
+  await assertRig(memberId);
+  await clearCheckins(memberId);
+  await clearGreetings(memberId);
+  const dates = [];
+  for (let back = 0; back < days; back += 1) dates.push(rigLocalDate(back));
+  const { error } = await service.from('daily_checkins').insert(
+    dates.map((local_date) => ({
+      user_id: memberId,
+      local_date,
+      timezone: RIG_TIMEZONE,
+      energy_level: 3,
+      stress_level: 3,
+      sleep_quality: 3,
+    }))
+  );
+  if (error) throw new Error(`seeding active days failed: ${error.message}`);
+  return dates;
 }
 
 export async function resetAll(memberId) {
@@ -241,9 +295,11 @@ if (isMain) {
   else if (command === 'deliveries') console.log(JSON.stringify(await listDeliveries(rig.id), null, 2));
   else if (command === 'reset-deliveries') { await resetDeliveries(rig.id); console.log('deliveries cleared'); }
   else if (command === 'reset-popups') { await resetPopups(rig.id); console.log('pop-up dismissals cleared'); }
+  else if (command === 'reset-arc-popups') { await resetArcPopups(rig.id); console.log('trial arc pop-up dismissals cleared'); }
   else if (command === 'clear-checkins') { await clearCheckins(rig.id); console.log('check-ins cleared'); }
   else if (command === 'clear-greetings') { await clearGreetings(rig.id); console.log('return greetings cleared'); }
   else if (command === 'checkin-gap') console.log(`check-in seeded on ${await seedCheckinGap(rig.id, Number(arg))}`);
+  else if (command === 'active-days') console.log(`check-ins seeded on ${(await seedActiveDays(rig.id, Number(arg))).join(', ')}`);
   else if (command === 'reset') { await resetAll(rig.id); console.log('deliveries, pop-ups, check-ins and greetings cleared'); }
   else if (command && command !== 'ensure') { console.error(`unknown command: ${command}`); process.exit(1); }
 }

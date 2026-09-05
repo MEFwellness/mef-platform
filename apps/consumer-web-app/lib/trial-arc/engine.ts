@@ -91,7 +91,7 @@ import { resolveTrialDay, type TrialDay } from './day';
 import { decidePaceState, trialArcClosure, type TrialArcPaceState } from './state';
 import { resolveTrialArcConnection, type TrialArcConnection } from './connection';
 import { resolveExperimentOfferHref } from './experimentOffer';
-import { lastReturnGreetingForGap } from './presence';
+import { lastReturnGreetingForGap, morningBriefExistsToday } from './presence';
 
 export { dayNumberFor, resolveTrialDay } from './day';
 
@@ -197,7 +197,13 @@ export interface TrialArcDecision {
 export async function resolveTrialArcDecision(
   supabase: SupabaseClient,
   memberId: string,
-  options: { now?: Date; lastSignInAt?: string | null; launch?: string | null } = {}
+  options: {
+    now?: Date;
+    lastSignInAt?: string | null;
+    launch?: string | null;
+    /** The raw TRIAL_ARC_TEST_ACCOUNT_IDS value. Defaults to the server environment. Passed explicitly only by tests and by the live verification runner. */
+    testAccounts?: string | undefined;
+  } = {}
 ): Promise<TrialArcDecision> {
   // Rule 1 of eligibility, reached without a query. See this file's header.
   //
@@ -214,13 +220,17 @@ export async function resolveTrialArcDecision(
   // short circuit stays true for everybody else. The check is synchronous
   // and reads a server environment variable that is empty by default, so
   // this still costs no round trip for any real member.
-  if (trialArcLaunchInstant(launch) === null && !isTrialArcTestAccount(memberId)) {
+  if (trialArcLaunchInstant(launch) === null && !isTrialArcTestAccount(memberId, options.testAccounts)) {
     return silentDecision(false, null, 'not_launched');
   }
 
   const now = options.now ?? new Date();
 
-  const eligibility = await resolveTrialArcEligibility(supabase, memberId, { now, launch });
+  const eligibility = await resolveTrialArcEligibility(supabase, memberId, {
+    now,
+    launch,
+    ...(options.testAccounts !== undefined ? { testAccounts: options.testAccounts } : {}),
+  });
   if (!eligibility.eligible) return silentDecision(false, null, 'not_eligible');
 
   const day = await resolveTrialDay(supabase, memberId, now);
@@ -462,6 +472,14 @@ async function gatherTrialArcFacts(
  * is speaking" would silence the arc's own warm re-entry line for every day
  * of a gap after the first, which is the opposite of what a member coming
  * back needs.
+ *
+ * AND NEITHER IS A GREETING THAT IS NEVER COMING (2026-09-04, found by
+ * driving this collision on the live site). The claim happens in exactly one
+ * place: the moment today's Morning Brief is CREATED. If that brief already
+ * exists, nothing will claim the greeting today, and an arc that went quiet
+ * on the strength of an unclaimed row would leave her with neither message
+ * on every visit for the rest of the gap. So an unclaimed greeting only
+ * silences the arc on the visit that is actually going to write the brief.
  */
 async function isRootPresenceDelivering(
   supabase: SupabaseClient,
@@ -491,10 +509,11 @@ async function isRootPresenceDelivering(
 
   if (!lastCheckin) return false;
   const greeted = await lastReturnGreetingForGap(supabase, memberId, lastCheckin);
-  // No row: the Morning Brief will claim it on this visit, so it is
-  // delivering. A row stamped today: it already delivered, on this visit.
-  if (!greeted) return true;
-  return localDateStringFor(greeted, input.timeZone) === input.todayLocalDate;
+  // A row stamped today: it already delivered, on this visit.
+  if (greeted) return localDateStringFor(greeted, input.timeZone) === input.todayLocalDate;
+  // No row: it is delivering only if today's brief is still to be written,
+  // because writing it is the one thing that ever claims the greeting.
+  return !(await morningBriefExistsToday(supabase, memberId, input.todayLocalDate));
 }
 
 /**

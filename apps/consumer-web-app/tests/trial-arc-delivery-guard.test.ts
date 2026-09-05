@@ -172,6 +172,15 @@ describe('no render writes a receipt', () => {
     expect(source).toContain('.select(');
   });
 
+  it('and it never yields to a greeting that is never coming', () => {
+    // An unclaimed greeting row only means "delivering" on the visit that is
+    // actually going to write today's Morning Brief, which is the one thing
+    // that ever claims it. Without this the arc goes quiet for the whole gap
+    // and the member gets neither message. Found live on 2026-09-04.
+    expect(read('lib/trial-arc/presence.ts')).toContain('coach_morning_briefs');
+    expect(read(ENGINE)).toContain('morningBriefExistsToday');
+  });
+
   it('the receipt is fired from a mounted effect, through the beacon, not from a Server Action call', () => {
     const tracker = read('components/trial-arc/TrackTrialArcDelivered.tsx');
     expect(tracker).toContain('useEffect');
