@@ -111,7 +111,7 @@ describe('what the override skips: rules 1, 2 and 3, and only those', () => {
    * the list itself can and cannot do, independently of the shipped date.
    */
   it('the shipped launch is a date, and the list is unchanged by that', () => {
-    expect(TRIAL_ARC_LAUNCH).toBe('2026-09-05T16:00:00Z');
+    expect(TRIAL_ARC_LAUNCH).toBe('2026-09-05T14:20:00Z');
   });
 
   it('the rig is eligible with no launch date, a test flag, and no subscription row at all', () => {

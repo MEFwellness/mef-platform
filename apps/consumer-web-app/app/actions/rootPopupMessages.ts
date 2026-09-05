@@ -474,8 +474,9 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // and the arc's own branch below speaks. For every other account,
   // `publicEntryArcHandover` is null and nothing about this branch changes.
   //
-  // It costs no query while the arc is switched off: resolveTrialArcDecision
-  // checks TRIAL_ARC_LAUNCH before any read at all, and it ships null.
+  // It costs no query for an account created before the launch date.
+  // resolveTrialArcDecision checks TRIAL_ARC_LAUNCH before any read at all,
+  // and a null launch short circuits the whole branch for everybody.
   const arcDecision =
     memberId && supabase
       ? await resolveTrialArcDecision(supabase, memberId, {
@@ -540,9 +541,10 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   // 'eligible' for: on the automatic free trial, created after the arc
   // launched, never assigned a coach in any status ever, not suppressed,
   // not a test account, and a PROSPECT. A coaching client can structurally
-  // never see a line of it. While TRIAL_ARC_LAUNCH is null, which is how it
-  // ships, that is every account in the system and this branch costs no
-  // query at all.
+  // never see a line of it. The arc launched on 2026-09-05T14:20:00Z, so
+  // every account that existed before that instant is refused by rule 1,
+  // and this branch costs it no query at all. Setting TRIAL_ARC_LAUNCH back
+  // to null returns that to being every account in the system.
   //
   // ITS OWN DUE-CHECK, per this file's one rule: isOfferStillDue on a
   // day-scoped key, which is the once-per-day rule expressed through the

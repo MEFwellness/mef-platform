@@ -2,7 +2,7 @@
  * The trial arc's launch date, and the only thing that turns it on.
  *
  * LAUNCHED. Prompt 7 of this build set this on 2026-09-05, to
- * 2026-09-05T16:00:00Z. From that instant the arc is live for real signups,
+ * 2026-09-05T14:20:00Z. From that instant the arc is live for real signups,
  * and it was inert for every account in production before it.
  *
  * WHY A DATE AND NOT A BOOLEAN. It doubles as the line between the accounts
@@ -26,7 +26,7 @@
  * 'launch_not_set'. A typo can therefore only ever silence the arc, never
  * fire it at the wrong people.
  */
-export const TRIAL_ARC_LAUNCH: string | null = '2026-09-05T16:00:00Z';
+export const TRIAL_ARC_LAUNCH: string | null = '2026-09-05T14:20:00Z';
 
 /**
  * The launch instant, or null when the arc is not launched. One place that

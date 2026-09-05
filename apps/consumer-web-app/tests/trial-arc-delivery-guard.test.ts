@@ -26,8 +26,8 @@ const MIGRATION = '../../supabase/migrations/00000000000204_trial_arc_delivery.s
 
 describe('it ships launched, and the launch is the only switch there is', () => {
   it('TRIAL_ARC_LAUNCH is the launch instant, and nothing else turns the arc on', () => {
-    expect(TRIAL_ARC_LAUNCH).toBe('2026-09-05T16:00:00Z');
-    expect(trialArcLaunchInstant()?.toISOString()).toBe('2026-09-05T16:00:00.000Z');
+    expect(TRIAL_ARC_LAUNCH).toBe('2026-09-05T14:20:00Z');
+    expect(trialArcLaunchInstant()?.toISOString()).toBe('2026-09-05T14:20:00.000Z');
   });
 
   it('and setting it back to null is a complete off switch, with no second one to find', () => {

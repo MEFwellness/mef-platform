@@ -76,8 +76,8 @@ describe('rule 1 — the launch date is the switch, and it is also the line', ()
    * on purpose so nothing about an account can overrule it.
    */
   it('ships as the launch instant, not as null', () => {
-    expect(TRIAL_ARC_LAUNCH).toBe('2026-09-05T16:00:00Z');
-    expect(trialArcLaunchInstant()?.toISOString()).toBe('2026-09-05T16:00:00.000Z');
+    expect(TRIAL_ARC_LAUNCH).toBe('2026-09-05T14:20:00Z');
+    expect(trialArcLaunchInstant()?.toISOString()).toBe('2026-09-05T14:20:00.000Z');
   });
 
   it('and putting it back to null silences the arc again, without touching a row', () => {

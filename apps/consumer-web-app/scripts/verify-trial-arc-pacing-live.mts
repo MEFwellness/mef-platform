@@ -87,7 +87,7 @@ for (const profile of profiles) {
   reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
 }
 // SINCE THE LAUNCH (prompt 7) THIS IS NO LONGER "nobody speaks". Accounts
-// created on or after 2026-09-05T16:00:00Z are the arc's own and may speak.
+// created on or after 2026-09-05T14:20:00Z are the arc's own and may speak.
 // What still has to hold is that nobody who existed BEFORE the launch does,
 // which is the check below, and which is proved account by account in
 // scripts/verify-trial-arc-launch-live.mts.
