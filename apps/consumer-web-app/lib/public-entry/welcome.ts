@@ -10,11 +10,31 @@
  * test can put a member on either side of it without standing up two
  * unrelated fakes.
  *
- * THE CLOSER IS THE BASELINE, NOT A DISMISSAL. The whole message is an
- * invitation to start the real assessment, so the moment one exists there
- * is nothing to invite her to and this returns null whether or not she ever
- * dismissed the pop-up. A rule that only fires while something is missing
- * needs the thing arriving to end it.
+ * TWO SHAPES, ONE MESSAGE, AND WHY (2026-09-05). It used to return null
+ * the moment a Baseline Assessment existed, because the whole message was
+ * an invitation to start one and a rule that only fires while something is
+ * missing needs the thing arriving to end it. That reasoning is still
+ * right about the INVITATION. It was wrong about the greeting, and a real
+ * phone showed why.
+ *
+ * A member who arrives through the quiz is taken through the welcome flow
+ * and the Baseline Assessment BEFORE she ever reaches Home. Measured on
+ * production: account created at 12:05, goal chosen at 12:06, Baseline
+ * finished at 12:08, first Home at 12:09. So by the time this message had
+ * a screen to appear on, its own closer had already fired, and she was
+ * never told a word about the two minutes she had just spent. The bind was
+ * correct and invisible.
+ *
+ * So the Baseline no longer decides WHETHER Root speaks. It decides WHICH
+ * of two things he says, and how long the message lives:
+ *
+ *   No Baseline yet   An invitation. "Start my Baseline Assessment", with
+ *                     real "Maybe later" and "Ignore" buttons, and the
+ *                     Baseline arriving is still its closer. Unchanged.
+ *   Baseline done     A greeting. It acknowledges the arrival, points at
+ *                     her Root Map, and is shown ONCE, ever. Its closer is
+ *                     having been shown, because there is no future event
+ *                     that would end it and nothing left to invite her to.
  *
  * WHAT IT MAY SAY. The pattern her nine public answers resolved to, named
  * as the first impression it is. It reads member_public_entry_origin, whose
@@ -48,6 +68,12 @@ export type PublicEntryWelcome = {
   /** Null when she created an account without finishing the nine questions. The copy branches on that rather than inventing something to have noticed. */
   readonly patternTitle: string | null;
   /**
+   * Whether her Baseline Assessment already exists. Decides which of the
+   * two shapes above this is: an invitation to start one, or a greeting
+   * about where she came from. It no longer decides whether Root speaks.
+   */
+  readonly hasBaseline: boolean;
+  /**
    * The trial arc's day 1 message, when this welcome is carrying it. Null
    * for every account outside the arc, and the pop-up then renders exactly
    * the copy and the button it always has.
@@ -78,16 +104,16 @@ export async function getPublicEntryWelcome(
     .limit(1);
   if (error) {
     // Fail towards silence. An unreadable submissions table is not evidence
-    // that she has no baseline, and the wrong direction here is Root
-    // inviting somebody to start something she already finished.
+    // either way, and the wrong direction here is Root inviting somebody to
+    // start something she already finished.
     console.error('getPublicEntryWelcome baseline read failed', error);
     return null;
   }
-  if ((data ?? []).length > 0) return null;
 
   return {
     sessionId: origin.sessionId,
     patternTitle: origin.patternKey ? ENERGY_PATTERN_COPY[origin.patternKey].title : null,
+    hasBaseline: (data ?? []).length > 0,
     arc: arc?.kind === 'day_one' ? arc.message : null,
   };
 }

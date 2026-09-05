@@ -62,6 +62,9 @@
  *
  *   kind                   inner guard              lifetime
  *   public_entry_welcome    isRecurringMessageDue    snoozed returns next login
+ *     ...with a Baseline    isOfferStillDue          once ever (it is a
+ *                                                    greeting, not an
+ *                                                    invitation)
  *   trial_arc_day           isOfferStillDue          once per trial day (day-scoped key)
  *   questionnaire_assigned  isRecurringMessageDue    snoozed returns next login
  *   stress_load_assigned    isRecurringMessageDue    snoozed returns next login
@@ -290,6 +293,15 @@ export type RootPopupMessage =
       patternTitle: string | null;
       primaryHref: string;
       /**
+       * Her Baseline Assessment already exists, so this is a greeting
+       * rather than an invitation: different copy, a button to her Root Map
+       * instead of to the assessment, one "Got it" instead of "Maybe later"
+       * and "Ignore", and shown once ever rather than every login until
+       * something closes it. See lib/public-entry/welcome.ts's header for
+       * the production timings that made this shape necessary.
+       */
+      hasBaseline: boolean;
+      /**
        * The trial arc's day 1 message, when this welcome is carrying it
        * (lib/public-entry/welcome.ts). Null for every account outside the
        * arc, and the pop-up then renders the copy and the button it always
@@ -486,15 +498,27 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
       const messageKey = welcome.arc
         ? welcome.arc.messageKey
         : publicEntryWelcomePopupMessageKey(welcome.sessionId);
-      const due = welcome.arc
-        ? await isOfferStillDue(messageKey)
-        : await isRecurringMessageDue(messageKey);
+      // THREE LIFETIMES, AND EACH ONE IS THE CLOSER ITS OWN SHAPE HAS.
+      // The arc's day 1 obeys the arc's day-scoped key. An invitation with
+      // no Baseline yet recurs until she starts one or ignores it, which is
+      // what it has always done. A greeting to somebody who already has a
+      // Baseline is shown ONCE, ever, because nothing that happens later
+      // would end it and there is nothing left to invite her to.
+      const due =
+        welcome.arc || welcome.hasBaseline
+          ? await isOfferStillDue(messageKey)
+          : await isRecurringMessageDue(messageKey);
       if (due) {
         return {
           kind: 'public_entry_welcome',
           messageKey,
           patternTitle: welcome.patternTitle,
-          primaryHref: welcome.arc ? welcome.arc.copy.href : '/onboarding',
+          hasBaseline: welcome.hasBaseline,
+          primaryHref: welcome.arc
+            ? welcome.arc.copy.href
+            : welcome.hasBaseline
+              ? '/root-map'
+              : '/onboarding',
           arc: welcome.arc,
         };
       }
@@ -1093,7 +1117,14 @@ export async function getMyRootPopupMessageAction(): Promise<RootPopupMessage | 
   // carries the arc's key and is the arc's day 1 message, so it has to obey
   // the arc's lifetime; a welcome outside the arc falls through to the
   // recurring rule below, unchanged.
-  if (message.kind === 'trial_arc_day' || (message.kind === 'public_entry_welcome' && message.arc)) {
+  //
+  // A welcome that is a GREETING rather than an invitation is here too, for
+  // its own reason: it is shown once ever, marked dismissed on mount, and
+  // has no "ask me again" choice to honour.
+  if (
+    message.kind === 'trial_arc_day' ||
+    (message.kind === 'public_entry_welcome' && (message.arc || message.hasBaseline))
+  ) {
     return isOfferPopupDue(dismissal) ? message : null;
   }
 

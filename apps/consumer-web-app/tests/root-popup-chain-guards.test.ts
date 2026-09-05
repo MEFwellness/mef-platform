@@ -49,6 +49,7 @@ type World = {
    * file's matrix is unaffected.
    */
   publicEntryWelcomeSessionId: string | null;
+  publicEntryWelcomeHasBaseline: boolean;
   dismissals: Map<string, RootPopupDismissal>;
 };
 
@@ -65,6 +66,7 @@ const world: World = {
   priority: null,
   freeArcKey: null,
   publicEntryWelcomeSessionId: null,
+  publicEntryWelcomeHasBaseline: false,
   dismissals: new Map(),
 };
 
@@ -81,6 +83,7 @@ function resetWorld(): void {
   world.priority = null;
   world.freeArcKey = null;
   world.publicEntryWelcomeSessionId = null;
+  world.publicEntryWelcomeHasBaseline = false;
   world.dismissals = new Map();
 }
 
@@ -162,7 +165,15 @@ vi.mock('@/lib/root-popup-messages/freeArc', async (importOriginal) => {
 vi.mock('@/lib/public-entry/welcome', () => ({
   getPublicEntryWelcome: async () =>
     world.publicEntryWelcomeSessionId
-      ? { sessionId: world.publicEntryWelcomeSessionId, patternTitle: 'The gap before the dip' }
+      ? {
+          sessionId: world.publicEntryWelcomeSessionId,
+          patternTitle: 'The gap before the dip',
+          // Since 2026-09-05 the Baseline decides WHICH of two messages
+          // this is rather than whether there is one at all: an invitation
+          // that recurs, or a greeting shown once ever.
+          hasBaseline: world.publicEntryWelcomeHasBaseline,
+          arc: null,
+        }
       : null,
 }));
 
@@ -348,17 +359,34 @@ const KINDS: Array<{
   arrange: () => void;
 }> = [
   {
-    // The public entry welcome sits first in the chain, and is recurring
-    // rather than one-time for the same reason the invitations below it
-    // are: it shows real "Maybe later" and "Ignore" buttons, so those two
-    // words have to mean what they say. Its real closer is her Baseline
-    // Assessment arriving, which is inside getPublicEntryWelcome and is why
-    // it can never stand forever.
+    // The arrival INVITATION, which is what this is while she has no
+    // Baseline Assessment. Recurring rather than one-time for the same
+    // reason the invitations below it are: it shows real "Maybe later" and
+    // "Ignore" buttons, so those two words have to mean what they say. Its
+    // real closer is her Baseline arriving, which is why it can never stand
+    // forever.
     kind: 'public_entry_welcome',
     messageKey: 'public_entry_welcome:pe-session-1',
     lifetime: 'recurring',
     arrange: () => {
       world.publicEntryWelcomeSessionId = 'pe-session-1';
+      world.publicEntryWelcomeHasBaseline = false;
+    },
+  },
+  {
+    // The arrival GREETING, which is what the same message becomes once her
+    // Baseline exists. Shown once ever: nothing that happens later would
+    // close it, there is nothing left to invite her to, and it is marked
+    // dismissed the instant it mounts. Added 2026-09-05, when a real phone
+    // showed that the ordinary new-member path finishes the Baseline three
+    // minutes BEFORE she first reaches Home, so the invitation's own closer
+    // had always fired before it had a screen to appear on.
+    kind: 'public_entry_welcome',
+    messageKey: 'public_entry_welcome:pe-session-2',
+    lifetime: 'oneTime',
+    arrange: () => {
+      world.publicEntryWelcomeSessionId = 'pe-session-2';
+      world.publicEntryWelcomeHasBaseline = true;
     },
   },
   {

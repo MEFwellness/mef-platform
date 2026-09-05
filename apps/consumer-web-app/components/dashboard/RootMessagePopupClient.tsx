@@ -113,6 +113,14 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   const isTrialArc =
     message.kind === 'trial_arc_day' ||
     (message.kind === 'public_entry_welcome' && message.arc !== null);
+  // The arrival greeting: a welcome shown to somebody whose Baseline
+  // Assessment already exists. It is in the auto-dismiss-on-mount group
+  // because it is shown once ever and nothing that happens later would
+  // close it, exactly like the Priority Card's date-scoped key. An arrival
+  // INVITATION, where no Baseline exists yet, keeps its real "Maybe later"
+  // and "Ignore" buttons and is deliberately not in this group.
+  const isSettledWelcome =
+    message.kind === 'public_entry_welcome' && message.arc === null && message.hasBaseline;
   const isQuestionnaireAssigned = message.kind === 'questionnaire_assigned';
   const isFreeArcAvailable = message.kind === 'free_arc_available';
   // The Weekly Reflection is an invitation with real "Maybe later" and
@@ -141,7 +149,7 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
   // later"/"Ignore" button choice as day3/day7 (handleMaybeLater/
   // handleIgnore below), not an automatic one-time-ever dismissal.
   useEffect(() => {
-    if (isOffer || isPriorityCard || isWeeklyReview || isTrialArc) {
+    if (isOffer || isPriorityCard || isWeeklyReview || isTrialArc || isSettledWelcome) {
       ignoreRootPopupMessageAction(message.messageKey);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,6 +291,32 @@ export function RootMessagePopupClient({ message }: { message: RootPopupMessage 
         </>
       );
     }
+    // SHE ALREADY HAS A BASELINE, so there is nothing to invite her to and
+    // this is a greeting: her Root Map rather than the assessment, one
+    // "Got it" rather than a choice that would lie about what happens next,
+    // and shown once ever (marked dismissed on mount above).
+    if (message.hasBaseline) {
+      return (
+        <RootInvitePopup
+          eyebrow={ROOT_WELCOME_COPY.eyebrow}
+          title={ROOT_WELCOME_COPY.title}
+          body={
+            message.patternTitle
+              ? ROOT_WELCOME_COPY.settled.bodyWithPattern(message.patternTitle)
+              : ROOT_WELCOME_COPY.settled.bodyWithoutPattern
+          }
+          ctaLabel={ROOT_WELCOME_COPY.settled.ctaLabel}
+          href={message.primaryHref}
+          isPending={isPending}
+          dismissLabel={ROOT_WELCOME_COPY.settled.dismissLabel}
+          onDismiss={() => {
+            setClosed(true);
+            router.refresh();
+          }}
+        />
+      );
+    }
+
     return (
       <RootInvitePopup
         eyebrow={ROOT_WELCOME_COPY.eyebrow}

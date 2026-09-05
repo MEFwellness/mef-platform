@@ -349,6 +349,31 @@ export const ROOT_WELCOME_COPY = {
   /** When she arrived and created an account without finishing the nine questions. */
   bodyWithoutPattern:
     'Before you had an account, you started Where Your Energy Goes but did not finish it, so there is nothing from it worth telling you back. Your Baseline Assessment is where the real picture starts.',
+
+  /**
+   * WHEN HER BASELINE IS ALREADY DONE (2026-09-05).
+   *
+   * The ordinary new-member path runs the welcome flow and the Baseline
+   * Assessment before she ever reaches Home, so this is the shape most
+   * arrivals will actually read. It is a GREETING, not an invitation:
+   * nothing is being asked of her, the button goes to the picture she has
+   * already started building rather than to something she has finished,
+   * and the closing word is "Got it" rather than "Maybe later", because
+   * this is shown once and does not come back.
+   *
+   * It still says out loud that the quiz was a first impression and not a
+   * measurement. That sentence is the whole reason the arrival is allowed
+   * to be spoken about at all, and it does not become optional just
+   * because a real assessment now sits underneath it.
+   */
+  settled: {
+    ctaLabel: 'See my Root Map',
+    dismissLabel: 'Got it',
+    bodyWithPattern: (patternTitle: string): string =>
+      `Before you had an account, you spent two minutes on Where Your Energy Goes, and what came back was "${patternTitle}". That was a first impression from nine questions, not a measurement, and I have kept it as exactly that. Your Baseline Assessment has already gone underneath it, so the real picture has started.`,
+    bodyWithoutPattern:
+      'Before you had an account, you started Where Your Energy Goes but did not finish it, so there is nothing from it worth telling you back. Your Baseline Assessment is done, so the real picture has started from your own answers instead.',
+  },
 } as const;
 
 /**

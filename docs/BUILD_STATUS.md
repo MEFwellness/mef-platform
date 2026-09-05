@@ -1,3 +1,64 @@
+## The arrival now gets said out loud, even after the Baseline (2026-09-05)
+
+The signup link binds correctly. A real phone then showed that the member
+was never TOLD, because the one surface that would have said it had already
+closed itself before she reached a screen it could appear on.
+
+### What the phone did, from production rows
+
+  12:02:35  quiz opened
+  12:03:25  nine questions finished, pattern wind_down_deficit, no email left
+  12:04:45  the server minted the one-time reference
+  12:05:18  account created
+  12:05:21  arrival bound to her account, marked signup_link
+  12:06:31  the welcome flow captured her goal (body_composition)
+  12:08:15  Baseline Assessment finished
+  12:09:09  Home reached for the FIRST time
+  12:09:13  the Priority Card took the pop-up slot
+
+Two rules, each correct on its own, closed both doors in the three minutes
+before Home:
+
+- The Baseline Assessment only mentions her arrival when the welcome flow
+  captured no goal (`app/onboarding/page.tsx`, `knownPrimaryGoal ? null :
+  getMemberOrigin(...)`). It had captured one, so the assessment stayed
+  quiet. That is deliberate and stays: being asked what matters most twice
+  in two minutes is worse than not being greeted.
+- The arrival pop-up's closer was "a Baseline exists", because the whole
+  message was an invitation to start one. By 12:09 one did.
+
+With the trial arc launched for no one, those two are the only surfaces
+that read `member_public_entry_origin` at all. So the bind was perfect and
+completely invisible, which is the same failure class as the binding bugs
+themselves: correct data, nothing that shows it.
+
+### The fix: the Baseline chooses WHICH message, not WHETHER
+
+`getPublicEntryWelcome` no longer returns null once a Baseline exists. It
+returns `hasBaseline`, and the message has two shapes:
+
+  no Baseline yet   An INVITATION. "Start my Baseline Assessment", real
+                    "Maybe later" and "Ignore" buttons, recurring until she
+                    starts one or ignores it. Exactly what it always was,
+                    unchanged in copy, lifetime and behaviour.
+  Baseline done     A GREETING. It names the arrival, points at her Root
+                    Map, and offers one "Got it". Shown ONCE, ever, marked
+                    dismissed the instant it mounts, because nothing that
+                    happens later would close it and there is nothing left
+                    to invite her to.
+
+Both shapes still say the sentence that makes speaking about a public
+answer permissible at all: the quiz was a first impression from nine
+questions, not a measurement. A finished Baseline does not make that
+optional, and a test holds it.
+
+**Three lifetimes on one kind, and each is the closer its own shape has.**
+The arc's day 1 obeys the arc's day-scoped key; the invitation recurs; the
+greeting is once ever. Both due-checks in `rootPopupMessages.ts` know it,
+so a second tab cannot resurrect a greeting the first one already spent,
+and `tests/root-popup-chain-guards.test.ts` now carries the greeting as its
+own row in the matrix rather than the kind having one lifetime.
+
 ## The signup link closes the last quiz-binding gap (2026-09-05)
 
 The create-account button on a finished "Where Your Energy Goes" result now
