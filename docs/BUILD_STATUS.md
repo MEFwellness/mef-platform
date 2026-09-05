@@ -52,6 +52,41 @@ answer permissible at all: the quiz was a first impression from nine
 questions, not a measurement. A finished Baseline does not make that
 optional, and a test holds it.
 
+### The invitation was unreachable too, which settles the diagnosis
+
+Driving it live turned up the other half. A member with no Baseline
+submission is never sent to Home at all: `lib/auth/postLoginRoute.ts`
+routes her to `/onboarding` until one exists. So the arrival message could
+not be read in either direction. Without a Baseline she is not on Home;
+with one, the old rule returned null. The pop-up was structurally
+unreachable, and the greeting is the only shape of it that can ever be
+seen.
+
+### Driven on the live site: 21 checks
+
+`apps/consumer-web-app/scripts/verify-arrival-greeting-live.mts`, against
+app.mefwellness.com in a real browser. A real signed-out quiz walked end to
+end, the reference redeemed through the shipped path, and Home opened with
+her own session cookie: the greeting appears, names what the quiz came back
+with, still calls it a first impression and not a measurement, offers her
+Root Map and one "Got it", never invites her to start what she finished,
+and does NOT come back on a second visit. The Baseline submission is
+inserted rather than answered, which the run says out loud, because the only
+thing this branch reads is whether one exists.
+
+`oakomah66+quiztest3@gmail.com` is deliberately untouched: its greeting is
+still unspent, so the real phone that found this can open the app and see
+it.
+
+**Two rig faults the run found, both worth keeping written down.** A brand
+new account is routed to `/onboarding` until it has passed the CONSENT
+gate, not the submission gate, so a rig that only inserts a submission
+never reaches Home. And an assertion that the reference table was empty
+afterwards was wrong and dangerous: the real phone's own spent reference
+legitimately lives there, and chasing "empty" tried to delete a real
+member's arrival. Only the write-once trigger on `user_acquisition`
+refused it. The check is now scoped to the rows the run itself created.
+
 **Three lifetimes on one kind, and each is the closer its own shape has.**
 The arc's day 1 obeys the arc's day-scoped key; the invitation recurs; the
 greeting is once ever. Both due-checks in `rootPopupMessages.ts` know it,
