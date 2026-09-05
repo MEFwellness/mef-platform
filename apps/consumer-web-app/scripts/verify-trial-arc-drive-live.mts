@@ -809,89 +809,196 @@ async function stageExclusion() {
   check('no production account was written to in this stage', (profiles ?? []).length > 0, `${(profiles ?? []).length} accounts read`);
 }
 
-async function stageWelcome() {
-  console.log('\n== The fatigue handshake: day 1 rides the arrival welcome ==');
-  await rigTools.resetAll(rig.id);
-  await service.from('member_public_entry_origin').delete().eq('member_id', rig.id);
-  await rigTools.setRigDay(rig.id, 1);
 
-  // A genuine signed-out walk of the public quiz, in a browser with no
-  // session at all, exactly as a stranger takes it.
-  const context = await browser.newContext({ viewport: PHONE });
-  const page = await context.newPage();
-  await page.goto(`${BASE}/energy/qa`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: 'Begin' }).waitFor({ timeout: 30000 });
-  const token = await page.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'));
-  check('the signed out quiz issued a visitor token', Boolean(token), token ? 'yes' : 'none');
-  await page.getByRole('button', { name: 'Begin' }).click();
+/**
+ * Runs `fn` with her completed Core Values Snapshot and Life Signal Check
+ * set aside, and puts them back afterwards whatever happens.
+ *
+ * WHY A VERIFICATION RUN NEEDS THIS. The rig finishes both conversations
+ * early, and from then on it is AHEAD of the week on days 1 to 4, so the arc
+ * correctly says nothing at all on those days. That is the engine being
+ * right. Watching the day 1 branches therefore needs an account that has not
+ * finished them, and this is the same account, briefly.
+ *
+ * "COMPLETED" IS TWO ROWS, NOT ONE. The runtime's session says so, and so
+ * does an assessment_attempts row, which is what assessment_status_by_member
+ * reads and therefore what hasEverCompleted answers from. Both move.
+ * assessment_attempts allows exactly two shapes (migration 73's check
+ * constraint): completed with a time, or in_progress with none.
+ */
+async function withConversationsSetAside<T>(fn: () => Promise<T>): Promise<T> {
+  const { getUnifiedAssessmentDefinitionByKey } = await import('../lib/assessment-foundation/repository');
+  const { findAssessmentRegistryEntry } = await import('../lib/assessment-registry/registry');
+  const { LSC_KEY } = await import('../lib/life-signal-check/constants');
+  const { CVS_KEY } = await import('../lib/core-values-snapshot/constants');
 
-  for (let i = 0; i < 14; i += 1) {
-    const groups = page.locator('[role="radiogroup"]');
-    if ((await groups.count()) === 0) break;
-    const radios = groups.first().locator('[role="radio"]');
-    if ((await radios.count()) === 0) break;
-    await radios.nth(1).click({ timeout: 6000 }).catch(() => {});
-    await page.waitForTimeout(700);
-  }
-  const finishedText = await page.locator('body').innerText();
-  check('the quiz produced a named pattern for this visitor', /pattern|energy/i.test(finishedText), '');
+  const sessionIds: string[] = [];
+  const attempts: { id: string; completed_at: string }[] = [];
 
-  const { data: sessionRow } = await service
-    .from('public_entry_sessions')
-    .select('id, pattern_key, completed_at')
-    .eq('visitor_token', token)
-    .maybeSingle();
-  note(`public session: ${JSON.stringify(sessionRow)}`);
-
-  // The bind, exactly as the app does it: the same browser, now carrying a
-  // session, fires PublicEntryClaim from the root layout on the next page
-  // load. Nothing here posts to the endpoint by hand.
-  const minted = await mintSessionCookies(rig.email, { baseUrl: BASE });
-  if (!minted || minted.session.user.id !== rig.id) {
-    check('a session could be minted for the rig', false);
-  } else {
-    await context.addCookies(minted.cookies);
-    await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(6000);
-
-    const { data: origin } = await service
-      .from('member_public_entry_origin')
-      .select('session_id, pattern_key')
-      .eq('member_id', rig.id)
-      .maybeSingle();
-    check('the arrival bound itself to the rig, the way real signup does', origin !== null, JSON.stringify(origin));
-
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    const dialog = page.locator('div[role="dialog"][aria-labelledby="root-invite-popup-title"]');
-    await dialog.waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
-    const present = await dialog.count();
-    if (present === 0) {
-      check('Day 1: the arrival welcome rendered', false, 'no pop-up');
-    } else {
-      const title = (await dialog.locator('#root-invite-popup-title').innerText()).trim();
-      const body = (await dialog.locator('p').nth(1).innerText()).trim();
-      const ctaLabel = (await dialog.locator('button').first().innerText()).trim();
-      const patternTitle = origin?.pattern_key
-        ? (await import('../lib/public-entry/copy')).ENERGY_PATTERN_COPY[origin.pattern_key as never].title
-        : null;
-      const expected = patternTitle
-        ? TRIAL_ARC_WELCOME.bodyWithPattern(patternTitle)
-        : TRIAL_ARC_WELCOME.bodyWithoutPattern;
-      check('Day 1: the welcome carries the arc framing', title === TRIAL_ARC_WELCOME.title, title);
-      check('Day 1: it continues from her real quiz result, word for word', body === expected, body.slice(0, 110));
-      check('Day 1: and its button points at Core Values Snapshot', ctaLabel === TRIAL_ARC_WELCOME.ctaLabel, ctaLabel);
-      const receipt = await waitForReceipt(trialArcPopupMessageKey(1));
-      check('Day 1: it wrote the ARC\'s receipt, so it is one message and not two', receipt !== null && receipt.pointed_step === 'core_values_snapshot', receipt ? receipt.pointed_step : 'no row');
+  for (const key of [LSC_KEY, CVS_KEY]) {
+    const unified = await getUnifiedAssessmentDefinitionByKey(service, key);
+    const catalogId = findAssessmentRegistryEntry(key as never)?.databaseId ?? '';
+    if (unified) {
+      const { data } = await service
+        .from('unified_assessment_sessions')
+        .select('id')
+        .eq('member_id', rig.id)
+        .eq('assessment_definition_id', unified.id)
+        .eq('status', 'completed');
+      sessionIds.push(...((data ?? []) as { id: string }[]).map((r) => r.id));
     }
-    await context.close();
-    await retireSession(minted);
+    const { data: rows } = await service
+      .from('assessment_attempts')
+      .select('id, completed_at')
+      .eq('member_id', rig.id)
+      .eq('assessment_definition_id', catalogId)
+      .eq('status', 'completed');
+    attempts.push(...((rows ?? []) as { id: string; completed_at: string }[]));
   }
 
-  // Day 2: the welcome must stand down so the week can speak.
-  await rigTools.setRigDay(rig.id, 2);
-  await rigTools.resetArcPopups(rig.id);
-  const dayTwo = await visit();
-  check('Day 2: the welcome has stood down and the arc speaks instead', dayTwo.present && dayTwo.title !== TRIAL_ARC_WELCOME.title, dayTwo.title);
+  if (sessionIds.length > 0) {
+    await service.from('unified_assessment_sessions').update({ status: 'abandoned' }).in('id', sessionIds);
+  }
+  if (attempts.length > 0) {
+    const moved = await service
+      .from('assessment_attempts')
+      .update({ status: 'in_progress', completed_at: null })
+      .in('id', attempts.map((a) => a.id))
+      .select('id');
+    check(
+      'her two conversations really were set aside for this stage',
+      moved.error === null && (moved.data ?? []).length === attempts.length,
+      moved.error?.message ?? `${(moved.data ?? []).length}/${attempts.length}`
+    );
+  }
+
+  try {
+    return await fn();
+  } finally {
+    if (sessionIds.length > 0) {
+      await service.from('unified_assessment_sessions').update({ status: 'completed' }).in('id', sessionIds);
+    }
+    let restored = 0;
+    for (const attempt of attempts) {
+      const put = await service
+        .from('assessment_attempts')
+        .update({ status: 'completed', completed_at: attempt.completed_at })
+        .eq('id', attempt.id)
+        .select('id');
+      if (!put.error && (put.data ?? []).length === 1) restored += 1;
+    }
+    check(
+      'and both were put back exactly as they were',
+      restored === attempts.length,
+      `${restored}/${attempts.length} attempts`
+    );
+  }
+}
+
+async function stageWelcome() {
+  await withConversationsSetAside(async () => {
+    console.log('\n== The fatigue handshake: day 1 rides the arrival welcome ==');
+    await rigTools.resetAll(rig.id);
+    await service.from('member_public_entry_origin').delete().eq('member_id', rig.id);
+    await rigTools.setRigDay(rig.id, 1);
+  
+    // A genuine signed-out walk of the public quiz, in a browser with no
+    // session at all, exactly as a stranger takes it.
+    const context = await browser.newContext({ viewport: PHONE });
+    const page = await context.newPage();
+    await page.goto(`${BASE}/energy/qa`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Begin' }).waitFor({ timeout: 30000 });
+    const token = await page.evaluate(() => localStorage.getItem('mef.publicEntry.token.v1'));
+    check('the signed out quiz issued a visitor token', Boolean(token), token ? 'yes' : 'none');
+    await page.getByRole('button', { name: 'Begin' }).click();
+  
+    // Nine questions, driven exactly as scripts/verify-public-entry-live.mjs
+    // already drives them: press the chapter Continue when one is showing, then
+    // tap an option. The public experience advances on the tap itself.
+    for (let q = 0; q < 9; q += 1) {
+      const cont = page.getByRole('button', { name: 'Continue' });
+      if (await cont.isVisible().catch(() => false)) await cont.click();
+      const options = page.locator('[role="radio"]');
+      await options.first().waitFor({ timeout: 30000 }).catch(() => {});
+      const count = await options.count();
+      if (count === 0) break;
+      await options.nth(Math.min(1, count - 1)).click({ timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(450);
+    }
+    await page.getByText('What we noticed').waitFor({ timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(2500);
+  
+    const { data: sessionRow } = await service
+      .from('public_entry_sessions')
+      .select('id, pattern_key, completed_at')
+      .eq('visitor_token', token)
+      .maybeSingle();
+    check(
+      'the quiz produced a named pattern for this visitor',
+      Boolean(sessionRow?.pattern_key),
+      JSON.stringify(sessionRow)
+    );
+  
+    // The bind, exactly as the app does it: the same browser, now carrying a
+    // session, fires PublicEntryClaim from the root layout on the next page
+    // load. Nothing here posts to the endpoint by hand.
+    const minted = await mintSessionCookies(rig.email, { baseUrl: BASE });
+    if (!minted || minted.session.user.id !== rig.id) {
+      check('a session could be minted for the rig', false);
+    } else {
+      await context.addCookies(minted.cookies);
+      await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(6000);
+  
+      const { data: origin } = await service
+        .from('member_public_entry_origin')
+        .select('session_id, pattern_key')
+        .eq('member_id', rig.id)
+        .maybeSingle();
+      check('the arrival bound itself to the rig, the way real signup does', origin !== null, JSON.stringify(origin));
+  
+      // THE CLAIM IS FIRED FROM A MOUNTED EFFECT ON THE PAGE SHE LANDS ON, so
+      // the server render of that very load still saw no arrival and offered
+      // the arc's own day 1 pop-up, which retires itself on mount. That is the
+      // real sequence for anybody who lands straight on Home, and it is not
+      // what this check is about, so the arc's day 1 is put back on the table
+      // before the next load, which is where the welcome carries it.
+      await rigTools.resetArcPopups(rig.id);
+      await rigTools.resetDeliveries(rig.id);
+  
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const dialog = page.locator('div[role="dialog"][aria-labelledby="root-invite-popup-title"]');
+      await dialog.waitFor({ state: 'visible', timeout: 25000 }).catch(() => {});
+      const present = await dialog.count();
+      if (present === 0) {
+        check('Day 1: the arrival welcome rendered', false, 'no pop-up');
+      } else {
+        const title = (await dialog.locator('#root-invite-popup-title').innerText()).trim();
+        const body = (await dialog.locator('p').nth(1).innerText()).trim();
+        const ctaLabel = (await dialog.locator('button').first().innerText()).trim();
+        const patternTitle = origin?.pattern_key
+          ? (await import('../lib/public-entry/copy')).ENERGY_PATTERN_COPY[origin.pattern_key as never].title
+          : null;
+        const expected = patternTitle
+          ? TRIAL_ARC_WELCOME.bodyWithPattern(patternTitle)
+          : TRIAL_ARC_WELCOME.bodyWithoutPattern;
+        check('Day 1: the welcome carries the arc framing', title === TRIAL_ARC_WELCOME.title, title);
+        check('Day 1: it continues from her real quiz result, word for word', body === expected, body.slice(0, 110));
+        check('Day 1: and its button points at Core Values Snapshot', ctaLabel === TRIAL_ARC_WELCOME.ctaLabel, ctaLabel);
+        const receipt = await waitForReceipt(trialArcPopupMessageKey(1));
+        check('Day 1: it wrote the ARC\'s receipt, so it is one message and not two', receipt !== null && receipt.pointed_step === 'core_values_snapshot', receipt ? receipt.pointed_step : 'no row');
+      }
+      await context.close();
+      await retireSession(minted);
+    }
+  
+    // Day 2: the welcome must stand down so the week can speak.
+    await rigTools.setRigDay(rig.id, 2);
+    await rigTools.resetArcPopups(rig.id);
+    const dayTwo = await visit();
+    check('Day 2: the welcome has stood down and the arc speaks instead', dayTwo.present && dayTwo.title !== TRIAL_ARC_WELCOME.title, dayTwo.title);
+  
+  });
 }
 
 async function stageRestore() {

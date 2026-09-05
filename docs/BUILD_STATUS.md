@@ -1,3 +1,132 @@
+## The trial arc, watched happening on the live site (2026-09-04)
+
+Prompt 3 proved the arc's rules, its clock and its receipt mechanics.
+None of that is the same as watching it happen, and watching it found
+three real defects that every unit test had agreed were fine.
+
+**One named account may be inside the arc while it is launched for
+nobody.** `TRIAL_ARC_TEST_ACCOUNT_IDS` is a server only environment
+variable, empty by default, naming accounts that skip eligibility rules
+1, 2 and 3: the launch date, the test account refusal, and the trial tier
+plus system source. It skips nothing else. Rules 4, 5 and 6 are evaluated
+for a listed account exactly as for anybody, so the worst a mistyped
+entry can do is start the sequence for somebody genuinely on a free
+trial. Anything that is not a well formed UUID is dropped rather than
+trusted, so a typo can only shorten the list.
+
+**The rig.** `oakomah66+trialarcrig@gmail.com`, created by the same
+service role method every other production fixture uses, flagged
+`is_test` in the same call chain that created it, timezone pinned to
+America/New_York so a day boundary in a verification run is a fact rather
+than a guess. It is kept, not deleted: prompts 4 to 7 each need the same
+account in a known state. `scripts/trial-arc-rig.mjs` drives it, and
+every write in that file asserts the account is flagged is_test before
+it touches anything.
+
+**BUG 1: a tap that arrived before its own receipt was silently lost.**
+The display beacon and the CTA beacon are two independent requests fired
+about a second apart, and nothing orders them. A member who presses the
+button the moment the pop-up appears sends the tap while the receipt is
+still in flight, and an UPDATE against a row that does not exist yet
+matches nothing and returns no error. The closer then counted a message
+she had ACTED ON as one she had ignored, and three of those stop Root
+talking to somebody who was doing exactly what was asked. The CTA action
+now claims the receipt before it stamps it: a tap is proof of a display,
+so whichever request arrives first writes the row and the other finds it
+there. Found on the first live run of day 1; the re-run stamped it.
+
+**BUG 2: Root said "See the experiment" and sent her to a page that had
+none.** Days 3 and 4 pointed at `/assessments/life-signal-check/experiment`,
+which reads like the right place and is not: it renders the panel only
+once an experiment row already exists, and for anybody who has never
+started one it says "No experiment running right now" and offers no way
+to start one. The arc only ever offers an experiment when none is
+running, which is exactly the case that page cannot serve, so the button
+was a dead end every single time it was pressed. The offer lives on her
+own results screen, beside her real scoring, and that is where it points
+now (`trialArcExperimentHref`, `lib/trial-arc/experimentOffer.ts`).
+Verified live: the button lands on her own session's results page and the
+start button is there.
+
+**BUG 3: the arc went quiet for a greeting that was never coming.** The
+arc yields to Root Presence, which is right, and it decided presence was
+about to speak whenever the current gap had no greeting row yet. "No row
+yet" is not "one is about to be written": the greeting is claimed in
+exactly one place, the moment today's Morning Brief is CREATED. If that
+brief already exists, nothing claims it today at all, and the member got
+neither message on every visit for the rest of the gap. An unclaimed
+greeting now silences the arc only on the visit that will actually write
+today's brief. Still a read and never a claim.
+
+**What was driven, on app.mefwellness.com, in a real browser, signed in
+as the rig.** Days 1 to 5, with the trial start moved between checks so
+each day is the day it says it is. Every message compared against
+`lib/trial-arc/copy.ts` itself, word for word, rather than against a
+phrase retyped into a script.
+
+  Day 1            13 of 13, including the receipt carrying HER calendar
+                   day and a second visit the same day showing nothing
+  Day 2            16 of 16, both branches: the gentle start toward Core
+                   Values Snapshot, and, after taking it through its real
+                   screens, the on-pace message pointing at Life Signal
+                   Check
+  Days 3 and 4     14 of 14: the experiment message and its now correct
+                   destination, silence while one is running, and silence
+                   after a decline, where the decline was produced by
+                   letting the real offer pop-up reach her and leaving it
+  Day 5            17 of 17: Body-Value Echo FIRED for her own answers
+                   (Peace & Calm beside Tension, which is the real
+                   adjacency pair), and the missing-half nudge with her
+                   Life Signal Check briefly set aside
+  The closer        9 of 9: three messages delivered and untouched, then
+                   silence on the next pacing day AND on an earlier one,
+                   with the table showing three rows reading "no response
+                   logged"
+  Root Presence     6 of 6: silent on the visit the greeting is claimed,
+                   silent for the rest of that day, and speaking again the
+                   next morning with the warm re-entry line
+  Exclusion         5 of 5: 8weeks2fab, a fixture with an active coach
+                   assignment, was named on the production override list
+                   for one check and was still refused, with no message
+                   and no receipt. It came straight off again.
+  The handshake    10 of 10: a signed out walk of Where Your Energy Goes,
+                   bound to the rig by the app's own claim effect, then the
+                   welcome carrying the arc's day 1 framing and continuing
+                   from her real pattern, writing the ARC's receipt so it
+                   is one message and not two; and on day 2 the welcome
+                   stands down and the week speaks
+  Restore           6 of 6: the rig back on a clean day 1, and all 19 other
+                   production accounts still refusing with launch_not_set
+
+**Three things the run learned about itself, and they are worth keeping.**
+A rig whose trial START is moved backwards has genuinely empty earlier
+days, so the engine reads it as STALLED from day 3, correctly; the stages
+that are about pacing give it a real history first. A rig that has
+finished both conversations is AHEAD on days 1 to 4, so the arc correctly
+says nothing; the stages that need those days set the completions aside
+and put them back. And "completed" is two rows, a runtime session and an
+`assessment_attempts` row, the second of which is what
+`assessment_status_by_member` reads.
+
+**A fourth defect, in the verification script rather than the app.** The
+first attempt to set a completion aside updated only the status, and
+`assessment_attempts_completed_fields` (migration 73) rejected every row.
+The update returned no error to the naked eye and the run believed it had
+done something it had not. Exactly the "no error is not it worked" shape,
+and now checked both ways.
+
+**What could not be exercised, and what would prove it.** The signup form
+itself. Turnstile is live on it by design, so the rig was created with the
+service role and its arrival was bound by the app's own claim effect
+firing from the browser that held the visitor token, which is the same
+code path a real signup runs a moment later. What is therefore unproven
+is only the form submission, and a person signing up on a phone through
+`/energy` proves it in thirty seconds.
+
+**Still unproven anywhere.** Day 6's recap and day 7's close, which are
+not built. A real calendar rollover: every day boundary here was produced
+by moving the rig's own trial start, not by waiting a day.
+
 ## The trial week has a clock, and Root paces it (2026-09-04)
 
 Migration 204, and the days 1 to 5 half of the trial arc. Still launched
