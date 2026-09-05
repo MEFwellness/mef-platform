@@ -1,8 +1,10 @@
-## Day 8 driven on the live site: 132 checks, one rig, nothing launched (2026-09-05)
+## Day 8 driven on the live site: 126 checks, one rig, nothing launched (2026-09-05)
 
 `apps/consumer-web-app/scripts/verify-trial-ended-day8-live.mts`, run
 against app.mefwellness.com in a real browser. Fourteen stages, every one
-runnable on its own.
+runnable on its own, 126 checks in total:
+forensics 7, realpath 10, bind 9, orphans 1, week 7, full 28, unopened 17,
+partial 15, noarc 12, locked 2, exclusion 4, doors 6, quiet 3, restore 5.
 
 ### Task A, proved on production rows and then on production itself
 
