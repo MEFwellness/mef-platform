@@ -121,11 +121,13 @@ reading fails all three write-once checks.
 
 ### Live verification, production, 2026-09-05
 
-`scripts/verify-trial-arc-day6-live.mts`, 82 checks against
-app.mefwellness.com in a 393 by 852 viewport, 82 passing, no console or
-page errors and no em dash on any screen. Sessions were minted and
-retired locally, never typed into the login form. The only account
-written to is the permanent rig.
+`scripts/verify-trial-arc-day6-live.mts`, run stage by stage against
+app.mefwellness.com in a 393 by 852 viewport: 34 checks on day 6 itself,
+5 on the stored plan, 16 on the closer, 9 on the arrival callback, 17 on
+tier A, 3 on the exclusion and 5 on the restore. 89 checks, 89 passing,
+no console or page errors and no em dash on any screen. Sessions were
+minted and retired locally, never typed into the login form. The only
+account written to is the permanent rig.
 
 Seen live, on the real screen, from the rig's real rows: the day 6
 pop-up word for word; the button landing on `/trial/week`; a tier C
