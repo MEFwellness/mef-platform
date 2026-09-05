@@ -60,7 +60,7 @@ import { getMemberOrigin } from '../public-entry/data';
 import { ENERGY_PATTERN_COPY } from '../public-entry/copy';
 import { daysBetweenLocalDates } from '../feed/dateMath';
 import { localDateStringFor } from '../time/localDate';
-import { TRIAL_ARC_LAUNCH, trialArcLaunchInstant } from './config';
+import { TRIAL_ARC_LAUNCH, isTrialArcTestAccount, trialArcLaunchInstant } from './config';
 import { resolveTrialArcEligibility } from './eligibility';
 import {
   TRIAL_ARC_LAST_PACING_DAY,
@@ -208,7 +208,14 @@ export async function resolveTrialArcDecision(
   // always reads the constant, and a launch handed in here still has to get
   // past all six eligibility rules on its own.
   const launch = options.launch === undefined ? TRIAL_ARC_LAUNCH : options.launch;
-  if (trialArcLaunchInstant(launch) === null) return silentDecision(false, null, 'not_launched');
+  // The named test rig is the one account that gets past a null launch, and
+  // it gets past it here as well as inside eligibility, so the zero-query
+  // short circuit stays true for everybody else. The check is synchronous
+  // and reads a server environment variable that is empty by default, so
+  // this still costs no round trip for any real member.
+  if (trialArcLaunchInstant(launch) === null && !isTrialArcTestAccount(memberId)) {
+    return silentDecision(false, null, 'not_launched');
+  }
 
   const now = options.now ?? new Date();
 

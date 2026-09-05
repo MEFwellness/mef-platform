@@ -25,6 +25,15 @@
  *   5. Nobody has suppressed the arc for this account (migration 203).
  *   6. The relationship derivation answers PROSPECT.
  *
+ * THE ONE OVERRIDE, AND WHAT IT CANNOT DO. TRIAL_ARC_TEST_ACCOUNT_IDS
+ * (./config.ts) names accounts that skip rules 1, 2 and 3, so the arc can be
+ * driven and watched on the live site while it stays launched for nobody
+ * else. It cannot skip rules 4, 5 or 6. A coaching client named on that list
+ * is still refused by rule 4 and by rule 6, and a suppressed account is
+ * still refused by rule 5, so the worst a mistyped entry can do is start the
+ * sequence for somebody who is genuinely on a free trial. The list is empty
+ * by default and is read from the server environment only.
+ *
  * RULES 4 AND 6 ARE NOT THE SAME RULE, and both are here on purpose. Rule 6
  * asks who this account is today. Rule 4 asks whether it has ever been a
  * client. An account whose only assignment was revoked passes 6 and fails
@@ -46,7 +55,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { deriveRelationship, fetchRelationshipFacts } from '../membership/relationship';
 import type { RelationshipFacts, RelationshipType } from '../membership/relationship';
-import { TRIAL_ARC_LAUNCH, trialArcLaunchInstant } from './config';
+import { TRIAL_ARC_LAUNCH, isTrialArcTestAccount, trialArcLaunchInstant } from './config';
 
 /**
  * Why the answer is what it is. One value per rule, plus the two ways the
@@ -116,6 +125,12 @@ export interface TrialArcEligibilityInput {
   now: Date;
   /** Defaults to the shipped constant. Passed explicitly only by tests and by a one-off report. */
   launch?: string | null;
+  /**
+   * The raw TRIAL_ARC_TEST_ACCOUNT_IDS value. Defaults to reading the
+   * server environment. Passed explicitly only by tests, so the rig
+   * override can be asserted without setting a process variable.
+   */
+  testAccounts?: string | undefined;
 }
 
 /**
@@ -127,31 +142,47 @@ export function decideTrialArcEligibility(input: TrialArcEligibilityInput): Tria
   const relationship = deriveRelationship(facts);
   const launch = trialArcLaunchInstant(input.launch === undefined ? TRIAL_ARC_LAUNCH : input.launch);
 
-  // Rule 1. First, and unconditionally first: while there is no launch
-  // date there is no arc, and no other fact about the account can change
-  // that.
-  if (launch === null) return decision('launch_not_set', relationship);
+  // THE TEST RIG OVERRIDE. One named account, from a server only environment
+  // variable that is empty by default, skips rules 1, 2 and 3 so the arc can
+  // be watched happening on the real site while the launch date is still
+  // null for everybody else. It skips NOTHING below this block: rules 4, 5
+  // and 6 are evaluated for the rig exactly as they are for anybody, which
+  // is what makes the list safe to have. See ./config.ts for the whole
+  // reasoning.
+  const isRig = isTrialArcTestAccount(facts.memberId, input.testAccounts);
 
+  // Rule 1. First, and unconditionally first: while there is no launch date
+  // there is no arc, and no other fact about the account can change that.
+  // The rig is the one exception, and only because it is named by hand in a
+  // server variable that is empty by default.
+  if (!isRig && launch === null) return decision('launch_not_set', relationship);
+
+  // A failed read is refused for everybody, rig included. "We could not tell"
+  // must never resolve towards sending.
   if (facts.readFailed) return decision('facts_unavailable', relationship);
 
-  if (!facts.accountCreatedAt) return decision('facts_unavailable', relationship);
-  const createdAt = new Date(facts.accountCreatedAt);
-  if (Number.isNaN(createdAt.getTime())) return decision('facts_unavailable', relationship);
-  // "On or after", so an account created in the launch instant itself is in.
-  if (createdAt.getTime() < launch.getTime()) {
-    return decision('account_predates_launch', relationship);
+  if (!isRig) {
+    if (!facts.accountCreatedAt) return decision('facts_unavailable', relationship);
+    const createdAt = new Date(facts.accountCreatedAt);
+    if (Number.isNaN(createdAt.getTime())) return decision('facts_unavailable', relationship);
+    // "On or after", so an account created in the launch instant itself is in.
+    // `launch` is non-null here: the only path into this block with a null
+    // launch is the rig, and the rig does not enter it.
+    if (launch !== null && createdAt.getTime() < launch.getTime()) {
+      return decision('account_predates_launch', relationship);
+    }
+    // An account that does not exist yet at `now` is not a fact this can act
+    // on either. Cheap, and it keeps a clock skew from being a send.
+    if (createdAt.getTime() > now.getTime()) return decision('facts_unavailable', relationship);
+
+    // Rule 2.
+    if (facts.isTest) return decision('test_account', relationship);
+
+    // Rule 3.
+    if (!facts.hasSubscription) return decision('no_subscription', relationship);
+    if (facts.tier !== 'trial') return decision('not_on_trial', relationship);
+    if (facts.source !== 'system') return decision('trial_not_automatic', relationship);
   }
-  // An account that does not exist yet at `now` is not a fact this can act
-  // on either. Cheap, and it keeps a clock skew from being a send.
-  if (createdAt.getTime() > now.getTime()) return decision('facts_unavailable', relationship);
-
-  // Rule 2.
-  if (facts.isTest) return decision('test_account', relationship);
-
-  // Rule 3.
-  if (!facts.hasSubscription) return decision('no_subscription', relationship);
-  if (facts.tier !== 'trial') return decision('not_on_trial', relationship);
-  if (facts.source !== 'system') return decision('trial_not_automatic', relationship);
 
   // Rule 4. Any row, any status, ever.
   if (facts.everCoachAssigned) return decision('ever_coach_assigned', relationship);
@@ -174,12 +205,13 @@ export function decideTrialArcEligibility(input: TrialArcEligibilityInput): Tria
 export async function resolveTrialArcEligibility(
   supabase: SupabaseClient,
   memberId: string,
-  options: { now?: Date; launch?: string | null } = {}
+  options: { now?: Date; launch?: string | null; testAccounts?: string | undefined } = {}
 ): Promise<TrialArcEligibility> {
   const facts = await fetchRelationshipFacts(supabase, memberId);
   return decideTrialArcEligibility({
     facts,
     now: options.now ?? new Date(),
     ...(options.launch !== undefined ? { launch: options.launch } : {}),
+    ...(options.testAccounts !== undefined ? { testAccounts: options.testAccounts } : {}),
   });
 }
