@@ -71,16 +71,31 @@
  *   priority_card (re-entry) isPriorityCardDue       once per local day
  *   hydration_focus         isRecurringMessageDue    snoozed returns next login
  *   cvs_day3 / cvs_day7     isRecurringMessageDue    snoozed returns next login
- *   cvs_offer               isOfferStillDue          once ever
+ *   cvs_offer               isOfferStillDue          once ever, and hushed
+ *                                                    for the rest of a day
+ *                                                    she finished an
+ *                                                    experience on
  *   lsc_day3 / lsc_day7     isRecurringMessageDue    snoozed returns next login
- *   lsc_offer               isOfferStillDue          once ever
+ *   lsc_offer               isOfferStillDue          once ever, hushed as above
  *   rpl_day3 / rpl_day7     isRecurringMessageDue    snoozed returns next login
- *   rpl_offer               isOfferStillDue          once ever
+ *   rpl_offer               isOfferStillDue          once ever, hushed as above
  *   reset_plan_day3/day7    isRecurringMessageDue    snoozed returns next login
  *   weekly_reflection       isRecurringMessageDue    snoozed returns next login
  *   weekly_review           isOfferStillDue          once per local week
  *   priority_card (daily)   isPriorityCardDue        once per local day
- *   free_arc_available      isRecurringMessageDue    snoozed returns next login
+ *   free_arc_available      isRecurringMessageDue    snoozed returns next login,
+ *                                                    hushed as above
+ *
+ * ONE KNOCK PER SITTING (2026-09-05). Four of those branches carry a
+ * second condition as well as their due-check: the three experiment offers
+ * and the free arc invitation do not fire on a day she has already
+ * finished an experience, because completing one and walking back to Home
+ * was popping the offer of the next one in the same sitting. It is a
+ * HUSH, not a dismissal: the branch falls through, writes nothing, and the
+ * offer is still due on her next local day. Nothing a coach sent, nothing
+ * about safety, nothing the trial arc says and no follow-up for something
+ * already running is delayed by it. The rule, the protected list and the
+ * reasoning are in lib/root-popup-messages/oneKnock.ts.
  *
  * A new kind added to this chain needs a row in that table and a guard in
  * its branch. tests/root-popup-messages.test.ts asserts the table is
@@ -131,6 +146,7 @@ import {
   type RootPopupDismissalStatus,
 } from '@/lib/root-popup-messages/data';
 import { pickNextFreeArcCard, freeArcPopupMessageKey } from '@/lib/root-popup-messages/freeArc';
+import { completedAnExperienceToday } from '@/lib/root-popup-messages/oneKnock';
 import { getMyPriorityView } from '@/lib/priority/view';
 import type { PriorityView } from '@/lib/priority/types';
 import { getMyWeeklyReview } from '@/lib/weekly-review/view';
@@ -434,6 +450,25 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     if (!memberId || !supabase) return true;
     const dismissal = await getRootPopupDismissal(supabase, memberId, messageKey);
     return isOfferPopupDue(dismissal);
+  }
+
+  /**
+   * ONE KNOCK PER SITTING (2026-09-05). True when she has already finished
+   * an experience today, in her own local day, which is what silences the
+   * four branches that OFFER the next one until tomorrow. See
+   * lib/root-popup-messages/oneKnock.ts for the rule, what it never
+   * delays, and why no dismissal row is written when it hushes a branch.
+   *
+   * Resolved at most once per call and only when an offer branch is
+   * actually reached, so no member who never gets that far pays for it.
+   */
+  let cachedOneKnock: boolean | null = null;
+  async function alreadyKnockedToday(): Promise<boolean> {
+    if (!memberId || !supabase) return false;
+    if (cachedOneKnock === null) {
+      cachedOneKnock = await completedAnExperienceToday(supabase, memberId);
+    }
+    return cachedOneKnock;
   }
 
   /** Root Presence System, requirement 4 — fetched lazily, only when a day-7 message is actually about to be returned, so every other call to this function pays no extra query. */
@@ -772,7 +807,11 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     const offer = await getMyCvsOfferAction();
     if (offer) {
       const messageKey = cvsPopupMessageKey('offer', offer.sessionId);
-      if (await isOfferStillDue(messageKey)) {
+      // One knock per sitting: an offer to BEGIN something waits until her
+      // next local day when she has already finished an experience today.
+      // Falls through with no dismissal written, so it is genuinely still
+      // due tomorrow.
+      if (!(await alreadyKnockedToday()) && (await isOfferStillDue(messageKey))) {
         return { kind: 'cvs_offer', messageKey, sessionId: offer.sessionId, scoring: offer.scoring };
       }
     }
@@ -817,7 +856,11 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     const offer = await getMyLscOfferAction();
     if (offer) {
       const messageKey = lscPopupMessageKey('offer', offer.sessionId);
-      if (await isOfferStillDue(messageKey)) {
+      // One knock per sitting: an offer to BEGIN something waits until her
+      // next local day when she has already finished an experience today.
+      // Falls through with no dismissal written, so it is genuinely still
+      // due tomorrow.
+      if (!(await alreadyKnockedToday()) && (await isOfferStillDue(messageKey))) {
         return { kind: 'lsc_offer', messageKey, sessionId: offer.sessionId, scoring: offer.scoring };
       }
     }
@@ -862,7 +905,11 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
     const offer = await getMyRplOfferAction();
     if (offer) {
       const messageKey = rplPopupMessageKey('offer', offer.sessionId);
-      if (await isOfferStillDue(messageKey)) {
+      // One knock per sitting: an offer to BEGIN something waits until her
+      // next local day when she has already finished an experience today.
+      // Falls through with no dismissal written, so it is genuinely still
+      // due tomorrow.
+      if (!(await alreadyKnockedToday()) && (await isOfferStillDue(messageKey))) {
         return { kind: 'rpl_offer', messageKey, sessionId: offer.sessionId, scoring: offer.scoring };
       }
     }
@@ -1018,7 +1065,11 @@ async function findMyPendingRootPopupMessage(): Promise<RootPopupMessage | null>
   const nextFreeArcCard = pickNextFreeArcCard(catalog);
   if (nextFreeArcCard && nextFreeArcCard.primaryHref) {
     const messageKey = freeArcPopupMessageKey(nextFreeArcCard.key);
-    if (await isRecurringMessageDue(messageKey)) {
+    // One knock per sitting, same rule as the three offers above: the
+    // invitation into the next conversation waits until her next local day
+    // when she has already finished one today. The card on Home is
+    // unaffected and is still the unlimited way in.
+    if (!(await alreadyKnockedToday()) && (await isRecurringMessageDue(messageKey))) {
       return {
         kind: 'free_arc_available',
         messageKey,

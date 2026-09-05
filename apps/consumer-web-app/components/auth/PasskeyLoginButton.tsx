@@ -59,6 +59,13 @@ export function PasskeyLoginButton({
     setBusy(true);
     try {
       const supabase = createClient();
+      // THE ONE FORM THAT DOES NOT AUTO-RETRY A REFUSED CHECK, and the
+      // reason is the ceremony rather than the check. Everywhere else the
+      // silent second attempt in lib/turnstile/submit.ts is invisible;
+      // here it would put Face ID in front of her a second time for a
+      // failure that is not hers. getToken() now guarantees the token is
+      // fresh at the moment it is read, which is the half of the fix that
+      // applies, and a genuine refusal is told to her once.
       const token = await turnstile?.current?.getToken();
       const { data, error } = await supabase.auth.signInWithPasskey(
         token ? { options: { captchaToken: token } } : undefined

@@ -37,6 +37,32 @@ const LOOKS_TAPPABLE = /mef-button-primary|mef-button-secondary/;
  * guard like this must not have. This walks forward from each `<button`
  * and closes on the first `>` that is not part of `=>`.
  */
+/**
+ * The class-name string constants a file defines at module scope, so a
+ * `className={GOLD_CTA}` can be checked against what GOLD_CTA actually is.
+ *
+ * Added when the result screen started using one named recipe in the two
+ * places its create-account button appears, rather than repeating the
+ * string. The guard's point is that no button ships unstyled, not that
+ * every button spells its classes out inline, so it follows the reference
+ * instead of forbidding it. A constant it cannot resolve is left alone and
+ * still fails, which is the safe direction.
+ */
+function classConstants(source: string): Map<string, string> {
+  const constants = new Map<string, string>();
+  for (const match of source.matchAll(/const ([A-Z][A-Z0-9_]*) =\s*'([^']*)';/g)) {
+    constants.set(match[1]!, match[2]!);
+  }
+  return constants;
+}
+
+/** One opening tag with every module-scope class constant it names substituted in. */
+function withClassesResolved(tag: string, constants: Map<string, string>): string {
+  return tag.replace(/\$?\{([A-Z][A-Z0-9_]*)\}/g, (whole, name: string) =>
+    constants.has(name) ? ` ${constants.get(name)} ` : whole
+  );
+}
+
 function openingTags(source: string): string[] {
   const tags: string[] = [];
   for (const match of source.matchAll(/<button\b/g)) {
@@ -132,9 +158,10 @@ describe('every action in the public experience', () => {
     const offenders: string[] = [];
     for (const file of files) {
       const source = read(file);
+      const constants = classConstants(source);
       // Each <button ...> up to the end of its opening tag.
       for (const tag of openingTags(source)) {
-        if (!LOOKS_TAPPABLE.test(tag)) {
+        if (!LOOKS_TAPPABLE.test(withClassesResolved(tag, constants))) {
           offenders.push(`${file}: ${tag.replace(/\s+/g, ' ').slice(0, 120)}`);
         }
       }
@@ -168,8 +195,9 @@ describe('every action in the public experience', () => {
   it('gives every action a keyboard focus ring', () => {
     for (const file of files) {
       const source = read(file);
+      const constants = classConstants(source);
       for (const tag of openingTags(source)) {
-        expect(tag).toContain('mef-focus-ring');
+        expect(withClassesResolved(tag, constants)).toContain('mef-focus-ring');
       }
       for (const match of source.matchAll(/button=\{\{[\s\S]{0,400}?\}\}/g)) {
         expect(match[0]).toContain('mef-focus-ring');

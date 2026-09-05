@@ -331,10 +331,16 @@ describe('every captcha-protected form', () => {
     it(`${file} renders the widget and spends its token`, () => {
       const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
       expect(source).toContain('<TurnstileGate ref=');
-      expect(source).toContain('getToken()');
-      // Single-use tokens: a form that never resets sends a spent token on
-      // the member's second attempt and refuses them for the wrong reason.
-      expect(source).toContain('reset()');
+      // Every protected form submits through the shared helper, which is
+      // what reads a FRESH token, retries a refused check once with a
+      // genuinely new one, and replaces the spent single-use token
+      // afterwards. A form that rolls its own token handling reintroduces
+      // the 2026-09-05 signup failure one screen at a time.
+      expect(source).toContain('submitWithFreshCaptcha(');
+      expect(source).toContain("from '@/lib/turnstile/submit'");
+      // ...and none of them still does it by hand.
+      expect(source).not.toContain('turnstileRef.current?.getToken()');
+      expect(source).not.toContain('turnstileRef.current?.reset()');
     });
   }
 

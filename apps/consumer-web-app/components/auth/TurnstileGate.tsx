@@ -5,12 +5,10 @@
  * a site key exists.
  *
  * Renders null when NEXT_PUBLIC_TURNSTILE_SITE_KEY is unset (see
- * lib/turnstile/env.ts) — no script tag, no network request to Cloudflare,
- * no hidden field, no layout shift. That is the state this ships in, and it
- * is what lets the code go live before the Supabase dashboard switch is
- * flipped rather than after it, which is the only safe order: the moment
- * captcha is enabled in Supabase, every request without a token is rejected,
- * so the token has to already be arriving.
+ * lib/turnstile/env.ts): no script tag, no network request to Cloudflare,
+ * no hidden field, no layout shift. That is what let the code go live
+ * before the Supabase dashboard switch was flipped rather than after it,
+ * which is the only safe order.
  *
  * With a key set, the widget runs in Cloudflare's interaction-only
  * appearance: it stays invisible and solves itself in the background for a
@@ -18,39 +16,43 @@
  * for, which is a visitor it cannot clear silently. Almost nobody ever sees
  * it. That is the point.
  *
- * The token is fetched ahead of time rather than on submit, so the common
- * path adds nothing to how long logging in takes. `getToken()` returns
- * whatever is ready, waits a bounded moment if the challenge is still in
- * flight, and returns null rather than hanging if Cloudflare never answers.
+ * THE TOKEN IS KEPT FRESH, NOT JUST FETCHED ONCE (2026-09-05). This
+ * component used to mint one token on page load and hand out that same
+ * value forever, treating an expiry or an error as a permanent null. On a
+ * real iPhone that produced a signup form which refused the first tap of
+ * Continue every time and only worked on the second, because only the
+ * failure path re-armed the widget. The whole lifetime rule now lives in
+ * lib/turnstile/tokenLifecycle.ts, which explains that failure in full;
+ * this component is the wiring: it renders the widget, reports what
+ * Cloudflare says, re-arms when the tab comes back into view, and exposes
+ * three verbs to the forms.
  *
- * Returning null is deliberate and is the safety property of this whole
- * build: a missing token is submitted as a missing token, not as a blocked
- * submission. While the Supabase switch is off, that request succeeds
- * exactly as it always did, so a bad day at Cloudflare can never lock
- * members out of an app that is not yet asking for a token. Once the switch
- * is on, Supabase refuses the request and the calm message in
- * lib/auth/errors.ts explains it. The decision about whether a token is
- * genuine belongs to Supabase, which holds the secret key; this component
- * only carries it.
+ * Returning null is still deliberate and is still the safety property of
+ * this whole build: a missing token is submitted as a missing token, not as
+ * a blocked submission. While the Supabase switch is off, that request
+ * succeeds exactly as it always did, so a bad day at Cloudflare can never
+ * lock members out of an app that is not yet asking for a token. Once the
+ * switch is on, Supabase refuses the request, lib/turnstile/submit.ts
+ * quietly tries once more with a genuinely new token, and only a failure
+ * that survives that reaches the member as the calm message in
+ * lib/turnstile/env.ts. The decision about whether a token is genuine
+ * belongs to Supabase, which holds the secret key; this component only
+ * carries it.
  */
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { getTurnstileSiteKey } from '@/lib/turnstile/env';
+import { TurnstileTokenLifecycle } from '@/lib/turnstile/tokenLifecycle';
 
 const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-
-/**
- * How long getToken() will wait for a challenge that has not finished. Long
- * enough for a slow phone on a slow network to complete a silent check,
- * short enough that a member never sits looking at a stuck button.
- */
-const TOKEN_WAIT_MS = 8000;
 
 interface TurnstileRenderOptions {
   sitekey: string;
   appearance?: 'always' | 'execute' | 'interaction-only';
   theme?: 'light' | 'dark' | 'auto';
   retry?: 'auto' | 'never';
+  'refresh-expired'?: 'auto' | 'manual' | 'never';
+  'refresh-timeout'?: 'auto' | 'manual' | 'never';
   callback?: (token: string) => void;
   'error-callback'?: () => void;
   'expired-callback'?: () => void;
@@ -103,15 +105,21 @@ function loadTurnstileScript(): Promise<void> {
 export interface TurnstileHandle {
   /**
    * The token to send with this submission, or null if there is nothing to
-   * send (bot protection off, challenge unfinished, Cloudflare unreachable).
-   * Callers submit either way — see this file's header for why.
+   * send (bot protection off, Cloudflare unreachable). Never returns a
+   * token that is old enough to have expired on the way: when the held one
+   * is stale it starts a new challenge and waits for that instead. Callers
+   * submit either way, see this file's header for why.
    */
   getToken(): Promise<string | null>;
   /**
-   * Throws away the used token and starts a fresh challenge. Turnstile
-   * tokens are single-use, so this must run after every submission that
-   * reached Supabase, successful or not, or a retry would send a token
-   * that has already been spent and be refused for the wrong reason.
+   * A token that is definitely not the one just spent. For the retry after
+   * the check refuses a submission, see lib/turnstile/submit.ts.
+   */
+  refresh(): Promise<string | null>;
+  /**
+   * Throws away the used token and starts a fresh challenge, without
+   * waiting for it. Turnstile tokens are single use, so this runs after
+   * every submission that reached Supabase, successful or not.
    */
   reset(): void;
 }
@@ -120,19 +128,41 @@ export const TurnstileGate = forwardRef<TurnstileHandle>(function TurnstileGate(
   const siteKey = getTurnstileSiteKey();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const tokenRef = useRef<string | null>(null);
-  /** Resolvers for getToken() calls made while a challenge is still running. */
-  const waitersRef = useRef<Array<(token: string | null) => void>>([]);
+  const lifecycleRef = useRef<TurnstileTokenLifecycle | null>(null);
 
-  const settle = useCallback((token: string | null) => {
-    tokenRef.current = token;
-    const waiting = waitersRef.current;
-    waitersRef.current = [];
-    for (const resolve of waiting) resolve(token);
+  /**
+   * Built once per mounted component, lazily, and deliberately without
+   * touching `window`: this component is rendered on the server too, and
+   * every port method below is only ever invoked from an effect or a
+   * button press.
+   */
+  const lifecycle = useCallback((): TurnstileTokenLifecycle => {
+    if (lifecycleRef.current === null) {
+      lifecycleRef.current = new TurnstileTokenLifecycle({
+        rearm: () => {
+          const id = widgetIdRef.current;
+          if (id === null || typeof window === 'undefined' || !window.turnstile) return false;
+          try {
+            window.turnstile.reset(id);
+            return true;
+          } catch {
+            // Widget not in a resettable state. Reported as "nothing is
+            // running", which is the honest answer and leaves the caller
+            // waiting rather than believing a challenge is in flight.
+            return false;
+          }
+        },
+        now: () => Date.now(),
+        setTimer: (fn, ms) => window.setTimeout(fn, ms),
+        clearTimer: (id) => window.clearTimeout(id),
+      });
+    }
+    return lifecycleRef.current;
   }, []);
 
   useEffect(() => {
     if (!siteKey) return;
+    const machine = lifecycle();
     let cancelled = false;
 
     loadTurnstileScript()
@@ -141,29 +171,50 @@ export const TurnstileGate = forwardRef<TurnstileHandle>(function TurnstileGate(
         // React runs effects twice in development's strict mode; without
         // this the container would hold two widgets, only one of which
         // anything holds an id for.
-        if (widgetIdRef.current !== null) return;
+        if (widgetIdRef.current !== null) {
+          machine.markRunning();
+          return;
+        }
 
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: siteKey,
           appearance: 'interaction-only',
           theme: 'light',
           retry: 'auto',
-          callback: (token: string) => settle(token),
-          // A failed or expired challenge resolves waiters with null rather
-          // than leaving them pending: the submission proceeds without a
-          // token and Supabase decides, which is the same rule as everywhere
-          // else here.
-          'error-callback': () => settle(null),
-          'expired-callback': () => settle(null),
-          'timeout-callback': () => settle(null),
+          // Cloudflare's own half of keeping a token usable. Stated rather
+          // than left to the default so it cannot change under us: this
+          // component's re-arming is the backstop for the cases these two
+          // do not cover, not a replacement for them.
+          'refresh-expired': 'auto',
+          'refresh-timeout': 'auto',
+          callback: (token: string) => machine.onSolved(token),
+          'error-callback': () => machine.onFailed(),
+          'expired-callback': () => machine.onFailed(),
+          'timeout-callback': () => machine.onFailed(),
         });
+        machine.markRunning();
       })
       .catch(() => {
-        if (!cancelled) settle(null);
+        if (!cancelled) machine.onFailed();
       });
+
+    /**
+     * A phone that went to the mail app, a password manager or the home
+     * screen comes back with a challenge that iOS may have suspended and a
+     * token that may have expired while it was away. This is the moment to
+     * put a live one back in flight, before she taps anything.
+     */
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') machine.refreshIfStale();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onVisible);
 
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onVisible);
+      machine.dispose();
       const id = widgetIdRef.current;
       widgetIdRef.current = null;
       if (id !== null && window.turnstile) {
@@ -174,39 +225,25 @@ export const TurnstileGate = forwardRef<TurnstileHandle>(function TurnstileGate(
         }
       }
     };
-  }, [siteKey, settle]);
+  }, [siteKey, lifecycle]);
 
   useImperativeHandle(
     ref,
     (): TurnstileHandle => ({
       async getToken() {
         if (!siteKey) return null;
-        if (tokenRef.current) return tokenRef.current;
-        return await new Promise<string | null>((resolve) => {
-          let done = false;
-          const finish = (token: string | null) => {
-            if (done) return;
-            done = true;
-            resolve(token);
-          };
-          waitersRef.current.push(finish);
-          window.setTimeout(() => finish(null), TOKEN_WAIT_MS);
-        });
+        return await lifecycle().getToken();
+      },
+      async refresh() {
+        if (!siteKey) return null;
+        return await lifecycle().refresh();
       },
       reset() {
         if (!siteKey) return;
-        tokenRef.current = null;
-        const id = widgetIdRef.current;
-        if (id !== null && window.turnstile) {
-          try {
-            window.turnstile.reset(id);
-          } catch {
-            // Widget not in a resettable state; the next mount rebuilds it.
-          }
-        }
+        lifecycle().reset();
       },
     }),
-    [siteKey]
+    [siteKey, lifecycle]
   );
 
   if (!siteKey) return null;

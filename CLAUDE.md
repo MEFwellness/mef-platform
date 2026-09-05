@@ -59,6 +59,20 @@ before you finish, and do not reintroduce one.
 - **No em dash anywhere a member or coach reads**, including stored
   content in the database, which the source guard cannot see. Commas,
   periods, colons or parentheses instead.
+- **A token with a lifetime is refreshed at the moment it is spent.** Never
+  mint one on page load and hand out that same value later. A Cloudflare
+  Turnstile token lasts about five minutes and can be spent once, so a
+  member who reads a screen, types on a phone keyboard and switches to her
+  mail app arrives at the button holding something dead. Treat a held token
+  as stale well before its real expiry, re-arm on submit and on
+  `visibilitychange`, treat an expiry or an error as a reason to start a
+  fresh challenge rather than as a terminal null, and retry a refused
+  submission once with a genuinely new token BEFORE showing an error. This
+  is one shared implementation
+  (`components/auth/TurnstileGate.tsx` + `lib/turnstile/submit.ts`) used by
+  signup, login, forgot-password, the verification resend and change
+  password, because every one of them carries the same widget and had the
+  same defect.
 - **Screenshots and member data stay under gitignored paths** and are never
   committed. This repository is public.
 

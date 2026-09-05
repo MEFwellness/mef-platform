@@ -17,6 +17,7 @@ import {
 } from '@/lib/public-entry/signupField';
 import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
 import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
+import { submitWithFreshCaptcha } from '@/lib/turnstile/submit';
 
 const JOURNEY_REASSURANCES = [
   "Save today's assessment",
@@ -103,9 +104,17 @@ export default function SignUpPage() {
 
     submittingRef.current = true;
     setSubmitting(true);
-    const token = await turnstileRef.current?.getToken();
-    if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
-    const result = await signUp(formData);
+    // One press, with a token that is fresh at the moment of submitting and
+    // one silent second try if the check refuses it anyway. The hidden
+    // fields this form carries, including the one-time quiz reference, are
+    // untouched between the two attempts: the server only spends that
+    // reference once Supabase has accepted the account, so it survives
+    // however many rounds this takes. See lib/turnstile/submit.ts.
+    const result = await submitWithFreshCaptcha(turnstileRef.current, async (token) => {
+      if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
+      else formData.delete(CAPTCHA_TOKEN_FIELD);
+      return await signUp(formData);
+    });
     if (!result?.error) {
       // Through, and the server has already spent it. Dropping the stash
       // only stops a later form on this tab picking up a dead value.
@@ -119,10 +128,6 @@ export default function SignUpPage() {
         })
       );
     }
-    // A successful signup redirects to /verify and unmounts this form, so
-    // reaching here means a retry is possible and the spent single-use
-    // token must be replaced first.
-    turnstileRef.current?.reset();
     submittingRef.current = false;
     setSubmitting(false);
   }

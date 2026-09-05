@@ -8,6 +8,7 @@ import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { PasskeyLoginButton } from '@/components/auth/PasskeyLoginButton';
 import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
 import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
+import { submitWithFreshCaptcha } from '@/lib/turnstile/submit';
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +37,16 @@ export default function LoginPage() {
           submittingRef.current = true;
           setError(null);
           setSubmitting(true);
-          const token = await turnstileRef.current?.getToken();
-          if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
-          const result = await signIn(formData);
+          // A token that is fresh at the moment of submitting, one silent
+          // second try if the check refuses it anyway, and the spent
+          // single-use token replaced afterwards whatever the outcome. See
+          // lib/turnstile/submit.ts for why retrying exactly this one
+          // failure is safe and why nothing else is retried.
+          const result = await submitWithFreshCaptcha(turnstileRef.current, async (token) => {
+            if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
+            else formData.delete(CAPTCHA_TOKEN_FIELD);
+            return await signIn(formData);
+          });
           if (result?.error) {
             setError(
               getFriendlyAuthError(result.error, {
@@ -47,12 +55,6 @@ export default function LoginPage() {
               })
             );
           }
-          // Turnstile tokens are single use. Getting here at all means the
-          // submission failed (a success redirects and unmounts this), so a
-          // fresh challenge has to be running before the member retries or
-          // the second attempt would be refused for spending a used token
-          // rather than for whatever they actually got wrong.
-          turnstileRef.current?.reset();
           submittingRef.current = false;
           setSubmitting(false);
         }}

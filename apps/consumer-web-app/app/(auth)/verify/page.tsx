@@ -12,6 +12,7 @@ import {
   writeNextAllowedAt,
 } from '@/lib/auth/resendCooldown';
 import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
+import { submitWithFreshCaptcha } from '@/lib/turnstile/submit';
 
 const INITIAL_COOLDOWN_SECONDS = 60;
 const PENDING_EMAIL_KEY = 'mef.auth.pendingEmail';
@@ -65,9 +66,13 @@ function VerifyPageContent() {
     setResendMessage(null);
     setResendError(null);
 
-    const token = await turnstileRef.current?.getToken();
-    const result = await resendVerificationEmail(email, token ?? undefined);
-    turnstileRef.current?.reset();
+    // Fresh at the moment of submitting, one silent second try if the check
+    // refuses it anyway. A refused check never sent an email, so the retry
+    // is not a second message and does not touch Supabase's own resend
+    // cooldown. See lib/turnstile/submit.ts.
+    const result = await submitWithFreshCaptcha(turnstileRef.current, (token) =>
+      resendVerificationEmail(email, token ?? undefined)
+    );
     if (result?.error) {
       setResendError(getFriendlyAuthError(result.error));
       const retryAfter = extractRetryAfterSeconds(result.error) ?? INITIAL_COOLDOWN_SECONDS;

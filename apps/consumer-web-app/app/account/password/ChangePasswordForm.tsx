@@ -10,6 +10,7 @@ import { PasswordField } from '@/components/auth/PasswordField';
 import { PasswordStrengthHint } from '@/components/auth/PasswordStrengthHint';
 import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
 import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
+import { submitWithFreshCaptcha } from '@/lib/turnstile/submit';
 
 interface FieldErrors {
   currentPassword?: string | undefined;
@@ -64,12 +65,17 @@ export function ChangePasswordForm() {
 
     submittingRef.current = true;
     setSubmitting(true);
-    const token = await turnstileRef.current?.getToken();
-    if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
-    const result = await changePassword(formData);
-    // Spent whatever the outcome: this form stays mounted on success too
-    // (it swaps to a confirmation with a "Change it again" button).
-    turnstileRef.current?.reset();
+    // Fresh at the moment of submitting, one silent second try if the check
+    // refuses it anyway, and the spent single-use token replaced afterwards
+    // whatever the outcome: this form stays mounted on success too (it
+    // swaps to a confirmation with a "Change it again" button). A refused
+    // check never reached the password verification, so the retry is not a
+    // second failed attempt against her account. See lib/turnstile/submit.ts.
+    const result = await submitWithFreshCaptcha(turnstileRef.current, async (token) => {
+      if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
+      else formData.delete(CAPTCHA_TOKEN_FIELD);
+      return await changePassword(formData);
+    });
 
     if (result?.error && result.field) {
       // A wrong current password belongs on the field the member has to fix,

@@ -291,9 +291,31 @@ export const ENERGY_PATTERN_COPY: Record<PublicEntryPatternKey, EnergyPatternCop
   },
 };
 
+/**
+ * THE HONESTY LINE, WHICH TRAVELS WITH THE RESULT ITSELF.
+ *
+ * Split out of RESULT_UNIVERSAL_LIMITS on 2026-09-05, when the result
+ * screen was restructured so the pattern, its meaning and the way into an
+ * account all sit in the first screenful. The old screen said this two
+ * scrolls down, underneath everything else, which meant the sentence that
+ * makes the whole result trustworthy was the part a visitor was least
+ * likely to reach.
+ *
+ * NOT ONE WORD CHANGED. This is the first half of the paragraph that was
+ * already there, and RESULT_UNIVERSAL_LIMITS below is still that whole
+ * paragraph, rebuilt from its two halves. Both are rendered: this one
+ * beside the pattern, the full paragraph in "What this does not tell us"
+ * where it has always been.
+ */
+export const RESULT_HONESTY_LINE =
+  'This came from nine questions and took two minutes. It is a first impression, not an assessment, and it is not a diagnosis or medical advice.';
+
+/** The second half: what to do if this is not a passing week. */
+export const RESULT_LIMITS_TAIL =
+  'If something here has been going on for a long time, or is getting worse, that is a conversation for a doctor.';
+
 /** The honest, undecorated limits every result carries, whatever pattern it names. */
-export const RESULT_UNIVERSAL_LIMITS =
-  'This came from nine questions and took two minutes. It is a first impression, not an assessment, and it is not a diagnosis or medical advice. If something here has been going on for a long time, or is getting worse, that is a conversation for a doctor.';
+export const RESULT_UNIVERSAL_LIMITS = `${RESULT_HONESTY_LINE} ${RESULT_LIMITS_TAIL}`;
 
 export const RESULT_HEADINGS = {
   pattern: 'What we noticed',

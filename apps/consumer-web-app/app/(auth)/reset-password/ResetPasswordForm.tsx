@@ -6,6 +6,7 @@ import { requestPasswordReset } from '../../actions/auth';
 import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { TurnstileGate, type TurnstileHandle } from '@/components/auth/TurnstileGate';
 import { CAPTCHA_TOKEN_FIELD } from '@/lib/turnstile/captcha';
+import { submitWithFreshCaptcha } from '@/lib/turnstile/submit';
 
 export function ResetPasswordForm({ expiredLink = false }: { expiredLink?: boolean }) {
   const [message, setMessage] = useState<string | null>(null);
@@ -39,17 +40,20 @@ export function ResetPasswordForm({ expiredLink = false }: { expiredLink?: boole
           if (submittingRef.current) return;
           submittingRef.current = true;
           setSubmitting(true);
-          const token = await turnstileRef.current?.getToken();
-          if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
-          const result = await requestPasswordReset(formData);
+          // Fresh at the moment of submitting, one silent second try if the
+          // check refuses it anyway, and the spent single-use token
+          // replaced afterwards: this form stays on screen after a success
+          // too. See lib/turnstile/submit.ts.
+          const result = await submitWithFreshCaptcha(turnstileRef.current, async (token) => {
+            if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
+            else formData.delete(CAPTCHA_TOKEN_FIELD);
+            return await requestPasswordReset(formData);
+          });
           setMessage(
             result?.error
               ? getFriendlyAuthError(result.error)
               : 'If that email exists, a reset link has been sent.'
           );
-          // This form stays on screen after a success, so the spent
-          // single-use token is replaced whatever the outcome.
-          turnstileRef.current?.reset();
           submittingRef.current = false;
           setSubmitting(false);
         }}

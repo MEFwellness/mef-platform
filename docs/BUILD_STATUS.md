@@ -1,3 +1,108 @@
+## Post-launch fix 1: the signup error, the result page, one knock (2026-09-05)
+
+Three things a real person found on an iPhone the day after the trial arc
+launched, fixed in the order they cost the business the most.
+
+### The signup form that refused the first tap
+
+The live signup form kept answering "We could not confirm that in time.
+Please try again." She got through by pressing Continue several times.
+Nothing was wrong with her email, her password or her connection.
+
+The bot check token was minted ONCE, when the page loaded, and then simply
+held. A Cloudflare Turnstile token lasts about five minutes and can be
+spent once. Everything a real person does between landing on the signup
+form and pressing the button (reading, typing an address on a phone
+keyboard, a password manager sheet, switching to the mail app and back)
+burns that window, and iOS suspending a backgrounded tab ends the challenge
+outright. `TurnstileGate` treated both as a terminal null: it cleared the
+token, answered anybody waiting with nothing, and left the widget dead.
+So the first tap waited the full eight seconds for a challenge that was not
+running, submitted with no token, and was refused by Supabase. Only the
+failure handler re-armed the widget, which is why the SECOND tap worked.
+**The first tap was, in effect, the thing that fixed the form.**
+
+Four changes, and they are one shared implementation rather than five
+screens each patched:
+
+- **Freshness is checked, not assumed.** `lib/turnstile/tokenLifecycle.ts`
+  holds the whole lifetime as a state machine. A held token older than two
+  minutes is treated as absent, well inside Cloudflare's own five.
+- **Asking for a token can start one.** `getToken()` re-arms the widget
+  when nothing is running and then waits, instead of waiting on nothing.
+- **A failure re-arms itself,** bounded, so the widget is armed again
+  before her next tap rather than because of it. Coming back to the tab
+  does the same, which is the app-switch case.
+- **One silent second attempt.** `lib/turnstile/submit.ts` re-runs a
+  refused submission once with a genuinely new token before she is told
+  anything. Safe for exactly this one error and no other: a captcha refusal
+  is Supabase declining the REQUEST, so no account was created, no session
+  issued, no email sent and no password checked. A wrong password is an
+  answer and is returned untouched, immediately.
+
+Signup, login, forgot-password, the verification resend and change password
+all go through it. Face ID is the one deliberate exception: a silent retry
+there would put the ceremony in front of her twice for a failure that is
+not hers, so it gets the fresh token and one honest message.
+
+**The one-time quiz pass survives every round.** The reference her
+create-account button carried is only redeemed by the server AFTER Supabase
+accepts the account, so a refused round cannot spend it, and the form holds
+it across retries. That is now a standing assertion, not a property somebody
+remembers.
+
+### The result page a stranger lands on
+
+Nothing it said was wrong. The order was. Measured on a 390 by 664 phone
+viewport, before and after, by driving the real quiz:
+
+- **Before:** page 2382px tall. "Create a free account" sat at 2208px,
+  three and a third screenfuls down. The email field sat at 1446px, ABOVE
+  the account button, so the last thing between her and leaving was a form.
+- **After:** page 2041px. The pattern name, the one line that says what it
+  means, the honesty line and BOTH ways forward all sit in the first
+  screenful (the button spans 335px to 391px). The email step is at 1660px,
+  below both create-account buttons and below the invitation.
+
+Nothing was deleted. "What this often looks like" and "What this does not
+tell us" are native `<details>`, closed by default, present in full and one
+tap away. The evidence drawn from her own answers is never folded, because
+it is the proof the pattern came from what she said. The honesty line moved
+up rather than shrinking: `RESULT_HONESTY_LINE` is the first half of the
+paragraph that was already there, word for word, and the full paragraph is
+still rendered where it always was.
+
+The create-account button still goes through the one handler that appends
+the server-minted reference, in both places it now appears.
+
+### One knock per sitting
+
+Completing an experience and walking back to Home popped the next
+experience's offer in the same sitting. The closing screen had just invited
+her on to the Readiness path, and then Root knocked again on the way past.
+
+`lib/root-popup-messages/oneKnock.ts`: when she has completed one of the
+three free arc experiences today, in her own local day, the four pop-ups
+that OFFER the next one (`cvs_offer`, `lsc_offer`, `rpl_offer`,
+`free_arc_available`) wait until tomorrow. It is a HUSH, not a dismissal:
+the branch falls through and writes nothing, so the offer is genuinely
+still due on her next local day.
+
+Never delayed: a coach assignment, the Priority Card (whose strongest
+override is an unresolved safety flag), the trial arc's day messages, the
+arrival greeting, and every day-3 and day-7 follow-up for something already
+running. The closing screen's own invitation is untouched and still
+immediate, so a motivated member continues by choice.
+
+No new state. The question is answered from the completion rows themselves,
+each one turned into the local date SHE finished it on.
+
+### Housekeeping
+
+`oakomah66+quiztest5@gmail.com` is flagged `is_test`. Its arrival bound by
+`signup_link`, and its arc day 1 greeting was delivered at 16:45:43Z on its
+local 2026-09-05, pointing at Core Values Snapshot.
+
 ## The trial arc is launched (2026-09-05)
 
 `TRIAL_ARC_LAUNCH` is no longer null. It is **2026-09-05T14:20:00Z**, and
