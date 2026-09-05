@@ -103,6 +103,63 @@ each one turned into the local date SHE finished it on.
 `signup_link`, and its arc day 1 greeting was delivered at 16:45:43Z on its
 local 2026-09-05, pointing at Core Values Snapshot.
 
+### Watched happening on the live site, 43 of 43
+
+`apps/consumer-web-app/scripts/verify-post-launch-fix-1-live.mts`, against
+app.mefwellness.com and the production database.
+
+**The token lifecycle, 9 checks.** The deployed component driven with a
+stand-in for Cloudflare's own widget, installed before any script loads,
+and a clock the run can move. That is the only way a five minute expiry can
+be aged inside a test, and Cloudflare will not solve a challenge for a
+headless browser in any case. What is being driven is the shipped bundle on
+the live domain, with this app's own state machine deciding, and that
+boundary is stated rather than dressed up. The live form arms the widget
+with `refresh-expired: auto` and `refresh-timeout: auto`; a solved token is
+simply held; an expiry re-arms itself with nobody touching anything; so
+does an error; coming back to the tab with a token aged past two minutes
+starts a fresh challenge; a young token is left alone; and **pressing
+Continue with a dead widget starts a challenge instead of waiting eight
+seconds on nothing**, which is the exact failure that was reported.
+
+**A real refused submission, 9 checks, no stand-in anywhere.** The real
+quiz, the real create-account button, the real signup form, the real
+Server Action. Turnstile refuses the browser because it is automation,
+which is the block working. Counted from the outside with no cooperation
+from the app: **one press produced exactly two attempts**, the member was
+told once and only after both, she never saw the word captcha, **no
+account was created**, and **the one-time quiz pass was still unspent**.
+It then redeemed successfully with the shipped function on the real
+production row, and refused a second redemption, so the pass was neither
+burned nor weakened by the failed rounds.
+
+**The result screen, 10 checks, on a 390 by 664 phone.** Pattern name at
+88px, its meaning at 230px, the honesty line ending at 315px, Create a free
+account from 335px to 391px, I already have an account from 401px to 451px.
+All four in the first screenful with 200px to spare. The email step at
+1660px, below the last create-account button at 1493px. Two collapsibles,
+both closed. No console or page error. The pass still rides the button into
+the signup form.
+
+**One knock per sitting, 7 checks, and it found the bug's own record.**
+On `oakomah66+quiztest3@gmail.com`, a test account, production had already
+recorded exactly what was reported: `free_arc_available:life-signal-check`
+shown **four minutes** after she finished Core Values Snapshot at 16:22Z.
+On the fixed site, Home was opened on that same day and no experience offer
+knocked, and no dismissal row was written, so the offer is genuinely still
+owed to her. Her completion instant was then moved back thirty hours, which
+is the one simulation in the run and is stated as such because a day cannot
+be waited out, and Home offered Life Signal Check. Her completion instant
+was put back exactly as it was.
+
+**Housekeeping and the arc, 6 checks.** The quiz test account flagged, its
+bind method `signup_link`, its greeting delivered. All 23 accounts that
+existed before the launch still have zero arc rows between them.
+
+**Production left as it was found.** Every account this run created is
+deleted, the three signed-out quiz sessions it created are deleted, and the
+one fixture row it moved is restored.
+
 ## The trial arc is launched (2026-09-05)
 
 `TRIAL_ARC_LAUNCH` is no longer null. It is **2026-09-05T14:20:00Z**, and
