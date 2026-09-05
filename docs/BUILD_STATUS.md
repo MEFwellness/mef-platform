@@ -1,3 +1,107 @@
+## Post-launch fix 3: the closing screens hold (2026-09-05)
+
+Finishing a Core Values Snapshot did not leave the member on its closing
+screen. Walked three times on production the day before: twice it went
+straight to the results screen, once the closing drew and was replaced a
+few seconds later. Life Signal Check and the Readiness Pulse had the same
+shape. The closings themselves are locked, shipped designs and nothing
+about them changed here: this was delivery, not design.
+
+### What was racing what
+
+Finishing calls a Server Action from the client taker. An App Router
+Server Action answers with a re-render of the route the member is standing
+on, and the take route's own read sent a FINISHED session to the results
+screen (`lib/assessment-runtime/entry.ts`, the `already_completed` branch
+added 2026-08-27 to stop a take URL creating sessions). So the re-render
+navigated her off her own closing.
+
+Three different actions could fire that re-render inside the same few
+seconds, which is why it looked intermittent rather than broken:
+
+1. the last answer's save, still in flight when the completion landed,
+2. the completion itself,
+3. the closing's own reads, the experiment status and the narrative items.
+
+Whichever landed first decided whether she saw the closing at all.
+
+### The fix, in one sentence
+
+Do not stop the re-render, make it land where she already is. A session
+finished WITHIN THIS SITTING renders the very same taker, in a closing
+phase, so each of those re-renders reconciles the same client component
+instead of navigating out from under it. A session finished before this
+sitting still goes to her results screen, which is what a member coming
+back to something finished should get.
+
+`lib/assessment-runtime/closing.ts` is the whole rule, in one file, and
+`decideFinishedSessionDestination` is the only thing that decides it. The
+sitting is twelve hours: long enough that she can put the phone down and
+come back to the closing, shorter than a day, so opening the take URL the
+next morning is a return and not a replay.
+
+All three experiences declare into it with the same one line,
+`hasInFlowClosing: true`. The Wellbeing and Symptom Assessment does not,
+because its closing IS its results screen, and nothing about it changed.
+
+### The beat rides in the URL
+
+`?closing=learned|experiment|resource|close` on the take route, written
+with `history.replaceState`, so a refresh mid-reveal comes back to the beat
+she was reading rather than the top of the closing. The take page recomputes
+her scoring from her own stored answers, so nothing about the closing
+depends on the browser having remembered anything.
+
+Measured in a real browser: the marker written the instant the completion
+landed was WIPED a moment later, because applying a Server Action's
+re-render restores the router's own canonical address, which knows nothing
+about a marker written straight to the browser. So the marker is re-asserted
+after every render, and `markClosingBeat` is a no-op when the address
+already says the right thing. That is the reason the effect has no
+dependency array, and the comment there says so.
+
+No timer, no auto-advance. Her own tap is still the only thing that moves
+her through the closing, and the existing exits (the next-experience
+invitation, Back to Home) are still the only ways out.
+
+### One finish writes one completion
+
+`completeSession` used to re-stamp `completed_at` and republish findings if
+it was ever called twice. Two guards now:
+
+- an already-completed session is handed back untouched, no writes at all;
+- the completing update carries `.eq('status', 'in_progress')`, so two
+  calls that both read an open session a millisecond apart cannot both
+  stamp it. The loser reads the settled row and reports it.
+
+### Tests
+
+- `tests/closing-holds-after-completion.test.ts`, 15 tests. The rule
+  against every re-render delay production actually showed, the reload,
+  the day-later return, the flows that declare no closing, and, against
+  real local Supabase and real RLS, two completions fired at once still
+  stamping one row. It makes and destroys its own member, because three
+  other suites clean up by deleting every session row belonging to the two
+  shared seeded members and vitest runs files in parallel.
+- `tests/closing-one-mechanism.test.ts`, 33 tests. One mechanism, not three
+  patches: every experience with an in-flow closing carries all five
+  pieces, no screen re-implements the window, no taker grows a timer, and
+  the two boundaries hold (the results-screen experience declares nothing,
+  the trial arc's day 6 recap and day 7 close read a stored plan).
+
+Full suite 505 files, 8831 tests, green five runs in a row.
+
+### Files
+
+- `lib/assessment-runtime/closing.ts` (new), `entry.ts`, `data.ts`,
+  `index.ts`
+- `app/actions/{coreValuesSnapshot,lifeSignalCheck,readinessPulse}.ts`
+- the three take pages and the three takers
+- `scripts/verify-post-launch-fix-3-live.mjs`
+
+No migration. Nothing about the trial arc, the one-knock rule, pop-up
+delivery or the arrival greeting was touched.
+
 ## Post-launch fix 2: the button that claimed a workout, the way out, the map (2026-09-05)
 
 Three things a real person found walking the live site on a phone

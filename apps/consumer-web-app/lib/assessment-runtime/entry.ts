@@ -29,7 +29,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
-import { startOrResumeSession, type AssessmentSession, type RuntimeEvent } from './index';
+import { startOrResumeSession, getSessionById, type AssessmentSession, type RuntimeEvent } from './index';
+import { decideFinishedSessionDestination } from './closing';
 import { getCachedUser } from '../supabase/currentUser';
 
 export type RuntimeRoutes = {
@@ -43,6 +44,24 @@ export type RuntimeRoutes = {
 
 export type RuntimeEntryResult =
   | { ok: true; session: AssessmentSession; events: RuntimeEvent[]; takeHref: string }
+  /** Nothing was written. `redirectTo` is where this member belongs instead. */
+  | { ok: false; redirectTo: string };
+
+/**
+ * Which half of the take route she is standing in.
+ *
+ *   taking    An open draft. Questions.
+ *   closing   She finished it within this sitting, and the taker's own
+ *             closing beats are hers until she taps her way out of them.
+ *
+ * Declared in ./closing so the takers can name it without pulling this
+ * server-only module into the browser bundle.
+ */
+export type { RuntimePhase } from './closing';
+import type { RuntimePhase } from './closing';
+
+export type RuntimeTakeResult =
+  | { ok: true; phase: RuntimePhase; session: AssessmentSession; events: RuntimeEvent[]; takeHref: string }
   /** Nothing was written. `redirectTo` is where this member belongs instead. */
   | { ok: false; redirectTo: string };
 
@@ -92,14 +111,27 @@ export async function beginRuntimeAssessment(
 }
 
 /**
- * The take page's read. Resumes a draft that already exists, sends a
- * finished member to her results, and sends everybody else back to the
- * overview to press the button. Writes nothing in any of those cases.
+ * The take page's read. Resumes a draft that already exists, keeps a
+ * member who has just finished on the closing her taker owes her, sends a
+ * member returning to a finished experience to her results, and sends
+ * everybody else back to the overview to press the button. Writes nothing
+ * in any of those cases.
+ *
+ * THE CLOSING IS NOT A REDIRECT AWAY (2026-09-05). `hasInFlowClosing`
+ * says whether this experience ends inside its own taker, on a premium
+ * closing beat, rather than on its results screen. For the ones that do,
+ * a session finished within the sitting still renders the taker, so the
+ * re-render a Server Action carries reconciles the same client component
+ * instead of navigating out of her closing. Everything else about the
+ * finished-session rule is unchanged, including for the flows that do not
+ * declare one. See lib/assessment-runtime/closing.ts for what was racing
+ * what.
  */
 export async function loadRuntimeTakeSession(
   assessmentKey: string,
-  routes: RuntimeRoutes
-): Promise<RuntimeEntryResult> {
+  routes: RuntimeRoutes,
+  options: { hasInFlowClosing?: boolean } = {}
+): Promise<RuntimeTakeResult> {
   const supabase = createClient();
   const memberId = await currentMemberId();
   if (!memberId) return { ok: false, redirectTo: '/login' };
@@ -117,9 +149,20 @@ export async function loadRuntimeTakeSession(
   });
 
   if (result.status === 'resumed') {
-    return { ok: true, session: result.session, events: result.events, takeHref: routes.take };
+    return { ok: true, phase: 'taking', session: result.session, events: result.events, takeHref: routes.take };
   }
   if (result.status === 'already_completed') {
+    const destination = decideFinishedSessionDestination({
+      hasInFlowClosing: options.hasInFlowClosing === true,
+      completedAt: result.latestCompletedAt,
+      nowMs: Date.now(),
+    });
+    if (destination === 'closing') {
+      const session = await getSessionById(supabase, result.latestCompletedSessionId);
+      if (session && session.memberId === memberId) {
+        return { ok: true, phase: 'closing', session, events: [], takeHref: routes.take };
+      }
+    }
     return { ok: false, redirectTo: routes.results(result.latestCompletedSessionId) };
   }
   return { ok: false, redirectTo: routes.overview };

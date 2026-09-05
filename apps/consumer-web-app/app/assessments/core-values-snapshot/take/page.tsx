@@ -17,6 +17,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
 import { loadCvsTakeSessionAction } from '@/app/actions/coreValuesSnapshot';
 import { CoreValuesSnapshotTaker } from '@/components/core-values-snapshot/CoreValuesSnapshotTaker';
+import { computeCvsScoring } from '@/lib/core-values-snapshot/scoring';
+import { CLOSING_PARAM, parseClosingBeat } from '@/lib/assessment-runtime/closing';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 
 function checkAudioAvailable(): boolean {
@@ -35,15 +37,30 @@ function checkAudioAvailable(): boolean {
  * a link preview or the re-render that a Server Action causes when she
  * finishes all write nothing at all. Starting is a button, and a button is
  * a POST. See lib/assessment-runtime/entry.ts.
+ *
+ * AND IT STILL READS ONCE SHE HAS FINISHED (2026-09-05). A session
+ * finished within this sitting renders the very same taker, in its closing
+ * phase, instead of redirecting to the results screen, so the re-render a
+ * Server Action carries lands on the closing she is reading rather than
+ * navigating out of it. The scoring is recomputed here from her own stored
+ * answers, so a reload mid-closing has everything the closing needs
+ * without asking the browser to remember anything. See
+ * lib/assessment-runtime/closing.ts.
  */
-export default async function TakeCoreValuesSnapshotPage() {
+export default async function TakeCoreValuesSnapshotPage({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
   const result = await loadCvsTakeSessionAction();
   if (!result.ok) redirect(result.redirectTo as Route);
 
-  const { session } = result;
+  const { session, phase } = result;
   const supabase = createClient();
   const questions = await getUnifiedAssessmentQuestions(supabase, session.assessmentId);
   const audioAvailable = checkAudioAvailable();
+  const scoring = phase === 'closing' ? computeCvsScoring(session.answers) : null;
+  const closingBeat = parseClosingBeat(searchParams?.[CLOSING_PARAM]);
 
   return (
     <div className={`${CVS_PAGE_BG} font-[family-name:var(--font-dm-sans)]`}>
@@ -53,6 +70,9 @@ export default async function TakeCoreValuesSnapshotPage() {
           questions={questions}
           initialAnswers={session.answers}
           audioAvailable={audioAvailable}
+          phase={phase}
+          initialScoring={scoring}
+          initialClosingBeat={closingBeat}
         />
       </main>
     </div>

@@ -23,6 +23,13 @@ import { BackToHomeButton } from '@/components/closing-screen/BackToHomeButton';
 import { LscExperimentPanel } from './LscExperimentPanel';
 import { LscCloseScreen } from './LscCloseScreen';
 import { ROOT_FINISHING_LABEL } from '@/lib/reveal/copy';
+import {
+  CLOSING_BEATS,
+  FIRST_CLOSING_BEAT,
+  markClosingBeat,
+  type ClosingBeat,
+  type RuntimePhase,
+} from '@/lib/assessment-runtime/closing';
 
 type Beat = 'intro' | 'screen1' | 'screen2' | 'screen3' | 'finishing' | 'learned' | 'experiment' | 'resource' | 'close';
 
@@ -31,6 +38,17 @@ type Props = {
   questions: UnifiedAssessmentQuestion[];
   initialAnswers: SessionAnswers;
   audioAvailable: boolean;
+  /**
+   * 'closing' when the server found this session already finished within
+   * this sitting. It is the taker's own closing sequence that owes her
+   * these beats, so the take route renders this component instead of
+   * redirecting to results, and the server hands down the scoring and the
+   * beat rather than asking her to earn them again. See
+   * lib/assessment-runtime/closing.ts.
+   */
+  phase: RuntimePhase;
+  initialScoring: LscScoring | null;
+  initialClosingBeat: ClosingBeat | null;
 };
 
 function questionByKey(questions: UnifiedAssessmentQuestion[], key: string): UnifiedAssessmentQuestion | undefined {
@@ -67,7 +85,15 @@ function determineInitialBeat(
   return { beat: 'intro', screen1Index: 0, screen2Index: 0, screen3Index: 0 };
 }
 
-export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, audioAvailable }: Props) {
+export function LifeSignalCheckTaker({
+  sessionId,
+  questions,
+  initialAnswers,
+  audioAvailable,
+  phase,
+  initialScoring,
+  initialClosingBeat,
+}: Props) {
   const router = useRouter();
 
   // Six Signals' question order is shuffled per session (same seeded
@@ -77,12 +103,17 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
   const screen2Order = useMemo(() => seededShuffle(SCREEN2_QUESTION_KEYS, `${sessionId}:lsc_screen2_order`), [sessionId]);
   const initial = useMemo(() => determineInitialBeat(initialAnswers, screen2Order), [initialAnswers, screen2Order]);
 
+  // A session the server already has as finished never re-enters
+  // 'finishing', because that beat's whole job is to run the completion
+  // once. She resumes at the beat the URL remembers.
+  const initialBeat: Beat = phase === 'closing' ? (initialClosingBeat ?? FIRST_CLOSING_BEAT) : initial.beat;
+
   const [answers, setAnswers] = useState<SessionAnswers>(initialAnswers);
-  const [beat, setBeat] = useState<Beat>(initial.beat);
+  const [beat, setBeat] = useState<Beat>(initialBeat);
   const [screen1Index, setScreen1Index] = useState(initial.screen1Index);
   const [screen2Index, setScreen2Index] = useState(initial.screen2Index);
   const [screen3Index, setScreen3Index] = useState(initial.screen3Index);
-  const [scoring, setScoring] = useState<LscScoring | null>(null);
+  const [scoring, setScoring] = useState<LscScoring | null>(initialScoring);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [experimentStatus, setExperimentStatus] = useState<LscExperimentStatus | null>(null);
@@ -120,6 +151,24 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
     });
   }
 
+  // The beat rides in the take URL so a reload lands back on the beat she
+  // was reading rather than at the top of the closing. Written with
+  // replaceState, never a router navigation: this screen has exactly one
+  // thing moving her through it, and that is her own tap.
+  //
+  // NO DEPENDENCY ARRAY, ON PURPOSE. Every Server Action on this screen
+  // answers with a re-render of this route, and applying that patch
+  // restores the router's own canonical address, which does not know about
+  // a marker written straight to the browser. Measured in a real browser:
+  // the marker written the instant the completion landed was wiped a
+  // moment later by the last answer's save arriving behind it. Re-asserting
+  // it after every render puts it back after each of those patches, and
+  // markClosingBeat is a no-op when the address already says this.
+  useEffect(() => {
+    if (!(CLOSING_BEATS as readonly string[]).includes(beat)) return;
+    markClosingBeat(beat as ClosingBeat);
+  });
+
   // Question 10 has no real choice when exactly one signal is loud — Root
   // already knows the answer, so it's recorded automatically and the
   // member sees a statement instead of a pick.
@@ -148,8 +197,12 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
     };
   }, [beat, sessionId]);
 
+  // 'close' as well as 'experiment': a reload lands her straight back on
+  // the closing, and the closing's own copy says whether the Weekly
+  // Experiment is actually running. Without this read it would have
+  // nothing to look at and would quietly say no.
   useEffect(() => {
-    if (beat !== 'experiment') return;
+    if (beat !== 'experiment' && beat !== 'close') return;
     let cancelled = false;
     (async () => {
       const status = await getMyLscExperimentStatusAction();

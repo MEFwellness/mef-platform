@@ -12,8 +12,10 @@ import type { Route } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getUnifiedAssessmentQuestions } from '@/lib/assessment-foundation/repository';
-import { loadLscTakeSessionAction } from '@/app/actions/lifeSignalCheck';
+import { getMyLatestCvsContextForEchoAction, loadLscTakeSessionAction } from '@/app/actions/lifeSignalCheck';
 import { LifeSignalCheckTaker } from '@/components/life-signal-check/LifeSignalCheckTaker';
+import { computeLscScoring } from '@/lib/life-signal-check/scoring';
+import { CLOSING_PARAM, parseClosingBeat } from '@/lib/assessment-runtime/closing';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
 
 function checkAudioAvailable(): boolean {
@@ -32,20 +34,44 @@ function checkAudioAvailable(): boolean {
  * a link preview or the re-render that a Server Action causes when she
  * finishes all write nothing at all. Starting is a button, and a button is
  * a POST. See lib/assessment-runtime/entry.ts.
+ *
+ * AND IT STILL READS ONCE SHE HAS FINISHED (2026-09-05). A session
+ * finished within this sitting renders the very same taker, in its closing
+ * phase, instead of redirecting to the results screen, so the re-render a
+ * Server Action carries lands on the closing she is reading rather than
+ * navigating out of it. The scoring is recomputed here from her own stored
+ * answers, so a reload mid-closing has everything the closing needs
+ * without asking the browser to remember anything. See
+ * lib/assessment-runtime/closing.ts.
  */
-export default async function TakeLifeSignalCheckPage() {
+export default async function TakeLifeSignalCheckPage({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
   const result = await loadLscTakeSessionAction();
   if (!result.ok) redirect(result.redirectTo as Route);
 
-  const { session } = result;
+  const { session, phase } = result;
   const supabase = createClient();
   const questions = await getUnifiedAssessmentQuestions(supabase, session.assessmentId);
   const audioAvailable = checkAudioAvailable();
+  const cvsContext = phase === 'closing' ? await getMyLatestCvsContextForEchoAction() : null;
+  const scoring = phase === 'closing' ? computeLscScoring(session.answers, cvsContext) : null;
+  const closingBeat = parseClosingBeat(searchParams?.[CLOSING_PARAM]);
 
   return (
     <div className={`${CVS_PAGE_BG} font-[family-name:var(--font-dm-sans)]`}>
       <main className="mx-auto w-full max-w-md px-5 pb-16 pt-safe-header sm:px-6 md:max-w-2xl md:px-10">
-        <LifeSignalCheckTaker sessionId={session.id} questions={questions} initialAnswers={session.answers} audioAvailable={audioAvailable} />
+        <LifeSignalCheckTaker
+          sessionId={session.id}
+          questions={questions}
+          initialAnswers={session.answers}
+          audioAvailable={audioAvailable}
+          phase={phase}
+          initialScoring={scoring}
+          initialClosingBeat={closingBeat}
+        />
       </main>
     </div>
   );

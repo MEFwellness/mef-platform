@@ -19,6 +19,7 @@ import { checkAssessmentAccess } from '@/lib/assessment-registry/access';
 import {
   beginRuntimeAssessment,
   loadRuntimeTakeSession,
+  type RuntimePhase,
 } from '@/lib/assessment-runtime/entry';
 import {
   completeSession,
@@ -135,13 +136,22 @@ export async function retakeLscAction(): Promise<void> {
   redirect(result.ok ? result.takeHref : result.redirectTo);
 }
 
-/** What the take page reads. Resumes a real draft, sends a finished member to her results, and writes nothing in either case or in the case where there is nothing at all. */
+/**
+ * What the take page reads. Resumes a real draft, keeps a member who just
+ * finished on her closing, sends a member returning to a finished
+ * experience to her results, and writes nothing in any of those cases.
+ *
+ * `hasInFlowClosing: true` because this experience ends inside its own
+ * taker, on the closing beat, not on its results screen. It is the same
+ * declaration the other two closing experiences make, read by the one
+ * shared rule in lib/assessment-runtime/closing.ts.
+ */
 export async function loadLscTakeSessionAction(): Promise<
-  { ok: true; session: AssessmentSession } | { ok: false; redirectTo: string }
+  { ok: true; phase: RuntimePhase; session: AssessmentSession } | { ok: false; redirectTo: string }
 > {
-  const result = await loadRuntimeTakeSession(LSC_KEY, LSC_ROUTES);
+  const result = await loadRuntimeTakeSession(LSC_KEY, LSC_ROUTES, { hasInFlowClosing: true });
   return result.ok
-    ? { ok: true, session: result.session }
+    ? { ok: true, phase: result.phase, session: result.session }
     : { ok: false, redirectTo: result.redirectTo };
 }
 

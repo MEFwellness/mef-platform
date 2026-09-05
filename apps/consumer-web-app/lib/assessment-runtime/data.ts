@@ -157,8 +157,13 @@ export type StartOrResumeResult =
   | { status: 'resumed'; session: AssessmentSession; events: RuntimeEvent[] }
   /** No draft existed and a new session was created. */
   | { status: 'started'; session: AssessmentSession; events: RuntimeEvent[] }
-  /** She has already finished this and did not ask to start again. NOTHING was written. */
-  | { status: 'already_completed'; latestCompletedSessionId: string }
+  /**
+   * She has already finished this and did not ask to start again. NOTHING
+   * was written. `latestCompletedAt` rides along because the take route
+   * has to tell a completion she is still standing in from one she is
+   * coming back to; see lib/assessment-runtime/closing.ts.
+   */
+  | { status: 'already_completed'; latestCompletedSessionId: string; latestCompletedAt: string | null }
   /** Read-only call (`createIfMissing: false`): there is no draft to resume and no completion to show. NOTHING was written. */
   | { status: 'no_session' }
   /** The key does not resolve to a real, active definition. */
@@ -217,7 +222,13 @@ export async function startOrResumeSession(
 
   if (!options.startRetake) {
     const completed = await findLatestCompletedSession(supabase, memberId, definition.id);
-    if (completed) return { status: 'already_completed', latestCompletedSessionId: completed.id };
+    if (completed) {
+      return {
+        status: 'already_completed',
+        latestCompletedSessionId: completed.id,
+        latestCompletedAt: completed.completedAt,
+      };
+    }
   }
 
   if (options.createIfMissing === false) return { status: 'no_session' };
@@ -339,12 +350,32 @@ export async function completeSession(
 
   const content = await loadContent(supabase, (row as SessionRow).assessment_definition_id);
   const answers = await fetchAnswers(supabase, sessionId, content.questions);
+
+  // A SESSION IS FINISHED ONCE (2026-09-05). Finishing is a Server Action,
+  // and a Server Action re-renders the route it was called from, so the
+  // same completion could be asked for twice inside the same second: a
+  // second call used to re-stamp `completed_at`, move the moment on her
+  // Personal Health Timeline, and republish the same findings. Her
+  // completion instant is hers, so the second call is handed the finished
+  // session and writes nothing at all.
+  if ((row as SessionRow).status === 'completed') {
+    return {
+      session: assembleSession(row as SessionRow, content, answers),
+      events: [{ type: 'assessment_completed', sessionId }],
+    };
+  }
+
   const { visible } = calculateVisibleQuestions(content.questions, answers);
 
   const incomplete = visible.some((q) => answers[q.question_key] === undefined);
   if (incomplete) throw new Error('Cannot complete an assessment with unanswered visible questions.');
 
   const completedAt = new Date().toISOString();
+  // `.eq('status', 'in_progress')` is the whole race guard: two calls that
+  // both read an open session a millisecond apart cannot both stamp it,
+  // because only the first one still matches. The loser gets no row back
+  // and is handled below, rather than moving her completion instant and
+  // republishing the same findings on top of themselves.
   const { data: updated, error: updateError } = await supabase
     .from('unified_assessment_sessions')
     .update({
@@ -355,10 +386,29 @@ export async function completeSession(
       updated_at: completedAt,
     })
     .eq('id', sessionId)
+    .eq('status', 'in_progress')
     .select('*')
-    .single();
-  if (updateError || !updated) {
-    throw new Error(`Failed to complete assessment session: ${updateError?.message ?? 'unknown error'}`);
+    .maybeSingle();
+  if (updateError) {
+    throw new Error(`Failed to complete assessment session: ${updateError.message}`);
+  }
+  if (!updated) {
+    // Somebody else finished it between this function's read and its
+    // write, which for a member means one tap that produced two calls.
+    // Her completion stands; this call simply reports it.
+    const { data: settled } = await supabase
+      .from('unified_assessment_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .maybeSingle();
+    if (!settled || (settled as SessionRow).status !== 'completed') {
+      throw new Error('Failed to complete assessment session: it is no longer open to be completed.');
+    }
+    forgetMemberAssessmentFacts((settled as SessionRow).member_id);
+    return {
+      session: assembleSession(settled as SessionRow, content, answers),
+      events: [{ type: 'assessment_completed', sessionId }],
+    };
   }
 
   // Her completion changes what `getMemberAssessmentFacts` would answer
