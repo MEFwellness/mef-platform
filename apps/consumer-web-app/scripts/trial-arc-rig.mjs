@@ -266,11 +266,54 @@ export async function seedActiveDays(memberId, days) {
   return dates;
 }
 
+/**
+ * Removes today's Morning Brief, so the next visit is her FIRST open of the
+ * day again.
+ *
+ * That is the only visit on which the return greeting is ever claimed, so a
+ * verification run that wants to watch the arc yield to it has to put the
+ * account back on that visit. Rig scoped, like everything else here.
+ */
+export async function clearMorningBriefs(memberId) {
+  await assertRig(memberId);
+  const { error } = await service.from('coach_morning_briefs').delete().eq('member_id', memberId);
+  if (error) throw error;
+}
+
+/**
+ * Moves an existing greeting claim back a day.
+ *
+ * The arc stays silent for the whole day a greeting is delivered on, which
+ * is correct: the greeting is on her Home screen all day and two welcomes on
+ * one screen is exactly what the rule forbids. Proving that it speaks again
+ * AFTERWARDS needs the next day, and a verification run cannot wait for one,
+ * so this puts the claim where it would be on that next morning. The same
+ * device setRigDay uses for the trial clock.
+ */
+export async function backdateGreeting(memberId, days = 1) {
+  await assertRig(memberId);
+  const { data } = await service
+    .from('member_return_greetings')
+    .select('gap_start_local_date, shown_at')
+    .eq('member_id', memberId);
+  for (const row of data ?? []) {
+    const moved = new Date(new Date(row.shown_at).getTime() - days * 86_400_000).toISOString();
+    const { error } = await service
+      .from('member_return_greetings')
+      .update({ shown_at: moved })
+      .eq('member_id', memberId)
+      .eq('gap_start_local_date', row.gap_start_local_date);
+    if (error) throw error;
+  }
+  return (data ?? []).length;
+}
+
 export async function resetAll(memberId) {
   await resetDeliveries(memberId);
   await resetPopups(memberId);
   await clearCheckins(memberId);
   await clearGreetings(memberId);
+  await clearMorningBriefs(memberId);
 }
 
 export async function showRig(memberId) {
@@ -298,6 +341,7 @@ if (isMain) {
   else if (command === 'reset-arc-popups') { await resetArcPopups(rig.id); console.log('trial arc pop-up dismissals cleared'); }
   else if (command === 'clear-checkins') { await clearCheckins(rig.id); console.log('check-ins cleared'); }
   else if (command === 'clear-greetings') { await clearGreetings(rig.id); console.log('return greetings cleared'); }
+  else if (command === 'clear-briefs') { await clearMorningBriefs(rig.id); console.log('morning briefs cleared'); }
   else if (command === 'checkin-gap') console.log(`check-in seeded on ${await seedCheckinGap(rig.id, Number(arg))}`);
   else if (command === 'active-days') console.log(`check-ins seeded on ${(await seedActiveDays(rig.id, Number(arg))).join(', ')}`);
   else if (command === 'reset') { await resetAll(rig.id); console.log('deliveries, pop-ups, check-ins and greetings cleared'); }

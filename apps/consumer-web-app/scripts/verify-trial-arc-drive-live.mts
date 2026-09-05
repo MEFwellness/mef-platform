@@ -686,6 +686,10 @@ async function stagePresence() {
   await rigTools.setRigDay(rig.id, 4);
 
   const gapDate = await rigTools.seedCheckinGap(rig.id, 3);
+  // HER FIRST OPEN OF THE DAY, which is the only visit the greeting is ever
+  // claimed on: the claim happens when today's Morning Brief is created.
+  // resetAll has already removed today's brief, so the next visit is that
+  // one.
   note(`one check-in on ${gapDate} and nothing since, so the return greeting is owed`);
 
   const collision = await visit();
@@ -701,8 +705,22 @@ async function stagePresence() {
     JSON.stringify(greetings ?? [])
   );
 
+  const sameDay = await visit();
+  check(
+    'presence: it stays silent for the rest of that day, because the greeting is on her screen all day',
+    !sameDay.present,
+    sameDay.title
+  );
+
+  // The next morning of the same gap. A verification run cannot wait a day,
+  // so the claim is moved back one, exactly as setRigDay moves the trial
+  // clock. Everything else about her is untouched.
+  const moved = await rigTools.backdateGreeting(rig.id, 1);
+  note(`greeting claim moved back a day (${moved} row), which is where it sits on the next morning of the same gap`);
+  await rigTools.resetArcPopups(rig.id);
+
   const nextVisit = await visit();
-  check('presence: the arc speaks again on the next visit', nextVisit.present, nextVisit.title);
+  check('presence: the arc speaks again the next day', nextVisit.present, nextVisit.title);
   check(
     'presence: and what it says is the warm re-entry line, not a pacing instruction',
     nextVisit.present && nextVisit.title === trialArcReEntryCopy(TRIAL_ARC_TOWARD_CASE).title,
