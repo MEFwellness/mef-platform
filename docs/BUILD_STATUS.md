@@ -93,6 +93,63 @@ all three routes end at, with `bindMethod` the only thing that differs.
 `claimSessionForMember` is a thin caller of it, and the email match calls it
 too, so the columns written and the conflict handling cannot drift apart.
 
+### Driven on the live site: 51 checks, and two real bugs it found
+
+`apps/consumer-web-app/scripts/verify-quiz-signup-link-live.mts`, run
+against app.mefwellness.com in a real browser. Stages: housekeeping 3,
+mint 15, bind 17, precedence 5, email 4, cleanup 7.
+
+**The real path (15/15).** The signed-out quiz at /energy driven end to
+end, the arrival marked complete, the deployed server minting exactly one
+reference for it with a 24 hour window and only its hash stored, the
+create-account button tapped, the reference present in the URL the button
+navigated to AND in the signup form's own field, the address bar cleaned
+afterwards, and the reference on the form proved to be the one issued for
+THAT arrival. Turnstile is armed on the form and refuses a scripted
+submission by design, so the run stops there and says so.
+
+**The bind (17/17), on production rows.** Redeeming lives inside the signup
+Server Action, and reaching it means submitting a form Turnstile refuses to
+a script, so the shipped function was run against the production database
+rather than an endpoint being invented for a test. A fresh arrival in a
+browser context sharing nothing with anything bound cleanly and was marked
+`signup_link`, with her attribution alongside it. The same reference used a
+second time bound nothing. An expired one bound nothing and was not spent.
+A forged one and a malformed one bound nothing and cost nothing. And a
+reference to an arrival another account had already claimed through the
+REAL deployed claim route lost, finally, with the reference spent and the
+arrival still belonging to whoever got there first.
+
+**Precedence (5/5).** The deployed browser-token claim binds first, the
+reference then reports `member_already_bound`, her bind is neither
+downgraded nor re-pointed, and the reference is not even burned.
+
+**The Prompt 6 email match (4/4), unchanged.** Two arrivals on one address,
+the first claimed by somebody else, and she is still joined to the one she
+really took, marked `email_match`.
+
+**Two real bugs, found live and fixed.**
+
+1. A member who had SPENT a reference could not be deleted at all. GoTrue
+   returned an unreadable 5xx. The cause was `on delete set null` on
+   `used_by_member_id`, which leaves `used_at` set and the member null,
+   which is exactly the half-redeemed state the table's own check
+   constraint forbids. Migration 209 cascades the row with the account
+   instead. The constraint is the honest statement and stays.
+2. The bind was reachable without its attribution. `redeemSignupRef` wrote
+   the origin row and left attaching where she came from to the caller,
+   which is the same half-saved shape every 2026-09-05 failure produced.
+   `bindArrivalFromSignupRef` is now the one call the signup action makes.
+
+**Cleanup (7/7).** Every temporary account and arrival this run created is
+gone, including the ones that spent a reference. Two arrivals from an
+EARLIER run were also still on production and are now gone: an arrival that
+captured a lead cannot simply be deleted, because
+`captured_lead_acquisition` refuses every update by trigger and the
+`set null` from a deleted session trips it, so the lead chain has to be
+unwound first. The references table is back to empty, and the trial arc is
+still launched for no one.
+
 ### What ships
 
 - Migration 208: `public_entry_signup_refs` (hash only, RLS on, no policy
