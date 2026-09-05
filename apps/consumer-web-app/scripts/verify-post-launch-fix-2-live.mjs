@@ -435,7 +435,12 @@ async function stageB() {
         // Q12 is two big tiles with no radiogroup role.
         const tile = s.page
           .locator('main button:visible')
-          .filter({ hasNotText: /^(Back|Continue|See what Root learned|Let's begin)$/ })
+          // Never the closing beat's own controls: clicking one of those
+          // would navigate off the screen this run exists to look at.
+          .filter({
+            hasNotText:
+              /^(Back|Continue|See what Root learned|Let's begin|Start the Life Signal Check|Not now, back to Home|Back to Home|I'm in: start the 7 days)$/,
+          })
           .first();
         if (await tile.isVisible().catch(() => false)) {
           await tile.click().catch(() => {});

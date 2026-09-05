@@ -201,6 +201,107 @@ document order over the real page, the reveal holding all three groups and
 the key, the counted line agreeing with `colorFor` on the same fixtures,
 and no claim beyond noticing in any of its three sentences.
 
+### Live verification, production, 2026-09-05
+
+53 checks against `app.mefwellness.com` in a 390 by 844 viewport, 53
+passing, no console or page errors on any screen visited.
+`apps/consumer-web-app/scripts/verify-post-launch-fix-2-live.mjs` is the
+run, in four stages. Sessions were minted and retired locally (scope
+'local'), never typed into the login form.
+
+**a. The pop-up in its offer state, 14 checks.** On the account the bug was
+found on, whose row still read `movement_session` / `active` / never
+opened. The pop-up rendered:
+
+> Your priority today
+> Morning Mobility is there if you want it today.
+> Your Daily Reset is already done for today.
+> [Open Morning Mobility] [Help me] [Not today]
+
+No Done anywhere on it, and no "Save for later". The primary carried the
+row's own address, tapping it landed on the session, and the row was still
+`active` with `done_at` null afterwards. "Not today" set it aside with
+`done_at` still null and the ledger answered `later`. A `priority_done`
+posted straight at `/api/popup-response` with her own session came back
+`{"ok":false}` and wrote nothing at all: same status, same null `done_at`,
+ledger still `later`.
+
+**a2. The honest Done, 6 checks.** No test account was naturally on a
+self-reported rung today, every one of them was on an offer. So a fixture
+account's own row and its coaching decision row were captured, the priority
+was rewritten to the engine's real `gentle_focus` copy for the length of
+the check, and both were restored byte for byte and read back. On it the
+card showed Done, Help me and Save for later, with no Open anywhere, the
+server accepted a `priority_done` and the row really recorded the
+completion. **That state was arranged, not naturally reached, and that is
+the honest description of it.**
+
+**b. The way out, 22 checks.** Measured on four real closing screens: the
+Core Values Snapshot results screen (the one in the photograph), the trial
+arc's day 6 recap, its day 7 close, and the screen a finished take actually
+lands on. On every one the control is present, full width of its own column
+to the pixel (350 of 350 in the page, 294 of 294 inside a card), 54px tall,
+with a real 1px border, and nothing on any of them still says "Return to
+Dashboard". Tapping it went Home.
+
+**c. The Root Map, 11 checks.** At 390 by 844 the page is now **1222px**
+where it was **4853px**. The ring occupies 144 to 352, the gold and green
+key ends at 398, and the counted line ends at 453, so all three are in the
+first screenful with 391px to spare. The reveal is folded on arrival and
+holds all twelve areas and every group. Tapping a ring segment opened it
+and scrolled into it.
+
+**And the gold is right, checked three ways against her own rows.** The
+line read "Your wellbeing across 12 areas. Gold marks the 4 where something
+has been noticed so far." The numbered key showed exactly 4 gold chips
+(Sleep and your daily rhythm, Energy and recovery, Aches and how you hold
+yourself, Digestion and how it settles), and the entries that actually
+carry a real finding are exactly those same four. Count, colour and content
+agree.
+
+### Found live, and NOT fixed: the closing screen a member never reads
+
+Walking a Core Values Snapshot to the end three times on production, the
+taker's own closing beat, the journey progress line, Root's noticing, "What
+Root knows so far" and the handoff into the Life Signal Check, **is not the
+screen she ends on.** Twice the walk went straight past it to the results
+screen. Once it rendered and was replaced a moment later.
+
+The mechanism is visible in the code. Finishing is a Server Action called
+from the taker, an App Router Server Action's response carries a re-render
+of the route the member is on, and `app/assessments/core-values-snapshot/
+take/page.tsx` sends a completed session to the results screen
+(`lib/assessment-runtime/entry.ts`, the `already_completed` branch added
+2026-08-27 to stop a take URL creating sessions). So the re-render redirects
+her off her own closing.
+
+**This predates this build and nothing here caused it.** It is also why the
+screen in the photograph, "resource card, What Root knows, then a small
+Return to Dashboard link", is the RESULTS screen rather than the closing
+screen: the results screen is the closing she actually reads. That one now
+carries the shared way out, so the reported problem is fixed on the screen
+she reaches. The premium closing itself being skipped is a separate build,
+and it affects Life Signal Check and the Readiness Pulse in the same shape.
+
+### What this run left on production, and what it put back
+
+Everything below is a test account (`profiles.is_test = true`).
+
+**Left standing:** the quiztest6 account's priority for today is `saved`
+rather than `active`, because the run tapped "Not today" on it; three Core
+Values Snapshot sessions were completed on it by the three closing walks.
+
+**Put back:** the fixture account whose row was rewritten for stage a2 was
+restored to `daily_reset` / `active` with its coaching response back to
+null, read back and confirmed.
+
+**One data fix, deliberate.** `re_entry` carried no address before this
+build, so rows written earlier keep `priority_href` null, and a null
+address reads as self-reported, which is exactly the Done claim this build
+removed. Three such rows existed, one of them today's. All three were set to
+`/checkin`, which is what the engine now writes for that rule. Rows for
+past days are never shown again; the fix matters for the one that is.
+
 ### Housekeeping
 
 `oakomah66+quiztest6@gmail.com` is now `profiles.is_test = true`, read back
