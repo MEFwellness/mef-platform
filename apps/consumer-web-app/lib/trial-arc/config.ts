@@ -70,10 +70,16 @@ export function trialArcLaunchInstant(launch: string | null = TRIAL_ARC_LAUNCH):
  * prefix, so it never reaches a browser bundle and no client can discover
  * or assert membership of it.
  *
- * WHO IS ON IT TODAY. One account: the permanent trial arc rig
- * (scripts/trial-arc-rig.mjs), which exists so prompts 4 to 7 can each watch
- * the arc happen on the real site without switching it on for anybody. It is
- * flagged is_test, so it reaches no staff screen and no analytics figure.
+ * WHO IS ON IT TODAY. One account, and it should stay one: the permanent
+ * trial arc rig (scripts/trial-arc-rig.mjs), which exists so prompts 4 to 7
+ * can each watch the arc happen on the real site without switching it on for
+ * anybody. It is flagged is_test, so it reaches no staff screen and no
+ * analytics figure.
+ *
+ * A coaching client's id was on this list for exactly one verification check
+ * on 2026-09-04, to prove the thing the list is designed around: it was
+ * still refused, by rule 4, and no message and no receipt reached it. It came
+ * straight back off.
  *
  * EMPTY BY DEFAULT. An unset variable, an empty string, or a string of
  * separators is an empty set, and every account in the system then answers
