@@ -79,7 +79,7 @@ async function answerVisibleScreen(page) {
     for (let g = 0; g < groupCount; g += 1) {
       const pills = groups.nth(g).locator('button');
       const n = await pills.count();
-      if (n > 0) await pills.nth(Math.min(2, n - 1)).click();
+      if (n > 0) await tap(pills.nth(Math.min(2, n - 1)));
     }
     return true;
   }
@@ -89,24 +89,28 @@ async function answerVisibleScreen(page) {
   for (let i = 0; i < count; i += 1) {
     const text = (await buttons.nth(i).innerText()).trim();
     if (!text || NAV_LABELS.test(text)) continue;
-    await buttons.nth(i).click();
+    await tap(buttons.nth(i));
     return true;
   }
   return false;
 }
 
+/** Clicks only if the control is really there and really enabled. */
+async function tap(locator) {
+  if ((await locator.count()) === 0) return false;
+  const first = locator.first();
+  if (!(await first.isVisible().catch(() => false))) return false;
+  if (!(await first.isEnabled().catch(() => false))) return false;
+  await first.click({ timeout: 10000 }).catch(() => {});
+  return true;
+}
+
 async function pressForward(page) {
-  const learned = page.locator('main button:has-text("See what Root learned")');
-  if (await learned.count()) {
-    await learned.first().click();
-    return true;
-  }
+  if (await tap(page.locator('main button:has-text("See what Root learned")'))) return true;
   const cont = page.locator('main button', { hasText: /^Continue$/ });
-  if (await cont.count()) {
-    await cont.last().click();
-    return true;
-  }
-  return false;
+  const count = await cont.count();
+  if (count === 0) return false;
+  return tap(cont.nth(count - 1));
 }
 
 function closingParam(page) {
@@ -140,16 +144,16 @@ async function walkToCompletion(page, slug, { retake }) {
   }
   if (!pressed) throw new Error(`could not enter ${slug} (retake=${retake}) from ${page.url()}`);
 
-  for (let screen = 0; screen < 20; screen += 1) {
+  for (let screen = 0; screen < 40; screen += 1) {
     await page.waitForTimeout(1100);
     if (closingParam(page)) break;
-    const answered = await answerVisibleScreen(page);
-    if (!answered) {
-      // An intro or a statement screen: just move on.
-      if (!(await pressForward(page))) break;
-      continue;
-    }
-    await page.waitForTimeout(500);
+    // Answer whatever is on the screen, then move on. A tap that turned
+    // out to BE the way forward (an intro button, a two-tile choice that
+    // advances on its own) leaves Continue disabled or gone, and that is
+    // not a failure: the next turn of this loop simply answers the next
+    // screen.
+    await answerVisibleScreen(page);
+    await page.waitForTimeout(700);
     await pressForward(page);
   }
 
@@ -160,11 +164,9 @@ async function walkToCompletion(page, slug, { retake }) {
 
 /** Tap through the post-completion beats to the closing itself. */
 async function reachClosingBeat(page) {
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < 8; i += 1) {
     if (closingParam(page) === 'close') break;
-    const cont = page.locator('main button', { hasText: /^Continue$/ });
-    if (!(await cont.count())) break;
-    await cont.first().click();
+    if (!(await tap(page.locator('main button', { hasText: /^Continue$/ })))) break;
     await page.waitForTimeout(1800);
   }
   await page.waitForTimeout(3000);
@@ -205,11 +207,85 @@ async function completedCount(memberId, key) {
   return { completed: count ?? 0, drafts: drafts ?? 0 };
 }
 
+/**
+ * GUARD 3, WITHOUT WAITING A DAY. A timezone cannot simulate tomorrow, so
+ * this moves the completion's OWN timestamp back thirty hours, loads the
+ * bare take URL, and puts the timestamp back byte for byte, reading it
+ * back. A member returning to a finished experience must land on her
+ * results, not on a replayed closing.
+ */
+async function returningTheNextDay(page, memberId) {
+  const { data: def } = await service
+    .from('unified_assessment_definitions')
+    .select('id')
+    .eq('key', 'core-values-snapshot')
+    .maybeSingle();
+  // EVERY completed session, not just the newest one. The take route asks
+  // for her latest completion, so ageing one of six leaves the second one
+  // standing in as today's.
+  const { data: finished } = await service
+    .from('unified_assessment_sessions')
+    .select('id, completed_at')
+    .eq('member_id', memberId)
+    .eq('assessment_definition_id', def.id)
+    .eq('status', 'completed');
+  if (!finished || finished.length === 0) {
+    check('a finished session to age was found', false);
+    return;
+  }
+
+  const originals = finished.map((row) => ({ id: row.id, completedAt: row.completed_at }));
+  const shift = 30 * 60 * 60 * 1000;
+
+  try {
+    for (const row of originals) {
+      await service
+        .from('unified_assessment_sessions')
+        .update({ completed_at: new Date(new Date(row.completedAt).getTime() - shift).toISOString() })
+        .eq('id', row.id);
+    }
+
+    await page.goto(`${BASE}/assessments/core-values-snapshot/take`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(4000);
+    let at = new URL(page.url());
+    check('a day later, the bare take URL lands on her results', at.pathname.includes('/results/'), at.pathname);
+
+    await page.goto(`${BASE}/assessments/core-values-snapshot/take?closing=close`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(4000);
+    at = new URL(page.url());
+    check('a day later, even a URL still carrying the marker lands on her results', at.pathname.includes('/results/'), at.pathname);
+  } finally {
+    let restored = 0;
+    for (const row of originals) {
+      await service.from('unified_assessment_sessions').update({ completed_at: row.completedAt }).eq('id', row.id);
+      const { data: back } = await service
+        .from('unified_assessment_sessions')
+        .select('completed_at')
+        .eq('id', row.id)
+        .maybeSingle();
+      if (back?.completed_at === row.completedAt) restored += 1;
+    }
+    check('and every timestamp was put back exactly as it was', restored === originals.length, `${restored}/${originals.length}`);
+  }
+}
+
+const STAGE = process.argv[2] || 'all';
+
 const main = async () => {
   browser = await chromium.launch();
   const walker = await openAs(MEMBER);
   const memberId = walker.minted.session.user.id;
   const page = walker.page;
+
+  if (STAGE === 'return-later') {
+    heading('returning a day later');
+    await returningTheNextDay(page, memberId);
+    await closeAs(walker);
+    const only = results.filter((r) => r.ok).length;
+    console.log(`\n${only}/${results.length} checks passed`);
+    await browser.close();
+    process.exit(only === results.length ? 0 : 1);
+  }
 
   const before = {
     cvs: await completedCount(memberId, 'core-values-snapshot'),
@@ -229,7 +305,9 @@ const main = async () => {
   let evidence = await closingEvidence(page);
   check('walk 1: the staged reveal drew its journey progress line', evidence.text.includes('Core Values Snapshot'), '');
   check('walk 1: the self-drawing checkmarks are on the page', evidence.marks >= 1, `${evidence.marks} marks`);
-  check("walk 1: Root's noticing is there", evidence.text.includes("Root's noticing") || evidence.text.includes('Root’s noticing'));
+  // Case-insensitively: the label is set in small caps by the design, so
+  // innerText hands it back as ROOT'S NOTICING.
+  check("walk 1: Root's noticing is there", /root.s noticing/i.test(evidence.text), '');
   check('walk 1: the What Root knows cards are there', evidence.text.includes('What Root knows so far'));
   check('walk 1: the next-conversation handoff is there', evidence.text.includes('Start the Life Signal Check'));
 
@@ -237,7 +315,7 @@ const main = async () => {
   url = new URL(page.url());
   check('walk 1: it HOLDS, 20 seconds with no tap', url.pathname.endsWith('/take') && url.searchParams.get('closing') === 'close', url.pathname + url.search);
 
-  await page.locator('main a[href="/dashboard"]', { hasText: /Back to Home/ }).first().click();
+  await tap(page.locator('main a[href="/dashboard"]', { hasText: /Back to Home/ }));
   await page.waitForTimeout(4000);
   check('walk 1: Back to Home goes Home', new URL(page.url()).pathname === '/dashboard', page.url());
 
@@ -253,13 +331,18 @@ const main = async () => {
   url = new URL(page.url());
   evidence = await closingEvidence(page);
   check('walk 2: a refresh mid-closing stays on the closing', !url.pathname.includes('/results') && url.searchParams.get('closing') === 'close', url.pathname + url.search);
-  check('walk 2: and the closing is all still there after the refresh', evidence.text.includes('What Root knows so far') && evidence.text.includes('Start the Life Signal Check'));
+  check(
+    'walk 2: and the closing is all still there after the refresh',
+    evidence.text.includes('What Root knows so far') &&
+      /root.s noticing/i.test(evidence.text) &&
+      evidence.text.includes('Start the Life Signal Check')
+  );
 
   await page.waitForTimeout(15000);
   check('walk 2: it still holds after the refresh', new URL(page.url()).searchParams.get('closing') === 'close', page.url());
 
   // The next-experience invitation.
-  await page.locator('main button', { hasText: 'Start the Life Signal Check' }).first().click();
+  await tap(page.locator('main button', { hasText: 'Start the Life Signal Check' }));
   await page.waitForTimeout(5000);
   check('walk 2: the next-experience invitation opens the Life Signal Check', page.url().includes('/life-signal-check'), page.url());
 
@@ -270,7 +353,13 @@ const main = async () => {
   url = await reachClosingBeat(page);
   check('walk 3: the closing beat is reached', url.searchParams.get('closing') === 'close', url.search);
   evidence = await closingEvidence(page);
-  check('walk 3: the whole closing rendered', evidence.text.includes('What Root knows so far') && evidence.text.includes('Start the Life Signal Check') && evidence.marks >= 1);
+  check(
+    'walk 3: the whole closing rendered, staged reveal and typewriter line and all',
+    evidence.text.includes('What Root knows so far') &&
+      /root.s noticing/i.test(evidence.text) &&
+      evidence.text.includes('Start the Life Signal Check') &&
+      evidence.marks >= 1
+  );
   await page.waitForTimeout(15000);
   check('walk 3: it HOLDS, 15 seconds with no tap', new URL(page.url()).searchParams.get('closing') === 'close', page.url());
 
@@ -325,6 +414,9 @@ const main = async () => {
   await page.goto(`${BASE}/assessments/core-values-snapshot/results/${newest.id}`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3500);
   check('her results screen is still reachable, exactly as before', page.url().includes('/results/'), new URL(page.url()).pathname);
+
+  heading('returning a day later');
+  await returningTheNextDay(page, memberId);
 
   // ---- Completion rows --------------------------------------------------
   heading('what the walks wrote');

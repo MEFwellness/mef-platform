@@ -91,6 +91,47 @@ it was ever called twice. Two guards now:
 
 Full suite 505 files, 8831 tests, green five runs in a row.
 
+### Verified on the live site
+
+`scripts/verify-post-launch-fix-3-live.mjs`, driven on
+app.mefwellness.com at 390x844 as a real signed-in member
+(`oakomah66+quiztest5@gmail.com`, `profiles.is_test = true`), session
+minted through the Auth Admin API and retired with scope 'local'. Run
+twice end to end, so SIX Core Values Snapshot walks in total, plus two
+Life Signal Checks and two Readiness Pulses. Second run 39 of 39.
+
+Every walk: the completion left her on the take route inside the closing
+and never on the results screen; the closing beat was reached; the staged
+reveal, the self-drawing checkmarks, Root's noticing, the What Root knows
+cards and the next-conversation handoff all rendered; and it HELD for 15
+to 20 seconds with no tap. A refresh mid-closing stayed on the closing
+with everything still on it. Back to Home went Home. The
+next-experience invitation opened the Life Signal Check. Her results
+screen stayed reachable. Three completion rows for three walks, one each
+for the other two, no empty drafts, no console or page errors.
+
+Guard 3 was proved by moving all six of that account's completion
+timestamps back thirty hours, because a timezone cannot simulate
+tomorrow: the bare take URL AND a URL still carrying `?closing=close`
+both landed on her results. All six timestamps restored byte for byte and
+read back.
+
+### What could not be proved
+
+Production holds zero `member_trial_arc_recaps` and zero
+`member_trial_arc_closes` rows, so `/trial/week` and `/trial/close` could
+only be checked in their honest "nothing waiting on this screen yet"
+state. Both rendered it correctly, with no error and no redirect. That
+they are unaffected is asserted structurally instead: neither reads
+`loadRuntimeTakeSession` nor the closing rule, and both are covered by
+`tests/closing-one-mechanism.test.ts`.
+
+One full local suite run out of six reported a single failure whose
+identity was not captured before the run was gone. It did not recur in
+five further runs. The most likely cause was the new database test
+sharing a seeded member with three suites that delete every session row
+for that member, which is why it now makes and destroys its own.
+
 ### Files
 
 - `lib/assessment-runtime/closing.ts` (new), `entry.ts`, `data.ts`,
