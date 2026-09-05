@@ -394,7 +394,7 @@ describe('the browser still wins when it carries an arrival', () => {
   it('signup runs the email match only when this browser carries no token', () => {
     const auth = read('app/actions/auth.ts');
     expect(auth).toContain('const browserCarriesArrival =');
-    expect(auth).toMatch(/if \(!browserCarriesArrival\) \{\s*await linkAcquisitionByEmail/);
+    expect(auth).toMatch(/if \(!browserCarriesArrival\) \{\s*await linkArrivalByEmail/);
   });
 
   it('the signup form sends whether it holds one, and never the token itself', () => {

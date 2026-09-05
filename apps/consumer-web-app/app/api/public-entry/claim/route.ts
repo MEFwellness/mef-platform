@@ -47,9 +47,14 @@
 import { getCachedUser } from '@/lib/supabase/currentUser';
 import { createClient } from '@/lib/supabase/server';
 import { serviceRoleClient } from '@/lib/supabase/serviceRole';
-import { claimSessionForMember, getSessionByToken } from '@/lib/public-entry/data';
+import {
+  bindOriginFromEmailMatch,
+  claimSessionForMember,
+  getSessionByToken,
+} from '@/lib/public-entry/data';
 import {
   attachUserAcquisition,
+  attachUserAcquisitionFromLead,
   readAttributionTouch,
   touchFromSession,
 } from '@/lib/acquisition/data';
@@ -78,12 +83,34 @@ export async function POST(request: Request): Promise<Response> {
 
   const service = serviceRoleClient();
   const session = await getSessionByToken(service, raw);
-  // A token this browser holds for a session that no longer exists. Stop
-  // asking: there is nothing to bind and there never will be.
-  if (!session) return Response.json({ claimed: false, retry: false });
+  // A token this browser holds for a session that no longer exists. There
+  // is nothing here to bind and there never will be, so the browser stops
+  // asking, but her address is still a join worth trying before it does.
+  if (!session) return await settleByEmail(service, user, 'session_missing');
 
-  const { origin, newlyClaimed } = await claimSessionForMember(service, user.id, session);
+  const { origin, outcome } = await claimSessionForMember(service, user.id, session);
+
+  // THE BIND LOST A RACE IT COULD NEVER WIN, AND THAT IS TERMINAL.
+  //
+  // Found on a real phone on 2026-09-05. The phone still held the visitor
+  // token from an earlier scan of the same QR card, so opening the quiz
+  // resumed that older session, and that session had already been claimed
+  // by another account. First bind wins is correct and stays. What was
+  // wrong is what happened next: this route reported the loss as "no
+  // session yet, ask again later", the browser retried on every page load
+  // forever, the email match at signup had been skipped because the browser
+  // said it was holding a token, and the member ended up bound to nothing
+  // by any path at all.
+  //
+  // So a taken session now falls through to the other join and then stops
+  // asking, which is the whole of the fix on this side.
+  if (outcome === 'session_taken') return await settleByEmail(service, user, 'session_taken');
+
+  // A genuinely broken read or write. Worth asking again on a later page
+  // load, which is what it always was.
   if (!origin) return Response.json({ claimed: false, retry: true });
+
+  const newlyClaimed = outcome === 'claimed';
 
   if (newlyClaimed) {
     // Her own copy of where she came from, before anything else, because
@@ -123,4 +150,45 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   return Response.json({ claimed: true, retry: false });
+}
+
+/**
+ * The fallback join, run at the one moment the browser path is KNOWN to
+ * have failed rather than merely to be waiting.
+ *
+ * TWO WRITES, AND NEITHER CAN OVERWRITE ANYTHING. The quiz bind
+ * (member_public_entry_origin, keyed by member and unique by session) and
+ * her acquisition attribution (user_acquisition, refused an update by the
+ * database itself). Both are no-ops for a member who already has one.
+ *
+ * IT ALWAYS ANSWERS `retry: false`. Whether or not the address matched
+ * anything, this browser's token cannot produce a bind, so asking again on
+ * the next page load would be asking a question that has already been
+ * answered for the rest of this browser's life.
+ */
+async function settleByEmail(
+  service: ReturnType<typeof serviceRoleClient>,
+  user: { id: string; email?: string | undefined; created_at?: string | undefined },
+  why: 'session_missing' | 'session_taken'
+): Promise<Response> {
+  const email = typeof user.email === 'string' ? user.email : '';
+  if (!email) return Response.json({ claimed: false, retry: false, reason: why });
+
+  const accountCreatedAt = user.created_at ?? null;
+  const bind = await bindOriginFromEmailMatch(service, {
+    memberId: user.id,
+    email,
+    accountCreatedAt,
+  });
+  // Attribution is a separate record from the bind and is attached the same
+  // way it is on a signup that carried no token at all. Without this, the
+  // taken-session path lost her origin AND her attribution, because the
+  // signup form had already said "yes, this browser is holding something".
+  await attachUserAcquisitionFromLead(service, {
+    memberId: user.id,
+    email,
+    accountCreatedAt,
+  });
+
+  return Response.json({ claimed: bind.bound, retry: false, reason: why });
 }

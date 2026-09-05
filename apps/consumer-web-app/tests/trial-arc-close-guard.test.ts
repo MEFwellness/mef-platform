@@ -25,6 +25,7 @@ import {
 import { TRIAL_ARC_DAY_7 } from '@/lib/trial-arc/copy';
 import { TRIAL_ARC_CLOSE_DOORS, TRIAL_ARC_CLOSE_FOCUS_KINDS } from '@/lib/trial-arc/closeTypes';
 import { isMemberOnlyPath, isStaffOnlyPath } from '@/lib/auth/staffRouting';
+import { runtimeImportClosure as walk, runtimeImportStatements } from './helpers/importGraph';
 
 /**
  * The character this house style forbids, written as a code point rather
@@ -73,60 +74,24 @@ const FORBIDDEN_ON_THE_READ_PATH = [
   '../supabase/',
 ];
 
-/**
- * Every module the renderer pulls in at runtime, transitively.
- *
- * VALUE IMPORTS ONLY. A `import type { ... }` line is erased by the
- * compiler and reaches nothing at runtime, so following one would fail this
- * guard on a type name rather than on a dependency.
- */
-function runtimeImportClosure(entry: string): string[] {
-  const seen = new Set<string>();
-  const queue = [entry];
-
-  while (queue.length > 0) {
-    const file = queue.shift()!;
-    if (seen.has(file)) continue;
-    seen.add(file);
-
-    const source = read(file);
-    for (const line of source.split('\n')) {
-      const match = /^import\s+(?!type\s)([^;]*?)\s*from\s*'([^']+)'/.exec(line.trim());
-      if (!match) continue;
-      const specifier = match[2]!;
-      if (!specifier.startsWith('.')) continue;
-      const resolved = path.posix.join(path.posix.dirname(file), specifier);
-      for (const candidate of [`${resolved}.ts`, `${resolved}.tsx`, `${resolved}/index.ts`]) {
-        if (existsSync(path.join(ROOT, candidate))) {
-          queue.push(candidate);
-          break;
-        }
-      }
-    }
-  }
-  return [...seen];
-}
-
 describe('the read path depends only on the stored plan', () => {
   it('the renderer reaches no gate and no database client, anywhere in its import graph', () => {
-    const closure = runtimeImportClosure(COPY);
+    const closure = walk(ROOT, COPY);
     // A sanity check on the walker itself: if it resolved nothing, the
     // assertions below would pass vacuously.
     expect(closure.length).toBeGreaterThan(3);
 
     for (const file of closure) {
-      const source = read(file);
+      const statements = runtimeImportStatements(read(file));
       for (const forbidden of FORBIDDEN_ON_THE_READ_PATH) {
-        const offending = source
-          .split('\n')
-          .filter((line) => /^import\s+(?!type\s)/.test(line.trim()) && line.includes(forbidden));
+        const offending = statements.filter((statement) => statement.includes(forbidden));
         expect(offending, `${file} imports ${forbidden}`).toEqual([]);
       }
     }
   });
 
   it('and reads no environment variable of its own, so the addresses are always handed in', () => {
-    for (const file of runtimeImportClosure(COPY)) {
+    for (const file of walk(ROOT, COPY)) {
       expect(read(file).includes('process.env'), `${file} reads process.env`).toBe(false);
     }
   });
@@ -148,7 +113,7 @@ describe('the read path depends only on the stored plan', () => {
 
     // Imports, not prose: the header comment legitimately talks about the
     // gates this path does not go through.
-    const imports = source.split('\n').filter((line) => /^import\s/.test(line.trim()));
+    const imports = runtimeImportStatements(source);
     for (const forbidden of ['membership', 'assessment-registry', 'assessment-foundation', 'assessment-runtime']) {
       expect(imports.filter((line) => line.includes(forbidden)), forbidden).toEqual([]);
     }
@@ -476,13 +441,19 @@ describe('the outbound conversion links have one source of truth', () => {
     }
   });
 
-  it('the lock screen draws no button when there is no page to point it at', () => {
+  it('the post-trial screen draws no membership door when there is no page to point it at', () => {
+    // THIS ASSERTION MOVED WITH THE SCREEN (2026-09-05, Prompt 6).
+    // /trial-ended is no longer a single pricing button behind a ternary;
+    // it is the day 8 continuation state, and its doors come from the same
+    // renderer this build's own doors come from. The rule is unchanged: a
+    // door whose address is null is not drawn at all. It is asserted over
+    // every one of that screen's four states in
+    // tests/trial-ended-continuation.test.ts, and here only that it goes
+    // through the shared config rather than reading an address of its own.
     const source = read('app/trial-ended/page.tsx');
-    expect(source).toContain('const pricingUrl = membershipPricingUrl();');
-    // Ternary, not an unconditional anchor: the button exists only inside
-    // the branch where the address does.
-    expect(source).toContain('{pricingUrl ? (');
-    expect(source).toContain('href={pricingUrl}');
+    expect(source).toContain('conversionLinks()');
+    expect(source).not.toContain('process.env');
+    expect(existsSync(path.join(ROOT, 'lib/membership/copy.ts'))).toBe(false);
   });
 
   it('the close screen resolves the addresses on the server and hands them down', () => {

@@ -23,6 +23,7 @@ import {
 import { fetchMemberAccessFacts } from '@/lib/membership/service';
 import { decideMemberAccess } from '@/lib/membership/access';
 import { memberAccessRedirectFor } from '@/lib/membership/routing';
+import { deriveRelationship, fetchRelationshipFacts } from '@/lib/membership/relationship';
 
 // /api/cron/* routes authenticate their own way (a CRON_SECRET bearer
 // token checked inside each route handler — see
@@ -359,10 +360,16 @@ export async function middleware(request: NextRequest) {
   // resolve towards the member when they fail, so running them changes
   // nothing except how long she waits for the answer they cannot give.
   if (user && !degraded && isMemberOnlyPath(path)) {
-    const [isCoach, isAdmin, accessFacts] = await Promise.all([
+    const [isCoach, isAdmin, accessFacts, relationshipFacts] = await Promise.all([
       hasActiveRole(supabase!, user.id, 'coach'),
       hasActiveRole(supabase!, user.id, 'platform_administrator'),
       fetchMemberAccessFacts(supabase!, user.id),
+      // WHO SHE IS, read beside whether her app is open, because since
+      // 2026-09-05 the lock's destination is a screen written for one of
+      // the three answers and false for the other two. Added to the SAME
+      // Promise.all rather than after it, so a member's request still waits
+      // for one trip to the database on a member-only path.
+      fetchRelationshipFacts(supabase!, user.id),
     ]);
     const staffDestination = staffRedirectFor({ hasUser: true, isCoach, isAdmin, path });
     if (staffDestination) return NextResponse.redirect(new URL(staffDestination, request.url));
@@ -372,6 +379,7 @@ export async function middleware(request: NextRequest) {
       hasUser: true,
       isStaff: false,
       allowed: decision.allowed,
+      relationship: deriveRelationship(relationshipFacts),
       path,
     });
     if (lockDestination) return NextResponse.redirect(new URL(lockDestination, request.url));

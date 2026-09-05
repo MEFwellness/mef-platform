@@ -538,6 +538,25 @@ export function decideTrialArcMessage(
 ): { speaks: true; message: TrialArcMessage } | { speaks: false; reason: TrialArcSilence } {
   const { dayNumber } = facts;
 
+  // A DAY OUTSIDE THE WEEK IS NOBODY'S, AND IT IS DECIDED HERE AS WELL AS
+  // IN THE ASYNC RESOLVER (2026-09-05, found by Prompt 6's day 8 guard).
+  //
+  // resolveTrialArcDecision already refuses a day past TRIAL_ARC_LAST_DAY
+  // before it reads a single fact, so this was unreachable through the app.
+  // It was still wrong: the STALLED branch below sits ABOVE the day switch,
+  // deliberately, so that a member who has been away gets one warm re-entry
+  // line whatever day of the WEEK it is. With no range check in this
+  // function, that same branch answered "speak" for day 8, day 30 and day
+  // 400, and the only thing standing between it and a member on day 30
+  // being told what her trial week's next step is was one guard clause in a
+  // different file.
+  //
+  // A pure decision function that is total over its inputs must be total
+  // over ALL of them, so the range is now stated where the decision is made.
+  if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > TRIAL_ARC_LAST_DAY) {
+    return silent('outside_pacing_days');
+  }
+
   // Root Presence wins, on any day and in any state. Never stack.
   if (facts.presenceDelivering) return silent('root_presence_is_greeting');
 

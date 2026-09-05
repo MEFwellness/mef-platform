@@ -111,4 +111,28 @@ export interface MemberPublicEntryOrigin {
   claimedAt: string;
   origin: 'public_acquisition';
   preliminary: true;
+  /**
+   * HOW she was joined to this arrival, which is a weaker or a stronger
+   * statement depending on which it is, and is therefore stored rather than
+   * flattened (migration 207).
+   *
+   *   'browser_token'  Her own browser handed over the visitor token it
+   *                    minted when she took the quiz. The strongest join
+   *                    there is, and the only one that existed before
+   *                    migration 207.
+   *   'email_match'    No browser carried anything, and the address she
+   *                    left on a finished quiz is exactly the address she
+   *                    created her account with. A real join, and a weaker
+   *                    one: a lead email is self-entered and unverified.
+   */
+  bindMethod: PublicEntryBindMethod;
+}
+
+/** The two ways a member can be joined to a public arrival. See MemberPublicEntryOrigin.bindMethod. */
+export const PUBLIC_ENTRY_BIND_METHODS = ['browser_token', 'email_match'] as const;
+
+export type PublicEntryBindMethod = (typeof PUBLIC_ENTRY_BIND_METHODS)[number];
+
+export function isPublicEntryBindMethod(value: unknown): value is PublicEntryBindMethod {
+  return typeof value === 'string' && (PUBLIC_ENTRY_BIND_METHODS as readonly string[]).includes(value);
 }

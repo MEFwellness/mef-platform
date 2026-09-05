@@ -70,9 +70,21 @@ export function TrialArcRecapView({
   recap,
   /** Scopes the "seen once, then instant" reveal. Her own composed date, so a second day genuinely replays nothing. */
   revealKey,
+  /**
+   * Where the way out goes, and what it is called.
+   *
+   * DEFAULTS TO HOME, WHICH IS RIGHT ON DAY 6 AND WRONG ON DAY 8. The day 8
+   * continuation screen renders this same recap from the same stored row,
+   * and by then Home is behind the lock, so a "Back to Home" link there
+   * would bounce her straight back to the screen she just left. The
+   * continuation screen passes its own way out instead. One component, two
+   * callers, and neither one has a dead link on it.
+   */
+  back = { href: '/dashboard', label: 'Back to Home' },
 }: {
   recap: RenderedTrialArcRecap;
   revealKey: string;
+  back?: { href: string; label: string };
 }) {
   const play = useCloseScreenReveal(`trial-arc-recap:${revealKey}`);
   const noticingDelay = CARDS_DELAY_MS + recap.cards.length * STEP_MS;
@@ -131,10 +143,10 @@ export function TrialArcRecapView({
         )}
         <div className="mt-4 text-center">
           <Link
-            href={'/dashboard' as Route}
+            href={back.href as Route}
             className="mef-focus-ring text-xs font-medium text-[#6B7A72] underline underline-offset-2 transition hover:text-[#1B3A2D]"
           >
-            Back to Home
+            {back.label}
           </Link>
         </div>
       </RevealCard>

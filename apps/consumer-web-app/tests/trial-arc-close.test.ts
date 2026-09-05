@@ -31,6 +31,7 @@ import {
 import { sanitizeClosePlan, CLOSE_VOCABULARY } from '@/lib/trial-arc/closePlan';
 import { ensureTrialArcClose, markTrialArcCloseDoor } from '@/lib/trial-arc/closeData';
 import { FORBIDDEN_BELOW_SUPPORTED } from '@/lib/member-interpretation/language';
+import { PRESSURE_VOCABULARY } from './helpers/pressureVocabulary';
 import { SIGNALS, SIGNAL_LABEL, type Signal } from '@/lib/life-signal-check/constants';
 import { ENERGY_PATTERN_COPY } from '@/lib/public-entry/copy';
 import type { ReadinessPattern } from '@/lib/readiness-pulse/constants';
@@ -152,46 +153,17 @@ const EVERY_SHAPE: Array<[string, TrialArcCloseFacts]> = [
  * THE ACCESS-ENDING BAN, ENFORCED THE WAY THE EM DASH CHECK IS: as a scan of
  * every string this build can render, not as a promise in a comment.
  *
- * Day 8 handling is a later prompt. Nothing on this screen may say or imply
- * that access is expiring, so there is no countdown, no number of days
- * remaining, no expiry, no deadline and no urgency of any kind.
+ * Nothing on this screen may say or imply that access is expiring, so there
+ * is no countdown, no number of days remaining, no expiry, no deadline and
+ * no urgency of any kind.
  *
- * "7-Day Reset" is the screen's own name and names the week she has just
- * had, which is why the banned entries below are all about a FUTURE end
- * rather than about the digit seven.
+ * THE LIST ITSELF MOVED OUT (2026-09-05, Prompt 6). Day 8's continuation
+ * screen has to pass exactly the same scan, so it lives in
+ * tests/helpers/pressureVocabulary.ts and both screens import it. Two
+ * screens keeping two copies of one ban is how one of them quietly stops
+ * being checked.
  */
-const ACCESS_ENDING_VOCABULARY = [
-  'days left',
-  'days remaining',
-  'day left',
-  'last day',
-  'final day',
-  'last chance',
-  'expires',
-  'expiring',
-  'expired',
-  'expiry',
-  'ends today',
-  'ends tomorrow',
-  'trial ends',
-  'trial is ending',
-  'week ends',
-  'access ends',
-  'lose access',
-  'losing access',
-  'runs out',
-  'running out',
-  'before it is gone',
-  "before it's gone",
-  'act now',
-  'hurry',
-  'deadline',
-  'countdown',
-  'limited time',
-  'while you still can',
-  'one more day',
-  'time is up',
-];
+const ACCESS_ENDING_VOCABULARY = PRESSURE_VOCABULARY;
 
 describe('the close never says access is ending', () => {
   it.each(EVERY_SHAPE)('%s: carries no access-ending or urgency vocabulary', (_name, input) => {

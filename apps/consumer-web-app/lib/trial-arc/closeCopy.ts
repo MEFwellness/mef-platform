@@ -289,6 +289,13 @@ const DOOR_BODY: Record<TrialArcCloseDoor, { primary: string; secondary: string 
  * The doors, in the order they are shown: the lead first, the other one
  * after it.
  *
+ * EXPORTED, BECAUSE THE DAY 8 CONTINUATION SCREEN OFFERS THE SAME TWO
+ * DOORS AND MUST NOT BE A SECOND IMPLEMENTATION OF THEM. It calls this
+ * directly for the states with no stored close to read a lead door off
+ * (the recap-only state and the no-arc state), passing the conversation as
+ * the lead, which is what "no pressure" means when nothing has told us she
+ * is ready. A close's own stored lead still decides its own order.
+ *
  * A DOOR WITH NO ADDRESS IS NOT DRAWN. The membership page may genuinely
  * not be configured yet (lib/config/conversionLinks.ts returns null for
  * it), and this build's answer to that is nothing rather than a placeholder
@@ -296,16 +303,17 @@ const DOOR_BODY: Record<TrialArcCloseDoor, { primary: string; secondary: string 
  * door always resolves, and a screen with one real door on it is a screen
  * with one real door on it.
  */
-function doorsFor(
-  plan: TrialArcClosePlan,
+export function renderCloseDoors(
+  doors: readonly TrialArcCloseDoor[],
+  leadDoor: TrialArcCloseDoor,
   links: { discoveryCallUrl: string; membershipPricingUrl: string | null }
 ): RenderedCloseDoor[] {
   const href = (door: TrialArcCloseDoor): string | null =>
     door === 'conversation' ? links.discoveryCallUrl : links.membershipPricingUrl;
 
   const ordered: TrialArcCloseDoor[] = [
-    ...plan.doors.filter((door) => door === plan.leadDoor),
-    ...plan.doors.filter((door) => door !== plan.leadDoor),
+    ...doors.filter((door) => door === leadDoor),
+    ...doors.filter((door) => door !== leadDoor),
   ];
 
   const drawn = ordered
@@ -322,6 +330,13 @@ function doorsFor(
     href: entry.url,
     primary: index === 0,
   }));
+}
+
+function doorsFor(
+  plan: TrialArcClosePlan,
+  links: { discoveryCallUrl: string; membershipPricingUrl: string | null }
+): RenderedCloseDoor[] {
+  return renderCloseDoors(plan.doors, plan.leadDoor, links);
 }
 
 // ---------------------------------------------------------------------

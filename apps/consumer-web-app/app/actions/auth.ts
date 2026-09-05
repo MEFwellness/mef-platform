@@ -139,7 +139,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   const timezone = String(formData.get('timezone') ?? 'America/New_York');
   const captchaToken = readCaptchaToken(formData);
   // What this browser is holding, and the ONE thing it decides. See
-  // linkAcquisitionByEmail below.
+  // linkArrivalByEmail below.
   const browserCarriesArrival = String(formData.get(PUBLIC_ENTRY_TOKEN_FIELD) ?? '') === 'yes';
 
   try {
@@ -158,7 +158,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
       return toResult(error);
     }
     if (!browserCarriesArrival) {
-      await linkAcquisitionByEmail(data.user, email);
+      await linkArrivalByEmail(data.user, email);
     }
   } catch (err) {
     return toActionError('signUp', err);
@@ -167,14 +167,25 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
 }
 
 /**
- * The cross device half of acquisition attribution.
+ * The cross device half of BOTH things her arrival produced: where she came
+ * from, and what she told the quiz.
  *
- * WHAT WAS BROKEN. The link from a lead to an account went through the
- * browser and only through the browser: the visitor token in localStorage
- * was the whole join. Somebody who answered the nine questions on her
- * phone, left her email there, and then created her account on a laptop
- * arrived as an untracked account, and the partner who actually sent her
- * was credited with nothing.
+ * WHAT WAS BROKEN, TWICE OVER.
+ *
+ * The first half was fixed by migration 200. The link from a lead to an
+ * account went through the browser and only through the browser: the
+ * visitor token in localStorage was the whole join. Somebody who answered
+ * the nine questions on her phone, left her email there, and then created
+ * her account on a laptop arrived as an untracked account, and the partner
+ * who actually sent her was credited with nothing.
+ *
+ * The second half was found on a real phone on 2026-09-05 and is fixed by
+ * migration 207. The same browser-only join was also the ONLY way a member
+ * was ever bound to the quiz she had just taken, so the same laptop
+ * signup arrived with no quiz behind her: no fatigue handshake on the
+ * welcome, no arrival card on day 6's recap, no arrival callback on day 7's
+ * close. Attribution was being carried across and her own first impression
+ * was being dropped, which is the wrong half to save.
  *
  * WHY IT RUNS HERE AND NOT ON A PAGE. Creating an account is the explicit
  * thing she did, this is the server that did it, and the email address is
@@ -186,9 +197,12 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
  * already reads `readVisitorToken()` to change its own wording, and it now
  * also sends whether it found one. When it did, this is skipped entirely
  * and the claim in the root layout binds her to the arrival she actually
- * took, which also writes `member_public_entry_origin`. Attribution is
- * attached once and refused an update by the database, so the two paths
- * could not both write even if both ran.
+ * took. And when that claim then turns out to be unable to bind anything,
+ * the claim route runs this same email match itself
+ * (app/api/public-entry/claim/route.ts, settleByEmail), so a browser that
+ * said "yes" and then failed no longer leaves her with nothing. Every write
+ * on both paths is refused an overwrite by the database, so the two could
+ * not disagree even if both ran.
  *
  * WHY data.user IS CHECKED THE WAY IT IS. When the address already belongs
  * to somebody, GoTrue deliberately returns a user shaped object with no
@@ -196,10 +210,11 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
  * nobody, so it is not somebody to attach an origin to.
  *
  * NEVER ALLOWED TO FAIL A SIGNUP. An attribution row is a business record
- * about where somebody came from. Losing one costs a number on an admin
- * screen; failing the signup costs the member.
+ * about where somebody came from and a bind is a record of what she already
+ * told us. Losing one costs a number on an admin screen and a sentence Root
+ * could have said; failing the signup costs the member.
  */
-async function linkAcquisitionByEmail(
+async function linkArrivalByEmail(
   user: { id: string; created_at?: string; identities?: unknown[] | null } | null,
   email: string
 ): Promise<void> {
@@ -207,14 +222,18 @@ async function linkAcquisitionByEmail(
   if (!Array.isArray(user.identities) || user.identities.length === 0) return;
   try {
     const { attachUserAcquisitionFromLead } = await import('@/lib/acquisition/data');
+    const { bindOriginFromEmailMatch } = await import('@/lib/public-entry/data');
     const { serviceRoleClient } = await import('@/lib/supabase/serviceRole');
-    await attachUserAcquisitionFromLead(serviceRoleClient(), {
-      memberId: user.id,
-      email,
-      accountCreatedAt: user.created_at ?? null,
-    });
+    const service = serviceRoleClient();
+    const accountCreatedAt = user.created_at ?? null;
+    // Both halves, from the one address, in the one place. Sequential
+    // rather than concurrent on purpose: the bind is the one a member can
+    // actually see the result of, and it should not be racing an analytics
+    // write for the same connection.
+    await bindOriginFromEmailMatch(service, { memberId: user.id, email, accountCreatedAt });
+    await attachUserAcquisitionFromLead(service, { memberId: user.id, email, accountCreatedAt });
   } catch (err) {
-    console.error('linkAcquisitionByEmail failed', err);
+    console.error('linkArrivalByEmail failed', err);
   }
 }
 

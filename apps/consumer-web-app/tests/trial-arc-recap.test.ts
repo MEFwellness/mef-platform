@@ -21,7 +21,12 @@ import {
   selectRecapObservation,
   type TrialArcRecapFacts,
 } from '@/lib/trial-arc/recapCompose';
-import { renderTrialArcRecap, TRIAL_ARC_RECAP_TOMORROW } from '@/lib/trial-arc/recapCopy';
+import {
+  renderTrialArcRecap,
+  TRIAL_ARC_RECAP_KEPT,
+  TRIAL_ARC_RECAP_TOMORROW,
+} from '@/lib/trial-arc/recapCopy';
+import { ALL_PRESSURE_VOCABULARY } from './helpers/pressureVocabulary';
 import { sanitizeRecapPlan, RECAP_VOCABULARY } from '@/lib/trial-arc/recapPlan';
 import { ensureTrialArcRecap } from '@/lib/trial-arc/recapData';
 import { deriveTrialArcExperimentFacts } from '@/lib/trial-arc/experimentFacts';
@@ -181,6 +186,50 @@ describe('day 6 never speaks above the observation tier', () => {
     // And no countdown: the day number decides which recap she gets, it is
     // never spoken as a number of days remaining.
     expect(text).not.toMatch(/days? (left|remaining)/);
+  });
+
+  // -------------------------------------------------------------------
+  // THE SAME STORED RECAP, RE-READ AFTER THE WEEK (2026-09-05, Prompt 6).
+  //
+  // The day 8 continuation screen shows her this exact recap at
+  // /trial-ended/week. Two things must change and nothing else may: the
+  // closing line stops promising a tomorrow that has already happened, and
+  // tier A's button into an unfinished conversation is not drawn, because
+  // that screen is behind the lock and the button would loop her straight
+  // back to where she came from.
+  // -------------------------------------------------------------------
+
+  it.each(EVERY_SHAPE)('%s: after the week, promises nothing and draws no button', (_name, input) => {
+    const kept = renderTrialArcRecap(plan(input), { surface: 'after_the_week' });
+    expect(kept.tomorrow).toBe(TRIAL_ARC_RECAP_KEPT);
+    expect(kept.tomorrow).not.toBe(TRIAL_ARC_RECAP_TOMORROW);
+    expect(kept.cta).toBeNull();
+  });
+
+  it.each(EVERY_SHAPE)('%s: after the week, every other word is identical', (_name, input) => {
+    const built = plan(input);
+    const day6 = renderTrialArcRecap(built);
+    const kept = renderTrialArcRecap(built, { surface: 'after_the_week' });
+    expect(kept.tier).toBe(day6.tier);
+    expect(kept.intro).toBe(day6.intro);
+    expect(kept.noticing).toBe(day6.noticing);
+    expect(kept.cards).toEqual(day6.cards);
+  });
+
+  it.each(EVERY_SHAPE)('%s: after the week, still carries no pressure of any kind', (_name, input) => {
+    const text = allWords(renderTrialArcRecap(plan(input), { surface: 'after_the_week' })).toLowerCase();
+    for (const term of ALL_PRESSURE_VOCABULARY) {
+      expect(text.includes(term), `"${term}" appears`).toBe(false);
+    }
+    expect(allWords(renderTrialArcRecap(plan(input), { surface: 'after_the_week' }))).not.toContain(
+      String.fromCharCode(0x2014)
+    );
+  });
+
+  it('the default surface is day 6, so nothing about that screen changed', () => {
+    const built = plan(tierBFacts());
+    expect(renderTrialArcRecap(built)).toEqual(renderTrialArcRecap(built, {}));
+    expect(renderTrialArcRecap(built).tomorrow).toBe(TRIAL_ARC_RECAP_TOMORROW);
   });
 });
 

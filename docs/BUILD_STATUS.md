@@ -1,3 +1,126 @@
+## Day 8 is a door, not a lock, and the quiz binding is fixed (2026-09-05)
+
+Prompt 6 of the trial arc build. Two things: a real defect in how a
+member is joined to the quiz she took before signing up, and the redesign
+of `/trial-ended` from a lock screen into the day 8 soft continuation
+state.
+
+**The arc is still launched for no one.** `TRIAL_ARC_LAUNCH` ships null.
+
+### Task A: why a real phone produced an account bound to nothing
+
+A test on 2026-09-04 finished "Where Your Energy Goes" on a phone, tapped
+the create-account button on the result screen, and completed the real
+signup form. The account came out with no `member_public_entry_origin`
+row and no `user_acquisition` row.
+
+**Reconstructed from production rows, and it was not a mystery.** The
+phone still held the visitor token minted when it scanned the same QR
+card on 2026-08-31, so opening /energy RESUMED that session rather than
+starting a new one. `public_entry_events` shows it: `app_clicked/signup`
+on session `deeaece9` at 03:43:37, and the account created at 03:44:02,
+25 seconds later. That session had been claimed by another account on
+2026-08-31 at 17:53:21.
+
+So three things closed at once:
+
+1. The insert lost on `session_id unique`, which is correct, and first
+   bind still wins. What was wrong is that losing was reported the same
+   way a broken read is (`origin: null`), the claim route read that as
+   "no session yet, ask again later", and the browser retried on every
+   page load for the rest of its life.
+2. The email match at signup had been skipped, correctly, because the
+   form truthfully said "this browser is holding a token".
+3. And even had it run, `attachUserAcquisitionFromLead` deliberately
+   never wrote `member_public_entry_origin` at all. The quiz binding was
+   browser-only, full stop, so anybody who answers on her phone and signs
+   up on a laptop was always going to arrive with no quiz behind her.
+
+**The fix, in three parts.** `claimSessionForMember` now reports four
+outcomes and `session_taken` is one of them, terminal rather than
+retryable. The claim route falls through to the email match at exactly
+that moment, and stops asking. And `bindOriginFromEmailMatch` (new, in
+the module that owns the table) binds a COMPLETED, UNBOUND arrival whose
+`lead_email` exactly matches her account address, created after the
+arrival and inside 30 days of the address being left, never overwriting
+either side of the join. It runs from the signup action as well, beside
+the attribution match it always ran.
+
+**Migration 207** adds `bind_method`, check-constrained to
+`browser_token` or `email_match`. A browser handing over its own token is
+a stronger statement than an unverified address matching, so the weaker
+one is RECORDED as weaker rather than laundered into the same fact. The
+documented reasoning in `lib/acquisition/data.ts` that an email match
+must never bind the quiz has been reversed on purpose, and the reversal
+is written down where the old position was.
+
+`tests/public-entry-quiz-binding.test.ts` holds all of it against the
+real database, and fails the build if the signup path or the claim route
+can complete without attempting the bind.
+
+### Task B: /trial-ended is now the day 8 continuation state
+
+Four states, decided by which rows exist, rendered from stored rows only:
+
+  `full`            a stored close she opened. Her Week 1 outcome, the
+                    focus card, exactly as she read it on day 7.
+  `close_unopened`  a stored close she never opened. The same outcome,
+                    plus one honest sentence saying she is seeing it now.
+                    Being busy on day 7 is not a reason to lose it.
+  `recap_only`      a recap and no close. Her week, the doors, and a line
+                    that is honest about there being no closing note.
+  `no_arc`          nothing stored. Designed first, thin data first, as
+                    day 6 was. Warm, plain, both doors, and at most one
+                    counted line that is genuinely true.
+
+`lib/trial-ended/continuationCopy.ts` is a pure function of the state and
+the two door addresses, and a guard walks its whole runtime import graph
+to keep it that way. It is NOT a second implementation of day 7: the
+outcome card and the doors come from `renderTrialArcClose` and
+`renderCloseDoors`, on her own stored plan.
+
+**Her recap lives at `/trial-ended/week`, and no gate was relaxed for
+it.** `/trial/week` is a member surface, so the lock covers it on day 8.
+The lock already has to let the `/trial-ended` subtree through, so the
+same stored row is rendered at an address inside it. That is not a new
+exception, it is the existing one. The renderer's new `after_the_week`
+surface stops the closing line promising a tomorrow that has already
+happened, and draws no button into a conversation behind the lock.
+
+**Only a prospect is ever routed here, and it is enforced twice.**
+`memberAccessRedirectFor` now takes her relationship and returns null for
+anything but `PROSPECT`; the middleware reads it in the same `Promise.all`
+as the entitlement, so a member still waits for one round trip. The page
+makes the same check itself for a bookmark or a typed URL. **The cost is
+stated rather than hidden:** an account that is locked and is not a
+prospect now keeps the member app instead of being redirected. For a
+coaching client that is the standing rule (an assignment only ever adds).
+For a lapsed paid member it is a deliberate temporary answer to a screen
+that does not exist yet, and no production account is in either shape.
+
+`lib/membership/copy.ts` is deleted rather than left standing beside the
+new words, and a test asserts it is gone.
+
+### Two real bugs the new guards found
+
+**Day 8 was not silent in the pure decision function.** The STALLED
+branch of `decideTrialArcMessage` sits above the day switch on purpose,
+so a member who has been away still gets one warm re-entry line inside
+her week. With no range check in that function, it answered "speak" for
+day 8, day 30 and day 400. The only thing standing between that and a
+member on day 30 being told her trial week's next step was one guard
+clause in a different file. The range is now stated where the decision is
+made.
+
+**The import-graph guard had a blind spot.** Days 6 and 7 each shipped a
+copy of a walker that matched imports line by line, so every statement
+written across several lines was invisible: the module was never queued,
+its own imports were never followed, and a forbidden import inside it
+would have passed unnoticed. One implementation now, in
+`tests/helpers/importGraph.ts`, matching whole statements. The pressure
+vocabulary is shared the same way (`tests/helpers/pressureVocabulary.ts`)
+so two screens cannot keep two versions of one ban.
+
 ## Day 7 closes the week: "Your 7-Day Reset" (2026-09-05)
 
 Prompt 5 of the trial arc build. Day 7 is a pop-up (`trial_arc_day:7`)

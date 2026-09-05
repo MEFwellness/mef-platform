@@ -25,6 +25,7 @@ import type {
   PublicEntryPatternKey,
   PublicEntrySessionRecord,
 } from '@mef/shared-types-contracts';
+import { isPublicEntryBindMethod } from '@mef/shared-types-contracts';
 import { PUBLIC_ENTRY_EXPERIENCE_KEY } from './questions';
 
 type SessionRow = {
@@ -322,27 +323,57 @@ export async function attachLead(
 }
 
 /**
- * Binds a member to the public arrival she came from.
+ * What a claim attempt actually resolved to.
+ *
+ * FOUR OUTCOMES, AND THE THIRD IS THE ONE THAT WAS MISSING. Before
+ * 2026-09-05 this function reported two booleans, and a session that
+ * belonged to somebody else fell into the same shape as a read that broke:
+ * origin null. The claim route read that as "no session yet, ask again on a
+ * later page load", so the browser retried on every page load for the rest
+ * of its life and the member was never bound to anything by any path.
+ *
+ *   'claimed'          This call wrote the bind.
+ *   'already_bound'    She already had one. First bind wins, nothing to do.
+ *   'session_taken'    The session belongs to another member. TERMINAL for
+ *                      this browser: no amount of retrying will change it,
+ *                      and the caller should fall through to the email
+ *                      match rather than ask again.
+ *   'failed'           The read or the write genuinely broke. Worth a retry.
+ */
+export type ClaimOutcome = 'claimed' | 'already_bound' | 'session_taken' | 'failed';
+
+export interface ClaimResult {
+  origin: MemberPublicEntryOrigin | null;
+  outcome: ClaimOutcome;
+}
+
+/**
+ * Binds a member to the public arrival she came from, from her own
+ * browser's visitor token.
  *
  * IDEMPOTENT, AND FIRST BIND WINS. member_id is the primary key and
  * session_id is unique, so a repeated claim writes nothing and a second
  * browser's token cannot re-point an existing member at a different
- * arrival. `ignoreDuplicates` makes that a quiet no-op rather than an
- * error, because a member loading two tabs at once is not a problem.
+ * arrival. That rule is not being relaxed here: what changed on 2026-09-05
+ * is only that losing the race is now REPORTED as losing the race, so the
+ * caller can stop asking and try the other join instead of leaving the
+ * member with nothing at all.
  *
- * Returns the row that now stands, whether this call wrote it or found it.
+ * THIS IS THE STRONGER OF THE TWO JOINS, and it is always tried first. A
+ * browser that minted the token is the browser that answered the questions.
+ * See bindOriginFromEmailMatch below for the weaker one and what it costs.
  */
 export async function claimSessionForMember(
   supabase: SupabaseClient,
   memberId: string,
   session: PublicEntrySessionRecord
-): Promise<{ origin: MemberPublicEntryOrigin | null; newlyClaimed: boolean }> {
+): Promise<ClaimResult> {
   const { data: existing } = await supabase
     .from('member_public_entry_origin')
     .select('*')
     .eq('member_id', memberId)
     .maybeSingle();
-  if (existing) return { origin: toOrigin(existing), newlyClaimed: false };
+  if (existing) return { origin: toOrigin(existing), outcome: 'already_bound' };
 
   const { error } = await supabase.from('member_public_entry_origin').insert({
     member_id: memberId,
@@ -352,20 +383,34 @@ export async function claimSessionForMember(
     source_raw: session.sourceRaw,
     pattern_key: session.patternKey,
     entered_at: session.firstSeenAt,
+    bind_method: 'browser_token',
   });
 
   if (error) {
-    // Either this member already has an origin, or this session already
-    // belongs to another member. Both are "somebody got here first", which
-    // is a correct outcome and not a failure to report.
+    // Either this member already has an origin (a second tab got here
+    // first), or this session already belongs to another member. Both are
+    // "somebody got here first", and they are two different answers.
     const { data: settled } = await supabase
       .from('member_public_entry_origin')
       .select('*')
       .eq('member_id', memberId)
       .maybeSingle();
-    if (settled) return { origin: toOrigin(settled), newlyClaimed: false };
+    if (settled) return { origin: toOrigin(settled), outcome: 'already_bound' };
+
+    const { data: owner } = await supabase
+      .from('member_public_entry_origin')
+      .select('member_id')
+      .eq('session_id', session.id)
+      .maybeSingle();
+    if (owner) {
+      // NOT AN ERROR, AND NOT A RETRY. This is the shape a shared phone, a
+      // re-scanned QR card or a resumed session produces, and it is exactly
+      // the shape the 2026-09-05 real-phone test hit.
+      return { origin: null, outcome: 'session_taken' };
+    }
+
     console.error('claimSessionForMember failed', error);
-    return { origin: null, newlyClaimed: false };
+    return { origin: null, outcome: 'failed' };
   }
 
   const { data: written } = await supabase
@@ -373,7 +418,151 @@ export async function claimSessionForMember(
     .select('*')
     .eq('member_id', memberId)
     .maybeSingle();
-  return { origin: written ? toOrigin(written) : null, newlyClaimed: true };
+  return {
+    origin: written ? toOrigin(written) : null,
+    outcome: written ? 'claimed' : 'failed',
+  };
+}
+
+/**
+ * How long after leaving her address on a finished quiz an account may
+ * still be recognised as hers.
+ *
+ * A BOUND WINDOW, NOT AN OPEN ONE. The join is an exact address match on a
+ * self-entered, unverified field, so it must not reach arbitrarily far back
+ * in time: a quiz somebody answered last spring has nothing to say about an
+ * account created today, and binding it would put a stale first impression
+ * on a stranger's welcome screen. Thirty days is a constant here rather
+ * than a number inside a query, so there is one place to change it.
+ */
+export const PUBLIC_ENTRY_EMAIL_MATCH_WINDOW_DAYS = 30;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * THE SECOND JOIN: her email address, when no browser carried anything.
+ *
+ * WHY IT EXISTS. See migration 207's header for the whole story. In short:
+ * the visitor token is the strongest join and it is still tried first, but
+ * it is carried by one browser, and "answered on my phone, signed up on my
+ * laptop" is the ordinary case rather than the exotic one. Without this,
+ * every such visitor arrives with no quiz behind her and Root has nothing
+ * honest to say about the two minutes she just spent.
+ *
+ * WHAT IT WILL AND WILL NOT DO.
+ *
+ *   It binds only a COMPLETED arrival. An abandoned quiz has no result to
+ *   carry and binds to nobody.
+ *
+ *   It binds only an UNBOUND arrival, and only for a member who has no
+ *   origin of her own. Both are enforced by the database as well
+ *   (session_id unique, member_id primary key), so first bind still wins
+ *   and this can never re-point or overwrite an existing bind.
+ *
+ *   It requires the account to have been created AFTER the arrival and
+ *   within PUBLIC_ENTRY_EMAIL_MATCH_WINDOW_DAYS of the address being left.
+ *
+ *   It marks what it wrote. bind_method 'email_match' says out loud that
+ *   this row came from a weaker join than a browser token, so nothing
+ *   downstream has to guess.
+ *
+ * NEWEST MATCHING ARRIVAL WINS, and that is the opposite of the first-touch
+ * rule the attribution tables use, deliberately. Attribution answers "who
+ * sent her", which is a question about the first time. This answers "what
+ * did she just tell us", which is a question about the most recent time,
+ * because that is the result she has actually read and the one Root would
+ * be referring to.
+ *
+ * NEVER THROWS AND NEVER FAILS A SIGNUP. Every failure returns false.
+ */
+export async function bindOriginFromEmailMatch(
+  supabase: SupabaseClient,
+  input: { memberId: string; email: string; accountCreatedAt: string | null }
+): Promise<{ bound: boolean; sessionId: string | null }> {
+  const email = input.email.trim().toLowerCase();
+  if (!email) return { bound: false, sessionId: null };
+
+  // Her own side of "never overwrite". Cheapest check, and the one that
+  // makes this a no-op for every member who already arrived with a token.
+  const { data: existing, error: existingError } = await supabase
+    .from('member_public_entry_origin')
+    .select('member_id')
+    .eq('member_id', input.memberId)
+    .maybeSingle();
+  if (existingError) {
+    console.error('bindOriginFromEmailMatch read failed', existingError);
+    return { bound: false, sessionId: null };
+  }
+  if (existing) return { bound: false, sessionId: null };
+
+  const createdAt = input.accountCreatedAt ? new Date(input.accountCreatedAt) : null;
+  if (!createdAt || Number.isNaN(createdAt.getTime())) return { bound: false, sessionId: null };
+
+  const { data: rows, error } = await supabase
+    .from('public_entry_sessions')
+    .select(SESSION_COLUMNS)
+    .ilike('lead_email', email)
+    .not('completed_at', 'is', null)
+    .order('completed_at', { ascending: false })
+    .limit(10);
+  if (error) {
+    console.error('bindOriginFromEmailMatch session read failed', error);
+    return { bound: false, sessionId: null };
+  }
+
+  const candidates = ((rows ?? []) as SessionRow[])
+    .map(toSession)
+    // ilike is a pattern match, and an address is not a pattern. The exact
+    // comparison is made here so an address holding a % or an _ can never
+    // match somebody else's.
+    .filter((session) => (session.leadEmail ?? '').trim().toLowerCase() === email)
+    .filter((session) => {
+      const capturedAt = session.leadCapturedAt ? new Date(session.leadCapturedAt).getTime() : NaN;
+      const arrivedAt = new Date(session.firstSeenAt).getTime();
+      if (Number.isNaN(capturedAt) || Number.isNaN(arrivedAt)) return false;
+      // The account cannot predate the arrival it is supposed to have come
+      // from, and it cannot follow it by more than the window.
+      if (createdAt.getTime() < arrivedAt) return false;
+      return createdAt.getTime() - capturedAt <= PUBLIC_ENTRY_EMAIL_MATCH_WINDOW_DAYS * DAY_MS;
+    });
+
+  for (const session of candidates) {
+    const { data: owner, error: ownerError } = await supabase
+      .from('member_public_entry_origin')
+      .select('member_id')
+      .eq('session_id', session.id)
+      .maybeSingle();
+    if (ownerError) {
+      console.error('bindOriginFromEmailMatch owner read failed', ownerError);
+      return { bound: false, sessionId: null };
+    }
+    // Already somebody's arrival. Try the next newest rather than stopping:
+    // one address used on two arrivals is exactly the case where the older
+    // session is still genuinely free.
+    if (owner) continue;
+
+    const { error: insertError } = await supabase.from('member_public_entry_origin').insert({
+      member_id: input.memberId,
+      session_id: session.id,
+      experience_key: session.experienceKey,
+      source_code: session.sourceCode,
+      source_raw: session.sourceRaw,
+      pattern_key: session.patternKey,
+      entered_at: session.firstSeenAt,
+      bind_method: 'email_match',
+    });
+
+    // "No error" is not "it worked", and no row is not an error either.
+    const written = await getMemberOrigin(supabase, input.memberId);
+    if (written) return { bound: true, sessionId: written.sessionId };
+    if (insertError) {
+      // Lost a race on either key. Somebody got here first, which is a
+      // correct outcome, so stop rather than trying the next candidate.
+      return { bound: false, sessionId: null };
+    }
+  }
+
+  return { bound: false, sessionId: null };
 }
 
 type OriginRow = {
@@ -385,6 +574,7 @@ type OriginRow = {
   pattern_key: string | null;
   entered_at: string;
   claimed_at: string;
+  bind_method: string | null;
 };
 
 function toOrigin(row: unknown): MemberPublicEntryOrigin {
@@ -403,6 +593,11 @@ function toOrigin(row: unknown): MemberPublicEntryOrigin {
     // type system agreeing with the schema rather than trusting a column.
     origin: 'public_acquisition',
     preliminary: true,
+    // A row written before migration 207 has no value here. It was written
+    // by the browser claim, because that was the only writer that had ever
+    // existed, so reading a missing value as anything else would be
+    // inventing a weaker provenance than the row actually has.
+    bindMethod: isPublicEntryBindMethod(r.bind_method) ? r.bind_method : 'browser_token',
   };
 }
 

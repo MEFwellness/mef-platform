@@ -17,6 +17,7 @@ import { isPacingDay, TRIAL_ARC_FIRST_RECAP_DAY, trialArcDayKind } from '@/lib/t
 import { TRIAL_ARC_DAY_6 } from '@/lib/trial-arc/copy';
 import { TRIAL_ARC_RECAP_CARD_KINDS } from '@/lib/trial-arc/recapTypes';
 import { isMemberOnlyPath, isStaffOnlyPath } from '@/lib/auth/staffRouting';
+import { runtimeImportClosure as walk, runtimeImportStatements } from './helpers/importGraph';
 
 /**
  * The character this house style forbids, written as a code point rather
@@ -64,66 +65,46 @@ const FORBIDDEN_ON_THE_READ_PATH = [
   '../supabase/',
 ];
 
-/**
- * Every module the renderer pulls in at runtime, transitively.
- *
- * VALUE IMPORTS ONLY. A `import type { ... }` line is erased by the
- * compiler and reaches nothing at runtime, so following one would fail this
- * guard on a type name rather than on a dependency.
- */
-function runtimeImportClosure(entry: string): string[] {
-  const seen = new Set<string>();
-  const queue = [entry];
-
-  while (queue.length > 0) {
-    const file = queue.shift()!;
-    if (seen.has(file)) continue;
-    seen.add(file);
-
-    const source = read(file);
-    for (const line of source.split('\n')) {
-      const match = /^import\s+(?!type\s)([^;]*?)\s*from\s*'([^']+)'/.exec(line.trim());
-      if (!match) continue;
-      const specifier = match[2]!;
-      if (!specifier.startsWith('.')) continue;
-      const resolved = path.posix.join(path.posix.dirname(file), specifier);
-      for (const candidate of [`${resolved}.ts`, `${resolved}.tsx`, `${resolved}/index.ts`]) {
-        if (existsSync(path.join(ROOT, candidate))) {
-          queue.push(candidate);
-          break;
-        }
-      }
-    }
-  }
-  return [...seen];
-}
-
 describe('the read path depends only on the stored plan', () => {
   it('the renderer reaches no gate and no database client, anywhere in its import graph', () => {
-    const closure = runtimeImportClosure(COPY);
+    const closure = walk(ROOT, COPY);
     // A sanity check on the walker itself: if it resolved nothing, the
     // assertions below would pass vacuously.
     expect(closure.length).toBeGreaterThan(5);
 
     for (const file of closure) {
-      const source = read(file);
+      const statements = runtimeImportStatements(read(file));
       for (const forbidden of FORBIDDEN_ON_THE_READ_PATH) {
-        const offending = source
-          .split('\n')
-          .filter((line) => /^import\s+(?!type\s)/.test(line.trim()) && line.includes(forbidden));
+        const offending = statements.filter((statement) => statement.includes(forbidden));
         expect(offending, `${file} imports ${forbidden}`).toEqual([]);
       }
     }
   });
 
-  it('the renderer takes a plan and nothing else, and returns words', () => {
+  it('the renderer takes a plan and which screen is asking, and returns words', () => {
     const source = read(COPY);
-    expect(source).toContain('export function renderTrialArcRecap(plan: TrialArcRecapPlan)');
+    expect(source).toContain('export function renderTrialArcRecap(');
+    expect(source).toContain('plan: TrialArcRecapPlan');
+    // The second argument names a SURFACE from a closed set and carries no
+    // data of its own (2026-09-05, Prompt 6). It is not a way to pass words
+    // in: every string this file can render is still declared in it.
+    expect(source).toContain("options: { surface?: TrialArcRecapSurface } = {}");
+    expect(source).toContain("export type TrialArcRecapSurface = 'day_six' | 'after_the_week';");
     // No clock, no randomness: the same plan reads the same way on day 6 and
     // on the continuation screen two days later.
     expect(source).not.toContain('new Date(');
     expect(source).not.toContain('Date.now(');
     expect(source).not.toContain('Math.random(');
+  });
+
+  it('the after-the-week surface promises no tomorrow and draws no locked button', () => {
+    // Day 6 promises day 7 and offers tier A a way into an unfinished
+    // conversation. On day 8 the first is not true and the second is behind
+    // the lock, so both are answered by the renderer rather than by a
+    // component remembering to hide them.
+    const source = read(COPY);
+    expect(source).toContain('tomorrow: afterTheWeek ? TRIAL_ARC_RECAP_KEPT : TRIAL_ARC_RECAP_TOMORROW');
+    expect(source).toContain('cta: afterTheWeek || !plan.nextStep ? null : NEXT_STEP[plan.nextStep]');
   });
 
   it('the storage module reads one row and asks nothing else about her', () => {

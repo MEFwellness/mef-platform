@@ -342,13 +342,53 @@ export function recapNoticing(plan: TrialArcRecapPlan): string {
 // ---------------------------------------------------------------------
 
 /**
+ * WHICH SCREEN IS ASKING.
+ *
+ *   'day_six'          The recap on the day it was composed, at /trial/week.
+ *                      The default, and unchanged.
+ *   'after_the_week'   The same stored recap, re-read from the day 8
+ *                      continuation screen at /trial-ended/week.
+ *
+ * TWO THINGS DIFFER, AND BOTH OF THEM ARE ABOUT TELLING THE TRUTH ON THE
+ * LATER DAY RATHER THAN ABOUT DESIGN.
+ *
+ *   The closing line. "Tomorrow I will show you where I would start" was
+ *   true on day 6 and is not true on day 9. Rendering it anyway would be
+ *   the screen promising something that already happened, or that is not
+ *   coming.
+ *
+ *   The button. Tier A's next step points at a free conversation, and on
+ *   day 8 those screens are behind the lock, so the button would send her
+ *   somewhere that would immediately send her back. A dead loop is worse
+ *   than no button, and the card's own words stand without it.
+ *
+ * NOTHING ELSE CHANGES. Every card, every count and the noticing line are
+ * the ones her stored plan holds, rendered identically, because they were
+ * true when they were composed and they are still true.
+ */
+export type TrialArcRecapSurface = 'day_six' | 'after_the_week';
+
+/**
+ * The close on the continuation screen. It looks backwards, because that is
+ * the only honest direction from a week that is already finished, and it
+ * promises nothing at all.
+ */
+export const TRIAL_ARC_RECAP_KEPT =
+  'This week is yours. It reads the same today as it did the day I put it together.';
+
+/**
  * The recap as words. Deterministic: the same plan always reads the same
  * way, this week and on the continuation screen two days later.
  */
-export function renderTrialArcRecap(plan: TrialArcRecapPlan): RenderedTrialArcRecap {
+export function renderTrialArcRecap(
+  plan: TrialArcRecapPlan,
+  options: { surface?: TrialArcRecapSurface } = {}
+): RenderedTrialArcRecap {
   const cards = plan.cards
     .map((card) => renderCard(card, plan.tier))
     .filter((card): card is RenderedRecapCard => card !== null);
+
+  const afterTheWeek = options.surface === 'after_the_week';
 
   return {
     tier: plan.tier,
@@ -357,7 +397,7 @@ export function renderTrialArcRecap(plan: TrialArcRecapPlan): RenderedTrialArcRe
     intro: introFor(plan),
     cards,
     noticing: recapNoticing(plan),
-    tomorrow: TRIAL_ARC_RECAP_TOMORROW,
-    cta: plan.nextStep ? NEXT_STEP[plan.nextStep] : null,
+    tomorrow: afterTheWeek ? TRIAL_ARC_RECAP_KEPT : TRIAL_ARC_RECAP_TOMORROW,
+    cta: afterTheWeek || !plan.nextStep ? null : NEXT_STEP[plan.nextStep],
   };
 }

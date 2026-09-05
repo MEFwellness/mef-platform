@@ -414,10 +414,25 @@ export async function findLeadAcquisitionByEmail(
  * and does not depend on the session existing, which is exactly why
  * migration 200 made it a copy.
  *
- * WHAT IT DELIBERATELY DOES NOT WRITE. `member_public_entry_origin`. That
- * row is what lets Root show a member her own first impression back to her,
- * and an email match is not consent to show somebody the answers attached
- * to an address. Attribution is behavioural, and this stays behavioural.
+ * WHAT IT DOES NOT WRITE, AND WHAT NOW WRITES IT INSTEAD (2026-09-05).
+ * `member_public_entry_origin`. This function stays behavioural: it copies
+ * attribution and nothing else, and it never touches that table.
+ *
+ * It used to be documented here that an email match must never bind the
+ * quiz arrival at all, on the grounds that an email match is not consent to
+ * show somebody the answers attached to an address. A real-phone test found
+ * the cost of that position: a member who finishes the quiz on her phone
+ * and signs up anywhere else is bound to nothing, so Root has nothing
+ * honest to say about the two minutes she just spent, on the welcome or on
+ * any day of her first week.
+ *
+ * The bind by email now exists, in the module that owns that table
+ * (lib/public-entry/data.ts, bindOriginFromEmailMatch), under four
+ * conditions and marked with its own weaker provenance
+ * (bind_method 'email_match', migration 207) rather than being laundered
+ * into the same fact as a browser handing over its own token. Both are
+ * called together from the two places an email is the only join left: the
+ * signup action, and the claim route when the browser path has failed.
  */
 export async function attachUserAcquisitionFromLead(
   supabase: SupabaseClient,

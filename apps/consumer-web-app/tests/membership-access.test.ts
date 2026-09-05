@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   TRIAL_LENGTH_DAYS,
@@ -42,7 +42,6 @@ import {
 } from '../lib/membership/types';
 import type { AccessSource, AccessStatus, AccessTier, MemberSubscription } from '../lib/membership/types';
 import { PAYWALL_LOCK_REASONS, isPaywallLockReason, isPaywallFeature } from '../lib/analytics/surfaces';
-import { TRIAL_ENDED_COPY, trialEndedHeading } from '../lib/membership/copy';
 import { membershipPricingUrl } from '../lib/config/conversionLinks';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -430,13 +429,14 @@ describe('where the lock sits', () => {
   it('sends a locked member off every member surface to the trial ended screen', () => {
     for (const prefix of MEMBER_ONLY_PREFIXES) {
       expect(
-        memberAccessRedirectFor({ hasUser: true, isStaff: false, allowed: false, path: prefix })
+        memberAccessRedirectFor({ hasUser: true, isStaff: false, allowed: false, relationship: 'PROSPECT', path: prefix })
       ).toBe(TRIAL_ENDED_PATH);
       expect(
         memberAccessRedirectFor({
           hasUser: true,
           isStaff: false,
           allowed: false,
+          relationship: 'PROSPECT',
           path: `${prefix}/anything/deeper`,
         })
       ).toBe(TRIAL_ENDED_PATH);
@@ -446,20 +446,20 @@ describe('where the lock sits', () => {
   it('leaves an allowed member entirely alone, on every one of the same paths', () => {
     for (const prefix of MEMBER_ONLY_PREFIXES) {
       expect(
-        memberAccessRedirectFor({ hasUser: true, isStaff: false, allowed: true, path: prefix })
+        memberAccessRedirectFor({ hasUser: true, isStaff: false, allowed: true, relationship: 'PROSPECT', path: prefix })
       ).toBeNull();
     }
   });
 
   it('never touches a signed out request, so it cannot interfere with the sign in redirect', () => {
     expect(
-      memberAccessRedirectFor({ hasUser: false, isStaff: false, allowed: false, path: '/dashboard' })
+      memberAccessRedirectFor({ hasUser: false, isStaff: false, allowed: false, relationship: 'PROSPECT', path: '/dashboard' })
     ).toBeNull();
   });
 
   it('never touches staff, so an administrator past their own trial is not sent to a member screen', () => {
     expect(
-      memberAccessRedirectFor({ hasUser: true, isStaff: true, allowed: false, path: '/dashboard' })
+      memberAccessRedirectFor({ hasUser: true, isStaff: true, allowed: false, relationship: 'PROSPECT', path: '/dashboard' })
     ).toBeNull();
   });
 
@@ -477,7 +477,7 @@ describe('where the lock sits', () => {
       '/wellness-check',
     ]) {
       expect(
-        memberAccessRedirectFor({ hasUser: true, isStaff: false, allowed: false, path })
+        memberAccessRedirectFor({ hasUser: true, isStaff: false, allowed: false, relationship: 'PROSPECT', path })
       ).toBeNull();
     }
   });
@@ -488,6 +488,7 @@ describe('where the lock sits', () => {
         hasUser: true,
         isStaff: false,
         allowed: false,
+        relationship: 'PROSPECT',
         path: TRIAL_ENDED_PATH,
       })
     ).toBeNull();
@@ -497,6 +498,7 @@ describe('where the lock sits', () => {
       hasUser: true,
       isStaff: false,
       allowed: false,
+      relationship: 'PROSPECT',
       path: '/dashboard',
     });
     expect(destination).not.toBeNull();
@@ -505,6 +507,7 @@ describe('where the lock sits', () => {
         hasUser: true,
         isStaff: false,
         allowed: false,
+        relationship: 'PROSPECT',
         path: destination!,
       })
     ).toBeNull();
@@ -601,61 +604,26 @@ describe('analytics, reusing what already exists', () => {
   });
 });
 
-describe('the trial ended screen says the right thing', () => {
-  const allCopy = [
-    TRIAL_ENDED_COPY.eyebrow,
-    TRIAL_ENDED_COPY.heading,
-    ...TRIAL_ENDED_COPY.body,
-    TRIAL_ENDED_COPY.primaryCta,
-    TRIAL_ENDED_COPY.supportLead,
-    TRIAL_ENDED_COPY.unconfiguredNote,
-    TRIAL_ENDED_COPY.signedInAs,
-    TRIAL_ENDED_COPY.dataNote,
-  ];
-
-  it('contains no em dash anywhere', () => {
-    for (const line of allCopy) {
-      expect(line).not.toContain('—');
-    }
-  });
-
-  it('names no number of days on its own, so it cannot be wrong for either era of member', () => {
-    expect(TRIAL_ENDED_COPY.heading).toBe('Your free trial is complete');
-    expect(allCopy.join(' ')).not.toMatch(/\d+\s*days?/);
-  });
-
-  it('the heading names the days that member was actually given', () => {
-    expect(trialEndedHeading(7)).toBe('Your 7 days are complete');
-    expect(trialEndedHeading(30)).toBe('Your 30 days are complete');
-    expect(trialEndedHeading(1)).toBe('Your first day is complete');
-  });
-
-  it('the heading names no number when the window cannot be read', () => {
-    expect(trialEndedHeading(null)).toBe(TRIAL_ENDED_COPY.heading);
-    expect(trialEndedHeading(0)).toBe(TRIAL_ENDED_COPY.heading);
-    expect(trialEndedHeading(-3)).toBe(TRIAL_ENDED_COPY.heading);
-  });
-
-  it('the heading carries no em dash, whichever length it names', () => {
-    for (const days of [null, 1, 7, 30]) {
-      expect(trialEndedHeading(days)).not.toContain('\u2014');
-    }
-  });
-
-  it('does not count anything down or warn about anything', () => {
-    const joined = allCopy.join(' ').toLowerCase();
-    for (const forbidden of ['warning', 'expired', 'lost', 'act now', 'hurry', 'last chance']) {
-      expect(joined).not.toContain(forbidden);
-    }
-  });
-
-  it('tells the member their data is still there', () => {
-    expect(TRIAL_ENDED_COPY.dataNote.toLowerCase()).toContain('still');
-    expect(TRIAL_ENDED_COPY.body.join(' ').toLowerCase()).toContain('stays yours');
-  });
-
-  it('offers a way to continue that is not a countdown', () => {
-    expect(TRIAL_ENDED_COPY.primaryCta.toLowerCase()).toContain('continue');
+/**
+ * THE SCREEN'S OWN WORDS MOVED (2026-09-05, Prompt 6).
+ *
+ * /trial-ended stopped being a generic lock screen and became the day 8
+ * soft continuation state, with four states rendered from her own stored
+ * rows. Its copy therefore stopped being one frozen object in
+ * lib/membership/copy.ts and became lib/trial-ended/continuationCopy.ts,
+ * and every assertion that used to live here (the em dash ban, the
+ * no-countdown ban, "your data is still here", "a way to continue") is made
+ * over every one of the four states in
+ * tests/trial-ended-continuation.test.ts rather than over one object.
+ *
+ * The old module is deleted rather than left standing beside the new one,
+ * because two sets of words for one screen is exactly how a screen ends up
+ * saying two different things. A test asserts it is gone.
+ */
+describe('the trial ended screen has one set of words', () => {
+  it('the superseded copy module is deleted, not left beside the new one', () => {
+    const app = path.resolve(__dirname, '..');
+    expect(existsSync(path.join(app, 'lib/membership/copy.ts'))).toBe(false);
   });
 });
 
@@ -687,10 +655,12 @@ describe('wiring', () => {
     expect(source).toContain('feature="member_app"');
   });
 
-  it('the trial ended screen links the configured pricing page and turns an allowed member away', () => {
+  it('the trial ended screen resolves its doors from the shared config and turns an allowed member away', () => {
     const source = read('app/trial-ended/page.tsx');
-    // Through the one shared config, never process.env of its own.
-    expect(source).toContain('membershipPricingUrl');
+    // Through the one shared config, never process.env of its own. Both
+    // doors now, rather than the single pricing button this screen used to
+    // be: see lib/trial-ended/continuationCopy.ts.
+    expect(source).toContain('conversionLinks()');
     expect(source).not.toContain('process.env');
     expect(source).toContain("redirect('/dashboard')");
   });
