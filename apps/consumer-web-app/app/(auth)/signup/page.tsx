@@ -9,8 +9,9 @@ import { getFriendlyAuthError } from '@/lib/auth/errors';
 import { PasswordField } from '@/components/auth/PasswordField';
 import { PasswordStrengthHint } from '@/components/auth/PasswordStrengthHint';
 import { hasPendingGuestOnboardingData } from '@/lib/onboarding/guestStorage';
-import { readVisitorToken } from '@/lib/public-entry/storage';
+import { captureSignupRef, clearSignupRef, readVisitorToken } from '@/lib/public-entry/storage';
 import {
+  PUBLIC_ENTRY_REF_FIELD,
   PUBLIC_ENTRY_TOKEN_FIELD,
   publicEntryArrivalValue,
 } from '@/lib/public-entry/signupField';
@@ -60,6 +61,15 @@ export default function SignUpPage() {
   // screen. The actual bind happens after the account exists, from the
   // claim in the root layout, and it is never assumed here.
   const [fromPublicEntry, setFromPublicEntry] = useState(false);
+  /**
+   * The one-time reference the create-account button on a finished result
+   * screen carried here, read from the URL in the same effect below and
+   * then kept for the length of this tab. It is not something this browser
+   * chose: the server issued it with her result. See
+   * lib/public-entry/signupField.ts for why that is the whole difference
+   * between this and the visitor token, which is still never sent.
+   */
+  const [signupRef, setSignupRef] = useState<string | null>(null);
   // Renders nothing and yields no token unless a Turnstile site key is
   // configured, which is what keeps signup identical while bot protection
   // is dormant.
@@ -68,6 +78,10 @@ export default function SignUpPage() {
   useEffect(() => {
     setFromOnboarding(hasPendingGuestOnboardingData());
     setFromPublicEntry(readVisitorToken() !== null);
+    // Reads the reference out of the URL, stashes it for this tab, and
+    // strips it from the address bar. Null for every signup that did not
+    // come from a finished result screen, which is most of them.
+    setSignupRef(captureSignupRef());
   }, []);
 
   function validateAll(): boolean {
@@ -92,6 +106,11 @@ export default function SignUpPage() {
     const token = await turnstileRef.current?.getToken();
     if (token) formData.set(CAPTCHA_TOKEN_FIELD, token);
     const result = await signUp(formData);
+    if (!result?.error) {
+      // Through, and the server has already spent it. Dropping the stash
+      // only stops a later form on this tab picking up a dead value.
+      clearSignupRef();
+    }
     if (result?.error) {
       setFormError(
         getFriendlyAuthError(result.error, {
@@ -110,7 +129,7 @@ export default function SignUpPage() {
 
   return (
     <>
-      {!fromOnboarding && fromPublicEntry ? (
+      {!fromOnboarding && (fromPublicEntry || signupRef !== null) ? (
         <>
           <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-2xl text-[#1B3A2D]">
             Pick up where you started
@@ -216,6 +235,18 @@ export default function SignUpPage() {
           value={publicEntryArrivalValue(fromPublicEntry)}
         />
 
+        {/*
+          The one-time reference her own create-account button carried, when
+          there was one. Rendered only when it exists, so an ordinary signup
+          sends nothing at all. The server redeems it while it is creating
+          the account, which is what lets the bind happen without waiting
+          for any browser to be signed in. It cannot re-point or overwrite
+          an existing bind: see lib/public-entry/signupRef.ts.
+        */}
+        {signupRef !== null && (
+          <input type="hidden" name={PUBLIC_ENTRY_REF_FIELD} value={signupRef} />
+        )}
+
         <input
           type="hidden"
           name="timezone"
@@ -253,7 +284,7 @@ export default function SignUpPage() {
             ? 'Saving your story…'
             : fromOnboarding
               ? 'Continue my wellness journey'
-              : fromPublicEntry
+              : fromPublicEntry || signupRef !== null
                 ? 'Continue where I started'
                 : 'Sign up'}
         </button>

@@ -327,13 +327,22 @@ describe('no path to an account can skip the bind', () => {
   const CLAIM = 'app/api/public-entry/claim/route.ts';
 
   it('the signup action attempts it whenever this browser carries no token', () => {
+    // Migration 208 added a third route, so the decision moved INSIDE the
+    // linker rather than sitting in front of the call to it: a signup
+    // carrying a server-issued reference has to be linked even when the
+    // browser is holding a token, because the reference is the only route
+    // that does not need a browser to come back signed in.
     const source = read(AUTH);
-    expect(source).toMatch(/if \(!browserCarriesArrival\) \{\s*await linkArrivalByEmail/);
+    expect(source).toMatch(/await linkArrival\(data\.user, email, \{ signupRef, browserCarriesArrival \}\)/);
+    const body = source.slice(source.indexOf('async function linkArrival('));
+    // Nothing carried but a token: still deferred to the claim route, which
+    // runs the email match itself the moment the token cannot bind.
+    expect(body).toContain('if (!options.signupRef && options.browserCarriesArrival) return;');
   });
 
   it('and that helper attempts BOTH halves, the bind and the attribution', () => {
     const source = read(AUTH);
-    const body = source.slice(source.indexOf('async function linkArrivalByEmail'));
+    const body = source.slice(source.indexOf('async function linkArrival('));
     expect(body).toContain('bindOriginFromEmailMatch(');
     expect(body).toContain('attachUserAcquisitionFromLead(');
   });

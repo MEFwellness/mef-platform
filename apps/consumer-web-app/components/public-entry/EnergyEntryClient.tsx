@@ -45,6 +45,7 @@ import {
 } from '@/lib/public-entry/questions';
 import { ENERGY_INTRO } from '@/lib/public-entry/copy';
 import { arrive, complete, saveAnswers, signal, start } from '@/lib/public-entry/client';
+import { PUBLIC_ENTRY_REF_QUERY } from '@/lib/public-entry/signupField';
 import { getOrCreateVisitorToken } from '@/lib/public-entry/storage';
 import { recallAttribution, rememberAttribution } from '@/lib/public-entry/attributionStorage';
 import { isUntracked } from '@/lib/acquisition/attribution';
@@ -82,6 +83,14 @@ export function EnergyEntryClient({
   const [chapter, setChapter] = useState(1);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [result, setResult] = useState<EnergyResult | null>(null);
+  /**
+   * The one-time reference the server issued with her finished result, held
+   * only so the create-account button can carry it. Never read from storage
+   * and never minted here: the browser receives this value, it does not
+   * choose it. See lib/public-entry/signupField.ts for why that distinction
+   * is the whole of what makes carrying it safe.
+   */
+  const [signupRef, setSignupRef] = useState<string | null>(null);
   const arrivedRef = useRef(false);
 
   // The arrival. Guarded by a ref rather than by the effect's dependency
@@ -142,6 +151,7 @@ export function EnergyEntryClient({
           return;
         }
         setResult(response.result);
+        setSignupRef(response.signupRef ?? null);
         setBeat('result');
       }, wait);
     },
@@ -230,7 +240,21 @@ export function EnergyEntryClient({
     // A full navigation rather than a router push: this leaves the public
     // experience for the app, and the app's own middleware and layout
     // should run from the top.
-    window.location.href = target === 'login' ? '/login' : '/signup';
+    //
+    // THE REFERENCE RIDES THE CREATE-ACCOUNT BUTTON AND ONLY THAT BUTTON.
+    // Not the log-in button: somebody who already has an account already
+    // has whatever arrival she came with, and a bind can never overwrite
+    // one. It is appended rather than awaited, because it was issued with
+    // her result and is already in hand, so tapping never waits on a
+    // network call. When there is none, this is the same navigation it has
+    // always been.
+    if (target === 'login') {
+      window.location.href = '/login';
+      return;
+    }
+    window.location.href = signupRef
+      ? `/signup?${PUBLIC_ENTRY_REF_QUERY}=${encodeURIComponent(signupRef)}`
+      : '/signup';
   }
 
   return (

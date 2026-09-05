@@ -392,9 +392,17 @@ describe('the browser still wins when it carries an arrival', () => {
   const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf-8');
 
   it('signup runs the email match only when this browser carries no token', () => {
+    // Still true, and it moved. Migration 208 added the signup link route,
+    // which HAS to run even when the browser is holding a token, so the
+    // "only when nothing was carried" rule now sits inside the linker where
+    // all three routes are decided in one place.
     const auth = read('app/actions/auth.ts');
     expect(auth).toContain('const browserCarriesArrival =');
-    expect(auth).toMatch(/if \(!browserCarriesArrival\) \{\s*await linkArrivalByEmail/);
+    const body = auth.slice(auth.indexOf('async function linkArrival('));
+    expect(body).toContain('if (bound || options.browserCarriesArrival) return;');
+    expect(body.indexOf('if (bound || options.browserCarriesArrival) return;')).toBeLessThan(
+      body.indexOf('bindOriginFromEmailMatch(')
+    );
   });
 
   it('the signup form sends whether it holds one, and never the token itself', () => {

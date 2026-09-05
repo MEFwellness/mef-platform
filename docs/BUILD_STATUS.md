@@ -1,3 +1,113 @@
+## The signup link closes the last quiz-binding gap (2026-09-05)
+
+The create-account button on a finished "Where Your Energy Goes" result now
+carries a one-time, server-issued reference to that arrival, and the signup
+SERVER redeems it while it is creating the account. The bind therefore no
+longer depends on which browser confirms the email. Migration 208.
+
+### What was still broken after Prompt 6, measured rather than imagined
+
+`oakomah66+quiztest2@gmail.com`, a real phone test at 09:11 UTC. The quiz
+finished at 09:06, the button was tapped at 09:11, the email was confirmed
+at 09:12, and the account came out with NO arrival bound to it, no
+attribution row, and a completed arrival sitting one table away with nobody
+attached.
+
+Neither existing join could reach it:
+
+- The **browser token** join runs from the claim in the root layout, which
+  needs somebody to be signed in. Between the button and the confirmation
+  she is signed in nowhere, and the confirmation link opened in her mail
+  app's own browser, which holds no token. The token was in the browser
+  that took the quiz, sitting on a verify screen, signed out.
+- The **email match** join needs an address on the finished arrival, and
+  the email step on the result screen is optional. She skipped it, which is
+  what most people do.
+
+And because the form truthfully said "this browser is holding a token", the
+email match was skipped on that word in favour of a claim that could never
+run. Every path was closed at once, for the second time in one day, by a
+different mechanism.
+
+### The rule that was superseded, and why only for this one shape
+
+The standing rule was that a browser may never name an arrival at signup,
+because anything a browser can name, a browser can invent. That is exactly
+right about the visitor token, which the browser mints itself, keeps
+forever and can replay without limit, and it has NOT been relaxed:
+`publicEntryArrival` is still a bare yes or no and the token is still never
+sent.
+
+The reference is a different object, and every property that made the token
+unsafe to name is absent from it:
+
+- **Server minted.** Issued by the server, in the response that finished
+  the quiz, from the platform's own random source, thirty two bytes wide.
+- **Single use.** Redeemed by one conditional UPDATE that only matches an
+  unused row, so two requests carrying the same reference cannot both win.
+- **Session specific.** It names one finished arrival for its whole life.
+- **Expiring in 24 hours.** The window only has to cover tapping the button
+  and finishing the form. It deliberately does not have to cover the email
+  confirmation, because the bind is already done by then.
+- **Powerless alone.** Redeeming it can only ADD a bind that does not exist
+  yet. `member_public_entry_origin` keeps member_id as its primary key and
+  session_id unique, so first bind still wins.
+- **Not a secret about anybody.** No answer, no pattern, no email, no
+  member. Only its SHA-256 is stored, so a copy of the table is not a bag
+  of working references.
+
+The reasoning was rewritten in place in
+`lib/public-entry/signupField.ts`, which is where the old rule lived, and
+in migration 208's own header. Nothing was silently deleted.
+
+### Precedence, and the one deviation from the brief
+
+Three routes, one order, never more than one bind, and no route can
+overwrite another because the database refuses it:
+
+1. **browser_token**, still the strongest. It is not attempted inside the
+   signup request, because it physically cannot be: it needs a signed-in
+   session and nobody is signed in until an email is confirmed. It keeps
+   its priority the only way that means anything, which is that whichever
+   route arrives first is the one that stands, and every other route reads
+   back "already bound" and writes nothing.
+2. **signup_link**, redeemed inside `signUp()`.
+3. **email_match**, last, and skipped whenever the reference already bound
+   her or the browser said it is holding a token (in which case the claim
+   route owns the outcome and runs the match itself if the token turns out
+   to bind nothing).
+
+**The deviation, stated plainly.** The brief asked for browser token first,
+signup link second, inside one signup. Inside one signup the browser-token
+route cannot act at all, so ordering the two attempts there is not
+available: what is available, and what is implemented, is that the token
+route can never be overwritten by the reference, and a reference offered to
+a member who is already bound is refused and not even spent. Making the
+reference wait for the token would have left the exact gap this build
+exists to close, because in the failing case the token route never runs.
+
+### One insert writes every bind
+
+`bindOriginToSession` in `lib/public-entry/data.ts` is now the single insert
+all three routes end at, with `bindMethod` the only thing that differs.
+`claimSessionForMember` is a thin caller of it, and the email match calls it
+too, so the columns written and the conflict handling cannot drift apart.
+
+### What ships
+
+- Migration 208: `public_entry_signup_refs` (hash only, RLS on, no policy
+  for anybody), and `bind_method` widened to a third value.
+- `lib/public-entry/signupRef.ts`: minting, single-use redemption, and every
+  outcome named.
+- The reference is minted by the `complete` action on `/api/public-entry`,
+  which is the request that produces her result. Not a render, and not the
+  tap: minting on completion means it is already in her browser's hands, so
+  tapping the button never waits on a network call.
+- It rides the create-account button only, never the log-in button, is
+  stripped out of the address bar as soon as the signup screen reads it,
+  and is kept in sessionStorage for the length of that tab so a retry or a
+  detour to the login screen does not lose it.
+
 ## Day 8 driven on the live site: 126 checks, one rig, nothing launched (2026-09-05)
 
 `apps/consumer-web-app/scripts/verify-trial-ended-day8-live.mts`, run
@@ -71,7 +181,7 @@ genuinely drawn. And LEAD_DISCOVERY_CALL_URL points at
 /mefwellness/consultation rather than the shipped fallback, which is the
 config doing its job: the address is resolved fresh on every render.
 
-### The one honest gap this run found, and it is not fixed
+### The one honest gap this run found (CLOSED the same day, by migration 208)
 
 A second real-phone test (`oakomah66+quiztest2@gmail.com`, 09:11 UTC, on
 the OLD code) produced a FRESH completed arrival and still no bind. Its
@@ -81,11 +191,12 @@ load did not happen in the browser that took the quiz. The deployed fix
 does not close that one: with no address on the arrival there is nothing to
 match on.
 
-Closing it would mean letting the result screen's own create-account link
-carry a one-time server-issued reference to the arrival, so the bind can
-happen at signup regardless of which browser confirms the email. That is a
+Closing it meant letting the result screen's own create-account link carry
+a one-time server-issued reference to the arrival, so the bind can happen
+at signup regardless of which browser confirms the email. That is a
 deliberate change to the rule that a browser may never name an arrival, so
-it is written down here rather than slipped in.
+it was written down rather than slipped in, and it was then built: see the
+signup link section at the top of this file and migration 208.
 
 ### How the rig was locked, and why not the other way
 
@@ -1051,12 +1162,20 @@ one stranger's origin to another person's account. The match is a database
 function doing `lower(x) = lower(y)`, next to the index that serves it, and
 a test proves the underscore address does not match.
 
-**It attaches attribution and deliberately not the browser bind.** The
-email match writes `user_acquisition` and never
-`member_public_entry_origin`. That second row is what lets Root show a
-member her own first impression back to her, and an email match is not
-consent to show somebody the answers attached to an address. Attribution is
-behavioural, and this stays behavioural.
+**It attached attribution and deliberately not the browser bind, and that
+was revisited on 2026-09-05.** As shipped in migration 200 the email match
+wrote `user_acquisition` and never `member_public_entry_origin`. That
+second row is what lets Root show a member her own first impression back to
+her, and an email match was not thought to be consent to show somebody the
+answers attached to an address.
+
+Migration 207 took it the rest of the way, on purpose and with the
+reasoning stated in its own header, because "she answered on her phone and
+signed up on her laptop" turned out to describe the ordinary case rather
+than an edge one, and carrying her attribution across while dropping her
+own first impression was saving the wrong half. The email match now writes
+the bind too, marked `email_match` so its weaker provenance is recorded
+rather than laundered.
 
 **Every existing untracked account was backfilled** by the same three rules
 the runtime path follows: attach once, most recent matching lead wins,

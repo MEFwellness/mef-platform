@@ -21,6 +21,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   MemberPublicEntryOrigin,
+  PublicEntryBindMethod,
   PublicEntryEventType,
   PublicEntryPatternKey,
   PublicEntrySessionRecord,
@@ -152,6 +153,23 @@ export async function getOrCreateSession(
     return null;
   }
   return toSession(data as SessionRow);
+}
+
+/** One arrival by its own id. Used by the signup link redemption, which holds a reference to a session rather than a browser's token. */
+export async function getSessionById(
+  supabase: SupabaseClient,
+  sessionId: string
+): Promise<PublicEntrySessionRecord | null> {
+  const { data, error } = await supabase
+    .from('public_entry_sessions')
+    .select(SESSION_COLUMNS)
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (error) {
+    console.error('getSessionById failed', error);
+    return null;
+  }
+  return data ? toSession(data as SessionRow) : null;
 }
 
 export async function getSessionByToken(
@@ -368,6 +386,29 @@ export async function claimSessionForMember(
   memberId: string,
   session: PublicEntrySessionRecord
 ): Promise<ClaimResult> {
+  return bindOriginToSession(supabase, memberId, session, 'browser_token');
+}
+
+/**
+ * The one insert that writes a bind, whichever route asked for it.
+ *
+ * ONE SHAPE, THREE CALLERS. The browser claim, the signup link redemption
+ * (lib/public-entry/signupRef.ts) and the email match all end here, so the
+ * columns written, the conflict handling and the read-back are identical by
+ * construction rather than by three files agreeing. `bindMethod` is the
+ * only thing that differs, and it is the whole of what the routes disagree
+ * about: how strong a statement this row is.
+ *
+ * FIRST BIND WINS, ENFORCED BY THE DATABASE AND NOT BY THIS CODE. member_id
+ * is the primary key and session_id is unique, so this function has no way
+ * to overwrite anything even if it tried. Losing is reported as losing.
+ */
+export async function bindOriginToSession(
+  supabase: SupabaseClient,
+  memberId: string,
+  session: PublicEntrySessionRecord,
+  bindMethod: PublicEntryBindMethod
+): Promise<ClaimResult> {
   const { data: existing } = await supabase
     .from('member_public_entry_origin')
     .select('*')
@@ -383,7 +424,7 @@ export async function claimSessionForMember(
     source_raw: session.sourceRaw,
     pattern_key: session.patternKey,
     entered_at: session.firstSeenAt,
-    bind_method: 'browser_token',
+    bind_method: bindMethod,
   });
 
   if (error) {
@@ -541,25 +582,19 @@ export async function bindOriginFromEmailMatch(
     // session is still genuinely free.
     if (owner) continue;
 
-    const { error: insertError } = await supabase.from('member_public_entry_origin').insert({
-      member_id: input.memberId,
-      session_id: session.id,
-      experience_key: session.experienceKey,
-      source_code: session.sourceCode,
-      source_raw: session.sourceRaw,
-      pattern_key: session.patternKey,
-      entered_at: session.firstSeenAt,
-      bind_method: 'email_match',
-    });
-
-    // "No error" is not "it worked", and no row is not an error either.
-    const written = await getMemberOrigin(supabase, input.memberId);
-    if (written) return { bound: true, sessionId: written.sessionId };
-    if (insertError) {
-      // Lost a race on either key. Somebody got here first, which is a
-      // correct outcome, so stop rather than trying the next candidate.
-      return { bound: false, sessionId: null };
-    }
+    // The same insert every other route uses, so there is one shape and one
+    // conflict story rather than three.
+    const { origin, outcome } = await bindOriginToSession(
+      supabase,
+      input.memberId,
+      session,
+      'email_match'
+    );
+    if (outcome === 'claimed' && origin) return { bound: true, sessionId: origin.sessionId };
+    // Lost a race on either key, or the write broke. Somebody got here
+    // first is a correct outcome, so stop rather than trying the next
+    // candidate; a broken write is not something a second candidate fixes.
+    if (outcome !== 'session_taken') return { bound: false, sessionId: null };
   }
 
   return { bound: false, sessionId: null };

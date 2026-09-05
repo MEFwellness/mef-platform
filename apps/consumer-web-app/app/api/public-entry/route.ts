@@ -60,6 +60,7 @@ import {
   recordEvent,
   saveAnswers,
 } from '@/lib/public-entry/data';
+import { mintSignupRef } from '@/lib/public-entry/signupRef';
 import { sanitizeAnswers } from '@/lib/public-entry/questions';
 import { buildEnergyResult, buildThreeDayNotes, canBuildResult } from '@/lib/public-entry/result';
 import { normalizeSourceCode, referrerHostOf } from '@/lib/public-entry/sources';
@@ -254,7 +255,15 @@ export async function POST(request: Request) {
       if (!alreadyCompleted) {
         await recordEvent(supabase, session.id, 'experience_completed', result.patternKey);
       }
-      return NextResponse.json({ ok: true, result }, { headers });
+      // THE SIGNUP LINK'S REFERENCE, MINTED HERE AND NOWHERE ELSE.
+      // This is the request that produced her result, so it is the one
+      // explicit thing she did that a reference could hang off: no page
+      // render decides it, and it is in her browser's hands before she taps
+      // anything, so tapping the create-account button never waits on a
+      // network round trip. Null when minting failed, which costs this one
+      // route and nothing else. See lib/public-entry/signupRef.ts.
+      const signupRef = await mintSignupRef(supabase, session.id);
+      return NextResponse.json({ ok: true, result, signupRef }, { headers });
     }
 
     case 'engaged': {

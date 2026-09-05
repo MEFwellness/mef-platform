@@ -53,10 +53,8 @@ import {
   getSessionByToken,
 } from '@/lib/public-entry/data';
 import {
-  attachUserAcquisition,
+  attachUserAcquisitionFromArrival,
   attachUserAcquisitionFromLead,
-  readAttributionTouch,
-  touchFromSession,
 } from '@/lib/acquisition/data';
 import { fireAndForget, resolveMemberTimezone, trackProductEvent } from '@/lib/analytics/track';
 
@@ -118,16 +116,11 @@ export async function POST(request: Request): Promise<Response> {
     // Awaited rather than fired and forgotten: an analytics row that goes
     // missing costs a number, and this one costs the origin of a real
     // member, permanently.
-    const firstTouch =
-      (await readAttributionTouch(service, session.id, 'first')) ?? touchFromSession(session);
-    await attachUserAcquisition(service, {
+    await attachUserAcquisitionFromArrival(service, {
       memberId: user.id,
-      sessionId: session.id,
+      session,
       experienceKey: origin.experienceKey,
-      capturedLeadId: session.capturedLeadId,
-      leadCapturedAt: session.leadCapturedAt,
       accountCreatedAt: user.created_at ?? null,
-      attribution: firstTouch,
     });
 
     // Through the existing pipeline, so the post-account half of the funnel

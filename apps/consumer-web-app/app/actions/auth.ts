@@ -19,7 +19,7 @@ import {
 } from '@/lib/entry-animation/cookies';
 import { resolvePostLoginPath, isSafePostLoginRedirect } from '@/lib/auth/postLoginRoute';
 import { captchaOptions, readCaptchaToken } from '@/lib/turnstile/captcha';
-import { PUBLIC_ENTRY_TOKEN_FIELD } from '@/lib/public-entry/signupField';
+import { PUBLIC_ENTRY_TOKEN_FIELD, readSignupRef } from '@/lib/public-entry/signupField';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { trackProductEvent, resolveMemberTimezone } from '@/lib/analytics/track';
 
@@ -139,8 +139,12 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
   const timezone = String(formData.get('timezone') ?? 'America/New_York');
   const captchaToken = readCaptchaToken(formData);
   // What this browser is holding, and the ONE thing it decides. See
-  // linkArrivalByEmail below.
+  // linkArrival below.
   const browserCarriesArrival = String(formData.get(PUBLIC_ENTRY_TOKEN_FIELD) ?? '') === 'yes';
+  // The one-time reference her own create-account button carried, when
+  // there was one. Null for every signup that did not come from a finished
+  // result screen, and null for anything that is not the right shape.
+  const signupRef = readSignupRef(formData);
 
   try {
     const supabase = createClient();
@@ -157,9 +161,7 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
       logAuthFailure('supabase_request', 'signUp', error);
       return toResult(error);
     }
-    if (!browserCarriesArrival) {
-      await linkArrivalByEmail(data.user, email);
-    }
+    await linkArrival(data.user, email, { signupRef, browserCarriesArrival });
   } catch (err) {
     return toActionError('signUp', err);
   }
@@ -167,73 +169,110 @@ export async function signUp(formData: FormData): Promise<ActionResult> {
 }
 
 /**
- * The cross device half of BOTH things her arrival produced: where she came
- * from, and what she told the quiz.
+ * EVERYTHING HER ARRIVAL PRODUCED, ATTACHED TO THE ACCOUNT THAT WAS JUST
+ * CREATED: what she told the quiz, and where she came from.
  *
- * WHAT WAS BROKEN, TWICE OVER.
+ * THREE ROUTES, IN ONE ORDER, AND NEVER MORE THAN ONE BIND.
  *
- * The first half was fixed by migration 200. The link from a lead to an
- * account went through the browser and only through the browser: the
- * visitor token in localStorage was the whole join. Somebody who answered
- * the nine questions on her phone, left her email there, and then created
- * her account on a laptop arrived as an untracked account, and the partner
- * who actually sent her was credited with nothing.
+ *   1. THE BROWSER TOKEN, and it is still the strongest thing there is. It
+ *      is not attempted here, because it physically cannot be: it runs from
+ *      the claim in the root layout, which needs somebody to be signed in,
+ *      and nobody is signed in until an email is confirmed. It keeps its
+ *      priority the only way that means anything, which is that it can
+ *      never be overwritten and never overwrites: member_public_entry_origin
+ *      has member_id as its primary key and session_id unique, so whichever
+ *      route arrives first is the one that stands, and every other route
+ *      reads back "already bound" and writes nothing.
  *
- * The second half was found on a real phone on 2026-09-05 and is fixed by
- * migration 207. The same browser-only join was also the ONLY way a member
- * was ever bound to the quiz she had just taken, so the same laptop
- * signup arrived with no quiz behind her: no fatigue handshake on the
- * welcome, no arrival card on day 6's recap, no arrival callback on day 7's
- * close. Attribution was being carried across and her own first impression
- * was being dropped, which is the wrong half to save.
+ *   2. THE SIGNUP LINK, which is the route this function exists for.
+ *      Her own create-account button carried a one-time, server-issued
+ *      reference to the arrival she had just finished, and it is redeemed
+ *      right here, in the same request that creates the account. That is
+ *      what makes it independent of which browser confirms the email, which
+ *      is the whole gap it closes. See lib/public-entry/signupRef.ts.
+ *
+ *   3. HER EMAIL ADDRESS, last, and only when nothing was carried. The
+ *      weakest of the three, because a lead email is self-entered and
+ *      unverified, and it is skipped whenever a stronger route is in play:
+ *      when the reference already bound her, and when the browser said it
+ *      is holding a token, in which case the claim route owns the outcome
+ *      and runs this same match itself if the token turns out to bind
+ *      nothing (settleByEmail).
+ *
+ * WHY THIS ORDER LEAVES NOTHING UNCOVERED, WHICH IT DID NOT BEFORE. Three
+ * real signups broke on production in one day, each one a different path
+ * closing while the others were being skipped on its behalf: a stale token
+ * that named somebody else's session (migration 207), a quiz on a phone and
+ * a signup on a laptop (migration 207), and a confirmation email opened in
+ * a mail app's own browser (migration 208). Every one of them now has a
+ * route that does not depend on the browser that comes back.
  *
  * WHY IT RUNS HERE AND NOT ON A PAGE. Creating an account is the explicit
- * thing she did, this is the server that did it, and the email address is
- * already in hand. No render decides anything, no extra request is made
- * from any screen, and nothing runs for the members who never took the
- * public experience beyond one indexed lookup that finds nothing.
- *
- * THE BROWSER STILL WINS WHENEVER IT HAS ANYTHING TO SAY. The signup form
- * already reads `readVisitorToken()` to change its own wording, and it now
- * also sends whether it found one. When it did, this is skipped entirely
- * and the claim in the root layout binds her to the arrival she actually
- * took. And when that claim then turns out to be unable to bind anything,
- * the claim route runs this same email match itself
- * (app/api/public-entry/claim/route.ts, settleByEmail), so a browser that
- * said "yes" and then failed no longer leaves her with nothing. Every write
- * on both paths is refused an overwrite by the database, so the two could
- * not disagree even if both ran.
+ * thing she did, this is the server that did it, and both the address and
+ * the reference are already in hand. No render decides anything, no extra
+ * request is made from any screen, and nothing runs at all for the members
+ * who never took the public experience.
  *
  * WHY data.user IS CHECKED THE WAY IT IS. When the address already belongs
  * to somebody, GoTrue deliberately returns a user shaped object with no
  * identities rather than admitting the account exists. That object names
- * nobody, so it is not somebody to attach an origin to.
+ * nobody, so it is not somebody to attach an origin to, and no reference is
+ * spent on it.
  *
  * NEVER ALLOWED TO FAIL A SIGNUP. An attribution row is a business record
  * about where somebody came from and a bind is a record of what she already
  * told us. Losing one costs a number on an admin screen and a sentence Root
  * could have said; failing the signup costs the member.
  */
-async function linkArrivalByEmail(
+async function linkArrival(
   user: { id: string; created_at?: string; identities?: unknown[] | null } | null,
-  email: string
+  email: string,
+  options: { signupRef: string | null; browserCarriesArrival: boolean }
 ): Promise<void> {
   if (!user?.id) return;
   if (!Array.isArray(user.identities) || user.identities.length === 0) return;
+  if (!options.signupRef && options.browserCarriesArrival) return;
   try {
-    const { attachUserAcquisitionFromLead } = await import('@/lib/acquisition/data');
+    const { attachUserAcquisitionFromArrival, attachUserAcquisitionFromLead } = await import(
+      '@/lib/acquisition/data'
+    );
     const { bindOriginFromEmailMatch } = await import('@/lib/public-entry/data');
+    const { redeemSignupRef } = await import('@/lib/public-entry/signupRef');
     const { serviceRoleClient } = await import('@/lib/supabase/serviceRole');
     const service = serviceRoleClient();
     const accountCreatedAt = user.created_at ?? null;
-    // Both halves, from the one address, in the one place. Sequential
-    // rather than concurrent on purpose: the bind is the one a member can
-    // actually see the result of, and it should not be racing an analytics
-    // write for the same connection.
+
+    // ROUTE 2. Redeeming is single use and final: whatever it resolves to,
+    // there is nothing here to ask again about.
+    let bound = false;
+    if (options.signupRef) {
+      const redeemed = await redeemSignupRef(service, {
+        memberId: user.id,
+        ref: options.signupRef,
+      });
+      bound = redeemed.bound;
+      if (redeemed.bound && redeemed.session) {
+        await attachUserAcquisitionFromArrival(service, {
+          memberId: user.id,
+          session: redeemed.session,
+          experienceKey: redeemed.session.experienceKey,
+          accountCreatedAt,
+        });
+      }
+    }
+
+    // ROUTE 3. Only when the reference bound nothing AND this browser is
+    // carrying no token of its own. A browser that says yes is deferring to
+    // the claim route, which runs this same match itself the moment the
+    // token turns out to be unable to bind.
+    if (bound || options.browserCarriesArrival) return;
+    // Sequential rather than concurrent on purpose: the bind is the one a
+    // member can actually see the result of, and it should not be racing an
+    // analytics write for the same connection.
     await bindOriginFromEmailMatch(service, { memberId: user.id, email, accountCreatedAt });
     await attachUserAcquisitionFromLead(service, { memberId: user.id, email, accountCreatedAt });
   } catch (err) {
-    console.error('linkArrivalByEmail failed', err);
+    console.error('linkArrival failed', err);
   }
 }
 

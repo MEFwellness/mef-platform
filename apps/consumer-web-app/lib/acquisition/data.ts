@@ -293,6 +293,47 @@ export async function attachUserAcquisition(
 }
 
 /**
+ * Her own copy of where an arrival came from, taken from that arrival's
+ * FIRST touch, with every original timestamp carried across.
+ *
+ * ONE FUNCTION, TWO CALLERS, BECAUSE THERE ARE NOW TWO MOMENTS THIS CAN
+ * HAPPEN. The claim route does it when a signed-in browser hands over its
+ * visitor token, and the signup action does it when the create-account
+ * button's one-time reference is redeemed while the account is being
+ * created. The rows written have to be identical, and the only way to make
+ * that true rather than hoped for is one function.
+ *
+ * COPIED, NOT JOINED. Where a member came from is a fact about her account
+ * and has to survive the deletion of the anonymous session it came from;
+ * every verification run this year has purged those sessions afterwards.
+ *
+ * `touchFromSession` is the fallback for an arrival that predates migration
+ * 200 and has no attribution row of its own. It never invents a campaign
+ * that was not on the link.
+ */
+export async function attachUserAcquisitionFromArrival(
+  supabase: SupabaseClient,
+  input: {
+    memberId: string;
+    session: PublicEntrySessionRecord;
+    experienceKey: string;
+    accountCreatedAt: string | null;
+  }
+): Promise<void> {
+  const firstTouch =
+    (await readAttributionTouch(supabase, input.session.id, 'first')) ?? touchFromSession(input.session);
+  await attachUserAcquisition(supabase, {
+    memberId: input.memberId,
+    sessionId: input.session.id,
+    experienceKey: input.experienceKey,
+    capturedLeadId: input.session.capturedLeadId,
+    leadCapturedAt: input.session.leadCapturedAt,
+    accountCreatedAt: input.accountCreatedAt,
+    attribution: firstTouch,
+  });
+}
+
+/**
  * A first-touch record built from the session row itself, for an arrival
  * that has no attribution row of its own.
  *

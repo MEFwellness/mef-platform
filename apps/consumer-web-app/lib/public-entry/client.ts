@@ -64,11 +64,22 @@ export function saveAnswers(
   return post({ action: 'answer', visitorToken, answers, ...(chapter ? { chapter } : {}) });
 }
 
+/**
+ * `signupRef` is the one-time, server-issued reference the create-account
+ * button carries into signup. Null whenever it could not be minted, which
+ * the screen treats as "no reference to carry" and nothing worse: the
+ * button still works and the other two joins are untouched. See
+ * lib/public-entry/signupRef.ts.
+ */
 export function complete(
   visitorToken: string,
   answers: Record<string, string>
-): Promise<{ ok: true; result: EnergyResult } | null> {
-  return post<{ ok: true; result: EnergyResult }>({ action: 'complete', visitorToken, answers });
+): Promise<{ ok: true; result: EnergyResult; signupRef?: string | null } | null> {
+  return post<{ ok: true; result: EnergyResult; signupRef?: string | null }>({
+    action: 'complete',
+    visitorToken,
+    answers,
+  });
 }
 
 export function captureLead(

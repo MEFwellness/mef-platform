@@ -120,16 +120,23 @@ export interface MemberPublicEntryOrigin {
    *                    minted when she took the quiz. The strongest join
    *                    there is, and the only one that existed before
    *                    migration 207.
+   *   'signup_link'    She tapped the create-account button on her own
+   *                    finished result, and the signup server redeemed the
+   *                    one-time reference that button carried, in the same
+   *                    request that created her account. A statement about
+   *                    a device, like the token, and the only route that
+   *                    does not depend on which browser is signed in later.
    *   'email_match'    No browser carried anything, and the address she
    *                    left on a finished quiz is exactly the address she
-   *                    created her account with. A real join, and a weaker
-   *                    one: a lead email is self-entered and unverified.
+   *                    created her account with. A real join, and the
+   *                    weakest of the three: a lead email is self-entered
+   *                    and unverified.
    */
   bindMethod: PublicEntryBindMethod;
 }
 
-/** The two ways a member can be joined to a public arrival. See MemberPublicEntryOrigin.bindMethod. */
-export const PUBLIC_ENTRY_BIND_METHODS = ['browser_token', 'email_match'] as const;
+/** The three ways a member can be joined to a public arrival, strongest first. See MemberPublicEntryOrigin.bindMethod. */
+export const PUBLIC_ENTRY_BIND_METHODS = ['browser_token', 'signup_link', 'email_match'] as const;
 
 export type PublicEntryBindMethod = (typeof PUBLIC_ENTRY_BIND_METHODS)[number];
 
