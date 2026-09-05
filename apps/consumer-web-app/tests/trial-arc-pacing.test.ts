@@ -451,11 +451,15 @@ describe('day 2', () => {
 });
 
 describe('days 3 and 4, the experiment days', () => {
+  // Her own results screen, which is where the offer genuinely lives. The
+  // page called /experiment renders nothing to start when none is running,
+  // which was a live dead end until 2026-09-04. See
+  // trialArcExperimentHref's own comment.
   const base = {
     dayNumber: 3,
     cvsCompletedLocalDate: '2026-09-04',
     lscCompletedLocalDate: '2026-09-05',
-    experimentHref: '/assessments/life-signal-check/experiment',
+    experimentHref: '/assessments/life-signal-check/results/abc-123',
   };
 
   it('point at her experiment when one is genuinely available', () => {
@@ -595,7 +599,7 @@ describe('STALLED', () => {
       cvsCompletedLocalDate: '2026-09-04',
       lscCompletedLocalDate: '2026-09-05',
       experimentDeclined: true,
-      experimentHref: '/assessments/life-signal-check/experiment',
+      experimentHref: '/assessments/life-signal-check/results/abc-123',
     });
     expect(result.speaks).toBe(true);
     if (!result.speaks) return;
@@ -642,7 +646,7 @@ const EVERY_LINE = [
   TRIAL_ARC_DAY_2_ON_PACE,
   TRIAL_ARC_TOWARD_CVS,
   TRIAL_ARC_TOWARD_LSC,
-  trialArcExperimentCopy('/assessments/life-signal-check/experiment'),
+  trialArcExperimentCopy('/assessments/life-signal-check/results/abc-123'),
   trialArcEchoCopy('Peace & Calm', 'Tension'),
   trialArcSideBySideCopy('Peace & Calm', 'Tension'),
   trialArcReEntryCopy(TRIAL_ARC_TOWARD_CVS),

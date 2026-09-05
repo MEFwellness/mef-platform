@@ -105,16 +105,37 @@ export function trialArcDayFromMessageKey(messageKey: string): number | null {
  * Where each step lives. One route per step, so the pop-up's button and any
  * later surface can never send her somewhere different from what the
  * message named.
- *
- * The two experiment routes are the experiences' own experiment pages,
- * which already hold the real "start the seven days" panel
- * (CvsExperimentPanel / LscExperimentPanel). The arc never starts an
- * experiment itself and never duplicates that panel.
  */
 export const TRIAL_ARC_ROUTES = {
   coreValuesSnapshot: '/assessments/core-values-snapshot',
   lifeSignalCheck: '/assessments/life-signal-check',
-  coreValuesSnapshotExperiment: '/assessments/core-values-snapshot/experiment',
-  lifeSignalCheckExperiment: '/assessments/life-signal-check/experiment',
   caseView: '/case',
 } as const;
+
+/**
+ * WHERE THE SEVEN DAY EXPERIMENT IS ACTUALLY OFFERED, and it is not the
+ * page called /experiment.
+ *
+ * FOUND BY DRIVING DAY 3 ON THE LIVE SITE (2026-09-04). The arc's day 3 and
+ * day 4 message used to point at /assessments/life-signal-check/experiment,
+ * which reads like the right place from its name and is not. That page
+ * renders the experiment PANEL only once a lifestyle_experiments row
+ * already exists; for a member who has never started one it says "No
+ * experiment running right now. Your five-minute experiment starts at the
+ * end of the Life Signal Check", and offers no way to start one.
+ *
+ * The arc only ever offers an experiment when none is running, which is
+ * exactly the case that page cannot serve, so the button was a dead end
+ * every single time it was pressed. Root said "See the experiment" and sent
+ * her somewhere that told her there was not one.
+ *
+ * The offer lives on her own RESULTS screen, where the experience already
+ * puts it (LscExperimentPanel / CvsExperimentPanel with her real scoring),
+ * which is why these take her completed session's id.
+ */
+export function trialArcExperimentHref(
+  experience: 'life-signal-check' | 'core-values-snapshot',
+  sessionId: string
+): string {
+  return `/assessments/${experience}/results/${sessionId}`;
+}

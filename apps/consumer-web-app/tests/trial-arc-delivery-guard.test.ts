@@ -219,7 +219,16 @@ describe('the copy', () => {
 
   it('names every route it can send her to, so a button can never point at a screen the message did not promise', () => {
     expect(source).toContain('TRIAL_ARC_ROUTES');
-    // No hand written path strings: every href comes from the one route map.
+    // No hand written path strings: every href comes from the one route map,
+    // or, for the experiment, from trialArcExperimentHref, which needs her
+    // own completed session id and so cannot be a constant.
     expect(source).not.toMatch(/href: '\//);
+  });
+
+  it('the experiment destination is her own results screen, never the page called /experiment', () => {
+    const constants = read('lib/trial-arc/constants.ts');
+    expect(constants).toContain('/results/');
+    expect(constants).not.toContain("Experiment: '/assessments");
+    expect(read('lib/trial-arc/experimentOffer.ts')).toContain('trialArcExperimentHref');
   });
 });

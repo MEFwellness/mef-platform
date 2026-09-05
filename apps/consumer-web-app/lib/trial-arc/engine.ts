@@ -90,6 +90,7 @@ import {
 import { resolveTrialDay, type TrialDay } from './day';
 import { decidePaceState, trialArcClosure, type TrialArcPaceState } from './state';
 import { resolveTrialArcConnection, type TrialArcConnection } from './connection';
+import { resolveExperimentOfferHref } from './experimentOffer';
 import { lastReturnGreetingForGap } from './presence';
 
 export { dayNumberFor, resolveTrialDay } from './day';
@@ -402,6 +403,18 @@ async function gatherTrialArcFacts(
     now,
   });
 
+  // Where her experiment is actually offered, which is her own results
+  // screen rather than the page called /experiment. Resolved only for a
+  // member who has genuinely finished one of the two conversations, so a
+  // member on day 1 with nothing behind her pays for none of it.
+  const experimentHref =
+    cvsCompletedLocalDate || lscCompletedLocalDate
+      ? await resolveExperimentOfferHref(supabase, memberId, {
+          cvs: cvsCompletedLocalDate !== null,
+          lsc: lscCompletedLocalDate !== null,
+        })
+      : null;
+
   // The day 5 connection is the only branch that needs her actual scored
   // answers, so it is the only branch that pays for reading them.
   const connection =
@@ -417,11 +430,7 @@ async function gatherTrialArcFacts(
     lscCompletedLocalDate,
     experimentStartedLocalDate,
     experimentActive,
-    experimentHref: lscCompletedLocalDate
-      ? TRIAL_ARC_ROUTES.lifeSignalCheckExperiment
-      : cvsCompletedLocalDate
-        ? TRIAL_ARC_ROUTES.coreValuesSnapshotExperiment
-        : null,
+    experimentHref,
     experimentDeclined,
     hasPublicEntryOrigin: origin !== null,
     publicEntryPatternTitle: origin?.patternKey ? ENERGY_PATTERN_COPY[origin.patternKey].title : null,
