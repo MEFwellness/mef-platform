@@ -64,7 +64,6 @@ import { TRIAL_ARC_LAUNCH, isTrialArcTestAccount, trialArcLaunchInstant } from '
 import { resolveTrialArcEligibility } from './eligibility';
 import {
   TRIAL_ARC_LAST_PACING_DAY,
-  TRIAL_ARC_ROUTES,
   isPacingDay,
   trialArcPopupMessageKey,
   type TrialArcStep,
