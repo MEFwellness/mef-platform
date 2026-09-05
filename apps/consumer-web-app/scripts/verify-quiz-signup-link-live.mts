@@ -35,7 +35,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 // @ts-expect-error the shared minting helper is plain JavaScript, by design
 import { mintSessionCookies, retireSession } from './lib/mint-session.mjs';
-import { hashSignupRef, mintSignupRef, redeemSignupRef } from '../lib/public-entry/signupRef';
+import {
+  bindArrivalFromSignupRef,
+  hashSignupRef,
+  mintSignupRef,
+  redeemSignupRef,
+} from '../lib/public-entry/signupRef';
 import { getMemberOrigin, getSessionByToken } from '../lib/public-entry/data';
 import { TRIAL_ARC_LAUNCH } from '../lib/trial-arc/config';
 
@@ -362,7 +367,11 @@ async function stageBind() {
   check('a second signed-out arrival, in a browser context sharing nothing with the first', fresh.completed, String(fresh.sessionId));
   const refFresh = await mintSignupRef(service, fresh.sessionId!);
   const memberFresh = await createTempUser(`p6b.fresh.${stamp}@example.test`);
-  const bound = await redeemSignupRef(service, { memberId: memberFresh, ref: refFresh! });
+  const bound = await bindArrivalFromSignupRef(service, {
+    memberId: memberFresh,
+    ref: refFresh!,
+    accountCreatedAt: new Date().toISOString(),
+  });
   check('the reference binds her cleanly with no browser carrying anything', bound.bound && bound.outcome === 'bound', bound.outcome);
   const originFresh = await getMemberOrigin(service, memberFresh);
   check('and the arrival on her account is the one she actually finished', originFresh?.sessionId === fresh.sessionId, String(originFresh?.sessionId));
@@ -490,22 +499,91 @@ async function stageEmail() {
 
 async function stageCleanup() {
   console.log('\n--- Cleanup ---\n');
+
+  // The ACCOUNTS go first now, deliberately. Until migration 209 a member
+  // who had spent a reference could not be deleted at all: the reference
+  // row's `on delete set null` left it half redeemed and its own check
+  // constraint refused, and GoTrue reported that as an unreadable 5xx. So
+  // deleting the accounts while their references still stand is the check,
+  // not an accident of ordering.
   let deletedUsers = 0;
+  const deleteErrors: string[] = [];
   for (const id of createdUserIds) {
     const { error } = await service.auth.admin.deleteUser(id, false);
     if (!error) deletedUsers += 1;
+    else deleteErrors.push(`${id}: ${error.message}`);
   }
-  check('every temporary account this run created is deleted', deletedUsers === createdUserIds.length, `${deletedUsers}/${createdUserIds.length}`);
+  check(
+    'every temporary account is deleted, including the ones that SPENT a reference',
+    deletedUsers === createdUserIds.length,
+    deleteErrors.length ? deleteErrors.join(' | ') : `${deletedUsers}/${createdUserIds.length}`
+  );
 
+  // EVERY ARRIVAL, AND THE LEAD CHAIN UNDER IT.
+  //
+  // An arrival that captured a lead cannot simply be deleted. Its lead
+  // carries a `captured_lead_acquisition` row whose session_id is
+  // `on delete set null`, and that table refuses EVERY update by trigger
+  // (migration 200's write-once rule), so deleting the arrival trips it.
+  // Unwinding the lead first is the supported order, and it is what leaves
+  // production genuinely as it was found rather than nearly.
+  const failures: string[] = [];
   let deletedSessions = 0;
   for (const token of createdSessionTokens) {
     const session = await getSessionByToken(service, token);
     if (!session) continue;
-    // The refs, the answers and the events all cascade from the session.
+    if (session.capturedLeadId) {
+      const { data: lead } = await service
+        .from('captured_leads')
+        .select('conversation_id')
+        .eq('id', session.capturedLeadId)
+        .maybeSingle();
+      // captured_lead_acquisition cascades from the lead.
+      await service.from('captured_leads').delete().eq('id', session.capturedLeadId);
+      const conversationId = (lead as { conversation_id: string | null } | null)?.conversation_id;
+      if (conversationId) await service.from('lead_conversations').delete().eq('id', conversationId);
+    }
+    // The refs, the answers, the events and the attribution all cascade
+    // from the arrival itself.
     const { error } = await service.from('public_entry_sessions').delete().eq('id', session.id);
-    if (!error) deletedSessions += 1;
+    if (error) failures.push(`${session.id}: ${error.message}`);
+    else deletedSessions += 1;
   }
-  check('every temporary arrival this run created is deleted', deletedSessions >= 0, `${deletedSessions} removed`);
+  check(
+    'every temporary arrival this run created is deleted, lead chain and all',
+    failures.length === 0,
+    failures.length ? failures.join(' | ') : `${deletedSessions} removed`
+  );
+
+  // And anything an earlier run of any of these scripts left behind. No
+  // real visitor uses example.test.
+  const { data: strays } = await service
+    .from('public_entry_sessions')
+    .select('id, captured_lead_id')
+    .ilike('lead_email', '%@example.test');
+  const strayRows = (strays ?? []) as { id: string; captured_lead_id: string | null }[];
+  for (const row of strayRows) {
+    if (row.captured_lead_id) {
+      const { data: lead } = await service
+        .from('captured_leads')
+        .select('conversation_id')
+        .eq('id', row.captured_lead_id)
+        .maybeSingle();
+      await service.from('captured_leads').delete().eq('id', row.captured_lead_id);
+      const conversationId = (lead as { conversation_id: string | null } | null)?.conversation_id;
+      if (conversationId) await service.from('lead_conversations').delete().eq('id', conversationId);
+    }
+    await service.from('public_entry_sessions').delete().eq('id', row.id);
+  }
+  const { data: stillStray } = await service
+    .from('public_entry_sessions')
+    .select('id')
+    .ilike('lead_email', '%@example.test');
+  check(
+    'and no test-address arrival is left anywhere in production, from this run or an earlier one',
+    (stillStray ?? []).length === 0,
+    `${strayRows.length} swept, ${(stillStray ?? []).length} remaining`
+  );
 
   const leftoverUsers: string[] = [];
   for (const id of createdUserIds) {
@@ -513,11 +591,12 @@ async function stageCleanup() {
   }
   check('no temporary account is left behind', leftoverUsers.length === 0, leftoverUsers.join(', '));
 
-  const { data: refsLeft } = await service
-    .from('public_entry_signup_refs')
-    .select('id, session_id')
-    .in('session_id', []);
-  check('no orphaned reference rows', (refsLeft ?? []).length === 0, '');
+  const { data: refsLeft } = await service.from('public_entry_signup_refs').select('id');
+  check(
+    'no reference row is left behind anywhere, so the table is back to empty',
+    (refsLeft ?? []).length === 0,
+    `${(refsLeft ?? []).length} rows`
+  );
 
   check('the trial arc is still launched for no one', TRIAL_ARC_LAUNCH === null, String(TRIAL_ARC_LAUNCH));
 

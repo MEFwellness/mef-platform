@@ -55,6 +55,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PublicEntrySessionRecord } from '@mef/shared-types-contracts';
+import { attachUserAcquisitionFromArrival } from '../acquisition/data';
 import { bindOriginToSession, getSessionById } from './data';
 import { isSignupRefShape } from './signupField';
 
@@ -291,4 +292,40 @@ async function settle(
     if (error) console.error('redeemSignupRef outcome write failed', error);
   }
   return { bound: outcome === 'bound', outcome, session };
+}
+
+/**
+ * EVERYTHING REDEEMING A REFERENCE PRODUCES, AS ONE CALL.
+ *
+ * The bind, and her own copy of where the arrival came from. Two records,
+ * and they belong together: a member bound to an arrival with no
+ * attribution behind it is exactly the half-saved state the 2026-09-05
+ * failures kept producing. Pairing them here rather than in the caller
+ * means there is no way to redeem a reference and forget the second half,
+ * and it is the unit the live verification can actually drive, since the
+ * signup Server Action itself is behind Turnstile.
+ *
+ * NEVER THROWS AND NEVER FAILS A SIGNUP, for the same reason
+ * redeemSignupRef does not.
+ */
+export async function bindArrivalFromSignupRef(
+  supabase: SupabaseClient,
+  input: { memberId: string; ref: string; accountCreatedAt: string | null }
+): Promise<SignupRefRedemption> {
+  const redeemed = await redeemSignupRef(supabase, { memberId: input.memberId, ref: input.ref });
+  if (!redeemed.bound || !redeemed.session) return redeemed;
+  try {
+    await attachUserAcquisitionFromArrival(supabase, {
+      memberId: input.memberId,
+      session: redeemed.session,
+      experienceKey: redeemed.session.experienceKey,
+      accountCreatedAt: input.accountCreatedAt,
+    });
+  } catch (err) {
+    // The bind stands either way. Losing the attribution costs a number on
+    // an admin screen; unwinding a real bind over it would cost her the
+    // sentence Root gets to say.
+    console.error('bindArrivalFromSignupRef attribution failed', err);
+  }
+  return redeemed;
 }

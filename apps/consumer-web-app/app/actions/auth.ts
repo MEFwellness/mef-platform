@@ -233,32 +233,24 @@ async function linkArrival(
   if (!Array.isArray(user.identities) || user.identities.length === 0) return;
   if (!options.signupRef && options.browserCarriesArrival) return;
   try {
-    const { attachUserAcquisitionFromArrival, attachUserAcquisitionFromLead } = await import(
-      '@/lib/acquisition/data'
-    );
+    const { attachUserAcquisitionFromLead } = await import('@/lib/acquisition/data');
     const { bindOriginFromEmailMatch } = await import('@/lib/public-entry/data');
-    const { redeemSignupRef } = await import('@/lib/public-entry/signupRef');
+    const { bindArrivalFromSignupRef } = await import('@/lib/public-entry/signupRef');
     const { serviceRoleClient } = await import('@/lib/supabase/serviceRole');
     const service = serviceRoleClient();
     const accountCreatedAt = user.created_at ?? null;
 
     // ROUTE 2. Redeeming is single use and final: whatever it resolves to,
-    // there is nothing here to ask again about.
+    // there is nothing here to ask again about. Both halves in one call, so
+    // there is no way to bind her arrival and forget her attribution.
     let bound = false;
     if (options.signupRef) {
-      const redeemed = await redeemSignupRef(service, {
+      const redeemed = await bindArrivalFromSignupRef(service, {
         memberId: user.id,
         ref: options.signupRef,
+        accountCreatedAt,
       });
       bound = redeemed.bound;
-      if (redeemed.bound && redeemed.session) {
-        await attachUserAcquisitionFromArrival(service, {
-          memberId: user.id,
-          session: redeemed.session,
-          experienceKey: redeemed.session.experienceKey,
-          accountCreatedAt,
-        });
-      }
     }
 
     // ROUTE 3. Only when the reference bound nothing AND this browser is

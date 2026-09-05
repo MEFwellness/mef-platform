@@ -50,6 +50,7 @@ import {
   getSessionById,
 } from '@/lib/public-entry/data';
 import {
+  bindArrivalFromSignupRef,
   hashSignupRef,
   mintSignupRef,
   redeemSignupRef,
@@ -73,6 +74,7 @@ const TOKEN = {
   unfinished: 'slink-token-unfin-00001',
   expired: 'slink-token-expire-0001',
   precedence: 'slink-token-preced-0001',
+  pair: 'slink-token-pair-000001',
 };
 
 const users: Record<string, string> = {};
@@ -146,6 +148,7 @@ beforeAll(async () => {
   await insertSession('unfinished', TOKEN.unfinished, null);
   await insertSession('expired', TOKEN.expired, COMPLETED_AT);
   await insertSession('precedence', TOKEN.precedence, COMPLETED_AT);
+  await insertSession('pair', TOKEN.pair, COMPLETED_AT);
 
   await Promise.all([
     createUser('phone', 'slink.phone@example.test'),
@@ -156,6 +159,7 @@ beforeAll(async () => {
     createUser('loser', 'slink.loser@example.test'),
     createUser('unfinished', 'slink.unfinished@example.test'),
     createUser('precedence', 'slink.precedence@example.test'),
+    createUser('pair', 'slink.pair@example.test'),
   ]);
 });
 
@@ -264,6 +268,36 @@ describe('redeeming binds once and says which route it was', () => {
     const row = data as { used_by_member_id: string; outcome: string } | null;
     expect(row?.used_by_member_id).toBe(users.reuse);
     expect(row?.outcome).toBe('bound');
+  });
+});
+
+describe('the bind and her attribution are written as one thing', () => {
+  it('binding through the signup pair writes the origin AND the acquisition row', async () => {
+    const ref = await mintSignupRef(service, sessions.pair!);
+    const result = await bindArrivalFromSignupRef(service, {
+      memberId: users.pair!,
+      ref: ref!,
+      accountCreatedAt: '2026-09-01T09:30:00.000Z',
+    });
+    expect(result.outcome).toBe('bound');
+    const origin = await getMemberOrigin(service, users.pair!);
+    expect(origin?.sessionId).toBe(sessions.pair);
+    const { data } = await service
+      .from('user_acquisition')
+      .select('session_id, experience_key')
+      .eq('member_id', users.pair!)
+      .maybeSingle();
+    expect((data as { session_id: string } | null)?.session_id).toBe(sessions.pair);
+  });
+
+  it('and the member can still be deleted afterwards, which a spent reference used to prevent', async () => {
+    // The production bug migration 209 fixes: `on delete set null` set
+    // used_by_member_id to null while used_at stayed, which is the exact
+    // half-redeemed state this table's own check constraint forbids, so the
+    // delete failed with an unreadable 5xx.
+    const { error } = await service.auth.admin.deleteUser(users.pair!, false);
+    expect(error).toBeNull();
+    users.pair = '';
   });
 });
 
@@ -398,8 +432,10 @@ describe('precedence: browser token first, signup link second, email match last'
   it('the signup action tries the reference BEFORE the email match, and never both', () => {
     const source = read('app/actions/auth.ts');
     const body = source.slice(source.indexOf('async function linkArrival('));
-    expect(body.indexOf('redeemSignupRef(')).toBeGreaterThan(-1);
-    expect(body.indexOf('redeemSignupRef(')).toBeLessThan(body.indexOf('bindOriginFromEmailMatch('));
+    expect(body.indexOf('bindArrivalFromSignupRef(')).toBeGreaterThan(-1);
+    expect(body.indexOf('bindArrivalFromSignupRef(')).toBeLessThan(
+      body.indexOf('bindOriginFromEmailMatch(')
+    );
     // One bind, never two: the email match is skipped outright once the
     // reference bound her.
     expect(body).toContain('if (bound || options.browserCarriesArrival) return;');

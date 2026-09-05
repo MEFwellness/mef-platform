@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { decideTrialArcMessage, type TrialArcFacts } from '@/lib/trial-arc/engine';
 import { isPacingDay, TRIAL_ARC_FIRST_RECAP_DAY, trialArcDayKind } from '@/lib/trial-arc/constants';
