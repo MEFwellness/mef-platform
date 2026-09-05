@@ -73,6 +73,17 @@ before you finish, and do not reintroduce one.
   signup, login, forgot-password, the verification resend and change
   password, because every one of them carries the same widget and had the
   same defect.
+- **A button never claims what the rows cannot support.** The message and
+  the buttons under it are one statement. If the message OFFERS something
+  that lives inside the app, the primary action opens it and the way out is
+  a decline, never a self-reported "Done": the app records what actually
+  happens at the destination, so a tap that writes a completion for
+  something with no started row is a false row, and the coaching ledger and
+  the approach grades read it. Only an act she is the sole witness to may
+  be self-reported. Decide which it is from the stored row (a destination
+  address), never from the copy, in one place, and refuse the write on the
+  server as well, because a stale page and a hand-made POST both exist.
+  `lib/priority/actions.ts` is the pattern.
 - **Screenshots and member data stay under gitignored paths** and are never
   committed. This repository is public.
 
