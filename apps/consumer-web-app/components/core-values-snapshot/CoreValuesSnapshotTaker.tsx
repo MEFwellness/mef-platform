@@ -25,7 +25,8 @@ import { IntroReveal } from '@/components/IntroReveal';
 import { ExperienceHomeLink } from '@/components/ExperienceHomeLink';
 import { CVS_CARD, CVS_DISPLAY_FONT } from './theme';
 import { Q12Choice, ScaleBattery, SingleSelectQuestion, type CvsOption } from './CvsQuestionCards';
-import { ReturnToDashboardButton, ResourceSection, WhatRootLearnedSection } from './CvsResultsView';
+import { ResourceSection, WhatRootLearnedSection } from './CvsResultsView';
+import { BackToHomeButton } from '@/components/closing-screen/BackToHomeButton';
 import { CvsExperimentPanel } from './CvsExperimentPanel';
 import { CvsCloseScreen } from './CvsCloseScreen';
 import { ROOT_FINISHING_LABEL } from '@/lib/reveal/copy';
@@ -362,7 +363,9 @@ export function CoreValuesSnapshotTaker({ sessionId, questions, initialAnswers, 
             onStartLifeSignalCheck={() => router.push('/assessments/life-signal-check' as Route)}
             onLater={() => router.push('/dashboard' as Route)}
           />
-          <ReturnToDashboardButton />
+          {/* The way out of the closing, the one shared control every
+              closing screen ends with. */}
+          <BackToHomeButton />
         </>
       )}
 

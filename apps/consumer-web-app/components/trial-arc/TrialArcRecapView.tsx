@@ -38,6 +38,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 import { CVS_DISPLAY_FONT, CVS_GOLD_DIVIDER } from '@/components/core-values-snapshot/theme';
 import { IntroReveal } from '@/components/IntroReveal';
+import { BackToHomeButton } from '@/components/closing-screen/BackToHomeButton';
 import {
   RevealCard,
   useCloseScreenReveal,
@@ -141,13 +142,11 @@ export function TrialArcRecapView({
             </Link>
           </>
         )}
-        <div className="mt-4 text-center">
-          <Link
-            href={back.href as Route}
-            className="mef-focus-ring text-xs font-medium text-[#6B7A72] underline underline-offset-2 transition hover:text-[#1B3A2D]"
-          >
-            {back.label}
-          </Link>
+        {/* The way out, as a real control rather than a small underlined
+            line under the card (2026-09-05). Same address, same words, and
+            the day 8 caller still passes its own. */}
+        <div className="mt-5">
+          <BackToHomeButton href={back.href} label={back.label} />
         </div>
       </RevealCard>
     </div>

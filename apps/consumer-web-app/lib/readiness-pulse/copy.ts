@@ -197,28 +197,28 @@ export function buildRplMembershipDoor(pattern: ReadinessPattern): MembershipDoo
         heading: "You're ready. Here's what full support looks like.",
         body: "You've done the free arc: what you're protecting, what's loudest, how ready you are. The ongoing work, real daily coaching, adjusted as your life actually changes, lives in membership.",
         primaryButton: 'See what membership includes',
-        secondaryButton: 'Not now, back to dashboard',
+        secondaryButton: 'Not now, back to Home',
       };
     case 'ready_if_small':
       return {
         heading: 'Ready, sized right. Here’s what comes next.',
         body: "Small and real beats big and abandoned. When you want the ongoing version of this, sized the same honest way, membership is there.",
         primaryButton: 'See what membership includes',
-        secondaryButton: 'Not now, back to dashboard',
+        secondaryButton: 'Not now, back to Home',
       };
     case 'still_deciding':
       return {
         heading: 'No rush. The door stays open.',
         body: "You're still deciding, and that's a real place to be. When you're ready to look at what ongoing support actually includes, it's a tap away, not a pitch.",
         primaryButton: 'See what membership includes',
-        secondaryButton: 'Not now, back to dashboard',
+        secondaryButton: 'Not now, back to Home',
       };
     case 'not_yet':
       return {
         heading: 'When you are ready, I will be here.',
         body: 'The Noticing is already running on your dashboard, zero pressure, just paying attention. No sales pitch attached to that. Whenever "not yet" turns into something else, I will be exactly where you left me.',
         primaryButton: null,
-        secondaryButton: 'Back to dashboard',
+        secondaryButton: 'Back to Home',
       };
   }
 }

@@ -46,11 +46,18 @@ describe('the card says what the brief specifies', () => {
     expect(PRIORITY_CARD_LABEL).toBe('Your priority today');
   });
 
-  it('offers exactly the three named buttons', () => {
+  // The three the brief named, plus the two the truthful-buttons fix added
+  // (2026-09-05). 'notToday' is an OFFER's decline and 'acknowledge' is the
+  // safety override's one way out; neither is a fourth thing the card shows
+  // alongside the others, and which set a priority may draw is decided
+  // once, in lib/priority/actions.ts. See tests/priority-truthful-buttons.
+  it('offers exactly the named buttons and no others', () => {
     expect(PRIORITY_BUTTON_LABELS).toEqual({
       done: 'Done',
       help: 'Help me',
       save: 'Save for later',
+      notToday: 'Not today',
+      acknowledge: 'Okay',
     });
   });
 });

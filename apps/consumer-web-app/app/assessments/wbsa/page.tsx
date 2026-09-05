@@ -193,7 +193,7 @@ export default async function WbsaOverviewPage({
                 href={'/dashboard' as Route}
                 className="mt-3 block rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
               >
-                Return to Dashboard
+                Back to Home
               </Link>
             </Card>
           </CenterStage>

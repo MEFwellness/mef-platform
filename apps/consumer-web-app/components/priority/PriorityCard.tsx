@@ -9,7 +9,10 @@
  *
  * Three states:
  *
- *   active  the dominant card: label, priority, reason line, three buttons.
+ *   active  the dominant card: label, priority, reason line, and the
+ *           buttons lib/priority/actions.ts says this priority may show
+ *           (an offer opens the thing and is declined with "Not today";
+ *           only a self-reported priority is ever offered a Done claim).
  *   done    the accomplished state, in the Today page's own accomplished
  *           visual language (the same green check and muted card that
  *           TodayZones' Done Today list uses), so completing a priority
@@ -52,12 +55,11 @@ import { SuccessCheck } from '@/components/motion/SuccessCheck';
 import { revealStep } from '@/lib/motion/revealStep';
 import type { PriorityView } from '@/lib/priority/types';
 import { PRIORITY_ACCOMPLISHED_SETTLE_MS, PRIORITY_REVEAL_INDEX } from '@/lib/priority/motion';
+import { priorityActionSet } from '@/lib/priority/actions';
 import {
-  PRIORITY_BUTTON_LABELS,
   PRIORITY_CARD_LABEL,
   PRIORITY_DONE_TEXT,
   PRIORITY_HELP_HEADING,
-  PRIORITY_SAVED_TEXT,
 } from '@/lib/priority/copy';
 import { usePriorityCardActions } from './usePriorityCardActions';
 import { usePriorityCardMotion } from './usePriorityCardMotion';
@@ -74,6 +76,14 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
   const motion = usePriorityCardMotion(view, status, 'inline');
 
   const { selected, isReEntry, welcomeLine, bridge, frictionQuestion } = view;
+
+  // WHICH BUTTONS THIS PRIORITY MAY SHOW, and the one place that decides
+  // it. An offer (something that lives inside this app) opens the thing and
+  // is declined with "Not today"; only a priority she is the sole witness
+  // to is offered a Done claim. Decided from the priority's own stored row,
+  // never from its words. See lib/priority/actions.ts for the whole rule
+  // and for the bug that produced it.
+  const actions = priorityActionSet(selected);
 
   const router = useRouter();
 
@@ -171,15 +181,29 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
           <p className="text-sm font-semibold uppercase tracking-wider">{PRIORITY_CARD_LABEL}</p>
         </div>
         <p className="mt-2 text-[15px] leading-relaxed text-[#1B3A2D]">{selected.title}</p>
-        <p className="mt-2 text-sm text-[#6B7A72]">{PRIORITY_SAVED_TEXT}</p>
-        <button
-          type="button"
-          onClick={onDone}
-          className="mef-press mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
-        >
-          <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-          {PRIORITY_BUTTON_LABELS.done}
-        </button>
+        <p className="mt-2 text-sm text-[#6B7A72]">{actions.setAsideText}</p>
+        {/* The way back in, in the same mode the card was in when she set it
+            aside. An offer she declined this morning is still an offer this
+            evening, so this reopens it rather than offering to claim it. */}
+        {actions.primary?.kind === 'open' && (
+          <Link
+            href={actions.primary.href as Route}
+            className="mef-press mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+          >
+            {actions.primary.label}
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+          </Link>
+        )}
+        {actions.primary?.kind === 'done' && (
+          <button
+            type="button"
+            onClick={onDone}
+            className="mef-press mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+            {actions.primary.label}
+          </button>
+        )}
       </section>
     );
   }
@@ -249,16 +273,6 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
             </p>
           )}
 
-          {selected.href && (
-            <Link
-              href={selected.href as Route}
-              {...revealStep(PRIORITY_REVEAL_INDEX.reason, "relative mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#1B3A2D] underline underline-offset-2")}
-            >
-              Open it
-              <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-            </Link>
-          )}
-
           {/* Help me expands in place. No navigation away, per the brief.
               Kept mounted and collapsed rather than unmounted, which is
               what lets the height animate at all and what lets collapsing
@@ -291,14 +305,28 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
           <div
             {...revealStep(PRIORITY_REVEAL_INDEX.buttons, "relative mt-5 flex flex-wrap gap-2")}
           >
-            <button
-              type="button"
-              onClick={onDone}
-              className="mef-press inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-              {PRIORITY_BUTTON_LABELS.done}
-            </button>
+            {/* An offer opens the thing it named. It is the same address the
+                separate "Open it" link under the reason used to carry: one
+                control now, in the position her thumb already goes to. */}
+            {actions.primary?.kind === 'open' && (
+              <Link
+                href={actions.primary.href as Route}
+                className="mef-press inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
+              >
+                {actions.primary.label}
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+              </Link>
+            )}
+            {actions.primary?.kind === 'done' && (
+              <button
+                type="button"
+                onClick={onDone}
+                className="mef-press inline-flex items-center gap-1.5 rounded-full bg-[#1B3A2D] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                {actions.primary.label}
+              </button>
+            )}
             <button
               type="button"
               onClick={onHelp}
@@ -306,14 +334,14 @@ export function PriorityCard({ view, collapsed = false }: { view: PriorityView; 
               className="mef-press inline-flex items-center gap-1.5 rounded-full border border-[#1B3A2D]/20 px-5 py-2.5 text-sm font-semibold text-[#1B3A2D] transition hover:border-[#1B3A2D]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
             >
               <Lightbulb className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-              {PRIORITY_BUTTON_LABELS.help}
+              {actions.helpLabel}
             </button>
             <button
               type="button"
               onClick={onSave}
               className="mef-press inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium text-[#6B7A72] transition hover:text-[#1B3A2D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700] disabled:opacity-60"
             >
-              {PRIORITY_BUTTON_LABELS.save}
+              {actions.setAsideLabel}
             </button>
           </div>
         </div>

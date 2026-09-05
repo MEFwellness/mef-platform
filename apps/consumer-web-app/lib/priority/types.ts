@@ -406,8 +406,30 @@ export type SelectedPriority = {
   reason: string | null;
   /** The easiest smaller next step, revealed in place by "Help me". Never a navigation. */
   help: string;
-  /** Optional deep link the card offers alongside the buttons (e.g. resume an abandoned assessment). */
+  /**
+   * The screen in this app that the priority points at, when it points at
+   * one (e.g. resume an abandoned assessment, open a Root Movement
+   * session).
+   *
+   * IT IS ALSO WHAT DECIDES THE BUTTONS. A non-null href means the thing
+   * lives inside the app, which makes the priority an OFFER, and an offer
+   * is never answered with a self-reported completion claim. See
+   * lib/priority/actions.ts, which reads this field and nothing else about
+   * the priority except its rule.
+   */
   href: string | null;
+  /**
+   * The destination's own display name, carried from the system that owns
+   * it (a Root Movement template's `name`, the assessment registry's
+   * `name`), so the button reads "Open Morning Mobility" rather than
+   * "Open it".
+   *
+   * Null whenever there is no destination, and also allowed to be null
+   * when there is one: the card falls back to the plain "Open it" the
+   * inline card's link has always used. Never parsed out of the title, and
+   * never invented here.
+   */
+  openTarget: string | null;
   /**
    * What KIND of thing this action asks for. Never rendered — it exists so
    * the outcome ledger and a later grading pass can compare kinds of

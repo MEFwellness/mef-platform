@@ -18,7 +18,8 @@ import { CVS_CARD, CVS_DISPLAY_FONT } from '@/components/core-values-snapshot/th
 import { SingleSelectQuestion, type CvsOption } from '@/components/core-values-snapshot/CvsQuestionCards';
 import { IntroReveal } from '@/components/IntroReveal';
 import { ExperienceHomeLink } from '@/components/ExperienceHomeLink';
-import { ReturnToDashboardButton, ResourceSection, WhatRootLearnedSection } from './LscResultsView';
+import { ResourceSection, WhatRootLearnedSection } from './LscResultsView';
+import { BackToHomeButton } from '@/components/closing-screen/BackToHomeButton';
 import { LscExperimentPanel } from './LscExperimentPanel';
 import { LscCloseScreen } from './LscCloseScreen';
 import { ROOT_FINISHING_LABEL } from '@/lib/reveal/copy';
@@ -377,7 +378,9 @@ export function LifeSignalCheckTaker({ sessionId, questions, initialAnswers, aud
             onStartReadinessPulse={() => router.push('/assessments/readiness-pulse' as Route)}
             onLater={() => router.push('/dashboard' as Route)}
           />
-          <ReturnToDashboardButton />
+          {/* The way out of the closing, the one shared control every
+              closing screen ends with. */}
+          <BackToHomeButton />
         </>
       )}
 

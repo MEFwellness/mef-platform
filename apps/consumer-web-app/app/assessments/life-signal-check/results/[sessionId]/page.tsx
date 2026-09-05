@@ -18,7 +18,8 @@ import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
-import { WhatRootLearnedSection, ResourceSection, ReturnToDashboardButton } from '@/components/life-signal-check/LscResultsView';
+import { WhatRootLearnedSection, ResourceSection } from '@/components/life-signal-check/LscResultsView';
+import { BackToHomeButton } from '@/components/closing-screen/BackToHomeButton';
 import { LscExperimentPanel } from '@/components/life-signal-check/LscExperimentPanel';
 import { WhatRootKnowsCard } from '@/components/core-values-snapshot/WhatRootKnowsCard';
 import { getCachedUser } from '@/lib/supabase/currentUser';
@@ -60,7 +61,7 @@ export default async function LifeSignalCheckResultsPage({ params }: { params: {
 
         <WhatRootKnowsCard sessionId={session.id} notes={['core-values-snapshot', 'life-signal-check']} />
 
-        <ReturnToDashboardButton />
+        <BackToHomeButton />
       </main>
       <MemberBottomNav isCoach={isCoach} />
     </div>

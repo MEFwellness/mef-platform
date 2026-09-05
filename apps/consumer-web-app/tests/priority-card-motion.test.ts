@@ -91,6 +91,7 @@ function todayPriority(overrides: Partial<SelectedPriority> = {}): SelectedPrior
     reason: null,
     help: 'Just notice it.',
     href: null,
+    openTarget: null,
     actionType: 'reflection',
     threadKey: 'implicated_driver::driver-9',
     approach: 0,

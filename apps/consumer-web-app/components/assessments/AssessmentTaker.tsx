@@ -154,7 +154,7 @@ export function AssessmentTaker({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isCompleting, startCompleting] = useTransition();
   const [isExiting, setIsExiting] = useState(false);
-  /** Set once completeMyAssessment succeeds — switches the whole component into the completion-choice screen (View My Results / Return to Dashboard) instead of auto-navigating, so a member decides when to see their results. */
+  /** Set once completeMyAssessment succeeds — switches the whole component into the completion-choice screen (View My Results / Back to Home) instead of auto-navigating, so a member decides when to see their results. */
   const [completedResult, setCompletedResult] = useState<AssessmentResult | null>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
@@ -347,7 +347,7 @@ export function AssessmentTaker({
             onClick={() => router.push('/dashboard' as Route)}
             className="mef-press mef-focus-ring mt-3 block w-full rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
           >
-            Return to Dashboard
+            Back to Home
           </button>
         </Card>
       </CenterStage>

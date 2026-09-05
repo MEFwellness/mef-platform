@@ -25,3 +25,15 @@ export function domainAnchorId(domain: string): string {
  * ./highlightBus.ts) so the destination is still legible.
  */
 export const NOT_COVERED_SECTION_ANCHOR_ID = 'root-map-not-covered-yet';
+
+/**
+ * The page's "See all 12 areas" reveal (2026-09-05). The twelve entries
+ * are present in full and folded, so the Root Map opens on the map itself
+ * rather than on a page five and a half screens long.
+ *
+ * The ring needs this id because a tap on a segment has to OPEN the reveal
+ * before it can scroll to anything inside it: a closed `<details>` lays
+ * its content out nowhere, and `scrollIntoView` on it does nothing and
+ * says nothing. See components/root-map/scrollToDomain.ts.
+ */
+export const ALL_AREAS_SECTION_ID = 'root-map-all-areas';

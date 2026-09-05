@@ -177,6 +177,7 @@ describe('the focus itself', () => {
         reason: null,
         help: 'h',
         href: '/checkin',
+        openTarget: null,
         actionType: 'reset',
         threadKey: 'daily_reset::-',
         approach: 0,

@@ -668,6 +668,7 @@ describe('completing the session marks the decision done', () => {
       reason: null,
       help: 'Nothing is waiting on you.',
       href: movementSessionHref('desk_reset'),
+      openTarget: null,
       actionType: 'movement',
       threadKey: `movement_session::${sessionKey}`,
       approach: 0,

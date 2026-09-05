@@ -1,3 +1,218 @@
+## Post-launch fix 2: the button that claimed a workout, the way out, the map (2026-09-05)
+
+Three things a real person found walking the live site on a phone
+(quiztest6), and one of them was writing rows that were not true.
+
+### Task A. The pop-up offered her a Done for something she had not started
+
+**What she saw.** The "Your priority today" pop-up read *"Morning Mobility
+is there if you want it today."* under three buttons: **Done**, **Help
+me**, **Save for later**.
+
+**What the rows actually said.** Confirmed on production for that account
+before anything was changed: `member_daily_priorities` held rule
+`movement_session`, that exact title, href `/movement/sessions/
+morning_mobility`, status `active`, shown at 18:21 UTC. The session had
+never been opened. The message was an OFFER and the primary button was a
+completion claim about it.
+
+**What tapping Done was actually writing.** Audited end to end
+(`app/actions/priority.ts`). Three rows, every time:
+
+1. `member_daily_priorities.status = 'done'` with `done_at` stamped.
+2. An outcome ledger row answered `done` for today's coaching decision.
+3. A `coaching_action_acted` analytics event carrying rule and action type.
+
+None of them is decorative. The ledger feeds the adaptation guardrails and
+the ninety-day approach grades, so a false "she did the workout" teaches
+Root that offering her workouts works. On a `reset_plan_commitment` the
+same button additionally writes the Reset Plan's own daily log, which is a
+genuine completion record for that plan.
+
+**The rule that replaced it, in one sentence.** A priority whose thing
+lives inside this app is an OFFER, and an offer is never answered with a
+self-reported completion claim, because the app records what actually
+happens at the destination. A priority whose thing happens in her life is
+SELF-REPORTED, and there the claim is hers to make and Done is honest.
+
+The discriminator is a row, not a word: `priority_href`, written by the
+engine that chose the priority. `lib/priority/actions.ts` reads that and
+the rule, and nothing else. No title, no help text, no copy of any kind, so
+no re-wording can move a priority between modes.
+
+Why an offer needs no Done button at all, per destination:
+
+- **A movement session.** `lib/coaching-direction/movementOutcome.ts`
+  already marks today's priority done when she finishes the session Root
+  offered. Its own header has said so since the movement flip: *"a member
+  who does the workout must never also have to tap Done."*
+- **The Daily Reset.** `redecideDailyPriority` already replaces the day's
+  priority once her check-in exists, so the card stops asking for the thing
+  she has done.
+- **Food Lens, and a half-finished assessment.** Neither is auto-closed by
+  this card today and this build does not add that. She opens it, or she
+  sets it aside. Neither writes a false completion, which was the defect.
+
+**The full message and button table, every combination the card can
+render.** Swept through the real hierarchy in
+`tests/priority-truthful-buttons.test.ts`, one case per rung, each asserted
+to be the rung actually under test:
+
+| Rule | What she reads | Mode | Primary | Set aside |
+|---|---|---|---|---|
+| `safety` | Nothing is being asked of you today | acknowledge | (none) | Okay |
+| `re_entry` | Start with one quiet check-in | offer | Open your Daily Reset | Not today |
+| `reset_plan_commitment` | her own agreed action | self report | Done | Save for later |
+| `implicated_driver` (no session) | Keep an eye on X today | self report | Done | Save for later |
+| `implicated_driver` (mapped session) | ...X is there if you want it | offer | Open Desk Reset | Not today |
+| `qualified_pattern` | Keep an eye on X today | self report | Done | Save for later |
+| `incomplete_action` | Pick up X where you left off | offer | Open Life Signal Check | Not today |
+| `behavioral_friction` daily reset | Open your Daily Reset, answer just the first question | offer | Open your Daily Reset | Not today |
+| `behavioral_friction` food logging | log only that one thing | offer | Open Food Lens | Not today |
+| `behavioral_friction` save for later | three slow breaths | self report | Done | Save for later |
+| `todays_focus` | the Coaching Brain's focus | self report | Done | Save for later |
+| `movement_session` | X is there if you want it today | offer | Open Morning Mobility | Not today |
+| `daily_reset` | Take a few minutes for your Daily Reset | offer | Open your Daily Reset | Not today |
+| `gentle_focus` | her own stated goal, quoted back | self report | Done | Save for later |
+
+"Help me" is unchanged on all fourteen: every rule authors a smaller way
+in, and taking it is still recorded as engagement rather than as a failure.
+
+**Two rungs changed shape, and both were wrong before.** `re_entry` said
+"Start with one quiet check-in" and carried no address at all, so it was
+offering a Done for a check-in the app can see she has not done. It now
+carries `/checkin`, which also makes accepting it one tap. `safety` said
+"Nothing is being asked of you today" over a Done button, which is a
+completion claim over nothing; it now has one way to acknowledge it and the
+help text naming her care team, and it claims nothing.
+
+**The server refuses too.** `completePriorityAction` asks the identical
+function (`acceptsDoneClaim`) of the stored row before any write, and
+returns without writing the status, the ledger row, the event or the Reset
+Plan log. That matters because the tap arrives from a browser: a page left
+open across a redecide still holds the old card, and `/api/popup-response`
+is a few dozen bytes anyone signed in can send. The movement auto-done
+path, which reflects a completion Root can genuinely see, is untouched.
+
+**The name on the button is real data.** `SelectedPriority.openTarget`
+carries the destination's own name (a Root Movement template's `name`, the
+assessment registry's `name`), so it reads "Open Morning Mobility" and the
+Root Movement screens call it the same thing. When the live hierarchy and
+the stored row disagree about what today is, the name is dropped and the
+button falls back to the app's own plain "Open it" rather than naming a
+thing that may not be the thing.
+
+### Task B. The way out of a closing screen is a button now
+
+At the end of the Core Values Snapshot's results screen, after the resource
+card and "What Root knows so far", the only way back was a bare
+forest-on-cream text link: no border, no fill, no shape. It read as a
+footer. There were three identical copies of it, one per experience.
+
+`components/closing-screen/BackToHomeButton.tsx` is now the one
+implementation: a full-width bordered control at the app's own 56px tap
+height, in the same secondary style those screens already use for their own
+"not now", so the way out is unmissable without out-shouting the real next
+step beside it. It renders on all eight closing surfaces (the three results
+screens, the three takers' close beats, the trial arc's close and its
+recap), and the trial arc's close still records that no door was taken.
+
+One name for one place: the label is "Back to Home", which is what
+/questionnaires, /progress, /food-lens, /movement, /conversation and the
+trial arc's own close already call it. The five assessment completion
+screens that said "Return to Dashboard" now say the same thing.
+
+**One deviation from the brief, stated plainly.** The brief said the
+inline next-experience invitations stay exactly as they are. Their own
+decline buttons said "Not now, back to dashboard", and leaving those would
+have put two names for one place a single card apart on a screen this
+change is adding "Back to Home" to. Six labels changed from "dashboard" to
+"Home". Nothing else about those invitations moved: same offer, same
+primary button, same behaviour, same order.
+
+The reveal, the cards, the typewriter line and the journey progress line
+are untouched, and asserted untouched.
+
+### Task C. The Root Map opens on the map
+
+The arrival greeting's own call to action is "See my Root Map". Measured on
+production at 390x844 before anything was changed, what it landed on was
+**4853px of page**: the one-thing line, then the ring, then its colour key,
+then twelve names running from 560px to 865px, and only at **1105px**, two
+screens below the fold, the single line saying what had actually been
+noticed.
+
+Same treatment the quiz result page got, and the same mechanism: nothing
+deleted, nothing summarised, depth folded.
+
+- The ring comes first now, drawn at 208 instead of 236, with its gold and
+  green key directly under it and **one counted line of orientation**:
+  "Your wellbeing across 12 areas. Gold marks the 3 where something has
+  been noticed so far." Zero is its own sentence, because a member in her
+  first week is not looking at a score of nought.
+- That count comes from `colorFor`, the same predicate that paints the
+  segments, so the number she is told is the number the picture draws. It
+  names the population it counted, per the standing rule for counted
+  claims.
+- Her one thing today, and the named area worth exploring, both moved above
+  the entries and into the first screenful.
+- The twelve entries, and the numbered key that names them, are present in
+  full inside one `<details>` labelled "See all 12 areas". Native, so it
+  opens with no JavaScript, is keyboard reachable and screen reader
+  announced with no aria attributes of ours, and every word is in the page
+  for assistive technology and for printing. Folded, not hidden.
+- Tapping a ring segment still lands on that area's own entry: the jump
+  opens the reveal first and waits one frame for layout, because
+  `scrollIntoView` into a closed `<details>` does nothing at all and says
+  nothing. That is the same class of bug as the two this ring has already
+  had, and it has its own guard.
+
+What the map computes is untouched. The gold/green predicate, the arc
+lengths, the coverage windows and the grouping are the same functions.
+
+### What moved, and why it is still one implementation
+
+`colorFor` / `fillFractionFor` moved to
+`components/root-map/ringDomains.ts` and the tap-to-scroll moved to
+`components/root-map/scrollToDomain.ts`, because the ring and the numbered
+key now render in two different places and both have to answer "is this one
+gold" and "where does a tap land" identically. `RootMapRing` re-exports the
+two functions, so every existing caller and test reaches the same function
+at the same name, and the six guards that scanned `RootMapRing.tsx` for
+that behaviour now scan the module it lives in. None was relaxed, and the
+scroll module carries one further guard the old code had no need for.
+
+### Local results
+
+Full suite 503 files, 8783 tests, all passing. Typecheck clean, lint clean
+(warnings only, all pre-existing), production build clean, em dash guard
+clean.
+
+New coverage: `priority-truthful-buttons.test.ts` (34), the mode rule over
+every rung and both fallbacks, the fourteen-row sweep driven through the
+real `selectPriority`, both adapted framings holding their mode, both
+presentations proven to reach `onDone` only inside a done branch and to
+hardcode no label at all, and the server's refusal proven to sit before
+every write including the Reset Plan log. `closing-screen-exit.test.tsx`
+(19), the shared control rendered and asserted full-width and bordered,
+every one of the eight surfaces using it, no copy left anywhere, and the
+closings otherwise untouched. `root-map-first-screenful.test.ts` (14),
+document order over the real page, the reveal holding all three groups and
+the key, the counted line agreeing with `colorFor` on the same fixtures,
+and no claim beyond noticing in any of its three sentences.
+
+### Housekeeping
+
+`oakomah66+quiztest6@gmail.com` is now `profiles.is_test = true`, read back
+and confirmed. Its arrival binding method is **`signup_link`**, the
+strongest of the three: she tapped the create-account button on her own
+result screen and the one-time reference was redeemed by the server, so
+nothing depended on her browser keeping a token or on an email match. Its
+arrival greeting **did deliver**: it rode the trial arc's day 1 key
+(`trial_arc_day:1`), which the pop-up chain marks the instant it mounts,
+and that row exists, stamped 18:21:54 UTC, twelve minutes after signup. The
+priority pop-up followed at 18:25:05.
+
 ## Post-launch fix 1: the signup error, the result page, one knock (2026-09-05)
 
 Three things a real person found on an iPhone the day after the trial arc

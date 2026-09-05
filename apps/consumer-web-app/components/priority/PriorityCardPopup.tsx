@@ -3,12 +3,14 @@
 /**
  * The Priority Card as the Root pop-up on open.
  *
- * This is a presentation, not a second card. All three buttons run the
- * exact same handlers the inline card runs
+ * This is a presentation, not a second card. Its buttons run the exact
+ * same handlers the inline card runs
  * (components/priority/usePriorityCardActions.ts), writing the same
  * `member_daily_priorities` row through the same server actions, so
  * marking it Done here shows Done on Home and Today with no syncing of any
- * kind. There is no second pop-up system either: this renders inside the
+ * kind. WHICH buttons it may show is not this file's decision either: it
+ * asks lib/priority/actions.ts, exactly as the inline card does, so an
+ * offer never grows a Done claim in one presentation and not the other. There is no second pop-up system either: this renders inside the
  * existing chain (app/actions/rootPopupMessages.ts ->
  * components/dashboard/RootMessagePopupClient.tsx), which already decides
  * that only one pop-up may own the screen at a time.
@@ -21,8 +23,10 @@
  *
  * Like every other message in the chain there is no backdrop-click or
  * Escape dismissal: the whole point is that the priority is not missed.
- * The ways out are the three buttons plus the explicit close, and all four
- * leave the card available inline afterwards.
+ * The ways out are its buttons plus the explicit close, and every one of
+ * them leaves the card available inline afterwards. On an offer the
+ * primary is a link, and following it unmounts this modal with the page
+ * it was drawn over.
  *
  * MOTION (Part 2). Identical to the inline card's, and shared with it
  * rather than written twice: the same staged reveal in the same reading
@@ -35,17 +39,18 @@
  * a movement rather than a cut.
  */
 
-import { CheckCircle2, Lightbulb } from 'lucide-react';
+import Link from 'next/link';
+import type { Route } from 'next';
+import { ArrowRight, CheckCircle2, Lightbulb } from 'lucide-react';
 import { SuccessCheck } from '@/components/motion/SuccessCheck';
 import { revealStep } from '@/lib/motion/revealStep';
 import type { PriorityView } from '@/lib/priority/types';
 import { PRIORITY_REVEAL_INDEX } from '@/lib/priority/motion';
+import { priorityActionSet } from '@/lib/priority/actions';
 import {
-  PRIORITY_BUTTON_LABELS,
   PRIORITY_CARD_LABEL,
   PRIORITY_DONE_TEXT,
   PRIORITY_HELP_HEADING,
-  PRIORITY_SAVED_TEXT,
 } from '@/lib/priority/copy';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { usePriorityCardActions } from './usePriorityCardActions';
@@ -64,6 +69,13 @@ export function PriorityCardPopup({
   const { status, helpOpen, onDone, onSave, onHelp } = usePriorityCardActions(view);
   const motion = usePriorityCardMotion(view, status, 'popup');
   const { selected, isReEntry, welcomeLine, bridge } = view;
+
+  // Which buttons this priority is allowed to show, decided from the
+  // priority's own stored row rather than from its words. See
+  // lib/priority/actions.ts. The inline card asks the identical question of
+  // the identical function, so the two presentations cannot disagree about
+  // whether Done is even offered.
+  const actions = priorityActionSet(selected);
 
   useBodyScrollLock(!closed);
 
@@ -178,7 +190,7 @@ export function PriorityCardPopup({
                       className="shrink-0"
                     />
                   )}
-                  {status === 'done' ? PRIORITY_DONE_TEXT : PRIORITY_SAVED_TEXT}
+                  {status === 'done' ? PRIORITY_DONE_TEXT : actions.setAsideText}
                 </p>
                 <button
                   type="button"
@@ -192,19 +204,44 @@ export function PriorityCardPopup({
               <div
                 {...revealStep(PRIORITY_REVEAL_INDEX.buttons, "relative mt-5 space-y-2")}
               >
-                <button
-                  type="button"
-                  onClick={onDone}
-                  className="mef-focus-ring mef-press inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-50"
-                >
-                  {/* A plain icon, deliberately. `SuccessCheck` draws itself
-                      and fires the completion haptic on mount, which on a
-                      button she has not pressed yet would be decoration
-                      claiming to be a confirmation. It belongs in the
-                      confirmation above, not here. */}
-                  <CheckCircle2 className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                  {PRIORITY_BUTTON_LABELS.done}
-                </button>
+                {/* THE PRIMARY, AND WHAT IT IS ALLOWED TO CLAIM.
+                    An offer opens the thing, because the app records what
+                    actually happens there. A self-reported priority takes
+                    her Done, because she is the only witness. The safety
+                    override has neither, because nothing is being asked.
+
+                    The open link carries no onClose, deliberately. The
+                    chain's own close handler refreshes the route on the
+                    way out, which on the page she is LEAVING is a full
+                    server render nobody will read. Following the link
+                    unmounts this modal with its page and releases the
+                    scroll lock through the hook's own cleanup, and the
+                    pop-up was already marked shown on mount, so it cannot
+                    return behind her. */}
+                {actions.primary?.kind === 'open' && (
+                  <Link
+                    href={actions.primary.href as Route}
+                    className="mef-focus-ring mef-press inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95"
+                  >
+                    {actions.primary.label}
+                    <ArrowRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                  </Link>
+                )}
+                {actions.primary?.kind === 'done' && (
+                  <button
+                    type="button"
+                    onClick={onDone}
+                    className="mef-focus-ring mef-press inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-[#F5F0E4] px-6 py-3 text-sm font-semibold text-[#1B3A2D] transition hover:brightness-95 disabled:opacity-50"
+                  >
+                    {/* A plain icon, deliberately. `SuccessCheck` draws itself
+                        and fires the completion haptic on mount, which on a
+                        button she has not pressed yet would be decoration
+                        claiming to be a confirmation. It belongs in the
+                        confirmation above, not here. */}
+                    <CheckCircle2 className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                    {actions.primary.label}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onHelp}
@@ -212,14 +249,14 @@ export function PriorityCardPopup({
                   className="mef-focus-ring mef-press inline-flex w-full items-center justify-center gap-1.5 rounded-2xl border border-[#F5F0E4]/30 px-6 py-3 text-sm font-semibold text-[#F5F0E4] transition hover:border-[#F5F0E4]/60"
                 >
                   <Lightbulb className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                  {PRIORITY_BUTTON_LABELS.help}
+                  {actions.helpLabel}
                 </button>
                 <button
                   type="button"
                   onClick={onSave}
                   className="mef-focus-ring mef-press inline-flex w-full items-center justify-center rounded-2xl px-6 py-3 text-sm font-medium text-[#F5F0E4]/70 transition hover:text-[#F5F0E4] disabled:opacity-50"
                 >
-                  {PRIORITY_BUTTON_LABELS.save}
+                  {actions.setAsideLabel}
                 </button>
               </div>
             )}

@@ -1,9 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import type { Route } from 'next';
-import { CVS_CARD, CVS_DISPLAY_FONT, CVS_FOREST } from './theme';
+import { CVS_CARD, CVS_DISPLAY_FONT } from './theme';
 import { GapVisual } from './GapVisual';
 import {
   buildGapVisualCopy,
@@ -96,17 +94,5 @@ export function ResourceSection({ audioAvailable }: { audioAvailable: boolean })
         />
       )}
     </div>
-  );
-}
-
-export function ReturnToDashboardButton() {
-  return (
-    <Link
-      href={'/dashboard' as Route}
-      className="mef-focus-ring mt-2 block rounded-2xl px-6 py-4 text-center text-sm font-semibold transition hover:bg-[#F5F0E4]"
-      style={{ color: CVS_FOREST }}
-    >
-      Return to Dashboard
-    </Link>
   );
 }

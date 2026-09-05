@@ -36,6 +36,7 @@ const SELECTED = {
   reason: null,
   help: 'It is a short set of questions and you can stop at any point.',
   href: '/checkin',
+  openTarget: null,
   actionType: 'reset' as const,
   threadKey: 'daily_reset::-',
   approach: 0,

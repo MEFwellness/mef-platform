@@ -24,7 +24,8 @@ import { CVS_CARD, CVS_DISPLAY_FONT } from '@/components/core-values-snapshot/th
 import { SingleSelectQuestion, type CvsOption } from '@/components/core-values-snapshot/CvsQuestionCards';
 import { IntroReveal } from '@/components/IntroReveal';
 import { ExperienceHomeLink } from '@/components/ExperienceHomeLink';
-import { WhatRootLearnedSection, ResourceSection, ReturnToDashboardButton } from './RplResultsView';
+import { WhatRootLearnedSection, ResourceSection } from './RplResultsView';
+import { BackToHomeButton } from '@/components/closing-screen/BackToHomeButton';
 import { RplExperimentPanel } from './RplExperimentPanel';
 import { RplCloseScreen } from './RplCloseScreen';
 import { ROOT_FINISHING_LABEL } from '@/lib/reveal/copy';
@@ -338,7 +339,9 @@ export function ReadinessPulseTaker({ sessionId, questions, initialAnswers, audi
             evidenceEcho={evidenceEcho}
             onLater={() => router.push('/dashboard' as Route)}
           />
-          <ReturnToDashboardButton />
+          {/* The way out of the closing, the one shared control every
+              closing screen ends with. */}
+          <BackToHomeButton />
         </>
       )}
 

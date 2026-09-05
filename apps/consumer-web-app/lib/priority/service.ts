@@ -693,6 +693,16 @@ export async function buildPriorityView(
       }
 
       const authoritative = revised ?? existing;
+      // The stored row carries the rule, the words and the address, but not
+      // the destination's NAME: `member_daily_priorities` has never stored
+      // one, and adding a column to hold a label the card can already do
+      // without would be a migration for nothing. So the fresh run's name
+      // is carried over only when the fresh run is genuinely about the same
+      // thing (same rule, same address), and otherwise the button falls
+      // back to the plain "Open it" the inline card's link has always used.
+      // Wrong-but-plausible is the one outcome that is not available here.
+      const sameThing =
+        fresh.rule === authoritative.rule && fresh.href === authoritative.href;
       const shown: typeof fresh = {
         ...fresh,
         rule: authoritative.rule,
@@ -701,6 +711,7 @@ export async function buildPriorityView(
         reason: fresh.rule === authoritative.rule ? fresh.reason : null,
         help: authoritative.help,
         href: authoritative.href,
+        openTarget: sameThing ? fresh.openTarget : null,
       };
       return {
         selected: shown,

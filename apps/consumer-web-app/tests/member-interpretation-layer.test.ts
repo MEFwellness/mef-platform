@@ -623,6 +623,7 @@ describe('the one focus', () => {
         reason: 'You have not checked in yet today.',
         help: 'h',
         href: '/checkin',
+        openTarget: null,
         actionType: 'reset',
         threadKey: 'daily_reset::-',
         approach: 0,

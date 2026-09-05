@@ -36,17 +36,49 @@ import type {
 /** The small label above every priority, in every state. */
 export const PRIORITY_CARD_LABEL = 'Your priority today';
 
+/**
+ * The labels, and which of them a given priority is even allowed to show.
+ *
+ * `done` and `save` belong to a SELF-REPORTED priority, the kind that
+ * happens in her life. `notToday` is an OFFER's decline, and `acknowledge`
+ * is the safety override's one way out. lib/priority/actions.ts decides
+ * which set a priority gets, from the priority's own stored row, and it is
+ * the only thing that may make that decision.
+ */
 export const PRIORITY_BUTTON_LABELS = {
   done: 'Done',
   help: 'Help me',
   save: 'Save for later',
+  notToday: 'Not today',
+  acknowledge: 'Okay',
 } as const;
+
+/**
+ * The primary action on an offer whose destination has no name to carry.
+ * The app's own existing words for this: the inline card's link has always
+ * said exactly this.
+ */
+export const PRIORITY_OPEN_FALLBACK_LABEL = 'Open it';
 
 /** Shown once the member marks the priority done, in the Today page's own accomplished voice. */
 export const PRIORITY_DONE_TEXT = 'Done today.';
 
 /** Shown on the collapsed card after Save for later, lower down the page. */
 export const PRIORITY_SAVED_TEXT = 'Saved for later. It is here whenever you want it.';
+
+/**
+ * Shown after "Not today" on an offer. Deliberately not the "Saved for
+ * later" sentence: she declined something rather than filing it, and the
+ * second half is still true, so the offer stays open without pretending
+ * she asked for it back.
+ */
+export const PRIORITY_NOT_TODAY_TEXT = 'Not today. It is here whenever you want it.';
+
+/**
+ * Shown after the safety override's one button. It claims nothing, asks
+ * nothing and counts nothing, which is the whole posture of that state.
+ */
+export const PRIORITY_ACKNOWLEDGED_TEXT = 'Nothing more is needed today.';
 
 /** The header above the expanded Help me content. Root offering, never instructing. */
 export const PRIORITY_HELP_HEADING = 'A smaller way in';
@@ -252,6 +284,32 @@ export function frictionHref(input: BehavioralFrictionInput): string | null {
       return '/checkin';
     case 'food_logging_lapsed':
       return '/food-lens';
+    case 'chronic_save_for_later':
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------
+// The names of the places a priority can point at.
+//
+// Each one is the name that screen already carries everywhere else a
+// member reads it, so the button that opens it and the screen it lands on
+// agree. Never a second, friendlier wording invented here.
+// ---------------------------------------------------------------------
+
+/** The Daily Reset, which is what /checkin is called on every member surface. */
+export const DAILY_RESET_OPEN_TARGET = 'your Daily Reset';
+
+/** Food Lens, exactly as its own screen and its back link name it. */
+export const FOOD_LENS_OPEN_TARGET = 'Food Lens';
+
+/** The destination's own name for a friction priority, or null when that kind opens nothing. */
+export function frictionOpenTarget(input: BehavioralFrictionInput): string | null {
+  switch (input.kind) {
+    case 'daily_reset_incomplete':
+      return DAILY_RESET_OPEN_TARGET;
+    case 'food_logging_lapsed':
+      return FOOD_LENS_OPEN_TARGET;
     case 'chronic_save_for_later':
       return null;
   }

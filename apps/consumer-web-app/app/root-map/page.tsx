@@ -7,6 +7,22 @@
  * app/actions/rootMap.ts (lib/root-map/) — never calculates anything
  * itself, same discipline as app/root-score/page.tsx.
  *
+ * FIRST SCREENFUL (2026-09-05). The arrival greeting's own call to action
+ * is "See my Root Map", and what it landed on was 4853px of page at a
+ * 390x844 phone: the one-thing line, the ring, its colour key, twelve
+ * names, and only then, 1105px down and two screens below the fold, the
+ * single line saying what had actually been noticed. Measured on
+ * production before anything was changed.
+ *
+ * What that line and the map itself say is untouched. What changed is the
+ * order and the fold: the map, its colour key and one counted line of
+ * orientation come first; the one thing and the named area follow, both
+ * inside the first screenful; and the twelve entries, with the numbered
+ * key that names them, are present in full inside one "See all 12 areas"
+ * reveal. Nothing is deleted and nothing is summarised. A tap on a ring
+ * segment still lands on its own entry: it opens the reveal on the way
+ * (components/root-map/scrollToDomain.ts).
+ *
  * Redesigned 2026-07-28: a twelve-segment ring map at the top
  * (components/root-map/RootMapRing.tsx), three real-state groups instead
  * of twelve identical flat cards (lib/root-map/grouping.ts), and a named
@@ -20,7 +36,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { redirect } from 'next/navigation';
-import { Compass, ShieldCheck } from 'lucide-react';
+import { ChevronDown, Compass, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getMyRootMap } from '@/app/actions/rootMap';
 import { hasActiveRole } from '@/lib/auth/guards';
@@ -28,8 +44,17 @@ import { TodaysFocusLine } from '@/components/focus/TodaysFocusLine';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { BackButton } from '@/components/BackButton';
 import { CenterStage, CardStack } from '@/components/layout';
-import { groupRootMapDomains, resolveNamedAreaRecommendation } from '@/lib/root-map';
+import {
+  groupRootMapDomains,
+  resolveNamedAreaRecommendation,
+  buildRootMapOrientationLine,
+  ROOT_MAP_ALL_AREAS_LABEL,
+  ROOT_MAP_TAP_HINT,
+} from '@/lib/root-map';
+import { ALL_AREAS_SECTION_ID } from '@/lib/root-map/anchors';
 import { RootMapRing } from '@/components/root-map/RootMapRing';
+import { RootMapAreaKey } from '@/components/root-map/RootMapAreaKey';
+import { noticedDomainCount } from '@/components/root-map/ringDomains';
 import { RootMapFindingCard } from '@/components/root-map/RootMapFindingCard';
 import { RootMapBuildingRow } from '@/components/root-map/RootMapBuildingRow';
 import { RootMapNotCoveredSection } from '@/components/root-map/RootMapNotCoveredSection';
@@ -60,6 +85,16 @@ export default async function RootMapPage() {
   ]);
 
   const groups = rootMap ? groupRootMapDomains(rootMap.domains) : null;
+  // Only what the ring and its key need to draw themselves. Built once
+  // here so the ring, the counted orientation line and the numbered key
+  // are all reading the identical twelve objects rather than three
+  // separate projections of the same rows.
+  const ringDomains = (rootMap?.domains ?? []).map((d) => ({
+    domain: d.domain,
+    label: d.label,
+    whatWeUnderstand: d.whatWeUnderstand,
+    isUninstrumented: d.isUninstrumented,
+  }));
   const namedArea = rootMap ? resolveNamedAreaRecommendation(rootMap.routerOutcome, rootMap.domains) : null;
   const showGenericRecommendation =
     rootMap?.routerOutcome.outcome !== 'focused_investigation' && !!rootMap?.routerOutcome.investigation;
@@ -88,6 +123,20 @@ export default async function RootMapPage() {
           </CenterStage>
         ) : (
           <>
+            {/* THE MAP, FIRST. The ring, its colour key and one counted
+                line, so a member arriving from "See my Root Map" is looking
+                at the map and at where something was noticed rather than at
+                a list of twelve names. The ring is drawn a little smaller
+                than it was, which is the only visual change to it: what it
+                encodes, segment for segment, is identical. */}
+            <section className="mef-card mef-animate-in mt-3 p-7">
+              <RootMapRing domains={ringDomains} coverageByDomain={rootMap.coverageByDomain} size={208} />
+              <p className="mt-3 text-center text-[13px] leading-relaxed text-[#1B3A2D]">
+                {buildRootMapOrientationLine(noticedDomainCount(ringDomains), ringDomains.length)}
+              </p>
+              <p className="mt-2 text-center text-xs text-[#6B7A72]">{ROOT_MAP_TAP_HINT}</p>
+            </section>
+
             {/* ONE FOCUS (Member Interpretation Layer, 2026-08-17). The Root
                 Map used to imply a focus of its own by naming its top domain
                 ("Stress & Nervous System Regulation looks like a specific
@@ -96,22 +145,7 @@ export default async function RootMapPage() {
                 the area worth exploring, because that is a real and different
                 thing, and the member's actual one thing today is stated here
                 from the single engine that authors it. */}
-            <TodaysFocusLine className="mt-3" />
-
-            <section className="mef-card mef-animate-in mt-3 p-7">
-              <RootMapRing
-                domains={rootMap.domains.map((d) => ({
-                  domain: d.domain,
-                  label: d.label,
-                  whatWeUnderstand: d.whatWeUnderstand,
-                  isUninstrumented: d.isUninstrumented,
-                }))}
-                coverageByDomain={rootMap.coverageByDomain}
-              />
-              <p className="mt-3 text-center text-xs text-[#6B7A72]">
-                Tap a segment or a name in the key to jump to that dimension.
-              </p>
-            </section>
+            <TodaysFocusLine className="mt-4" />
 
             <section className="mef-card mef-animate-in mt-5 p-7">
               <h1 className="font-[family-name:var(--font-cormorant-garamond)] text-3xl leading-tight text-[#1B3A2D]">
@@ -146,50 +180,75 @@ export default async function RootMapPage() {
               )}
             </section>
 
-            <div className="mt-6">
-              <p className="px-1 text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-                What We&apos;re Seeing
-              </p>
-              <div className="mt-3">
-                {groups.seeing.length > 0 ? (
-                  <CardStack>
-                    {groups.seeing.map((domain) => (
-                      <RootMapFindingCard
-                        key={domain.domain}
-                        domain={domain}
-                        coverage={rootMap.coverageByDomain[domain.domain] ?? null}
-                      />
-                    ))}
-                  </CardStack>
-                ) : (
-                  <p className="px-1 text-sm leading-relaxed text-[#6B7A72]">
-                    Nothing has risen to a clear pattern yet. As you check in and complete
-                    assessments, real findings will start appearing here.
-                  </p>
-                )}
-              </div>
-            </div>
+            {/* THE TWELVE, PRESENT IN FULL AND FOLDED. A native <details>,
+                the same one the quiz result screen's own sections use: it
+                opens with no JavaScript, it is keyboard reachable and
+                screen reader announced with no aria attributes of ours, and
+                every word is in the page for anybody reading it with
+                assistive technology or printing it. Nothing here is hidden
+                from anyone. It is folded. */}
+            <details
+              id={ALL_AREAS_SECTION_ID}
+              className="group mt-6 overflow-hidden rounded-2xl border border-[#1B3A2D]/10 bg-white/60"
+            >
+              <summary className="mef-focus-ring flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-[#1B3A2D] [&::-webkit-details-marker]:hidden">
+                {ROOT_MAP_ALL_AREAS_LABEL}
+                <ChevronDown
+                  className="h-4 w-4 shrink-0 text-[#6B7A72] transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </summary>
+              <div className="px-5 pb-5">
+                {/* The numbered key, which is what ties a ring segment's
+                    number to its name. It opens with the entries it names. */}
+                <RootMapAreaKey domains={ringDomains} />
 
-            {groups.building.length > 0 && (
-              <div className="mt-6">
-                <p className="px-1 text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
-                  Building
-                </p>
-                <div className="mt-3 space-y-2">
-                  {groups.building.map((domain) => (
-                    <RootMapBuildingRow
-                      key={domain.domain}
-                      domain={domain}
-                      coverage={rootMap.coverageByDomain[domain.domain] ?? null}
-                    />
-                  ))}
+                <div className="mt-6">
+                  <p className="px-1 text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                    What We&apos;re Seeing
+                  </p>
+                  <div className="mt-3">
+                    {groups.seeing.length > 0 ? (
+                      <CardStack>
+                        {groups.seeing.map((domain) => (
+                          <RootMapFindingCard
+                            key={domain.domain}
+                            domain={domain}
+                            coverage={rootMap.coverageByDomain[domain.domain] ?? null}
+                          />
+                        ))}
+                      </CardStack>
+                    ) : (
+                      <p className="px-1 text-sm leading-relaxed text-[#6B7A72]">
+                        Nothing has risen to a clear pattern yet. As you check in and complete
+                        assessments, real findings will start appearing here.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {groups.building.length > 0 && (
+                  <div className="mt-6">
+                    <p className="px-1 text-xs font-semibold uppercase tracking-wider text-[#6B7A72]">
+                      Building
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {groups.building.map((domain) => (
+                        <RootMapBuildingRow
+                          key={domain.domain}
+                          domain={domain}
+                          coverage={rootMap.coverageByDomain[domain.domain] ?? null}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6">
+                  <RootMapNotCoveredSection domains={groups.notCovered} />
                 </div>
               </div>
-            )}
-
-            <div className="mt-6">
-              <RootMapNotCoveredSection domains={groups.notCovered} />
-            </div>
+            </details>
 
             <section className="mt-5 flex items-start gap-3 px-1">
               <ShieldCheck

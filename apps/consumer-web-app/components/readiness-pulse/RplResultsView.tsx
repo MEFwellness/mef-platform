@@ -1,9 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import type { Route } from 'next';
-import { CVS_CARD, CVS_DISPLAY_FONT, CVS_FOREST } from '@/components/core-values-snapshot/theme';
+import { CVS_CARD, CVS_DISPLAY_FONT } from '@/components/core-values-snapshot/theme';
 import {
   buildEvidenceEchoLine,
   buildRplWhatRootLearned,
@@ -80,17 +78,5 @@ export function ResourceSection({ audioAvailable }: { audioAvailable: boolean })
         <audio src={RPL_RESOURCE_AUDIO_SRC} className="mt-4 w-full" controls={playing} autoPlay={playing} onEnded={() => setPlaying(false)} />
       )}
     </div>
-  );
-}
-
-export function ReturnToDashboardButton() {
-  return (
-    <Link
-      href={'/dashboard' as Route}
-      className="mef-focus-ring mt-2 block rounded-2xl px-6 py-4 text-center text-sm font-semibold transition hover:bg-[#F5F0E4]"
-      style={{ color: CVS_FOREST }}
-    >
-      Return to Dashboard
-    </Link>
   );
 }

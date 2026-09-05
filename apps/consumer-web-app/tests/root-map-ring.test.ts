@@ -19,6 +19,24 @@ const SOURCE = readFileSync(
 // naive "not.toMatch" assertion fail on prose rather than real code.
 const CODE_ONLY = SOURCE.replace(/\/\*\*[\s\S]*?\*\/\s*/, '');
 
+// WHERE TWO OF THESE GUARDS MOVED TO (2026-09-05). The numbered key that
+// names the twelve segments now renders inside the page's "See all 12
+// areas" reveal (RootMapAreaKey.tsx), and the jump a tap performs is one
+// shared function (scrollToDomain.ts) so the ring and that key can never
+// land in two different places. Every guarantee below is the one this file
+// has always asserted, read from wherever the code now lives; nothing was
+// relaxed, and the scroll module carries one further requirement (it opens
+// the reveal first) that has its own test.
+const KEY_SOURCE = readFileSync(
+  path.resolve(__dirname, '../components/root-map/RootMapAreaKey.tsx'),
+  'utf-8'
+);
+const SCROLL_SOURCE = readFileSync(
+  path.resolve(__dirname, '../components/root-map/scrollToDomain.ts'),
+  'utf-8'
+);
+const SCROLL_CODE_ONLY = SCROLL_SOURCE.replace(/\/\*\*[\s\S]*?\*\/\s*/, '');
+
 function domain(overrides: Partial<RingDomain> = {}): RingDomain {
   return {
     domain: 'movement_physical_capacity',
@@ -115,9 +133,21 @@ describe('RootMapRing source shape — identification + hit-target guards', () =
     expect(SOURCE).toMatch(/\{index \+ 1\}/);
   });
 
-  it('renders an ordered, tappable legend below the ring', () => {
-    expect(SOURCE).toMatch(/<ul className="mt-3 grid/);
-    expect(SOURCE).toMatch(/onClick=\{\(\) => scrollToDomain\(domain\)\}/);
+  it('renders an ordered, tappable key of the twelve names', () => {
+    // Same list, same grid, same tap behaviour, now inside the page's
+    // reveal rather than directly under the ring.
+    expect(KEY_SOURCE).toMatch(/<ul className="mt-3 grid/);
+    expect(KEY_SOURCE).toMatch(/onClick=\{\(\) => scrollToRootMapDomain\(domain, reducedMotion\)\}/);
+  });
+
+  it('the key colours its chips from the ring\'s own predicate, not a second copy', () => {
+    expect(KEY_SOURCE).toMatch(/backgroundColor: colorFor\(domain\)/);
+    expect(KEY_SOURCE).toMatch(/from '\.\/ringDomains'/);
+    expect(KEY_SOURCE).not.toMatch(/whatWeUnderstand\.length > 0/);
+  });
+
+  it('the ring still tells a member which segment is which', () => {
+    expect(SOURCE).toMatch(/\{index \+ 1\}/);
   });
 
   it('rotates the ring via an SVG group transform, not a CSS -rotate-90 class', () => {
@@ -164,8 +194,20 @@ describe('RootMapRing scroll alignment — the "still lands wrong" fix', () => {
   // all twelve segments individually after the fix: every one lands on
   // its own real section, on-screen, clear of the header and bottom nav.
   it('scrolls with block: "start", not "center"', () => {
-    expect(CODE_ONLY).toMatch(/block: 'start'/);
-    expect(CODE_ONLY).not.toMatch(/block: 'center'/);
+    expect(SCROLL_CODE_ONLY).toMatch(/block: 'start'/);
+    expect(SCROLL_CODE_ONLY).not.toMatch(/block: 'center'/);
+  });
+
+  // NEW REQUIREMENT, SAME BUG CLASS (2026-09-05). The twelve entries now
+  // sit inside a closed <details>. scrollIntoView on an element inside a
+  // closed one does nothing at all and reports nothing, so a tap on a
+  // segment would look exactly like the "lands nowhere" failure this whole
+  // block exists for. The reveal is opened first, and the scroll waits a
+  // frame for the newly revealed content to be laid out.
+  it('opens the "See all 12 areas" reveal before scrolling into it', () => {
+    expect(SCROLL_CODE_ONLY).toMatch(/ALL_AREAS_SECTION_ID/);
+    expect(SCROLL_CODE_ONLY).toMatch(/reveal\.open = true/);
+    expect(SCROLL_CODE_ONLY).toMatch(/requestAnimationFrame\(go\)/);
   });
 });
 
@@ -193,17 +235,19 @@ describe('RootMapRing color key — explains gold vs. green in plain language (2
   // short key directly below the ring, above the numbered legend, worded to
   // match what colorFor/fillFractionFor actually encode (a real earned
   // finding vs. not yet), not a guess at "tracked vs. untracked."
-  it('renders both color states in plain language, above the numbered legend', () => {
+  it('renders both color states in plain language, directly under the ring', () => {
     // The gold key said "we've noticed a real pattern here" for a member
     // whose findings are all at the emerging tier. A colour key may not make
     // a claim the findings under it are not allowed to make (Member
     // Interpretation Layer, 2026-08-17).
     const keyIndex = SOURCE.indexOf('we&apos;ve noticed something here');
-    const legendIndex = SOURCE.indexOf('<ul className="mt-3 grid');
+    const svgEnd = SOURCE.indexOf('</svg>');
     expect(keyIndex).toBeGreaterThan(-1);
     expect(SOURCE).toMatch(/still gathering information/);
-    expect(legendIndex).toBeGreaterThan(-1);
-    expect(keyIndex).toBeLessThan(legendIndex);
+    // Below the map it explains, and still the last thing in this
+    // component: the numbered key it used to sit above now renders
+    // elsewhere, so nothing may come between the ring and its key.
+    expect(keyIndex).toBeGreaterThan(svgEnd);
   });
 });
 
@@ -215,16 +259,24 @@ describe('RootMapRing scroll routing — uninstrumented domains land on the shar
   // target the section's own id instead, and fire a highlight request
   // naming which one was tapped (four identical-looking items otherwise
   // give no indication which the tap was even about).
-  it('branches scrollToDomain on isUninstrumented, targeting the shared section id for those four', () => {
-    expect(CODE_ONLY).toMatch(/domain\.isUninstrumented\s*\n?\s*\?\s*NOT_COVERED_SECTION_ANCHOR_ID/);
+  it('branches on isUninstrumented, targeting the shared section id for those four', () => {
+    expect(SCROLL_CODE_ONLY).toMatch(/domain\.isUninstrumented\s*\n?\s*\?\s*NOT_COVERED_SECTION_ANCHOR_ID/);
   });
 
   it('requests a highlight only for an uninstrumented domain', () => {
-    expect(CODE_ONLY).toMatch(/if \(domain\.isUninstrumented\) requestRootMapHighlight\(domain\.domain\)/);
+    expect(SCROLL_CODE_ONLY).toMatch(/if \(domain\.isUninstrumented\) requestRootMapHighlight\(domain\.domain\)/);
   });
 
   it('imports the highlight bus and shared section anchor rather than redefining them', () => {
-    expect(SOURCE).toMatch(/from '@\/lib\/root-map\/highlightBus'/);
-    expect(SOURCE).toMatch(/NOT_COVERED_SECTION_ANCHOR_ID/);
+    expect(SCROLL_SOURCE).toMatch(/from '@\/lib\/root-map\/highlightBus'/);
+    expect(SCROLL_SOURCE).toMatch(/NOT_COVERED_SECTION_ANCHOR_ID/);
+  });
+
+  it('is the one implementation: both the ring and the key call it', () => {
+    expect(SOURCE).toMatch(/from '\.\/scrollToDomain'/);
+    expect(KEY_SOURCE).toMatch(/from '\.\/scrollToDomain'/);
+    // Neither redefines the branch, the alignment or the highlight.
+    expect(CODE_ONLY).not.toMatch(/block: 'start'/);
+    expect(KEY_SOURCE).not.toMatch(/block: 'start'/);
   });
 });

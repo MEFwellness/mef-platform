@@ -194,7 +194,7 @@ export const CVS_HANDOFF = {
   // (no reminder system exists), so the copy never claims one. It does
   // exactly what it says: takes the member back to their dashboard. Same
   // fix, same reasoning, as Life Signal Check's own LSC_HANDOFF.
-  secondaryButton: 'Not now, back to dashboard',
+  secondaryButton: 'Not now, back to Home',
 };
 
 /**

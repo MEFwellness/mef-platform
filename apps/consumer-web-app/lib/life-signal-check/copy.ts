@@ -322,7 +322,7 @@ export const LSC_HANDOFF = {
   // (no reminder system exists yet for an experience that isn't built),
   // so the copy never claims one. It does exactly what it says: takes the
   // member back to their dashboard.
-  secondaryButton: 'Not now, back to dashboard',
+  secondaryButton: 'Not now, back to Home',
 };
 
 /** Short, honest label for a Core Values Snapshot branch, for the closing screen's Body-Value Echo diagram (components/life-signal-check/LscCloseScreen.tsx) — never shown for 'aligned' since echoContext is only ever set when the branch already isn't. */

@@ -18,7 +18,8 @@ import { BackButton } from '@/components/BackButton';
 import { MemberBottomNav } from '@/components/MemberBottomNav';
 import { hasActiveRole } from '@/lib/auth/guards';
 import { CVS_PAGE_BG } from '@/components/core-values-snapshot/theme';
-import { WhatRootLearnedSection, ResourceSection, ReturnToDashboardButton } from '@/components/core-values-snapshot/CvsResultsView';
+import { WhatRootLearnedSection, ResourceSection } from '@/components/core-values-snapshot/CvsResultsView';
+import { BackToHomeButton } from '@/components/closing-screen/BackToHomeButton';
 import { CvsExperimentPanel } from '@/components/core-values-snapshot/CvsExperimentPanel';
 import { WhatRootKnowsCard } from '@/components/core-values-snapshot/WhatRootKnowsCard';
 import { getCachedUser } from '@/lib/supabase/currentUser';
@@ -67,7 +68,7 @@ export default async function CoreValuesSnapshotResultsPage({ params }: { params
 
         <WhatRootKnowsCard sessionId={session.id} />
 
-        <ReturnToDashboardButton />
+        <BackToHomeButton />
       </main>
       <MemberBottomNav isCoach={isCoach} />
     </div>

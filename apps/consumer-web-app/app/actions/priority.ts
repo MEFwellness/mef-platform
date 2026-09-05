@@ -25,6 +25,7 @@ import { getCachedUser } from '@/lib/supabase/currentUser';
 import { trackProductEvent } from '@/lib/analytics/track';
 import { isPriorityAction, isPriorityPresentation, isPriorityRule } from '@/lib/analytics/surfaces';
 import { claimPriorityShown, getDailyPriority, setDailyPriorityStatus } from '@/lib/priority/data';
+import { acceptsDoneClaim } from '@/lib/priority/actions';
 import { getCoachingDecision } from '@/lib/coaching-direction/data';
 import { recordCardResponse } from '@/lib/coaching-direction/service';
 import type { CardResponse } from '@/lib/coaching-direction/types';
@@ -219,6 +220,25 @@ export async function completePriorityAction(): Promise<{ ok: boolean }> {
 
     const record = await getDailyPriority(supabase, ctx.memberId, ctx.localDate);
     if (!record) return { ok: false };
+
+    // NO COMPLETION ROW FOR SOMETHING SHE NEVER STARTED (2026-09-05).
+    //
+    // The card only offers Done on a self-reported priority now, so in
+    // ordinary use nothing can reach this with an offer. That is exactly
+    // why the refusal belongs here as well: the browser is where the tap
+    // comes from, a page left open across a redecide still holds the old
+    // card, and a POST to /api/popup-response is a few dozen bytes anyone
+    // signed in can send. The decision is made from the stored row rather
+    // than from anything the request said, by the same function the card
+    // used to decide which buttons to draw, so the two can never disagree
+    // about what Done means.
+    //
+    // Refusing writes nothing at all: no status, no ledger row, no event,
+    // and no Reset Plan daily log. `ok: false` is honest, and the client's
+    // optimistic state resolves back to the truth on her next load.
+    if (!acceptsDoneClaim(record.rule, record.href)) {
+      return { ok: false };
+    }
 
     if (record.rule === 'reset_plan_commitment') {
       const plan = await getCurrentResetPlan(supabase, ctx.memberId);

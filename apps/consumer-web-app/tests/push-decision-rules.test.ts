@@ -53,6 +53,7 @@ function view(
       reason: null,
       help: 'help',
       href: overrides.href === undefined ? '/checkin' : overrides.href,
+      openTarget: null,
       actionType: 'reset',
       threadKey: `${rule}::key`,
       approach: 0,

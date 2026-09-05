@@ -27,3 +27,40 @@ export const MEMBER_DOMAIN_DESCRIPTIONS: Record<CoachingDomain, string> = {
   identity_self_concept: 'How you see yourself and your body right now, and what past attempts taught you.',
   purpose_motivation: 'Your why: what matters to you, and what a good week actually looks like.',
 };
+
+// ---------------------------------------------------------------------
+// The one line of orientation above the map (2026-09-05).
+// ---------------------------------------------------------------------
+
+/**
+ * What the map is, and how much of it has anything on it yet.
+ *
+ * A COUNT, NOT A CLAIM, and it names the population it counted, which is
+ * the standing rule for any counted sentence a member reads. "Something
+ * has been noticed in 3 of your 12 areas" says exactly what the gold
+ * segments say and nothing more: not that three things are wrong, not that
+ * nine are fine, not that anything has been measured. The number comes
+ * from the same predicate that colours the ring
+ * (components/root-map/ringDomains.ts's `colorFor`), so the sentence and
+ * the picture cannot disagree.
+ *
+ * Zero is its own sentence rather than "0 of 12", because a member on her
+ * first week is not looking at a score of nought. It says what will make
+ * the map fill in, which is the only honest thing available.
+ */
+export function buildRootMapOrientationLine(noticedCount: number, totalAreas: number): string {
+  if (noticedCount <= 0) {
+    return `Your wellbeing across ${totalAreas} areas. Nothing has been noticed in any of them yet, and this fills in as you check in.`;
+  }
+  if (noticedCount === 1) {
+    return `Your wellbeing across ${totalAreas} areas. Gold marks the one where something has been noticed so far.`;
+  }
+  return `Your wellbeing across ${totalAreas} areas. Gold marks the ${noticedCount} where something has been noticed so far.`;
+}
+
+/** The reveal that holds the twelve entries, and the key that names them. */
+export const ROOT_MAP_ALL_AREAS_LABEL = 'See all 12 areas';
+
+/** How to use the map, once the key is a tap away rather than under it. */
+export const ROOT_MAP_TAP_HINT =
+  'Tap a segment on the map, or a name in the key below, to jump to that area.';

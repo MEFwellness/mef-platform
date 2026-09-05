@@ -162,6 +162,8 @@ import {
   buildMovementFallbackReason,
   buildMovementFallbackTitle,
   frictionHref,
+  frictionOpenTarget,
+  DAILY_RESET_OPEN_TARGET,
 } from './copy';
 
 // ---------------------------------------------------------------------
@@ -259,7 +261,14 @@ function candidate(
   rule: PriorityRule,
   priorityKey: string | null,
   actionType: CoachingActionType,
-  parts: { title: string; reason: string | null; help: string; href: string | null },
+  parts: {
+    title: string;
+    reason: string | null;
+    help: string;
+    href: string | null;
+    /** The destination's own name, when there is a destination. See SelectedPriority.openTarget. */
+    openTarget?: string | null;
+  },
   evidence: Record<string, unknown>
 ): Candidate {
   return {
@@ -269,6 +278,7 @@ function candidate(
     reason: parts.reason,
     help: parts.help,
     href: parts.href,
+    openTarget: parts.openTarget ?? null,
     actionType,
     threadKey: threadKeyFor(rule, priorityKey),
     approach: APPROACH_AS_WRITTEN,
@@ -325,7 +335,16 @@ function buildOverrides(inputs: PriorityInputs): Candidate[] {
           // exists to avoid. See copy.ts.
           reason: null,
           help: RE_ENTRY_HELP_TEXT,
-          href: null,
+          // THE ONE THING RE-ENTRY NAMES, MADE REACHABLE (2026-09-05). Its
+          // sentence has always been "Start with one quiet check-in", and
+          // the Daily Reset is a screen in this app whose completion the
+          // app records. Carrying its address is what makes this an offer
+          // she can accept in one tap, and what stops the card offering her
+          // a Done claim over a check-in she has not done. Nothing else
+          // about this override changes: no reason line, no adaptation, and
+          // the same words.
+          href: '/checkin',
+          openTarget: DAILY_RESET_OPEN_TARGET,
         },
         {}
       )
@@ -402,6 +421,9 @@ function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[
             reason: buildDriverReason(item),
             help: isMovement ? buildMovementDriverHelp(sessionName!) : buildDriverHelp(item),
             href: isMovement ? movementSessionHref(sessionKey!) : null,
+            // The template's own name, so the open button and the Root
+            // Movement screens call the session the same thing.
+            openTarget: isMovement ? sessionName! : null,
           },
           {
             driverId: item.driverId,
@@ -449,6 +471,8 @@ function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[
           reason: buildIncompleteActionReason(action, todayLocalDate),
           help: buildIncompleteActionHelp(action),
           href: action.href,
+          // The registry's own name for the thing she left open.
+          openTarget: action.name,
         },
         { assessmentKey: action.key }
       )
@@ -467,6 +491,7 @@ function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[
           reason: buildFrictionReason(friction),
           help: buildFrictionHelp(friction),
           href: frictionHref(friction),
+          openTarget: frictionOpenTarget(friction),
         },
         {
           frictionKind: friction.kind,
@@ -530,6 +555,9 @@ function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[
           reason: buildMovementFallbackReason(),
           help: buildMovementFallbackHelp(fallbackSession.name),
           href: movementSessionHref(fallbackSession.sessionKey),
+          // The template's own name, so the button says the session's real
+          // name rather than a plain "Open it".
+          openTarget: fallbackSession.name,
         },
         { sessionKey: fallbackSession.sessionKey, checkinDoneToday: true }
       )
@@ -555,6 +583,7 @@ function buildLadder(inputs: PriorityInputs, todayLocalDate: string): Candidate[
           reason: buildDailyResetReason(inputs.fallback),
           help: buildDailyResetHelp(),
           href: '/checkin',
+          openTarget: DAILY_RESET_OPEN_TARGET,
         },
         { totalCheckins: inputs.fallback.totalCheckins, checkinDoneToday: false }
       )

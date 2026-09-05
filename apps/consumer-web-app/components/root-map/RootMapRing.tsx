@@ -118,6 +118,19 @@
  *    plus a small viewBox margin so every label has real clearance
  *    regardless of a browser's own baseline math.
  *
+ * WHERE THE NUMBERED KEY WENT (2026-09-05). The ordered, tappable list of
+ * the twelve names used to render directly under the colour key in this
+ * file. It now renders in ./RootMapAreaKey.tsx, inside the page's "See all
+ * 12 areas" reveal, together with the entries it is a key to: the Root Map
+ * opened five and a half screens long and those twelve names were the last
+ * thing between a member and the one line saying what was actually
+ * noticed. Nothing about it changed except where it sits, and the two
+ * things it shares with this file (the gold/green predicate, and where a
+ * tap lands) are now single functions in ./ringDomains.ts and
+ * ./scrollToDomain.ts rather than a copy each. The numbers on the ring
+ * stay: they cost no vertical space and they are still what ties a segment
+ * to its name.
+ *
  * 6. Nothing on the page said what gold vs. green actually meant (2026-07-29
  *    follow-up). Added a two-line key directly below the ring, above the
  *    numbered legend, naming both states in plain language. Written to
@@ -133,38 +146,29 @@
 import { useChartRevealOnce } from '@/components/useChartRevealOnce';
 import { COACHING_DOMAINS, type CoachingDomain } from '@/lib/investigation-engine/domains';
 import type { DomainCoverage } from '@/lib/root-map';
-import { domainAnchorId, NOT_COVERED_SECTION_ANCHOR_ID } from '@/lib/root-map/anchors';
-import { requestRootMapHighlight } from '@/lib/root-map/highlightBus';
+import {
+  colorFor,
+  fillFractionFor,
+  ROOT_MAP_GOLD,
+  ROOT_MAP_GREEN,
+  type RingDomain,
+} from './ringDomains';
+import { scrollToRootMapDomain } from './scrollToDomain';
 
-const DEEP_GREEN = '#1B3A2D';
-const GOLD = '#F5B700';
+const DEEP_GREEN = ROOT_MAP_GREEN;
+const GOLD = ROOT_MAP_GOLD;
 const TRACK = 'rgba(27,58,45,0.08)';
 const VIEWBOX_MARGIN = 16;
 
 /**
- * Only what the ring actually needs to draw and label itself — never the
- * full RootMapDomainView. That view carries `definition`, the coach-only
- * third-person text (RootMapDomainCard.tsx's field, untouched) — passing
- * the whole object into this 'use client' component would serialize it
- * into the member page's own RSC payload even though nothing here ever
- * renders it.
+ * Re-exported rather than moved out of reach: the segment shape and the
+ * two fill/colour functions now live in ./ringDomains.ts so the numbered
+ * key (./RootMapAreaKey.tsx, which renders in a different place on the
+ * page since 2026-09-05) draws its chips from the identical predicate.
+ * Same names, same functions, same callers.
  */
-export type RingDomain = {
-  domain: CoachingDomain;
-  label: string;
-  whatWeUnderstand: unknown[];
-  isUninstrumented: boolean;
-};
-
-export function fillFractionFor(domain: RingDomain, coverage: DomainCoverage | undefined): number {
-  if (domain.whatWeUnderstand.length > 0) return 1;
-  if (!coverage || coverage.windowDays === 0) return 0;
-  return Math.max(0, Math.min(1, coverage.count / coverage.windowDays));
-}
-
-export function colorFor(domain: RingDomain): string {
-  return domain.whatWeUnderstand.length > 0 ? GOLD : DEEP_GREEN;
-}
+export { colorFor, fillFractionFor };
+export type { RingDomain };
 
 /** Point on a circle of radius r centered at (cx,cy), 0deg = 12 o'clock, increasing clockwise. */
 export function pointOnCircle(
@@ -218,14 +222,12 @@ export function RootMapRing({
   const labelRadius = radius + stroke / 2 + size * 0.05;
   const wedgeOuterRadius = radius + stroke / 2 + 4;
 
+  // The jump itself lives in ./scrollToDomain.ts, shared with the numbered
+  // key, so a tap on a segment and a tap on that segment's name can never
+  // land in two different places. See that file for the three live-found
+  // bugs it has to keep getting right.
   function scrollToDomain(domain: RingDomain) {
-    const targetId = domain.isUninstrumented
-      ? NOT_COVERED_SECTION_ANCHOR_ID
-      : domainAnchorId(domain.domain);
-    document
-      .getElementById(targetId)
-      ?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
-    if (domain.isUninstrumented) requestRootMapHighlight(domain.domain);
+    scrollToRootMapDomain(domain, reducedMotion);
   }
 
   const revealed = drawn || reducedMotion;
@@ -343,27 +345,6 @@ export function RootMapRing({
           Green: still gathering information
         </span>
       </div>
-
-      <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
-        {ordered.map((domain, index) => (
-          <li key={domain.domain}>
-            <button
-              type="button"
-              onClick={() => scrollToDomain(domain)}
-              className="flex w-full items-center gap-1.5 rounded-lg py-1 text-left text-xs leading-snug text-[#1B3A2D] transition hover:text-[#3E5C46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5B700]"
-            >
-              <span
-                aria-hidden="true"
-                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white"
-                style={{ backgroundColor: colorFor(domain) }}
-              >
-                {index + 1}
-              </span>
-              <span>{domain.label}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

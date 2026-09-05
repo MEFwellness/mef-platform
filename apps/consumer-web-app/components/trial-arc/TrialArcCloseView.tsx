@@ -52,6 +52,7 @@ import {
   useCloseScreenReveal,
   useDelayedReveal,
 } from '@/components/closing-screen/ClosingScreenPrimitives';
+import { BackToHomeButton } from '@/components/closing-screen/BackToHomeButton';
 import { sendBeacon } from '@/lib/analytics/beacon';
 import type { RenderedTrialArcClose, TrialArcCloseAction } from '@/lib/trial-arc/closeTypes';
 
@@ -162,14 +163,12 @@ export function TrialArcCloseView({
           ))}
         </div>
 
-        <div className="mt-6 text-center">
-          <Link
-            href={'/dashboard' as Route}
-            onClick={() => recordDoor('home')}
-            className="mef-focus-ring text-xs font-medium text-[#6B7A72] underline underline-offset-2 transition hover:text-[#1B3A2D]"
-          >
-            {close.exitLabel}
-          </Link>
+        {/* The way out, at the same weight as the doors above it rather
+            than as a footnote under them (2026-09-05). Choosing no door is
+            a real outcome of this screen, and it is still recorded as one:
+            the beacon is unchanged, and so are its words. */}
+        <div className="mt-5">
+          <BackToHomeButton label={close.exitLabel} onClick={() => recordDoor('home')} />
         </div>
       </RevealCard>
     </div>

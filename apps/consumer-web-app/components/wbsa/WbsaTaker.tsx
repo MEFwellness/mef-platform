@@ -202,7 +202,7 @@ export function WbsaTaker({ sessionId, sections, questions, initialAnswers, resu
             onClick={() => router.push('/dashboard' as Route)}
             className="mef-press mef-focus-ring mt-3 block w-full rounded-2xl border border-[#1B3A2D]/15 px-6 py-4 text-center text-sm font-semibold text-[#1B3A2D] transition hover:bg-[#F3F6F4]"
           >
-            Return to Dashboard
+            Back to Home
           </button>
         </Card>
       </CenterStage>
