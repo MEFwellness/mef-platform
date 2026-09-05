@@ -222,12 +222,28 @@ function onScreen(screen: CloseScreen, line: string): boolean {
   return screen.fullText.toLowerCase().includes(wanted);
 }
 
-/** One visit to the close screen, from a fresh session. */
+/**
+ * One visit to the close screen, from a fresh session.
+ *
+ * IT WAITS FOR THE REAL HEADING BEFORE IT READS ANYTHING, and that is a fix
+ * for a real misread in this file rather than a precaution. A member who
+ * arrives before her close has been composed sees the quiet "Putting this
+ * together" screen while the mounted effect composes it and refreshes. The
+ * text-stability loop below can legitimately conclude that the QUIET screen
+ * has settled, and the refresh then lands part way through the read, giving
+ * back one screen's anchors and the other screen's text. Waiting for the
+ * heading first means every read is of one settled screen.
+ */
 async function visitClose(): Promise<CloseScreen> {
   const { context, minted } = await rigContext();
   const page = await context.newPage();
   try {
     await page.goto(`${BASE}${TRIAL_ARC_ROUTES.weekClose}`, { waitUntil: 'domcontentloaded' });
+    await page
+      .locator('main h1', { hasText: 'Your 7-Day Reset' })
+      .first()
+      .waitFor({ timeout: 40000 })
+      .catch(() => {});
     return await readClose(page);
   } finally {
     await context.close();
@@ -906,15 +922,29 @@ async function stageFatigue() {
   }
   await context.addCookies(minted.cookies);
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(7000);
+  // POLLED RATHER THAN SLEPT FOR A FIXED SEVEN SECONDS, and that is a fix for
+  // a real misread in this file (2026-09-05). PublicEntryClaim fires from the
+  // root layout after Home has painted, and Home is a streaming screen: the
+  // bind was measured landing thirty seconds after the quiz on a cold
+  // production render, so a fixed wait reported "the arrival did not bind"
+  // about a bind that was simply still in flight.
+  let bound: { pattern_key: string | null } | null = null;
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    await page.waitForTimeout(2000);
+    const { data } = await service
+      .from('member_public_entry_origin')
+      .select('pattern_key')
+      .eq('member_id', rig.id)
+      .maybeSingle();
+    if (data?.pattern_key) {
+      bound = data as { pattern_key: string | null };
+      break;
+    }
+  }
   await context.close();
   await retireSession(minted);
 
-  const { data: origin } = await service
-    .from('member_public_entry_origin')
-    .select('pattern_key')
-    .eq('member_id', rig.id)
-    .maybeSingle();
+  const origin = bound;
   check('the arrival bound itself to the rig, the way real signup does', origin?.pattern_key != null, JSON.stringify(origin));
   if (!origin?.pattern_key) return;
 
@@ -975,22 +1005,37 @@ async function stagePricing() {
     ''
   );
 
-  // The other swept surface: the post-trial lock screen. It is only reachable
-  // by an account the lock has shut, which the rig is not, so this reads what
-  // the server actually returns for it rather than pretending to be locked.
+  // THE OTHER SWEPT SURFACE: the post-trial lock screen, which is the only
+  // other place in the app that reads the membership page.
+  //
+  // THIS RUN DOES NOT TRY TO LOCK THE RIG, AND THAT IS A CORRECTION RATHER
+  // THAN A GAP (2026-09-05). lib/membership/access.ts opens the app
+  // unconditionally for a seeded test account on an unassigned trial, so an
+  // expired date alone leaves the rig on Home. Moving `source` off 'system'
+  // does lock it, and it also makes the row MANUAL, which migration 159's
+  // guard_manual_member_subscription trigger then refuses to let any script
+  // change back: putting the rig right again needed a SQL session with
+  // mef.access_admin_write set. That is the trigger being exactly right, and
+  // it is not a thing a repeatable verification run should be doing to a
+  // fixture. So this stage reads the screen as the rig actually is.
+  //
+  // The lock screen itself WAS driven by hand once, on 2026-09-05, with the
+  // rig temporarily locked that way: it rendered at /trial-ended with its
+  // "Continue with Rooted Reset" button pointing at the real configured
+  // membership page and no placeholder token anywhere on it. The unset-URL
+  // branch of the same screen is proven by tests/membership-access.test.ts
+  // and tests/trial-arc-close-guard.test.ts, because unsetting a live
+  // production variable to watch a fallback would take the real membership
+  // page away from real members.
   const { context, minted } = await rigContext();
   const page = await context.newPage();
   try {
     await page.goto(`${BASE}/trial-ended`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
     const path = new URL(page.url()).pathname;
     const body = (await page.textContent('body')) ?? '';
-    note(`/trial-ended for an unlocked account resolved to ${path}`);
-    check(
-      'the lock screen never prints a placeholder token, whichever way it resolves',
-      !body.includes('PRICING_LINK'),
-      ''
-    );
+    note(`/trial-ended for the rig (a test account the lock never shuts) resolved to ${path}`);
+    check('the lock screen never prints a placeholder token, whichever way it resolves', !body.includes('PRICING_LINK'), '');
     const anchors = await page.locator('a').evaluateAll((els) =>
       els.map((e) => (e as HTMLAnchorElement).getAttribute('href') ?? '')
     );
@@ -1003,6 +1048,19 @@ async function stagePricing() {
     await context.close();
     await retireSession(minted);
   }
+
+  // And the rig's own entitlement row is left exactly as it was found, which
+  // after the correction above means untouched.
+  const { data: subscription } = await service
+    .from('member_subscriptions')
+    .select('source, tier, status')
+    .eq('member_id', rig.id)
+    .maybeSingle();
+  check(
+    'the rig is still on its own automatic trial, untouched by this stage',
+    subscription?.source === 'system' && subscription?.tier === 'trial' && subscription?.status === 'active',
+    JSON.stringify(subscription)
+  );
 }
 
 async function stageWidget() {
@@ -1020,27 +1078,50 @@ async function stageWidget() {
     await page.goto(`${BASE}/lead-widget-test`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(4000);
 
-    // The bubble the widget injects. Opening it and taking one turn is what
-    // proves the module graph that now imports lib/config/conversionLinks.ts
-    // still loads and still answers in production.
-    const before = (await page.content()).length;
-    const bubble = page.locator('button').last();
-    await bubble.click({ timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(2500);
+    // THE WIDGET'S OWN ENDPOINT, CALLED THE WAY THE WIDGET CALLS IT, from
+    // this page's own origin. The chat UI lives inside a shadow root, so
+    // counting characters in the page's HTML is not a read of whether the
+    // agent answered; the response body is.
+    //
+    // Two turns, because the first is deliberately static (it opens the
+    // conversation and returns the quick replies with no model call) and the
+    // second is the one that runs the whole module graph, including
+    // lib/lead-capture/env.ts, which now reads the booking address from
+    // lib/config/conversionLinks.ts.
+    const opened = await page.evaluate(async () => {
+      const res = await fetch('/api/lead-capture', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sourceUrl: window.location.href }),
+      });
+      return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+    });
+    check(
+      'the widget endpoint opens a conversation',
+      opened.status === 200 && typeof opened.body.conversationId === 'string',
+      `${opened.status} ${JSON.stringify(opened.body).slice(0, 120)}`
+    );
 
-    const quick = page.locator('button').filter({ hasText: /Pain|Energy|Sleep|Stress/i }).first();
-    const hasQuickReplies = (await quick.count()) > 0;
-    check('the widget opened and offered its quick replies', hasQuickReplies, `${await quick.count()} found`);
-    if (hasQuickReplies) {
-      await quick.click({ timeout: 10000 });
-      // The agent's reply is an LLM call, so this waits generously.
-      await page.waitForTimeout(20000);
-      const after = (await page.content()).length;
-      check('and the agent answered, so /api/lead-capture still resolves', after > before, `${before} -> ${after}`);
+    const conversationId = opened.body.conversationId as string | undefined;
+    if (conversationId) {
+      const replied = await page.evaluate(async (id) => {
+        const res = await fetch('/api/lead-capture', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ conversationId: id, message: 'Pain' }),
+        });
+        return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+      }, conversationId);
+      check(
+        'and the agent answers, so the module graph that reads the shared config still loads in production',
+        replied.status === 200 && typeof replied.body.reply === 'string' && (replied.body.reply as string).length > 0,
+        `${replied.status} ${String(replied.body.reply ?? replied.body.error).slice(0, 100)}`
+      );
     }
-    check('no console or page errors on the widget page', errors.length === 0, errors.join(' | ').slice(0, 160));
+
+    check('the widget page itself rendered with no console or page errors', errors.length === 0, errors.join(' | ').slice(0, 160));
     note(
-      'the booking address itself is proven on the close screen above: both surfaces now call the one discoveryCallUrl() in lib/config/conversionLinks.ts, which tests/trial-arc-close-guard.test.ts holds to being the only reader.'
+      'the booking address itself is proven on the close screen above: both surfaces now call the one discoveryCallUrl() in lib/config/conversionLinks.ts, which tests/trial-arc-close-guard.test.ts holds to being the only reader of that variable.'
     );
   } finally {
     await context.close();

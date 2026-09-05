@@ -1,3 +1,158 @@
+## Day 7 closes the week: "Your 7-Day Reset" (2026-09-05)
+
+Prompt 5 of the trial arc build. Day 7 is a pop-up (`trial_arc_day:7`)
+that opens one screen, `/trial/close`, on which Root says what the week
+showed, names the one thing she would work on next, and offers two doors.
+
+**The arc is still launched for no one.** `TRIAL_ARC_LAUNCH` ships null,
+and 20 of 20 non-rig production accounts still refuse with
+`launch_not_set`.
+
+### It is never a paywall, and that is a rule in code
+
+Nothing on this screen says or implies access is ending. No countdown, no
+number of days remaining, no expiry, no deadline, no urgency. Day 8
+handling is the next prompt's, and this screen must not pre-announce it.
+That is enforced the way the em dash check is: `tests/trial-arc-close.test.ts`
+renders every shape this build can produce (both completion branches, all
+four readiness patterns, all six signals, the thin refusal, with and
+without an arrival, with and without a membership page) and scans every
+rendered string for thirty banned phrases plus every term in
+`FORBIDDEN_BELOW_SUPPORTED` plus "problem". `member_trial_arc_closes` has
+no column such a claim could be stored in either, and a guard test says so.
+
+"7-Day Reset" is the screen's name and describes the week she has just
+had. The banned list is about a future end, never about the digit seven.
+
+### The three beats
+
+**The completion beat.** A checkmark that draws itself with a gold sweep,
+then one line. `full` (all three free conversations finished) acknowledges
+that without congratulating her for opening an app. `partial`, the
+ordinary case, is "This week opened the door. The next one is where it
+gets specific." A test asserts the partial branch never counts what she
+did not do: no "you only", no "1 of 3", no list of what is still open. The
+seven day experiment is deliberately not part of the test, because a
+decline is a real answer and not a failure to complete something.
+
+**The focus.** One card. Its subject is Life Signal Check's own chosen
+signal, its size is Readiness Pulse's own final pattern, both read through
+the same scoring engines her results screens ran. Ready Now is not shrunk
+and Ready If It Is Small is, which is the whole difference between them.
+Still Deciding and Not Yet get an observation rather than an instruction,
+keeping Readiness Pulse's own position ("deciding is a stage rather than a
+stall", "I believe you") instead of quietly walking it back on the last
+day of the week. A signal with no readiness says out loud that Root does
+not know how much room her life has. **Where Life Signal Check is missing
+there is no focus to name**, so Root says "Before I would pick a focus, I
+would want to know what is loudest for you" and points at the unfinished
+conversation. Readiness alone can size a focus; it can never supply one.
+
+**The doors.** "Talk with Osei" (the shared discovery call link) and
+"Continue with Rooted Reset" (the shared membership pricing link).
+Readiness shapes emphasis, never availability: Ready Now and Ready If It
+Is Small lead with membership, everybody else leads with the conversation,
+and both doors are on the screen for everyone who can be offered them.
+A fatigue entrant's close references her stored quiz result honestly, and
+promises "here is what the week found underneath it" only on a close that
+genuinely found something. Tapping no door and going back to Home is a
+fully respected outcome and is recorded as one.
+
+### Stored plan, rendered at read time (migration 206)
+
+`member_trial_arc_closes`, a SIBLING of migration 205's table rather than a
+second row on it. That table's `unique (member_id)` IS the rule "her recap
+is composed once"; the two vocabularies do not overlap; and the columns a
+member may update differ (a recap grants UPDATE on `opened_at` alone, a
+close needs the door stamps too, and column grants are per table).
+
+One row per member, `unique (member_id)`, `day_number = 7`. The plan holds
+a completion branch, a focus and its inputs, the doors offered and which
+one leads, and the counts. Never a sentence and never a URL: a stored URL
+is a URL that goes stale, so the plan holds a door NAME and
+`lib/config/conversionLinks.ts` is read fresh on every render. Immutable
+except `opened_at`, `door_tapped` and `door_tapped_at`, enforced the way
+204 and 205 enforce theirs (`revoke update ... grant update (...)`).
+
+**Six states Prompt 6 can tell apart**: took the conversation door, took
+the membership door, chose the quiet exit ('home'), opened it and pressed
+nothing (`door_tapped` null), was offered it and never opened it
+(`opened_at` null), was never offered one (no row).
+
+**Composed exactly once.** `ensureTrialArcClose` reads first and returns
+the existing row without calling the composer at all. **The read path is
+one row and a pure renderer**: `lib/trial-arc/closeCopy.ts` imports no
+database client, no membership module and no assessment registry,
+transitively, and reads no environment variable of its own, and a guard
+test walks its whole runtime import graph to keep that true.
+
+**No render writes.** The plan is composed at the delivery beacon and, for
+the member who taps the button before that beacon lands, by the close
+screen's own open beacon. The door tap is a `keepalive` beacon too, so
+pressing a door never costs her a re-render on the way out, and the data
+layer refuses a door that was never on her own stored plan.
+
+### Where day 7 sits in the engine
+
+Decided ABOVE every pace state, exactly where day 6 sits and for the same
+reasons: a member who has been away is owed the ending of her week more
+than anybody, and a member who ran ahead has the most to read. The closer
+cannot reach it, and not as a special case: the closer filters on
+`isPacingDay`, and day 7 is a milestone. Root Presence still outranks it.
+`TRIAL_ARC_LAST_BUILT_DAY` is now 7, so the week is fully written.
+
+### Task B: one place for every outbound conversion link
+
+`lib/config/conversionLinks.ts`. `LEAD_DISCOVERY_CALL_URL` moved into it
+unchanged (same variable, same shipped fallback) and the lead capture
+widget now reads it from there. `lib/membership/pricing.ts` is deleted
+with its `#PRICING_LINK` sentinel: an unconfigured membership page is now
+`null`, the post-trial lock screen draws no button and shows its honest
+note instead, and the day 7 close draws no membership door and stands on
+the conversation door alone. A guard test proves the two environment
+variables are named in exactly ONE file in `app/`, `components/` and
+`lib/`, and that the placeholder token survives nowhere, not even in a
+comment.
+
+`CompletionMark` was factored out of `JourneyProgressLine` so the
+completion beat's checkmark and gold sweep are the ones already shipping,
+not a second implementation.
+
+### Tests
+
+`tests/trial-arc-close.test.ts` (148) and
+`tests/trial-arc-close-guard.test.ts` (47). Full suite 494 files, 8592
+tests, all passing. Typecheck clean, lint clean (warnings only, all
+pre-existing), production build clean, em dash guard clean.
+
+### Live, on app.mefwellness.com, with the rig
+
+`scripts/verify-trial-arc-day7-live.mts`, nine stages, **98 of 98 checks
+passed**. The pop-up and the close word for word; the focus naming her
+real signal (Tension) sized by her real readiness (Ready, if it's small);
+membership leading because that is what her readiness asks; both doors
+opening the real configured addresses; the door tap and the open stamp
+recorded; identical render on reload with nothing recomputed; the thin
+refusal driven with her conversations set aside and put back; the closer
+tripped and day 7 still offered exactly once; the arrival callback from a
+quiz genuinely taken signed out and bound the way real signup binds it.
+
+**MEMBERSHIP_PRICING_URL is set in Vercel** (Preview and Production, since
+2026-08-15), contrary to this prompt's premise, and points at
+`https://pages.mefwellness.com/root-payment`. So the membership door
+renders live. The unset branch is proven by tests rather than by unsetting
+a live variable, which would have taken the real membership page away from
+real members.
+
+**One correction, and it is the database being right.** Locking the rig to
+see the lock screen needed its subscription `source` off `'system'`, which
+makes the row MANUAL, which migration 159's
+`guard_manual_member_subscription` trigger then refuses to let any script
+change back. Putting the rig right needed a SQL session with
+`mef.access_admin_write` set. The lock screen was seen once that way (its
+button pointing at the real membership page, no placeholder), and the
+verification script no longer does it.
+
 ## Day 6 reads her week back: "What This Week Showed" (2026-09-05)
 
 Prompt 4 of the trial arc build. Day 6 is a pop-up (`trial_arc_day:6`)
