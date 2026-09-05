@@ -86,11 +86,28 @@ export async function trackTrialArcDeliveredAction(messageKey: unknown): Promise
  * answered with the step they pointed at, and the pacing stops permanently.
  * A tap that went unrecorded would count against her.
  *
- * NO DECISION CHECK, unlike the receipt above. By the time she taps, the act
- * of tapping may already have changed what today's message would be, and
- * the row this stamps is her own and already exists. The update is scoped to
- * her own member_id and to a row with no stamp on it yet, so the worst a
- * forged key can do is match nothing.
+ * IT CLAIMS THE RECEIPT BEFORE IT STAMPS IT, AND THAT IS A REAL BUG FIX
+ * (2026-09-04, found by driving day 1 on the live site). The display beacon
+ * and this one are two independent requests fired about a second apart, and
+ * nothing orders them. A member who presses the button the moment the
+ * pop-up appears sends the tap while the display receipt is still in
+ * flight, and an UPDATE against a row that does not exist yet matches
+ * nothing and returns no error. The tap was silently lost, and the closer
+ * then counted a message she had acted on as one she had ignored: three of
+ * those and Root stops talking to somebody who was doing exactly what was
+ * asked.
+ *
+ * A TAP IS PROOF OF A DISPLAY, so claiming the receipt here is not
+ * inventing one. It is the same insert-if-absent the display beacon does,
+ * against the same unique constraint, so whichever of the two arrives first
+ * writes the row and the other finds it already there.
+ *
+ * The claim re-resolves today's message from her own session first, exactly
+ * as the display beacon does, so a stale tab or a forged key can still only
+ * ever write the receipt this member's own screen was entitled to write
+ * today. If the key names something that is not today's message, nothing is
+ * claimed and the stamp simply matches whatever row is already there, which
+ * for a forged key is none.
  */
 export async function markTrialArcCtaTappedAction(messageKey: unknown): Promise<void> {
   if (typeof messageKey !== 'string' || messageKey.length === 0) return;
@@ -99,7 +116,23 @@ export async function markTrialArcCtaTappedAction(messageKey: unknown): Promise<
     const user = await getCachedUser();
     if (!user) return;
 
-    await markTrialArcCtaTapped(createClient(), user.id, messageKey);
+    const supabase = createClient();
+
+    const decision = await resolveTrialArcDecision(supabase, user.id, {
+      lastSignInAt: user.last_sign_in_at ?? null,
+    });
+    const message = decision.message;
+    if (message && message.messageKey === messageKey && decision.facts) {
+      await claimTrialArcDelivery(supabase, user.id, {
+        messageKey: message.messageKey,
+        dayNumber: message.dayNumber,
+        paceState: message.paceState,
+        pointedStep: message.copy.step,
+        deliveredLocalDate: decision.facts.todayLocalDate,
+      });
+    }
+
+    await markTrialArcCtaTapped(supabase, user.id, messageKey);
   } catch (error) {
     console.error('markTrialArcCtaTappedAction failed', error);
   }
