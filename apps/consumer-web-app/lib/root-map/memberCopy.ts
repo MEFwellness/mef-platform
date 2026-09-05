@@ -61,6 +61,10 @@ export function buildRootMapOrientationLine(noticedCount: number, totalAreas: nu
 /** The reveal that holds the twelve entries, and the key that names them. */
 export const ROOT_MAP_ALL_AREAS_LABEL = 'See all 12 areas';
 
-/** How to use the map, once the key is a tap away rather than under it. */
-export const ROOT_MAP_TAP_HINT =
-  'Tap a segment on the map, or a name in the key below, to jump to that area.';
+/**
+ * How to use the map. It names only the ring, because the numbered key it
+ * used to point at now lives inside the reveal below, and a line that says
+ * "the key below" while the key is folded away is a small untruth on the
+ * one screen that exists to be trustworthy.
+ */
+export const ROOT_MAP_TAP_HINT = 'Tap a segment to jump to that area.';
