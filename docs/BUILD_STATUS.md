@@ -1,3 +1,130 @@
+## The trial arc is launched (2026-09-05)
+
+`TRIAL_ARC_LAUNCH` is no longer null. It is **2026-09-05T14:20:00Z**, and
+from that instant the automated first-week sequence is live for real
+signups. Prompt 7 of seven, and the only thing it turns on is a constant:
+no migration, no backfill, no flag, no list.
+
+### The date, and why it is that date
+
+The launch instant doubles as the line between the accounts the arc is for
+and the accounts it is not. Rule 1 of eligibility is "created on or after
+this instant", so every account that already existed is excluded by its own
+signup date rather than by a backfill.
+
+It had to satisfy two things at once, and the first attempt only satisfied
+one. 16:00Z was chosen with two hours of margin ahead of the deploy, which
+made "nothing that already exists is swept in" true and "anything created
+after this deployment is included" false, by a two hour gap. The date was
+re-cut to 14:20:00Z, twenty-two minutes after the deployment that carried
+it went Ready at 13:57:48Z, so both halves hold.
+
+### The proof, run BEFORE the deploy and again after
+
+`scripts/verify-trial-arc-launch-live.mts`, against the production
+database, both sides of the switch:
+
+- All 23 accounts that existed at launch: refused, every one of them with
+  `account_predates_launch`, checked before any other rule is reached.
+- The engine over the same 23: zero messages.
+- A hypothetical signup one minute later: genuinely eligible. Without this
+  half, the 23 refusals would equally describe an arc that is simply broken.
+- One second before the instant: refused. In the instant itself: in,
+  because the rule is "on or after".
+- And post-launch, the exclusions still hold one at a time: a coached
+  account, an account whose assignment was revoked years ago, a paid
+  member, a hand-assigned trial, a suppressed account, a seeded test
+  account, and an account whose facts could not be read.
+
+### Watched happening on the live site, for all three kinds of person
+
+`scripts/verify-trial-arc-launched-live.mts`, on app.mefwellness.com.
+**Every eligibility question it asks is asked with an EMPTY override list**,
+so nothing it reports can be an artefact of a name in a server variable.
+
+**The prospect, 68 checks.** A post-launch reference account
+(`oakomah66+arclaunch@gmail.com`) created the real way: signed-out quiz at
+/energy in a real browser, nine questions, pattern `wind_down_deficit`, the
+create-account button really tapped, the one-time reference minted by the
+deployed route handler and read back off the real signup form. The form is
+never submitted, because Turnstile refuses a scripted submission by design,
+so the account is created through the Auth Admin API and the arrival is
+bound by running the shipped redeem function on that same real reference.
+That is the boundary and it is stated rather than dressed up. She is
+eligible with **no override**, purely because of when she was created.
+
+Then her week, on the real screens: day 1 arrival greeting naming what the
+quiz came back with, day 2 pointing at Life Signal Check because her
+snapshot is genuinely done, day 3 speaking, days 4 and 5 correctly silent
+with `stalled_message_already_sent`, day 6 composing and storing her recap
+from its own screen, day 7 composing her close with both doors live and
+read off the server, and day 8 landing on /trial-ended in the FULL state
+with her stored week one tap away. No console or page error on any screen.
+
+**The coaching client, 14 checks.** Both of them, the flagged one and the
+real one. Refused today; refused on every day 1 to 8 with every other rule
+stripped away so only the coach assignment is doing the refusing; silent
+from the engine; and never routed to /trial-ended even when locked.
+
+**The app-only member, 10 checks.** Production holds none: both paid rows
+also carry an active coach assignment. Proved on a throwaway post-launch
+fixture, deleted at the end of the stage.
+
+**Suppression, 13 checks.** The admin control pressed on the live screen
+inside the reference account's own card: it stamps, the arc goes silent on
+the very next question asked, the control then reads "Allow trial arc",
+clearing it brings her straight back, and **exactly one row moved**.
+
+**Collisions, 24 checks.** Root Presence wins and the arc resumes the next
+day; never two trial messages in one member-day; the three-ignore closer
+stops pacing for good while days 6 and 7 still offer once, which is the
+whole point of the milestone split; the range guard stays silent on day 9
+and day 30 while she is still eligible; and one pop-up per visit with no
+double-fire.
+
+**Real members, 10 checks.** Zero arc rows for anybody but the reference
+account, zero suppressions, nothing handed to the welcome, and every locked
+prospect still on the no-arc continuation state.
+
+**Hygiene, 12 checks.** Every fixture account from all seven prompts is
+flagged `is_test`, nothing unflagged is left behind, and neither /admin nor
+/admin/analytics prints one.
+
+### Three things the run found and fixed
+
+- **A near miss worth writing down.** The suppression stage could not find
+  its target member's card, fell back to the whole page, and pressed the
+  first "Suppress trial arc" button on screen, which belonged to **a real
+  member**. It was cleared within minutes and the account was never
+  affected (it is pre-launch, so the arc was never going to speak to it).
+  The control now resolves the member's own card by their address and
+  **refuses to press anything if it cannot**, and a standing assertion
+  checks that one press moved exactly one row.
+- **The chain had no test for the arc at all.** The arc sits second, above
+  every experience follow-up, and nothing proved it did not starve them.
+  `tests/root-popup-chain-guards.test.ts` now carries seven cases: the arc
+  takes the slot, the same day hands it straight to the day-3 follow-up,
+  it never fires twice on one member-day, day 7 is not starved either, its
+  key is due again tomorrow, an account outside the arc is unchanged, and
+  the whole nine-branch chain still drains with the arc at the front.
+- **A latent ordering bug, found by the full suite.** Unified assessment
+  questions and sections were ordered by `display_order` alone, which is
+  not unique: questions in different sections routinely tie on it, and a
+  tie without a tiebreak comes back in whatever order Postgres chose that
+  run. That list is what `visibleQuestions`, the progress count and the
+  findings list are built from, so a member's question order could change
+  between two visits. Both queries now order by a second, unique key.
+
+### Putting it back
+
+Setting `TRIAL_ARC_LAUNCH` to null re-silences the arc for everybody,
+immediately and without touching a single row. Eligibility answers
+`launch_not_set` for every account, every branch that reads the arc returns
+nothing, and receipts, recaps and closes already written stay exactly where
+they are. It is the safe first move if anything ever looks wrong, and it
+harms no one's data. The config comment says so and a guard test holds the
+sentence.
+
 ## The arrival now gets said out loud, even after the Baseline (2026-09-05)
 
 The signup link binds correctly. A real phone then showed that the member

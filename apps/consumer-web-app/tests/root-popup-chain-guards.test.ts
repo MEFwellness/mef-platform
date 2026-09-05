@@ -50,6 +50,18 @@ type World = {
    */
   publicEntryWelcomeSessionId: string | null;
   publicEntryWelcomeHasBaseline: boolean;
+  /**
+   * The trial arc's day for this member, or null for every account outside
+   * it. Set to a day number to put her inside the launched arc, which is
+   * the one state where the arc branch has anything to return.
+   *
+   * ADDED 2026-09-05, AT THE LAUNCH. Until the arc had a launch date it
+   * could not reach this chain at all and this file had no reason to know
+   * about it. Now it can, it sits SECOND, above every experience follow-up,
+   * and the question this file exists to answer applies to it too: does it
+   * take the slot without starving what is below it.
+   */
+  trialArcDay: number | null;
   dismissals: Map<string, RootPopupDismissal>;
 };
 
@@ -67,6 +79,7 @@ const world: World = {
   freeArcKey: null,
   publicEntryWelcomeSessionId: null,
   publicEntryWelcomeHasBaseline: false,
+  trialArcDay: null,
   dismissals: new Map(),
 };
 
@@ -84,6 +97,7 @@ function resetWorld(): void {
   world.freeArcKey = null;
   world.publicEntryWelcomeSessionId = null;
   world.publicEntryWelcomeHasBaseline = false;
+  world.trialArcDay = null;
   world.dismissals = new Map();
 }
 
@@ -176,6 +190,45 @@ vi.mock('@/lib/public-entry/welcome', () => ({
         }
       : null,
 }));
+
+/**
+ * The trial arc engine, as a knob rather than a database.
+ *
+ * `publicEntryArcHandover` is the real one: the chain hands its answer to
+ * the welcome, and mocking that translation as well would let the two
+ * disagree here in a way they cannot disagree in the app.
+ */
+vi.mock('@/lib/trial-arc/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/trial-arc/engine')>();
+  return {
+    ...actual,
+    resolveTrialArcDecision: async () => {
+      if (world.trialArcDay === null) {
+        return { eligible: false, dayNumber: null, message: null, reason: 'not_eligible', facts: null };
+      }
+      return {
+        eligible: true,
+        dayNumber: world.trialArcDay,
+        message: {
+          messageKey: `trial_arc_day:${world.trialArcDay}`,
+          dayNumber: world.trialArcDay,
+          paceState: 'ON_PACE',
+          surface: 'popup',
+          copy: {
+            eyebrow: 'From Root',
+            title: 'The other half',
+            body: 'Life Signal Check is the other half of the picture.',
+            ctaLabel: 'Start Life Signal Check',
+            href: '/assessments/life-signal-check',
+            step: 'life_signal_check',
+          },
+        },
+        reason: null,
+        facts: null,
+      };
+    },
+  };
+});
 
 vi.mock('@/lib/hydration/data', () => ({
   fetchHydrationFocus: async () => ({ focus: world.hydrationFocus }),
@@ -578,6 +631,119 @@ describe('a member with several things pending sees them one at a time, in order
     }
 
     expect(seen).toEqual([
+      'questionnaire_assigned',
+      'stress_load_assigned',
+      'priority_card',
+      'hydration_focus',
+      'cvs_day3',
+      'weekly_reflection',
+      'weekly_review',
+      'free_arc_available',
+    ]);
+    expect(await getMyRootPopupMessageAction()).toBeNull();
+  });
+});
+
+describe('the trial arc in the chain: it takes its slot, and it starves nothing', () => {
+  /**
+   * THE COLLISION THIS IS ABOUT. The arc sits second in the chain, above
+   * every experience follow-up, and it speaks on up to seven days of one
+   * account's life. If it took the slot and then kept it, a member who
+   * finished a Core Values Snapshot experiment during her trial week would
+   * never be told her day 3 or day 7 result, because the arc would be
+   * standing in front of it every single load.
+   *
+   * The rule that prevents it is the same one every other branch obeys: the
+   * arc marks itself dismissed the instant it mounts, so the next load finds
+   * it not due and falls through to whatever is below.
+   */
+  it('the arc takes the slot ahead of a due day-3 follow-up', async () => {
+    world.trialArcDay = 2;
+    world.cvsPending = 'day3';
+
+    const message = await getMyRootPopupMessageAction();
+    expect(message?.kind).toBe('trial_arc_day');
+    expect(message?.messageKey).toBe('trial_arc_day:2');
+  });
+
+  it('and once it has been shown, the SAME DAY hands the slot straight to the day-3 follow-up', async () => {
+    world.trialArcDay = 2;
+    world.cvsPending = 'day3';
+
+    const first = await getMyRootPopupMessageAction();
+    expect(first?.kind).toBe('trial_arc_day');
+    markShown(first!.messageKey);
+
+    const second = await getMyRootPopupMessageAction();
+    expect(second?.kind).toBe('cvs_day3');
+  });
+
+  it('the arc never fires twice on one member-day, even with nothing below it', async () => {
+    world.trialArcDay = 2;
+
+    const first = await getMyRootPopupMessageAction();
+    expect(first?.kind).toBe('trial_arc_day');
+    markShown(first!.messageKey);
+
+    expect(await getMyRootPopupMessageAction()).toBeNull();
+  });
+
+  it('a day-7 follow-up is not starved either', async () => {
+    world.trialArcDay = 4;
+    world.cvsPending = 'day7';
+
+    const first = await getMyRootPopupMessageAction();
+    expect(first?.kind).toBe('trial_arc_day');
+    markShown(first!.messageKey);
+
+    const second = await getMyRootPopupMessageAction();
+    expect(second?.kind).toBe('cvs_day7');
+  });
+
+  it('the arc is due again tomorrow, because its key carries her own trial day', async () => {
+    world.trialArcDay = 2;
+    markShown('trial_arc_day:2');
+    expect(await getMyRootPopupMessageAction()).toBeNull();
+
+    // The next day is a different key, so the previous day's dismissal
+    // cannot silence it, exactly as the priority card's date-scoped key works.
+    world.trialArcDay = 3;
+    const tomorrow = await getMyRootPopupMessageAction();
+    expect(tomorrow?.kind).toBe('trial_arc_day');
+    expect(tomorrow?.messageKey).toBe('trial_arc_day:3');
+  });
+
+  it('an account outside the arc sees exactly what it saw before the arc existed', async () => {
+    world.trialArcDay = null;
+    world.cvsPending = 'day3';
+
+    const message = await getMyRootPopupMessageAction();
+    expect(message?.kind).toBe('cvs_day3');
+  });
+
+  it('and the whole chain still drains, with the arc at the front of it', async () => {
+    world.trialArcDay = 2;
+    world.assignments = [
+      { assignmentId: 'assignment-1', title: 'Health Check-In', primaryHref: '/a' },
+    ];
+    world.priority = { rule: 're_entry', isReEntry: true, status: 'active' };
+    world.hydrationFocus = null;
+    world.stressLoadAssignmentId = 'assignment-sl-1';
+    world.cvsPending = 'day3';
+    world.weeklyReflectionWeekStart = '2026-08-28';
+    world.weeklyReviewWeekStart = '2026-08-24';
+    world.freeArcKey = 'core-values-snapshot';
+
+    const seen: string[] = [];
+    for (let load = 0; load < 10; load += 1) {
+      const message = await getMyRootPopupMessageAction();
+      if (!message) break;
+      seen.push(message.kind);
+      markShown(message.messageKey);
+    }
+
+    expect(seen).toEqual([
+      'trial_arc_day',
       'questionnaire_assigned',
       'stress_load_assigned',
       'priority_card',
