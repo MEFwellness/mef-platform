@@ -63,6 +63,12 @@ export function intelligenceDigest(input: IntelligenceDigestInput): SectionDiges
       correlations > 0 ? plural(correlations, 'correlation') : null,
       openAlerts > 0 ? plural(openAlerts, 'open alert') : null,
       escalations > 0 ? plural(escalations, 'flagged thread') : null,
+      // Named, because it can be the ONLY reason this header went gold, and
+      // a gold dot over the words "Nothing surfaced yet" is a header
+      // arguing with itself. Live on 2026-09-06 it was exactly that.
+      suggestedReassessments > 0
+        ? `${plural(suggestedReassessments, 'reassessment')} suggested`
+        : null,
     ],
     'Nothing surfaced yet'
   );
@@ -86,7 +92,7 @@ export function assessmentsDigest(input: AssessmentsDigestInput): SectionDigest 
     [
       pending > 0 ? `${pending} pending` : null,
       completed > 0 ? `${completed} completed` : null,
-      sittings > 0 ? plural(sittings, 'sitting on file') : null,
+      sittings > 0 ? `${sittings} sitting${sittings === 1 ? '' : 's'} on file` : null,
     ],
     'Nothing sent yet'
   );

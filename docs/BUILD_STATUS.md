@@ -101,10 +101,43 @@ resolves the hash to its owning section and opens it, and the section does
 the scroll once its contents exist, because `scrollIntoView` on an element
 that is not in the document is a silent no-op.
 
+### THREE THINGS THE LIVE RUN CHANGED
+
+The first pass was 46 of 50, and every one of the four failures was the
+verification script rather than the build: three text assertions were case
+sensitive against headings that carry `uppercase`, so innerText handed back
+"ON THIS PAGE" and the match failed against a screen that was perfectly
+correct, and the fourth waited a fixed 2,500ms on a cancel the database had
+already recorded. All four are fixed in the script, and the cancel now waits
+on the withdrawn row itself rather than on a clock.
+
+Two REAL defects were visible in the screenshots the run took, neither of
+them something a test would have caught:
+
+A GOLD DOT OVER THE WORDS "NOTHING SURFACED YET". A suggested reassessment
+was the only thing flagged on that header, and the line did not name it, so
+the header argued with its own dot. The line now names it, and a test asserts
+that combination can never come back.
+
+"5 SITTING ON FILES". The pluraliser appended its `s` to the end of the whole
+phrase. It reads "5 sittings on file".
+
+And one legibility fix, from looking at Cat's real fortnight rather than a
+fixture: mood and stress both sit between 3 and 4 on most of her days, and a
+forest line and a clay line running two pixels apart at 2px wide are not
+tellable apart on a phone. Stress is now dashed, the way OverlayChart already
+dashes its second series. The single combined legend also put a forest Mood
+swatch beside a forest Sleep swatch, two shades apart standing for two
+different things on two different scales, so each legend now sits on the
+chart it describes.
+
 ### Watched on the live site
 
 `scripts/verify-detail-sections-live.mjs`, against app.mefwellness.com on a
-390px phone as the real coach, on Cat's own page and her own data.
+390px phone as the real coach, on Cat's own page and her own data. 50 of 50
+after the script fixes above, with zero console errors and zero em dashes on
+every screen visited. Her folded page measured 1,059px against an 844px
+viewport, and her chart drew 14 real holes in a 28 day span.
 
 ONE DELIBERATE SUBSTITUTION. The assign write is the only check that changes
 anything, and it was run against the seeded test fixture rather than against

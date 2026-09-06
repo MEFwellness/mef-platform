@@ -210,6 +210,10 @@ describe('what the chart actually renders', () => {
     }
   });
 
+  it('stress is dashed, so it never depends on telling two dark strokes apart', () => {
+    expect(html).toContain('stroke-dasharray="4 3"');
+  });
+
   it('draws each rating series as two paths, one per side of the gap', () => {
     // Three rating series, two runs each, plus sleep's two runs.
     const paths = html.match(/<path /g) ?? [];

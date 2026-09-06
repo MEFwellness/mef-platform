@@ -81,6 +81,19 @@ async function visibleText(page) {
   return page.evaluate(() => document.body.innerText ?? '');
 }
 
+/**
+ * innerText reports the text as CSS TRANSFORMED it, not as it was written.
+ *
+ * Every group label and card heading on this page carries `uppercase`, so
+ * "On this page" reads back as "ON THIS PAGE" and a case sensitive match
+ * fails against a screen that is perfectly correct. Same trap as the
+ * 2026-09-06 note about it. Every text assertion here is deliberately
+ * case insensitive for that reason.
+ */
+function says(haystack, needle) {
+  return haystack.toLowerCase().includes(needle.toLowerCase());
+}
+
 /** The header button for one section, addressed by the section's own accessible name. */
 function header(page, section) {
   return page.locator(`section[aria-label="${section.title}"] > button`);
@@ -195,7 +208,10 @@ async function main() {
     await page.waitForTimeout(200);
     await shot(page, '03-search-page-results');
     const dropdown = page.locator('[aria-label="Search results"]');
-    check('typing shows results grouped under On this page', (await dropdown.innerText()).includes('On this page'));
+    check(
+      'typing shows results grouped under On this page',
+      says(await dropdown.innerText(), 'On this page')
+    );
 
     await dropdown.getByRole('button', { name: /Coach Notes/i }).first().click();
     await page.waitForTimeout(900);
@@ -218,7 +234,7 @@ async function main() {
     });
     check(
       'typing "joy" offers Where Your Joy Lives under Questionnaires',
-      (await questionnaireRow.count()) > 0 && (await dropdown.innerText()).includes('Questionnaires')
+      (await questionnaireRow.count()) > 0 && says(await dropdown.innerText(), 'Questionnaires')
     );
     await shot(page, '05-search-questionnaires');
 
@@ -242,7 +258,7 @@ async function main() {
     await page.waitForTimeout(200);
     check(
       'a query nothing answers says one honest line',
-      (await dropdown.innerText()).includes('Nothing on this page matches that.')
+      says(await dropdown.innerText(), 'Nothing on this page matches that.')
     );
     await field.fill('');
 
@@ -256,8 +272,15 @@ async function main() {
 
     const chartCard = page.locator('#detail-card-checkin-history');
     const chartText = await chartCard.innerText();
-    check('the chart labels its two scales', /1 to 5/.test(chartText) && /Sleep \(hours\)/.test(chartText), chartText.replace(/\s+/g, ' ').slice(0, 110));
-    check('the legend names all four series', ['Mood', 'Energy', 'Stress', 'Sleep'].every((s) => chartText.includes(s)));
+    check(
+      'the chart labels its two scales',
+      says(chartText, 'Mood, Energy, Stress (1 to 5)') && says(chartText, 'Sleep (hours)'),
+      chartText.replace(/\s+/g, ' ').slice(0, 110)
+    );
+    check(
+      'the legend names all four series',
+      ['Mood', 'Energy', 'Stress', 'Sleep'].every((label) => says(chartText, label))
+    );
 
     const pathCount = await chartCard.locator('svg path').count();
     check('the lines are drawn', pathCount > 0, `${pathCount} paths`);
@@ -322,10 +345,22 @@ async function main() {
     check('assigning adds a row to the ledger', afterRows > beforeRows, `${beforeRows} then ${afterRows}`);
     await shot(page, '10-assigned');
 
+    /*
+      The wait is on the withdrawn row appearing, not on a clock. An
+      earlier run gave this a fixed 2.5 seconds, screenshotted a server
+      action that was still in flight, and reported a FAIL against a
+      cancel the database had actually recorded.
+    */
+    const cancelledRow = fixturePanel.locator('div', { hasText: /^Cancelled/ });
     await fixturePanel.getByRole('button', { name: 'Cancel' }).first().click();
-    await page.waitForTimeout(2500);
-    const cancelledText = await fixturePanel.innerText();
-    check('cancelling withdraws it again', /Cancelled/.test(cancelledText));
+    let cancelled = false;
+    try {
+      await cancelledRow.first().waitFor({ state: 'visible', timeout: 20000 });
+      cancelled = true;
+    } catch {
+      cancelled = /Cancelled/.test(await fixturePanel.innerText());
+    }
+    check('cancelling withdraws it again', cancelled);
     note(`the fixture account keeps one withdrawn "${sendableName}" row, which is what a cancel leaves behind`);
     await shot(page, '11-cancelled');
 
@@ -343,7 +378,7 @@ async function main() {
         check('the member Home still loads', homeText.length > 200, `${homeText.length} characters`);
         check(
           'nothing from this build reached a member screen',
-          !/detail-section-|Intelligence and Signals|On this page/.test(
+          !/detail-section-|detail-page-search|Intelligence and Signals/.test(
             await home.evaluate(() => document.body.innerHTML)
           )
         );

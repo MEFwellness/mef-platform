@@ -83,11 +83,38 @@ afterEach(() => {
   container.remove();
 });
 
-/** One animation frame, plus the effect flush that follows it. */
+/**
+ * Waits for the thing itself, not for a clock.
+ *
+ * The open, the mount and the scroll are one requestAnimationFrame apart,
+ * and a single fixed pause is a machine-speed bet: a run with a production
+ * build compiling beside it failed exactly one of these once, on timing,
+ * against code that was correct. So each step polls its own condition and
+ * gives up only after a generous ceiling.
+ */
+async function waitFor(condition: () => boolean, what = 'the condition'): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    let met = false;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    try {
+      met = condition();
+    } catch {
+      met = false;
+    }
+    if (met) return;
+  }
+  throw new Error(`Timed out waiting for ${what}`);
+}
+
+/** A few frames, for the cases that assert something did NOT happen. */
 async function settle() {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  });
+  for (let i = 0; i < 5; i += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
 }
 
 /** Types into a controlled React input the way a keyboard does. */
@@ -184,8 +211,10 @@ describe('typing a section word and tapping the result', () => {
     mountPage();
     typeInto(pageSearchInput(), 'progress');
     click(pageResultLabelled('Progress and History'));
-    await settle();
-    expect(container.textContent).toContain('Check-in History lives here');
+    await waitFor(
+      () => container.textContent.includes('Check-in History lives here'),
+      'the section to open'
+    );
     expect(container.querySelector('[aria-expanded="true"]')).not.toBeNull();
   });
 
@@ -193,8 +222,7 @@ describe('typing a section word and tapping the result', () => {
     mountPage();
     typeInto(pageSearchInput(), 'progress');
     click(pageResultLabelled('Progress and History'));
-    await settle();
-    expect(scrolledInto).toHaveLength(1);
+    await waitFor(() => scrolledInto.length === 1, 'the scroll');
     expect((scrolledInto[0] as HTMLElement).id).toBe('detail-section-progress');
   });
 
@@ -202,7 +230,7 @@ describe('typing a section word and tapping the result', () => {
     mountPage();
     typeInto(pageSearchInput(), 'check-in history');
     click(pageResultLabelled('Check-in History'));
-    await settle();
+    await waitFor(() => scrolledInto.length === 1, 'the scroll');
     expect(container.textContent).toContain('Check-in History lives here');
     expect((scrolledInto[0] as HTMLElement).id).toBe('detail-card-checkin-history');
   });
@@ -211,7 +239,10 @@ describe('typing a section word and tapping the result', () => {
     mountPage();
     typeInto(pageSearchInput(), 'progress');
     click(pageResultLabelled('Progress and History'));
-    await settle();
+    await waitFor(
+      () => container.textContent.includes('Check-in History lives here'),
+      'the section to open'
+    );
     click(container.querySelector('button[aria-expanded="true"]')!);
     await settle();
     expect(container.textContent).not.toContain('Check-in History lives here');
@@ -268,7 +299,7 @@ describe('typing a questionnaire name and tapping the result', () => {
     mountPage();
     typeInto(pageSearchInput(), 'joy');
     click(questionnaireResultLabelled(WYJL_LABEL));
-    await settle();
+    await waitFor(() => scrolledInto.length === 1, 'the scroll');
     expect(container.querySelector('section[aria-label="Assign an Assessment"]')).not.toBeNull();
     expect((scrolledInto[0] as HTMLElement).id).toBe('detail-card-assign-assessment');
   });
@@ -277,7 +308,7 @@ describe('typing a questionnaire name and tapping the result', () => {
     mountPage();
     typeInto(pageSearchInput(), 'joy');
     click(questionnaireResultLabelled(WYJL_LABEL));
-    await settle();
+    await waitFor(() => assignPanelInput().value === 'joy', 'the field to be pre-filled');
     expect(assignPanelInput().value).toBe('joy');
   });
 
@@ -285,7 +316,7 @@ describe('typing a questionnaire name and tapping the result', () => {
     mountPage();
     typeInto(pageSearchInput(), 'joy');
     click(questionnaireResultLabelled(WYJL_LABEL));
-    await settle();
+    await waitFor(() => assignPanelInput().value === 'joy', 'the field to be pre-filled');
     const rows = [
       ...container.querySelectorAll('[aria-label="Questionnaires for this client"] > *'),
     ];
@@ -299,7 +330,7 @@ describe('typing a questionnaire name and tapping the result', () => {
     mountPage();
     typeInto(pageSearchInput(), 'happiness');
     click(questionnaireResultLabelled(WYJL_LABEL));
-    await settle();
+    await waitFor(() => assignPanelInput().value === 'happiness', 'the field to be pre-filled');
     expect(assignPanelInput().value).toBe('happiness');
   });
 });
@@ -359,7 +390,7 @@ describe('an arriving hash opens the section that holds it', () => {
   it('#member-visibility from the coach brief opens App Controls and scrolls to the panel', async () => {
     window.location.hash = '#member-visibility';
     mountPage();
-    await settle();
+    await waitFor(() => scrolledInto.length === 1, 'the deep link to land');
     expect(container.textContent).toContain('What her app contains');
     expect((scrolledInto[0] as HTMLElement).id).toBe('member-visibility');
   });
@@ -383,7 +414,7 @@ describe('an arriving hash opens the section that holds it', () => {
   it('a held request is taken once, so folding and reopening does not replay the jump', async () => {
     window.location.hash = '#member-visibility';
     mountPage();
-    await settle();
+    await waitFor(() => scrolledInto.length === 1, 'the deep link to land');
     click(container.querySelector('button[aria-expanded="true"]')!);
     await settle();
     expect(container.textContent).not.toContain('What her app contains');

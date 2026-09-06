@@ -318,16 +318,35 @@ describe('the dot is gold only when something is asking for something', () => {
     ).toBe('gold');
   });
 
-  it('gold for an unanswered reassessment suggestion', () => {
-    expect(
-      intelligenceDigest({
-        findings: 2,
-        correlations: 0,
-        openAlerts: 0,
-        escalations: 0,
-        suggestedReassessments: 1,
-      }).dot
-    ).toBe('gold');
+  it('gold for an unanswered reassessment suggestion, and the line says so', () => {
+    const digest = intelligenceDigest({
+      findings: 2,
+      correlations: 0,
+      openAlerts: 0,
+      escalations: 0,
+      suggestedReassessments: 1,
+    });
+    expect(digest.dot).toBe('gold');
+    expect(digest.text).toBe('2 findings, 1 reassessment suggested');
+  });
+
+  /**
+   * Watched live on 2026-09-06: this header showed a gold dot over the
+   * words "Nothing surfaced yet", because a suggested reassessment was the
+   * only thing flagged and the line did not name it. A header arguing with
+   * its own dot is worse than no header.
+   */
+  it('never shows gold over the words that say there is nothing', () => {
+    const digest = intelligenceDigest({
+      findings: 0,
+      correlations: 0,
+      openAlerts: 0,
+      escalations: 0,
+      suggestedReassessments: 1,
+    });
+    expect(digest.dot).toBe('gold');
+    expect(digest.text).not.toBe('Nothing surfaced yet');
+    expect(digest.text).toBe('1 reassessment suggested');
   });
 
   it('green when there is real content and nothing is flagged', () => {
@@ -359,6 +378,13 @@ describe('the dot is gold only when something is asking for something', () => {
     expect(assessmentsDigest({ pending: 1, completed: 2, overdue: 0, sittings: 0 }).dot).toBe('green');
     expect(assessmentsDigest({ pending: 1, completed: 2, overdue: 0, sittings: 0 }).text).toBe(
       '1 pending, 2 completed'
+    );
+    // Live on 2026-09-06 this read "5 sitting on files".
+    expect(assessmentsDigest({ pending: 0, completed: 1, overdue: 0, sittings: 5 }).text).toBe(
+      '1 completed, 5 sittings on file'
+    );
+    expect(assessmentsDigest({ pending: 0, completed: 0, overdue: 0, sittings: 1 }).text).toBe(
+      '1 sitting on file'
     );
     expect(assessmentsDigest({ pending: 0, completed: 0, overdue: 0, sittings: 0 })).toEqual({
       text: 'Nothing sent yet',

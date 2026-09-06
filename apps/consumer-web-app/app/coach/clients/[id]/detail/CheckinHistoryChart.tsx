@@ -39,7 +39,7 @@ const GRID_COLOR = 'rgba(27,58,45,0.10)';
 const SURFACE_COLOR = '#FAFAF8';
 
 const WIDTH = 320;
-const RATING_HEIGHT = 132;
+const RATING_HEIGHT = 150;
 const SLEEP_HEIGHT = 78;
 const PAD_X = 22;
 const PAD_TOP = 12;
@@ -54,10 +54,20 @@ function formatDay(localDate: string): string {
   });
 }
 
+/*
+  Stress is DASHED, not merely a different colour.
+
+  Watched live on Cat's own fortnight: mood and stress both sit between 3
+  and 4 most days, so the two strokes run within a few pixels of each other
+  and a forest line and a clay line at 2px are not reliably tellable apart
+  on a phone. A dash pattern separates them whatever the colours do, which
+  is the same reason components/case-view/OverlayChart.tsx dashes its
+  second series.
+*/
 const SERIES = [
-  { key: 'mood' as const, label: 'Mood', color: MOOD_COLOR },
-  { key: 'energy' as const, label: 'Energy', color: ENERGY_COLOR },
-  { key: 'stress' as const, label: 'Stress', color: STRESS_COLOR },
+  { key: 'mood' as const, label: 'Mood', color: MOOD_COLOR, dash: undefined },
+  { key: 'energy' as const, label: 'Energy', color: ENERGY_COLOR, dash: undefined },
+  { key: 'stress' as const, label: 'Stress', color: STRESS_COLOR, dash: '4 3' },
 ];
 
 /** 1 to 5, the scale every one of these three questions is already asked on. */
@@ -106,31 +116,35 @@ export function CheckinHistoryChart({ checkins }: { checkins: DailyCheckin[] }) 
 
   return (
     <div className="mt-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#6B7A72]">
-        {SERIES.map((series) => (
-          <span key={series.key} className="flex items-center gap-1.5">
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: series.color }}
-              aria-hidden="true"
-            />
-            {series.label}
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5">
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: SLEEP_COLOR }}
-            aria-hidden="true"
-          />
-          Sleep
-        </span>
-      </div>
-
-      <div className="mt-2 rounded-2xl bg-[#FAFAF8] p-3">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-[#6B7A72]">
-          Mood, Energy, Stress (1 to 5)
-        </p>
+      {/*
+        Each legend sits on the chart it describes rather than above both.
+        One combined row put a forest Mood dot beside a forest Sleep dot,
+        two swatches a shade apart standing for two different things on two
+        different scales, which is the confusion a legend exists to remove.
+      */}
+      <div className="rounded-2xl bg-[#FAFAF8] p-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-[#6B7A72]">
+            Mood, Energy, Stress (1 to 5)
+          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#6B7A72]">
+            {SERIES.map((series) => (
+              <span key={series.key} className="flex items-center gap-1.5">
+                <span
+                  className="h-0.5 w-4 rounded-full"
+                  style={{
+                    backgroundColor: series.dash ? 'transparent' : series.color,
+                    backgroundImage: series.dash
+                      ? `repeating-linear-gradient(to right, ${series.color} 0 4px, transparent 4px 7px)`
+                      : undefined,
+                  }}
+                  aria-hidden="true"
+                />
+                {series.label}
+              </span>
+            ))}
+          </div>
+        </div>
         <svg
           viewBox={`0 0 ${WIDTH} ${RATING_HEIGHT}`}
           className="mt-1 w-full"
@@ -171,6 +185,7 @@ export function CheckinHistoryChart({ checkins }: { checkins: DailyCheckin[] }) 
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                strokeDasharray={series.dash}
               />
             ))
           )}
@@ -201,9 +216,19 @@ export function CheckinHistoryChart({ checkins }: { checkins: DailyCheckin[] }) 
       </div>
 
       <div className="mt-2 rounded-2xl bg-[#FAFAF8] p-3">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-[#6B7A72]">
-          Sleep (hours)
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-[#6B7A72]">
+            Sleep (hours)
+          </p>
+          <span className="flex items-center gap-1.5 text-[11px] text-[#6B7A72]">
+            <span
+              className="h-0.5 w-4 rounded-full"
+              style={{ backgroundColor: SLEEP_COLOR }}
+              aria-hidden="true"
+            />
+            Sleep
+          </span>
+        </div>
         <svg
           viewBox={`0 0 ${WIDTH} ${SLEEP_HEIGHT}`}
           className="mt-1 w-full"
