@@ -1,14 +1,18 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useId, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ClipboardCheck } from 'lucide-react';
+import { ClipboardCheck, Search } from 'lucide-react';
 import {
   assignAssessmentAction,
   cancelAssessmentAssignmentAction,
 } from '@/app/actions/assessmentAssignments';
 import type { AssessmentAssignment } from '@/app/actions/assessmentAssignments';
-import type { AssessmentKey } from '@/lib/assessment-registry/types';
+import {
+  filterAssignableTemplates,
+  templateStatusLine,
+  type AssignableTemplate,
+} from '@/lib/assignments/assignableCatalog';
 
 const CARD = 'rounded-[28px] bg-white shadow-[0_2px_24px_-4px_rgba(27,58,45,0.10)]';
 
@@ -28,33 +32,68 @@ const STATUS_LABEL: Record<AssessmentAssignment['status'], string> = {
   cancelled: 'Cancelled',
 };
 
+/**
+ * THE PICKER IS A SEARCHABLE LIST, NOT A DROPDOWN (2026-09-06).
+ *
+ * It was a native select. That is the right control for five options and
+ * the wrong one for a library that keeps growing: a coach on a phone got a
+ * scrolling wheel of names with no way to type, and no way to see whether
+ * the thing she was about to send had already been sent, already been
+ * finished, or was sitting unopened on the client's screen.
+ *
+ * Three things changed and nothing else did. The list can be typed at. The
+ * names come from the shared map rather than from the registry directly,
+ * which is the map that exists so no surface prints the generic word. And
+ * every row carries this client's own standing on that questionnaire,
+ * taken from the assignment rows this panel was ALREADY given, using the
+ * sentence the server already wrote. No new query, no second status
+ * vocabulary, and the row lower down the page and the row in this list are
+ * reading one string.
+ *
+ * What did NOT change: which questionnaires a coach may send, what the
+ * Assign button does, and the three coach-assigned deep-dives, which keep
+ * their own Assign buttons on their own panels.
+ */
 type Props = {
   clientId: string;
-  assignableAssessments: { key: AssessmentKey; displayName: string }[];
+  assignableTemplates: AssignableTemplate[];
   assignmentsByDefinitionId: Record<string, string>; // assessment_definition_id -> displayName, for rendering existing assignments
   initialAssignments: AssessmentAssignment[];
 };
 
 export function AssessmentAssignmentPanel({
   clientId,
-  assignableAssessments,
+  assignableTemplates,
   assignmentsByDefinitionId,
   initialAssignments,
 }: Props) {
   const router = useRouter();
-  const [selectedKey, setSelectedKey] = useState<AssessmentKey | ''>('');
+  const searchId = useId();
+  const [query, setQuery] = useState('');
+  const [selectedId, setSelectedId] = useState<string>('');
   const [isRequired, setIsRequired] = useState(true);
   const [reason, setReason] = useState('');
   const [dueAt, setDueAt] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const visibleTemplates = useMemo(
+    () => filterAssignableTemplates(assignableTemplates, query),
+    [assignableTemplates, query]
+  );
+  // Only a row this panel can actually send may be the selection. A row
+  // whose Assign button lives on its own card is never selectable, so the
+  // Assign button below can never claim something it cannot do.
+  const selectedTemplate =
+    assignableTemplates.find((t) => t.id === selectedId && t.assignKey !== null) ?? null;
+
   function handleAssign(event: React.FormEvent) {
     event.preventDefault();
-    if (!selectedKey) return;
+    if (!selectedTemplate?.assignKey) return;
+    const assignKey = selectedTemplate.assignKey;
     setError(null);
     startTransition(async () => {
-      const result = await assignAssessmentAction(clientId, selectedKey, {
+      const result = await assignAssessmentAction(clientId, assignKey, {
         isRequired,
         reason,
         dueAt,
@@ -64,7 +103,8 @@ export function AssessmentAssignmentPanel({
         setError(result.error);
         return;
       }
-      setSelectedKey('');
+      setSelectedId('');
+      setQuery('');
       setReason('');
       setDueAt('');
       setIsRequired(true);
@@ -97,18 +137,111 @@ export function AssessmentAssignmentPanel({
       </p>
 
       <form onSubmit={handleAssign} className="mt-4 space-y-3">
-        <select
-          value={selectedKey}
-          onChange={(event) => setSelectedKey(event.target.value as AssessmentKey)}
-          className="w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] p-3 text-sm text-[#1B3A2D] focus:border-[#F5B700] focus:outline-none"
+        <div>
+          <label htmlFor={searchId} className="sr-only">
+            Search questionnaires by name or area
+          </label>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B7A72]"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            <input
+              id={searchId}
+              type="search"
+              inputMode="search"
+              autoComplete="off"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by name or area"
+              className="w-full rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8] py-3 pl-11 pr-4 text-base text-[#1B3A2D] placeholder:text-[#6B7A72] focus:border-[#F5B700] focus:outline-none sm:text-sm"
+            />
+          </div>
+        </div>
+
+        <div
+          /*
+            A group, not a radiogroup. A radiogroup's children all have to
+            be radios, and this list deliberately holds rows that are not
+            controls at all.
+          */
+          role="group"
+          aria-label="Questionnaires for this client"
+          className="max-h-72 divide-y divide-[#1B3A2D]/5 overflow-y-auto rounded-2xl border border-[#1B3A2D]/10 bg-[#FAFAF8]"
         >
-          <option value="">Choose an assessment…</option>
-          {assignableAssessments.map((a) => (
-            <option key={a.key} value={a.key}>
-              {a.displayName}
-            </option>
-          ))}
-        </select>
+          {visibleTemplates.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-[#6B7A72]">
+              Nothing here matches that. Try part of a questionnaire name, or an area like Movement.
+            </p>
+          ) : (
+            visibleTemplates.map((template) => {
+              const selected = template.id === selectedId && template.assignKey !== null;
+              /*
+                Two kinds of row. One this panel can send, which behaves as
+                the dropdown option it replaced did. One it cannot, whose
+                Assign button lives on its own card further up the page, and
+                which is therefore not a control at all: it is findable,
+                it reports where this client stands, and it says where to go.
+              */
+              const body = (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-[#1B3A2D]">
+                      {template.displayName}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-[#1B3A2D]/5 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#4F645A]">
+                      {template.areaLabel}
+                    </span>
+                  </div>
+                  {/*
+                    This client's own standing on this questionnaire, and it
+                    is the assignment's own server written sentence, not a
+                    second one built here. The row further down this page
+                    prints the identical string.
+                  */}
+                  <p className="mt-0.5 text-xs text-[#6B7A72]">
+                    {templateStatusLine(initialAssignments, template.definitionId)}
+                  </p>
+                  {template.assignedFromLabel && (
+                    <p className="mt-0.5 text-xs italic text-[#8A9A92]">
+                      {template.assignedFromLabel}
+                    </p>
+                  )}
+                </>
+              );
+
+              if (template.assignKey === null) {
+                return (
+                  <div key={template.id} className="px-4 py-3">
+                    {body}
+                  </div>
+                );
+              }
+
+              return (
+                <button
+                  key={template.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setSelectedId(template.id)}
+                  className={`block w-full px-4 py-3 text-left transition ${
+                    selected ? 'bg-[#F5B700]/15' : 'hover:bg-[#1B3A2D]/[0.03]'
+                  }`}
+                >
+                  {body}
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {selectedTemplate && (
+          <p className="text-xs text-[#4F645A]">
+            Selected:{' '}
+            <span className="font-medium text-[#1B3A2D]">{selectedTemplate.displayName}</span>
+          </p>
+        )}
 
         <textarea
           value={reason}
@@ -144,7 +277,7 @@ export function AssessmentAssignmentPanel({
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isPending || !selectedKey}
+            disabled={isPending || !selectedTemplate}
             className="rounded-full bg-[#1B3A2D] px-5 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isPending ? 'Assigning…' : 'Assign'}

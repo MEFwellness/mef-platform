@@ -45,6 +45,13 @@ import type { LoadBand, RecoveryBand, StressLoadPatternKey, StressLoadReading } 
 /** The name of this experience, everywhere a member or coach reads it. One name per thing. */
 export const STRESS_LOAD_LABEL = 'Stress & Load Deep-Dive';
 
+/**
+ * The area this experience belongs to, said the way OYV_AREA and WYJL_AREA
+ * say theirs. One word for the family, in one place, so the coach's search
+ * field and anything after it cannot file this under two different areas.
+ */
+export const STRESS_LOAD_AREA = 'Stress and Load';
+
 /** The three sections, their names and the line that opens each one. Approved copy. */
 export const STRESS_LOAD_SECTIONS = [
   { screen: 1 as const, name: 'The Load', heading: "Let's look at what you're carrying." },

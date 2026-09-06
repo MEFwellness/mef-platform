@@ -89,6 +89,7 @@ import {
 } from '@/app/actions/movement-profile';
 import { getClientProgramAssignmentSummariesAction } from '@/app/actions/coach-programs';
 import { listAssignableAssessments } from '@/lib/assessment-registry/registry';
+import { listAssignableTemplates } from '@/lib/assignments/assignableCatalog';
 import { buildClientSummary } from '../../../lib';
 import { EnergyTrendChart } from '@/components/EnergyTrendChart';
 import { WellnessIndexCard } from '@/app/dashboard/WellnessIndexCard';
@@ -313,6 +314,13 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
     key: e.key,
     displayName: e.displayName,
   }));
+  // The same set of questionnaires, carrying the two extra things the
+  // Assign panel's search needs: the name from the shared map rather than
+  // from the registry directly, and the area a coach can type instead of a
+  // name. Built here because the panel is a client component and
+  // listAssignableTemplates reads the registry, and passed down as props
+  // exactly as the plain list above already was. It issues no query.
+  const assignableTemplates = listAssignableTemplates();
   // Every assignable definition, named. It is the shared map
   // (lib/assignments/experienceNames.ts) rather than the registry alone,
   // because the registry deliberately does not carry the coach-assigned-only
@@ -769,7 +777,7 @@ export default async function ClientDetailFullPage({ params }: { params: { id: s
           {/* Coach assignment minimum interface — Assessment Registry framework */}
           <AssessmentAssignmentPanel
             clientId={profile.id}
-            assignableAssessments={assignableAssessments}
+            assignableTemplates={assignableTemplates}
             assignmentsByDefinitionId={assessmentDisplayNameById}
             initialAssignments={assessmentAssignments}
           />
