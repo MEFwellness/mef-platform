@@ -53,6 +53,8 @@ import { hasWeeklyReflectionAccess } from '@/lib/weekly-reflection/access';
 import { listCheckinDatesForRecap } from '@/lib/weekly-reflection/data';
 import { listAssignedWorkoutsForMember } from '@/lib/coach-program-builder/assignments';
 import { listAssessmentRegistryEntries } from '@/lib/assessment-registry/registry';
+import { STRESS_LOAD_DEFINITION_ID } from '@/lib/stress-load/constants';
+import { STRESS_LOAD_LABEL } from '@/lib/stress-load/copy';
 import { thisWeekWindowFor, withinThisWeek } from '@/lib/coach-week/window';
 import {
   assignmentRow,
@@ -127,9 +129,17 @@ export async function getClientThisWeekBandAction(clientId: string): Promise<Thi
     return withinThisWeek(localDateStringFor(experiment.closedAt, timezone), window);
   });
 
-  const nameByDefinitionId = new Map(
-    listAssessmentRegistryEntries().map((entry) => [entry.databaseId, entry.displayName])
-  );
+  // The registry names every assessment a member can be sent EXCEPT the
+  // Stress & Load Deep-Dive, which is coach assigned only and has no
+  // registry entry on purpose. It shares the assignment ledger with the
+  // rest, so without this line its row on the band reads "Assessment" and
+  // a coach cannot tell which of two open assignments is late.
+  const nameByDefinitionId = new Map<string, string>([
+    ...listAssessmentRegistryEntries().map(
+      (entry) => [entry.databaseId, entry.displayName] as const
+    ),
+    [STRESS_LOAD_DEFINITION_ID, STRESS_LOAD_LABEL],
+  ]);
   const toBandAssignment = (assignment: (typeof assignments)[number]): AssignmentForBand => ({
     id: assignment.id,
     name: nameByDefinitionId.get(assignment.assessmentDefinitionId) ?? 'Assessment',

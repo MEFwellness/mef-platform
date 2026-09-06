@@ -28,6 +28,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   assignmentRow,
@@ -284,6 +286,30 @@ describe('the rows say only what the rows support', () => {
     expect(assignmentRow({ open: [], closedInWindow: [] }).statement).toBe(
       'Nothing is open, and nothing closed in these 7 days.'
     );
+  });
+});
+
+describe('every assignment on the band is named', () => {
+  it('names the deep-dive, which has no registry entry on purpose', async () => {
+    const { listAssessmentRegistryEntries } = await import('@/lib/assessment-registry/registry');
+    const { STRESS_LOAD_DEFINITION_ID } = await import('@/lib/stress-load/constants');
+    const { STRESS_LOAD_LABEL } = await import('@/lib/stress-load/copy');
+
+    // The premise: it really is absent from the registry. If it is ever
+    // added, this test should be the thing that says so.
+    expect(
+      listAssessmentRegistryEntries().some((e) => e.databaseId === STRESS_LOAD_DEFINITION_ID)
+    ).toBe(false);
+
+    // And the composer's own map, which is what stops the band printing
+    // "Assessment: Completed Aug 29" twice for two different things.
+    const source = readFileSync(
+      join(__dirname, '..', 'app', 'actions', 'coachWeek.ts'),
+      'utf8'
+    );
+    expect(source).toContain('STRESS_LOAD_DEFINITION_ID');
+    expect(source).toContain('STRESS_LOAD_LABEL');
+    expect(STRESS_LOAD_LABEL).toBe('Stress & Load Deep-Dive');
   });
 });
 
