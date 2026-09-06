@@ -109,9 +109,51 @@ state change. It carries its own coach check and its own
 already asks, because a server action is reachable without that layout ever
 running.
 
+### Watched on the live site
+
+`scripts/verify-this-week-band-live.mjs`, 37/37 against app.mefwellness.com,
+driving the real coach screens as the real coach account.
+
+The run happened on a SATURDAY, which is what makes the week check mean
+something: her Friday-to-Sunday reflection window was open, and the band's
+own seven days had already closed the day before. A band that had used the
+offer window would have counted a different week and failed. Her New York
+day and the server's UTC day were also different days (2026-09-05 against
+2026-09-06), so a window counted in the server's zone would have failed
+too.
+
+Read against the database rather than against itself: "Checked in on 2 of
+7 days" beside her 8 all-time logged days, and 9 sessions in the window
+beside her 34 in total. The decisive one is the move: a check-in shifted
+from 2026-08-04 into 2026-08-30 took the count to 3, and shifting it back
+took it to 2. Four page loads in a row changed nothing in any of nine
+tables, and opening the REAL client on the same caseload changed nothing
+in hers.
+
+The merged section was proved both ways. An open `no_checkin` alert
+silenced the client list's own "No check-in logged today" rather than
+printing both, and a safety branch exercise report created for the run
+appeared under "Also flagged on your client list" on the client page, once,
+having previously existed only on /coach. It was deleted and the flag went
+with it.
+
+The tier gate was driven through the real admin function, because the
+database refuses a direct write to a manual assignment: on `monthly` the
+band was absent and Worth discussing still rendered, and back on `program`
+the band returned.
+
+The first run found a real defect and it was fixed before the second: the
+assignment row read "Assessment: Completed Aug 29" twice, because the
+Stress & Load Deep-Dive has no registry entry on purpose and the lookup
+fell through to a generic fallback.
+
+The fixture holds what it held before, plus the one check-in the run was
+asked to make for 2026-09-05 and two membership audit rows from the tier
+change and its reversal.
+
 ### Tests
 
-`tests/coach-this-week-band.test.tsx` (27) and
+`tests/coach-this-week-band.test.tsx` (28) and
 `tests/coach-this-week-action.test.ts` (10), plus 11 new cases in
 `tests/coach-dashboard.test.tsx`. The load-bearing ones: the band's window
 is asserted equal to the recap's for the same client on every weekday of a
@@ -120,7 +162,7 @@ the action runs against a fake Postgres that THROWS on insert, update,
 upsert, delete and rpc rather than counting them, with nothing downstream
 mocked out, so a write anywhere in the composed read path is a failed test;
 and each alert is asserted to appear exactly once in the whole rendered
-page. Full suite 509 files, 8936 tests, all passing.
+page. Full suite 509 files, 8937 tests, all passing.
 
 ## Assignment delivery receipts and a due date that is read (2026-09-05)
 

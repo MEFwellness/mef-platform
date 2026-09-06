@@ -478,9 +478,11 @@ async function main() {
         (worthNow ?? '').includes('Exercise stopped, member reported pain'),
         worthNow ?? ''
       );
+      // Case-insensitively: the heading is uppercased by CSS, so innerText
+      // hands it back in capitals.
       check(
         'under a heading that says where it came from',
-        (worthNow ?? '').includes('Also flagged on your client list'),
+        /also flagged on your client list/i.test(worthNow ?? ''),
         ''
       );
       const pageNow = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
